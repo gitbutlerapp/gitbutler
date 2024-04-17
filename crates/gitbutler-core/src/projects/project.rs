@@ -85,8 +85,6 @@ pub struct Project {
     #[serde(default)]
     pub omit_certificate_check: Option<bool>,
     #[serde(default)]
-    pub use_diff_context: Option<bool>,
-    #[serde(default)]
     pub use_toml_vbranches_state: Option<bool>,
 }
 

@@ -22,7 +22,7 @@ mod create_virtual_branch {
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch_id);
         assert_eq!(branches[0].name, "Virtual branch");
@@ -71,7 +71,7 @@ mod create_virtual_branch {
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 2);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].name, "name");
@@ -128,7 +128,7 @@ mod update_virtual_branch {
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch_id);
         assert_eq!(branches[0].name, "new name");
@@ -189,7 +189,7 @@ mod update_virtual_branch {
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 2);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].name, "name");
@@ -246,7 +246,7 @@ mod push_virtual_branch {
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].name, "name");
@@ -338,7 +338,7 @@ mod push_virtual_branch {
             branch2_id
         };
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 2);
         // first branch is pushing to old ref remotely
         assert_eq!(branches[0].id, branch1_id);

@@ -76,7 +76,7 @@ async fn dirty_non_target() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);
@@ -102,7 +102,7 @@ async fn dirty_target() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);
@@ -128,7 +128,7 @@ async fn commit_on_non_target_local() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].commits.len(), 1);
@@ -155,7 +155,7 @@ async fn commit_on_non_target_remote() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].commits.len(), 1);
@@ -180,7 +180,7 @@ async fn commit_on_target() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].commits.len(), 1);
@@ -206,7 +206,7 @@ async fn submodule() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);

@@ -17,14 +17,14 @@ async fn should_unapply_diff() {
     // write some
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
 
     controller
         .delete_virtual_branch(project_id, &branches[0].id)
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 0);
     assert!(!repository.path().join("file.txt").exists());
 
@@ -66,7 +66,7 @@ async fn should_remove_reference() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 0);
 
     let refnames = repository

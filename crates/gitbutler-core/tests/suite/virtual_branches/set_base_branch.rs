@@ -75,7 +75,7 @@ mod go_back_to_integration {
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
 
         repository.checkout_commit(oid_one);
@@ -85,7 +85,7 @@ mod go_back_to_integration {
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, vbranch_id);
         assert!(branches[0].active);
@@ -111,7 +111,7 @@ mod go_back_to_integration {
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert!(branches.is_empty());
 
         repository.checkout_commit(oid_one);
@@ -147,7 +147,7 @@ mod go_back_to_integration {
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert!(branches.is_empty());
 
         repository.checkout_commit(oid_one);
@@ -184,7 +184,7 @@ mod go_back_to_integration {
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert!(branches.is_empty());
 
         repository.checkout_commit(oid_one);
@@ -196,7 +196,7 @@ mod go_back_to_integration {
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 0);
         assert_eq!(base_two, base);
     }
@@ -221,7 +221,7 @@ mod go_back_to_integration {
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert!(branches.is_empty());
 
         repository.checkout_commit(oid_one);
@@ -231,7 +231,7 @@ mod go_back_to_integration {
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 0);
         assert_eq!(base_two, base);
     }

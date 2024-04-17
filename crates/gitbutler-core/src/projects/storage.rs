@@ -128,10 +128,6 @@ impl Storage {
             project.omit_certificate_check = Some(omit_certificate_check);
         }
 
-        if let Some(use_diff_context) = update_request.use_diff_context {
-            project.use_diff_context = Some(use_diff_context);
-        }
-
         self.storage
             .write(PROJECTS_FILE, &serde_json::to_string_pretty(&projects)?)?;
 
