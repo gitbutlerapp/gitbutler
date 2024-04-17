@@ -2145,6 +2145,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-watcher"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "backoff",
+ "crossbeam-channel",
+ "futures",
+ "gitbutler-core",
+ "gitbutler-testsupport",
+ "itertools 0.12.1",
+ "notify",
+ "notify-debouncer-full",
+ "tauri",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "glib"
 version = "0.15.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
