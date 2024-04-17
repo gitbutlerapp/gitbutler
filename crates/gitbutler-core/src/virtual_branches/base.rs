@@ -209,7 +209,7 @@ pub fn set_base_branch(
         // if there are any commits on the head branch or uncommitted changes in the working directory, we need to
         // put them into a virtual branch
 
-        let wd_diff = diff::workdir(repo, &current_head_commit.id(), 3)?;
+        let wd_diff = diff::workdir(repo, &current_head_commit.id())?;
         let wd_diff = diff::diff_files_to_hunks(&wd_diff);
         if !wd_diff.is_empty() || current_head_commit.id() != target.sha {
             let hunks_by_filepath =
@@ -427,7 +427,6 @@ pub fn update_base_branch(
                         &project_repository.git_repository,
                         &branch_head_tree,
                         &branch_tree,
-                        3,
                     )?;
                     if non_commited_files.is_empty() {
                         // if there are no commited files, then the branch is fully merged

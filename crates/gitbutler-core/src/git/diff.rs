@@ -76,7 +76,6 @@ pub struct FileDiff {
 pub fn workdir(
     repository: &Repository,
     commit_oid: &git::Oid,
-    context_lines: u32,
 ) -> Result<HashMap<path::PathBuf, FileDiff>> {
     let commit = repository
         .find_commit(*commit_oid)
@@ -90,7 +89,7 @@ pub fn workdir(
         .show_binary(true)
         .show_untracked_content(true)
         .ignore_submodules(true)
-        .context_lines(context_lines);
+        .context_lines(3);
 
     let mut diff = repository.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
     let (mut diff_opts, skipped_files) = without_large_files(50_000_000, &diff, diff_opts);
@@ -110,7 +109,6 @@ pub fn trees(
     repository: &Repository,
     old_tree: &git::Tree,
     new_tree: &git::Tree,
-    context_lines: u32,
 ) -> Result<HashMap<path::PathBuf, FileDiff>> {
     let mut diff_opts = git2::DiffOptions::new();
     diff_opts
@@ -118,7 +116,7 @@ pub fn trees(
         .include_untracked(true)
         .show_binary(true)
         .ignore_submodules(true)
-        .context_lines(context_lines)
+        .context_lines(3)
         .show_untracked_content(true);
 
     let diff =

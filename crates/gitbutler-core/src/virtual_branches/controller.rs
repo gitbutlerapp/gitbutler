@@ -624,7 +624,7 @@ impl ControllerInner {
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        super::list_remote_commit_files(&project_repository.git_repository, commit_oid, 3)
+        super::list_remote_commit_files(&project_repository.git_repository, commit_oid)
             .map_err(Into::into)
     }
 

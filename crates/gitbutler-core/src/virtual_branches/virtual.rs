@@ -1029,7 +1029,6 @@ fn branches_with_hunk_locks(
             &project_repository.git_repository,
             &parent_tree,
             &commit_tree,
-            3,
         )?;
         let commited_file_diffs = diff::diff_files_to_hunks(&commited_file_diffs);
         for branch in &mut branches {
@@ -1163,7 +1162,6 @@ fn list_virtual_commit_files(
         &project_repository.git_repository,
         &parent_tree,
         &commit_tree,
-        3,
     )?;
     let diff = diff::diff_files_to_hunks(&diff);
     let hunks_by_filepath = virtual_hunks_by_filepath(&project_repository.project().path, &diff);
@@ -1978,12 +1976,8 @@ fn get_non_applied_status(
                     .tree()
                     .context("failed to find target tree")?;
 
-                let diff = diff::trees(
-                    &project_repository.git_repository,
-                    &head_tree,
-                    &branch_tree,
-                    3,
-                )?;
+                let diff =
+                    diff::trees(&project_repository.git_repository, &head_tree, &branch_tree)?;
 
                 Ok((branch, diff::diff_files_to_hunks(&diff)))
             },
@@ -2002,7 +1996,7 @@ fn get_applied_status(
     target_sha: &git::Oid,
     mut virtual_branches: Vec<branch::Branch>,
 ) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
-    let base_file_diffs = diff::workdir(&project_repository.git_repository, integration_commit, 3)
+    let base_file_diffs = diff::workdir(&project_repository.git_repository, integration_commit)
         .context("failed to diff workdir")?;
 
     let mut base_diffs: HashMap<PathBuf, Vec<git::diff::GitHunk>> =
@@ -2062,7 +2056,6 @@ fn get_applied_status(
                     &project_repository.git_repository,
                     &parent_tree,
                     &commit_tree,
-                    3,
                 );
                 let commited_file_diffs = diff::diff_files_to_hunks(&commited_file_diffs.unwrap());
                 for (path, committed_git_hunks) in commited_file_diffs.iter() {
@@ -3817,7 +3810,6 @@ pub fn move_commit(
         &project_repository.git_repository,
         &source_branch_head_parent_tree,
         &source_branch_head_tree,
-        3,
     )?;
     let branch_head_diff = diff::diff_files_to_hunks(&branch_head_diff);
 
@@ -4031,7 +4023,6 @@ pub fn create_virtual_branch_from_branch(
         &project_repository.git_repository,
         &merge_base_tree,
         &head_commit_tree,
-        3,
     )
     .context("failed to diff trees")?;
     let diff = diff::diff_files_to_hunks(&diff);
