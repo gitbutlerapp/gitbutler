@@ -17,5 +17,5 @@ export function getLockText(commitId: string[] | string, commits: Commit[]): str
 			}
 		})
 		.join('\n');
-	return 'Locked due to conflicts in:\n' + descriptions;
+	return 'Locked due to dependency on:\n' + descriptions;
 }
