@@ -74,6 +74,9 @@ impl Controller {
         if !path.join(".git").exists() {
             return Err(AddError::NotAGitRepository);
         };
+        if path.join(".git").is_file() {
+            return Err(AddError::WorktreeUnsupported);
+        };
 
         if path.join(".gitmodules").exists() {
             return Err(AddError::SubmodulesNotSupported);
@@ -370,6 +373,8 @@ pub enum AddError {
     NotADirectory,
     #[error("not a git repository")]
     NotAGitRepository,
+    #[error("worktrees unsupported")]
+    WorktreeUnsupported,
     #[error("path not found")]
     PathNotFound,
     #[error("project already exists")]
@@ -393,6 +398,9 @@ impl ErrorWithContext for AddError {
             }
             AddError::OpenProjectRepository(error) => return error.context(),
             AddError::NotADirectory => error::Context::new(Code::Projects, "Not a directory"),
+            AddError::WorktreeUnsupported => {
+                error::Context::new(Code::Projects, "Can only work in main worktrees")
+            }
             AddError::PathNotFound => error::Context::new(Code::Projects, "Path not found"),
             AddError::SubmodulesNotSupported => error::Context::new_static(
                 Code::Projects,

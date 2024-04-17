@@ -80,7 +80,7 @@ mod add {
 
             let worktree = repo.worktree("feature", &worktree_dir, None).unwrap();
             let err = controller.add(worktree.path()).unwrap_err();
-            assert_eq!(err.to_string(), "TODO: this should say something about worktrees - right now it's about .git/objects not found");
+            assert_eq!(err.to_string(), "worktrees unsupported");
         }
 
         fn create_initial_commit(repo: &git2::Repository) -> git2::Oid {
