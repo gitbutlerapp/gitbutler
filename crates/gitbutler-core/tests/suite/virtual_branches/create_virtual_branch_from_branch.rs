@@ -147,7 +147,7 @@ async fn no_conflicts() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert!(branches.is_empty());
 
     let branch_id = controller
@@ -158,7 +158,7 @@ async fn no_conflicts() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, branch_id);
     assert_eq!(branches[0].commits.len(), 1);
@@ -193,7 +193,7 @@ async fn conflicts_with_uncommited() {
     {
         std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
     };
 
@@ -247,7 +247,7 @@ async fn conflicts_with_commited() {
     {
         std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
 
         controller
@@ -373,7 +373,7 @@ async fn from_state_remote_branch() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, branch_id);
     assert_eq!(branches[0].commits.len(), 1);

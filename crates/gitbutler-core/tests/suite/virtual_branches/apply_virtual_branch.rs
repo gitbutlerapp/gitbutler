@@ -95,7 +95,7 @@ async fn rebase_commit() {
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
@@ -121,7 +121,7 @@ async fn rebase_commit() {
             "one"
         );
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 0);
@@ -134,7 +134,7 @@ async fn rebase_commit() {
         controller.update_base_branch(project_id).await.unwrap();
 
         // branch is stil unapplied
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 0);
@@ -160,7 +160,7 @@ async fn rebase_commit() {
             .unwrap();
 
         // it should be rebased
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 0);
@@ -211,7 +211,7 @@ async fn rebase_work() {
             .unwrap();
         fs::write(repository.path().join("another_file.txt"), "").unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
@@ -228,7 +228,7 @@ async fn rebase_work() {
             .await
             .unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 1);
@@ -244,7 +244,7 @@ async fn rebase_work() {
         controller.update_base_branch(project_id).await.unwrap();
 
         // first branch is stil unapplied
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 1);
@@ -264,7 +264,7 @@ async fn rebase_work() {
             .unwrap();
 
         // workdir should be rebased, and work should be restored
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 1);

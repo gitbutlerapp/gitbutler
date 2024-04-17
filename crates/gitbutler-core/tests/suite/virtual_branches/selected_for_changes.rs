@@ -28,7 +28,7 @@ async fn unapplying_selected_branch_selects_anther() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
 
     let b = branches.iter().find(|b| b.id == b_id).unwrap();
 
@@ -42,7 +42,7 @@ async fn unapplying_selected_branch_selects_anther() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
 
     assert_eq!(branches.len(), 2);
     assert_eq!(branches[0].id, b.id);
@@ -78,7 +78,7 @@ async fn deleting_selected_branch_selects_anther() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
 
     let b = branches.iter().find(|b| b.id == b_id).unwrap();
 
@@ -92,7 +92,7 @@ async fn deleting_selected_branch_selects_anther() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
 
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, b2.id);
@@ -321,7 +321,7 @@ async fn hunks_distribution() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches[0].files.len(), 1);
 
     controller
@@ -335,7 +335,7 @@ async fn hunks_distribution() {
         .await
         .unwrap();
     std::fs::write(repository.path().join("another_file.txt"), "content").unwrap();
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[1].files.len(), 1);
 }
@@ -356,7 +356,7 @@ async fn applying_first_branch() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     controller
@@ -368,7 +368,7 @@ async fn applying_first_branch() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].active);
     assert!(branches[0].selected_for_changes);

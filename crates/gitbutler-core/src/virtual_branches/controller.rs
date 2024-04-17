@@ -126,7 +126,7 @@ impl Controller {
     pub async fn list_virtual_branches(
         &self,
         project_id: &ProjectId,
-    ) -> Result<(Vec<super::VirtualBranch>, bool, Vec<git::diff::FileDiff>), Error> {
+    ) -> Result<(Vec<super::VirtualBranch>, Vec<git::diff::FileDiff>), Error> {
         self.inner(project_id)
             .await
             .list_virtual_branches(project_id)
@@ -547,7 +547,7 @@ impl ControllerInner {
     pub async fn list_virtual_branches(
         &self,
         project_id: &ProjectId,
-    ) -> Result<(Vec<super::VirtualBranch>, bool, Vec<git::diff::FileDiff>), Error> {
+    ) -> Result<(Vec<super::VirtualBranch>, Vec<git::diff::FileDiff>), Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |gb_repository, project_repository, _| {

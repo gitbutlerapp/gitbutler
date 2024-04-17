@@ -823,7 +823,7 @@ fn find_base_tree<'a>(
 pub fn list_virtual_branches(
     gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
-) -> Result<(Vec<VirtualBranch>, bool, Vec<diff::FileDiff>), errors::ListVirtualBranchesError> {
+) -> Result<(Vec<VirtualBranch>, Vec<diff::FileDiff>), errors::ListVirtualBranchesError> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
     let default_target = gb_repository
@@ -986,11 +986,7 @@ pub fn list_virtual_branches(
 
     branches.sort_by(|a, b| a.order.cmp(&b.order));
 
-    let uses_diff_context = project_repository
-        .project()
-        .use_diff_context
-        .unwrap_or(false);
-    Ok((branches, uses_diff_context, skipped_files))
+    Ok((branches, skipped_files))
 }
 
 fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<VirtualBranch> {
