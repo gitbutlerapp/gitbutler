@@ -67,5 +67,37 @@ mod add {
             controller.add(path).unwrap();
             assert!(matches!(controller.add(path), Err(AddError::AlreadyExists)));
         }
+
+        #[test]
+        fn worktree() {
+            let (controller, _tmp) = new();
+            let tmp = tempfile::tempdir().unwrap();
+            let main_worktree_dir = tmp.path().join("main");
+            let worktree_dir = tmp.path().join("worktree");
+
+            let repo = git2::Repository::init(&main_worktree_dir).unwrap();
+            create_initial_commit(&repo);
+
+            let worktree = repo.worktree("feature", &worktree_dir, None).unwrap();
+            let err = controller.add(worktree.path()).unwrap_err();
+            assert_eq!(err.to_string(), "TODO: this should say something about worktrees - right now it's about .git/objects not found");
+        }
+
+        fn create_initial_commit(repo: &git2::Repository) -> git2::Oid {
+            let signature = git2::Signature::now("test", "test@email.com").unwrap();
+
+            let mut index = repo.index().unwrap();
+            let oid = index.write_tree().unwrap();
+
+            repo.commit(
+                Some("HEAD"),
+                &signature,
+                &signature,
+                "initial commit",
+                &repo.find_tree(oid).unwrap(),
+                &[],
+            )
+            .unwrap()
+        }
     }
 }
