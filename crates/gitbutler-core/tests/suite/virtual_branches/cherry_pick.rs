@@ -67,7 +67,7 @@ mod cleanly {
             "content two"
         );
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch_id);
         assert!(branches[0].active);
@@ -140,7 +140,7 @@ mod cleanly {
             .unwrap();
         assert!(cherry_picked_commit_oid.is_some());
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert!(repository.path().join("file_two.txt").exists());
         assert_eq!(
             fs::read_to_string(repository.path().join("file_two.txt")).unwrap(),
@@ -304,7 +304,7 @@ mod with_conflicts {
                 "<<<<<<< ours\nconflict\n=======\ncontent three\n>>>>>>> theirs\n"
             );
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -325,7 +325,7 @@ mod with_conflicts {
             let commit = repository.find_commit(commited_oid).unwrap();
             assert_eq!(commit.parent_count(), 2);
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);

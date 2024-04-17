@@ -16,7 +16,7 @@ async fn unapply_with_data() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     controller
@@ -26,7 +26,7 @@ async fn unapply_with_data() {
 
     assert!(!repository.path().join("file.txt").exists());
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert!(!branches[0].active);
 }
@@ -60,7 +60,7 @@ async fn conflicting() {
 
         std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert!(branches[0].base_current);
         assert!(branches[0].active);
@@ -164,7 +164,7 @@ async fn delete_if_empty() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     controller
@@ -172,6 +172,6 @@ async fn delete_if_empty() {
         .await
         .unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 0);
 }

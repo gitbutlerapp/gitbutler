@@ -39,7 +39,7 @@
 	class:wide
 	class:grow
 	class:not-clickable={!clickable}
-	class:fixed-width={!SLOTS}
+	class:fixed-width={!SLOTS && !wide}
 	class:is-dropdown={isDropdownChild}
 	style:align-self={align}
 	style:width={width ? pxToRem(width) : undefined}

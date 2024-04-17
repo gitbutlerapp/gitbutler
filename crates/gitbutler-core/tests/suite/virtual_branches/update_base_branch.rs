@@ -50,7 +50,7 @@ mod unapplied_branch {
 
             // branch should not be changed.
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(!branches[0].active);
@@ -69,7 +69,7 @@ mod unapplied_branch {
                 .apply_virtual_branch(project_id, &branch_id)
                 .await
                 .unwrap();
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -136,7 +136,7 @@ mod unapplied_branch {
 
             // should not change the branch.
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(!branches[0].active);
@@ -155,7 +155,7 @@ mod unapplied_branch {
                 .apply_virtual_branch(project_id, &branch_id)
                 .await
                 .unwrap();
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -227,7 +227,7 @@ mod unapplied_branch {
 
             // should not change the branch.
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(!branches[0].active);
@@ -246,7 +246,7 @@ mod unapplied_branch {
                 .apply_virtual_branch(project_id, &branch_id)
                 .await
                 .unwrap();
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -315,7 +315,7 @@ mod unapplied_branch {
 
             // should rebase upstream, and leave uncommited file as is
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(!branches[0].active);
@@ -334,7 +334,7 @@ mod unapplied_branch {
                 .apply_virtual_branch(project_id, &branch_id)
                 .await
                 .unwrap();
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -403,7 +403,7 @@ mod unapplied_branch {
 
             // should not touch the branch
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(!branches[0].active);
@@ -422,7 +422,7 @@ mod unapplied_branch {
                 .apply_virtual_branch(project_id, &branch_id)
                 .await
                 .unwrap();
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -497,7 +497,7 @@ mod unapplied_branch {
 
             // should update branch base
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(!branches[0].active);
@@ -517,7 +517,7 @@ mod unapplied_branch {
                 .apply_virtual_branch(project_id, &branch_id)
                 .await
                 .unwrap();
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -601,7 +601,7 @@ mod unapplied_branch {
 
             // should remove integrated commit, but leave work
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(!branches[0].active);
@@ -621,7 +621,7 @@ mod unapplied_branch {
                 .apply_virtual_branch(project_id, &branch_id)
                 .await
                 .unwrap();
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -690,7 +690,7 @@ mod unapplied_branch {
 
             // should remove identical branch
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 0);
         }
     }
@@ -759,7 +759,7 @@ mod unapplied_branch {
             controller.update_base_branch(project_id).await.unwrap();
 
             // just removes integrated branch
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 0);
         }
     }
@@ -811,7 +811,7 @@ mod applied_branch {
 
             // should stash conflicting branch
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(!branches[0].active);
@@ -830,7 +830,7 @@ mod applied_branch {
                 .apply_virtual_branch(project_id, &branch_id)
                 .await
                 .unwrap();
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -892,7 +892,7 @@ mod applied_branch {
 
             // should stash the branch.
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(!branches[0].active);
@@ -911,7 +911,7 @@ mod applied_branch {
                 .apply_virtual_branch(project_id, &branch_id)
                 .await
                 .unwrap();
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -978,7 +978,7 @@ mod applied_branch {
 
             // should stash the branch.
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(!branches[0].active);
@@ -997,7 +997,7 @@ mod applied_branch {
                 .apply_virtual_branch(project_id, &branch_id)
                 .await
                 .unwrap();
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -1061,7 +1061,7 @@ mod applied_branch {
 
             // should rebase upstream, and leave uncommited file as is
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(!branches[0].active);
@@ -1080,7 +1080,7 @@ mod applied_branch {
                 .apply_virtual_branch(project_id, &branch_id)
                 .await
                 .unwrap();
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -1144,7 +1144,7 @@ mod applied_branch {
 
             // should merge upstream, and leave uncommited file as is.
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(!branches[0].active);
@@ -1163,7 +1163,7 @@ mod applied_branch {
                 .apply_virtual_branch(project_id, &branch_id)
                 .await
                 .unwrap();
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -1244,7 +1244,7 @@ mod applied_branch {
                 // rebases branch, since the branch is pushed and force pushing is
                 // allowed
 
-                let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -1323,7 +1323,7 @@ mod applied_branch {
 
                 // creates a merge commit, since the branch is pushed
 
-                let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+                let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -1391,7 +1391,7 @@ mod applied_branch {
 
             // just rebases branch
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -1409,7 +1409,7 @@ mod applied_branch {
                 .apply_virtual_branch(project_id, &branch_id)
                 .await
                 .unwrap();
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -1492,7 +1492,7 @@ mod applied_branch {
 
             // should remove integrated commit, but leave non integrated work as is
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -1511,7 +1511,7 @@ mod applied_branch {
                 .apply_virtual_branch(project_id, &branch_id)
                 .await
                 .unwrap();
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -1614,7 +1614,7 @@ mod applied_branch {
 
             // removes integrated commit, leaves non commited work as is
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(!branches[0].active);
@@ -1628,7 +1628,7 @@ mod applied_branch {
                 .await
                 .unwrap();
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert!(branches[0].active);
             assert!(branches[0].conflicted);
@@ -1706,7 +1706,7 @@ mod applied_branch {
 
             // removes integrated commit, leaves non commited work as is
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -1721,7 +1721,7 @@ mod applied_branch {
                 .await
                 .unwrap();
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert!(branches[0].active);
             assert!(!branches[0].conflicted);
@@ -1788,7 +1788,7 @@ mod applied_branch {
 
             // removes integrated commit, leaves non commited work as is
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -1803,7 +1803,7 @@ mod applied_branch {
                 .await
                 .unwrap();
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert!(branches[0].active);
             assert!(!branches[0].conflicted);
@@ -1858,7 +1858,7 @@ mod applied_branch {
 
             // just removes integrated branch
 
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 0);
         }
     }
@@ -1922,7 +1922,7 @@ mod applied_branch {
             controller.update_base_branch(project_id).await.unwrap();
 
             // just removes integrated branch
-            let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 0);
         }
     }

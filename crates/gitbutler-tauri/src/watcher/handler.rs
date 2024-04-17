@@ -211,7 +211,7 @@ impl Handler {
             .list_virtual_branches(&project_id)
             .await
         {
-            Ok((branches, _, skipped_files)) => {
+            Ok((branches, skipped_files)) => {
                 let branches = self.assets_proxy.proxy_virtual_branches(branches).await;
                 self.emit_app_event(&app_events::Event::virtual_branches(
                     project_id,

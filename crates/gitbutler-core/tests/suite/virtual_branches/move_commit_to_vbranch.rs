@@ -23,7 +23,7 @@ async fn no_diffs() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
@@ -83,7 +83,7 @@ async fn diffs_on_source_branch() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
@@ -149,7 +149,7 @@ async fn diffs_on_target_branch() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
@@ -221,7 +221,7 @@ async fn locked_hunks_on_source_branch() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
@@ -264,7 +264,7 @@ async fn no_commit() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
@@ -309,7 +309,7 @@ async fn no_branch() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;

@@ -57,23 +57,10 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
     ) -> Result<VirtualBranches, Error> {
-        let (branches, uses_diff_context, skipped_files) = handle
+        let (branches, skipped_files) = handle
             .state::<Controller>()
             .list_virtual_branches(&project_id)
             .await?;
-
-        // Migration: If use_diff_context is not already set and if there are no vbranches, set use_diff_context to true
-        let has_active_branches = branches.iter().any(|branch| branch.active);
-        if !uses_diff_context && !has_active_branches {
-            let _ = handle
-                .state::<projects::Controller>()
-                .update(&projects::UpdateRequest {
-                    id: project_id,
-                    use_diff_context: Some(true),
-                    ..Default::default()
-                })
-                .await;
-        }
 
         let proxy = handle.state::<assets::Proxy>();
         let branches = proxy.proxy_virtual_branches(branches).await;
