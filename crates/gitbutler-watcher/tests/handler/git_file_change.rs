@@ -2,11 +2,10 @@ use std::fs;
 
 use anyhow::Result;
 use gitbutler_core::projects;
-use gitbutler_tauri::watcher;
-use pretty_assertions::assert_eq;
 
-use crate::watcher::handler::support::Fixture;
+use crate::handler::support::Fixture;
 use gitbutler_testsupport::Case;
+use gitbutler_watcher::Change;
 
 #[tokio::test]
 async fn flush_session() -> Result<()> {
@@ -32,10 +31,10 @@ async fn flush_session() -> Result<()> {
 
     let events = fixture.events();
     assert_eq!(events.len(), 4);
-    assert!(events[0].name().ends_with("/files"));
-    assert!(events[1].name().ends_with("/deltas"));
-    assert!(events[2].name().ends_with("/sessions"));
-    assert!(events[3].name().ends_with("/sessions"));
+    assert!(matches!(events[0], Change::File { .. }));
+    assert!(matches!(events[1], Change::Deltas { .. }));
+    assert!(matches!(events[2], Change::Session { .. }));
+    assert!(matches!(events[3], Change::Session { .. }));
     Ok(())
 }
 
@@ -57,9 +56,9 @@ async fn do_not_flush_session_if_file_is_missing() -> Result<()> {
     }
     let events = fixture.events();
     assert_eq!(events.len(), 3);
-    assert!(events[0].name().ends_with("/files"));
-    assert!(events[1].name().ends_with("/deltas"));
-    assert!(events[2].name().ends_with("/sessions"));
+    assert!(matches!(events[0], Change::File { .. }));
+    assert!(matches!(events[1], Change::Deltas { .. }));
+    assert!(matches!(events[2], Change::Session { .. }));
     Ok(())
 }
 
@@ -83,7 +82,7 @@ async fn flush_deletes_flush_file_without_session_to_flush() -> Result<()> {
 fn create_new_session_via_new_file(
     project: &projects::Project,
     fixture: &mut Fixture,
-) -> watcher::Handler {
+) -> gitbutler_watcher::Handler {
     fs::write(project.path.join("test.txt"), "test").unwrap();
 
     let handler = fixture.new_handler();

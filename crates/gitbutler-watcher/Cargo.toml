@@ -8,6 +8,7 @@ publish = false
 doctest = false
 
 [dependencies]
+gitbutler-analytics.workspace = true
 gitbutler-core.workspace = true
 thiserror.workspace = true
 anyhow = "1.0.81"
@@ -15,7 +16,6 @@ futures = "0.3.30"
 tokio = { workspace = true, features = [ "full", "sync" ] }
 tokio-util = "0.7.10"
 tracing = "0.1.40"
-async-trait = "0.1.79"
 
 backoff = "0.4.0"
 notify = { version = "6.0.1" }
@@ -23,19 +23,11 @@ notify-debouncer-full = "0.3.1"
 crossbeam-channel = "0.5.12"
 itertools = "0.12"
 
-# TODO(ST): remove this dependency, abstract it
-[dependencies.tauri]
-version = "1.6.1"
-features = [
-    "http-all", "os-all", "dialog-open", "fs-read-file",
-    "path-all", "process-relaunch", "protocol-asset",
-    "shell-open", "window-maximize", "window-start-dragging",
-    "window-unmaximize"
-]
-
 [dev-dependencies]
-tempfile = "3.10"
 gitbutler-testsupport.workspace = true
+git2.workspace = true
+tempfile = "3.10"
+once_cell = "1.19"
 
 [lints.clippy]
 all = "deny"

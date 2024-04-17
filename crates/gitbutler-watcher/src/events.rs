@@ -1,12 +1,13 @@
 use std::fmt::Display;
 use std::path::PathBuf;
 
+use gitbutler_core::{deltas, reader, sessions::SessionId, virtual_branches};
 use gitbutler_core::{projects::ProjectId, sessions};
 
-/// An event for internal use, as merge between [super::file_monitor::Event] and [Event].
+/// An event for internal use, as merge between [super::file_monitor::Event] and [Action].
 #[derive(Debug)]
 pub(super) enum InternalEvent {
-    // From public API
+    // From public action API
     Flush(ProjectId, sessions::Session),
     CalculateVirtualBranches(ProjectId),
     FetchGitbutlerData(ProjectId),
@@ -21,31 +22,33 @@ pub(super) enum InternalEvent {
 // TODO(ST): This should not have to be implemented in the Watcher, figure out how this can be moved
 //           to application logic at least. However, it's called through a trait in `core`.
 #[derive(Debug, PartialEq, Clone)]
-pub enum Event {
+#[allow(missing_docs)]
+pub enum Action {
     Flush(ProjectId, sessions::Session),
     CalculateVirtualBranches(ProjectId),
     FetchGitbutlerData(ProjectId),
     PushGitbutlerData(ProjectId),
 }
 
-impl Event {
+impl Action {
+    /// Return the action's associated project id.
     pub fn project_id(&self) -> ProjectId {
         match self {
-            Event::FetchGitbutlerData(project_id)
-            | Event::Flush(project_id, _)
-            | Event::CalculateVirtualBranches(project_id)
-            | Event::PushGitbutlerData(project_id) => *project_id,
+            Action::FetchGitbutlerData(project_id)
+            | Action::Flush(project_id, _)
+            | Action::CalculateVirtualBranches(project_id)
+            | Action::PushGitbutlerData(project_id) => *project_id,
         }
     }
 }
 
-impl From<Event> for InternalEvent {
-    fn from(value: Event) -> Self {
+impl From<Action> for InternalEvent {
+    fn from(value: Action) -> Self {
         match value {
-            Event::Flush(a, b) => InternalEvent::Flush(a, b),
-            Event::CalculateVirtualBranches(v) => InternalEvent::CalculateVirtualBranches(v),
-            Event::FetchGitbutlerData(v) => InternalEvent::FetchGitbutlerData(v),
-            Event::PushGitbutlerData(v) => InternalEvent::PushGitbutlerData(v),
+            Action::Flush(a, b) => InternalEvent::Flush(a, b),
+            Action::CalculateVirtualBranches(v) => InternalEvent::CalculateVirtualBranches(v),
+            Action::FetchGitbutlerData(v) => InternalEvent::FetchGitbutlerData(v),
+            Action::PushGitbutlerData(v) => InternalEvent::PushGitbutlerData(v),
         }
     }
 }
@@ -95,4 +98,39 @@ fn comma_separated_paths(paths: &[PathBuf]) -> String {
     } else {
         listing
     }
+}
+
+/// An event telling the receiver something about the state of the application which just changed.
+#[derive(Debug, Clone)]
+#[allow(missing_docs)]
+pub enum Change {
+    GitIndex(ProjectId),
+    GitFetch(ProjectId),
+    GitHead {
+        project_id: ProjectId,
+        head: String,
+    },
+    GitActivity(ProjectId),
+    File {
+        project_id: ProjectId,
+        session_id: SessionId,
+        // TODO(ST): Should probably not be a string, but rather, relative.
+        file_path: String,
+        contents: Option<reader::Content>,
+    },
+    Session {
+        project_id: ProjectId,
+        session: sessions::Session,
+    },
+    Deltas {
+        project_id: ProjectId,
+        session_id: SessionId,
+        // TODO(ST): check if this is ever more than one
+        deltas: Vec<deltas::Delta>,
+        relative_file_path: PathBuf,
+    },
+    VirtualBranches {
+        project_id: ProjectId,
+        virtual_branches: virtual_branches::VirtualBranches,
+    },
 }
