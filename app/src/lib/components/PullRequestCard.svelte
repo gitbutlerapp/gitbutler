@@ -116,7 +116,7 @@
 		if (!timeUntilUdate) {
 			return;
 		}
-		setTimeout(() => updateDetailsAndChecks(), timeUntilUdate * 1000);
+		setTimeout(async () => await updateDetailsAndChecks(), timeUntilUdate * 1000);
 	}
 
 	function getChecksCount(status: ChecksStatus): string {

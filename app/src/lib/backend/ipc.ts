@@ -68,27 +68,19 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 	// });
 	const loadingItem = { name: command, startedAt: new Date() };
 	isLoading.push(loadingItem);
-	return (
-		invokeTauri<T>(command, params)
-			// .then((value) => {
-			// 	console.debug(`ipc->${command}(${JSON.stringify(params)})`, value);
-			// 	return value;
-			// })
-			.then((value) => {
-				return value;
-			})
-			.catch((reason) => {
-				const userError = UserError.fromError(reason);
-				console.error(`ipc->${command}: ${JSON.stringify(params)}`, userError, reason);
-				throw userError;
-			})
-			.finally(() => {
-				isLoading.pop(loadingItem);
-			})
-	);
+
+	try {
+		return await invokeTauri<T>(command, params);
+	} catch (reason) {
+		const userError = UserError.fromError(reason);
+		console.error(`ipc->${command}: ${JSON.stringify(params)}`, userError, reason);
+		throw userError;
+	} finally {
+		isLoading.pop(loadingItem);
+	}
 }
 
 export function listen<T>(event: EventName, handle: EventCallback<T>) {
 	const unlisten = listenTauri(event, handle);
-	return () => unlisten.then((unlistenFn) => unlistenFn());
+	return async () => await unlisten.then((unlistenFn) => unlistenFn());
 }

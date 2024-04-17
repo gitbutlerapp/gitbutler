@@ -50,7 +50,7 @@
 		baseBranchService.fetchFromTarget();
 		clearFetchInterval();
 		const intervalMs = 15 * 60 * 1000; // 15 minutes
-		intervalId = setInterval(() => baseBranchService.fetchFromTarget(), intervalMs);
+		intervalId = setInterval(async () => await baseBranchService.fetchFromTarget(), intervalMs);
 	}
 
 	function clearFetchInterval() {
@@ -58,7 +58,10 @@
 	}
 
 	onMount(() => {
-		const cloudSyncSubscription = hotkeys.on('Meta+Shift+S', () => syncToCloud(projectId));
+		const cloudSyncSubscription = hotkeys.on(
+			'Meta+Shift+S',
+			async () => await syncToCloud(projectId)
+		);
 
 		return unsubscribe(cloudSyncSubscription);
 	});

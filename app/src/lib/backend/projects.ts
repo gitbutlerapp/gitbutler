@@ -98,21 +98,23 @@ export class ProjectService {
 		if (selectedPath) {
 			if (selectedPath === null) return;
 			if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
-			return Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
+			return Array.isArray(selectedPath) ? selectedPath[0] : await selectedPath;
 		}
 	}
 
 	async addProject() {
 		const path = await this.promptForDirectory();
 		if (!path) return;
-		return this.add(path)
-			.then(async (project) => {
-				if (!project) return;
-				toasts.success(`Project ${project.title} created`);
-				// linkProjectModal?.show(project.id);
-				goto(`/${project.id}/board`);
-			})
-			.catch((e: any) => showError('There was a problem', e.message));
+
+		try {
+			const project = await this.add(path);
+			if (!project) return;
+			toasts.success(`Project ${project.title} created`);
+			// linkProjectModal?.show(project.id);
+			goto(`/${project.id}/board`);
+		} catch (e: any) {
+			showError('There was a problem', e.message);
+		}
 	}
 
 	getLastOpenedProject() {
@@ -145,14 +147,14 @@ export class ProjectService {
 			description?: string;
 		}
 	): Promise<CloudProject> {
-		return this.httpClient.put(`projects/${repositoryId}.json`, {
+		return await this.httpClient.put(`projects/${repositoryId}.json`, {
 			body: params,
 			token
 		});
 	}
 
 	async getCloudProject(token: string, repositoryId: string): Promise<CloudProject> {
-		return this.httpClient.get(`projects/${repositoryId}.json`, {
+		return await this.httpClient.get(`projects/${repositoryId}.json`, {
 			token
 		});
 	}

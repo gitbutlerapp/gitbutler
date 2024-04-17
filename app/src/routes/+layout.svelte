@@ -51,7 +51,7 @@
 
 	onMount(() => {
 		return unsubscribe(
-			events.on('goto', (path: string) => goto(path)),
+			events.on('goto', async (path: string) => await goto(path)),
 			events.on('openSendIssueModal', () => shareIssueModal?.show()),
 
 			// Zoom using cmd +, - and =

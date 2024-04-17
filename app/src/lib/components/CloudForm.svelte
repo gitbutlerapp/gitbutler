@@ -110,7 +110,11 @@
 	<Section spacer>
 		<svelte:fragment slot="title">Full data synchronization</svelte:fragment>
 
-		<SectionCard labelFor="historySync" on:change={(e) => onSyncChange(e.detail)} orientation="row">
+		<SectionCard
+			labelFor="historySync"
+			on:change={async (e) => await onSyncChange(e.detail)}
+			orientation="row"
+		>
 			<svelte:fragment slot="caption">
 				Sync my history, repository and branch data for backup, sharing and team features.
 			</svelte:fragment>
@@ -118,7 +122,7 @@
 				<Toggle
 					id="historySync"
 					checked={project.api?.sync || false}
-					on:change={(e) => onSyncChange(e.detail)}
+					on:change={async (e) => await onSyncChange(e.detail)}
 				/>
 			</svelte:fragment>
 		</SectionCard>

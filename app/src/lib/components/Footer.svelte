@@ -21,7 +21,7 @@
 			icon="settings"
 			style="ghost"
 			size="cta"
-			on:mousedown={() => goto(`/${projectId}/settings`)}
+			on:mousedown={async () => await goto(`/${projectId}/settings`)}
 			wide={isNavCollapsed}
 		/>
 	</div>
