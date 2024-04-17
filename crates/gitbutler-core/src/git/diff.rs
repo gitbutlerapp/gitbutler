@@ -51,16 +51,6 @@ impl GitHunk {
     }
 }
 
-pub struct Options {
-    pub context_lines: u32,
-}
-
-impl Default for Options {
-    fn default() -> Self {
-        Self { context_lines: 3 }
-    }
-}
-
 #[derive(Debug, PartialEq, Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FileDiff {
