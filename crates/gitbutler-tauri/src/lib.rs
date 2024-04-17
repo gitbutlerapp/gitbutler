@@ -13,12 +13,8 @@
     clippy::too_many_lines
 )]
 
-pub mod analytics;
 pub mod app;
 pub mod commands;
-
-mod events;
-pub use events::Event;
 
 pub mod logs;
 pub mod menu;

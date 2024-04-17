@@ -21,6 +21,7 @@ tokio = { version = "1.37.0" }
 gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-core = { path = "crates/gitbutler-core" }
 gitbutler-analytics = { path = "crates/gitbutler-analytics" }
+gitbutler-watcher = { path = "crates/gitbutler-watcher" }
 gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
 
 [profile.release]
