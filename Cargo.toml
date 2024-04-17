@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/gitbutler-analytics",
     "crates/gitbutler-core",
     "crates/gitbutler-tauri",
     "crates/gitbutler-changeset",
