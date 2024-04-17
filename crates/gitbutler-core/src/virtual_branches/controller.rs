@@ -624,17 +624,8 @@ impl ControllerInner {
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        let use_context = project_repository
-            .project()
-            .use_diff_context
-            .unwrap_or(false);
-        let context_lines = if use_context { 3_u32 } else { 0_u32 };
-        super::list_remote_commit_files(
-            &project_repository.git_repository,
-            commit_oid,
-            context_lines,
-        )
-        .map_err(Into::into)
+        super::list_remote_commit_files(&project_repository.git_repository, commit_oid, 3)
+            .map_err(Into::into)
     }
 
     pub fn set_base_branch(
