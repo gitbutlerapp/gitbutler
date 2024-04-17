@@ -18,8 +18,7 @@ use super::{
     branch::{
         self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
     },
-    branch_to_remote_branch, context, errors, target, Iterator, RemoteBranch,
-    VirtualBranchesHandle,
+    branch_to_remote_branch, errors, target, Iterator, RemoteBranch, VirtualBranchesHandle,
 };
 use crate::{
     askpass::AskpassBroker,
@@ -28,7 +27,7 @@ use crate::{
     git::{
         self,
         diff::{self, diff_files_to_hunks},
-        show, Commit, Refname, RemoteRefname,
+        Commit, Refname, RemoteRefname,
     },
     keys,
     project_repository::{self, conflicts, LogUntil},
@@ -1061,60 +1060,6 @@ fn branches_with_hunk_locks(
 fn joined(start_a: u32, end_a: u32, start_b: u32, end_b: u32) -> bool {
     ((start_a >= start_b && start_a <= end_b) || (end_a >= start_b && end_a <= end_b))
         || ((start_b >= start_a && start_b <= end_a) || (end_b >= start_a && end_b <= end_a))
-}
-
-fn files_with_hunk_context(
-    repository: &git::Repository,
-    mut files: Vec<VirtualBranchFile>,
-    context_lines: usize,
-    branch_head: git::Oid,
-) -> Result<Vec<VirtualBranchFile>> {
-    for file in &mut files {
-        if file.binary {
-            continue;
-        }
-        // Get file content as it looked before the diffs
-        let branch_head_commit = repository.find_commit(branch_head)?;
-        let head_tree = branch_head_commit.tree()?;
-        let file_content_before =
-            show::show_file_at_tree(repository, file.path.clone(), &head_tree)
-                .context("failed to get file contents at base")?;
-        let file_lines_before = file_content_before.split('\n').collect::<Vec<_>>();
-
-        // Update each hunk with contex lines before & after
-        file.hunks = file
-            .hunks
-            .iter()
-            .map(|hunk| {
-                if hunk.diff.is_empty() {
-                    // noop on empty diff
-                    hunk.clone()
-                } else {
-                    let hunk_with_ctx = context::hunk_with_context(
-                        &hunk.diff,
-                        hunk.old_start as usize,
-                        hunk.start as usize,
-                        hunk.binary,
-                        context_lines,
-                        &file_lines_before,
-                        hunk.change_type,
-                    );
-                    to_virtual_branch_hunk(hunk.clone(), hunk_with_ctx)
-                }
-            })
-            .collect::<Vec<VirtualBranchHunk>>();
-    }
-    Ok(files)
-}
-
-fn to_virtual_branch_hunk(
-    mut hunk: VirtualBranchHunk,
-    diff_with_context: diff::GitHunk,
-) -> VirtualBranchHunk {
-    hunk.diff = diff_with_context.diff;
-    hunk.start = diff_with_context.new_start;
-    hunk.end = diff_with_context.new_start + diff_with_context.new_lines;
-    hunk
 }
 
 fn is_requires_force(

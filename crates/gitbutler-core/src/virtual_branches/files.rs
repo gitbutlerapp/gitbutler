@@ -36,7 +36,7 @@ pub fn list_remote_commit_files(
     let diff = diff::trees(repository, &parent_tree, &commit_tree)?;
     let diff = diff::diff_files_to_hunks(&diff);
 
-    let mut files = diff
+    let files = diff
         .into_iter()
         .map(|(file_path, hunks)| RemoteBranchFile {
             path: file_path.clone(),
