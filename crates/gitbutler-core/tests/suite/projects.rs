@@ -75,7 +75,7 @@ mod add {
             let main_worktree_dir = tmp.path().join("main");
             let worktree_dir = tmp.path().join("worktree");
 
-            let repo = git2::Repository::init(&main_worktree_dir).unwrap();
+            let repo = git2::Repository::init(main_worktree_dir).unwrap();
             create_initial_commit(&repo);
 
             let worktree = repo.worktree("feature", &worktree_dir, None).unwrap();
