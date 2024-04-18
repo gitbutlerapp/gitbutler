@@ -26,7 +26,7 @@ tokio = ["dep:tokio"]
 [dependencies]
 thiserror.workspace = true
 serde = { workspace = true, optional = true }
-tokio = { workspace = true, optional = true, features = ["process", "rt", "process", "time", "io-util", "net", "fs", "sync"] }
+tokio = { workspace = true, optional = true, features = ["process", "time", "io-util", "net", "fs" ] }
 rand = "0.8.5"
 futures = "0.3.30"
 sysinfo = "0.30.5"

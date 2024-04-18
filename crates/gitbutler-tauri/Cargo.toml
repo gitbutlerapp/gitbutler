@@ -45,7 +45,8 @@ tauri-plugin-store = { git = "https://github.com/tauri-apps/plugins-workspace", 
 tauri-plugin-log = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 log = "^0.4"
 thiserror.workspace = true
-tokio = { workspace = true, features = [ "full", "sync" ] }
+# The features here optimize for performance.
+tokio = { workspace = true, features = [ "rt-multi-thread", "parking_lot" ] }
 tracing = "0.1.40"
 tracing-appender = "0.2.3"
 tracing-subscriber = "0.3.17"

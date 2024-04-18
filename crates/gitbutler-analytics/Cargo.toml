@@ -12,7 +12,7 @@ test = false
 gitbutler-core.workspace = true
 thiserror.workspace = true
 tracing = "0.1.40"
-tokio = { workspace = true, features = [ "sync" ] }
+tokio.workspace = true
 serde.workspace = true
 serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
 
