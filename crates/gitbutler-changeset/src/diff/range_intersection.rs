@@ -1,12 +1,26 @@
+//! Utility trait for calculating the intersection of two ranges.
+
 use std::ops::{
     Bound::{Excluded, Included, Unbounded},
     Range, RangeBounds,
 };
 
+/// An ancillary trait for calculating the intersection of two ranges.
+///
+/// Blanket implementation for all types that implement `RangeBounds<T>`.
 pub trait RangeIntersection<T>: RangeBounds<T>
 where
     T: Ord + Copy,
 {
+    /// Calculate the intersection of two ranges.
+    ///
+    /// For example, given two ranges `a` and `b`, the intersection
+    /// of `a` and `b` is the range `c` such that `c.start` is the
+    /// maximum of `a.start` and `b.start`, and `c.end` is the minimum
+    /// of `a.end` and `b.end`.
+    ///
+    /// Returns `None` if the ranges do not intersect.
+    //
     // NOTE(qix-): These match statements kept intentionally 'verbose'
     // NOTE(qix-): as the alternative makes it almost entirely unreadable.
     #[allow(clippy::unnested_or_patterns, clippy::match_same_arms)]

@@ -42,7 +42,7 @@
 //! For more information, see the
 //! [GitButler organization](https://github.com/gitbutlerapp)
 //! or the [GitButler website](https://gitbutler.com).
-#![deny(missing_docs)]
+#![deny(missing_docs, clippy::missing_docs_in_private_items)]
 #![allow(
     clippy::doc_markdown,
     clippy::missing_errors_doc,

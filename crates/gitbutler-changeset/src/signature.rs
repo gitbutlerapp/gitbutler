@@ -14,12 +14,22 @@
 //! Otherwise, neither the length prefix imposed by `(de)serialize_bytes()` nor the
 //! terrible compaction and optimization of `(de)serialize_tuple()` are acceptable.
 
+/// The number of bits per encoded bigram counterpart.
 const BITS: usize = 3;
+/// The number of bits to shift each bigram by in order to find its counterpart value
+/// of `BITS` bits wide.
 const SHIFT: usize = 8 - BITS;
+/// The total number of entries in each bucket.
 const FINGERPRINT_ENTRIES: usize = (1 << BITS) * (1 << BITS);
+/// The total number of bytes in the fingerprint.
 const FINGERPRINT_BYTES: usize = FINGERPRINT_ENTRIES * ::core::mem::size_of::<SigBucket>();
+/// The total number of bytes in the signature.
 const TOTAL_BYTES: usize = 1 + 4 + FINGERPRINT_BYTES; // we encode a version byte and a 4-byte length at the beginning
 
+/// The type of a bucket window in the signature.
+///
+/// This should be consistent across comparisons; any change to this
+/// type will require a complete invalidation of all prior signatures.
 // NOTE: This is not efficient if `SigBucket` is 1 byte (u8).
 // NOTE: If `SigBucket` is changed to a u8, then the implementation
 // NOTE: *should* be updated to eschew the byte conversion and use
@@ -115,6 +125,12 @@ impl Signature {
         }
     }
 
+    /// Iterates over the buckets in the signature, moving the window of
+    /// `sizeof(SigBucket)` bytes across the signature byte by byte.
+    ///
+    /// Note that this is dictinct from simply treating the byte array
+    /// as an array of `SigBucket`s, as it moves the window by one byte
+    /// at a time regardless of the size of `SigBucket`.
     fn bucket_iter(&self) -> impl Iterator<Item = SigBucket> + '_ {
         unsafe {
             self.0[(TOTAL_BYTES - FINGERPRINT_BYTES)..]

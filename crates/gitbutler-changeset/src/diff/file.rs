@@ -1,3 +1,13 @@
+//! Files are the smallest container of hunks in a changeset;
+//! the next highest being changesets themselves.
+//!
+//! Note that these data structures allow for hunks to be added
+//! that conflict with each other. This is intentional, as the
+//! conflict resolution is not the responsibility of this module.
+//!
+//! Those conflict relationships _are_ reported back to the caller,
+//! however.
+
 use crate::{diff::range_intersection::RangeIntersection, Conflict, LineSpan, RawHunk};
 use std::{
     collections::HashMap,
@@ -12,8 +22,13 @@ use unbounded_interval_tree::interval_tree::IntervalTree;
 /// Represents a singular file with multiple hunk changes.
 #[derive(Debug, Clone)]
 pub struct File<H: RawHunk> {
+    /// Raw hunk pool, as reported by Git
     raw_hunks: Vec<H>,
+    /// Removal intervals for the file, tagged with the hunk index
+    /// that caused the removal.
     hunk_removals: IntervalTree<TaggedBound>,
+    /// Addition intervals for the file, tagged with the hunk index
+    /// that caused the addition.
     hunk_additions: IntervalTree<TaggedBound>,
 }
 
@@ -154,7 +169,13 @@ impl<H: RawHunk> File<H> {
 /// storing and retrieving the hunk index.
 #[derive(Debug, Clone, Copy, Eq)]
 struct TaggedBound {
+    /// The tag value; otherwise unused by the interval tree,
+    /// we can store the hunk index (into the pool) in this tree
+    /// to allow us to look up the hunk later when making interval
+    /// queries.
     pub tag: usize,
+    /// The value of the bound. This is what's used in all range
+    /// comparisons (tag is ignored in range ops).
     pub value: usize,
 }
 
@@ -176,7 +197,19 @@ impl Ord for TaggedBound {
     }
 }
 
+/// By default the interval tree we wrap doesn't tell us the source
+/// or any associated metainformation about the ranges that we query
+/// from it. We instead extend things that look like ranges to return
+/// a special type that includes the hunk index - information we need
+/// to use later on when answering questions such as "which hunks, if any,
+/// conflict with this hunk".
+///
+/// This trait allows us to tag a range with a hunk index directly on anything that
+/// implements `RangeBounds<usize>` (most range types).
 trait Tag: RangeBounds<usize> {
+    /// Tags a range with a `tag` and returns a new range that is functionally
+    /// identical to the original range, but can be 'demoted' back into its
+    /// original form as well as for returning the tag.
     fn as_tagged(&self, tag: usize) -> (Bound<TaggedBound>, Bound<TaggedBound>) {
         let start = match self.start_bound() {
             Included(start) => Included(TaggedBound { tag, value: *start }),
@@ -196,7 +229,11 @@ trait Tag: RangeBounds<usize> {
 
 impl<T> Tag for T where T: RangeBounds<usize> {}
 
+/// A trait for removing the tag from a range (demoting
+/// a tagged range back into a regular range).
 trait Untag: RangeBounds<TaggedBound> {
+    /// Returns the untagged version of the range, typically
+    /// usable by range-aware functions.
     fn untag(&self) -> (Bound<usize>, Bound<usize>) {
         let start = match self.start_bound() {
             Included(start) => Included(start.value),
@@ -216,6 +253,7 @@ trait Untag: RangeBounds<TaggedBound> {
 
 impl<T> Untag for T where T: RangeBounds<TaggedBound> {}
 
+/// A trait for extracting the tag from a bound.
 trait BoundTags {
     /// # Safety
     /// Do not call this method when the bound might be `Unbounded`.
@@ -231,7 +269,10 @@ impl BoundTags for Bound<&TaggedBound> {
     }
 }
 
+/// A wrapper around an interval tree that allows us to query the tree
+/// for information about conflicts given a new hunk it hasn't seen before.
 trait TaggedIntervalTree {
+    /// Enumerates the conflicts between the given hunk and the intervals in the tree, if any.
     fn calculate_conflicts<'a, 'b, H: RawHunk>(
         &'a self,
         hunk: &'b H,

@@ -1,3 +1,4 @@
+//! Types for representing conflicts between hunks.
 use crate::{LineSpan, RawHunk};
 
 /// Represents a conflict between two hunks.

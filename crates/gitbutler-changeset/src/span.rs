@@ -1,3 +1,5 @@
+//! Spans of lines of text within a file.
+
 use std::ops::{Range, RangeBounds};
 
 /// A line-based span of text.
@@ -6,8 +8,10 @@ use std::ops::{Range, RangeBounds};
 /// Line numbers are 0-based.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct LineSpan {
+    /// The starting line of the span. Zero-based.
     start: usize,
-    end: usize, // Exclusive
+    /// The ending line of the span. Zero-based, exclusive.
+    end: usize,
 }
 
 impl LineSpan {

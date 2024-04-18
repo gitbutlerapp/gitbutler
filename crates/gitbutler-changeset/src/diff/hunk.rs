@@ -1,3 +1,13 @@
+//! Hunks are the core of a diff. They represent a contiguous
+//! set of changes in a file, each with two discrete and strictly
+//! ordered operations: first a removal of a set of lines, then
+//! an insertion of a set of lines.
+//!
+//! These types are used to represent the raw hunks that are
+//! reported by Git or Git-like sources, and are used to
+//! calculate conflicts and other diff-related operations
+//! using this crate.
+
 use core::fmt;
 
 use crate::LineSpan;
