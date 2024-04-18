@@ -2,6 +2,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::Result;
 use gitbutler_core::virtual_branches::{
+    branch::Hunk,
     target::{self, Target},
     BranchId, VirtualBranchesHandle,
 };
@@ -45,7 +46,12 @@ fn test_branch() -> gitbutler_core::virtual_branches::branch::Branch {
         ownership: gitbutler_core::virtual_branches::branch::BranchOwnershipClaims {
             claims: vec![gitbutler_core::virtual_branches::branch::OwnershipClaim {
                 file_path: format!("file/{}", TEST_INDEX.load(Ordering::Relaxed)).into(),
-                hunks: vec![],
+                hunks: vec![Hunk {
+                    start: 0,
+                    end: 10,
+                    hash: None,
+                    timestamp_ms: None,
+                }],
             }],
         },
         order: TEST_INDEX.load(Ordering::Relaxed),

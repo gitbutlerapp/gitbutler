@@ -84,8 +84,6 @@ pub struct Project {
     pub project_data_last_fetch: Option<FetchResult>,
     #[serde(default)]
     pub omit_certificate_check: Option<bool>,
-    #[serde(default)]
-    pub use_toml_vbranches_state: Option<bool>,
 }
 
 impl AsRef<Project> for Project {
@@ -114,6 +112,6 @@ impl Project {
     }
 
     pub fn use_toml_vbranches_state(&self) -> bool {
-        self.use_toml_vbranches_state.unwrap_or(false)
+        true
     }
 }
