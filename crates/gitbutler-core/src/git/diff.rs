@@ -191,20 +191,14 @@ fn hunks_by_filepath(
 
             let line = match line.origin() {
                 '+' | '-' | ' ' => {
-                    if let Ok(content) = str::from_utf8(line.content()) {
-                        Some((format!("{}{}", line.origin(), content), false))
-                    } else {
-                        assume_binary()
-                    }
+                    let content = String::from_utf8_lossy(line.content()).to_string();
+                    Some((format!("{}{}", line.origin(), content), false))
                 }
                 'B' => assume_binary(),
                 'F' => None,
                 _ => {
-                    if let Ok(content) = str::from_utf8(line.content()) {
-                        Some((content.to_string(), false))
-                    } else {
-                        assume_binary()
-                    }
+                    let content = String::from_utf8_lossy(line.content()).to_string();
+                    Some((content, false))
                 }
             };
             if let Some((line, is_binary)) = line {
