@@ -4,10 +4,9 @@
 	import TextBox from './TextBox.svelte';
 	import { PromptService } from '$lib/backend/prompt';
 	import { getContext } from '$lib/utils/context';
-	import { TimeoutError } from 'rxjs';
 
 	const promptService = getContext(PromptService);
-	const [prompt, error] = promptService.filter({ action: 'modal', timeoutMs: 30000 });
+	const [prompt, error] = promptService.reactToPrompt({ timeoutMs: 30000 });
 
 	let value = '';
 	let modal: Modal;
@@ -17,19 +16,15 @@
 		modal?.show();
 	}
 
-	// TODO: Notify user we are auto closing the modal
-	$: if ($error) {
-		console.error($error);
-		if ($error instanceof TimeoutError) {
-			setTimeout(() => modal.close(), 10000);
-		}
+	$: if (!$prompt && !$error) {
+		modal?.close();
 	}
 
 	async function submit() {
 		if (!$prompt) return;
 		loading = true;
 		try {
-			await promptService.respond({ id: $prompt.id, response: value });
+			$prompt.respond(value);
 		} catch (err) {
 			console.error(err);
 		} finally {
@@ -40,7 +35,7 @@
 
 	async function cancel() {
 		try {
-			if ($prompt) await promptService.cancel($prompt.id);
+			if ($prompt) $prompt.respond(null);
 		} catch (err) {
 			console.error(err);
 		} finally {
@@ -49,7 +44,8 @@
 	}
 
 	function clear() {
-		modal.close();
+		prompt.set(undefined);
+		error.set(undefined);
 		value = '';
 	}
 </script>
@@ -63,12 +59,12 @@
 >
 	<div class="message">
 		{#if $error}
-			{$error.message}
+			{$error}
 		{:else}
 			<code>{$prompt?.prompt}</code>
 		{/if}
 	</div>
-	<TextBox focus type="password" bind:value />
+	<TextBox focus type="password" bind:value disabled={!!$error || loading} />
 
 	<svelte:fragment slot="controls">
 		<Button style="ghost" kind="solid" type="reset" disabled={loading} on:click={cancel}>

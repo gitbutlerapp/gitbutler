@@ -1,22 +1,9 @@
 import { listen } from '$lib/backend/ipc';
 import { invoke } from '$lib/backend/ipc';
-import { observableToStore } from '$lib/rxjs/store';
-import {
-	Observable,
-	Subject,
-	catchError,
-	filter,
-	merge,
-	mergeWith,
-	of,
-	switchMap,
-	tap,
-	throwError,
-	timeout
-} from 'rxjs';
-import { writable, type Readable } from 'svelte/store';
+import { sleep } from '$lib/utils/sleep';
+import { writable, type Writable } from 'svelte/store';
 
-export type SystemPrompt = {
+type SystemPrompt = {
 	id: string;
 	prompt: string;
 	context?: {
@@ -25,11 +12,6 @@ export type SystemPrompt = {
 		action?: string;
 	};
 	handled?: boolean;
-};
-
-type PromptResponse = {
-	id: string;
-	response: string | null;
 };
 
 type FilterParams = {
@@ -41,105 +23,130 @@ type FilterParams = {
 	timeoutMs?: number | undefined;
 };
 
+export type SystemPromptHandle = {
+	prompt: string;
+	respond: (response: string | null) => void;
+};
+
+type PromptHandler = (prompt: SystemPrompt, signal: AbortSignal) => Promise<string | null>;
+type FilterEventEntry = [filter: FilterParams, handler: PromptHandler];
+
 /**
  * This service is used for handling CLI prompts from the back end.
  */
 export class PromptService {
-	// Used to reset the stream after submit/cancel
-	private reset = new Subject<undefined | SystemPrompt>();
+	// Holds "matched" handlers - handlers that filter on action or branch_id.
+	// Handlers return whether or not they handled the prompt.
+	private matchHandlers: Set<FilterEventEntry> = new Set();
 
-	// This subject is used to reset timeouts
-	private submission = new Subject<SystemPrompt | undefined>();
+	// Holds default handlers - handlers executed when no match is found
+	private defaultHandlers: Set<FilterEventEntry> = new Set();
 
-	// Base observable that opens Tauri subscription on first subscriber, and tears
-	// down automatically when the last subscriber disconnects.
-	private promptStream = new Observable<SystemPrompt | undefined>((subscriber) => {
-		this.unlistenTauri = this.listenTauri((prompt) => subscriber.next(prompt));
-		return () => {
-			if (this.unlistenTauri) this.unlistenTauri();
-		};
-	}).pipe(
-		tap(() => {
-			this.updatedAt.set(new Date());
-		}),
-		mergeWith(this.reset)
-	);
+	// If subscribed to the global event, holds the number of subscribers
+	// and an unsubscribe function handle.
+	private subscriberCount = 0;
+	private unsubscriber: (() => Promise<void>) | null = null;
 
-	// Feeds user supplied string as input to askpass
-	async respond(payload: PromptResponse) {
-		this.reset.next(undefined);
-		return await invoke('submit_prompt_response', payload);
-	}
+	private async handleEvent(e: SystemPrompt): Promise<string | null> {
+		// TODO(qix-): By default we ignore `auto`. Ideally we do this externally (as in, something
+		// TODO(qix-): subscribes to a specific filter) but for now this is sufficient.
+		if (e.context?.action === 'auto') return null;
 
-	// Cancels the executable input prompt
-	async cancel(id: string) {
-		this.reset.next(undefined);
-		return await invoke('submit_prompt_response', { id: id, response: null });
-	}
+		const abortHandle = new AbortController();
 
-	/**
-	 * When you first call this function it creates two stores out of one observable,
-	 * and when these stores are _first_ subscribed to we start listening to the backend
-	 * for prompt events. When the last of all stores created with this function unsubscribes
-	 * we also stop listening for events from tauri.
-	 */
-	filter({
-		action = undefined,
-		branchId = undefined,
-		timeoutMs = 120 * 1000
-	}: FilterParams): [Readable<SystemPrompt | undefined>, Readable<any>] {
-		return observableToStore<SystemPrompt | undefined>(
-			this.promptStream.pipe(
-				filter((prompt) => {
-					if (!prompt) return true;
-					const promptBranchId = prompt?.context?.branch_id;
-					const promptAction = prompt?.context?.action;
-					return !!(
-						(promptAction && promptAction == action) ||
-						(promptBranchId && promptBranchId == branchId)
-					);
-				}),
-				switchMap((prompt) => {
-					if (!prompt) return of(undefined);
-					return merge(
-						of(prompt),
-						this.submission.pipe(
-							timeout(timeoutMs),
-							catchError((err) => {
-								if (prompt) this.cancel(prompt.id);
-								return throwError(() => err);
-							})
-						)
-					);
-				})
+		let matchers = Array.from(this.matchHandlers).filter(([filter]) => {
+			if (filter.action && filter.action !== e.context?.action) return false;
+			if (filter.branchId && filter.branchId !== e.context?.branch_id) return false;
+			return true;
+		});
+
+		if (matchers.length === 0) {
+			matchers = Array.from(this.defaultHandlers);
+		}
+
+		return await Promise.race(
+			matchers.map(
+				async ([filter, handler]) =>
+					await Promise.race([
+						handler(e, abortHandle.signal).then((response) => {
+							abortHandle.abort('handled');
+							return response;
+						}),
+						filter.timeoutMs
+							? sleep(filter.timeoutMs).then(() => {
+									abortHandle.abort('timeout');
+									return null;
+								})
+							: <Promise<string | null>>new Promise(() => null)
+					])
 			)
 		);
 	}
 
-	// This can e.g. be used to disable interval polling
-	readonly updatedAt = writable<Date | undefined>();
-
-	// Stop tauri subscription when last store subscriber unsubscribes
-	unlistenTauri: (() => Promise<void>) | undefined = undefined;
-
-	// This is how we are notified of input prompts from the backend
-	private listenTauri(next: (event: SystemPrompt) => void): () => Promise<void> {
-		const unsubscribe = listen<SystemPrompt>('git_prompt', async (e) => {
-			this.updatedAt.set(new Date());
-			// You can send an action token to e.g. `fetch_from_target` and it will be echoed in
-			// these events. The action `auto` is used by the `BaseBranchService` so we can not
-			// respond to them.
-			if (e.payload.context?.action == 'auto') {
-				// Always cancel actions that are marked "auto", e.g. periodic sync
-				await this.cancel(e.payload.id);
-				// Note: ingore store update to avoid other side-effects
-			} else {
-				next(e.payload);
-			}
+	private subscribe() {
+		this.unsubscriber ??= listen<SystemPrompt>('git_prompt', async (e) => {
+			const response = await this.handleEvent(e.payload);
+			return await invoke('submit_prompt_response', { id: e.payload.id, response });
 		});
-		return async () => {
-			// Called after service stops listening for events
-			await unsubscribe();
+
+		++this.subscriberCount;
+	}
+
+	private unsubscribe() {
+		if (this.subscriberCount > 0 && !--this.subscriberCount) {
+			this.unsubscriber?.();
+		}
+	}
+
+	onPrompt(filter: FilterParams, handler: PromptHandler): () => void {
+		const entry: FilterEventEntry = [filter, handler];
+
+		const handlerSet =
+			!filter.action && !filter.branchId ? this.defaultHandlers : this.matchHandlers;
+
+		handlerSet.add(entry);
+
+		this.subscribe();
+
+		return () => {
+			if (handlerSet.delete(entry)) {
+				this.unsubscribe();
+			}
 		};
+	}
+
+	reactToPrompt(filter: FilterParams): [Writable<SystemPromptHandle | undefined>, Writable<any>] {
+		const promptStore = writable<SystemPromptHandle | undefined>();
+		const errorStore = writable<any>();
+
+		this.onPrompt(filter, async (prompt, signal) => {
+			let resolver: (response: string | null) => void;
+			const promise: Promise<string | null> = new Promise((r) => {
+				resolver = r;
+			});
+
+			promptStore.set({
+				prompt: prompt.prompt,
+				respond: (response: string | null) => {
+					resolver(response);
+				}
+			});
+
+			signal.addEventListener('abort', () => {
+				promptStore.set(undefined);
+				switch (signal.reason) {
+					case 'timeout':
+						errorStore.set('Timed out waiting for response');
+						break;
+					default:
+						errorStore.set(undefined);
+						break;
+				}
+			});
+
+			return await promise;
+		});
+
+		return [promptStore, errorStore];
 	}
 }
