@@ -10,7 +10,6 @@ export default defineConfig({
 				dryRun: process.env.SENTRY_RELEASE === undefined,
 				org: 'gitbutler',
 				project: 'app-js',
-				// this is nikita galaiko's personal sentry api token.
 				authToken: process.env.SENTRY_AUTH_TOKEN,
 				include: ['build'],
 				cleanArtifacts: true,
