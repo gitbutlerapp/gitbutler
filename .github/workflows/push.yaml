@@ -203,6 +203,7 @@ jobs:
       - check-gitbutler-core
       - check-gitbutler-changeset
       - check-gitbutler-git
+      - check-rust-windows
     runs-on: ubuntu-latest
     steps:
       - name: Decide whether the needed jobs succeeded or failed
@@ -211,3 +212,12 @@ jobs:
           allowed-skips: ${{ toJSON(needs) }}
           jobs: ${{ toJSON(needs) }}
 
+  check-rust-windows:
+    needs: changes
+    runs-on: windows-latest
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: Swatinem/rust-cache@v2
+      - name: "cargo check"
+        run: cargo check --all --bins --examples
