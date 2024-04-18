@@ -1,7 +1,9 @@
-use std::{collections::HashMap, path, str};
+use std::path::PathBuf;
+use std::{collections::HashMap, str};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use super::Repository;
 use crate::git;
@@ -54,8 +56,8 @@ impl GitHunk {
 #[derive(Debug, PartialEq, Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FileDiff {
-    pub old_path: Option<path::PathBuf>,
-    pub new_path: Option<path::PathBuf>,
+    pub old_path: Option<PathBuf>,
+    pub new_path: Option<PathBuf>,
     pub hunks: Option<Vec<GitHunk>>,
     pub skipped: bool,
     pub binary: bool,
@@ -63,10 +65,11 @@ pub struct FileDiff {
     pub new_size_bytes: u64,
 }
 
+#[instrument(skip(repository))]
 pub fn workdir(
     repository: &Repository,
     commit_oid: &git::Oid,
-) -> Result<HashMap<path::PathBuf, FileDiff>> {
+) -> Result<HashMap<PathBuf, FileDiff>> {
     let commit = repository
         .find_commit(*commit_oid)
         .context("failed to find commit")?;
@@ -99,7 +102,7 @@ pub fn trees(
     repository: &Repository,
     old_tree: &git::Tree,
     new_tree: &git::Tree,
-) -> Result<HashMap<path::PathBuf, FileDiff>> {
+) -> Result<HashMap<PathBuf, FileDiff>> {
     let mut diff_opts = git2::DiffOptions::new();
     diff_opts
         .recurse_untracked_dirs(true)
@@ -119,16 +122,16 @@ pub fn without_large_files(
     size_limit_bytes: u64,
     diff: &git2::Diff,
     mut diff_opts: git2::DiffOptions,
-) -> (git2::DiffOptions, HashMap<path::PathBuf, FileDiff>) {
-    let mut skipped_files: HashMap<path::PathBuf, FileDiff> = HashMap::new();
+) -> (git2::DiffOptions, HashMap<PathBuf, FileDiff>) {
+    let mut skipped_files: HashMap<PathBuf, FileDiff> = HashMap::new();
     for delta in diff.deltas() {
         if delta.new_file().size() > size_limit_bytes {
             if let Some(path) = delta.new_file().path() {
                 skipped_files.insert(
                     path.to_path_buf(),
                     FileDiff {
-                        old_path: delta.old_file().path().map(std::path::Path::to_path_buf),
-                        new_path: delta.new_file().path().map(std::path::Path::to_path_buf),
+                        old_path: delta.old_file().path().map(ToOwned::to_owned),
+                        new_path: delta.new_file().path().map(ToOwned::to_owned),
                         hunks: None,
                         skipped: true,
                         binary: true,
@@ -139,6 +142,8 @@ pub fn without_large_files(
             }
         } else if let Some(path) = delta.new_file().path() {
             if let Some(path) = path.to_str() {
+                // TODO(ST): use negative pathspecs instead, but with `gitoxide` this might not even be necessary.
+                //           Currently, performance could be bad if there are thousands of pathspecs.
                 diff_opts.pathspec(path);
             }
         }
@@ -149,10 +154,10 @@ pub fn without_large_files(
 fn hunks_by_filepath(
     repository: &Repository,
     diff: &git2::Diff,
-) -> Result<HashMap<path::PathBuf, FileDiff>> {
+) -> Result<HashMap<PathBuf, FileDiff>> {
     // find all the hunks
-    let mut hunks_by_filepath: HashMap<path::PathBuf, Vec<GitHunk>> = HashMap::new();
-    let mut diff_files: HashMap<path::PathBuf, FileDiff> = HashMap::new();
+    let mut hunks_by_filepath: HashMap<PathBuf, Vec<GitHunk>> = HashMap::new();
+    let mut diff_files: HashMap<PathBuf, FileDiff> = HashMap::new();
 
     diff.print(
         git2::DiffFormat::Patch,
@@ -174,44 +179,35 @@ fn hunks_by_filepath(
             let old_start = hunk.as_ref().map_or(0, git2::DiffHunk::old_start);
             let old_lines = hunk.as_ref().map_or(0, git2::DiffHunk::old_lines);
 
-            if let Some((line, is_binary)) = match line.origin() {
+            let assume_binary = || {
+                let full_path = repository.workdir().unwrap().join(file_path);
+                // save the file_path to the odb
+                if !delta.new_file().id().is_zero() && full_path.exists() {
+                    // the binary file wasn't deleted
+                    repository.blob_path(full_path.as_path()).unwrap();
+                }
+                Some((delta.new_file().id().to_string(), true))
+            };
+
+            let line = match line.origin() {
                 '+' | '-' | ' ' => {
                     if let Ok(content) = str::from_utf8(line.content()) {
                         Some((format!("{}{}", line.origin(), content), false))
                     } else {
-                        let full_path = repository.workdir().unwrap().join(file_path);
-                        // save the file_path to the odb
-                        if !delta.new_file().id().is_zero() && full_path.exists() {
-                            // the binary file wasnt deleted
-                            repository.blob_path(full_path.as_path()).unwrap();
-                        }
-                        Some((delta.new_file().id().to_string(), true))
+                        assume_binary()
                     }
                 }
-                'B' => {
-                    let full_path = repository.workdir().unwrap().join(file_path);
-                    // save the file_path to the odb
-                    if !delta.new_file().id().is_zero() && full_path.exists() {
-                        // the binary file wasnt deleted
-                        repository.blob_path(full_path.as_path()).unwrap();
-                    }
-                    Some((delta.new_file().id().to_string(), true))
-                }
+                'B' => assume_binary(),
                 'F' => None,
                 _ => {
                     if let Ok(content) = str::from_utf8(line.content()) {
                         Some((content.to_string(), false))
                     } else {
-                        let full_path = repository.workdir().unwrap().join(file_path);
-                        // save the file_path to the odb
-                        if !delta.new_file().id().is_zero() && full_path.exists() {
-                            // the binary file wasnt deleted
-                            repository.blob_path(full_path.as_path()).unwrap();
-                        }
-                        Some((delta.new_file().id().to_string(), true))
+                        assume_binary()
                     }
                 }
-            } {
+            };
+            if let Some((line, is_binary)) = line {
                 let hunks = hunks_by_filepath
                     .entry(file_path.to_path_buf())
                     .or_default();
@@ -261,8 +257,8 @@ fn hunks_by_filepath(
             diff_files.insert(
                 file_path.to_path_buf(),
                 FileDiff {
-                    old_path: delta.old_file().path().map(std::path::Path::to_path_buf),
-                    new_path: delta.new_file().path().map(std::path::Path::to_path_buf),
+                    old_path: delta.old_file().path().map(ToOwned::to_owned),
+                    new_path: delta.new_file().path().map(ToOwned::to_owned),
                     hunks: None,
                     skipped: false,
                     binary: delta.new_file().is_binary(),
@@ -276,7 +272,7 @@ fn hunks_by_filepath(
     )
     .context("failed to print diff")?;
 
-    let hunks_by_filepath: HashMap<path::PathBuf, Vec<GitHunk>> = hunks_by_filepath
+    let hunks_by_filepath: HashMap<PathBuf, Vec<GitHunk>> = hunks_by_filepath
         .into_iter()
         .map(|(k, v)| {
             if let Some(binary_hunk) = v.iter().find(|hunk| hunk.binary) {
@@ -393,9 +389,9 @@ pub fn reverse_hunk(hunk: &GitHunk) -> Option<GitHunk> {
 }
 
 pub fn diff_files_to_hunks(
-    files: &HashMap<path::PathBuf, FileDiff>,
-) -> HashMap<path::PathBuf, Vec<git::diff::GitHunk>> {
-    let mut file_hunks: HashMap<path::PathBuf, Vec<git::diff::GitHunk>> = HashMap::new();
+    files: &HashMap<PathBuf, FileDiff>,
+) -> HashMap<PathBuf, Vec<git::diff::GitHunk>> {
+    let mut file_hunks: HashMap<PathBuf, Vec<git::diff::GitHunk>> = HashMap::new();
     for (file_path, diff_file) in files {
         if !diff_file.skipped {
             file_hunks.insert(
