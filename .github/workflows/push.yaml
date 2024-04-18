@@ -24,11 +24,16 @@ jobs:
         id: filter
         with:
           filters: |
+            workflows: &workflows
+              - '.github/workflows/**'
+              - '.github/actions/**'
             node:
+              - *workflows
               - 'app/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
             common-rust: &rust
+              - *workflows
               - 'Cargo.lock'
               - 'Cargo.toml'
               - 'rust-toolchain.toml'
