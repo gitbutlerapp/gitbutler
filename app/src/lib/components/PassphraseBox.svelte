@@ -1,23 +1,20 @@
 <script lang="ts">
 	import Button from './Button.svelte';
 	import TextBox from './TextBox.svelte';
-	import { PromptService, type SystemPrompt } from '$lib/backend/prompt';
 	import { showError } from '$lib/notifications/toasts';
-	import { getContext } from '$lib/utils/context';
+	import type { SystemPromptHandle } from '$lib/backend/prompt';
 
-	export let prompt: SystemPrompt | undefined;
+	export let prompt: SystemPromptHandle | undefined;
 	export let error: any;
 	export let value: string = '';
 
 	let submitDisabled: boolean = false;
 	let isSubmitting = false;
 
-	const promptService = getContext(PromptService);
-
 	async function submit() {
 		if (!prompt) return;
 		isSubmitting = true;
-		await promptService.respond({ id: prompt.id, response: value });
+		prompt.respond(value);
 		isSubmitting = false;
 	}
 
@@ -44,7 +41,7 @@
 				disabled={isSubmitting}
 				on:click={async () => {
 					if (!prompt) return;
-					await promptService.cancel(prompt.id);
+					prompt.respond(null);
 				}}
 			>
 				Cancel

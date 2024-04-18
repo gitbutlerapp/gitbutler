@@ -22,7 +22,7 @@
 	const baseBranch = getContextStore(BaseBranch);
 	const branch = getContextStore(Branch);
 
-	const [prompt, promptError] = promptService.filter({
+	const [prompt, promptError] = promptService.reactToPrompt({
 		branchId: $branch.id,
 		timeoutMs: 30000
 	});
