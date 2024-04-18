@@ -1,0 +1,35 @@
+[package]
+name = "gitbutler-watcher"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+doctest = false
+
+[dependencies]
+gitbutler-analytics.workspace = true
+gitbutler-core.workspace = true
+thiserror.workspace = true
+anyhow = "1.0.81"
+futures = "0.3.30"
+tokio = { workspace = true, features = [ "macros" ] }
+tokio-util = "0.7.10"
+tracing = "0.1.40"
+
+backoff = "0.4.0"
+notify = { version = "6.0.1" }
+notify-debouncer-full = "0.3.1"
+crossbeam-channel = "0.5.12"
+itertools = "0.12"
+
+[dev-dependencies]
+gitbutler-testsupport.workspace = true
+git2.workspace = true
+tempfile = "3.10"
+once_cell = "1.19"
+
+[lints.clippy]
+all = "deny"
+perf = "deny"
+correctness = "deny"

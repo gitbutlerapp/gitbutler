@@ -11,18 +11,17 @@ use gitbutler_core::{
     reader, sessions,
     virtual_branches::{self, branch, VirtualBranchesHandle},
 };
-use gitbutler_tauri::watcher;
 use once_cell::sync::Lazy;
 
 use self::branch::BranchId;
-use crate::watcher::handler::support::Fixture;
+use crate::handler::support::Fixture;
 use gitbutler_testsupport::{commit_all, Case};
 
 static TEST_TARGET_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
 
 #[derive(Clone)]
 pub struct State {
-    inner: watcher::Handler,
+    inner: gitbutler_watcher::Handler,
 }
 
 impl State {

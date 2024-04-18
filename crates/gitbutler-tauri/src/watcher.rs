@@ -1,24 +1,105 @@
-mod events;
-pub use events::Event;
-use events::InternalEvent;
-
-mod file_monitor;
-mod handler;
-pub use handler::Handler;
-
-use std::path::Path;
-use std::{sync::Arc, time};
+use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use futures::executor::block_on;
 use gitbutler_core::projects::{self, Project, ProjectId};
-use tauri::AppHandle;
-use tokio::{
-    sync::mpsc::{unbounded_channel, UnboundedSender},
-    task,
-};
-use tokio_util::sync::CancellationToken;
+use gitbutler_core::{assets, deltas, sessions, users, virtual_branches};
+use tauri::{AppHandle, Manager};
 use tracing::instrument;
+
+mod event {
+    use anyhow::{Context, Result};
+    use gitbutler_core::projects::ProjectId;
+    use gitbutler_watcher::Change;
+    use tauri::Manager;
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub(super) struct Event {
+        name: String,
+        payload: serde_json::Value,
+        project_id: ProjectId,
+    }
+
+    impl From<Change> for Event {
+        fn from(value: Change) -> Self {
+            match value {
+                Change::GitIndex(project_id) => Event {
+                    name: format!("project://{}/git/index", project_id),
+                    payload: serde_json::json!({}),
+                    project_id,
+                },
+                Change::GitFetch(project_id) => Event {
+                    name: format!("project://{}/git/fetch", project_id),
+                    payload: serde_json::json!({}),
+                    project_id,
+                },
+                Change::GitHead { project_id, head } => Event {
+                    name: format!("project://{}/git/head", project_id),
+                    payload: serde_json::json!({ "head": head }),
+                    project_id,
+                },
+                Change::GitActivity(project_id) => Event {
+                    name: format!("project://{}/git/activity", project_id),
+                    payload: serde_json::json!({}),
+                    project_id,
+                },
+                Change::File {
+                    project_id,
+                    session_id,
+                    file_path,
+                    contents,
+                } => Event {
+                    name: format!("project://{}/sessions/{}/files", project_id, session_id),
+                    payload: serde_json::json!({
+                        "filePath": file_path,
+                        "contents": contents,
+                    }),
+                    project_id,
+                },
+                Change::Session {
+                    project_id,
+                    session,
+                } => Event {
+                    name: format!("project://{}/sessions", project_id),
+                    payload: serde_json::to_value(session).unwrap(),
+                    project_id,
+                },
+                Change::Deltas {
+                    project_id,
+                    session_id,
+                    deltas,
+                    relative_file_path,
+                } => Event {
+                    name: format!("project://{}/sessions/{}/deltas", project_id, session_id),
+                    payload: serde_json::json!({
+                        "deltas": deltas,
+                        "filePath": relative_file_path,
+                    }),
+                    project_id,
+                },
+                Change::VirtualBranches {
+                    project_id,
+                    virtual_branches,
+                } => Event {
+                    name: format!("project://{}/virtual-branches", project_id),
+                    payload: serde_json::json!(virtual_branches),
+                    project_id,
+                },
+            }
+        }
+    }
+
+    impl Event {
+        pub(super) fn send(&self, app_handle: &tauri::AppHandle) -> Result<()> {
+            app_handle
+                .emit_all(&self.name, Some(&self.payload))
+                .context("emit event")?;
+            tracing::trace!(event_name = self.name);
+            Ok(())
+        }
+    }
+}
+use event::Event;
 
 /// Note that this type is managed in Tauri and thus needs to be send and sync.
 #[derive(Clone)]
@@ -27,7 +108,40 @@ pub struct Watchers {
     app_handle: AppHandle,
     /// The watcher of the currently active project.
     /// NOTE: This is a `tokio` mutex as this needs to lock the inner option from within async.
-    watcher: Arc<tokio::sync::Mutex<Option<WatcherHandle>>>,
+    watcher: Arc<tokio::sync::Mutex<Option<gitbutler_watcher::WatcherHandle>>>,
+}
+
+fn handler_from_app(app: &AppHandle) -> anyhow::Result<gitbutler_watcher::Handler> {
+    let app_data_dir = app
+        .path_resolver()
+        .app_data_dir()
+        .context("failed to get app data dir")?;
+    let analytics = app
+        .try_state::<gitbutler_analytics::Client>()
+        .map_or(gitbutler_analytics::Client::default(), |client| {
+            client.inner().clone()
+        });
+    let users = app.state::<users::Controller>().inner().clone();
+    let projects = app.state::<projects::Controller>().inner().clone();
+    let vbranches = app.state::<virtual_branches::Controller>().inner().clone();
+    let assets_proxy = app.state::<assets::Proxy>().inner().clone();
+    let sessions_db = app.state::<sessions::Database>().inner().clone();
+    let deltas_db = app.state::<deltas::Database>().inner().clone();
+
+    Ok(gitbutler_watcher::Handler::new(
+        app_data_dir.clone(),
+        analytics,
+        users,
+        projects,
+        vbranches,
+        assets_proxy,
+        sessions_db,
+        deltas_db,
+        {
+            let app = app.clone();
+            move |change| Event::from(change).send(&app)
+        },
+    ))
 }
 
 impl Watchers {
@@ -40,23 +154,23 @@ impl Watchers {
 
     #[instrument(skip(self, project), err(Debug))]
     pub fn watch(&self, project: &projects::Project) -> Result<()> {
-        let handler = handler::Handler::from_app(&self.app_handle)?;
+        let handler = handler_from_app(&self.app_handle)?;
 
         let project_id = project.id;
         let project_path = project.path.clone();
 
-        let handle = watch_in_background(handler, project_path, project_id)?;
+        let handle = gitbutler_watcher::watch_in_background(handler, project_path, project_id)?;
         block_on(self.watcher.lock()).replace(handle);
         Ok(())
     }
 
-    pub async fn post(&self, event: Event) -> Result<()> {
+    pub async fn post(&self, action: gitbutler_watcher::Action) -> Result<()> {
         let watcher = self.watcher.lock().await;
         if let Some(handle) = watcher
             .as_ref()
-            .filter(|watcher| watcher.project_id == event.project_id())
+            .filter(|watcher| watcher.project_id() == action.project_id())
         {
-            handle.post(event).await.context("failed to post event")
+            handle.post(action).await.context("failed to post event")
         } else {
             Err(anyhow::anyhow!("watcher not found",))
         }
@@ -66,7 +180,7 @@ impl Watchers {
         let mut handle = self.watcher.lock().await;
         if handle
             .as_ref()
-            .map_or(false, |handle| handle.project_id == project_id)
+            .map_or(false, |handle| handle.project_id() == project_id)
         {
             handle.take();
         }
@@ -84,86 +198,12 @@ impl gitbutler_core::projects::Watchers for Watchers {
     }
 
     async fn fetch_gb_data(&self, id: ProjectId) -> Result<()> {
-        self.post(Event::FetchGitbutlerData(id)).await
+        self.post(gitbutler_watcher::Action::FetchGitbutlerData(id))
+            .await
     }
 
     async fn push_gb_data(&self, id: ProjectId) -> Result<()> {
-        self.post(Event::PushGitbutlerData(id)).await
+        self.post(gitbutler_watcher::Action::PushGitbutlerData(id))
+            .await
     }
-}
-
-/// An abstraction over a link to the spawned watcher, which runs in the background.
-struct WatcherHandle {
-    /// A way to post events and interact with the actual handler in the background.
-    tx: UnboundedSender<InternalEvent>,
-    /// The id of the project we are watching.
-    project_id: ProjectId,
-    /// A way to tell the background process to stop handling events.
-    cancellation_token: CancellationToken,
-}
-
-impl Drop for WatcherHandle {
-    fn drop(&mut self) {
-        self.cancellation_token.cancel();
-    }
-}
-
-impl WatcherHandle {
-    pub async fn post(&self, event: Event) -> Result<()> {
-        self.tx.send(event.into()).context("failed to send event")?;
-        Ok(())
-    }
-}
-
-/// Run our file watcher processing loop in the background and let `handler` deal with them.
-/// Return a handle to the watcher to allow interactions while it's running in the background.
-/// Drop the handle to stop the watcher.
-///
-/// ### Important
-///
-/// It runs in such a way that each filesystem event is processed concurrently with others, which is why
-/// spamming massive amounts of events should be avoided!
-fn watch_in_background(
-    handler: handler::Handler,
-    path: impl AsRef<Path>,
-    project_id: ProjectId,
-) -> Result<WatcherHandle, anyhow::Error> {
-    let (events_out, mut events_in) = unbounded_channel();
-
-    file_monitor::spawn(project_id, path.as_ref(), events_out.clone())?;
-    handler.reindex(project_id)?;
-
-    let cancellation_token = CancellationToken::new();
-    let handle = WatcherHandle {
-        tx: events_out,
-        project_id,
-        cancellation_token: cancellation_token.clone(),
-    };
-    let handle_event = move |event: InternalEvent| -> Result<()> {
-        let handler = handler.clone();
-        // NOTE: Traditional parallelization (blocking) is required as `tokio::spawn()` on
-        //       the `handler.handle()` future isn't `Send` as it keeps non-Send things
-        //       across await points. Further, there is a fair share of `sync` IO happening
-        //       as well, so nothing can really be done here.
-        task::spawn_blocking(move || {
-            futures::executor::block_on(async move {
-                handler.handle(event, time::SystemTime::now()).await.ok();
-            });
-        });
-        Ok(())
-    };
-
-    tokio::spawn(async move {
-        loop {
-            tokio::select! {
-                Some(event) = events_in.recv() => handle_event(event)?,
-                () = cancellation_token.cancelled() => {
-                    break;
-                }
-            }
-        }
-        Ok::<_, anyhow::Error>(())
-    });
-
-    Ok(handle)
 }

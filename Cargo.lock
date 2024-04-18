@@ -2015,6 +2015,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-analytics"
+version = "0.0.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "gitbutler-core",
+ "reqwest 0.12.2",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "gitbutler-changeset"
 version = "0.0.0"
 dependencies = [
@@ -2093,21 +2108,17 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "backoff",
  "backtrace",
- "chrono",
  "console-subscriber",
- "crossbeam-channel",
  "futures",
  "git2",
+ "gitbutler-analytics",
  "gitbutler-core",
  "gitbutler-testsupport",
+ "gitbutler-watcher",
  "governor",
- "itertools 0.12.1",
  "log",
  "nonzero_ext",
- "notify",
- "notify-debouncer-full",
  "once_cell",
  "pretty_assertions",
  "reqwest 0.12.2",
@@ -2126,7 +2137,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "tokio-util",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
@@ -2142,6 +2152,29 @@ dependencies = [
  "once_cell",
  "pretty_assertions",
  "tempfile",
+]
+
+[[package]]
+name = "gitbutler-watcher"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "backoff",
+ "crossbeam-channel",
+ "futures",
+ "git2",
+ "gitbutler-analytics",
+ "gitbutler-core",
+ "gitbutler-testsupport",
+ "itertools 0.12.1",
+ "notify",
+ "notify-debouncer-full",
+ "once_cell",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]

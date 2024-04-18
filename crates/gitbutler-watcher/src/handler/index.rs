@@ -7,7 +7,7 @@ use gitbutler_core::{
     sessions::{self, SessionId},
 };
 
-use crate::events as app_events;
+use crate::Change;
 
 impl super::Handler {
     pub(super) fn index_deltas(
@@ -22,7 +22,7 @@ impl super::Handler {
             .context("failed to insert deltas into database")
     }
 
-    pub(in crate::watcher) fn reindex(&self, project_id: ProjectId) -> Result<()> {
+    pub(crate) fn reindex(&self, project_id: ProjectId) -> Result<()> {
         let user = self.users.get_user()?;
         let project = self.projects.get(&project_id)?;
         let project_repository =
@@ -36,7 +36,7 @@ impl super::Handler {
 
         let sessions_iter = gb_repository.get_sessions_iterator()?;
         for session in sessions_iter {
-            self.process_session(&gb_repository, &session?)?;
+            self.process_session(&gb_repository, session?)?;
         }
         Ok(())
     }
@@ -44,7 +44,7 @@ impl super::Handler {
     pub(super) fn index_session(
         &self,
         project_id: ProjectId,
-        session: &sessions::Session,
+        session: sessions::Session,
     ) -> Result<()> {
         let project = self.projects.get(&project_id)?;
         let project_repository =
@@ -63,21 +63,21 @@ impl super::Handler {
     fn process_session(
         &self,
         gb_repository: &gb_repository::Repository,
-        session: &sessions::Session,
+        session: sessions::Session,
     ) -> Result<()> {
         let project_id = gb_repository.get_project_id();
 
         // now, index session if it has changed to the database.
         let from_db = self.sessions_db.get_by_id(&session.id)?;
-        if from_db.map_or(false, |from_db| from_db == *session) {
+        if from_db.map_or(false, |from_db| from_db == session) {
             return Ok(());
         }
 
         self.sessions_db
-            .insert(project_id, &[session])
+            .insert(project_id, &[&session])
             .context("failed to insert session into database")?;
 
-        let session_reader = sessions::Reader::open(gb_repository, session)?;
+        let session_reader = sessions::Reader::open(gb_repository, &session)?;
         let deltas_reader = deltas::Reader::new(&session_reader);
         for (file_path, deltas) in deltas_reader
             .read(None)
@@ -86,7 +86,10 @@ impl super::Handler {
             self.index_deltas(*project_id, session.id, &file_path, &deltas)?;
         }
 
-        (self.send_event)(&app_events::Event::session(*project_id, session))?;
+        (self.send_event)(Change::Session {
+            project_id: *project_id,
+            session,
+        })?;
         Ok(())
     }
 }

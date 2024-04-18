@@ -1,3 +1,4 @@
+use crate::Change;
 use anyhow::{Context, Result};
 use gitbutler_core::{
     deltas, gb_repository, project_repository, projects::ProjectId, reader, sessions,
@@ -43,7 +44,7 @@ impl super::Handler {
                 .context("failed to get or create current session")?;
             let session = current_session.clone();
 
-            let process = move |path: &Path| -> Result<bool> {
+            let process = move |path: PathBuf| -> Result<bool> {
                 let _span = tracing::span!(tracing::Level::TRACE, "processing", ?path).entered();
                 let current_session_reader =
                     sessions::Reader::open(&gb_repository, &current_session)
@@ -51,18 +52,18 @@ impl super::Handler {
                 let deltas_reader = deltas::Reader::new(&current_session_reader);
                 let writer =
                     deltas::Writer::new(&gb_repository).context("failed to open deltas writer")?;
-                let current_wd_file_content = match Self::file_content(&project_repository, path) {
+                let current_wd_file_content = match Self::file_content(&project_repository, &path) {
                     Ok(content) => Some(content),
                     Err(reader::Error::NotFound) => None,
                     Err(err) => Err(err).context("failed to get file content")?,
                 };
-                let latest_file_content = match current_session_reader.file(path) {
+                let latest_file_content = match current_session_reader.file(&path) {
                     Ok(content) => Some(content),
                     Err(reader::Error::NotFound) => None,
                     Err(err) => Err(err).context("failed to get file content")?,
                 };
                 let current_deltas = deltas_reader
-                    .read_file(path)
+                    .read_file(&path)
                     .context("failed to get file deltas")?;
                 let mut text_doc = deltas::Document::new(
                     latest_file_content.as_ref(),
@@ -78,30 +79,30 @@ impl super::Handler {
 
                 let deltas = text_doc.get_deltas();
                 writer
-                    .write(path, &deltas)
+                    .write(&path, &deltas)
                     .context("failed to write deltas")?;
 
                 match &current_wd_file_content {
-                    Some(reader::Content::UTF8(text)) => writer.write_wd_file(path, text),
-                    Some(_) => writer.write_wd_file(path, ""),
-                    None => writer.remove_wd_file(path),
+                    Some(reader::Content::UTF8(text)) => writer.write_wd_file(&path, text),
+                    Some(_) => writer.write_wd_file(&path, ""),
+                    None => writer.remove_wd_file(&path),
                 }?;
 
                 let session_id = current_session.id;
-                self.emit_session_file(project_id, session_id, path, latest_file_content.as_ref())?;
+                self.emit_session_file(project_id, session_id, &path, latest_file_content)?;
                 self.index_deltas(
                     project_id,
                     session_id,
-                    path,
+                    &path,
                     std::slice::from_ref(&new_delta),
                 )
                 .context("failed to index deltas")?;
-                self.emit_app_event(&crate::events::Event::deltas(
+                self.emit_app_event(Change::Deltas {
                     project_id,
                     session_id,
-                    std::slice::from_ref(&new_delta),
-                    path,
-                ))?;
+                    deltas: vec![new_delta],
+                    relative_file_path: path,
+                })?;
                 Ok(true)
             };
             Ok((process, session))
@@ -116,7 +117,7 @@ impl super::Handler {
             let current_session = if num_threads < 2 {
                 let (process, session) = make_processor()?;
                 for path in paths {
-                    if !process(path.as_path())? {
+                    if !process(path)? {
                         num_no_delta += 1;
                     }
                 }
@@ -135,7 +136,7 @@ impl super::Handler {
                                         let mut num_no_delta = 0;
                                         let (process, _) = make_processor()?;
                                         for path in rx {
-                                            if !process(path.as_path())? {
+                                            if !process(path)? {
                                                 num_no_delta += 1;
                                             }
                                         }
@@ -158,7 +159,7 @@ impl super::Handler {
                 let (_, session) = make_processor()?;
                 session
             };
-            self.index_session(project_id, &current_session)?;
+            self.index_session(project_id, current_session)?;
             Ok(num_no_delta)
         })?;
         tracing::debug!(%project_id, paths_without_deltas = num_no_delta, paths_with_delta = num_paths - num_no_delta);

@@ -1,7 +1,7 @@
+//! A client to provide analytics.
 use std::{fmt, str, sync::Arc};
 
 use gitbutler_core::{projects::ProjectId, users::User};
-use tauri::AppHandle;
 
 mod posthog;
 
@@ -63,13 +63,13 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(app_handle: &AppHandle, config: &Config) -> Self {
+    pub fn new(app_name: String, app_version: String, config: &Config) -> Self {
         let client: Arc<dyn posthog::Client + Sync + Send> =
             if let Some(posthog_token) = config.posthog_token {
                 let real = posthog::real::Client::new(posthog::real::ClientOptions {
                     api_key: posthog_token.to_string(),
-                    app_name: app_handle.package_info().name.clone(),
-                    app_version: app_handle.package_info().version.to_string(),
+                    app_name,
+                    app_version,
                 });
                 let real_with_retry = posthog::retry::Client::new(real);
                 Arc::new(real_with_retry)

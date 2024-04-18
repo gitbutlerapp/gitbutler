@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::time::Duration;
 
-use crate::watcher::events::InternalEvent;
+use crate::events::InternalEvent;
 use anyhow::{anyhow, Context, Result};
 use gitbutler_core::{git, projects::ProjectId};
 use notify::Watcher;

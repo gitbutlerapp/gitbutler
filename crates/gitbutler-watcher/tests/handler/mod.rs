@@ -2,7 +2,6 @@ use tempfile::TempDir;
 
 mod support {
     use gitbutler_core::{assets, deltas, git, sessions, virtual_branches};
-    use gitbutler_tauri::{analytics, watcher};
     use tempfile::TempDir;
 
     /// Like [`gitbutler_testsupport::Suite`], but with all the instances needed to build a handler
@@ -13,8 +12,8 @@ mod support {
         pub vbranch_controller: virtual_branches::Controller,
         pub assets_proxy: assets::Proxy,
 
-        /// Keeps events emitted from the last created handler.
-        events: Option<std::sync::mpsc::Receiver<gitbutler_tauri::Event>>,
+        /// Keeps changes emitted from the last created handler.
+        changes: Option<std::sync::mpsc::Receiver<gitbutler_watcher::Change>>,
         /// Storage for the databases, to be dropped last.
         _tmp: TempDir,
     }
@@ -49,7 +48,7 @@ mod support {
                 deltas_db,
                 vbranch_controller,
                 assets_proxy,
-                events: None,
+                changes: None,
                 _tmp: tmp,
             }
         }
@@ -59,12 +58,12 @@ mod support {
         /// Must be mut as handler events are collected into the fixture automatically.
         ///
         /// Note that this only works for the most recent created handler.
-        pub fn new_handler(&mut self) -> watcher::Handler {
+        pub fn new_handler(&mut self) -> gitbutler_watcher::Handler {
             let (tx, rx) = std::sync::mpsc::channel();
-            self.events = Some(rx);
-            watcher::Handler::new(
+            self.changes = Some(rx);
+            gitbutler_watcher::Handler::new(
                 self.local_app_data().to_owned(),
-                analytics::Client::default(),
+                gitbutler_analytics::Client::default(),
                 self.users.clone(),
                 self.projects.clone(),
                 self.vbranch_controller.clone(),
@@ -76,8 +75,8 @@ mod support {
         }
 
         /// Returns the events that were emitted to the tauri app.
-        pub fn events(&mut self) -> Vec<gitbutler_tauri::Event> {
-            let Some(rx) = self.events.as_ref() else {
+        pub fn events(&mut self) -> Vec<gitbutler_watcher::Change> {
+            let Some(rx) = self.changes.as_ref() else {
                 return Vec::new();
             };
             let mut out = Vec::new();

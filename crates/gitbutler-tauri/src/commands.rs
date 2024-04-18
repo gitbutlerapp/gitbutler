@@ -166,7 +166,7 @@ pub async fn project_flush_and_push(handle: tauri::AppHandle, id: ProjectId) -> 
     {
         let watcher = handle.state::<watcher::Watchers>();
         watcher
-            .post(watcher::Event::Flush(id, current_session))
+            .post(gitbutler_watcher::Action::Flush(id, current_session))
             .await
             .context("failed to post flush event")?;
     }

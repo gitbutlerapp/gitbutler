@@ -3,8 +3,8 @@ use std::{collections::HashMap, path::PathBuf};
 use anyhow::Result;
 use gitbutler_core::{git, project_repository::LogUntil, projects};
 
-use crate::watcher::handler::support::Fixture;
-use crate::watcher::handler::test_remote_repository;
+use crate::handler::support::Fixture;
+use crate::handler::test_remote_repository;
 use gitbutler_testsupport::{virtual_branches::set_test_target, Case};
 
 fn log_walk(repo: &git2::Repository, head: git::Oid) -> Vec<git::Oid> {

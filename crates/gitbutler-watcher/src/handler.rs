@@ -14,12 +14,12 @@ use gitbutler_core::{
     assets, deltas, gb_repository, git, project_repository, projects, reader, sessions, users,
     virtual_branches,
 };
-use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
-use super::events;
-use crate::{analytics, events as app_events};
+use super::{events, Change};
 
+/// A type that contains enough state to make decisions based on changes in the filesystem, which themselves
+/// may trigger [Changes](Change)
 // NOTE: This is `Clone` as each incoming event is spawned onto a thread for processing.
 #[derive(Clone)]
 pub struct Handler {
@@ -29,7 +29,7 @@ pub struct Handler {
     // the tauri app, assuming that such application would not be `Send + Sync` everywhere and thus would
     // need extra protection.
     users: users::Controller,
-    analytics: analytics::Client,
+    analytics: gitbutler_analytics::Client,
     local_data_dir: path::PathBuf,
     projects: projects::Controller,
     vbranch_controller: virtual_branches::Controller,
@@ -39,42 +39,7 @@ pub struct Handler {
 
     /// A function to send events - decoupled from app-handle for testing purposes.
     #[allow(clippy::type_complexity)]
-    send_event: Arc<dyn Fn(&crate::events::Event) -> Result<()> + Send + Sync + 'static>,
-}
-
-impl Handler {
-    pub fn from_app(app: &AppHandle) -> Result<Self, anyhow::Error> {
-        let app_data_dir = app
-            .path_resolver()
-            .app_data_dir()
-            .context("failed to get app data dir")?;
-        let analytics = app
-            .try_state::<analytics::Client>()
-            .map_or(analytics::Client::default(), |client| {
-                client.inner().clone()
-            });
-        let users = app.state::<users::Controller>().inner().clone();
-        let projects = app.state::<projects::Controller>().inner().clone();
-        let vbranches = app.state::<virtual_branches::Controller>().inner().clone();
-        let assets_proxy = app.state::<assets::Proxy>().inner().clone();
-        let sessions_db = app.state::<sessions::Database>().inner().clone();
-        let deltas_db = app.state::<deltas::Database>().inner().clone();
-
-        Ok(Handler::new(
-            app_data_dir.clone(),
-            analytics,
-            users,
-            projects,
-            vbranches,
-            assets_proxy,
-            sessions_db,
-            deltas_db,
-            {
-                let app = app.clone();
-                move |event: &crate::events::Event| event.send(&app)
-            },
-        ))
-    }
+    send_event: Arc<dyn Fn(Change) -> Result<()> + Send + Sync + 'static>,
 }
 
 impl Handler {
@@ -82,14 +47,14 @@ impl Handler {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         local_data_dir: PathBuf,
-        analytics: analytics::Client,
+        analytics: gitbutler_analytics::Client,
         users: users::Controller,
         projects: projects::Controller,
         vbranch_controller: virtual_branches::Controller,
         assets_proxy: assets::Proxy,
         sessions_db: sessions::Database,
         deltas_db: deltas::Database,
-        send_event: impl Fn(&crate::events::Event) -> Result<()> + Send + Sync + 'static,
+        send_event: impl Fn(Change) -> Result<()> + Send + Sync + 'static,
     ) -> Self {
         Handler {
             local_data_dir,
@@ -144,7 +109,7 @@ impl Handler {
 }
 
 impl Handler {
-    fn emit_app_event(&self, event: &crate::events::Event) -> Result<()> {
+    fn emit_app_event(&self, event: Change) -> Result<()> {
         (self.send_event)(event).context("failed to send event")
     }
 
@@ -153,16 +118,16 @@ impl Handler {
         project_id: ProjectId,
         session_id: SessionId,
         file_path: &Path,
-        contents: Option<&reader::Content>,
+        contents: Option<reader::Content>,
     ) -> Result<()> {
-        self.emit_app_event(&app_events::Event::file(
+        self.emit_app_event(Change::File {
             project_id,
             session_id,
-            &file_path.display().to_string(),
+            file_path: file_path.display().to_string(),
             contents,
-        ))
+        })
     }
-    fn send_analytics_event_none_blocking(&self, event: &analytics::Event) -> Result<()> {
+    fn send_analytics_event_none_blocking(&self, event: &gitbutler_analytics::Event) -> Result<()> {
         if let Some(user) = self.users.get_user().context("failed to get user")? {
             self.analytics
                 .send_non_anonymous_event_nonblocking(&user, event);
@@ -193,7 +158,7 @@ impl Handler {
             .flush_session(&project_repository, session, user.as_ref())
             .context(format!("failed to flush session {}", session.id))?;
 
-        self.index_session(project_id, &session)?;
+        self.index_session(project_id, session)?;
 
         let push_gb_data = tokio::task::spawn_blocking({
             let this = self.clone();
@@ -213,13 +178,13 @@ impl Handler {
         {
             Ok((branches, skipped_files)) => {
                 let branches = self.assets_proxy.proxy_virtual_branches(branches).await;
-                self.emit_app_event(&app_events::Event::virtual_branches(
+                self.emit_app_event(Change::VirtualBranches {
                     project_id,
-                    &VirtualBranches {
+                    virtual_branches: VirtualBranches {
                         branches,
                         skipped_files,
                     },
-                ))
+                })
             }
             Err(err) if err.is::<virtual_branches::errors::VerifyError>() => Ok(()),
             Err(err) => Err(err.context("failed to list virtual branches").into()),
@@ -314,7 +279,7 @@ impl Handler {
         let sessions_after_fetch = gb_repo.get_sessions_iterator()?.filter_map(Result::ok);
         let new_sessions = sessions_after_fetch.filter(|s| !sessions_before_fetch.contains(s));
         for session in new_sessions {
-            self.index_session(project_id, &session)?;
+            self.index_session(project_id, session)?;
         }
         Ok(())
     }
@@ -358,11 +323,11 @@ impl Handler {
             };
             match file_name {
                 "FETCH_HEAD" => {
-                    self.emit_app_event(&app_events::Event::git_fetch(project_id))?;
+                    self.emit_app_event(Change::GitFetch(project_id))?;
                     self.calculate_virtual_branches(project_id).await?;
                 }
                 "logs/HEAD" => {
-                    self.emit_app_event(&app_events::Event::git_activity(project.id))?;
+                    self.emit_app_event(Change::GitActivity(project.id))?;
                 }
                 "GB_FLUSH" => {
                     let user = self.users.get_user()?;
@@ -404,18 +369,20 @@ impl Handler {
                         integration_reference.delete()?;
                     }
                     if let Some(head) = head_ref.name() {
-                        self.send_analytics_event_none_blocking(&analytics::Event::HeadChange {
+                        self.send_analytics_event_none_blocking(
+                            &gitbutler_analytics::Event::HeadChange {
+                                project_id,
+                                reference_name: head_ref_name.to_string(),
+                            },
+                        )?;
+                        self.emit_app_event(Change::GitHead {
                             project_id,
-                            reference_name: head_ref_name.to_string(),
+                            head: head.to_string(),
                         })?;
-                        self.emit_app_event(&app_events::Event::git_head(
-                            project_id,
-                            &head.to_string(),
-                        ))?;
                     }
                 }
                 "index" => {
-                    self.emit_app_event(&app_events::Event::git_index(project.id))?;
+                    self.emit_app_event(Change::GitIndex(project.id))?;
                 }
                 _ => {}
             }

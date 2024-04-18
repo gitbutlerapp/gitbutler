@@ -478,7 +478,9 @@ pub mod commands {
     async fn emit_vbranches(handle: &AppHandle, project_id: &projects::ProjectId) {
         if let Err(error) = handle
             .state::<watcher::Watchers>()
-            .post(watcher::Event::CalculateVirtualBranches(*project_id))
+            .post(gitbutler_watcher::Action::CalculateVirtualBranches(
+                *project_id,
+            ))
             .await
         {
             tracing::error!(?error);

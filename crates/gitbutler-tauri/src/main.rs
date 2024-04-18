@@ -18,8 +18,8 @@ use std::path::PathBuf;
 use anyhow::Context;
 use gitbutler_core::{assets, database, git, storage};
 use gitbutler_tauri::{
-    analytics, app, askpass, commands, deltas, github, keys, logs, menu, projects, sentry,
-    sessions, users, virtual_branches, watcher, zip,
+    app, askpass, commands, deltas, github, keys, logs, menu, projects, sentry, sessions, users,
+    virtual_branches, watcher, zip,
 };
 use tauri::{generate_context, Manager, Wry};
 use tauri_plugin_log::LogTarget;
@@ -162,15 +162,15 @@ fn main() {
                         }) {
                             if metrics_enabled {
                                 let analytics_cfg = if cfg!(debug_assertions) {
-                                    analytics::Config {
+                                    gitbutler_analytics::Config {
                                         posthog_token: Some("phc_t7VDC9pQELnYep9IiDTxrq2HLseY5wyT7pn0EpHM7rr"),
                                     }
                                 } else {
-                                    analytics::Config {
+                                    gitbutler_analytics::Config {
                                         posthog_token: Some("phc_yJx46mXv6kA5KTuM2eEQ6IwNTgl5YW3feKV5gi7mfGG"),
                                     }
                                 };
-                                let analytics_client = analytics::Client::new(&app_handle, &analytics_cfg);
+                                let analytics_client = gitbutler_analytics::Client::new(app_handle.package_info().name.clone(), app_handle.package_info().version.to_string(), &analytics_cfg);
                                 tauri_app.manage(analytics_client);
                             }
 
