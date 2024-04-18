@@ -100,7 +100,8 @@ impl LineSpan {
         }
 
         start_offset.map(|start_offset| {
-            let end_offset = end_offset.map_or_else(|| text.len(), |i| if i > text.len() { i - 1 } else { i });
+            let end_offset =
+                end_offset.map_or_else(|| text.len(), |i| if i > text.len() { i - 1 } else { i });
             (&text[start_offset..end_offset], start_offset, end_offset)
         })
     }

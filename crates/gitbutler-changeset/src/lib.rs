@@ -43,7 +43,11 @@
 //! [GitButler organization](https://github.com/gitbutlerapp)
 //! or the [GitButler website](https://gitbutler.com).
 #![deny(missing_docs)]
-#![allow(clippy::doc_markdown, clippy::missing_errors_doc)]
+#![allow(
+    clippy::doc_markdown,
+    clippy::missing_errors_doc,
+    clippy::module_name_repetitions
+)]
 #![feature(slice_as_chunks)]
 
 pub(crate) mod diff;

@@ -7,6 +7,9 @@ pub trait RangeIntersection<T>: RangeBounds<T>
 where
     T: Ord + Copy,
 {
+    // NOTE(qix-): These match statements kept intentionally 'verbose'
+    // NOTE(qix-): as the alternative makes it almost entirely unreadable.
+    #[allow(clippy::unnested_or_patterns, clippy::match_same_arms)]
     fn intersection<U: RangeBounds<T>>(&self, other: &U) -> Option<Range<T>> {
         let start = match (self.start_bound(), other.start_bound()) {
             (Included(a), Included(b)) => a.max(b),

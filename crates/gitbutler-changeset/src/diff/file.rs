@@ -225,8 +225,7 @@ trait BoundTags {
 impl BoundTags for Bound<&TaggedBound> {
     unsafe fn tag(&self) -> usize {
         match self {
-            Included(bound) => bound.tag,
-            Excluded(bound) => bound.tag,
+            Included(bound) | Excluded(bound) => bound.tag,
             Unbounded => unreachable!(),
         }
     }
