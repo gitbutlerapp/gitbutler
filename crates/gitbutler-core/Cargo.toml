@@ -43,7 +43,7 @@ ssh-key = { version = "0.6.5", features = [ "alloc", "ed25519" ] }
 ssh2 = { version = "0.9.4", features = ["vendored-openssl"] }
 log = "^0.4"
 thiserror.workspace = true
-tokio = { workspace = true, features = [ "rt-multi-thread" ] }
+tokio = { workspace = true, features = [ "rt-multi-thread", "rt", "macros" ] }
 tracing = "0.1.40"
 url = { version = "2.5", features = ["serde"] }
 urlencoding = "2.1.3"
