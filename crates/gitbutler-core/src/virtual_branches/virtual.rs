@@ -1478,7 +1478,6 @@ pub fn update_branch(
 }
 
 pub fn delete_branch(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
 ) -> Result<(), Error> {
