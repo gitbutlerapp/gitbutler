@@ -3489,7 +3489,6 @@ pub fn move_commit(
 }
 
 pub fn create_virtual_branch_from_branch(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     upstream: &git::Refname,
     signing_key: Option<&keys::PrivateKey>,

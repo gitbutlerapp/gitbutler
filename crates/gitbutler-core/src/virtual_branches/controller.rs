@@ -536,7 +536,7 @@ impl ControllerInner {
     ) -> Result<BranchId, Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
+        self.with_verify_branch(project_id, |_, project_repository, user| {
             let signing_key = project_repository
                 .config()
                 .sign_commits()
@@ -549,7 +549,6 @@ impl ControllerInner {
                 .transpose()?;
 
             Ok(super::create_virtual_branch_from_branch(
-                gb_repository,
                 project_repository,
                 branch,
                 signing_key.as_ref(),
