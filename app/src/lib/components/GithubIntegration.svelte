@@ -113,6 +113,7 @@
 	on:close={() => {
 		codeCopied = false;
 		GhActivationLinkPressed = false;
+		GhActivationPageOpened = false;
 	}}
 >
 	<div class="wrapper">
@@ -145,16 +146,15 @@
 			<div class="step-section" transition:fade>
 				<div class="step-line step-line-default" />
 				<div class="step-section__content">
-					<p class="text-base-body-13">Copy the following verification code:</p>
+					<p class="text-base-body-13">
+						Navigate to the GitHub activation page and paste the code you copied.
+					</p>
 					<Button
 						style="pop"
 						kind="solid"
 						disabled={GhActivationLinkPressed}
 						icon="open-link"
-						on:click={(e) => {
-							e.preventDefault();
-							e.stopPropagation();
-
+						on:click={() => {
 							openExternalUrl('https://github.com/login/device');
 							GhActivationLinkPressed = true;
 
@@ -211,7 +211,6 @@
 			& .step-section__content {
 				border-bottom: none;
 				margin-bottom: 0;
-				/* padding-bottom: var(--size-12); */
 			}
 		}
 
