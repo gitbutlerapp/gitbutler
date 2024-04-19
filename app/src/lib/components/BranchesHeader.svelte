@@ -18,7 +18,7 @@
 
 <div class="header">
 	<div class="branches-title">
-		<span class="text-base-14 text-semibold">Branches</span>
+		<span class="text-base-14 text-bold">Branches</span>
 
 		{#if count !== undefined}
 			<Badge {count} />

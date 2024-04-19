@@ -117,6 +117,15 @@
 
 	.section-card__text {
 		color: var(--clr-scale-ntrl-30);
+
+		/* if empty hide the caption */
+		&:empty {
+			display: none;
+		}
+	}
+
+	.section-card__actions {
+		display: flex;
 	}
 
 	/* MODIFIERS */

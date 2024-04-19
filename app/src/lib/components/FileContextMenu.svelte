@@ -108,7 +108,7 @@
 		Discarding changes to the following files:
 		<ul class="file-list">
 			{#each item.files as file}
-				<li><code>{file.path}</code></li>
+				<li><code class="code-string">{file.path}</code></li>
 			{/each}
 		</ul>
 	</div>
