@@ -2221,7 +2221,6 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 
 #[allow(clippy::too_many_arguments)]
 pub fn commit(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     message: &str,

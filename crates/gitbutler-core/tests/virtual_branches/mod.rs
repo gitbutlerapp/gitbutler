@@ -61,7 +61,6 @@ fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
 
     // commit
     commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "test commit",
@@ -123,7 +122,6 @@ fn signed_commit() -> Result<()> {
 
     // commit
     commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "test commit",
@@ -211,7 +209,6 @@ fn track_binary_files() -> Result<()> {
 
     // commit
     commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "test commit",
@@ -241,7 +238,6 @@ fn track_binary_files() -> Result<()> {
 
     // commit
     commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "test commit",
@@ -1019,7 +1015,6 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
 
     // commit the merge resolution
     commit(
-        gb_repository,
         project_repository,
         &branch1.id,
         "fix merge conflict",
@@ -1537,7 +1532,6 @@ fn upstream_integrated_vbranch() -> Result<()> {
 
     // create a new virtual branch from the remote branch
     commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "integrated commit",
@@ -1547,7 +1541,6 @@ fn upstream_integrated_vbranch() -> Result<()> {
         false,
     )?;
     commit(
-        gb_repository,
         project_repository,
         &branch2_id,
         "non-integrated commit",
@@ -1610,7 +1603,6 @@ fn commit_same_hunk_twice() -> Result<()> {
 
     // commit
     commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "first commit to test.txt",
@@ -1647,7 +1639,6 @@ fn commit_same_hunk_twice() -> Result<()> {
     assert_eq!(branch.commits.len(), 1, "commit is still there");
 
     commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "second commit to test.txt",
@@ -1708,7 +1699,6 @@ fn commit_same_file_twice() -> Result<()> {
 
     // commit
     commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "first commit to test.txt",
@@ -1745,7 +1735,6 @@ fn commit_same_file_twice() -> Result<()> {
     assert_eq!(branch.commits.len(), 1, "commit is still there");
 
     commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "second commit to test.txt",
@@ -1806,7 +1795,6 @@ fn commit_partial_by_hunk() -> Result<()> {
 
     // commit
     commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "first commit to test.txt",
@@ -1826,7 +1814,6 @@ fn commit_partial_by_hunk() -> Result<()> {
     assert_eq!(branch.commits[0].files[0].hunks.len(), 1);
 
     commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "second commit to test.txt",
@@ -1887,7 +1874,6 @@ fn commit_partial_by_file() -> Result<()> {
 
     // commit
     commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "branch1 commit",
@@ -1957,7 +1943,6 @@ fn commit_add_and_delete_files() -> Result<()> {
 
     // commit
     commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "branch1 commit",
@@ -2025,7 +2010,6 @@ fn commit_executable_and_symlinks() -> Result<()> {
 
     // commit
     commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "branch1 commit",
@@ -2208,7 +2192,6 @@ fn pre_commit_hook_rejection() -> Result<()> {
     );
 
     let res = commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "test commit",
@@ -2275,7 +2258,6 @@ fn post_commit_hook() -> Result<()> {
     assert!(!hook_ran_proof.exists());
 
     commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "test commit",
@@ -2326,7 +2308,6 @@ fn commit_msg_hook_rejection() -> Result<()> {
     );
 
     let res = commit(
-        gb_repository,
         project_repository,
         &branch1_id,
         "test commit",
