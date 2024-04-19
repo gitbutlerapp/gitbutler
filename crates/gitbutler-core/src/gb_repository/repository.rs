@@ -20,7 +20,7 @@ use crate::{
     reader,
     sessions::{self, SessionId},
     users,
-    virtual_branches::{self, target, VirtualBranchesHandle},
+    virtual_branches::{target, VirtualBranchesHandle},
 };
 
 pub struct Repository {
@@ -243,78 +243,43 @@ impl Repository {
 
     // take branches from the last session and put them into the current session
     fn copy_branches(&self) -> Result<()> {
-        let last_session = self
-            .get_sessions_iterator()
-            .context("failed to get sessions iterator")?
-            .next();
-        if last_session.is_none() {
-            return Ok(());
-        }
-        let last_session = last_session
-            .unwrap()
-            .context("failed to read last session")?;
-        let last_session_reader = sessions::Reader::open(self, &last_session)
-            .context("failed to open last session reader")?;
+        let vb_state = VirtualBranchesHandle::new(&self.project.gb_dir());
 
-        let branches = virtual_branches::Iterator::new(
-            &last_session_reader,
-            VirtualBranchesHandle::new(&self.project.gb_dir()),
-            self.project.use_toml_vbranches_state(),
-        )
-        .context("failed to read virtual branches")?
-        .collect::<Result<Vec<_>, reader::Error>>()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .collect::<Vec<_>>();
-
-        let src_target_reader = virtual_branches::target::Reader::new(
-            &last_session_reader,
-            VirtualBranchesHandle::new(&self.project.gb_dir()),
-            self.project.use_toml_vbranches_state(),
-        );
-        let dst_target_writer = virtual_branches::target::Writer::new(
-            self,
-            VirtualBranchesHandle::new(&self.project.gb_dir()),
-        )
-        .context("failed to open target writer for current session")?;
+        let branches = vb_state
+            .list_branches()
+            .context("failed to read virtual branches")?;
 
         // copy default target
-        let default_target = match src_target_reader.read_default() {
+        let default_target = match vb_state.get_default_target() {
             Result::Ok(target) => Ok(Some(target)),
             Err(reader::Error::NotFound) => Ok(None),
             Err(err) => Err(err).context("failed to read default target"),
         }?;
-        if let Some(default_target) = default_target.as_ref() {
-            dst_target_writer
-                .write_default(default_target)
+        if let Some(default_target) = default_target.clone() {
+            vb_state
+                .set_default_target(default_target)
                 .context("failed to write default target")?;
         }
 
         // copy branch targets
         for branch in &branches {
-            let target = src_target_reader
-                .read(&branch.id)
+            let target = vb_state
+                .get_branch_target(&branch.id)
                 .with_context(|| format!("{}: failed to read target", branch.id))?;
-            if let Some(default_target) = default_target.as_ref() {
-                if *default_target == target {
+            if let Some(default_target) = default_target.clone() {
+                if default_target == target {
                     continue;
                 }
             }
-            dst_target_writer
-                .write(&branch.id, &target)
+            vb_state
+                .set_branch_target(branch.id, target)
                 .with_context(|| format!("{}: failed to write target", branch.id))?;
         }
 
-        let dst_branch_writer = virtual_branches::branch::Writer::new(
-            self,
-            VirtualBranchesHandle::new(&self.project.gb_dir()),
-        )
-        .context("failed to open branch writer for current session")?;
-
         // copy branches that we don't already have
         for branch in &branches {
-            dst_branch_writer
-                .write(&mut branch.clone())
+            vb_state
+                .set_branch(branch.clone())
                 .with_context(|| format!("{}: failed to write branch", branch.id))?;
         }
 
@@ -542,21 +507,11 @@ impl Repository {
     }
 
     pub fn default_target(&self) -> Result<Option<target::Target>> {
-        if let Some(latest_session) = self.get_latest_session()? {
-            let latest_session_reader = sessions::Reader::open(self, &latest_session)
-                .context("failed to open current session")?;
-            let target_reader = target::Reader::new(
-                &latest_session_reader,
-                VirtualBranchesHandle::new(&self.project.gb_dir()),
-                self.project.use_toml_vbranches_state(),
-            );
-            match target_reader.read_default() {
-                Result::Ok(target) => Ok(Some(target)),
-                Err(reader::Error::NotFound) => Ok(None),
-                Err(err) => Err(err.into()),
-            }
-        } else {
-            Ok(None)
+        let vb_state = VirtualBranchesHandle::new(&self.project.gb_dir());
+        match vb_state.get_default_target() {
+            Result::Ok(target) => Ok(Some(target)),
+            Err(reader::Error::NotFound) => Ok(None),
+            Err(err) => Err(err.into()),
         }
     }
 
