@@ -741,7 +741,6 @@ fn find_base_tree<'a>(
 }
 
 pub fn list_virtual_branches(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<(Vec<VirtualBranch>, Vec<diff::FileDiff>), errors::ListVirtualBranchesError> {
     let mut branches: Vec<VirtualBranch> = Vec::new();

@@ -512,8 +512,8 @@ impl ControllerInner {
     ) -> Result<(Vec<super::VirtualBranch>, Vec<git::diff::FileDiff>), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            super::list_virtual_branches(gb_repository, project_repository).map_err(Into::into)
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::list_virtual_branches(project_repository).map_err(Into::into)
         })
     }
 
