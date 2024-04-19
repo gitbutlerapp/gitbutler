@@ -540,9 +540,8 @@ impl ControllerInner {
     ) -> Result<BranchId, Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            let branch_id =
-                super::create_virtual_branch(gb_repository, project_repository, create)?.id;
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            let branch_id = super::create_virtual_branch(project_repository, create)?.id;
             Ok(branch_id)
         })
     }

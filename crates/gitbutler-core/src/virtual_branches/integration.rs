@@ -241,7 +241,6 @@ fn verify_head_is_clean(
         .context("failed to reset to integration commit")?;
 
     let mut new_branch = super::create_virtual_branch(
-        gb_repository,
         project_repository,
         &BranchCreateRequest {
             name: extra_commits

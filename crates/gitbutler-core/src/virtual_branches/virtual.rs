@@ -1076,7 +1076,6 @@ fn commit_to_vbranch_commit(
 }
 
 pub fn create_virtual_branch(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     create: &BranchCreateRequest,
 ) -> Result<branch::Branch, errors::CreateVirtualBranchError> {
@@ -1755,12 +1754,11 @@ fn get_applied_status(
 
     if virtual_branches.is_empty() && !base_diffs.is_empty() {
         // no virtual branches, but hunks: create default branch
-        virtual_branches = vec![create_virtual_branch(
-            gb_repository,
-            project_repository,
-            &BranchCreateRequest::default(),
-        )
-        .context("failed to create default branch")?];
+        virtual_branches =
+            vec![
+                create_virtual_branch(project_repository, &BranchCreateRequest::default())
+                    .context("failed to create default branch")?,
+            ];
     }
 
     // align branch ownership to the real hunks:
