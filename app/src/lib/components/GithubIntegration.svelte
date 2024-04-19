@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
-	import Link from './Link.svelte';
 	import { checkAuthStatus, initDeviceOauth } from '$lib/backend/github';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -10,6 +9,8 @@
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
+	import { openExternalUrl } from '$lib/utils/url';
+	import { fade } from 'svelte/transition';
 
 	export let minimal = false;
 	export let disabled = false;
@@ -18,6 +19,11 @@
 	const userService = getContext(UserService);
 	const user = userService.user;
 
+	// step flags
+	let codeCopied = false;
+	let GhActivationLinkPressed = false;
+	let GhActivationPageOpened = false;
+	//
 	let loading = false;
 	let userCode = '';
 	let deviceCode = '';
@@ -46,8 +52,8 @@
 			console.error(err);
 			toasts.error('GitHub authentication failed');
 		} finally {
-			loading = false;
 			gitHubOauthModal.close();
+			loading = false;
 		}
 	}
 
@@ -100,10 +106,19 @@
 	</SectionCard>
 {/if}
 
-<Modal bind:this={gitHubOauthModal} width="small" title="Authorize with GitHub">
+<Modal
+	bind:this={gitHubOauthModal}
+	width="small"
+	title="Authorize with GitHub"
+	on:close={() => {
+		codeCopied = false;
+		GhActivationLinkPressed = false;
+		GhActivationPageOpened = false;
+	}}
+>
 	<div class="wrapper">
 		<div class="step-section">
-			<div class="step-default" />
+			<div class="step-line" />
 			<div class="step-section__content">
 				<p class="text-base-body-13">Copy the following verification code:</p>
 
@@ -112,11 +127,14 @@
 						{userCode}
 					</span>
 					<Button
-						style="pop"
-						kind="solid"
-						{disabled}
+						style="neutral"
+						kind="soft"
 						icon="copy"
-						on:click={() => copyToClipboard(userCode)}
+						disabled={codeCopied}
+						on:click={() => {
+							copyToClipboard(userCode);
+							codeCopied = true;
+						}}
 					>
 						Copy to Clipboard
 					</Button>
@@ -124,41 +142,52 @@
 			</div>
 		</div>
 
-		<div class="step-section">
-			<div class="step-default" />
-			<div class="step-section__content">
-				<p class="text-base-body-13">
-					Go to the <Link href="https://github.com/login/device" target="_blank"
-						>GitHub activation page</Link
+		{#if codeCopied}
+			<div class="step-section" transition:fade>
+				<div class="step-line step-line-default" />
+				<div class="step-section__content">
+					<p class="text-base-body-13">
+						Navigate to the GitHub activation page and paste the code you copied.
+					</p>
+					<Button
+						style="pop"
+						kind="solid"
+						disabled={GhActivationLinkPressed}
+						icon="open-link"
+						on:click={() => {
+							openExternalUrl('https://github.com/login/device');
+							GhActivationLinkPressed = true;
+
+							// add timeout to prevent show the check button before the page is opened
+							setTimeout(() => {
+								GhActivationPageOpened = true;
+							}, 500);
+						}}
 					>
-				</p>
+						Open GitHub activation page
+					</Button>
+				</div>
 			</div>
-		</div>
+		{/if}
 
-		<div class="step-section">
-			<div class="step-default" />
-			<div class="step-section__content">
-				<p class="text-base-body-13">
-					Paste the code that you copied and follow the on-screen instructions.
-				</p>
+		{#if GhActivationPageOpened}
+			<div class="step-section" transition:fade>
+				<div class="step-line step-line-last" />
+				<div class="step-section__content">
+					<Button
+						style="pop"
+						kind="solid"
+						{loading}
+						disabled={loading}
+						on:click={async () => {
+							await gitHubOauthCheckStatus(deviceCode);
+						}}
+					>
+						Check the status
+					</Button>
+				</div>
 			</div>
-		</div>
-
-		<div class="step-section">
-			<div class="step-last" />
-			<div class="step-section__content">
-				<Button
-					style="pop"
-					kind="solid"
-					{loading}
-					on:click={async () => {
-						await gitHubOauthCheckStatus(deviceCode);
-					}}
-				>
-					Check the status and close
-				</Button>
-			</div>
-		</div>
+		{/if}
 	</div>
 </Modal>
 
@@ -166,6 +195,11 @@
 	.wrapper {
 		display: flex;
 		flex-direction: column;
+		margin-bottom: var(--size-8);
+	}
+
+	.disabled-step {
+		opacity: 0.4;
 	}
 
 	.step-section {
@@ -177,7 +211,14 @@
 			& .step-section__content {
 				border-bottom: none;
 				margin-bottom: 0;
-				padding-bottom: var(--size-12);
+			}
+		}
+
+		&:first-child {
+			& .step-section__content {
+				&::before {
+					display: none;
+				}
 			}
 		}
 	}
@@ -185,19 +226,31 @@
 	.step-section__content {
 		display: flex;
 		flex-direction: column;
+		align-items: flex-start;
 		width: 100%;
 		gap: var(--size-12);
 		margin-left: var(--size-8);
-		padding-bottom: var(--size-20);
-		margin-bottom: var(--size-20);
-		border-bottom: 1px solid var(--clr-border-main);
+		margin-bottom: var(--size-12);
+
+		&:before {
+			content: '';
+			display: block;
+			width: 100%;
+			height: 1px;
+			background-color: var(--clr-scale-ntrl-60);
+			margin-top: var(--size-8);
+			margin-bottom: var(--size-6);
+			opacity: 0.4;
+		}
 	}
 
-	.step-default {
+	/* STEP LINES */
+
+	.step-line {
 		position: relative;
 		width: 1px;
+		margin-top: var(--size-4);
 		border-right: 1px dashed var(--clr-scale-ntrl-60);
-		margin-top: var(--size-4);
 
 		&::before {
 			content: '';
@@ -211,22 +264,23 @@
 		}
 	}
 
-	.step-last {
-		position: relative;
-		width: 1px;
-		margin-top: var(--size-4);
+	.step-line-default {
+		border-right: 1px dashed var(--clr-scale-ntrl-60);
 
 		&::before {
-			content: '';
-			position: absolute;
-			left: 50%;
-			transform: translateX(-50%);
-			width: var(--size-10);
-			height: var(--size-10);
-			background-color: var(--clr-scale-ntrl-60);
-			border-radius: 100%;
+			top: var(--size-28);
 		}
 	}
+
+	.step-line-last {
+		height: 1.875rem;
+
+		&::before {
+			top: 1.875rem;
+		}
+	}
+
+	/*  */
 
 	.icon-wrapper {
 		position: relative;
@@ -250,7 +304,8 @@
 		align-self: flex-start;
 		padding: var(--size-6) var(--size-6) var(--size-6) var(--size-8);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-alt);
+		background-color: var(--clr-bg);
+		border: 1px solid var(--clr-border-main);
 		user-select: text;
 	}
 </style>
