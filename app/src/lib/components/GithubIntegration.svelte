@@ -53,10 +53,7 @@
 			toasts.error('GitHub authentication failed');
 		} finally {
 			gitHubOauthModal.close();
-
 			loading = false;
-			codeCopied = false;
-			GhActivationLinkPressed = false;
 		}
 	}
 
