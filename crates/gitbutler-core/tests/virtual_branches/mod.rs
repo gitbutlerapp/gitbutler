@@ -14,7 +14,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use gitbutler_core::{
-    git, reader, sessions,
+    git,
     virtual_branches::{
         self, apply_branch,
         branch::{BranchCreateRequest, BranchOwnershipClaims},
@@ -262,7 +262,6 @@ fn create_branch_with_ownership() -> Result<()> {
     let Case {
         project,
         project_repository,
-        gb_repository,
         ..
     } = &suite.new_case();
 
@@ -276,14 +275,8 @@ fn create_branch_with_ownership() -> Result<()> {
 
     virtual_branches::get_status_by_branch(project_repository, None).expect("failed to get status");
 
-    let current_session = gb_repository.get_or_create_current_session().unwrap();
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session).unwrap();
-    let branch_reader = virtual_branches::branch::Reader::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    );
-    let branch0 = branch_reader.read(&branch0.id).unwrap();
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let branch0 = vb_state.get_branch(&branch0.id).unwrap();
 
     let branch1 = create_virtual_branch(
         project_repository,
@@ -314,9 +307,7 @@ fn create_branch_with_ownership() -> Result<()> {
 fn create_branch_in_the_middle() -> Result<()> {
     let suite = Suite::default();
     let Case {
-        project_repository,
-        gb_repository,
-        ..
+        project_repository, ..
     } = &suite.new_case();
 
     set_test_target(project_repository)?;
@@ -334,16 +325,8 @@ fn create_branch_in_the_middle() -> Result<()> {
     )
     .expect("failed to create virtual branch");
 
-    let current_session = gb_repository.get_or_create_current_session()?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)?;
-
-    let mut branches = virtual_branches::Iterator::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    )?
-    .collect::<Result<Vec<virtual_branches::Branch>, reader::Error>>()
-    .expect("failed to read branches");
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let mut branches = vb_state.list_branches().expect("failed to read branches");
     branches.sort_by_key(|b| b.order);
     assert_eq!(branches.len(), 3);
     assert_eq!(branches[0].name, "Virtual branch");
@@ -357,9 +340,7 @@ fn create_branch_in_the_middle() -> Result<()> {
 fn create_branch_no_arguments() -> Result<()> {
     let suite = Suite::default();
     let Case {
-        project_repository,
-        gb_repository,
-        ..
+        project_repository, ..
     } = &suite.new_case();
 
     set_test_target(project_repository)?;
@@ -367,16 +348,8 @@ fn create_branch_no_arguments() -> Result<()> {
     create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch");
 
-    let current_session = gb_repository.get_or_create_current_session()?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)?;
-
-    let branches = virtual_branches::Iterator::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    )?
-    .collect::<Result<Vec<virtual_branches::branch::Branch>, reader::Error>>()
-    .expect("failed to read branches");
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let branches = vb_state.list_branches().expect("failed to read branches");
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].name, "Virtual branch");
     assert!(branches[0].applied);
@@ -519,7 +492,6 @@ fn move_hunks_multiple_sources() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([(
         PathBuf::from("test.txt"),
@@ -543,27 +515,17 @@ fn move_hunks_multiple_sources() -> Result<()> {
         "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
     )?;
 
-    let current_session = gb_repository.get_or_create_current_session()?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)?;
-    let branch_reader = virtual_branches::branch::Reader::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    );
-    let branch_writer = virtual_branches::branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project.gb_dir()),
-    )?;
-    let mut branch2 = branch_reader.read(&branch2_id)?;
+    let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
+    let mut branch2 = vb_state.get_branch(&branch2_id)?;
     branch2.ownership = BranchOwnershipClaims {
         claims: vec!["test.txt:1-5".parse()?],
     };
-    branch_writer.write(&mut branch2)?;
-    let mut branch1 = branch_reader.read(&branch1_id)?;
+    vb_state.set_branch(branch2.clone())?;
+    let mut branch1 = vb_state.get_branch(&branch1_id)?;
     branch1.ownership = BranchOwnershipClaims {
         claims: vec!["test.txt:11-15".parse()?],
     };
-    branch_writer.write(&mut branch1)?;
+    vb_state.set_branch(branch1.clone())?;
 
     let statuses = virtual_branches::get_status_by_branch(project_repository, None)
         .expect("failed to get status")
@@ -757,7 +719,6 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case();
 
@@ -829,16 +790,12 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     std::fs::write(Path::new(&project.path).join(file_path2), "file2\n")?;
 
     let remote_branch: git::RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
-    let branch_writer = virtual_branches::branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project.gb_dir()),
-    )?;
     let mut branch = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
     branch.head = last_push;
-    branch_writer
-        .write(&mut branch)
+    vb_state
+        .set_branch(branch.clone())
         .context("failed to write target branch after push")?;
 
     // create the branch
@@ -878,7 +835,6 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case();
 
@@ -952,16 +908,12 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
     )?;
 
     let remote_branch: git::RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
-    let branch_writer = virtual_branches::branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project.gb_dir()),
-    )?;
     let mut branch = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
     branch.head = last_push;
-    branch_writer
-        .write(&mut branch)
+    vb_state
+        .set_branch(branch.clone())
         .context("failed to write target branch after push")?;
 
     // create the branch
@@ -1255,18 +1207,6 @@ fn detect_mergeable_branch() -> Result<()> {
         .expect("failed to create virtual branch")
         .id;
 
-    let current_session = gb_repository.get_or_create_current_session()?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)?;
-    let branch_reader = virtual_branches::branch::Reader::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    );
-    let branch_writer = virtual_branches::branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project.gb_dir()),
-    )?;
-
     update_branch(
         project_repository,
         virtual_branches::branch::BranchUpdateRequest {
@@ -1357,11 +1297,13 @@ fn detect_mergeable_branch() -> Result<()> {
         "line1\nline2\nline3\nline4\nbranch4\n",
     )?;
 
-    let mut branch4 = branch_reader.read(&branch4_id)?;
+    let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
+
+    let mut branch4 = vb_state.get_branch(&branch4_id)?;
     branch4.ownership = BranchOwnershipClaims {
         claims: vec!["test2.txt:1-6".parse()?],
     };
-    branch_writer.write(&mut branch4)?;
+    vb_state.set_branch(branch4.clone())?;
 
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
     assert_eq!(branches.len(), 4);

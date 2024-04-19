@@ -16,9 +16,6 @@ pub use base::*;
 pub mod controller;
 pub use controller::Controller;
 
-mod iterator;
-pub use iterator::BranchIterator as Iterator;
-
 mod r#virtual;
 pub use r#virtual::*;
 

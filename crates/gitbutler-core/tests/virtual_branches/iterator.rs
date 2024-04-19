@@ -69,22 +69,12 @@ fn new_test_target() -> virtual_branches::target::Target {
 #[test]
 fn empty_iterator() -> Result<()> {
     let suite = Suite::default();
-    let Case {
-        gb_repository,
-        project,
-        ..
-    } = &suite.new_case();
+    let Case { project, .. } = &suite.new_case();
 
-    let session = gb_repository.get_or_create_current_session()?;
-    let session_reader = gitbutler_core::sessions::Reader::open(gb_repository, &session)?;
+    let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
+    let iter = vb_state.list_branches()?;
 
-    let iter = virtual_branches::Iterator::new(
-        &session_reader,
-        VirtualBranchesHandle::new(&project.gb_dir()),
-        project.use_toml_vbranches_state(),
-    )?;
-
-    assert_eq!(iter.count(), 0);
+    assert_eq!(iter.len(), 0);
 
     Ok(())
 }
