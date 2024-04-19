@@ -475,7 +475,6 @@ pub fn unapply_ownership(
         super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     let (applied_statuses, _) = get_applied_status(
-        gb_repository,
         project_repository,
         &integration_commit,
         &default_target.sha,
@@ -652,7 +651,6 @@ pub fn unapply_branch(
             super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
         let (applied_statuses, _) = get_applied_status(
-            gb_repository,
             project_repository,
             &integration_commit,
             &default_target.sha,
@@ -1665,7 +1663,6 @@ pub fn get_status_by_branch(
         .collect::<Vec<_>>();
 
     let (applied_status, skipped_files) = get_applied_status(
-        gb_repository,
         project_repository,
         // TODO: Keep this optional or update lots of tests?
         integration_commit.unwrap_or(&default_target.sha),
@@ -1731,7 +1728,6 @@ fn get_non_applied_status(
 //
 // ownerships are updated if nessessary
 fn get_applied_status(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     integration_commit: &git::Oid,
     target_sha: &git::Oid,
@@ -2706,7 +2702,6 @@ pub fn amend(
         super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     let (mut applied_statuses, _) = get_applied_status(
-        gb_repository,
         project_repository,
         &integration_commit,
         &default_target.sha,
@@ -2863,7 +2858,6 @@ pub fn cherry_pick(
         super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     let (applied_statuses, _) = get_applied_status(
-        gb_repository,
         project_repository,
         &integration_commit,
         &default_target.sha,
@@ -3394,7 +3388,6 @@ pub fn move_commit(
         super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     let (mut applied_statuses, _) = get_applied_status(
-        gb_repository,
         project_repository,
         &integration_commit,
         &default_target.sha,
