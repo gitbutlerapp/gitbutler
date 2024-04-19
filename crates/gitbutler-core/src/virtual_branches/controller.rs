@@ -811,9 +811,8 @@ impl ControllerInner {
     ) -> Result<Option<git::Oid>, Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            super::cherry_pick(gb_repository, project_repository, branch_id, commit_oid)
-                .map_err(Into::into)
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::cherry_pick(project_repository, branch_id, commit_oid).map_err(Into::into)
         })
     }
 

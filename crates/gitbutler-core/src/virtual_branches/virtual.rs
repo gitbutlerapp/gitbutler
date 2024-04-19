@@ -2785,7 +2785,6 @@ pub fn amend(
 }
 
 pub fn cherry_pick(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     target_commit_oid: git::Oid,
