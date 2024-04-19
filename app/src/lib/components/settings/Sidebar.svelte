@@ -68,16 +68,7 @@
 						<span class="text-base-14 text-semibold">Git stuff</span>
 					</button>
 				</li>
-				<li>
-					<button
-						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection == 'telemetry'}
-						on:mousedown={() => onMenuClick('telemetry')}
-					>
-						<Icon name="stat" />
-						<span class="text-base-14 text-semibold">Telemetry</span>
-					</button>
-				</li>
+
 				{#if $user}
 					<li>
 						<button
@@ -98,6 +89,16 @@
 					>
 						<Icon name="ai" />
 						<span class="text-base-14 text-semibold">AI options</span>
+					</button>
+				</li>
+				<li>
+					<button
+						class="profile-sidebar__menu-item"
+						class:item_selected={currentSection == 'telemetry'}
+						on:mousedown={() => onMenuClick('telemetry')}
+					>
+						<Icon name="stat" />
+						<span class="text-base-14 text-semibold">Telemetry</span>
 					</button>
 				</li>
 			</ul>
