@@ -1,5 +1,3 @@
-use anyhow::anyhow;
-
 use super::Target;
 use crate::{
     reader, sessions,
@@ -29,7 +27,6 @@ impl<'r> TargetReader<'r> {
         if self.use_state_handle && self.state_handle.file_exists() {
             self.state_handle
                 .get_default_target()
-                .and_then(|op| op.ok_or(anyhow!("Branch not found")))
                 .map_err(|_| reader::Error::NotFound)
         } else {
             Target::try_from(&self.reader.sub("branches/target"))
@@ -41,9 +38,8 @@ impl<'r> TargetReader<'r> {
         if self.use_state_handle && self.state_handle.file_exists() {
             let branch_target = self.state_handle.get_branch_target(id);
             match branch_target {
-                Ok(Some(target)) => Ok(target),
-                Ok(None) => self.read_default(),
-                Err(_) => Err(reader::Error::NotFound),
+                Ok(target) => Ok(target),
+                Err(_) => self.read_default(),
             }
         } else {
             if !self
