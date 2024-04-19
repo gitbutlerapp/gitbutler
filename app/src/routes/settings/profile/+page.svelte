@@ -212,7 +212,7 @@
 			<p>Are you sure you want to remove all GitButler projects?</p>
 
 			<svelte:fragment slot="controls" let:close>
-				<Button style="error" kind="soft" loading={isDeleting} on:click={onDeleteClicked}
+				<Button style="error" kind="solid" loading={isDeleting} on:click={onDeleteClicked}
 					>Remove</Button
 				>
 				<Button style="pop" kind="solid" on:click={close}>Cancel</Button>
