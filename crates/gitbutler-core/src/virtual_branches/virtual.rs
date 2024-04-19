@@ -18,7 +18,7 @@ use super::{
     branch::{
         self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
     },
-    branch_to_remote_branch, errors, target, Iterator, RemoteBranch, VirtualBranchesHandle,
+    branch_to_remote_branch, errors, target, RemoteBranch, VirtualBranchesHandle,
 };
 use crate::{
     askpass::AskpassBroker,
@@ -31,7 +31,7 @@ use crate::{
     },
     keys,
     project_repository::{self, conflicts, LogUntil},
-    projects, reader, sessions, users,
+    reader, users,
 };
 use crate::{error::Error, git::diff::GitHunk};
 
@@ -173,15 +173,9 @@ pub fn normalize_branch_name(name: &str) -> String {
 }
 
 fn get_default_target(
-    session_reader: &sessions::Reader,
-    project: &projects::Project,
+    vb_state: &VirtualBranchesHandle,
 ) -> Result<Option<target::Target>, reader::Error> {
-    let target_reader = target::Reader::new(
-        session_reader,
-        VirtualBranchesHandle::new(&project.gb_dir()),
-        project.use_toml_vbranches_state(),
-    );
-    match target_reader.read_default() {
+    match vb_state.get_default_target() {
         Ok(target) => Ok(Some(target)),
         Err(reader::Error::NotFound) => Ok(None),
         Err(error) => Err(error),
@@ -202,15 +196,10 @@ pub fn apply_branch(
             },
         ));
     }
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create current session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
-
     let repo = &project_repository.git_repository;
 
-    let default_target = get_default_target(&current_session_reader, project_repository.project())
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let default_target = get_default_target(&vb_state)
         .context("failed to get default target")?
         .ok_or_else(|| {
             errors::ApplyBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
@@ -218,19 +207,7 @@ pub fn apply_branch(
             })
         })?;
 
-    let writer = branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create branch writer")?;
-
-    let mut branch = match branch::Reader::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    )
-    .read(branch_id)
-    {
+    let mut branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::ApplyBranchError::BranchNotFound(
             errors::BranchNotFound {
@@ -288,12 +265,12 @@ pub fn apply_branch(
             .filter(|branch| branch.applied)
             {
                 branch.applied = false;
-                writer.write(&mut branch)?;
+                vb_state.set_branch(branch)?;
             }
 
             // apply the branch
             branch.applied = true;
-            writer.write(&mut branch)?;
+            vb_state.set_branch(branch)?;
 
             // checkout the conflicts
             repo.checkout_index(&mut merge_index)
@@ -359,7 +336,7 @@ pub fn apply_branch(
             // ok, update the virtual branch
             branch.head = new_branch_head;
             branch.tree = merged_branch_tree_oid;
-            writer.write(&mut branch)?;
+            vb_state.set_branch(branch.clone())?;
         } else {
             // branch was not pushed to upstream yet. attempt a rebase,
             let (_, committer) = project_repository.git_signatures(user)?;
@@ -449,14 +426,9 @@ pub fn apply_branch(
 
     // apply the branch
     branch.applied = true;
-    writer.write(&mut branch)?;
+    vb_state.set_branch(branch)?;
 
-    ensure_selected_for_changes(
-        &current_session_reader,
-        &writer,
-        project_repository.project(),
-    )
-    .context("failed to ensure selected for changes")?;
+    ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
     // checkout the merge index
     repo.checkout_index(&mut merge_index)
@@ -482,19 +454,9 @@ pub fn unapply_ownership(
         ));
     }
 
-    let latest_session = gb_repository
-        .get_latest_session()
-        .context("failed to get or create current session")?
-        .ok_or_else(|| {
-            errors::UnapplyOwnershipError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
-                project_id: project_repository.project().id,
-            })
-        })?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let latest_session_reader = sessions::Reader::open(gb_repository, &latest_session)
-        .context("failed to open current session")?;
-
-    let default_target = get_default_target(&latest_session_reader, project_repository.project())
+    let default_target = get_default_target(&vb_state)
         .context("failed to get default target")?
         .ok_or_else(|| {
             errors::UnapplyOwnershipError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
@@ -502,17 +464,12 @@ pub fn unapply_ownership(
             })
         })?;
 
-    let applied_branches = Iterator::new(
-        &latest_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    )
-    .context("failed to create branch iterator")?
-    .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-    .context("failed to read virtual branches")?
-    .into_iter()
-    .filter(|b| b.applied)
-    .collect::<Vec<_>>();
+    let applied_branches = vb_state
+        .list_branches()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|b| b.applied)
+        .collect::<Vec<_>>();
 
     let integration_commit =
         super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
@@ -643,34 +600,25 @@ pub fn unapply_branch(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
 ) -> Result<Option<branch::Branch>, errors::UnapplyBranchError> {
-    let session = &gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let current_session_reader =
-        sessions::Reader::open(gb_repository, session).context("failed to open current session")?;
-
-    let branch_reader = branch::Reader::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    );
-
-    let mut target_branch = branch_reader.read(branch_id).map_err(|error| match error {
-        reader::Error::NotFound => {
-            errors::UnapplyBranchError::BranchNotFound(errors::BranchNotFound {
-                project_id: project_repository.project().id,
-                branch_id: *branch_id,
-            })
-        }
-        error => errors::UnapplyBranchError::Other(error.into()),
-    })?;
+    let mut target_branch = vb_state
+        .get_branch(branch_id)
+        .map_err(|error| match error {
+            reader::Error::NotFound => {
+                errors::UnapplyBranchError::BranchNotFound(errors::BranchNotFound {
+                    project_id: project_repository.project().id,
+                    branch_id: *branch_id,
+                })
+            }
+            error => errors::UnapplyBranchError::Other(error.into()),
+        })?;
 
     if !target_branch.applied {
         return Ok(Some(target_branch));
     }
 
-    let default_target = get_default_target(&current_session_reader, project_repository.project())
+    let default_target = get_default_target(&vb_state)
         .context("failed to get default target")?
         .ok_or_else(|| {
             errors::UnapplyBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
@@ -683,33 +631,22 @@ pub fn unapply_branch(
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
 
-    let branch_writer = branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create writer")?;
-
     let final_tree = if conflicts::is_resolving(project_repository) {
         {
             target_branch.applied = false;
             target_branch.selected_for_changes = None;
-            branch_writer.write(&mut target_branch)?;
+            vb_state.set_branch(target_branch.clone())?;
         }
         conflicts::clear(project_repository).context("failed to clear conflicts")?;
         target_commit.tree().context("failed to get target tree")?
     } else {
         // if we are not resolving, we need to merge the rest of the applied branches
-        let applied_branches = Iterator::new(
-            &current_session_reader,
-            VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-            project_repository.project().use_toml_vbranches_state(),
-        )
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter(|b| b.applied)
-        .collect::<Vec<_>>();
+        let applied_branches = vb_state
+            .list_branches()
+            .context("failed to read virtual branches")?
+            .into_iter()
+            .filter(|b| b.applied)
+            .collect::<Vec<_>>();
 
         let integration_commit =
             super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
@@ -732,16 +669,12 @@ pub fn unapply_branch(
             update_conflict_markers(project_repository, files)?;
             if files.is_empty() && branch.head == default_target.sha {
                 // if there is nothing to unapply, remove the branch straight away
-                branch_writer
-                    .delete(&target_branch)
+                vb_state
+                    .remove_branch(target_branch.id)
                     .context("Failed to remove branch")?;
 
-                ensure_selected_for_changes(
-                    &current_session_reader,
-                    &branch_writer,
-                    project_repository.project(),
-                )
-                .context("failed to ensure selected for changes")?;
+                ensure_selected_for_changes(&vb_state)
+                    .context("failed to ensure selected for changes")?;
 
                 project_repository.delete_branch_reference(&target_branch)?;
                 return Ok(None);
@@ -750,7 +683,7 @@ pub fn unapply_branch(
             target_branch.tree = write_tree(project_repository, &target_branch.head, files)?;
             target_branch.applied = false;
             target_branch.selected_for_changes = None;
-            branch_writer.write(&mut target_branch)?;
+            vb_state.set_branch(target_branch.clone())?;
         }
 
         let target_commit = repo
@@ -779,12 +712,7 @@ pub fn unapply_branch(
                 },
             )?;
 
-        ensure_selected_for_changes(
-            &current_session_reader,
-            &branch_writer,
-            project_repository.project(),
-        )
-        .context("failed to ensure selected for changes")?;
+        ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
         final_tree
     };
@@ -1152,13 +1080,9 @@ pub fn create_virtual_branch(
     project_repository: &project_repository::Repository,
     create: &BranchCreateRequest,
 ) -> Result<branch::Branch, errors::CreateVirtualBranchError> {
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = get_default_target(&current_session_reader, project_repository.project())
+    let default_target = get_default_target(&vb_state)
         .context("failed to get default target")?
         .ok_or_else(|| {
             errors::CreateVirtualBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
@@ -1175,14 +1099,9 @@ pub fn create_virtual_branch(
         .tree()
         .context("failed to find defaut target commit tree")?;
 
-    let mut all_virtual_branches = Iterator::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    )
-    .context("failed to create branch iterator")?
-    .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-    .context("failed to read virtual branches")?;
+    let mut all_virtual_branches = vb_state
+        .list_branches()
+        .context("failed to read virtual branches")?;
     all_virtual_branches.sort_by_key(|branch| branch.order);
 
     let order = create
@@ -1190,25 +1109,14 @@ pub fn create_virtual_branch(
         .unwrap_or(all_virtual_branches.len())
         .clamp(0, all_virtual_branches.len());
 
-    let branch_writer = branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create writer")?;
-
     let selected_for_changes = if let Some(selected_for_changes) = create.selected_for_changes {
         if selected_for_changes {
-            for mut other_branch in Iterator::new(
-                &current_session_reader,
-                VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-                project_repository.project().use_toml_vbranches_state(),
-            )
-            .context("failed to create branch iterator")?
-            .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-            .context("failed to read virtual branches")?
+            for mut other_branch in vb_state
+                .list_branches()
+                .context("failed to read virtual branches")?
             {
                 other_branch.selected_for_changes = None;
-                branch_writer.write(&mut other_branch)?;
+                vb_state.set_branch(other_branch.clone())?;
             }
             Some(chrono::Utc::now().timestamp_millis())
         } else {
@@ -1227,8 +1135,8 @@ pub fn create_virtual_branch(
         let new_order = if i < order { i } else { i + 1 };
         if branch.order != new_order {
             branch.order = new_order;
-            branch_writer
-                .write(&mut branch)
+            vb_state
+                .set_branch(branch.clone())
                 .context("failed to write branch")?;
         }
     }
@@ -1266,18 +1174,11 @@ pub fn create_virtual_branch(
     };
 
     if let Some(ownership) = &create.ownership {
-        set_ownership(
-            &current_session_reader,
-            &branch_writer,
-            &mut branch,
-            ownership,
-            project_repository.project(),
-        )
-        .context("failed to set ownership")?;
+        set_ownership(&vb_state, &mut branch, ownership).context("failed to set ownership")?;
     }
 
-    branch_writer
-        .write(&mut branch)
+    vb_state
+        .set_branch(branch.clone())
         .context("failed to write branch")?;
 
     project_repository.add_branch_reference(&branch)?;
@@ -1300,19 +1201,9 @@ pub fn merge_virtual_branch_upstream(
         ));
     }
 
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get current session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    // get the branch
-    let branch_reader = branch::Reader::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    );
-    let mut branch = match branch_reader.read(branch_id) {
+    let mut branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(
             errors::MergeVirtualBranchUpstreamError::BranchNotFound(errors::BranchNotFound {
@@ -1354,18 +1245,13 @@ pub fn merge_virtual_branch_upstream(
     }
 
     // if any other branches are applied, unapply them
-    let applied_branches = Iterator::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    )
-    .context("failed to create branch iterator")?
-    .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-    .context("failed to read virtual branches")?
-    .into_iter()
-    .filter(|b| b.applied)
-    .filter(|b| b.id != *branch_id)
-    .collect::<Vec<_>>();
+    let applied_branches = vb_state
+        .list_branches()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|b| b.applied)
+        .filter(|b| b.id != *branch_id)
+        .collect::<Vec<_>>();
 
     // unapply all other branches
     for other_branch in applied_branches {
@@ -1425,11 +1311,6 @@ pub fn merge_virtual_branch_upstream(
         let merge_tree = repo
             .find_tree(merge_tree_oid)
             .context("failed to find merge tree")?;
-        let branch_writer = branch::Writer::new(
-            gb_repository,
-            VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        )
-        .context("failed to create writer")?;
 
         if *project_repository.project().ok_with_force_push {
             // attempt a rebase
@@ -1479,7 +1360,7 @@ pub fn merge_virtual_branch_upstream(
 
                 branch.head = last_rebase_head;
                 branch.tree = merge_tree_oid;
-                branch_writer.write(&mut branch)?;
+                vb_state.set_branch(branch.clone())?;
                 super::integration::update_gitbutler_integration(
                     gb_repository,
                     project_repository,
@@ -1518,7 +1399,7 @@ pub fn merge_virtual_branch_upstream(
         // write the branch data
         branch.head = new_branch_head;
         branch.tree = merge_tree_oid;
-        branch_writer.write(&mut branch)?;
+        vb_state.set_branch(branch.clone())?;
     }
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
@@ -1531,24 +1412,9 @@ pub fn update_branch(
     project_repository: &project_repository::Repository,
     branch_update: branch::BranchUpdateRequest,
 ) -> Result<branch::Branch, errors::UpdateBranchError> {
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
-    let branch_reader = branch::Reader::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    );
-    let branch_writer = branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create writer")?;
-
-    let mut branch = branch_reader
-        .read(&branch_update.id)
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let mut branch = vb_state
+        .get_branch(&branch_update.id)
         .map_err(|error| match error {
             reader::Error::NotFound => {
                 errors::UpdateBranchError::BranchNotFound(errors::BranchNotFound {
@@ -1560,25 +1426,13 @@ pub fn update_branch(
         })?;
 
     if let Some(ownership) = branch_update.ownership {
-        set_ownership(
-            &current_session_reader,
-            &branch_writer,
-            &mut branch,
-            &ownership,
-            project_repository.project(),
-        )
-        .context("failed to set ownership")?;
+        set_ownership(&vb_state, &mut branch, &ownership).context("failed to set ownership")?;
     }
 
     if let Some(name) = branch_update.name {
-        let all_virtual_branches = Iterator::new(
-            &current_session_reader,
-            VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-            project_repository.project().use_toml_vbranches_state(),
-        )
-        .context("failed to create branch iterator")?
-        .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-        .context("failed to read virtual branches")?;
+        let all_virtual_branches = vb_state
+            .list_branches()
+            .context("failed to read virtual branches")?;
 
         project_repository.delete_branch_reference(&branch)?;
 
@@ -1594,14 +1448,13 @@ pub fn update_branch(
     };
 
     if let Some(updated_upstream) = branch_update.upstream {
-        let default_target =
-            get_default_target(&current_session_reader, project_repository.project())
-                .context("failed to get default target")?
-                .ok_or_else(|| {
-                    errors::UpdateBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
-                        project_id: project_repository.project().id,
-                    })
-                })?;
+        let default_target = get_default_target(&vb_state)
+            .context("failed to get default target")?
+            .ok_or_else(|| {
+                errors::UpdateBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+                    project_id: project_repository.project().id,
+                })
+            })?;
         let remote_branch = format!(
             "refs/remotes/{}/{}",
             default_target.branch.remote(),
@@ -1622,19 +1475,14 @@ pub fn update_branch(
 
     if let Some(selected_for_changes) = branch_update.selected_for_changes {
         branch.selected_for_changes = if selected_for_changes {
-            for mut other_branch in Iterator::new(
-                &current_session_reader,
-                VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-                project_repository.project().use_toml_vbranches_state(),
-            )
-            .context("failed to create branch iterator")?
-            .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-            .context("failed to read virtual branches")?
-            .into_iter()
-            .filter(|b| b.id != branch.id)
+            for mut other_branch in vb_state
+                .list_branches()
+                .context("failed to read virtual branches")?
+                .into_iter()
+                .filter(|b| b.id != branch.id)
             {
                 other_branch.selected_for_changes = None;
-                branch_writer.write(&mut other_branch)?;
+                vb_state.set_branch(other_branch.clone())?;
             }
             Some(chrono::Utc::now().timestamp_millis())
         } else {
@@ -1642,8 +1490,8 @@ pub fn update_branch(
         };
     };
 
-    branch_writer
-        .write(&mut branch)
+    vb_state
+        .set_branch(branch.clone())
         .context("failed to write target branch")?;
 
     Ok(branch)
@@ -1654,23 +1502,8 @@ pub fn delete_branch(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
 ) -> Result<(), Error> {
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
-    let branch_reader = branch::Reader::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    );
-    let branch_writer = branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create writer")?;
-
-    let branch = match branch_reader.read(branch_id) {
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => return Ok(()),
         Err(error) => Err(error),
@@ -1681,38 +1514,24 @@ pub fn delete_branch(
         return Ok(());
     }
 
-    branch_writer
-        .delete(&branch)
+    vb_state
+        .remove_branch(branch.id)
         .context("Failed to remove branch")?;
 
     project_repository.delete_branch_reference(&branch)?;
 
-    ensure_selected_for_changes(
-        &current_session_reader,
-        &branch_writer,
-        project_repository.project(),
-    )
-    .context("failed to ensure selected for changes")?;
+    ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
     Ok(())
 }
 
-fn ensure_selected_for_changes(
-    current_session_reader: &sessions::Reader,
-    branch_writer: &branch::Writer,
-    project: &projects::Project,
-) -> Result<()> {
-    let mut applied_branches = Iterator::new(
-        current_session_reader,
-        VirtualBranchesHandle::new(&project.gb_dir()),
-        project.use_toml_vbranches_state(),
-    )
-    .context("failed to create branch iterator")?
-    .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-    .context("failed to read virtual branches")?
-    .into_iter()
-    .filter(|b| b.applied)
-    .collect::<Vec<_>>();
+fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> Result<()> {
+    let mut applied_branches = vb_state
+        .list_branches()
+        .context("failed to list branches")?
+        .into_iter()
+        .filter(|b| b.applied)
+        .collect::<Vec<_>>();
 
     if applied_branches.is_empty() {
         println!("no applied branches");
@@ -1730,37 +1549,30 @@ fn ensure_selected_for_changes(
     applied_branches.sort_by_key(|branch| branch.order);
 
     applied_branches[0].selected_for_changes = Some(chrono::Utc::now().timestamp_millis());
-    branch_writer.write(&mut applied_branches[0])?;
+    vb_state.set_branch(applied_branches[0].clone())?;
     Ok(())
 }
 
 fn set_ownership(
-    session_reader: &sessions::Reader,
-    branch_writer: &branch::Writer,
+    vb_state: &VirtualBranchesHandle,
     target_branch: &mut branch::Branch,
     ownership: &branch::BranchOwnershipClaims,
-    project: &projects::Project,
 ) -> Result<()> {
     if target_branch.ownership.eq(ownership) {
         // nothing to update
         return Ok(());
     }
 
-    let virtual_branches = Iterator::new(
-        session_reader,
-        VirtualBranchesHandle::new(&project.gb_dir()),
-        project.use_toml_vbranches_state(),
-    )
-    .context("failed to create branch iterator")?
-    .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-    .context("failed to read virtual branches")?;
+    let virtual_branches = vb_state
+        .list_branches()
+        .context("failed to read virtual branches")?;
 
     let mut claim_outcomes =
         branch::reconcile_claims(virtual_branches, target_branch, &ownership.claims)?;
     for claim_outcome in &mut claim_outcomes {
         if !claim_outcome.removed_claims.is_empty() {
-            branch_writer
-                .write(&mut claim_outcome.updated_branch)
+            vb_state
+                .set_branch(claim_outcome.updated_branch.clone())
                 .context("failed to write ownership for branch".to_string())?;
         }
     }
@@ -1833,30 +1645,19 @@ pub fn get_status_by_branch(
     project_repository: &project_repository::Repository,
     integration_commit: Option<&git::Oid>,
 ) -> Result<(Vec<(branch::Branch, BranchStatus)>, Vec<diff::FileDiff>)> {
-    let latest_session = gb_repository
-        .get_latest_session()
-        .context("failed to get latest session")?
-        .context("latest session not found")?;
-    let session_reader = sessions::Reader::open(gb_repository, &latest_session)
-        .context("failed to open current session")?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = match get_default_target(&session_reader, project_repository.project())
-        .context("failed to read default target")?
-    {
-        Some(target) => target,
-        None => {
-            return Ok((vec![], vec![]));
-        }
-    };
+    let default_target =
+        match get_default_target(&vb_state).context("failed to read default target")? {
+            Some(target) => target,
+            None => {
+                return Ok((vec![], vec![]));
+            }
+        };
 
-    let virtual_branches = Iterator::new(
-        &session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    )
-    .context("failed to create branch iterator")?
-    .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-    .context("failed to read virtual branches")?;
+    let virtual_branches = vb_state
+        .list_branches()
+        .context("failed to read virtual branches")?;
 
     let applied_virtual_branches = virtual_branches
         .iter()
@@ -2157,15 +1958,11 @@ fn get_applied_status(
 
     // write updated state if not resolving
     if !project_repository.is_resolving() {
-        let branch_writer = branch::Writer::new(
-            gb_repository,
-            VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        )
-        .context("failed to create writer")?;
+        let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
         for (vbranch, files) in &mut hunks_by_branch {
             vbranch.tree = write_tree(project_repository, integration_commit, files)?;
-            branch_writer
-                .write(vbranch)
+            vb_state
+                .set_branch(vbranch.clone())
                 .context(format!("failed to write virtual branch {}", vbranch.name))?;
         }
     }
@@ -2209,10 +2006,9 @@ pub fn reset_branch(
     branch_id: &BranchId,
     target_commit_oid: git::Oid,
 ) -> Result<(), errors::ResetBranchError> {
-    let current_session = gb_repository.get_or_create_current_session()?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = get_default_target(&current_session_reader, project_repository.project())
+    let default_target = get_default_target(&vb_state)
         .context("failed to read default target")?
         .ok_or_else(|| {
             errors::ResetBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
@@ -2220,12 +2016,7 @@ pub fn reset_branch(
             })
         })?;
 
-    let branch_reader = branch::Reader::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    );
-    let mut branch = match branch_reader.read(branch_id) {
+    let mut branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::ResetBranchError::BranchNotFound(
             errors::BranchNotFound {
@@ -2251,14 +2042,9 @@ pub fn reset_branch(
         ));
     }
 
-    let branch_writer = branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create writer")?;
     branch.head = target_commit_oid;
-    branch_writer
-        .write(&mut branch)
+    vb_state
+        .set_branch(branch.clone())
         .context("failed to write branch")?;
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)
@@ -2588,15 +2374,12 @@ pub fn commit(
             .context("failed to run hook")?;
     }
 
-    // update the virtual branch head
-    let writer = branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create writer")?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
     branch.tree = tree_oid;
     branch.head = commit_oid;
-    writer.write(branch).context("failed to write branch")?;
+    vb_state
+        .set_branch(branch.clone())
+        .context("failed to write branch")?;
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)
         .context("failed to update gitbutler integration")?;
@@ -2612,44 +2395,28 @@ pub fn push(
     credentials: &git::credentials::Helper,
     askpass: Option<(AskpassBroker, Option<BranchId>)>,
 ) -> Result<(), errors::PushError> {
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create currnt session")
-        .map_err(errors::PushError::Other)?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")
-        .map_err(errors::PushError::Other)?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let branch_reader = branch::Reader::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    );
-    let branch_writer = branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create writer")?;
-
-    let mut vbranch = branch_reader.read(branch_id).map_err(|error| match error {
-        reader::Error::NotFound => errors::PushError::BranchNotFound(errors::BranchNotFound {
-            project_id: project_repository.project().id,
-            branch_id: *branch_id,
-        }),
-        error => errors::PushError::Other(error.into()),
-    })?;
+    let mut vbranch = vb_state
+        .get_branch(branch_id)
+        .map_err(|error| match error {
+            reader::Error::NotFound => errors::PushError::BranchNotFound(errors::BranchNotFound {
+                project_id: project_repository.project().id,
+                branch_id: *branch_id,
+            }),
+            error => errors::PushError::Other(error.into()),
+        })?;
 
     let remote_branch = if let Some(upstream_branch) = vbranch.upstream.as_ref() {
         upstream_branch.clone()
     } else {
-        let default_target =
-            get_default_target(&current_session_reader, project_repository.project())
-                .context("failed to get default target")?
-                .ok_or_else(|| {
-                    errors::PushError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
-                        project_id: project_repository.project().id,
-                    })
-                })?;
+        let default_target = get_default_target(&vb_state)
+            .context("failed to get default target")?
+            .ok_or_else(|| {
+                errors::PushError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+                    project_id: project_repository.project().id,
+                })
+            })?;
 
         let remote_branch = format!(
             "refs/remotes/{}/{}",
@@ -2687,8 +2454,8 @@ pub fn push(
 
     vbranch.upstream = Some(remote_branch.clone());
     vbranch.upstream_head = Some(vbranch.head);
-    branch_writer
-        .write(&mut vbranch)
+    vb_state
+        .set_branch(vbranch.clone())
         .context("failed to write target branch after push")?;
     project_repository.fetch(
         remote_branch.remote(),
@@ -2774,16 +2541,9 @@ pub fn is_remote_branch_mergeable(
     project_repository: &project_repository::Repository,
     branch_name: &git::RemoteRefname,
 ) -> Result<bool, errors::IsRemoteBranchMergableError> {
-    // get the current target
-    let latest_session = gb_repository.get_latest_session()?.ok_or_else(|| {
-        errors::IsRemoteBranchMergableError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
-            project_id: project_repository.project().id,
-        })
-    })?;
-    let session_reader = sessions::Reader::open(gb_repository, &latest_session)
-        .context("failed to open current session")?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = get_default_target(&session_reader, project_repository.project())
+    let default_target = get_default_target(&vb_state)
         .context("failed to get default target")?
         .ok_or_else(|| {
             errors::IsRemoteBranchMergableError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
@@ -2835,19 +2595,8 @@ pub fn is_virtual_branch_mergeable(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
 ) -> Result<bool, errors::IsVirtualBranchMergeable> {
-    let latest_session = gb_repository.get_latest_session()?.ok_or_else(|| {
-        errors::IsVirtualBranchMergeable::DefaultTargetNotSet(errors::DefaultTargetNotSet {
-            project_id: project_repository.project().id,
-        })
-    })?;
-    let session_reader = sessions::Reader::open(gb_repository, &latest_session)
-        .context("failed to open current session reader")?;
-    let branch_reader = branch::Reader::new(
-        &session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    );
-    let branch = match branch_reader.read(branch_id) {
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::IsVirtualBranchMergeable::BranchNotFound(
             errors::BranchNotFound {
@@ -2862,7 +2611,7 @@ pub fn is_virtual_branch_mergeable(
         return Ok(true);
     }
 
-    let default_target = get_default_target(&session_reader, project_repository.project())
+    let default_target = get_default_target(&vb_state)
         .context("failed to read default target")?
         .ok_or_else(|| {
             errors::IsVirtualBranchMergeable::DefaultTargetNotSet(errors::DefaultTargetNotSet {
@@ -2925,22 +2674,11 @@ pub fn amend(
         }));
     }
 
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create current session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let all_branches = Iterator::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    )
-    .context("failed to create branch iterator")?
-    .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-    .context("failed to read virtual branches")?
-    .into_iter()
-    .collect::<Vec<_>>();
+    let all_branches = vb_state
+        .list_branches()
+        .context("failed to read virtual branches")?;
 
     if !all_branches.iter().any(|b| b.id == *branch_id) {
         return Err(errors::AmendError::BranchNotFound(errors::BranchNotFound {
@@ -2961,7 +2699,7 @@ pub fn amend(
         }));
     }
 
-    let default_target = get_default_target(&current_session_reader, project_repository.project())
+    let default_target = get_default_target(&vb_state)
         .context("failed to read default target")?
         .ok_or_else(|| {
             errors::AmendError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
@@ -3070,13 +2808,8 @@ pub fn amend(
         )
         .context("failed to create commit")?;
 
-    let branch_writer = branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create writer")?;
     target_branch.head = commit_oid;
-    branch_writer.write(target_branch)?;
+    vb_state.set_branch(target_branch.clone())?;
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
@@ -3095,18 +2828,10 @@ pub fn cherry_pick(
         }));
     }
 
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create current session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
-    let branch_reader = branch::Reader::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    );
-    let mut branch = branch_reader
-        .read(branch_id)
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+
+    let mut branch = vb_state
+        .get_branch(branch_id)
         .context("failed to read branch")?;
 
     if !branch.applied {
@@ -3127,22 +2852,17 @@ pub fn cherry_pick(
         .find_commit(branch.head)
         .context("failed to find branch tree")?;
 
-    let default_target = get_default_target(&current_session_reader, project_repository.project())
+    let default_target = get_default_target(&vb_state)
         .context("failed to read default target")?
         .context("no default target set")?;
 
     // if any other branches are applied, unapply them
-    let applied_branches = Iterator::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    )
-    .context("failed to create branch iterator")?
-    .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-    .context("failed to read virtual branches")?
-    .into_iter()
-    .filter(|b| b.applied)
-    .collect::<Vec<_>>();
+    let applied_branches = vb_state
+        .list_branches()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|b| b.applied)
+        .collect::<Vec<_>>();
 
     let integration_commit =
         super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
@@ -3266,14 +2986,9 @@ pub fn cherry_pick(
             .context("failed to checkout final tree")?;
 
         // update branch status
-        let writer = branch::Writer::new(
-            gb_repository,
-            VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        )
-        .context("failed to create writer")?;
         branch.head = commit_oid;
-        writer
-            .write(&mut branch)
+        vb_state
+            .set_branch(branch.clone())
             .context("failed to write branch")?;
 
         Some(commit_oid)
@@ -3298,18 +3013,9 @@ pub fn squash(
         }));
     }
 
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create current session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
-    let branch_reader = branch::Reader::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    );
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = get_default_target(&current_session_reader, project_repository.project())
+    let default_target = get_default_target(&vb_state)
         .context("failed to read default target")?
         .ok_or_else(|| {
             errors::SquashError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
@@ -3317,13 +3023,17 @@ pub fn squash(
             })
         })?;
 
-    let mut branch = branch_reader.read(branch_id).map_err(|error| match error {
-        reader::Error::NotFound => errors::SquashError::BranchNotFound(errors::BranchNotFound {
-            project_id: project_repository.project().id,
-            branch_id: *branch_id,
-        }),
-        error => errors::SquashError::Other(error.into()),
-    })?;
+    let mut branch = vb_state
+        .get_branch(branch_id)
+        .map_err(|error| match error {
+            reader::Error::NotFound => {
+                errors::SquashError::BranchNotFound(errors::BranchNotFound {
+                    project_id: project_repository.project().id,
+                    branch_id: *branch_id,
+                })
+            }
+            error => errors::SquashError::Other(error.into()),
+        })?;
 
     let branch_commit_oids = project_repository.l(
         branch.head,
@@ -3462,14 +3172,9 @@ pub fn squash(
     };
 
     // save new branch head
-    let writer = branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create writer")?;
     branch.head = new_head_id;
-    writer
-        .write(&mut branch)
+    vb_state
+        .set_branch(branch.clone())
         .context("failed to write branch")?;
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
@@ -3496,18 +3201,9 @@ pub fn update_commit_message(
         ));
     }
 
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create current session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
-    let branch_reader = branch::Reader::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    );
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = get_default_target(&current_session_reader, project_repository.project())
+    let default_target = get_default_target(&vb_state)
         .context("failed to read default target")?
         .ok_or_else(|| {
             errors::UpdateCommitMessageError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
@@ -3515,15 +3211,17 @@ pub fn update_commit_message(
             })
         })?;
 
-    let mut branch = branch_reader.read(branch_id).map_err(|error| match error {
-        reader::Error::NotFound => {
-            errors::UpdateCommitMessageError::BranchNotFound(errors::BranchNotFound {
-                project_id: project_repository.project().id,
-                branch_id: *branch_id,
-            })
-        }
-        error => errors::UpdateCommitMessageError::Other(error.into()),
-    })?;
+    let mut branch = vb_state
+        .get_branch(branch_id)
+        .map_err(|error| match error {
+            reader::Error::NotFound => {
+                errors::UpdateCommitMessageError::BranchNotFound(errors::BranchNotFound {
+                    project_id: project_repository.project().id,
+                    branch_id: *branch_id,
+                })
+            }
+            error => errors::UpdateCommitMessageError::Other(error.into()),
+        })?;
 
     let branch_commit_oids = project_repository.l(
         branch.head,
@@ -3644,14 +3342,9 @@ pub fn update_commit_message(
     };
 
     // save new branch head
-    let writer = branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create writer")?;
     branch.head = new_head_id;
-    writer
-        .write(&mut branch)
+    vb_state
+        .set_branch(branch.clone())
         .context("failed to write branch")?;
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
@@ -3676,28 +3369,14 @@ pub fn move_commit(
         ));
     }
 
-    let latest_session = gb_repository
-        .get_latest_session()
-        .context("failed to get or create current session")?
-        .ok_or_else(|| {
-            errors::MoveCommitError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
-                project_id: project_repository.project().id,
-            })
-        })?;
-    let latest_session_reader = sessions::Reader::open(gb_repository, &latest_session)
-        .context("failed to open current session")?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let applied_branches = Iterator::new(
-        &latest_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    )
-    .context("failed to create branch iterator")?
-    .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-    .context("failed to read virtual branches")?
-    .into_iter()
-    .filter(|b| b.applied)
-    .collect::<Vec<_>>();
+    let applied_branches = vb_state
+        .list_branches()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|b| b.applied)
+        .collect::<Vec<_>>();
 
     if !applied_branches.iter().any(|b| b.id == *target_branch_id) {
         return Err(errors::MoveCommitError::BranchNotFound(
@@ -3708,7 +3387,7 @@ pub fn move_commit(
         ));
     }
 
-    let default_target = get_default_target(&latest_session_reader, project_repository.project())
+    let default_target = get_default_target(&vb_state)
         .context("failed to get default target")?
         .ok_or_else(|| {
             errors::MoveCommitError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
@@ -3775,17 +3454,6 @@ pub fn move_commit(
         return Err(errors::MoveCommitError::SourceLocked);
     }
 
-    let branch_writer = branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create writer")?;
-    let branch_reader = branch::Reader::new(
-        &latest_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    );
-
     // move files ownerships from source branch to the destination branch
 
     let ownerships_to_transfer = branch_head_diff
@@ -3803,14 +3471,14 @@ pub fn move_commit(
     // reset the source branch to the parent commit
     {
         source_branch.head = source_branch_head_parent.id();
-        branch_writer.write(source_branch)?;
+        vb_state.set_branch(source_branch.clone())?;
     }
 
     // move the commit to destination branch target branch
     {
         let mut destination_branch =
-            branch_reader
-                .read(target_branch_id)
+            vb_state
+                .get_branch(target_branch_id)
                 .map_err(|error| match error {
                     reader::Error::NotFound => {
                         errors::MoveCommitError::BranchNotFound(errors::BranchNotFound {
@@ -3850,7 +3518,7 @@ pub fn move_commit(
             .context("failed to commit")?;
 
         destination_branch.head = new_destination_head_oid;
-        branch_writer.write(&mut destination_branch)?;
+        vb_state.set_branch(destination_branch.clone())?;
     }
 
     super::integration::update_gitbutler_integration(gb_repository, project_repository)
@@ -3872,13 +3540,9 @@ pub fn create_virtual_branch_from_branch(
         ));
     }
 
-    let current_session = gb_repository
-        .get_or_create_current_session()
-        .context("failed to get or create current session")?;
-    let current_session_reader = sessions::Reader::open(gb_repository, &current_session)
-        .context("failed to open current session")?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = get_default_target(&current_session_reader, project_repository.project())
+    let default_target = get_default_target(&vb_state)
         .context("failed to get default target")?
         .ok_or_else(|| {
             errors::CreateVirtualBranchFromBranchError::DefaultTargetNotSet(
@@ -3911,16 +3575,11 @@ pub fn create_virtual_branch_from_branch(
         .context("failed to peel to commit")?;
     let head_commit_tree = head_commit.tree().context("failed to find tree")?;
 
-    let all_virtual_branches = Iterator::new(
-        &current_session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    )
-    .context("failed to create branch iterator")?
-    .collect::<Result<Vec<branch::Branch>, reader::Error>>()
-    .context("failed to read virtual branches")?
-    .into_iter()
-    .collect::<Vec<branch::Branch>>();
+    let all_virtual_branches = vb_state
+        .list_branches()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .collect::<Vec<branch::Branch>>();
 
     let order = all_virtual_branches.len();
 
@@ -3984,7 +3643,7 @@ pub fn create_virtual_branch_from_branch(
         },
     );
 
-    let mut branch = branch::Branch {
+    let branch = branch::Branch {
         id: BranchId::generate(),
         name: upstream
             .branch()
@@ -4003,13 +3662,8 @@ pub fn create_virtual_branch_from_branch(
         selected_for_changes,
     };
 
-    let writer = branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create writer")?;
-    writer
-        .write(&mut branch)
+    vb_state
+        .set_branch(branch.clone())
         .context("failed to write branch")?;
 
     project_repository.add_branch_reference(&branch)?;
