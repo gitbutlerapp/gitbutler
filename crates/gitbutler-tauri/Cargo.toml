@@ -69,11 +69,9 @@ perf = "deny"
 correctness = "deny"
 
 [features]
-# by default Tauri runs in production mode
-# when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devPath` is a URL
-default = ["custom-protocol", "sentry"]
-# this feature enables devtools
+default = ["custom-protocol", "sentry", "devtools"]
 devtools = ["tauri/devtools"]
+
 # this feature is used used for production builds where `devPath` points to the filesystem
 # DO NOT remove this
 custom-protocol = ["tauri/custom-protocol"]
