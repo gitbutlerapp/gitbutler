@@ -80,11 +80,6 @@
 				color: var(--clr-scale-ntrl-30);
 				background: oklch(from var(--clr-core-ntrl-50) l c h / 0.18);
 			}
-
-			& .badge {
-				--label-color: var(--clr-scale-ntrl-100);
-				background: var(--clr-scale-ntrl-30);
-			}
 		}
 		&.solid {
 			color: var(--clr-scale-ntrl-100);
@@ -92,11 +87,6 @@
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
 				background: var(--clr-scale-ntrl-30);
-			}
-
-			& .badge {
-				--label-color: var(--clr-scale-ntrl-30);
-				background: var(--clr-scale-ntrl-100);
 			}
 		}
 	}
@@ -109,11 +99,6 @@
 			&:not(.not-button, &:disabled):hover {
 				color: var(--clr-scale-ntrl-20);
 				background: oklch(from var(--clr-core-ntrl-60) l c h / 0.15);
-			}
-
-			& .badge {
-				--label-color: var(--clr-scale-ntrl-100);
-				background: var(--clr-scale-ntrl-30);
 			}
 		}
 
@@ -136,11 +121,6 @@
 				color: var(--clr-scale-pop-10);
 				background: oklch(from var(--clr-scale-pop-80) var(--hover-state-ratio) c h);
 			}
-
-			& .badge {
-				--label-color: var(--clr-scale-ntrl-100);
-				background: var(--clr-scale-pop-20);
-			}
 		}
 		&.solid {
 			color: var(--clr-theme-pop-on-element);
@@ -148,11 +128,6 @@
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
 				background: oklch(from var(--clr-theme-pop-element) var(--hover-state-ratio) c h);
-			}
-
-			& .badge {
-				--label-color: var(--clr-theme-pop-element);
-				background: var(--clr-core-ntrl-100);
 			}
 		}
 	}
@@ -166,11 +141,6 @@
 				color: var(--clr-scale-succ-10);
 				background: oklch(from var(--clr-scale-succ-80) var(--hover-state-ratio) c h);
 			}
-
-			& .badge {
-				--label-color: var(--clr-scale-ntrl-100);
-				background: var(--clr-scale-succ-20);
-			}
 		}
 		&.solid {
 			color: var(--clr-theme-succ-on-element);
@@ -178,11 +148,6 @@
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
 				background: oklch(from var(--clr-theme-succ-element) var(--hover-state-ratio) c h);
-			}
-
-			& .badge {
-				--label-color: var(--clr-theme-succ-element);
-				background: var(--clr-core-ntrl-100);
 			}
 		}
 	}
@@ -196,11 +161,6 @@
 				color: var(--clr-scale-err-10);
 				background: oklch(from var(--clr-scale-err-80) var(--hover-state-ratio) c h);
 			}
-
-			& .badge {
-				--label-color: var(--clr-scale-ntrl-100);
-				background: var(--clr-scale-err-20);
-			}
 		}
 		&.solid {
 			color: var(--clr-theme-err-on-element);
@@ -208,11 +168,6 @@
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
 				background: oklch(from var(--clr-theme-err-element) var(--hover-state-ratio) c h);
-			}
-
-			& .badge {
-				--label-color: var(--clr-theme-err-element);
-				background: var(--clr-core-ntrl-100);
 			}
 		}
 	}
@@ -226,11 +181,6 @@
 				color: var(--clr-scale-warn-10);
 				background: oklch(from var(--clr-scale-warn-80) var(--hover-state-ratio) c h);
 			}
-
-			& .badge {
-				--label-color: var(--clr-scale-ntrl-100);
-				background: var(--clr-scale-warn-20);
-			}
 		}
 		&.solid {
 			color: var(--clr-theme-warn-on-element);
@@ -238,11 +188,6 @@
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
 				background: oklch(from var(--clr-theme-warn-element) var(--hover-state-ratio) c h);
-			}
-
-			& .badge {
-				--label-color: var(--clr-theme-warn-element);
-				background: var(--clr-core-ntrl-100);
 			}
 		}
 	}
@@ -256,11 +201,6 @@
 				color: var(--clr-scale-purp-10);
 				background: oklch(from var(--clr-scale-purp-80) var(--hover-state-ratio) c h);
 			}
-
-			& .badge {
-				--label-color: var(--clr-scale-ntrl-100);
-				background: var(--clr-scale-purp-20);
-			}
 		}
 		&.solid {
 			color: var(--clr-theme-purp-on-element);
@@ -268,11 +208,6 @@
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
 				background: oklch(from var(--clr-theme-purp-element) var(--hover-state-ratio) c h);
-			}
-
-			& .badge {
-				--label-color: var(--clr-theme-purp-element);
-				background: var(--clr-core-ntrl-100);
 			}
 		}
 	}
