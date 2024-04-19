@@ -94,14 +94,16 @@
 			</svelte:fragment>
 
 			<svelte:fragment slot="caption">
-				GitButler will attempt all available authentication flows automatically.
+				{#if selectedType !== 'local'}
+					GitButler will attempt all available authentication flows automatically.
+				{/if}
 			</svelte:fragment>
 		</SectionCard>
 
 		<SectionCard
 			roundedTop={false}
 			roundedBottom={false}
-			bottomBorder={selectedType !== 'local'}
+			bottomBorder={selectedType != 'local'}
 			orientation="row"
 			labelFor="credential-local"
 		>
@@ -112,7 +114,9 @@
 			</svelte:fragment>
 
 			<svelte:fragment slot="caption">
-				Add the path to an existing SSH key that GitButler can use.
+				{#if selectedType == 'local'}
+					Add the path to an existing SSH key that GitButler can use.
+				{/if}
 			</svelte:fragment>
 		</SectionCard>
 
@@ -137,7 +141,7 @@
 		<SectionCard
 			roundedTop={false}
 			roundedBottom={false}
-			bottomBorder={selectedType !== 'generated'}
+			bottomBorder={selectedType != 'generated'}
 			orientation="row"
 			labelFor="credential-generated"
 		>
@@ -148,14 +152,16 @@
 			</svelte:fragment>
 
 			<svelte:fragment slot="caption">
-				GitButler will use a locally generated SSH key. For this to work you need to add the
-				following public key to your Git remote provider:
+				{#if selectedType == 'generated'}
+					GitButler will use a locally generated SSH key. For this to work you need to add the
+					following public key to your Git remote provider:
+				{/if}
 			</svelte:fragment>
 		</SectionCard>
 
-		{#if selectedType === 'generated'}
+		{#if selectedType == 'generated'}
 			<SectionCard topDivider roundedTop={false} roundedBottom={false}>
-				<TextBox id="sshKey" readonly selectall bind:value={sshKey} wide />
+				<TextBox id="sshKey" readonly bind:value={sshKey} wide />
 				<div class="row-buttons">
 					<Button style="pop" kind="solid" icon="copy" on:mousedown={() => copyToClipboard(sshKey)}>
 						Copy to Clipboard
@@ -182,7 +188,11 @@
 		>
 			<svelte:fragment slot="title">Use a Git executable</svelte:fragment>
 
-			<svelte:fragment slot="caption">Git executable must be present on your PATH</svelte:fragment>
+			<svelte:fragment slot="caption">
+				{#if selectedType == 'systemExecutable'}
+					Git executable must be present on your PATH
+				{/if}
+			</svelte:fragment>
 
 			<svelte:fragment slot="actions">
 				<RadioButton name="credentialType" value="systemExecutable" id="git-executable" />
@@ -198,10 +208,12 @@
 			<svelte:fragment slot="title">Use a Git credentials helper</svelte:fragment>
 
 			<svelte:fragment slot="caption">
-				GitButler will use the system's git credentials helper.
-				<Link target="_blank" rel="noreferrer" href="https://git-scm.com/doc/credential-helpers">
-					Learn more
-				</Link>
+				{#if selectedType == 'gitCredentialsHelper'}
+					GitButler will use the system's git credentials helper.
+					<Link target="_blank" rel="noreferrer" href="https://git-scm.com/doc/credential-helpers">
+						Learn more
+					</Link>
+				{/if}
 			</svelte:fragment>
 
 			<svelte:fragment slot="actions">
