@@ -183,7 +183,6 @@ fn get_default_target(
 }
 
 pub fn apply_branch(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     signing_key: Option<&keys::PrivateKey>,
@@ -3644,13 +3643,7 @@ pub fn create_virtual_branch_from_branch(
 
     project_repository.add_branch_reference(&branch)?;
 
-    match apply_branch(
-        gb_repository,
-        project_repository,
-        &branch.id,
-        signing_key,
-        user,
-    ) {
+    match apply_branch(project_repository, &branch.id, signing_key, user) {
         Ok(()) => Ok(branch.id),
         Err(errors::ApplyBranchError::BranchConflicts(_)) => {
             // if branch conflicts with the workspace, it's ok. keep it unapplied

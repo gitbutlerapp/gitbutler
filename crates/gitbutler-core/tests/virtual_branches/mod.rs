@@ -1168,7 +1168,7 @@ fn unapply_branch() -> Result<()> {
     assert_eq!(branch.files.len(), 1);
     assert!(!branch.active);
 
-    apply_branch(gb_repository, project_repository, &branch1_id, None, None)?;
+    apply_branch(project_repository, &branch1_id, None, None)?;
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!(
         "line1\nline2\nline3\nline4\nbranch1\n",
@@ -1242,11 +1242,11 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     // check that file3 is gone
     assert!(!Path::new(&project.path).join(file_path3).exists());
 
-    apply_branch(gb_repository, project_repository, &branch2_id, None, None)?;
+    apply_branch(project_repository, &branch2_id, None, None)?;
     // check that file2 is gone
     assert!(!Path::new(&project.path).join(file_path2).exists());
 
-    apply_branch(gb_repository, project_repository, &branch3_id, None, None)?;
+    apply_branch(project_repository, &branch3_id, None, None)?;
     // check that file3 is back
     let contents = std::fs::read(Path::new(&project.path).join(file_path3))?;
     assert_eq!("file3\n", String::from_utf8(contents)?);
