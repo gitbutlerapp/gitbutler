@@ -1,6 +1,7 @@
 use std::{fmt::Display, ops::RangeInclusive, str::FromStr};
 
 use anyhow::{anyhow, Context, Result};
+use bstr::{BStr, ByteSlice};
 
 use crate::git::diff;
 
@@ -17,7 +18,7 @@ impl From<&diff::GitHunk> for Hunk {
         Hunk {
             start: hunk.new_start,
             end: hunk.new_start + hunk.new_lines,
-            hash: Some(Hunk::hash(&hunk.diff)),
+            hash: Some(Hunk::hash(hunk.diff.as_ref())),
             timestamp_ms: None,
         }
     }
@@ -120,6 +121,7 @@ impl Hunk {
         }
     }
 
+    // TODO(ST): self - prevent many unnecessary copies
     pub fn with_hash(&self, hash: &str) -> Self {
         Hunk {
             start: self.start,
@@ -129,6 +131,7 @@ impl Hunk {
         }
     }
 
+    // TODO(ST): self - prevent many unnecessary copies
     pub fn with_timestamp(&self, timestamp_ms: u128) -> Self {
         Hunk {
             start: self.start,
@@ -157,12 +160,12 @@ impl Hunk {
         self.start == other.new_start && self.end == other.new_start + other.new_lines
     }
 
-    pub fn hash(diff: &str) -> String {
-        let addition = diff
-            .lines()
-            .skip(1) // skip the first line which is the diff header
-            .collect::<Vec<_>>()
-            .join("\n");
-        format!("{:x}", md5::compute(addition))
+    // TODO(perf): keep the hash as digest to avoid allocation.
+    pub fn hash(diff: &BStr) -> String {
+        let mut ctx = md5::Context::new();
+        diff.lines()
+            .skip(1) // skip the first line which is the diff header.
+            .for_each(|line| ctx.consume(line));
+        format!("{:x}", ctx.compute())
     }
 }

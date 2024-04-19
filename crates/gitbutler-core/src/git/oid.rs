@@ -7,6 +7,14 @@ pub struct Oid {
     oid: git2::Oid,
 }
 
+impl Oid {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, git2::Error> {
+        Ok(Self {
+            oid: git2::Oid::from_bytes(bytes)?,
+        })
+    }
+}
+
 impl Default for Oid {
     fn default() -> Self {
         git2::Oid::zero().into()

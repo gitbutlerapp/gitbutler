@@ -48,7 +48,7 @@ async fn should_unapply_with_commits() {
                 .unwrap(),
         )
         .await
-        .unwrap();
+        .unwrap_or_else(|err| panic!("{err:?}"));
 
     let branch = controller
         .list_virtual_branches(project_id)

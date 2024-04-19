@@ -1,5 +1,5 @@
 #[cfg(target_family = "unix")]
-use std::os::unix::prelude::*;
+use std::os::unix::prelude::PermissionsExt;
 use std::{
     collections::HashMap,
     hash::Hash,
@@ -8,8 +8,8 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Context, Result};
-use bstr::ByteSlice;
-use diffy::{apply as diffy_apply, Line, Patch};
+use bstr::{BStr, BString, ByteSlice, ByteVec};
+use diffy::{apply_bytes as diffy_apply, Line, Patch};
 use git2_hooks::HookResult;
 use regex::Regex;
 use serde::Serialize;
@@ -126,7 +126,7 @@ pub struct VirtualBranchFile {
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchHunk {
     pub id: String,
-    pub diff: String,
+    pub diff: BString,
     pub modified_at: u128,
     pub file_path: PathBuf,
     pub hash: String,
@@ -909,9 +909,9 @@ fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<V
             // Diffs larger than 500kb are considered large
             if file.hunks.iter().any(|hunk| hunk.diff.len() > 500_000) {
                 file.large = true;
-                file.hunks
-                    .iter_mut()
-                    .for_each(|hunk| hunk.diff = String::new());
+                file.hunks.iter_mut().for_each(|hunk| {
+                    hunk.diff.drain(..);
+                });
             }
         }
     }
@@ -1603,7 +1603,7 @@ pub fn virtual_hunks_by_filepath(
                     start: hunk.new_start,
                     end: hunk.new_start + hunk.new_lines,
                     binary: hunk.binary,
-                    hash: Hunk::hash(&hunk.diff),
+                    hash: Hunk::hash(hunk.diff.as_ref()),
                     locked: false,
                     locked_to: None,
                     change_type: hunk.change_type,
@@ -1784,7 +1784,7 @@ fn get_applied_status(
                                     committed_git_hunk.new_start,
                                     committed_git_hunk.new_start + committed_git_hunk.new_lines,
                                 ) {
-                                    let hash = Hunk::hash(&uncommitted_git_hunk.diff);
+                                    let hash = Hunk::hash(uncommitted_git_hunk.diff.as_ref());
                                     git_hunk_map.insert(hash, branch.id);
                                 }
                             }
@@ -1817,7 +1817,7 @@ fn get_applied_status(
                     .filter_map(|claimed_hunk| {
                         // if any of the current hunks intersects with the owned hunk, we want to keep it
                         for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
-                            let hash = Hunk::hash(&git_diff_hunk.diff);
+                            let hash = Hunk::hash(git_diff_hunk.diff.as_ref());
                             if let Some(locked_to) = git_hunk_map.get(&hash) {
                                 if locked_to != &branch.id {
                                     return None;
@@ -1887,7 +1887,7 @@ fn get_applied_status(
 
     for (filepath, hunks) in base_diffs {
         for hunk in hunks {
-            let hash = Hunk::hash(&hunk.diff);
+            let hash = Hunk::hash(hunk.diff.as_ref());
             let vbranch_pos = if let Some(locked_to) = git_hunk_map.get(&hash) {
                 let p = virtual_branches.iter().position(|vb| vb.id == *locked_to);
                 match p {
@@ -1904,7 +1904,7 @@ fn get_applied_status(
                     file_path: filepath.clone(),
                     hunks: vec![Hunk::from(&hunk)
                         .with_timestamp(get_mtime(&mut mtimes, &filepath))
-                        .with_hash(Hunk::hash(hunk.diff.as_str()).as_str())],
+                        .with_hash(Hunk::hash(hunk.diff.as_ref()).as_str())],
                 });
 
             diffs_by_branch
@@ -2079,8 +2079,9 @@ pub fn write_tree_onto_tree(
         let rel_path = Path::new(&filepath);
         let full_path = project_repository.path().join(rel_path);
 
-        let is_submodule =
-            full_path.is_dir() && hunks.len() == 1 && hunks[0].diff.contains("Subproject commit");
+        let is_submodule = full_path.is_dir()
+            && hunks.len() == 1
+            && hunks[0].diff.contains_str(b"Subproject commit");
 
         // if file exists
         if full_path.exists() {
@@ -2130,7 +2131,11 @@ pub fn write_tree_onto_tree(
                 if hunks.len() == 1 && hunks[0].binary {
                     let new_blob_oid = &hunks[0].diff;
                     // convert string to Oid
-                    let new_blob_oid = new_blob_oid.parse().context("failed to diff as oid")?;
+                    let new_blob_oid = new_blob_oid
+                        .to_str()
+                        .expect("hex-string")
+                        .parse()
+                        .context("failed to diff as oid")?;
                     builder.upsert(rel_path, new_blob_oid, filemode);
                 } else {
                     // blob from tree_entry
@@ -2140,34 +2145,35 @@ pub fn write_tree_onto_tree(
                         .peel_to_blob()
                         .context("failed to get blob")?;
 
-                    let mut blob_contents = blob.content().to_str()?.to_string();
+                    let blob_contents = blob.content();
 
                     let mut hunks = hunks.clone();
                     hunks.sort_by_key(|hunk| hunk.new_start);
-                    let mut all_diffs = String::new();
+                    let mut all_diffs = BString::default();
                     for hunk in hunks {
                         all_diffs.push_str(&hunk.diff);
                     }
 
-                    let patch = Patch::from_str(&all_diffs)?;
-                    blob_contents = apply(&blob_contents, &patch).context(format!(
+                    let patch = Patch::from_bytes(&all_diffs)?;
+                    let blob_contents = apply(blob_contents.into(), &patch).context(format!(
                         "failed to apply\n{}\nonto:\n{}",
-                        &all_diffs, &blob_contents
+                        all_diffs.as_bstr(),
+                        blob_contents.as_bstr()
                     ))?;
 
                     // create a blob
-                    let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
+                    let new_blob_oid = git_repository.blob(&blob_contents)?;
                     // upsert into the builder
                     builder.upsert(rel_path, new_blob_oid, filemode);
                 }
             } else if is_submodule {
-                let mut blob_contents = String::new();
+                let mut blob_contents = BString::default();
 
                 let mut hunks = hunks.clone();
                 hunks.sort_by_key(|hunk| hunk.new_start);
                 for hunk in hunks {
-                    let patch = Patch::from_str(&hunk.diff)?;
-                    blob_contents = apply(&blob_contents, &patch)
+                    let patch = Patch::from_bytes(&hunk.diff)?;
+                    blob_contents = apply(blob_contents.as_ref(), &patch)
                         .context(format!("failed to apply {}", &hunk.diff))?;
                 }
 
@@ -3640,7 +3646,7 @@ pub fn create_virtual_branch_from_branch(
 }
 
 /// Just like [`diffy::apply()`], but on error it will attach hashes of the input `base_image` and `patch`.
-pub fn apply(base_image: &str, patch: &Patch<'_, str>) -> Result<String> {
+pub fn apply(base_image: &BStr, patch: &Patch<'_, [u8]>) -> Result<BString> {
     fn md5_hash_hex(b: impl AsRef<[u8]>) -> String {
         format!("{:x}", md5::compute(b))
     }
@@ -3654,8 +3660,8 @@ pub fn apply(base_image: &str, patch: &Patch<'_, str>) -> Result<String> {
         Insert(String),
     }
 
-    impl<'a> From<&diffy::Line<'a, str>> for DebugLine {
-        fn from(line: &Line<'a, str>) -> Self {
+    impl<'a> From<&diffy::Line<'a, [u8]>> for DebugLine {
+        fn from(line: &Line<'a, [u8]>) -> Self {
             match line {
                 Line::Context(s) => DebugLine::Context(md5_hash_hex(s)),
                 Line::Delete(s) => DebugLine::Delete(md5_hash_hex(s)),
@@ -3672,8 +3678,8 @@ pub fn apply(base_image: &str, patch: &Patch<'_, str>) -> Result<String> {
         lines: Vec<DebugLine>,
     }
 
-    impl<'a> From<&diffy::Hunk<'a, str>> for DebugHunk {
-        fn from(hunk: &diffy::Hunk<'a, str>) -> Self {
+    impl<'a> From<&diffy::Hunk<'a, [u8]>> for DebugHunk {
+        fn from(hunk: &diffy::Hunk<'a, [u8]>) -> Self {
             Self {
                 old_range: hunk.old_range(),
                 new_range: hunk.new_range(),
@@ -3695,10 +3701,12 @@ pub fn apply(base_image: &str, patch: &Patch<'_, str>) -> Result<String> {
         }
     }
 
-    diffy_apply(base_image, patch).with_context(|| DebugContext {
-        base_image_hash: md5_hash_hex(base_image),
-        hunks: patch.hunks().iter().map(Into::into).collect(),
-    })
+    diffy_apply(base_image, patch)
+        .with_context(|| DebugContext {
+            base_image_hash: md5_hash_hex(base_image),
+            hunks: patch.hunks().iter().map(Into::into).collect(),
+        })
+        .map(Into::into)
 }
 
 // Goes through a set of changes and checks if conflicts are present. If no conflicts
@@ -3714,10 +3722,10 @@ fn update_conflict_markers(
         if conflicting_files.contains(&file_path.display().to_string()) {
             // check file for conflict markers, resolve the file if there are none in any hunk
             for hunk in non_commited_hunks {
-                if hunk.diff.contains("<<<<<<< ours") {
+                if hunk.diff.contains_str(b"<<<<<<< ours") {
                     conflicted = true;
                 }
-                if hunk.diff.contains(">>>>>>> theirs") {
+                if hunk.diff.contains_str(b">>>>>>> theirs") {
                     conflicted = true;
                 }
             }

@@ -15,7 +15,7 @@ toml = "0.8.12"
 anyhow = "1.0.81"
 async-trait = "0.1.79"
 backtrace = { version = "0.3.71", optional = true }
-bstr = "1.9.1"
+bstr = { version = "1.9.1", features = ["serde"] }
 chrono = { version = "0.4.37", features = ["serde"] }
 diffy = "0.3.0"
 filetime = "0.2.23"

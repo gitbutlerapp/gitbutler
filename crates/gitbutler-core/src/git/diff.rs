@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::{collections::HashMap, str};
 
 use anyhow::{Context, Result};
+use bstr::{BStr, BString, ByteSlice, ByteVec};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -42,7 +43,7 @@ pub struct GitHunk {
     pub old_lines: u32,
     pub new_start: u32,
     pub new_lines: u32,
-    pub diff: String,
+    pub diff: BString,
     pub binary: bool,
     pub change_type: ChangeType,
 }
@@ -179,32 +180,26 @@ fn hunks_by_filepath(
             let old_start = hunk.as_ref().map_or(0, git2::DiffHunk::old_start);
             let old_lines = hunk.as_ref().map_or(0, git2::DiffHunk::old_lines);
 
-            let assume_binary = || {
-                let full_path = repository.workdir().unwrap().join(file_path);
-                // save the file_path to the odb
-                if !delta.new_file().id().is_zero() && full_path.exists() {
-                    // the binary file wasn't deleted
-                    repository.blob_path(full_path.as_path()).unwrap();
-                }
-                Some((delta.new_file().id().to_string(), true))
-            };
-
             let line = match line.origin() {
                 '+' | '-' | ' ' => {
-                    if let Ok(content) = str::from_utf8(line.content()) {
-                        Some((format!("{}{}", line.origin(), content), false))
-                    } else {
-                        assume_binary()
-                    }
+                    let mut buf = BString::new(Vec::with_capacity(line.content().len() + 1));
+                    buf.push_char(line.origin());
+                    buf.push_str(line.content());
+                    Some((buf, false))
                 }
-                'B' => assume_binary(),
+                'B' => {
+                    let full_path = repository.workdir().unwrap().join(file_path);
+                    // save the file_path to the odb
+                    if !delta.new_file().id().is_zero() && full_path.exists() {
+                        // the binary file wasn't deleted
+                        repository.blob_path(full_path.as_path()).unwrap();
+                    }
+                    Some((delta.new_file().id().to_string().into(), true))
+                }
                 'F' => None,
                 _ => {
-                    if let Ok(content) = str::from_utf8(line.content()) {
-                        Some((content.to_string(), false))
-                    } else {
-                        assume_binary()
-                    }
+                    let line: BString = line.content().into();
+                    Some((line, false))
                 }
             };
             if let Some((line, is_binary)) = line {
@@ -277,6 +272,12 @@ fn hunks_by_filepath(
         .map(|(k, v)| {
             if let Some(binary_hunk) = v.iter().find(|hunk| hunk.binary) {
                 if v.len() > 1 {
+                    // TODO(ST): Would it be possible here to permanently discard lines because
+                    //           they are considered binary? After all, here we create a new change,
+                    //           turning multiple binary hunks into single line hunk (somehow).
+                    //           Probably answer: it's likely that this data is only created on the fly,
+                    //           and only the original source data is relevant - validate it.
+                    //           But: virtual branches definitely apply hunks.
                     // if there are multiple hunks with binary among them, then the binary hunk
                     // takes precedence
                     (
@@ -303,7 +304,7 @@ fn hunks_by_filepath(
                         old_lines: 0,
                         new_start: 0,
                         new_lines: 0,
-                        diff: String::new(),
+                        diff: Default::default(),
                         binary: false,
                         change_type: ChangeType::Modified,
                     }],
@@ -321,51 +322,58 @@ fn hunks_by_filepath(
 }
 
 // returns None if cannot reverse the patch header
-fn reverse_patch_header(header: &str) -> Option<String> {
-    use itertools::Itertools;
-
-    let mut parts = header.split_whitespace();
+fn reverse_patch_header(header: &BStr) -> Option<BString> {
+    let mut parts = header.split(|b| b.is_ascii_whitespace());
 
     match parts.next() {
-        Some("@@") => {}
+        Some(b"@@") => {}
         _ => return None,
     };
 
     let old_range = parts.next()?;
     let new_range = parts.next()?;
 
-    match parts.next() {
-        Some("@@") => {}
-        _ => return None,
+    if parts.next() != Some(b"@@") {
+        return None;
     };
 
-    Some(format!(
-        "@@ {} {} @@ {}",
-        new_range.replace('+', "-"),
-        old_range.replace('-', "+"),
-        parts.join(" ")
-    ))
+    let mut buf: BString = "@@ ".into();
+    buf.extend_from_slice(&new_range.replace(b"+", b"-"));
+    buf.push(b' ');
+    buf.extend_from_slice(&old_range.replace(b"-", b"+"));
+    buf.push_str(b" @@ ");
+
+    let mut at_least_one_part = false;
+    for part in parts {
+        buf.extend_from_slice(part);
+        buf.push(b' ');
+        at_least_one_part = true;
+    }
+    if at_least_one_part {
+        buf.pop();
+    }
+    Some(buf)
 }
 
-fn reverse_patch(patch: &str) -> Option<String> {
-    let mut reversed = String::new();
+fn reverse_patch(patch: &BStr) -> Option<BString> {
+    let mut reversed = BString::default();
     for line in patch.lines() {
-        if line.starts_with("@@") {
-            if let Some(header) = reverse_patch_header(line) {
+        if line.starts_with(b"@@") {
+            if let Some(header) = reverse_patch_header(line.as_ref()) {
                 reversed.push_str(&header);
-                reversed.push('\n');
+                reversed.push(b'\n');
             } else {
                 return None;
             }
-        } else if line.starts_with('+') {
-            reversed.push_str(&line.replacen('+', "-", 1));
-            reversed.push('\n');
-        } else if line.starts_with('-') {
-            reversed.push_str(&line.replacen('-', "+", 1));
-            reversed.push('\n');
+        } else if line.starts_with(b"+") {
+            reversed.push_str(&line.replacen(b"+", b"-", 1));
+            reversed.push(b'\n');
+        } else if line.starts_with(b"-") {
+            reversed.push_str(&line.replacen(b"-", b"+", 1));
+            reversed.push(b'\n');
         } else {
             reversed.push_str(line);
-            reversed.push('\n');
+            reversed.push(b'\n');
         }
     }
     Some(reversed)
@@ -376,7 +384,7 @@ pub fn reverse_hunk(hunk: &GitHunk) -> Option<GitHunk> {
     if hunk.binary {
         None
     } else {
-        reverse_patch(&hunk.diff).map(|diff| GitHunk {
+        reverse_patch(hunk.diff.as_ref()).map(|diff| GitHunk {
             old_start: hunk.new_start,
             old_lines: hunk.new_lines,
             new_start: hunk.old_start,
