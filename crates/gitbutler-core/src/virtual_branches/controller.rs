@@ -1029,7 +1029,7 @@ impl ControllerInner {
             user.as_ref(),
         )
         .context("failed to open gitbutler repository")?;
-        super::integration::verify_branch(&gb_repository, &project_repository)?;
+        super::integration::verify_branch(&project_repository)?;
         action(&gb_repository, &project_repository, user.as_ref())
     }
 
@@ -1051,7 +1051,7 @@ impl ControllerInner {
         let gb_repository =
             gb_repository::Repository::open(&local_data_dir, &project_repository, user.as_ref())
                 .context("failed to open gitbutler repository")?;
-        super::integration::verify_branch(&gb_repository, &project_repository)?;
+        super::integration::verify_branch(&project_repository)?;
         Ok(tokio::task::spawn_blocking(move || {
             action(&gb_repository, &project_repository, user.as_ref())
         }))

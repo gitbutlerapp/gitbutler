@@ -2143,7 +2143,7 @@ fn verify_branch_commits_to_integration() -> Result<()> {
 
     set_test_target(gb_repository, project_repository)?;
 
-    verify_branch(gb_repository, project_repository).unwrap();
+    verify_branch(project_repository).unwrap();
 
     //  write two commits
     let file_path2 = Path::new("test2.txt");
@@ -2153,7 +2153,7 @@ fn verify_branch_commits_to_integration() -> Result<()> {
     commit_all(&project_repository.git_repository);
 
     // verify puts commits onto the virtual branch
-    verify_branch(gb_repository, project_repository).unwrap();
+    verify_branch(project_repository).unwrap();
 
     // one virtual branch with two commits was created
     let (virtual_branches, _) =
@@ -2178,13 +2178,13 @@ fn verify_branch_not_integration() -> Result<()> {
 
     set_test_target(gb_repository, project_repository)?;
 
-    verify_branch(gb_repository, project_repository).unwrap();
+    verify_branch(project_repository).unwrap();
 
     project_repository
         .git_repository
         .set_head(&"refs/heads/master".parse().unwrap())?;
 
-    let verify_result = verify_branch(gb_repository, project_repository);
+    let verify_result = verify_branch(project_repository);
     assert!(verify_result.is_err());
     assert_eq!(
         verify_result.unwrap_err().to_string(),

@@ -193,16 +193,14 @@ pub fn update_gitbutler_integration(
 }
 
 pub fn verify_branch(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<(), errors::VerifyError> {
     verify_head_is_set(project_repository)?;
-    verify_head_is_clean(gb_repository, project_repository)?;
+    verify_head_is_clean(project_repository)?;
     Ok(())
 }
 
 fn verify_head_is_clean(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<(), errors::VerifyError> {
     let head_commit = project_repository
