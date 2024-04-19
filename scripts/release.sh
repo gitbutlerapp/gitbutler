@@ -165,10 +165,6 @@ jq '.package.version="'"$VERSION"'"' "$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
 
 FEATURES=""
 
-if [ "$CHANNEL" == "nightly" ]; then
-	FEATURES="$FEATURES devtools"
-fi
-
 # build the app with release config
 SENTRY_RELEASE="$VERSION" tauri build \
 	--verbose \
