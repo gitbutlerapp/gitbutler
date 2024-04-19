@@ -8,7 +8,6 @@ use crate::{
     gb_repository,
     git::{self},
     project_repository::{self, LogUntil},
-    reader, sessions,
     virtual_branches::branch::BranchCreateRequest,
 };
 
@@ -70,22 +69,12 @@ pub fn update_gitbutler_integration(
     repo.set_head(&GITBUTLER_INTEGRATION_REFERENCE.clone().into())
         .context("failed to set head")?;
 
-    let latest_session = gb_repository
-        .get_latest_session()
-        .context("failed to get latest session")?
-        .context("latest session not found")?;
-    let session_reader = sessions::Reader::open(gb_repository, &latest_session)
-        .context("failed to open current session")?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
     // get all virtual branches, we need to try to update them all
-    let all_virtual_branches = super::iterator::BranchIterator::new(
-        &session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    )
-    .context("failed to create branch iterator")?
-    .collect::<Result<Vec<super::branch::Branch>, reader::Error>>()
-    .context("failed to read virtual branches")?;
+    let all_virtual_branches = vb_state
+        .list_branches()
+        .context("failed to list virtual branches")?;
 
     let applied_virtual_branches = all_virtual_branches
         .iter()
@@ -266,11 +255,7 @@ fn verify_head_is_clean(
     .context("failed to create virtual branch")?;
 
     // rebasing the extra commits onto the new branch
-    let writer = super::branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create writer")?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
     extra_commits.reverse();
     let mut head = new_branch.head;
     for commit in extra_commits {
@@ -304,8 +289,8 @@ fn verify_head_is_clean(
 
         new_branch.head = rebased_commit.id();
         new_branch.tree = rebased_commit.tree_id();
-        writer
-            .write(&mut new_branch)
+        vb_state
+            .set_branch(new_branch.clone())
             .context("failed to write branch")?;
 
         head = rebased_commit.id();
