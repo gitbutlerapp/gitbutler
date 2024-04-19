@@ -805,10 +805,9 @@ impl ControllerInner {
         let helper = self.helper.clone();
         let project_id = *project_id;
         let branch_id = *branch_id;
-        self.with_verify_branch_async(&project_id, move |gb_repository, project_repository, _| {
+        self.with_verify_branch_async(&project_id, move |_, project_repository, _| {
             Ok(super::push(
                 project_repository,
-                gb_repository,
                 &branch_id,
                 with_force,
                 &helper,

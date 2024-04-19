@@ -2387,7 +2387,6 @@ pub fn commit(
 
 pub fn push(
     project_repository: &project_repository::Repository,
-    gb_repository: &gb_repository::Repository,
     branch_id: &BranchId,
     with_force: bool,
     credentials: &git::credentials::Helper,
