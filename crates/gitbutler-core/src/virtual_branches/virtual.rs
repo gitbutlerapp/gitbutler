@@ -2589,7 +2589,6 @@ pub fn is_remote_branch_mergeable(
 }
 
 pub fn is_virtual_branch_mergeable(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
 ) -> Result<bool, errors::IsVirtualBranchMergeable> {

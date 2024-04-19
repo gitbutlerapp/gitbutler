@@ -477,15 +477,7 @@ impl ControllerInner {
     ) -> Result<bool, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        let user = self.users.get_user().context("failed to get user")?;
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open gitbutler repository")?;
-        super::is_virtual_branch_mergeable(&gb_repository, &project_repository, branch_id)
-            .map_err(Into::into)
+        super::is_virtual_branch_mergeable(&project_repository, branch_id).map_err(Into::into)
     }
 
     /// Retrieves the virtual branches state from the gitbutler repository (legacy state)

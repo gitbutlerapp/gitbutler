@@ -1410,11 +1410,11 @@ fn detect_mergeable_branch() -> Result<()> {
 
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
     assert!(!branch1.active);
-    assert!(!is_virtual_branch_mergeable(gb_repository, project_repository, &branch1.id).unwrap());
+    assert!(!is_virtual_branch_mergeable(project_repository, &branch1.id).unwrap());
 
     let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
     assert!(!branch2.active);
-    assert!(is_virtual_branch_mergeable(gb_repository, project_repository, &branch2.id).unwrap());
+    assert!(is_virtual_branch_mergeable(project_repository, &branch2.id).unwrap());
 
     let remotes =
         list_remote_branches(gb_repository, project_repository).expect("failed to list remotes");
