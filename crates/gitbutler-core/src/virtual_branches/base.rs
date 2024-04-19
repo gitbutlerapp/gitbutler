@@ -14,7 +14,7 @@ use crate::{
     keys,
     project_repository::{self, LogUntil},
     projects::FetchResult,
-    reader, sessions, users,
+    users,
     virtual_branches::branch::BranchOwnershipClaims,
 };
 
@@ -66,19 +66,10 @@ fn go_back_to_integration(
         return Err(errors::SetBaseBranchError::DirtyWorkingDirectory);
     }
 
-    let latest_session = gb_repository
-        .get_latest_session()?
-        .context("no session found")?;
-    let session_reader = sessions::Reader::open(gb_repository, &latest_session)?;
-
-    let all_virtual_branches = super::iterator::BranchIterator::new(
-        &session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    )
-    .context("failed to create branch iterator")?
-    .collect::<Result<Vec<super::branch::Branch>, reader::Error>>()
-    .context("failed to read virtual branches")?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let all_virtual_branches = vb_state
+        .list_branches()
+        .context("failed to read virtual branches")?;
 
     let applied_virtual_branches = all_virtual_branches
         .iter()
@@ -192,12 +183,8 @@ pub fn set_base_branch(
         sha: target_commit_oid,
     };
 
-    let target_writer = target::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create target writer")?;
-    target_writer.write_default(&target)?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    vb_state.set_default_target(target.clone())?;
 
     let head_name: git::Refname = current_head
         .name()
@@ -258,7 +245,7 @@ pub fn set_base_branch(
                 (None, None)
             };
 
-            let mut branch = branch::Branch {
+            let branch = branch::Branch {
                 id: BranchId::generate(),
                 name: head_name.to_string().replace("refs/heads/", ""),
                 notes: String::new(),
@@ -278,12 +265,7 @@ pub fn set_base_branch(
                 selected_for_changes: None,
             };
 
-            let branch_writer = branch::Writer::new(
-                gb_repository,
-                VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-            )
-            .context("failed to create branch writer")?;
-            branch_writer.write(&mut branch)?;
+            vb_state.set_branch(branch)?;
         }
     }
 
@@ -383,11 +365,7 @@ pub fn update_base_branch(
             target.sha
         ))?;
 
-    let branch_writer = branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create branch writer")?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
     // try to update every branch
     let updated_vbranches = super::get_status_by_branch(
@@ -431,11 +409,11 @@ pub fn update_base_branch(
                     if non_commited_files.is_empty() {
                         // if there are no commited files, then the branch is fully merged
                         // and we can delete it.
-                        branch_writer.delete(&branch)?;
+                        vb_state.remove_branch(branch.id)?;
                         project_repository.delete_branch_reference(&branch)?;
                         Ok(None)
                     } else {
-                        branch_writer.write(&mut branch)?;
+                        vb_state.set_branch(branch.clone())?;
                         Ok(Some(branch))
                     }
                 };
@@ -452,7 +430,7 @@ pub fn update_base_branch(
             if branch_tree_merge_index.has_conflicts() {
                 // branch tree conflicts with new target, unapply branch for now. we'll handle it later, when user applies it back.
                 branch.applied = false;
-                branch_writer.write(&mut branch)?;
+                vb_state.set_branch(branch.clone())?;
                 return Ok(Some(branch));
             }
 
@@ -466,7 +444,7 @@ pub fn update_base_branch(
                 // there are no commits on the branch, so we can just update the head to the new target and calculate the new tree
                 branch.head = new_target_commit.id();
                 branch.tree = branch_merge_index_tree_oid;
-                branch_writer.write(&mut branch)?;
+                vb_state.set_branch(branch.clone())?;
                 return Ok(Some(branch));
             }
 
@@ -481,7 +459,7 @@ pub fn update_base_branch(
                 // branch commits conflict with new target, make sure the branch is
                 // unapplied. conflicts witll be dealt with when applying it back.
                 branch.applied = false;
-                branch_writer.write(&mut branch)?;
+                vb_state.set_branch(branch.clone())?;
                 return Ok(Some(branch));
             }
 
@@ -521,7 +499,7 @@ pub fn update_base_branch(
 
                 branch.head = new_target_head;
                 branch.tree = branch_merge_index_tree_oid;
-                branch_writer.write(&mut branch)?;
+                vb_state.set_branch(branch.clone())?;
                 Ok(Some(branch))
             };
 
@@ -568,7 +546,7 @@ pub fn update_base_branch(
                 rebase.finish(None).context("failed to finish rebase")?;
                 branch.head = last_rebase_head;
                 branch.tree = branch_merge_index_tree_oid;
-                branch_writer.write(&mut branch)?;
+                vb_state.set_branch(branch.clone())?;
                 return Ok(Some(branch));
             }
 
@@ -603,12 +581,7 @@ pub fn update_base_branch(
     )?;
 
     // write new target oid
-    let target_writer = target::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )
-    .context("failed to create target writer")?;
-    target_writer.write_default(&target::Target {
+    vb_state.set_default_target(target::Target {
         sha: new_target_commit.id(),
         ..target
     })?;
