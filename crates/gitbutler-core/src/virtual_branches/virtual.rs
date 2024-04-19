@@ -433,7 +433,7 @@ pub fn apply_branch(
         .checkout()
         .context("failed to checkout index")?;
 
-    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     Ok(())
 }
@@ -469,7 +469,7 @@ pub fn unapply_ownership(
         .collect::<Vec<_>>();
 
     let integration_commit =
-        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     let (applied_statuses, _) = get_applied_status(
         project_repository,
@@ -550,7 +550,7 @@ pub fn unapply_ownership(
         .checkout()
         .context("failed to checkout tree")?;
 
-    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     Ok(())
 }
@@ -645,7 +645,7 @@ pub fn unapply_branch(
             .collect::<Vec<_>>();
 
         let integration_commit =
-            super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+            super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
         let (applied_statuses, _) = get_applied_status(
             project_repository,
@@ -719,7 +719,7 @@ pub fn unapply_branch(
         .checkout()
         .context("failed to checkout tree")?;
 
-    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     Ok(Some(target_branch))
 }
@@ -749,17 +749,13 @@ pub fn list_virtual_branches(
 ) -> Result<(Vec<VirtualBranch>, Vec<diff::FileDiff>), errors::ListVirtualBranchesError> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
-    let default_target = gb_repository
-        .default_target()
-        .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::ListVirtualBranchesError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
-                project_id: project_repository.project().id,
-            })
-        })?;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let default_target = vb_state
+        .get_default_target()
+        .context("failed to get default target")?;
 
     let integration_commit =
-        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     let (statuses, skipped_files) =
         get_status_by_branch(project_repository, Some(&integration_commit))?;
@@ -1355,10 +1351,7 @@ pub fn merge_virtual_branch_upstream(
                 branch.head = last_rebase_head;
                 branch.tree = merge_tree_oid;
                 vb_state.set_branch(branch.clone())?;
-                super::integration::update_gitbutler_integration(
-                    gb_repository,
-                    project_repository,
-                )?;
+                super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
                 return Ok(());
             }
@@ -1396,7 +1389,7 @@ pub fn merge_virtual_branch_upstream(
         vb_state.set_branch(branch.clone())?;
     }
 
-    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     Ok(())
 }
@@ -2036,7 +2029,7 @@ pub fn reset_branch(
         .set_branch(branch.clone())
         .context("failed to write branch")?;
 
-    super::integration::update_gitbutler_integration(gb_repository, project_repository)
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)
         .context("failed to update gitbutler integration")?;
 
     Ok(())
@@ -2246,6 +2239,7 @@ pub fn commit(
     run_hooks: bool,
 ) -> Result<git::Oid, errors::CommitError> {
     let mut message_buffer = message.to_owned();
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
     if run_hooks {
         let hook_result = project_repository
@@ -2270,7 +2264,7 @@ pub fn commit(
     let message = &message_buffer;
 
     let integration_commit =
-        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
     // get the files to commit
     let (mut statuses, _) = get_status_by_branch(project_repository, Some(&integration_commit))
         .context("failed to get status by branch")?;
@@ -2369,7 +2363,7 @@ pub fn commit(
         .set_branch(branch.clone())
         .context("failed to write branch")?;
 
-    super::integration::update_gitbutler_integration(gb_repository, project_repository)
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)
         .context("failed to update gitbutler integration")?;
 
     Ok(commit_oid)
@@ -2693,7 +2687,7 @@ pub fn amend(
         })?;
 
     let integration_commit =
-        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     let (mut applied_statuses, _) = get_applied_status(
         project_repository,
@@ -2795,7 +2789,7 @@ pub fn amend(
     target_branch.head = commit_oid;
     vb_state.set_branch(target_branch.clone())?;
 
-    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     Ok(commit_oid)
 }
@@ -2849,7 +2843,7 @@ pub fn cherry_pick(
         .collect::<Vec<_>>();
 
     let integration_commit =
-        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     let (applied_statuses, _) = get_applied_status(
         project_repository,
@@ -2977,7 +2971,7 @@ pub fn cherry_pick(
         Some(commit_oid)
     };
 
-    super::integration::update_gitbutler_integration(gb_repository, project_repository)
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)
         .context("failed to update gitbutler integration")?;
 
     Ok(commit_oid)
@@ -3160,7 +3154,7 @@ pub fn squash(
         .set_branch(branch.clone())
         .context("failed to write branch")?;
 
-    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     Ok(())
 }
@@ -3330,7 +3324,7 @@ pub fn update_commit_message(
         .set_branch(branch.clone())
         .context("failed to write branch")?;
 
-    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     Ok(())
 }
@@ -3379,7 +3373,7 @@ pub fn move_commit(
         })?;
 
     let integration_commit =
-        super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     let (mut applied_statuses, _) = get_applied_status(
         project_repository,
@@ -3503,7 +3497,7 @@ pub fn move_commit(
         vb_state.set_branch(destination_branch.clone())?;
     }
 
-    super::integration::update_gitbutler_integration(gb_repository, project_repository)
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)
         .context("failed to update gitbutler integration")?;
 
     Ok(())

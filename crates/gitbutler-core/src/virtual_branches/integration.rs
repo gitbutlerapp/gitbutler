@@ -5,7 +5,6 @@ use lazy_static::lazy_static;
 
 use super::{errors, VirtualBranchesHandle};
 use crate::{
-    gb_repository,
     git::{self},
     project_repository::{self, LogUntil},
     virtual_branches::branch::BranchCreateRequest,
@@ -20,13 +19,12 @@ const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME: &str = "GitButler";
 const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
 
 pub fn update_gitbutler_integration(
-    gb_repository: &gb_repository::Repository,
+    vb_state: &VirtualBranchesHandle,
     project_repository: &project_repository::Repository,
 ) -> Result<git::Oid> {
-    let target = gb_repository
-        .default_target()
-        .context("failed to get target")?
-        .context("no target set")?;
+    let target = vb_state
+        .get_default_target()
+        .context("failed to get target")?;
 
     let repo = &project_repository.git_repository;
 

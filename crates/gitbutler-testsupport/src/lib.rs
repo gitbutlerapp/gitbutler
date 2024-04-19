@@ -29,6 +29,7 @@ pub mod virtual_branches {
         gb_repo: &gb_repository::Repository,
         project_repository: &project_repository::Repository,
     ) -> anyhow::Result<()> {
+        let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
         let (remote_repo, _tmp) = empty_bare_repository();
         let mut remote = project_repository
             .git_repository
@@ -50,7 +51,7 @@ pub mod virtual_branches {
         })
         .expect("failed to write target");
 
-        virtual_branches::integration::update_gitbutler_integration(gb_repo, project_repository)
+        virtual_branches::integration::update_gitbutler_integration(&vb_state, project_repository)
             .expect("failed to update integration");
 
         Ok(())

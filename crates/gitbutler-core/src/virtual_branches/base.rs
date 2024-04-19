@@ -117,7 +117,7 @@ fn go_back_to_integration(
         .context("failed to checkout tree")?;
 
     let base = target_to_base_branch(project_repository, default_target)?;
-    update_gitbutler_integration(gb_repository, project_repository)?;
+    update_gitbutler_integration(&vb_state, project_repository)?;
     Ok(base)
 }
 
@@ -271,7 +271,7 @@ pub fn set_base_branch(
 
     set_exclude_decoration(project_repository)?;
 
-    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     let base = target_to_base_branch(project_repository, &target)?;
     Ok(base)
@@ -585,7 +585,7 @@ pub fn update_base_branch(
         ..target
     })?;
 
-    super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     Ok(())
 }

@@ -1451,6 +1451,8 @@ fn upstream_integrated_vbranch() -> Result<()> {
         (PathBuf::from("test3.txt"), "file3\n"),
     ]));
 
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+
     let base_commit = project_repository
         .git_repository
         .head()
@@ -1489,7 +1491,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
     project_repository
         .git_repository
         .remote("origin", &"http://origin.com/project".parse().unwrap())?;
-    virtual_branches::integration::update_gitbutler_integration(gb_repository, project_repository)?;
+    virtual_branches::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     // create vbranches, one integrated, one not
     let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
