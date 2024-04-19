@@ -58,7 +58,7 @@ async fn push_simple() -> Result<()> {
     } = &fixture.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "test")]));
 
     fixture.sign_in();
-    set_test_target(gb_repository, project_repository).unwrap();
+    set_test_target(project_repository).unwrap();
 
     let target_id = gb_repository.default_target().unwrap().unwrap().sha;
     let reference = project_repository.l(target_id, LogUntil::End).unwrap();
@@ -118,13 +118,12 @@ async fn push_remote_ref() -> Result<()> {
     let handler = fixture.new_handler();
     let Case {
         project,
-        gb_repository,
         project_repository,
         ..
     } = &fixture.new_case();
 
     fixture.sign_in();
-    set_test_target(gb_repository, project_repository).unwrap();
+    set_test_target(project_repository).unwrap();
 
     let (cloud_code, _tmp) = test_remote_repository()?;
     let cloud_code: git::Repository = cloud_code.into();
@@ -263,7 +262,7 @@ async fn push_batches() -> Result<()> {
         assert_eq!(reference.len(), 12);
     }
 
-    set_test_target(gb_repository, project_repository).unwrap();
+    set_test_target(project_repository).unwrap();
 
     let target_id = gb_repository.default_target().unwrap().unwrap().sha;
     let reference = project_repository.l(target_id, LogUntil::End).unwrap();
@@ -329,7 +328,7 @@ async fn push_again_no_change() -> Result<()> {
 
     fixture.sign_in();
 
-    set_test_target(gb_repository, project_repository).unwrap();
+    set_test_target(project_repository).unwrap();
     let target_id = gb_repository.default_target().unwrap().unwrap().sha;
     let reference = project_repository.l(target_id, LogUntil::End).unwrap();
     let (cloud_code, _tmp) = test_remote_repository()?;

@@ -654,62 +654,44 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
     let mut fixture = Fixture::default();
     let listener = State::from_fixture(&mut fixture);
     let Case {
-        gb_repository,
         project,
         project_repository,
         ..
     } = &fixture.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
 
-    let branch_writer =
-        branch::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
-    let target_writer = virtual_branches::target::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project.gb_dir()),
-    )?;
+    let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
     let default_target = new_test_target();
-    target_writer.write_default(&default_target)?;
-    let mut vbranch0 = new_test_branch();
-    branch_writer.write(&mut vbranch0)?;
-    let mut vbranch1 = new_test_branch();
+
+    vb_state.set_default_target(default_target.clone())?;
+
+    let vbranch0 = new_test_branch();
+    vb_state.set_branch(vbranch0.clone())?;
+
+    let vbranch1 = new_test_branch();
     let vbranch1_target = new_test_target();
-    branch_writer.write(&mut vbranch1)?;
-    target_writer.write(&vbranch1.id, &vbranch1_target)?;
+    vb_state.set_branch(vbranch1.clone())?;
+    vb_state.set_branch_target(vbranch1.id, vbranch1_target.clone())?;
 
     std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
     listener.calculate_delta("test.txt", project.id)?;
 
-    let flushed_session = gb_repository.flush(project_repository, None).unwrap();
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    // create a new session
-    let session = gb_repository.get_or_create_current_session().unwrap();
-    assert_ne!(session.id, flushed_session.unwrap().id);
-
-    // ensure that the virtual branch is still there and selected
-    let session_reader = sessions::Reader::open(gb_repository, &session).unwrap();
-
-    let branches = virtual_branches::Iterator::new(
-        &session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    )
-    .unwrap()
-    .collect::<Result<Vec<virtual_branches::Branch>, gitbutler_core::reader::Error>>()
-    .unwrap()
-    .into_iter()
-    .collect::<Vec<virtual_branches::Branch>>();
+    let branches = vb_state.list_branches().unwrap();
     assert_eq!(branches.len(), 2);
     let branch_ids = branches.iter().map(|b| b.id).collect::<Vec<_>>();
     assert!(branch_ids.contains(&vbranch0.id));
     assert!(branch_ids.contains(&vbranch1.id));
 
-    let target_reader = virtual_branches::target::Reader::new(
-        &session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
+    assert_eq!(vb_state.get_default_target().unwrap(), default_target);
+    assert_eq!(
+        vb_state.get_branch_target(&vbranch0.id).unwrap(),
+        default_target
     );
-    assert_eq!(target_reader.read_default().unwrap(), default_target);
-    assert_eq!(target_reader.read(&vbranch0.id).unwrap(), default_target);
-    assert_eq!(target_reader.read(&vbranch1.id).unwrap(), vbranch1_target);
+    assert_eq!(
+        vb_state.get_branch_target(&vbranch1.id).unwrap(),
+        vbranch1_target
+    );
 
     Ok(())
 }
@@ -718,66 +700,38 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
 fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
     let mut fixture = Fixture::default();
     let listener = State::from_fixture(&mut fixture);
-    let Case {
-        gb_repository,
-        project,
-        project_repository,
-        ..
-    } = &fixture.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
+    let Case { project, .. } =
+        &fixture.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
 
-    let branch_writer =
-        branch::Writer::new(gb_repository, VirtualBranchesHandle::new(&project.gb_dir()))?;
-    let target_writer = virtual_branches::target::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project.gb_dir()),
-    )?;
+    let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
+
     let default_target = new_test_target();
-    target_writer.write_default(&default_target)?;
-    let mut vbranch0 = new_test_branch();
-    branch_writer.write(&mut vbranch0)?;
-    let mut vbranch1 = new_test_branch();
+    vb_state.set_default_target(default_target.clone())?;
+    let vbranch0 = new_test_branch();
+    vb_state.set_branch(vbranch0.clone())?;
+    let vbranch1 = new_test_branch();
     let vbranch1_target = new_test_target();
-    branch_writer.write(&mut vbranch1)?;
-    target_writer.write(&vbranch1.id, &vbranch1_target)?;
+    vb_state.set_branch(vbranch1.clone())?;
+    vb_state.set_branch_target(vbranch1.id, vbranch1_target.clone())?;
 
     std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
     listener.calculate_delta("test.txt", project.id).unwrap();
 
-    let flushed_session = gb_repository.flush(project_repository, None).unwrap();
-
-    // hard delete branches state from disk
-    std::fs::remove_dir_all(gb_repository.root()).unwrap();
-
-    // create a new session
-    let session = gb_repository.get_or_create_current_session().unwrap();
-    assert_ne!(session.id, flushed_session.unwrap().id);
-
-    // ensure that the virtual branch is still there and selected
-    let session_reader = sessions::Reader::open(gb_repository, &session).unwrap();
-
-    let branches = virtual_branches::Iterator::new(
-        &session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
-    )
-    .unwrap()
-    .collect::<Result<Vec<virtual_branches::Branch>, gitbutler_core::reader::Error>>()
-    .unwrap()
-    .into_iter()
-    .collect::<Vec<virtual_branches::Branch>>();
+    let branches = vb_state.list_branches().unwrap();
     assert_eq!(branches.len(), 2);
     let branch_ids = branches.iter().map(|b| b.id).collect::<Vec<_>>();
     assert!(branch_ids.contains(&vbranch0.id));
     assert!(branch_ids.contains(&vbranch1.id));
 
-    let target_reader = virtual_branches::target::Reader::new(
-        &session_reader,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-        project_repository.project().use_toml_vbranches_state(),
+    assert_eq!(vb_state.get_default_target().unwrap(), default_target);
+    assert_eq!(
+        vb_state.get_branch_target(&vbranch0.id).unwrap(),
+        default_target
     );
-    assert_eq!(target_reader.read_default().unwrap(), default_target);
-    assert_eq!(target_reader.read(&vbranch0.id).unwrap(), default_target);
-    assert_eq!(target_reader.read(&vbranch1.id).unwrap(), vbranch1_target);
+    assert_eq!(
+        vb_state.get_branch_target(&vbranch1.id).unwrap(),
+        vbranch1_target
+    );
 
     Ok(())
 }

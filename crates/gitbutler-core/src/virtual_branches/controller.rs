@@ -423,7 +423,7 @@ impl ControllerInner {
     ) -> Result<git::Oid, Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
+        self.with_verify_branch(project_id, |_, project_repository, user| {
             let signing_key = project_repository
                 .config()
                 .sign_commits()
@@ -436,7 +436,6 @@ impl ControllerInner {
                 .transpose()?;
 
             super::commit(
-                gb_repository,
                 project_repository,
                 branch_id,
                 message,
@@ -456,15 +455,7 @@ impl ControllerInner {
     ) -> Result<bool, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        let user = self.users.get_user()?;
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open gitbutler repository")?;
         Ok(super::is_remote_branch_mergeable(
-            &gb_repository,
             &project_repository,
             branch_name,
         )?)
@@ -477,15 +468,7 @@ impl ControllerInner {
     ) -> Result<bool, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        let user = self.users.get_user().context("failed to get user")?;
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open gitbutler repository")?;
-        super::is_virtual_branch_mergeable(&gb_repository, &project_repository, branch_id)
-            .map_err(Into::into)
+        super::is_virtual_branch_mergeable(&project_repository, branch_id).map_err(Into::into)
     }
 
     /// Retrieves the virtual branches state from the gitbutler repository (legacy state)
@@ -495,44 +478,22 @@ impl ControllerInner {
         branch_ids: Vec<BranchId>,
     ) -> Result<VirtualBranches, Error> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
-        let user = self.users.get_user().context("failed to get user")?;
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open gitbutler repository")?;
-        let current_session = gb_repository
-            .get_or_create_current_session()
-            .context("failed to get or create current session")?;
-        let session_reader = crate::sessions::Reader::open(&gb_repository, &current_session)
-            .context("failed to open current session")?;
-        let target_reader = super::target::Reader::new(
-            &session_reader,
-            VirtualBranchesHandle::new(&project.gb_dir()),
-            project.use_toml_vbranches_state(),
-        );
-        let branch_reader = super::branch::Reader::new(
-            &session_reader,
-            VirtualBranchesHandle::new(&project.gb_dir()),
-            project.use_toml_vbranches_state(),
-        );
+        let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
 
-        let default_target = target_reader
-            .read_default()
-            .context("failed to read target")?;
+        let default_target = vb_state
+            .get_default_target()
+            .context("failed to get default target")?;
 
         let mut branches: HashMap<BranchId, super::Branch> = HashMap::new();
         let mut branch_targets: HashMap<BranchId, super::target::Target> = HashMap::new();
 
         for branch_id in branch_ids {
-            let branch = branch_reader
-                .read(&branch_id)
+            let branch = vb_state
+                .get_branch(&branch_id)
                 .context("failed to read branch")?;
             branches.insert(branch_id, branch);
-            let target = target_reader
-                .read(&branch_id)
+            let target = vb_state
+                .get_branch_target(&branch_id)
                 .context("failed to read target")?;
             branch_targets.insert(branch_id, target);
         }
@@ -550,8 +511,8 @@ impl ControllerInner {
     ) -> Result<(Vec<super::VirtualBranch>, Vec<git::diff::FileDiff>), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            super::list_virtual_branches(gb_repository, project_repository).map_err(Into::into)
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::list_virtual_branches(project_repository).map_err(Into::into)
         })
     }
 
@@ -562,9 +523,8 @@ impl ControllerInner {
     ) -> Result<BranchId, Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            let branch_id =
-                super::create_virtual_branch(gb_repository, project_repository, create)?.id;
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            let branch_id = super::create_virtual_branch(project_repository, create)?.id;
             Ok(branch_id)
         })
     }
@@ -576,7 +536,7 @@ impl ControllerInner {
     ) -> Result<BranchId, Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
+        self.with_verify_branch(project_id, |_, project_repository, user| {
             let signing_key = project_repository
                 .config()
                 .sign_commits()
@@ -589,7 +549,6 @@ impl ControllerInner {
                 .transpose()?;
 
             Ok(super::create_virtual_branch_from_branch(
-                gb_repository,
                 project_repository,
                 branch,
                 signing_key.as_ref(),
@@ -657,7 +616,7 @@ impl ControllerInner {
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
+        self.with_verify_branch(project_id, |_, project_repository, user| {
             let signing_key = project_repository
                 .config()
                 .sign_commits()
@@ -670,7 +629,6 @@ impl ControllerInner {
                 .transpose()?;
 
             super::merge_virtual_branch_upstream(
-                gb_repository,
                 project_repository,
                 branch_id,
                 signing_key.as_ref(),
@@ -712,8 +670,8 @@ impl ControllerInner {
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            super::update_branch(gb_repository, project_repository, branch_update)?;
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::update_branch(project_repository, branch_update)?;
             Ok(())
         })
     }
@@ -725,8 +683,8 @@ impl ControllerInner {
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            super::delete_branch(gb_repository, project_repository, branch_id)?;
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::delete_branch(project_repository, branch_id)?;
             Ok(())
         })
     }
@@ -738,7 +696,7 @@ impl ControllerInner {
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
+        self.with_verify_branch(project_id, |_, project_repository, user| {
             let signing_key = project_repository
                 .config()
                 .sign_commits()
@@ -750,14 +708,8 @@ impl ControllerInner {
                 })
                 .transpose()?;
 
-            super::apply_branch(
-                gb_repository,
-                project_repository,
-                branch_id,
-                signing_key.as_ref(),
-                user,
-            )
-            .map_err(Into::into)
+            super::apply_branch(project_repository, branch_id, signing_key.as_ref(), user)
+                .map_err(Into::into)
         })
     }
 
@@ -768,9 +720,8 @@ impl ControllerInner {
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            super::unapply_ownership(gb_repository, project_repository, ownership)
-                .map_err(Into::into)
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::unapply_ownership(project_repository, ownership).map_err(Into::into)
         })
     }
 
@@ -794,9 +745,8 @@ impl ControllerInner {
     ) -> Result<git::Oid, Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            super::amend(gb_repository, project_repository, branch_id, ownership)
-                .map_err(Into::into)
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::amend(project_repository, branch_id, ownership).map_err(Into::into)
         })
     }
 
@@ -808,14 +758,9 @@ impl ControllerInner {
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            super::reset_branch(
-                gb_repository,
-                project_repository,
-                branch_id,
-                target_commit_oid,
-            )
-            .map_err(Into::into)
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::reset_branch(project_repository, branch_id, target_commit_oid)
+                .map_err(Into::into)
         })
     }
 
@@ -826,8 +771,8 @@ impl ControllerInner {
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            super::unapply_branch(gb_repository, project_repository, branch_id)
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::unapply_branch(project_repository, branch_id)
                 .map(|_| ())
                 .map_err(Into::into)
         })
@@ -844,10 +789,9 @@ impl ControllerInner {
         let helper = self.helper.clone();
         let project_id = *project_id;
         let branch_id = *branch_id;
-        self.with_verify_branch_async(&project_id, move |gb_repository, project_repository, _| {
+        self.with_verify_branch_async(&project_id, move |_, project_repository, _| {
             Ok(super::push(
                 project_repository,
-                gb_repository,
                 &branch_id,
                 with_force,
                 &helper,
@@ -866,9 +810,8 @@ impl ControllerInner {
     ) -> Result<Option<git::Oid>, Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            super::cherry_pick(gb_repository, project_repository, branch_id, commit_oid)
-                .map_err(Into::into)
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::cherry_pick(project_repository, branch_id, commit_oid).map_err(Into::into)
         })
     }
 
@@ -920,9 +863,8 @@ impl ControllerInner {
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            super::squash(gb_repository, project_repository, branch_id, commit_oid)
-                .map_err(Into::into)
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::squash(project_repository, branch_id, commit_oid).map_err(Into::into)
         })
     }
 
@@ -934,15 +876,9 @@ impl ControllerInner {
         message: &str,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            super::update_commit_message(
-                gb_repository,
-                project_repository,
-                branch_id,
-                commit_oid,
-                message,
-            )
-            .map_err(Into::into)
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::update_commit_message(project_repository, branch_id, commit_oid, message)
+                .map_err(Into::into)
         })
     }
 
@@ -1009,7 +945,7 @@ impl ControllerInner {
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
+        self.with_verify_branch(project_id, |_, project_repository, user| {
             let signing_key = project_repository
                 .config()
                 .sign_commits()
@@ -1021,7 +957,6 @@ impl ControllerInner {
                 })
                 .transpose()?;
             super::move_commit(
-                gb_repository,
                 project_repository,
                 target_branch_id,
                 commit_oid,
@@ -1052,7 +987,7 @@ impl ControllerInner {
             user.as_ref(),
         )
         .context("failed to open gitbutler repository")?;
-        super::integration::verify_branch(&gb_repository, &project_repository)?;
+        super::integration::verify_branch(&project_repository)?;
         action(&gb_repository, &project_repository, user.as_ref())
     }
 
@@ -1074,7 +1009,7 @@ impl ControllerInner {
         let gb_repository =
             gb_repository::Repository::open(&local_data_dir, &project_repository, user.as_ref())
                 .context("failed to open gitbutler repository")?;
-        super::integration::verify_branch(&gb_repository, &project_repository)?;
+        super::integration::verify_branch(&project_repository)?;
         Ok(tokio::task::spawn_blocking(move || {
             action(&gb_repository, &project_repository, user.as_ref())
         }))

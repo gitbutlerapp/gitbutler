@@ -1,11 +1,6 @@
-mod reader;
-mod writer;
-
 use std::str::FromStr;
 
-pub use reader::TargetReader as Reader;
 use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
-pub use writer::TargetWriter as Writer;
 
 use crate::git;
 
@@ -50,54 +45,5 @@ impl<'de> serde::Deserialize<'de> for Target {
             sha,
         };
         Ok(target)
-    }
-}
-
-impl Target {
-    fn try_from(reader: &crate::reader::Reader) -> Result<Target, crate::reader::Error> {
-        let results = reader.batch(&["name", "branch_name", "remote", "remote_url", "sha"])?;
-
-        let name = results[0].clone();
-        let branch_name = results[1].clone();
-        let remote = results[2].clone();
-        let remote_url = results[3].clone();
-        let sha = results[4].clone();
-
-        let branch_name = match name {
-            Ok(branch) => {
-                let branch: String = branch.try_into()?;
-                Ok(branch.clone())
-            }
-            Err(crate::reader::Error::NotFound) => {
-                // fallback to the old format
-                let branch_name: String = branch_name?.try_into()?;
-                Ok(branch_name)
-            }
-            Err(e) => Err(crate::reader::Error::Io(
-                std::io::Error::new(std::io::ErrorKind::Other, format!("branch: {}", e)).into(),
-            )),
-        }?;
-
-        let remote_url: String = match remote_url {
-            Ok(url) => Ok(url.try_into()?),
-            // fallback to the old format
-            Err(crate::reader::Error::NotFound) => Ok(remote?.try_into()?),
-            Err(error) => Err(crate::reader::Error::Io(
-                std::io::Error::new(std::io::ErrorKind::Other, format!("remote: {}", error)).into(),
-            )),
-        }?;
-
-        let sha: String = sha?.try_into()?;
-        let sha = sha.parse().map_err(|e| {
-            crate::reader::Error::Io(
-                std::io::Error::new(std::io::ErrorKind::InvalidData, format!("sha: {}", e)).into(),
-            )
-        })?;
-
-        Ok(Self {
-            branch: format!("refs/remotes/{}", branch_name).parse().unwrap(),
-            remote_url,
-            sha,
-        })
     }
 }

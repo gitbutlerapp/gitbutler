@@ -69,22 +69,12 @@ fn new_test_target() -> virtual_branches::target::Target {
 #[test]
 fn empty_iterator() -> Result<()> {
     let suite = Suite::default();
-    let Case {
-        gb_repository,
-        project,
-        ..
-    } = &suite.new_case();
+    let Case { project, .. } = &suite.new_case();
 
-    let session = gb_repository.get_or_create_current_session()?;
-    let session_reader = gitbutler_core::sessions::Reader::open(gb_repository, &session)?;
+    let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
+    let iter = vb_state.list_branches()?;
 
-    let iter = virtual_branches::Iterator::new(
-        &session_reader,
-        VirtualBranchesHandle::new(&project.gb_dir()),
-        project.use_toml_vbranches_state(),
-    )?;
-
-    assert_eq!(iter.count(), 0);
+    assert_eq!(iter.len(), 0);
 
     Ok(())
 }
@@ -92,38 +82,18 @@ fn empty_iterator() -> Result<()> {
 #[test]
 fn iterate_all() -> Result<()> {
     let suite = Suite::default();
-    let Case {
-        gb_repository,
-        project,
-        ..
-    } = &suite.new_case();
+    let Case { project, .. } = &suite.new_case();
 
-    let target_writer = gitbutler_core::virtual_branches::target::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project.gb_dir()),
-    )?;
-    target_writer.write_default(&new_test_target())?;
+    let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
+    vb_state.set_default_target(new_test_target())?;
+    let branch_1 = new_test_branch();
+    vb_state.set_branch(branch_1.clone())?;
+    let branch_2 = new_test_branch();
+    vb_state.set_branch(branch_2.clone())?;
+    let branch_3 = new_test_branch();
+    vb_state.set_branch(branch_3.clone())?;
 
-    let branch_writer = gitbutler_core::virtual_branches::branch::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project.gb_dir()),
-    )?;
-    let mut branch_1 = new_test_branch();
-    branch_writer.write(&mut branch_1)?;
-    let mut branch_2 = new_test_branch();
-    branch_writer.write(&mut branch_2)?;
-    let mut branch_3 = new_test_branch();
-    branch_writer.write(&mut branch_3)?;
-
-    let session = gb_repository.get_current_session()?.unwrap();
-    let session_reader = gitbutler_core::sessions::Reader::open(gb_repository, &session)?;
-
-    let iter = virtual_branches::Iterator::new(
-        &session_reader,
-        VirtualBranchesHandle::new(&project.gb_dir()),
-        project.use_toml_vbranches_state(),
-    )?
-    .collect::<Result<Vec<_>, gitbutler_core::reader::Error>>()?;
+    let iter = vb_state.list_branches()?;
     assert_eq!(iter.len(), 3);
     assert!(iter.contains(&branch_1));
     assert!(iter.contains(&branch_2));
