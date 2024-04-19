@@ -1402,7 +1402,6 @@ pub fn merge_virtual_branch_upstream(
 }
 
 pub fn update_branch(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_update: branch::BranchUpdateRequest,
 ) -> Result<branch::Branch, errors::UpdateBranchError> {

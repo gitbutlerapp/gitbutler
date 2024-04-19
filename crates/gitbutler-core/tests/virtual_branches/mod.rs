@@ -434,7 +434,6 @@ fn hunk_expantion() -> Result<()> {
 
     // even though selected branch has changed
     update_branch(
-        gb_repository,
         project_repository,
         virtual_branches::branch::BranchUpdateRequest {
             id: branch1_id,
@@ -443,7 +442,6 @@ fn hunk_expantion() -> Result<()> {
         },
     )?;
     update_branch(
-        gb_repository,
         project_repository,
         virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
@@ -599,7 +597,6 @@ fn move_hunks_multiple_sources() -> Result<()> {
     assert_eq!(files_by_branch_id[&branch3_id].len(), 0);
 
     update_branch(
-        gb_repository,
         project_repository,
         virtual_branches::branch::BranchUpdateRequest {
             id: branch3_id,
@@ -678,7 +675,6 @@ fn move_hunks_partial_explicitly() -> Result<()> {
     assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
 
     update_branch(
-        gb_repository,
         project_repository,
         virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
@@ -1139,7 +1135,6 @@ fn unapply_branch() -> Result<()> {
         .id;
 
     update_branch(
-        gb_repository,
         project_repository,
         virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
@@ -1222,7 +1217,6 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
         .id;
 
     update_branch(
-        gb_repository,
         project_repository,
         virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
@@ -1231,7 +1225,6 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
         },
     )?;
     update_branch(
-        gb_repository,
         project_repository,
         virtual_branches::branch::BranchUpdateRequest {
             id: branch3_id,
@@ -1308,7 +1301,6 @@ fn detect_mergeable_branch() -> Result<()> {
     )?;
 
     update_branch(
-        gb_repository,
         project_repository,
         virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
@@ -1521,7 +1513,6 @@ fn upstream_integrated_vbranch() -> Result<()> {
     )?;
 
     update_branch(
-        gb_repository,
         project_repository,
         virtual_branches::branch::BranchUpdateRequest {
             id: branch1_id,
@@ -1532,7 +1523,6 @@ fn upstream_integrated_vbranch() -> Result<()> {
     )?;
 
     update_branch(
-        gb_repository,
         project_repository,
         virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
@@ -1543,7 +1533,6 @@ fn upstream_integrated_vbranch() -> Result<()> {
     )?;
 
     update_branch(
-        gb_repository,
         project_repository,
         virtual_branches::branch::BranchUpdateRequest {
             id: branch3_id,
