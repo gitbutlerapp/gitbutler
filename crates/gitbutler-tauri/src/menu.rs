@@ -32,11 +32,11 @@ pub async fn menu_item_set_enabled(
     Ok(())
 }
 
-pub fn build(package_info: &PackageInfo) -> Menu {
+pub fn build(_package_info: &PackageInfo) -> Menu {
     let mut menu = Menu::new();
     #[cfg(target_os = "macos")]
     {
-        let app_name = &package_info.name;
+        let app_name = &_package_info.name;
 
         menu = menu.add_submenu(Submenu::new(
             app_name,
