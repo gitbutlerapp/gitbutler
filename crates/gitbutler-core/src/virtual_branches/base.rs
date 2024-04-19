@@ -50,7 +50,6 @@ pub fn get_base_branch_data(
 }
 
 fn go_back_to_integration(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     default_target: &target::Target,
 ) -> Result<super::BaseBranch, errors::SetBaseBranchError> {
@@ -131,7 +130,7 @@ pub fn set_base_branch(
     // if target exists, and it is the same as the requested branch, we should go back
     if let Some(target) = gb_repository.default_target()? {
         if target.branch.eq(target_branch_ref) {
-            return go_back_to_integration(gb_repository, project_repository, &target);
+            return go_back_to_integration(project_repository, &target);
         }
     }
 
