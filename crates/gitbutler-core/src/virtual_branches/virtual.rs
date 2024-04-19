@@ -254,15 +254,12 @@ pub fn apply_branch(
 
         if merge_index.has_conflicts() {
             // currently we can only deal with the merge problem branch
-            for mut branch in super::get_status_by_branch(
-                gb_repository,
-                project_repository,
-                Some(&target_commit.id()),
-            )?
-            .0
-            .into_iter()
-            .map(|(branch, _)| branch)
-            .filter(|branch| branch.applied)
+            for mut branch in
+                super::get_status_by_branch(project_repository, Some(&target_commit.id()))?
+                    .0
+                    .into_iter()
+                    .map(|(branch, _)| branch)
+                    .filter(|branch| branch.applied)
             {
                 branch.applied = false;
                 vb_state.set_branch(branch)?;
@@ -765,7 +762,7 @@ pub fn list_virtual_branches(
         super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
 
     let (statuses, skipped_files) =
-        get_status_by_branch(gb_repository, project_repository, Some(&integration_commit))?;
+        get_status_by_branch(project_repository, Some(&integration_commit))?;
     let max_selected_for_changes = statuses
         .iter()
         .filter_map(|(branch, _)| branch.selected_for_changes)
@@ -1638,7 +1635,6 @@ pub type BranchStatus = HashMap<PathBuf, Vec<diff::GitHunk>>;
 // list the virtual branches and their file statuses (statusi?)
 #[allow(clippy::type_complexity)]
 pub fn get_status_by_branch(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     integration_commit: Option<&git::Oid>,
 ) -> Result<(Vec<(branch::Branch, BranchStatus)>, Vec<diff::FileDiff>)> {
@@ -2277,9 +2273,8 @@ pub fn commit(
     let integration_commit =
         super::integration::update_gitbutler_integration(gb_repository, project_repository)?;
     // get the files to commit
-    let (mut statuses, _) =
-        get_status_by_branch(gb_repository, project_repository, Some(&integration_commit))
-            .context("failed to get status by branch")?;
+    let (mut statuses, _) = get_status_by_branch(project_repository, Some(&integration_commit))
+        .context("failed to get status by branch")?;
 
     let (ref mut branch, files) = statuses
         .iter_mut()

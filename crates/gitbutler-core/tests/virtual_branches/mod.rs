@@ -285,8 +285,7 @@ fn create_branch_with_ownership() -> Result<()> {
     let branch0 = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch");
 
-    virtual_branches::get_status_by_branch(gb_repository, project_repository, None)
-        .expect("failed to get status");
+    virtual_branches::get_status_by_branch(project_repository, None).expect("failed to get status");
 
     let current_session = gb_repository.get_or_create_current_session().unwrap();
     let current_session_reader = sessions::Reader::open(gb_repository, &current_session).unwrap();
@@ -306,7 +305,7 @@ fn create_branch_with_ownership() -> Result<()> {
     )
     .expect("failed to create virtual branch");
 
-    let statuses = virtual_branches::get_status_by_branch(gb_repository, project_repository, None)
+    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
 
@@ -420,7 +419,7 @@ fn hunk_expantion() -> Result<()> {
         .expect("failed to create virtual branch")
         .id;
 
-    let statuses = virtual_branches::get_status_by_branch(gb_repository, project_repository, None)
+    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
 
@@ -459,7 +458,7 @@ fn hunk_expantion() -> Result<()> {
         "line1\nline2\nline3\n",
     )?;
 
-    let statuses = virtual_branches::get_status_by_branch(gb_repository, project_repository, None)
+    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
     let files_by_branch_id = statuses
@@ -485,7 +484,7 @@ fn get_status_files_by_branch_no_hunks_no_branches() -> Result<()> {
 
     set_test_target(gb_repository, project_repository)?;
 
-    let statuses = virtual_branches::get_status_by_branch(gb_repository, project_repository, None)
+    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
 
@@ -516,7 +515,7 @@ fn get_status_files_by_branch() -> Result<()> {
         .expect("failed to create virtual branch")
         .id;
 
-    let statuses = virtual_branches::get_status_by_branch(gb_repository, project_repository, None)
+    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
     let files_by_branch_id = statuses
@@ -583,7 +582,7 @@ fn move_hunks_multiple_sources() -> Result<()> {
     };
     branch_writer.write(&mut branch1)?;
 
-    let statuses = virtual_branches::get_status_by_branch(gb_repository, project_repository, None)
+    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
 
@@ -609,7 +608,7 @@ fn move_hunks_multiple_sources() -> Result<()> {
         },
     )?;
 
-    let statuses = virtual_branches::get_status_by_branch(gb_repository, project_repository, None)
+    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
 
@@ -665,7 +664,7 @@ fn move_hunks_partial_explicitly() -> Result<()> {
         .expect("failed to create virtual branch")
         .id;
 
-    let statuses = virtual_branches::get_status_by_branch(gb_repository, project_repository, None)
+    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
     let files_by_branch_id = statuses
@@ -688,7 +687,7 @@ fn move_hunks_partial_explicitly() -> Result<()> {
         },
     )?;
 
-    let statuses = virtual_branches::get_status_by_branch(gb_repository, project_repository, None)
+    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
 
@@ -744,7 +743,7 @@ fn add_new_hunk_to_the_end() -> Result<()> {
     create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch");
 
-    let statuses = virtual_branches::get_status_by_branch(gb_repository, project_repository, None)
+    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
     assert_eq!(
@@ -757,7 +756,7 @@ fn add_new_hunk_to_the_end() -> Result<()> {
         "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\n",
     )?;
 
-    let statuses = virtual_branches::get_status_by_branch(gb_repository, project_repository, None)
+    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
 
