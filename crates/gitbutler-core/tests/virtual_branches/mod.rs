@@ -1151,7 +1151,7 @@ fn unapply_branch() -> Result<()> {
     assert_eq!(branch.files.len(), 1);
     assert!(branch.active);
 
-    virtual_branches::unapply_branch(gb_repository, project_repository, &branch1_id)?;
+    virtual_branches::unapply_branch(project_repository, &branch1_id)?;
 
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!("line1\nline2\nline3\nline4\n", String::from_utf8(contents)?);
@@ -1228,12 +1228,12 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
         },
     )?;
 
-    virtual_branches::unapply_branch(gb_repository, project_repository, &branch2_id)?;
+    virtual_branches::unapply_branch(project_repository, &branch2_id)?;
     // check that file2 is back
     let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("file2\n", String::from_utf8(contents)?);
 
-    virtual_branches::unapply_branch(gb_repository, project_repository, &branch3_id)?;
+    virtual_branches::unapply_branch(project_repository, &branch3_id)?;
     // check that file3 is gone
     assert!(!Path::new(&project.path).join(file_path3).exists());
 
@@ -1306,8 +1306,8 @@ fn detect_mergeable_branch() -> Result<()> {
     .expect("failed to update branch");
 
     // unapply both branches and create some conflicting ones
-    virtual_branches::unapply_branch(gb_repository, project_repository, &branch1_id)?;
-    virtual_branches::unapply_branch(gb_repository, project_repository, &branch2_id)?;
+    virtual_branches::unapply_branch(project_repository, &branch1_id)?;
+    virtual_branches::unapply_branch(project_repository, &branch2_id)?;
 
     project_repository
         .git_repository

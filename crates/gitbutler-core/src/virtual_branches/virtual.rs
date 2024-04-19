@@ -590,7 +590,6 @@ pub fn reset_files(
 
 // to unapply a branch, we need to write the current tree out, then remove those file changes from the wd
 pub fn unapply_branch(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
 ) -> Result<Option<branch::Branch>, errors::UnapplyBranchError> {
@@ -1243,8 +1242,7 @@ pub fn merge_virtual_branch_upstream(
 
     // unapply all other branches
     for other_branch in applied_branches {
-        unapply_branch(gb_repository, project_repository, &other_branch.id)
-            .context("failed to unapply branch")?;
+        unapply_branch(project_repository, &other_branch.id).context("failed to unapply branch")?;
     }
 
     // get merge base from remote branch commit and target commit
@@ -1494,7 +1492,7 @@ pub fn delete_branch(
     }
     .context("failed to read branch")?;
 
-    if branch.applied && unapply_branch(gb_repository, project_repository, branch_id)?.is_none() {
+    if branch.applied && unapply_branch(project_repository, branch_id)?.is_none() {
         return Ok(());
     }
 
@@ -2894,8 +2892,7 @@ pub fn cherry_pick(
         .filter(|(b, _)| b.id != branch.id)
         .map(|(b, _)| b)
     {
-        unapply_branch(gb_repository, project_repository, &other_branch.id)
-            .context("failed to unapply branch")?;
+        unapply_branch(project_repository, &other_branch.id).context("failed to unapply branch")?;
     }
 
     let commit_oid = if cherrypick_index.has_conflicts() {
