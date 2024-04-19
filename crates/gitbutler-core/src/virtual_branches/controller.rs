@@ -14,7 +14,6 @@ use crate::{
     gb_repository, git, keys, project_repository,
     projects::{self, ProjectId},
     users,
-    virtual_branches::state::{VirtualBranches, VirtualBranchesHandle},
 };
 
 #[derive(Clone)]
@@ -96,31 +95,6 @@ impl Controller {
         self.inner(project_id)
             .await
             .can_apply_virtual_branch(project_id, branch_id)
-    }
-
-    /// Retrieves the virtual branches state from the gitbutler repository (legacy state) and persists it into a flat TOML file
-    pub async fn save_vbranches_state(
-        &self,
-        project_id: &ProjectId,
-        branch_ids: Vec<BranchId>,
-    ) -> Result<(), Error> {
-        let vbranches_state = self
-            .inner(project_id)
-            .await
-            .get_vbranches_state(project_id, branch_ids)?;
-        let project = self.projects.get(project_id)?;
-        // TODO: this should be constructed somewhere else
-        let state_handle = VirtualBranchesHandle::new(project.path.join(".git").as_path());
-        if let Some(default_target) = vbranches_state.default_target {
-            state_handle.set_default_target(default_target)?;
-        }
-        for (id, target) in vbranches_state.branch_targets {
-            state_handle.set_branch_target(id, target)?;
-        }
-        for (_, branch) in vbranches_state.branches {
-            state_handle.set_branch(branch)?;
-        }
-        Ok(())
     }
 
     pub async fn list_virtual_branches(
@@ -469,40 +443,6 @@ impl ControllerInner {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         super::is_virtual_branch_mergeable(&project_repository, branch_id).map_err(Into::into)
-    }
-
-    /// Retrieves the virtual branches state from the gitbutler repository (legacy state)
-    pub fn get_vbranches_state(
-        &self,
-        project_id: &ProjectId,
-        branch_ids: Vec<BranchId>,
-    ) -> Result<VirtualBranches, Error> {
-        let project = self.projects.get(project_id)?;
-        let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
-
-        let default_target = vb_state
-            .get_default_target()
-            .context("failed to get default target")?;
-
-        let mut branches: HashMap<BranchId, super::Branch> = HashMap::new();
-        let mut branch_targets: HashMap<BranchId, super::target::Target> = HashMap::new();
-
-        for branch_id in branch_ids {
-            let branch = vb_state
-                .get_branch(&branch_id)
-                .context("failed to read branch")?;
-            branches.insert(branch_id, branch);
-            let target = vb_state
-                .get_branch_target(&branch_id)
-                .context("failed to read target")?;
-            branch_targets.insert(branch_id, target);
-        }
-
-        Ok(VirtualBranches {
-            default_target: Some(default_target),
-            branch_targets,
-            branches,
-        })
     }
 
     pub async fn list_virtual_branches(

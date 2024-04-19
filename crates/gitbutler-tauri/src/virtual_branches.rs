@@ -36,21 +36,6 @@ pub mod commands {
         Ok(oid)
     }
 
-    /// This is a test command. It retrieves the virtual branches state from the gitbutler repository (legacy state) and persists it into a flat TOML file
-    #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
-    pub async fn save_vbranches_state(
-        handle: AppHandle,
-        project_id: ProjectId,
-        branch_ids: Vec<BranchId>,
-    ) -> Result<(), Error> {
-        handle
-            .state::<Controller>()
-            .save_vbranches_state(&project_id, branch_ids)
-            .await?;
-        return Ok(());
-    }
-
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
     pub async fn list_virtual_branches(
