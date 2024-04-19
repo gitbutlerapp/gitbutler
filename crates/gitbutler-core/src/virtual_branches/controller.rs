@@ -495,44 +495,22 @@ impl ControllerInner {
         branch_ids: Vec<BranchId>,
     ) -> Result<VirtualBranches, Error> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
-        let user = self.users.get_user().context("failed to get user")?;
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open gitbutler repository")?;
-        let current_session = gb_repository
-            .get_or_create_current_session()
-            .context("failed to get or create current session")?;
-        let session_reader = crate::sessions::Reader::open(&gb_repository, &current_session)
-            .context("failed to open current session")?;
-        let target_reader = super::target::Reader::new(
-            &session_reader,
-            VirtualBranchesHandle::new(&project.gb_dir()),
-            project.use_toml_vbranches_state(),
-        );
-        let branch_reader = super::branch::Reader::new(
-            &session_reader,
-            VirtualBranchesHandle::new(&project.gb_dir()),
-            project.use_toml_vbranches_state(),
-        );
+        let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
 
-        let default_target = target_reader
-            .read_default()
-            .context("failed to read target")?;
+        let default_target = vb_state
+            .get_default_target()
+            .context("failed to get default target")?;
 
         let mut branches: HashMap<BranchId, super::Branch> = HashMap::new();
         let mut branch_targets: HashMap<BranchId, super::target::Target> = HashMap::new();
 
         for branch_id in branch_ids {
-            let branch = branch_reader
-                .read(&branch_id)
+            let branch = vb_state
+                .get_branch(&branch_id)
                 .context("failed to read branch")?;
             branches.insert(branch_id, branch);
-            let target = target_reader
-                .read(&branch_id)
+            let target = vb_state
+                .get_branch_target(&branch_id)
                 .context("failed to read target")?;
             branch_targets.insert(branch_id, target);
         }
