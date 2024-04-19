@@ -115,16 +115,6 @@ impl VirtualBranchesHandle {
         Ok(branches)
     }
 
-    pub fn list_branch_ids(&self) -> anyhow::Result<HashSet<String>> {
-        let virtual_branches = self.read_file()?;
-        let keys: HashSet<String> = virtual_branches
-            .branches
-            .into_keys()
-            .map(|id| id.to_string())
-            .collect();
-        Ok(keys)
-    }
-
     /// Checks if the state file exists.
     ///
     /// This would only be false if the application just updated from a very old verion.
