@@ -96,8 +96,8 @@
 			/>
 		{:else if type == 'local'}
 			<Button
-				style="pop"
-				kind="soft"
+				style="ghost"
+				kind="solid"
 				wide
 				loading={isPushing}
 				on:click={async () => {
