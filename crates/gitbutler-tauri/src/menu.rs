@@ -2,9 +2,11 @@ use anyhow::Context;
 use gitbutler_core::error;
 use gitbutler_core::error::Code;
 use serde_json::json;
+#[cfg(target_os = "macos")]
+use tauri::AboutMetadata;
 use tauri::{
-    AboutMetadata, AppHandle, CustomMenuItem, Manager, Menu, MenuItem, PackageInfo, Runtime,
-    Submenu, WindowMenuEvent,
+    AppHandle, CustomMenuItem, Manager, Menu, MenuItem, PackageInfo, Runtime, Submenu,
+    WindowMenuEvent,
 };
 use tracing::instrument;
 
@@ -31,11 +33,11 @@ pub async fn menu_item_set_enabled(
 }
 
 pub fn build(package_info: &PackageInfo) -> Menu {
-    let app_name = &package_info.name;
-
     let mut menu = Menu::new();
     #[cfg(target_os = "macos")]
     {
+        let app_name = &package_info.name;
+
         menu = menu.add_submenu(Submenu::new(
             app_name,
             Menu::new()
