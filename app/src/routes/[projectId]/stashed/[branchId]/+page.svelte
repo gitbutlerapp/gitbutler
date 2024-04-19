@@ -49,7 +49,7 @@
 
 <Modal width="small" title="Delete branch" bind:this={deleteBranchModal} let:item>
 	<div>
-		Deleting <code>{item.name}</code> cannot be undone.
+		Deleting <code class="code-string">{item.name}</code> cannot be undone.
 	</div>
 	<svelte:fragment slot="controls" let:close let:item>
 		<Button style="ghost" kind="solid" on:mousedown={close}>Cancel</Button>
