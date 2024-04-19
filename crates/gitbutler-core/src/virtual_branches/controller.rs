@@ -946,7 +946,7 @@ impl ControllerInner {
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
+        self.with_verify_branch(project_id, |_, project_repository, user| {
             let signing_key = project_repository
                 .config()
                 .sign_commits()
@@ -958,7 +958,6 @@ impl ControllerInner {
                 })
                 .transpose()?;
             super::move_commit(
-                gb_repository,
                 project_repository,
                 target_branch_id,
                 commit_oid,

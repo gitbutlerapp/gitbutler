@@ -3317,7 +3317,6 @@ pub fn update_commit_message(
 
 /// moves commit on top of the to target branch
 pub fn move_commit(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     target_branch_id: &BranchId,
     commit_oid: git::Oid,
