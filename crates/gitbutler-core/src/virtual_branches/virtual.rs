@@ -1173,7 +1173,6 @@ pub fn create_virtual_branch(
 }
 
 pub fn merge_virtual_branch_upstream(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     signing_key: Option<&keys::PrivateKey>,

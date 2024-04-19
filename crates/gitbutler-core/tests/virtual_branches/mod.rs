@@ -866,7 +866,6 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
     merge_virtual_branch_upstream(
-        gb_repository,
         project_repository,
         &branch1.id,
         Some(suite.keys.get_or_create()?).as_ref(),
@@ -993,7 +992,7 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
     assert_eq!(branch1.commits.len(), 1);
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
-    merge_virtual_branch_upstream(gb_repository, project_repository, &branch1.id, None, None)?;
+    merge_virtual_branch_upstream(project_repository, &branch1.id, None, None)?;
 
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
     let branch1 = &branches[0];
