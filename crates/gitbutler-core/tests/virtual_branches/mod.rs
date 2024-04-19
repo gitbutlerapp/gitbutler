@@ -1423,7 +1423,6 @@ fn detect_mergeable_branch() -> Result<()> {
         .find(|b| b.name.to_string() == "refs/remotes/origin/remote_branch")
         .unwrap();
     assert!(!is_remote_branch_mergeable(
-        gb_repository,
         project_repository,
         &"refs/remotes/origin/remote_branch".parse().unwrap()
     )
@@ -1435,7 +1434,6 @@ fn detect_mergeable_branch() -> Result<()> {
         .find(|b| b.name.to_string() == "refs/remotes/origin/remote_branch2")
         .unwrap();
     assert!(is_remote_branch_mergeable(
-        gb_repository,
         project_repository,
         &"refs/remotes/origin/remote_branch2".parse().unwrap()
     )

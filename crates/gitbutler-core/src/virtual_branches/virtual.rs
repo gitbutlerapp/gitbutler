@@ -2535,7 +2535,6 @@ fn is_commit_integrated(
 }
 
 pub fn is_remote_branch_mergeable(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_name: &git::RemoteRefname,
 ) -> Result<bool, errors::IsRemoteBranchMergableError> {

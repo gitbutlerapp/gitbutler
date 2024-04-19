@@ -456,15 +456,7 @@ impl ControllerInner {
     ) -> Result<bool, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        let user = self.users.get_user()?;
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open gitbutler repository")?;
         Ok(super::is_remote_branch_mergeable(
-            &gb_repository,
             &project_repository,
             branch_name,
         )?)
