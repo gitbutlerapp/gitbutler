@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::File,
     io::{Read, Write},
     path::{Path, PathBuf},
@@ -109,9 +109,20 @@ impl VirtualBranchesHandle {
             .ok_or(crate::reader::Error::NotFound)
     }
 
-    pub fn list_branches(&self) -> anyhow::Result<HashMap<BranchId, Branch>> {
+    pub fn list_branches(&self) -> anyhow::Result<Vec<Branch>> {
         let virtual_branches = self.read_file()?;
-        Ok(virtual_branches.branches)
+        let branches: Vec<Branch> = virtual_branches.branches.values().cloned().collect();
+        Ok(branches)
+    }
+
+    pub fn list_branch_ids(&self) -> anyhow::Result<HashSet<String>> {
+        let virtual_branches = self.read_file()?;
+        let keys: HashSet<String> = virtual_branches
+            .branches
+            .into_keys()
+            .map(|id| id.to_string())
+            .collect();
+        Ok(keys)
     }
 
     /// Checks if the state file exists.

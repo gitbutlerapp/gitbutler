@@ -20,11 +20,7 @@ impl<'i> BranchIterator<'i> {
         use_state_handle: bool,
     ) -> Result<Self> {
         let unique_ids: HashSet<String> = if use_state_handle && state_handle.file_exists() {
-            state_handle
-                .list_branches()?
-                .into_keys()
-                .map(|id| id.to_string())
-                .collect()
+            state_handle.list_branch_ids()?
         } else {
             session_reader
                 .reader()
