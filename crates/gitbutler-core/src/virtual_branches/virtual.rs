@@ -438,7 +438,6 @@ pub fn apply_branch(
 }
 
 pub fn unapply_ownership(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     ownership: &BranchOwnershipClaims,
 ) -> Result<(), errors::UnapplyOwnershipError> {

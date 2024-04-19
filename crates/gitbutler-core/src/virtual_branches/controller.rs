@@ -723,9 +723,8 @@ impl ControllerInner {
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            super::unapply_ownership(gb_repository, project_repository, ownership)
-                .map_err(Into::into)
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::unapply_ownership(project_repository, ownership).map_err(Into::into)
         })
     }
 

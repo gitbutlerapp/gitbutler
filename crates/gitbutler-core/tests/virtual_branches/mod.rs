@@ -1081,12 +1081,7 @@ fn unapply_ownership_partial() -> Result<()> {
         "line1\nline2\nline3\nline4\nbranch1\n"
     );
 
-    unapply_ownership(
-        gb_repository,
-        project_repository,
-        &"test.txt:2-6".parse().unwrap(),
-    )
-    .unwrap();
+    unapply_ownership(project_repository, &"test.txt:2-6".parse().unwrap()).unwrap();
 
     let (branches, _) = virtual_branches::list_virtual_branches(gb_repository, project_repository)?;
     assert_eq!(branches.len(), 1);
