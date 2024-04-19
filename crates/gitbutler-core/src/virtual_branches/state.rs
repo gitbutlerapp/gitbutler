@@ -109,6 +109,9 @@ impl VirtualBranchesHandle {
             .ok_or(crate::reader::Error::NotFound)
     }
 
+    /// Lists all virtual branches.
+    /// 
+    /// Errors if the file cannot be read or written.
     pub fn list_branches(&self) -> anyhow::Result<Vec<Branch>> {
         let virtual_branches = self.read_file()?;
         let branches: Vec<Branch> = virtual_branches.branches.values().cloned().collect();
