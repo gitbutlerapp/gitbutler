@@ -36,14 +36,13 @@ fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
     let Case {
         project,
         project_repository,
-        gb_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([
         (PathBuf::from("test.txt"), "line1\nline2\nline3\nline4\n"),
         (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
     ]));
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch")
@@ -95,7 +94,6 @@ fn signed_commit() -> Result<()> {
     let suite = Suite::default();
     let Case {
         project,
-        gb_repository,
         project_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([
@@ -103,7 +101,7 @@ fn signed_commit() -> Result<()> {
         (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
     ]));
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch")
@@ -146,7 +144,6 @@ fn track_binary_files() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case();
 
@@ -171,7 +168,7 @@ fn track_binary_files() -> Result<()> {
     file.write_all(&image_data)?;
     commit_all(&project_repository.git_repository);
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch")
@@ -270,7 +267,7 @@ fn create_branch_with_ownership() -> Result<()> {
         ..
     } = &suite.new_case();
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     let file_path = Path::new("test.txt");
     std::fs::write(Path::new(&project.path).join(file_path), "line1\nline2\n").unwrap();
@@ -323,7 +320,7 @@ fn create_branch_in_the_middle() -> Result<()> {
         ..
     } = &suite.new_case();
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch");
@@ -366,7 +363,7 @@ fn create_branch_no_arguments() -> Result<()> {
         ..
     } = &suite.new_case();
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch");
@@ -396,11 +393,10 @@ fn hunk_expantion() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case();
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     let file_path = Path::new("test.txt");
     std::fs::write(Path::new(&project.path).join(file_path), "line1\nline2\n")?;
@@ -468,12 +464,10 @@ fn hunk_expantion() -> Result<()> {
 fn get_status_files_by_branch_no_hunks_no_branches() -> Result<()> {
     let suite = Suite::default();
     let Case {
-        project_repository,
-        gb_repository,
-        ..
+        project_repository, ..
     } = &suite.new_case();
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     let statuses = virtual_branches::get_status_by_branch(project_repository, None)
         .expect("failed to get status")
@@ -490,11 +484,10 @@ fn get_status_files_by_branch() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case();
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     let file_path = Path::new("test.txt");
     std::fs::write(Path::new(&project.path).join(file_path), "line1\nline2\n")?;
@@ -534,7 +527,7 @@ fn move_hunks_multiple_sources() -> Result<()> {
         "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\n",
     )]));
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch")
@@ -632,14 +625,13 @@ fn move_hunks_partial_explicitly() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([(
         PathBuf::from("test.txt"),
         "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
     )]));
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     std::fs::write(
         Path::new(&project.path).join("test.txt"),
@@ -715,14 +707,13 @@ fn add_new_hunk_to_the_end() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([(
         PathBuf::from("test.txt"),
         "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline13\nline14\n",
     )]));
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     std::fs::write(
         Path::new(&project.path).join("test.txt"),
@@ -826,12 +817,9 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
 
-    set_test_target(gb_repository, project_repository)?;
-    virtual_branches::target::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )?
-    .write_default(&virtual_branches::target::Target {
+    set_test_target(project_repository)?;
+    let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
+    vb_state.set_default_target(virtual_branches::target::Target {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: target_oid,
@@ -950,12 +938,9 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
         "line1\nline2\nline3\nline4\nupstream\n",
     )?;
 
-    set_test_target(gb_repository, project_repository)?;
-    virtual_branches::target::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project.gb_dir()),
-    )?
-    .write_default(&virtual_branches::target::Target {
+    set_test_target(project_repository)?;
+    let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
+    vb_state.set_default_target(virtual_branches::target::Target {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: target_oid,
@@ -1044,14 +1029,13 @@ fn unapply_ownership_partial() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([(
         PathBuf::from("test.txt"),
         "line1\nline2\nline3\nline4\n",
     )]));
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     std::fs::write(
         Path::new(&project.path).join("test.txt"),
@@ -1092,7 +1076,6 @@ fn unapply_branch() -> Result<()> {
     let Case {
         project,
         project_repository,
-        gb_repository,
         ..
     } = &suite.new_case();
 
@@ -1104,7 +1087,7 @@ fn unapply_branch() -> Result<()> {
     )?;
     commit_all(&project_repository.git_repository);
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     std::fs::write(
         Path::new(&project.path).join(file_path),
@@ -1177,7 +1160,6 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     let Case {
         project,
         project_repository,
-        gb_repository,
         ..
     } = &suite.new_case();
 
@@ -1188,7 +1170,7 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     std::fs::write(Path::new(&project.path).join(file_path2), "file2\n")?;
     commit_all(&project_repository.git_repository);
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     // rm file_path2, add file3
     std::fs::remove_file(Path::new(&project.path).join(file_path2))?;
@@ -1258,7 +1240,7 @@ fn detect_mergeable_branch() -> Result<()> {
     )?;
     commit_all(&project_repository.git_repository);
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     std::fs::write(
         Path::new(&project.path).join(file_path),
@@ -1429,7 +1411,6 @@ fn upstream_integrated_vbranch() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([
         (PathBuf::from("test.txt"), "file1\n"),
@@ -1465,11 +1446,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
         "update target",
     )?;
 
-    virtual_branches::target::Writer::new(
-        gb_repository,
-        VirtualBranchesHandle::new(&project_repository.project().gb_dir()),
-    )?
-    .write_default(&virtual_branches::target::Target {
+    vb_state.set_default_target(virtual_branches::target::Target {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "http://origin.com/project".to_string(),
         sha: base_commit,
@@ -1576,14 +1553,13 @@ fn commit_same_hunk_twice() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([(
         PathBuf::from("test.txt"),
         "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
     )]));
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch")
@@ -1672,14 +1648,13 @@ fn commit_same_file_twice() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([(
         PathBuf::from("test.txt"),
         "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
     )]));
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch")
@@ -1768,14 +1743,13 @@ fn commit_partial_by_hunk() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([(
         PathBuf::from("test.txt"),
         "line1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
     )]));
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch")
@@ -1842,7 +1816,6 @@ fn commit_partial_by_file() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([
         (PathBuf::from("test.txt"), "file1\n"),
@@ -1860,7 +1833,7 @@ fn commit_partial_by_file() -> Result<()> {
         .find_commit(commit1_oid)
         .unwrap();
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     // remove file
     std::fs::remove_file(Path::new(&project.path).join("test2.txt"))?;
@@ -1911,7 +1884,6 @@ fn commit_add_and_delete_files() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([
         (PathBuf::from("test.txt"), "file1\n"),
@@ -1929,7 +1901,7 @@ fn commit_add_and_delete_files() -> Result<()> {
         .find_commit(commit1_oid)
         .unwrap();
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     // remove file
     std::fs::remove_file(Path::new(&project.path).join("test2.txt"))?;
@@ -1981,14 +1953,13 @@ fn commit_executable_and_symlinks() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([
         (PathBuf::from("test.txt"), "file1\n"),
         (PathBuf::from("test2.txt"), "file2\n"),
     ]));
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     // add symlinked file
     let file_path3 = Path::new("test3.txt");
@@ -2100,11 +2071,10 @@ fn verify_branch_commits_to_integration() -> Result<()> {
     let Case {
         project_repository,
         project,
-        gb_repository,
         ..
     } = &suite.new_case();
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     verify_branch(project_repository).unwrap();
 
@@ -2133,12 +2103,10 @@ fn verify_branch_commits_to_integration() -> Result<()> {
 fn verify_branch_not_integration() -> Result<()> {
     let suite = Suite::default();
     let Case {
-        project_repository,
-        gb_repository,
-        ..
+        project_repository, ..
     } = &suite.new_case();
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     verify_branch(project_repository).unwrap();
 
@@ -2161,7 +2129,6 @@ fn pre_commit_hook_rejection() -> Result<()> {
     let suite = Suite::default();
     let Case {
         project,
-        gb_repository,
         project_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([
@@ -2169,7 +2136,7 @@ fn pre_commit_hook_rejection() -> Result<()> {
         (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
     ]));
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch")
@@ -2219,7 +2186,6 @@ fn post_commit_hook() -> Result<()> {
     let suite = Suite::default();
     let Case {
         project,
-        gb_repository,
         project_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([
@@ -2227,7 +2193,7 @@ fn post_commit_hook() -> Result<()> {
         (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
     ]));
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch")
@@ -2277,7 +2243,6 @@ fn commit_msg_hook_rejection() -> Result<()> {
     let suite = Suite::default();
     let Case {
         project,
-        gb_repository,
         project_repository,
         ..
     } = &suite.new_case_with_files(HashMap::from([
@@ -2285,7 +2250,7 @@ fn commit_msg_hook_rejection() -> Result<()> {
         (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
     ]));
 
-    set_test_target(gb_repository, project_repository)?;
+    set_test_target(project_repository)?;
 
     let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch")
