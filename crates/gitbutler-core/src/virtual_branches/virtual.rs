@@ -2967,7 +2967,6 @@ pub fn cherry_pick(
 
 /// squashes a commit from a virtual branch into it's parent.
 pub fn squash(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     commit_oid: git::Oid,
