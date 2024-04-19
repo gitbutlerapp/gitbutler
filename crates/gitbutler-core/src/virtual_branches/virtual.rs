@@ -23,7 +23,6 @@ use super::{
 use crate::{
     askpass::AskpassBroker,
     dedup::{dedup, dedup_fmt},
-    gb_repository,
     git::{
         self,
         diff::{self, diff_files_to_hunks},
