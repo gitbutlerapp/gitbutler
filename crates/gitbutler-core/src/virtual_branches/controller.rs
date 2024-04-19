@@ -761,14 +761,9 @@ impl ControllerInner {
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            super::reset_branch(
-                gb_repository,
-                project_repository,
-                branch_id,
-                target_commit_oid,
-            )
-            .map_err(Into::into)
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::reset_branch(project_repository, branch_id, target_commit_oid)
+                .map_err(Into::into)
         })
     }
 

@@ -1976,7 +1976,6 @@ fn virtual_hunks_to_virtual_files(
 
 // reset virtual branch to a specific commit
 pub fn reset_branch(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     target_commit_oid: git::Oid,
