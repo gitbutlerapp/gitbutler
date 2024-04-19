@@ -877,15 +877,9 @@ impl ControllerInner {
         message: &str,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
-        self.with_verify_branch(project_id, |gb_repository, project_repository, _| {
-            super::update_commit_message(
-                gb_repository,
-                project_repository,
-                branch_id,
-                commit_oid,
-                message,
-            )
-            .map_err(Into::into)
+        self.with_verify_branch(project_id, |_, project_repository, _| {
+            super::update_commit_message(project_repository, branch_id, commit_oid, message)
+                .map_err(Into::into)
         })
     }
 

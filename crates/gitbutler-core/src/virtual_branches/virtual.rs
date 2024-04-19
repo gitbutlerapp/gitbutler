@@ -3147,7 +3147,6 @@ pub fn squash(
 }
 
 pub fn update_commit_message(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     commit_oid: git::Oid,
