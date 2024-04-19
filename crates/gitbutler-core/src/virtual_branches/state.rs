@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fs::File,
     io::{Read, Write},
     path::{Path, PathBuf},
@@ -110,7 +110,7 @@ impl VirtualBranchesHandle {
     }
 
     /// Lists all virtual branches.
-    /// 
+    ///
     /// Errors if the file cannot be read or written.
     pub fn list_branches(&self) -> anyhow::Result<Vec<Branch>> {
         let virtual_branches = self.read_file()?;
