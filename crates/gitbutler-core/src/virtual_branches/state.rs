@@ -70,11 +70,11 @@ impl VirtualBranchesHandle {
     /// Errors if the file cannot be read or written.
     pub fn get_branch_target(&self, id: &BranchId) -> Result<Target, crate::reader::Error> {
         let virtual_branches = self.read_file()?;
-        virtual_branches
-            .branch_targets
-            .get(id)
-            .cloned()
-            .ok_or(crate::reader::Error::NotFound)
+        let tartget = virtual_branches.branch_targets.get(id).cloned();
+        match tartget {
+            Some(target) => Ok(target),
+            None => self.get_default_target(),
+        }
     }
 
     /// Sets the state of the given virtual branch.
