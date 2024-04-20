@@ -121,24 +121,14 @@ impl Hunk {
         }
     }
 
-    // TODO(ST): self - prevent many unnecessary copies
-    pub fn with_hash(&self, hash: &str) -> Self {
-        Hunk {
-            start: self.start,
-            end: self.end,
-            hash: Some(hash.to_string()),
-            timestamp_ms: self.timestamp_ms,
-        }
+    pub fn with_hash(mut self, hash: &str) -> Self {
+        self.hash = Some(hash.to_owned());
+        self
     }
 
-    // TODO(ST): self - prevent many unnecessary copies
-    pub fn with_timestamp(&self, timestamp_ms: u128) -> Self {
-        Hunk {
-            start: self.start,
-            end: self.end,
-            hash: self.hash.clone(),
-            timestamp_ms: Some(timestamp_ms),
-        }
+    pub fn with_timestamp(mut self, timestamp_ms: u128) -> Self {
+        self.timestamp_ms = Some(timestamp_ms);
+        self
     }
 
     pub fn timestam_ms(&self) -> Option<u128> {

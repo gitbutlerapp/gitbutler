@@ -1838,6 +1838,7 @@ fn get_applied_status(
                                 git_diff_hunks.remove(i);
                                 return Some(
                                     claimed_hunk
+                                        .clone()
                                         .with_timestamp(timestamp)
                                         .with_hash(hash.as_str()),
                                 );
