@@ -20,6 +20,8 @@ pub enum Error {
     Hooks(#[from] git2_hooks::HooksError),
     #[error("http error: {0}")]
     Http(git2::Error),
+    #[error("blame error: {0}")]
+    Blame(git2::Error),
     #[error("checkout error: {0}")]
     Checkout(git2::Error),
     #[error(transparent)]
