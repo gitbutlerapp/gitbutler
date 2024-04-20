@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use git2::Blame;
 
 use super::conflicts;
 use crate::error::{AnyhowContextExt, Code, ErrorWithContext};
@@ -616,6 +617,19 @@ impl Repository {
 
         Err(RemoteError::Auth)
     }
+
+    pub fn blame(
+        &self,
+        path: &path::Path,
+        min_line: u32,
+        max_line: u32,
+        oldest_commit: &git::Oid,
+        newest_commit: &git::Oid,
+    ) -> Result<Blame, RemoteError> {
+        Ok(self
+            .git_repository
+            .blame(path, min_line, max_line, oldest_commit, newest_commit)?)
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -626,6 +640,8 @@ pub enum RemoteError {
     Network,
     #[error("authentication failed")]
     Auth,
+    #[error("Git failed")]
+    Git(#[from] git::Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -641,6 +657,9 @@ impl ErrorWithContext for RemoteError {
                 Code::ProjectGitAuth,
                 "Project remote authentication error",
             ),
+            RemoteError::Git(_) => {
+                error::Context::new_static(Code::ProjectGitRemote, "Git command failed")
+            }
             RemoteError::Other(error) => {
                 return error.custom_context_or_root_cause().into();
             }

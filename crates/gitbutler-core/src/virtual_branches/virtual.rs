@@ -27,7 +27,12 @@ use crate::virtual_branches::branch::HunkHash;
 use crate::{
     askpass::AskpassBroker,
     dedup::{dedup, dedup_fmt},
-    git::{self, diff, Commit, Refname, RemoteRefname},
+    git::{
+        self,
+        diff::{self},
+        Commit, Refname, RemoteRefname,
+    },
+    id::Id,
     keys,
     project_repository::{self, conflicts, LogUntil},
     reader, users,
@@ -1785,39 +1790,25 @@ fn get_applied_status(
         if !branch.applied {
             bail!("branch {} is not applied", branch.name);
         }
-        let commits = project_repository.log(branch.head, LogUntil::Commit(*target_sha));
-        if let Ok(commits) = commits {
-            for commit in commits {
-                let commit = project_repository
-                    .git_repository
-                    .find_commit(commit.id())
-                    .unwrap();
-                let parent = commit
-                    .parent(0)
-                    .context("failed to get parent commit")
-                    .unwrap();
-                let commit_tree = commit.tree().context("failed to get commit tree").unwrap();
-                let parent_tree = parent.tree().context("failed to get parent tree").unwrap();
-                let commited_file_diffs = diff::trees(
-                    &project_repository.git_repository,
-                    &parent_tree,
-                    &commit_tree,
-                )?;
-                for (path, file) in commited_file_diffs {
-                    if let Some(uncommitted_git_hunks) = base_diffs.get_mut(&path) {
-                        for uncommitted_git_hunk in uncommitted_git_hunks {
-                            for committed_git_hunk in &file.hunks {
-                                if joined(
-                                    uncommitted_git_hunk.new_start,
-                                    uncommitted_git_hunk.new_start + uncommitted_git_hunk.new_lines,
-                                    committed_git_hunk.new_start,
-                                    committed_git_hunk.new_start + committed_git_hunk.new_lines,
-                                ) {
-                                    let hash =
-                                        Hunk::hash_diff(uncommitted_git_hunk.diff_lines.as_ref());
-                                    git_hunk_map.insert(hash, branch.id);
-                                }
-                            }
+        for (path, hunks) in base_diffs.clone().into_iter() {
+            for hunk in hunks {
+                let blame = project_repository.blame(
+                    &path,
+                    hunk.old_start,
+                    (hunk.old_start + hunk.old_lines)
+                        .checked_sub(1)
+                        .unwrap_or(0),
+                    target_sha,
+                    &branch.head,
+                );
+
+                if let Ok(blame) = blame {
+                    for blame_hunk in blame.iter() {
+                        let commit = blame_hunk.orig_commit_id();
+                        if git::Oid::from(commit) != *target_sha {
+                            let hash = Hunk::hash(&hunk.diff_lines.as_ref());
+                            git_hunk_map.insert(hash, branch.id);
+                            break;
                         }
                     }
                 }
@@ -1882,6 +1873,7 @@ fn get_applied_status(
                                     end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
                                     timestamp_ms: Some(mtime),
                                     hash: Some(hash),
+                                    locked_to: None,
                                 };
                                 git_diff_hunks.remove(i);
                                 return Some(updated_hunk);
@@ -1929,6 +1921,11 @@ fn get_applied_status(
                 default_vbranch_pos
             };
 
+            let hash = Hunk::hash(hunk.diff_lines.as_ref());
+            let mut new_hunk = Hunk::from(&hunk)
+                .with_timestamp(mtimes.mtime_by_path(filepath.as_path()))
+                .with_hash(hash);
+            new_hunk.locked_to = git_hunk_map.get(&hash).map(|locked_to| vec![*locked_to]);
             virtual_branches[vbranch_pos]
                 .ownership
                 .put(&OwnershipClaim {
