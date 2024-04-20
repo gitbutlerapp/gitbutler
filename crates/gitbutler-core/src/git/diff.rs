@@ -43,8 +43,9 @@ pub struct GitHunk {
     pub old_lines: u32,
     pub new_start: u32,
     pub new_lines: u32,
-    #[serde(serialize_with = "crate::serde::as_string_lossy")]
-    pub diff: BString,
+    /// Note that these lines don't have a diff-header.
+    #[serde(rename = "diff", serialize_with = "crate::serde::as_string_lossy")]
+    pub diff_lines: BString,
     pub binary: bool,
     pub change_type: ChangeType,
 }
@@ -222,10 +223,10 @@ fn hunks_by_filepath(
                             previous_hunk.old_lines = 0;
                             previous_hunk.new_start = 0;
                             previous_hunk.new_lines = 0;
-                            previous_hunk.diff = line;
+                            previous_hunk.diff_lines = line;
                         } else if !previous_hunk.binary {
                             // append non binary hunks
-                            previous_hunk.diff.push_str(&line);
+                            previous_hunk.diff_lines.push_str(&line);
                         }
                     } else {
                         hunks.push(GitHunk {
@@ -233,7 +234,7 @@ fn hunks_by_filepath(
                             old_lines,
                             new_start,
                             new_lines,
-                            diff: line,
+                            diff_lines: line,
                             binary: is_binary,
                             change_type,
                         });
@@ -244,7 +245,7 @@ fn hunks_by_filepath(
                         old_lines,
                         new_start,
                         new_lines,
-                        diff: line,
+                        diff_lines: line,
                         binary: is_binary,
                         change_type,
                     });
@@ -288,7 +289,7 @@ fn hunks_by_filepath(
                             old_lines: 0,
                             new_start: 0,
                             new_lines: 0,
-                            diff: binary_hunk.diff.clone(),
+                            diff_lines: binary_hunk.diff_lines.clone(),
                             binary: true,
                             change_type: binary_hunk.change_type,
                         }],
@@ -305,7 +306,7 @@ fn hunks_by_filepath(
                         old_lines: 0,
                         new_start: 0,
                         new_lines: 0,
-                        diff: Default::default(),
+                        diff_lines: Default::default(),
                         binary: false,
                         change_type: ChangeType::Modified,
                     }],
@@ -385,12 +386,12 @@ pub fn reverse_hunk(hunk: &GitHunk) -> Option<GitHunk> {
     if hunk.binary {
         None
     } else {
-        reverse_patch(hunk.diff.as_ref()).map(|diff| GitHunk {
+        reverse_patch(hunk.diff_lines.as_ref()).map(|diff| GitHunk {
             old_start: hunk.new_start,
             old_lines: hunk.new_lines,
             new_start: hunk.old_start,
             new_lines: hunk.old_lines,
-            diff,
+            diff_lines: diff,
             binary: hunk.binary,
             change_type: hunk.change_type,
         })

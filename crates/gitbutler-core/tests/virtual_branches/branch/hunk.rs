@@ -13,7 +13,7 @@ fn parse_invalid() {
 
 #[test]
 fn parse_with_hash() {
-    let hash = Hunk::hash("hash".into());
+    let hash = Hunk::hash("hash".as_ref());
     assert_eq!(
         format!("2-3-{hash:x}").parse::<Hunk>().unwrap(),
         Hunk::new(2, 3, Some(hash), None).unwrap()
@@ -42,16 +42,15 @@ fn to_string_no_hash() {
 }
 
 #[test]
-fn hash() {
-    let a_hash = Hunk::hash("a".into());
-    let b_hash = Hunk::hash("b".into());
-    assert_ne!(
-        a_hash, b_hash,
-        "even single-line input yields different hashes"
-    );
+#[should_panic]
+fn hash_diff_no_first_line_panics() {
+    let _a_hash = Hunk::hash_diff("a".into());
+}
 
-    let a_hash = Hunk::hash("first\na".into());
-    let b_hash = Hunk::hash("different-first\na".into());
+#[test]
+fn hash_diff() {
+    let a_hash = Hunk::hash_diff("first\na".into());
+    let b_hash = Hunk::hash_diff("different-first\na".into());
     assert_eq!(
         a_hash, b_hash,
         "it skips the first line which is assumed to be a diff-header.\
@@ -61,8 +60,8 @@ fn hash() {
 
 #[test]
 fn eq() {
-    let a_hash = Hunk::hash("a".into());
-    let b_hash = Hunk::hash("b".into());
+    let a_hash = Hunk::hash("a".as_ref());
+    let b_hash = Hunk::hash("b".as_ref());
     assert_ne!(a_hash, b_hash);
     for (a, b, expected) in vec![
         (

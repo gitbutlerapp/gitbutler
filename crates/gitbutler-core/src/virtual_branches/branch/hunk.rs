@@ -20,7 +20,7 @@ impl From<&diff::GitHunk> for Hunk {
         Hunk {
             start: hunk.new_start,
             end: hunk.new_start + hunk.new_lines,
-            hash: Some(Hunk::hash(hunk.diff.as_ref())),
+            hash: Some(Hunk::hash(hunk.diff_lines.as_ref())),
             timestamp_ms: None,
         }
     }
@@ -156,16 +156,15 @@ impl Hunk {
 
     /// Produce a hash from `diff` as hex-string, which is **assumed to have a one-line diff header**!
     ///
-    /// ### Beware: this is a special-case hash!
-    ///
+    /// ### Panics
     /// It skips the first line which it assumes to tbe the diff-header.
-    /// However, if there is only one line, now it will hash everything.
+    /// However, if there is only one line, this function panics.
     ///
     /// ### Notes on Persistence
     /// Note that there is danger in changing the hash function as this information is persisted
     /// in the virtual-branch toml file. Even if it can still be parsed or decoded,
     /// these values have to remain consistent.
-    pub fn hash(diff: &BStr) -> HunkHash {
+    pub fn hash_diff(diff: &BStr) -> HunkHash {
         let mut ctx = md5::Context::new();
         let mut hashed_something = false;
         diff.lines()
@@ -174,9 +173,16 @@ impl Hunk {
                 hashed_something = true;
                 ctx.consume(line)
             });
-        if !hashed_something {
-            ctx.consume(diff);
-        }
+        assert!(
+            hashed_something,
+            "BUG: input must have a first line, but nothing was hashed here (len={}): {diff}",
+            diff.len()
+        );
         ctx.compute()
+    }
+
+    /// Produce a hash of `input` using the same function as [`Self::hash_diff()`], but without any assumptions.
+    pub fn hash(input: &[u8]) -> HunkHash {
+        md5::compute(input)
     }
 }

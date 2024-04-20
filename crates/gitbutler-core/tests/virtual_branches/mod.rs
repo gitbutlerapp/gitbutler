@@ -570,11 +570,11 @@ fn move_hunks_multiple_sources() -> Result<()> {
         2
     );
     assert_eq!(
-        files_by_branch_id[&branch3_id][Path::new("test.txt")][0].diff,
+        files_by_branch_id[&branch3_id][Path::new("test.txt")][0].diff_lines,
         "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
     assert_eq!(
-        files_by_branch_id[&branch3_id][Path::new("test.txt")][1].diff,
+        files_by_branch_id[&branch3_id][Path::new("test.txt")][1].diff_lines,
         "@@ -10,3 +11,4 @@ line9\n line10\n line11\n line12\n+line13\n"
     );
     Ok(())
@@ -645,7 +645,7 @@ fn move_hunks_partial_explicitly() -> Result<()> {
         1
     );
     assert_eq!(
-        files_by_branch_id[&branch1_id][Path::new("test.txt")][0].diff,
+        files_by_branch_id[&branch1_id][Path::new("test.txt")][0].diff_lines,
         "@@ -11,3 +12,4 @@ line10\n line11\n line12\n line13\n+line14\n"
     );
 
@@ -655,7 +655,7 @@ fn move_hunks_partial_explicitly() -> Result<()> {
         1
     );
     assert_eq!(
-        files_by_branch_id[&branch2_id][Path::new("test.txt")][0].diff,
+        files_by_branch_id[&branch2_id][Path::new("test.txt")][0].diff_lines,
         "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
 
@@ -688,7 +688,7 @@ fn add_new_hunk_to_the_end() -> Result<()> {
         .expect("failed to get status")
         .0;
     assert_eq!(
-        statuses[0].1[Path::new("test.txt")][0].diff,
+        statuses[0].1[Path::new("test.txt")][0].diff_lines,
         "@@ -11,5 +11,5 @@ line10\n line11\n line12\n line13\n-line13\n line14\n+line15\n"
     );
 
@@ -702,11 +702,11 @@ fn add_new_hunk_to_the_end() -> Result<()> {
         .0;
 
     assert_eq!(
-        statuses[0].1[Path::new("test.txt")][0].diff,
+        statuses[0].1[Path::new("test.txt")][0].diff_lines,
         "@@ -11,5 +12,5 @@ line10\n line11\n line12\n line13\n-line13\n line14\n+line15\n"
     );
     assert_eq!(
-        statuses[0].1[Path::new("test.txt")][1].diff,
+        statuses[0].1[Path::new("test.txt")][1].diff_lines,
         "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
 

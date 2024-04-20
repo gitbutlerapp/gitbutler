@@ -1602,12 +1602,12 @@ pub fn virtual_hunks_by_filepath(
                     id: format!("{}-{}", hunk.new_start, hunk.new_start + hunk.new_lines),
                     modified_at: get_mtime(&mut mtimes, &project_path.join(file_path)),
                     file_path: file_path.clone(),
-                    diff: hunk.diff.clone(),
+                    diff: hunk.diff_lines.clone(),
                     old_start: hunk.old_start,
                     start: hunk.new_start,
                     end: hunk.new_start + hunk.new_lines,
                     binary: hunk.binary,
-                    hash: Hunk::hash(hunk.diff.as_ref()),
+                    hash: Hunk::hash(hunk.diff_lines.as_ref()),
                     locked: false,
                     locked_to: None,
                     change_type: hunk.change_type,
@@ -1788,7 +1788,7 @@ fn get_applied_status(
                                     committed_git_hunk.new_start,
                                     committed_git_hunk.new_start + committed_git_hunk.new_lines,
                                 ) {
-                                    let hash = Hunk::hash(uncommitted_git_hunk.diff.as_ref());
+                                    let hash = Hunk::hash(uncommitted_git_hunk.diff_lines.as_ref());
                                     git_hunk_map.insert(hash, branch.id);
                                 }
                             }
@@ -1821,7 +1821,7 @@ fn get_applied_status(
                     .filter_map(|claimed_hunk| {
                         // if any of the current hunks intersects with the owned hunk, we want to keep it
                         for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
-                            let hash = Hunk::hash(git_diff_hunk.diff.as_ref());
+                            let hash = Hunk::hash(git_diff_hunk.diff_lines.as_ref());
                             if let Some(locked_to) = git_hunk_map.get(&hash) {
                                 if locked_to != &branch.id {
                                     return None;
@@ -1892,7 +1892,7 @@ fn get_applied_status(
 
     for (filepath, hunks) in base_diffs {
         for hunk in hunks {
-            let hash = Hunk::hash(hunk.diff.as_ref());
+            let hash = Hunk::hash(hunk.diff_lines.as_ref());
             let vbranch_pos = if let Some(locked_to) = git_hunk_map.get(&hash) {
                 let p = virtual_branches.iter().position(|vb| vb.id == *locked_to);
                 match p {
@@ -1909,7 +1909,7 @@ fn get_applied_status(
                     file_path: filepath.clone(),
                     hunks: vec![Hunk::from(&hunk)
                         .with_timestamp(get_mtime(&mut mtimes, &filepath))
-                        .with_hash(Hunk::hash(hunk.diff.as_ref()))],
+                        .with_hash(Hunk::hash(hunk.diff_lines.as_ref()))],
                 });
 
             diffs_by_branch
@@ -2086,7 +2086,7 @@ pub fn write_tree_onto_tree(
 
         let is_submodule = full_path.is_dir()
             && hunks.len() == 1
-            && hunks[0].diff.contains_str(b"Subproject commit");
+            && hunks[0].diff_lines.contains_str(b"Subproject commit");
 
         // if file exists
         if full_path.exists() {
@@ -2134,7 +2134,7 @@ pub fn write_tree_onto_tree(
                 builder.upsert(rel_path, blob_oid, filemode);
             } else if let Ok(tree_entry) = base_tree.get_path(rel_path) {
                 if hunks.len() == 1 && hunks[0].binary {
-                    let new_blob_oid = &hunks[0].diff;
+                    let new_blob_oid = &hunks[0].diff_lines;
                     // convert string to Oid
                     let new_blob_oid = new_blob_oid
                         .to_str()
@@ -2156,7 +2156,7 @@ pub fn write_tree_onto_tree(
                     hunks.sort_by_key(|hunk| hunk.new_start);
                     let mut all_diffs = BString::default();
                     for hunk in hunks {
-                        all_diffs.push_str(&hunk.diff);
+                        all_diffs.push_str(&hunk.diff_lines);
                     }
 
                     let patch = Patch::from_bytes(&all_diffs)?;
@@ -2177,9 +2177,9 @@ pub fn write_tree_onto_tree(
                 let mut hunks = hunks.clone();
                 hunks.sort_by_key(|hunk| hunk.new_start);
                 for hunk in hunks {
-                    let patch = Patch::from_bytes(&hunk.diff)?;
+                    let patch = Patch::from_bytes(&hunk.diff_lines)?;
                     blob_contents = apply(blob_contents.as_ref(), &patch)
-                        .context(format!("failed to apply {}", &hunk.diff))?;
+                        .context(format!("failed to apply {}", &hunk.diff_lines))?;
                 }
 
                 // create a blob
@@ -3727,10 +3727,10 @@ fn update_conflict_markers(
         if conflicting_files.contains(&file_path.display().to_string()) {
             // check file for conflict markers, resolve the file if there are none in any hunk
             for hunk in non_commited_hunks {
-                if hunk.diff.contains_str(b"<<<<<<< ours") {
+                if hunk.diff_lines.contains_str(b"<<<<<<< ours") {
                     conflicted = true;
                 }
-                if hunk.diff.contains_str(b">>>>>>> theirs") {
+                if hunk.diff_lines.contains_str(b">>>>>>> theirs") {
                     conflicted = true;
                 }
             }
