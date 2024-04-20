@@ -84,7 +84,8 @@ pub struct VirtualBranches {
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchCommit {
     pub id: git::Oid,
-    pub description: String,
+    #[serde(serialize_with = "crate::serde::as_string_lossy")]
+    pub description: BString,
     pub created_at: u128,
     pub author: Author,
     pub is_remote: bool,
@@ -1040,7 +1041,7 @@ fn commit_to_vbranch_commit(
 ) -> Result<VirtualBranchCommit> {
     let timestamp = u128::try_from(commit.time().seconds())?;
     let signature = commit.author();
-    let message = commit.message().unwrap().to_string();
+    let message = commit.message().to_owned();
 
     let files =
         list_virtual_commit_files(repository, commit).context("failed to list commit files")?;
@@ -2776,7 +2777,7 @@ pub fn amend(
             None,
             &head_commit.author(),
             &head_commit.committer(),
-            head_commit.message().unwrap_or_default(),
+            &head_commit.message().to_str_lossy(),
             &new_tree,
             &parents.iter().collect::<Vec<_>>(),
         )
@@ -2941,7 +2942,7 @@ pub fn cherry_pick(
                 None,
                 &target_commit.author(),
                 &target_commit.committer(),
-                target_commit.message().unwrap_or_default(),
+                &target_commit.message().to_str_lossy(),
                 &merge_tree,
                 &[&branch_head_commit],
             )
@@ -3071,8 +3072,8 @@ pub fn squash(
             &commit_to_squash.committer(),
             &format!(
                 "{}\n{}",
-                parent_commit.message().unwrap_or_default(),
-                commit_to_squash.message().unwrap_or_default(),
+                parent_commit.message(),
+                commit_to_squash.message(),
             ),
             &commit_to_squash.tree().context("failed to find tree")?,
             &parents.iter().collect::<Vec<_>>(),
@@ -3124,7 +3125,7 @@ pub fn squash(
                             None,
                             &to_rebase.author(),
                             &to_rebase.committer(),
-                            to_rebase.message().unwrap_or_default(),
+                            &to_rebase.message().to_str_lossy(),
                             &merge_tree,
                             &[&head],
                         )
@@ -3293,7 +3294,7 @@ pub fn update_commit_message(
                             None,
                             &to_rebase.author(),
                             &to_rebase.committer(),
-                            to_rebase.message().unwrap_or_default(),
+                            &to_rebase.message().to_str_lossy(),
                             &merge_tree,
                             &[&head],
                         )
@@ -3474,7 +3475,7 @@ pub fn move_commit(
         let new_destination_head_oid = project_repository
             .commit(
                 user,
-                source_branch_head.message().unwrap_or_default(),
+                &source_branch_head.message().to_str_lossy(),
                 &new_destination_tree,
                 &[&project_repository
                     .git_repository
