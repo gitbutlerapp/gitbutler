@@ -37,13 +37,15 @@ impl From<git2::Delta> for ChangeType {
     }
 }
 
+/// A description of a hunk, as identified by its line number and the amount of lines it spans
+/// before and after the change.
 #[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct GitHunk {
     pub old_start: u32,
     pub old_lines: u32,
     pub new_start: u32,
     pub new_lines: u32,
-    /// Note that these lines don't have a diff-header.
+    /// The `+`, `-` or ` ` prefixed lines of the diff produced by `git2`, along with their line separator.
     #[serde(rename = "diff", serialize_with = "crate::serde::as_string_lossy")]
     pub diff_lines: BString,
     pub binary: bool,
@@ -173,10 +175,6 @@ fn hunks_by_filepath(
                     .expect("failed to get file name from diff")
             });
 
-            hunks_by_filepath
-                .entry(file_path.to_path_buf())
-                .or_default();
-
             let new_start = hunk.as_ref().map_or(0, git2::DiffHunk::new_start);
             let new_lines = hunk.as_ref().map_or(0, git2::DiffHunk::new_lines);
             let old_start = hunk.as_ref().map_or(0, git2::DiffHunk::old_start);
@@ -250,80 +248,68 @@ fn hunks_by_filepath(
                         change_type,
                     });
                 }
+            } else {
+                hunks_by_filepath
+                    .entry(file_path.to_path_buf())
+                    .or_default();
             }
-            diff_files.insert(
-                file_path.to_path_buf(),
-                FileDiff {
-                    old_path: delta.old_file().path().map(ToOwned::to_owned),
-                    new_path: delta.new_file().path().map(ToOwned::to_owned),
-                    hunks: None,
-                    skipped: false,
-                    binary: delta.new_file().is_binary(),
-                    old_size_bytes: delta.old_file().size(),
-                    new_size_bytes: delta.new_file().size(),
-                },
-            );
+            // This happens once per line, let's not allocate each time for nothing.
+            if !diff_files.contains_key(file_path) {
+                diff_files.insert(
+                    file_path.to_path_buf(),
+                    FileDiff {
+                        old_path: delta.old_file().path().map(ToOwned::to_owned),
+                        new_path: delta.new_file().path().map(ToOwned::to_owned),
+                        hunks: None,
+                        skipped: false,
+                        binary: delta.new_file().is_binary(),
+                        old_size_bytes: delta.old_file().size(),
+                        new_size_bytes: delta.new_file().size(),
+                    },
+                );
+            }
 
             true
         },
     )
     .context("failed to print diff")?;
 
-    let hunks_by_filepath: HashMap<PathBuf, Vec<GitHunk>> = hunks_by_filepath
-        .into_iter()
-        .map(|(k, v)| {
-            if let Some(binary_hunk) = v.iter().find(|hunk| hunk.binary) {
-                if v.len() > 1 {
-                    // TODO(ST): Would it be possible here to permanently discard lines because
-                    //           they are considered binary? After all, here we create a new change,
-                    //           turning multiple binary hunks into single line hunk (somehow).
-                    //           Probably answer: it's likely that this data is only created on the fly,
-                    //           and only the original source data is relevant - validate it.
-                    //           But: virtual branches definitely apply hunks.
-                    // if there are multiple hunks with binary among them, then the binary hunk
-                    // takes precedence
-                    (
-                        k,
-                        vec![GitHunk {
-                            old_start: 0,
-                            old_lines: 0,
-                            new_start: 0,
-                            new_lines: 0,
-                            diff_lines: binary_hunk.diff_lines.clone(),
-                            binary: true,
-                            change_type: binary_hunk.change_type,
-                        }],
-                    )
-                } else {
-                    (k, v)
-                }
-            } else if v.is_empty() {
-                // this is a new file
-                (
-                    k,
-                    vec![GitHunk {
-                        old_start: 0,
-                        old_lines: 0,
-                        new_start: 0,
-                        new_lines: 0,
-                        diff_lines: Default::default(),
-                        binary: false,
-                        change_type: ChangeType::Modified,
-                    }],
-                )
-            } else {
-                (k, v)
+    for v in hunks_by_filepath.values_mut() {
+        if let Some(binary_hunk) = v.iter().find_map(|hunk| hunk.binary.then(|| hunk.clone())) {
+            if v.len() > 1 {
+                // TODO(ST): needs tests, this code isn't executed yet.
+                // if there are multiple hunks with binary among them, we replace it with a single marker.
+                *v = vec![GitHunk {
+                    old_start: 0,
+                    old_lines: 0,
+                    new_start: 0,
+                    new_lines: 0,
+                    diff_lines: binary_hunk.diff_lines,
+                    binary: true,
+                    change_type: binary_hunk.change_type,
+                }];
             }
-        })
-        .collect();
+        } else if v.is_empty() {
+            // this is a new file
+            *v = vec![GitHunk {
+                old_start: 0,
+                old_lines: 0,
+                new_start: 0,
+                new_lines: 0,
+                diff_lines: Default::default(),
+                binary: false,
+                change_type: ChangeType::Modified,
+            }]
+        }
+    }
 
     for (file_path, diff_file) in &mut diff_files {
-        diff_file.hunks = hunks_by_filepath.get(file_path).cloned();
+        diff_file.hunks = hunks_by_filepath.remove(file_path);
     }
     Ok(diff_files)
 }
 
-// returns None if cannot reverse the patch header
+// returns None if it cannot reverse the patch header
 fn reverse_patch_header(header: &BStr) -> Option<BString> {
     let mut parts = header.split(|b| b.is_ascii_whitespace());
 
@@ -381,7 +367,7 @@ fn reverse_patch(patch: &BStr) -> Option<BString> {
     Some(reversed)
 }
 
-// returns None if cannot reverse the hunk
+// returns `None` if the reversal failed
 pub fn reverse_hunk(hunk: &GitHunk) -> Option<GitHunk> {
     if hunk.binary {
         None

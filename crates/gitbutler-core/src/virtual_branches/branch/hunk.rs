@@ -20,7 +20,7 @@ impl From<&diff::GitHunk> for Hunk {
         Hunk {
             start: hunk.new_start,
             end: hunk.new_start + hunk.new_lines,
-            hash: Some(Hunk::hash(hunk.diff_lines.as_ref())),
+            hash: Some(Hunk::hash_diff(hunk.diff_lines.as_ref())),
             timestamp_ms: None,
         }
     }
@@ -155,29 +155,21 @@ impl Hunk {
     }
 
     /// Produce a hash from `diff` as hex-string, which is **assumed to have a one-line diff header**!
-    ///
-    /// ### Panics
-    /// It skips the first line which it assumes to tbe the diff-header.
-    /// However, if there is only one line, this function panics.
+    /// `diff` can also be entirely empty, or not contain a diff header which is when it will just be hashed
+    /// with [`Self::hash()`].
     ///
     /// ### Notes on Persistence
     /// Note that there is danger in changing the hash function as this information is persisted
     /// in the virtual-branch toml file. Even if it can still be parsed or decoded,
     /// these values have to remain consistent.
     pub fn hash_diff(diff: &BStr) -> HunkHash {
+        if !diff.starts_with(b"@@") {
+            return Self::hash(diff);
+        }
         let mut ctx = md5::Context::new();
-        let mut hashed_something = false;
         diff.lines()
             .skip(1) // skip the first line which is the diff header.
-            .for_each(|line| {
-                hashed_something = true;
-                ctx.consume(line)
-            });
-        assert!(
-            hashed_something,
-            "BUG: input must have a first line, but nothing was hashed here (len={}): {diff}",
-            diff.len()
-        );
+            .for_each(|line_without_terminator| ctx.consume(line_without_terminator));
         ctx.compute()
     }
 

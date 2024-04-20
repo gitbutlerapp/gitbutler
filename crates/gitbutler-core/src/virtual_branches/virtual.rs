@@ -1607,7 +1607,7 @@ pub fn virtual_hunks_by_filepath(
                     start: hunk.new_start,
                     end: hunk.new_start + hunk.new_lines,
                     binary: hunk.binary,
-                    hash: Hunk::hash(hunk.diff_lines.as_ref()),
+                    hash: Hunk::hash_diff(hunk.diff_lines.as_ref()),
                     locked: false,
                     locked_to: None,
                     change_type: hunk.change_type,
@@ -1788,7 +1788,8 @@ fn get_applied_status(
                                     committed_git_hunk.new_start,
                                     committed_git_hunk.new_start + committed_git_hunk.new_lines,
                                 ) {
-                                    let hash = Hunk::hash(uncommitted_git_hunk.diff_lines.as_ref());
+                                    let hash =
+                                        Hunk::hash_diff(uncommitted_git_hunk.diff_lines.as_ref());
                                     git_hunk_map.insert(hash, branch.id);
                                 }
                             }
@@ -1821,7 +1822,7 @@ fn get_applied_status(
                     .filter_map(|claimed_hunk| {
                         // if any of the current hunks intersects with the owned hunk, we want to keep it
                         for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
-                            let hash = Hunk::hash(git_diff_hunk.diff_lines.as_ref());
+                            let hash = Hunk::hash_diff(git_diff_hunk.diff_lines.as_ref());
                             if let Some(locked_to) = git_hunk_map.get(&hash) {
                                 if locked_to != &branch.id {
                                     return None;
@@ -1892,7 +1893,7 @@ fn get_applied_status(
 
     for (filepath, hunks) in base_diffs {
         for hunk in hunks {
-            let hash = Hunk::hash(hunk.diff_lines.as_ref());
+            let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
             let vbranch_pos = if let Some(locked_to) = git_hunk_map.get(&hash) {
                 let p = virtual_branches.iter().position(|vb| vb.id == *locked_to);
                 match p {
@@ -1909,7 +1910,7 @@ fn get_applied_status(
                     file_path: filepath.clone(),
                     hunks: vec![Hunk::from(&hunk)
                         .with_timestamp(get_mtime(&mut mtimes, &filepath))
-                        .with_hash(Hunk::hash(hunk.diff_lines.as_ref()))],
+                        .with_hash(Hunk::hash_diff(hunk.diff_lines.as_ref()))],
                 });
 
             diffs_by_branch

@@ -42,15 +42,27 @@ fn to_string_no_hash() {
 }
 
 #[test]
-#[should_panic]
-fn hash_diff_no_first_line_panics() {
-    let _a_hash = Hunk::hash_diff("a".into());
+fn hash_diff_no_diff_header_is_normal_hash() {
+    let actual = Hunk::hash_diff("a".as_ref());
+    let expected = Hunk::hash("a".as_ref());
+    assert_eq!(actual, expected)
 }
 
 #[test]
-fn hash_diff() {
-    let a_hash = Hunk::hash_diff("first\na".into());
-    let b_hash = Hunk::hash_diff("different-first\na".into());
+fn hash_diff_empty_is_fine() {
+    let actual = Hunk::hash_diff("".as_ref());
+    let expected = Hunk::hash("".as_ref());
+    assert_eq!(
+        actual, expected,
+        "The special hash is the same as a normal one in case of empty input.\
+        Don't yet know why that should be except that more works then"
+    )
+}
+
+#[test]
+fn hash_diff_content_hash() {
+    let a_hash = Hunk::hash_diff("@@x\na".into());
+    let b_hash = Hunk::hash_diff("@@y\na".into());
     assert_eq!(
         a_hash, b_hash,
         "it skips the first line which is assumed to be a diff-header.\
