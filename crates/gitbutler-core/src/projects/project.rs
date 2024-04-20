@@ -110,8 +110,4 @@ impl Project {
     pub fn gb_dir(&self) -> PathBuf {
         self.path.join(".git").join("gitbutler")
     }
-
-    pub fn use_toml_vbranches_state(&self) -> bool {
-        true
-    }
 }
