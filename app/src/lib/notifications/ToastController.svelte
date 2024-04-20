@@ -15,12 +15,19 @@
 	{#each $toastStore as toast (toast.id)}
 		<div transition:slide={{ duration: 170 }}>
 			<InfoMessage
-				title={toast.title}
 				style={toast.style ?? 'neutral'}
 				secondary="Dismiss"
 				on:secondary={() => dismissToast(toast.id)}
-				shadow>{@html marked.parse(toast.message, { renderer })}</InfoMessage
+				shadow
 			>
+				<svelte:fragment slot="title">
+					{toast.title}
+				</svelte:fragment>
+
+				<svelte:fragment slot="content">
+					{@html marked.parse(toast.message, { renderer })}
+				</svelte:fragment>
+			</InfoMessage>
 		</div>
 	{/each}
 </div>

@@ -13,7 +13,6 @@
 	export let style: MessageStyle = 'neutral';
 	export let outlined: boolean = true;
 	export let filled: boolean = false;
-	export let title: string | undefined = undefined;
 	export let primary: string | undefined = undefined;
 	export let secondary: string | undefined = undefined;
 	export let shadow = false;
@@ -55,19 +54,16 @@
 	<Icon name={icon ? icon : iconMap[style]} color={iconColorMap[style]} />
 	<div class="info-message__inner">
 		<div class="info-message__content">
-			{#if title || SLOTS.title}
+			{#if SLOTS.title}
 				<div class="info-message__title text-base-body-13 text-semibold">
-					{#if title}
-						{title}
-					{:else}
-						<slot name="title" />
-					{/if}
+					<slot name="title" />
 				</div>
 			{/if}
+
 			{#if SLOTS.content}
-				<slot name="content" />
-			{:else}
-				<div class="info-message__text text-base-body-12"><slot /></div>
+				<div class="info-message__text text-base-body-12">
+					<slot name="content" />
+				</div>
 			{/if}
 		</div>
 		{#if primary || secondary}

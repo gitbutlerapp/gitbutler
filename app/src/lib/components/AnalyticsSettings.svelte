@@ -62,7 +62,11 @@
 		</SectionCard>
 
 		{#if updatedTelemetrySettings}
-			<InfoMessage>Changes will take effect on the next application start.</InfoMessage>
+			<InfoMessage>
+				<svelte:fragment slot="content"
+					>Changes will take effect on the next application start.</svelte:fragment
+				>
+			</InfoMessage>
 		{/if}
 	</div>
 </section>
