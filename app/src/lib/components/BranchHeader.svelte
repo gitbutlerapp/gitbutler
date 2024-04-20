@@ -15,7 +15,7 @@
 	import type { Persisted } from '$lib/persisted/persisted';
 	import { goto } from '$app/navigation';
 
-	export let hasUncommittedChanges = false;
+	export let uncommittedChanges = 0;
 	export let isUnapplied = false;
 	export let isLaneCollapsed: Persisted<boolean>;
 
@@ -71,8 +71,10 @@
 
 		<div class="collapsed-lane__info">
 			<div class="collapsed-lane__label-wrap">
-				{#if hasUncommittedChanges}
-					<Tag style="warning" kind="soft" verticalOrientation>Uncommitted</Tag>
+				{#if uncommittedChanges > 0}
+					<Tag style="warning" kind="soft" verticalOrientation help="Uncommitted changes">
+						{uncommittedChanges} changes
+					</Tag>
 				{/if}
 
 				<h3 class="collapsed-lane__label text-base-13 text-bold">
