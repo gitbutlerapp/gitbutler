@@ -2072,6 +2072,7 @@ dependencies = [
  "gitbutler-git",
  "gitbutler-testsupport",
  "gix",
+ "hex",
  "itertools 0.12.1",
  "lazy_static",
  "log",

@@ -16,13 +16,13 @@ fn reconcile_ownership_simple() {
                     Hunk {
                         start: 1,
                         end: 3,
-                        hash: Some("1,3".to_string()),
+                        hash: Some(Hunk::hash("1,3".into())),
                         timestamp_ms: None,
                     },
                     Hunk {
                         start: 4,
                         end: 6,
-                        hash: Some("4,6".to_string()),
+                        hash: Some(Hunk::hash("4,6".into())),
                         timestamp_ms: None,
                     },
                 ],
@@ -39,7 +39,7 @@ fn reconcile_ownership_simple() {
                 hunks: vec![Hunk {
                     start: 7,
                     end: 9,
-                    hash: Some("7,9".to_string()),
+                    hash: Some(Hunk::hash("7,9".into())),
                     timestamp_ms: None,
                 }],
             }],
@@ -54,13 +54,13 @@ fn reconcile_ownership_simple() {
             Hunk {
                 start: 4,
                 end: 6,
-                hash: Some("4,6".to_string()),
+                hash: Some(Hunk::hash("4,6".into())),
                 timestamp_ms: None,
             },
             Hunk {
                 start: 7,
                 end: 9,
-                hash: Some("9,7".to_string()),
+                hash: Some(Hunk::hash("9,7".into())),
                 timestamp_ms: None,
             },
         ],
@@ -78,7 +78,7 @@ fn reconcile_ownership_simple() {
                 hunks: vec![Hunk {
                     start: 1,
                     end: 3,
-                    hash: Some("1,3".to_string()),
+                    hash: Some(Hunk::hash("1,3".into())),
                     timestamp_ms: None,
                 },],
             }],
@@ -94,13 +94,13 @@ fn reconcile_ownership_simple() {
                     Hunk {
                         start: 4,
                         end: 6,
-                        hash: Some("4,6".to_string()),
+                        hash: Some(Hunk::hash("4,6".into())),
                         timestamp_ms: None,
                     },
                     Hunk {
                         start: 7,
                         end: 9,
-                        hash: Some("9,7".to_string()),
+                        hash: Some(Hunk::hash("9,7".into())),
                         timestamp_ms: None,
                     },
                 ],

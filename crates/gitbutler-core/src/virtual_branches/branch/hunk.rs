@@ -5,9 +5,11 @@ use bstr::{BStr, ByteSlice};
 
 use crate::git::diff;
 
+pub type HunkHash = md5::Digest;
+
 #[derive(Debug, Eq, Clone)]
 pub struct Hunk {
-    pub hash: Option<String>,
+    pub hash: Option<HunkHash>,
     pub timestamp_ms: Option<u128>,
     pub start: u32,
     pub end: u32,
@@ -70,7 +72,9 @@ impl FromStr for Hunk {
             if raw_hash.is_empty() {
                 None
             } else {
-                Some(raw_hash.to_string())
+                let mut buf = [0u8; 16];
+                hex::decode_to_slice(raw_hash, &mut buf)?;
+                Some(md5::Digest(buf))
             }
         } else {
             None
@@ -94,8 +98,8 @@ impl Display for Hunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}-{}", self.start, self.end)?;
         match (self.hash.as_ref(), self.timestamp_ms.as_ref()) {
-            (Some(hash), Some(timestamp_ms)) => write!(f, "-{}-{}", hash, timestamp_ms),
-            (Some(hash), None) => write!(f, "-{}", hash),
+            (Some(hash), Some(timestamp_ms)) => write!(f, "-{:x}-{}", hash, timestamp_ms),
+            (Some(hash), None) => write!(f, "-{:x}", hash),
             (None, Some(timestamp_ms)) => write!(f, "--{}", timestamp_ms),
             (None, None) => Ok(()),
         }
@@ -106,7 +110,7 @@ impl Hunk {
     pub fn new(
         start: u32,
         end: u32,
-        hash: Option<String>,
+        hash: Option<HunkHash>,
         timestamp_ms: Option<u128>,
     ) -> Result<Self> {
         if start > end {
@@ -121,8 +125,8 @@ impl Hunk {
         }
     }
 
-    pub fn with_hash(mut self, hash: &str) -> Self {
-        self.hash = Some(hash.to_owned());
+    pub fn with_hash(mut self, hash: HunkHash) -> Self {
+        self.hash = Some(hash);
         self
     }
 
@@ -150,12 +154,29 @@ impl Hunk {
         self.start == other.new_start && self.end == other.new_start + other.new_lines
     }
 
-    // TODO(perf): keep the hash as digest to avoid allocation.
-    pub fn hash(diff: &BStr) -> String {
+    /// Produce a hash from `diff` as hex-string, which is **assumed to have a one-line diff header**!
+    ///
+    /// ### Beware: this is a special-case hash!
+    ///
+    /// It skips the first line which it assumes to tbe the diff-header.
+    /// However, if there is only one line, now it will hash everything.
+    ///
+    /// ### Notes on Persistence
+    /// Note that there is danger in changing the hash function as this information is persisted
+    /// in the virtual-branch toml file. Even if it can still be parsed or decoded,
+    /// these values have to remain consistent.
+    pub fn hash(diff: &BStr) -> HunkHash {
         let mut ctx = md5::Context::new();
+        let mut hashed_something = false;
         diff.lines()
             .skip(1) // skip the first line which is the diff header.
-            .for_each(|line| ctx.consume(line));
-        format!("{:x}", ctx.compute())
+            .for_each(|line| {
+                hashed_something = true;
+                ctx.consume(line)
+            });
+        if !hashed_something {
+            ctx.consume(diff);
+        }
+        ctx.compute()
     }
 }

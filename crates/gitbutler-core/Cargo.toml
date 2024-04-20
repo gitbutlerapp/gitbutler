@@ -27,6 +27,7 @@ gix = { workspace = true, features = ["dirwalk"] }
 itertools = "0.12"
 lazy_static = "1.4.0"
 md5 = "0.7.0"
+hex = "0.4.3"
 r2d2 = "0.8.10"
 r2d2_sqlite = "0.22.0"
 rand = "0.8.5"

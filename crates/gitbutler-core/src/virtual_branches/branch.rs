@@ -4,7 +4,7 @@ mod ownership;
 
 use anyhow::Result;
 pub use file_ownership::OwnershipClaim;
-pub use hunk::Hunk;
+pub use hunk::{Hunk, HunkHash};
 pub use ownership::{reconcile_claims, BranchOwnershipClaims};
 use serde::{Deserialize, Serialize};
 

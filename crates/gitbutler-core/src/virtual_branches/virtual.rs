@@ -20,6 +20,7 @@ use super::{
     },
     branch_to_remote_branch, errors, target, RemoteBranch, VirtualBranchesHandle,
 };
+use crate::virtual_branches::branch::HunkHash;
 use crate::{
     askpass::AskpassBroker,
     dedup::{dedup, dedup_fmt},
@@ -131,7 +132,8 @@ pub struct VirtualBranchHunk {
     pub diff: BString,
     pub modified_at: u128,
     pub file_path: PathBuf,
-    pub hash: String,
+    #[serde(serialize_with = "crate::serde::hash_to_hex")]
+    pub hash: HunkHash,
     pub old_start: u32,
     pub start: u32,
     pub end: u32,
@@ -1840,7 +1842,7 @@ fn get_applied_status(
                                     claimed_hunk
                                         .clone()
                                         .with_timestamp(timestamp)
-                                        .with_hash(hash.as_str()),
+                                        .with_hash(hash),
                                 );
                             } else if claimed_hunk.intersects(git_diff_hunk) {
                                 diffs_by_branch
@@ -1853,7 +1855,7 @@ fn get_applied_status(
                                     start: git_diff_hunk.new_start,
                                     end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
                                     timestamp_ms: Some(mtime),
-                                    hash: Some(hash.clone()),
+                                    hash: Some(hash),
                                 };
                                 git_diff_hunks.remove(i);
                                 return Some(updated_hunk);
@@ -1907,7 +1909,7 @@ fn get_applied_status(
                     file_path: filepath.clone(),
                     hunks: vec![Hunk::from(&hunk)
                         .with_timestamp(get_mtime(&mut mtimes, &filepath))
-                        .with_hash(Hunk::hash(hunk.diff.as_ref()).as_str())],
+                        .with_hash(Hunk::hash(hunk.diff.as_ref()))],
                 });
 
             diffs_by_branch
