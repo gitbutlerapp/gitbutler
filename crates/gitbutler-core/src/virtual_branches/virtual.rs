@@ -1795,9 +1795,7 @@ fn get_applied_status(
                 let blame = project_repository.blame(
                     &path,
                     hunk.old_start,
-                    (hunk.old_start + hunk.old_lines)
-                        .checked_sub(1)
-                        .unwrap_or(0),
+                    (hunk.old_start + hunk.old_lines).saturating_sub(1),
                     target_sha,
                     &branch.head,
                 );
@@ -1873,7 +1871,7 @@ fn get_applied_status(
                                     end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
                                     timestamp_ms: Some(mtime),
                                     hash: Some(hash),
-                                    locked_to: None,
+                                    locked_to: vec![],
                                 };
                                 git_diff_hunks.remove(i);
                                 return Some(updated_hunk);
@@ -1925,7 +1923,10 @@ fn get_applied_status(
             let mut new_hunk = Hunk::from(&hunk)
                 .with_timestamp(mtimes.mtime_by_path(filepath.as_path()))
                 .with_hash(hash);
-            new_hunk.locked_to = git_hunk_map.get(&hash).map(|locked_to| vec![*locked_to]);
+            new_hunk.locked_to = git_hunk_map
+                .get(&hash)
+                .map(|locked_to| vec![*locked_to])
+                .unwrap_or_default();
             virtual_branches[vbranch_pos]
                 .ownership
                 .put(&OwnershipClaim {
