@@ -1,7 +1,7 @@
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::*;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     fs::File,
     io::{BufReader, Read},
     path, time,
@@ -617,8 +617,7 @@ fn build_wd_tree_from_repo(
     project_repository: &project_repository::Repository,
 ) -> Result<git::Oid> {
     let mut index = git::Index::new()?;
-
-    let mut added: HashMap<String, bool> = HashMap::new();
+    let mut added = HashSet::new();
 
     // first, add session/wd files. session/wd are written at the same time as deltas, so it's important to add them first
     // to make sure they are in sync with the deltas
@@ -648,7 +647,7 @@ fn build_wd_tree_from_repo(
                 file_path.display()
             )
         })?;
-        added.insert(file_path.to_string_lossy().to_string(), true);
+        added.insert(file_path);
     }
 
     // finally, add files from the working directory if they aren't already in the index
@@ -662,7 +661,7 @@ fn build_wd_tree_from_repo(
     for file_path in
         worktree_relative_files.map(|rela_path| gix::path::from_bstr(rela_path).into_owned())
     {
-        if added.contains_key(&file_path.to_string_lossy().to_string()) {
+        if added.contains(&file_path) {
             continue;
         }
 
