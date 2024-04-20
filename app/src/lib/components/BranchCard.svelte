@@ -147,6 +147,7 @@
 	<div class="collapsed-lane-wrapper">
 		<BranchHeader
 			{isUnapplied}
+			hasUncommittedChanges={branch.files.length > 0}
 			bind:isLaneCollapsed
 			on:action={(e) => {
 				if (e.detail == 'generate-branch-name') {
