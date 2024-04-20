@@ -652,23 +652,17 @@ fn build_wd_tree_from_repo(
     }
 
     // finally, add files from the working directory if they aren't already in the index
-    for file_path in fs::list_files(project_repository.root(), &[path::Path::new(".git")])
-        .with_context(|| {
+    let worktree_relative_files =
+        fs::iter_worktree_files(project_repository.root()).with_context(|| {
             format!(
                 "failed to working directory list files in {}",
                 project_repository.root().display()
             )
-        })?
+        })?;
+    for file_path in
+        worktree_relative_files.map(|rela_path| gix::path::from_bstr(rela_path).into_owned())
     {
         if added.contains_key(&file_path.to_string_lossy().to_string()) {
-            continue;
-        }
-
-        if project_repository
-            .git_repository
-            .is_path_ignored(&file_path)
-            .unwrap_or(true)
-        {
             continue;
         }
 
