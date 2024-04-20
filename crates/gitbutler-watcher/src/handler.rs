@@ -123,7 +123,7 @@ impl Handler {
         self.emit_app_event(Change::File {
             project_id,
             session_id,
-            file_path: file_path.display().to_string(),
+            file_path: file_path.to_owned(),
             contents,
         })
     }

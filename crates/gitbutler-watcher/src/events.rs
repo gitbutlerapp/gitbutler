@@ -114,8 +114,7 @@ pub enum Change {
     File {
         project_id: ProjectId,
         session_id: SessionId,
-        // TODO(ST): Should probably not be a string, but rather, relative.
-        file_path: String,
+        file_path: PathBuf,
         contents: Option<reader::Content>,
     },
     Session {
@@ -125,7 +124,6 @@ pub enum Change {
     Deltas {
         project_id: ProjectId,
         session_id: SessionId,
-        // TODO(ST): check if this is ever more than one
         deltas: Vec<deltas::Delta>,
         relative_file_path: PathBuf,
     },
