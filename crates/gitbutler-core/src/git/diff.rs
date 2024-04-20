@@ -43,6 +43,7 @@ pub struct GitHunk {
     pub old_lines: u32,
     pub new_start: u32,
     pub new_lines: u32,
+    #[serde(serialize_with = "crate::serde::as_string_lossy")]
     pub diff: BString,
     pub binary: bool,
     pub change_type: ChangeType,

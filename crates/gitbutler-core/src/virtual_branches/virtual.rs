@@ -126,6 +126,7 @@ pub struct VirtualBranchFile {
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchHunk {
     pub id: String,
+    #[serde(serialize_with = "crate::serde::as_string_lossy")]
     pub diff: BString,
     pub modified_at: u128,
     pub file_path: PathBuf,
