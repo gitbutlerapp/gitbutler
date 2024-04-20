@@ -18,8 +18,11 @@ pub enum Error {
     Io(Arc<io::Error>),
     #[error(transparent)]
     From(FromError),
-    #[error("failed to parse virtual_branches.toml: {0}")]
-    ParseError(String),
+    #[error("failed to parse {}", path.display())]
+    ParseError {
+        path: PathBuf,
+        source: toml::de::Error,
+    },
 }
 
 impl From<io::Error> for Error {

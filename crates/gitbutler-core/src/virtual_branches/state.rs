@@ -136,8 +136,11 @@ impl VirtualBranchesHandle {
         let mut file: File = File::open(self.file_path.as_path())?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
-        let virtual_branches: VirtualBranches = toml::from_str(&contents)
-            .map_err(|e| crate::reader::Error::ParseError(e.to_string()))?;
+        let virtual_branches: VirtualBranches =
+            toml::from_str(&contents).map_err(|e| crate::reader::Error::ParseError {
+                path: self.file_path.clone(),
+                source: e,
+            })?;
         Ok(virtual_branches)
     }
 
