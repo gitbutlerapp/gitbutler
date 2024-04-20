@@ -15,7 +15,7 @@ pub struct Hunk {
     pub timestamp_ms: Option<u128>,
     pub start: u32,
     pub end: u32,
-    pub locked_to: Option<Vec<Id<Branch>>>,
+    pub locked_to: Vec<Id<Branch>>,
 }
 
 impl From<&diff::GitHunk> for Hunk {
@@ -25,7 +25,7 @@ impl From<&diff::GitHunk> for Hunk {
             end: hunk.new_start + hunk.new_lines,
             hash: Some(Hunk::hash_diff(hunk.diff_lines.as_ref())),
             timestamp_ms: None,
-            locked_to: None,
+            locked_to: vec![],
         }
     }
 }
@@ -47,7 +47,7 @@ impl From<RangeInclusive<u32>> for Hunk {
             end: *range.end(),
             hash: None,
             timestamp_ms: None,
-            locked_to: None,
+            locked_to: vec![],
         }
     }
 }
@@ -126,7 +126,7 @@ impl Hunk {
                 timestamp_ms,
                 start,
                 end,
-                locked_to: None,
+                locked_to: vec![],
             })
         }
     }
