@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
+use bstr::BString;
+use gix::dir::walk::EmissionMode;
 use walkdir::WalkDir;
 
 // Returns an ordered list of relative paths for files inside a directory recursively.
@@ -27,4 +29,22 @@ pub fn list_files<P: AsRef<Path>>(dir_path: P, ignore_prefixes: &[P]) -> Result<
     }
     files.sort();
     Ok(files)
+}
+
+// Return an iterator of worktree-relative slash-separated paths for files inside the `worktree_dir`, recursively.
+// Fails if the `worktree_dir` isn't a valid git repository.
+pub fn iter_worktree_files(
+    worktree_dir: impl AsRef<Path>,
+) -> Result<impl Iterator<Item = BString>> {
+    let repo = gix::open(worktree_dir.as_ref())?;
+    let index = repo.index_or_empty()?;
+    let disabled_interrupt_handling = Default::default();
+    let options = repo
+        .dirwalk_options()?
+        .emit_tracked(true)
+        .emit_untracked(EmissionMode::Matching);
+    Ok(repo
+        .dirwalk_iter(index, None::<&str>, disabled_interrupt_handling, options)?
+        .filter_map(Result::ok)
+        .map(|e| e.entry.rela_path))
 }
