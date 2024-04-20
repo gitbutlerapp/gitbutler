@@ -5,7 +5,6 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use git2::Blame;
 
 use super::conflicts;
 use crate::error::{AnyhowContextExt, Code, ErrorWithContext};
@@ -616,19 +615,6 @@ impl Repository {
         }
 
         Err(RemoteError::Auth)
-    }
-
-    pub fn blame(
-        &self,
-        path: &path::Path,
-        min_line: u32,
-        max_line: u32,
-        oldest_commit: &git::Oid,
-        newest_commit: &git::Oid,
-    ) -> Result<Blame, RemoteError> {
-        Ok(self
-            .git_repository
-            .blame(path, min_line, max_line, oldest_commit, newest_commit)?)
     }
 }
 
