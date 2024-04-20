@@ -23,6 +23,7 @@ fslock = "0.2.1"
 futures = "0.3"
 git2.workspace = true
 git2-hooks = "0.3"
+gix = { workspace = true, features = ["dirwalk"] }
 itertools = "0.12"
 lazy_static = "1.4.0"
 md5 = "0.7.0"
