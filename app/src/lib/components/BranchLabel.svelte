@@ -64,9 +64,10 @@
 		pointer-events: auto;
 		visibility: hidden;
 		border: 2px solid transparent;
-		top: 30px;
+		top: -9999px;
+		left: -9999px;
 		color: black;
-		position: absolute;
+		position: fixed;
 		display: inline-block;
 		visibility: hidden;
 		white-space: pre;
