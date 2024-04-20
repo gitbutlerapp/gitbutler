@@ -32,7 +32,6 @@ use crate::{
         diff::{self},
         Commit, Refname, RemoteRefname,
     },
-    id::Id,
     keys,
     project_repository::{self, conflicts, LogUntil},
     reader, users,
@@ -1792,7 +1791,7 @@ fn get_applied_status(
         }
         for (path, hunks) in base_diffs.clone().into_iter() {
             for hunk in hunks {
-                let blame = project_repository.blame(
+                let blame = project_repository.git_repository.blame(
                     &path,
                     hunk.old_start,
                     (hunk.old_start + hunk.old_lines).saturating_sub(1),
@@ -1804,7 +1803,7 @@ fn get_applied_status(
                     for blame_hunk in blame.iter() {
                         let commit = blame_hunk.orig_commit_id();
                         if git::Oid::from(commit) != *target_sha {
-                            let hash = Hunk::hash(&hunk.diff_lines.as_ref());
+                            let hash = Hunk::hash(hunk.diff_lines.as_ref());
                             git_hunk_map.insert(hash, branch.id);
                             break;
                         }
