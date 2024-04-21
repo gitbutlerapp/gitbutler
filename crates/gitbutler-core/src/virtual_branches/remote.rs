@@ -1,9 +1,11 @@
+use std::path::Path;
+
 use anyhow::{Context, Result};
 use serde::Serialize;
 
-use super::{errors, Author};
+use super::{errors, target, Author, VirtualBranchesHandle};
 use crate::{
-    gb_repository, git,
+    git,
     project_repository::{self, LogUntil},
 };
 
@@ -46,11 +48,9 @@ pub struct RemoteCommit {
 }
 
 pub fn list_remote_branches(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<Vec<RemoteBranch>, errors::ListRemoteBranchesError> {
-    let default_target = gb_repository
-        .default_target()
+    let default_target = default_target(&project_repository.project().gb_dir())
         .context("failed to get default target")?
         .ok_or_else(|| {
             errors::ListRemoteBranchesError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
@@ -76,12 +76,10 @@ pub fn list_remote_branches(
 }
 
 pub fn get_branch_data(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     refname: &git::Refname,
 ) -> Result<super::RemoteBranchData, errors::GetRemoteBranchDataError> {
-    let default_target = gb_repository
-        .default_target()
+    let default_target = default_target(&project_repository.project().gb_dir())
         .context("failed to get default target")?
         .ok_or_else(|| {
             errors::GetRemoteBranchDataError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
@@ -178,5 +176,14 @@ pub fn commit_to_remote_commit(commit: &git::Commit) -> RemoteCommit {
         description: commit.message().unwrap_or_default().to_string(),
         created_at: commit.time().seconds().try_into().unwrap(),
         author: commit.author().into(),
+    }
+}
+
+fn default_target(base_path: &Path) -> Result<Option<target::Target>> {
+    let vb_state = VirtualBranchesHandle::new(base_path);
+    match vb_state.get_default_target() {
+        Result::Ok(target) => Ok(Some(target)),
+        Err(crate::reader::Error::NotFound) => Ok(None),
+        Err(err) => Err(err.into()),
     }
 }

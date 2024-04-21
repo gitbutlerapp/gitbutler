@@ -42,13 +42,7 @@ impl Default for Test {
         Self {
             repository: test_project,
             project_id: project.id,
-            controller: Controller::new(
-                data_dir.path().into(),
-                projects.clone(),
-                users,
-                keys,
-                helper,
-            ),
+            controller: Controller::new(projects.clone(), users, keys, helper),
             projects,
             data_dir: Some(data_dir),
         }

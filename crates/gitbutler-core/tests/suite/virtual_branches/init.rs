@@ -10,13 +10,7 @@ async fn twice() {
 
     let test_project = TestProject::default();
 
-    let controller = Controller::new(
-        data_dir.path().into(),
-        projects.clone(),
-        users,
-        keys,
-        helper,
-    );
+    let controller = Controller::new(projects.clone(), users, keys, helper);
 
     {
         let project = projects

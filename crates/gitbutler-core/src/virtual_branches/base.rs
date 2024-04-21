@@ -1,4 +1,4 @@
-use std::time;
+use std::{path::Path, time};
 
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -9,7 +9,6 @@ use super::{
     target, BranchId, RemoteCommit, VirtualBranchesHandle,
 };
 use crate::{
-    gb_repository,
     git::{self, diff},
     keys,
     project_repository::{self, LogUntil},
@@ -33,11 +32,9 @@ pub struct BaseBranch {
 }
 
 pub fn get_base_branch_data(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
 ) -> Result<Option<BaseBranch>> {
-    match gb_repository
-        .default_target()
+    match default_target(&project_repository.project().gb_dir())
         .context("failed to get default target")?
     {
         None => Ok(None),
@@ -121,14 +118,13 @@ fn go_back_to_integration(
 }
 
 pub fn set_base_branch(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     target_branch_ref: &git::RemoteRefname,
 ) -> Result<super::BaseBranch, errors::SetBaseBranchError> {
     let repo = &project_repository.git_repository;
 
     // if target exists, and it is the same as the requested branch, we should go back
-    if let Some(target) = gb_repository.default_target()? {
+    if let Some(target) = default_target(&project_repository.project().gb_dir())? {
         if target.branch.eq(target_branch_ref) {
             return go_back_to_integration(project_repository, &target);
         }
@@ -312,7 +308,6 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 // merge the target branch into our current working directory
 // update the target sha
 pub fn update_base_branch(
-    gb_repository: &gb_repository::Repository,
     project_repository: &project_repository::Repository,
     user: Option<&users::User>,
     signing_key: Option<&keys::PrivateKey>,
@@ -326,8 +321,7 @@ pub fn update_base_branch(
     }
 
     // look up the target and see if there is a new oid
-    let target = gb_repository
-        .default_target()
+    let target = default_target(&project_repository.project().gb_dir())
         .context("failed to get default target")?
         .ok_or_else(|| {
             errors::UpdateBaseBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
@@ -632,4 +626,13 @@ pub fn target_to_base_branch(
             .map(|t| t.duration_since(time::UNIX_EPOCH).unwrap().as_millis()),
     };
     Ok(base)
+}
+
+fn default_target(base_path: &Path) -> Result<Option<target::Target>> {
+    let vb_state = VirtualBranchesHandle::new(base_path);
+    match vb_state.get_default_target() {
+        Result::Ok(target) => Ok(Some(target)),
+        Err(crate::reader::Error::NotFound) => Ok(None),
+        Err(err) => Err(err.into()),
+    }
 }

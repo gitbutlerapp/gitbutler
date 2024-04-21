@@ -1179,7 +1179,6 @@ fn detect_mergeable_branch() -> Result<()> {
     let Case {
         project,
         project_repository,
-        gb_repository,
         ..
     } = &suite.new_case();
 
@@ -1316,8 +1315,7 @@ fn detect_mergeable_branch() -> Result<()> {
     assert!(!branch2.active);
     assert!(is_virtual_branch_mergeable(project_repository, &branch2.id).unwrap());
 
-    let remotes =
-        list_remote_branches(gb_repository, project_repository).expect("failed to list remotes");
+    let remotes = list_remote_branches(project_repository).expect("failed to list remotes");
     let _remote1 = &remotes
         .iter()
         .find(|b| b.name.to_string() == "refs/remotes/origin/remote_branch")

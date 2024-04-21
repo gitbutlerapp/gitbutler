@@ -35,7 +35,6 @@ mod support {
             let git_credentials_helper =
                 git::credentials::Helper::new(inner.keys.clone(), inner.users.clone(), None);
             let vbranch_controller = virtual_branches::Controller::new(
-                inner.local_app_data().to_owned(),
                 inner.projects.clone(),
                 inner.users.clone(),
                 inner.keys.clone(),
