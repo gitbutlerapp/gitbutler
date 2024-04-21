@@ -66,6 +66,13 @@
 				</div>
 			{/if}
 		</div>
+
+		{#if SLOTS.error}
+			<code class="info-message__error-block">
+				<slot name="error" />
+			</code>
+		{/if}
+
 		{#if primary || secondary}
 			<div class="info-message__actions">
 				{#if secondary}
@@ -164,6 +171,32 @@
 
 		&.success {
 			background-color: var(--clr-theme-succ-container);
+		}
+	}
+
+	/* ERROR BLOCK */
+	.info-message__error-block {
+		user-select: auto;
+		padding: var(--size-4) var(--size-8);
+		overflow-x: auto;
+		background-color: var(--clr-scale-err-90);
+		color: var(--clr-scale-err-10);
+		border-radius: var(--radius-s);
+		font-size: var(--size-12);
+
+		/* scrollbar */
+		&::-webkit-scrollbar {
+			display: none;
+		}
+
+		/* selection */
+		&::selection {
+			background-color: var(--clr-scale-err-80);
+		}
+
+		/* empty */
+		&:empty {
+			display: none;
 		}
 	}
 

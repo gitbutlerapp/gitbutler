@@ -205,9 +205,8 @@ export class BranchController {
 
                         Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)
                         on fetching and pushing for ways to resolve the problem.
-
-                        \`\`\`${err.message}\`\`\`
                     `,
+					errorMessage: err.message,
 					style: 'error'
 				});
 			} else {
@@ -218,9 +217,8 @@ export class BranchController {
 
                         Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)
                         on fetching and pushing for ways to resolve the problem.
-
-                        \`\`\`${err.message}\`\`\`
                     `,
+					errorMessage: err.message,
 					style: 'error'
 				});
 			}
