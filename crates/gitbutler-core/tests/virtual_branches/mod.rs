@@ -198,9 +198,11 @@ fn track_binary_files() -> Result<()> {
         .find(|b| b.path.as_os_str() == "image.bin")
         .unwrap();
     assert!(img_file.binary);
+    let img_oid_hex = "944996dd82015a616247c72b251e41661e528ae1";
     assert_eq!(
-        img_file.hunks[0].diff,
-        "944996dd82015a616247c72b251e41661e528ae1"
+        img_file.hunks[0].diff, img_oid_hex,
+        "the binary file was stored in the ODB as otherwise we wouldn't have its contents. \
+        It cannot easily be reconstructed from the diff-lines, or we don't attempt it."
     );
 
     // commit
@@ -221,7 +223,10 @@ fn track_binary_files() -> Result<()> {
     let tree = commit_obj.tree()?;
     let files = tree_to_entry_list(&project_repository.git_repository, &tree);
     assert_eq!(files[0].0, "image.bin");
-    assert_eq!(files[0].3, "944996dd82015a616247c72b251e41661e528ae1");
+    assert_eq!(
+        files[0].3, img_oid_hex,
+        "our vbranch commit tree references the binary object we previously stored"
+    );
 
     let image_data: [u8; 12] = [
         0, 255, 0, // Green pixel

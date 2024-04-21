@@ -167,9 +167,9 @@ impl Hunk {
             return Self::hash(diff);
         }
         let mut ctx = md5::Context::new();
-        diff.lines()
+        diff.lines_with_terminator()
             .skip(1) // skip the first line which is the diff header.
-            .for_each(|line_without_terminator| ctx.consume(line_without_terminator));
+            .for_each(|line| ctx.consume(line));
         ctx.compute()
     }
 
