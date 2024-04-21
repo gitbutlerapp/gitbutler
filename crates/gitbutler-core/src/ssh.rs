@@ -27,9 +27,12 @@ pub fn check_known_host(remote_url: &git::Url) -> Result<(), Error> {
         return Ok(());
     };
 
+    let port = remote_url.port.as_ref().unwrap_or(&22);
+
     let mut session = ssh2::Session::new().map_err(Error::Ssh)?;
-    session
-        .set_tcp_stream(std::net::TcpStream::connect(format!("{}:22", host)).map_err(Error::Io)?);
+    session.set_tcp_stream(
+        std::net::TcpStream::connect(format!("{}:{}", host, port)).map_err(Error::Io)?,
+    );
     session.handshake().map_err(Error::Ssh)?;
 
     let mut known_hosts = session.known_hosts().map_err(Error::Ssh)?;
