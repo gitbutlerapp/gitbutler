@@ -503,17 +503,7 @@ impl ControllerInner {
     ) -> Result<Option<BaseBranch>, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        let user = self.users.get_user()?;
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open gitbutler repository")?;
-        Ok(super::get_base_branch_data(
-            &gb_repository,
-            &project_repository,
-        )?)
+        Ok(super::get_base_branch_data(&project_repository)?)
     }
 
     pub fn list_remote_commit_files(
@@ -533,20 +523,9 @@ impl ControllerInner {
         target_branch: &git::RemoteRefname,
     ) -> Result<super::BaseBranch, Error> {
         let project = self.projects.get(project_id)?;
-        let user = self.users.get_user()?;
         let project_repository = project_repository::Repository::open(&project)?;
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open gitbutler repository")?;
 
-        Ok(super::set_base_branch(
-            &gb_repository,
-            &project_repository,
-            target_branch,
-        )?)
+        Ok(super::set_base_branch(&project_repository, target_branch)?)
     }
 
     pub async fn merge_virtual_branch_upstream(
@@ -581,7 +560,7 @@ impl ControllerInner {
     pub async fn update_base_branch(&self, project_id: &ProjectId) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |gb_repository, project_repository, user| {
+        self.with_verify_branch(project_id, |_, project_repository, user| {
             let signing_key = project_repository
                 .config()
                 .sign_commits()
@@ -593,13 +572,8 @@ impl ControllerInner {
                 })
                 .transpose()?;
 
-            super::update_base_branch(
-                gb_repository,
-                project_repository,
-                user,
-                signing_key.as_ref(),
-            )
-            .map_err(Into::into)
+            super::update_base_branch(project_repository, user, signing_key.as_ref())
+                .map_err(Into::into)
         })
     }
 
