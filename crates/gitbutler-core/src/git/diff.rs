@@ -9,6 +9,9 @@ use tracing::instrument;
 
 use super::Repository;
 use crate::git;
+use crate::virtual_branches::BranchStatus;
+
+pub type DiffByPathMap = HashMap<PathBuf, FileDiff>;
 
 /// The type of change
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -107,10 +110,7 @@ pub struct FileDiff {
 }
 
 #[instrument(skip(repository))]
-pub fn workdir(
-    repository: &Repository,
-    commit_oid: &git::Oid,
-) -> Result<HashMap<PathBuf, FileDiff>> {
+pub fn workdir(repository: &Repository, commit_oid: &git::Oid) -> Result<DiffByPathMap> {
     let commit = repository
         .find_commit(*commit_oid)
         .context("failed to find commit")?;
@@ -143,7 +143,7 @@ pub fn trees(
     repository: &Repository,
     old_tree: &git::Tree,
     new_tree: &git::Tree,
-) -> Result<HashMap<PathBuf, FileDiff>> {
+) -> Result<DiffByPathMap> {
     let mut diff_opts = git2::DiffOptions::new();
     diff_opts
         .recurse_untracked_dirs(true)
@@ -163,8 +163,8 @@ pub fn without_large_files(
     size_limit_bytes: u64,
     diff: &git2::Diff,
     mut diff_opts: git2::DiffOptions,
-) -> (git2::DiffOptions, HashMap<PathBuf, FileDiff>) {
-    let mut skipped_files: HashMap<PathBuf, FileDiff> = HashMap::new();
+) -> (git2::DiffOptions, DiffByPathMap) {
+    let mut skipped_files = HashMap::new();
     for delta in diff.deltas() {
         if delta.new_file().size() > size_limit_bytes {
             if let Some(path) = delta.new_file().path() {
@@ -199,16 +199,13 @@ pub fn without_large_files(
 /// `repository` should be `None` if there is no reason to access the workdir, which it will do to
 /// keep the binary data in the object database, which otherwise would be lost to the system
 /// (it's not reconstructable from the delta, or it's not attempted).
-fn hunks_by_filepath(
-    repo: Option<&Repository>,
-    diff: &git2::Diff,
-) -> Result<HashMap<PathBuf, FileDiff>> {
+fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result<DiffByPathMap> {
     enum LineOrHexHash<'a> {
         Line(Cow<'a, BStr>),
         HexHashOfBinaryBlob(String),
     }
     // find all the hunks
-    let mut diff_files: HashMap<PathBuf, FileDiff> = HashMap::new();
+    let mut diff_files = HashMap::new();
 
     diff.print(
         git2::DiffFormat::Patch,
@@ -411,14 +408,8 @@ pub fn reverse_hunk(hunk: &GitHunk) -> Option<GitHunk> {
     }
 }
 
-pub fn diff_files_to_hunks(
-    files: &HashMap<PathBuf, FileDiff>,
-) -> HashMap<PathBuf, Vec<git::diff::GitHunk>> {
-    let mut file_hunks: HashMap<PathBuf, Vec<git::diff::GitHunk>> = HashMap::new();
-    for (file_path, diff_file) in files {
-        if !diff_file.skipped {
-            file_hunks.insert(file_path.clone(), diff_file.hunks.clone());
-        }
-    }
-    file_hunks
+// TODO(ST): turning this into an iterator will trigger a cascade of changes that
+//           mean less unnecessary copies. It also leads to `virtual.rs` - 4k SLOC!
+pub fn diff_files_into_hunks(files: DiffByPathMap) -> BranchStatus {
+    HashMap::from_iter(files.into_iter().map(|(path, file)| (path, file.hunks)))
 }

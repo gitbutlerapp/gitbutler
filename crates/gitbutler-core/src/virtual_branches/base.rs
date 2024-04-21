@@ -192,10 +192,11 @@ pub fn set_base_branch(
         // put them into a virtual branch
 
         let wd_diff = diff::workdir(repo, &current_head_commit.id())?;
-        let wd_diff = diff::diff_files_to_hunks(&wd_diff);
         if !wd_diff.is_empty() || current_head_commit.id() != target.sha {
-            let hunks_by_filepath =
-                super::virtual_hunks_by_filepath(&project_repository.project().path, &wd_diff);
+            let hunks_by_filepath = super::virtual_hunks_by_filepath_from_file_diffs(
+                &project_repository.project().path,
+                &wd_diff,
+            );
 
             // assign ownership to the branch
             let ownership = hunks_by_filepath.values().flatten().fold(
@@ -253,7 +254,7 @@ pub fn set_base_branch(
                 tree: super::write_tree_onto_commit(
                     project_repository,
                     current_head_commit.id(),
-                    &wd_diff,
+                    &diff::diff_files_into_hunks(wd_diff),
                 )?,
                 ownership,
                 order: 0,
