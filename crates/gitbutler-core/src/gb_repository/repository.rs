@@ -7,11 +7,12 @@ use std::{
     path, time,
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use filetime::FileTime;
 use fslock::LockFile;
 use sha2::{Digest, Sha256};
 
+use crate::error::Code;
 #[cfg(target_os = "windows")]
 use crate::windows::MetadataShim;
 use crate::{
@@ -29,28 +30,16 @@ pub struct Repository {
     lock_path: path::PathBuf,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("path not found: {0}")]
-    ProjectPathNotFound(path::PathBuf),
-    #[error(transparent)]
-    Git(#[from] git::Error),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-    #[error("path has invalid utf-8 bytes: {0}")]
-    InvalidUnicodePath(path::PathBuf),
-}
-
 impl Repository {
     pub fn open(
         root: &path::Path,
         project_repository: &project_repository::Repository,
         user: Option<&users::User>,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self> {
         let project = project_repository.project();
         let project_objects_path = project.path.join(".git/objects");
         if !project_objects_path.exists() {
-            return Err(Error::ProjectPathNotFound(project_objects_path));
+            bail!("path not found: {}", project_objects_path.display());
         }
 
         let projects_dir = root.join("projects");
@@ -66,7 +55,7 @@ impl Repository {
                 .add_disk_alternate(project_objects_path.to_str().unwrap())
                 .context("failed to add disk alternate")?;
 
-            Result::Ok(Self {
+            Ok(Self {
                 git_repository,
                 project: project.clone(),
                 lock_path,
@@ -101,7 +90,7 @@ impl Repository {
                 .flush_session(project_repository, &session, user)
                 .context("failed to run initial flush")?;
 
-            Result::Ok(gb_repository)
+            Ok(gb_repository)
         }
     }
 
@@ -672,9 +661,9 @@ fn build_wd_tree_from_repo(
             gb_repository,
         )
         .with_context(|| {
-            format!(
-                "failed to add working directory path {}",
-                file_path.display()
+            crate::error::Context::new(
+                Code::Projects,
+                format!("failed to add '{}' to temporary index", file_path.display()),
             )
         })?;
     }
@@ -712,7 +701,7 @@ fn add_wd_path(
         gb_repository.git_repository.blob(
             link_target
                 .to_str()
-                .ok_or_else(|| Error::InvalidUnicodePath(link_target.into()))?
+                .ok_or_else(|| anyhow!("non-UTF-8 in '{}'", link_target.display()))?
                 .as_bytes(),
         )?
     } else if metadata.len() > 100_000_000 {
