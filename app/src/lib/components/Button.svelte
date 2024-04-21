@@ -102,7 +102,7 @@
 		&:disabled {
 			cursor: default;
 			pointer-events: none;
-			/* opacity: 0.5; */
+			opacity: 0.7;
 
 			&.neutral.solid,
 			&.pop.solid,
@@ -110,9 +110,8 @@
 			&.error.solid,
 			&.warning.solid,
 			&.purple.solid {
-				/* color: var(--clr-bg-on-muted); */
-				--btn-clr: var(--clr-bg-on-muted);
-				--btn-bg: oklch(from var(--clr-scale-ntrl-60) l c h / 0.2);
+				--btn-clr: var(--clr-text-2);
+				--btn-bg: var(--clr-bg-3);
 
 				& .badge {
 					--btn-bg: var(--clr-scale-ntrl-100);
@@ -125,16 +124,16 @@
 			&.error.soft,
 			&.warning.soft,
 			&.purple.soft {
-				--btn-clr: var(--clr-bg-on-muted);
-				--btn-bg: oklch(from var(--clr-scale-ntrl-60) l c h / 0.2);
+				--btn-clr: var(--clr-text-2);
+				--btn-bg: var(--clr-bg-3);
 			}
 
 			&.ghost {
-				--btn-clr: var(--clr-bg-on-muted);
+				--btn-clr: var(--clr-text-2);
 			}
 
 			&.ghost.solid {
-				border-color: oklch(from var(--clr-scale-ntrl-0) l c h / 0.1);
+				border-color: var(--clr-bg-3);
 			}
 		}
 		&.wide {
@@ -162,8 +161,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		height: var(--size-control-icon);
-		min-width: var(--size-control-icon);
+		height: var(--size-icon);
+		min-width: var(--size-icon);
 		padding: 0 var(--size-4);
 		border-radius: var(--radius-s);
 		background: var(--btn-clr);
@@ -178,8 +177,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: var(--size-control-icon);
-		height: var(--size-control-icon);
+		width: var(--size-icon);
+		height: var(--size-icon);
 		margin-right: -0.125rem;
 		color: white;
 	}
@@ -220,7 +219,7 @@
 
 			&:not(.not-clickable, &:disabled):hover {
 				--btn-clr: var(--clr-scale-ntrl-20);
-				--btn-bg: var(--clr-bg-muted);
+				--btn-bg: var(--clr-bg-2);
 			}
 
 			& .badge {
@@ -355,20 +354,20 @@
 	/* SIZE MODIFIERS */
 
 	.btn.tag {
-		height: var(--size-control-tag);
-		min-width: var(--size-control-tag);
+		height: var(--size-tag);
+		min-width: var(--size-tag);
 		padding: var(--size-2) var(--size-4);
 	}
 
 	.btn.button {
-		height: var(--size-control-button);
-		min-width: var(--size-control-button);
+		height: var(--size-button);
+		min-width: var(--size-button);
 		padding: var(--size-4) var(--size-8);
 	}
 
 	.btn.cta {
-		height: var(--size-control-cta);
-		min-width: var(--size-control-cta);
+		height: var(--size-cta);
+		min-width: var(--size-cta);
 		padding: var(--size-6) var(--size-8);
 	}
 
@@ -376,17 +375,17 @@
 
 	.btn.fixed-width {
 		&.tag {
-			width: var(--size-control-tag);
+			width: var(--size-tag);
 			padding: var(--size-2);
 		}
 
 		&.button {
-			width: var(--size-control-button);
+			width: var(--size-button);
 			padding: var(--size-4);
 		}
 
 		&.cta {
-			width: var(--size-control-cta);
+			width: var(--size-cta);
 			padding: var(--size-6);
 		}
 	}

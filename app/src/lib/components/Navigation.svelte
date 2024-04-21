@@ -56,7 +56,7 @@
 			{viewport}
 			direction="right"
 			minWidth={minResizerWidth}
-			defaultLineColor="var(--clr-border-main)"
+			defaultLineColor="var(--clr-border-2)"
 			zIndex="var(--z-floating)"
 			on:click={() => $isNavCollapsed && toggleNavCollapse()}
 			on:dblclick={() => !$isNavCollapsed && toggleNavCollapse()}
@@ -154,7 +154,7 @@
 		display: flex;
 		flex-direction: column;
 		position: relative;
-		background: var(--clr-bg-main);
+		background: var(--clr-bg-1);
 		max-height: 100%;
 		user-select: none;
 	}
@@ -196,9 +196,9 @@
 		top: 50%;
 		width: 0.875rem;
 		height: var(--size-36);
-		background: var(--clr-bg-main);
+		background: var(--clr-bg-1);
 		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-main);
+		border: 1px solid var(--clr-border-2);
 		pointer-events: none;
 		opacity: 0;
 		transition:

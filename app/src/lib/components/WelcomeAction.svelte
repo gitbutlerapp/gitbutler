@@ -27,7 +27,7 @@
 		position: relative;
 		overflow: hidden;
 		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-main);
+		border: 1px solid var(--clr-border-2);
 		display: flex;
 		position: relative;
 		padding: var(--size-16);
@@ -38,18 +38,18 @@
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast);
-		background-color: var(--clr-bg-main);
+		background-color: var(--clr-bg-1);
 
 		&:hover,
 		&:focus {
 			outline: none;
-			background-color: oklch(from var(--clr-bg-muted) l c h / 0.5);
+			background-color: oklch(from var(--clr-bg-2) l c h / 0.5);
 		}
 	}
 
 	.loading {
 		pointer-events: none;
-		background-color: var(--clr-bg-muted);
+		background-color: var(--clr-bg-2);
 		border: 1px solid transparent;
 		opacity: 0.5;
 	}

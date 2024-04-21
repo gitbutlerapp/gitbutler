@@ -147,7 +147,7 @@
 	.header__actions {
 		display: flex;
 		gap: var(--size-4);
-		background: var(--clr-bg-alt);
+		background: var(--clr-bg-2);
 		padding: var(--size-14);
 		justify-content: flex-end;
 		border-radius: 0 0 var(--radius-m) var(--radius-m);

@@ -39,8 +39,8 @@
 		height: var(--size-16);
 		flex-shrink: 0;
 		border-radius: var(--radius-s);
-		background-color: var(--clr-bg-main);
-		box-shadow: inset 0 0 0 1px var(--clr-border-main);
+		background-color: var(--clr-bg-1);
+		box-shadow: inset 0 0 0 1px var(--clr-border-2);
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast),
@@ -68,7 +68,7 @@
 		}
 
 		&:indeterminate {
-			background-color: var(--clr-bg-alt);
+			background-color: var(--clr-bg-2);
 
 			&::before {
 				content: '';

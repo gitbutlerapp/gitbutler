@@ -165,8 +165,8 @@
 		bottom: var(--size-12);
 		left: var(--size-12);
 		padding: var(--size-24);
-		background-color: var(--clr-bg-main);
-		border: 1px solid var(--clr-border-main);
+		background-color: var(--clr-bg-1);
+		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 	}
 
@@ -191,7 +191,7 @@
 		flex-direction: column;
 		align-items: center;
 
-		height: var(--size-control-button);
+		height: var(--size-button);
 		width: 100%;
 		border-radius: var(--radius-m);
 

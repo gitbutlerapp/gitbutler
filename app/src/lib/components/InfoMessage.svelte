@@ -94,7 +94,7 @@
 		padding: var(--size-14);
 		border-radius: var(--radius-m);
 		gap: var(--size-12);
-		background-color: var(--clr-bg-main);
+		background-color: var(--clr-bg-1);
 		transition:
 			background-color var(--transition-slow),
 			border-color var(--transition-slow);
@@ -125,7 +125,7 @@
 
 	/* MODIFIERS */
 	.neutral {
-		border: 0 solid var(--clr-border-main);
+		border: 0 solid var(--clr-border-2);
 	}
 	.error {
 		border: 0 solid var(--clr-scale-err-60);
@@ -151,7 +151,7 @@
 
 	.has-background {
 		&.neutral {
-			background-color: var(--clr-bg-alt);
+			background-color: var(--clr-bg-2);
 		}
 
 		&.error {

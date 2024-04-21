@@ -74,7 +74,7 @@
 		display: flex;
 		padding: var(--size-16);
 		gap: var(--size-12);
-		border-bottom: 1px solid var(--clr-border-main);
+		border-bottom: 1px solid var(--clr-border-2);
 	}
 	.header__inner {
 		display: flex;

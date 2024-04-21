@@ -81,18 +81,18 @@
 		width: 100%;
 		border-radius: var(--radius-s);
 		color: var(--clr-scale-ntrl-0);
-		background-color: var(--clr-bg-main);
+		background-color: var(--clr-bg-1);
 		outline: none;
 
 		/* not readonly */
 		&:not([disabled]):hover {
-			background-color: var(--clr-bg-muted);
+			background-color: var(--clr-bg-2);
 		}
 
 		&:not([disabled]):focus {
 			outline: none;
-			background-color: var(--clr-bg-muted);
-			border-color: var(--clr-border-main);
+			background-color: var(--clr-bg-2);
+			border-color: var(--clr-border-2);
 		}
 	}
 </style>

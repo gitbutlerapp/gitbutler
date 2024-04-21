@@ -91,7 +91,7 @@
 		justify-content: center;
 		width: 22rem;
 		border-radius: var(--radius-m);
-		border: 1px dashed var(--clr-border-main);
+		border: 1px dashed var(--clr-border-2);
 		background-color: transparent;
 		padding: var(--size-20);
 		gap: var(--size-8);

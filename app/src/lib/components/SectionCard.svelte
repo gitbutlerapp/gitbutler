@@ -79,8 +79,8 @@
 		padding: var(--size-16);
 		border-left-width: 1px;
 		border-right-width: 1px;
-		border-color: var(--clr-border-main);
-		background-color: var(--clr-bg-main);
+		border-color: var(--clr-border-2);
+		background-color: var(--clr-bg-1);
 		cursor: default;
 		transition:
 			background-color var(--transition-fast),
@@ -89,7 +89,7 @@
 	}
 
 	.loading {
-		background: var(--clr-bg-alt);
+		background: var(--clr-bg-2);
 	}
 
 	.success {
@@ -116,7 +116,7 @@
 	}
 
 	.section-card__text {
-		color: var(--clr-scale-ntrl-30);
+		color: var(--clr-text-2);
 
 		/* if empty hide the caption */
 		&:empty {
@@ -150,7 +150,7 @@
 			display: block;
 			width: 100%;
 			height: 1px;
-			background-color: var(--clr-border-main);
+			background-color: var(--clr-border-2);
 			opacity: 0.5;
 		}
 	}

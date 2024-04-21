@@ -83,7 +83,7 @@
 	.base-branch-card:not(.selected):hover,
 	.base-branch-card:not(.selected):focus,
 	.selected {
-		background-color: var(--clr-bg-muted);
+		background-color: var(--clr-bg-2);
 	}
 
 	.icon {
@@ -98,7 +98,7 @@
 		gap: var(--size-8);
 	}
 	.trunk-label {
-		color: var(--clr-scale-ntrl-0);
+		color: var(--clr-text-1);
 	}
 	.row_1 {
 		display: flex;

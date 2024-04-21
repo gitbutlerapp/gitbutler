@@ -162,11 +162,11 @@
 		text-align: left;
 		user-select: none;
 		outline: none;
-		background: var(--clr-bg-main);
+		background: var(--clr-bg-1);
 		border: 1px solid transparent;
 
 		&:not(.selected-draggable):hover {
-			background-color: var(--clr-bg-muted);
+			background-color: var(--clr-bg-2);
 		}
 	}
 
@@ -210,7 +210,7 @@
 
 	.selected-draggable {
 		background-color: var(--clr-scale-pop-80);
-		border: 1px solid var(--clr-bg-main);
+		border: 1px solid var(--clr-bg-1);
 
 		&:hover {
 			background-color: var(--clr-scale-pop-80);
