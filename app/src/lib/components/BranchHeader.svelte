@@ -15,6 +15,7 @@
 	import type { Persisted } from '$lib/persisted/persisted';
 	import { goto } from '$app/navigation';
 
+	export let uncommittedChanges = 0;
 	export let isUnapplied = false;
 	export let isLaneCollapsed: Persisted<boolean>;
 
@@ -57,7 +58,7 @@
 	>
 		<div class="collapsed-lane__actions">
 			<div class="collapsed-lane__draggable" data-drag-handle>
-				<Icon name="draggable-narrow" />
+				<Icon name="draggable" />
 			</div>
 			<Button
 				style="ghost"
@@ -69,9 +70,17 @@
 		</div>
 
 		<div class="collapsed-lane__info">
-			<h3 class="collapsed-lane__label text-base-13 text-bold">
-				{branch.name}
-			</h3>
+			<div class="collapsed-lane__label-wrap">
+				{#if uncommittedChanges > 0}
+					<Tag style="warning" kind="soft" verticalOrientation help="Uncommitted changes">
+						{uncommittedChanges} changes
+					</Tag>
+				{/if}
+
+				<h3 class="collapsed-lane__label text-base-13 text-bold">
+					{branch.name}
+				</h3>
+			</div>
 
 			<div class="collapsed-lane__info__details">
 				<ActiveBranchStatus
@@ -367,6 +376,13 @@
 		flex-direction: row-reverse;
 		align-items: center;
 		gap: var(--size-4);
+	}
+
+	.collapsed-lane__label-wrap {
+		overflow: hidden;
+		display: flex;
+		align-items: center;
+		gap: var(--size-12);
 	}
 
 	.collapsed-lane__label {
