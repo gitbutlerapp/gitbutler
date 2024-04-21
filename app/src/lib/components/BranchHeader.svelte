@@ -73,7 +73,8 @@
 			<div class="collapsed-lane__label-wrap">
 				{#if uncommittedChanges > 0}
 					<Tag style="warning" kind="soft" verticalOrientation help="Uncommitted changes">
-						{uncommittedChanges} changes
+						{uncommittedChanges}
+						{uncommittedChanges == 1 ? 'change' : 'changes'}
 					</Tag>
 				{/if}
 
