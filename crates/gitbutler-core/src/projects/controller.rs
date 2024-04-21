@@ -71,15 +71,22 @@ impl Controller {
         if !path.is_dir() {
             return Err(AddError::NotADirectory);
         }
-        if !path.join(".git").exists() {
-            return Err(AddError::NotAGitRepository);
-        };
-        if path.join(".git").is_file() {
-            return Err(AddError::WorktreeUnsupported);
-        };
-
-        if path.join(".gitmodules").exists() {
-            return Err(AddError::SubmodulesNotSupported);
+        match gix::open_opts(path, gix::open::Options::isolated()) {
+            Ok(repo) if repo.is_bare() => {
+                return Err(AddError::BareUnsupported);
+            }
+            Ok(repo) if repo.worktree().map_or(false, |wt| !wt.is_main()) => {
+                if path.join(".git").is_file() {
+                    return Err(AddError::WorktreeNotSupported);
+                };
+            }
+            Ok(repo) if repo.submodules().map_or(false, |sm| sm.is_some()) => {
+                return Err(AddError::SubmodulesNotSupported);
+            }
+            Ok(_repo) => {}
+            Err(err) => {
+                return Err(AddError::NotAGitRepository(Box::new(err)));
+            }
         }
 
         let id = uuid::Uuid::new_v4().to_string();
@@ -372,9 +379,11 @@ pub enum AddError {
     #[error("not a directory")]
     NotADirectory,
     #[error("not a git repository")]
-    NotAGitRepository,
+    NotAGitRepository(#[from] Box<gix::open::Error>),
+    #[error("bare repositories are not supported")]
+    BareUnsupported,
     #[error("worktrees unsupported")]
-    WorktreeUnsupported,
+    WorktreeNotSupported,
     #[error("path not found")]
     PathNotFound,
     #[error("project already exists")]
@@ -390,15 +399,18 @@ pub enum AddError {
 impl ErrorWithContext for AddError {
     fn context(&self) -> Option<error::Context> {
         Some(match self {
-            AddError::NotAGitRepository => {
+            AddError::NotAGitRepository(_) => {
                 error::Context::new_static(Code::Projects, "Must be a git directory")
+            }
+            AddError::BareUnsupported => {
+                error::Context::new_static(Code::Projects, "Bare repositories are unsupported")
             }
             AddError::AlreadyExists => {
                 error::Context::new_static(Code::Projects, "Project already exists")
             }
             AddError::OpenProjectRepository(error) => return error.context(),
             AddError::NotADirectory => error::Context::new(Code::Projects, "Not a directory"),
-            AddError::WorktreeUnsupported => {
+            AddError::WorktreeNotSupported => {
                 error::Context::new(Code::Projects, "Can only work in main worktrees")
             }
             AddError::PathNotFound => error::Context::new(Code::Projects, "Path not found"),

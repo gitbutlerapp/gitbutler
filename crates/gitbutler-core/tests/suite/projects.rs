@@ -45,7 +45,7 @@ mod add {
             std::fs::write(path.join("file.txt"), "hello world").unwrap();
             assert!(matches!(
                 controller.add(path),
-                Err(AddError::NotAGitRepository)
+                Err(AddError::NotAGitRepository(_))
             ));
         }
 
@@ -55,7 +55,7 @@ mod add {
             let tmp = tempfile::tempdir().unwrap();
             assert!(matches!(
                 controller.add(tmp.path()),
-                Err(AddError::NotAGitRepository)
+                Err(AddError::NotAGitRepository(_))
             ));
         }
 
@@ -66,6 +66,19 @@ mod add {
             let path = repository.path();
             controller.add(path).unwrap();
             assert!(matches!(controller.add(path), Err(AddError::AlreadyExists)));
+        }
+
+        #[test]
+        fn bare() {
+            let (controller, _tmp) = new();
+            let tmp = tempfile::tempdir().unwrap();
+            let repo_dir = tmp.path().join("bare");
+
+            let repo = git2::Repository::init_bare(&repo_dir).unwrap();
+            create_initial_commit(&repo);
+
+            let err = controller.add(repo_dir).unwrap_err();
+            assert!(matches!(err, AddError::BareUnsupported));
         }
 
         #[test]
