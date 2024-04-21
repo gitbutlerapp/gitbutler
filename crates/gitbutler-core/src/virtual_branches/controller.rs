@@ -735,17 +735,7 @@ impl ControllerInner {
     ) -> Result<Vec<super::RemoteBranch>, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        let user = self.users.get_user()?;
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open gitbutler repository")?;
-        Ok(super::list_remote_branches(
-            &gb_repository,
-            &project_repository,
-        )?)
+        Ok(super::list_remote_branches(&project_repository)?)
     }
 
     pub fn get_remote_branch_data(
@@ -755,18 +745,7 @@ impl ControllerInner {
     ) -> Result<super::RemoteBranchData, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        let user = self.users.get_user()?;
-        let gb_repository = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open gitbutler repository")?;
-        Ok(super::get_branch_data(
-            &gb_repository,
-            &project_repository,
-            refname,
-        )?)
+        Ok(super::get_branch_data(&project_repository, refname)?)
     }
 
     pub async fn squash(
