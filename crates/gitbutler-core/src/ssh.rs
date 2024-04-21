@@ -27,7 +27,7 @@ pub fn check_known_host(remote_url: &git::Url) -> Result<(), Error> {
         return Ok(());
     };
 
-    let port = remote_url.port.as_ref().unwrap_or(&22);
+    let port = remote_url.port.unwrap_or(22);
 
     let mut session = ssh2::Session::new().map_err(Error::Ssh)?;
     session.set_tcp_stream(
