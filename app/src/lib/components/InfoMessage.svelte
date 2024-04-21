@@ -184,4 +184,8 @@
 		list-style-type: circle;
 		padding: 0 0 0 var(--size-16);
 	}
+	:global(.info-message__text pre) {
+		white-space: pre-wrap;
+		word-wrap: break-word;
+	}
 </style>
