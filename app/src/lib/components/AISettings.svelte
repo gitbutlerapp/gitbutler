@@ -293,7 +293,7 @@
 
 <style>
 	.ai-settings__text {
-		color: var(--clr-scale-ntrl-40);
+		color: var(--clr-text-2);
 		margin-bottom: var(--size-12);
 	}
 

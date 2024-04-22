@@ -82,7 +82,7 @@
 		min-width: 100%;
 	}
 	.scrolled {
-		border-top: 1px solid var(--clr-border-main);
+		border-top: 1px solid var(--clr-border-2);
 	}
 
 	/* MODIFIERS */

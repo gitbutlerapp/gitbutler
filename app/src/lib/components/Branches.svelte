@@ -180,7 +180,7 @@
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
-		border-top: 1px solid var(--clr-border-main);
+		border-top: 1px solid var(--clr-border-2);
 	}
 	.content {
 		display: flex;

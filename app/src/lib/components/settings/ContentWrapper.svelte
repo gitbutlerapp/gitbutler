@@ -25,7 +25,7 @@
 		width: 100%;
 		height: 100%;
 		flex: 1;
-		background-color: var(--clr-bg-alt);
+		background-color: var(--clr-bg-2);
 	}
 
 	.drag-region {

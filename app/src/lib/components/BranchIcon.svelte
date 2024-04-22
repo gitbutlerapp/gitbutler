@@ -68,7 +68,7 @@
 		border-radius: var(--radius-s);
 
 		& path {
-			fill: var(--clr-bg-main);
+			fill: var(--clr-bg-1);
 		}
 	}
 

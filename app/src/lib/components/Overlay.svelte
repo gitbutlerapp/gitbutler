@@ -44,8 +44,8 @@
 		width: 100%;
 		max-height: calc(100vh - 5rem);
 		border-radius: var(--radius-l);
-		background-color: var(--clr-bg-main);
-		border: 1px solid var(--clr-border-main);
+		background-color: var(--clr-bg-1);
+		border: 1px solid var(--clr-border-2);
 		box-shadow: var(--fx-shadow-l);
 	}
 

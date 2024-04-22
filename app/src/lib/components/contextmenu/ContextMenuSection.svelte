@@ -12,7 +12,7 @@
 		padding: var(--size-8);
 		gap: var(--size-2);
 		&:not(:first-child) {
-			border-top: 1px solid var(--clr-border-main);
+			border-top: 1px solid var(--clr-border-2);
 		}
 	}
 </style>

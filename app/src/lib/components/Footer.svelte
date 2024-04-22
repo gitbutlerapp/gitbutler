@@ -33,8 +33,8 @@
 		display: flex;
 		justify-content: space-between;
 		padding: var(--size-12);
-		border-top: 1px solid var(--clr-border-main);
-		border-color: var(--clr-border-main);
+		border-top: 1px solid var(--clr-border-2);
+		border-color: var(--clr-border-2);
 	}
 
 	.left-btns {

@@ -39,7 +39,7 @@
 		width: calc(var(--size-24) + var(--size-2));
 		height: var(--size-16);
 		border-radius: var(--size-16);
-		background-color: var(--clr-border-main);
+		background-color: var(--clr-border-2);
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast),
@@ -50,7 +50,7 @@
 		/* not checked */
 		&:hover,
 		&:focus {
-			background-color: oklch(from var(--clr-border-main) var(--hover-state-ratio) c h);
+			background-color: oklch(from var(--clr-border-2) var(--hover-state-ratio) c h);
 		}
 
 		&:disabled {

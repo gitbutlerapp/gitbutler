@@ -40,7 +40,7 @@
 		padding: var(--size-20);
 	}
 	.disabled.setup-feature {
-		background: var(--clr-bg-alt);
+		background: var(--clr-bg-2);
 		opacity: 0.5;
 	}
 	.success.setup-feature {
@@ -87,6 +87,6 @@
 	}
 
 	.top-border {
-		border-top: 1px solid var(--clr-border-main);
+		border-top: 1px solid var(--clr-border-2);
 	}
 </style>

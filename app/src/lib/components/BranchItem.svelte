@@ -91,7 +91,7 @@
 	.branch:not(.selected):hover,
 	.branch:not(.selected):focus,
 	.selected {
-		background-color: var(--clr-bg-muted);
+		background-color: var(--clr-bg-2);
 		transition: none;
 	}
 </style>

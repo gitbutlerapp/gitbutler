@@ -44,7 +44,7 @@
 		gap: var(--size-10);
 		border-radius: var(--radius-m);
 		padding: var(--size-10);
-		color: var(--clr-scale-ntrl-0);
+		color: var(--clr-text-1);
 		transition: background-color var(--transition-fast);
 	}
 
@@ -58,6 +58,6 @@
 	.domain-button:not(.selected):hover,
 	.domain-button:not(.selected):focus,
 	.selected {
-		background-color: var(--clr-bg-muted);
+		background-color: var(--clr-bg-2);
 	}
 </style>

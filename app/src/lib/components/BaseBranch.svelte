@@ -147,7 +147,7 @@
 		align-items: center;
 		gap: var(--size-8);
 		padding: var(--size-14);
-		background-color: var(--clr-bg-alt);
+		background-color: var(--clr-bg-2);
 		border-radius: var(--radius-m);
 		margin-bottom: var(--size-6);
 	}

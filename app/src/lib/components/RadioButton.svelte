@@ -27,8 +27,8 @@
 		width: var(--size-16);
 		height: var(--size-16);
 		border-radius: var(--size-16);
-		background-color: var(--clr-bg-main);
-		box-shadow: inset 0 0 0 1px var(--clr-border-main);
+		background-color: var(--clr-bg-1);
+		box-shadow: inset 0 0 0 1px var(--clr-border-2);
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast),

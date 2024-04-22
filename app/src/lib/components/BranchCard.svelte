@@ -291,7 +291,7 @@
 					direction="right"
 					minWidth={320}
 					sticky
-					defaultLineColor={$fileIdSelection.length == 1 ? 'transparent' : 'var(--clr-border-main)'}
+					defaultLineColor={$fileIdSelection.length == 1 ? 'transparent' : 'var(--clr-border-2)'}
 					on:width={(e) => {
 						laneWidth = e.detail / (16 * $userSettings.zoom);
 						lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
@@ -368,7 +368,7 @@
 		flex-direction: column;
 		align-items: center;
 		color: var(--clr-scale-ntrl-60);
-		background: var(--clr-bg-main);
+		background: var(--clr-bg-1);
 		justify-content: center;
 		padding: var(--size-48) 0;
 		border-radius: var(--radius-m);
@@ -424,6 +424,6 @@
 		flex-direction: column;
 		padding: var(--size-12);
 		height: 100%;
-		border-right: 1px solid var(--clr-border-main);
+		border-right: 1px solid var(--clr-border-2);
 	}
 </style>

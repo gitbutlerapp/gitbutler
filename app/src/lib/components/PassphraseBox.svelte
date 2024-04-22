@@ -67,7 +67,7 @@
 		gap: var(--size-8);
 		padding: var(--size-14);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-alt);
+		background-color: var(--clr-bg-2);
 	}
 
 	.passbox__helper-text {

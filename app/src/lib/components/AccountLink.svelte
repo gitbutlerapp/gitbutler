@@ -41,7 +41,7 @@
 		overflow-x: hidden;
 		gap: var(--size-8);
 
-		height: var(--size-control-cta);
+		height: var(--size-cta);
 		padding: var(--size-6) var(--size-8);
 		border-radius: var(--radius-m);
 
@@ -64,7 +64,7 @@
 		}
 
 		&:hover {
-			background-color: var(--clr-bg-muted);
+			background-color: var(--clr-bg-2);
 			color: var(--clr-scale-ntrl-40);
 		}
 	}

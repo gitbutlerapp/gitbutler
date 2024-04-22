@@ -160,7 +160,7 @@
 	.textbox__input {
 		position: relative;
 		flex-grow: 1;
-		height: var(--size-control-cta);
+		height: var(--size-cta);
 		width: 100%;
 	}
 
@@ -193,7 +193,7 @@
 		&:focus {
 			color: var(--clr-scale-ntrl-40);
 			outline: none;
-			background-color: var(--clr-bg-muted);
+			background-color: var(--clr-bg-2);
 		}
 	}
 
@@ -235,7 +235,7 @@
 		transform: translateY(-50%);
 		width: 1px;
 		height: 100%;
-		background-color: var(--clr-border-main);
+		background-color: var(--clr-border-2);
 	}
 
 	.textbox__count-btn {
@@ -250,7 +250,7 @@
 		&:hover,
 		&:focus {
 			outline: none;
-			background-color: var(--clr-bg-muted);
+			background-color: var(--clr-bg-2);
 			color: var(--clr-scale-ntrl-40);
 		}
 	}
@@ -276,8 +276,8 @@
 	}
 
 	.textbox__readonly {
-		background-color: var(--clr-bg-alt);
-		border-color: var(--clr-border-main);
+		background-color: var(--clr-bg-2);
+		border-color: var(--clr-border-2);
 	}
 
 	.wide {

@@ -33,10 +33,10 @@
 		justify-content: center;
 		height: var(--size-16);
 		padding: 0 var(--size-4);
-		background-color: var(--clr-bg-main);
+		background-color: var(--clr-bg-1);
 		border-radius: var(--size-16);
 		margin-left: calc(var(--size-4) * -1);
-		border: 1px solid var(--clr-border-main);
+		border: 1px solid var(--clr-border-2);
 
 		& span {
 			color: var(--clr-scale-ntrl-0);

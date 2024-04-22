@@ -125,7 +125,7 @@
 		flex-direction: column;
 		gap: var(--size-8);
 		margin: var(--size-12) var(--size-6) var(--size-12) var(--size-12);
-		--target-branch-background: var(--clr-bg-alt);
+		--target-branch-background: var(--clr-bg-2);
 	}
 
 	.card__content {

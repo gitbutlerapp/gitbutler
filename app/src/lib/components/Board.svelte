@@ -237,8 +237,8 @@
 
 	.empty-board {
 		display: flex;
-		background-color: var(--clr-bg-main);
-		border: 1px solid var(--clr-border-main);
+		background-color: var(--clr-bg-1);
+		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-l);
 		width: 100%;
 		gap: var(--size-48);
@@ -367,7 +367,7 @@
 		overflow: hidden;
 
 		&:hover {
-			background-color: var(--clr-bg-alt);
+			background-color: var(--clr-bg-2);
 		}
 
 		& span {

@@ -39,14 +39,14 @@
 
 		&:hover:enabled,
 		&:focus:enabled {
-			background-color: var(--clr-bg-muted);
+			background-color: var(--clr-bg-2);
 			& .icon {
 				color: var(--clr-scale-ntrl-40);
 			}
 		}
 		&:disabled {
-			background-color: var(--clr-bg-muted);
-			color: var(--clr-bg-on-muted);
+			background-color: var(--clr-bg-2);
+			color: var(--clr-text-2);
 		}
 		& .icon {
 			display: flex;

@@ -36,7 +36,7 @@
 	.settings-section {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
+		gap: var(--size-20);
 	}
 
 	.description {
@@ -45,7 +45,11 @@
 		gap: var(--size-10);
 	}
 
+	.description h2 {
+		color: var(--clr-text-1);
+	}
+
 	.description p {
-		color: var(--clr-scale-ntrl-30);
+		color: var(--clr-text-2);
 	}
 </style>

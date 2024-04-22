@@ -80,7 +80,7 @@
 	}
 
 	.file-card {
-		background: var(--clr-bg-main);
+		background: var(--clr-bg-1);
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;

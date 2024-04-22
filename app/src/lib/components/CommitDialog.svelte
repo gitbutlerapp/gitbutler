@@ -280,8 +280,8 @@
 		display: flex;
 		flex-direction: column;
 		padding: var(--size-14);
-		background: var(--clr-bg-main);
-		border-top: 1px solid var(--clr-border-main);
+		background: var(--clr-bg-1);
+		border-top: 1px solid var(--clr-border-2);
 		transition: background-color var(--transition-medium);
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 	}
@@ -324,7 +324,7 @@
 		left: var(--size-12);
 		padding: var(--size-2);
 		border-radius: 100%;
-		background: var(--clr-bg-alt);
+		background: var(--clr-bg-2);
 		color: var(--clr-scale-ntrl-40);
 	}
 
@@ -350,6 +350,6 @@
 	}
 
 	.commit-box__expanded {
-		background-color: var(--clr-bg-alt);
+		background-color: var(--clr-bg-2);
 	}
 </style>

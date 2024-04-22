@@ -305,7 +305,7 @@
 		padding: var(--size-6) var(--size-6) var(--size-6) var(--size-8);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg);
-		border: 1px solid var(--clr-border-main);
+		border: 1px solid var(--clr-border-2);
 		user-select: text;
 	}
 </style>

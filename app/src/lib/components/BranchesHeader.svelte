@@ -60,7 +60,7 @@
 	}
 	.filter-popup-menu {
 		position: absolute;
-		top: calc(var(--size-control-button) + var(--size-4));
+		top: calc(var(--size-button) + var(--size-4));
 		right: 0;
 		z-index: var(--z-floating);
 		min-width: 10rem;

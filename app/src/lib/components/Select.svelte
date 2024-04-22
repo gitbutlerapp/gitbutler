@@ -135,8 +135,8 @@
 		z-index: var(--z-floating);
 		margin-top: var(--size-4);
 		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-main);
-		background: var(--clr-bg-main);
+		border: 1px solid var(--clr-border-2);
+		background: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-s);
 		overflow: hidden;
 	}
@@ -148,7 +148,7 @@
 		gap: var(--size-2);
 
 		&:not(&:first-child):last-child {
-			border-top: 1px solid var(--clr-border-main);
+			border-top: 1px solid var(--clr-border-2);
 		}
 	}
 

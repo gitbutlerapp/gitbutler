@@ -77,18 +77,18 @@
 		justify-content: center;
 		gap: var(--size-4);
 
-		height: var(--size-control-button);
+		height: var(--size-button);
 
 		border-top-width: 1px;
 		border-bottom-width: 1px;
 		border-left-width: 1px;
 
-		border-color: var(--clr-border-main);
+		border-color: var(--clr-border-2);
 
 		transition: background var(--transition-fast);
 
 		&[aria-selected='true'] {
-			background-color: var(--clr-bg-muted);
+			background-color: var(--clr-bg-2);
 
 			cursor: default;
 
@@ -127,12 +127,12 @@
 
 	/* MODIFIERS */
 	.segment-small {
-		height: var(--size-control-tag);
+		height: var(--size-tag);
 		padding: var(--size-2) var(--size-4);
 	}
 
 	.segment-medium {
-		height: var(--size-control-button);
+		height: var(--size-button);
 		padding: var(--size-4) var(--size-8);
 	}
 </style>

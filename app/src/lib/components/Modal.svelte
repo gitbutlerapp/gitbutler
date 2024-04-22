@@ -58,7 +58,7 @@
 		display: flex;
 		padding: var(--size-16);
 		gap: var(--size-8);
-		border-bottom: 1px solid var(--clr-border-main);
+		border-bottom: 1px solid var(--clr-border-2);
 	}
 
 	.modal__header__content {
@@ -83,8 +83,8 @@
 		justify-content: flex-end;
 		gap: var(--size-8);
 		padding: var(--size-16);
-		border-top: 1px solid var(--clr-border-main);
-		background-color: var(--clr-bg-main);
+		border-top: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-1);
 	}
 
 	.adjust-header {
