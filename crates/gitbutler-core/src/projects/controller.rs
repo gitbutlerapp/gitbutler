@@ -331,7 +331,7 @@ impl error::ErrorWithContext for GetError {
             GetError::NotFound => {
                 error::Context::new_static(Code::Projects, "Project not found").into()
             }
-            GetError::Other(error) => error.custom_context(),
+            GetError::Other(error) => error.custom_context_or_root_cause().into(),
         }
     }
 }
@@ -361,7 +361,7 @@ impl ErrorWithContext for UpdateError {
             UpdateError::NotFound => {
                 error::Context::new_static(Code::Projects, "Project not found")
             }
-            UpdateError::Other(error) => return error.custom_context(),
+            UpdateError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
 }
@@ -418,7 +418,7 @@ impl ErrorWithContext for AddError {
                 Code::Projects,
                 "Repositories with git submodules are not supported",
             ),
-            AddError::Other(error) => return error.custom_context(),
+            AddError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
 }

@@ -95,7 +95,7 @@ impl ErrorWithContext for HelpError {
             }
             HelpError::UrlConvertError(_) => Code::ProjectGitRemote.into(),
             HelpError::Git(_) => return None,
-            HelpError::Other(error) => return error.custom_context(),
+            HelpError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
 }
