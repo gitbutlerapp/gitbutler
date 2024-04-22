@@ -529,11 +529,13 @@ impl Repository {
                         tracing::warn!(project_id = %self.project.id, ?error, "git push failed");
                         return Err(RemoteError::Network);
                     }
-                    Err(error) => {
-                        if let Some(e) = update_refs_error.as_ref() {
-                            return Err(RemoteError::Other(anyhow::anyhow!(e.to_string())));
+                    Err(err) => {
+                        if let Some(err) = update_refs_error.as_ref() {
+                            return Err(RemoteError::Other(
+                                anyhow::anyhow!(err.to_string()).context(Code::ProjectGitPush),
+                            ));
                         }
-                        return Err(RemoteError::Other(error.into()));
+                        return Err(RemoteError::Other(err.into()));
                     }
                 }
             }
