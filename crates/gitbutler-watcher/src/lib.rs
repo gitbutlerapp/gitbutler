@@ -57,10 +57,17 @@ impl WatcherHandle {
 /// Return a handle to the watcher to allow interactions while it's running in the background.
 /// Drop the handle to stop the watcher.
 ///
-/// ### Important
+/// ### How it works
 ///
-/// It runs in such a way that each filesystem event is processed concurrently with others, which is why
-/// spamming massive amounts of events should be avoided!
+/// The watcher is a processing loop that relies on filesystem events. These are aggregated so
+/// every ~100ms, the changed paths sorted by 'worktree' and 'git-repository' will be processed,
+/// each of these events is handled in its own thread, while being able to spawn additional processing
+/// tasks as well.
+///
+/// This also means that when there are continuous changes to the filesystem, these events might pile
+/// up if they take longer to process than the 100ms window between them, causing high-CPU and possibly
+/// high-memory. However, the likelihood for this is much lower than it was before the architecture
+/// was changed to what it is now, which should be much less wasteful.
 pub fn watch_in_background(
     handler: handler::Handler,
     path: impl AsRef<Path>,

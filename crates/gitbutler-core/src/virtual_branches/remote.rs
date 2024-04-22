@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use bstr::BString;
 use serde::Serialize;
 
 use super::{errors, target, Author, VirtualBranchesHandle};
@@ -42,7 +43,8 @@ pub struct RemoteBranchData {
 #[serde(rename_all = "camelCase")]
 pub struct RemoteCommit {
     pub id: String,
-    pub description: String,
+    #[serde(serialize_with = "crate::serde::as_string_lossy")]
+    pub description: BString,
     pub created_at: u128,
     pub author: Author,
 }
@@ -173,7 +175,7 @@ pub fn branch_to_remote_branch_data(
 pub fn commit_to_remote_commit(commit: &git::Commit) -> RemoteCommit {
     RemoteCommit {
         id: commit.id().to_string(),
-        description: commit.message().unwrap_or_default().to_string(),
+        description: commit.message().to_owned(),
         created_at: commit.time().seconds().try_into().unwrap(),
         author: commit.author().into(),
     }

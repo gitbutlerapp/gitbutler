@@ -1,4 +1,5 @@
 use super::{Oid, Result, Signature, Tree};
+use bstr::BStr;
 
 pub struct Commit<'repo> {
     commit: git2::Commit<'repo>,
@@ -61,8 +62,9 @@ impl<'repo> Commit<'repo> {
         self.commit.author().into()
     }
 
-    pub fn message(&self) -> Option<&str> {
-        self.commit.message()
+    /// Obtain the commit-message as bytes, but without assuming any encoding.
+    pub fn message(&self) -> &BStr {
+        self.commit.message_bytes().as_ref()
     }
 
     pub fn committer(&self) -> Signature<'_> {

@@ -198,9 +198,11 @@ fn track_binary_files() -> Result<()> {
         .find(|b| b.path.as_os_str() == "image.bin")
         .unwrap();
     assert!(img_file.binary);
+    let img_oid_hex = "944996dd82015a616247c72b251e41661e528ae1";
     assert_eq!(
-        img_file.hunks[0].diff,
-        "944996dd82015a616247c72b251e41661e528ae1"
+        img_file.hunks[0].diff, img_oid_hex,
+        "the binary file was stored in the ODB as otherwise we wouldn't have its contents. \
+        It cannot easily be reconstructed from the diff-lines, or we don't attempt it."
     );
 
     // commit
@@ -221,7 +223,10 @@ fn track_binary_files() -> Result<()> {
     let tree = commit_obj.tree()?;
     let files = tree_to_entry_list(&project_repository.git_repository, &tree);
     assert_eq!(files[0].0, "image.bin");
-    assert_eq!(files[0].3, "944996dd82015a616247c72b251e41661e528ae1");
+    assert_eq!(
+        files[0].3, img_oid_hex,
+        "our vbranch commit tree references the binary object we previously stored"
+    );
 
     let image_data: [u8; 12] = [
         0, 255, 0, // Green pixel
@@ -570,11 +575,11 @@ fn move_hunks_multiple_sources() -> Result<()> {
         2
     );
     assert_eq!(
-        files_by_branch_id[&branch3_id][Path::new("test.txt")][0].diff,
+        files_by_branch_id[&branch3_id][Path::new("test.txt")][0].diff_lines,
         "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
     assert_eq!(
-        files_by_branch_id[&branch3_id][Path::new("test.txt")][1].diff,
+        files_by_branch_id[&branch3_id][Path::new("test.txt")][1].diff_lines,
         "@@ -10,3 +11,4 @@ line9\n line10\n line11\n line12\n+line13\n"
     );
     Ok(())
@@ -645,7 +650,7 @@ fn move_hunks_partial_explicitly() -> Result<()> {
         1
     );
     assert_eq!(
-        files_by_branch_id[&branch1_id][Path::new("test.txt")][0].diff,
+        files_by_branch_id[&branch1_id][Path::new("test.txt")][0].diff_lines,
         "@@ -11,3 +12,4 @@ line10\n line11\n line12\n line13\n+line14\n"
     );
 
@@ -655,7 +660,7 @@ fn move_hunks_partial_explicitly() -> Result<()> {
         1
     );
     assert_eq!(
-        files_by_branch_id[&branch2_id][Path::new("test.txt")][0].diff,
+        files_by_branch_id[&branch2_id][Path::new("test.txt")][0].diff_lines,
         "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
 
@@ -688,7 +693,7 @@ fn add_new_hunk_to_the_end() -> Result<()> {
         .expect("failed to get status")
         .0;
     assert_eq!(
-        statuses[0].1[Path::new("test.txt")][0].diff,
+        statuses[0].1[Path::new("test.txt")][0].diff_lines,
         "@@ -11,5 +11,5 @@ line10\n line11\n line12\n line13\n-line13\n line14\n+line15\n"
     );
 
@@ -702,11 +707,11 @@ fn add_new_hunk_to_the_end() -> Result<()> {
         .0;
 
     assert_eq!(
-        statuses[0].1[Path::new("test.txt")][0].diff,
+        statuses[0].1[Path::new("test.txt")][0].diff_lines,
         "@@ -11,5 +12,5 @@ line10\n line11\n line12\n line13\n-line13\n line14\n+line15\n"
     );
     assert_eq!(
-        statuses[0].1[Path::new("test.txt")][1].diff,
+        statuses[0].1[Path::new("test.txt")][1].diff_lines,
         "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
 

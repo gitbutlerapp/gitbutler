@@ -8,6 +8,7 @@ use similar::{ChangeTag, TextDiff};
 #[serde(rename_all = "camelCase")]
 pub enum Operation {
     // corresponds to YText.insert(index, chunk)
+    // TODO(ST): Should probably be BString, but it's related to delta-code.
     Insert((usize, String)),
     // corresponds to YText.remove_range(index, len)
     Delete((usize, usize)),

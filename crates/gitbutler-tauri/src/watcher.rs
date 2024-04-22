@@ -13,32 +13,33 @@ mod event {
     use gitbutler_watcher::Change;
     use tauri::Manager;
 
+    /// An change we want to inform the frontend about.
     #[derive(Debug, Clone, PartialEq, Eq)]
-    pub(super) struct Event {
+    pub(super) struct ChangeForFrontend {
         name: String,
         payload: serde_json::Value,
         project_id: ProjectId,
     }
 
-    impl From<Change> for Event {
+    impl From<Change> for ChangeForFrontend {
         fn from(value: Change) -> Self {
             match value {
-                Change::GitIndex(project_id) => Event {
+                Change::GitIndex(project_id) => ChangeForFrontend {
                     name: format!("project://{}/git/index", project_id),
                     payload: serde_json::json!({}),
                     project_id,
                 },
-                Change::GitFetch(project_id) => Event {
+                Change::GitFetch(project_id) => ChangeForFrontend {
                     name: format!("project://{}/git/fetch", project_id),
                     payload: serde_json::json!({}),
                     project_id,
                 },
-                Change::GitHead { project_id, head } => Event {
+                Change::GitHead { project_id, head } => ChangeForFrontend {
                     name: format!("project://{}/git/head", project_id),
                     payload: serde_json::json!({ "head": head }),
                     project_id,
                 },
-                Change::GitActivity(project_id) => Event {
+                Change::GitActivity(project_id) => ChangeForFrontend {
                     name: format!("project://{}/git/activity", project_id),
                     payload: serde_json::json!({}),
                     project_id,
@@ -48,7 +49,7 @@ mod event {
                     session_id,
                     file_path,
                     contents,
-                } => Event {
+                } => ChangeForFrontend {
                     name: format!("project://{}/sessions/{}/files", project_id, session_id),
                     payload: serde_json::json!({
                         "filePath": file_path,
@@ -59,7 +60,7 @@ mod event {
                 Change::Session {
                     project_id,
                     session,
-                } => Event {
+                } => ChangeForFrontend {
                     name: format!("project://{}/sessions", project_id),
                     payload: serde_json::to_value(session).unwrap(),
                     project_id,
@@ -69,7 +70,7 @@ mod event {
                     session_id,
                     deltas,
                     relative_file_path,
-                } => Event {
+                } => ChangeForFrontend {
                     name: format!("project://{}/sessions/{}/deltas", project_id, session_id),
                     payload: serde_json::json!({
                         "deltas": deltas,
@@ -80,7 +81,7 @@ mod event {
                 Change::VirtualBranches {
                     project_id,
                     virtual_branches,
-                } => Event {
+                } => ChangeForFrontend {
                     name: format!("project://{}/virtual-branches", project_id),
                     payload: serde_json::json!(virtual_branches),
                     project_id,
@@ -89,7 +90,7 @@ mod event {
         }
     }
 
-    impl Event {
+    impl ChangeForFrontend {
         pub(super) fn send(&self, app_handle: &tauri::AppHandle) -> Result<()> {
             app_handle
                 .emit_all(&self.name, Some(&self.payload))
@@ -99,7 +100,7 @@ mod event {
         }
     }
 }
-use event::Event;
+use event::ChangeForFrontend;
 
 /// Note that this type is managed in Tauri and thus needs to be send and sync.
 #[derive(Clone)]
@@ -139,7 +140,7 @@ fn handler_from_app(app: &AppHandle) -> anyhow::Result<gitbutler_watcher::Handle
         deltas_db,
         {
             let app = app.clone();
-            move |change| Event::from(change).send(&app)
+            move |change| ChangeForFrontend::from(change).send(&app)
         },
     ))
 }

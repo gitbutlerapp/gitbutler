@@ -33,16 +33,17 @@ pub fn list_remote_commit_files(
     let parent = commit.parent(0).context("failed to get parent commit")?;
     let commit_tree = commit.tree().context("failed to get commit tree")?;
     let parent_tree = parent.tree().context("failed to get parent tree")?;
-    let diff = diff::trees(repository, &parent_tree, &commit_tree)?;
-    let diff = diff::diff_files_to_hunks(&diff);
+    let diff_files = diff::trees(repository, &parent_tree, &commit_tree)?;
 
-    let files = diff
+    Ok(diff_files
         .into_iter()
-        .map(|(file_path, hunks)| RemoteBranchFile {
-            path: file_path.clone(),
-            hunks: hunks.clone(),
-            binary: hunks.iter().any(|h| h.binary),
+        .map(|(path, file)| {
+            let binary = file.hunks.iter().any(|h| h.binary);
+            RemoteBranchFile {
+                path,
+                hunks: file.hunks,
+                binary,
+            }
         })
-        .collect::<Vec<_>>();
-    Ok(files)
+        .collect())
 }

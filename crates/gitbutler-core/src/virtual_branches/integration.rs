@@ -1,6 +1,7 @@
 use std::io::{Read, Write};
 
 use anyhow::{Context, Result};
+use bstr::ByteSlice;
 use lazy_static::lazy_static;
 
 use super::{errors, VirtualBranchesHandle};
@@ -241,9 +242,7 @@ fn verify_head_is_clean(
         &BranchCreateRequest {
             name: extra_commits
                 .last()
-                .unwrap()
-                .message()
-                .map(ToString::to_string),
+                .map(|commit| commit.message().to_string()),
             ..Default::default()
         },
     )
@@ -265,7 +264,7 @@ fn verify_head_is_clean(
                 None,
                 &commit.author(),
                 &commit.committer(),
-                commit.message().unwrap(),
+                &commit.message().to_str_lossy(),
                 &commit.tree().unwrap(),
                 &[&new_branch_head],
             )
@@ -331,7 +330,7 @@ fn is_integration_commit_author_name(commit: &git::Commit) -> bool {
 }
 
 fn is_integration_commit_message(commit: &git::Commit) -> bool {
-    commit.message().map_or(false, |message| {
-        message.starts_with("GitButler Integration Commit")
-    })
+    commit
+        .message()
+        .starts_with(b"GitButler Integration Commit")
 }

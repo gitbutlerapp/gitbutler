@@ -1,5 +1,7 @@
+use std::borrow::Cow;
 #[cfg(target_family = "unix")]
-use std::os::unix::prelude::*;
+use std::os::unix::prelude::PermissionsExt;
+use std::time::SystemTime;
 use std::{
     collections::HashMap,
     hash::Hash,
@@ -8,8 +10,8 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Context, Result};
-use bstr::ByteSlice;
-use diffy::{apply as diffy_apply, Line, Patch};
+use bstr::{BStr, BString, ByteSlice, ByteVec};
+use diffy::{apply_bytes as diffy_apply, Line, Patch};
 use git2_hooks::HookResult;
 use regex::Regex;
 use serde::Serialize;
@@ -20,21 +22,19 @@ use super::{
     },
     branch_to_remote_branch, errors, target, RemoteBranch, VirtualBranchesHandle,
 };
+use crate::git::diff::{diff_files_into_hunks, DiffByPathMap};
+use crate::virtual_branches::branch::HunkHash;
 use crate::{
     askpass::AskpassBroker,
     dedup::{dedup, dedup_fmt},
-    git::{
-        self,
-        diff::{self, diff_files_to_hunks},
-        Commit, Refname, RemoteRefname,
-    },
+    git::{self, diff, Commit, Refname, RemoteRefname},
     keys,
     project_repository::{self, conflicts, LogUntil},
     reader, users,
 };
 use crate::{error::Error, git::diff::GitHunk};
 
-type AppliedStatuses = Vec<(branch::Branch, HashMap<PathBuf, Vec<diff::GitHunk>>)>;
+type AppliedStatuses = Vec<(branch::Branch, BranchStatus)>;
 
 // this struct is a mapping to the view `Branch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
@@ -84,7 +84,8 @@ pub struct VirtualBranches {
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchCommit {
     pub id: git::Oid,
-    pub description: String,
+    #[serde(serialize_with = "crate::serde::as_string_lossy")]
+    pub description: BString,
     pub created_at: u128,
     pub author: Author,
     pub is_remote: bool,
@@ -126,10 +127,12 @@ pub struct VirtualBranchFile {
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchHunk {
     pub id: String,
-    pub diff: String,
+    #[serde(serialize_with = "crate::serde::as_string_lossy")]
+    pub diff: BString,
     pub modified_at: u128,
     pub file_path: PathBuf,
-    pub hash: String,
+    #[serde(serialize_with = "crate::serde::hash_to_hex")]
+    pub hash: HunkHash,
     pub old_start: u32,
     pub start: u32,
     pub end: u32,
@@ -137,6 +140,31 @@ pub struct VirtualBranchHunk {
     pub locked: bool,
     pub locked_to: Option<git::Oid>,
     pub change_type: diff::ChangeType,
+}
+
+/// Lifecycle
+impl VirtualBranchHunk {
+    fn from_git_hunk(
+        project_path: &Path,
+        file_path: &Path,
+        hunk: &GitHunk,
+        mtimes: &mut MTimeCache,
+    ) -> Self {
+        Self {
+            id: format!("{}-{}", hunk.new_start, hunk.new_start + hunk.new_lines),
+            modified_at: mtimes.mtime_by_path(project_path.join(file_path)),
+            file_path: file_path.to_owned(),
+            diff: hunk.diff_lines.clone(),
+            old_start: hunk.old_start,
+            start: hunk.new_start,
+            end: hunk.new_start + hunk.new_lines,
+            binary: hunk.binary,
+            hash: Hunk::hash_diff(hunk.diff_lines.as_ref()),
+            locked: false,
+            locked_to: None,
+            change_type: hunk.change_type,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Hash, Clone, PartialEq, Eq)]
@@ -909,9 +937,9 @@ fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<V
             // Diffs larger than 500kb are considered large
             if file.hunks.iter().any(|hunk| hunk.diff.len() > 500_000) {
                 file.large = true;
-                file.hunks
-                    .iter_mut()
-                    .for_each(|hunk| hunk.diff = String::new());
+                file.hunks.iter_mut().for_each(|hunk| {
+                    hunk.diff.drain(..);
+                });
             }
         }
     }
@@ -939,23 +967,19 @@ fn branches_with_hunk_locks(
             &parent_tree,
             &commit_tree,
         )?;
-        let commited_file_diffs = diff::diff_files_to_hunks(&commited_file_diffs);
         for branch in &mut branches {
             for file in &mut branch.files {
                 for hunk in &mut file.hunks {
-                    let locked =
-                        commited_file_diffs
-                            .get(&file.path)
-                            .map_or(false, |committed_hunks| {
-                                committed_hunks.iter().any(|committed_hunk| {
-                                    joined(
-                                        committed_hunk.new_start,
-                                        committed_hunk.new_start + committed_hunk.new_lines,
-                                        hunk.start,
-                                        hunk.end,
-                                    )
-                                })
-                            });
+                    let locked = commited_file_diffs.get(&file.path).map_or(false, |file| {
+                        file.hunks.iter().any(|committed_hunk| {
+                            joined(
+                                committed_hunk.new_start,
+                                committed_hunk.new_start + committed_hunk.new_lines,
+                                hunk.start,
+                                hunk.end,
+                            )
+                        })
+                    });
                     if locked {
                         hunk.locked = true;
                         hunk.locked_to = Some(commit.id());
@@ -1018,14 +1042,13 @@ fn list_virtual_commit_files(
         &parent_tree,
         &commit_tree,
     )?;
-    let diff = diff::diff_files_to_hunks(&diff);
-    let hunks_by_filepath = virtual_hunks_by_filepath(&project_repository.project().path, &diff);
+    let hunks_by_filepath =
+        virtual_hunks_by_filepath_from_file_diffs(&project_repository.project().path, &diff);
     Ok(virtual_hunks_to_virtual_files(
         project_repository,
         &hunks_by_filepath
-            .values()
+            .into_values()
             .flatten()
-            .cloned()
             .collect::<Vec<_>>(),
     ))
 }
@@ -1039,7 +1062,7 @@ fn commit_to_vbranch_commit(
 ) -> Result<VirtualBranchCommit> {
     let timestamp = u128::try_from(commit.time().seconds())?;
     let signature = commit.author();
-    let message = commit.message().unwrap().to_string();
+    let message = commit.message().to_owned();
 
     let files =
         list_virtual_commit_files(repository, commit).context("failed to list commit files")?;
@@ -1562,51 +1585,64 @@ fn set_ownership(
     Ok(())
 }
 
-fn get_mtime(cache: &mut HashMap<PathBuf, u128>, file_path: &PathBuf) -> u128 {
-    if let Some(mtime) = cache.get(file_path) {
-        *mtime
-    } else {
-        let mtime = file_path
+#[derive(Default)]
+struct MTimeCache(HashMap<PathBuf, u128>);
+
+impl MTimeCache {
+    fn mtime_by_path<'a>(&mut self, path: impl Into<Cow<'a, Path>>) -> u128 {
+        let path = path.into();
+        if let Some(mtime) = self.0.get(path.as_ref()) {
+            return *mtime;
+        }
+
+        let mtime = path
             .metadata()
             .map_or_else(
-                |_| time::SystemTime::now(),
+                |_| SystemTime::now(),
                 |metadata| {
                     metadata
                         .modified()
                         .or(metadata.created())
-                        .unwrap_or_else(|_| time::SystemTime::now())
+                        .unwrap_or_else(|_| SystemTime::now())
                 },
             )
             .duration_since(time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
-        cache.insert(file_path.clone(), mtime);
+            .map_or(0, |d| d.as_millis());
+        self.0.insert(path.into_owned(), mtime);
         mtime
     }
 }
 
 pub fn virtual_hunks_by_filepath(
     project_path: &Path,
-    diff: &HashMap<PathBuf, Vec<diff::GitHunk>>,
+    diff: &BranchStatus,
 ) -> HashMap<PathBuf, Vec<VirtualBranchHunk>> {
-    let mut mtimes: HashMap<PathBuf, u128> = HashMap::new();
+    let mut mtimes = MTimeCache::default();
     diff.iter()
         .map(|(file_path, hunks)| {
             let hunks = hunks
                 .iter()
-                .map(|hunk| VirtualBranchHunk {
-                    id: format!("{}-{}", hunk.new_start, hunk.new_start + hunk.new_lines),
-                    modified_at: get_mtime(&mut mtimes, &project_path.join(file_path)),
-                    file_path: file_path.clone(),
-                    diff: hunk.diff.clone(),
-                    old_start: hunk.old_start,
-                    start: hunk.new_start,
-                    end: hunk.new_start + hunk.new_lines,
-                    binary: hunk.binary,
-                    hash: Hunk::hash(&hunk.diff),
-                    locked: false,
-                    locked_to: None,
-                    change_type: hunk.change_type,
+                .map(|hunk| {
+                    VirtualBranchHunk::from_git_hunk(project_path, file_path, hunk, &mut mtimes)
+                })
+                .collect::<Vec<_>>();
+            (file_path.clone(), hunks)
+        })
+        .collect::<HashMap<_, _>>()
+}
+
+pub fn virtual_hunks_by_filepath_from_file_diffs(
+    project_path: &Path,
+    diff: &DiffByPathMap,
+) -> HashMap<PathBuf, Vec<VirtualBranchHunk>> {
+    let mut mtimes = MTimeCache::default();
+    diff.iter()
+        .map(|(file_path, file)| {
+            let hunks = file
+                .hunks
+                .iter()
+                .map(|hunk| {
+                    VirtualBranchHunk::from_git_hunk(project_path, file_path, hunk, &mut mtimes)
                 })
                 .collect::<Vec<_>>();
             (file_path.clone(), hunks)
@@ -1677,29 +1713,26 @@ fn get_non_applied_status(
 ) -> Result<Vec<(branch::Branch, BranchStatus)>> {
     virtual_branches
         .into_iter()
-        .map(
-            |branch| -> Result<(branch::Branch, HashMap<PathBuf, Vec<diff::GitHunk>>)> {
-                if branch.applied {
-                    bail!("branch {} is applied", branch.name);
-                }
-                let branch_tree = project_repository
-                    .git_repository
-                    .find_tree(branch.tree)
-                    .context(format!("failed to find tree {}", branch.tree))?;
+        .map(|branch| -> Result<(branch::Branch, BranchStatus)> {
+            if branch.applied {
+                bail!("branch {} is applied", branch.name);
+            }
+            let branch_tree = project_repository
+                .git_repository
+                .find_tree(branch.tree)
+                .context(format!("failed to find tree {}", branch.tree))?;
 
-                let head_tree = project_repository
-                    .git_repository
-                    .find_commit(branch.head)
-                    .context("failed to find target commit")?
-                    .tree()
-                    .context("failed to find target tree")?;
+            let head_tree = project_repository
+                .git_repository
+                .find_commit(branch.head)
+                .context("failed to find target commit")?
+                .tree()
+                .context("failed to find target tree")?;
 
-                let diff =
-                    diff::trees(&project_repository.git_repository, &head_tree, &branch_tree)?;
+            let diff = diff::trees(&project_repository.git_repository, &head_tree, &branch_tree)?;
 
-                Ok((branch, diff::diff_files_to_hunks(&diff)))
-            },
-        )
+            Ok((branch, diff::diff_files_into_hunks(diff)))
+        })
         .collect::<Result<Vec<_>>>()
 }
 
@@ -1716,14 +1749,13 @@ fn get_applied_status(
     let base_file_diffs = diff::workdir(&project_repository.git_repository, integration_commit)
         .context("failed to diff workdir")?;
 
-    let mut base_diffs: HashMap<PathBuf, Vec<git::diff::GitHunk>> =
-        diff_files_to_hunks(&base_file_diffs);
     let mut skipped_files: Vec<diff::FileDiff> = Vec::new();
-    for (_, file_diff) in base_file_diffs {
+    for file_diff in base_file_diffs.values() {
         if file_diff.skipped {
-            skipped_files.push(file_diff);
+            skipped_files.push(file_diff.clone());
         }
     }
+    let mut base_diffs = diff_files_into_hunks(base_file_diffs);
 
     // sort by order, so that the default branch is first (left in the ui)
     virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));
@@ -1741,14 +1773,12 @@ fn get_applied_status(
     // - update shifted hunks
     // - remove non existent hunks
 
-    let mut diffs_by_branch: HashMap<BranchId, HashMap<PathBuf, Vec<diff::GitHunk>>> =
-        virtual_branches
-            .iter()
-            .map(|branch| (branch.id, HashMap::new()))
-            .collect();
+    let mut diffs_by_branch: HashMap<BranchId, BranchStatus> = virtual_branches
+        .iter()
+        .map(|branch| (branch.id, HashMap::new()))
+        .collect();
 
-    let mut mtimes = HashMap::new();
-
+    let mut mtimes = MTimeCache::default();
     let mut git_hunk_map = HashMap::new();
 
     for branch in &virtual_branches {
@@ -1772,19 +1802,19 @@ fn get_applied_status(
                     &project_repository.git_repository,
                     &parent_tree,
                     &commit_tree,
-                );
-                let commited_file_diffs = diff::diff_files_to_hunks(&commited_file_diffs.unwrap());
-                for (path, committed_git_hunks) in commited_file_diffs.iter() {
-                    if let Some(uncommitted_git_hunks) = base_diffs.get_mut(path) {
+                )?;
+                for (path, file) in commited_file_diffs {
+                    if let Some(uncommitted_git_hunks) = base_diffs.get_mut(&path) {
                         for uncommitted_git_hunk in uncommitted_git_hunks {
-                            for committed_git_hunk in committed_git_hunks {
+                            for committed_git_hunk in &file.hunks {
                                 if joined(
                                     uncommitted_git_hunk.new_start,
                                     uncommitted_git_hunk.new_start + uncommitted_git_hunk.new_lines,
                                     committed_git_hunk.new_start,
                                     committed_git_hunk.new_start + committed_git_hunk.new_lines,
                                 ) {
-                                    let hash = Hunk::hash(&uncommitted_git_hunk.diff);
+                                    let hash =
+                                        Hunk::hash_diff(uncommitted_git_hunk.diff_lines.as_ref());
                                     git_hunk_map.insert(hash, branch.id);
                                 }
                             }
@@ -1809,7 +1839,7 @@ fn get_applied_status(
                     Some(hunks) => hunks,
                 };
 
-                let mtime = get_mtime(&mut mtimes, &claim.file_path);
+                let mtime = mtimes.mtime_by_path(claim.file_path.as_path());
 
                 let claimed_hunks: Vec<Hunk> = claim
                     .hunks
@@ -1817,7 +1847,7 @@ fn get_applied_status(
                     .filter_map(|claimed_hunk| {
                         // if any of the current hunks intersects with the owned hunk, we want to keep it
                         for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
-                            let hash = Hunk::hash(&git_diff_hunk.diff);
+                            let hash = Hunk::hash_diff(git_diff_hunk.diff_lines.as_ref());
                             if let Some(locked_to) = git_hunk_map.get(&hash) {
                                 if locked_to != &branch.id {
                                     return None;
@@ -1836,8 +1866,9 @@ fn get_applied_status(
                                 git_diff_hunks.remove(i);
                                 return Some(
                                     claimed_hunk
+                                        .clone()
                                         .with_timestamp(timestamp)
-                                        .with_hash(hash.as_str()),
+                                        .with_hash(hash),
                                 );
                             } else if claimed_hunk.intersects(git_diff_hunk) {
                                 diffs_by_branch
@@ -1850,7 +1881,7 @@ fn get_applied_status(
                                     start: git_diff_hunk.new_start,
                                     end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
                                     timestamp_ms: Some(mtime),
-                                    hash: Some(hash.clone()),
+                                    hash: Some(hash),
                                 };
                                 git_diff_hunks.remove(i);
                                 return Some(updated_hunk);
@@ -1887,7 +1918,7 @@ fn get_applied_status(
 
     for (filepath, hunks) in base_diffs {
         for hunk in hunks {
-            let hash = Hunk::hash(&hunk.diff);
+            let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
             let vbranch_pos = if let Some(locked_to) = git_hunk_map.get(&hash) {
                 let p = virtual_branches.iter().position(|vb| vb.id == *locked_to);
                 match p {
@@ -1903,8 +1934,8 @@ fn get_applied_status(
                 .put(&OwnershipClaim {
                     file_path: filepath.clone(),
                     hunks: vec![Hunk::from(&hunk)
-                        .with_timestamp(get_mtime(&mut mtimes, &filepath))
-                        .with_hash(Hunk::hash(hunk.diff.as_str()).as_str())],
+                        .with_timestamp(mtimes.mtime_by_path(filepath.as_path()))
+                        .with_hash(Hunk::hash_diff(hunk.diff_lines.as_ref()))],
                 });
 
             diffs_by_branch
@@ -2028,7 +2059,7 @@ pub fn reset_branch(
 
 fn diffs_to_virtual_files(
     project_repository: &project_repository::Repository,
-    diffs: &HashMap<PathBuf, Vec<diff::GitHunk>>,
+    diffs: &BranchStatus,
 ) -> Vec<VirtualBranchFile> {
     let hunks_by_filepath = virtual_hunks_by_filepath(&project_repository.project().path, diffs);
     virtual_hunks_to_virtual_files(
@@ -2047,7 +2078,7 @@ fn diffs_to_virtual_files(
 pub fn write_tree(
     project_repository: &project_repository::Repository,
     target: &git::Oid,
-    files: &HashMap<PathBuf, Vec<diff::GitHunk>>,
+    files: &BranchStatus,
 ) -> Result<git::Oid> {
     write_tree_onto_commit(project_repository, *target, files)
 }
@@ -2055,7 +2086,7 @@ pub fn write_tree(
 pub fn write_tree_onto_commit(
     project_repository: &project_repository::Repository,
     commit_oid: git::Oid,
-    files: &HashMap<PathBuf, Vec<diff::GitHunk>>,
+    files: &BranchStatus,
 ) -> Result<git::Oid> {
     // read the base sha into an index
     let git_repository = &project_repository.git_repository;
@@ -2069,7 +2100,7 @@ pub fn write_tree_onto_commit(
 pub fn write_tree_onto_tree(
     project_repository: &project_repository::Repository,
     base_tree: &git::Tree,
-    files: &HashMap<PathBuf, Vec<diff::GitHunk>>,
+    files: &BranchStatus,
 ) -> Result<git::Oid> {
     let git_repository = &project_repository.git_repository;
     let mut builder = git_repository.treebuilder(Some(base_tree));
@@ -2079,8 +2110,9 @@ pub fn write_tree_onto_tree(
         let rel_path = Path::new(&filepath);
         let full_path = project_repository.path().join(rel_path);
 
-        let is_submodule =
-            full_path.is_dir() && hunks.len() == 1 && hunks[0].diff.contains("Subproject commit");
+        let is_submodule = full_path.is_dir()
+            && hunks.len() == 1
+            && hunks[0].diff_lines.contains_str(b"Subproject commit");
 
         // if file exists
         if full_path.exists() {
@@ -2128,9 +2160,13 @@ pub fn write_tree_onto_tree(
                 builder.upsert(rel_path, blob_oid, filemode);
             } else if let Ok(tree_entry) = base_tree.get_path(rel_path) {
                 if hunks.len() == 1 && hunks[0].binary {
-                    let new_blob_oid = &hunks[0].diff;
+                    let new_blob_oid = &hunks[0].diff_lines;
                     // convert string to Oid
-                    let new_blob_oid = new_blob_oid.parse().context("failed to diff as oid")?;
+                    let new_blob_oid = new_blob_oid
+                        .to_str()
+                        .expect("hex-string")
+                        .parse()
+                        .context("failed to diff as oid")?;
                     builder.upsert(rel_path, new_blob_oid, filemode);
                 } else {
                     // blob from tree_entry
@@ -2140,35 +2176,36 @@ pub fn write_tree_onto_tree(
                         .peel_to_blob()
                         .context("failed to get blob")?;
 
-                    let mut blob_contents = blob.content().to_str()?.to_string();
+                    let blob_contents = blob.content();
 
                     let mut hunks = hunks.clone();
                     hunks.sort_by_key(|hunk| hunk.new_start);
-                    let mut all_diffs = String::new();
+                    let mut all_diffs = BString::default();
                     for hunk in hunks {
-                        all_diffs.push_str(&hunk.diff);
+                        all_diffs.push_str(&hunk.diff_lines);
                     }
 
-                    let patch = Patch::from_str(&all_diffs)?;
-                    blob_contents = apply(&blob_contents, &patch).context(format!(
+                    let patch = Patch::from_bytes(&all_diffs)?;
+                    let blob_contents = apply(blob_contents.into(), &patch).context(format!(
                         "failed to apply\n{}\nonto:\n{}",
-                        &all_diffs, &blob_contents
+                        all_diffs.as_bstr(),
+                        blob_contents.as_bstr()
                     ))?;
 
                     // create a blob
-                    let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
+                    let new_blob_oid = git_repository.blob(&blob_contents)?;
                     // upsert into the builder
                     builder.upsert(rel_path, new_blob_oid, filemode);
                 }
             } else if is_submodule {
-                let mut blob_contents = String::new();
+                let mut blob_contents = BString::default();
 
                 let mut hunks = hunks.clone();
                 hunks.sort_by_key(|hunk| hunk.new_start);
                 for hunk in hunks {
-                    let patch = Patch::from_str(&hunk.diff)?;
-                    blob_contents = apply(&blob_contents, &patch)
-                        .context(format!("failed to apply {}", &hunk.diff))?;
+                    let patch = Patch::from_bytes(&hunk.diff_lines)?;
+                    blob_contents = apply(blob_contents.as_ref(), &patch)
+                        .context(format!("failed to apply {}", &hunk.diff_lines))?;
                 }
 
                 // create a blob
@@ -2769,7 +2806,7 @@ pub fn amend(
             None,
             &head_commit.author(),
             &head_commit.committer(),
-            head_commit.message().unwrap_or_default(),
+            &head_commit.message().to_str_lossy(),
             &new_tree,
             &parents.iter().collect::<Vec<_>>(),
         )
@@ -2934,7 +2971,7 @@ pub fn cherry_pick(
                 None,
                 &target_commit.author(),
                 &target_commit.committer(),
-                target_commit.message().unwrap_or_default(),
+                &target_commit.message().to_str_lossy(),
                 &merge_tree,
                 &[&branch_head_commit],
             )
@@ -3064,8 +3101,8 @@ pub fn squash(
             &commit_to_squash.committer(),
             &format!(
                 "{}\n{}",
-                parent_commit.message().unwrap_or_default(),
-                commit_to_squash.message().unwrap_or_default(),
+                parent_commit.message(),
+                commit_to_squash.message(),
             ),
             &commit_to_squash.tree().context("failed to find tree")?,
             &parents.iter().collect::<Vec<_>>(),
@@ -3117,7 +3154,7 @@ pub fn squash(
                             None,
                             &to_rebase.author(),
                             &to_rebase.committer(),
-                            to_rebase.message().unwrap_or_default(),
+                            &to_rebase.message().to_str_lossy(),
                             &merge_tree,
                             &[&head],
                         )
@@ -3286,7 +3323,7 @@ pub fn update_commit_message(
                             None,
                             &to_rebase.author(),
                             &to_rebase.committer(),
-                            to_rebase.message().unwrap_or_default(),
+                            &to_rebase.message().to_str_lossy(),
                             &merge_tree,
                             &[&head],
                         )
@@ -3391,8 +3428,8 @@ pub fn move_commit(
         &source_branch_head_parent_tree,
         &source_branch_head_tree,
     )?;
-    let branch_head_diff = diff::diff_files_to_hunks(&branch_head_diff);
 
+    let branch_head_diff = diff::diff_files_into_hunks(branch_head_diff);
     let is_source_locked = source_branch_non_comitted_files
         .iter()
         .any(|(path, hunks)| {
@@ -3467,7 +3504,7 @@ pub fn move_commit(
         let new_destination_head_oid = project_repository
             .commit(
                 user,
-                source_branch_head.message().unwrap_or_default(),
+                &source_branch_head.message().to_str_lossy(),
                 &new_destination_tree,
                 &[&project_repository
                     .git_repository
@@ -3584,7 +3621,7 @@ pub fn create_virtual_branch_from_branch(
         &head_commit_tree,
     )
     .context("failed to diff trees")?;
-    let diff = diff::diff_files_to_hunks(&diff);
+    let diff = diff::diff_files_into_hunks(diff);
 
     let hunks_by_filepath =
         super::virtual_hunks_by_filepath(&project_repository.project().path, &diff);
@@ -3640,7 +3677,7 @@ pub fn create_virtual_branch_from_branch(
 }
 
 /// Just like [`diffy::apply()`], but on error it will attach hashes of the input `base_image` and `patch`.
-pub fn apply(base_image: &str, patch: &Patch<'_, str>) -> Result<String> {
+pub fn apply(base_image: &BStr, patch: &Patch<'_, [u8]>) -> Result<BString> {
     fn md5_hash_hex(b: impl AsRef<[u8]>) -> String {
         format!("{:x}", md5::compute(b))
     }
@@ -3654,8 +3691,8 @@ pub fn apply(base_image: &str, patch: &Patch<'_, str>) -> Result<String> {
         Insert(String),
     }
 
-    impl<'a> From<&diffy::Line<'a, str>> for DebugLine {
-        fn from(line: &Line<'a, str>) -> Self {
+    impl<'a> From<&diffy::Line<'a, [u8]>> for DebugLine {
+        fn from(line: &Line<'a, [u8]>) -> Self {
             match line {
                 Line::Context(s) => DebugLine::Context(md5_hash_hex(s)),
                 Line::Delete(s) => DebugLine::Delete(md5_hash_hex(s)),
@@ -3672,8 +3709,8 @@ pub fn apply(base_image: &str, patch: &Patch<'_, str>) -> Result<String> {
         lines: Vec<DebugLine>,
     }
 
-    impl<'a> From<&diffy::Hunk<'a, str>> for DebugHunk {
-        fn from(hunk: &diffy::Hunk<'a, str>) -> Self {
+    impl<'a> From<&diffy::Hunk<'a, [u8]>> for DebugHunk {
+        fn from(hunk: &diffy::Hunk<'a, [u8]>) -> Self {
             Self {
                 old_range: hunk.old_range(),
                 new_range: hunk.new_range(),
@@ -3695,10 +3732,12 @@ pub fn apply(base_image: &str, patch: &Patch<'_, str>) -> Result<String> {
         }
     }
 
-    diffy_apply(base_image, patch).with_context(|| DebugContext {
-        base_image_hash: md5_hash_hex(base_image),
-        hunks: patch.hunks().iter().map(Into::into).collect(),
-    })
+    diffy_apply(base_image, patch)
+        .with_context(|| DebugContext {
+            base_image_hash: md5_hash_hex(base_image),
+            hunks: patch.hunks().iter().map(Into::into).collect(),
+        })
+        .map(Into::into)
 }
 
 // Goes through a set of changes and checks if conflicts are present. If no conflicts
@@ -3714,10 +3753,10 @@ fn update_conflict_markers(
         if conflicting_files.contains(&file_path.display().to_string()) {
             // check file for conflict markers, resolve the file if there are none in any hunk
             for hunk in non_commited_hunks {
-                if hunk.diff.contains("<<<<<<< ours") {
+                if hunk.diff_lines.contains_str(b"<<<<<<< ours") {
                     conflicted = true;
                 }
-                if hunk.diff.contains(">>>>>>> theirs") {
+                if hunk.diff_lines.contains_str(b">>>>>>> theirs") {
                     conflicted = true;
                 }
             }

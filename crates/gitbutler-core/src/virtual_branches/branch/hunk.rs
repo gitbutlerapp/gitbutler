@@ -1,12 +1,15 @@
 use std::{fmt::Display, ops::RangeInclusive, str::FromStr};
 
 use anyhow::{anyhow, Context, Result};
+use bstr::{BStr, ByteSlice};
 
 use crate::git::diff;
 
+pub type HunkHash = md5::Digest;
+
 #[derive(Debug, Eq, Clone)]
 pub struct Hunk {
-    pub hash: Option<String>,
+    pub hash: Option<HunkHash>,
     pub timestamp_ms: Option<u128>,
     pub start: u32,
     pub end: u32,
@@ -17,7 +20,7 @@ impl From<&diff::GitHunk> for Hunk {
         Hunk {
             start: hunk.new_start,
             end: hunk.new_start + hunk.new_lines,
-            hash: Some(Hunk::hash(&hunk.diff)),
+            hash: Some(Hunk::hash_diff(hunk.diff_lines.as_ref())),
             timestamp_ms: None,
         }
     }
@@ -69,7 +72,9 @@ impl FromStr for Hunk {
             if raw_hash.is_empty() {
                 None
             } else {
-                Some(raw_hash.to_string())
+                let mut buf = [0u8; 16];
+                hex::decode_to_slice(raw_hash, &mut buf)?;
+                Some(md5::Digest(buf))
             }
         } else {
             None
@@ -93,8 +98,8 @@ impl Display for Hunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}-{}", self.start, self.end)?;
         match (self.hash.as_ref(), self.timestamp_ms.as_ref()) {
-            (Some(hash), Some(timestamp_ms)) => write!(f, "-{}-{}", hash, timestamp_ms),
-            (Some(hash), None) => write!(f, "-{}", hash),
+            (Some(hash), Some(timestamp_ms)) => write!(f, "-{:x}-{}", hash, timestamp_ms),
+            (Some(hash), None) => write!(f, "-{:x}", hash),
             (None, Some(timestamp_ms)) => write!(f, "--{}", timestamp_ms),
             (None, None) => Ok(()),
         }
@@ -105,7 +110,7 @@ impl Hunk {
     pub fn new(
         start: u32,
         end: u32,
-        hash: Option<String>,
+        hash: Option<HunkHash>,
         timestamp_ms: Option<u128>,
     ) -> Result<Self> {
         if start > end {
@@ -120,22 +125,14 @@ impl Hunk {
         }
     }
 
-    pub fn with_hash(&self, hash: &str) -> Self {
-        Hunk {
-            start: self.start,
-            end: self.end,
-            hash: Some(hash.to_string()),
-            timestamp_ms: self.timestamp_ms,
-        }
+    pub fn with_hash(mut self, hash: HunkHash) -> Self {
+        self.hash = Some(hash);
+        self
     }
 
-    pub fn with_timestamp(&self, timestamp_ms: u128) -> Self {
-        Hunk {
-            start: self.start,
-            end: self.end,
-            hash: self.hash.clone(),
-            timestamp_ms: Some(timestamp_ms),
-        }
+    pub fn with_timestamp(mut self, timestamp_ms: u128) -> Self {
+        self.timestamp_ms = Some(timestamp_ms);
+        self
     }
 
     pub fn timestam_ms(&self) -> Option<u128> {
@@ -157,12 +154,27 @@ impl Hunk {
         self.start == other.new_start && self.end == other.new_start + other.new_lines
     }
 
-    pub fn hash(diff: &str) -> String {
-        let addition = diff
-            .lines()
-            .skip(1) // skip the first line which is the diff header
-            .collect::<Vec<_>>()
-            .join("\n");
-        format!("{:x}", md5::compute(addition))
+    /// Produce a hash from `diff` as hex-string, which is **assumed to have a one-line diff header**!
+    /// `diff` can also be entirely empty, or not contain a diff header which is when it will just be hashed
+    /// with [`Self::hash()`].
+    ///
+    /// ### Notes on Persistence
+    /// Note that there is danger in changing the hash function as this information is persisted
+    /// in the virtual-branch toml file. Even if it can still be parsed or decoded,
+    /// these values have to remain consistent.
+    pub fn hash_diff(diff: &BStr) -> HunkHash {
+        if !diff.starts_with(b"@@") {
+            return Self::hash(diff);
+        }
+        let mut ctx = md5::Context::new();
+        diff.lines_with_terminator()
+            .skip(1) // skip the first line which is the diff header.
+            .for_each(|line| ctx.consume(line));
+        ctx.compute()
+    }
+
+    /// Produce a hash of `input` using the same function as [`Self::hash_diff()`], but without any assumptions.
+    pub fn hash(input: &[u8]) -> HunkHash {
+        md5::compute(input)
     }
 }

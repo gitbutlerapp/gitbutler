@@ -13,9 +13,10 @@ fn parse_invalid() {
 
 #[test]
 fn parse_with_hash() {
+    let hash = Hunk::hash("hash".as_ref());
     assert_eq!(
-        "2-3-hash".parse::<Hunk>().unwrap(),
-        Hunk::new(2, 3, Some("hash".to_string()), None).unwrap()
+        format!("2-3-{hash:x}").parse::<Hunk>().unwrap(),
+        Hunk::new(2, 3, Some(hash), None).unwrap()
     );
 }
 
@@ -41,7 +42,39 @@ fn to_string_no_hash() {
 }
 
 #[test]
+fn hash_diff_no_diff_header_is_normal_hash() {
+    let actual = Hunk::hash_diff("a".as_ref());
+    let expected = Hunk::hash("a".as_ref());
+    assert_eq!(actual, expected)
+}
+
+#[test]
+fn hash_diff_empty_is_fine() {
+    let actual = Hunk::hash_diff("".as_ref());
+    let expected = Hunk::hash("".as_ref());
+    assert_eq!(
+        actual, expected,
+        "The special hash is the same as a normal one in case of empty input.\
+        Don't yet know why that should be except that more works then"
+    )
+}
+
+#[test]
+fn hash_diff_content_hash() {
+    let a_hash = Hunk::hash_diff("@@x\na".into());
+    let b_hash = Hunk::hash_diff("@@y\na".into());
+    assert_eq!(
+        a_hash, b_hash,
+        "it skips the first line which is assumed to be a diff-header.\
+        That way, the content is hashed instead"
+    )
+}
+
+#[test]
 fn eq() {
+    let a_hash = Hunk::hash("a".as_ref());
+    let b_hash = Hunk::hash("b".as_ref());
+    assert_ne!(a_hash, b_hash);
     for (a, b, expected) in vec![
         (
             "1-2".parse::<Hunk>().unwrap(),
@@ -54,36 +87,36 @@ fn eq() {
             false,
         ),
         (
-            "1-2-abc".parse::<Hunk>().unwrap(),
-            "1-2-abc".parse::<Hunk>().unwrap(),
+            format!("1-2-{a_hash:x}").parse::<Hunk>().unwrap(),
+            format!("1-2-{a_hash:x}").parse::<Hunk>().unwrap(),
             true,
         ),
         (
-            "1-2-abc".parse::<Hunk>().unwrap(),
-            "2-3-abc".parse::<Hunk>().unwrap(),
+            format!("1-2-{a_hash:x}").parse::<Hunk>().unwrap(),
+            format!("2-3-{a_hash:x}").parse::<Hunk>().unwrap(),
             false,
         ),
         (
             "1-2".parse::<Hunk>().unwrap(),
-            "1-2-abc".parse::<Hunk>().unwrap(),
+            format!("1-2-{a_hash:x}").parse::<Hunk>().unwrap(),
             true,
         ),
         (
-            "1-2-abc".parse::<Hunk>().unwrap(),
+            format!("1-2-{a_hash:x}").parse::<Hunk>().unwrap(),
             "1-2".parse::<Hunk>().unwrap(),
             true,
         ),
         (
-            "1-2-abc".parse::<Hunk>().unwrap(),
-            "1-2-bcd".parse::<Hunk>().unwrap(),
+            format!("1-2-{a_hash:x}").parse::<Hunk>().unwrap(),
+            format!("1-2-{b_hash:x}").parse::<Hunk>().unwrap(),
             false,
         ),
         (
-            "1-2-abc".parse::<Hunk>().unwrap(),
-            "2-3-bcd".parse::<Hunk>().unwrap(),
+            format!("1-2-{a_hash:x}").parse::<Hunk>().unwrap(),
+            format!("2-3-{b_hash:x}").parse::<Hunk>().unwrap(),
             false,
         ),
     ] {
-        assert_eq!(a == b, expected, "comapring {} and {}", a, b);
+        assert_eq!(a == b, expected, "comparing {} and {}", a, b);
     }
 }
