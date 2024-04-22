@@ -636,7 +636,9 @@ impl ErrorWithContext for RemoteError {
                 Code::ProjectGitAuth,
                 "Project remote authentication error",
             ),
-            RemoteError::Other(error) => return error.custom_context(),
+            RemoteError::Other(error) => {
+                return error.custom_context_or_root_cause().into();
+            }
         })
     }
 }

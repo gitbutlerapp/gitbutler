@@ -212,6 +212,9 @@ pub trait AnyhowContextExt: private::Sealed {
     ///
     /// Note that it could not be named `context()` as this method already exists.
     fn custom_context(&self) -> Option<Context>;
+
+    /// Return our custom context or default it to the root-cause of the error.
+    fn custom_context_or_root_cause(&self) -> Context;
 }
 
 impl private::Sealed for anyhow::Error {}
@@ -222,6 +225,13 @@ impl AnyhowContextExt for anyhow::Error {
         } else {
             self.downcast_ref::<Code>().map(|code| (*code).into())
         }
+    }
+
+    fn custom_context_or_root_cause(&self) -> Context {
+        self.custom_context().unwrap_or_else(|| Context {
+            code: Code::Unknown,
+            message: Some(self.root_cause().to_string().into()),
+        })
     }
 }
 
