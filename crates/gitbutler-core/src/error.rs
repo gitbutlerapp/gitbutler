@@ -132,6 +132,8 @@ pub enum Code {
     Branches,
     ProjectGitAuth,
     ProjectGitRemote,
+    /// The push operation failed, specifically because the remote rejected it.
+    ProjectGitPush,
     ProjectConflict,
     ProjectHead,
     Menu,
@@ -149,6 +151,7 @@ impl std::fmt::Display for Code {
             Code::Branches => "errors.branches",
             Code::ProjectGitAuth => "errors.projects.git.auth",
             Code::ProjectGitRemote => "errors.projects.git.remote",
+            Code::ProjectGitPush => "errors.projects.git.push",
             Code::ProjectHead => "errors.projects.head",
             Code::ProjectConflict => "errors.projects.conflict",
             //TODO: rename js side to be more precise what kind of hook error this is
