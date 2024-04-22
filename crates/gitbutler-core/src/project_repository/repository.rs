@@ -38,7 +38,7 @@ impl ErrorWithContext for OpenError {
             OpenError::NotFound(path) => {
                 error::Context::new(Code::Projects, format!("{} not found", path.display())).into()
             }
-            OpenError::Other(error) => error.custom_context(),
+            OpenError::Other(error) => error.custom_context_or_root_cause().into(),
         }
     }
 }

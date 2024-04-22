@@ -40,7 +40,7 @@ impl ErrorWithContext for VerifyError {
                 Code::ProjectHead,
                 "GibButler's integration commit not found on head.",
             ),
-            VerifyError::Other(error) => return error.custom_context(),
+            VerifyError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
 }
@@ -65,7 +65,7 @@ impl ErrorWithContext for ResetBranchError {
             ResetBranchError::CommitNotFoundInBranch(oid) => {
                 error::Context::new(Code::Branches, format!("commit {} not found", oid))
             }
-            ResetBranchError::Other(error) => return error.custom_context(),
+            ResetBranchError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
 }
@@ -94,7 +94,7 @@ impl ErrorWithContext for ApplyBranchError {
                 Code::Branches,
                 format!("Branch {} is in a conflicting state", id),
             ),
-            ApplyBranchError::Other(error) => return error.custom_context(),
+            ApplyBranchError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
 }
@@ -114,7 +114,9 @@ impl ErrorWithContext for UnapplyOwnershipError {
         Some(match self {
             UnapplyOwnershipError::DefaultTargetNotSet(error) => error.to_context(),
             UnapplyOwnershipError::Conflict(error) => error.to_context(),
-            UnapplyOwnershipError::Other(error) => return error.custom_context(),
+            UnapplyOwnershipError::Other(error) => {
+                return error.custom_context_or_root_cause().into()
+            }
         })
     }
 }
@@ -134,7 +136,7 @@ impl ErrorWithContext for UnapplyBranchError {
         Some(match self {
             UnapplyBranchError::DefaultTargetNotSet(ctx) => ctx.to_context(),
             UnapplyBranchError::BranchNotFound(ctx) => ctx.to_context(),
-            UnapplyBranchError::Other(error) => return error.custom_context(),
+            UnapplyBranchError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
 }
@@ -151,7 +153,7 @@ impl ErrorWithContext for ListVirtualBranchesError {
     fn context(&self) -> Option<Context> {
         match self {
             ListVirtualBranchesError::DefaultTargetNotSet(ctx) => ctx.to_context().into(),
-            ListVirtualBranchesError::Other(error) => error.custom_context(),
+            ListVirtualBranchesError::Other(error) => error.custom_context_or_root_cause().into(),
         }
     }
 }
@@ -168,7 +170,7 @@ impl ErrorWithContext for CreateVirtualBranchError {
     fn context(&self) -> Option<Context> {
         match self {
             CreateVirtualBranchError::DefaultTargetNotSet(ctx) => ctx.to_context().into(),
-            CreateVirtualBranchError::Other(error) => error.custom_context(),
+            CreateVirtualBranchError::Other(error) => error.custom_context_or_root_cause().into(),
         }
     }
 }
@@ -188,7 +190,9 @@ impl ErrorWithContext for MergeVirtualBranchUpstreamError {
         Some(match self {
             MergeVirtualBranchUpstreamError::BranchNotFound(ctx) => ctx.to_context(),
             MergeVirtualBranchUpstreamError::Conflict(ctx) => ctx.to_context(),
-            MergeVirtualBranchUpstreamError::Other(error) => return error.custom_context(),
+            MergeVirtualBranchUpstreamError::Other(error) => {
+                return error.custom_context_or_root_cause().into()
+            }
         })
     }
 }
@@ -221,7 +225,7 @@ impl ErrorWithContext for CommitError {
             CommitError::CommitMsgHookRejected(error) => {
                 error::Context::new(Code::CommitMsgHook, error)
             }
-            CommitError::Other(error) => return error.custom_context(),
+            CommitError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
 }
@@ -244,7 +248,7 @@ impl ErrorWithContext for PushError {
             PushError::DefaultTargetNotSet(ctx) => ctx.to_context(),
             PushError::BranchNotFound(ctx) => ctx.to_context(),
             PushError::Remote(error) => return error.context(),
-            PushError::Other(error) => return error.custom_context(),
+            PushError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
 }
@@ -266,7 +270,9 @@ impl ErrorWithContext for IsRemoteBranchMergableError {
                 error::Context::new(Code::Branches, format!("Remote branch {} not found", name))
             }
             IsRemoteBranchMergableError::DefaultTargetNotSet(ctx) => ctx.to_context(),
-            IsRemoteBranchMergableError::Other(error) => return error.custom_context(),
+            IsRemoteBranchMergableError::Other(error) => {
+                return error.custom_context_or_root_cause().into()
+            }
         })
     }
 }
@@ -286,7 +292,9 @@ impl ErrorWithContext for IsVirtualBranchMergeable {
         Some(match self {
             IsVirtualBranchMergeable::BranchNotFound(ctx) => ctx.to_context(),
             IsVirtualBranchMergeable::DefaultTargetNotSet(ctx) => ctx.to_context(),
-            IsVirtualBranchMergeable::Other(error) => return error.custom_context(),
+            IsVirtualBranchMergeable::Other(error) => {
+                return error.custom_context_or_root_cause().into()
+            }
         })
     }
 }
@@ -337,7 +345,7 @@ impl ErrorWithContext for AmendError {
             AmendError::TargetOwnerhshipNotFound(_) => {
                 error::Context::new_static(Code::Branches, "target ownership not found")
             }
-            AmendError::Other(error) => return error.custom_context(),
+            AmendError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
 }
@@ -364,7 +372,7 @@ impl ErrorWithContext for CherryPickError {
             CherryPickError::CommitNotFound(oid) => {
                 error::Context::new(Code::Branches, format!("commit {oid} not found"))
             }
-            CherryPickError::Other(error) => return error.custom_context(),
+            CherryPickError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
 }
@@ -401,7 +409,7 @@ impl ErrorWithContext for SquashError {
                 crate::error::Code::Branches,
                 format!("commit {oid} not found"),
             ),
-            SquashError::Other(error) => return error.custom_context(),
+            SquashError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
 }
@@ -421,7 +429,7 @@ impl ErrorWithContext for FetchFromTargetError {
         match self {
             FetchFromTargetError::DefaultTargetNotSet(ctx) => ctx.to_context().into(),
             FetchFromTargetError::Remote(error) => error.context(),
-            FetchFromTargetError::Other(error) => error.custom_context(),
+            FetchFromTargetError::Other(error) => error.custom_context_or_root_cause().into(),
         }
     }
 }
@@ -457,7 +465,9 @@ impl ErrorWithContext for UpdateCommitMessageError {
             }
             UpdateCommitMessageError::BranchNotFound(ctx) => ctx.to_context(),
             UpdateCommitMessageError::Conflict(ctx) => ctx.to_context(),
-            UpdateCommitMessageError::Other(error) => return error.custom_context(),
+            UpdateCommitMessageError::Other(error) => {
+                return error.custom_context_or_root_cause().into()
+            }
         })
     }
 }
@@ -482,7 +492,7 @@ impl ErrorWithContext for SetBaseBranchError {
                 Code::Branches,
                 format!("remote branch '{}' not found", name),
             ),
-            SetBaseBranchError::Other(error) => return error.custom_context(),
+            SetBaseBranchError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
 }
@@ -502,7 +512,9 @@ impl ErrorWithContext for UpdateBaseBranchError {
         Some(match self {
             UpdateBaseBranchError::Conflict(ctx) => ctx.to_context(),
             UpdateBaseBranchError::DefaultTargetNotSet(ctx) => ctx.to_context(),
-            UpdateBaseBranchError::Other(error) => return error.custom_context(),
+            UpdateBaseBranchError::Other(error) => {
+                return error.custom_context_or_root_cause().into()
+            }
         })
     }
 }
@@ -536,7 +548,7 @@ impl ErrorWithContext for MoveCommitError {
             MoveCommitError::CommitNotFound(oid) => {
                 error::Context::new(Code::Branches, format!("Commit {} not found", oid))
             }
-            MoveCommitError::Other(error) => return error.custom_context(),
+            MoveCommitError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
 }
@@ -569,7 +581,9 @@ impl ErrorWithContext for CreateVirtualBranchFromBranchError {
             CreateVirtualBranchFromBranchError::BranchNotFound(name) => {
                 error::Context::new(Code::Branches, format!("Branch {} not found", name))
             }
-            CreateVirtualBranchFromBranchError::Other(error) => return error.custom_context(),
+            CreateVirtualBranchFromBranchError::Other(error) => {
+                return error.custom_context_or_root_cause().into()
+            }
         })
     }
 }
@@ -635,7 +649,7 @@ impl ErrorWithContext for UpdateBranchError {
         Some(match self {
             UpdateBranchError::DefaultTargetNotSet(ctx) => ctx.to_context(),
             UpdateBranchError::BranchNotFound(ctx) => ctx.to_context(),
-            UpdateBranchError::Other(error) => return error.custom_context(),
+            UpdateBranchError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
 }
@@ -654,7 +668,7 @@ impl ErrorWithContext for ListRemoteCommitFilesError {
             ListRemoteCommitFilesError::CommitNotFound(oid) => {
                 error::Context::new(Code::Branches, format!("Commit {} not found", oid)).into()
             }
-            ListRemoteCommitFilesError::Other(error) => error.custom_context(),
+            ListRemoteCommitFilesError::Other(error) => error.custom_context_or_root_cause().into(),
         }
     }
 }
@@ -671,7 +685,7 @@ impl ErrorWithContext for ListRemoteBranchesError {
     fn context(&self) -> Option<Context> {
         match self {
             ListRemoteBranchesError::DefaultTargetNotSet(ctx) => ctx.to_context().into(),
-            ListRemoteBranchesError::Other(error) => error.custom_context(),
+            ListRemoteBranchesError::Other(error) => error.custom_context_or_root_cause().into(),
         }
     }
 }
@@ -688,7 +702,7 @@ impl ErrorWithContext for GetRemoteBranchDataError {
     fn context(&self) -> Option<Context> {
         match self {
             GetRemoteBranchDataError::DefaultTargetNotSet(ctx) => ctx.to_context().into(),
-            GetRemoteBranchDataError::Other(error) => error.custom_context(),
+            GetRemoteBranchDataError::Other(error) => error.custom_context_or_root_cause().into(),
         }
     }
 }
