@@ -630,7 +630,7 @@ impl ErrorWithContext for RemoteError {
         Some(match self {
             RemoteError::Help(error) => return error.context(),
             RemoteError::Network => {
-                error::Context::new_static(Code::ProjectGitRemote, "Network erorr occured")
+                error::Context::new_static(Code::ProjectGitRemote, "Network error occurred")
             }
             RemoteError::Auth => error::Context::new_static(
                 Code::ProjectGitAuth,
