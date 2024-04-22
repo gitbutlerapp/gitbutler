@@ -95,8 +95,13 @@ export class CombinedBranch {
 		if (this.pr) {
 			identifiers.push(this.pr.title);
 			identifiers.push(this.pr.targetBranch);
+			this.pr.author?.email && identifiers.push(this.pr.author.email);
+			this.pr.author?.name && identifiers.push(this.pr.author.name);
 		}
-		if (this.remoteBranch) identifiers.push(this.remoteBranch.displayName);
+		if (this.remoteBranch) {
+			identifiers.push(this.remoteBranch.displayName);
+			this.remoteBranch.lastCommitAuthor && identifiers.push(this.remoteBranch.lastCommitAuthor);
+		}
 
 		return identifiers.map((identifier) => identifier.toLowerCase());
 	}
