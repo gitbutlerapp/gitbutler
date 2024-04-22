@@ -11,29 +11,45 @@
 	};
 </script>
 
-<div class="toast-controller">
+<div class="toast-controller hide-native-scrollbar">
 	{#each $toastStore as toast (toast.id)}
 		<div transition:slide={{ duration: 170 }}>
 			<InfoMessage
-				title={toast.title}
 				style={toast.style ?? 'neutral'}
 				secondary="Dismiss"
 				on:secondary={() => dismissToast(toast.id)}
-				shadow>{@html marked.parse(toast.message, { renderer })}</InfoMessage
+				shadow
 			>
+				<svelte:fragment slot="title">
+					{toast.title}
+				</svelte:fragment>
+
+				<svelte:fragment slot="content">
+					{@html marked.parse(toast.message ?? '', { renderer })}
+				</svelte:fragment>
+
+				<svelte:fragment slot="error">
+					{toast.errorMessage}
+				</svelte:fragment>
+			</InfoMessage>
 		</div>
 	{/each}
 </div>
 
-<style lang="postcss">
+<style>
 	.toast-controller {
+		user-select: none;
 		position: absolute;
 		display: flex;
 		flex-direction: column;
-		bottom: var(--size-20);
-		right: var(--size-20);
+
+		bottom: 0;
+		right: 0;
+		padding: var(--size-12) var(--size-12) var(--size-12) 0;
 		gap: var(--size-8);
 		max-width: 30rem;
 		z-index: var(--z-blocker);
+		overflow-y: auto;
+		max-height: 100%;
 	}
 </style>

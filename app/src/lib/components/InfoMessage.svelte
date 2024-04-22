@@ -13,7 +13,6 @@
 	export let style: MessageStyle = 'neutral';
 	export let outlined: boolean = true;
 	export let filled: boolean = false;
-	export let title: string | undefined = undefined;
 	export let primary: string | undefined = undefined;
 	export let secondary: string | undefined = undefined;
 	export let shadow = false;
@@ -55,21 +54,25 @@
 	<Icon name={icon ? icon : iconMap[style]} color={iconColorMap[style]} />
 	<div class="info-message__inner">
 		<div class="info-message__content">
-			{#if title || SLOTS.title}
+			{#if SLOTS.title}
 				<div class="info-message__title text-base-body-13 text-semibold">
-					{#if title}
-						{title}
-					{:else}
-						<slot name="title" />
-					{/if}
+					<slot name="title" />
 				</div>
 			{/if}
+
 			{#if SLOTS.content}
-				<slot name="content" />
-			{:else}
-				<div class="info-message__text text-base-body-12"><slot /></div>
+				<div class="info-message__text text-base-body-12">
+					<slot name="content" />
+				</div>
 			{/if}
 		</div>
+
+		{#if SLOTS.error}
+			<code class="info-message__error-block">
+				<slot name="error" />
+			</code>
+		{/if}
+
 		{#if primary || secondary}
 			<div class="info-message__actions">
 				{#if secondary}
@@ -168,6 +171,32 @@
 
 		&.success {
 			background-color: var(--clr-theme-succ-container);
+		}
+	}
+
+	/* ERROR BLOCK */
+	.info-message__error-block {
+		user-select: auto;
+		padding: var(--size-4) var(--size-8);
+		overflow-x: auto;
+		background-color: var(--clr-scale-err-90);
+		color: var(--clr-scale-err-10);
+		border-radius: var(--radius-s);
+		font-size: var(--size-12);
+
+		/* scrollbar */
+		&::-webkit-scrollbar {
+			display: none;
+		}
+
+		/* selection */
+		&::selection {
+			background-color: var(--clr-scale-err-80);
+		}
+
+		/* empty */
+		&:empty {
+			display: none;
 		}
 	}
 

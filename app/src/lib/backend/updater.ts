@@ -122,11 +122,8 @@ function showErrorToast(err: any) {
 
             You can download the latest release from our
             [downloads](https://app.gitbutler.com/downloads) page.
-
-            \`\`\`
-            ${err}
-            \`\`\`
         `,
+		errorMessage: err,
 		style: 'error'
 	});
 }

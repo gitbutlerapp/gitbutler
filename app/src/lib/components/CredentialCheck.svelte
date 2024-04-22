@@ -61,6 +61,7 @@
 						All checks passed successfully
 					{/if}
 				</svelte:fragment>
+
 				<svelte:fragment slot="content">
 					<div class="checks-list" transition:slide={{ duration: 250, delay: 1000 }}>
 						{#each checks as check}
@@ -81,6 +82,7 @@
 							</div>
 						{/each}
 					</div>
+
 					{#if errors > 0}
 						<div class="text-base-body-12 help-text" transition:slide>
 							<span>

@@ -313,9 +313,11 @@
 		{#if pr}
 			<div class="pr-actions">
 				{#if infoProps}
-					<InfoMessage icon={infoProps.icon} filled outlined={false} style={infoProps.messageStyle}
-						>{infoProps.text}</InfoMessage
-					>
+					<InfoMessage icon={infoProps.icon} filled outlined={false} style={infoProps.messageStyle}>
+						<svelte:fragment slot="content">
+							{infoProps.text}
+						</svelte:fragment>
+					</InfoMessage>
 				{/if}
 
 				<MergeButton
