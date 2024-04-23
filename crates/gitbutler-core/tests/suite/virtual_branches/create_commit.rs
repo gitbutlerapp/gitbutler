@@ -116,7 +116,7 @@ async fn should_not_lock_disjointed_hunks() {
     {
         // hunk before the commited part is not locked
         let mut changed_lines = lines.clone();
-        changed_lines[4] = "updated line".to_string();
+        changed_lines[8] = "updated line".to_string();
         fs::write(repository.path().join("file.txt"), changed_lines.join("\n")).unwrap();
         let branch = controller
             .list_virtual_branches(project_id)
@@ -136,7 +136,7 @@ async fn should_not_lock_disjointed_hunks() {
     {
         // hunk after the commited part is not locked
         let mut changed_lines = lines.clone();
-        changed_lines[20] = "updated line".to_string();
+        changed_lines[16] = "updated line".to_string();
         fs::write(repository.path().join("file.txt"), changed_lines.join("\n")).unwrap();
         let branch = controller
             .list_virtual_branches(project_id)
