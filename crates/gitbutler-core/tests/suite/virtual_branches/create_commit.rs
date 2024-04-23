@@ -196,3 +196,68 @@ async fn should_not_lock_disjointed_hunks() {
         fs::write(repository.path().join("file.txt"), lines.clone().join("\n")).unwrap();
     }
 }
+
+#[tokio::test]
+async fn should_double_lock() {
+    let Test {
+        project_id,
+        controller,
+        repository,
+        ..
+    } = &Test::default();
+
+    let mut lines: Vec<_> = (0_i32..7_i32).map(|i| format!("line {}", i)).collect();
+    fs::write(repository.path().join("file.txt"), lines.clone().join("\n")).unwrap();
+    repository.commit_all("initial commit");
+    repository.push();
+
+    controller
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .await
+        .unwrap();
+
+    let branch_id = controller
+        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .await
+        .unwrap();
+
+    {
+        lines[0] = "change 1".to_string();
+        fs::write(repository.path().join("file.txt"), lines.clone().join("\n")).unwrap();
+    }
+
+    let commit_1 = controller
+        .create_commit(project_id, &branch_id, "commit 1", None, false)
+        .await
+        .unwrap();
+
+    {
+        lines[6] = "change 2".to_string();
+        fs::write(repository.path().join("file.txt"), lines.clone().join("\n")).unwrap();
+    }
+
+    let commit_2 = controller
+        .create_commit(project_id, &branch_id, "commit 2", None, false)
+        .await
+        .unwrap();
+
+    {
+        lines[3] = "change3".to_string();
+        fs::write(repository.path().join("file.txt"), lines.join("\n")).unwrap();
+        let branch = controller
+            .list_virtual_branches(project_id)
+            .await
+            .unwrap()
+            .0
+            .into_iter()
+            .find(|b| b.id == branch_id)
+            .unwrap();
+
+        let locks = &branch.files[0].hunks[0].locked_to.clone().unwrap();
+        assert_eq!(locks.len(), 2);
+        assert_eq!(locks[0], commit_1);
+        assert_eq!(locks[1], commit_2);
+        // cleanup
+        fs::write(repository.path().join("file.txt"), lines.clone().join("\n")).unwrap();
+    }
+}
