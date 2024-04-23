@@ -18,39 +18,54 @@
           pkgs = import nixpkgs {
             inherit system overlays;
           };
-          libraries = with pkgs;[
-            webkitgtk
+
+          rustToolchain = pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+
+          common = with pkgs; [
             gtk3
-            cairo
-            gdk-pixbuf
             glib
             dbus
             openssl_3
             librsvg
+            libsoup_3
+            webkitgtk
           ];
 
-          rustToolchain = pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
-          nativeBuildInputs = with pkgs; [
-            rustToolchain
-            pkg-config
-          ];
-          buildInputs = with pkgs; [
+          # runtime Deps
+          libraries = with pkgs;[
+            cairo
+            pango
+            harfbuzz
+            gdk-pixbuf
+          ] ++ common;
+
+          # compile-time deps
+          packages = with pkgs; [
             curl
             wget
             pkg-config
-            dbus
-            openssl_3
-            glib
-            gtk3
-            libsoup
-            webkitgtk
-            librsvg
-          ];
+            rustToolchain
+          ] ++ common;
         in
         with pkgs;
         {
           devShells.default = mkShell {
-            inherit buildInputs nativeBuildInputs;
+            # inherit buildInputs nativeBuildInputs;
+            nativeBuildInputs = packages;
+            buildInputs = libraries;
+
+            # XDG_DATA_DIRS = let
+            #   base = pkgs.lib.concatMapStringsSep ":" (x: "${x}/share") [
+            #     pkgs.gnome.adwaita-icon-theme
+            #     pkgs.shared-mime-info
+            #   ];
+            #
+            #   gsettings_schema = pkgs.lib.concatMapStringsSep ":" (x: "${x}/share/gsettings-schemas/${x.name}") [
+            #     pkgs.glib
+            #     pkgs.gsettings-desktop-schemas
+            #     pkgs.gtk3
+            #   ];
+            # in "${base}:${gsettings_schema}";
             shellHook =
               ''
                 export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath libraries}:$LD_LIBRARY_PATH
