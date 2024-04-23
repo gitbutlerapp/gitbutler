@@ -23,7 +23,7 @@ impl From<&diff::GitHunk> for Hunk {
             end: hunk.new_start + hunk.new_lines,
             hash: Some(Hunk::hash_diff(hunk.diff_lines.as_ref())),
             timestamp_ms: None,
-            locked_to: vec![],
+            locked_to: hunk.locked_to.to_vec(),
         }
     }
 }

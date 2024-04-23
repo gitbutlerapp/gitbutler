@@ -142,7 +142,7 @@ pub struct VirtualBranchHunk {
     pub end: u32,
     pub binary: bool,
     pub locked: bool,
-    pub locked_to: Option<git::Oid>,
+    pub locked_to: Option<Box<[git::Oid]>>,
     pub change_type: diff::ChangeType,
 }
 
@@ -164,8 +164,8 @@ impl VirtualBranchHunk {
             end: hunk.new_start + hunk.new_lines,
             binary: hunk.binary,
             hash: Hunk::hash_diff(hunk.diff_lines.as_ref()),
-            locked: false,
-            locked_to: None,
+            locked: hunk.locked_to.len() > 0,
+            locked_to: Some(hunk.locked_to.clone()),
             change_type: hunk.change_type,
         }
     }
@@ -937,9 +937,7 @@ pub fn list_virtual_branches(
         branches.push(branch);
     }
 
-    let branches = branches_with_large_files_abridged(branches);
-    let mut branches = branches_with_hunk_locks(branches, project_repository)?;
-
+    let mut branches = branches_with_large_files_abridged(branches);
     branches.sort_by(|a, b| a.order.cmp(&b.order));
 
     Ok((branches, skipped_files))
@@ -958,51 +956,6 @@ fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<V
         }
     }
     branches
-}
-
-fn branches_with_hunk_locks(
-    mut branches: Vec<VirtualBranch>,
-    project_repository: &project_repository::Repository,
-) -> Result<Vec<VirtualBranch>> {
-    let all_commits: Vec<VirtualBranchCommit> = branches
-        .clone()
-        .iter()
-        .filter(|branch| branch.active)
-        .flat_map(|vbranch| vbranch.commits.clone())
-        .collect();
-
-    for commit in all_commits {
-        let commit = project_repository.git_repository.find_commit(commit.id)?;
-        let parent = commit.parent(0).context("failed to get parent commit")?;
-        let commit_tree = commit.tree().context("failed to get commit tree")?;
-        let parent_tree = parent.tree().context("failed to get parent tree")?;
-        let commited_file_diffs = diff::trees(
-            &project_repository.git_repository,
-            &parent_tree,
-            &commit_tree,
-        )?;
-        for branch in &mut branches {
-            for file in &mut branch.files {
-                for hunk in &mut file.hunks {
-                    let locked = commited_file_diffs.get(&file.path).map_or(false, |file| {
-                        file.hunks.iter().any(|committed_hunk| {
-                            joined(
-                                committed_hunk.new_start,
-                                committed_hunk.new_start + committed_hunk.new_lines,
-                                hunk.start,
-                                hunk.end,
-                            )
-                        })
-                    });
-                    if locked {
-                        hunk.locked = true;
-                        hunk.locked_to = Some(commit.id());
-                    }
-                }
-            }
-        }
-    }
-    Ok(branches)
 }
 
 fn joined(start_a: u32, end_a: u32, start_b: u32, end_b: u32) -> bool {
@@ -1906,7 +1859,7 @@ fn get_applied_status(
                                     end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
                                     timestamp_ms: Some(mtime),
                                     hash: Some(hash),
-                                    locked_to: vec![],
+                                    locked_to: git_diff_hunk.locked_to.to_vec(),
                                 };
                                 git_diff_hunks.remove(i);
                                 return Some(updated_hunk);
@@ -1977,12 +1930,16 @@ fn get_applied_status(
                         .with_hash(Hunk::hash_diff(hunk.diff_lines.as_ref()))],
                 });
 
+            let hunk = match locked_to {
+                Some(locks) => hunk.with_locks(locks),
+                _ => hunk,
+            };
             diffs_by_branch
                 .entry(virtual_branches[vbranch_pos].id)
                 .or_default()
                 .entry(filepath.clone())
                 .or_default()
-                .push(hunk.clone());
+                .push(hunk);
         }
     }
 

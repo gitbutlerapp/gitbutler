@@ -53,6 +53,7 @@ pub struct GitHunk {
     #[serde(rename = "diff", serialize_with = "crate::serde::as_string_lossy")]
     pub diff_lines: BString,
     pub binary: bool,
+    pub locked_to: Box<[git::Oid]>,
     pub change_type: ChangeType,
 }
 
@@ -69,6 +70,7 @@ impl GitHunk {
             diff_lines: hex_id.into(),
             binary: true,
             change_type,
+            locked_to: Box::new([]),
         }
     }
 
@@ -82,6 +84,7 @@ impl GitHunk {
             diff_lines: Default::default(),
             binary: false,
             change_type: ChangeType::Modified,
+            locked_to: Box::new([]),
         }
     }
 }
@@ -90,6 +93,11 @@ impl GitHunk {
 impl GitHunk {
     pub fn contains(&self, line: u32) -> bool {
         self.new_start <= line && self.new_start + self.new_lines >= line
+    }
+
+    pub fn with_locks(mut self, locks: &[git::Oid]) -> Self {
+        self.locked_to = locks.to_owned().into();
+        self
     }
 }
 
@@ -298,6 +306,7 @@ fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result<Dif
                                         diff_lines: line.into_owned(),
                                         binary: false,
                                         change_type,
+                                        locked_to: Box::new([]),
                                     }
                                 }
                                 LineOrHexHash::HexHashOfBinaryBlob(id) => {
@@ -404,6 +413,7 @@ pub fn reverse_hunk(hunk: &GitHunk) -> Option<GitHunk> {
             diff_lines: diff,
             binary: hunk.binary,
             change_type: hunk.change_type,
+            locked_to: Box::new([]),
         })
     }
 }
