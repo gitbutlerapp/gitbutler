@@ -32,11 +32,6 @@
 				return false;
 			}
 
-			// only allow to amend the head commit
-			if (commit.id != $branch.commits.at(0)?.id) {
-				return false;
-			}
-
 			if (data instanceof DraggableHunk && data.branchId == $branch.id) {
 				return true;
 			} else if (data instanceof DraggableFile && data.branchId == $branch.id) {
@@ -47,13 +42,17 @@
 		};
 	}
 
-	function onAmend(data: DraggableFile | DraggableHunk) {
-		if (data instanceof DraggableHunk) {
-			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
-			branchController.amendBranch($branch.id, newOwnership);
-		} else if (data instanceof DraggableFile) {
-			const newOwnership = filesToOwnership(data.files);
-			branchController.amendBranch($branch.id, newOwnership);
+	function onAmend(commit: Commit | RemoteCommit) {
+		return (data: DraggableCommit) => {
+			console.log(commit);
+			console.log(data);
+			if (data instanceof DraggableHunk) {
+				const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
+				branchController.amendBranch($branch.id, commit.id, newOwnership);
+			} else if (data instanceof DraggableFile) {
+				const newOwnership = filesToOwnership(data.files);
+				branchController.amendBranch($branch.id, commit.id, newOwnership);
+			}
 		}
 	}
 
@@ -104,7 +103,7 @@
 			active: 'amend-dz-active',
 			hover: 'amend-dz-hover',
 			accepts: acceptAmend(commit),
-			onDrop: onAmend
+			onDrop: onAmend(commit)
 		}}
 		use:dropzone={{
 			active: 'squash-dz-active',

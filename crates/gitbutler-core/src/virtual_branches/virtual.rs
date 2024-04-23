@@ -2674,6 +2674,7 @@ pub fn is_virtual_branch_mergeable(
 pub fn amend(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
+    commit_oid: git::Oid,
     target_ownership: &BranchOwnershipClaims,
 ) -> Result<git::Oid, errors::AmendError> {
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
@@ -2754,10 +2755,11 @@ pub fn amend(
         return Err(errors::AmendError::BranchHasNoCommits);
     }
 
-    let head_commit = project_repository
+    // find commit oid
+    let amend_commit = project_repository
         .git_repository
-        .find_commit(target_branch.head)
-        .context("failed to find head commit")?;
+        .find_commit(commit_oid)
+        .context("failed to find commit")?;
 
     let diffs_to_amend = target_ownership
         .claims
@@ -2792,14 +2794,14 @@ pub fn amend(
         ));
     }
 
-    let new_tree_oid =
-        write_tree_onto_commit(project_repository, target_branch.head, &diffs_to_amend)?;
+    // apply diffs_to_amend to the commit tree
+    let new_tree_oid = write_tree_onto_commit(project_repository, commit_oid, &diffs_to_amend)?;
     let new_tree = project_repository
         .git_repository
         .find_tree(new_tree_oid)
         .context("failed to find new tree")?;
 
-    let parents = head_commit
+    let parents = amend_commit
         .parents()
         .context("failed to find head commit parents")?;
 
@@ -2807,20 +2809,100 @@ pub fn amend(
         .git_repository
         .commit(
             None,
-            &head_commit.author(),
-            &head_commit.committer(),
-            &head_commit.message().to_str_lossy(),
+            &amend_commit.author(),
+            &amend_commit.committer(),
+            &amend_commit.message().to_str_lossy(),
             &new_tree,
             &parents.iter().collect::<Vec<_>>(),
         )
         .context("failed to create commit")?;
 
-    target_branch.head = commit_oid;
-    vb_state.set_branch(target_branch.clone())?;
+    // now rebase upstream commits, if needed
+    let upstream_commits = project_repository.l(
+        target_branch.head,
+        project_repository::LogUntil::Commit(amend_commit.id()),
+    )?;
+    // if there are no upstream commits, we're done
+    if upstream_commits.is_empty() {
+        target_branch.head = commit_oid;
+        vb_state.set_branch(target_branch.clone())?;
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+        return Ok(commit_oid);
+    }
 
-    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+    let last_commit = upstream_commits.first().cloned().unwrap();
 
-    Ok(commit_oid)
+    let new_head = simple_rebase(
+        project_repository,
+        commit_oid,
+        amend_commit.id(),
+        last_commit,
+    )?;
+
+    if let Some(new_head) = new_head {
+        target_branch.head = new_head;
+        vb_state.set_branch(target_branch.clone())?;
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+        return Ok(commit_oid);
+    } else {
+        return Err(errors::AmendError::Conflict(errors::ProjectConflict {
+            project_id: project_repository.project().id,
+        }));
+    }
+}
+
+pub fn simple_rebase(
+    project_repository: &project_repository::Repository,
+    target_commit_oid: git::Oid,
+    start_commit_oid: git::Oid,
+    end_commit_oid: git::Oid,
+) -> Result<Option<git::Oid>, anyhow::Error> {
+    let repo = &project_repository.git_repository;
+    let (_, committer) = project_repository.git_signatures(None)?;
+
+    dbg!(committer.clone().name());
+
+    let mut rebase_options = git2::RebaseOptions::new();
+    rebase_options.quiet(true);
+    rebase_options.inmemory(true);
+    let mut rebase = repo
+        .rebase(
+            Some(end_commit_oid),
+            Some(start_commit_oid),
+            Some(target_commit_oid),
+            Some(&mut rebase_options),
+        )
+        .context("failed to rebase")?;
+
+    let mut rebase_success = true;
+    // check to see if these commits have already been pushed
+    let mut last_rebase_head = target_commit_oid;
+    while rebase.next().is_some() {
+        let index = rebase
+            .inmemory_index()
+            .context("failed to get inmemory index")?;
+        if index.has_conflicts() {
+            rebase_success = false;
+            break;
+        }
+
+        if let Ok(commit_id) = rebase.commit(None, &committer.clone().into(), None) {
+            last_rebase_head = commit_id.into();
+        } else {
+            rebase_success = false;
+            break;
+        }
+    }
+
+    if rebase_success {
+        // rebase worked out, rewrite the branch head
+        rebase.finish(None).context("failed to finish rebase")?;
+        return Ok(Some(last_rebase_head));
+    } else {
+        // rebase failed, do a merge commit
+        rebase.abort().context("failed to abort rebase")?;
+        return Ok(None);
+    }
 }
 
 pub fn cherry_pick(

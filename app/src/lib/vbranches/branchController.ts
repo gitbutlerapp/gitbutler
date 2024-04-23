@@ -293,11 +293,12 @@ export class BranchController {
 		}
 	}
 
-	async amendBranch(branchId: string, ownership: string) {
+	async amendBranch(branchId: string, commitOid: string, ownership: string) {
 		try {
 			await invoke<void>('amend_virtual_branch', {
 				projectId: this.projectId,
 				branchId,
+				commitOid,
 				ownership
 			});
 		} catch (err: any) {

@@ -225,11 +225,12 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
+        commit_oid: git::Oid,
         ownership: &BranchOwnershipClaims,
     ) -> Result<git::Oid, Error> {
         self.inner(project_id)
             .await
-            .amend(project_id, branch_id, ownership)
+            .amend(project_id, branch_id, commit_oid, ownership)
             .await
     }
 
@@ -643,12 +644,13 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
+        commit_oid: git::Oid,
         ownership: &BranchOwnershipClaims,
     ) -> Result<git::Oid, Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            super::amend(project_repository, branch_id, ownership).map_err(Into::into)
+            super::amend(project_repository, branch_id, commit_oid, ownership).map_err(Into::into)
         })
     }
 

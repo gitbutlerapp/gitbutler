@@ -350,11 +350,12 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch_id: BranchId,
+        commit_oid: git::Oid,
         ownership: BranchOwnershipClaims,
     ) -> Result<git::Oid, Error> {
         let oid = handle
             .state::<Controller>()
-            .amend(&project_id, &branch_id, &ownership)
+            .amend(&project_id, &branch_id, commit_oid, &ownership)
             .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(oid)
