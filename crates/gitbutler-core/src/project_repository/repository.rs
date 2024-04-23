@@ -61,7 +61,7 @@ impl Repository {
                 // XXX(qix-): We will ultimately move away from an internal repository for a variety
                 // XXX(qix-): of reasons, but for now, this is a simple, short-term solution that we
                 // XXX(qix-): can clean up later on. We're aware this isn't ideal.
-                if let Ok(config) = git_repository.config().as_mut(){
+                if let Ok(config) = git_repository.config().as_mut() {
                     let should_set = match config.get_bool("gitbutler.didSetPrune") {
                         Ok(None | Some(false)) => true,
                         Ok(Some(true)) => false,
@@ -76,7 +76,10 @@ impl Repository {
                     };
 
                     if should_set {
-                        if let Err(error) = config.set_str("gc.pruneExpire", "never").and_then(|()| config.set_bool("gitbutler.didSetPrune", true)) {
+                        if let Err(error) = config
+                            .set_str("gc.pruneExpire", "never")
+                            .and_then(|()| config.set_bool("gitbutler.didSetPrune", true))
+                        {
                             tracing::warn!(
                                 "failed to set gc.auto to false for repository at {}; cannot disable gc: {}",
                                 project.path.display(),

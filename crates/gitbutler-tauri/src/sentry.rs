@@ -19,24 +19,37 @@ static SENTRY_LIMIT: OnceCell<RateLimiter<NotKeyed, InMemoryState, QuantaClock>>
 /// Should be called once on application startup, and the returned guard should be kept alive for
 /// the lifetime of the application.
 pub fn init(name: &str, version: String) -> ClientInitGuard {
-    sentry::init(("https://9d407634d26b4d30b6a42d57a136d255@o4504644069687296.ingest.sentry.io/4504649768108032", sentry::ClientOptions {
-        environment: Some(match name {
-            "GitButler" => "production",
-            "GitButler Nightly" => "nightly",
-            "GitButler Dev" => "development",
-            _ => "unknown",
-        }.into()),
-        release: Some(version.into()),
-        before_send: Some({
-            Arc::new(|event| SENTRY_LIMIT.get_or_init(|| RateLimiter::direct(SENTRY_QUOTA)).check().is_ok().then_some(event))}),
-        attach_stacktrace: true,
-        traces_sample_rate: match name {
-            "GitButler Dev" | "GitButler Nightly" => 0.2_f32,
-            _ => 0.05_f32,
+    sentry::init((
+        "https://9d407634d26b4d30b6a42d57a136d255@o4504644069687296.ingest.sentry.io/4504649768108032",
+        sentry::ClientOptions {
+            environment: Some(
+                match name {
+                    "GitButler" => "production",
+                    "GitButler Nightly" => "nightly",
+                    "GitButler Dev" => "development",
+                    _ => "unknown",
+                }
+                .into(),
+            ),
+            release: Some(version.into()),
+            before_send: Some({
+                Arc::new(|event| {
+                    SENTRY_LIMIT
+                        .get_or_init(|| RateLimiter::direct(SENTRY_QUOTA))
+                        .check()
+                        .is_ok()
+                        .then_some(event)
+                })
+            }),
+            attach_stacktrace: true,
+            traces_sample_rate: match name {
+                "GitButler Dev" | "GitButler Nightly" => 0.2_f32,
+                _ => 0.05_f32,
+            },
+            default_integrations: true,
+            ..Default::default()
         },
-        default_integrations: true,
-        ..Default::default()
-    }))
+    ))
 }
 
 /// Sets the current user in the Sentry scope.

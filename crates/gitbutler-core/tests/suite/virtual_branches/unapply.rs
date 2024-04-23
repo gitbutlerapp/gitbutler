@@ -64,7 +64,10 @@ async fn conflicting() {
         assert_eq!(branches.len(), 1);
         assert!(branches[0].base_current);
         assert!(branches[0].active);
-        assert_eq!(branches[0].files[0].hunks[0].diff, "@@ -1 +1 @@\n-first\n\\ No newline at end of file\n+conflict\n\\ No newline at end of file\n");
+        assert_eq!(
+            branches[0].files[0].hunks[0].diff,
+            "@@ -1 +1 @@\n-first\n\\ No newline at end of file\n+conflict\n\\ No newline at end of file\n"
+        );
 
         controller
             .unapply_virtual_branch(project_id, &branches[0].id)
@@ -142,7 +145,10 @@ async fn conflicting() {
         assert!(!branch.active);
         assert!(!branch.base_current);
         assert!(!branch.conflicted);
-        assert_eq!(branch.files[0].hunks[0].diff, "@@ -1 +1 @@\n-first\n\\ No newline at end of file\n+conflict\n\\ No newline at end of file\n");
+        assert_eq!(
+            branch.files[0].hunks[0].diff,
+            "@@ -1 +1 @@\n-first\n\\ No newline at end of file\n+conflict\n\\ No newline at end of file\n"
+        );
     }
 }
 

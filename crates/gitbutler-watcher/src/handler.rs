@@ -240,13 +240,11 @@ impl Handler {
             .build();
 
         let fetch_result = backoff::retry(policy, || {
-            gb_repo.fetch(user.as_ref()).map_err(|err| {
-                match err {
-                    gb_repository::RemoteError::Network => backoff::Error::permanent(err),
-                    err @ gb_repository::RemoteError::Other(_) => {
-                        tracing::warn!(%project_id, ?err, will_retry = true, "failed to fetch project data");
-                        backoff::Error::transient(err)
-                    }
+            gb_repo.fetch(user.as_ref()).map_err(|err| match err {
+                gb_repository::RemoteError::Network => backoff::Error::permanent(err),
+                err @ gb_repository::RemoteError::Other(_) => {
+                    tracing::warn!(%project_id, ?err, will_retry = true, "failed to fetch project data");
+                    backoff::Error::transient(err)
                 }
             })
         });

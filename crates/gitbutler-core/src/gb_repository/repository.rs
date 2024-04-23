@@ -217,7 +217,8 @@ impl Repository {
 
         // Push to the remote
         remote
-            .push(&[&remote_refspec], Some(&mut push_options)).map_err(|error| match error {
+            .push(&[&remote_refspec], Some(&mut push_options))
+            .map_err(|error| match error {
                 git::Error::Network(error) => {
                     tracing::warn!(project_id = %self.project.id, error = %error, "failed to push gb repo");
                     RemoteError::Network

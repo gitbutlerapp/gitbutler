@@ -569,9 +569,10 @@ pub fn update_base_branch(
         })
         .context("failed to calculate final tree")?;
 
-    repo.checkout_tree(&final_tree).force().checkout().context(
-        "failed to checkout index, this should not have happened, we should have already detected this",
-    )?;
+    repo.checkout_tree(&final_tree)
+        .force()
+        .checkout()
+        .context("failed to checkout index, this should not have happened, we should have already detected this")?;
 
     // write new target oid
     vb_state.set_default_target(target::Target {
