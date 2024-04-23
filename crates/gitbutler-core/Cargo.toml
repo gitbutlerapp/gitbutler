@@ -9,6 +9,7 @@ publish = false
 once_cell = "1.19"
 pretty_assertions = "1.4"
 gitbutler-testsupport.workspace = true
+gitbutler-git = { workspace = true, features = ["test-askpass-path" ]}
 
 [dependencies]
 toml = "0.8.12"
