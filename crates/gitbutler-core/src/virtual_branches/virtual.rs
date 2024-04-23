@@ -497,12 +497,12 @@ pub fn unapply_ownership(
         .filter(|b| b.applied)
         .collect::<Vec<_>>();
 
-    let integration_commit =
-        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+    let integration_commit_id =
+        super::integration::get_workspace_head(&vb_state, project_repository)?;
 
     let (applied_statuses, _) = get_applied_status(
         project_repository,
-        &integration_commit,
+        &integration_commit_id,
         &default_target.sha,
         applied_branches,
     )
@@ -551,7 +551,7 @@ pub fn unapply_ownership(
     let repo = &project_repository.git_repository;
 
     let target_commit = repo
-        .find_commit(integration_commit)
+        .find_commit(integration_commit_id)
         .context("failed to find target commit")?;
 
     let base_tree = target_commit.tree().context("failed to get target tree")?;
@@ -559,7 +559,7 @@ pub fn unapply_ownership(
         target_commit.tree().context("failed to get target tree"),
         |final_tree, status| {
             let final_tree = final_tree?;
-            let tree_oid = write_tree(project_repository, &integration_commit, &status.1)?;
+            let tree_oid = write_tree(project_repository, &integration_commit_id, &status.1)?;
             let branch_tree = repo.find_tree(tree_oid)?;
             let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
             let final_tree_oid = result.write_tree_to(repo)?;
@@ -781,11 +781,17 @@ pub fn list_virtual_branches(
         .get_default_target()
         .context("failed to get default target")?;
 
-    let integration_commit =
-        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+    let integration_commit_id =
+        super::integration::get_workspace_head(&vb_state, project_repository)?;
+    let integration_commit = project_repository
+        .git_repository
+        .find_commit(integration_commit_id)
+        .unwrap();
+
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     let (statuses, skipped_files) =
-        get_status_by_branch(project_repository, Some(&integration_commit))?;
+        get_status_by_branch(project_repository, Some(&integration_commit.id()))?;
     let max_selected_for_changes = statuses
         .iter()
         .filter_map(|(branch, _)| branch.selected_for_changes)
@@ -1661,7 +1667,7 @@ pub type BranchStatus = HashMap<PathBuf, Vec<diff::GitHunk>>;
 pub fn get_status_by_branch(
     project_repository: &project_repository::Repository,
     integration_commit: Option<&git::Oid>,
-) -> Result<(Vec<(branch::Branch, BranchStatus)>, Vec<diff::FileDiff>)> {
+) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
     let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
     let default_target =
@@ -1740,10 +1746,8 @@ fn get_non_applied_status(
         .collect::<Result<Vec<_>>>()
 }
 
-// given a list of applied virtual branches, return the status of each file, comparing the default target with
-// the working directory
-//
-// ownerships are updated if nessessary
+// Returns branches and their associated file changes, in addition to a list
+// of skipped files.
 fn get_applied_status(
     project_repository: &project_repository::Repository,
     integration_commit: &git::Oid,
@@ -1765,7 +1769,6 @@ fn get_applied_status(
     virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));
 
     if virtual_branches.is_empty() && !base_diffs.is_empty() {
-        // no virtual branches, but hunks: create default branch
         virtual_branches =
             vec![
                 create_virtual_branch(project_repository, &BranchCreateRequest::default())
@@ -1773,22 +1776,43 @@ fn get_applied_status(
             ];
     }
 
-    // align branch ownership to the real hunks:
-    // - update shifted hunks
-    // - remove non existent hunks
-
     let mut diffs_by_branch: HashMap<BranchId, BranchStatus> = virtual_branches
         .iter()
         .map(|branch| (branch.id, HashMap::new()))
         .collect();
 
     let mut mtimes = MTimeCache::default();
-    let mut git_hunk_map = HashMap::new();
+    let mut locked_hunk_map = HashMap::<HunkHash, Vec<git::Oid>>::new();
 
-    for branch in &virtual_branches {
-        if !branch.applied {
-            bail!("branch {} is not applied", branch.name);
-        }
+    let merge_base = project_repository
+        .git_repository
+        .merge_base(*target_sha, *integration_commit)?;
+
+    // The merge base between the integration commit and target _is_ the
+    // target, unless you are resolving merge conflicts. If that's the case
+    // we ignore locks until we are back to normal mode.
+    //
+    // If we keep the test repo and panic when `berge_base != target_sha`
+    // when running the test below, then we have the following commit graph.
+    //
+    // Test: virtual_branches::update_base_branch::applied_branch::integrated_with_locked_conflicting_hunks
+    // Command: `git log --oneline --all --graph``
+    // * 244b526 GitButler WIP Commit
+    // | * ea2956e (HEAD -> gitbutler/integration) GitButler Integration Commit
+    // | *   3f2ccce (origin/master) Merge pull request from refs/heads/Virtual-branch
+    // | |\
+    // | |/
+    // |/|
+    // | * a6a0ed8 second
+    // | | * f833dbe (int) Workspace Head
+    // | |/
+    // |/|
+    // * | dee400c (origin/Virtual-branch, merge_base) third
+    // |/
+    // * 56c139c (master) first
+    // * 6276165 Initial commit
+    // (END)
+    if merge_base == *target_sha {
         for (path, hunks) in base_diffs.clone().into_iter() {
             for hunk in hunks {
                 let blame = project_repository.git_repository.blame(
@@ -1796,20 +1820,31 @@ fn get_applied_status(
                     hunk.old_start,
                     (hunk.old_start + hunk.old_lines).saturating_sub(1),
                     target_sha,
-                    &branch.head,
+                    integration_commit,
                 );
 
                 if let Ok(blame) = blame {
                     for blame_hunk in blame.iter() {
-                        let commit = blame_hunk.orig_commit_id();
-                        if git::Oid::from(commit) != *target_sha {
-                            let hash = Hunk::hash(hunk.diff_lines.as_ref());
-                            git_hunk_map.insert(hash, branch.id);
-                            break;
+                        let commit = git::Oid::from(blame_hunk.orig_commit_id());
+                        if commit != *target_sha && commit != *integration_commit {
+                            let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
+                            locked_hunk_map
+                                .entry(hash)
+                                .and_modify(|commits| {
+                                    commits.push(commit);
+                                })
+                                .or_insert(vec![commit]);
                         }
                     }
                 }
             }
+        }
+    }
+
+    let mut commit_to_branch = HashMap::new();
+    for branch in &mut virtual_branches {
+        for commit in project_repository.log(branch.head, LogUntil::Commit(*target_sha))? {
+            commit_to_branch.insert(commit.id(), branch.id);
         }
     }
 
@@ -1836,13 +1871,10 @@ fn get_applied_status(
                         // if any of the current hunks intersects with the owned hunk, we want to keep it
                         for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
                             let hash = Hunk::hash_diff(git_diff_hunk.diff_lines.as_ref());
-                            if let Some(locked_to) = git_hunk_map.get(&hash) {
-                                if locked_to != &branch.id {
-                                    return None;
-                                }
+                            if locked_hunk_map.contains_key(&hash) {
+                                return None; // Defer allocation to unclaimed hunks processing
                             }
                             if claimed_hunk.eq(&Hunk::from(git_diff_hunk)) {
-                                // try to re-use old timestamp
                                 let timestamp = claimed_hunk.timestam_ms().unwrap_or(mtime);
                                 diffs_by_branch
                                     .entry(branch.id)
@@ -1905,11 +1937,16 @@ fn get_applied_status(
         .position(|b| b.selected_for_changes == Some(max_selected_for_changes))
         .unwrap_or(0);
 
+    // Everything claimed has been removed from `base_diffs`, here we just
+    // process the remaining ones.
     for (filepath, hunks) in base_diffs {
         for hunk in hunks {
             let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
-            let vbranch_pos = if let Some(locked_to) = git_hunk_map.get(&hash) {
-                let p = virtual_branches.iter().position(|vb| vb.id == *locked_to);
+            let locked_to = locked_hunk_map.get(&hash);
+
+            let vbranch_pos = if let Some(locked_to) = locked_to {
+                let branch_id = commit_to_branch.get(&locked_to[0]).unwrap();
+                let p = virtual_branches.iter().position(|vb| vb.id == *branch_id);
                 match p {
                     Some(p) => p,
                     _ => default_vbranch_pos,
@@ -1918,14 +1955,15 @@ fn get_applied_status(
                 default_vbranch_pos
             };
 
-            let hash = Hunk::hash(hunk.diff_lines.as_ref());
+            let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
             let mut new_hunk = Hunk::from(&hunk)
                 .with_timestamp(mtimes.mtime_by_path(filepath.as_path()))
                 .with_hash(hash);
-            new_hunk.locked_to = git_hunk_map
-                .get(&hash)
-                .map(|locked_to| vec![*locked_to])
-                .unwrap_or_default();
+            new_hunk.locked_to = match locked_to {
+                Some(locked_to) => locked_to.clone(),
+                _ => vec![],
+            };
+
             virtual_branches[vbranch_pos]
                 .ownership
                 .put(&OwnershipClaim {
@@ -2287,10 +2325,10 @@ pub fn commit(
 
     let message = &message_buffer;
 
-    let integration_commit =
-        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+    let integration_commit_id =
+        super::integration::get_workspace_head(&vb_state, project_repository)?;
     // get the files to commit
-    let (mut statuses, _) = get_status_by_branch(project_repository, Some(&integration_commit))
+    let (mut statuses, _) = get_status_by_branch(project_repository, Some(&integration_commit_id))
         .context("failed to get status by branch")?;
 
     let (ref mut branch, files) = statuses
@@ -2709,12 +2747,12 @@ pub fn amend(
             })
         })?;
 
-    let integration_commit =
-        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+    let integration_commit_id =
+        super::integration::get_workspace_head(&vb_state, project_repository)?;
 
     let (mut applied_statuses, _) = get_applied_status(
         project_repository,
-        &integration_commit,
+        &integration_commit_id,
         &default_target.sha,
         applied_branches,
     )?;
@@ -2864,12 +2902,12 @@ pub fn cherry_pick(
         .filter(|b| b.applied)
         .collect::<Vec<_>>();
 
-    let integration_commit =
-        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+    let integration_commit_id =
+        super::integration::get_workspace_head(&vb_state, project_repository)?;
 
     let (applied_statuses, _) = get_applied_status(
         project_repository,
-        &integration_commit,
+        &integration_commit_id,
         &default_target.sha,
         applied_branches,
     )?;
@@ -3390,12 +3428,12 @@ pub fn move_commit(
             })
         })?;
 
-    let integration_commit =
-        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+    let integration_commit_id =
+        super::integration::get_workspace_head(&vb_state, project_repository)?;
 
     let (mut applied_statuses, _) = get_applied_status(
         project_repository,
-        &integration_commit,
+        &integration_commit_id,
         &default_target.sha,
         applied_branches,
     )?;

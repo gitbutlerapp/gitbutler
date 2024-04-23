@@ -3,9 +3,7 @@ use std::{fmt::Display, ops::RangeInclusive, str::FromStr};
 use anyhow::{anyhow, Context, Result};
 use bstr::{BStr, ByteSlice};
 
-use crate::{git::diff, id::Id};
-
-use super::Branch;
+use crate::git::{self, diff};
 
 pub type HunkHash = md5::Digest;
 
@@ -15,7 +13,7 @@ pub struct Hunk {
     pub timestamp_ms: Option<u128>,
     pub start: u32,
     pub end: u32,
-    pub locked_to: Vec<Id<Branch>>,
+    pub locked_to: Vec<git::Oid>,
 }
 
 impl From<&diff::GitHunk> for Hunk {

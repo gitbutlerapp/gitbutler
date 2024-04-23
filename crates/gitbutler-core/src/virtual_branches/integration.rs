@@ -1,6 +1,6 @@
-use std::io::{Read, Write};
+use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
 use lazy_static::lazy_static;
 
@@ -16,8 +16,111 @@ lazy_static! {
         git::LocalRefname::new("gitbutler/integration", None);
 }
 
+const WORKSPACE_HEAD: &str = "Workspace Head";
 const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME: &str = "GitButler";
 const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
+
+fn get_committer<'a>() -> Result<git::Signature<'a>> {
+    Ok(git::Signature::now(
+        GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
+        GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
+    )?)
+}
+
+// Creates and returns a merge commit of all active branch heads.
+//
+// This is the base against which we diff the working directory to understand
+// what files have been modified.
+pub fn get_workspace_head(
+    vb_state: &VirtualBranchesHandle,
+    project_repository: &project_repository::Repository,
+) -> Result<git::Oid> {
+    let target = vb_state
+        .get_default_target()
+        .context("failed to get target")?;
+    let repo = &project_repository.git_repository;
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+
+    let all_virtual_branches = vb_state.list_branches()?;
+    let applied_virtual_branches = all_virtual_branches
+        .iter()
+        .filter(|branch| branch.applied)
+        .collect::<Vec<_>>();
+
+    let target_commit = repo.find_commit(target.sha)?;
+    let target_tree = target_commit.tree()?;
+    let mut workspace_tree = target_commit.tree()?;
+
+    // Merge applied branches into one `workspace_tree``.
+    for branch in &applied_virtual_branches {
+        let branch_head = repo.find_commit(branch.head)?;
+        let branch_tree = branch_head.tree()?;
+
+        if let Ok(mut result) = repo.merge_trees(&target_tree, &workspace_tree, &branch_tree) {
+            if !result.has_conflicts() {
+                let final_tree_oid = result.write_tree_to(repo)?;
+                workspace_tree = repo.find_tree(final_tree_oid)?;
+            } else {
+                // TODO: Create error type and provide context.
+                return Err(anyhow!("Unexpected merge conflict"));
+            }
+        }
+    }
+
+    let branch_heads = applied_virtual_branches
+        .iter()
+        .map(|b| repo.find_commit(b.head))
+        .collect::<Result<Vec<_>, _>>()?;
+    let branch_head_refs = branch_heads.iter().collect::<Vec<_>>();
+
+    // If no branches are applied then the workspace head is the target.
+    if branch_head_refs.is_empty() {
+        return Ok(target_commit.id());
+    }
+
+    // TODO(mg): Can we make this a constant?
+    let committer = get_committer()?;
+
+    // Create merge commit of branch heads.
+    let workspace_head_id = repo.commit(
+        None,
+        &committer,
+        &committer,
+        WORKSPACE_HEAD,
+        &workspace_tree,
+        branch_head_refs.as_slice(),
+    )?;
+    Ok(workspace_head_id)
+}
+
+// Before switching the user to our gitbutler integration branch we save
+// the current branch into a text file. It is used in generating the commit
+// message for integration branch, as a helpful hint about how to get back
+// to where you were.
+struct PreviousHead {
+    head: String,
+    sha: String,
+}
+
+fn read_integration_file(path: &PathBuf) -> Result<Option<PreviousHead>> {
+    if let Ok(prev_data) = std::fs::read_to_string(path) {
+        let parts: Vec<&str> = prev_data.split(':').collect();
+        let prev_head = parts[0].to_string();
+        let prev_sha = parts[1].to_string();
+        Ok(Some(PreviousHead {
+            head: prev_head,
+            sha: prev_sha,
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
+fn write_integration_file(head: &git::Reference, path: PathBuf) -> Result<()> {
+    let sha = head.target().unwrap().to_string();
+    std::fs::write(path, format!(":{}", sha))?;
+    Ok(())
+}
 
 pub fn update_gitbutler_integration(
     vb_state: &VirtualBranchesHandle,
@@ -41,27 +144,19 @@ pub fn update_gitbutler_integration(
     let target_commit = repo.find_commit(target.sha)?;
 
     // get current repo head for reference
-    let head = repo.head()?;
-    let mut prev_head = head.name().unwrap().to_string();
-    let mut prev_sha = head.target().unwrap().to_string();
-    let integration_file = repo.path().join("integration");
-    if prev_head == GITBUTLER_INTEGRATION_REFERENCE.to_string() {
-        // read the .git/integration file
-        if let Ok(mut integration_file) = std::fs::File::open(integration_file) {
-            let mut prev_data = String::new();
-            integration_file.read_to_string(&mut prev_data)?;
-            let parts: Vec<&str> = prev_data.split(':').collect();
-
-            prev_head = parts[0].to_string();
-            prev_sha = parts[1].to_string();
+    let head_ref = repo.head()?;
+    let integration_filepath = repo.path().join("integration");
+    let mut prev_branch = read_integration_file(&integration_filepath)?;
+    if let Some(branch) = &prev_branch {
+        if branch.head != GITBUTLER_INTEGRATION_REFERENCE.to_string() {
+            // we are moving from a regular branch to our gitbutler integration branch, write a file to
+            // .git/integration with the previous head and name
+            write_integration_file(&head_ref, integration_filepath)?;
+            prev_branch = Some(PreviousHead {
+                head: head_ref.target().unwrap().to_string(),
+                sha: head_ref.target().unwrap().to_string(),
+            });
         }
-    } else {
-        // we are moving from a regular branch to our gitbutler integration branch, save the original
-        // write a file to .git/integration with the previous head and name
-        let mut file = std::fs::File::create(integration_file)?;
-        prev_head.push(':');
-        prev_head.push_str(&prev_sha);
-        file.write_all(prev_head.as_bytes())?;
     }
 
     // commit index to temp head for the merge
@@ -80,19 +175,9 @@ pub fn update_gitbutler_integration(
         .filter(|branch| branch.applied)
         .collect::<Vec<_>>();
 
-    let base_tree = target_commit.tree()?;
-    let mut final_tree = target_commit.tree()?;
-    for branch in &applied_virtual_branches {
-        // merge this branches tree with our tree
-        let branch_head = repo.find_commit(branch.head)?;
-        let branch_tree = branch_head.tree()?;
-        if let Ok(mut result) = repo.merge_trees(&base_tree, &final_tree, &branch_tree) {
-            if !result.has_conflicts() {
-                let final_tree_oid = result.write_tree_to(repo)?;
-                final_tree = repo.find_tree(final_tree_oid)?;
-            }
-        }
-    }
+    let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
+    let integration_commit = repo.find_commit(integration_commit_id).unwrap();
+    let integration_tree = integration_commit.tree()?;
 
     // message that says how to get back to where they were
     let mut message = "GitButler Integration Commit".to_string();
@@ -125,32 +210,31 @@ pub fn update_gitbutler_integration(
             message.push('\n');
         }
     }
-    message.push_str("\nYour previous branch was: ");
-    message.push_str(&prev_head);
-    message.push_str("\n\n");
-    message.push_str("The sha for that commit was: ");
-    message.push_str(&prev_sha);
-    message.push_str("\n\n");
+    if let Some(prev_branch) = prev_branch {
+        message.push_str("\nYour previous branch was: ");
+        message.push_str(&prev_branch.head);
+        message.push_str("\n\n");
+        message.push_str("The sha for that commit was: ");
+        message.push_str(&prev_branch.sha);
+        message.push_str("\n\n");
+    }
     message.push_str("For more information about what we're doing here, check out our docs:\n");
     message.push_str("https://docs.gitbutler.com/features/virtual-branches/integration-branch\n");
 
-    let committer = git::Signature::now(
-        GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
-        GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
-    )?;
+    let committer = get_committer()?;
 
     let final_commit = repo.commit(
         Some(&"refs/heads/gitbutler/integration".parse().unwrap()),
         &committer,
         &committer,
         &message,
-        &final_tree,
+        &integration_commit.tree()?,
         &[&target_commit],
     )?;
 
     // write final_tree as the current index
     let mut index = repo.index()?;
-    index.read_tree(&final_tree)?;
+    index.read_tree(&integration_tree)?;
     index.write()?;
 
     // finally, update the refs/gitbutler/ heads to the states of the current virtual branches

@@ -1576,7 +1576,7 @@ mod applied_branch {
             .unwrap();
 
             controller
-                .create_commit(project_id, &branch_id, "first", None, false)
+                .create_commit(project_id, &branch_id, "third", None, false)
                 .await
                 .unwrap();
 
