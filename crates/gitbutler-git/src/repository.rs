@@ -82,7 +82,7 @@ where
     // TODO(qix-): suffix. The actual executables live in the parent directory.
     // TODO(qix-): Thus, we have to do this under test. It's not ideal, but
     // TODO(qix-): it works for now.
-    #[cfg(test)]
+    #[cfg(feature = "test-askpass-path")]
     let path = path.parent().unwrap();
 
     let askpath_path = path

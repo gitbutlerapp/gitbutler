@@ -22,6 +22,10 @@ test = false
 default = ["serde", "tokio"]
 serde = ["dep:serde"]
 tokio = ["dep:tokio"]
+test-askpass-path = []
+
+[dev-dependencies]
+gitbutler-git = {path = ".", features = ["test-askpass-path"]}
 
 [dependencies]
 thiserror.workspace = true
