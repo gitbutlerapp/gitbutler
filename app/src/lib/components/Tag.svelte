@@ -114,7 +114,7 @@
 
 	.pop {
 		&.soft {
-			color: var(--clr-theme-pop-on-container);
+			color: var(--clr-theme-pop-on-bg);
 			background: var(--clr-scale-pop-80);
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
@@ -134,7 +134,7 @@
 
 	.success {
 		&.soft {
-			color: var(--clr-theme-succ-on-container);
+			color: var(--clr-theme-succ-on-bg);
 			background: var(--clr-scale-succ-80);
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
@@ -154,7 +154,7 @@
 
 	.error {
 		&.soft {
-			color: var(--clr-theme-err-on-container);
+			color: var(--clr-theme-err-on-bg);
 			background: var(--clr-scale-err-80);
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
@@ -174,7 +174,7 @@
 
 	.warning {
 		&.soft {
-			color: var(--clr-theme-warn-on-container);
+			color: var(--clr-theme-warn-on-bg);
 			background: var(--clr-scale-warn-80);
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
@@ -194,7 +194,7 @@
 
 	.purple {
 		&.soft {
-			color: var(--clr-theme-purp-on-container);
+			color: var(--clr-theme-purp-on-bg);
 			background: var(--clr-scale-purp-80);
 			/* if button */
 			&:not(.not-button, &:disabled):hover {

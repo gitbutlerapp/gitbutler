@@ -87,7 +87,7 @@
 		color: var(--clr-scale-ntrl-0);
 		gap: var(--size-12);
 		padding: var(--size-20);
-		background-color: var(--clr-theme-err-container);
+		background-color: var(--clr-theme-err-bg);
 		border-radius: var(--radius-m);
 		margin-bottom: var(--size-12);
 	}
