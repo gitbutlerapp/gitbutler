@@ -51,7 +51,7 @@ pub fn get_workspace_head(
     let target_tree = target_commit.tree()?;
     let mut workspace_tree = target_commit.tree()?;
 
-    // Merge applied branches into one `workspace_tree``.
+    // Merge applied branches into one `workspace_tree`.
     for branch in &applied_virtual_branches {
         let branch_head = repo.find_commit(branch.head)?;
         let branch_tree = branch_head.tree()?;
