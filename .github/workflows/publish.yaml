@@ -139,6 +139,22 @@ jobs:
           path: release/
           if-no-files-found: error
 
+      - name: Prepare Windows Aux Binary Artifacts
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          rm -rf tauri-aux-artifacts
+          mkdir -p tauri-aux-artifacts
+          cp target/release/gitbutler-git-askpass.exe tauri-aux-artifacts/
+
+      - name: Upload Windows Aux Binary Artifacts
+        uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: "${{ env.channel }}-windows-aux-${{ github.run_number }}"
+          path: tauri-aux-artifacts/
+          if-no-files-found: error
+
   sign-tauri:
     needs: build-tauri
     runs-on: [self-hosted, evcodesignd]
