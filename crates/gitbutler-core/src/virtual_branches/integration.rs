@@ -121,10 +121,17 @@ fn write_integration_file(head: &git::Reference, path: PathBuf) -> Result<()> {
     std::fs::write(path, format!(":{}", sha))?;
     Ok(())
 }
-
 pub fn update_gitbutler_integration(
     vb_state: &VirtualBranchesHandle,
     project_repository: &project_repository::Repository,
+) -> Result<git::Oid> {
+    update_gitbutler_integration_with_commit(vb_state, project_repository, None)
+}
+
+pub fn update_gitbutler_integration_with_commit(
+    vb_state: &VirtualBranchesHandle,
+    project_repository: &project_repository::Repository,
+    integration_commit_id: Option<git::Oid>,
 ) -> Result<git::Oid> {
     let target = vb_state
         .get_default_target()
@@ -175,7 +182,10 @@ pub fn update_gitbutler_integration(
         .filter(|branch| branch.applied)
         .collect::<Vec<_>>();
 
-    let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
+    let integration_commit_id = match integration_commit_id {
+        Some(commit_id) => commit_id,
+        _ => get_workspace_head(&vb_state, project_repository)?,
+    };
     let integration_commit = repo.find_commit(integration_commit_id).unwrap();
     let integration_tree = integration_commit.tree()?;
 
