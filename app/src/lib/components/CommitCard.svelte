@@ -133,7 +133,7 @@
 
 	{#if showFiles}
 		<div class="files-container" transition:slide={{ duration: 100 }}>
-			<BranchFilesList {files} {isUnapplied} readonly />
+			<BranchFilesList {files} {isUnapplied} />
 		</div>
 
 		{#if hasCommitUrl || isUndoable}

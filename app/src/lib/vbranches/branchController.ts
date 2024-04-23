@@ -306,6 +306,19 @@ export class BranchController {
 		}
 	}
 
+	async moveCommitFile(branchId: string, commitOid: string, ownership: string) {
+		try {
+			await invoke<void>('move_commit_file', {
+				projectId: this.projectId,
+				branchId,
+				commitOid,
+				ownership
+			});
+		} catch (err: any) {
+			showError('Failed to amend commit', err);
+		}
+	}
+
 	async moveCommit(targetBranchId: string, commitOid: string) {
 		try {
 			await invoke<void>('move_commit', {

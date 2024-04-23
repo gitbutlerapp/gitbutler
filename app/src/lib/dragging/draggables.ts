@@ -18,7 +18,7 @@ export class DraggableHunk {
 export class DraggableFile {
 	constructor(
 		public readonly branchId: string,
-		private file: AnyFile,
+		public file: AnyFile,
 		private selection: Readable<AnyFile[]> | undefined
 	) {}
 
