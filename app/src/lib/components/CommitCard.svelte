@@ -56,19 +56,16 @@
 		}
 	}
 
-	function resetHeadCommit() {
+	function undoCommit(commit: Commit | RemoteCommit) {
 		if (!branch || !$baseBranch) {
-			console.error('Unable to reset head commit');
+			console.error('Unable to undo commit');
 			return;
 		}
-		if (branch.commits.length > 1) {
-			branchController.resetBranch(branch.id, branch.commits[1].id);
-		} else if (branch.commits.length === 1 && $baseBranch) {
-			branchController.resetBranch(branch.id, $baseBranch.baseSha);
-		}
+		console.log("undo commit", commit);
+		branchController.undoCommit(branch.id, commit.id);
 	}
 
-	const isUndoable = isHeadCommit && !isUnapplied;
+	const isUndoable = !isUnapplied;
 	const hasCommitUrl = !commit.isLocal && commitUrl;
 </script>
 
@@ -99,7 +96,7 @@
 						on:click={(e) => {
 							currentCommitMessage.set(commit.description);
 							e.stopPropagation();
-							resetHeadCommit();
+							undoCommit(commit);
 						}}>Undo</Tag
 					>
 				{/if}
@@ -147,7 +144,7 @@
 						on:click={(e) => {
 							currentCommitMessage.set(commit.description);
 							e.stopPropagation();
-							resetHeadCommit();
+							undoCommit(commit);
 						}}>Undo</Tag
 					>
 				{/if}

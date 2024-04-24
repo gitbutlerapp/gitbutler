@@ -319,6 +319,18 @@ export class BranchController {
 		}
 	}
 
+	async undoCommit(branchId: string, commitOid: string) {
+		try {
+			await invoke<void>('undo_commit', {
+				projectId: this.projectId,
+				branchId,
+				commitOid,
+			});
+		} catch (err: any) {
+			showError('Failed to amend commit', err);
+		}
+	}
+
 	async moveCommit(targetBranchId: string, commitOid: string) {
 		try {
 			await invoke<void>('move_commit', {

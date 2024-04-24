@@ -363,6 +363,22 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
+    pub async fn undo_commit(
+        handle: AppHandle,
+        project_id: ProjectId,
+        branch_id: BranchId,
+        commit_oid: git::Oid,
+    ) -> Result<(), Error> {
+        let oid = handle
+            .state::<Controller>()
+            .undo_commit(&project_id, &branch_id, commit_oid)
+            .await?;
+        emit_vbranches(&handle, &project_id).await;
+        Ok(oid)
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn list_remote_branches(
         handle: tauri::AppHandle,
         project_id: ProjectId,

@@ -234,6 +234,18 @@ impl Controller {
             .await
     }
 
+    pub async fn undo_commit(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        commit_oid: git::Oid,
+    ) -> Result<(), Error> {
+        self.inner(project_id)
+            .await
+            .undo_commit(project_id, branch_id, commit_oid)
+            .await
+    }
+
     pub async fn reset_virtual_branch(
         &self,
         project_id: &ProjectId,
@@ -651,6 +663,19 @@ impl ControllerInner {
 
         self.with_verify_branch(project_id, |project_repository, _| {
             super::amend(project_repository, branch_id, commit_oid, ownership).map_err(Into::into)
+        })
+    }
+
+    pub async fn undo_commit(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        commit_oid: git::Oid,
+    ) -> Result<(), Error> {
+        let _permit = self.semaphore.acquire().await;
+
+        self.with_verify_branch(project_id, |project_repository, _| {
+            super::undo_commit(project_repository, branch_id, commit_oid).map_err(Into::into)
         })
     }
 

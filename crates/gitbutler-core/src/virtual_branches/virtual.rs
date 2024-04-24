@@ -2851,6 +2851,78 @@ pub fn amend(
     }
 }
 
+pub fn undo_commit(
+    project_repository: &project_repository::Repository,
+    branch_id: &BranchId,
+    commit_oid: git::Oid,
+) -> Result<(), errors::ResetBranchError> {
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+
+    let default_target = get_default_target(&vb_state)
+        .context("failed to read default target")?
+        .ok_or_else(|| {
+            errors::ResetBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+                project_id: project_repository.project().id,
+            })
+        })?;
+
+    let mut branch = match vb_state.get_branch(branch_id) {
+        Ok(branch) => Ok(branch),
+        Err(reader::Error::NotFound) => Err(errors::ResetBranchError::BranchNotFound(
+            errors::BranchNotFound {
+                branch_id: *branch_id,
+                project_id: project_repository.project().id,
+            },
+        )),
+        Err(error) => Err(errors::ResetBranchError::Other(error.into())),
+    }?;
+
+    let mut new_commit_oid = commit_oid;
+
+    let commit = project_repository
+        .git_repository
+        .find_commit(commit_oid)
+        .context("failed to find commit")?;
+
+    if branch.head == commit_oid {
+        // if commit is the head, just set head to the parent
+        new_commit_oid = commit.parent(0).context("failed to find parent")?.id();
+    } else {
+        // if commit is not the head, rebase all commits above it onto it's parent
+        let parent_commit_oid = commit.parent(0).context("failed to find parent")?.id();
+
+        match simple_rebase(
+            project_repository,
+            parent_commit_oid,
+            commit_oid,
+            branch.head,
+        ) {
+            Ok(Some(new_head)) => {
+                dbg!(&new_head);
+                new_commit_oid = new_head;
+            }
+            Ok(None) => {
+                return Ok(());
+            }
+            Err(error) => {
+                return Ok(());
+            }
+        }
+    }
+
+    if new_commit_oid != commit_oid {
+        branch.head = new_commit_oid;
+        vb_state
+            .set_branch(branch.clone())
+            .context("failed to write branch")?;
+
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)
+            .context("failed to update gitbutler integration")?;
+    }
+
+    return Ok(());
+}
+
 pub fn simple_rebase(
     project_repository: &project_repository::Repository,
     target_commit_oid: git::Oid,
@@ -2859,8 +2931,6 @@ pub fn simple_rebase(
 ) -> Result<Option<git::Oid>, anyhow::Error> {
     let repo = &project_repository.git_repository;
     let (_, committer) = project_repository.git_signatures(None)?;
-
-    dbg!(committer.clone().name());
 
     let mut rebase_options = git2::RebaseOptions::new();
     rebase_options.quiet(true);
