@@ -1,4 +1,5 @@
 use anyhow::Context;
+use std::path::PathBuf;
 
 use super::{storage::Storage, PrivateKey};
 
@@ -12,7 +13,7 @@ impl Controller {
         Self { storage }
     }
 
-    pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Self {
+    pub fn from_path(path: impl Into<PathBuf>) -> Self {
         Self::new(Storage::from_path(path))
     }
 

@@ -19,14 +19,14 @@ impl TestCase<'_> {
     fn run(&self) -> Vec<(String, Vec<Credential>)> {
         let local_app_data = temp_dir();
 
-        let users = users::Controller::from_path(&local_app_data);
+        let users = users::Controller::from_path(local_app_data.path());
         let user = users::User {
             github_access_token: self.github_access_token.map(ToString::to_string),
             ..Default::default()
         };
         users.set_user(&user).unwrap();
 
-        let keys = keys::Controller::from_path(&local_app_data);
+        let keys = keys::Controller::from_path(local_app_data.path());
         let helper = Helper::new(keys, users, self.home_dir.clone());
 
         let (repo, _tmp) = test_repository();

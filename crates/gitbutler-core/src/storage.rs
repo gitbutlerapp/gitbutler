@@ -1,71 +1,85 @@
-#[cfg(target_family = "unix")]
-use std::os::unix::prelude::*;
+use gix::tempfile::create_dir::Retries;
+use gix::tempfile::{AutoRemove, ContainingDirectory};
+use std::io::Write;
 use std::{
     fs,
     path::{Path, PathBuf},
-    sync::{Arc, RwLock},
 };
 
-#[derive(Debug, Default, Clone)]
+/// A facility to read, write and delete files.
+#[derive(Debug, Clone)]
 pub struct Storage {
-    local_data_dir: Arc<RwLock<PathBuf>>,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error(transparent)]
-    IO(#[from] std::io::Error),
+    /// The directory into which all of or files will be written or read-from.
+    local_data_dir: PathBuf,
 }
 
 impl Storage {
-    pub fn new<P: AsRef<Path>>(local_data_dir: P) -> Storage {
+    pub fn new(local_data_dir: impl Into<PathBuf>) -> Storage {
         Storage {
-            local_data_dir: Arc::new(RwLock::new(local_data_dir.as_ref().to_path_buf())),
+            local_data_dir: local_data_dir.into(),
         }
     }
 
-    pub fn read<P: AsRef<Path>>(&self, path: P) -> Result<Option<String>, Error> {
-        let local_data_dir = self.local_data_dir.read().unwrap();
-        let file_path = local_data_dir.join(path);
-        if !file_path.exists() {
-            return Ok(None);
+    /// Read the content of the file at `rela_path` which is a path relative to our root directory.
+    /// Return `Ok(None)` if the file doesn't exist.
+    // TODO(ST): make all these operations write bytes.
+    pub fn read(&self, rela_path: impl AsRef<Path>) -> std::io::Result<Option<String>> {
+        match fs::read_to_string(self.local_data_dir.join(rela_path)) {
+            Ok(content) => Ok(Some(content)),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(err) => Err(err),
         }
-        let contents = fs::read_to_string(&file_path).map_err(Error::IO)?;
-        Ok(Some(contents))
     }
 
-    pub fn write<P: AsRef<Path>>(&self, path: P, content: &str) -> Result<(), Error> {
-        let local_data_dir = self.local_data_dir.write().unwrap();
-        let file_path = local_data_dir.join(path);
+    /// Write `content` to `rela_path` atomically, so it's either written completely, or not at all.
+    /// Creates the file and intermediate directories.
+    ///
+    /// ### On Synchronization
+    ///
+    /// Mutating operations are assumed to be synchronized by the caller,
+    /// even though all writes will be atomic.
+    ///
+    /// If these operations are not synchronized, they will be racy as it's undefined
+    /// which *whole* write will win. Thus, operations which touch multiple files and
+    /// need them to be consistent *need* to synchronize by some mean.
+    ///
+    /// Generally, the filesystem is used for synchronization, not in-memory primitives.
+    pub fn write(&self, rela_path: impl AsRef<Path>, content: &str) -> std::io::Result<()> {
+        let file_path = self.local_data_dir.join(rela_path);
         let dir = file_path.parent().unwrap();
-        if !dir.exists() {
-            fs::create_dir_all(dir).map_err(Error::IO)?;
+        // NOTE: This creates a 0o600 files on Unix by default.
+        let mut tempfile = gix::tempfile::new(
+            dir,
+            ContainingDirectory::CreateAllRaceProof(Retries::default()),
+            AutoRemove::Tempfile,
+        )?;
+        tempfile.write_all(content.as_bytes())?;
+        match tempfile.persist(file_path) {
+            Ok(Some(_opened_file)) => Ok(()),
+            Ok(None) => unreachable!("BUG: a signal has caused the tempfile to be removed, but we didn't install a handler"),
+            Err(err) => Err(err.error)
         }
-        fs::write(&file_path, content).map_err(Error::IO)?;
-
-        // Set the permissions to be user-only. We can't actually
-        // do this on Windows, so we ignore that platform.
-        #[cfg(target_family = "unix")]
-        {
-            let metadata = fs::metadata(file_path.clone())?;
-            let mut permissions = metadata.permissions();
-            permissions.set_mode(0o600); // User read/write
-            fs::set_permissions(file_path.clone(), permissions)?;
-        }
-
-        Ok(())
     }
 
-    pub fn delete<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
-        let local_data_dir = self.local_data_dir.write().unwrap();
-        let file_path = local_data_dir.join(path);
-        if !file_path.exists() {
-            return Ok(());
-        }
-        if file_path.is_dir() {
-            fs::remove_dir_all(file_path.clone()).map_err(Error::IO)?;
+    /// Delete the file or directory at `rela_path`.
+    ///
+    /// ### Panics
+    ///
+    /// If a symlink is encountered.
+    pub fn delete(&self, rela_path: impl AsRef<Path>) -> std::io::Result<()> {
+        let file_path = self.local_data_dir.join(rela_path);
+        let md = match file_path.symlink_metadata() {
+            Ok(md) => md,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(err) => return Err(err),
+        };
+
+        if md.is_dir() {
+            fs::remove_dir_all(file_path)?;
+        } else if md.is_file() {
+            fs::remove_file(file_path)?;
         } else {
-            fs::remove_file(file_path.clone()).map_err(Error::IO)?;
+            unreachable!("BUG: we do not create or work with symlinks")
         }
         Ok(())
     }
