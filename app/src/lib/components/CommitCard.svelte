@@ -47,6 +47,10 @@
 
 	function toggleFiles() {
 		showFiles = !showFiles;
+		if (!showFiles && branch) {
+			console.log("change description", description, commit.description);
+			branchController.updateCommitMessage(branch.id, commit.id, description);
+		}
 		if (showFiles) loadFiles();
 	}
 
@@ -67,6 +71,7 @@
 
 	const isUndoable = !isUnapplied;
 	const hasCommitUrl = !commit.isLocal && commitUrl;
+	let description = commit.description;
 </script>
 
 <div
@@ -78,16 +83,21 @@
 	class="commit"
 	class:is-commit-open={showFiles}
 >
+	{#if isUndoable && showFiles}
+		<div class="commit__edit_description">
+			<textarea bind:value={description} rows="{commit.description.split("\n").length + 1}"></textarea>
+		</div>
+	{/if}
 	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
 		<div class="commit__message">
-			<div class="commit__row">
+			<div class="commit__id">
 				<code>{commit.id.substring(0, 6)}</code>
 			</div>
 			<div class="commit__row">
+				{#if isUndoable && !showFiles}
 				<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
 					{commit.descriptionTitle}
 				</span>
-				{#if isUndoable && !showFiles}
 					<Tag
 						style="ghost"
 						kind="solid"
@@ -101,13 +111,6 @@
 					>
 				{/if}
 			</div>
-			{#if showFiles && commit.descriptionBody}
-				<div class="commit__row" transition:slide={{ duration: 100 }}>
-					<span class="commit__body text-base-body-12">
-						{commit.descriptionBody}
-					</span>
-				</div>
-			{/if}
 		</div>
 		<div class="commit__row">
 			<div class="commit__author">
@@ -235,6 +238,28 @@
 		display: flex;
 		align-items: center;
 		gap: var(--size-8);
+	}
+
+	.commit__edit_description {
+		width: 100%;
+	}
+	.commit__edit_description textarea {
+		width: 100%;
+		padding: 5px 10px;
+	}
+
+	.commit__id {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-top: -14px;
+	}
+	.commit__id > code {
+		background-color: #eeeeee;
+		padding: 2px 12px;
+		color: #888888;
+		font-size: x-small;
+		border-radius: 0px 0px 6px 6px;
 	}
 
 	.commit__author {

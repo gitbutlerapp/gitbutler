@@ -462,6 +462,8 @@ pub mod commands {
         Ok(())
     }
 
+    #[tauri::command(async)]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn update_commit_message(
         handle: tauri::AppHandle,
         project_id: ProjectId,

@@ -331,6 +331,19 @@ export class BranchController {
 		}
 	}
 
+	async updateCommitMessage(branchId: string, commitOid: string, message: string) {
+		try {
+			await invoke<void>('update_commit_message', {
+				projectId: this.projectId,
+				branchId,
+				commitOid,
+				message,
+			});
+		} catch (err: any) {
+			showError('Failed to change commit message', err);
+		}
+	}
+
 	async moveCommit(targetBranchId: string, commitOid: string) {
 		try {
 			await invoke<void>('move_commit', {
