@@ -2101,9 +2101,7 @@ pub fn write_tree_onto_tree(
     let git_repository = &project_repository.git_repository;
     let mut builder = git_repository.treebuilder(Some(base_tree));
     // now update the index with content in the working directory for each file
-    for (filepath, hunks) in files {
-        // convert this string to a Path
-        let rel_path = Path::new(&filepath);
+    for (rel_path, hunks) in files {
         let full_path = project_repository.path().join(rel_path);
 
         let is_submodule = full_path.is_dir()
@@ -2122,12 +2120,21 @@ pub fn write_tree_onto_tree(
                         filemode = git::FileMode::BlobExecutable;
                     }
                 }
+
                 #[cfg(target_os = "windows")]
                 {
-                    // TODO(qix-): Pull from `core.filemode` config option to determine
-                    // TODO(qix-): the behavior on windows. For now, we set this to true.
-                    // TODO(qix-): It's not ideal, but it gets us to a windows build faster.
-                    filemode = git::FileMode::BlobExecutable;
+                    // NOTE: *Keep* the existing executable bit if it was present
+                    //       in the tree already, don't try to derive something from
+                    //       the FS that doesn't exist.
+                    filemode = base_tree
+                        .get_path(rel_path)
+                        .ok()
+                        .and_then(|entry| {
+                            (entry.filemode() & 0o100000 == 0o100000
+                                && entry.filemode() & 0o111 != 0)
+                                .then_some(git::FileMode::BlobExecutable)
+                        })
+                        .unwrap_or(filemode);
                 }
 
                 if metadata.file_type().is_symlink() {
