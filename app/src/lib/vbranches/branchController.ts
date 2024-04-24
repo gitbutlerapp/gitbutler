@@ -344,6 +344,19 @@ export class BranchController {
 		}
 	}
 
+	async insertBlankCommit(branchId: string, commitOid: string, offset: number) {
+		try {
+			await invoke<void>('insert_blank_commit', {
+				projectId: this.projectId,
+				branchId,
+				commitOid,
+				offset,
+			});
+		} catch (err: any) {
+			showError('Failed to insert blank commit', err);
+		}
+	}
+
 	async moveCommit(targetBranchId: string, commitOid: string) {
 		try {
 			await invoke<void>('move_commit', {

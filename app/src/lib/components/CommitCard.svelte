@@ -48,7 +48,6 @@
 	function toggleFiles() {
 		showFiles = !showFiles;
 		if (!showFiles && branch) {
-			console.log("change description", description, commit.description);
 			branchController.updateCommitMessage(branch.id, commit.id, description);
 		}
 		if (showFiles) loadFiles();
@@ -65,8 +64,15 @@
 			console.error('Unable to undo commit');
 			return;
 		}
-		console.log("undo commit", commit);
 		branchController.undoCommit(branch.id, commit.id);
+	}
+
+	function insertBlankCommit(commit: Commit | RemoteCommit, offset: number) {
+		if (!branch || !$baseBranch) {
+			console.error('Unable to insert commit');
+			return;
+		}
+		branchController.insertBlankCommit(branch.id, commit.id, offset);
 	}
 
 	const isUndoable = !isUnapplied;
@@ -85,7 +91,7 @@
 >
 	{#if isUndoable && showFiles}
 		<div class="commit__edit_description">
-			<textarea bind:value={description} rows="{commit.description.split("\n").length + 1}"></textarea>
+			<textarea placeholder="commit message here" bind:value={description} rows="{commit.description.split("\n").length + 1}"></textarea>
 		</div>
 	{/if}
 	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
@@ -95,9 +101,15 @@
 			</div>
 			<div class="commit__row">
 				{#if isUndoable && !showFiles}
-				<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
-					{commit.descriptionTitle}
-				</span>
+					{#if commit.descriptionTitle}
+					<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
+							{commit.descriptionTitle}
+					</span>
+					{:else}
+					<span class="commit__title_no_desc text-zinc-400 text-base-12" class:truncate={!showFiles}>
+						<i>empty commit message</i>
+					</span>
+					{/if}
 					<Tag
 						style="ghost"
 						kind="solid"
@@ -139,6 +151,26 @@
 		{#if hasCommitUrl || isUndoable}
 			<div class="files__footer">
 				{#if isUndoable}
+					<Tag
+						style="ghost"
+						kind="solid"
+						icon="plus-small"
+						clickable
+						on:click={(e) => {
+							e.stopPropagation();
+							insertBlankCommit(commit, -1);
+						}}>Add Before</Tag
+					>
+					<Tag
+						style="ghost"
+						kind="solid"
+						icon="plus-small"
+						clickable
+						on:click={(e) => {
+							e.stopPropagation();
+							insertBlankCommit(commit, 1);
+						}}>Add After</Tag
+					>
 					<Tag
 						style="ghost"
 						kind="solid"
@@ -224,6 +256,11 @@
 		color: var(--clr-scale-ntrl-0);
 		width: 100%;
 	}
+	.commit__title_no_desc {
+		flex: 1;
+		display: block;
+		width: 100%;
+	}
 
 	.commit__body {
 		flex: 1;
@@ -256,10 +293,11 @@
 	}
 	.commit__id > code {
 		background-color: #eeeeee;
-		padding: 2px 12px;
+		padding: 1px 12px;
 		color: #888888;
 		font-size: x-small;
 		border-radius: 0px 0px 6px 6px;
+		margin-bottom: -8px;
 	}
 
 	.commit__author {

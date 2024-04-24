@@ -2851,6 +2851,72 @@ pub fn amend(
     }
 }
 
+pub fn insert_blank_commit(
+    project_repository: &project_repository::Repository,
+    branch_id: &BranchId,
+    commit_oid: git::Oid,
+    user: Option<&users::User>,
+    offset: i32,
+) -> Result<(), errors::ResetBranchError> {
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+
+    let default_target = get_default_target(&vb_state)
+        .context("failed to read default target")?
+        .ok_or_else(|| {
+            errors::ResetBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+                project_id: project_repository.project().id,
+            })
+        })?;
+
+    let mut branch = match vb_state.get_branch(branch_id) {
+        Ok(branch) => Ok(branch),
+        Err(reader::Error::NotFound) => Err(errors::ResetBranchError::BranchNotFound(
+            errors::BranchNotFound {
+                branch_id: *branch_id,
+                project_id: project_repository.project().id,
+            },
+        )),
+        Err(error) => Err(errors::ResetBranchError::Other(error.into())),
+    }?;
+
+    // find the commit to offset from
+    let mut commit = project_repository
+        .git_repository
+        .find_commit(commit_oid)
+        .context("failed to find commit")?;
+
+    if offset > 0 {
+        commit = commit.parent(0).context("failed to find parent")?;
+    }
+
+    let commit_tree = commit.tree().unwrap();
+    let blank_commit_oid = project_repository.commit(user, "", &commit_tree, &[&commit], None)?;
+
+    // rebase all commits above it onto the new commit
+    match cherry_rebase(
+        project_repository,
+        blank_commit_oid,
+        commit.id(),
+        branch.head,
+    ) {
+        Ok(Some(new_head)) => {
+            dbg!(&new_head);
+            branch.head = new_head;
+            vb_state
+                .set_branch(branch.clone())
+                .context("failed to write branch")?;
+
+            super::integration::update_gitbutler_integration(&vb_state, project_repository)
+                .context("failed to update gitbutler integration")?;
+        }
+        _ => {
+            return Err(errors::ResetBranchError::Other(anyhow!("failed to rebase")));
+        }
+    }
+
+    return Ok(());
+}
+
 pub fn undo_commit(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
@@ -2898,13 +2964,9 @@ pub fn undo_commit(
             branch.head,
         ) {
             Ok(Some(new_head)) => {
-                dbg!(&new_head);
                 new_commit_oid = new_head;
             }
-            Ok(None) => {
-                return Ok(());
-            }
-            Err(error) => {
+            _ => {
                 return Ok(());
             }
         }
@@ -2921,6 +2983,85 @@ pub fn undo_commit(
     }
 
     return Ok(());
+}
+
+// cherry-pick based rebase, which handles empty commits
+pub fn cherry_rebase(
+    project_repository: &project_repository::Repository,
+    target_commit_oid: git::Oid,
+    start_commit_oid: git::Oid,
+    end_commit_oid: git::Oid,
+) -> Result<Option<git::Oid>, anyhow::Error> {
+    let repo = &project_repository.git_repository;
+    let (_, committer) = project_repository.git_signatures(None)?;
+
+    // get a list of the commits to rebase
+    let mut ids_to_rebase = project_repository.l(
+        end_commit_oid,
+        project_repository::LogUntil::Commit(start_commit_oid),
+    )?;
+
+    if ids_to_rebase.is_empty() {
+        return Ok(None);
+    }
+
+    ids_to_rebase.reverse();
+    // now, rebase unchanged commits onto the new commit
+    let commits_to_rebase = ids_to_rebase
+        .iter()
+        .map(|oid| project_repository.git_repository.find_commit(*oid))
+        .collect::<Result<Vec<_>, _>>()
+        .context("failed to read commits to rebase")?;
+
+    let new_head_id = commits_to_rebase
+        .into_iter()
+        .fold(
+            project_repository
+                .git_repository
+                .find_commit(target_commit_oid)
+                .context("failed to find new commit"),
+            |head, to_rebase| {
+                let head = head?;
+
+                let mut cherrypick_index = project_repository
+                    .git_repository
+                    .cherry_pick(&head, &to_rebase)
+                    .context("failed to cherry pick")?;
+
+                if cherrypick_index.has_conflicts() {
+                    bail!("failed to rebase");
+                }
+
+                let merge_tree_oid = cherrypick_index
+                    .write_tree_to(&project_repository.git_repository)
+                    .context("failed to write merge tree")?;
+
+                let merge_tree = project_repository
+                    .git_repository
+                    .find_tree(merge_tree_oid)
+                    .context("failed to find merge tree")?;
+
+                let commit_oid = project_repository
+                    .git_repository
+                    .commit(
+                        None,
+                        &to_rebase.author(),
+                        &to_rebase.committer(),
+                        &to_rebase.message().to_str_lossy(),
+                        &merge_tree,
+                        &[&head],
+                    )
+                    .context("failed to create commit")?;
+
+                project_repository
+                    .git_repository
+                    .find_commit(commit_oid)
+                    .context("failed to find commit")
+            },
+        )?
+        .id();
+
+    return Ok(Some(new_head_id));
 }
 
 pub fn simple_rebase(
@@ -2952,6 +3093,7 @@ pub fn simple_rebase(
             .inmemory_index()
             .context("failed to get inmemory index")?;
         if index.has_conflicts() {
+            dbg!("conflicts");
             rebase_success = false;
             break;
         }

@@ -379,6 +379,23 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
+    pub async fn insert_blank_commit(
+        handle: AppHandle,
+        project_id: ProjectId,
+        branch_id: BranchId,
+        commit_oid: git::Oid,
+        offset: i32,
+    ) -> Result<(), Error> {
+        let oid = handle
+            .state::<Controller>()
+            .insert_blank_commit(&project_id, &branch_id, commit_oid, offset)
+            .await?;
+        emit_vbranches(&handle, &project_id).await;
+        Ok(oid)
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn list_remote_branches(
         handle: tauri::AppHandle,
         project_id: ProjectId,

@@ -256,6 +256,7 @@ fn main() {
                     virtual_branches::commands::cherry_pick_onto_virtual_branch,
                     virtual_branches::commands::amend_virtual_branch,
                     virtual_branches::commands::undo_commit,
+                    virtual_branches::commands::insert_blank_commit,
                     virtual_branches::commands::update_commit_message,
                     virtual_branches::commands::list_remote_branches,
                     virtual_branches::commands::get_remote_branch_data,
