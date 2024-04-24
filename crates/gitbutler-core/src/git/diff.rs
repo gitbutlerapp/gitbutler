@@ -9,7 +9,6 @@ use tracing::instrument;
 
 use super::Repository;
 use crate::git;
-use crate::virtual_branches::BranchStatus;
 
 pub type DiffByPathMap = HashMap<PathBuf, FileDiff>;
 
@@ -428,8 +427,8 @@ pub fn reverse_hunk(hunk: &GitHunk) -> Option<GitHunk> {
     }
 }
 
-// TODO(ST): turning this into an iterator will trigger a cascade of changes that
-//           mean less unnecessary copies. It also leads to `virtual.rs` - 4k SLOC!
-pub fn diff_files_into_hunks(files: DiffByPathMap) -> BranchStatus {
-    HashMap::from_iter(files.into_iter().map(|(path, file)| (path, file.hunks)))
+pub fn diff_files_into_hunks(
+    files: DiffByPathMap,
+) -> impl Iterator<Item = (PathBuf, Vec<GitHunk>)> {
+    files.into_iter().map(|(path, file)| (path, file.hunks))
 }

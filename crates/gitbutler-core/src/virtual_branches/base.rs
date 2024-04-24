@@ -6,7 +6,7 @@ use serde::Serialize;
 use super::{
     branch, errors,
     integration::{update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE},
-    target, BranchId, RemoteCommit, VirtualBranchesHandle,
+    target, BranchId, RemoteCommit, VirtualBranchHunk, VirtualBranchesHandle,
 };
 use crate::{
     git::{self, diff},
@@ -193,20 +193,21 @@ pub fn set_base_branch(
 
         let wd_diff = diff::workdir(repo, &current_head_commit.id())?;
         if !wd_diff.is_empty() || current_head_commit.id() != target.sha {
-            let hunks_by_filepath = super::virtual_hunks_by_filepath_from_file_diffs(
-                &project_repository.project().path,
-                &wd_diff,
-            );
-
             // assign ownership to the branch
-            let ownership = hunks_by_filepath.values().flatten().fold(
+            let ownership = wd_diff.iter().fold(
                 BranchOwnershipClaims::default(),
-                |mut ownership, hunk| {
-                    ownership.put(
-                        &format!("{}:{}", hunk.file_path.display(), hunk.id)
+                |mut ownership, (file_path, diff)| {
+                    for hunk in &diff.hunks {
+                        ownership.put(
+                            &format!(
+                                "{}:{}",
+                                file_path.display(),
+                                VirtualBranchHunk::gen_id(hunk.new_start, hunk.new_lines)
+                            )
                             .parse()
                             .unwrap(),
-                    );
+                        );
+                    }
                     ownership
                 },
             );
@@ -254,7 +255,7 @@ pub fn set_base_branch(
                 tree: super::write_tree_onto_commit(
                     project_repository,
                     current_head_commit.id(),
-                    &diff::diff_files_into_hunks(wd_diff),
+                    diff::diff_files_into_hunks(wd_diff),
                 )?,
                 ownership,
                 order: 0,
@@ -267,7 +268,7 @@ pub fn set_base_branch(
 
     set_exclude_decoration(project_repository)?;
 
-    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+    update_gitbutler_integration(&vb_state, project_repository)?;
 
     let base = target_to_base_branch(project_repository, &target)?;
     Ok(base)

@@ -99,6 +99,7 @@ impl BranchOwnershipClaims {
     }
 
     // modifies the ownership in-place and returns the file ownership that was taken, if any.
+    // TODO(ST): better pass the necessary parts of `ownership` for flexibility - saves allocations
     pub fn take(&mut self, ownership: &OwnershipClaim) -> Vec<OwnershipClaim> {
         let mut taken = Vec::new();
         let mut remaining = Vec::new();
