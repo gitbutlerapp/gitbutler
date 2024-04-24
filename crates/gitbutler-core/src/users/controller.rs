@@ -1,7 +1,9 @@
 use anyhow::Context;
+use std::path::PathBuf;
 
 use super::{storage::Storage, User};
 
+/// TODO(ST): useless intermediary - remove
 #[derive(Clone)]
 pub struct Controller {
     storage: Storage,
@@ -12,7 +14,7 @@ impl Controller {
         Controller { storage }
     }
 
-    pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Controller {
+    pub fn from_path(path: impl Into<PathBuf>) -> Controller {
         Controller::new(Storage::from_path(path))
     }
 

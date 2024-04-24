@@ -5,7 +5,7 @@ use gitbutler_testsupport::{self, paths};
 
 pub fn new() -> (Controller, TempDir) {
     let data_dir = paths::data_dir();
-    let controller = Controller::from_path(&data_dir);
+    let controller = Controller::from_path(data_dir.path());
     (controller, data_dir)
 }
 

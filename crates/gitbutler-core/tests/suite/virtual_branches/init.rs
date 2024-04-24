@@ -3,10 +3,10 @@ use super::*;
 #[tokio::test]
 async fn twice() {
     let data_dir = paths::data_dir();
-    let keys = keys::Controller::from_path(&data_dir);
-    let projects = projects::Controller::from_path(&data_dir);
-    let users = users::Controller::from_path(&data_dir);
-    let helper = git::credentials::Helper::from_path(&data_dir);
+    let keys = keys::Controller::from_path(data_dir.path());
+    let projects = projects::Controller::from_path(data_dir.path());
+    let users = users::Controller::from_path(data_dir.path());
+    let helper = git::credentials::Helper::from_path(data_dir.path());
 
     let test_project = TestProject::default();
 

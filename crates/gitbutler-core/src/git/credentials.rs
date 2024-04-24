@@ -113,7 +113,8 @@ impl Helper {
         }
     }
 
-    pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Self {
+    pub fn from_path(path: impl Into<PathBuf>) -> Self {
+        let path = path.into();
         let keys = keys::Controller::from_path(&path);
         let users = users::Controller::from_path(path);
         let home_dir = std::env::var_os("HOME").map(PathBuf::from);
