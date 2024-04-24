@@ -48,7 +48,9 @@
 	function toggleFiles() {
 		showFiles = !showFiles;
 		if (!showFiles && branch) {
-			branchController.updateCommitMessage(branch.id, commit.id, description);
+			if (commit.description != description) {
+				branchController.updateCommitMessage(branch.id, commit.id, description);
+			}
 		}
 		if (showFiles) loadFiles();
 	}
@@ -73,6 +75,14 @@
 			return;
 		}
 		branchController.insertBlankCommit(branch.id, commit.id, offset);
+	}
+
+	function reorderCommit(commit: Commit | RemoteCommit, offset: number) {
+		if (!branch || !$baseBranch) {
+			console.error('Unable to move commit');
+			return;
+		}
+		branchController.reorderCommit(branch.id, commit.id, offset);
 	}
 
 	const isUndoable = !isUnapplied;
@@ -154,7 +164,24 @@
 					<Tag
 						style="ghost"
 						kind="solid"
-						icon="plus-small"
+						clickable
+						on:click={(e) => {
+							e.stopPropagation();
+							reorderCommit(commit, -1);
+						}}>Move Up</Tag
+					>
+					<Tag
+						style="ghost"
+						kind="solid"
+						clickable
+						on:click={(e) => {
+							e.stopPropagation();
+							reorderCommit(commit, 1);
+						}}>Move Down</Tag
+					>
+					<Tag
+						style="ghost"
+						kind="solid"
 						clickable
 						on:click={(e) => {
 							e.stopPropagation();
@@ -164,7 +191,6 @@
 					<Tag
 						style="ghost"
 						kind="solid"
-						icon="plus-small"
 						clickable
 						on:click={(e) => {
 							e.stopPropagation();

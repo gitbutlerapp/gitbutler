@@ -2851,6 +2851,115 @@ pub fn amend(
     }
 }
 
+pub fn reorder_commit(
+    project_repository: &project_repository::Repository,
+    branch_id: &BranchId,
+    commit_oid: git::Oid,
+    user: Option<&users::User>,
+    offset: i32,
+) -> Result<(), errors::ResetBranchError> {
+    dbg!(&commit_oid);
+
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+
+    let default_target = get_default_target(&vb_state)
+        .context("failed to read default target")?
+        .ok_or_else(|| {
+            errors::ResetBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+                project_id: project_repository.project().id,
+            })
+        })?;
+
+    let mut branch = match vb_state.get_branch(branch_id) {
+        Ok(branch) => Ok(branch),
+        Err(reader::Error::NotFound) => Err(errors::ResetBranchError::BranchNotFound(
+            errors::BranchNotFound {
+                branch_id: *branch_id,
+                project_id: project_repository.project().id,
+            },
+        )),
+        Err(error) => Err(errors::ResetBranchError::Other(error.into())),
+    }?;
+
+    // find the commit to offset from
+    let mut commit = project_repository
+        .git_repository
+        .find_commit(commit_oid)
+        .context("failed to find commit")?;
+
+    let parent = commit.parent(0).context("failed to find parent")?;
+    let parent_oid = parent.id();
+
+    if offset < 0 {
+        // move commit up
+        if branch.head == commit_oid {
+            // can't move the head commit up
+            dbg!("can't move the head commit up");
+            return Ok(());
+        }
+
+        // get a list of the commits to rebase
+        let mut ids_to_rebase = project_repository.l(
+            branch.head,
+            project_repository::LogUntil::Commit(commit.id()),
+        )?;
+        let last_oid = ids_to_rebase.pop().context("failed to pop last oid")?;
+        ids_to_rebase.push(commit_oid);
+        ids_to_rebase.push(last_oid);
+
+        match cherry_rebase_group(project_repository, parent_oid, &mut ids_to_rebase) {
+            Ok(Some(new_head)) => {
+                dbg!(&new_head);
+                branch.head = new_head;
+                vb_state
+                    .set_branch(branch.clone())
+                    .context("failed to write branch")?;
+
+                super::integration::update_gitbutler_integration(&vb_state, project_repository)
+                    .context("failed to update gitbutler integration")?;
+            }
+            _ => {
+                return Err(errors::ResetBranchError::Other(anyhow!("failed to rebase")));
+            }
+        }
+    } else {
+        //  move commit down
+        if default_target.sha == parent_oid {
+            // can't move the commit down past the target
+            return Ok(());
+        }
+
+        let target = parent.parent(0).context("failed to find target")?;
+        let target_oid = target.id();
+
+        // get a list of the commits to rebase
+        let mut ids_to_rebase = project_repository.l(
+            branch.head,
+            project_repository::LogUntil::Commit(commit.id()),
+        )?;
+        ids_to_rebase.push(parent_oid);
+        ids_to_rebase.push(commit_oid);
+
+        match cherry_rebase_group(project_repository, target_oid, &mut ids_to_rebase) {
+            Ok(Some(new_head)) => {
+                dbg!(&new_head);
+                branch.head = new_head;
+                vb_state
+                    .set_branch(branch.clone())
+                    .context("failed to write branch")?;
+
+                super::integration::update_gitbutler_integration(&vb_state, project_repository)
+                    .context("failed to update gitbutler integration")?;
+            }
+            _ => {
+                return Err(errors::ResetBranchError::Other(anyhow!("failed to rebase")));
+            }
+        }
+    }
+
+    return Ok(());
+}
+
 pub fn insert_blank_commit(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
@@ -2993,7 +3102,6 @@ pub fn cherry_rebase(
     end_commit_oid: git::Oid,
 ) -> Result<Option<git::Oid>, anyhow::Error> {
     let repo = &project_repository.git_repository;
-    let (_, committer) = project_repository.git_signatures(None)?;
 
     // get a list of the commits to rebase
     let mut ids_to_rebase = project_repository.l(
@@ -3005,6 +3113,17 @@ pub fn cherry_rebase(
         return Ok(None);
     }
 
+    let new_head_id =
+        cherry_rebase_group(project_repository, target_commit_oid, &mut ids_to_rebase)?;
+
+    return Ok(new_head_id);
+}
+
+fn cherry_rebase_group(
+    project_repository: &project_repository::Repository,
+    target_commit_oid: git::Oid,
+    ids_to_rebase: &mut Vec<git::Oid>,
+) -> Result<Option<git::Oid>, anyhow::Error> {
     ids_to_rebase.reverse();
     // now, rebase unchanged commits onto the new commit
     let commits_to_rebase = ids_to_rebase

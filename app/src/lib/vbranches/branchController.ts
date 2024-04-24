@@ -357,6 +357,19 @@ export class BranchController {
 		}
 	}
 
+	async reorderCommit(branchId: string, commitOid: string, offset: number) {
+		try {
+			await invoke<void>('reorder_commit', {
+				projectId: this.projectId,
+				branchId,
+				commitOid,
+				offset,
+			});
+		} catch (err: any) {
+			showError('Failed to reorder blank commit', err);
+		}
+	}
+
 	async moveCommit(targetBranchId: string, commitOid: string) {
 		try {
 			await invoke<void>('move_commit', {
