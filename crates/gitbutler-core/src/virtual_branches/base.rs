@@ -199,7 +199,7 @@ pub fn set_base_branch(
                 |mut ownership, (file_path, diff)| {
                     for hunk in &diff.hunks {
                         ownership.put(
-                            &format!(
+                            format!(
                                 "{}:{}",
                                 file_path.display(),
                                 VirtualBranchHunk::gen_id(hunk.new_start, hunk.new_lines)

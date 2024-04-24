@@ -80,7 +80,7 @@ impl BranchOwnershipClaims {
         true
     }
 
-    pub fn put(&mut self, ownership: &OwnershipClaim) {
+    pub fn put(&mut self, ownership: OwnershipClaim) {
         let target = self
             .claims
             .iter()
@@ -94,12 +94,11 @@ impl BranchOwnershipClaims {
         if let Some(target) = target {
             self.claims.insert(0, target.plus(ownership));
         } else {
-            self.claims.insert(0, ownership.clone());
+            self.claims.insert(0, ownership);
         }
     }
 
     // modifies the ownership in-place and returns the file ownership that was taken, if any.
-    // TODO(ST): better pass the necessary parts of `ownership` for flexibility - saves allocations
     pub fn take(&mut self, ownership: &OwnershipClaim) -> Vec<OwnershipClaim> {
         let mut taken = Vec::new();
         let mut remaining = Vec::new();

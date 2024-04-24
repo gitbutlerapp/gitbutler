@@ -1923,14 +1923,12 @@ fn get_applied_status(
                 _ => vec![],
             };
 
-            virtual_branches[vbranch_pos]
-                .ownership
-                .put(&OwnershipClaim {
-                    file_path: filepath.clone(),
-                    hunks: vec![Hunk::from(&hunk)
-                        .with_timestamp(mtimes.mtime_by_path(filepath.as_path()))
-                        .with_hash(Hunk::hash_diff(hunk.diff_lines.as_ref()))],
-                });
+            virtual_branches[vbranch_pos].ownership.put(OwnershipClaim {
+                file_path: filepath.clone(),
+                hunks: vec![Hunk::from(&hunk)
+                    .with_timestamp(mtimes.mtime_by_path(filepath.as_path()))
+                    .with_hash(Hunk::hash_diff(hunk.diff_lines.as_ref()))],
+            });
 
             let hunk = match locked_to {
                 Some(locks) => hunk.with_locks(locks),
@@ -2064,7 +2062,7 @@ pub fn reset_branch(
         for hunk in filediff.hunks {
             let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
             branch.ownership.put(
-                &format!(
+                format!(
                     "{}:{}-{}-{:?}",
                     path.display(),
                     hunk.new_start,
@@ -3513,7 +3511,7 @@ pub fn move_commit(
                 })?;
 
         for ownership in ownerships_to_transfer {
-            destination_branch.ownership.put(&ownership);
+            destination_branch.ownership.put(ownership);
         }
 
         let new_destination_tree_oid = write_tree_onto_commit(
@@ -3654,7 +3652,7 @@ pub fn create_virtual_branch_from_branch(
         |mut ownership, (file_path, file)| {
             for hunk in &file.hunks {
                 ownership.put(
-                    &format!(
+                    format!(
                         "{}:{}",
                         file_path.display(),
                         VirtualBranchHunk::gen_id(hunk.new_start, hunk.new_lines)
