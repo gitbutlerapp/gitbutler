@@ -54,11 +54,7 @@ impl Storage {
             AutoRemove::Tempfile,
         )?;
         tempfile.write_all(content.as_bytes())?;
-        match tempfile.persist(file_path) {
-            Ok(Some(_opened_file)) => Ok(()),
-            Ok(None) => unreachable!("BUG: a signal has caused the tempfile to be removed, but we didn't install a handler"),
-            Err(err) => Err(err.error)
-        }
+        persist_tempfile(tempfile, file_path)
     }
 
     /// Delete the file or directory at `rela_path`.
@@ -82,5 +78,18 @@ impl Storage {
             unreachable!("BUG: we do not create or work with symlinks")
         }
         Ok(())
+    }
+}
+
+pub(crate) fn persist_tempfile(
+    tempfile: gix::tempfile::Handle<gix::tempfile::handle::Writable>,
+    to_path: impl AsRef<Path>,
+) -> std::io::Result<()> {
+    match tempfile.persist(to_path) {
+        Ok(Some(_opened_file)) => Ok(()),
+        Ok(None) => unreachable!(
+            "BUG: a signal has caused the tempfile to be removed, but we didn't install a handler"
+        ),
+        Err(err) => Err(err.error),
     }
 }
