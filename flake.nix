@@ -28,8 +28,12 @@
             dbus
             openssl_3
             librsvg
+            gettext
+            libiconv
             libsoup_3
             webkitgtk
+            nodejs_20
+            nodePackages.pnpm
           ];
 
           # runtime Deps
@@ -51,22 +55,9 @@
         with pkgs;
         {
           devShells.default = mkShell {
-            # inherit buildInputs nativeBuildInputs;
             nativeBuildInputs = packages;
             buildInputs = libraries;
 
-            # XDG_DATA_DIRS = let
-            #   base = pkgs.lib.concatMapStringsSep ":" (x: "${x}/share") [
-            #     pkgs.gnome.adwaita-icon-theme
-            #     pkgs.shared-mime-info
-            #   ];
-            #
-            #   gsettings_schema = pkgs.lib.concatMapStringsSep ":" (x: "${x}/share/gsettings-schemas/${x.name}") [
-            #     pkgs.glib
-            #     pkgs.gsettings-desktop-schemas
-            #     pkgs.gtk3
-            #   ];
-            # in "${base}:${gsettings_schema}";
             shellHook =
               ''
                 export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath libraries}:$LD_LIBRARY_PATH
