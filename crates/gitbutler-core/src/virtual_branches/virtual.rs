@@ -33,9 +33,10 @@ use crate::{
         Commit, Refname, RemoteRefname,
     },
     keys,
-    path_serialization::wrap_path,
     project_repository::{self, conflicts, LogUntil},
-    reader, users,
+    reader,
+    serde::path::json_escape,
+    users,
 };
 use crate::{error::Error, git::diff::GitHunk};
 
@@ -111,9 +112,9 @@ pub struct VirtualBranchCommit {
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchFile {
-    #[serde(with = "crate::path_serialization")]
+    #[serde(with = "crate::serde::path")]
     pub id: PathBuf,
-    #[serde(with = "crate::path_serialization")]
+    #[serde(with = "crate::serde::path")]
     pub path: PathBuf,
     pub hunks: Vec<VirtualBranchHunk>,
     pub modified_at: u128,
@@ -137,7 +138,7 @@ pub struct VirtualBranchHunk {
     #[serde(serialize_with = "crate::serde::as_string_lossy")]
     pub diff: BString,
     pub modified_at: u128,
-    #[serde(with = "crate::path_serialization")]
+    #[serde(with = "crate::serde::path")]
     pub file_path: PathBuf,
     #[serde(serialize_with = "crate::serde::hash_to_hex")]
     pub hash: HunkHash,
@@ -1996,8 +1997,11 @@ fn virtual_hunks_to_virtual_files(
             binary: hunks.iter().any(|h| h.binary),
             large: false,
             modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
-            conflicted: conflicts::is_conflicting(project_repository, Some(wrap_path(&file_path)))
-                .unwrap_or(false),
+            conflicted: conflicts::is_conflicting(
+                project_repository,
+                Some(json_escape(&file_path)),
+            )
+            .unwrap_or(false),
         })
         .collect::<Vec<_>>()
 }
@@ -3636,7 +3640,7 @@ pub fn create_virtual_branch_from_branch(
         branch::BranchOwnershipClaims::default(),
         |mut ownership, hunk| {
             ownership.put(
-                &format!("{}:{}", wrap_path(&hunk.file_path), hunk.id)
+                &format!("{}:{}", json_escape(&hunk.file_path), hunk.id)
                     .parse()
                     .unwrap(),
             );

@@ -2,7 +2,7 @@ use std::{fmt, path, str::FromStr, vec};
 
 use anyhow::{Context, Result};
 
-use crate::path_serialization::{unwrap_path_str, wrap_path};
+use crate::serde::path::{json_escape, json_unescape};
 
 use super::hunk::Hunk;
 
@@ -30,7 +30,7 @@ impl FromStr for OwnershipClaim {
                 }
             }
         }
-        let Ok(path) = unwrap_path_str(&file_path_parts.join(":")) else {
+        let Ok(path) = json_unescape(&file_path_parts.join(":")) else {
             return Err(anyhow::anyhow!(
                 "failed to deserialize file ownership path as JSON"
             ));
@@ -166,7 +166,7 @@ impl OwnershipClaim {
 
 impl fmt::Display for OwnershipClaim {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
-        let path = wrap_path(&self.file_path);
+        let path = json_escape(&self.file_path);
         if self.hunks.is_empty() {
             write!(f, "{}", path)
         } else {

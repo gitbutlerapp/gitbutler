@@ -6,8 +6,8 @@ pub mod commands {
         assets,
         error::Code,
         git,
-        path_serialization::unwrap_path_str,
         projects::{self, ProjectId},
+        serde::path::json_unescape,
         virtual_branches::{
             branch::{self, BranchId, BranchOwnershipClaims},
             controller::Controller,
@@ -240,8 +240,7 @@ pub mod commands {
         // convert files to Vec<PathBuf>
         let files = files
             .split('\n')
-            .map(unwrap_path_str)
-            .map(|res| res.map(|p| p.into()))
+            .map(|path| json_unescape(path).map(Into::into))
             .collect::<Result<Vec<PathBuf>, _>>()?;
         handle
             .state::<Controller>()
