@@ -3,7 +3,7 @@ use serde::Serialize;
 
 use crate::{projects::Project, virtual_branches::VirtualBranchesHandle};
 
-use super::{reflog::SnapshotsReference, state::OplogHandle};
+use super::{reflog::set_reference_to_oplog, state::OplogHandle};
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -77,9 +77,11 @@ pub fn create(project: &Project, label: &str) -> Result<()> {
 
     oplog_state.set_oplog_head(new_commit_oid.to_string())?;
 
-    let reflog_hack = SnapshotsReference::new(project, &default_target_sha.to_string())?;
-    reflog_hack.set_target_ref(&default_target_sha.to_string())?;
-    reflog_hack.set_oplog_ref(&new_commit_oid.to_string())?;
+    set_reference_to_oplog(
+        project,
+        &default_target_sha.to_string(),
+        &new_commit_oid.to_string(),
+    )?;
 
     Ok(())
 }
