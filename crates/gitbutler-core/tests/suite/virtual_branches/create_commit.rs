@@ -26,7 +26,7 @@ async fn should_lock_updated_hunks() {
 
     {
         // by default, hunks are not locked
-        write_file(repository, "file.txt", &vec!["content".to_string()]);
+        write_file(repository, "file.txt", &["content".to_string()]);
 
         let branch = get_virtual_branch(controller, project_id, branch_id).await;
         assert_eq!(branch.files.len(), 1);
@@ -42,7 +42,7 @@ async fn should_lock_updated_hunks() {
 
     {
         // change in the committed hunks leads to hunk locking
-        write_file(repository, "file.txt", &vec!["updated content".to_string()]);
+        write_file(repository, "file.txt", &["updated content".to_string()]);
 
         let branch = controller
             .list_virtual_branches(project_id)
@@ -209,7 +209,69 @@ async fn should_double_lock() {
     assert_eq!(locks[1], commit_2);
 }
 
-fn write_file(repository: &TestProject, path: &str, lines: &Vec<String>) {
+// This test only validates that locks are detected across virtual branches, it does
+// not make any assertions about how said hunk is handled or what branch owns it.
+#[tokio::test]
+async fn should_double_lock_across_branches() {
+    let Test {
+        project_id,
+        controller,
+        repository,
+        ..
+    } = &Test::default();
+
+    let mut lines = gen_file(repository, "file.txt", 7);
+    commit_and_push_initial(repository);
+
+    controller
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .await
+        .unwrap();
+
+    let branch_1_id = controller
+        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .await
+        .unwrap();
+
+    lines[0] = "change 1".to_string();
+    write_file(repository, "file.txt", &lines);
+
+    let commit_1 = controller
+        .create_commit(project_id, &branch_1_id, "commit 1", None, false)
+        .await
+        .unwrap();
+
+    controller
+        .create_virtual_branch(
+            project_id,
+            &branch::BranchCreateRequest {
+                selected_for_changes: Some(true),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+    lines[6] = "change 2".to_string();
+    write_file(repository, "file.txt", &lines);
+
+    let commit_2 = controller
+        .create_commit(project_id, &branch_1_id, "commit 2", None, false)
+        .await
+        .unwrap();
+
+    lines[3] = "change3".to_string();
+    write_file(repository, "file.txt", &lines);
+
+    let branch = get_virtual_branch(controller, project_id, branch_1_id).await;
+    let locks = &branch.files[0].hunks[0].locked_to.clone().unwrap();
+
+    assert_eq!(locks.len(), 2);
+    assert_eq!(locks[0], commit_1);
+    assert_eq!(locks[1], commit_2);
+}
+
+fn write_file(repository: &TestProject, path: &str, lines: &[String]) {
     fs::write(repository.path().join(path), lines.join("\n")).unwrap()
 }
 
