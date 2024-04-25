@@ -22,7 +22,10 @@ pub fn create(project: Project, label: String) -> Result<String> {
 
     let oplog_state = OplogHandle::new(&project.gb_dir());
     let oplog_head_commit = match oplog_state.get_oplog_head()? {
-        Some(head_sha) => repo.find_commit(git2::Oid::from_str(&head_sha)?)?,
+        Some(head_sha) => match repo.find_commit(git2::Oid::from_str(&head_sha)?) {
+            Ok(commit) => commit,
+            Err(_) => repo.find_commit(default_target_sha.into())?,
+        },
         // This is the first snapshot - use the default target as starting point
         None => repo.find_commit(default_target_sha.into())?,
     };
