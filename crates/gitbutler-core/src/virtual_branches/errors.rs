@@ -55,6 +55,8 @@ pub enum ResetBranchError {
     DefaultTargetNotSet(DefaultTargetNotSet),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+    #[error(transparent)]
+    Git(#[from] git::Error),
 }
 
 impl ErrorWithContext for ResetBranchError {
@@ -66,6 +68,7 @@ impl ErrorWithContext for ResetBranchError {
                 error::Context::new(Code::Branches, format!("commit {} not found", oid))
             }
             ResetBranchError::Other(error) => return error.custom_context_or_root_cause().into(),
+            ResetBranchError::Git(_err) => return None,
         })
     }
 }

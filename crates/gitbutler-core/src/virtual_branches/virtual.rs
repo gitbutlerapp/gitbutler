@@ -2056,16 +2056,8 @@ pub fn reset_branch(
     let repo = &project_repository.git_repository;
     let diff = trees(
         repo,
-        &repo
-            .find_commit(updated_head)
-            .map_err(anyhow::Error::from)?
-            .tree()
-            .map_err(anyhow::Error::from)?,
-        &repo
-            .find_commit(old_head)
-            .map_err(anyhow::Error::from)?
-            .tree()
-            .map_err(anyhow::Error::from)?,
+        &repo.find_commit(updated_head)?.tree()?,
+        &repo.find_commit(old_head)?.tree()?,
     )?;
 
     // Assign the new hunks to the branch we're working on.
