@@ -3277,25 +3277,35 @@ pub fn insert_blank_commit(
     let commit_tree = commit.tree().unwrap();
     let blank_commit_oid = project_repository.commit(user, "", &commit_tree, &[&commit], None)?;
 
-    // rebase all commits above it onto the new commit
-    match cherry_rebase(
-        project_repository,
-        blank_commit_oid,
-        commit.id(),
-        branch.head,
-    ) {
-        Ok(Some(new_head)) => {
-            dbg!(&new_head);
-            branch.head = new_head;
-            vb_state
-                .set_branch(branch.clone())
-                .context("failed to write branch")?;
+    if (commit.id() == branch.head && offset < 0) {
+        // inserting before the first commit
+        branch.head = blank_commit_oid;
+        vb_state
+            .set_branch(branch.clone())
+            .context("failed to write branch")?;
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)
+            .context("failed to update gitbutler integration")?;
+    } else {
+        // rebase all commits above it onto the new commit
+        match cherry_rebase(
+            project_repository,
+            blank_commit_oid,
+            commit.id(),
+            branch.head,
+        ) {
+            Ok(Some(new_head)) => {
+                dbg!(&new_head);
+                branch.head = new_head;
+                vb_state
+                    .set_branch(branch.clone())
+                    .context("failed to write branch")?;
 
-            super::integration::update_gitbutler_integration(&vb_state, project_repository)
-                .context("failed to update gitbutler integration")?;
-        }
-        _ => {
-            return Err(errors::ResetBranchError::Other(anyhow!("failed to rebase")));
+                super::integration::update_gitbutler_integration(&vb_state, project_repository)
+                    .context("failed to update gitbutler integration")?;
+            }
+            _ => {
+                return Err(errors::ResetBranchError::Other(anyhow!("failed to rebase")));
+            }
         }
     }
 
