@@ -282,6 +282,7 @@ async fn should_double_lock() {
 
 // This test only validates that locks are detected across virtual branches, it does
 // not make any assertions about how said hunk is handled or what branch owns it.
+// TODO(mg): Figure out why we can't reduce line count down to three?
 #[tokio::test]
 async fn should_double_lock_across_branches() {
     let Test {
@@ -291,7 +292,7 @@ async fn should_double_lock_across_branches() {
         ..
     } = &Test::default();
 
-    let mut lines = gen_file(repository, "file.txt", 7);
+    let mut lines = gen_file(repository, "file.txt", 5);
     commit_and_push_initial(repository);
 
     controller
@@ -327,7 +328,7 @@ async fn should_double_lock_across_branches() {
         .await
         .unwrap();
 
-    lines[6] = "change 2".to_string();
+    lines[4] = "change 2".to_string();
     write_file(repository, "file.txt", &lines);
 
     let commit_2 = controller
@@ -335,7 +336,7 @@ async fn should_double_lock_across_branches() {
         .await
         .unwrap();
 
-    lines[3] = "change3".to_string();
+    lines[2] = "change3".to_string();
     write_file(repository, "file.txt", &lines);
 
     let branch_1 = get_virtual_branch(controller, project_id, branch_1_id).await;
