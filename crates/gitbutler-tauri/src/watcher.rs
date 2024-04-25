@@ -10,6 +10,7 @@ use tracing::instrument;
 mod event {
     use anyhow::{Context, Result};
     use gitbutler_core::projects::ProjectId;
+    use gitbutler_core::serde::path::json_escape;
     use gitbutler_watcher::Change;
     use tauri::Manager;
 
@@ -52,7 +53,7 @@ mod event {
                 } => ChangeForFrontend {
                     name: format!("project://{}/sessions/{}/files", project_id, session_id),
                     payload: serde_json::json!({
-                        "filePath": file_path,
+                        "filePath": json_escape(&file_path),
                         "contents": contents,
                     }),
                     project_id,

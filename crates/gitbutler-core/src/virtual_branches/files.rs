@@ -9,6 +9,7 @@ use crate::git::{self, diff};
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranchFile {
+    #[serde(with = "crate::serde::path")]
     pub path: path::PathBuf,
     pub hunks: Vec<diff::GitHunk>,
     pub binary: bool,

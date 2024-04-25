@@ -89,7 +89,7 @@ fn comma_separated_paths(paths: &[PathBuf]) -> String {
     let listing = paths
         .iter()
         .take(MAX_LISTING)
-        .filter_map(|path| path.to_str())
+        .map(|path| format!("{path:?}"))
         .collect::<Vec<_>>()
         .join(", ");
     let remaining = paths.len().saturating_sub(MAX_LISTING);

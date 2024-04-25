@@ -5,14 +5,16 @@ pub mod commands {
         askpass::AskpassBroker,
         assets,
         error::Code,
-        git, projects,
-        projects::ProjectId,
+        git,
+        projects::{self, ProjectId},
+        serde::path::json_unescape,
         virtual_branches::{
             branch::{self, BranchId, BranchOwnershipClaims},
             controller::Controller,
             BaseBranch, RemoteBranch, RemoteBranchData, RemoteBranchFile, VirtualBranches,
         },
     };
+    use std::path::PathBuf;
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
@@ -235,11 +237,11 @@ pub mod commands {
         project_id: ProjectId,
         files: &str,
     ) -> Result<(), Error> {
-        // convert files to Vec<String>
+        // convert files to Vec<PathBuf>
         let files = files
             .split('\n')
-            .map(std::string::ToString::to_string)
-            .collect::<Vec<String>>();
+            .map(|path| json_unescape(path).map(Into::into))
+            .collect::<Result<Vec<PathBuf>, _>>()?;
         handle
             .state::<Controller>()
             .reset_files(&project_id, &files)

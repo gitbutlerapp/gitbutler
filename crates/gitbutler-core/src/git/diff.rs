@@ -104,7 +104,9 @@ impl GitHunk {
 #[derive(Debug, PartialEq, Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FileDiff {
+    #[serde(with = "crate::serde::path::option")]
     pub old_path: Option<PathBuf>,
+    #[serde(with = "crate::serde::path::option")]
     pub new_path: Option<PathBuf>,
     /// Hunks might be empty if nothing about the files content is known, which happens
     /// if the content is skipped due to it being a large file.

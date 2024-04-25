@@ -2,6 +2,8 @@ use std::{fmt, path, str::FromStr, vec};
 
 use anyhow::{Context, Result};
 
+use crate::serde::path::{json_escape, json_unescape};
+
 use super::hunk::Hunk;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -28,13 +30,17 @@ impl FromStr for OwnershipClaim {
                 }
             }
         }
+        let Ok(path) = json_unescape(&file_path_parts.join(":")) else {
+            return Err(anyhow::anyhow!(
+                "failed to deserialize file ownership path as JSON"
+            ));
+        };
 
         if ranges.is_empty() {
             Err(anyhow::anyhow!("ownership ranges cannot be empty"))
         } else {
             Ok(Self {
-                file_path: file_path_parts
-                    .join(":")
+                file_path: path
                     .parse()
                     .context(format!("failed to parse file path from {}", value))?,
                 hunks: ranges.clone(),
@@ -160,13 +166,14 @@ impl OwnershipClaim {
 
 impl fmt::Display for OwnershipClaim {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        let path = json_escape(&self.file_path);
         if self.hunks.is_empty() {
-            write!(f, "{}", self.file_path.display())
+            write!(f, "{}", path)
         } else {
             write!(
                 f,
                 "{}:{}",
-                self.file_path.display(),
+                path,
                 self.hunks
                     .iter()
                     .map(ToString::to_string)

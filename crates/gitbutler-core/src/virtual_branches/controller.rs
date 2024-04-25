@@ -1,4 +1,5 @@
 use crate::error::Error;
+use std::path::PathBuf;
 use std::{collections::HashMap, path::Path, sync::Arc};
 
 use anyhow::Context;
@@ -213,7 +214,7 @@ impl Controller {
     pub async fn reset_files(
         &self,
         project_id: &ProjectId,
-        files: &Vec<String>,
+        files: &Vec<PathBuf>,
     ) -> Result<(), Error> {
         self.inner(project_id)
             .await
@@ -630,7 +631,7 @@ impl ControllerInner {
     pub async fn reset_files(
         &self,
         project_id: &ProjectId,
-        ownership: &Vec<String>,
+        ownership: &Vec<PathBuf>,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
