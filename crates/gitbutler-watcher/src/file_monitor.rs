@@ -12,11 +12,8 @@ use tracing::Level;
 
 /// The timeout for debouncing file change events.
 /// This is used to prevent multiple events from being sent for a single file change.
-const DEBOUNCE_TIMEOUT: Duration = Duration::from_millis(if cfg!(feature = "adapt-to-windows") {
-    2000
-} else {
-    100
-});
+const DEBOUNCE_TIMEOUT: Duration =
+    Duration::from_millis(if cfg!(feature = "windows") { 2000 } else { 100 });
 
 /// This error is required only because `anyhow::Error` isn't implementing `std::error::Error`, and [`spawn()`]
 /// needs to wrap it into a `backoff::Error` which also has to implement the `Error` trait.

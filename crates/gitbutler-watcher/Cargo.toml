@@ -7,7 +7,7 @@ publish = false
 [features]
 default = []
 ## A trial to see if doing things differently on Windows helps with #3601
-adapt-to-windows = []
+windows = []
 
 [lib]
 doctest = false
