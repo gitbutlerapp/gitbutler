@@ -9,8 +9,8 @@ export function getLockText(hunkLocks: HunkLock | HunkLock[] | string, commits: 
 	const descriptions = locks
 		.filter(unique)
 		.map((lock) => {
-			const commit = commits.find((commit) => {
-				commit.id == lock.commitId;
+			const commit = commits.find((c) => {
+				return c.id == lock.commitId;
 			});
 			const shortCommitId = commit?.id.slice(0, 7);
 			if (commit) {

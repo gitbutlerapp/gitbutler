@@ -55,7 +55,7 @@
 					<div class="indicators text-base-11">
 						<span class="added">+{added}</span>
 						<span class="removed">-{removed}</span>
-						{#if section.hunk.lockedTo && commits}
+						{#if section.hunk.lockedTo && section.hunk.lockedTo.length > 0 && commits}
 							<div
 								use:tooltip={{
 									text: getLockText(section.hunk.lockedTo, commits),
