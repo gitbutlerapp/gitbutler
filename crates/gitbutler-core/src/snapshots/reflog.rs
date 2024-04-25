@@ -42,7 +42,7 @@ impl SnapshotsReference {
         // 0000000000000000000000000000000000000000 82873b54925ab268e9949557f28d070d388e7774 Kiril Videlov <kiril@videlov.com> 1714037434 +0200       branch: Created from 82873b54925ab268e9949557f28d070d388e7774
         let content = std::fs::read_to_string(&self.file_path)?;
         let mut lines = content.lines().collect::<Vec<_>>();
-        let mut first_line = lines.remove(0).split_whitespace().collect_vec();
+        let mut first_line = lines[0].split_whitespace().collect_vec();
         let len = first_line.len();
         first_line[1] = sha;
         first_line[len - 1] = sha;
