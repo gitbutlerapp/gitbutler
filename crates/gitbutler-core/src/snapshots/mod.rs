@@ -1,3 +1,3 @@
-pub mod reflog;
+mod reflog;
 pub mod snapshot;
 mod state;
