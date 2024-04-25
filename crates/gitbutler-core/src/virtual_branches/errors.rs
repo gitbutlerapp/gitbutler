@@ -6,6 +6,59 @@ use crate::{
     projects::ProjectId,
 };
 
+// Generic error enum for use in the virtual branches module.
+#[derive(Debug, thiserror::Error)]
+pub enum VirtualBranchError {
+    #[error("project")]
+    Conflict(ProjectConflict),
+    #[error("branch not found")]
+    BranchNotFound(BranchNotFound),
+    #[error("default target not set")]
+    DefaultTargetNotSet(DefaultTargetNotSet),
+    #[error("target ownership not found")]
+    TargetOwnerhshipNotFound(BranchOwnershipClaims),
+    #[error("git object {0} not found")]
+    GitObjectNotFound(git::Oid),
+    #[error("commit failed")]
+    CommitFailed,
+    #[error("rebase failed")]
+    RebaseFailed,
+    #[error("force push not allowed")]
+    ForcePushNotAllowed(ForcePushNotAllowed),
+    #[error("branch has no commits")]
+    BranchHasNoCommits,
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
+impl ErrorWithContext for VirtualBranchError {
+    fn context(&self) -> Option<Context> {
+        Some(match self {
+            VirtualBranchError::Conflict(ctx) => ctx.to_context(),
+            VirtualBranchError::BranchNotFound(ctx) => ctx.to_context(),
+            VirtualBranchError::DefaultTargetNotSet(ctx) => ctx.to_context(),
+            VirtualBranchError::TargetOwnerhshipNotFound(_) => {
+                error::Context::new_static(Code::Branches, "target ownership not found")
+            }
+            VirtualBranchError::GitObjectNotFound(oid) => {
+                error::Context::new(Code::Branches, format!("git object {oid} not found"))
+            }
+            VirtualBranchError::CommitFailed => {
+                error::Context::new_static(Code::Branches, "commit failed")
+            }
+            VirtualBranchError::RebaseFailed => {
+                error::Context::new_static(Code::Branches, "rebase failed")
+            }
+            VirtualBranchError::BranchHasNoCommits => error::Context::new_static(
+                Code::Branches,
+                "Branch has no commits - there is nothing to amend to",
+            ),
+            VirtualBranchError::ForcePushNotAllowed(ctx) => ctx.to_context(),
+            VirtualBranchError::Other(error) => return error.custom_context_or_root_cause().into(),
+        })
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum VerifyError {
     #[error("head is detached")]
