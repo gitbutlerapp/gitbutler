@@ -13,7 +13,7 @@ pub struct SnapshotEntry {
     pub created_at: i64, // milliseconds since epoch
 }
 
-pub fn create(project: Project, label: String) -> Result<String> {
+pub fn create(project: Project, label: String) -> Result<()> {
     let repo_path = project.path.as_path();
     let repo = git2::Repository::init(repo_path)?;
 
@@ -77,7 +77,7 @@ pub fn create(project: Project, label: String) -> Result<String> {
     reflog_hack.set_target_ref(&default_target_sha.to_string())?;
     reflog_hack.set_oplog_ref(&new_commit_oid.to_string())?;
 
-    Ok(new_commit_oid.to_string())
+    Ok(())
 }
 
 pub fn list(project: Project, limit: usize) -> Result<Vec<SnapshotEntry>> {
@@ -121,7 +121,7 @@ pub fn list(project: Project, limit: usize) -> Result<Vec<SnapshotEntry>> {
     Ok(snapshots)
 }
 
-pub fn restore(project: Project, sha: String) -> Result<String> {
+pub fn restore(project: Project, sha: String) -> Result<()> {
     let repo_path = project.path.as_path();
     let repo = git2::Repository::init(repo_path)?;
 
@@ -145,7 +145,7 @@ pub fn restore(project: Project, sha: String) -> Result<String> {
         "Restored from snapshot {}",
         commit.message().unwrap_or(&sha)
     );
-    let new_sha = create(project, label)?;
+    create(project, label)?;
 
-    Ok(new_sha)
+    Ok(())
 }

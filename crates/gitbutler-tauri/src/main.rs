@@ -260,7 +260,6 @@ fn main() {
                     virtual_branches::commands::squash_branch_commit,
                     virtual_branches::commands::fetch_from_target,
                     virtual_branches::commands::move_commit,
-                    snapshots::create_snapshot,
                     snapshots::list_snapshots,
                     snapshots::restore_snapshot,
                     menu::menu_item_set_enabled,
