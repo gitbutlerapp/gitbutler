@@ -2807,7 +2807,7 @@ pub fn move_commit_file(
 
         let new_from_tree_oid =
             write_tree_onto_commit(project_repository, from_parent.id(), &diffs_to_keep)?;
-        let new_from_tree = &repo.find_tree(new_from_tree_oid).or_else(|error| {
+        let new_from_tree = &repo.find_tree(new_from_tree_oid).or_else(|_error| {
             return Err(errors::AmendError::TargetOwnerhshipNotFound(
                 target_ownership.clone(),
             ));
@@ -2822,7 +2822,7 @@ pub fn move_commit_file(
                 &new_from_tree,
                 &[&from_parent],
             )
-            .or_else(|error| {
+            .or_else(|_error| {
                 return Err(errors::AmendError::TargetOwnerhshipNotFound(
                     target_ownership.clone(),
                 ));
@@ -3131,7 +3131,6 @@ pub fn reorder_commit(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     commit_oid: git::Oid,
-    user: Option<&users::User>,
     offset: i32,
 ) -> Result<(), errors::ResetBranchError> {
     dbg!(&commit_oid);
@@ -3158,7 +3157,7 @@ pub fn reorder_commit(
     }?;
 
     // find the commit to offset from
-    let mut commit = project_repository
+    let commit = project_repository
         .git_repository
         .find_commit(commit_oid)
         .context("failed to find commit")?;
@@ -3245,14 +3244,6 @@ pub fn insert_blank_commit(
 ) -> Result<(), errors::ResetBranchError> {
     let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = get_default_target(&vb_state)
-        .context("failed to read default target")?
-        .ok_or_else(|| {
-            errors::ResetBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
-                project_id: project_repository.project().id,
-            })
-        })?;
-
     let mut branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::ResetBranchError::BranchNotFound(
@@ -3277,7 +3268,7 @@ pub fn insert_blank_commit(
     let commit_tree = commit.tree().unwrap();
     let blank_commit_oid = project_repository.commit(user, "", &commit_tree, &[&commit], None)?;
 
-    if (commit.id() == branch.head && offset < 0) {
+    if commit.id() == branch.head && offset < 0 {
         // inserting before the first commit
         branch.head = blank_commit_oid;
         vb_state
@@ -3319,14 +3310,6 @@ pub fn undo_commit(
 ) -> Result<(), errors::ResetBranchError> {
     let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = get_default_target(&vb_state)
-        .context("failed to read default target")?
-        .ok_or_else(|| {
-            errors::ResetBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
-                project_id: project_repository.project().id,
-            })
-        })?;
-
     let mut branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::ResetBranchError::BranchNotFound(
@@ -3338,12 +3321,12 @@ pub fn undo_commit(
         Err(error) => Err(errors::ResetBranchError::Other(error.into())),
     }?;
 
-    let mut new_commit_oid = commit_oid;
-
     let commit = project_repository
         .git_repository
         .find_commit(commit_oid)
         .context("failed to find commit")?;
+
+    let new_commit_oid;
 
     if branch.head == commit_oid {
         // if commit is the head, just set head to the parent
@@ -3387,8 +3370,6 @@ pub fn cherry_rebase(
     start_commit_oid: git::Oid,
     end_commit_oid: git::Oid,
 ) -> Result<Option<git::Oid>, anyhow::Error> {
-    let repo = &project_repository.git_repository;
-
     // get a list of the commits to rebase
     let mut ids_to_rebase = project_repository.l(
         end_commit_oid,
