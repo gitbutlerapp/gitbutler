@@ -28,6 +28,7 @@ pub mod keys;
 pub mod projects;
 pub mod sentry;
 pub mod sessions;
+pub mod snapshots;
 pub mod users;
 pub mod virtual_branches;
 pub mod zip;
