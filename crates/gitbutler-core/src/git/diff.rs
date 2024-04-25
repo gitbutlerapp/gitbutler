@@ -53,7 +53,7 @@ pub struct GitHunk {
     #[serde(rename = "diff", serialize_with = "crate::serde::as_string_lossy")]
     pub diff_lines: BString,
     pub binary: bool,
-    pub locked_to: Box<[git::Oid]>,
+    pub locked_to: Box<[HunkLock]>,
     pub change_type: ChangeType,
 }
 
@@ -95,10 +95,20 @@ impl GitHunk {
         self.new_start <= line && self.new_start + self.new_lines >= line
     }
 
-    pub fn with_locks(mut self, locks: &[git::Oid]) -> Self {
+    pub fn with_locks(mut self, locks: &[HunkLock]) -> Self {
         self.locked_to = locks.to_owned().into();
         self
     }
+}
+
+// A hunk is locked when it depends on changes in commits that are in your
+// workspace. A hunk can be locked to more than one branch if it overlaps
+// with more than one committed hunk.
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Copy)]
+#[serde(rename_all = "camelCase")]
+pub struct HunkLock {
+    pub branch_id: uuid::Uuid,
+    pub commit_id: git::Oid,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Default)]

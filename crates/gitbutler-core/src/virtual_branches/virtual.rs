@@ -24,6 +24,7 @@ use super::{
     branch_to_remote_branch, errors, target, RemoteBranch, VirtualBranchesHandle,
 };
 use crate::git::diff::{diff_files_into_hunks, trees, DiffByPathMap};
+use crate::id::Id;
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
     askpass::AskpassBroker,
@@ -143,7 +144,7 @@ pub struct VirtualBranchHunk {
     pub end: u32,
     pub binary: bool,
     pub locked: bool,
-    pub locked_to: Option<Box<[git::Oid]>>,
+    pub locked_to: Option<Box<[diff::HunkLock]>>,
     pub change_type: diff::ChangeType,
 }
 
@@ -1734,13 +1735,20 @@ fn get_applied_status(
             ];
     }
 
+    let mut commit_to_branch = HashMap::new();
+    for branch in &mut virtual_branches {
+        for commit in project_repository.log(branch.head, LogUntil::Commit(*target_sha))? {
+            commit_to_branch.insert(commit.id(), branch.id);
+        }
+    }
+
     let mut diffs_by_branch: HashMap<BranchId, BranchStatus> = virtual_branches
         .iter()
         .map(|branch| (branch.id, HashMap::new()))
         .collect();
 
     let mut mtimes = MTimeCache::default();
-    let mut locked_hunk_map = HashMap::<HunkHash, Vec<git::Oid>>::new();
+    let mut locked_hunk_map = HashMap::<HunkHash, Vec<diff::HunkLock>>::new();
 
     let merge_base = project_repository
         .git_repository
@@ -1783,26 +1791,26 @@ fn get_applied_status(
 
                 if let Ok(blame) = blame {
                     for blame_hunk in blame.iter() {
-                        let commit = git::Oid::from(blame_hunk.orig_commit_id());
-                        if commit != *target_sha && commit != *integration_commit {
+                        let commit_id = git::Oid::from(blame_hunk.orig_commit_id());
+                        if commit_id != *target_sha && commit_id != *integration_commit {
                             let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
+                            let branch_id = uuid::Uuid::parse_str(
+                                &commit_to_branch.get(&commit_id).unwrap().to_string(),
+                            )?;
+                            let hunk_lock = diff::HunkLock {
+                                branch_id,
+                                commit_id,
+                            };
                             locked_hunk_map
                                 .entry(hash)
-                                .and_modify(|commits| {
-                                    commits.push(commit);
+                                .and_modify(|locks| {
+                                    locks.push(hunk_lock);
                                 })
-                                .or_insert(vec![commit]);
+                                .or_insert(vec![hunk_lock]);
                         }
                     }
                 }
             }
-        }
-    }
-
-    let mut commit_to_branch = HashMap::new();
-    for branch in &mut virtual_branches {
-        for commit in project_repository.log(branch.head, LogUntil::Commit(*target_sha))? {
-            commit_to_branch.insert(commit.id(), branch.id);
         }
     }
 
@@ -1902,9 +1910,11 @@ fn get_applied_status(
             let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
             let locked_to = locked_hunk_map.get(&hash);
 
-            let vbranch_pos = if let Some(locked_to) = locked_to {
-                let branch_id = commit_to_branch.get(&locked_to[0]).unwrap();
-                let p = virtual_branches.iter().position(|vb| vb.id == *branch_id);
+            let vbranch_pos = if let Some(locks) = locked_to {
+                let first_lock = &locks[0];
+                let p = virtual_branches
+                    .iter()
+                    .position(|vb| vb.id == Id::<Branch>::from(first_lock.branch_id));
                 match p {
                     Some(p) => p,
                     _ => default_vbranch_pos,
