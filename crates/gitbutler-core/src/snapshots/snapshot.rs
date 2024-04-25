@@ -14,7 +14,7 @@ pub struct SnapshotEntry {
 }
 
 pub fn create(project: &Project, label: &str) -> Result<()> {
-    if let Some(false) = project.enable_snapshots {
+    if project.enable_snapshots.is_none() || project.enable_snapshots == Some(false) {
         return Ok(());
     }
 
