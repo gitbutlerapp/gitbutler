@@ -306,7 +306,12 @@ export class BranchController {
 		}
 	}
 
-	async moveCommitFile(branchId: string, fromCommitOid: string, toCommitOid: string, ownership: string) {
+	async moveCommitFile(
+		branchId: string,
+		fromCommitOid: string,
+		toCommitOid: string,
+		ownership: string
+	) {
 		try {
 			await invoke<void>('move_commit_file', {
 				projectId: this.projectId,
@@ -325,7 +330,7 @@ export class BranchController {
 			await invoke<void>('undo_commit', {
 				projectId: this.projectId,
 				branchId,
-				commitOid,
+				commitOid
 			});
 		} catch (err: any) {
 			showError('Failed to amend commit', err);
@@ -338,7 +343,7 @@ export class BranchController {
 				projectId: this.projectId,
 				branchId,
 				commitOid,
-				message,
+				message
 			});
 		} catch (err: any) {
 			showError('Failed to change commit message', err);
@@ -351,7 +356,7 @@ export class BranchController {
 				projectId: this.projectId,
 				branchId,
 				commitOid,
-				offset,
+				offset
 			});
 		} catch (err: any) {
 			showError('Failed to insert blank commit', err);
@@ -364,7 +369,7 @@ export class BranchController {
 				projectId: this.projectId,
 				branchId,
 				commitOid,
-				offset,
+				offset
 			});
 		} catch (err: any) {
 			showError('Failed to reorder blank commit', err);

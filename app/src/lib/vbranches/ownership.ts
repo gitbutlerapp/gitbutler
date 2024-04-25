@@ -8,7 +8,10 @@ export function filesToOwnership(files: AnyFile[]) {
 
 export function filesToSimpleOwnership(files: RemoteFile[]) {
 	return files
-		.map((f) => `${f.path}:${f.hunks.map(({ new_start, new_lines }) => `${new_start}-${new_start + new_lines}`).join(',')}`)
+		.map(
+			(f) =>
+				`${f.path}:${f.hunks.map(({ new_start, new_lines }) => `${new_start}-${new_start + new_lines}`).join(',')}`
+		)
 		.join('\n');
 }
 

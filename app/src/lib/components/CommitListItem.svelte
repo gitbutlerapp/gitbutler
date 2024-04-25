@@ -7,7 +7,14 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { filesToOwnership, filesToSimpleOwnership } from '$lib/vbranches/ownership';
-	import { RemoteCommit, Branch, type Commit, BaseBranch, LocalFile, RemoteFile } from '$lib/vbranches/types';
+	import {
+		RemoteCommit,
+		Branch,
+		type Commit,
+		BaseBranch,
+		LocalFile,
+		RemoteFile
+	} from '$lib/vbranches/types';
 
 	export let commit: Commit | RemoteCommit;
 	export let isHeadCommit: boolean;
@@ -67,7 +74,7 @@
 					}
 				}
 			}
-		}
+		};
 	}
 
 	function acceptSquash(commit: Commit | RemoteCommit) {

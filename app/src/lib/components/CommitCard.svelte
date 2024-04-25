@@ -101,26 +101,33 @@
 >
 	{#if isUndoable && showFiles}
 		<div class="commit__edit_description">
-			<textarea placeholder="commit message here" bind:value={description} rows="{commit.description.split("\n").length + 1}"></textarea>
+			<textarea
+				placeholder="commit message here"
+				bind:value={description}
+				rows={commit.description.split('\n').length + 1}
+			></textarea>
 		</div>
 	{/if}
 	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
 		<div class="commit__message">
 			{#if !showFiles}
-			<div class="commit__id">
-				<code>{commit.id.substring(0, 6)}</code>
-			</div>
+				<div class="commit__id">
+					<code>{commit.id.substring(0, 6)}</code>
+				</div>
 			{/if}
 			<div class="commit__row">
 				{#if isUndoable && !showFiles}
 					{#if commit.descriptionTitle}
-					<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
+						<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
 							{commit.descriptionTitle}
-					</span>
+						</span>
 					{:else}
-					<span class="commit__title_no_desc text-zinc-400 text-base-12" class:truncate={!showFiles}>
-						<i>empty commit message</i>
-					</span>
+						<span
+							class="commit__title_no_desc text-base-12 text-zinc-400"
+							class:truncate={!showFiles}
+						>
+							<i>empty commit message</i>
+						</span>
 					{/if}
 					<Tag
 						style="ghost"
