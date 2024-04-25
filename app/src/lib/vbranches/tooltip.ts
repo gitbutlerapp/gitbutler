@@ -1,3 +1,4 @@
+import { unique } from '$lib/utils/filters';
 import type { Commit } from './types';
 
 export function getLockText(commitId: string[] | string, commits: Commit[]): string {
@@ -6,6 +7,7 @@ export function getLockText(commitId: string[] | string, commits: Commit[]): str
 	const lockedIds = typeof commitId == 'string' ? [commitId] : (commitId as string[]);
 
 	const descriptions = lockedIds
+		.filter(unique)
 		.map((id) => {
 			const commit = commits.find((commit) => commit.id == id);
 			const shortCommitId = commit?.id.slice(0, 7);
