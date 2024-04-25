@@ -234,6 +234,26 @@ impl Controller {
             .await
     }
 
+    pub async fn move_commit_file(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        from_commit_oid: git::Oid,
+        to_commit_oid: git::Oid,
+        ownership: &BranchOwnershipClaims,
+    ) -> Result<git::Oid, Error> {
+        self.inner(project_id)
+            .await
+            .move_commit_file(
+                project_id,
+                branch_id,
+                from_commit_oid,
+                to_commit_oid,
+                ownership,
+            )
+            .await
+    }
+
     pub async fn undo_commit(
         &self,
         project_id: &ProjectId,
@@ -689,6 +709,28 @@ impl ControllerInner {
 
         self.with_verify_branch(project_id, |project_repository, _| {
             super::amend(project_repository, branch_id, commit_oid, ownership).map_err(Into::into)
+        })
+    }
+
+    pub async fn move_commit_file(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        from_commit_oid: git::Oid,
+        to_commit_oid: git::Oid,
+        ownership: &BranchOwnershipClaims,
+    ) -> Result<git::Oid, Error> {
+        let _permit = self.semaphore.acquire().await;
+
+        self.with_verify_branch(project_id, |project_repository, _| {
+            super::move_commit_file(
+                project_repository,
+                branch_id,
+                from_commit_oid,
+                to_commit_oid,
+                ownership,
+            )
+            .map_err(Into::into)
         })
     }
 

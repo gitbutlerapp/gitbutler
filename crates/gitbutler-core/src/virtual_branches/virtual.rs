@@ -2671,6 +2671,150 @@ pub fn is_virtual_branch_mergeable(
     Ok(is_mergeable)
 }
 
+pub fn move_commit_file(
+    project_repository: &project_repository::Repository,
+    branch_id: &BranchId,
+    from_commit_oid: git::Oid,
+    to_commit_oid: git::Oid,
+    target_ownership: &BranchOwnershipClaims,
+) -> Result<git::Oid, errors::AmendError> {
+    dbg!(&from_commit_oid, &to_commit_oid);
+    dbg!(&target_ownership);
+
+    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+
+    let mut target_branch = match vb_state.get_branch(branch_id) {
+        Ok(branch) => Ok(branch),
+        Err(reader::Error::NotFound) => return Ok(to_commit_oid), // this is wrong
+        Err(error) => Err(error),
+    }
+    .context("failed to read branch")?;
+
+    let default_target = get_default_target(&vb_state)
+        .context("failed to read default target")?
+        .ok_or_else(|| {
+            errors::AmendError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+                project_id: project_repository.project().id,
+            })
+        })?;
+
+    // see if we're moving up or down
+
+    let amend_commit = project_repository
+        .git_repository
+        .find_commit(to_commit_oid)
+        .context("failed to find commit")?;
+
+    let upstream_commits = project_repository.l(
+        target_branch.head,
+        project_repository::LogUntil::Commit(amend_commit.id()),
+    )?;
+
+    // is from_commit_oid in upstream_commits?
+    if upstream_commits.contains(&from_commit_oid) {
+        dbg!("moving down");
+    } else {
+        dbg!("moving up");
+        return Ok(target_branch.head);
+    }
+
+    let base_file_diffs = diff::workdir(&project_repository.git_repository, &default_target.sha)
+        .context("failed to diff workdir")?;
+
+    // filter base_file_diffs to HashMap<filepath, Vec<GitHunk>> only for hunks in target_ownership
+    let diffs_to_amend = target_ownership
+        .claims
+        .iter()
+        .filter_map(|file_ownership| {
+            let hunks = base_file_diffs
+                .get(&file_ownership.file_path)
+                .map(|hunks| {
+                    hunks
+                        .hunks
+                        .iter()
+                        .filter(|hunk| {
+                            file_ownership.hunks.iter().any(|owned_hunk| {
+                                owned_hunk.start == hunk.new_start
+                                    && owned_hunk.end == hunk.new_start + hunk.new_lines
+                            })
+                        })
+                        .cloned()
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            if hunks.is_empty() {
+                None
+            } else {
+                Some((file_ownership.file_path.clone(), hunks))
+            }
+        })
+        .collect::<HashMap<_, _>>();
+
+    dbg!(&diffs_to_amend);
+    dbg!(base_file_diffs);
+
+    if diffs_to_amend.is_empty() {
+        return Err(errors::AmendError::TargetOwnerhshipNotFound(
+            target_ownership.clone(),
+        ));
+    }
+
+    // apply diffs_to_amend to the commit tree
+    let new_tree_oid = write_tree_onto_commit(project_repository, to_commit_oid, &diffs_to_amend)?;
+    let new_tree = project_repository
+        .git_repository
+        .find_tree(new_tree_oid)
+        .context("failed to find new tree")?;
+
+    let parents = amend_commit
+        .parents()
+        .context("failed to find head commit parents")?;
+
+    let commit_oid = project_repository
+        .git_repository
+        .commit(
+            None,
+            &amend_commit.author(),
+            &amend_commit.committer(),
+            &amend_commit.message().to_str_lossy(),
+            &new_tree,
+            &parents.iter().collect::<Vec<_>>(),
+        )
+        .context("failed to create commit")?;
+
+    dbg!(&commit_oid);
+
+    // now rebase upstream commits, if needed
+
+    // if there are no upstream commits, we're done
+    if upstream_commits.is_empty() {
+        target_branch.head = commit_oid;
+        vb_state.set_branch(target_branch.clone())?;
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+        return Ok(commit_oid);
+    }
+
+    let last_commit = upstream_commits.first().cloned().unwrap();
+
+    let new_head = cherry_rebase(
+        project_repository,
+        commit_oid,
+        amend_commit.id(),
+        last_commit,
+    )?;
+
+    if let Some(new_head) = new_head {
+        target_branch.head = new_head;
+        vb_state.set_branch(target_branch.clone())?;
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+        return Ok(commit_oid);
+    } else {
+        return Err(errors::AmendError::Conflict(errors::ProjectConflict {
+            project_id: project_repository.project().id,
+        }));
+    }
+}
+
 pub fn amend(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
@@ -2788,6 +2932,8 @@ pub fn amend(
         })
         .collect::<HashMap<_, _>>();
 
+    dbg!(&diffs_to_amend);
+
     if diffs_to_amend.is_empty() {
         return Err(errors::AmendError::TargetOwnerhshipNotFound(
             target_ownership.clone(),
@@ -2832,7 +2978,7 @@ pub fn amend(
 
     let last_commit = upstream_commits.first().cloned().unwrap();
 
-    let new_head = simple_rebase(
+    let new_head = cherry_rebase(
         project_repository,
         commit_oid,
         amend_commit.id(),

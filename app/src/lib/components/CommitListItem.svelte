@@ -6,7 +6,7 @@
 	import { dropzone } from '$lib/dragging/dropzone';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { filesToOwnership } from '$lib/vbranches/ownership';
+	import { filesToOwnership, filesToSimpleOwnership } from '$lib/vbranches/ownership';
 	import { RemoteCommit, Branch, type Commit, BaseBranch, LocalFile, RemoteFile } from '$lib/vbranches/types';
 
 	export let commit: Commit | RemoteCommit;
@@ -43,21 +43,28 @@
 	}
 
 	function onAmend(commit: Commit | RemoteCommit) {
-		return (data: DraggableCommit) => {
+		return (data: any) => {
 			console.log(commit);
 			console.log(data);
+			console.log(data.commit);
+			console.log(data.commit?.id);
 			if (data instanceof DraggableHunk) {
 				const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
 				branchController.amendBranch($branch.id, commit.id, newOwnership);
 			} else if (data instanceof DraggableFile) {
 				if (data.file instanceof LocalFile) {
 					const newOwnership = filesToOwnership(data.files);
+					console.log(newOwnership);
 					branchController.amendBranch($branch.id, commit.id, newOwnership);
 				} else if (data.file instanceof RemoteFile) {
 					console.log(data.files);
 					console.log(commit.id);
 					console.log(data);
-					branchController.moveCommitFile($branch.id, commit.id, '');
+					const newOwnership = filesToSimpleOwnership(data.files);
+					console.log(newOwnership);
+					if (data.commit) {
+						branchController.moveCommitFile($branch.id, data.commit.id, commit.id, newOwnership);
+					}
 				}
 			}
 		}

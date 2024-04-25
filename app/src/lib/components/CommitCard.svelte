@@ -106,9 +106,11 @@
 	{/if}
 	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
 		<div class="commit__message">
+			{#if !showFiles}
 			<div class="commit__id">
 				<code>{commit.id.substring(0, 6)}</code>
 			</div>
+			{/if}
 			<div class="commit__row">
 				{#if isUndoable && !showFiles}
 					{#if commit.descriptionTitle}
@@ -308,7 +310,9 @@
 	}
 	.commit__edit_description textarea {
 		width: 100%;
-		padding: 5px 10px;
+		padding: 10px 14px;
+		margin: 0;
+		border-bottom: 1px solid #dddddd;
 	}
 
 	.commit__id {

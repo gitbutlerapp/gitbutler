@@ -363,6 +363,30 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
+    pub async fn move_commit_file(
+        handle: AppHandle,
+        project_id: ProjectId,
+        branch_id: BranchId,
+        from_commit_oid: git::Oid,
+        to_commit_oid: git::Oid,
+        ownership: BranchOwnershipClaims,
+    ) -> Result<git::Oid, Error> {
+        let oid = handle
+            .state::<Controller>()
+            .move_commit_file(
+                &project_id,
+                &branch_id,
+                from_commit_oid,
+                to_commit_oid,
+                &ownership,
+            )
+            .await?;
+        emit_vbranches(&handle, &project_id).await;
+        Ok(oid)
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn undo_commit(
         handle: AppHandle,
         project_id: ProjectId,

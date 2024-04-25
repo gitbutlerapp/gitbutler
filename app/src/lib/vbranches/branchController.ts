@@ -306,12 +306,13 @@ export class BranchController {
 		}
 	}
 
-	async moveCommitFile(branchId: string, commitOid: string, ownership: string) {
+	async moveCommitFile(branchId: string, fromCommitOid: string, toCommitOid: string, ownership: string) {
 		try {
 			await invoke<void>('move_commit_file', {
 				projectId: this.projectId,
 				branchId,
-				commitOid,
+				fromCommitOid,
+				toCommitOid,
 				ownership
 			});
 		} catch (err: any) {
