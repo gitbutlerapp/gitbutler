@@ -160,6 +160,76 @@ async fn should_not_lock_disjointed_hunks() {
 }
 
 #[tokio::test]
+async fn should_reset_into_same_branch() {
+    let Test {
+        project_id,
+        controller,
+        repository,
+        ..
+    } = &Test::default();
+
+    let mut lines = gen_file(repository, "file.txt", 7);
+    commit_and_push_initial(repository);
+
+    let base_branch = controller
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .await
+        .unwrap();
+
+    controller
+        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .await
+        .unwrap();
+
+    let branch_2_id = controller
+        .create_virtual_branch(
+            project_id,
+            &branch::BranchCreateRequest {
+                selected_for_changes: Some(true),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+    lines[0] = "change 1".to_string();
+    write_file(repository, "file.txt", &lines);
+
+    controller
+        .create_commit(project_id, &branch_2_id, "commit to branch 2", None, false)
+        .await
+        .unwrap();
+
+    let files = get_virtual_branch(controller, project_id, branch_2_id)
+        .await
+        .files;
+    assert_eq!(files.len(), 0);
+
+    // Set target to branch 1 and verify the file resets into branch 2.
+    controller
+        .update_virtual_branch(
+            project_id,
+            branch::BranchUpdateRequest {
+                id: branch_2_id,
+                selected_for_changes: Some(true),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+    controller
+        .reset_virtual_branch(project_id, &branch_2_id, base_branch.base_sha)
+        .await
+        .unwrap();
+
+    let files = get_virtual_branch(controller, project_id, branch_2_id)
+        .await
+        .files;
+    assert_eq!(files.len(), 1);
+}
+
+#[tokio::test]
 async fn should_double_lock() {
     let Test {
         project_id,

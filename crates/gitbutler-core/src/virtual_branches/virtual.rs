@@ -16,13 +16,14 @@ use git2_hooks::HookResult;
 use regex::Regex;
 use serde::Serialize;
 
+use super::integration::get_workspace_head;
 use super::{
     branch::{
         self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
     },
     branch_to_remote_branch, errors, target, RemoteBranch, VirtualBranchesHandle,
 };
-use crate::git::diff::{diff_files_into_hunks, DiffByPathMap};
+use crate::git::diff::{diff_files_into_hunks, trees, DiffByPathMap};
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
     askpass::AskpassBroker,
@@ -2042,9 +2043,49 @@ pub fn reset_branch(
         ));
     }
 
+    // Compute the old workspace before resetting so we can can figure out
+    // what hunks were released by this reset, and assign them to this branch.
+    let old_head = get_workspace_head(&vb_state, project_repository)?;
+
     branch.head = target_commit_oid;
     vb_state
         .set_branch(branch.clone())
+        .context("failed to write branch")?;
+
+    let updated_head = get_workspace_head(&vb_state, project_repository)?;
+    let repo = &project_repository.git_repository;
+    let diff = trees(
+        repo,
+        &repo
+            .find_commit(updated_head)
+            .map_err(anyhow::Error::from)?
+            .tree()
+            .map_err(anyhow::Error::from)?,
+        &repo
+            .find_commit(old_head)
+            .map_err(anyhow::Error::from)?
+            .tree()
+            .map_err(anyhow::Error::from)?,
+    )?;
+
+    // Assign the new hunks to the branch we're working on.
+    for (path, filediff) in diff {
+        for hunk in filediff.hunks {
+            let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
+            branch.ownership.put(
+                &format!(
+                    "{}:{}-{}-{:?}",
+                    path.display(),
+                    hunk.new_start,
+                    hunk.new_start + hunk.new_lines,
+                    &hash
+                )
+                .parse()?,
+            );
+        }
+    }
+    vb_state
+        .set_branch(branch)
         .context("failed to write branch")?;
 
     super::integration::update_gitbutler_integration(&vb_state, project_repository)
