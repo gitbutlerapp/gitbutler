@@ -12,7 +12,8 @@ use tracing::Level;
 
 /// The timeout for debouncing file change events.
 /// This is used to prevent multiple events from being sent for a single file change.
-const DEBOUNCE_TIMEOUT: Duration = Duration::from_millis(100);
+const DEBOUNCE_TIMEOUT: Duration =
+    Duration::from_millis(if cfg!(feature = "windows") { 2000 } else { 100 });
 
 /// This error is required only because `anyhow::Error` isn't implementing `std::error::Error`, and [`spawn()`]
 /// needs to wrap it into a `backoff::Error` which also has to implement the `Error` trait.
@@ -44,6 +45,10 @@ pub fn spawn(
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
 ) -> Result<()> {
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
+    tracing::info!(
+        "Starting filesystem monitor on {worktree_path:?} with debounce of {:02}s",
+        DEBOUNCE_TIMEOUT.as_secs_f32()
+    );
     let mut debouncer =
         new_debouncer(DEBOUNCE_TIMEOUT, None, notify_tx).context("failed to create debouncer")?;
 

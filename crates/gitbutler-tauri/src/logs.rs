@@ -35,6 +35,7 @@ pub fn init(app_handle: &AppHandle) {
         .parse()
         .unwrap_or(LevelFilter::INFO);
 
+    let use_colors_in_logs = cfg!(not(feature = "windows"));
     let subscriber = tracing_subscriber::registry()
         .with(
             // subscriber for https://github.com/tokio-rs/console
@@ -49,6 +50,7 @@ pub fn init(app_handle: &AppHandle) {
             // subscriber that writes spans to stdout
             tracing_subscriber::fmt::layer()
                 .event_format(format_for_humans.clone())
+                .with_ansi(use_colors_in_logs)
                 .with_span_events(FmtSpan::CLOSE)
                 .with_filter(log_level_filter),
         )
