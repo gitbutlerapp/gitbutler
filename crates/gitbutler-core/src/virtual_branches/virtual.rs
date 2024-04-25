@@ -2700,23 +2700,17 @@ pub fn move_commit_file(
 
     // see if we're moving up or down
 
-    let amend_commit = project_repository
+    let mut to_amend_oid = to_commit_oid.clone();
+    let mut amend_commit = project_repository
         .git_repository
-        .find_commit(to_commit_oid)
+        .find_commit(to_amend_oid)
         .context("failed to find commit")?;
 
-    let upstream_commits = project_repository.l(
+    let mut upstream_commits = project_repository.l(
         target_branch.head,
         project_repository::LogUntil::Commit(amend_commit.id()),
     )?;
-
-    // is from_commit_oid in upstream_commits?
-    if upstream_commits.contains(&from_commit_oid) {
-        dbg!("moving down");
-    } else {
-        dbg!("moving up");
-        return Ok(target_branch.head);
-    }
+    dbg!(&upstream_commits);
 
     let base_file_diffs = diff::workdir(&project_repository.git_repository, &default_target.sha)
         .context("failed to diff workdir")?;
@@ -2751,7 +2745,7 @@ pub fn move_commit_file(
         .collect::<HashMap<_, _>>();
 
     dbg!(&diffs_to_amend);
-    dbg!(base_file_diffs);
+    dbg!(&base_file_diffs);
 
     if diffs_to_amend.is_empty() {
         return Err(errors::AmendError::TargetOwnerhshipNotFound(
@@ -2759,8 +2753,143 @@ pub fn move_commit_file(
         ));
     }
 
+    // is from_commit_oid in upstream_commits?
+    if !upstream_commits.contains(&from_commit_oid) {
+        dbg!("moving up");
+
+        // get diffs introduced in from_commit_oid
+        let from_commit = project_repository
+            .git_repository
+            .find_commit(from_commit_oid)
+            .context("failed to find commit")?;
+
+        let from_tree = from_commit.tree().context("failed to find tree")?;
+        let from_parent = from_commit.parent(0).context("failed to find parent")?;
+        let from_parent_tree = from_parent.tree().context("failed to find parent tree")?;
+
+        let from_commit_diffs = diff::trees(
+            &project_repository.git_repository,
+            &from_parent_tree,
+            &from_tree,
+        )
+        .context("failed to diff trees")?;
+
+        dbg!(&from_commit_diffs);
+
+        // filter from_commit_diffs to HashMap<filepath, Vec<GitHunk>> only for hunks NOT in target_ownership
+        let diffs_to_keep = from_commit_diffs
+            .iter()
+            .filter_map(|(filepath, file_diff)| {
+                let hunks = file_diff
+                    .hunks
+                    .iter()
+                    .filter(|hunk| {
+                        !target_ownership.claims.iter().any(|file_ownership| {
+                            file_ownership.file_path.eq(filepath)
+                                && file_ownership.hunks.iter().any(|owned_hunk| {
+                                    owned_hunk.start == hunk.new_start
+                                        && owned_hunk.end == hunk.new_start + hunk.new_lines
+                                })
+                        })
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>();
+                if hunks.is_empty() {
+                    None
+                } else {
+                    Some((filepath.clone(), hunks))
+                }
+            })
+            .collect::<HashMap<_, _>>();
+        dbg!(&diffs_to_keep);
+
+        let repo = &project_repository.git_repository;
+
+        let new_from_tree_oid =
+            write_tree_onto_commit(project_repository, from_parent.id(), &diffs_to_keep)?;
+        let new_from_tree = &repo.find_tree(new_from_tree_oid).or_else(|error| {
+            return Err(errors::AmendError::TargetOwnerhshipNotFound(
+                target_ownership.clone(),
+            ));
+        })?;
+
+        let new_from_commit_oid = repo
+            .commit(
+                None,
+                &from_commit.author(),
+                &from_commit.committer(),
+                &from_commit.message().to_str_lossy(),
+                &new_from_tree,
+                &[&from_parent],
+            )
+            .or_else(|error| {
+                return Err(errors::AmendError::TargetOwnerhshipNotFound(
+                    target_ownership.clone(),
+                ));
+            })?;
+
+        dbg!(&new_from_commit_oid);
+
+        let new_head = match cherry_rebase(
+            project_repository,
+            new_from_commit_oid,
+            from_commit_oid,
+            target_branch.head,
+        ) {
+            Ok(Some(new_head)) => new_head,
+            _ => {
+                return Err(errors::AmendError::TargetOwnerhshipNotFound(
+                    target_ownership.clone(),
+                ));
+            }
+        };
+
+        dbg!(&new_head);
+
+        let old_upstream_commit_oids = project_repository.l(
+            target_branch.head,
+            project_repository::LogUntil::Commit(default_target.sha),
+        )?;
+
+        dbg!(&old_upstream_commit_oids);
+
+        let new_upstream_commit_oids = project_repository.l(
+            new_head,
+            project_repository::LogUntil::Commit(default_target.sha),
+        )?;
+
+        dbg!(&new_upstream_commit_oids);
+
+        // find to_commit_oid offset in upstream_commits vector
+        let to_commit_offset = old_upstream_commit_oids
+            .iter()
+            .position(|c| *c == to_amend_oid)
+            .ok_or(errors::AmendError::TargetOwnerhshipNotFound(
+                target_ownership.clone(),
+            ))?;
+
+        dbg!(to_commit_offset);
+
+        // find the commit with that offset in the new_upstream_commits vector
+        to_amend_oid = *new_upstream_commit_oids.get(to_commit_offset).ok_or(
+            errors::AmendError::TargetOwnerhshipNotFound(target_ownership.clone()),
+        )?;
+        dbg!(&to_amend_oid);
+
+        // reset these for writing the second part
+        amend_commit = project_repository
+            .git_repository
+            .find_commit(to_amend_oid)
+            .context("failed to find commit")?;
+
+        upstream_commits = project_repository.l(
+            new_head,
+            project_repository::LogUntil::Commit(amend_commit.id()),
+        )?;
+    }
+
     // apply diffs_to_amend to the commit tree
-    let new_tree_oid = write_tree_onto_commit(project_repository, to_commit_oid, &diffs_to_amend)?;
+    let new_tree_oid = write_tree_onto_commit(project_repository, to_amend_oid, &diffs_to_amend)?;
     let new_tree = project_repository
         .git_repository
         .find_tree(new_tree_oid)
@@ -2785,6 +2914,7 @@ pub fn move_commit_file(
     dbg!(&commit_oid);
 
     // now rebase upstream commits, if needed
+    dbg!(&upstream_commits);
 
     // if there are no upstream commits, we're done
     if upstream_commits.is_empty() {
