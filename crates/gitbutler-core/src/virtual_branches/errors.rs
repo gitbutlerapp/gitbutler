@@ -367,43 +367,6 @@ impl ForcePushNotAllowed {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum AmendError {
-    #[error("force push not allowed")]
-    ForcePushNotAllowed(ForcePushNotAllowed),
-    #[error("target ownership not found")]
-    TargetOwnerhshipNotFound(BranchOwnershipClaims),
-    #[error("branch has no commits")]
-    BranchHasNoCommits,
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
-    #[error("branch not found")]
-    BranchNotFound(BranchNotFound),
-    #[error("project is in conflict state")]
-    Conflict(ProjectConflict),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-impl ErrorWithContext for AmendError {
-    fn context(&self) -> Option<Context> {
-        Some(match self {
-            AmendError::ForcePushNotAllowed(ctx) => ctx.to_context(),
-            AmendError::Conflict(ctx) => ctx.to_context(),
-            AmendError::BranchNotFound(ctx) => ctx.to_context(),
-            AmendError::BranchHasNoCommits => error::Context::new_static(
-                Code::Branches,
-                "Branch has no commits - there is nothing to amend to",
-            ),
-            AmendError::DefaultTargetNotSet(ctx) => ctx.to_context(),
-            AmendError::TargetOwnerhshipNotFound(_) => {
-                error::Context::new_static(Code::Branches, "target ownership not found")
-            }
-            AmendError::Other(error) => return error.custom_context_or_root_cause().into(),
-        })
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
 pub enum CherryPickError {
     #[error("target commit {0} not found ")]
     CommitNotFound(git::Oid),

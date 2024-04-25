@@ -124,7 +124,7 @@ async fn forcepush_forbidden() {
                 .await
                 .unwrap_err()
                 .downcast_ref(),
-            Some(errors::AmendError::ForcePushNotAllowed(_))
+            Some(errors::VirtualBranchError::ForcePushNotAllowed(_))
         ));
     }
 }
@@ -307,7 +307,7 @@ async fn non_existing_ownership() {
                 .await
                 .unwrap_err()
                 .downcast_ref(),
-            Some(errors::AmendError::TargetOwnerhshipNotFound(_))
+            Some(errors::VirtualBranchError::TargetOwnerhshipNotFound(_))
         ));
     }
 }
