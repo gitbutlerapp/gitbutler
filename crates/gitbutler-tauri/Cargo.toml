@@ -71,7 +71,7 @@ correctness = "deny"
 [features]
 default = ["custom-protocol", "sentry", "devtools"]
 ## A forwarding to all crates that have windows-specific adjustments for testing on non-Windows.
-windows = ["gitbutler-watcher/windows"]
+windows = []
 devtools = ["tauri/devtools"]
 
 # this feature is used used for production builds where `devPath` points to the filesystem

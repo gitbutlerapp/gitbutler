@@ -4,11 +4,6 @@ version = "0.0.0"
 edition = "2021"
 publish = false
 
-[features]
-default = []
-## A trial to see if doing things differently on Windows helps with #3601
-windows = []
-
 [lib]
 doctest = false
 
