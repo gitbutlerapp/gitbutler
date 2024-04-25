@@ -5,14 +5,26 @@ use crate::{projects::Project, virtual_branches::VirtualBranchesHandle};
 
 use super::{reflog::set_reference_to_oplog, state::OplogHandle};
 
+/// A snapshot of the repository and virtual branches state that GitButler can restore to.
+/// It captures the state of the working directory, virtual branches and commits.
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotEntry {
+    /// The sha of the commit that represents the snapshot.
     pub sha: String,
+    /// Textual description of the snapshot.
     pub label: String,
-    pub created_at: i64, // milliseconds since epoch
+    /// The time the snapshot was created at in milliseconds since epoch.
+    pub created_at: i64,
 }
 
+/// Creates a snapshot of the current state of the repository and virtual branches using the given label.
+///
+/// If this is the first shapshot created, supporting structures are initialized:
+///  - The current oplog head is persisted in `.git/gitbutler/oplog.toml`.
+///  - A fake branch `gitbutler/target` is created and maintained in order to keep the oplog head reachable.
+///
+/// The state of virtual branches `.git/gitbutler/virtual_branches.toml` is copied to the project root so that it is snapshotted.
 pub fn create(project: &Project, label: &str) -> Result<()> {
     if project.enable_snapshots.is_none() || project.enable_snapshots == Some(false) {
         return Ok(());
@@ -86,6 +98,10 @@ pub fn create(project: &Project, label: &str) -> Result<()> {
     Ok(())
 }
 
+/// Lists the snapshots that have been created for the given repository, up to the given limit.
+/// An alternative way of retrieving the snapshots would be to manually the oplog head `git log <oplog_head>` available in `.git/gitbutler/oplog.toml`.
+///
+/// If there are no snapshots, an empty list is returned.
 pub fn list(project: Project, limit: usize) -> Result<Vec<SnapshotEntry>> {
     let repo_path = project.path.as_path();
     let repo = git2::Repository::init(repo_path)?;
@@ -105,7 +121,6 @@ pub fn list(project: Project, limit: usize) -> Result<Vec<SnapshotEntry>> {
 
     let mut snapshots = Vec::new();
 
-    // TODO: how do we know when to stop?
     for commit_id in revwalk {
         let commit_id = commit_id?;
         let commit = repo.find_commit(commit_id)?;
@@ -127,6 +142,11 @@ pub fn list(project: Project, limit: usize) -> Result<Vec<SnapshotEntry>> {
     Ok(snapshots)
 }
 
+/// Reverts to a previous state of the working directory, virtual branches and commits.
+/// The provided sha must refer to a valid snapshot commit.
+/// Upon success, a new snapshot is created.
+///
+/// The state of virtual branches `.git/gitbutler/virtual_branches.toml` is restored from the snapshot.
 pub fn restore(project: &Project, sha: String) -> Result<()> {
     let repo_path = project.path.as_path();
     let repo = git2::Repository::init(repo_path)?;
