@@ -212,6 +212,8 @@ export const UNKNOWN_COMMITS = Symbol('UnknownCommits');
 export class RemoteHunk {
 	diff!: string;
 	hash?: string;
+	new_start!: number;
+	new_lines!: number;
 
 	get id(): string {
 		return hashCode(this.diff);
