@@ -167,10 +167,7 @@ pub fn restore(project: &Project, sha: String) -> Result<()> {
     )?;
 
     // create new snapshot
-    let label = format!(
-        "Restored from snapshot {}",
-        commit.message().unwrap_or(&sha)
-    );
+    let label = format!("Restored from {}", &sha);
     create(project, &label)?;
 
     Ok(())
