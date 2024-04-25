@@ -22,8 +22,14 @@ export class Hunk {
 	filePath!: string;
 	hash?: string;
 	locked!: boolean;
-	lockedTo!: string[] | undefined;
+	@Type(() => HunkLock)
+	lockedTo!: HunkLock[];
 	changeType!: ChangeType;
+}
+
+export class HunkLock {
+	branchId!: string;
+	commitId!: string;
 }
 
 export type AnyFile = LocalFile | RemoteFile;
@@ -63,7 +69,7 @@ export class LocalFile {
 			: false;
 	}
 
-	get lockedIds(): string[] {
+	get lockedIds(): HunkLock[] {
 		return this.hunks
 			.flatMap((hunk) => hunk.lockedTo)
 			.filter(notNull)
@@ -252,7 +258,7 @@ export class RemoteFile {
 		return this.hunks.map((h) => h.id);
 	}
 
-	get lockedIds(): string[] {
+	get lockedIds(): HunkLock[] {
 		return [];
 	}
 
