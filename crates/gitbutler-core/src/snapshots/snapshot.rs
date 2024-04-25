@@ -13,7 +13,7 @@ pub struct SnapshotEntry {
     pub created_at: i64, // milliseconds since epoch
 }
 
-pub fn create(project: Project, label: String) -> Result<()> {
+pub fn create(project: &Project, label: &str) -> Result<()> {
     if let Some(false) = project.enable_snapshots {
         return Ok(());
     }
@@ -55,7 +55,7 @@ pub fn create(project: Project, label: String) -> Result<()> {
         None,
         &signature,
         &signature,
-        &label,
+        label,
         &tree,
         &[&oplog_head_commit],
     )?;
@@ -125,7 +125,7 @@ pub fn list(project: Project, limit: usize) -> Result<Vec<SnapshotEntry>> {
     Ok(snapshots)
 }
 
-pub fn restore(project: Project, sha: String) -> Result<()> {
+pub fn restore(project: &Project, sha: String) -> Result<()> {
     let repo_path = project.path.as_path();
     let repo = git2::Repository::init(repo_path)?;
 
@@ -149,7 +149,7 @@ pub fn restore(project: Project, sha: String) -> Result<()> {
         "Restored from snapshot {}",
         commit.message().unwrap_or(&sha)
     );
-    create(project, label)?;
+    create(project, &label)?;
 
     Ok(())
 }

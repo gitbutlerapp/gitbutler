@@ -11,7 +11,7 @@ pub struct SnapshotsReference {
 }
 
 impl SnapshotsReference {
-    pub fn new(project: Project, target_sha: &str) -> Result<Self> {
+    pub fn new(project: &Project, target_sha: &str) -> Result<Self> {
         let repo_path = project.path.as_path();
         let reflog_file_path = repo_path
             .join(".git")

@@ -32,6 +32,6 @@ pub async fn restore_snapshot(
         .state::<projects::Controller>()
         .get(&project_id)
         .context("failed to get project")?;
-    snapshot::restore(project, sha)?;
+    snapshot::restore(&project, sha)?;
     Ok(())
 }
