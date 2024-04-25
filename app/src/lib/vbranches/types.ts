@@ -24,6 +24,8 @@ export class Hunk {
 	locked!: boolean;
 	lockedTo!: string[] | undefined;
 	changeType!: ChangeType;
+	new_start!: number;
+	new_lines!: number;
 }
 
 export type AnyFile = LocalFile | RemoteFile;
