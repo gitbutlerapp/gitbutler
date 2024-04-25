@@ -14,7 +14,6 @@ pub mod commands {
             BaseBranch, RemoteBranch, RemoteBranchData, RemoteBranchFile, VirtualBranches,
         },
     };
-    use itertools::Itertools;
     use std::path::PathBuf;
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
@@ -242,7 +241,7 @@ pub mod commands {
         let files = files
             .split('\n')
             .map(unwrap_path_str)
-            .map_ok(|p| p.into())
+            .map(|res| res.map(|p| p.into()))
             .collect::<Result<Vec<PathBuf>, _>>()?;
         handle
             .state::<Controller>()

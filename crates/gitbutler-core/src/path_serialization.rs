@@ -1,9 +1,9 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
 use serde::{Deserialize, Deserializer, Serializer};
 
-pub fn wrap_path(path: &PathBuf) -> String {
+pub fn wrap_path(path: &Path) -> String {
     let encoded_path = format!("{}", serde_json::json!(path));
     let path = &encoded_path[1..encoded_path.len() - 1];
     path.to_string()
@@ -18,15 +18,15 @@ pub fn unwrap_path_str(path_str: &str) -> Result<String, anyhow::Error> {
 }
 
 pub fn serialize<S>(path: &PathBuf, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+where
+    S: Serializer,
 {
     serializer.serialize_str(&wrap_path(path))
 }
 
 pub fn deserialize<'de, D>(deserializer: D) -> Result<PathBuf, D::Error>
-    where
-        D: Deserializer<'de>,
+where
+    D: Deserializer<'de>,
 {
     let path_str = String::deserialize(deserializer)?;
     match unwrap_path_str(&path_str) {
@@ -44,8 +44,8 @@ pub mod option {
     use serde::{Deserialize, Deserializer, Serializer};
 
     pub fn serialize<S>(maybe_path: &Option<PathBuf>, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         match maybe_path {
             Some(path) => super::serialize(path, serializer),
@@ -54,8 +54,8 @@ pub mod option {
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<PathBuf>, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         match Option::<String>::deserialize(deserializer)? {
             Some(path_str) => match super::unwrap_path_str(&path_str) {
