@@ -14,6 +14,10 @@ pub struct SnapshotEntry {
 }
 
 pub fn create(project: Project, label: String) -> Result<()> {
+    if let Some(false) = project.enable_snapshots {
+        return Ok(());
+    }
+
     let repo_path = project.path.as_path();
     let repo = git2::Repository::init(repo_path)?;
 
