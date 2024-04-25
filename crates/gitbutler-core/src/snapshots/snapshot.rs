@@ -3,7 +3,7 @@ use serde::Serialize;
 
 use crate::{projects::Project, virtual_branches::VirtualBranchesHandle};
 
-use super::state::OplogHandle;
+use super::{reflog::SnapshotsReference, state::OplogHandle};
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,14 +17,14 @@ pub fn create(project: Project, label: String) -> Result<String> {
     let repo_path = project.path.as_path();
     let repo = git2::Repository::init(repo_path)?;
 
+    let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
+    let default_target_sha = vb_state.get_default_target()?.sha;
+
     let oplog_state = OplogHandle::new(&project.gb_dir());
     let oplog_head_commit = match oplog_state.get_oplog_head()? {
         Some(head_sha) => repo.find_commit(git2::Oid::from_str(&head_sha)?)?,
         // This is the first snapshot - use the default target as starting point
-        None => {
-            let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
-            repo.find_commit(vb_state.get_default_target()?.sha.into())?
-        }
+        None => repo.find_commit(default_target_sha.into())?,
     };
 
     // Copy virtual_branches.rs to the project root so that we snapshot it
@@ -69,7 +69,9 @@ pub fn create(project: Project, label: String) -> Result<String> {
     )?;
 
     oplog_state.set_oplog_head(new_commit_oid.to_string())?;
-    // TODO: update .git/logs/gitbutler/target
+
+    let reflog_hack = SnapshotsReference::new(project, &default_target_sha.to_string())?;
+    reflog_hack.set_oplog_ref(&new_commit_oid.to_string())?;
 
     Ok(new_commit_oid.to_string())
 }
