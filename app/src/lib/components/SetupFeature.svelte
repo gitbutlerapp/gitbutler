@@ -44,7 +44,7 @@
 		opacity: 0.5;
 	}
 	.success.setup-feature {
-		background: var(--clr-theme-pop-bg, #f3fcfb);
+		background: var(--clr-theme-pop-bg);
 	}
 
 	.setup-feature__content {
