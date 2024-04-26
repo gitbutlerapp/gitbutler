@@ -105,10 +105,12 @@ where
         .to_string_lossy()
         .into_owned();
 
-    let askpath_stat = executor
-        .stat(&askpath_path)
-        .await
-        .map_err(Error::<E>::Exec)?;
+    let res = executor.stat(&askpath_path).await.map_err(Error::<E>::Exec);
+    debug_assert!(
+        res.is_ok(),
+        "Run `cargo build -p gitbutler-git` to get the binaries needed for this assertion to pass"
+    );
+    let askpath_stat = res?;
 
     #[cfg(unix)]
     let setsid_stat = executor

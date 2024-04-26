@@ -80,7 +80,7 @@ impl BranchOwnershipClaims {
         true
     }
 
-    pub fn put(&mut self, ownership: &OwnershipClaim) {
+    pub fn put(&mut self, ownership: OwnershipClaim) {
         let target = self
             .claims
             .iter()
@@ -94,7 +94,7 @@ impl BranchOwnershipClaims {
         if let Some(target) = target {
             self.claims.insert(0, target.plus(ownership));
         } else {
-            self.claims.insert(0, ownership.clone());
+            self.claims.insert(0, ownership);
         }
     }
 
