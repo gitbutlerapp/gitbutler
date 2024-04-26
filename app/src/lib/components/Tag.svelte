@@ -114,7 +114,7 @@
 
 	.pop {
 		&.soft {
-			color: var(--clr-theme-pop-on-bg);
+			color: var(--clr-theme-pop-on-soft);
 			background: var(--clr-scale-pop-80);
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
@@ -134,7 +134,7 @@
 
 	.success {
 		&.soft {
-			color: var(--clr-theme-succ-on-bg);
+			color: var(--clr-theme-succ-on-soft);
 			background: var(--clr-scale-succ-80);
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
@@ -154,7 +154,7 @@
 
 	.error {
 		&.soft {
-			color: var(--clr-theme-err-on-bg);
+			color: var(--clr-theme-err-on-soft);
 			background: var(--clr-scale-err-80);
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
@@ -174,7 +174,7 @@
 
 	.warning {
 		&.soft {
-			color: var(--clr-theme-warn-on-bg);
+			color: var(--clr-theme-warn-on-soft);
 			background: var(--clr-scale-warn-80);
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
@@ -194,7 +194,7 @@
 
 	.purple {
 		&.soft {
-			color: var(--clr-theme-purp-on-bg);
+			color: var(--clr-theme-purp-on-soft);
 			background: var(--clr-scale-purp-80);
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
@@ -214,43 +214,15 @@
 
 	/* modifiers */
 
-	.not-button {
-		cursor: default;
-		user-select: none;
-	}
-
 	.disabled {
 		cursor: default;
 		pointer-events: none;
-		/* opacity: 0.5; */
+		opacity: 0.6;
+	}
 
-		&.neutral.solid,
-		&.pop.solid,
-		&.success.solid,
-		&.error.solid,
-		&.warning.solid,
-		&.purple.solid {
-			color: var(--clr-text-2);
-			background: oklch(from var(--clr-scale-ntrl-60) l c h / 0.15);
-		}
-
-		&.neutral.soft,
-		&.pop.soft,
-		&.success.soft,
-		&.error.soft,
-		&.warning.soft,
-		&.purple.soft {
-			color: var(--clr-text-2);
-			background: oklch(from var(--clr-scale-ntrl-60) l c h / 0.15);
-		}
-
-		&.ghost {
-			color: var(--clr-text-2);
-		}
-
-		&.ghost.solid {
-			border: 1px solid oklch(from var(--clr-scale-ntrl-0) l c h / 0.1);
-		}
+	.not-button {
+		cursor: default;
+		user-select: none;
 	}
 
 	.reversedDirection {
