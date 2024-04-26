@@ -2671,6 +2671,13 @@ pub fn is_virtual_branch_mergeable(
     Ok(is_mergeable)
 }
 
+// this function takes a list of file ownership from a "from" commit and "moves"
+// those changes to a "to" commit in a branch. This allows users to drag changes
+// from one commit to another.
+// if the "to" commit is below the "from" commit, the changes are simply added to the "to" commit
+// and the rebase should be simple. if the "to" commit is above the "from" commit,
+// the changes need to be removed from the "from" commit, everything rebased,
+// then added to the "to" commit and everything above that rebased again.
 pub fn move_commit_file(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
@@ -2695,22 +2702,24 @@ pub fn move_commit_file(
             })
         })?;
 
-    // see if we're moving up or down
     let mut to_amend_oid = to_commit_oid.clone();
     let mut amend_commit = project_repository
         .git_repository
         .find_commit(to_amend_oid)
         .context("failed to find commit")?;
 
+    // find all the commits upstream from the target "to" commit
     let mut upstream_commits = project_repository.l(
         target_branch.head,
         project_repository::LogUntil::Commit(amend_commit.id()),
     )?;
 
+    // get a list of all the diffs across all the virtual branches
     let base_file_diffs = diff::workdir(&project_repository.git_repository, &default_target.sha)
         .context("failed to diff workdir")?;
 
     // filter base_file_diffs to HashMap<filepath, Vec<GitHunk>> only for hunks in target_ownership
+    // this is essentially the group of patches that we're "moving"
     let diffs_to_amend = target_ownership
         .claims
         .iter()
@@ -2739,6 +2748,7 @@ pub fn move_commit_file(
         })
         .collect::<HashMap<_, _>>();
 
+    // if we're not moving anything, return an error
     if diffs_to_amend.is_empty() {
         return Err(errors::VirtualBranchError::TargetOwnerhshipNotFound(
             target_ownership.clone(),
@@ -2747,16 +2757,24 @@ pub fn move_commit_file(
 
     // is from_commit_oid in upstream_commits?
     if !upstream_commits.contains(&from_commit_oid) {
-        // get diffs introduced in from_commit_oid
+        // this means that the "from" commit is _below_ the "to" commit in the history
+        // which makes things a little more complicated because in this case we need to
+        // remove the changes from the lower "from" commit, rebase everything, then add the changes
+        // to the _rebased_ version of the "to" commit that is above it.
+
+        // first, let's get the from commit data and it's parent data
         let from_commit = project_repository
             .git_repository
             .find_commit(from_commit_oid)
             .context("failed to find commit")?;
-
         let from_tree = from_commit.tree().context("failed to find tree")?;
         let from_parent = from_commit.parent(0).context("failed to find parent")?;
         let from_parent_tree = from_parent.tree().context("failed to find parent tree")?;
 
+        // ok, what is the entire patch introduced in the "from" commit?
+        // we need to remove the parts of this patch that are in target_ownership (the parts we're moving)
+        // and then apply the rest to the parent tree of the "from" commit to
+        // create the new "from" commit without the changes we're moving
         let from_commit_diffs = diff::trees(
             &project_repository.git_repository,
             &from_parent_tree,
@@ -2765,6 +2783,7 @@ pub fn move_commit_file(
         .context("failed to diff trees")?;
 
         // filter from_commit_diffs to HashMap<filepath, Vec<GitHunk>> only for hunks NOT in target_ownership
+        // this is the patch parts we're keeping
         let diffs_to_keep = from_commit_diffs
             .iter()
             .filter_map(|(filepath, file_diff)| {
@@ -2792,6 +2811,7 @@ pub fn move_commit_file(
 
         let repo = &project_repository.git_repository;
 
+        // write our new tree and commit for the new "from" commit without the moved changes
         let new_from_tree_oid =
             write_tree_onto_commit(project_repository, from_parent.id(), &diffs_to_keep)?;
         let new_from_tree = &repo.find_tree(new_from_tree_oid).or_else(|_error| {
@@ -2799,7 +2819,6 @@ pub fn move_commit_file(
                 new_from_tree_oid,
             ));
         })?;
-
         let new_from_commit_oid = repo
             .commit(
                 None,
@@ -2813,6 +2832,7 @@ pub fn move_commit_file(
                 return Err(errors::VirtualBranchError::CommitFailed);
             })?;
 
+        // rebase everything above the new "from" commit that has the moved changes removed
         let new_head = match cherry_rebase(
             project_repository,
             new_from_commit_oid,
@@ -2825,6 +2845,9 @@ pub fn move_commit_file(
             }
         };
 
+        // ok, now we need to identify which the new "to" commit is in the rebased history
+        // so we'll take a list of the upstream oids and find it simply based on location
+        // (since the order should not have changed in our simple rebase)
         let old_upstream_commit_oids = project_repository.l(
             target_branch.head,
             project_repository::LogUntil::Commit(default_target.sha),
@@ -2843,34 +2866,39 @@ pub fn move_commit_file(
                 "failed to find commit in old commits"
             )))?;
 
-        // find the commit with that offset in the new_upstream_commits vector
+        // find the new "to" commit in our new rebased upstream commits
         to_amend_oid = *new_upstream_commit_oids.get(to_commit_offset).ok_or(
             errors::VirtualBranchError::Other(anyhow!("failed to find commit in new commits")),
         )?;
 
-        // reset these for writing the second part
+        // reset the "to" commit variable for writing the changes back to
         amend_commit = project_repository
             .git_repository
             .find_commit(to_amend_oid)
             .context("failed to find commit")?;
 
+        // reset the concept of what the upstream commits are to be the rebased ones
         upstream_commits = project_repository.l(
             new_head,
             project_repository::LogUntil::Commit(amend_commit.id()),
         )?;
     }
 
+    // ok, now we will apply the moved changes to the "to" commit.
+    // if we were moving the changes down, we didn't need to rewrite the "from" commit
+    // because it will be rewritten with the upcoming rebase.
+    // if we were moving the changes "up" we've already rewritten the "from" commit
+
     // apply diffs_to_amend to the commit tree
+    // and write a new commit with the changes we're moving
     let new_tree_oid = write_tree_onto_commit(project_repository, to_amend_oid, &diffs_to_amend)?;
     let new_tree = project_repository
         .git_repository
         .find_tree(new_tree_oid)
         .context("failed to find new tree")?;
-
     let parents = amend_commit
         .parents()
         .context("failed to find head commit parents")?;
-
     let commit_oid = project_repository
         .git_repository
         .commit(
@@ -2885,7 +2913,7 @@ pub fn move_commit_file(
 
     // now rebase upstream commits, if needed
 
-    // if there are no upstream commits, we're done
+    // if there are no upstream commits (the "to" commit was the branch head), then we're done
     if upstream_commits.is_empty() {
         target_branch.head = commit_oid;
         vb_state.set_branch(target_branch.clone())?;
@@ -2893,8 +2921,8 @@ pub fn move_commit_file(
         return Ok(commit_oid);
     }
 
+    // otherwise, rebase the upstream commits onto the new commit
     let last_commit = upstream_commits.first().cloned().unwrap();
-
     let new_head = cherry_rebase(
         project_repository,
         commit_oid,
@@ -2902,6 +2930,7 @@ pub fn move_commit_file(
         last_commit,
     )?;
 
+    // if that rebase worked, update the branch head and the gitbutler integration
     if let Some(new_head) = new_head {
         target_branch.head = new_head;
         vb_state.set_branch(target_branch.clone())?;
@@ -2912,6 +2941,9 @@ pub fn move_commit_file(
     }
 }
 
+// takes a list of file ownership and a commit oid and rewrites that commit to
+// add the file changes. The branch is then rebased onto the new commit
+// and the respective branch head is updated
 pub fn amend(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
@@ -3096,6 +3128,10 @@ pub fn amend(
     }
 }
 
+// move a given commit in a branch up one or down one
+// if the offset is positive, move the commit down one
+// if the offset is negative, move the commit up one
+// rewrites the branch head to the new head commit
 pub fn reorder_commit(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
@@ -3199,6 +3235,9 @@ pub fn reorder_commit(
     return Ok(());
 }
 
+// create and insert a blank commit (no tree change) either above or below a commit
+// if offset is positive, insert below, if negative, insert above
+// return the oid of the new head commit of the branch with the inserted blank commit
 pub fn insert_blank_commit(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
@@ -3266,6 +3305,8 @@ pub fn insert_blank_commit(
     return Ok(());
 }
 
+// remove a commit in a branch by rebasing all commits _except_ for it onto it's parent
+// if successful, it will update the branch head to the new head commit
 pub fn undo_commit(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
@@ -3298,7 +3339,7 @@ pub fn undo_commit(
         // if commit is not the head, rebase all commits above it onto it's parent
         let parent_commit_oid = commit.parent(0).context("failed to find parent")?.id();
 
-        match simple_rebase(
+        match cherry_rebase(
             project_repository,
             parent_commit_oid,
             commit_oid,
@@ -3308,7 +3349,7 @@ pub fn undo_commit(
                 new_commit_oid = new_head;
             }
             _ => {
-                return Ok(());
+                return Err(errors::VirtualBranchError::RebaseFailed);
             }
         }
     }
@@ -3327,6 +3368,8 @@ pub fn undo_commit(
 }
 
 // cherry-pick based rebase, which handles empty commits
+// this function takes a commit range and generates a Vector of commit oids
+// and then passes them to `cherry_rebase_group` to rebase them onto the target commit
 pub fn cherry_rebase(
     project_repository: &project_repository::Repository,
     target_commit_oid: git::Oid,
@@ -3349,6 +3392,10 @@ pub fn cherry_rebase(
     return Ok(new_head_id);
 }
 
+// takes a vector of commit oids and rebases them onto a target commit and returns the
+// new head commit oid if it's successful
+// the difference between this and a libgit2 based rebase is that this will successfully
+// rebase empty commits (two commits with identical trees)
 fn cherry_rebase_group(
     project_repository: &project_repository::Repository,
     target_commit_oid: git::Oid,
@@ -3413,6 +3460,8 @@ fn cherry_rebase_group(
     return Ok(Some(new_head_id));
 }
 
+// runs a simple libgit2 based in-memory rebase on a commit range onto a target commit
+// possibly not used in favor of cherry_rebase
 pub fn simple_rebase(
     project_repository: &project_repository::Repository,
     target_commit_oid: git::Oid,
