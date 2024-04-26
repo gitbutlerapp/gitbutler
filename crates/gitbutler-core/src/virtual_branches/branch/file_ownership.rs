@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::{fmt, path, str::FromStr, vec};
 
 use anyhow::{Context, Result};
@@ -43,6 +44,12 @@ impl FromStr for OwnershipClaim {
     }
 }
 
+impl<'a> From<&'a OwnershipClaim> for (&'a Path, &'a [Hunk]) {
+    fn from(value: &'a OwnershipClaim) -> Self {
+        (&value.file_path, &value.hunks)
+    }
+}
+
 impl OwnershipClaim {
     pub fn is_full(&self) -> bool {
         self.hunks.is_empty()
@@ -67,8 +74,8 @@ impl OwnershipClaim {
     }
 
     // return a copy of self, with another ranges added
-    pub fn plus(&self, another: &OwnershipClaim) -> OwnershipClaim {
-        if !self.file_path.eq(&another.file_path) {
+    pub fn plus(&self, another: OwnershipClaim) -> OwnershipClaim {
+        if self.file_path != another.file_path {
             return self.clone();
         }
 
@@ -89,23 +96,22 @@ impl OwnershipClaim {
             .cloned()
             .collect::<Vec<Hunk>>();
 
-        another.hunks.iter().for_each(|hunk| {
-            hunks.insert(0, hunk.clone());
-        });
+        for hunk in another.hunks {
+            hunks.insert(0, hunk);
+        }
 
         OwnershipClaim {
-            file_path: self.file_path.clone(),
+            file_path: another.file_path,
             hunks,
         }
     }
 
-    // returns (taken, remaining)
-    // if all of the ranges are removed, return None
+    /// returns `(taken, remaining)` if all the ranges are removed, return `None`
     pub fn minus(
         &self,
         another: &OwnershipClaim,
     ) -> (Option<OwnershipClaim>, Option<OwnershipClaim>) {
-        if !self.file_path.eq(&another.file_path) {
+        if self.file_path != another.file_path {
             // no changes
             return (None, Some(self.clone()));
         }
