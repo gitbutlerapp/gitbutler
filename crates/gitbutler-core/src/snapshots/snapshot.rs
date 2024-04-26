@@ -122,7 +122,7 @@ pub fn list(project: Project, limit: usize) -> Result<Vec<Snapshot>> {
         }
 
         let details = commit
-            .summary()
+            .message()
             .and_then(|msg| SnapshotDetails::from_str(msg).ok());
 
         snapshots.push(Snapshot {
