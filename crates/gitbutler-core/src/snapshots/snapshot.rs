@@ -1,22 +1,14 @@
+use std::str::FromStr;
+
 use anyhow::Result;
-use serde::Serialize;
 
 use crate::{projects::Project, virtual_branches::VirtualBranchesHandle};
 
-use super::{reflog::set_reference_to_oplog, state::OplogHandle};
-
-/// A snapshot of the repository and virtual branches state that GitButler can restore to.
-/// It captures the state of the working directory, virtual branches and commits.
-#[derive(Debug, PartialEq, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SnapshotEntry {
-    /// The sha of the commit that represents the snapshot.
-    pub sha: String,
-    /// Textual description of the snapshot.
-    pub label: String,
-    /// The time the snapshot was created at in milliseconds since epoch.
-    pub created_at: i64,
-}
+use super::{
+    entry::{OperationType, Snapshot, SnapshotDetails, Trailer},
+    reflog::set_reference_to_oplog,
+    state::OplogHandle,
+};
 
 /// Creates a snapshot of the current state of the repository and virtual branches using the given label.
 ///
@@ -25,7 +17,7 @@ pub struct SnapshotEntry {
 ///  - A fake branch `gitbutler/target` is created and maintained in order to keep the oplog head reachable.
 ///
 /// The state of virtual branches `.git/gitbutler/virtual_branches.toml` is copied to the project root so that it is snapshotted.
-pub fn create(project: &Project, label: &str) -> Result<()> {
+pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
     if project.enable_snapshots.is_none() || project.enable_snapshots == Some(false) {
         return Ok(());
     }
@@ -67,7 +59,7 @@ pub fn create(project: &Project, label: &str) -> Result<()> {
         None,
         &signature,
         &signature,
-        label,
+        &details.to_string(),
         &tree,
         &[&oplog_head_commit],
     )?;
@@ -102,7 +94,7 @@ pub fn create(project: &Project, label: &str) -> Result<()> {
 /// An alternative way of retrieving the snapshots would be to manually the oplog head `git log <oplog_head>` available in `.git/gitbutler/oplog.toml`.
 ///
 /// If there are no snapshots, an empty list is returned.
-pub fn list(project: Project, limit: usize) -> Result<Vec<SnapshotEntry>> {
+pub fn list(project: Project, limit: usize) -> Result<Vec<Snapshot>> {
     let repo_path = project.path.as_path();
     let repo = git2::Repository::init(repo_path)?;
 
@@ -128,9 +120,14 @@ pub fn list(project: Project, limit: usize) -> Result<Vec<SnapshotEntry>> {
         if commit.parent_count() > 1 {
             break;
         }
-        snapshots.push(SnapshotEntry {
-            sha: commit_id.to_string(),
-            label: commit.summary().unwrap_or_default().to_string(),
+
+        let details = commit
+            .message()
+            .and_then(|msg| SnapshotDetails::from_str(msg).ok());
+
+        snapshots.push(Snapshot {
+            id: commit_id.to_string(),
+            details,
             created_at: commit.time().seconds() * 1000,
         });
 
@@ -167,8 +164,17 @@ pub fn restore(project: &Project, sha: String) -> Result<()> {
     )?;
 
     // create new snapshot
-    let label = format!("Restored from {}", &sha);
-    create(project, &label)?;
+    let details = SnapshotDetails {
+        version: Default::default(),
+        operation: OperationType::RestoreFromSnapshot,
+        title: "Restored from snapshot".to_string(),
+        body: None,
+        trailers: vec![Trailer {
+            key: "restored_from".to_string(),
+            value: sha,
+        }],
+    };
+    create(project, details)?;
 
     Ok(())
 }

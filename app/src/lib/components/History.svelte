@@ -15,17 +15,28 @@
 		listSnapshots(projectId, snapshotsLimit);
 	});
 
-	type SnapshotEntry = {
-		sha: string;
-		label: string;
+	type Trailer = {
+		key: string;
+		value: string;
+	};
+	type SnapshotDetails = {
+		title: string;
+		operation: string;
+		body: string | undefined;
+		trailers: Trailer[];
+	};
+	type Snapshot = {
+		id: string;
+		details: SnapshotDetails | undefined;
 		createdAt: number;
 	};
-	let snapshots: SnapshotEntry[] = [];
+	let snapshots: Snapshot[] = [];
 	async function listSnapshots(projectId: string, limit: number) {
-		const resp = await invoke<SnapshotEntry[]>('list_snapshots', {
+		const resp = await invoke<Snapshot[]>('list_snapshots', {
 			projectId: projectId,
 			limit: limit
 		});
+		console.log(resp);
 		snapshots = resp;
 	}
 	async function restoreSnapshot(projectId: string, sha: string) {
@@ -45,7 +56,7 @@
 		<div class="card">
 			<div class="entry">
 				<div>
-					{entry.label}
+					{entry.details?.operation}
 				</div>
 				<div>
 					<span>
@@ -56,7 +67,7 @@
 							style="pop"
 							size="tag"
 							icon="undo-small"
-							on:click={async () => await restoreSnapshot(projectId, entry.sha)}>restore</Button
+							on:click={async () => await restoreSnapshot(projectId, entry.id)}>restore</Button
 						>
 					{/if}
 				</div>
