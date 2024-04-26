@@ -1,8 +1,11 @@
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use bstr::BString;
 use gix::dir::walk::EmissionMode;
+use gix::tempfile::create_dir::Retries;
+use gix::tempfile::{AutoRemove, ContainingDirectory};
 use walkdir::WalkDir;
 
 // Returns an ordered list of relative paths for files inside a directory recursively.
@@ -47,4 +50,47 @@ pub fn iter_worktree_files(
         .dirwalk_iter(index, None::<&str>, disabled_interrupt_handling, options)?
         .filter_map(Result::ok)
         .map(|e| e.entry.rela_path))
+}
+
+/// Write a single file so that the write either fully succeeds, or fully fails,
+/// assuming the containing directory already exists.
+pub(crate) fn write<P: AsRef<Path>>(
+    file_path: P,
+    contents: impl AsRef<[u8]>,
+) -> anyhow::Result<()> {
+    let mut temp_file = gix::tempfile::new(
+        file_path.as_ref().parent().unwrap(),
+        ContainingDirectory::Exists,
+        AutoRemove::Tempfile,
+    )?;
+    temp_file.write_all(contents.as_ref())?;
+    Ok(persist_tempfile(temp_file, file_path)?)
+}
+
+/// Write a single file so that the write either fully succeeds, or fully fails,
+/// and create all leading directories.
+pub(crate) fn create_dirs_then_write<P: AsRef<Path>>(
+    file_path: P,
+    contents: impl AsRef<[u8]>,
+) -> std::io::Result<()> {
+    let mut temp_file = gix::tempfile::new(
+        file_path.as_ref().parent().unwrap(),
+        ContainingDirectory::CreateAllRaceProof(Retries::default()),
+        AutoRemove::Tempfile,
+    )?;
+    temp_file.write_all(contents.as_ref())?;
+    persist_tempfile(temp_file, file_path)
+}
+
+fn persist_tempfile(
+    tempfile: gix::tempfile::Handle<gix::tempfile::handle::Writable>,
+    to_path: impl AsRef<Path>,
+) -> std::io::Result<()> {
+    match tempfile.persist(to_path) {
+        Ok(Some(_opened_file)) => Ok(()),
+        Ok(None) => unreachable!(
+            "BUG: a signal has caused the tempfile to be removed, but we didn't install a handler"
+        ),
+        Err(err) => Err(err.error),
+    }
 }

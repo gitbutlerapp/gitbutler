@@ -1,8 +1,7 @@
-use crate::storage;
+use crate::fs::write;
 use anyhow::Result;
-use gix::tempfile::{AutoRemove, ContainingDirectory};
 use itertools::Itertools;
-use std::{io::Write, path::PathBuf};
+use std::path::PathBuf;
 
 use crate::projects::Project;
 
@@ -64,7 +63,7 @@ fn set_target_ref(file_path: &PathBuf, sha: &str) -> Result<()> {
     let binding = first_line.join(" ");
     lines[0] = &binding;
     let content = format!("{}\n", lines.join("\n"));
-    write(file_path, &content)
+    write(file_path, content)
 }
 
 fn set_oplog_ref(file_path: &PathBuf, sha: &str) -> Result<()> {
@@ -83,17 +82,5 @@ fn set_oplog_ref(file_path: &PathBuf, sha: &str) -> Result<()> {
     let second_line = [target_ref, sha, &the_rest].join(" ");
 
     let content = format!("{}\n", [first_line, &second_line].join("\n"));
-    write(file_path, &content)
-}
-
-fn write(file_path: &PathBuf, content: &str) -> Result<()> {
-    let mut temp_file = gix::tempfile::new(
-        file_path.parent().unwrap(),
-        ContainingDirectory::Exists,
-        AutoRemove::Tempfile,
-    )?;
-    temp_file.write_all(content.as_bytes())?;
-    storage::persist_tempfile(temp_file, file_path)?;
-
-    Ok(())
+    write(file_path, content)
 }
