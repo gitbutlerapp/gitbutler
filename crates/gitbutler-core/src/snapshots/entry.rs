@@ -19,7 +19,7 @@ pub struct Snapshot {
     /// Snapshot creation time in epoch milliseconds
     pub created_at: i64,
     /// Snapshot details as persisted in the commit message
-    pub details: SnapshotDetails,
+    pub details: Option<SnapshotDetails>,
 }
 
 /// The payload of a snapshot commit
@@ -38,6 +38,19 @@ pub struct SnapshotDetails {
     pub body: Option<String>,
     /// Additional key value pairs that describe the snapshot
     pub trailers: Vec<Trailer>,
+}
+
+impl SnapshotDetails {
+    pub fn new(operation: OperationType) -> Self {
+        let title = operation.to_string();
+        SnapshotDetails {
+            version: Default::default(),
+            operation,
+            title,
+            body: None,
+            trailers: vec![],
+        }
+    }
 }
 
 impl FromStr for SnapshotDetails {
@@ -128,11 +141,12 @@ pub enum OperationType {
     DiscardFile,
     AmendCommit,
     UndoCommit,
-    UnapplyBranchError,
+    UnapplyBranch,
     CherryPick,
     SquashCommit,
     UpdateCommitMessage,
     MoveCommit,
+    RestoreFromSnapshot,
     Unknown,
 }
 
@@ -164,11 +178,12 @@ impl FromStr for OperationType {
             "DiscardFile" => Ok(OperationType::DiscardFile),
             "AmendCommit" => Ok(OperationType::AmendCommit),
             "UndoCommit" => Ok(OperationType::UndoCommit),
-            "UnapplyBranchError" => Ok(OperationType::UnapplyBranchError),
+            "UnapplyBranch" => Ok(OperationType::UnapplyBranch),
             "CherryPick" => Ok(OperationType::CherryPick),
             "SquashCommit" => Ok(OperationType::SquashCommit),
             "UpdateCommitMessage" => Ok(OperationType::UpdateCommitMessage),
             "MoveCommit" => Ok(OperationType::MoveCommit),
+            "RestoreFromSnapshot" => Ok(OperationType::RestoreFromSnapshot),
             _ => Ok(OperationType::Unknown),
         }
     }
@@ -176,6 +191,11 @@ impl FromStr for OperationType {
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct Version(u32);
+impl Default for Version {
+    fn default() -> Self {
+        Version(1)
+    }
+}
 
 impl fmt::Display for Version {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -292,24 +312,25 @@ mod tests {
         let snapshot = Snapshot {
             id: commit_sha.clone(),
             created_at,
-            details,
+            details: Some(details),
         };
         assert_eq!(snapshot.id, commit_sha);
-        assert_eq!(snapshot.details.version.0, 1);
-        assert_eq!(snapshot.details.operation, OperationType::CreateCommit);
-        assert_eq!(snapshot.details.title, "Create a new snapshot");
+        assert_eq!(snapshot.created_at, created_at);
+        let details = snapshot.details.unwrap();
+        assert_eq!(details.version.0, 1);
+        assert_eq!(details.operation, OperationType::CreateCommit);
+        assert_eq!(details.title, "Create a new snapshot");
         assert_eq!(
-            snapshot.details.body,
+            details.body,
             Some("Body text 1\nBody text2\n\nBody text 3".to_string())
         );
         assert_eq!(
-            snapshot.details.trailers,
+            details.trailers,
             vec![Trailer {
                 key: "Foo".to_string(),
                 value: "Bar".to_string(),
             }]
         );
-        assert_eq!(snapshot.created_at, created_at);
-        assert_eq!(snapshot.details.to_string(), commit_message);
+        assert_eq!(details.to_string(), commit_message);
     }
 }

@@ -1,7 +1,7 @@
 use crate::error::Error;
 use anyhow::Context;
 use gitbutler_core::{
-    projects, projects::ProjectId, snapshots::snapshot, snapshots::snapshot::SnapshotEntry,
+    projects, projects::ProjectId, snapshots::entry::Snapshot, snapshots::snapshot,
 };
 use tauri::Manager;
 use tracing::instrument;
@@ -12,7 +12,7 @@ pub async fn list_snapshots(
     handle: tauri::AppHandle,
     project_id: ProjectId,
     limit: usize,
-) -> Result<Vec<SnapshotEntry>, Error> {
+) -> Result<Vec<Snapshot>, Error> {
     let project = handle
         .state::<projects::Controller>()
         .get(&project_id)
