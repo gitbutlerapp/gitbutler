@@ -84,3 +84,64 @@ fn set_oplog_ref(file_path: &PathBuf, sha: &str) -> Result<()> {
     let content = format!("{}\n", [first_line, &second_line].join("\n"));
     write(file_path, content)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_set_target_ref() {
+        let (dir, commit_id) = setup_repo();
+        let project = Project {
+            path: dir.path().to_path_buf(),
+            ..Default::default()
+        };
+        assert!(set_reference_to_oplog(&project, &commit_id.to_string(), "oplog_sha").is_ok());
+
+        let log_file_path = dir
+            .path()
+            .join(".git")
+            .join("logs")
+            .join("refs")
+            .join("heads")
+            .join("gitbutler")
+            .join("target");
+
+        assert!(log_file_path.exists());
+        let log_file = std::fs::read_to_string(&log_file_path).unwrap();
+        let log_lines = log_file.lines().collect::<Vec<_>>();
+        assert_eq!(log_lines.len(), 2);
+        assert!(log_lines[0].starts_with(&format!(
+            "0000000000000000000000000000000000000000 {}",
+            commit_id
+        )));
+        assert!(log_lines[0].ends_with(&format!("branch: Created from {}", commit_id)));
+        assert!(log_lines[1].starts_with(&format!("{} {}", commit_id, "oplog_sha")));
+        assert!(log_lines[1].ends_with("reset: moving to oplog_sha"));
+    }
+
+    fn setup_repo() -> (tempfile::TempDir, git2::Oid) {
+        let dir = tempdir().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        let file_path = dir.path().join("foo.txt");
+        std::fs::write(file_path, "test").unwrap();
+        let mut index = repo.index().unwrap();
+        index.add_path(&PathBuf::from("foo.txt")).unwrap();
+        let oid = index.write_tree().unwrap();
+        let name = "Your Name";
+        let email = "your.email@example.com";
+        let signature = git2::Signature::now(name, email).unwrap();
+        let commit_id = repo
+            .commit(
+                Some("HEAD"),
+                &signature,
+                &signature,
+                "initial commit",
+                &repo.find_tree(oid).unwrap(),
+                &[],
+            )
+            .unwrap();
+        (dir, commit_id)
+    }
+}
