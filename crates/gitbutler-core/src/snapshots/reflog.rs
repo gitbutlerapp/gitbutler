@@ -129,11 +129,14 @@ mod tests {
         let mut index = repo.index().unwrap();
         index.add_path(&PathBuf::from("foo.txt")).unwrap();
         let oid = index.write_tree().unwrap();
+        let name = "Your Name";
+        let email = "your.email@example.com";
+        let signature = git2::Signature::now(name, email).unwrap();
         let commit_id = repo
             .commit(
                 Some("HEAD"),
-                &repo.signature().unwrap(),
-                &repo.signature().unwrap(),
+                &signature,
+                &signature,
                 "initial commit",
                 &repo.find_tree(oid).unwrap(),
                 &[],
