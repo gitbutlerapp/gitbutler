@@ -1,12 +1,10 @@
-use gix::tempfile::{AutoRemove, ContainingDirectory};
 use std::{
     collections::HashMap,
     fs::File,
-    io::{Read, Write},
+    io::Read,
     path::{Path, PathBuf},
 };
 
-use crate::storage;
 use serde::{Deserialize, Serialize};
 
 use super::{target::Target, Branch};
@@ -152,12 +150,5 @@ impl VirtualBranchesHandle {
 }
 
 fn write<P: AsRef<Path>>(file_path: P, virtual_branches: &VirtualBranches) -> anyhow::Result<()> {
-    let contents = toml::to_string(&virtual_branches)?;
-    let mut temp_file = gix::tempfile::new(
-        file_path.as_ref().parent().unwrap(),
-        ContainingDirectory::Exists,
-        AutoRemove::Tempfile,
-    )?;
-    temp_file.write_all(contents.as_bytes())?;
-    Ok(storage::persist_tempfile(temp_file, file_path)?)
+    crate::fs::write(file_path, toml::to_string(&virtual_branches)?)
 }
