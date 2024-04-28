@@ -54,7 +54,9 @@ pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
     let tree = repo.find_tree(tree_id)?;
 
     // Construct a new commit
-    let signature = repo.signature()?;
+    let name = "GitButler";
+    let email = "gitbutler@gitbutler.com";
+    let signature = git2::Signature::now(name, email).unwrap();
     let new_commit_oid = repo.commit(
         None,
         &signature,
