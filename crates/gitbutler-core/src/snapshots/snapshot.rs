@@ -184,6 +184,8 @@ pub fn restore(project: &Project, sha: String) -> Result<()> {
 mod tests {
     use std::path::PathBuf;
 
+    use crate::virtual_branches::Branch;
+
     use super::*;
     use tempfile::tempdir;
 
@@ -237,20 +239,31 @@ mod tests {
             remote_url: Default::default(),
             sha: crate::git::Oid::from_str(&target_sha).unwrap(),
         };
-        vb_state.set_default_target(default_target).unwrap();
+        vb_state.set_default_target(default_target.clone()).unwrap();
 
         // create a snapshot
         create(&project, SnapshotDetails::new(OperationType::CreateCommit)).unwrap();
         let snapshots = list(&project, 100).unwrap();
 
+        // Modify file 1, remove file 2, create file 3
         let file_path = dir.path().join("1.txt");
         std::fs::write(file_path, "TEST").unwrap();
         let file_path = dir.path().join("2.txt");
         std::fs::remove_file(file_path).unwrap();
         let file_path = dir.path().join("3.txt");
         std::fs::write(file_path, "something_new").unwrap();
-        // File 1 was modified, file 2 was deleted, file 3 was added
 
+        // Create a fake branch in virtual_branches.toml
+        let id = crate::id::Id::from_str("9acb2a3b-cddf-47d7-b531-a7798978c237").unwrap();
+        vb_state
+            .set_branch(Branch {
+                id,
+                ..Default::default()
+            })
+            .unwrap();
+        assert!(vb_state.get_branch(&id).is_ok());
+
+        // restore from the snapshot
         restore(&project, snapshots.first().unwrap().id.clone()).unwrap();
 
         let file_path = dir.path().join("1.txt");
@@ -262,5 +275,7 @@ mod tests {
         assert_eq!(file_lines, "test");
         let file_path = dir.path().join("3.txt");
         assert!(!file_path.exists());
+        // The fake branch is gone
+        assert!(vb_state.get_branch(&id).is_err());
     }
 }
