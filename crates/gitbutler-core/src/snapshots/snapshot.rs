@@ -54,7 +54,9 @@ pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
     let tree = repo.find_tree(tree_id)?;
 
     // Construct a new commit
-    let signature = repo.signature()?;
+    let name = "GitButler";
+    let email = "gitbutler@gitbutler.com";
+    let signature = git2::Signature::now(name, email).unwrap();
     let new_commit_oid = repo.commit(
         None,
         &signature,
@@ -94,7 +96,7 @@ pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
 /// An alternative way of retrieving the snapshots would be to manually the oplog head `git log <oplog_head>` available in `.git/gitbutler/oplog.toml`.
 ///
 /// If there are no snapshots, an empty list is returned.
-pub fn list(project: Project, limit: usize) -> Result<Vec<Snapshot>> {
+pub fn list(project: &Project, limit: usize) -> Result<Vec<Snapshot>> {
     let repo_path = project.path.as_path();
     let repo = git2::Repository::init(repo_path)?;
 
@@ -153,6 +155,7 @@ pub fn restore(project: &Project, sha: String) -> Result<()> {
 
     // Define the checkout builder
     let mut checkout_builder = git2::build::CheckoutBuilder::new();
+    checkout_builder.remove_untracked(true);
     checkout_builder.force();
     // Checkout the tree
     repo.checkout_tree(tree.as_object(), Some(&mut checkout_builder))?;
@@ -177,4 +180,104 @@ pub fn restore(project: &Project, sha: String) -> Result<()> {
     create(project, details)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use crate::virtual_branches::Branch;
+
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_create_and_restore() {
+        let dir = tempdir().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        let file_path = dir.path().join("1.txt");
+        std::fs::write(file_path, "test").unwrap();
+        let file_path = dir.path().join("2.txt");
+        std::fs::write(file_path, "test").unwrap();
+        let mut index = repo.index().unwrap();
+        index.add_path(&PathBuf::from("1.txt")).unwrap();
+        index.add_path(&PathBuf::from("2.txt")).unwrap();
+        let oid = index.write_tree().unwrap();
+        let name = "Your Name";
+        let email = "your.email@example.com";
+        let signature = git2::Signature::now(name, email).unwrap();
+        let initial_commit = repo
+            .commit(
+                Some("HEAD"),
+                &signature,
+                &signature,
+                "initial commit",
+                &repo.find_tree(oid).unwrap(),
+                &[],
+            )
+            .unwrap();
+
+        // create a new branch called "gitbutler/integraion" from initial commit
+        repo.branch(
+            "gitbutler/integration",
+            &repo.find_commit(initial_commit).unwrap(),
+            false,
+        )
+        .unwrap();
+
+        let project = Project {
+            path: dir.path().to_path_buf(),
+            enable_snapshots: Some(true),
+            ..Default::default()
+        };
+        // create gb_dir folder
+        std::fs::create_dir_all(project.gb_dir()).unwrap();
+
+        let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
+
+        let target_sha = initial_commit.to_string();
+        let default_target = crate::virtual_branches::target::Target {
+            branch: crate::git::RemoteRefname::new("origin", "main"),
+            remote_url: Default::default(),
+            sha: crate::git::Oid::from_str(&target_sha).unwrap(),
+        };
+        vb_state.set_default_target(default_target.clone()).unwrap();
+
+        // create a snapshot
+        create(&project, SnapshotDetails::new(OperationType::CreateCommit)).unwrap();
+        let snapshots = list(&project, 100).unwrap();
+
+        // Modify file 1, remove file 2, create file 3
+        let file_path = dir.path().join("1.txt");
+        std::fs::write(file_path, "TEST").unwrap();
+        let file_path = dir.path().join("2.txt");
+        std::fs::remove_file(file_path).unwrap();
+        let file_path = dir.path().join("3.txt");
+        std::fs::write(file_path, "something_new").unwrap();
+
+        // Create a fake branch in virtual_branches.toml
+        let id = crate::id::Id::from_str("9acb2a3b-cddf-47d7-b531-a7798978c237").unwrap();
+        vb_state
+            .set_branch(Branch {
+                id,
+                ..Default::default()
+            })
+            .unwrap();
+        assert!(vb_state.get_branch(&id).is_ok());
+
+        // restore from the snapshot
+        restore(&project, snapshots.first().unwrap().id.clone()).unwrap();
+
+        let file_path = dir.path().join("1.txt");
+        let file_lines = std::fs::read_to_string(file_path).unwrap();
+        assert_eq!(file_lines, "test");
+        let file_path = dir.path().join("2.txt");
+        assert!(file_path.exists());
+        let file_lines = std::fs::read_to_string(file_path).unwrap();
+        assert_eq!(file_lines, "test");
+        let file_path = dir.path().join("3.txt");
+        assert!(!file_path.exists());
+        // The fake branch is gone
+        assert!(vb_state.get_branch(&id).is_err());
+    }
 }
