@@ -97,7 +97,6 @@ mod tests {
             path: dir.path().to_path_buf(),
             ..Default::default()
         };
-        assert!(set_reference_to_oplog(&project, &commit_id.to_string(), "oplog_sha").is_ok());
 
         let log_file_path = dir
             .path()
@@ -107,7 +106,10 @@ mod tests {
             .join("heads")
             .join("gitbutler")
             .join("target");
+        assert!(!log_file_path.exists());
 
+        // Set ref for the first time
+        assert!(set_reference_to_oplog(&project, &commit_id.to_string(), "oplog_sha").is_ok());
         assert!(log_file_path.exists());
         let log_file = std::fs::read_to_string(&log_file_path).unwrap();
         let log_lines = log_file.lines().collect::<Vec<_>>();
@@ -119,6 +121,36 @@ mod tests {
         assert!(log_lines[0].ends_with(&format!("branch: Created from {}", commit_id)));
         assert!(log_lines[1].starts_with(&format!("{} {}", commit_id, "oplog_sha")));
         assert!(log_lines[1].ends_with("reset: moving to oplog_sha"));
+
+        // Update the oplog head only
+        assert!(
+            set_reference_to_oplog(&project, &commit_id.to_string(), "another_oplog_sha").is_ok()
+        );
+        let log_file = std::fs::read_to_string(&log_file_path).unwrap();
+        let log_lines = log_file.lines().collect::<Vec<_>>();
+        assert_eq!(log_lines.len(), 2);
+        assert!(log_lines[0].starts_with(&format!(
+            "0000000000000000000000000000000000000000 {}",
+            commit_id
+        )));
+        assert!(log_lines[0].ends_with(&format!("branch: Created from {}", commit_id)));
+        println!("{:?}", log_lines[1]);
+        assert!(log_lines[1].starts_with(&format!("{} {}", commit_id, "another_oplog_sha")));
+        assert!(log_lines[1].ends_with("reset: moving to another_oplog_sha"));
+
+        // Update the target head only
+        assert!(set_reference_to_oplog(&project, "new_target", "another_oplog_sha").is_ok());
+        let log_file = std::fs::read_to_string(&log_file_path).unwrap();
+        let log_lines = log_file.lines().collect::<Vec<_>>();
+        assert_eq!(log_lines.len(), 2);
+        assert!(log_lines[0].starts_with(&format!(
+            "0000000000000000000000000000000000000000 {}",
+            "new_target"
+        )));
+        assert!(log_lines[0].ends_with(&format!("branch: Created from {}", "new_target")));
+        println!("{:?}", log_lines[1]);
+        assert!(log_lines[1].starts_with(&format!("{} {}", "new_target", "another_oplog_sha")));
+        assert!(log_lines[1].ends_with("reset: moving to another_oplog_sha"));
     }
 
     fn setup_repo() -> (tempfile::TempDir, git2::Oid) {
