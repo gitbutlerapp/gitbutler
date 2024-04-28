@@ -17,7 +17,7 @@ pub async fn list_snapshots(
         .state::<projects::Controller>()
         .get(&project_id)
         .context("failed to get project")?;
-    let snapshots = snapshot::list(project, limit)?;
+    let snapshots = snapshot::list(&project, limit)?;
     Ok(snapshots)
 }
 
