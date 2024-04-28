@@ -153,6 +153,7 @@ pub fn restore(project: &Project, sha: String) -> Result<()> {
 
     // Define the checkout builder
     let mut checkout_builder = git2::build::CheckoutBuilder::new();
+    checkout_builder.remove_untracked(true);
     checkout_builder.force();
     // Checkout the tree
     repo.checkout_tree(tree.as_object(), Some(&mut checkout_builder))?;
@@ -259,7 +260,7 @@ mod tests {
         assert!(file_path.exists());
         let file_lines = std::fs::read_to_string(file_path).unwrap();
         assert_eq!(file_lines, "test");
-        // let file_path = dir.path().join("3.txt");
-        // assert!(!file_path.exists());
+        let file_path = dir.path().join("3.txt");
+        assert!(!file_path.exists());
     }
 }
