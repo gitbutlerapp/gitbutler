@@ -231,11 +231,70 @@ impl Controller {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
+        commit_oid: git::Oid,
         ownership: &BranchOwnershipClaims,
     ) -> Result<git::Oid, Error> {
         self.inner(project_id)
             .await
-            .amend(project_id, branch_id, ownership)
+            .amend(project_id, branch_id, commit_oid, ownership)
+            .await
+    }
+
+    pub async fn move_commit_file(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        from_commit_oid: git::Oid,
+        to_commit_oid: git::Oid,
+        ownership: &BranchOwnershipClaims,
+    ) -> Result<git::Oid, Error> {
+        self.inner(project_id)
+            .await
+            .move_commit_file(
+                project_id,
+                branch_id,
+                from_commit_oid,
+                to_commit_oid,
+                ownership,
+            )
+            .await
+    }
+
+    pub async fn undo_commit(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        commit_oid: git::Oid,
+    ) -> Result<(), Error> {
+        self.inner(project_id)
+            .await
+            .undo_commit(project_id, branch_id, commit_oid)
+            .await
+    }
+
+    pub async fn insert_blank_commit(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        commit_oid: git::Oid,
+        offset: i32,
+    ) -> Result<(), Error> {
+        self.inner(project_id)
+            .await
+            .insert_blank_commit(project_id, branch_id, commit_oid, offset)
+            .await
+    }
+
+    pub async fn reorder_commit(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        commit_oid: git::Oid,
+        offset: i32,
+    ) -> Result<(), Error> {
+        self.inner(project_id)
+            .await
+            .reorder_commit(project_id, branch_id, commit_oid, offset)
             .await
     }
 
@@ -714,15 +773,104 @@ impl ControllerInner {
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
+        commit_oid: git::Oid,
         ownership: &BranchOwnershipClaims,
     ) -> Result<git::Oid, Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result = super::amend(project_repository, branch_id, ownership).map_err(Into::into);
+            let result = super::amend(project_repository, branch_id, commit_oid, ownership)
+                .map_err(Into::into);
             snapshot::create(
                 project_repository.project(),
                 SnapshotDetails::new(OperationType::AmendCommit),
+            )?;
+            result
+        })
+    }
+
+    pub async fn move_commit_file(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        from_commit_oid: git::Oid,
+        to_commit_oid: git::Oid,
+        ownership: &BranchOwnershipClaims,
+    ) -> Result<git::Oid, Error> {
+        let _permit = self.semaphore.acquire().await;
+
+        self.with_verify_branch(project_id, |project_repository, _| {
+            let result = super::move_commit_file(
+                project_repository,
+                branch_id,
+                from_commit_oid,
+                to_commit_oid,
+                ownership,
+            )
+            .map_err(Into::into);
+            snapshot::create(
+                project_repository.project(),
+                SnapshotDetails::new(OperationType::MoveCommitFile),
+            )?;
+            result
+        })
+    }
+
+    pub async fn undo_commit(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        commit_oid: git::Oid,
+    ) -> Result<(), Error> {
+        let _permit = self.semaphore.acquire().await;
+
+        self.with_verify_branch(project_id, |project_repository, _| {
+            let result =
+                super::undo_commit(project_repository, branch_id, commit_oid).map_err(Into::into);
+            snapshot::create(
+                project_repository.project(),
+                SnapshotDetails::new(OperationType::UndoCommit),
+            )?;
+            result
+        })
+    }
+
+    pub async fn insert_blank_commit(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        commit_oid: git::Oid,
+        offset: i32,
+    ) -> Result<(), Error> {
+        let _permit = self.semaphore.acquire().await;
+
+        self.with_verify_branch(project_id, |project_repository, user| {
+            let result =
+                super::insert_blank_commit(project_repository, branch_id, commit_oid, user, offset)
+                    .map_err(Into::into);
+            snapshot::create(
+                project_repository.project(),
+                SnapshotDetails::new(OperationType::InsertBlankCommit),
+            )?;
+            result
+        })
+    }
+
+    pub async fn reorder_commit(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        commit_oid: git::Oid,
+        offset: i32,
+    ) -> Result<(), Error> {
+        let _permit = self.semaphore.acquire().await;
+
+        self.with_verify_branch(project_id, |project_repository, _| {
+            let result = super::reorder_commit(project_repository, branch_id, commit_oid, offset)
+                .map_err(Into::into);
+            snapshot::create(
+                project_repository.project(),
+                SnapshotDetails::new(OperationType::ReorderCommit),
             )?;
             result
         })

@@ -350,11 +350,86 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch_id: BranchId,
+        commit_oid: git::Oid,
         ownership: BranchOwnershipClaims,
     ) -> Result<git::Oid, Error> {
         let oid = handle
             .state::<Controller>()
-            .amend(&project_id, &branch_id, &ownership)
+            .amend(&project_id, &branch_id, commit_oid, &ownership)
+            .await?;
+        emit_vbranches(&handle, &project_id).await;
+        Ok(oid)
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(handle), err(Debug))]
+    pub async fn move_commit_file(
+        handle: AppHandle,
+        project_id: ProjectId,
+        branch_id: BranchId,
+        from_commit_oid: git::Oid,
+        to_commit_oid: git::Oid,
+        ownership: BranchOwnershipClaims,
+    ) -> Result<git::Oid, Error> {
+        let oid = handle
+            .state::<Controller>()
+            .move_commit_file(
+                &project_id,
+                &branch_id,
+                from_commit_oid,
+                to_commit_oid,
+                &ownership,
+            )
+            .await?;
+        emit_vbranches(&handle, &project_id).await;
+        Ok(oid)
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(handle), err(Debug))]
+    pub async fn undo_commit(
+        handle: AppHandle,
+        project_id: ProjectId,
+        branch_id: BranchId,
+        commit_oid: git::Oid,
+    ) -> Result<(), Error> {
+        let oid = handle
+            .state::<Controller>()
+            .undo_commit(&project_id, &branch_id, commit_oid)
+            .await?;
+        emit_vbranches(&handle, &project_id).await;
+        Ok(oid)
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(handle), err(Debug))]
+    pub async fn insert_blank_commit(
+        handle: AppHandle,
+        project_id: ProjectId,
+        branch_id: BranchId,
+        commit_oid: git::Oid,
+        offset: i32,
+    ) -> Result<(), Error> {
+        let oid = handle
+            .state::<Controller>()
+            .insert_blank_commit(&project_id, &branch_id, commit_oid, offset)
+            .await?;
+        emit_vbranches(&handle, &project_id).await;
+        Ok(oid)
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(handle), err(Debug))]
+    pub async fn reorder_commit(
+        handle: AppHandle,
+        project_id: ProjectId,
+        branch_id: BranchId,
+        commit_oid: git::Oid,
+        offset: i32,
+    ) -> Result<(), Error> {
+        let oid = handle
+            .state::<Controller>()
+            .reorder_commit(&project_id, &branch_id, commit_oid, offset)
             .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(oid)
@@ -445,6 +520,8 @@ pub mod commands {
         Ok(())
     }
 
+    #[tauri::command(async)]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn update_commit_message(
         handle: tauri::AppHandle,
         project_id: ProjectId,
