@@ -8,7 +8,6 @@ publish = false
 doctest = false
 
 [dependencies]
-gitbutler-analytics.workspace = true
 gitbutler-core.workspace = true
 thiserror.workspace = true
 anyhow = "1.0.81"
