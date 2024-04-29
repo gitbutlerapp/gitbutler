@@ -116,30 +116,36 @@
 				</div>
 			{/if}
 			<div class="commit__row">
-				{#if isUndoable && !showFiles}
-					{#if commit.descriptionTitle}
-						<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
-							{commit.descriptionTitle}
-						</span>
-					{:else}
-						<span
-							class="commit__title_no_desc text-base-12 text-zinc-400"
-							class:truncate={!showFiles}
+				{#if isUndoable}
+					{#if !showFiles}
+						{#if commit.descriptionTitle}
+							<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
+								{commit.descriptionTitle}
+							</span>
+						{:else}
+							<span
+								class="commit__title_no_desc text-base-12 text-zinc-400"
+								class:truncate={!showFiles}
+							>
+								<i>empty commit message</i>
+							</span>
+						{/if}
+						<Tag
+							style="ghost"
+							kind="solid"
+							icon="undo-small"
+							clickable
+							on:click={(e) => {
+								currentCommitMessage.set(commit.description);
+								e.stopPropagation();
+								undoCommit(commit);
+							}}>Undo</Tag
 						>
-							<i>empty commit message</i>
-						</span>
 					{/if}
-					<Tag
-						style="ghost"
-						kind="solid"
-						icon="undo-small"
-						clickable
-						on:click={(e) => {
-							currentCommitMessage.set(commit.description);
-							e.stopPropagation();
-							undoCommit(commit);
-						}}>Undo</Tag
-					>
+				{:else}
+					<span class="commit__title text-base-12" class:truncate={!showFiles}>
+						{commit.descriptionTitle}
+					</span>
 				{/if}
 			</div>
 		</div>
