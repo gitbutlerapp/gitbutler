@@ -5,8 +5,6 @@ use tracing::{metadata::LevelFilter, subscriber::set_global_default};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, Layer};
 
-use crate::sentry;
-
 pub fn init(app_handle: &AppHandle) {
     let logs_dir = app_handle
         .path_resolver()
@@ -54,7 +52,6 @@ pub fn init(app_handle: &AppHandle) {
                 .with_span_events(FmtSpan::CLOSE)
                 .with_filter(log_level_filter),
         )
-        .with(sentry::tracing_layer())
         .with(
             // subscriber that writes spans to a file
             tracing_subscriber::fmt::layer()

@@ -26,7 +26,6 @@ pub mod error;
 pub mod github;
 pub mod keys;
 pub mod projects;
-pub mod sentry;
 pub mod sessions;
 pub mod snapshots;
 pub mod users;

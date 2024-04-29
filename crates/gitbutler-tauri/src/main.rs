@@ -15,11 +15,10 @@
 
 use std::path::PathBuf;
 
-use anyhow::Context;
 use gitbutler_core::{assets, database, git, storage};
 use gitbutler_tauri::{
-    app, askpass, commands, deltas, github, keys, logs, menu, projects, sentry, sessions,
-    snapshots, users, virtual_branches, watcher, zip,
+    app, askpass, commands, deltas, github, keys, logs, menu, projects, sessions, snapshots, users,
+    virtual_branches, watcher, zip,
 };
 use tauri::{generate_context, Manager, Wry};
 use tauri_plugin_log::LogTarget;
@@ -28,8 +27,6 @@ use tauri_plugin_store::{with_store, JsonValue, StoreCollection};
 fn main() {
     let tauri_context = generate_context!();
 
-    let app_name = tauri_context.package_info().name.clone();
-    let app_version = tauri_context.package_info().version.clone().to_string();
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -150,7 +147,7 @@ fn main() {
 
                     let stores = tauri_app.state::<StoreCollection<Wry>>();
                     if let Some(path) = app_handle.path_resolver().app_config_dir().map(|path| path.join(PathBuf::from("settings.json"))) {
-                        if let Ok((metrics_enabled, error_reporting_enabled)) = with_store(app_handle.clone(), stores, path, |store| {
+                        if let Ok((metrics_enabled, _)) = with_store(app_handle.clone(), stores, path, |store| {
                             let metrics_enabled = store.get("appMetricsEnabled")
                                 .and_then(JsonValue::as_bool)
                                 .unwrap_or(true);
@@ -171,11 +168,6 @@ fn main() {
                                 };
                                 let analytics_client = gitbutler_analytics::Client::new(app_handle.package_info().name.clone(), app_handle.package_info().version.to_string(), &analytics_cfg);
                                 tauri_app.manage(analytics_client);
-                            }
-
-                            if error_reporting_enabled {
-                                let _guard = sentry::init(app_name.as_str(), app_version);
-                                sentry::configure_scope(users_controller.get_user().context("failed to get user")?.as_ref());
                             }
                         };
                     }
