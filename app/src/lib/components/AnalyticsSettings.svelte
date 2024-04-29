@@ -1,5 +1,4 @@
 <script lang="ts">
-	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
 	import SectionCard from './SectionCard.svelte';
 	import Toggle from './Toggle.svelte';
@@ -7,16 +6,13 @@
 
 	const errorReportingEnabled = appErrorReportingEnabled();
 	const metricsEnabled = appMetricsEnabled();
-	let updatedTelemetrySettings = false;
 
 	function toggleErrorReporting() {
 		$errorReportingEnabled = !$errorReportingEnabled;
-		updatedTelemetrySettings = true;
 	}
 
 	function toggleMetrics() {
 		$metricsEnabled = !$metricsEnabled;
-		updatedTelemetrySettings = true;
 	}
 </script>
 
@@ -60,14 +56,6 @@
 				<Toggle id="metricsEnabledToggle" checked={$metricsEnabled} on:change={toggleMetrics} />
 			</svelte:fragment>
 		</SectionCard>
-
-		{#if updatedTelemetrySettings}
-			<InfoMessage>
-				<svelte:fragment slot="content"
-					>Changes will take effect on the next application start.</svelte:fragment
-				>
-			</InfoMessage>
-		{/if}
 	</div>
 </section>
 
