@@ -29,7 +29,6 @@ pub struct Handler {
     // the tauri app, assuming that such application would not be `Send + Sync` everywhere and thus would
     // need extra protection.
     users: users::Controller,
-    analytics: gitbutler_analytics::Client,
     local_data_dir: path::PathBuf,
     projects: projects::Controller,
     vbranch_controller: virtual_branches::Controller,
@@ -47,7 +46,6 @@ impl Handler {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         local_data_dir: PathBuf,
-        analytics: gitbutler_analytics::Client,
         users: users::Controller,
         projects: projects::Controller,
         vbranch_controller: virtual_branches::Controller,
@@ -58,7 +56,6 @@ impl Handler {
     ) -> Self {
         Handler {
             local_data_dir,
-            analytics,
             users,
             projects,
             vbranch_controller,
@@ -126,13 +123,6 @@ impl Handler {
             file_path: file_path.to_owned(),
             contents,
         })
-    }
-    fn send_analytics_event_none_blocking(&self, event: &gitbutler_analytics::Event) -> Result<()> {
-        if let Some(user) = self.users.get_user().context("failed to get user")? {
-            self.analytics
-                .send_non_anonymous_event_nonblocking(&user, event);
-        }
-        Ok(())
     }
 
     async fn flush_session(
@@ -367,12 +357,6 @@ impl Handler {
                         integration_reference.delete()?;
                     }
                     if let Some(head) = head_ref.name() {
-                        self.send_analytics_event_none_blocking(
-                            &gitbutler_analytics::Event::HeadChange {
-                                project_id,
-                                reference_name: head_ref_name.to_string(),
-                            },
-                        )?;
                         self.emit_app_event(Change::GitHead {
                             project_id,
                             head: head.to_string(),

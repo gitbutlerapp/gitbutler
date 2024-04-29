@@ -20,9 +20,8 @@ use gitbutler_tauri::{
     app, askpass, commands, deltas, github, keys, logs, menu, projects, sessions, snapshots, users,
     virtual_branches, watcher, zip,
 };
-use tauri::{generate_context, Manager, Wry};
+use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
-use tauri_plugin_store::{with_store, JsonValue, StoreCollection};
 
 fn main() {
     let tauri_context = generate_context!();
@@ -144,33 +143,6 @@ fn main() {
                         keys_controller.clone(),
                         git_credentials_controller.clone(),
                     ));
-
-                    let stores = tauri_app.state::<StoreCollection<Wry>>();
-                    if let Some(path) = app_handle.path_resolver().app_config_dir().map(|path| path.join(PathBuf::from("settings.json"))) {
-                        if let Ok((metrics_enabled, _)) = with_store(app_handle.clone(), stores, path, |store| {
-                            let metrics_enabled = store.get("appMetricsEnabled")
-                                .and_then(JsonValue::as_bool)
-                                .unwrap_or(true);
-                            let error_reporting_enabled = store.get("appErrorReportingEnabled")
-                                .and_then(JsonValue::as_bool)
-                                .unwrap_or(true);
-                            Ok((metrics_enabled, error_reporting_enabled))
-                        }) {
-                            if metrics_enabled {
-                                let analytics_cfg = if cfg!(debug_assertions) {
-                                    gitbutler_analytics::Config {
-                                        posthog_token: Some("phc_t7VDC9pQELnYep9IiDTxrq2HLseY5wyT7pn0EpHM7rr"),
-                                    }
-                                } else {
-                                    gitbutler_analytics::Config {
-                                        posthog_token: Some("phc_yJx46mXv6kA5KTuM2eEQ6IwNTgl5YW3feKV5gi7mfGG"),
-                                    }
-                                };
-                                let analytics_client = gitbutler_analytics::Client::new(app_handle.package_info().name.clone(), app_handle.package_info().version.to_string(), &analytics_cfg);
-                                tauri_app.manage(analytics_client);
-                            }
-                        };
-                    }
 
                     let sessions_database_controller = gitbutler_core::sessions::database::Database::new(database_controller.clone());
                     app_handle.manage(sessions_database_controller.clone());

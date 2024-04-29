@@ -62,7 +62,6 @@ mod support {
             self.changes = Some(rx);
             gitbutler_watcher::Handler::new(
                 self.local_app_data().to_owned(),
-                gitbutler_analytics::Client::default(),
                 self.users.clone(),
                 self.projects.clone(),
                 self.vbranch_controller.clone(),

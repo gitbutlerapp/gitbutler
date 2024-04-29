@@ -2007,21 +2007,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-analytics"
-version = "0.0.0"
-dependencies = [
- "async-trait",
- "chrono",
- "gitbutler-core",
- "reqwest 0.12.2",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "gitbutler-changeset"
 version = "0.0.0"
 dependencies = [
@@ -2107,7 +2092,6 @@ dependencies = [
  "console-subscriber",
  "futures",
  "git2",
- "gitbutler-analytics",
  "gitbutler-core",
  "gitbutler-testsupport",
  "gitbutler-watcher",
@@ -2156,7 +2140,6 @@ dependencies = [
  "crossbeam-channel",
  "futures",
  "git2",
- "gitbutler-analytics",
  "gitbutler-core",
  "gitbutler-testsupport",
  "itertools 0.12.1",
