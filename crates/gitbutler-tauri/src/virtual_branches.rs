@@ -393,12 +393,12 @@ pub mod commands {
         branch_id: BranchId,
         commit_oid: git::Oid,
     ) -> Result<(), Error> {
-        let oid = handle
+        handle
             .state::<Controller>()
             .undo_commit(&project_id, &branch_id, commit_oid)
             .await?;
         emit_vbranches(&handle, &project_id).await;
-        Ok(oid)
+        Ok(())
     }
 
     #[tauri::command(async)]
@@ -410,12 +410,12 @@ pub mod commands {
         commit_oid: git::Oid,
         offset: i32,
     ) -> Result<(), Error> {
-        let oid = handle
+        handle
             .state::<Controller>()
             .insert_blank_commit(&project_id, &branch_id, commit_oid, offset)
             .await?;
         emit_vbranches(&handle, &project_id).await;
-        Ok(oid)
+        Ok(())
     }
 
     #[tauri::command(async)]
@@ -427,12 +427,12 @@ pub mod commands {
         commit_oid: git::Oid,
         offset: i32,
     ) -> Result<(), Error> {
-        let oid = handle
+        handle
             .state::<Controller>()
             .reorder_commit(&project_id, &branch_id, commit_oid, offset)
             .await?;
         emit_vbranches(&handle, &project_id).await;
-        Ok(oid)
+        Ok(())
     }
 
     #[tauri::command(async)]

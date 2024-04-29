@@ -2723,7 +2723,7 @@ pub fn move_commit_file(
             })
         })?;
 
-    let mut to_amend_oid = to_commit_oid.clone();
+    let mut to_amend_oid = to_commit_oid;
     let mut amend_commit = project_repository
         .git_repository
         .find_commit(to_amend_oid)
@@ -2835,23 +2835,19 @@ pub fn move_commit_file(
         // write our new tree and commit for the new "from" commit without the moved changes
         let new_from_tree_oid =
             write_tree_onto_commit(project_repository, from_parent.id(), &diffs_to_keep)?;
-        let new_from_tree = &repo.find_tree(new_from_tree_oid).or_else(|_error| {
-            return Err(errors::VirtualBranchError::GitObjectNotFound(
-                new_from_tree_oid,
-            ));
-        })?;
+        let new_from_tree = &repo
+            .find_tree(new_from_tree_oid)
+            .map_err(|_error| errors::VirtualBranchError::GitObjectNotFound(new_from_tree_oid))?;
         let new_from_commit_oid = repo
             .commit(
                 None,
                 &from_commit.author(),
                 &from_commit.committer(),
                 &from_commit.message().to_str_lossy(),
-                &new_from_tree,
+                new_from_tree,
                 &[&from_parent],
             )
-            .or_else(|_error| {
-                return Err(errors::VirtualBranchError::CommitFailed);
-            })?;
+            .map_err(|_error| errors::VirtualBranchError::CommitFailed)?;
 
         // rebase everything above the new "from" commit that has the moved changes removed
         let new_head = match cherry_rebase(
@@ -2956,9 +2952,9 @@ pub fn move_commit_file(
         target_branch.head = new_head;
         vb_state.set_branch(target_branch.clone())?;
         super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-        return Ok(commit_oid);
+        Ok(commit_oid)
     } else {
-        return Err(errors::VirtualBranchError::RebaseFailed);
+        Err(errors::VirtualBranchError::RebaseFailed)
     }
 }
 
@@ -3143,9 +3139,9 @@ pub fn amend(
         target_branch.head = new_head;
         vb_state.set_branch(target_branch.clone())?;
         super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-        return Ok(commit_oid);
+        Ok(commit_oid)
     } else {
-        return Err(errors::VirtualBranchError::RebaseFailed);
+        Err(errors::VirtualBranchError::RebaseFailed)
     }
 }
 
@@ -3253,7 +3249,7 @@ pub fn reorder_commit(
         }
     }
 
-    return Ok(());
+    Ok(())
 }
 
 // create and insert a blank commit (no tree change) either above or below a commit
@@ -3323,7 +3319,7 @@ pub fn insert_blank_commit(
         }
     }
 
-    return Ok(());
+    Ok(())
 }
 
 // remove a commit in a branch by rebasing all commits _except_ for it onto it's parent
@@ -3385,7 +3381,7 @@ pub fn undo_commit(
             .context("failed to update gitbutler integration")?;
     }
 
-    return Ok(());
+    Ok(())
 }
 
 // cherry-pick based rebase, which handles empty commits
@@ -3410,7 +3406,7 @@ pub fn cherry_rebase(
     let new_head_id =
         cherry_rebase_group(project_repository, target_commit_oid, &mut ids_to_rebase)?;
 
-    return Ok(new_head_id);
+    Ok(new_head_id)
 }
 
 // takes a vector of commit oids and rebases them onto a target commit and returns the
@@ -3420,7 +3416,7 @@ pub fn cherry_rebase(
 fn cherry_rebase_group(
     project_repository: &project_repository::Repository,
     target_commit_oid: git::Oid,
-    ids_to_rebase: &mut Vec<git::Oid>,
+    ids_to_rebase: &mut [git::Oid],
 ) -> Result<Option<git::Oid>, anyhow::Error> {
     ids_to_rebase.reverse();
     // now, rebase unchanged commits onto the new commit
@@ -3478,7 +3474,7 @@ fn cherry_rebase_group(
         )?
         .id();
 
-    return Ok(Some(new_head_id));
+    Ok(Some(new_head_id))
 }
 
 // runs a simple libgit2 based in-memory rebase on a commit range onto a target commit
@@ -3527,11 +3523,11 @@ pub fn simple_rebase(
     if rebase_success {
         // rebase worked out, rewrite the branch head
         rebase.finish(None).context("failed to finish rebase")?;
-        return Ok(Some(last_rebase_head));
+        Ok(Some(last_rebase_head))
     } else {
         // rebase failed, do a merge commit
         rebase.abort().context("failed to abort rebase")?;
-        return Ok(None);
+        Ok(None)
     }
 }
 
@@ -3838,9 +3834,7 @@ pub fn squash(
                 .context("failed to update gitbutler integration")?;
             Ok(())
         }
-        _ => {
-            return Err(errors::SquashError::Other(anyhow!("rebase error")));
-        }
+        _ => Err(errors::SquashError::Other(anyhow!("rebase error"))),
     }
 }
 
@@ -3956,11 +3950,9 @@ pub fn update_commit_message(
                 .context("failed to update gitbutler integration")?;
             Ok(())
         }
-        _ => {
-            return Err(errors::UpdateCommitMessageError::Other(anyhow!(
-                "rebase error"
-            )));
-        }
+        _ => Err(errors::UpdateCommitMessageError::Other(anyhow!(
+            "rebase error"
+        ))),
     }
 }
 
