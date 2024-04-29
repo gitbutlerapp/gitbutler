@@ -45,6 +45,7 @@ similar = { version = "2.5.0", features = ["unicode"] }
 slug = "0.1.5"
 ssh-key = { version = "0.6.5", features = [ "alloc", "ed25519" ] }
 ssh2 = { version = "0.9.4", features = ["vendored-openssl"] }
+strum = { version = "0.26", features = ["derive"] }
 log = "^0.4"
 thiserror.workspace = true
 tokio = { workspace = true, features = [ "rt-multi-thread", "rt", "macros" ] }

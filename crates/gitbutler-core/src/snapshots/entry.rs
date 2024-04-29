@@ -6,6 +6,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::str::FromStr;
+use strum::EnumString;
 
 use serde::Serialize;
 
@@ -89,7 +90,9 @@ impl FromStr for SnapshotDetails {
                 .cloned()
                 .ok_or(anyhow!("No operation found on snapshot commit message"))?
                 .value,
-        )?;
+        )
+        .unwrap_or(Default::default());
+        println!("Operation: {:?}", operation);
 
         // remove the version and operation attributes from the trailers since they have dedicated fields
         trailers.retain(|t| t.key != "Version" && t.key != "Operation");
@@ -121,7 +124,7 @@ impl Display for SnapshotDetails {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, EnumString, Default)]
 pub enum OperationType {
     CreateCommit,
     CreateBranch,
@@ -147,45 +150,13 @@ pub enum OperationType {
     UpdateCommitMessage,
     MoveCommit,
     RestoreFromSnapshot,
+    #[default]
     Unknown,
 }
 
 impl fmt::Display for OperationType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
-    }
-}
-
-impl FromStr for OperationType {
-    type Err = anyhow::Error;
-    fn from_str(s: &str) -> Result<Self> {
-        match s {
-            "CreateCommit" => Ok(OperationType::CreateCommit),
-            "CreateBranch" => Ok(OperationType::CreateBranch),
-            "SetBaseBranch" => Ok(OperationType::SetBaseBranch),
-            "MergeUpstream" => Ok(OperationType::MergeUpstream),
-            "UpdateWorkspaceBase" => Ok(OperationType::UpdateWorkspaceBase),
-            "MoveHunk" => Ok(OperationType::MoveHunk),
-            "UpdateBranchName" => Ok(OperationType::UpdateBranchName),
-            "UpdateBranchNotes" => Ok(OperationType::UpdateBranchNotes),
-            "ReorderBranches" => Ok(OperationType::ReorderBranches),
-            "SelectDefaultVirtualBranch" => Ok(OperationType::SelectDefaultVirtualBranch),
-            "UpdateBranchRemoteName" => Ok(OperationType::UpdateBranchRemoteName),
-            "GenericBranchUpdate" => Ok(OperationType::GenericBranchUpdate),
-            "DeleteBranch" => Ok(OperationType::DeleteBranch),
-            "ApplyBranch" => Ok(OperationType::ApplyBranch),
-            "DiscardHunk" => Ok(OperationType::DiscardHunk),
-            "DiscardFile" => Ok(OperationType::DiscardFile),
-            "AmendCommit" => Ok(OperationType::AmendCommit),
-            "UndoCommit" => Ok(OperationType::UndoCommit),
-            "UnapplyBranch" => Ok(OperationType::UnapplyBranch),
-            "CherryPick" => Ok(OperationType::CherryPick),
-            "SquashCommit" => Ok(OperationType::SquashCommit),
-            "UpdateCommitMessage" => Ok(OperationType::UpdateCommitMessage),
-            "MoveCommit" => Ok(OperationType::MoveCommit),
-            "RestoreFromSnapshot" => Ok(OperationType::RestoreFromSnapshot),
-            _ => Ok(OperationType::Unknown),
-        }
     }
 }
 
@@ -296,10 +267,22 @@ mod tests {
 
     #[test]
     fn test_operation_unknown() {
-        let s = "Operation: Asdf";
-        let trailer = Trailer::from_str(s).unwrap();
-        let operation = OperationType::from_str(&trailer.value).unwrap();
-        assert_eq!(operation, OperationType::Unknown);
+        let commit_message = "Create a new snapshot\n\nBody text 1\nBody text2\n\nBody text 3\n\nVersion: 1\nOperation: Asdf\nFoo: Bar\n";
+        let details = SnapshotDetails::from_str(commit_message).unwrap();
+        assert_eq!(details.version.0, 1);
+        assert_eq!(details.operation, OperationType::Unknown);
+        assert_eq!(details.title, "Create a new snapshot");
+        assert_eq!(
+            details.body,
+            Some("Body text 1\nBody text2\n\nBody text 3".to_string())
+        );
+        assert_eq!(
+            details.trailers,
+            vec![Trailer {
+                key: "Foo".to_string(),
+                value: "Bar".to_string(),
+            }]
+        );
     }
 
     #[test]
