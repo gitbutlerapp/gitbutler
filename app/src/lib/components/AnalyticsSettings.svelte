@@ -2,10 +2,15 @@
 	import Link from './Link.svelte';
 	import SectionCard from './SectionCard.svelte';
 	import Toggle from './Toggle.svelte';
-	import { appErrorReportingEnabled, appMetricsEnabled } from '$lib/config/appSettings';
+	import {
+		appErrorReportingEnabled,
+		appMetricsEnabled,
+		appNonAnonMetricsEnabled
+	} from '$lib/config/appSettings';
 
 	const errorReportingEnabled = appErrorReportingEnabled();
 	const metricsEnabled = appMetricsEnabled();
+	const nonAnonMetricsEnabled = appNonAnonMetricsEnabled();
 
 	function toggleErrorReporting() {
 		$errorReportingEnabled = !$errorReportingEnabled;
@@ -14,13 +19,23 @@
 	function toggleMetrics() {
 		$metricsEnabled = !$metricsEnabled;
 	}
+
+	function toggleNonAnonMetrics() {
+		$nonAnonMetricsEnabled = !$nonAnonMetricsEnabled;
+	}
 </script>
 
 <section class="analytics-settings">
 	<div class="analytics-settings__content">
 		<p class="text-base-body-13 analytics-settings__text">
 			GitButler uses telemetry strictly to help us improve the client. We do not collect any
-			personal information.
+			personal information (<Link
+				target="_blank"
+				rel="noreferrer"
+				href="https://gitbutler.com/privacy"
+			>
+				privacy policy
+			</Link>).
 		</p>
 		<p class="text-base-body-13 analytics-settings__text">
 			We kindly ask you to consider keeping these settings enabled as it helps us catch issues more
@@ -54,6 +69,20 @@
 			<svelte:fragment slot="caption">Toggle sharing of usage statistics.</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<Toggle id="metricsEnabledToggle" checked={$metricsEnabled} on:change={toggleMetrics} />
+			</svelte:fragment>
+		</SectionCard>
+
+		<SectionCard labelFor="metricsEnabledToggle" on:click={toggleMetrics} orientation="row">
+			<svelte:fragment slot="title">Non-anonymous usage metrics</svelte:fragment>
+			<svelte:fragment slot="caption"
+				>Toggle sharing of identifiable usage statistics.</svelte:fragment
+			>
+			<svelte:fragment slot="actions">
+				<Toggle
+					id="nonAnonMetricsEnabledToggle"
+					checked={$nonAnonMetricsEnabled}
+					on:change={toggleNonAnonMetrics}
+				/>
 			</svelte:fragment>
 		</SectionCard>
 	</div>

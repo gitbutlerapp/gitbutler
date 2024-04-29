@@ -35,6 +35,15 @@ export function appErrorReportingEnabled() {
 	return persisted(true, 'appErrorReportingEnabled');
 }
 
+/**
+ * Provides a writable store for obtaining or setting the current state of non-anonemous application metrics.
+ * The setting can be enabled or disabled by setting the value of the store to true or false.
+ * @returns A writable store with the appNonAnonMetricsEnabled config.
+ */
+export function appNonAnonMetricsEnabled() {
+	return persisted(false, 'appNonAnonMetricsEnabled');
+}
+
 function persisted<T>(initial: T, key: string): Writable<T> & { onDisk: () => Promise<T> } {
 	async function setAndPersist(value: T, set: (value: T) => void) {
 		await store.set(key, value);
