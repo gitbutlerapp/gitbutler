@@ -1,3 +1,6 @@
+use anyhow::anyhow;
+use itertools::Itertools;
+use std::fs;
 use std::str::FromStr;
 
 use anyhow::Result;
@@ -9,6 +12,8 @@ use super::{
     reflog::set_reference_to_oplog,
     state::OplogHandle,
 };
+
+const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
 
 /// Creates a snapshot of the current state of the repository and virtual branches using the given label.
 ///
@@ -43,6 +48,11 @@ pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
         repo_path.join(".git/gitbutler/virtual_branches.toml"),
         repo_path.join("virtual_branches.toml"),
     )?;
+
+    // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
+    let files_to_exclude = get_exclude_list(&repo)?;
+    // In-memory, libgit2 internal ignore rule
+    repo.add_ignore_rule(&files_to_exclude)?;
 
     // Add everything in the workdir to the index
     let mut index = repo.index()?;
@@ -153,6 +163,12 @@ pub fn restore(project: &Project, sha: String) -> Result<()> {
     let commit = repo.find_commit(git2::Oid::from_str(&sha)?)?;
     let tree = commit.tree()?;
 
+    // repo.add_ignore_rule("large.txt")?;
+    // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
+    let files_to_exclude = get_exclude_list(&repo)?;
+    // In-memory, libgit2 internal ignore rule
+    repo.add_ignore_rule(&files_to_exclude)?;
+
     // Define the checkout builder
     let mut checkout_builder = git2::build::CheckoutBuilder::new();
     checkout_builder.remove_untracked(true);
@@ -182,9 +198,36 @@ pub fn restore(project: &Project, sha: String) -> Result<()> {
     Ok(())
 }
 
+fn get_exclude_list(repo: &git2::Repository) -> Result<String> {
+    let repo_path = repo
+        .path()
+        .parent()
+        .ok_or(anyhow!("failed to get repo path"))?;
+    let statuses = repo.statuses(None)?;
+    let mut files_to_exclude = vec![];
+    for entry in statuses.iter() {
+        if let Some(path) = entry.path() {
+            let path = repo_path.join(path);
+            if let Ok(metadata) = fs::metadata(&path) {
+                if metadata.is_file() && metadata.len() > SNAPSHOT_FILE_LIMIT_BYTES {
+                    files_to_exclude.push(path);
+                }
+            }
+        }
+    }
+
+    // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
+    let files_to_exclude = files_to_exclude
+        .iter()
+        .filter_map(|f| f.strip_prefix(repo_path).ok())
+        .filter_map(|f| f.to_str())
+        .join(" ");
+    Ok(files_to_exclude)
+}
+
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{io::Write, path::PathBuf};
 
     use crate::virtual_branches::Branch;
 
@@ -242,10 +285,24 @@ mod tests {
             sha: crate::git::Oid::from_str(&target_sha).unwrap(),
         };
         vb_state.set_default_target(default_target.clone()).unwrap();
+        let file_path = dir.path().join("uncommitted.txt");
+        std::fs::write(file_path, "test").unwrap();
+
+        let file_path = dir.path().join("large.txt");
+        // write 33MB of random data in the file
+        let mut file = std::fs::File::create(file_path).unwrap();
+        for _ in 0..33 * 1024 {
+            let data = [0u8; 1024];
+            file.write_all(&data).unwrap();
+        }
 
         // create a snapshot
         create(&project, SnapshotDetails::new(OperationType::CreateCommit)).unwrap();
         let snapshots = list(&project, 100).unwrap();
+
+        // The large file is still here but it will not be part of the snapshot
+        let file_path = dir.path().join("large.txt");
+        assert!(file_path.exists());
 
         // Modify file 1, remove file 2, create file 3
         let file_path = dir.path().join("1.txt");
@@ -254,6 +311,8 @@ mod tests {
         std::fs::remove_file(file_path).unwrap();
         let file_path = dir.path().join("3.txt");
         std::fs::write(file_path, "something_new").unwrap();
+        let file_path = dir.path().join("uncommitted.txt");
+        std::fs::write(file_path, "TEST").unwrap();
 
         // Create a fake branch in virtual_branches.toml
         let id = crate::id::Id::from_str("9acb2a3b-cddf-47d7-b531-a7798978c237").unwrap();
@@ -277,6 +336,14 @@ mod tests {
         assert_eq!(file_lines, "test");
         let file_path = dir.path().join("3.txt");
         assert!(!file_path.exists());
+        let file_path = dir.path().join("uncommitted.txt");
+        let file_lines = std::fs::read_to_string(file_path).unwrap();
+        assert_eq!(file_lines, "test");
+
+        // The large file is still here but it was not be part of the snapshot
+        let file_path = dir.path().join("large.txt");
+        assert!(file_path.exists());
+
         // The fake branch is gone
         assert!(vb_state.get_branch(&id).is_err());
     }
