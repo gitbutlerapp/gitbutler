@@ -1,5 +1,5 @@
 import { get, type Readable } from 'svelte/store';
-import type { AnyFile, Commit, Hunk, RemoteCommit } from '../vbranches/types';
+import type { AnyCommit, AnyFile, Commit, Hunk, RemoteCommit } from '../vbranches/types';
 
 export function nonDraggable() {
 	return {
@@ -18,7 +18,8 @@ export class DraggableHunk {
 export class DraggableFile {
 	constructor(
 		public readonly branchId: string,
-		private file: AnyFile,
+		public file: AnyFile,
+		public commit: AnyCommit | undefined,
 		private selection: Readable<AnyFile[]> | undefined
 	) {}
 

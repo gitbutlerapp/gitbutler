@@ -111,7 +111,7 @@
 			}
 		}}
 		use:draggable={{
-			data: new DraggableFile($branch?.id || '', file, selectedFiles),
+			data: new DraggableFile($branch?.id || '', file, $commit, selectedFiles),
 			disabled: readonly || isUnapplied,
 			viewportId: 'board-viewport',
 			selector: '.selected-draggable'

@@ -150,6 +150,9 @@ pub enum OperationType {
     UpdateCommitMessage,
     MoveCommit,
     RestoreFromSnapshot,
+    ReorderCommit,
+    InsertBlankCommit,
+    MoveCommitFile,
     #[default]
     Unknown,
 }
