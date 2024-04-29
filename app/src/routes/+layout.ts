@@ -1,13 +1,11 @@
 import { AIService } from '$lib/ai/service';
-import { initPostHog } from '$lib/analytics/posthog';
-import { initSentry } from '$lib/analytics/sentry';
+import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 import { AuthService } from '$lib/backend/auth';
 import { GitConfigService } from '$lib/backend/gitConfigService';
 import { HttpClient } from '$lib/backend/httpClient';
 import { ProjectService } from '$lib/backend/projects';
 import { PromptService } from '$lib/backend/prompt';
 import { UpdaterService } from '$lib/backend/updater';
-import { appMetricsEnabled, appErrorReportingEnabled } from '$lib/config/appSettings';
 import { GitHubService } from '$lib/github/service';
 import { UserService } from '$lib/stores/user';
 import lscache from 'lscache';
@@ -24,16 +22,7 @@ export const prerender = false;
 export const csr = true;
 
 export async function load() {
-	appErrorReportingEnabled()
-		.onDisk()
-		.then((enabled) => {
-			if (enabled) initSentry();
-		});
-	appMetricsEnabled()
-		.onDisk()
-		.then((enabled) => {
-			if (enabled) initPostHog();
-		});
+	initAnalyticsIfEnabled();
 
 	// TODO: Find a workaround to avoid this dynamic import
 	// https://github.com/sveltejs/kit/issues/905
