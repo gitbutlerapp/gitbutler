@@ -147,7 +147,7 @@ where
         envs.insert("DISPLAY".into(), ":".into());
     }
 
-    let base_ssh_command = match envs.get("GIT_SSH_COMMAND") {
+    let base_ssh_command = match envs.get("GIT_SSH_COMMAND").or_else(|| envs.get("GIT_SSH")) {
         Some(v) => v.clone(),
         None => get_core_sshcommand(&executor, &repo_path)
             .await
