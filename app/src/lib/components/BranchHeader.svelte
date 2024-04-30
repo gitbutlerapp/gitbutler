@@ -88,7 +88,7 @@
 					branchName={branch.upstreamName ?? branchName}
 					{isUnapplied}
 					{hasIntegratedCommits}
-					remoteExists={!!branch.upstreamName}
+					remoteExists={!!branch.upstream}
 					isLaneCollapsed={$isLaneCollapsed}
 				/>
 				{#if branch.selectedForChanges}
@@ -118,7 +118,7 @@
 							branchName={branch.upstreamName ?? branchName}
 							{isUnapplied}
 							{hasIntegratedCommits}
-							remoteExists={!!branch.upstreamName}
+							remoteExists={!!branch.upstream}
 							isLaneCollapsed={$isLaneCollapsed}
 						/>
 
