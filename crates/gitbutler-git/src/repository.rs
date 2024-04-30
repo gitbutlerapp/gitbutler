@@ -147,8 +147,14 @@ where
         envs.insert("DISPLAY".into(), ":".into());
     }
 
-    let base_ssh_command = match envs.get("GIT_SSH_COMMAND").or_else(|| envs.get("GIT_SSH")) {
-        Some(v) => v.clone(),
+    let base_ssh_command = match envs
+        .get("GIT_SSH_COMMAND")
+        .cloned()
+        .or_else(|| envs.get("GIT_SSH").cloned())
+        .or_else(|| std::env::var("GIT_SSH_COMMAND").ok())
+        .or_else(|| std::env::var("GIT_SSH").ok())
+    {
+        Some(v) => v,
         None => get_core_sshcommand(&executor, &repo_path)
             .await
             .unwrap_or_else(|| "ssh".into()),
