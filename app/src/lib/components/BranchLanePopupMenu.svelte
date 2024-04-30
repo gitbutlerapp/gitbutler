@@ -149,6 +149,7 @@
 			kind="solid"
 			on:click={async () => {
 				await branchController.deleteBranch(branch.id);
+				deleteBranchModal.close();
 			}}
 		>
 			Delete
