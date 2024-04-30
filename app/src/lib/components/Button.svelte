@@ -12,7 +12,7 @@
 	export let id: string | undefined = undefined;
 	export let loading = false;
 	export let tabindex: number | undefined = undefined;
-	export let type: 'submit' | 'reset' | undefined = undefined;
+	export let type: 'submit' | 'reset' | 'button' | undefined = undefined;
 	// Layout props
 	export let reversedDirection: boolean = false;
 	export let width: number | undefined = undefined;
