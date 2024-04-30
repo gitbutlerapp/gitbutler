@@ -7,7 +7,7 @@ export async function initPostHog() {
 	const [appName, appVersion] = await Promise.all([getName(), getVersion()]);
 	posthog.init(PUBLIC_POSTHOG_API_KEY, {
 		api_host: 'https://eu.posthog.com',
-		disable_session_recording: appName !== 'GitButler', // only record sessions in production
+		disable_session_recording: true,
 		capture_performance: false,
 		request_batching: true,
 		persistence: 'localStorage',
