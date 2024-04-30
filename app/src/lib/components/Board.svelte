@@ -2,7 +2,6 @@
 	import Button from './Button.svelte';
 	import FullviewLoading from './FullviewLoading.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
-	import { open } from '@tauri-apps/api/shell';
 	import dzenSvg from '$lib/assets/dzen-pc.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import BranchLane from '$lib/components/BranchLane.svelte';
@@ -15,6 +14,7 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import { open } from '@tauri-apps/api/shell';
 
 	const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);
