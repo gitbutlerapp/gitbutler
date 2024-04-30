@@ -122,11 +122,11 @@
 	function getChecksCount(status: ChecksStatus): string {
 		if (!status) return 'Running checks';
 
+		const completed = status.completed || 0;
 		const skipped = status.skipped || 0;
 		const total = (status.totalCount || 0) - skipped;
-		const queued = total - (status.queued || 0);
 
-		return `Running checks ${queued}/${total}`;
+		return `Checks completed ${completed}/${total}`;
 	}
 
 	function getChecksTagInfo(
