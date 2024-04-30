@@ -23,9 +23,11 @@
 	const activeBranchesError = vbranchService.activeBranchesError;
 	const activeBranches = vbranchService.activeBranches;
 
-  let selectedBranch: {
-			name: string;
-	} | undefined;
+	let selectedBranch:
+		| {
+				name: string;
+		  }
+		| undefined;
 
 	let dragged: any;
 	let dropZone: HTMLDivElement;
@@ -46,16 +48,17 @@
 		if (!selectedBranch) return;
 		// while target is setting, display loading
 		isSwitching = true;
-		await branchController.setTarget(selectedBranch.name)
-			.then((res)  => {
+		await branchController
+			.setTarget(selectedBranch.name)
+			.then((res) => {
 				console.log('done', res);
 			})
 			.catch((err) => {
 				console.log('error', err);
 			})
 			.finally(() => {
-					isSwitching = false;
-					showBranchSwitch = false;
+				isSwitching = false;
+				showBranchSwitch = false;
 			});
 	}
 </script>
@@ -65,9 +68,7 @@
 {:else if !$activeBranches}
 	<FullviewLoading />
 {:else if isSwitching}
-	<div class="middle-message">
-		switching base branch...
-	</div>
+	<div class="middle-message">switching base branch...</div>
 {:else}
 	<div
 		class="board"
@@ -159,50 +160,57 @@
 							</p>
 
 							<div class="branch-switcher">
-							{#if showBranchSwitch}
-								{#await getRemoteBranches(project.id)}
-									loading remote branches...
-								{:then remoteBranches}
-									{#if remoteBranches.length == 0}
-										No remote branches 
-									{:else}
-										<div class="spacer">
-											<Select items={remoteBranches.filter(item => item.name != $baseBranch.branchName)} bind:value={selectedBranch} itemId="name" labelId="name">
-												<SelectItem slot="template" let:item let:selected {selected}>
-													{item.name}
-												</SelectItem>
-											</Select>
-											<Button
-												style="error"
-												kind="solid"
-												on:click={onSetBaseBranchClick}
-												icon="chevron-right-small"
-												id="set-base-branch"
-											>
-												Update Base Branch
-											</Button>
+								{#if showBranchSwitch}
+									{#await getRemoteBranches(project.id)}
+										loading remote branches...
+									{:then remoteBranches}
+										{#if remoteBranches.length == 0}
+											No remote branches
+										{:else}
+											<div class="spacer">
+												<Select
+													items={remoteBranches.filter(
+														(item) => item.name != $baseBranch.branchName
+													)}
+													bind:value={selectedBranch}
+													itemId="name"
+													labelId="name"
+												>
+													<SelectItem slot="template" let:item let:selected {selected}>
+														{item.name}
+													</SelectItem>
+												</Select>
+												<Button
+													style="error"
+													kind="solid"
+													on:click={onSetBaseBranchClick}
+													icon="chevron-right-small"
+													id="set-base-branch"
+												>
+													Update Base Branch
+												</Button>
+											</div>
+										{/if}
+									{:catch}
+										No remote branches
+									{/await}
+								{:else}
+									<div>
+										<div class="branch-display">
+											<div>Your current base branch is:</div>
+											<div class="branch-name">{$baseBranch.branchName}</div>
 										</div>
-									{/if}
-								{:catch}
-									No remote branches
-								{/await}
-							{:else}
-								<div>
-									<div class="branch-display">
-										<div>Your current base branch is: </div>
-										<div class="branch-name">{$baseBranch.branchName}</div>
+										<Button
+											style="pop"
+											kind="solid"
+											on:click={toggleBranchSwitch}
+											icon="chevron-right-small"
+											id="set-base-branch"
+										>
+											Change Base Branch
+										</Button>
 									</div>
-									<Button
-										style="pop"
-										kind="solid"
-										on:click={toggleBranchSwitch}
-										icon="chevron-right-small"
-										id="set-base-branch"
-									>
-										Change Base Branch
-									</Button>
-								</div>
-							{/if}
+								{/if}
 							</div>
 						</div>
 
