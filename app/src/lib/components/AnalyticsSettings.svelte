@@ -72,7 +72,7 @@
 			</svelte:fragment>
 		</SectionCard>
 
-		<SectionCard labelFor="metricsEnabledToggle" on:click={toggleMetrics} orientation="row">
+		<SectionCard labelFor="nonAnonMetricsEnabledToggle" on:click={toggleMetrics} orientation="row">
 			<svelte:fragment slot="title">Non-anonymous usage metrics</svelte:fragment>
 			<svelte:fragment slot="caption"
 				>Toggle sharing of identifiable usage statistics.</svelte:fragment
