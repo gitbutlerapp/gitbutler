@@ -12,7 +12,7 @@
 	export let items: any[];
 	export let labelId = 'label';
 	export let itemId = 'value';
-	export let value: any = undefined;
+	export let value: any = 'undefined';
 	export let selectedItemId: any = undefined;
 	export let placeholder = '';
 
@@ -34,12 +34,6 @@
 		dispatch('select', { value });
 		listOpen = false;
 	}
-
-	function scrollIntoView() {
-		const selected = element.querySelector('.selected');
-		if (selected) selected.scrollIntoView();
-	}
-
 	function setMaxHeight() {
 		maxHeight = window.innerHeight - element.getBoundingClientRect().bottom - maxPadding;
 	}
@@ -52,7 +46,6 @@
 	function openList() {
 		setMaxHeight();
 		listOpen = true;
-		setTimeout(() => scrollIntoView(), 50);
 	}
 
 	function closeList() {
