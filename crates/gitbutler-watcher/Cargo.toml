@@ -10,7 +10,7 @@ doctest = false
 [dependencies]
 gitbutler-core.workspace = true
 thiserror.workspace = true
-anyhow = "1.0.81"
+anyhow = "1.0.82"
 futures = "0.3.30"
 tokio = { workspace = true, features = [ "macros" ] }
 tokio-util = "0.7.10"
