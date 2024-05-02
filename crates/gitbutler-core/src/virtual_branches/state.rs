@@ -55,6 +55,19 @@ impl VirtualBranchesHandle {
             .ok_or(crate::reader::Error::NotFound)
     }
 
+    /// Attempts to get the default target for the given repository,
+    /// returning None if it's not found.
+    ///
+    /// Errors if the file cannot be read or written.
+    #[inline]
+    pub fn try_get_default_target(&self) -> Result<Option<Target>, crate::reader::Error> {
+        match self.get_default_target() {
+            Ok(target) => Ok(Some(target)),
+            Err(crate::reader::Error::NotFound) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
     /// Sets the target for the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
