@@ -4,6 +4,7 @@
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
+	import { featureAdvancedCommitOperations } from '$lib/config/uiFeatureFlags';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import { getContext, getContextStore } from '$lib/utils/context';
@@ -26,6 +27,7 @@
 	const project = getContext(Project);
 	const selectedFiles = getSelectedFiles();
 	const fileIdSelection = getContext(FileIdSelection);
+	const advancedCommitOperations = featureAdvancedCommitOperations();
 
 	const commitStore = createCommitStore(commit);
 	$: commitStore.set(commit);
@@ -85,7 +87,7 @@
 		branchController.reorderCommit(branch.id, commit.id, offset);
 	}
 
-	const isUndoable = !isUnapplied;
+	$: isUndoable = isHeadCommit;
 	const hasCommitUrl = !commit.isLocal && commitUrl;
 	let description = commit.description;
 </script>
@@ -99,37 +101,41 @@
 	class="commit"
 	class:is-commit-open={showFiles}
 >
-	{#if isUndoable && showFiles}
-		<div class="commit__edit_description">
-			<textarea
-				placeholder="commit message here"
-				bind:value={description}
-				rows={commit.description.split('\n').length + 1}
-			></textarea>
-		</div>
+	{#if $advancedCommitOperations}
+		{#if isUndoable && showFiles}
+			<div class="commit__edit_description">
+				<textarea
+					placeholder="commit message here"
+					bind:value={description}
+					rows={commit.description.split('\n').length + 1}
+				></textarea>
+			</div>
+		{/if}
 	{/if}
 	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
 		<div class="commit__message">
-			{#if !showFiles}
-				<div class="commit__id">
-					<code>{commit.id.substring(0, 6)}</code>
-				</div>
+			{#if $advancedCommitOperations}
+				{#if !showFiles}
+					<div class="commit__id">
+						<code>{commit.id.substring(0, 6)}</code>
+					</div>
+				{/if}
 			{/if}
 			<div class="commit__row">
 				{#if isUndoable}
+					{#if commit.descriptionTitle}
+						<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
+							{commit.descriptionTitle}
+						</span>
+					{:else}
+						<span
+							class="commit__title_no_desc text-base-12 text-zinc-400"
+							class:truncate={!showFiles}
+						>
+							<i>empty commit message</i>
+						</span>
+					{/if}
 					{#if !showFiles}
-						{#if commit.descriptionTitle}
-							<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
-								{commit.descriptionTitle}
-							</span>
-						{:else}
-							<span
-								class="commit__title_no_desc text-base-12 text-zinc-400"
-								class:truncate={!showFiles}
-							>
-								<i>empty commit message</i>
-							</span>
-						{/if}
 						<Tag
 							style="ghost"
 							kind="solid"
@@ -176,42 +182,44 @@
 		{#if hasCommitUrl || isUndoable}
 			<div class="files__footer">
 				{#if isUndoable}
-					<Tag
-						style="ghost"
-						kind="solid"
-						clickable
-						on:click={(e) => {
-							e.stopPropagation();
-							reorderCommit(commit, -1);
-						}}>Move Up</Tag
-					>
-					<Tag
-						style="ghost"
-						kind="solid"
-						clickable
-						on:click={(e) => {
-							e.stopPropagation();
-							reorderCommit(commit, 1);
-						}}>Move Down</Tag
-					>
-					<Tag
-						style="ghost"
-						kind="solid"
-						clickable
-						on:click={(e) => {
-							e.stopPropagation();
-							insertBlankCommit(commit, -1);
-						}}>Add Before</Tag
-					>
-					<Tag
-						style="ghost"
-						kind="solid"
-						clickable
-						on:click={(e) => {
-							e.stopPropagation();
-							insertBlankCommit(commit, 1);
-						}}>Add After</Tag
-					>
+					{#if $advancedCommitOperations}
+						<Tag
+							style="ghost"
+							kind="solid"
+							clickable
+							on:click={(e) => {
+								e.stopPropagation();
+								reorderCommit(commit, -1);
+							}}>Move Up</Tag
+						>
+						<Tag
+							style="ghost"
+							kind="solid"
+							clickable
+							on:click={(e) => {
+								e.stopPropagation();
+								reorderCommit(commit, 1);
+							}}>Move Down</Tag
+						>
+						<Tag
+							style="ghost"
+							kind="solid"
+							clickable
+							on:click={(e) => {
+								e.stopPropagation();
+								insertBlankCommit(commit, -1);
+							}}>Add Before</Tag
+						>
+						<Tag
+							style="ghost"
+							kind="solid"
+							clickable
+							on:click={(e) => {
+								e.stopPropagation();
+								insertBlankCommit(commit, 1);
+							}}>Add After</Tag
+						>
+					{/if}
 					<Tag
 						style="ghost"
 						kind="solid"
