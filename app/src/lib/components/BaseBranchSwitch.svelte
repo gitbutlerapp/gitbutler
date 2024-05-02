@@ -76,7 +76,7 @@
 						loading={isSwitching}
 						disabled={selectedBranch.name === $baseBranch.branchName}
 					>
-						Switch Branch
+						Switch branch
 					</Button>
 				</div>
 
