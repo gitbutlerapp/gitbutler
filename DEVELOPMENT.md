@@ -179,7 +179,7 @@ normally writable, then we can set it in Powershell:
 
 ```sh
 mkdir -p $APPDATA\npm
-& "npm config set prefix $env:APPDATA\npm"
+npm config set prefix $env:APPDATA\npm
 ```
 
 Afterwards, add this folder to your PATH.
