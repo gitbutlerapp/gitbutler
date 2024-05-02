@@ -22,3 +22,9 @@ runs:
         which git-upload-archive
         which git-receive-pack
         ssh -V
+
+    - name: Build gitbutler-git
+      shell: bash
+      run: |
+        cargo build -p gitbutler-git --bins
+        cargo build --release -p gitbutler-git --bins
