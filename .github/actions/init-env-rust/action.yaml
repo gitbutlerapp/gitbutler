@@ -3,13 +3,6 @@ description: prepare runner for rust related tasks
 runs:
   using: "composite"
   steps:
-    - name: Cache rust dependencies
-      if: runner.name != 'ScottsMacStudio' # internet in berlin is very slow
-      uses: Swatinem/rust-cache@v2
-      with:
-        prefix-key: gitbutler-client
-        shared-key: rust
-
     - name: Check versions
       shell: bash
       run: |

@@ -227,6 +227,5 @@ jobs:
     if: ${{ needs.changes.outputs.rust == 'true' }}
     steps:
       - uses: actions/checkout@v3
-      - uses: Swatinem/rust-cache@v2
       - name: "cargo check"
         run: cargo check --all --bins --examples --features windows
