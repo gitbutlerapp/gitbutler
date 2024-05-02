@@ -85,8 +85,8 @@
 						<svelte:fragment slot="content">
 							You have {$activeBranches.length === 1
 								? '1 active branch'
-								: `${$activeBranches.length} active branches`} in your workspace. Please
-							clear the workspace before switching the base branch.
+								: `${$activeBranches.length} active branches`} in your workspace. Please clear the workspace
+							before switching the base branch.
 						</svelte:fragment>
 					</InfoMessage>
 				{/if}
