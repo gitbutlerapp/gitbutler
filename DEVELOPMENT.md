@@ -168,29 +168,20 @@ We use `pnpm`, which requires a relatively recent version of Node.js.
 Make sure that the latest stable version of Node.js is installed and
 on the PATH, and then `npm i -g pnpm`.
 
-This often causes file permissions. First, the AppData folder may not
-be present. Be sure to create it if it isn't.
+Sometimes npm's prefix is incorrect on Windows, we can check this via:
 
+```sh
+npm config get prefix
 ```
-mkdir %APPDATA%\npm
+
+If it's not `C:\Users\<username>\AppData\Roaming\npm` or another folder that is normally writable, then we can set it in Powershell:
+
+```sh
+mkdir -p $APPDATA\npm
+& "npm config set prefix $env:APPDATA\npm"
 ```
 
-Secondly, typically folders within `Program Files` are not writable.
-You'll need to fix the security permissions for the `nodejs` folder.
-
-> **NOTE:** Under specific circumstances, depending on your usage of
-> Node.js, this may pose a security concern. Be sure to understand
-> the implications of this before proceeding.
-
-1. Right-click on the `nodejs` folder in `Program Files`.
-2. Click on `Properties`.
-3. Click on the `Security` tab.
-4. Click on `Edit` next to "change permissions".
-5. Click on `Add`.
-6. Type in the name of your user account, or type `Everyone` (case-sensitive).
-   Click `Check Names` to verify (they will be underlined if correct).
-7. Make sure that `Full Control` is checked under `Allow`.
-8. Apply / click OK as needed to close the dialogs.
+Afterwards, add this folder to your PATH.
 
 ### Perl
 
