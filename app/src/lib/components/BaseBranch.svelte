@@ -48,7 +48,7 @@
 		</Button>
 		<div class="commits-list">
 			{#each base.upstreamCommits as commit}
-				<CommitCard {commit} commitUrl={base.commitUrl(commit.id)} />
+				<CommitCard {commit} isUnapplied={true} commitUrl={base.commitUrl(commit.id)} />
 			{/each}
 		</div>
 		<Spacer margin={2} />
@@ -62,7 +62,7 @@
 			Local
 		</h1>
 		{#each base.recentCommits as commit}
-			<CommitCard {commit} commitUrl={base.commitUrl(commit.id)} />
+			<CommitCard {commit} isUnapplied={true} commitUrl={base.commitUrl(commit.id)} />
 		{/each}
 	</div>
 </div>
