@@ -2,13 +2,10 @@
 	import Button from './Button.svelte';
 	import InfoMessage from './InfoMessage.svelte';
 	import Select from './Select.svelte';
-	import { Project, ProjectService } from '$lib/backend/projects';
+	import { Project } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import SelectItem from '$lib/components/SelectItem.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
-	import TextArea from '$lib/components/TextArea.svelte';
-	import TextBox from '$lib/components/TextBox.svelte';
-	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { getRemoteBranches } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -88,8 +85,8 @@
 						<svelte:fragment slot="content">
 							You have {$activeBranches.length === 1
 								? '1 active branch'
-								: `${$activeBranches.length} active branches`} in your workspace. Please clear the workspace
-							before switching the base branch.
+								: `${$activeBranches.length} active branches`} in your workspace. Please
+							clear the workspace before switching the base branch.
 						</svelte:fragment>
 					</InfoMessage>
 				{/if}
