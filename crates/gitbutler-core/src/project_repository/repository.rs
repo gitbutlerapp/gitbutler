@@ -178,17 +178,11 @@ impl Repository {
         let branch = self.git_repository.find_branch(&target_branch_refname)?;
         let commit_id = branch.peel_to_commit()?.id();
 
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or(std::time::Duration::from_secs(0))
-            .as_millis()
-            .to_string();
-        let branch_name = format!("test-push-{}", now);
+        let now = crate::time::now_ms();
+        let branch_name = format!("test-push-{now}");
 
-        let refname = git::RemoteRefname::from_str(&format!(
-            "refs/remotes/{}/{}",
-            remote_name, branch_name,
-        ))?;
+        let refname =
+            git::RemoteRefname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}",))?;
 
         match self.push(
             &commit_id,

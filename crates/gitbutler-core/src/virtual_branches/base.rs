@@ -212,10 +212,7 @@ pub fn set_base_branch(
                 },
             );
 
-            let now_ms = time::UNIX_EPOCH
-                .elapsed()
-                .context("failed to get elapsed time")?
-                .as_millis();
+            let now_ms = crate::time::now_ms();
 
             let (upstream, upstream_head) = if let git::Refname::Local(head_name) = &head_name {
                 let upstream_name = target_branch_ref.with_branch(head_name.branch());

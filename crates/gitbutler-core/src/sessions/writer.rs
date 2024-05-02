@@ -1,5 +1,3 @@
-use std::time;
-
 use anyhow::{anyhow, Context, Result};
 
 use super::Session;
@@ -55,11 +53,7 @@ impl<'writer> SessionWriter<'writer> {
 
         let mut batch = vec![writer::BatchTask::Write(
             "session/meta/last",
-            time::SystemTime::now()
-                .duration_since(time::SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_millis()
-                .to_string(),
+            crate::time::now_ms().to_string(),
         )];
 
         if current_session_id.is_some()
