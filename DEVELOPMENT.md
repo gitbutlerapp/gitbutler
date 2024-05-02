@@ -174,7 +174,8 @@ Sometimes npm's prefix is incorrect on Windows, we can check this via:
 npm config get prefix
 ```
 
-If it's not `C:\Users\<username>\AppData\Roaming\npm` or another folder that is normally writable, then we can set it in Powershell:
+If it's not `C:\Users\<username>\AppData\Roaming\npm` or another folder that is 
+normally writable, then we can set it in Powershell:
 
 ```sh
 mkdir -p $APPDATA\npm
@@ -189,6 +190,7 @@ A Perl interpreter is required to be installed in order to configure the `openss
 crate. We've used [Strawberry Perl](https://strawberryperl.com/) without issue.
 Make sure it's installed and `perl` is available on the `PATH` (it is by default
 after installation, just make sure to restart the terminal after installing).
+[Scoop](https://scoop.sh/) users can install this via `scoop install perl`.
 
 Note that it might appear that the build has hung or frozen on the `openssl-sys` crate.
 It's not, it's just that Cargo can't report the status of a C/C++ build happening
