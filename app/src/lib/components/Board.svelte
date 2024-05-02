@@ -354,9 +354,9 @@
 	.branch-switcher {
 		margin-top: 8px;
 		padding: 8px;
-		background-color: #f5f5f5;
+		background-color: var(--clr-bg-2);
 		border-width: 1px;
-		border-color: #888888;
+		border-color: var(--clr-border-2);
 		border-radius: 4px;
 	}
 
