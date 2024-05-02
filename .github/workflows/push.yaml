@@ -227,5 +227,6 @@ jobs:
     if: ${{ needs.changes.outputs.rust == 'true' }}
     steps:
       - uses: actions/checkout@v3
+      - uses: ./.github/actions/init-env-rust
       - name: "cargo check"
         run: cargo check --all --bins --examples --features windows
