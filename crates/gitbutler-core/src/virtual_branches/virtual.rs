@@ -210,16 +210,6 @@ pub fn normalize_branch_name(name: &str) -> String {
     pattern.replace_all(name, "-").to_string()
 }
 
-fn get_default_target(
-    vb_state: &VirtualBranchesHandle,
-) -> Result<Option<target::Target>, reader::Error> {
-    match vb_state.get_default_target() {
-        Ok(target) => Ok(Some(target)),
-        Err(reader::Error::NotFound) => Ok(None),
-        Err(error) => Err(error),
-    }
-}
-
 pub fn apply_branch(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
@@ -236,13 +226,16 @@ pub fn apply_branch(
     let repo = &project_repository.git_repository;
 
     let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::ApplyBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::ApplyBranchError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let mut branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
@@ -489,13 +482,16 @@ pub fn unapply_ownership(
 
     let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::UnapplyOwnershipError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::UnapplyOwnershipError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let applied_branches = vb_state
         .list_branches()
@@ -649,13 +645,16 @@ pub fn unapply_branch(
         return Ok(Some(target_branch));
     }
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::UnapplyBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::UnapplyBranchError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let repo = &project_repository.git_repository;
     let target_commit = repo
@@ -1059,13 +1058,16 @@ pub fn create_virtual_branch(
 ) -> Result<branch::Branch, errors::CreateVirtualBranchError> {
     let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::CreateVirtualBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::CreateVirtualBranchError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let commit = project_repository
         .git_repository
@@ -1416,13 +1418,17 @@ pub fn update_branch(
     };
 
     if let Some(updated_upstream) = branch_update.upstream {
-        let default_target = get_default_target(&vb_state)
+        let Some(default_target) = vb_state
+            .try_get_default_target()
             .context("failed to get default target")?
-            .ok_or_else(|| {
-                errors::UpdateBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+        else {
+            return Err(errors::UpdateBranchError::DefaultTargetNotSet(
+                errors::DefaultTargetNotSet {
                     project_id: project_repository.project().id,
-                })
-            })?;
+                },
+            ));
+        };
+
         let remote_branch = format!(
             "refs/remotes/{}/{}",
             default_target.branch.remote(),
@@ -1617,13 +1623,12 @@ pub fn get_status_by_branch(
 ) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
     let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target =
-        match get_default_target(&vb_state).context("failed to read default target")? {
-            Some(target) => target,
-            None => {
-                return Ok((vec![], vec![]));
-            }
-        };
+    let Some(default_target) = vb_state
+        .try_get_default_target()
+        .context("failed to read default target")?
+    else {
+        return Ok((vec![], vec![]));
+    };
 
     let virtual_branches = vb_state
         .list_branches()
@@ -2003,13 +2008,16 @@ pub fn reset_branch(
 ) -> Result<(), errors::ResetBranchError> {
     let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to read default target")?
-        .ok_or_else(|| {
-            errors::ResetBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::ResetBranchError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let mut branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
@@ -2439,13 +2447,16 @@ pub fn push(
     let remote_branch = if let Some(upstream_branch) = vbranch.upstream.as_ref() {
         upstream_branch.clone()
     } else {
-        let default_target = get_default_target(&vb_state)
+        let Some(default_target) = vb_state
+            .try_get_default_target()
             .context("failed to get default target")?
-            .ok_or_else(|| {
-                errors::PushError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+        else {
+            return Err(errors::PushError::DefaultTargetNotSet(
+                errors::DefaultTargetNotSet {
                     project_id: project_repository.project().id,
-                })
-            })?;
+                },
+            ));
+        };
 
         let remote_branch = format!(
             "refs/remotes/{}/{}",
@@ -2571,13 +2582,16 @@ pub fn is_remote_branch_mergeable(
 ) -> Result<bool, errors::IsRemoteBranchMergableError> {
     let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::IsRemoteBranchMergableError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::IsRemoteBranchMergableError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let target_commit = project_repository
         .git_repository
@@ -2638,13 +2652,16 @@ pub fn is_virtual_branch_mergeable(
         return Ok(true);
     }
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to read default target")?
-        .ok_or_else(|| {
-            errors::IsVirtualBranchMergeable::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::IsVirtualBranchMergeable::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     // determine if this branch is up to date with the target/base
     let merge_base = project_repository
@@ -2712,13 +2729,16 @@ pub fn move_commit_file(
     }
     .context("failed to read branch")?;
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to read default target")?
-        .ok_or_else(|| {
-            errors::VirtualBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::VirtualBranchError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let mut to_amend_oid = to_commit_oid;
     let mut amend_commit = project_repository
@@ -3001,13 +3021,16 @@ pub fn amend(
         ));
     }
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to read default target")?
-        .ok_or_else(|| {
-            errors::VirtualBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::VirtualBranchError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let integration_commit_id =
         super::integration::get_workspace_head(&vb_state, project_repository)?;
@@ -3154,13 +3177,16 @@ pub fn reorder_commit(
 ) -> Result<(), errors::VirtualBranchError> {
     let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to read default target")?
-        .ok_or_else(|| {
-            errors::VirtualBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::VirtualBranchError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let mut branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
@@ -3563,7 +3589,8 @@ pub fn cherry_pick(
         .find_commit(branch.head)
         .context("failed to find branch tree")?;
 
-    let default_target = get_default_target(&vb_state)
+    let default_target = vb_state
+        .try_get_default_target()
         .context("failed to read default target")?
         .context("no default target set")?;
 
@@ -3723,13 +3750,16 @@ pub fn squash(
 
     let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to read default target")?
-        .ok_or_else(|| {
-            errors::SquashError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::SquashError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let mut branch = vb_state
         .get_branch(branch_id)
@@ -3856,13 +3886,16 @@ pub fn update_commit_message(
 
     let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to read default target")?
-        .ok_or_else(|| {
-            errors::UpdateCommitMessageError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::UpdateCommitMessageError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let mut branch = vb_state
         .get_branch(branch_id)
@@ -3987,13 +4020,16 @@ pub fn move_commit(
         ));
     }
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::MoveCommitError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::MoveCommitError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let integration_commit_id =
         super::integration::get_workspace_head(&vb_state, project_repository)?;
@@ -4140,15 +4176,18 @@ pub fn create_virtual_branch_from_branch(
 
     let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to get default target")?
-        .ok_or_else(|| {
+    else {
+        return Err(
             errors::CreateVirtualBranchFromBranchError::DefaultTargetNotSet(
                 errors::DefaultTargetNotSet {
                     project_id: project_repository.project().id,
                 },
-            )
-        })?;
+            ),
+        );
+    };
 
     if let git::Refname::Remote(remote_upstream) = upstream {
         if default_target.branch.eq(remote_upstream) {
