@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Project, ProjectService } from '$lib/backend/projects';
+	import BaseBranchSwitch from '$lib/components/BaseBranchSwitch.svelte';
 	import CloudForm from '$lib/components/CloudForm.svelte';
 	import DetailsForm from '$lib/components/DetailsForm.svelte';
 	import KeysForm from '$lib/components/KeysForm.svelte';
@@ -39,6 +40,7 @@
 </script>
 
 <ContentWrapper title="Project settings">
+	<BaseBranchSwitch />
 	<CloudForm />
 	<DetailsForm />
 	{#if $platformName != 'win32'}
