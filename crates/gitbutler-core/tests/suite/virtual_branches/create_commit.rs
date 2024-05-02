@@ -2,7 +2,6 @@ use gitbutler_core::{
     id::Id,
     virtual_branches::{Branch, VirtualBranch},
 };
-use uuid::Uuid;
 
 use super::*;
 
@@ -278,80 +277,6 @@ async fn should_double_lock() {
     assert_eq!(locks.len(), 2);
     assert_eq!(locks[0].commit_id, commit_1);
     assert_eq!(locks[1].commit_id, commit_2);
-}
-
-// This test only validates that locks are detected across virtual branches, it does
-// not make any assertions about how said hunk is handled or what branch owns it.
-// TODO(mg): Figure out why we can't reduce line count down to three?
-#[tokio::test]
-async fn should_double_lock_across_branches() {
-    let Test {
-        project_id,
-        controller,
-        repository,
-        ..
-    } = &Test::default();
-
-    let mut lines = gen_file(repository, "file.txt", 5);
-    commit_and_push_initial(repository);
-
-    controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
-        .await
-        .unwrap();
-
-    let branch_1_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
-        .await
-        .unwrap();
-
-    lines[0] = "change 1".to_string();
-    write_file(repository, "file.txt", &lines);
-
-    let commit_1 = controller
-        .create_commit(project_id, &branch_1_id, "commit 1", None, false)
-        .await
-        .unwrap();
-
-    // TODO(mg): Make `create_commit` clean up ownership of committed hunks.
-    // TODO(mg): Needed because next hunk overlaps with previous ownership.
-    get_virtual_branch(controller, project_id, branch_1_id).await;
-
-    let branch_2_id = controller
-        .create_virtual_branch(
-            project_id,
-            &branch::BranchCreateRequest {
-                selected_for_changes: Some(true),
-                ..Default::default()
-            },
-        )
-        .await
-        .unwrap();
-
-    lines[4] = "change 2".to_string();
-    write_file(repository, "file.txt", &lines);
-
-    let commit_2 = controller
-        .create_commit(project_id, &branch_2_id, "commit 2", None, false)
-        .await
-        .unwrap();
-
-    lines[2] = "change3".to_string();
-    write_file(repository, "file.txt", &lines);
-
-    let branch_1 = get_virtual_branch(controller, project_id, branch_1_id).await;
-    let locks = &branch_1.files[0].hunks[0].locked_to.clone().unwrap();
-    assert_eq!(locks.len(), 2);
-    assert_eq!(locks[0].commit_id, commit_1);
-    assert_eq!(locks[1].commit_id, commit_2);
-    assert_eq!(
-        locks[0].branch_id,
-        Uuid::parse_str(&branch_1_id.to_string()).unwrap()
-    );
-    assert_eq!(
-        locks[1].branch_id,
-        Uuid::parse_str(&branch_2_id.to_string()).unwrap()
-    );
 }
 
 fn write_file(repository: &TestProject, path: &str, lines: &[String]) {

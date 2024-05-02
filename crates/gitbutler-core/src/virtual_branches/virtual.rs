@@ -1963,7 +1963,7 @@ fn get_applied_status(
     if !project_repository.is_resolving() {
         let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
         for (vbranch, files) in &mut hunks_by_branch {
-            vbranch.tree = write_tree(project_repository, integration_commit, files)?;
+            vbranch.tree = write_tree(project_repository, &vbranch.head, files)?;
             vb_state
                 .set_branch(vbranch.clone())
                 .context(format!("failed to write virtual branch {}", vbranch.name))?;
