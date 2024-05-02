@@ -11,7 +11,7 @@
 		This sections contains a list of feature flags for features that are still in development or in
 		an experimental stage.
 	</p>
-	<SectionCard orientation="row">
+	<SectionCard labelFor="baseBranchSwitching" orientation="row">
 		<svelte:fragment slot="title">Switching the base branch</svelte:fragment>
 		<svelte:fragment slot="caption">
 			This allows changing of the base branch (trunk) after the initial project setup from within
