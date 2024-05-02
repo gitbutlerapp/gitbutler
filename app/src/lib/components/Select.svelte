@@ -12,7 +12,7 @@
 	export let items: any[];
 	export let labelId = 'label';
 	export let itemId = 'value';
-	export let value: any = 'undefined';
+	export let value: any = undefined;
 	export let selectedItemId: any = undefined;
 	export let placeholder = '';
 

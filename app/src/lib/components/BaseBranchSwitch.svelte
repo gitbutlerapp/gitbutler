@@ -61,6 +61,7 @@
 						bind:value={selectedBranch}
 						itemId="name"
 						labelId="name"
+						selectedItemId={$baseBranch.branchName}
 						wide
 						disabled={$activeBranches.length > 0}
 					>
