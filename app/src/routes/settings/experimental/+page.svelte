@@ -1,0 +1,35 @@
+<script lang="ts">
+	import SectionCard from '$lib/components/SectionCard.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
+	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
+	import { featureBaseBranchSwitching } from '$lib/config/uiFeatureFlags';
+	const baseBranchSwitching = featureBaseBranchSwitching();
+</script>
+
+<ContentWrapper title="Experimental features">
+	<p class="text-base-body-13 experimental-settings__text">
+		This sections contains a list of feature flags for features that are still in development or in
+		an experimental stage.
+	</p>
+	<SectionCard orientation="row">
+		<svelte:fragment slot="title">Switching the base branch</svelte:fragment>
+		<svelte:fragment slot="caption">
+			This allows changing of the base branch (trunk) after the initial project setup from within
+			the project settings. Not fully tested yet, use with caution.
+		</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Toggle
+				id="baseBranchSwitching"
+				checked={$baseBranchSwitching}
+				on:change={() => ($baseBranchSwitching = !$baseBranchSwitching)}
+			/>
+		</svelte:fragment>
+	</SectionCard>
+</ContentWrapper>
+
+<style>
+	.experimental-settings__text {
+		color: var(--clr-text-2);
+		margin-bottom: var(--size-12);
+	}
+</style>
