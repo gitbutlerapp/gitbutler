@@ -2,8 +2,12 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
-	import { featureBaseBranchSwitching } from '$lib/config/uiFeatureFlags';
+	import {
+		featureBaseBranchSwitching,
+		featureAdvancedCommitOperations
+	} from '$lib/config/uiFeatureFlags';
 	const baseBranchSwitching = featureBaseBranchSwitching();
+	const advancedCommitOperations = featureAdvancedCommitOperations();
 </script>
 
 <ContentWrapper title="Experimental features">
@@ -22,6 +26,20 @@
 				id="baseBranchSwitching"
 				checked={$baseBranchSwitching}
 				on:change={() => ($baseBranchSwitching = !$baseBranchSwitching)}
+			/>
+		</svelte:fragment>
+	</SectionCard>
+	<SectionCard labelFor="advancedCommitOperations" orientation="row">
+		<svelte:fragment slot="title">Advanced commit operations</svelte:fragment>
+		<svelte:fragment slot="caption">
+			Allows for reordeing of commits, changing the message as well as undoing of commits anywhere
+			in the stack. In addition it allows for adding an empty commit between two other commits.
+		</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Toggle
+				id="advancedCommitOperations"
+				checked={$advancedCommitOperations}
+				on:change={() => ($advancedCommitOperations = !$advancedCommitOperations)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
