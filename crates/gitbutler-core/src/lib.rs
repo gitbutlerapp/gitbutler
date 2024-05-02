@@ -33,6 +33,7 @@ pub mod sessions;
 pub mod snapshots;
 pub mod ssh;
 pub mod storage;
+pub mod time;
 pub mod types;
 pub mod users;
 pub mod virtual_branches;

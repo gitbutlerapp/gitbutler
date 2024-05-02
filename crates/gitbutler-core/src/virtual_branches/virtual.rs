@@ -1118,11 +1118,6 @@ pub fn create_virtual_branch(
         }
     }
 
-    let now = time::UNIX_EPOCH
-        .elapsed()
-        .context("failed to get elapsed time")?
-        .as_millis();
-
     let name = dedup(
         &all_virtual_branches
             .iter()
@@ -1133,6 +1128,8 @@ pub fn create_virtual_branch(
             .as_ref()
             .unwrap_or(&"Virtual branch".to_string()),
     );
+
+    let now = crate::time::now_ms();
 
     let mut branch = Branch {
         id: BranchId::generate(),
@@ -4189,10 +4186,7 @@ pub fn create_virtual_branch_from_branch(
         .any(|b| b.selected_for_changes.is_some()))
     .then_some(chrono::Utc::now().timestamp_millis());
 
-    let now = time::UNIX_EPOCH
-        .elapsed()
-        .context("failed to get elapsed time")?
-        .as_millis();
+    let now = crate::time::now_ms();
 
     // only set upstream if it's not the default target
     let upstream_branch = match upstream {
