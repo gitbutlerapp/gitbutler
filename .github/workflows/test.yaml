@@ -1,0 +1,44 @@
+name: Playwright Tests
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# concurrency:
+#   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+#   cancel-in-progress: true
+
+jobs:
+  playwright:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          cache: "pnpm"
+      - name: Install dependencies
+        run: pnpm install
+      - name: Install Playwright Browsers
+        run: pnpm exec playwright install --with-deps
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache wasm
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./crates"
+      - name: build
+        run: pnpm build
+      # - name: build web
+      #   run: pnpm build:local
+      - name: Run ubuntu/chrome snapshots
+        run: pnpm playwright test app/e2e/playwright/basic.spec.ts
+        env:
+          CI: true
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: playwright-report
+          path: app/playwright-report/
+          retention-days: 30
