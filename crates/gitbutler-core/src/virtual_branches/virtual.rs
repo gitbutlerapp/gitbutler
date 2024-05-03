@@ -1427,7 +1427,8 @@ pub fn update_branch(
                     project_id: project_repository.project().id,
                 },
             ));
-          
+        };
+
         let upstream_remote = match default_target.push_remote_name {
             Some(remote) => remote.clone(),
             None => default_target.branch.remote().to_owned(),
