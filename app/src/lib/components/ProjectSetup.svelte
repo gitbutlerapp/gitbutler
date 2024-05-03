@@ -18,11 +18,12 @@
 	const branchController = getContext(BranchController);
 	const platformName = from(platform());
 
-	let selectedBranch = '';
+	let selectedBranch = ['', ''];
 	let loading = false;
 
 	async function setTarget() {
-		if (!selectedBranch) return;
+		console.log('setTarget');
+		if (selectedBranch[0] == '') return;
 		loading = true;
 		try {
 			// TODO: Refactor temporary solution to forcing Windows to use system executable
@@ -30,7 +31,7 @@
 				project.preferred_key = 'systemExecutable';
 				projectService.updateProject(project);
 			}
-			await branchController.setTarget(selectedBranch);
+			await branchController.setTarget(selectedBranch[0], selectedBranch[1]);
 			goto(`/${project.id}/`);
 		} finally {
 			loading = false;
@@ -39,11 +40,11 @@
 </script>
 
 <DecorativeSplitView img={newProjectSvg}>
-	{#if selectedBranch && $platformName != 'win32'}
-		{@const [remoteName, branchName] = selectedBranch.split(/\/(.*)/s)}
+	{#if selectedBranch[0] != '' && $platformName != 'win32'}
+		{@const [remoteName, branchName] = selectedBranch[0].split(/\/(.*)/s)}
 		<KeysForm {remoteName} {branchName} />
 		<div class="actions">
-			<Button style="ghost" kind="solid" on:mousedown={() => (selectedBranch = '')}>Back</Button>
+			<Button style="ghost" kind="solid" on:mousedown={() => (selectedBranch[0] = '')}>Back</Button>
 			<Button style="pop" kind="solid" {loading} on:click={setTarget}>Let's go!</Button>
 		</div>
 	{:else}

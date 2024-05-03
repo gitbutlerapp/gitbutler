@@ -328,6 +328,8 @@ export class BaseBranch {
 	branchName!: string;
 	remoteName!: string;
 	remoteUrl!: string;
+	pushRemoteName!: string;
+	pushRemoteUrl!: string;
 	baseSha!: string;
 	currentSha!: string;
 	behind!: number;
@@ -337,15 +339,19 @@ export class BaseBranch {
 	recentCommits!: RemoteCommit[];
 	lastFetchedMs?: number;
 
+	actualPushRemoteName(): string {
+		return this.pushRemoteName || this.remoteName;
+	}
+
 	get lastFetched(): Date | undefined {
 		return this.lastFetchedMs ? new Date(this.lastFetchedMs) : undefined;
 	}
 
 	get repoBaseUrl(): string {
-		if (this.remoteUrl.startsWith('http')) {
-			return this.remoteUrl.replace('.git', '');
+		if (this.pushRemoteUrl.startsWith('http')) {
+			return this.pushRemoteUrl.replace('.git', '');
 		} else {
-			return this.remoteUrl.replace(':', '/').replace('git@', 'https://').replace('.git', '');
+			return this.pushRemoteUrl.replace(':', '/').replace('git@', 'https://').replace('.git', '');
 		}
 	}
 

@@ -155,6 +155,16 @@ impl Controller {
             .set_base_branch(project_id, target_branch)
     }
 
+    pub async fn set_target_push_remote(
+        &self,
+        project_id: &ProjectId,
+        push_remote: &str,
+    ) -> Result<(), Error> {
+        self.inner(project_id)
+            .await
+            .set_target_push_remote(project_id, push_remote)
+    }
+
     pub async fn merge_virtual_branch_upstream(
         &self,
         project_id: &ProjectId,
@@ -597,6 +607,17 @@ impl ControllerInner {
             SnapshotDetails::new(OperationType::SetBaseBranch),
         )?;
         Ok(result)
+    }
+
+    pub fn set_target_push_remote(
+        &self,
+        project_id: &ProjectId,
+        push_remote: &str,
+    ) -> Result<(), Error> {
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        super::set_target_push_remote(&project_repository, push_remote)?;
+        Ok(())
     }
 
     pub async fn merge_virtual_branch_upstream(
