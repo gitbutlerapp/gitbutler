@@ -179,7 +179,7 @@
 					</div>
 				{/if}
 
-				{#if $advancedCommitOperations}
+				{#if $advancedCommitOperations && isUndoable}
 					<Tag clickable on:click={openCommitMessageModal}>Edit</Tag>
 				{/if}
 			{/if}
