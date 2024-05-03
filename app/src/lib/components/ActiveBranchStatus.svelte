@@ -75,6 +75,8 @@
 			e.stopPropagation();
 		}}
 	>
-		{isLaneCollapsed ? 'View branch' : `${$baseBranch.actualPushRemoteName()}/${$branch.upstreamName}`}
+		{isLaneCollapsed
+			? 'View branch'
+			: `${$baseBranch.actualPushRemoteName()}/${$branch.upstreamName}`}
 	</Tag>
 {/if}

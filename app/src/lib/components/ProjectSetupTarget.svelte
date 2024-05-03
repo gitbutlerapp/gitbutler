@@ -36,35 +36,38 @@
 	let loading = false;
 	let selectedBranch = getBestBranch(remoteBranches);
 
-	function getBestBranch(branches: { name: string; }[]): { name: string } {
-    // Function to calculate the rank of a branch
-    // eslint-disable-next-line func-style
-    const calculateRank = (branch: string): number => {
-        if (branch === 'upstream/main' || branch === 'upstream/master') {
-            return 100;  // Highest preference
-        }
-        if (branch === 'origin/main' || branch === 'origin/master') {
-            return 90;
-        }
-        if (branch.startsWith('origin')) {
-            return 80;
-        }
-        if (branch.endsWith('master') || branch.endsWith('main')) {
-            return 70;
-        }
-        return 10;  // Least preference
-    };
+	function getBestBranch(branches: { name: string }[]): { name: string } {
+		// Function to calculate the rank of a branch
+		// eslint-disable-next-line func-style
+		const calculateRank = (branch: string): number => {
+			if (branch === 'upstream/main' || branch === 'upstream/master') {
+				return 100; // Highest preference
+			}
+			if (branch === 'origin/main' || branch === 'origin/master') {
+				return 90;
+			}
+			if (branch.startsWith('origin')) {
+				return 80;
+			}
+			if (branch.endsWith('master') || branch.endsWith('main')) {
+				return 70;
+			}
+			return 10; // Least preference
+		};
 
-    // Sort the branches based on their rank
-    branches.sort((a, b) => calculateRank(b.name) - calculateRank(a.name));
+		// Sort the branches based on their rank
+		branches.sort((a, b) => calculateRank(b.name) - calculateRank(a.name));
 
-    // Return the branch with the highest rank
-    return branches[0];
+		// Return the branch with the highest rank
+		return branches[0];
 	}
 
 	// split all the branches by the first '/' and gather the unique remote names
 	// then turn remotes into an array of objects with a 'name' and 'value' key
-	let remotes = Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0]))).map((r) => ({ name: r, value: r }));
+	let remotes = Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0]))).map((r) => ({
+		name: r,
+		value: r
+	}));
 	let selectedRemote = remotes[0];
 
 	// if there's an 'origin', select it by default
@@ -95,8 +98,8 @@
 	</Select>
 	{#if remotes.length > 1}
 		<p class="text-base-body-12">
-			You have branches from multiple remotes. If you want to specify a push target for
-			creating branches that is different from your production branch, change it here.
+			You have branches from multiple remotes. If you want to specify a push target for creating
+			branches that is different from your production branch, change it here.
 		</p>
 		<Select items={remotes} bind:value={selectedRemote} itemId="name" labelId="name">
 			<SelectItem slot="template" let:item let:selected {selected}>

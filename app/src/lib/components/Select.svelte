@@ -2,6 +2,7 @@
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import TextBox from './TextBox.svelte';
 	import { clickOutside } from '$lib/clickOutside';
+	import { pxToRem } from '$lib/utils/pxToRem';
 	import { createEventDispatcher } from 'svelte';
 
 	export let id: undefined | string = undefined;
@@ -15,6 +16,7 @@
 	export let value: any = undefined;
 	export let selectedItemId: any = undefined;
 	export let placeholder = '';
+	export let maxHeight: number | undefined = 260;
 
 	$: if (selectedItemId) value = items.find((item) => item[itemId] == selectedItemId);
 
@@ -25,7 +27,6 @@
 	let listOpen = false;
 	let element: HTMLElement;
 	let options: HTMLDivElement;
-	let maxHeight = 200;
 
 	function handleItemClick(item: any) {
 		if (item?.selectable === false) return;
@@ -35,6 +36,7 @@
 		listOpen = false;
 	}
 	function setMaxHeight() {
+		if (maxHeight) return;
 		maxHeight = window.innerHeight - element.getBoundingClientRect().bottom - maxPadding;
 	}
 
@@ -73,7 +75,7 @@
 		class="options card"
 		style:display={listOpen ? undefined : 'none'}
 		bind:this={options}
-		style:max-height={`${maxHeight}px`}
+		style:max-height={maxHeight && pxToRem(maxHeight)}
 		use:clickOutside={{
 			trigger: element,
 			handler: () => (listOpen = !listOpen),

@@ -19,143 +19,123 @@
 
 	let project = getContext(Project);
 
-	let selectedBranch = {name: $baseBranch.branchName};
-	let selectedRemote = {name: $baseBranch.actualPushRemoteName()};
+	let selectedBranch = { name: $baseBranch.branchName };
+	let selectedRemote = { name: $baseBranch.actualPushRemoteName() };
 	let targetChangeDisabled = true;
 	if ($activeBranches) {
 		targetChangeDisabled = $activeBranches.length > 0;
 	}
 	let isSwitching = false;
 
+	// Fetch the remote branches reactively
+	let remoteBranchesPromise: Promise<
+		{
+			name: string;
+		}[]
+	>;
+
+	$: {
+		if (project) {
+			remoteBranchesPromise = getRemoteBranches(project.id);
+		}
+	}
+
 	function uniqueRemotes(remoteBranches: { name: string }[]) {
-		return Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0]))).map((r) => ({ name: r }));
+		return Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0]))).map((r) => ({
+			name: r
+		}));
 	}
 
 	async function onSetBaseBranchClick() {
 		if (!selectedBranch) return;
 
-		// while target is setting, display loading
-		isSwitching = true;
+		isSwitching = true; // Indicate switching in progress
 
-		if(selectedRemote){
-			await branchController
-				.setTarget(selectedBranch.name, selectedRemote.name)
-				.finally(() => {
-					isSwitching = false;
-				});
+		if (selectedRemote) {
+			await branchController.setTarget(selectedBranch.name, selectedRemote.name).finally(() => {
+				isSwitching = false;
+			});
 		} else {
-			await branchController
-				.setTarget(selectedBranch.name)
-				.finally(() => {
-					isSwitching = false;
-				});
+			await branchController.setTarget(selectedBranch.name).finally(() => {
+				isSwitching = false;
+			});
 		}
 	}
 </script>
 
-<Section spacer>
-	<SectionCard labelFor="targetBranch" orientation="column">
-		<svelte:fragment slot="title">Current Target Branch</svelte:fragment>
-		<svelte:fragment slot="caption">
-			Your target branch is what you consider "production". This is where you
-			want to integrate any branches that you create. Normally something like
-			'origin/master' or 'upstream/main'.
-		</svelte:fragment>
+{#await remoteBranchesPromise}
+	<InfoMessage filled outlined={false} icon="info">
+		<svelte:fragment slot="content">Loading remote branches...</svelte:fragment>
+	</InfoMessage>
+{:then remoteBranches}
+	{#if remoteBranches.length > 0}
+		<Section spacer>
+			<SectionCard>
+				<svelte:fragment slot="title">Remote configuration</svelte:fragment>
+				<svelte:fragment slot="caption">
+					Lets you choose where to push code and set the target branch for contributions. The target
+					branch is usually the "production" branch like 'origin/master' or 'upstream/main.' This
+					section helps ensure your code goes to the correct remote and branch for integration.
+				</svelte:fragment>
 
-		<div class="inputs-group">
-			{#if isSwitching}
-				<InfoMessage filled outlined={false} style="pop" icon="info">
-					<svelte:fragment slot="title">
-						Switching target branch...
-					</svelte:fragment>
-				</InfoMessage>
-			{:else}
-				{#await getRemoteBranches(project.id)}
-					loading remote branches...
-				{:then remoteBranches}
-					{#if remoteBranches.length == 0}
-						<InfoMessage filled outlined={false} style="error" icon="error">
-							<svelte:fragment slot="title">
-								You don't have any remote branches.
-							</svelte:fragment>
-						</InfoMessage>
-					{:else}
-						<div class="inputs-row">
-							<Select
-								items={remoteBranches}
-								bind:value={selectedBranch}
-								itemId="name"
-								labelId="name"
-								disabled={targetChangeDisabled}
-								wide={true}
-							>
-								<SelectItem slot="template" let:item let:selected {selected}>
-									{item.name}
-								</SelectItem>
-							</Select>
-							<Button
-								size="cta"
-								style="ghost"
-								kind="solid"
-								on:click={onSetBaseBranchClick}
-								id="set-base-branch"
-								loading={isSwitching}
-								disabled={(selectedBranch.name === $baseBranch.branchName) || targetChangeDisabled}
-							>
-								Change Target Branch
-							</Button>
-						</div>
+				<Select
+					items={remoteBranches}
+					bind:value={selectedBranch}
+					itemId="name"
+					labelId="name"
+					disabled={targetChangeDisabled}
+					wide={true}
+					label="Current target branch"
+				>
+					<SelectItem slot="template" let:item let:selected {selected}>
+						{item.name}
+					</SelectItem>
+				</Select>
 
-						{#if uniqueRemotes(remoteBranches).length > 1}
-							Create branches on remote:
-							<Select
-								items={uniqueRemotes(remoteBranches)}
-								bind:value={selectedRemote}
-								itemId="name"
-								labelId="name"
-								disabled={targetChangeDisabled}
-							>
-								<SelectItem slot="template" let:item let:selected {selected}>
-									{item.name}
-								</SelectItem>
-							</Select>
-						{/if}
+				{#if uniqueRemotes(remoteBranches).length > 1}
+					<Select
+						items={uniqueRemotes(remoteBranches)}
+						bind:value={selectedRemote}
+						itemId="name"
+						labelId="name"
+						disabled={targetChangeDisabled}
+						label="Create branches on remote"
+					>
+						<SelectItem slot="template" let:item let:selected {selected}>
+							{item.name}
+						</SelectItem>
+					</Select>
+				{/if}
 
-					{/if}
-				{:catch}
-					<InfoMessage filled outlined={true} style="error" icon="error">
-						<svelte:fragment slot="title">
-							We got an error trying to list your remote branches
+				{#if $activeBranches && targetChangeDisabled}
+					<InfoMessage filled outlined={false} icon="info">
+						<svelte:fragment slot="content">
+							You have {$activeBranches.length === 1
+								? '1 active branch'
+								: `${$activeBranches.length} active branches`} in your workspace. Please clear the workspace
+							before switching the base branch.
 						</svelte:fragment>
 					</InfoMessage>
-				{/await}
-			{/if}
-
-			{#if $activeBranches && targetChangeDisabled}
-			<InfoMessage filled outlined={false} icon="info">
-				<svelte:fragment slot="content">
-					You have {$activeBranches.length === 1
-						? '1 active branch'
-						: `${$activeBranches.length} active branches`} in your workspace. Please clear the workspace
-					before switching the base branch.
-				</svelte:fragment>
-			</InfoMessage>
-			{/if}
-		</div>
-	</SectionCard>
-</Section>
-
-<style>
-	.inputs-group {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-16);
-		width: 100%;
-	}
-
-	.inputs-row {
-		display: flex;
-		justify-content: space-between;
-		gap: var(--size-16);
-	}
-</style>
+				{:else}
+					<Button
+						size="cta"
+						style="ghost"
+						kind="solid"
+						on:click={onSetBaseBranchClick}
+						id="set-base-branch"
+						loading={isSwitching}
+						disabled={selectedBranch.name === $baseBranch.branchName || targetChangeDisabled}
+					>
+						{isSwitching ? 'Switching branches...' : 'Update configuration'}
+					</Button>
+				{/if}
+			</SectionCard>
+		</Section>
+	{/if}
+{:catch}
+	<InfoMessage filled outlined={true} style="error" icon="error">
+		<svelte:fragment slot="title"
+			>We got an error trying to list your remote branches</svelte:fragment
+		>
+	</InfoMessage>
+{/await}

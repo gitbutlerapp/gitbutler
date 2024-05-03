@@ -26,7 +26,6 @@
 
 	let dragHandle: any;
 	let clone: any;
-	let isSwitching = false;
 </script>
 
 {#if $activeBranchesError}
