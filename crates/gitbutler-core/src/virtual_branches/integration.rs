@@ -93,6 +93,9 @@ pub fn get_workspace_head(
     Ok(workspace_head_id)
 }
 
+
+
+
 // Before switching the user to our gitbutler integration branch we save
 // the current branch into a text file. It is used in generating the commit
 // message for integration branch, as a helpful hint about how to get back
