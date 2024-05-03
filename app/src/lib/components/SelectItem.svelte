@@ -59,4 +59,12 @@
 			overflow-x: hidden;
 		}
 	}
+
+	.selected {
+		background-color: var(--clr-bg-2);
+
+		& .label {
+			opacity: 0.5;
+		}
+	}
 </style>

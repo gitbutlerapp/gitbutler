@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Display, Formatter},
-    time::SystemTime,
-};
+use std::fmt::{Display, Formatter};
 
 use anyhow::Result;
 
@@ -50,29 +47,20 @@ impl Document {
         };
 
         let operations = operations::get_delta_operations(&self.to_string(), new_text);
-        let delta = if operations.is_empty() {
+
+        if operations.is_empty() {
             if let Some(reader::Content::UTF8(value)) = value {
                 if !value.is_empty() {
                     return Ok(None);
                 }
             }
+        }
 
-            delta::Delta {
-                operations,
-                timestamp_ms: SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis(),
-            }
-        } else {
-            delta::Delta {
-                operations,
-                timestamp_ms: SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis(),
-            }
+        let delta = delta::Delta {
+            operations,
+            timestamp_ms: crate::time::now_ms(),
         };
+
         apply_deltas(&mut self.doc, &vec![delta.clone()])?;
         self.deltas.push(delta.clone());
         Ok(Some(delta))
