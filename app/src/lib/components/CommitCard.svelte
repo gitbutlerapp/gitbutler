@@ -86,7 +86,13 @@
 		branchController.reorderCommit(branch.id, commit.id, offset);
 	}
 
-	$: isUndoable = isHeadCommit;
+	let isUndoable = false;
+
+	$: if ($advancedCommitOperations) {
+		isUndoable = !!branch?.active && commit instanceof Commit;
+	} else {
+		isUndoable = isHeadCommit;
+	}
 	const hasCommitUrl = !commit.isLocal && commitUrl;
 
 	let commitMessageModal: Modal;
