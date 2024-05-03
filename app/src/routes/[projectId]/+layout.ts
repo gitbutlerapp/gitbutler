@@ -28,7 +28,8 @@ export async function load({ params, parent }) {
 	let project: Project | undefined = undefined;
 	try {
 		project = await projectService.getProject(projectId);
-		invoke('set_project_active', { id: projectId }).then((_r) => {});
+		console.log('hey there');
+		invoke('set_project_active', { id: projectId });
 	} catch (err: any) {
 		throw error(400, {
 			message: err.message
