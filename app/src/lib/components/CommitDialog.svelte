@@ -22,6 +22,8 @@
 
 	let isCommitting = false;
 
+	let commitMessageValid = false;
+
 	async function commit() {
 		const message = $commitMessage;
 		isCommitting = true;
@@ -42,7 +44,11 @@
 <div class="commit-box" class:commit-box__expanded={$expanded}>
 	{#if $expanded}
 		<div class="commit-box__expander" transition:slide={{ duration: 150, easing: quintOut }}>
-			<CommitMessageInput bind:commitMessage={$commitMessage} {commit} />
+			<CommitMessageInput
+				bind:commitMessage={$commitMessage}
+				bind:valid={commitMessageValid}
+				{commit}
+			/>
 		</div>
 	{/if}
 	<div class="actions">
@@ -63,7 +69,7 @@
 			kind="solid"
 			grow
 			loading={isCommitting}
-			disabled={(isCommitting || !$commitMessage || $selectedOwnership.isEmpty()) && $expanded}
+			disabled={(isCommitting || !commitMessageValid || $selectedOwnership.isEmpty()) && $expanded}
 			id="commit-to-branch"
 			on:click={() => {
 				if ($expanded) {

@@ -90,6 +90,7 @@
 	const hasCommitUrl = !commit.isLocal && commitUrl;
 
 	let commitMessageModal: Modal;
+	let commitMessageValid = false;
 	let description = '';
 
 	function openCommitMessageModal(e: Event) {
@@ -112,10 +113,16 @@
 </script>
 
 <Modal bind:this={commitMessageModal}>
-	<CommitMessageInput bind:commitMessage={description} />
+	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
 	<svelte:fragment slot="controls">
 		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}>Cancel</Button>
-		<Button style="pop" kind="solid" grow on:click={submitCommitMessageModal}>Submit</Button>
+		<Button
+			style="pop"
+			kind="solid"
+			grow
+			disabled={!commitMessageValid}
+			on:click={submitCommitMessageModal}>Submit</Button
+		>
 	</svelte:fragment>
 </Modal>
 

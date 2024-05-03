@@ -25,6 +25,7 @@
 	import { fly } from 'svelte/transition';
 
 	export let commitMessage: string;
+	export let valid: boolean = false;
 	export let commit: (() => void) | undefined = undefined;
 
 	const user = getContextStore(User);
@@ -51,6 +52,7 @@
 
 	$: ({ title, description } = splitMessage(commitMessage));
 	$: if (commitMessage) updateHeights();
+	$: valid = !!title;
 
 	function concatMessage(title: string, description: string) {
 		return `${title}\n\n${description}`;
