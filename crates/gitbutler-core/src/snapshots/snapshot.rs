@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use git2::FileMode;
 use itertools::Itertools;
 use std::fs;
 use std::str::FromStr;
@@ -43,11 +44,10 @@ pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
         None => repo.find_commit(default_target_sha.into())?,
     };
 
-    // Copy virtual_branches.rs to the project root so that we snapshot it
-    std::fs::copy(
-        repo_path.join(".git/gitbutler/virtual_branches.toml"),
-        repo_path.join("virtual_branches.toml"),
-    )?;
+    // Create a blob out of `.git/gitbutler/virtual_branches.toml`
+    let vb_path = repo_path.join(".git/gitbutler/virtual_branches.toml");
+    let vb_content = fs::read(vb_path)?;
+    let vb_blob = repo.blob(&vb_content)?;
 
     // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
     let files_to_exclude = get_exclude_list(&repo)?;
@@ -61,6 +61,12 @@ pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
 
     // Create a tree out of the index
     let tree_id = index.write_tree()?;
+
+    let mut tree_builder = repo.treebuilder(None)?;
+    tree_builder.insert("workdir", tree_id, FileMode::Tree.into())?;
+    tree_builder.insert("virtual_branches.toml", vb_blob, FileMode::Blob.into())?;
+
+    let tree_id = tree_builder.write()?;
     let tree = repo.find_tree(tree_id)?;
 
     // Construct a new commit
@@ -75,9 +81,6 @@ pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
         &tree,
         &[&oplog_head_commit],
     )?;
-
-    // Remove the copied virtual_branches.rs
-    std::fs::remove_file(project.path.join("virtual_branches.toml"))?;
 
     // Reset the workdir to how it was
     let integration_branch = repo
@@ -161,9 +164,22 @@ pub fn restore(project: &Project, sha: String) -> Result<()> {
     let repo = git2::Repository::init(repo_path)?;
 
     let commit = repo.find_commit(git2::Oid::from_str(&sha)?)?;
+    // Top tree
     let tree = commit.tree()?;
+    let vb_tree_entry = tree
+        .get_name("virtual_branches.toml")
+        .ok_or(anyhow!("failed to get virtual_branches tree entry"))?;
+    // virtual_branches.toml blob
+    let vb_blob = vb_tree_entry
+        .to_object(&repo)?
+        .into_blob()
+        .map_err(|_| anyhow!("failed to convert virtual_branches tree entry to blob"))?;
+    let wd_tree_entry = tree
+        .get_name("workdir")
+        .ok_or(anyhow!("failed to get workdir tree entry"))?;
+    // workdir tree
+    let tree = repo.find_tree(wd_tree_entry.id())?;
 
-    // repo.add_ignore_rule("large.txt")?;
     // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
     let files_to_exclude = get_exclude_list(&repo)?;
     // In-memory, libgit2 internal ignore rule
@@ -176,10 +192,10 @@ pub fn restore(project: &Project, sha: String) -> Result<()> {
     // Checkout the tree
     repo.checkout_tree(tree.as_object(), Some(&mut checkout_builder))?;
 
-    // mv virtual_branches.toml from project root to .git/gitbutler
-    std::fs::rename(
-        repo_path.join("virtual_branches.toml"),
+    // Update virtual_branches.toml with the state from the snapshot
+    fs::write(
         repo_path.join(".git/gitbutler/virtual_branches.toml"),
+        vb_blob.content(),
     )?;
 
     // create new snapshot
