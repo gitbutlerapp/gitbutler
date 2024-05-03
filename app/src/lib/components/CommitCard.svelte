@@ -93,7 +93,7 @@
 	let description = '';
 
 	function openCommitMessageModal(e: Event) {
-		e.preventDefault();
+		e.stopPropagation();
 
 		description = commit.description;
 
