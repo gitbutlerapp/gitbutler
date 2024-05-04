@@ -901,24 +901,24 @@ pub fn list_virtual_branches(
             .flatten();
 
         let mut files = diffs_into_virtual_files(project_repository, files);
+
+        let path_claim_positions: HashMap<&PathBuf, usize> = branch
+            .ownership
+            .claims
+            .iter()
+            .enumerate()
+            .map(|(index, ownership_claim)| (&ownership_claim.file_path, index))
+            .collect();
+
         files.sort_by(|a, b| {
-            branch
-                .ownership
-                .claims
-                .iter()
-                .position(|o| o.file_path.eq(&a.path))
-                .unwrap_or(usize::MAX)
-                .cmp(
-                    &branch
-                        .ownership
-                        .claims
-                        .iter()
-                        .position(|id| id.file_path.eq(&b.path))
-                        .unwrap_or(usize::MAX),
-                )
+            path_claim_positions
+                .get(&a.path)
+                .unwrap_or(&usize::MAX)
+                .cmp(path_claim_positions.get(&b.path).unwrap_or(&usize::MAX))
         });
 
         let requires_force = is_requires_force(project_repository, &branch)?;
+
         let branch = VirtualBranch {
             id: branch.id,
             name: branch.name,
