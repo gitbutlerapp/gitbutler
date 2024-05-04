@@ -86,29 +86,38 @@
 	<div class="project-setup__info">
 		<ProjectNameLabel {projectName} />
 		<h3 class="text-base-body-14 text-bold">Target trunk branch</h3>
-		<p class="text-base-body-12">
-			This is the branch that you consider "production", normally something like "origin/master" or
-			"upstream/main".
-		</p>
 	</div>
-	<Select items={remoteBranches} bind:value={selectedBranch} itemId="name" labelId="name">
-		<SelectItem slot="template" let:item let:selected {selected}>
-			{item.name}
-		</SelectItem>
-	</Select>
-	{#if remotes.length > 1}
-		<p class="text-base-body-12">
-			You have branches from multiple remotes. If you want to specify a push target for creating
-			branches that is different from your production branch, change it here.
-		</p>
-		<Select items={remotes} bind:value={selectedRemote} itemId="name" labelId="name">
-			<SelectItem slot="template" let:item let:selected {selected}>
-				{item.name}
-			</SelectItem>
-		</Select>
-	{/if}
+
+	<div class="project-setup__fields">
+		<div class="project-setup__field-wrap">
+			<Select items={remoteBranches} bind:value={selectedBranch} itemId="name" labelId="name">
+				<SelectItem slot="template" let:item let:selected {selected}>
+					{item.name}
+				</SelectItem>
+			</Select>
+			<p class="project-setup__description-text text-base-body-12">
+				This is the branch that you consider "production", normally something like "origin/master"
+				or "upstream/main".
+			</p>
+		</div>
+
+		{#if remotes.length > 1}
+			<div class="project-setup__field-wrap">
+				<Select items={remotes} bind:value={selectedRemote} itemId="name" labelId="name">
+					<SelectItem slot="template" let:item let:selected {selected}>
+						{item.name}
+					</SelectItem>
+				</Select>
+				<p class="project-setup__description-text text-base-body-12">
+					You have branches from multiple remotes. If you want to specify a push target for creating
+					branches that is different from your production branch, change it here.
+				</p>
+			</div>
+		{/if}
+	</div>
+
 	<div class="card features-wrapper">
-		<SetupFeature>
+		<SetupFeature labelFor="aiGenEnabled">
 			<svelte:fragment slot="icon">
 				<svg
 					width="20"
@@ -147,20 +156,15 @@
 			<svelte:fragment slot="title">GitButler features</svelte:fragment>
 
 			<svelte:fragment slot="body">
-				{#if $user}
-					<label class="project-setup__toggle-label" for="aiGenEnabled"
-						>Enable automatic branch and commit message generation (uses OpenAI's API).</label
-					>
-				{:else}
-					Enable automatic branch and commit message generation (uses OpenAI's API).
-				{/if}
+				Enable automatic creation of branches and automatic generation of commit messages (using
+				OpenAI's API).
 			</svelte:fragment>
 			<svelte:fragment slot="toggle">
 				{#if $user}
 					<Toggle
-						name="aiGenEnabled"
 						bind:this={aiGenCheckbox}
 						checked={$aiGenEnabled}
+						id="aiGenEnabled"
 						on:change={() => {
 							$aiGenEnabled = !$aiGenEnabled;
 							$aiGenAutoBranchNamingEnabled = $aiGenEnabled;
@@ -258,6 +262,23 @@
 	}
 
 	.project-setup__info {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-12);
+	}
+
+	.project-setup__fields {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-16);
+		padding-bottom: var(--size-10);
+	}
+
+	.project-setup__description-text {
+		color: var(--clr-text-2);
+	}
+
+	.project-setup__field-wrap {
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-12);

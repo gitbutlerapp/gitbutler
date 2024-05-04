@@ -1,14 +1,13 @@
 <script lang="ts">
 	import Button from './Button.svelte';
+	import Link from './Link.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { UserService, type LoginToken } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
-	import { openExternalUrl } from '$lib/utils/url';
 
 	const userService = getContext(UserService);
 	const user = userService.user;
 
-	export let minimal = false;
 	export let wide = false;
 
 	let signUpOrLoginLoading = false;
@@ -26,19 +25,18 @@
 		}}>Log out</Button
 	>
 {:else if token}
-	{#if minimal}
+	<p class="helper-text text-base-body-12">
 		Your browser should have been opened. Please log into your GitButler account there.
-	{:else}
-		<div class="text-light-700">
-			Your browser should have been opened. Please log into your GitButler account there.
-		</div>
-		<p>
-			If you were not redirected automatically, you can
-			<button class="underline" on:click={() => token && openExternalUrl(token.url)}>
-				Click here
-			</button>
-		</p>
-	{/if}
+		{#if token}
+			If you were not redirected automatically, open <Link
+				target="_blank"
+				rel="noreferrer"
+				href={token.url}
+			>
+				this link
+			</Link>
+		{/if}
+	</p>
 {:else}
 	<div>
 		<Button
@@ -64,3 +62,9 @@
 		</Button>
 	</div>
 {/if}
+
+<style>
+	.helper-text {
+		color: var(--clr-text-2);
+	}
+</style>

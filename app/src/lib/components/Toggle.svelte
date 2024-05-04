@@ -2,8 +2,6 @@
 	import { tooltip } from '$lib/utils/tooltip';
 	import { createEventDispatcher } from 'svelte';
 
-	export let name = '';
-
 	export let small = false;
 	export let disabled = false;
 	export let checked = false;
@@ -26,7 +24,6 @@
 	class="toggle"
 	class:small
 	{value}
-	{name}
 	{id}
 	{disabled}
 	use:tooltip={help}
