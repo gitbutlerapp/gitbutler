@@ -8,12 +8,16 @@ use std::{path, time};
 
 use anyhow::{bail, Context, Result};
 use gitbutler_core::projects::ProjectId;
+use gitbutler_core::repo::GbRepository;
 use gitbutler_core::sessions::SessionId;
+use gitbutler_core::snapshots::entry::{OperationType, SnapshotDetails, Trailer};
+use gitbutler_core::snapshots::snapshot;
 use gitbutler_core::virtual_branches::VirtualBranches;
 use gitbutler_core::{
     assets, deltas, gb_repository, git, project_repository, projects, reader, sessions, users,
     virtual_branches,
 };
+use tokio::sync::Mutex;
 use tracing::instrument;
 
 use super::{events, Change};
@@ -39,6 +43,9 @@ pub struct Handler {
     /// A function to send events - decoupled from app-handle for testing purposes.
     #[allow(clippy::type_complexity)]
     send_event: Arc<dyn Fn(Change) -> Result<()> + Send + Sync + 'static>,
+
+    // The number of changed lines since the value was last reset
+    changed_lines_count: Arc<Mutex<usize>>,
 }
 
 impl Handler {
@@ -63,6 +70,7 @@ impl Handler {
             sessions_db,
             deltas_db,
             send_event: Arc::new(send_event),
+            changed_lines_count: Arc::new(Mutex::new(0)),
         }
     }
 
@@ -278,13 +286,57 @@ impl Handler {
         paths: Vec<PathBuf>,
         project_id: ProjectId,
     ) -> Result<()> {
+        let paths_string = paths
+            .iter()
+            .map(|p| p.to_string_lossy().to_string())
+            .collect::<Vec<_>>()
+            .join(",");
         let calc_deltas = tokio::task::spawn_blocking({
             let this = self.clone();
             move || this.calculate_deltas(paths, project_id)
         });
+        let changed_lines_before = *self.changed_lines_count.lock().await;
+        // Create a snapshot every time there are more than 20 new lines of code
+        let handle_snapshots = tokio::task::spawn_blocking({
+            let this = self.clone();
+            move || this.maybe_create_snapshot(project_id, changed_lines_before, paths_string)
+        });
+        // Set changed lines count to the newly observed value
+        *self.changed_lines_count.lock().await = handle_snapshots.await??;
         self.calculate_virtual_branches(project_id).await?;
         calc_deltas.await??;
         Ok(())
+    }
+
+    const SNAPSHOT_LINES_THRESHOLD: usize = 20;
+
+    fn maybe_create_snapshot(
+        &self,
+        project_id: ProjectId,
+        changed_lines_before: usize,
+        paths: String,
+    ) -> anyhow::Result<usize> {
+        let project = self
+            .projects
+            .get(&project_id)
+            .context("failed to get project")?;
+        let repo_path = project.path.as_path();
+        let repo = git2::Repository::init(repo_path)?;
+        let changed_lines = repo.changed_lines_count()? - changed_lines_before;
+        if changed_lines > Self::SNAPSHOT_LINES_THRESHOLD {
+            let details = SnapshotDetails {
+                version: Default::default(),
+                operation: OperationType::FileChanges,
+                title: OperationType::FileChanges.to_string(),
+                body: None,
+                trailers: vec![Trailer {
+                    key: "files".to_string(),
+                    value: paths,
+                }],
+            };
+            snapshot::create(&project, details)?;
+        }
+        Ok(changed_lines)
     }
 
     pub async fn git_file_change(
