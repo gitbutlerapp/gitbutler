@@ -2,6 +2,7 @@ use anyhow::Result;
 use gitbutler_core::{projects::Project, snapshots::snapshot};
 
 use clap::{arg, Command};
+#[cfg(not(windows))]
 use pager::Pager;
 
 fn cli() -> Command {
@@ -21,6 +22,7 @@ fn cli() -> Command {
 }
 
 fn main() -> Result<()> {
+    #[cfg(not(windows))]
     Pager::new().setup();
     let matches = cli().get_matches();
 
