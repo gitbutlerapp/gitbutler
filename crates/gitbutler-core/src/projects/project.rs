@@ -84,6 +84,13 @@ pub struct Project {
     pub omit_certificate_check: Option<bool>,
     #[serde(default)]
     pub enable_snapshots: Option<bool>,
+    // The number of changed lines that will trigger a snapshot
+    #[serde(default = "default_snapshot_lines_threshold")]
+    pub snapshot_lines_threshold: usize,
+}
+
+fn default_snapshot_lines_threshold() -> usize {
+    20
 }
 
 impl AsRef<Project> for Project {
