@@ -308,8 +308,6 @@ impl Handler {
         Ok(())
     }
 
-    const SNAPSHOT_LINES_THRESHOLD: usize = 20;
-
     fn maybe_create_snapshot(
         &self,
         project_id: ProjectId,
@@ -323,7 +321,7 @@ impl Handler {
         let repo_path = project.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
         let changed_lines = repo.changed_lines_count()? - changed_lines_before;
-        if changed_lines > Self::SNAPSHOT_LINES_THRESHOLD {
+        if changed_lines > project.snapshot_lines_threshold {
             let details = SnapshotDetails {
                 version: Default::default(),
                 operation: OperationType::FileChanges,
