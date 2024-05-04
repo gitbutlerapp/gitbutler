@@ -152,6 +152,7 @@ pub enum OperationType {
     ReorderCommit,
     InsertBlankCommit,
     MoveCommitFile,
+    FileChanges,
     #[default]
     Unknown,
 }
