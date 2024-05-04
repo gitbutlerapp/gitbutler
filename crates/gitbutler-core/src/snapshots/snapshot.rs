@@ -225,7 +225,10 @@ fn get_exclude_list(repo: &git2::Repository) -> Result<String> {
         if let Some(path) = entry.path() {
             let path = repo_path.join(path);
             if let Ok(metadata) = fs::metadata(&path) {
-                if metadata.is_file() && metadata.len() > SNAPSHOT_FILE_LIMIT_BYTES {
+                if metadata.is_file()
+                    && metadata.len() > SNAPSHOT_FILE_LIMIT_BYTES
+                    && entry.status().is_wt_new()
+                {
                     files_to_exclude.push(path);
                 }
             }
