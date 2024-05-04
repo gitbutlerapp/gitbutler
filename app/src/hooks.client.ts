@@ -3,9 +3,11 @@ import { error as logErrorToFile } from 'tauri-plugin-log-api';
 import type { NavigationEvent } from '@sveltejs/kit';
 
 function myErrorHandler({ error, event }: { error: any; event: NavigationEvent }) {
-	console.error(error.message + '\n' + error.stack);
-	logErrorToFile(error.toString());
-	console.error('An error occurred on the client side:', error, event);
+    if (typeof window.__TAURI_IPC__ === 'function') {
+        console.error(error.message + '\n' + error.stack);
+        logErrorToFile(error.toString());
+    }
+    console.error('An error occurred on the client side:', error, event);
 }
 
 export const handleError = handleErrorWithSentry(myErrorHandler);
@@ -19,7 +21,9 @@ export const handleError = handleErrorWithSentry(myErrorHandler);
  */
 const originalUnhandledHandler = window.onunhandledrejection;
 window.onunhandledrejection = (event: PromiseRejectionEvent) => {
-	logErrorToFile('Unhandled exception: ' + event?.reason + ' ' + event?.reason?.sourceURL);
-	console.log('Unhandled exception', event.reason);
-	originalUnhandledHandler?.bind(window)(event);
+    if (typeof window.__TAURI_IPC__ === 'function') {
+        logErrorToFile('Unhandled exception: ' + event?.reason + ' ' + event?.reason?.sourceURL);
+        console.log('Unhandled exception', event.reason);
+        originalUnhandledHandler?.bind(window)(event);
+    }
 };
