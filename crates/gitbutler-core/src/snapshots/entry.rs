@@ -92,7 +92,6 @@ impl FromStr for SnapshotDetails {
                 .value,
         )
         .unwrap_or(Default::default());
-        println!("Operation: {:?}", operation);
 
         // remove the version and operation attributes from the trailers since they have dedicated fields
         trailers.retain(|t| t.key != "Version" && t.key != "Operation");

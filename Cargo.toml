@@ -6,6 +6,7 @@ members = [
     "crates/gitbutler-git",
     "crates/gitbutler-watcher",
     "crates/gitbutler-testsupport",
+    "crates/gitbutler-cli",
 ]
 resolver = "2"
 
@@ -22,6 +23,7 @@ gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-core = { path = "crates/gitbutler-core" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }
 gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
+gitbutler-cli ={ path = "crates/gitbutler-cli" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better
