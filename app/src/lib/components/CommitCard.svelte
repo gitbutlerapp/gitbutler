@@ -1,6 +1,9 @@
 <script lang="ts">
 	import BranchFilesList from './BranchFilesList.svelte';
 	import { Project } from '$lib/backend/projects';
+	import Button from '$lib/components/Button.svelte';
+	import CommitMessageInput from '$lib/components/CommitMessageInput.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
@@ -49,11 +52,7 @@
 
 	function toggleFiles() {
 		showFiles = !showFiles;
-		if (!showFiles && branch) {
-			if (commit.description != description) {
-				branchController.updateCommitMessage(branch.id, commit.id, description);
-			}
-		}
+
 		if (showFiles) loadFiles();
 	}
 
@@ -87,10 +86,51 @@
 		branchController.reorderCommit(branch.id, commit.id, offset);
 	}
 
-	$: isUndoable = isHeadCommit;
+	let isUndoable = false;
+
+	$: if ($advancedCommitOperations) {
+		isUndoable = !!branch?.active && commit instanceof Commit;
+	} else {
+		isUndoable = isHeadCommit;
+	}
 	const hasCommitUrl = !commit.isLocal && commitUrl;
-	let description = commit.description;
+
+	let commitMessageModal: Modal;
+	let commitMessageValid = false;
+	let description = '';
+
+	function openCommitMessageModal(e: Event) {
+		e.stopPropagation();
+
+		description = commit.description;
+
+		commitMessageModal.show();
+	}
+
+	function submitCommitMessageModal() {
+		commit.description = description;
+
+		if (branch) {
+			branchController.updateCommitMessage(branch.id, commit.id, description);
+		}
+
+		commitMessageModal.close();
+	}
 </script>
+
+<Modal bind:this={commitMessageModal}>
+	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
+	<svelte:fragment slot="controls">
+		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}>Cancel</Button>
+		<Button
+			style="pop"
+			kind="solid"
+			grow
+			disabled={!commitMessageValid}
+			on:click={submitCommitMessageModal}>Submit</Button
+		>
+	</svelte:fragment>
+</Modal>
 
 <div
 	use:draggable={commit instanceof Commit
@@ -101,17 +141,6 @@
 	class="commit"
 	class:is-commit-open={showFiles}
 >
-	{#if $advancedCommitOperations}
-		{#if isUndoable && showFiles}
-			<div class="commit__edit_description">
-				<textarea
-					placeholder="commit message here"
-					bind:value={description}
-					rows={commit.description.split('\n').length + 1}
-				></textarea>
-			</div>
-		{/if}
-	{/if}
 	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
 		<div class="commit__message">
 			{#if $advancedCommitOperations}
@@ -154,6 +183,19 @@
 					</span>
 				{/if}
 			</div>
+			{#if showFiles}
+				{#if commit.descriptionBody}
+					<div class="commit__row" transition:slide={{ duration: 100 }}>
+						<span class="commit__body text-base-body-12">
+							{commit.descriptionBody}
+						</span>
+					</div>
+				{/if}
+
+				{#if $advancedCommitOperations && isUndoable}
+					<Tag clickable on:click={openCommitMessageModal}>Edit</Tag>
+				{/if}
+			{/if}
 		</div>
 		<div class="commit__row">
 			<div class="commit__author">
@@ -326,16 +368,6 @@
 		gap: var(--size-8);
 	}
 
-	.commit__edit_description {
-		width: 100%;
-	}
-	.commit__edit_description textarea {
-		width: 100%;
-		padding: 10px 14px;
-		margin: 0;
-		border-bottom: 1px solid #dddddd;
-	}
-
 	.commit__id {
 		display: flex;
 		align-items: center;
@@ -382,6 +414,7 @@
 	.files__footer {
 		display: flex;
 		justify-content: flex-end;
+		flex-wrap: wrap;
 		gap: var(--size-8);
 		padding: var(--size-14);
 		background-color: var(--clr-bg-1);
