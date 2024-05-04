@@ -18,7 +18,12 @@ build
 package
 !.env.example
 vite.config.ts.timestamp-*
-playwright-report
 
 # Written to disk when using `act`
 .pnpm-store
+
+# playwright
+test-results.json
+playwright-report
+cdp.png
+
