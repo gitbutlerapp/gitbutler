@@ -21,24 +21,12 @@
 
 	let selectedBranch = { name: $baseBranch.branchName };
 	let selectedRemote = { name: $baseBranch.actualPushRemoteName() };
-	let targetChangeDisabled = true;
+	let targetChangeDisabled = false;
+
 	if ($activeBranches) {
 		targetChangeDisabled = $activeBranches.length > 0;
 	}
 	let isSwitching = false;
-
-	// Fetch the remote branches reactively
-	let remoteBranchesPromise: Promise<
-		{
-			name: string;
-		}[]
-	>;
-
-	$: {
-		if (project) {
-			remoteBranchesPromise = getRemoteBranches(project.id);
-		}
-	}
 
 	function uniqueRemotes(remoteBranches: { name: string }[]) {
 		return Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0]))).map((r) => ({
@@ -63,7 +51,7 @@
 	}
 </script>
 
-{#await remoteBranchesPromise}
+{#await getRemoteBranches(project.id)}
 	<InfoMessage filled outlined={false} icon="info">
 		<svelte:fragment slot="content">Loading remote branches...</svelte:fragment>
 	</InfoMessage>
@@ -83,6 +71,7 @@
 					bind:value={selectedBranch}
 					itemId="name"
 					labelId="name"
+					selectedItemId={$baseBranch.branchName}
 					disabled={targetChangeDisabled}
 					wide={true}
 					label="Current target branch"
@@ -98,6 +87,7 @@
 						bind:value={selectedRemote}
 						itemId="name"
 						labelId="name"
+						selectedItemId={$baseBranch.actualPushRemoteName()}
 						disabled={targetChangeDisabled}
 						label="Create branches on remote"
 					>
@@ -110,7 +100,7 @@
 				{#if $activeBranches && targetChangeDisabled}
 					<InfoMessage filled outlined={false} icon="info">
 						<svelte:fragment slot="content">
-							You have {$activeBranches.length === 1
+							You have {$activeBranches.length == 1
 								? '1 active branch'
 								: `${$activeBranches.length} active branches`} in your workspace. Please clear the workspace
 							before switching the base branch.
@@ -124,7 +114,9 @@
 						on:click={onSetBaseBranchClick}
 						id="set-base-branch"
 						loading={isSwitching}
-						disabled={selectedBranch.name === $baseBranch.branchName || targetChangeDisabled}
+						disabled={(selectedBranch.name == $baseBranch.branchName &&
+							selectedRemote.name == $baseBranch.actualPushRemoteName()) ||
+							targetChangeDisabled}
 					>
 						{isSwitching ? 'Switching branches...' : 'Update configuration'}
 					</Button>

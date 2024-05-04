@@ -22,7 +22,6 @@
 	let loading = false;
 
 	async function setTarget() {
-		console.log('setTarget');
 		if (selectedBranch[0] == '') return;
 		loading = true;
 		try {
