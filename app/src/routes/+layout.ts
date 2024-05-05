@@ -1,3 +1,6 @@
+import lscache from 'lscache';
+import { BehaviorSubject, config } from 'rxjs';
+import { env } from "$env/dynamic/public";
 import { AIService } from '$lib/ai/service';
 import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 import { AuthService } from '$lib/backend/auth';
@@ -8,10 +11,7 @@ import { PromptService } from '$lib/backend/prompt';
 import { UpdaterService } from '$lib/backend/updater';
 import { GitHubService } from '$lib/github/service';
 import { UserService } from '$lib/stores/user';
-import lscache from 'lscache';
-import { BehaviorSubject, config } from 'rxjs';
 import { mockTauri } from '$lib/testing/index';
-import { env } from "$env/dynamic/public";
 
 // call on startup so we don't accumulate old items
 lscache.flushExpired();
@@ -28,18 +28,7 @@ export async function load() {
     if (env.PUBLIC_TESTING) {
         mockTauri()
     }
-	  initAnalyticsIfEnabled();
-
-    appErrorReportingEnabled()
-        .onDisk()
-        .then((enabled) => {
-            if (enabled) initSentry();
-        });
-    appMetricsEnabled()
-        .onDisk()
-        .then((enabled) => {
-            if (enabled) initPostHog();
-        });
+    initAnalyticsIfEnabled();
 
     // TODO: Find a workaround to avoid this dynamic import
     // https://github.com/sveltejs/kit/issues/905
