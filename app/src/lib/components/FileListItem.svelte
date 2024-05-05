@@ -59,7 +59,7 @@
 	});
 </script>
 
-<div class="list-item-wrapper">
+<div class:list-item-wrapper={showCheckbox}>
 	{#if showCheckbox}
 		<Checkbox
 			small
@@ -128,16 +128,14 @@
 			else console.error('No files selected');
 		}}
 	>
-		<div class="info-wrap">
-			<div class="info">
-				<img draggable="false" class="file-icon" src={getVSIFileIcon(file.path)} alt="js" />
-				<span class="text-base-12 name">
-					{file.filename}
-				</span>
-				<span class="text-base-12 path">
-					{file.justpath}
-				</span>
-			</div>
+		<div class="info">
+			<img draggable="false" class="file-icon" src={getVSIFileIcon(file.path)} alt="js" />
+			<span class="text-base-12 name">
+				{file.filename}
+			</span>
+			<span class="text-base-12 path">
+				{file.justpath}
+			</span>
 		</div>
 		<FileStatusIcons {file} />
 	</div>
@@ -170,14 +168,6 @@
 		}
 	}
 
-	.info-wrap {
-		display: flex;
-		align-items: center;
-		flex-grow: 1;
-		flex-shrink: 1;
-		gap: var(--size-10);
-		overflow: hidden;
-	}
 	.info {
 		display: flex;
 		align-items: center;
