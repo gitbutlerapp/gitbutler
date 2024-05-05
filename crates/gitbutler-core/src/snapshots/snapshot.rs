@@ -49,6 +49,9 @@ pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
     let vb_content = fs::read(vb_path)?;
     let vb_blob = repo.blob(&vb_content)?;
 
+    // Create a tree out of the conflicts state if present
+    let conflicts_tree = write_conflicts_tree(repo_path, &repo)?;
+
     // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
     let files_to_exclude = get_exclude_list(&repo)?;
     // In-memory, libgit2 internal ignore rule
@@ -65,6 +68,7 @@ pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
     let mut tree_builder = repo.treebuilder(None)?;
     tree_builder.insert("workdir", tree_id, FileMode::Tree.into())?;
     tree_builder.insert("virtual_branches.toml", vb_blob, FileMode::Blob.into())?;
+    tree_builder.insert("conflicts", conflicts_tree, FileMode::Tree.into())?;
 
     let tree_id = tree_builder.write()?;
     let tree = repo.find_tree(tree_id)?;
@@ -174,6 +178,9 @@ pub fn restore(project: &Project, sha: String) -> Result<()> {
         .to_object(&repo)?
         .into_blob()
         .map_err(|_| anyhow!("failed to convert virtual_branches tree entry to blob"))?;
+    // Restore the state of .git/base_merge_parent and .git/conflicts from the snapshot
+    // Will remove those files if they are not present in the snapshot
+    _ = restore_conflicts_tree(&tree, &repo, repo_path);
     let wd_tree_entry = tree
         .get_name("workdir")
         .ok_or(anyhow!("failed to get workdir tree entry"))?;
@@ -212,6 +219,72 @@ pub fn restore(project: &Project, sha: String) -> Result<()> {
     create(project, details)?;
 
     Ok(())
+}
+
+fn restore_conflicts_tree(
+    snapshot_tree: &git2::Tree,
+    repo: &git2::Repository,
+    repo_path: &std::path::Path,
+) -> Result<()> {
+    let conflicts_tree_entry = snapshot_tree
+        .get_name("conflicts")
+        .ok_or(anyhow!("failed to get conflicts tree entry"))?;
+    let tree = repo.find_tree(conflicts_tree_entry.id())?;
+
+    let base_merge_parent_blob = tree.get_name("base_merge_parent");
+    let path = repo_path.join(".git/base_merge_parent");
+    if let Some(base_merge_parent_blob) = base_merge_parent_blob {
+        let base_merge_parent_blob = base_merge_parent_blob
+            .to_object(repo)?
+            .into_blob()
+            .map_err(|_| anyhow!("failed to convert base_merge_parent tree entry to blob"))?;
+        fs::write(path, base_merge_parent_blob.content())?;
+    } else if path.exists() {
+        fs::remove_file(path)?;
+    }
+
+    let conflicts_blob = tree.get_name("conflicts");
+    let path = repo_path.join(".git/conflicts");
+    if let Some(conflicts_blob) = conflicts_blob {
+        let conflicts_blob = conflicts_blob
+            .to_object(repo)?
+            .into_blob()
+            .map_err(|_| anyhow!("failed to convert conflicts tree entry to blob"))?;
+        fs::write(path, conflicts_blob.content())?;
+    } else if path.exists() {
+        fs::remove_file(path)?;
+    }
+    Ok(())
+}
+
+fn write_conflicts_tree(repo_path: &std::path::Path, repo: &git2::Repository) -> Result<git2::Oid> {
+    let merge_parent_path = repo_path.join(".git/base_merge_parent");
+    let merge_parent_blob = if merge_parent_path.exists() {
+        let merge_parent_content = fs::read(merge_parent_path)?;
+        Some(repo.blob(&merge_parent_content)?)
+    } else {
+        None
+    };
+    let conflicts_path = repo_path.join(".git/conflicts");
+    let conflicts_blob = if conflicts_path.exists() {
+        let conflicts_content = fs::read(conflicts_path)?;
+        Some(repo.blob(&conflicts_content)?)
+    } else {
+        None
+    };
+    let mut tree_builder = repo.treebuilder(None)?;
+    if merge_parent_blob.is_some() {
+        tree_builder.insert(
+            "base_merge_parent",
+            merge_parent_blob.unwrap(),
+            FileMode::Blob.into(),
+        )?;
+    }
+    if conflicts_blob.is_some() {
+        tree_builder.insert("conflicts", conflicts_blob.unwrap(), FileMode::Blob.into())?;
+    }
+    let conflicts_tree = tree_builder.write()?;
+    Ok(conflicts_tree)
 }
 
 fn get_exclude_list(repo: &git2::Repository) -> Result<String> {
