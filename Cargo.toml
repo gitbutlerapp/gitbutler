@@ -1,12 +1,12 @@
 [workspace]
 members = [
-    "crates/gitbutler-analytics",
     "crates/gitbutler-core",
     "crates/gitbutler-tauri",
     "crates/gitbutler-changeset",
     "crates/gitbutler-git",
     "crates/gitbutler-watcher",
     "crates/gitbutler-testsupport",
+    "crates/gitbutler-cli",
 ]
 resolver = "2"
 
@@ -15,18 +15,18 @@ gix = { version = "0.62.0", default-features = false, features = [] } # add perf
 git2 = { version = "0.18.3", features = ["vendored-openssl", "vendored-libgit2"] }
 uuid = { version = "1.8.0", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
-thiserror = "1.0.58"
+thiserror = "1.0.59"
 rusqlite = { version = "0.29.0", features = [ "bundled", "blob" ] }
 tokio = { version = "1.37.0", default-features = false }
 
 gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-core = { path = "crates/gitbutler-core" }
-gitbutler-analytics = { path = "crates/gitbutler-analytics" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }
 gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
+gitbutler-cli ={ path = "crates/gitbutler-cli" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better
 lto = true        # Enables link to optimizations
 opt-level = "s"   # Optimize for binary size
-debug = true      # Enable debug symbols, for sentry
+debug = true      # Enable debug symbols, for profiling

@@ -43,15 +43,15 @@ fn score_ignores_whitespace() {
     assert_score!(sig, "\t\t  hel lo\n\two rld \t\t", 1.0);
 }
 
-const TEXT1: &str = include_str!("../fixtures/text1.txt");
-const TEXT2: &str = include_str!("../fixtures/text2.txt");
-const TEXT3: &str = include_str!("../fixtures/text3.txt");
-const CODE1: &str = include_str!("../fixtures/code1.txt");
-const CODE2: &str = include_str!("../fixtures/code2.txt");
-const CODE3: &str = include_str!("../fixtures/code3.txt");
-const CODE4: &str = include_str!("../fixtures/code4.txt");
-const LARGE1: &str = include_str!("../fixtures/large1.txt");
-const LARGE2: &str = include_str!("../fixtures/large2.txt");
+const TEXT1: &str = include_str!("fixtures/text1.txt");
+const TEXT2: &str = include_str!("fixtures/text2.txt");
+const TEXT3: &str = include_str!("fixtures/text3.txt");
+const CODE1: &str = include_str!("fixtures/code1.txt");
+const CODE2: &str = include_str!("fixtures/code2.txt");
+const CODE3: &str = include_str!("fixtures/code3.txt");
+const CODE4: &str = include_str!("fixtures/code4.txt");
+const LARGE1: &str = include_str!("fixtures/large1.txt");
+const LARGE2: &str = include_str!("fixtures/large2.txt");
 
 macro_rules! real_test {
     ($a: ident, $b: ident, are_similar) => {

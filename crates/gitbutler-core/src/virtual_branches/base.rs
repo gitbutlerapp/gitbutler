@@ -5,8 +5,10 @@ use serde::Serialize;
 
 use super::{
     branch, errors,
-    integration::{update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE},
-    target, BranchId, RemoteCommit, VirtualBranchesHandle,
+    integration::{
+        get_workspace_head, update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE,
+    },
+    target, BranchId, RemoteCommit, VirtualBranchHunk, VirtualBranchesHandle,
 };
 use crate::{
     git::{self, diff},
@@ -193,28 +195,26 @@ pub fn set_base_branch(
 
         let wd_diff = diff::workdir(repo, &current_head_commit.id())?;
         if !wd_diff.is_empty() || current_head_commit.id() != target.sha {
-            let hunks_by_filepath = super::virtual_hunks_by_filepath_from_file_diffs(
-                &project_repository.project().path,
-                &wd_diff,
-            );
-
             // assign ownership to the branch
-            let ownership = hunks_by_filepath.values().flatten().fold(
+            let ownership = wd_diff.iter().fold(
                 BranchOwnershipClaims::default(),
-                |mut ownership, hunk| {
-                    ownership.put(
-                        &format!("{}:{}", hunk.file_path.display(), hunk.id)
+                |mut ownership, (file_path, diff)| {
+                    for hunk in &diff.hunks {
+                        ownership.put(
+                            format!(
+                                "{}:{}",
+                                file_path.display(),
+                                VirtualBranchHunk::gen_id(hunk.new_start, hunk.new_lines)
+                            )
                             .parse()
                             .unwrap(),
-                    );
+                        );
+                    }
                     ownership
                 },
             );
 
-            let now_ms = time::UNIX_EPOCH
-                .elapsed()
-                .context("failed to get elapsed time")?
-                .as_millis();
+            let now_ms = crate::time::now_ms();
 
             let (upstream, upstream_head) = if let git::Refname::Local(head_name) = &head_name {
                 let upstream_name = target_branch_ref.with_branch(head_name.branch());
@@ -254,7 +254,7 @@ pub fn set_base_branch(
                 tree: super::write_tree_onto_commit(
                     project_repository,
                     current_head_commit.id(),
-                    &diff::diff_files_into_hunks(wd_diff),
+                    diff::diff_files_into_hunks(wd_diff),
                 )?,
                 ownership,
                 order: 0,
@@ -267,7 +267,7 @@ pub fn set_base_branch(
 
     set_exclude_decoration(project_repository)?;
 
-    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+    update_gitbutler_integration(&vb_state, project_repository)?;
 
     let base = target_to_base_branch(project_repository, &target)?;
     Ok(base)
@@ -339,14 +339,10 @@ pub fn update_base_branch(
         .peel_to_commit()
         .context(format!("failed to peel branch {} to commit", target.branch))?;
 
-    // if the target has not changed, do nothing
     if new_target_commit.id() == target.sha {
         return Ok(());
     }
 
-    // ok, target has changed, so now we need to merge it into our current work and update our branches
-
-    // get tree from new target
     let new_target_tree = new_target_commit
         .tree()
         .context("failed to get new target commit tree")?;
@@ -360,10 +356,11 @@ pub fn update_base_branch(
         ))?;
 
     let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let integration_commit = get_workspace_head(&vb_state, project_repository)?;
 
     // try to update every branch
     let updated_vbranches =
-        super::get_status_by_branch(project_repository, Some(&new_target_commit.id()))?
+        super::get_status_by_branch(project_repository, Some(&integration_commit))?
             .0
             .into_iter()
             .map(|(branch, _)| branch)
@@ -569,9 +566,10 @@ pub fn update_base_branch(
         })
         .context("failed to calculate final tree")?;
 
-    repo.checkout_tree(&final_tree).force().checkout().context(
-        "failed to checkout index, this should not have happened, we should have already detected this",
-    )?;
+    repo.checkout_tree(&final_tree)
+        .force()
+        .checkout()
+        .context("failed to checkout index, this should not have happened, we should have already detected this")?;
 
     // write new target oid
     vb_state.set_default_target(target::Target {

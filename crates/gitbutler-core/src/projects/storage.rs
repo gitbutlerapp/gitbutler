@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 use crate::{
     projects::{project, ProjectId},
@@ -9,7 +10,7 @@ const PROJECTS_FILE: &str = "projects.json";
 
 #[derive(Debug, Clone)]
 pub struct Storage {
-    storage: storage::Storage,
+    inner: storage::Storage,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -30,7 +31,7 @@ pub struct UpdateRequest {
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    Storage(#[from] storage::Error),
+    Storage(#[from] std::io::Error),
     #[error(transparent)]
     Json(#[from] serde_json::Error),
     #[error("project not found")]
@@ -38,16 +39,16 @@ pub enum Error {
 }
 
 impl Storage {
-    pub fn new(storage: storage::Storage) -> Storage {
-        Storage { storage }
+    pub fn new(storage: storage::Storage) -> Self {
+        Self { inner: storage }
     }
 
-    pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Storage {
-        Storage::new(storage::Storage::new(path))
+    pub fn from_path(path: impl Into<PathBuf>) -> Self {
+        Self::new(storage::Storage::new(path))
     }
 
     pub fn list(&self) -> Result<Vec<project::Project>, Error> {
-        match self.storage.read(PROJECTS_FILE)? {
+        match self.inner.read(PROJECTS_FILE)? {
             Some(projects) => {
                 let all_projects: Vec<project::Project> = serde_json::from_str(&projects)?;
                 let all_projects: Vec<project::Project> = all_projects
@@ -70,13 +71,6 @@ impl Storage {
 
     pub fn get(&self, id: &ProjectId) -> Result<project::Project, Error> {
         let projects = self.list()?;
-        for project in &projects {
-            self.update(&UpdateRequest {
-                id: project.id,
-                preferred_key: Some(project.preferred_key.clone()),
-                ..Default::default()
-            })?;
-        }
         match projects.into_iter().find(|p| p.id == *id) {
             Some(project) => Ok(project),
             None => Err(Error::NotFound),
@@ -128,7 +122,7 @@ impl Storage {
             project.omit_certificate_check = Some(omit_certificate_check);
         }
 
-        self.storage
+        self.inner
             .write(PROJECTS_FILE, &serde_json::to_string_pretty(&projects)?)?;
 
         Ok(projects
@@ -142,7 +136,7 @@ impl Storage {
         let mut projects = self.list()?;
         if let Some(index) = projects.iter().position(|p| p.id == *id) {
             projects.remove(index);
-            self.storage
+            self.inner
                 .write(PROJECTS_FILE, &serde_json::to_string_pretty(&projects)?)?;
         }
         Ok(())
@@ -152,7 +146,7 @@ impl Storage {
         let mut projects = self.list()?;
         projects.push(project.clone());
         let projects = serde_json::to_string_pretty(&projects)?;
-        self.storage.write(PROJECTS_FILE, &projects)?;
+        self.inner.write(PROJECTS_FILE, &projects)?;
         Ok(())
     }
 }

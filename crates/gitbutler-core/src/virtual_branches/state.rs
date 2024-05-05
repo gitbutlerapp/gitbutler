@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fs::File,
-    io::{Read, Write},
+    io::Read,
     path::{Path, PathBuf},
 };
 
@@ -53,6 +53,19 @@ impl VirtualBranchesHandle {
         virtual_branches?
             .default_target
             .ok_or(crate::reader::Error::NotFound)
+    }
+
+    /// Attempts to get the default target for the given repository,
+    /// returning None if it's not found.
+    ///
+    /// Errors if the file cannot be read or written.
+    #[inline]
+    pub fn try_get_default_target(&self) -> Result<Option<Target>, crate::reader::Error> {
+        match self.get_default_target() {
+            Ok(target) => Ok(Some(target)),
+            Err(crate::reader::Error::NotFound) => Ok(None),
+            Err(e) => Err(e),
+        }
     }
 
     /// Sets the target for the given virtual branch.
@@ -150,11 +163,5 @@ impl VirtualBranchesHandle {
 }
 
 fn write<P: AsRef<Path>>(file_path: P, virtual_branches: &VirtualBranches) -> anyhow::Result<()> {
-    let contents = toml::to_string(&virtual_branches)?;
-    let temp_file = tempfile::NamedTempFile::new_in(file_path.as_ref().parent().unwrap())?;
-    let (mut file, temp_path) = temp_file.keep()?;
-    file.write_all(contents.as_bytes())?;
-    drop(file);
-    std::fs::rename(temp_path, file_path.as_ref())?;
-    Ok(())
+    crate::fs::write(file_path, toml::to_string(&virtual_branches)?)
 }

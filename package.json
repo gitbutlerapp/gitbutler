@@ -16,6 +16,6 @@
 		"rustfmt": "cargo +nightly fmt -- --config-path rustfmt-nightly.toml"
 	},
 	"devDependencies": {
-		"@tauri-apps/cli": "^1.5.11"
+		"@tauri-apps/cli": "^1.5.12"
 	}
 }

@@ -65,7 +65,7 @@
 	>
 		{#if icon}
 			<div class="textbox__icon">
-				<Icon name={icon} />
+				<Icon name={!disabled ? icon : 'locked'} />
 			</div>
 		{/if}
 
@@ -152,8 +152,18 @@
 
 	.textbox__input-wrap {
 		position: relative;
-		&.disabled .textbox__icon {
-			color: var(--clr-scale-ntrl-60);
+
+		&.disabled {
+			/* background-color: var(--clr-bg-1); */
+			& .textbox__icon {
+				color: var(--clr-scale-ntrl-60);
+			}
+
+			& .textbox__input {
+				color: var(--clr-text-2);
+				background-color: var(--clr-bg-2);
+				border: 1px solid var(--clr-border-3);
+			}
 		}
 	}
 
@@ -198,7 +208,8 @@
 	}
 
 	/* select */
-	.textbox__input[type='select'] {
+	.textbox__input[type='select']:not([disabled]),
+	.textbox__input[type='select']:not([readonly]) {
 		cursor: pointer;
 	}
 

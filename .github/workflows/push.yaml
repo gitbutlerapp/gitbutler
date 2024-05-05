@@ -18,6 +18,7 @@ jobs:
       gitbutler-tauri: ${{ steps.filter.outputs.gitbutler-tauri }}
       gitbutler-changeset: ${{ steps.filter.outputs.gitbutler-changeset }}
       gitbutler-git: ${{ steps.filter.outputs.gitbutler-git }}
+      gitbutler-cli: ${{ steps.filter.outputs.gitbutler-cli }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -51,6 +52,9 @@ jobs:
             gitbutler-git:
               - *rust
               - 'crates/gitbutler-git/**'
+            gitbutler-cli:
+              - *rust
+              - 'crates/gitbutler-cli/**'
 
   lint-node:
     needs: changes
@@ -79,7 +83,7 @@ jobs:
       - uses: ./.github/actions/init-env-node
       - run: pnpm test
 
-  rust-init:
+  rust-lint:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
@@ -89,7 +93,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/init-env-rust
       - run: cargo fmt --check --all
-      - run: cargo build --locked --all-targets --tests
 
   rust-docs:
     needs: changes
@@ -107,7 +110,7 @@ jobs:
           RUSTDOCFLAGS: -Dwarnings
 
   check-gitbutler-tauri:
-    needs: [changes, rust-init]
+    needs: changes
     if: ${{ needs.changes.outputs.gitbutler-tauri == 'true' }}
     runs-on: ubuntu-latest
     container:
@@ -123,6 +126,7 @@ jobs:
           - [devtools]
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-rust
       - uses: ./.github/actions/check-crate
         with:
           crate: gitbutler-tauri
@@ -130,7 +134,7 @@ jobs:
           action: ${{ matrix.action }}
 
   check-gitbutler-changeset:
-    needs: [changes, rust-init]
+    needs: changes
     if: ${{ needs.changes.outputs.gitbutler-changeset == 'true' }}
     runs-on: ubuntu-latest
     container:
@@ -147,6 +151,7 @@ jobs:
           - []
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-rust
       - uses: ./.github/actions/check-crate
         with:
           crate: gitbutler-changeset
@@ -154,7 +159,7 @@ jobs:
           action: ${{ matrix.action }}
 
   check-gitbutler-git:
-    needs: [changes, rust-init]
+    needs: changes
     if: ${{ needs.changes.outputs.gitbutler-git == 'true' }}
     runs-on: ubuntu-latest
     container:
@@ -171,6 +176,7 @@ jobs:
           - [tokio]
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-rust
       - uses: ./.github/actions/check-crate
         with:
           crate: gitbutler-git
@@ -178,7 +184,7 @@ jobs:
           action: ${{ matrix.action }}
 
   check-gitbutler-core:
-    needs: [changes, rust-init]
+    needs: changes
     if: ${{ needs.changes.outputs.gitbutler-core == 'true' }}
     runs-on: ubuntu-latest
     container:
@@ -194,9 +200,35 @@ jobs:
           - []
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-rust
       - uses: ./.github/actions/check-crate
         with:
           crate: gitbutler-core
+          features: ${{ toJson(matrix.features) }}
+          action: ${{ matrix.action }}
+
+  check-gitbutler-cli:
+    needs: changes
+    if: ${{ needs.changes.outputs.gitbutler-cli == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    strategy:
+      matrix:
+        action:
+          - test
+          - check
+          - check-tests
+        features:
+          - ''
+          - '*'
+          - []
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-rust
+      - uses: ./.github/actions/check-crate
+        with:
+          crate: gitbutler-cli
           features: ${{ toJson(matrix.features) }}
           action: ${{ matrix.action }}
 
@@ -208,7 +240,9 @@ jobs:
       - check-gitbutler-core
       - check-gitbutler-changeset
       - check-gitbutler-git
+      - check-gitbutler-cli
       - check-rust-windows
+      - rust-lint
     runs-on: ubuntu-latest
     steps:
       - name: Decide whether the needed jobs succeeded or failed
@@ -223,6 +257,6 @@ jobs:
     if: ${{ needs.changes.outputs.rust == 'true' }}
     steps:
       - uses: actions/checkout@v3
-      - uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/init-env-rust
       - name: "cargo check"
-        run: cargo check --all --bins --examples
+        run: cargo check --all --bins --examples --features windows

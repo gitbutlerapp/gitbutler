@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Project, ProjectService } from '$lib/backend/projects';
+	import BaseBranchSwitch from '$lib/components/BaseBranchSwitch.svelte';
 	import CloudForm from '$lib/components/CloudForm.svelte';
 	import DetailsForm from '$lib/components/DetailsForm.svelte';
 	import KeysForm from '$lib/components/KeysForm.svelte';
@@ -8,6 +9,7 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
+	import { featureBaseBranchSwitching } from '$lib/config/uiFeatureFlags';
 	import { showError } from '$lib/notifications/toasts';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
@@ -15,6 +17,7 @@
 	import { from } from 'rxjs';
 	import { goto } from '$app/navigation';
 
+	const baseBranchSwitching = featureBaseBranchSwitching();
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
 	const platformName = from(platform());
@@ -39,6 +42,9 @@
 </script>
 
 <ContentWrapper title="Project settings">
+	{#if $baseBranchSwitching}
+		<BaseBranchSwitch />
+	{/if}
 	<CloudForm />
 	<DetailsForm />
 	{#if $platformName != 'win32'}

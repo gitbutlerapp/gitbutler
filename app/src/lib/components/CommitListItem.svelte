@@ -6,8 +6,15 @@
 	import { dropzone } from '$lib/dragging/dropzone';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { filesToOwnership } from '$lib/vbranches/ownership';
-	import { RemoteCommit, Branch, type Commit, BaseBranch } from '$lib/vbranches/types';
+	import { filesToOwnership, filesToSimpleOwnership } from '$lib/vbranches/ownership';
+	import {
+		RemoteCommit,
+		Branch,
+		type Commit,
+		BaseBranch,
+		LocalFile,
+		RemoteFile
+	} from '$lib/vbranches/types';
 
 	export let commit: Commit | RemoteCommit;
 	export let isHeadCommit: boolean;
@@ -32,11 +39,6 @@
 				return false;
 			}
 
-			// only allow to amend the head commit
-			if (commit.id != $branch.commits.at(0)?.id) {
-				return false;
-			}
-
 			if (data instanceof DraggableHunk && data.branchId == $branch.id) {
 				return true;
 			} else if (data instanceof DraggableFile && data.branchId == $branch.id) {
@@ -47,14 +49,25 @@
 		};
 	}
 
-	function onAmend(data: DraggableFile | DraggableHunk) {
-		if (data instanceof DraggableHunk) {
-			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
-			branchController.amendBranch($branch.id, newOwnership);
-		} else if (data instanceof DraggableFile) {
-			const newOwnership = filesToOwnership(data.files);
-			branchController.amendBranch($branch.id, newOwnership);
-		}
+	function onAmend(commit: Commit | RemoteCommit) {
+		return (data: any) => {
+			if (data instanceof DraggableHunk) {
+				const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
+				branchController.amendBranch($branch.id, commit.id, newOwnership);
+			} else if (data instanceof DraggableFile) {
+				if (data.file instanceof LocalFile) {
+					// this is an uncommitted file change being amended to a previous commit
+					const newOwnership = filesToOwnership(data.files);
+					branchController.amendBranch($branch.id, commit.id, newOwnership);
+				} else if (data.file instanceof RemoteFile) {
+					// this is a file from a commit, rather than an uncommitted file
+					const newOwnership = filesToSimpleOwnership(data.files);
+					if (data.commit) {
+						branchController.moveCommitFile($branch.id, data.commit.id, commit.id, newOwnership);
+					}
+				}
+			}
+		};
 	}
 
 	function acceptSquash(commit: Commit | RemoteCommit) {
@@ -104,7 +117,7 @@
 			active: 'amend-dz-active',
 			hover: 'amend-dz-hover',
 			accepts: acceptAmend(commit),
-			onDrop: onAmend
+			onDrop: onAmend(commit)
 		}}
 		use:dropzone={{
 			active: 'squash-dz-active',

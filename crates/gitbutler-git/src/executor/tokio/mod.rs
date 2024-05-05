@@ -28,7 +28,7 @@ unsafe impl super::GitExecutor for TokioExecutor {
         cwd: P,
         envs: Option<HashMap<String, String>>,
     ) -> Result<(usize, String, String), Self::Error> {
-        let mut cmd = Command::new({
+        let git_exe = {
             #[cfg(unix)]
             {
                 "git"
@@ -37,7 +37,9 @@ unsafe impl super::GitExecutor for TokioExecutor {
             {
                 "git.exe"
             }
-        });
+        };
+
+        let mut cmd = Command::new(git_exe);
 
         // Output the command being executed to stderr, for debugging purposes
         // (only on test configs).
@@ -54,15 +56,25 @@ unsafe impl super::GitExecutor for TokioExecutor {
                 .map(|s| format!("{s:?}"))
                 .collect::<Vec<_>>()
                 .join(" ");
-            eprintln!("env {envs_str} git {args_str}");
+            eprintln!("env {envs_str} {git_exe} {args_str}");
         }
 
         cmd.kill_on_drop(true);
-        cmd.args(args);
         cmd.current_dir(cwd);
+
+        #[cfg(not(windows))]
+        cmd.args(args);
 
         #[cfg(windows)]
         {
+            // On Windows, we have to pass the arguments
+            // as-is using a special method since Windows
+            // seems to parse backslashes for some unknown
+            // reason.
+            for arg in args {
+                cmd.raw_arg(arg);
+            }
+
             // On windows, CLI applications that aren't the `windows` subsystem
             // will create and show a console window that pops up next to the
             // main application window when run. We disable this behavior when
@@ -71,7 +83,18 @@ unsafe impl super::GitExecutor for TokioExecutor {
         }
 
         if let Some(envs) = envs {
+            #[cfg(not(windows))]
             cmd.envs(envs);
+
+            // On Windows, we have to escape backslashes in
+            // environment variable values. Not sure why.
+            #[cfg(windows)]
+            {
+                cmd.envs(envs.iter().map(|(k, v)| {
+                    let v = v.replace("\\", "\\\\");
+                    (k, v)
+                }));
+            }
         }
 
         let output = cmd.output().await?;

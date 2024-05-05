@@ -42,6 +42,10 @@
 	async function setAIConfigurationValid(user: User | undefined) {
 		aiConfigurationValid = await aiService.validateConfiguration(user?.access_token);
 	}
+
+	function close() {
+		visible = false;
+	}
 </script>
 
 {#if visible}
@@ -52,7 +56,7 @@
 					label="Unapply"
 					on:click={() => {
 						if (branch.id) branchController.unapplyBranch(branch.id);
-						visible = false;
+						close();
 					}}
 				/>
 			{/if}
@@ -69,7 +73,7 @@
 					} else {
 						deleteBranchModal.show(branch);
 					}
-					visible = false;
+					close();
 				}}
 			/>
 
@@ -77,7 +81,7 @@
 				label="Generate branch name"
 				on:click={() => {
 					dispatch('action', 'generate-branch-name');
-					visible = false;
+					close();
 				}}
 				disabled={isUnapplied ||
 					!($aiGenEnabled && aiConfigurationValid) ||
@@ -91,7 +95,7 @@
 				disabled={isUnapplied || hasIntegratedCommits}
 				on:click={() => {
 					newRemoteName = branch.upstreamName || normalizeBranchName(branch.name) || '';
-					visible = false;
+					close();
 					renameRemoteModal.show(branch);
 				}}
 			/>
@@ -101,7 +105,7 @@
 				label="Create branch to the left"
 				on:click={() => {
 					branchController.createBranch({ order: branch.order });
-					visible = false;
+					close();
 				}}
 			/>
 
@@ -109,7 +113,7 @@
 				label="Create branch to the right"
 				on:click={() => {
 					branchController.createBranch({ order: branch.order + 1 });
-					visible = false;
+					close();
 				}}
 			/>
 		</ContextMenuSection>
@@ -122,7 +126,6 @@
 	on:submit={() => {
 		branchController.updateBranchRemoteName(branch.id, newRemoteName);
 		renameRemoteModal.close();
-		visible = false;
 	}}
 >
 	<svelte:fragment>
@@ -136,9 +139,9 @@
 </Modal>
 
 <Modal width="small" title="Delete branch" bind:this={deleteBranchModal} let:item={branch}>
-	<div>
+	<svelte:fragment>
 		Deleting <code class="code-string">{branch.name}</code> cannot be undone.
-	</div>
+	</svelte:fragment>
 	<svelte:fragment slot="controls" let:close let:item={branch}>
 		<Button style="ghost" kind="solid" on:click={close}>Cancel</Button>
 		<Button
@@ -146,7 +149,7 @@
 			kind="solid"
 			on:click={async () => {
 				await branchController.deleteBranch(branch.id);
-				visible = false;
+				deleteBranchModal.close();
 			}}
 		>
 			Delete

@@ -23,9 +23,7 @@ pub enum RepositoryError<
     AskpassServer(Easkpass),
     #[error("i/o error communicating with askpass utility: {0}")]
     AskpassIo(Esocket),
-    #[error(
-        "git command exited with non-zero exit code {status}: {args:?}\n\nSTDOUT:\n{stdout}\n\nSTDERR:\n{stderr}"
-    )]
+    #[error("git command exited with non-zero exit code {status}: {args:?}\n\nSTDOUT:\n{stdout}\n\nSTDERR:\n{stderr}")]
     Failed {
         status: usize,
         args: Vec<String>,
@@ -84,7 +82,7 @@ where
     // TODO(qix-): suffix. The actual executables live in the parent directory.
     // TODO(qix-): Thus, we have to do this under test. It's not ideal, but
     // TODO(qix-): it works for now.
-    #[cfg(test)]
+    #[cfg(feature = "test-askpass-path")]
     let path = path.parent().unwrap();
 
     let askpath_path = path
@@ -107,10 +105,12 @@ where
         .to_string_lossy()
         .into_owned();
 
-    let askpath_stat = executor
-        .stat(&askpath_path)
-        .await
-        .map_err(Error::<E>::Exec)?;
+    let res = executor.stat(&askpath_path).await.map_err(Error::<E>::Exec);
+    debug_assert!(
+        res.is_ok(),
+        "Run `cargo build -p gitbutler-git` to get the binaries needed for this assertion to pass"
+    );
+    let askpath_stat = res?;
 
     #[cfg(unix)]
     let setsid_stat = executor
@@ -147,8 +147,14 @@ where
         envs.insert("DISPLAY".into(), ":".into());
     }
 
-    let base_ssh_command = match envs.get("GIT_SSH_COMMAND") {
-        Some(v) => v.clone(),
+    let base_ssh_command = match envs
+        .get("GIT_SSH_COMMAND")
+        .cloned()
+        .or_else(|| envs.get("GIT_SSH").cloned())
+        .or_else(|| std::env::var("GIT_SSH_COMMAND").ok())
+        .or_else(|| std::env::var("GIT_SSH").ok())
+    {
+        Some(v) => v,
         None => get_core_sshcommand(&executor, &repo_path)
             .await
             .unwrap_or_else(|| "ssh".into()),

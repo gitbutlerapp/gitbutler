@@ -27,10 +27,10 @@ impl Drop for Suite {
 impl Default for Suite {
     fn default() -> Self {
         let local_app_data = temp_dir();
-        let storage = gitbutler_core::storage::Storage::new(&local_app_data);
-        let users = gitbutler_core::users::Controller::from_path(&local_app_data);
-        let projects = gitbutler_core::projects::Controller::from_path(&local_app_data);
-        let keys = gitbutler_core::keys::Controller::from_path(&local_app_data);
+        let storage = gitbutler_core::storage::Storage::new(local_app_data.path());
+        let users = gitbutler_core::users::Controller::from_path(local_app_data.path());
+        let projects = gitbutler_core::projects::Controller::from_path(local_app_data.path());
+        let keys = gitbutler_core::keys::Controller::from_path(local_app_data.path());
         Self {
             storage,
             local_app_data: Some(local_app_data),

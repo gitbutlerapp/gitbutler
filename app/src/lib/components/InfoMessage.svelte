@@ -158,19 +158,19 @@
 		}
 
 		&.error {
-			background-color: var(--clr-theme-err-container);
+			background-color: var(--clr-theme-err-bg);
 		}
 
 		&.pop {
-			background-color: var(--clr-theme-pop-container);
+			background-color: var(--clr-theme-pop-bg);
 		}
 
 		&.warning {
-			background-color: var(--clr-theme-warn-container);
+			background-color: var(--clr-theme-warn-bg);
 		}
 
 		&.success {
-			background-color: var(--clr-theme-succ-container);
+			background-color: var(--clr-theme-succ-bg);
 		}
 	}
 

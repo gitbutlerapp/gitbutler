@@ -4,7 +4,7 @@ use std::{
     collections::HashSet,
     fs::File,
     io::{BufReader, Read},
-    path, time,
+    path,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -217,7 +217,8 @@ impl Repository {
 
         // Push to the remote
         remote
-            .push(&[&remote_refspec], Some(&mut push_options)).map_err(|error| match error {
+            .push(&[&remote_refspec], Some(&mut push_options))
+            .map_err(|error| match error {
                 git::Error::Network(error) => {
                     tracing::warn!(project_id = %self.project.id, error = %error, "failed to push gb repo");
                     RemoteError::Network
@@ -279,10 +280,7 @@ impl Repository {
         &self,
         project_repository: &project_repository::Repository,
     ) -> Result<sessions::Session> {
-        let now_ms = time::SystemTime::now()
-            .duration_since(time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
+        let now_ms = crate::time::now_ms();
 
         let meta = match project_repository.get_head() {
             Result::Ok(head) => sessions::Meta {
@@ -335,10 +333,7 @@ impl Repository {
 
         let updated_session = sessions::Session {
             meta: sessions::Meta {
-                last_timestamp_ms: time::SystemTime::now()
-                    .duration_since(time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis(),
+                last_timestamp_ms: crate::time::now_ms(),
                 ..current_session.meta
             },
             ..current_session

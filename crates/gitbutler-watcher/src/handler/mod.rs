@@ -9,6 +9,8 @@ use std::{path, time};
 use anyhow::{bail, Context, Result};
 use gitbutler_core::projects::ProjectId;
 use gitbutler_core::sessions::SessionId;
+use gitbutler_core::snapshots::entry::{OperationType, SnapshotDetails, Trailer};
+use gitbutler_core::snapshots::snapshot;
 use gitbutler_core::virtual_branches::VirtualBranches;
 use gitbutler_core::{
     assets, deltas, gb_repository, git, project_repository, projects, reader, sessions, users,
@@ -29,7 +31,6 @@ pub struct Handler {
     // the tauri app, assuming that such application would not be `Send + Sync` everywhere and thus would
     // need extra protection.
     users: users::Controller,
-    analytics: gitbutler_analytics::Client,
     local_data_dir: path::PathBuf,
     projects: projects::Controller,
     vbranch_controller: virtual_branches::Controller,
@@ -47,7 +48,6 @@ impl Handler {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         local_data_dir: PathBuf,
-        analytics: gitbutler_analytics::Client,
         users: users::Controller,
         projects: projects::Controller,
         vbranch_controller: virtual_branches::Controller,
@@ -58,7 +58,6 @@ impl Handler {
     ) -> Self {
         Handler {
             local_data_dir,
-            analytics,
             users,
             projects,
             vbranch_controller,
@@ -126,13 +125,6 @@ impl Handler {
             file_path: file_path.to_owned(),
             contents,
         })
-    }
-    fn send_analytics_event_none_blocking(&self, event: &gitbutler_analytics::Event) -> Result<()> {
-        if let Some(user) = self.users.get_user().context("failed to get user")? {
-            self.analytics
-                .send_non_anonymous_event_nonblocking(&user, event);
-        }
-        Ok(())
     }
 
     async fn flush_session(
@@ -240,13 +232,11 @@ impl Handler {
             .build();
 
         let fetch_result = backoff::retry(policy, || {
-            gb_repo.fetch(user.as_ref()).map_err(|err| {
-                match err {
-                    gb_repository::RemoteError::Network => backoff::Error::permanent(err),
-                    err @ gb_repository::RemoteError::Other(_) => {
-                        tracing::warn!(%project_id, ?err, will_retry = true, "failed to fetch project data");
-                        backoff::Error::transient(err)
-                    }
+            gb_repo.fetch(user.as_ref()).map_err(|err| match err {
+                gb_repository::RemoteError::Network => backoff::Error::permanent(err),
+                err @ gb_repository::RemoteError::Other(_) => {
+                    tracing::warn!(%project_id, ?err, will_retry = true, "failed to fetch project data");
+                    backoff::Error::transient(err)
                 }
             })
         });
@@ -290,12 +280,45 @@ impl Handler {
         paths: Vec<PathBuf>,
         project_id: ProjectId,
     ) -> Result<()> {
+        let paths_string = paths
+            .iter()
+            .map(|p| p.to_string_lossy().to_string())
+            .collect::<Vec<_>>()
+            .join(",");
         let calc_deltas = tokio::task::spawn_blocking({
             let this = self.clone();
             move || this.calculate_deltas(paths, project_id)
         });
+        // Create a snapshot every time there are more than a configurable number of new lines of code (default 20)
+        let handle_snapshots = tokio::task::spawn_blocking({
+            let this = self.clone();
+            move || this.maybe_create_snapshot(project_id, paths_string)
+        });
         self.calculate_virtual_branches(project_id).await?;
+        let _ = handle_snapshots.await;
         calc_deltas.await??;
+        Ok(())
+    }
+
+    fn maybe_create_snapshot(&self, project_id: ProjectId, paths: String) -> anyhow::Result<()> {
+        let project = self
+            .projects
+            .get(&project_id)
+            .context("failed to get project")?;
+        let changed_lines = snapshot::changed_lines_count(&project)?;
+        if changed_lines > project.snapshot_lines_threshold {
+            let details = SnapshotDetails {
+                version: Default::default(),
+                operation: OperationType::FileChanges,
+                title: OperationType::FileChanges.to_string(),
+                body: None,
+                trailers: vec![Trailer {
+                    key: "files".to_string(),
+                    value: paths,
+                }],
+            };
+            snapshot::create(&project, details)?;
+        }
         Ok(())
     }
 
@@ -369,12 +392,6 @@ impl Handler {
                         integration_reference.delete()?;
                     }
                     if let Some(head) = head_ref.name() {
-                        self.send_analytics_event_none_blocking(
-                            &gitbutler_analytics::Event::HeadChange {
-                                project_id,
-                                reference_name: head_ref_name.to_string(),
-                            },
-                        )?;
                         self.emit_app_event(Change::GitHead {
                             project_id,
                             head: head.to_string(),

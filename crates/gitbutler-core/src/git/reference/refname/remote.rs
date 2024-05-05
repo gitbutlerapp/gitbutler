@@ -64,6 +64,8 @@ impl FromStr for Refname {
             return Err(Error::NotRemote(value.to_string()));
         };
 
+        // TODO(ST): use `gix` (which respects refspecs and settings) to do this transformation
+        //           Alternatively, `git2` also has support for respecting refspecs.
         let value = value.strip_prefix("refs/remotes/").unwrap();
 
         if let Some((remote, branch)) = value.split_once('/') {

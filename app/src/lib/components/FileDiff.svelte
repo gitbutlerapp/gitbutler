@@ -4,7 +4,7 @@
 	import LargeDiffMessage from './LargeDiffMessage.svelte';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { tooltip } from '$lib/utils/tooltip';
-	import { getLocalCommits } from '$lib/vbranches/contexts';
+	import { getLocalCommits, getRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
 
@@ -21,6 +21,9 @@
 	$: minWidth = getGutterMinWidth(maxLineNumber);
 
 	const localCommits = isFileLocked ? getLocalCommits() : undefined;
+	const remoteCommits = isFileLocked ? getRemoteCommits() : undefined;
+
+	const commits = isFileLocked ? ($localCommits || []).concat($remoteCommits || []) : undefined;
 	let alwaysShow = false;
 
 	function getGutterMinWidth(max: number) {
@@ -52,10 +55,10 @@
 					<div class="indicators text-base-11">
 						<span class="added">+{added}</span>
 						<span class="removed">-{removed}</span>
-						{#if section.hunk.lockedTo && $localCommits}
+						{#if section.hunk.lockedTo && section.hunk.lockedTo.length > 0 && commits}
 							<div
 								use:tooltip={{
-									text: getLockText(section.hunk.lockedTo, $localCommits),
+									text: getLockText(section.hunk.lockedTo, commits),
 									delay: 500
 								}}
 							>

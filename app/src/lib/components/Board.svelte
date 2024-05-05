@@ -16,7 +16,6 @@
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
-
 	const activeBranchesError = vbranchService.activeBranchesError;
 	const activeBranches = vbranchService.activeBranches;
 
@@ -27,12 +26,16 @@
 
 	let dragHandle: any;
 	let clone: any;
+
+	let isSwitching = false;
 </script>
 
 {#if $activeBranchesError}
 	<div class="p-4" data-tauri-drag-region>Something went wrong...</div>
 {:else if !$activeBranches}
 	<FullviewLoading />
+{:else if isSwitching}
+	<div class="middle-message">switching base branch...</div>
 {:else}
 	<div
 		class="board"
@@ -202,6 +205,12 @@
 		height: 100%;
 	}
 
+	.spacer {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-16);
+	}
+
 	.branch {
 		height: 100%;
 	}
@@ -253,6 +262,38 @@
 		flex-direction: column;
 		overflow: hidden;
 		padding-left: var(--size-4);
+	}
+
+	.branch-switcher {
+		margin-top: 8px;
+		padding: 8px;
+		background-color: var(--clr-bg-2);
+		border-width: 1px;
+		border-color: var(--clr-border-2);
+		border-radius: 4px;
+	}
+
+	.branch-display {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 4px;
+		margin-bottom: 2px;
+	}
+
+	.branch-name {
+		font-weight: 600;
+		font-family: monospace;
+	}
+
+	.middle-message {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		height: 100%;
+		width: 100%;
+		font-size: 2em;
+		color: #888888;
 	}
 
 	.empty-board__image-frame {

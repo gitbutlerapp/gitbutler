@@ -1,6 +1,6 @@
 use std::{io::Write, path::Path, str};
 
-use git2::Submodule;
+use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
 
 use super::{
@@ -477,6 +477,24 @@ impl Repository {
     pub fn run_hook_post_commit(&self) -> Result<()> {
         git2_hooks::hooks_post_commit(&self.0, Some(&["../.husky"]))?;
         Ok(())
+    }
+
+    pub fn blame(
+        &self,
+        path: &Path,
+        min_line: u32,
+        max_line: u32,
+        oldest_commit: &Oid,
+        newest_commit: &Oid,
+    ) -> Result<git2::Blame> {
+        let mut opts = BlameOptions::new();
+        opts.min_line(min_line as usize)
+            .max_line(max_line as usize)
+            .newest_commit(git2::Oid::from(*newest_commit))
+            .oldest_commit(git2::Oid::from(*oldest_commit));
+        self.0
+            .blame_file(path, Some(&mut opts))
+            .map_err(super::Error::Blame)
     }
 }
 

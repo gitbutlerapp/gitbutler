@@ -48,7 +48,9 @@
 			reversedDirection
 			loading={isDeleting}
 			icon="bin-small"
-			on:click={onDeleteClicked}>Remove</Button
+			on:click={() => {
+				onDeleteClicked().then(close);
+			}}>Remove</Button
 		>
 		<Button style="pop" kind="solid" on:click={close}>Cancel</Button>
 	</svelte:fragment>

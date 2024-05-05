@@ -17,6 +17,7 @@ export interface Settings {
 	zoom: number;
 	scrollbarVisabilityOnHover: boolean;
 	tabSize: number;
+	showHistoryView: boolean;
 }
 
 const defaults: Settings = {
@@ -31,7 +32,8 @@ const defaults: Settings = {
 	stashedBranchesHeight: 150,
 	zoom: 1,
 	scrollbarVisabilityOnHover: false,
-	tabSize: 4
+	tabSize: 4,
+	showHistoryView: false
 };
 
 export function loadUserSettings(): Writable<Settings> {

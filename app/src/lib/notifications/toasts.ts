@@ -22,7 +22,8 @@ export function showToast(toast: Toast) {
 }
 
 export function showError(title: string, err: any) {
-	if (err.message) showToast({ title, errorMessage: err.message, style: 'error' });
+	const errorMessage = err.message ? err.message : err;
+	showToast({ title, errorMessage: errorMessage, style: 'error' });
 }
 
 export function dismissToast(messageId: string | undefined) {

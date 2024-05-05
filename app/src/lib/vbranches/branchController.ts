@@ -18,6 +18,7 @@ export class BranchController {
 	async setTarget(branch: string) {
 		try {
 			await this.targetBranchService.setTarget(branch);
+			return branch;
 			// TODO: Reloading seems to trigger 4 invocations of `list_virtual_branches`
 		} catch (err: any) {
 			showError('Failed to set base branch', err);
@@ -293,15 +294,86 @@ export class BranchController {
 		}
 	}
 
-	async amendBranch(branchId: string, ownership: string) {
+	async amendBranch(branchId: string, commitOid: string, ownership: string) {
 		try {
 			await invoke<void>('amend_virtual_branch', {
 				projectId: this.projectId,
 				branchId,
+				commitOid,
 				ownership
 			});
 		} catch (err: any) {
 			showError('Failed to amend commit', err);
+		}
+	}
+
+	async moveCommitFile(
+		branchId: string,
+		fromCommitOid: string,
+		toCommitOid: string,
+		ownership: string
+	) {
+		try {
+			await invoke<void>('move_commit_file', {
+				projectId: this.projectId,
+				branchId,
+				fromCommitOid,
+				toCommitOid,
+				ownership
+			});
+		} catch (err: any) {
+			showError('Failed to amend commit', err);
+		}
+	}
+
+	async undoCommit(branchId: string, commitOid: string) {
+		try {
+			await invoke<void>('undo_commit', {
+				projectId: this.projectId,
+				branchId,
+				commitOid
+			});
+		} catch (err: any) {
+			showError('Failed to amend commit', err);
+		}
+	}
+
+	async updateCommitMessage(branchId: string, commitOid: string, message: string) {
+		try {
+			await invoke<void>('update_commit_message', {
+				projectId: this.projectId,
+				branchId,
+				commitOid,
+				message
+			});
+		} catch (err: any) {
+			showError('Failed to change commit message', err);
+		}
+	}
+
+	async insertBlankCommit(branchId: string, commitOid: string, offset: number) {
+		try {
+			await invoke<void>('insert_blank_commit', {
+				projectId: this.projectId,
+				branchId,
+				commitOid,
+				offset
+			});
+		} catch (err: any) {
+			showError('Failed to insert blank commit', err);
+		}
+	}
+
+	async reorderCommit(branchId: string, commitOid: string, offset: number) {
+		try {
+			await invoke<void>('reorder_commit', {
+				projectId: this.projectId,
+				branchId,
+				commitOid,
+				offset
+			});
+		} catch (err: any) {
+			showError('Failed to reorder blank commit', err);
 		}
 	}
 
