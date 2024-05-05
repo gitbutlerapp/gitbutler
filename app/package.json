@@ -9,7 +9,7 @@
 		"test:watch": "vitest --watch --mode development",
 		"test:e2e": "playwright test -c ./playwright.config.ts",
 		"test:e2e:watch": "playwright test -c ./playwright.config.ts --ui",
-		"test:e2e:debug": "vite dev --mode testing",
+		"test:e2e:run": "vite dev --mode testing",
 		"build:development": "vite build --mode development",
 		"build:nightly": "vite build --mode nightly",
 		"build": "vite build",
@@ -74,7 +74,6 @@
 		"mm-jsr": "^3.0.2",
 		"nanoevents": "^9.0.0",
 		"nanoid": "^5.0.7",
-		"playwright": "^1.40.0",
 		"postcss": "^8.4.38",
 		"postcss-load-config": "^5.0.3",
 		"posthog-js": "1.128.2",
@@ -104,5 +103,5 @@
 	"dependencies": {
 		"openai": "^4.38.2"
 	},
-	"packageManager": "pnpm@8"
+	"packageManager": "pnpm@8.15.5"
 }
