@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { HttpClient } from '$lib/backend/httpClient';
 	import { invoke, listen } from '$lib/backend/ipc';
+	import { getVersion } from '@tauri-apps/api/app';
 	import { onMount } from 'svelte';
 	import TextArea from './TextArea.svelte';
 	import TextBox from './TextBox.svelte';
-	import { HttpClient } from '$lib/backend/httpClient';
 	import * as zip from '$lib/backend/zip';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
@@ -11,7 +12,6 @@
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
-	import { getVersion } from '@tauri-apps/api/app';
 	import { page } from '$app/stores';
 
 	type Feedback = {

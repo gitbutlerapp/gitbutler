@@ -171,14 +171,14 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
     // add as a submenu
     menu = menu.add_submenu(Submenu::new("Help", help_menu));
 
-    return menu;
+    menu
 }
 
 // Helper function to create a disabled menu item
 fn disabled_menu_item(id: &str, title: &str) -> CustomMenuItem {
     let mut item = CustomMenuItem::new(id, title);
     item.enabled = false;
-    return item;
+    item
 }
 
 // Handle menu events and trigger corresponding actions
