@@ -1855,7 +1855,7 @@ fn get_applied_status(
                                     .or_default()
                                     .entry(claim.file_path.clone())
                                     .or_default()
-                                    .insert(0, git_diff_hunk.clone());
+                                    .push(git_diff_hunk.clone());
                                 let updated_hunk = Hunk {
                                     start: git_diff_hunk.new_start,
                                     end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
