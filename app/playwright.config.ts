@@ -7,25 +7,20 @@ export default defineConfig({
     testDir: './e2e/playwright',
     testMatch: /(.+\.)?(test|spec)\.[jt]s/,
     reporter: process.env.CI ? 'list' : 'html',
-    // reporter: process.env.CI
-    //     ? [['dot'], ['json', { outputFile: 'test-results.json' }]]
-    //     : [['list'], ['json', { outputFile: 'test-results.json' }], ['html', { open: 'on-failure' }]],
-    // globalSetup: './e2e/playwright/globalSetup.ts',
-    use: {
-        launchOptions: {
-            executablePath: '/home/ndo/.nix-profile/bin/chromium'
+    use: process.CI
+        ? { ...devices['Desktop Chrome'] }
+        : {
+            launchOptions: {
+                executablePath: '/nix/store/6xi5mxm1yybq3a98n7m68cs0gdrx2bvd-chromium-124.0.6367.118/bin/chromium'
+            },
+            trace: 'on-first-retry'
         },
-        // baseURL: 'http://localhost:3000',
-        trace: 'on-first-retry'
-    },
-
     projects: [
         {
             name: 'Google Chrome',
-            use: { ...devices['Desktop Chrome'] } // or 'chrome-beta'
+            use: { ...devices['Desktop Chrome'] }
         }
     ],
-
     webServer: {
         command: 'pnpm test:e2e:run',
         url: 'http://localhost:1420',
