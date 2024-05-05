@@ -31,14 +31,11 @@ jobs:
         run: cd app && pnpm test:e2e
         env:
           CI: true
-      - run: ls -lah .
-      - run: ls -lah /home/runner/work/gitbutler/gitbutler/
-      - run: ls -lah /home/runner/work/gitbutler/gitbutler/app/
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
-          path: app/playwright-report/
+          path: app/test-results/
           if-no-files-found: ignore
           retention-days: 30

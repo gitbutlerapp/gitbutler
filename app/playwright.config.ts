@@ -15,6 +15,9 @@ export default defineConfig({
     expect: {
         timeout: 20 * 1000,
     },
+    use: {
+        trace: 'retain-on-failure',
+    },
     webServer: {
         command: 'pnpm test:e2e:run',
         url: 'http://localhost:1420',
