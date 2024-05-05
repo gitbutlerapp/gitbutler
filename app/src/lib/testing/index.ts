@@ -1,4 +1,4 @@
-import { baseBranch, project, remoteBranch0, remoteBranchData, user, virtualBranches } from "./fixtures"
+import { baseBranch, project, remoteBranchData, user, virtualBranches } from "./fixtures"
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { mockWindows } from '@tauri-apps/api/mocks';
 
@@ -35,7 +35,6 @@ export function mockTauri() {
         }
 
         if (cmd === "get_base_branch_data") {
-            console.log('mock.baseBranch', baseBranch)
             return baseBranch
         }
 

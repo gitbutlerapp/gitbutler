@@ -1,6 +1,6 @@
-import type { Project } from '$lib/backend/projects'
-import type { User } from '$lib/stores/user'
-import type { BaseBranch, RemoteCommit, Author, RemoteBranchData } from '$lib/vbranches/types'
+// import type { Project } from '$lib/backend/projects'
+// import type { User } from '$lib/stores/user'
+// import type { BaseBranch, RemoteCommit, Author, RemoteBranchData } from '$lib/vbranches/types'
 
 export type Constructor<T = any> = new (...args: any[]) => T;
 export type Class<T = any> = InstanceType<Constructor<T>>;
