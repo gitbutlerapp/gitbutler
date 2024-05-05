@@ -1,7 +1,8 @@
 use crate::error::Error;
 use anyhow::Context;
 use gitbutler_core::{
-    projects, projects::ProjectId, snapshots::entry::Snapshot, snapshots::snapshot,
+    projects::{self, ProjectId},
+    snapshots::{entry::Snapshot, snapshot::Oplog},
 };
 use tauri::Manager;
 use tracing::instrument;
@@ -17,7 +18,7 @@ pub async fn list_snapshots(
         .state::<projects::Controller>()
         .get(&project_id)
         .context("failed to get project")?;
-    let snapshots = snapshot::list(&project, limit)?;
+    let snapshots = project.list_snapshots(limit)?;
     Ok(snapshots)
 }
 
@@ -32,6 +33,6 @@ pub async fn restore_snapshot(
         .state::<projects::Controller>()
         .get(&project_id)
         .context("failed to get project")?;
-    snapshot::restore(&project, sha)?;
+    project.restore_snapshot(sha)?;
     Ok(())
 }

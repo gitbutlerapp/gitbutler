@@ -1,5 +1,5 @@
 use anyhow::Result;
-use gitbutler_core::{projects::Project, snapshots::snapshot};
+use gitbutler_core::{projects::Project, snapshots::snapshot::Oplog};
 
 use clap::{arg, Command};
 #[cfg(not(windows))]
@@ -49,7 +49,7 @@ fn main() -> Result<()> {
 
 fn list_snapshots(repo_dir: &str) -> Result<()> {
     let project = project_from_path(repo_dir);
-    let snapshots = snapshot::list(&project, 100)?;
+    let snapshots = project.list_snapshots(100)?;
     for snapshot in snapshots {
         let ts = chrono::DateTime::from_timestamp(snapshot.created_at / 1000, 0);
         let details = snapshot.details;
@@ -62,7 +62,7 @@ fn list_snapshots(repo_dir: &str) -> Result<()> {
 
 fn restore_snapshot(repo_dir: &str, snapshot_id: &str) -> Result<()> {
     let project = project_from_path(repo_dir);
-    snapshot::restore(&project, snapshot_id.to_owned())?;
+    project.restore_snapshot(snapshot_id.to_owned())?;
     Ok(())
 }
 

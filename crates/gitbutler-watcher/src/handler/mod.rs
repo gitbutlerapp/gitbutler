@@ -10,7 +10,7 @@ use anyhow::{bail, Context, Result};
 use gitbutler_core::projects::ProjectId;
 use gitbutler_core::sessions::SessionId;
 use gitbutler_core::snapshots::entry::{OperationType, SnapshotDetails, Trailer};
-use gitbutler_core::snapshots::snapshot;
+use gitbutler_core::snapshots::snapshot::Oplog;
 use gitbutler_core::virtual_branches::VirtualBranches;
 use gitbutler_core::{
     assets, deltas, gb_repository, git, project_repository, projects, reader, sessions, users,
@@ -305,7 +305,7 @@ impl Handler {
             .projects
             .get(&project_id)
             .context("failed to get project")?;
-        let changed_lines = snapshot::changed_lines_count(&project)?;
+        let changed_lines = project.lines_since_snapshot()?;
         if changed_lines > project.snapshot_lines_threshold {
             let details = SnapshotDetails {
                 version: Default::default(),
@@ -317,7 +317,7 @@ impl Handler {
                     value: paths,
                 }],
             };
-            snapshot::create(&project, details)?;
+            project.create_snapshot(details)?;
         }
         Ok(())
     }
