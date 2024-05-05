@@ -28,9 +28,10 @@ const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
 ///  - The state of conflicts from `.git/base_merge_parent` and `.git/conflicts` if present as blobs under a subtree `conflicts`
 ///
 /// If there are files that are untracked and larger than SNAPSHOT_FILE_LIMIT_BYTES, they are excluded from snapshot creation and restoring.
-pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
+/// Returns the sha of the created snapshot commit or None if snapshots are disabled.
+pub fn create(project: &Project, details: SnapshotDetails) -> Result<Option<String>> {
     if project.enable_snapshots.is_none() || project.enable_snapshots == Some(false) {
-        return Ok(());
+        return Ok(None);
     }
 
     let repo_path = project.path.as_path();
@@ -111,7 +112,7 @@ pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
         &new_commit_oid.to_string(),
     )?;
 
-    Ok(())
+    Ok(Some(new_commit_oid.to_string()))
 }
 
 /// Lists the snapshots that have been created for the given repository, up to the given limit.
@@ -173,7 +174,8 @@ pub fn list(project: &Project, limit: usize) -> Result<Vec<Snapshot>> {
 ///  - The state of conflicts (.git/base_merge_parent and .git/conflicts) is restored from the subtree `conflicts` in the snapshot (if not present, existing files are deleted).
 ///
 /// If there are files that are untracked and larger than SNAPSHOT_FILE_LIMIT_BYTES, they are excluded from snapshot creation and restoring.
-pub fn restore(project: &Project, sha: String) -> Result<()> {
+/// Returns the sha of the created revert snapshot commit or None if snapshots are disabled.
+pub fn restore(project: &Project, sha: String) -> Result<Option<String>> {
     let repo_path = project.path.as_path();
     let repo = git2::Repository::init(repo_path)?;
 
@@ -226,9 +228,7 @@ pub fn restore(project: &Project, sha: String) -> Result<()> {
             value: sha,
         }],
     };
-    create(project, details)?;
-
-    Ok(())
+    create(project, details)
 }
 
 fn restore_conflicts_tree(
@@ -435,7 +435,7 @@ mod tests {
         std::fs::remove_file(&conflicts_path).unwrap();
         std::fs::remove_file(&base_merge_parent_path).unwrap();
         // New snapshot with the conflicts removed
-        create(
+        let conflicts_removed_snapshot = create(
             &project,
             SnapshotDetails::new(OperationType::UpdateWorkspaceBase),
         )
@@ -471,7 +471,7 @@ mod tests {
         assert_eq!(file_lines, "parent A");
 
         // Restore from the second snapshot
-        restore(&project, list(&project, 10).unwrap()[1].id.clone()).unwrap();
+        restore(&project, conflicts_removed_snapshot.unwrap()).unwrap();
 
         // The conflicts are not present
         assert!(!&conflicts_path.exists());
