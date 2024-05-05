@@ -1,14 +1,11 @@
+import { baseBranch, project, remoteBranch0, remoteBranchData, user, virtualBranches } from "./fixtures"
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { mockWindows } from '@tauri-apps/api/mocks';
-import { baseBranch, project, user } from "./fixtures"
 
-export const mockTauri = () => {
-
-    // TODO: Set localSTorage like 'lastProject'
+export function mockTauri() {
     mockIPC((cmd, args) => {
         console.log("MOCKIPC.CMD", cmd, args)
-        // console.log(JSON.stringify(args, null, 2))
-        // console.groupEnd()
+
         // Open Project Dialog
         if (cmd === "tauri" && args.__tauriModule === "Dialog" && args.message?.cmd === "openDialog") {
             return "/Users/user/project"
@@ -16,23 +13,21 @@ export const mockTauri = () => {
 
         // List Projects
         if (cmd === "list_projects") {
-
-            console.log('mock.projects', [project])
             return [project]
         }
 
         // List Project
-        if (cmd === "get_project" && args.id === "abc123") {
+        if (cmd === "get_project" && args.id === "ac44a3bb-8bbb-4af9-b8c9-7950dd9ec295") {
             return project
         }
 
         // Get HEAD
         if (cmd === "git_head") {
-            return "refs/heads/abc123"
+            return "refs/heads/gitbutler/integration"
         }
 
         if (cmd === "menu_item_set_enabled") {
-            return true
+            return null
         }
 
         if (cmd === "fetch_from_target") {
@@ -42,6 +37,22 @@ export const mockTauri = () => {
         if (cmd === "get_base_branch_data") {
             console.log('mock.baseBranch', baseBranch)
             return baseBranch
+        }
+
+        if (cmd === "list_virtual_branches") {
+            return virtualBranches
+        }
+
+        if (cmd === "list_remote_branches") {
+            return []
+        }
+
+        if (cmd === "get_remote_branch_data") {
+            return remoteBranchData
+        }
+
+        if (cmd === "get_remote_branchs") {
+            return ["refs/heads/abc123"]
         }
 
         if (cmd === "get_user") {
