@@ -6,7 +6,6 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
     testDir: './e2e/playwright',
     testMatch: /(.+\.)?(test|spec)\.[jt]s/,
-    reporter: process.env.CI ? 'list' : 'html',
     projects: [
         {
             name: 'Google Chrome',

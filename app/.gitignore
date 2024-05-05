@@ -23,7 +23,7 @@ vite.config.ts.timestamp-*
 .pnpm-store
 
 # playwright
-test-results.json
+test-results*
 playwright-report
-cdp.png
+board.png
 
