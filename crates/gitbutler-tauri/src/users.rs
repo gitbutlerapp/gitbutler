@@ -7,7 +7,6 @@ pub mod commands {
     use tracing::instrument;
 
     use crate::error::Error;
-    use crate::sentry;
 
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
@@ -29,8 +28,6 @@ pub mod commands {
 
         app.set_user(&user)?;
 
-        sentry::configure_scope(Some(&user));
-
         Ok(proxy.proxy_user(user).await)
     }
 
@@ -40,8 +37,6 @@ pub mod commands {
         let app = handle.state::<Controller>();
 
         app.delete_user()?;
-
-        sentry::configure_scope(None);
 
         Ok(())
     }

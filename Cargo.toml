@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "crates/gitbutler-analytics",
     "crates/gitbutler-core",
     "crates/gitbutler-tauri",
     "crates/gitbutler-changeset",
@@ -21,7 +20,6 @@ tokio = { version = "1.37.0", default-features = false }
 
 gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-core = { path = "crates/gitbutler-core" }
-gitbutler-analytics = { path = "crates/gitbutler-analytics" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }
 gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
 
@@ -29,4 +27,4 @@ gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better
 lto = true        # Enables link to optimizations
 opt-level = "s"   # Optimize for binary size
-debug = true      # Enable debug symbols, for sentry
+debug = true      # Enable debug symbols, for profiling

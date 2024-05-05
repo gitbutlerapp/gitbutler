@@ -2,11 +2,14 @@
 	import { Project } from '$lib/backend/projects';
 	import { syncToCloud } from '$lib/backend/sync';
 	import { BranchService } from '$lib/branches/service';
+	import History from '$lib/components/History.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$lib/components/ProjectSettingsMenuAction.svelte';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { getContextStoreBySymbol } from '$lib/utils/context';
 	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BaseBranchService, NoDefaultTarget } from '$lib/vbranches/baseBranch';
@@ -33,6 +36,7 @@
 	$: baseBranch = baseBranchService.base;
 	$: baseError = baseBranchService.error;
 	$: projectError = projectService.error;
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 	$: setContext(VirtualBranchService, vbranchService);
 	$: setContext(BranchController, branchController);
@@ -90,6 +94,9 @@
 		<div class="view-wrap" role="group" on:dragover|preventDefault>
 			<Navigation />
 			<slot />
+			{#if $userSettings.showHistoryView}
+				<History {projectId} />
+			{/if}
 		</div>
 	{/if}
 {/key}

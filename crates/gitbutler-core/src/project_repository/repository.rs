@@ -61,7 +61,7 @@ impl Repository {
                 // XXX(qix-): We will ultimately move away from an internal repository for a variety
                 // XXX(qix-): of reasons, but for now, this is a simple, short-term solution that we
                 // XXX(qix-): can clean up later on. We're aware this isn't ideal.
-                if let Ok(config) = git_repository.config().as_mut(){
+                if let Ok(config) = git_repository.config().as_mut() {
                     let should_set = match config.get_bool("gitbutler.didSetPrune") {
                         Ok(None | Some(false)) => true,
                         Ok(Some(true)) => false,
@@ -76,7 +76,10 @@ impl Repository {
                     };
 
                     if should_set {
-                        if let Err(error) = config.set_str("gc.pruneExpire", "never").and_then(|()| config.set_bool("gitbutler.didSetPrune", true)) {
+                        if let Err(error) = config
+                            .set_str("gc.pruneExpire", "never")
+                            .and_then(|()| config.set_bool("gitbutler.didSetPrune", true))
+                        {
                             tracing::warn!(
                                 "failed to set gc.auto to false for repository at {}; cannot disable gc: {}",
                                 project.path.display(),
@@ -623,6 +626,8 @@ pub enum RemoteError {
     Network,
     #[error("authentication failed")]
     Auth,
+    #[error("Git failed")]
+    Git(#[from] git::Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -638,6 +643,9 @@ impl ErrorWithContext for RemoteError {
                 Code::ProjectGitAuth,
                 "Project remote authentication error",
             ),
+            RemoteError::Git(_) => {
+                error::Context::new_static(Code::ProjectGitRemote, "Git command failed")
+            }
             RemoteError::Other(error) => {
                 return error.custom_context_or_root_cause().into();
             }

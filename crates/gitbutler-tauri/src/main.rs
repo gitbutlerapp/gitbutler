@@ -15,21 +15,17 @@
 
 use std::path::PathBuf;
 
-use anyhow::Context;
 use gitbutler_core::{assets, database, git, storage};
 use gitbutler_tauri::{
-    app, askpass, commands, deltas, github, keys, logs, menu, projects, sentry, sessions, users,
+    app, askpass, commands, deltas, github, keys, logs, menu, projects, sessions, snapshots, users,
     virtual_branches, watcher, zip,
 };
-use tauri::{generate_context, Manager, Wry};
+use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
-use tauri_plugin_store::{with_store, JsonValue, StoreCollection};
 
 fn main() {
     let tauri_context = generate_context!();
 
-    let app_name = tauri_context.package_info().name.clone();
-    let app_version = tauri_context.package_info().version.clone().to_string();
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -148,38 +144,6 @@ fn main() {
                         git_credentials_controller.clone(),
                     ));
 
-                    let stores = tauri_app.state::<StoreCollection<Wry>>();
-                    if let Some(path) = app_handle.path_resolver().app_config_dir().map(|path| path.join(PathBuf::from("settings.json"))) {
-                        if let Ok((metrics_enabled, error_reporting_enabled)) = with_store(app_handle.clone(), stores, path, |store| {
-                            let metrics_enabled = store.get("appMetricsEnabled")
-                                .and_then(JsonValue::as_bool)
-                                .unwrap_or(true);
-                            let error_reporting_enabled = store.get("appErrorReportingEnabled")
-                                .and_then(JsonValue::as_bool)
-                                .unwrap_or(true);
-                            Ok((metrics_enabled, error_reporting_enabled))
-                        }) {
-                            if metrics_enabled {
-                                let analytics_cfg = if cfg!(debug_assertions) {
-                                    gitbutler_analytics::Config {
-                                        posthog_token: Some("phc_t7VDC9pQELnYep9IiDTxrq2HLseY5wyT7pn0EpHM7rr"),
-                                    }
-                                } else {
-                                    gitbutler_analytics::Config {
-                                        posthog_token: Some("phc_yJx46mXv6kA5KTuM2eEQ6IwNTgl5YW3feKV5gi7mfGG"),
-                                    }
-                                };
-                                let analytics_client = gitbutler_analytics::Client::new(app_handle.package_info().name.clone(), app_handle.package_info().version.to_string(), &analytics_cfg);
-                                tauri_app.manage(analytics_client);
-                            }
-
-                            if error_reporting_enabled {
-                                let _guard = sentry::init(app_name.as_str(), app_version);
-                                sentry::configure_scope(users_controller.get_user().context("failed to get user")?.as_ref());
-                            }
-                        };
-                    }
-
                     let sessions_database_controller = gitbutler_core::sessions::database::Database::new(database_controller.clone());
                     app_handle.manage(sessions_database_controller.clone());
 
@@ -255,11 +219,18 @@ fn main() {
                     virtual_branches::commands::reset_virtual_branch,
                     virtual_branches::commands::cherry_pick_onto_virtual_branch,
                     virtual_branches::commands::amend_virtual_branch,
+                    virtual_branches::commands::move_commit_file,
+                    virtual_branches::commands::undo_commit,
+                    virtual_branches::commands::insert_blank_commit,
+                    virtual_branches::commands::reorder_commit,
+                    virtual_branches::commands::update_commit_message,
                     virtual_branches::commands::list_remote_branches,
                     virtual_branches::commands::get_remote_branch_data,
                     virtual_branches::commands::squash_branch_commit,
                     virtual_branches::commands::fetch_from_target,
                     virtual_branches::commands::move_commit,
+                    snapshots::list_snapshots,
+                    snapshots::restore_snapshot,
                     menu::menu_item_set_enabled,
                     keys::commands::get_public_key,
                     github::commands::init_device_oauth,

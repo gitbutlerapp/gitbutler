@@ -10,10 +10,9 @@ use crate::{git, id::Id, types::default_true::DefaultTrue};
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum AuthKey {
-    #[cfg_attr(not(windows), default)]
     Default,
     Generated,
-    #[cfg_attr(windows, default)]
+    #[default]
     SystemExecutable,
     GitCredentialsHelper,
     Local {
@@ -83,6 +82,8 @@ pub struct Project {
     pub project_data_last_fetch: Option<FetchResult>,
     #[serde(default)]
     pub omit_certificate_check: Option<bool>,
+    #[serde(default)]
+    pub enable_snapshots: Option<bool>,
 }
 
 impl AsRef<Project> for Project {

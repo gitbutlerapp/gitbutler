@@ -22,6 +22,8 @@ test = false
 default = ["serde", "tokio"]
 serde = ["dep:serde"]
 tokio = ["dep:tokio"]
+## a flag that is needed for integration tests that run this code to work.
+test-askpass-path = []
 
 [dependencies]
 thiserror.workspace = true

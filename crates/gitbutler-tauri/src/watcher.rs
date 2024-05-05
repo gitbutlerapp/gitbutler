@@ -117,11 +117,6 @@ fn handler_from_app(app: &AppHandle) -> anyhow::Result<gitbutler_watcher::Handle
         .path_resolver()
         .app_data_dir()
         .context("failed to get app data dir")?;
-    let analytics = app
-        .try_state::<gitbutler_analytics::Client>()
-        .map_or(gitbutler_analytics::Client::default(), |client| {
-            client.inner().clone()
-        });
     let users = app.state::<users::Controller>().inner().clone();
     let projects = app.state::<projects::Controller>().inner().clone();
     let vbranches = app.state::<virtual_branches::Controller>().inner().clone();
@@ -131,7 +126,6 @@ fn handler_from_app(app: &AppHandle) -> anyhow::Result<gitbutler_watcher::Handle
 
     Ok(gitbutler_watcher::Handler::new(
         app_data_dir.clone(),
-        analytics,
         users,
         projects,
         vbranches,

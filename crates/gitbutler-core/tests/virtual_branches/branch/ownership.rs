@@ -18,12 +18,14 @@ fn reconcile_ownership_simple() {
                         end: 3,
                         hash: Some(Hunk::hash("1,3".as_ref())),
                         timestamp_ms: None,
+                        locked_to: vec![],
                     },
                     Hunk {
                         start: 4,
                         end: 6,
                         hash: Some(Hunk::hash("4,6".as_ref())),
                         timestamp_ms: None,
+                        locked_to: vec![],
                     },
                 ],
             }],
@@ -41,6 +43,7 @@ fn reconcile_ownership_simple() {
                     end: 9,
                     hash: Some(Hunk::hash("7,9".as_ref())),
                     timestamp_ms: None,
+                    locked_to: vec![],
                 }],
             }],
         },
@@ -56,12 +59,14 @@ fn reconcile_ownership_simple() {
                 end: 6,
                 hash: Some(Hunk::hash("4,6".as_ref())),
                 timestamp_ms: None,
+                locked_to: vec![],
             },
             Hunk {
                 start: 7,
                 end: 9,
                 hash: Some(Hunk::hash("9,7".as_ref())),
                 timestamp_ms: None,
+                locked_to: vec![],
             },
         ],
     }];
@@ -80,6 +85,7 @@ fn reconcile_ownership_simple() {
                     end: 3,
                     hash: Some(Hunk::hash("1,3".as_ref())),
                     timestamp_ms: None,
+                    locked_to: vec![],
                 },],
             }],
         }
@@ -96,12 +102,14 @@ fn reconcile_ownership_simple() {
                         end: 6,
                         hash: Some(Hunk::hash("4,6".as_ref())),
                         timestamp_ms: None,
+                        locked_to: vec![],
                     },
                     Hunk {
                         start: 7,
                         end: 9,
                         hash: Some(Hunk::hash("9,7".as_ref())),
                         timestamp_ms: None,
+                        locked_to: vec![],
                     },
                 ],
             }],
@@ -146,7 +154,7 @@ fn put() {
     let mut ownership = "src/main.rs:0-100"
         .parse::<BranchOwnershipClaims>()
         .unwrap();
-    ownership.put(&"src/main.rs:200-300".parse::<OwnershipClaim>().unwrap());
+    ownership.put("src/main.rs:200-300".parse::<OwnershipClaim>().unwrap());
     assert_eq!(ownership.claims.len(), 1);
     assert_eq!(
         ownership.claims[0],
@@ -161,7 +169,7 @@ fn put_2() {
     let mut ownership = "src/main.rs:0-100"
         .parse::<BranchOwnershipClaims>()
         .unwrap();
-    ownership.put(&"src/main.rs2:200-300".parse::<OwnershipClaim>().unwrap());
+    ownership.put("src/main.rs2:200-300".parse::<OwnershipClaim>().unwrap());
     assert_eq!(ownership.claims.len(), 2);
     assert_eq!(
         ownership.claims[0],
@@ -178,7 +186,7 @@ fn put_3() {
     let mut ownership = "src/main.rs:0-100\nsrc/main2.rs:100-200"
         .parse::<BranchOwnershipClaims>()
         .unwrap();
-    ownership.put(&"src/main2.rs:200-300".parse::<OwnershipClaim>().unwrap());
+    ownership.put("src/main2.rs:200-300".parse::<OwnershipClaim>().unwrap());
     assert_eq!(ownership.claims.len(), 2);
     assert_eq!(
         ownership.claims[0],
@@ -197,7 +205,7 @@ fn put_4() {
     let mut ownership = "src/main.rs:0-100\nsrc/main2.rs:100-200"
         .parse::<BranchOwnershipClaims>()
         .unwrap();
-    ownership.put(&"src/main2.rs:100-200".parse::<OwnershipClaim>().unwrap());
+    ownership.put("src/main2.rs:100-200".parse::<OwnershipClaim>().unwrap());
     assert_eq!(ownership.claims.len(), 2);
     assert_eq!(
         ownership.claims[0],
@@ -214,7 +222,7 @@ fn put_7() {
     let mut ownership = "src/main.rs:100-200"
         .parse::<BranchOwnershipClaims>()
         .unwrap();
-    ownership.put(&"src/main.rs:100-200".parse::<OwnershipClaim>().unwrap());
+    ownership.put("src/main.rs:100-200".parse::<OwnershipClaim>().unwrap());
     assert_eq!(ownership.claims.len(), 1);
     assert_eq!(
         ownership.claims[0],

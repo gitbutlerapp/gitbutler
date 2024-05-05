@@ -111,7 +111,17 @@ pub fn get_branch_data(
 }
 
 pub fn branch_to_remote_branch(branch: &git::Branch) -> Result<Option<RemoteBranch>> {
-    let commit = branch.peel_to_commit()?;
+    let commit = match branch.peel_to_commit() {
+        Ok(c) => c,
+        Err(err) => {
+            tracing::warn!(
+                ?err,
+                "ignoring branch {:?} as peeling failed",
+                branch.name()
+            );
+            return Ok(None);
+        }
+    };
     branch
         .target()
         .map(|sha| {
