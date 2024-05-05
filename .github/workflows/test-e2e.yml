@@ -34,4 +34,5 @@ jobs:
         with:
           name: playwright-report
           path: app/playwright-report/
+          if-no-files-found: ignore
           retention-days: 30

@@ -11,7 +11,5 @@ test('has text package.json', async ({ page }) => {
 
     const listBox = page.getByRole('listbox').getByRole('button')
 
-    await page.screenshot({ path: 'board.png' });
-
-    await expect(listBox).toHaveText('package.json');
+    await expect(listBox).toHaveText('xpackage.json');
 })
