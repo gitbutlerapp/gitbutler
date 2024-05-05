@@ -31,6 +31,9 @@ jobs:
         run: cd app && pnpm test:e2e
         env:
           CI: true
+      - run: ls -lah .
+      - run: ls -lah /home/runner/work/gitbutler/gitbutler/
+      - run: ls -lah /home/runner/work/gitbutler/gitbutler/app/
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
