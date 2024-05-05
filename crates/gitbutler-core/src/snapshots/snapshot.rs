@@ -22,10 +22,16 @@ const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
 ///  - The current oplog head is persisted in `.git/gitbutler/oplog.toml`.
 ///  - A fake branch `gitbutler/target` is created and maintained in order to keep the oplog head reachable.
 ///
-/// The state of virtual branches `.git/gitbutler/virtual_branches.toml` is copied to the project root so that it is snapshotted.
-pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
+/// The snapshot tree contains:
+///  - The current state of the working directory under a subtree `workdir`.
+///  - The state of virtual branches from `.git/gitbutler/virtual_branches.toml` as a blob `virtual_branches.toml`.
+///  - The state of conflicts from `.git/base_merge_parent` and `.git/conflicts` if present as blobs under a subtree `conflicts`
+///
+/// If there are files that are untracked and larger than SNAPSHOT_FILE_LIMIT_BYTES, they are excluded from snapshot creation and restoring.
+/// Returns the sha of the created snapshot commit or None if snapshots are disabled.
+pub fn create(project: &Project, details: SnapshotDetails) -> Result<Option<String>> {
     if project.enable_snapshots.is_none() || project.enable_snapshots == Some(false) {
-        return Ok(());
+        return Ok(None);
     }
 
     let repo_path = project.path.as_path();
@@ -49,6 +55,9 @@ pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
     let vb_content = fs::read(vb_path)?;
     let vb_blob = repo.blob(&vb_content)?;
 
+    // Create a tree out of the conflicts state if present
+    let conflicts_tree = write_conflicts_tree(repo_path, &repo)?;
+
     // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
     let files_to_exclude = get_exclude_list(&repo)?;
     // In-memory, libgit2 internal ignore rule
@@ -65,6 +74,7 @@ pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
     let mut tree_builder = repo.treebuilder(None)?;
     tree_builder.insert("workdir", tree_id, FileMode::Tree.into())?;
     tree_builder.insert("virtual_branches.toml", vb_blob, FileMode::Blob.into())?;
+    tree_builder.insert("conflicts", conflicts_tree, FileMode::Tree.into())?;
 
     let tree_id = tree_builder.write()?;
     let tree = repo.find_tree(tree_id)?;
@@ -102,7 +112,7 @@ pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
         &new_commit_oid.to_string(),
     )?;
 
-    Ok(())
+    Ok(Some(new_commit_oid.to_string()))
 }
 
 /// Lists the snapshots that have been created for the given repository, up to the given limit.
@@ -158,8 +168,14 @@ pub fn list(project: &Project, limit: usize) -> Result<Vec<Snapshot>> {
 /// The provided sha must refer to a valid snapshot commit.
 /// Upon success, a new snapshot is created.
 ///
-/// The state of virtual branches `.git/gitbutler/virtual_branches.toml` is restored from the snapshot.
-pub fn restore(project: &Project, sha: String) -> Result<()> {
+/// This will restore the following:
+///  - The state of the working directory is checked out from the subtree `workdir` in the snapshot.
+///  - The state of virtual branches is restored from the blob `virtual_branches.toml` in the snapshot.
+///  - The state of conflicts (.git/base_merge_parent and .git/conflicts) is restored from the subtree `conflicts` in the snapshot (if not present, existing files are deleted).
+///
+/// If there are files that are untracked and larger than SNAPSHOT_FILE_LIMIT_BYTES, they are excluded from snapshot creation and restoring.
+/// Returns the sha of the created revert snapshot commit or None if snapshots are disabled.
+pub fn restore(project: &Project, sha: String) -> Result<Option<String>> {
     let repo_path = project.path.as_path();
     let repo = git2::Repository::init(repo_path)?;
 
@@ -174,6 +190,9 @@ pub fn restore(project: &Project, sha: String) -> Result<()> {
         .to_object(&repo)?
         .into_blob()
         .map_err(|_| anyhow!("failed to convert virtual_branches tree entry to blob"))?;
+    // Restore the state of .git/base_merge_parent and .git/conflicts from the snapshot
+    // Will remove those files if they are not present in the snapshot
+    _ = restore_conflicts_tree(&tree, &repo, repo_path);
     let wd_tree_entry = tree
         .get_name("workdir")
         .ok_or(anyhow!("failed to get workdir tree entry"))?;
@@ -209,9 +228,73 @@ pub fn restore(project: &Project, sha: String) -> Result<()> {
             value: sha,
         }],
     };
-    create(project, details)?;
+    create(project, details)
+}
 
+fn restore_conflicts_tree(
+    snapshot_tree: &git2::Tree,
+    repo: &git2::Repository,
+    repo_path: &std::path::Path,
+) -> Result<()> {
+    let conflicts_tree_entry = snapshot_tree
+        .get_name("conflicts")
+        .ok_or(anyhow!("failed to get conflicts tree entry"))?;
+    let tree = repo.find_tree(conflicts_tree_entry.id())?;
+
+    let base_merge_parent_blob = tree.get_name("base_merge_parent");
+    let path = repo_path.join(".git/base_merge_parent");
+    if let Some(base_merge_parent_blob) = base_merge_parent_blob {
+        let base_merge_parent_blob = base_merge_parent_blob
+            .to_object(repo)?
+            .into_blob()
+            .map_err(|_| anyhow!("failed to convert base_merge_parent tree entry to blob"))?;
+        fs::write(path, base_merge_parent_blob.content())?;
+    } else if path.exists() {
+        fs::remove_file(path)?;
+    }
+
+    let conflicts_blob = tree.get_name("conflicts");
+    let path = repo_path.join(".git/conflicts");
+    if let Some(conflicts_blob) = conflicts_blob {
+        let conflicts_blob = conflicts_blob
+            .to_object(repo)?
+            .into_blob()
+            .map_err(|_| anyhow!("failed to convert conflicts tree entry to blob"))?;
+        fs::write(path, conflicts_blob.content())?;
+    } else if path.exists() {
+        fs::remove_file(path)?;
+    }
     Ok(())
+}
+
+fn write_conflicts_tree(repo_path: &std::path::Path, repo: &git2::Repository) -> Result<git2::Oid> {
+    let merge_parent_path = repo_path.join(".git/base_merge_parent");
+    let merge_parent_blob = if merge_parent_path.exists() {
+        let merge_parent_content = fs::read(merge_parent_path)?;
+        Some(repo.blob(&merge_parent_content)?)
+    } else {
+        None
+    };
+    let conflicts_path = repo_path.join(".git/conflicts");
+    let conflicts_blob = if conflicts_path.exists() {
+        let conflicts_content = fs::read(conflicts_path)?;
+        Some(repo.blob(&conflicts_content)?)
+    } else {
+        None
+    };
+    let mut tree_builder = repo.treebuilder(None)?;
+    if merge_parent_blob.is_some() {
+        tree_builder.insert(
+            "base_merge_parent",
+            merge_parent_blob.unwrap(),
+            FileMode::Blob.into(),
+        )?;
+    }
+    if conflicts_blob.is_some() {
+        tree_builder.insert("conflicts", conflicts_blob.unwrap(), FileMode::Blob.into())?;
+    }
+    let conflicts_tree = tree_builder.write()?;
+    Ok(conflicts_tree)
 }
 
 fn get_exclude_list(repo: &git2::Repository) -> Result<String> {
@@ -315,9 +398,14 @@ mod tests {
             file.write_all(&data).unwrap();
         }
 
+        // Create conflict state
+        let conflicts_path = dir.path().join(".git/conflicts");
+        std::fs::write(&conflicts_path, "conflict A").unwrap();
+        let base_merge_parent_path = dir.path().join(".git/base_merge_parent");
+        std::fs::write(&base_merge_parent_path, "parent A").unwrap();
+
         // create a snapshot
         create(&project, SnapshotDetails::new(OperationType::CreateCommit)).unwrap();
-        let snapshots = list(&project, 100).unwrap();
 
         // The large file is still here but it will not be part of the snapshot
         let file_path = dir.path().join("large.txt");
@@ -343,8 +431,18 @@ mod tests {
             .unwrap();
         assert!(vb_state.get_branch(&id).is_ok());
 
-        // restore from the snapshot
-        restore(&project, snapshots.first().unwrap().id.clone()).unwrap();
+        // remove remove conflict files
+        std::fs::remove_file(&conflicts_path).unwrap();
+        std::fs::remove_file(&base_merge_parent_path).unwrap();
+        // New snapshot with the conflicts removed
+        let conflicts_removed_snapshot = create(
+            &project,
+            SnapshotDetails::new(OperationType::UpdateWorkspaceBase),
+        )
+        .unwrap();
+
+        // restore from the initial snapshot
+        restore(&project, list(&project, 10).unwrap()[1].id.clone()).unwrap();
 
         let file_path = dir.path().join("1.txt");
         let file_lines = std::fs::read_to_string(file_path).unwrap();
@@ -365,5 +463,18 @@ mod tests {
 
         // The fake branch is gone
         assert!(vb_state.get_branch(&id).is_err());
+
+        // The conflict files are restored
+        let file_lines = std::fs::read_to_string(&conflicts_path).unwrap();
+        assert_eq!(file_lines, "conflict A");
+        let file_lines = std::fs::read_to_string(&base_merge_parent_path).unwrap();
+        assert_eq!(file_lines, "parent A");
+
+        // Restore from the second snapshot
+        restore(&project, conflicts_removed_snapshot.unwrap()).unwrap();
+
+        // The conflicts are not present
+        assert!(!&conflicts_path.exists());
+        assert!(!&base_merge_parent_path.exists());
     }
 }
