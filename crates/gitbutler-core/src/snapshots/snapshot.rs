@@ -51,7 +51,10 @@ pub fn create(project: &Project, details: SnapshotDetails) -> Result<Option<Stri
     };
 
     // Create a blob out of `.git/gitbutler/virtual_branches.toml`
-    let vb_path = repo_path.join(".git/gitbutler/virtual_branches.toml");
+    let vb_path = repo_path
+        .join(".git")
+        .join("gitbutler")
+        .join("virtual_branches.toml");
     let vb_content = fs::read(vb_path)?;
     let vb_blob = repo.blob(&vb_content)?;
 
@@ -213,7 +216,10 @@ pub fn restore(project: &Project, sha: String) -> Result<Option<String>> {
 
     // Update virtual_branches.toml with the state from the snapshot
     fs::write(
-        repo_path.join(".git/gitbutler/virtual_branches.toml"),
+        repo_path
+            .join(".git")
+            .join("gitbutler")
+            .join("virtual_branches.toml"),
         vb_blob.content(),
     )?;
 
@@ -242,7 +248,7 @@ fn restore_conflicts_tree(
     let tree = repo.find_tree(conflicts_tree_entry.id())?;
 
     let base_merge_parent_blob = tree.get_name("base_merge_parent");
-    let path = repo_path.join(".git/base_merge_parent");
+    let path = repo_path.join(".git").join("base_merge_parent");
     if let Some(base_merge_parent_blob) = base_merge_parent_blob {
         let base_merge_parent_blob = base_merge_parent_blob
             .to_object(repo)?
@@ -254,7 +260,7 @@ fn restore_conflicts_tree(
     }
 
     let conflicts_blob = tree.get_name("conflicts");
-    let path = repo_path.join(".git/conflicts");
+    let path = repo_path.join(".git").join("conflicts");
     if let Some(conflicts_blob) = conflicts_blob {
         let conflicts_blob = conflicts_blob
             .to_object(repo)?
@@ -268,14 +274,14 @@ fn restore_conflicts_tree(
 }
 
 fn write_conflicts_tree(repo_path: &std::path::Path, repo: &git2::Repository) -> Result<git2::Oid> {
-    let merge_parent_path = repo_path.join(".git/base_merge_parent");
+    let merge_parent_path = repo_path.join(".git").join("base_merge_parent");
     let merge_parent_blob = if merge_parent_path.exists() {
         let merge_parent_content = fs::read(merge_parent_path)?;
         Some(repo.blob(&merge_parent_content)?)
     } else {
         None
     };
-    let conflicts_path = repo_path.join(".git/conflicts");
+    let conflicts_path = repo_path.join(".git").join("conflicts");
     let conflicts_blob = if conflicts_path.exists() {
         let conflicts_content = fs::read(conflicts_path)?;
         Some(repo.blob(&conflicts_content)?)
@@ -399,9 +405,9 @@ mod tests {
         }
 
         // Create conflict state
-        let conflicts_path = dir.path().join(".git/conflicts");
+        let conflicts_path = dir.path().join(".git").join("conflicts");
         std::fs::write(&conflicts_path, "conflict A").unwrap();
-        let base_merge_parent_path = dir.path().join(".git/base_merge_parent");
+        let base_merge_parent_path = dir.path().join(".git").join("base_merge_parent");
         std::fs::write(&base_merge_parent_path, "parent A").unwrap();
 
         // create a snapshot
