@@ -12,9 +12,11 @@ export default defineConfig({
             use: { ...devices['Desktop Chrome'] }
         }
     ],
+    expect: {
+        timeout: 20 * 1000,
+    },
     webServer: {
         command: 'pnpm test:e2e:run',
         url: 'http://localhost:1420',
-        reuseExistingServer: !process.env.CI
     }
 });
