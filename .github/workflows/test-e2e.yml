@@ -24,11 +24,12 @@ jobs:
         run: pnpm install
       - name: Install Playwright Browsers
         run: pnpm dlx playwright@1.40.0 install --with-deps chromium
-      - name: Run ubuntu/chrome snapshots
+      - name: Run Tests
         run: cd app && pnpm test:e2e
         env:
           CI: true
-      - uses: actions/upload-artifact@v3
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
