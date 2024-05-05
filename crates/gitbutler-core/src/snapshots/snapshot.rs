@@ -237,6 +237,38 @@ pub fn restore(project: &Project, sha: String) -> Result<Option<String>> {
     create(project, details)
 }
 
+/// Returns the number of uncommitted lines of code (added plus removed) since the last snapshot. Included untracked files.
+pub fn changed_lines_count(project: &Project) -> Result<usize> {
+    let repo_path = project.path.as_path();
+    let repo = git2::Repository::init(repo_path)?;
+
+    // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
+    let files_to_exclude = get_exclude_list(&repo)?;
+    // In-memory, libgit2 internal ignore rule
+    repo.add_ignore_rule(&files_to_exclude)?;
+
+    let oplog_state = OplogHandle::new(&project.gb_dir());
+    let head_sha = oplog_state.get_oplog_head()?;
+    if head_sha.is_none() {
+        return Ok(0);
+    }
+    let head_sha = head_sha.unwrap();
+
+    let commit = repo.find_commit(git2::Oid::from_str(&head_sha)?)?;
+    let head_tree = commit.tree()?;
+
+    let wd_tree_entry = head_tree
+        .get_name("workdir")
+        .ok_or(anyhow!("failed to get workdir tree entry"))?;
+    let wd_tree = repo.find_tree(wd_tree_entry.id())?;
+
+    let mut opts = git2::DiffOptions::new();
+    opts.include_untracked(true);
+    let diff = repo.diff_tree_to_workdir_with_index(Some(&wd_tree), Some(&mut opts));
+    let stats = diff?.stats()?;
+    Ok(stats.deletions() + stats.insertions())
+}
+
 fn restore_conflicts_tree(
     snapshot_tree: &git2::Tree,
     repo: &git2::Repository,
