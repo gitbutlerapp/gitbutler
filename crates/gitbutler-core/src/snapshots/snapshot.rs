@@ -388,9 +388,14 @@ mod tests {
             file.write_all(&data).unwrap();
         }
 
+        // Create conflict state
+        let conflicts_path = dir.path().join(".git/conflicts");
+        std::fs::write(&conflicts_path, "conflict A").unwrap();
+        let base_merge_parent_path = dir.path().join(".git/base_merge_parent");
+        std::fs::write(&base_merge_parent_path, "parent A").unwrap();
+
         // create a snapshot
         create(&project, SnapshotDetails::new(OperationType::CreateCommit)).unwrap();
-        let snapshots = list(&project, 100).unwrap();
 
         // The large file is still here but it will not be part of the snapshot
         let file_path = dir.path().join("large.txt");
@@ -416,8 +421,18 @@ mod tests {
             .unwrap();
         assert!(vb_state.get_branch(&id).is_ok());
 
-        // restore from the snapshot
-        restore(&project, snapshots.first().unwrap().id.clone()).unwrap();
+        // remove remove conflict files
+        std::fs::remove_file(&conflicts_path).unwrap();
+        std::fs::remove_file(&base_merge_parent_path).unwrap();
+        // New snapshot with the conflicts removed
+        create(
+            &project,
+            SnapshotDetails::new(OperationType::UpdateWorkspaceBase),
+        )
+        .unwrap();
+
+        // restore from the initial snapshot
+        restore(&project, list(&project, 10).unwrap()[1].id.clone()).unwrap();
 
         let file_path = dir.path().join("1.txt");
         let file_lines = std::fs::read_to_string(file_path).unwrap();
@@ -438,5 +453,18 @@ mod tests {
 
         // The fake branch is gone
         assert!(vb_state.get_branch(&id).is_err());
+
+        // The conflict files are restored
+        let file_lines = std::fs::read_to_string(&conflicts_path).unwrap();
+        assert_eq!(file_lines, "conflict A");
+        let file_lines = std::fs::read_to_string(&base_merge_parent_path).unwrap();
+        assert_eq!(file_lines, "parent A");
+
+        // Restore from the second snapshot
+        restore(&project, list(&project, 10).unwrap()[1].id.clone()).unwrap();
+
+        // The conflicts are not present
+        assert!(!&conflicts_path.exists());
+        assert!(!&base_merge_parent_path.exists());
     }
 }
