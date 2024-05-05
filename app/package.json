@@ -103,5 +103,6 @@
 	},
 	"dependencies": {
 		"openai": "^4.38.2"
-	}
+	},
+	"packageManager": "pnpm@8"
 }
