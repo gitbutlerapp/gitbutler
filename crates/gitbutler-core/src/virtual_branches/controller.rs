@@ -473,9 +473,9 @@ impl ControllerInner {
             )
             .map_err(Into::into);
 
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::CreateCommit))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::CreateCommit));
             result
         })
     }
@@ -523,9 +523,9 @@ impl ControllerInner {
 
         self.with_verify_branch(project_id, |project_repository, _| {
             let branch_id = super::create_virtual_branch(project_repository, create)?.id;
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::CreateBranch))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::CreateBranch));
             Ok(branch_id)
         })
     }
@@ -554,9 +554,9 @@ impl ControllerInner {
                 signing_key.as_ref(),
                 user,
             )?;
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::CreateBranch))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::CreateBranch));
             Ok(result)
         })
     }
@@ -589,9 +589,9 @@ impl ControllerInner {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         let result = super::set_base_branch(&project_repository, target_branch)?;
-        project_repository
+        let _ = project_repository
             .project()
-            .create_snapshot(SnapshotDetails::new(OperationType::SetBaseBranch))?;
+            .create_snapshot(SnapshotDetails::new(OperationType::SetBaseBranch));
         Ok(result)
     }
 
@@ -621,9 +621,9 @@ impl ControllerInner {
                 user,
             )
             .map_err(Into::into);
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::MergeUpstream))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::MergeUpstream));
             result
         })
     }
@@ -645,9 +645,9 @@ impl ControllerInner {
 
             let result = super::update_base_branch(project_repository, user, signing_key.as_ref())
                 .map_err(Into::into);
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::UpdateWorkspaceBase))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::UpdateWorkspaceBase));
             result
         })
     }
@@ -676,7 +676,7 @@ impl ControllerInner {
                 SnapshotDetails::new(OperationType::GenericBranchUpdate)
             };
             super::update_branch(project_repository, branch_update)?;
-            project_repository.project().create_snapshot(details)?;
+            let _ = project_repository.project().create_snapshot(details);
             Ok(())
         })
     }
@@ -690,9 +690,9 @@ impl ControllerInner {
 
         self.with_verify_branch(project_id, |project_repository, _| {
             super::delete_branch(project_repository, branch_id)?;
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::DeleteBranch))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::DeleteBranch));
             Ok(())
         })
     }
@@ -719,9 +719,9 @@ impl ControllerInner {
             let result =
                 super::apply_branch(project_repository, branch_id, signing_key.as_ref(), user)
                     .map_err(Into::into);
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::ApplyBranch))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::ApplyBranch));
             result
         })
     }
@@ -736,9 +736,9 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let result =
                 super::unapply_ownership(project_repository, ownership).map_err(Into::into);
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::DiscardHunk))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::DiscardHunk));
             result
         })
     }
@@ -752,9 +752,9 @@ impl ControllerInner {
 
         self.with_verify_branch(project_id, |project_repository, _| {
             let result = super::reset_files(project_repository, ownership).map_err(Into::into);
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::DiscardFile))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::DiscardFile));
             result
         })
     }
@@ -771,9 +771,9 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let result = super::amend(project_repository, branch_id, commit_oid, ownership)
                 .map_err(Into::into);
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::AmendCommit))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::AmendCommit));
             result
         })
     }
@@ -797,9 +797,9 @@ impl ControllerInner {
                 ownership,
             )
             .map_err(Into::into);
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::MoveCommitFile))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::MoveCommitFile));
             result
         })
     }
@@ -815,9 +815,9 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let result =
                 super::undo_commit(project_repository, branch_id, commit_oid).map_err(Into::into);
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::UndoCommit))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::UndoCommit));
             result
         })
     }
@@ -835,9 +835,9 @@ impl ControllerInner {
             let result =
                 super::insert_blank_commit(project_repository, branch_id, commit_oid, user, offset)
                     .map_err(Into::into);
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::InsertBlankCommit))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::InsertBlankCommit));
             result
         })
     }
@@ -854,9 +854,9 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let result = super::reorder_commit(project_repository, branch_id, commit_oid, offset)
                 .map_err(Into::into);
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::ReorderCommit))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::ReorderCommit));
             result
         })
     }
@@ -872,9 +872,9 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let result = super::reset_branch(project_repository, branch_id, target_commit_oid)
                 .map_err(Into::into);
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::UndoCommit))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::UndoCommit));
             result
         })
     }
@@ -890,9 +890,9 @@ impl ControllerInner {
             let result = super::unapply_branch(project_repository, branch_id)
                 .map(|_| ())
                 .map_err(Into::into);
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::UnapplyBranch))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::UnapplyBranch));
             result
         })
     }
@@ -932,9 +932,9 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let result =
                 super::cherry_pick(project_repository, branch_id, commit_oid).map_err(Into::into);
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::CherryPick))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::CherryPick));
             result
         })
     }
@@ -969,9 +969,9 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let result =
                 super::squash(project_repository, branch_id, commit_oid).map_err(Into::into);
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::SquashCommit))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::SquashCommit));
             result
         })
     }
@@ -988,9 +988,9 @@ impl ControllerInner {
             let result =
                 super::update_commit_message(project_repository, branch_id, commit_oid, message)
                     .map_err(Into::into);
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::UpdateCommitMessage))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::UpdateCommitMessage));
             result
         })
     }
@@ -1069,9 +1069,9 @@ impl ControllerInner {
                 signing_key.as_ref(),
             )
             .map_err(Into::into);
-            project_repository
+            let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::MoveCommit))?;
+                .create_snapshot(SnapshotDetails::new(OperationType::MoveCommit));
             result
         })
     }
