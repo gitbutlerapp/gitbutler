@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install
       - name: Install Playwright Browsers
-        run: pnpm exec playwright install --with-deps
+        run: pnpm dlx playwright install --with-deps
       - name: Run ubuntu/chrome snapshots
         run: cd app && pnpm test:e2e
         env:
