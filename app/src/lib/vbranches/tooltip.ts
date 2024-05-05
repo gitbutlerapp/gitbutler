@@ -1,13 +1,17 @@
-import type { Commit } from './types';
+import { HunkLock, type Commit } from './types';
+import { unique } from '$lib/utils/filters';
 
-export function getLockText(commitId: string[] | string, commits: Commit[]): string {
-	if (!commitId || commits === undefined) return 'Depends on a committed change';
+export function getLockText(hunkLocks: HunkLock | HunkLock[] | string, commits: Commit[]): string {
+	if (!hunkLocks || commits === undefined) return 'Depends on a committed change';
 
-	const lockedIds = typeof commitId == 'string' ? [commitId] : (commitId as string[]);
+	const locks = hunkLocks instanceof HunkLock ? [hunkLocks] : (hunkLocks as HunkLock[]);
 
-	const descriptions = lockedIds
-		.map((id) => {
-			const commit = commits.find((commit) => commit.id == id);
+	const descriptions = locks
+		.filter(unique)
+		.map((lock) => {
+			const commit = commits.find((c) => {
+				return c.id == lock.commitId;
+			});
 			const shortCommitId = commit?.id.slice(0, 7);
 			if (commit) {
 				const shortTitle = commit.descriptionTitle?.slice(0, 35) + '...';
@@ -17,5 +21,13 @@ export function getLockText(commitId: string[] | string, commits: Commit[]): str
 			}
 		})
 		.join('\n');
-	return 'Locked due to dependency on:\n' + descriptions;
+	const branchCount = locks.map((lock) => lock.branchId).filter(unique).length;
+	if (branchCount > 1) {
+		return (
+			'Warning, undefined behavior due to lock on multiple branches!\n\n' +
+			'Locked because changes depend on:\n' +
+			descriptions
+		);
+	}
+	return 'Locked because changes depend on:\n' + descriptions;
 }

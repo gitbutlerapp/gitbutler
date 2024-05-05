@@ -30,6 +30,7 @@ pub mod project_repository;
 pub mod projects;
 pub mod reader;
 pub mod sessions;
+pub mod snapshots;
 pub mod ssh;
 pub mod storage;
 pub mod types;

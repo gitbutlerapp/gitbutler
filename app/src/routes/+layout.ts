@@ -1,13 +1,11 @@
 import { AIService } from '$lib/ai/service';
-import { initPostHog } from '$lib/analytics/posthog';
-import { initSentry } from '$lib/analytics/sentry';
+import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 import { AuthService } from '$lib/backend/auth';
 import { GitConfigService } from '$lib/backend/gitConfigService';
 import { HttpClient } from '$lib/backend/httpClient';
 import { ProjectService } from '$lib/backend/projects';
 import { PromptService } from '$lib/backend/prompt';
 import { UpdaterService } from '$lib/backend/updater';
-import { appMetricsEnabled, appErrorReportingEnabled } from '$lib/config/appSettings';
 import { GitHubService } from '$lib/github/service';
 import { UserService } from '$lib/stores/user';
 import lscache from 'lscache';
@@ -30,6 +28,7 @@ export async function load() {
     if (env.PUBLIC_TESTING) {
         mockTauri()
     }
+	  initAnalyticsIfEnabled();
 
     appErrorReportingEnabled()
         .onDisk()

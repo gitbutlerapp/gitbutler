@@ -92,17 +92,16 @@ pub fn spawn(
                     tracing::error!(?err, "ignored file watcher error");
                 }
                 Ok(events) => {
-                    let maybe_repo = git::Repository::open(&worktree_path).with_context(
-                        || {
-                            format!(
-                                "failed to open project repository: {}",
-                                worktree_path.display()
-                            )
-                        },
-                    ).map(Some).unwrap_or_else(|err| {
-                        tracing::error!(?err, "will consider changes to all files as repository couldn't be opened");
-                        None
-                    });
+                    let maybe_repo = git::Repository::open(&worktree_path)
+                        .with_context(|| format!("failed to open project repository: {}", worktree_path.display()))
+                        .map(Some)
+                        .unwrap_or_else(|err| {
+                            tracing::error!(
+                                ?err,
+                                "will consider changes to all files as repository couldn't be opened"
+                            );
+                            None
+                        });
 
                     let num_events = events.len();
                     let classified_file_paths = events
@@ -121,26 +120,24 @@ pub fn spawn(
                         match kind {
                             FileKind::ProjectIgnored => ignored += 1,
                             FileKind::GitUninteresting => git_noop += 1,
-                            FileKind::Project | FileKind::Git => {
-                                match file_path.strip_prefix(&worktree_path) {
-                                    Ok(relative_file_path) => {
-                                        if relative_file_path.as_os_str().is_empty() {
-                                            continue;
-                                        }
-                                        if let Ok(stripped) =
-                                            relative_file_path.strip_prefix(".git")
-                                        {
-                                            stripped_git_paths.insert(stripped.to_owned());
-                                        } else {
-                                            worktree_relative_paths
-                                                .insert(relative_file_path.to_owned());
-                                        };
+                            FileKind::Project | FileKind::Git => match file_path
+                                .strip_prefix(&worktree_path)
+                            {
+                                Ok(relative_file_path) => {
+                                    if relative_file_path.as_os_str().is_empty() {
+                                        continue;
                                     }
-                                    Err(err) => {
-                                        tracing::error!(%project_id, ?err, "failed to strip prefix");
-                                    }
+                                    if let Ok(stripped) = relative_file_path.strip_prefix(".git") {
+                                        stripped_git_paths.insert(stripped.to_owned());
+                                    } else {
+                                        worktree_relative_paths
+                                            .insert(relative_file_path.to_owned());
+                                    };
                                 }
-                            }
+                                Err(err) => {
+                                    tracing::error!(%project_id, ?err, "failed to strip prefix");
+                                }
+                            },
                         }
                     }
 

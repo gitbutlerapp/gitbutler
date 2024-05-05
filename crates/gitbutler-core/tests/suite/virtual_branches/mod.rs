@@ -29,10 +29,10 @@ impl Drop for Test {
 impl Default for Test {
     fn default() -> Self {
         let data_dir = paths::data_dir();
-        let keys = keys::Controller::from_path(&data_dir);
-        let projects = projects::Controller::from_path(&data_dir);
-        let users = users::Controller::from_path(&data_dir);
-        let helper = git::credentials::Helper::from_path(&data_dir);
+        let keys = keys::Controller::from_path(data_dir.path());
+        let projects = projects::Controller::from_path(data_dir.path());
+        let users = users::Controller::from_path(data_dir.path());
+        let helper = git::credentials::Helper::from_path(data_dir.path());
 
         let test_project = TestProject::default();
         let project = projects
@@ -57,14 +57,18 @@ mod create_virtual_branch_from_branch;
 mod delete_virtual_branch;
 mod fetch_from_target;
 mod init;
+mod insert_blank_commit;
+mod move_commit_file;
 mod move_commit_to_vbranch;
 mod references;
+mod reorder_commit;
 mod reset_virtual_branch;
 mod selected_for_changes;
 mod set_base_branch;
 mod squash;
 mod unapply;
 mod unapply_ownership;
+mod undo_commit;
 mod update_base_branch;
 mod update_commit_message;
 mod upstream;

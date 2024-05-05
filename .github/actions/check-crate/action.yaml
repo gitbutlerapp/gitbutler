@@ -16,6 +16,10 @@ runs:
     - uses: ./.github/actions/init-env-rust
 
     - run: |
+        cargo build --locked -p gitbutler-git --bins
+      shell: bash
+
+    - run: |
         printf '%s\n' "$JSON_DOC" > /tmp/features.json
         cat /tmp/features.json | jq -r 'if . == "*" then "--all-features" elif . == "" then "" elif type == "array" then if length == 0 then "--no-default-features" else "--no-default-features --features " + join(",") end else . end' > /tmp/features
         cat /tmp/features

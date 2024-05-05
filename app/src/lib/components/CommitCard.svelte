@@ -47,6 +47,11 @@
 
 	function toggleFiles() {
 		showFiles = !showFiles;
+		if (!showFiles && branch) {
+			if (commit.description != description) {
+				branchController.updateCommitMessage(branch.id, commit.id, description);
+			}
+		}
 		if (showFiles) loadFiles();
 	}
 
@@ -56,20 +61,33 @@
 		}
 	}
 
-	function resetHeadCommit() {
+	function undoCommit(commit: Commit | RemoteCommit) {
 		if (!branch || !$baseBranch) {
-			console.error('Unable to reset head commit');
+			console.error('Unable to undo commit');
 			return;
 		}
-		if (branch.commits.length > 1) {
-			branchController.resetBranch(branch.id, branch.commits[1].id);
-		} else if (branch.commits.length === 1 && $baseBranch) {
-			branchController.resetBranch(branch.id, $baseBranch.baseSha);
-		}
+		branchController.undoCommit(branch.id, commit.id);
 	}
 
-	const isUndoable = isHeadCommit && !isUnapplied;
+	function insertBlankCommit(commit: Commit | RemoteCommit, offset: number) {
+		if (!branch || !$baseBranch) {
+			console.error('Unable to insert commit');
+			return;
+		}
+		branchController.insertBlankCommit(branch.id, commit.id, offset);
+	}
+
+	function reorderCommit(commit: Commit | RemoteCommit, offset: number) {
+		if (!branch || !$baseBranch) {
+			console.error('Unable to move commit');
+			return;
+		}
+		branchController.reorderCommit(branch.id, commit.id, offset);
+	}
+
+	const isUndoable = !isUnapplied;
 	const hasCommitUrl = !commit.isLocal && commitUrl;
+	let description = commit.description;
 </script>
 
 <div
@@ -81,33 +99,55 @@
 	class="commit"
 	class:is-commit-open={showFiles}
 >
+	{#if isUndoable && showFiles}
+		<div class="commit__edit_description">
+			<textarea
+				placeholder="commit message here"
+				bind:value={description}
+				rows={commit.description.split('\n').length + 1}
+			></textarea>
+		</div>
+	{/if}
 	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
 		<div class="commit__message">
-			<div class="commit__row">
-				<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
-					{commit.descriptionTitle}
-				</span>
-				{#if isUndoable && !showFiles}
-					<Tag
-						style="ghost"
-						kind="solid"
-						icon="undo-small"
-						clickable
-						on:click={(e) => {
-							currentCommitMessage.set(commit.description);
-							e.stopPropagation();
-							resetHeadCommit();
-						}}>Undo</Tag
-					>
-				{/if}
-			</div>
-			{#if showFiles && commit.descriptionBody}
-				<div class="commit__row" transition:slide={{ duration: 100 }}>
-					<span class="commit__body text-base-body-12">
-						{commit.descriptionBody}
-					</span>
+			{#if !showFiles}
+				<div class="commit__id">
+					<code>{commit.id.substring(0, 6)}</code>
 				</div>
 			{/if}
+			<div class="commit__row">
+				{#if isUndoable}
+					{#if !showFiles}
+						{#if commit.descriptionTitle}
+							<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
+								{commit.descriptionTitle}
+							</span>
+						{:else}
+							<span
+								class="commit__title_no_desc text-base-12 text-zinc-400"
+								class:truncate={!showFiles}
+							>
+								<i>empty commit message</i>
+							</span>
+						{/if}
+						<Tag
+							style="ghost"
+							kind="solid"
+							icon="undo-small"
+							clickable
+							on:click={(e) => {
+								currentCommitMessage.set(commit.description);
+								e.stopPropagation();
+								undoCommit(commit);
+							}}>Undo</Tag
+						>
+					{/if}
+				{:else}
+					<span class="commit__title text-base-12" class:truncate={!showFiles}>
+						{commit.descriptionTitle}
+					</span>
+				{/if}
+			</div>
 		</div>
 		<div class="commit__row">
 			<div class="commit__author">
@@ -130,7 +170,7 @@
 
 	{#if showFiles}
 		<div class="files-container" transition:slide={{ duration: 100 }}>
-			<BranchFilesList {files} {isUnapplied} readonly />
+			<BranchFilesList {files} {isUnapplied} />
 		</div>
 
 		{#if hasCommitUrl || isUndoable}
@@ -139,12 +179,48 @@
 					<Tag
 						style="ghost"
 						kind="solid"
+						clickable
+						on:click={(e) => {
+							e.stopPropagation();
+							reorderCommit(commit, -1);
+						}}>Move Up</Tag
+					>
+					<Tag
+						style="ghost"
+						kind="solid"
+						clickable
+						on:click={(e) => {
+							e.stopPropagation();
+							reorderCommit(commit, 1);
+						}}>Move Down</Tag
+					>
+					<Tag
+						style="ghost"
+						kind="solid"
+						clickable
+						on:click={(e) => {
+							e.stopPropagation();
+							insertBlankCommit(commit, -1);
+						}}>Add Before</Tag
+					>
+					<Tag
+						style="ghost"
+						kind="solid"
+						clickable
+						on:click={(e) => {
+							e.stopPropagation();
+							insertBlankCommit(commit, 1);
+						}}>Add After</Tag
+					>
+					<Tag
+						style="ghost"
+						kind="solid"
 						icon="undo-small"
 						clickable
 						on:click={(e) => {
 							currentCommitMessage.set(commit.description);
 							e.stopPropagation();
-							resetHeadCommit();
+							undoCommit(commit);
 						}}>Undo</Tag
 					>
 				{/if}
@@ -221,6 +297,11 @@
 		color: var(--clr-scale-ntrl-0);
 		width: 100%;
 	}
+	.commit__title_no_desc {
+		flex: 1;
+		display: block;
+		width: 100%;
+	}
 
 	.commit__body {
 		flex: 1;
@@ -235,6 +316,31 @@
 		display: flex;
 		align-items: center;
 		gap: var(--size-8);
+	}
+
+	.commit__edit_description {
+		width: 100%;
+	}
+	.commit__edit_description textarea {
+		width: 100%;
+		padding: 10px 14px;
+		margin: 0;
+		border-bottom: 1px solid #dddddd;
+	}
+
+	.commit__id {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-top: -14px;
+	}
+	.commit__id > code {
+		background-color: #eeeeee;
+		padding: 1px 12px;
+		color: #888888;
+		font-size: x-small;
+		border-radius: 0px 0px 6px 6px;
+		margin-bottom: -8px;
 	}
 
 	.commit__author {

@@ -46,12 +46,12 @@ impl Controller {
         }
     }
 
-    pub fn from_path<P: AsRef<std::path::Path>>(path: P) -> Self {
-        let pathbuf = path.as_ref().to_path_buf();
+    pub fn from_path(path: impl Into<PathBuf>) -> Self {
+        let path = path.into();
         Self {
-            local_data_dir: pathbuf.clone(),
-            projects_storage: storage::Storage::from_path(&pathbuf),
-            users: users::Controller::from_path(&pathbuf),
+            projects_storage: storage::Storage::from_path(&path),
+            users: users::Controller::from_path(&path),
+            local_data_dir: path,
             watchers: None,
         }
     }
@@ -261,10 +261,9 @@ impl Controller {
             tracing::error!(project_id = %project.id, ?error, "failed to remove .git/gitbutler.json data",);
         }
 
-        let virtual_branches_path = project.path.join(".git/virtual_branches.toml");
-        if virtual_branches_path.exists() {
-            if let Err(error) = std::fs::remove_file(virtual_branches_path) {
-                tracing::error!(project_id = %project.id, ?error, "failed to remove .git/virtual_branches.toml data",);
+        if project.gb_dir().exists() {
+            if let Err(error) = std::fs::remove_dir_all(project.gb_dir()) {
+                tracing::error!(project_id = %project.id, ?error, "failed to remove {:?} on project delete", project.gb_dir());
             }
         }
 

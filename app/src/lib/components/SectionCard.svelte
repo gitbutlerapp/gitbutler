@@ -93,11 +93,11 @@
 	}
 
 	.success {
-		background: var(--clr-theme-pop-container);
+		background: var(--clr-theme-pop-bg);
 	}
 
 	.error {
-		background: var(--clr-theme-warn-container);
+		background: var(--clr-theme-warn-bg);
 	}
 	.extra-padding {
 		padding: var(--size-20);

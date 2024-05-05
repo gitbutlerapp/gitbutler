@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '$lib/utils/string';
+import { isDefined, notNull } from '$lib/utils/typeguards';
 import { Type, Transform } from 'class-transformer';
 
 export type ChangeType =
@@ -21,8 +22,16 @@ export class Hunk {
 	filePath!: string;
 	hash?: string;
 	locked!: boolean;
-	lockedTo!: string | undefined;
+	@Type(() => HunkLock)
+	lockedTo!: HunkLock[];
 	changeType!: ChangeType;
+	new_start!: number;
+	new_lines!: number;
+}
+
+export class HunkLock {
+	branchId!: string;
+	commitId!: string;
 }
 
 export type AnyFile = LocalFile | RemoteFile;
@@ -58,14 +67,15 @@ export class LocalFile {
 
 	get locked(): boolean {
 		return this.hunks
-			? this.hunks.map((hunk) => hunk.lockedTo).reduce((a, b) => !!(a || b), false)
+			? this.hunks.map((hunk) => hunk.locked).reduce((a, b) => !!(a || b), false)
 			: false;
 	}
 
-	get lockedIds(): string[] {
+	get lockedIds(): HunkLock[] {
 		return this.hunks
-			.map((hunk) => hunk.lockedTo)
-			.filter((lockedTo): lockedTo is string => !!lockedTo);
+			.flatMap((hunk) => hunk.lockedTo)
+			.filter(notNull)
+			.filter(isDefined);
 	}
 }
 
@@ -210,6 +220,8 @@ export const UNKNOWN_COMMITS = Symbol('UnknownCommits');
 export class RemoteHunk {
 	diff!: string;
 	hash?: string;
+	new_start!: number;
+	new_lines!: number;
 
 	get id(): string {
 		return hashCode(this.diff);
@@ -250,7 +262,7 @@ export class RemoteFile {
 		return this.hunks.map((h) => h.id);
 	}
 
-	get lockedIds(): string[] {
+	get lockedIds(): HunkLock[] {
 		return [];
 	}
 

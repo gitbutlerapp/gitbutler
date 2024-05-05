@@ -102,39 +102,7 @@
 		&:disabled {
 			cursor: default;
 			pointer-events: none;
-			opacity: 0.7;
-
-			&.neutral.solid,
-			&.pop.solid,
-			&.success.solid,
-			&.error.solid,
-			&.warning.solid,
-			&.purple.solid {
-				--btn-clr: var(--clr-text-2);
-				--btn-bg: var(--clr-bg-3);
-
-				& .badge {
-					--btn-bg: var(--clr-scale-ntrl-100);
-				}
-			}
-
-			&.neutral.soft,
-			&.pop.soft,
-			&.success.soft,
-			&.error.soft,
-			&.warning.soft,
-			&.purple.soft {
-				--btn-clr: var(--clr-text-2);
-				--btn-bg: var(--clr-bg-3);
-			}
-
-			&.ghost {
-				--btn-clr: var(--clr-text-2);
-			}
-
-			&.ghost.solid {
-				border-color: var(--clr-bg-3);
-			}
+			opacity: 0.5;
 		}
 		&.wide {
 			display: flex;
@@ -238,7 +206,7 @@
 
 	.pop {
 		&.soft {
-			--btn-clr: var(--clr-theme-pop-on-container);
+			--btn-clr: var(--clr-theme-pop-on-soft);
 			--btn-bg: var(--clr-scale-pop-80);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
@@ -261,7 +229,7 @@
 
 	.success {
 		&.soft {
-			--btn-clr: var(--clr-theme-succ-on-container);
+			--btn-clr: var(--clr-theme-succ-on-soft);
 			--btn-bg: var(--clr-scale-succ-80);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
@@ -284,7 +252,7 @@
 
 	.error {
 		&.soft {
-			--btn-clr: var(--clr-theme-err-on-container);
+			--btn-clr: var(--clr-theme-err-on-soft);
 			--btn-bg: var(--clr-scale-err-80);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
@@ -307,7 +275,7 @@
 
 	.warning {
 		&.soft {
-			--btn-clr: var(--clr-theme-warn-on-container);
+			--btn-clr: var(--clr-theme-warn-on-soft);
 			--btn-bg: var(--clr-scale-warn-80);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
@@ -330,7 +298,7 @@
 
 	.purple {
 		&.soft {
-			--btn-clr: var(--clr-theme-purp-on-container);
+			--btn-clr: var(--clr-theme-purp-on-soft);
 			--btn-bg: var(--clr-scale-purp-80);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {

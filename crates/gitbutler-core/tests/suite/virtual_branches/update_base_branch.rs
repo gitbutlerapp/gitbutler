@@ -1576,7 +1576,7 @@ mod applied_branch {
             .unwrap();
 
             controller
-                .create_commit(project_id, &branch_id, "first", None, false)
+                .create_commit(project_id, &branch_id, "third", None, false)
                 .await
                 .unwrap();
 
@@ -1635,7 +1635,10 @@ mod applied_branch {
             assert!(branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].files[0].hunks.len(), 1);
-            assert_eq!(branches[0].files[0].hunks[0].diff, "@@ -4,7 +4,11 @@\n 4\n 5\n 6\n-7\n+<<<<<<< ours\n+77\n+=======\n+17\n+>>>>>>> theirs\n 8\n 19\n 10\n");
+            assert_eq!(
+                branches[0].files[0].hunks[0].diff,
+                "@@ -4,7 +4,11 @@\n 4\n 5\n 6\n-7\n+<<<<<<< ours\n+77\n+=======\n+17\n+>>>>>>> theirs\n 8\n 19\n 10\n"
+            );
             assert_eq!(branches[0].commits.len(), 0);
         }
     }
