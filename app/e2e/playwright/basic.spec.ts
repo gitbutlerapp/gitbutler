@@ -11,5 +11,5 @@ test('has text package.json', async ({ page }) => {
 
     const listBox = page.getByRole('listbox').getByRole('button')
 
-    await expect(listBox).toHaveText('xpackage.json');
+    await expect(listBox).toHaveText('package.json');
 })
