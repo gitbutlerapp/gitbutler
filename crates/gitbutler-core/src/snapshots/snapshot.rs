@@ -22,7 +22,12 @@ const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
 ///  - The current oplog head is persisted in `.git/gitbutler/oplog.toml`.
 ///  - A fake branch `gitbutler/target` is created and maintained in order to keep the oplog head reachable.
 ///
-/// The state of virtual branches `.git/gitbutler/virtual_branches.toml` is copied to the project root so that it is snapshotted.
+/// The snapshot tree contains:
+///  - The current state of the working directory under a subtree `workdir`.
+///  - The state of virtual branches from `.git/gitbutler/virtual_branches.toml` as a blob `virtual_branches.toml`.
+///  - The state of conflicts from `.git/base_merge_parent` and `.git/conflicts` if present as blobs under a subtree `conflicts`
+///
+/// If there are files that are untracked and larger than SNAPSHOT_FILE_LIMIT_BYTES, they are excluded from snapshot creation and restoring.
 pub fn create(project: &Project, details: SnapshotDetails) -> Result<()> {
     if project.enable_snapshots.is_none() || project.enable_snapshots == Some(false) {
         return Ok(());
@@ -162,7 +167,12 @@ pub fn list(project: &Project, limit: usize) -> Result<Vec<Snapshot>> {
 /// The provided sha must refer to a valid snapshot commit.
 /// Upon success, a new snapshot is created.
 ///
-/// The state of virtual branches `.git/gitbutler/virtual_branches.toml` is restored from the snapshot.
+/// This will restore the following:
+///  - The state of the working directory is checked out from the subtree `workdir` in the snapshot.
+///  - The state of virtual branches is restored from the blob `virtual_branches.toml` in the snapshot.
+///  - The state of conflicts (.git/base_merge_parent and .git/conflicts) is restored from the subtree `conflicts` in the snapshot (if not present, existing files are deleted).
+///
+/// If there are files that are untracked and larger than SNAPSHOT_FILE_LIMIT_BYTES, they are excluded from snapshot creation and restoring.
 pub fn restore(project: &Project, sha: String) -> Result<()> {
     let repo_path = project.path.as_path();
     let repo = git2::Repository::init(repo_path)?;
