@@ -144,7 +144,7 @@
 </script>
 
 {#if $isLaneCollapsed}
-	<div class="collapsed-lane-wrapper">
+	<div class="collapsed-lane-container">
 		<BranchHeader
 			{isUnapplied}
 			uncommittedChanges={branch.files.length}
@@ -184,7 +184,7 @@
 							}
 						}}
 					/>
-					<PullRequestCard isLaneCollapsed={$isLaneCollapsed} />
+					<PullRequestCard />
 					<!-- DROPZONES -->
 					<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
 					<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
@@ -419,7 +419,7 @@
 	}
 
 	/* COLLAPSED LANE */
-	.collapsed-lane-wrapper {
+	.collapsed-lane-container {
 		display: flex;
 		flex-direction: column;
 		padding: var(--size-12);

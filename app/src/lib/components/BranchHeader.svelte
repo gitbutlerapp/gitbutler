@@ -47,6 +47,8 @@
 	}
 
 	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
+
+	let headerInfoHeight = 0;
 </script>
 
 {#if $isLaneCollapsed}
@@ -69,31 +71,32 @@
 			/>
 		</div>
 
-		<div class="collapsed-lane__info">
-			<div class="collapsed-lane__label-wrap">
-				{#if uncommittedChanges > 0}
-					<Tag style="warning" kind="soft" verticalOrientation help="Uncommitted changes">
-						{uncommittedChanges}
-						{uncommittedChanges == 1 ? 'change' : 'changes'}
-					</Tag>
-				{/if}
+		<div class="collapsed-lane__info-wrap" bind:clientHeight={headerInfoHeight}>
+			<div class="collapsed-lane__info" style="width: {headerInfoHeight}px">
+				<div class="collapsed-lane__label-wrap">
+					<h3 class="collapsed-lane__label text-base-13 text-bold">
+						{branch.name}
+					</h3>
+					{#if uncommittedChanges > 0}
+						<Tag style="warning" kind="soft" help="Uncommitted changes">
+							{uncommittedChanges}
+							{uncommittedChanges == 1 ? 'change' : 'changes'}
+						</Tag>
+					{/if}
+				</div>
 
-				<h3 class="collapsed-lane__label text-base-13 text-bold">
-					{branch.name}
-				</h3>
-			</div>
-
-			<div class="collapsed-lane__info__details">
-				<ActiveBranchStatus
-					branchName={branch.upstreamName ?? branchName}
-					{isUnapplied}
-					{hasIntegratedCommits}
-					remoteExists={!!branch.upstream}
-					isLaneCollapsed={$isLaneCollapsed}
-				/>
-				{#if branch.selectedForChanges}
-					<Tag style="pop" kind="solid" icon="target" verticalOrientation>Default branch</Tag>
-				{/if}
+				<div class="collapsed-lane__info__details">
+					<ActiveBranchStatus
+						branchName={branch.upstreamName ?? branchName}
+						{isUnapplied}
+						{hasIntegratedCommits}
+						remoteExists={!!branch.upstream}
+						isLaneCollapsed={$isLaneCollapsed}
+					/>
+					{#if branch.selectedForChanges}
+						<Tag style="pop" kind="solid" icon="target">Default branch</Tag>
+					{/if}
+				</div>
 			</div>
 		</div>
 	</div>
@@ -332,6 +335,8 @@
 		user-select: none;
 		align-items: center;
 		height: 100%;
+		width: var(--size-48);
+		overflow: hidden;
 		gap: var(--size-8);
 		padding: var(--size-8) var(--size-8) var(--size-20);
 
@@ -360,17 +365,22 @@
 		}
 	}
 
-	.collapsed-lane__info {
-		flex: 1;
-		display: flex;
-		flex-direction: row-reverse;
-		align-items: center;
-		justify-content: space-between;
-		height: 100%;
+	/*  */
 
-		writing-mode: vertical-rl;
-		gap: var(--size-8);
+	.collapsed-lane__info-wrap {
+		display: flex;
+		height: 100%;
 	}
+
+	.collapsed-lane__info {
+		display: flex;
+		justify-content: space-between;
+		gap: var(--size-8);
+		transform: rotate(-90deg);
+		direction: ltr;
+	}
+
+	/*  */
 
 	.collapsed-lane__info__details {
 		display: flex;
@@ -388,7 +398,6 @@
 
 	.collapsed-lane__label {
 		color: var(--clr-scale-ntrl-0);
-		transform: rotate(180deg);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
