@@ -63,6 +63,7 @@ fn new_test_target() -> virtual_branches::target::Target {
         )
         .parse()
         .unwrap(),
+        push_remote_name: None,
     }
 }
 
