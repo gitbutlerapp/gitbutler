@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::error::{AnyhowContextExt, Code, Context, ErrorWithContext};
+use crate::error::{AnyhowContextExt, Context, ErrorWithContext};
 use crate::{error, keys, project_repository, projects, users};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -90,10 +90,10 @@ pub enum HelpError {
 impl ErrorWithContext for HelpError {
     fn context(&self) -> Option<Context> {
         Some(match self {
-            HelpError::NoUrlSet => {
-                error::Context::new_static(Code::ProjectGitRemote, "no url set for remote")
+            HelpError::NoUrlSet => error::Context::new_static("no url set for remote"),
+            HelpError::UrlConvertError(err) => {
+                error::Context::new(format!("failed to convert url: {err}"))
             }
-            HelpError::UrlConvertError(_) => Code::ProjectGitRemote.into(),
             HelpError::Git(_) => return None,
             HelpError::Other(error) => return error.custom_context_or_root_cause().into(),
         })

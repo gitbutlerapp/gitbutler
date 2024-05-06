@@ -1,5 +1,5 @@
 use super::{branch::BranchOwnershipClaims, BranchId, GITBUTLER_INTEGRATION_REFERENCE};
-use crate::error::{AnyhowContextExt, Code, Context, ErrorWithContext};
+use crate::error::{AnyhowContextExt, Context, ErrorWithContext};
 use crate::{
     error, git,
     project_repository::{self, RemoteError},
@@ -38,21 +38,16 @@ impl ErrorWithContext for VirtualBranchError {
             VirtualBranchError::BranchNotFound(ctx) => ctx.to_context(),
             VirtualBranchError::DefaultTargetNotSet(ctx) => ctx.to_context(),
             VirtualBranchError::TargetOwnerhshipNotFound(_) => {
-                error::Context::new_static(Code::Branches, "target ownership not found")
+                error::Context::new_static("target ownership not found")
             }
             VirtualBranchError::GitObjectNotFound(oid) => {
-                error::Context::new(Code::Branches, format!("git object {oid} not found"))
+                error::Context::new(format!("git object {oid} not found"))
             }
-            VirtualBranchError::CommitFailed => {
-                error::Context::new_static(Code::Branches, "commit failed")
+            VirtualBranchError::CommitFailed => error::Context::new_static("commit failed"),
+            VirtualBranchError::RebaseFailed => error::Context::new_static("rebase failed"),
+            VirtualBranchError::BranchHasNoCommits => {
+                error::Context::new_static("Branch has no commits - there is nothing to amend to")
             }
-            VirtualBranchError::RebaseFailed => {
-                error::Context::new_static(Code::Branches, "rebase failed")
-            }
-            VirtualBranchError::BranchHasNoCommits => error::Context::new_static(
-                Code::Branches,
-                "Branch has no commits - there is nothing to amend to",
-            ),
             VirtualBranchError::ForcePushNotAllowed(ctx) => ctx.to_context(),
             VirtualBranchError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
@@ -74,25 +69,18 @@ pub enum VerifyError {
 impl ErrorWithContext for VerifyError {
     fn context(&self) -> Option<Context> {
         Some(match self {
-            VerifyError::DetachedHead => error::Context::new(
-                Code::ProjectHead,
-                format!(
-                    "Project in detached head state. Please checkout {0} to continue.",
-                    GITBUTLER_INTEGRATION_REFERENCE.branch()
-                ),
-            ),
-            VerifyError::InvalidHead(head) => error::Context::new(
-                Code::ProjectHead,
-                format!(
-                    "Project is on {}. Please checkout {} to continue.",
-                    head,
-                    GITBUTLER_INTEGRATION_REFERENCE.branch()
-                ),
-            ),
-            VerifyError::NoIntegrationCommit => error::Context::new_static(
-                Code::ProjectHead,
-                "GibButler's integration commit not found on head.",
-            ),
+            VerifyError::DetachedHead => error::Context::new(format!(
+                "Project in detached head state. Please checkout {0} to continue.",
+                GITBUTLER_INTEGRATION_REFERENCE.branch()
+            )),
+            VerifyError::InvalidHead(head) => error::Context::new(format!(
+                "Project is on {}. Please checkout {} to continue.",
+                head,
+                GITBUTLER_INTEGRATION_REFERENCE.branch()
+            )),
+            VerifyError::NoIntegrationCommit => {
+                error::Context::new_static("GibButler's integration commit not found on head.")
+            }
             VerifyError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
@@ -118,7 +106,7 @@ impl ErrorWithContext for ResetBranchError {
             ResetBranchError::BranchNotFound(ctx) => ctx.to_context(),
             ResetBranchError::DefaultTargetNotSet(ctx) => ctx.to_context(),
             ResetBranchError::CommitNotFoundInBranch(oid) => {
-                error::Context::new(Code::Branches, format!("commit {} not found", oid))
+                error::Context::new(format!("commit {} not found", oid))
             }
             ResetBranchError::Other(error) => return error.custom_context_or_root_cause().into(),
             ResetBranchError::Git(_err) => return None,
@@ -146,10 +134,9 @@ impl ErrorWithContext for ApplyBranchError {
             ApplyBranchError::DefaultTargetNotSet(ctx) => ctx.to_context(),
             ApplyBranchError::Conflict(ctx) => ctx.to_context(),
             ApplyBranchError::BranchNotFound(ctx) => ctx.to_context(),
-            ApplyBranchError::BranchConflicts(id) => error::Context::new(
-                Code::Branches,
-                format!("Branch {} is in a conflicting state", id),
-            ),
+            ApplyBranchError::BranchConflicts(id) => {
+                error::Context::new(format!("Branch {} is in a conflicting state", id))
+            }
             ApplyBranchError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
@@ -275,12 +262,8 @@ impl ErrorWithContext for CommitError {
             CommitError::BranchNotFound(ctx) => ctx.to_context(),
             CommitError::DefaultTargetNotSet(ctx) => ctx.to_context(),
             CommitError::Conflicted(ctx) => ctx.to_context(),
-            CommitError::CommitHookRejected(error) => {
-                error::Context::new(Code::PreCommitHook, error)
-            }
-            CommitError::CommitMsgHookRejected(error) => {
-                error::Context::new(Code::CommitMsgHook, error)
-            }
+            CommitError::CommitHookRejected(error) => error::Context::new(error),
+            CommitError::CommitMsgHookRejected(error) => error::Context::new(error),
             CommitError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
@@ -323,7 +306,7 @@ impl ErrorWithContext for IsRemoteBranchMergableError {
     fn context(&self) -> Option<Context> {
         Some(match self {
             IsRemoteBranchMergableError::BranchNotFound(name) => {
-                error::Context::new(Code::Branches, format!("Remote branch {} not found", name))
+                error::Context::new(format!("Remote branch {} not found", name))
             }
             IsRemoteBranchMergableError::DefaultTargetNotSet(ctx) => ctx.to_context(),
             IsRemoteBranchMergableError::Other(error) => {
@@ -363,7 +346,6 @@ pub struct ForcePushNotAllowed {
 impl ForcePushNotAllowed {
     fn to_context(&self) -> error::Context {
         error::Context::new_static(
-            Code::Branches,
             "Action will lead to force pushing, which is not allowed for this",
         )
     }
@@ -385,11 +367,11 @@ impl ErrorWithContext for CherryPickError {
     fn context(&self) -> Option<Context> {
         Some(match self {
             CherryPickError::NotApplied => {
-                error::Context::new_static(Code::Branches, "can not cherry pick non applied branch")
+                error::Context::new_static("can not cherry pick non applied branch")
             }
             CherryPickError::Conflict(ctx) => ctx.to_context(),
             CherryPickError::CommitNotFound(oid) => {
-                error::Context::new(Code::Branches, format!("commit {oid} not found"))
+                error::Context::new(format!("commit {oid} not found"))
             }
             CherryPickError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
@@ -422,12 +404,11 @@ impl ErrorWithContext for SquashError {
             SquashError::BranchNotFound(ctx) => ctx.to_context(),
             SquashError::Conflict(ctx) => ctx.to_context(),
             SquashError::CantSquashRootCommit => {
-                error::Context::new_static(Code::Branches, "can not squash root branch commit")
+                error::Context::new_static("can not squash root branch commit")
             }
-            SquashError::CommitNotFound(oid) => error::Context::new(
-                crate::error::Code::Branches,
-                format!("commit {oid} not found"),
-            ),
+            SquashError::CommitNotFound(oid) => {
+                error::Context::new(format!("commit {oid} not found"))
+            }
             SquashError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
@@ -476,11 +457,11 @@ impl ErrorWithContext for UpdateCommitMessageError {
         Some(match self {
             UpdateCommitMessageError::ForcePushNotAllowed(ctx) => ctx.to_context(),
             UpdateCommitMessageError::EmptyMessage => {
-                error::Context::new_static(Code::Branches, "Commit message can not be empty")
+                error::Context::new_static("Commit message can not be empty")
             }
             UpdateCommitMessageError::DefaultTargetNotSet(ctx) => ctx.to_context(),
             UpdateCommitMessageError::CommitNotFound(oid) => {
-                error::Context::new(Code::Branches, format!("Commit {} not found", oid))
+                error::Context::new(format!("Commit {} not found", oid))
             }
             UpdateCommitMessageError::BranchNotFound(ctx) => ctx.to_context(),
             UpdateCommitMessageError::Conflict(ctx) => ctx.to_context(),
@@ -505,12 +486,11 @@ impl ErrorWithContext for SetBaseBranchError {
     fn context(&self) -> Option<Context> {
         Some(match self {
             SetBaseBranchError::DirtyWorkingDirectory => {
-                error::Context::new(Code::ProjectConflict, "Current HEAD is dirty.")
+                error::Context::new("Current HEAD is dirty.")
             }
-            SetBaseBranchError::BranchNotFound(name) => error::Context::new(
-                Code::Branches,
-                format!("remote branch '{}' not found", name),
-            ),
+            SetBaseBranchError::BranchNotFound(name) => {
+                error::Context::new(format!("remote branch '{}' not found", name))
+            }
             SetBaseBranchError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
@@ -558,14 +538,13 @@ impl ErrorWithContext for MoveCommitError {
     fn context(&self) -> Option<Context> {
         Some(match self {
             MoveCommitError::SourceLocked => error::Context::new_static(
-                Code::Branches,
                 "Source branch contains hunks locked to the target commit",
             ),
             MoveCommitError::Conflicted(ctx) => ctx.to_context(),
             MoveCommitError::DefaultTargetNotSet(ctx) => ctx.to_context(),
             MoveCommitError::BranchNotFound(ctx) => ctx.to_context(),
             MoveCommitError::CommitNotFound(oid) => {
-                error::Context::new(Code::Branches, format!("Commit {} not found", oid))
+                error::Context::new(format!("Commit {} not found", oid))
             }
             MoveCommitError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
@@ -591,14 +570,11 @@ impl ErrorWithContext for CreateVirtualBranchFromBranchError {
         Some(match self {
             CreateVirtualBranchFromBranchError::ApplyBranch(err) => return err.context(),
             CreateVirtualBranchFromBranchError::CantMakeBranchFromDefaultTarget => {
-                error::Context::new_static(
-                    Code::Branches,
-                    "Can not create a branch from default target",
-                )
+                error::Context::new_static("Can not create a branch from default target")
             }
             CreateVirtualBranchFromBranchError::DefaultTargetNotSet(ctx) => ctx.to_context(),
             CreateVirtualBranchFromBranchError::BranchNotFound(name) => {
-                error::Context::new(Code::Branches, format!("Branch {} not found", name))
+                error::Context::new(format!("Branch {} not found", name))
             }
             CreateVirtualBranchFromBranchError::Other(error) => {
                 return error.custom_context_or_root_cause().into()
@@ -614,10 +590,10 @@ pub struct ProjectConflict {
 
 impl ProjectConflict {
     fn to_context(&self) -> error::Context {
-        error::Context::new(
-            Code::ProjectConflict,
-            format!("project {} is in a conflicted state", self.project_id),
-        )
+        error::Context::new(format!(
+            "project {} is in a conflicted state",
+            self.project_id
+        ))
     }
 }
 
@@ -628,13 +604,10 @@ pub struct DefaultTargetNotSet {
 
 impl DefaultTargetNotSet {
     fn to_context(&self) -> error::Context {
-        error::Context::new(
-            Code::ProjectConflict,
-            format!(
-                "project {} does not have a default target set",
-                self.project_id
-            ),
-        )
+        error::Context::new(format!(
+            "project {} does not have a default target set",
+            self.project_id
+        ))
     }
 }
 
@@ -646,10 +619,7 @@ pub struct BranchNotFound {
 
 impl BranchNotFound {
     fn to_context(&self) -> error::Context {
-        error::Context::new(
-            Code::Branches,
-            format!("branch {} not found", self.branch_id),
-        )
+        error::Context::new(format!("branch {} not found", self.branch_id))
     }
 }
 
@@ -685,7 +655,7 @@ impl ErrorWithContext for ListRemoteCommitFilesError {
     fn context(&self) -> Option<Context> {
         match self {
             ListRemoteCommitFilesError::CommitNotFound(oid) => {
-                error::Context::new(Code::Branches, format!("Commit {} not found", oid)).into()
+                error::Context::new(format!("Commit {} not found", oid)).into()
             }
             ListRemoteCommitFilesError::Other(error) => error.custom_context_or_root_cause().into(),
         }

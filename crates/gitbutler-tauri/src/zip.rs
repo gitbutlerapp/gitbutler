@@ -4,7 +4,6 @@ pub mod commands {
     use std::path;
 
     use gitbutler_core::error;
-    use gitbutler_core::error::Code;
     use gitbutler_core::zip::controller;
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
@@ -17,10 +16,9 @@ pub mod commands {
         handle: AppHandle,
         project_id: &str,
     ) -> Result<path::PathBuf, Error> {
-        let project_id = project_id.parse().context(error::Context::new_static(
-            Code::Validation,
-            "Malformed project id",
-        ))?;
+        let project_id = project_id
+            .parse()
+            .context(error::Context::new_static("Malformed project id"))?;
         handle
             .state::<controller::Controller>()
             .archive(&project_id)
@@ -33,10 +31,9 @@ pub mod commands {
         handle: AppHandle,
         project_id: &str,
     ) -> Result<path::PathBuf, Error> {
-        let project_id = project_id.parse().context(error::Context::new_static(
-            Code::Validation,
-            "Malformed project id",
-        ))?;
+        let project_id = project_id
+            .parse()
+            .context(error::Context::new_static("Malformed project id"))?;
         handle
             .state::<controller::Controller>()
             .data_archive(&project_id)

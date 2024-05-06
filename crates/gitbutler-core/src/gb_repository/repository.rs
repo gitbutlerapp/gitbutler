@@ -12,7 +12,6 @@ use filetime::FileTime;
 use fslock::LockFile;
 use sha2::{Digest, Sha256};
 
-use crate::error::Code;
 #[cfg(target_os = "windows")]
 use crate::windows::MetadataShim;
 use crate::{
@@ -656,10 +655,10 @@ fn build_wd_tree_from_repo(
             gb_repository,
         )
         .with_context(|| {
-            crate::error::Context::new(
-                Code::Projects,
-                format!("failed to add '{}' to temporary index", file_path.display()),
-            )
+            crate::error::Context::new(format!(
+                "failed to add '{}' to temporary index",
+                file_path.display()
+            ))
         })?;
     }
 

@@ -4,7 +4,6 @@ pub mod commands {
 
     use gitbutler_core::deltas::{Controller, Delta};
     use gitbutler_core::error;
-    use gitbutler_core::error::Code;
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
@@ -18,14 +17,12 @@ pub mod commands {
         session_id: &str,
         paths: Option<Vec<&str>>,
     ) -> Result<HashMap<String, Vec<Delta>>, Error> {
-        let session_id = session_id.parse().context(error::Context::new_static(
-            Code::Validation,
-            "Malformed session id",
-        ))?;
-        let project_id = project_id.parse().context(error::Context::new_static(
-            Code::Validation,
-            "Malformed project id",
-        ))?;
+        let session_id = session_id
+            .parse()
+            .context(error::Context::new_static("Malformed session id"))?;
+        let project_id = project_id
+            .parse()
+            .context(error::Context::new_static("Malformed project id"))?;
         handle
             .state::<Controller>()
             .list_by_session_id(&project_id, &session_id, &paths)

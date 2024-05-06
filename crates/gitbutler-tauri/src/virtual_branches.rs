@@ -3,9 +3,7 @@ pub mod commands {
     use anyhow::Context;
     use gitbutler_core::{
         askpass::AskpassBroker,
-        assets,
-        error::Code,
-        git, projects,
+        assets, git, projects,
         projects::ProjectId,
         virtual_branches::{
             branch::{self, BranchId, BranchOwnershipClaims},
@@ -275,8 +273,7 @@ pub mod commands {
                 with_force,
                 Some((askpass_broker.inner().clone(), Some(branch_id))),
             )
-            .await
-            .map_err(|err| err.context(Code::Unknown))?;
+            .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(())
     }

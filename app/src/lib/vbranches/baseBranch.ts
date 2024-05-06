@@ -1,5 +1,5 @@
 import { BaseBranch } from './types';
-import { Code, invoke } from '$lib/backend/ipc';
+import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { observableToStore } from '$lib/rxjs/store';
 import { plainToInstance } from 'class-transformer';
@@ -76,10 +76,8 @@ export class BaseBranchService {
 			if (err.message?.includes('does not have a default target')) {
 				// Swallow this error since user should be taken to project setup page
 				return;
-			} else if (err.code === Code.ProjectsGitAuth) {
-				showError('Failed to authenticate', err);
 			} else {
-				showError('Failed to fetch', err);
+				showError('Failed to fetch or authenticate', err);
 			}
 			console.error(err);
 		} finally {

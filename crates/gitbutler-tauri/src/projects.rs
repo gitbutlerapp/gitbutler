@@ -2,7 +2,6 @@ pub mod commands {
     use anyhow::Context;
     use std::path;
 
-    use gitbutler_core::error::Code;
     use gitbutler_core::projects::{self, controller::Controller, ProjectId};
     use tauri::Manager;
     use tracing::instrument;
@@ -86,7 +85,7 @@ pub mod commands {
         Ok(handle
             .state::<Controller>()
             .get_local_config(&id, key)
-            .context(Code::Projects)?)
+            .context(format!("failed to get local config value: {id}"))?)
     }
 
     #[tauri::command(async)]
@@ -100,6 +99,6 @@ pub mod commands {
         Ok(handle
             .state::<Controller>()
             .set_local_config(&id, key, value)
-            .context(Code::Projects)?)
+            .context(format!("failed to set local config value: {id}"))?)
     }
 }

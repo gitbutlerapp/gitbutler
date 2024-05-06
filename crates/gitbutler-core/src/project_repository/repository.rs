@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Context, Result};
 
 use super::conflicts;
-use crate::error::{AnyhowContextExt, Code, ErrorWithContext};
+use crate::error::{AnyhowContextExt, ErrorWithContext};
 use crate::{
     askpass,
     askpass::AskpassBroker,
@@ -36,7 +36,7 @@ impl ErrorWithContext for OpenError {
     fn context(&self) -> Option<crate::error::Context> {
         match self {
             OpenError::NotFound(path) => {
-                error::Context::new(Code::Projects, format!("{} not found", path.display())).into()
+                error::Context::new(format!("{} not found", path.display())).into()
             }
             OpenError::Other(error) => error.custom_context_or_root_cause().into(),
         }
@@ -528,9 +528,7 @@ impl Repository {
                     }
                     Err(err) => {
                         if let Some(err) = update_refs_error.as_ref() {
-                            return Err(RemoteError::Other(
-                                anyhow::anyhow!(err.to_string()).context(Code::ProjectGitPush),
-                            ));
+                            return Err(RemoteError::Other(anyhow::anyhow!(err.to_string())));
                         }
                         return Err(RemoteError::Other(err.into()));
                     }
@@ -630,16 +628,9 @@ impl ErrorWithContext for RemoteError {
     fn context(&self) -> Option<error::Context> {
         Some(match self {
             RemoteError::Help(error) => return error.context(),
-            RemoteError::Network => {
-                error::Context::new_static(Code::ProjectGitRemote, "Network error occurred")
-            }
-            RemoteError::Auth => error::Context::new_static(
-                Code::ProjectGitAuth,
-                "Project remote authentication error",
-            ),
-            RemoteError::Git(_) => {
-                error::Context::new_static(Code::ProjectGitRemote, "Git command failed")
-            }
+            RemoteError::Network => error::Context::new_static("Network error occurred"),
+            RemoteError::Auth => error::Context::new_static("Project remote authentication error"),
+            RemoteError::Git(_) => error::Context::new_static("Git command failed"),
             RemoteError::Other(error) => {
                 return error.custom_context_or_root_cause().into();
             }

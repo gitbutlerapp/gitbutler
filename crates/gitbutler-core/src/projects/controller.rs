@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
 use crate::{error, gb_repository, project_repository, users};
 use crate::{
-    error::{AnyhowContextExt, Code, Error, ErrorWithContext},
+    error::{AnyhowContextExt, Error, ErrorWithContext},
     projects::AuthKey,
 };
 
@@ -327,9 +327,7 @@ pub enum GetError {
 impl error::ErrorWithContext for GetError {
     fn context(&self) -> Option<error::Context> {
         match self {
-            GetError::NotFound => {
-                error::Context::new_static(Code::Projects, "Project not found").into()
-            }
+            GetError::NotFound => error::Context::new_static("Project not found").into(),
             GetError::Other(error) => error.custom_context_or_root_cause().into(),
         }
     }
@@ -349,17 +347,12 @@ impl ErrorWithContext for UpdateError {
     fn context(&self) -> Option<error::Context> {
         Some(match self {
             UpdateError::Validation(UpdateValidationError::KeyNotFound(path)) => {
-                error::Context::new(Code::Projects, format!("'{}' not found", path.display()))
+                error::Context::new(format!("'{}' not found", path.display()))
             }
             UpdateError::Validation(UpdateValidationError::KeyNotFile(path)) => {
-                error::Context::new(
-                    Code::Projects,
-                    format!("'{}' is not a file", path.display()),
-                )
+                error::Context::new(format!("'{}' is not a file", path.display()))
             }
-            UpdateError::NotFound => {
-                error::Context::new_static(Code::Projects, "Project not found")
-            }
+            UpdateError::NotFound => error::Context::new_static("Project not found"),
             UpdateError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
@@ -398,25 +391,20 @@ pub enum AddError {
 impl ErrorWithContext for AddError {
     fn context(&self) -> Option<error::Context> {
         Some(match self {
-            AddError::NotAGitRepository(_) => {
-                error::Context::new_static(Code::Projects, "Must be a git directory")
-            }
+            AddError::NotAGitRepository(_) => error::Context::new_static("Must be a git directory"),
             AddError::BareUnsupported => {
-                error::Context::new_static(Code::Projects, "Bare repositories are unsupported")
+                error::Context::new_static("Bare repositories are unsupported")
             }
-            AddError::AlreadyExists => {
-                error::Context::new_static(Code::Projects, "Project already exists")
-            }
+            AddError::AlreadyExists => error::Context::new_static("Project already exists"),
             AddError::OpenProjectRepository(error) => return error.context(),
-            AddError::NotADirectory => error::Context::new(Code::Projects, "Not a directory"),
+            AddError::NotADirectory => error::Context::new("Not a directory"),
             AddError::WorktreeNotSupported => {
-                error::Context::new(Code::Projects, "Can only work in main worktrees")
+                error::Context::new("Can only work in main worktrees")
             }
-            AddError::PathNotFound => error::Context::new(Code::Projects, "Path not found"),
-            AddError::SubmodulesNotSupported => error::Context::new_static(
-                Code::Projects,
-                "Repositories with git submodules are not supported",
-            ),
+            AddError::PathNotFound => error::Context::new("Path not found"),
+            AddError::SubmodulesNotSupported => {
+                error::Context::new_static("Repositories with git submodules are not supported")
+            }
             AddError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
