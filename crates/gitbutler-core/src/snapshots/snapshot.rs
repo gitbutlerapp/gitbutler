@@ -173,6 +173,35 @@ impl Oplog for Project {
                 break;
             }
 
+            let tree = commit.tree()?;
+            let wd_tree_entry = tree.get_name("workdir");
+            let tree = if let Some(wd_tree_entry) = wd_tree_entry {
+                repo.find_tree(wd_tree_entry.id())?
+            } else {
+                // We reached a tree that is not a snapshot
+                continue;
+            };
+
+            let parent_tree = commit.parent(0)?.tree()?;
+            let parent_tree_entry = parent_tree.get_name("workdir");
+            let parent_tree = parent_tree_entry
+                .map(|entry| repo.find_tree(entry.id()))
+                .transpose()?;
+
+            let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
+            let stats = diff.stats()?;
+
+            let mut files_changed = Vec::new();
+            diff.print(git2::DiffFormat::NameOnly, |delta, _, _| {
+                if let Some(path) = delta.new_file().path() {
+                    files_changed.push(path.to_path_buf());
+                }
+                true
+            })?;
+
+            let lines_added = stats.insertions();
+            let lines_removed = stats.deletions();
+
             let details = commit
                 .message()
                 .and_then(|msg| SnapshotDetails::from_str(msg).ok());
@@ -180,6 +209,9 @@ impl Oplog for Project {
             snapshots.push(Snapshot {
                 id: commit_id.to_string(),
                 details,
+                lines_added,
+                lines_removed,
+                files_changed,
                 created_at: commit.time().seconds() * 1000,
             });
 
@@ -492,9 +524,33 @@ mod tests {
             .create_snapshot(SnapshotDetails::new(OperationType::UpdateWorkspaceBase))
             .unwrap();
 
+        let initial_snapshot = &project.list_snapshots(10).unwrap()[1];
+        assert_eq!(
+            initial_snapshot.files_changed,
+            vec![
+                PathBuf::from_str("1.txt").unwrap(),
+                PathBuf::from_str("2.txt").unwrap(),
+                PathBuf::from_str("uncommitted.txt").unwrap()
+            ]
+        );
+        assert_eq!(initial_snapshot.lines_added, 3);
+        assert_eq!(initial_snapshot.lines_removed, 0);
+        let second_snapshot = &project.list_snapshots(10).unwrap()[0];
+        assert_eq!(
+            second_snapshot.files_changed,
+            vec![
+                PathBuf::from_str("1.txt").unwrap(),
+                PathBuf::from_str("2.txt").unwrap(),
+                PathBuf::from_str("3.txt").unwrap(),
+                PathBuf::from_str("uncommitted.txt").unwrap()
+            ]
+        );
+        assert_eq!(second_snapshot.lines_added, 3);
+        assert_eq!(second_snapshot.lines_removed, 3);
+
         // restore from the initial snapshot
         project
-            .restore_snapshot(project.list_snapshots(10).unwrap()[1].id.clone())
+            .restore_snapshot(initial_snapshot.id.clone())
             .unwrap();
 
         let file_path = dir.path().join("1.txt");
