@@ -11,7 +11,6 @@
 	export let loading = false;
 	// Layout props
 	export let shrinkable = false;
-	export let verticalOrientation = false;
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let reversedDirection = false;
 	// Style props
@@ -24,7 +23,6 @@
 	class:disabled
 	class:shrinkable
 	class:reversedDirection
-	class:verticalOrientation
 	class:not-button={!clickable}
 	role={clickable ? 'button' : undefined}
 	use:tooltip={help}
@@ -32,13 +30,13 @@
 	on:mousedown
 	on:contextmenu
 >
-	<span class="label" class:verticalLabel={verticalOrientation}>
+	<span class="label">
 		<slot />
 	</span>
 	{#if loading}
 		<Icon name="spinner" />
 	{:else if icon}
-		<div class="icon" class:verticalIcon={verticalOrientation}>
+		<div class="icon">
 			<Icon name={icon} spinnerRadius={3.5} />
 		</div>
 	{/if}
@@ -236,21 +234,5 @@
 			overflow: hidden;
 			text-overflow: ellipsis;
 		}
-	}
-
-	.verticalOrientation {
-		writing-mode: vertical-rl;
-		height: max-content;
-		width: var(--size-tag);
-		padding: var(--size-4) var(--size-2);
-		transform: rotate(180deg);
-	}
-
-	.verticalIcon {
-		transform: rotate(90deg);
-	}
-
-	.verticalLabel {
-		padding: var(--size-2) 0;
 	}
 </style>

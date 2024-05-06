@@ -20,8 +20,6 @@
 	import type iconsJson from '../icons/icons.json';
 	import type { Readable } from 'svelte/store';
 
-	export let isLaneCollapsed: boolean;
-
 	type StatusInfo = {
 		text: string;
 		icon: keyof typeof iconsJson | undefined;
@@ -266,7 +264,6 @@
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.style}
 				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status' ? 'solid' : 'soft'}
-				verticalOrientation={isLaneCollapsed}
 			>
 				{prStatusInfo.text}
 			</Tag>
@@ -275,7 +272,6 @@
 					icon={checksTagInfo.icon}
 					style={checksTagInfo.style}
 					kind={checksTagInfo.icon == 'success-small' ? 'solid' : 'soft'}
-					verticalOrientation={isLaneCollapsed}
 				>
 					{checksTagInfo.text}
 				</Tag>
@@ -286,7 +282,6 @@
 				kind="solid"
 				clickable
 				shrinkable
-				verticalOrientation={isLaneCollapsed}
 				on:click={(e) => {
 					const url = pr?.htmlUrl;
 					if (url) openExternalUrl(url);
