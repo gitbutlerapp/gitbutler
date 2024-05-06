@@ -25,7 +25,6 @@ use super::{
     branch_to_remote_branch, errors, target, RemoteBranch, VirtualBranchesHandle,
 };
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
-use crate::id::Id;
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
     askpass::AskpassBroker,
@@ -1794,12 +1793,9 @@ fn get_applied_status(
                         let commit_id = git::Oid::from(blame_hunk.orig_commit_id());
                         if commit_id != *target_sha && commit_id != *integration_commit {
                             let hash = Hunk::hash_diff(&hunk.diff_lines);
-                            let id = commit_to_branch.get(&commit_id).map(|id| id.to_string());
-                            let branch_id = if let Some(id) = id {
-                                uuid::Uuid::parse_str(&id)?
-                            } else {
-                                // Log the error and continue
-                                // TODO: Why does that happen?
+                            let Some(branch_id) = commit_to_branch.get(&commit_id) else {
+                                // This is a truly absurd situation
+                                // TODO: Test if this still happens
                                 tracing::error!(
                                     "commit {:?} not found in commit_to_branch map {:?}",
                                     commit_id,
@@ -1807,8 +1803,9 @@ fn get_applied_status(
                                 );
                                 continue;
                             };
+
                             let hunk_lock = diff::HunkLock {
-                                branch_id,
+                                branch_id: *branch_id,
                                 commit_id,
                             };
                             locked_hunk_map
@@ -1924,7 +1921,7 @@ fn get_applied_status(
                 let first_lock = &locks[0];
                 let p = virtual_branches
                     .iter()
-                    .position(|vb| vb.id == Id::<Branch>::from(first_lock.branch_id));
+                    .position(|vb| vb.id == first_lock.branch_id);
                 match p {
                     Some(p) => p,
                     _ => default_vbranch_pos,
