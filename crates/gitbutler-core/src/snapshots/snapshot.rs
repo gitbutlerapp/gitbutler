@@ -461,7 +461,7 @@ mod tests {
         // create gb_dir folder
         std::fs::create_dir_all(project.gb_dir()).unwrap();
 
-        let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
+        let vb_state = project.virtual_branches();
 
         let target_sha = initial_commit.to_string();
         let default_target = crate::virtual_branches::target::Target {

@@ -16,14 +16,14 @@ fn reconcile_ownership_simple() {
                     Hunk {
                         start: 1,
                         end: 3,
-                        hash: Some(Hunk::hash("1,3".as_ref())),
+                        hash: Some(Hunk::hash("1,3")),
                         timestamp_ms: None,
                         locked_to: vec![],
                     },
                     Hunk {
                         start: 4,
                         end: 6,
-                        hash: Some(Hunk::hash("4,6".as_ref())),
+                        hash: Some(Hunk::hash("4,6")),
                         timestamp_ms: None,
                         locked_to: vec![],
                     },
@@ -41,7 +41,7 @@ fn reconcile_ownership_simple() {
                 hunks: vec![Hunk {
                     start: 7,
                     end: 9,
-                    hash: Some(Hunk::hash("7,9".as_ref())),
+                    hash: Some(Hunk::hash("7,9")),
                     timestamp_ms: None,
                     locked_to: vec![],
                 }],
@@ -57,14 +57,14 @@ fn reconcile_ownership_simple() {
             Hunk {
                 start: 4,
                 end: 6,
-                hash: Some(Hunk::hash("4,6".as_ref())),
+                hash: Some(Hunk::hash("4,6")),
                 timestamp_ms: None,
                 locked_to: vec![],
             },
             Hunk {
                 start: 7,
                 end: 9,
-                hash: Some(Hunk::hash("9,7".as_ref())),
+                hash: Some(Hunk::hash("9,7")),
                 timestamp_ms: None,
                 locked_to: vec![],
             },
@@ -83,7 +83,7 @@ fn reconcile_ownership_simple() {
                 hunks: vec![Hunk {
                     start: 1,
                     end: 3,
-                    hash: Some(Hunk::hash("1,3".as_ref())),
+                    hash: Some(Hunk::hash("1,3")),
                     timestamp_ms: None,
                     locked_to: vec![],
                 },],
@@ -100,14 +100,14 @@ fn reconcile_ownership_simple() {
                     Hunk {
                         start: 4,
                         end: 6,
-                        hash: Some(Hunk::hash("4,6".as_ref())),
+                        hash: Some(Hunk::hash("4,6")),
                         timestamp_ms: None,
                         locked_to: vec![],
                     },
                     Hunk {
                         start: 7,
                         end: 9,
-                        hash: Some(Hunk::hash("9,7".as_ref())),
+                        hash: Some(Hunk::hash("9,7")),
                         timestamp_ms: None,
                         locked_to: vec![],
                     },
