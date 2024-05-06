@@ -144,7 +144,7 @@ pub mod commands {
         if let Some(push_remote) = push_remote {
             handle
                 .state::<Controller>()
-                .set_target_push_remote(&project_id, &push_remote)
+                .set_target_push_remote(&project_id, push_remote)
                 .await?;
         }
         emit_vbranches(&handle, &project_id).await;
