@@ -2272,9 +2272,6 @@ pub fn write_tree_onto_tree(
         } else if base_tree.get_path(rel_path).is_ok() {
             // remove file from index if it exists in the base tree
             builder.remove(rel_path);
-        } else {
-            // file not in index or base tree, do nothing
-            // this is the
         }
     }
 
