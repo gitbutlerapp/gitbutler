@@ -173,27 +173,35 @@ pub fn handle_event<R: Runtime>(event: &WindowMenuEvent<R>) {
         }
     }
 
-    let result = match event.menu_item_id() {
-        "help/documentation" => open::that("https://docs.gitbutler.com"),
-        "help/github" => open::that("https://github.com/gitbutlerapp/gitbutler"),
-        "help/release-notes" => {
-            open::that("https://discord.com/channels/1060193121130000425/1183737922785116161")
-        }
-        "help/report-issue" => open::that("https://github.com/gitbutlerapp/gitbutler/issues/new"),
-        "help/discord" => open::that("https://discord.com/invite/MmFkmaJ42D"),
-        "help/youtube" => open::that("https://www.youtube.com/@gitbutlerapp"),
-        "help/x" => open::that("https://x.com/gitbutler"),
-        unknown => panic!("unknown help menu event emitted: {unknown}"),
-    };
-
-    if let Err(err) = result {
-        tracing::error!(error = ?err, "failed to open url for {}", event.menu_item_id());
+    if event.menu_item_id() == "help/share-debug-info" {
+        emit(event.window(), "menu://help/share-debug-info/clicked");
+        return;
     }
 
-    emit(
-        event.window(),
-        &format!("menu://{}/clicked", event.menu_item_id()),
-    );
+    'open_link: {
+        let result = match event.menu_item_id() {
+            "help/documentation" => open::that("https://docs.gitbutler.com"),
+            "help/github" => open::that("https://github.com/gitbutlerapp/gitbutler"),
+            "help/release-notes" => {
+                open::that("https://discord.com/channels/1060193121130000425/1183737922785116161")
+            }
+            "help/report-issue" => {
+                open::that("https://github.com/gitbutlerapp/gitbutler/issues/new")
+            }
+            "help/discord" => open::that("https://discord.com/invite/MmFkmaJ42D"),
+            "help/youtube" => open::that("https://www.youtube.com/@gitbutlerapp"),
+            "help/x" => open::that("https://x.com/gitbutler"),
+            _ => break 'open_link,
+        };
+
+        if let Err(err) = result {
+            tracing::error!(error = ?err, "failed to open url for {}", event.menu_item_id());
+        }
+
+        return;
+    }
+
+    tracing::error!("unhandled 'help' menu event: {}", event.menu_item_id());
 }
 
 fn emit<R: Runtime>(window: &tauri::Window<R>, event: &str) {
