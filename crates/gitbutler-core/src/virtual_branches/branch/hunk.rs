@@ -1,7 +1,7 @@
 use std::{fmt::Display, ops::RangeInclusive, str::FromStr};
 
 use anyhow::{anyhow, Context, Result};
-use bstr::{BStr, ByteSlice};
+use bstr::ByteSlice;
 
 use crate::git::diff;
 
@@ -21,7 +21,7 @@ impl From<&diff::GitHunk> for Hunk {
         Hunk {
             start: hunk.new_start,
             end: hunk.new_start + hunk.new_lines,
-            hash: Some(Hunk::hash_diff(hunk.diff_lines.as_ref())),
+            hash: Some(Hunk::hash_diff(&hunk.diff_lines)),
             timestamp_ms: None,
             locked_to: hunk.locked_to.to_vec(),
         }
@@ -166,7 +166,8 @@ impl Hunk {
     /// Note that there is danger in changing the hash function as this information is persisted
     /// in the virtual-branch toml file. Even if it can still be parsed or decoded,
     /// these values have to remain consistent.
-    pub fn hash_diff(diff: &BStr) -> HunkHash {
+    pub fn hash_diff<S: AsRef<[u8]>>(diff: S) -> HunkHash {
+        let diff = diff.as_ref();
         if !diff.starts_with(b"@@") {
             return Self::hash(diff);
         }
@@ -178,7 +179,8 @@ impl Hunk {
     }
 
     /// Produce a hash of `input` using the same function as [`Self::hash_diff()`], but without any assumptions.
-    pub fn hash(input: &[u8]) -> HunkHash {
-        md5::compute(input)
+    #[inline]
+    pub fn hash<S: AsRef<[u8]>>(input: S) -> HunkHash {
+        md5::compute(input.as_ref())
     }
 }

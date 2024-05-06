@@ -160,7 +160,7 @@ impl VirtualBranchHunk {
         hunk: GitHunk,
         mtimes: &mut MTimeCache,
     ) -> Self {
-        let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
+        let hash = Hunk::hash_diff(&hunk.diff_lines);
         Self {
             id: Self::gen_id(hunk.new_start, hunk.new_lines),
             modified_at: mtimes.mtime_by_path(project_path.join(&file_path)),
@@ -1791,7 +1791,7 @@ fn get_applied_status(
                     for blame_hunk in blame.iter() {
                         let commit_id = git::Oid::from(blame_hunk.orig_commit_id());
                         if commit_id != *target_sha && commit_id != *integration_commit {
-                            let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
+                            let hash = Hunk::hash_diff(&hunk.diff_lines);
                             let id = commit_to_branch.get(&commit_id).map(|id| id.to_string());
                             let branch_id = if let Some(id) = id {
                                 uuid::Uuid::parse_str(&id)?
@@ -1844,7 +1844,7 @@ fn get_applied_status(
                     .filter_map(|claimed_hunk| {
                         // if any of the current hunks intersects with the owned hunk, we want to keep it
                         for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
-                            let hash = Hunk::hash_diff(git_diff_hunk.diff_lines.as_ref());
+                            let hash = Hunk::hash_diff(&git_diff_hunk.diff_lines);
                             if locked_hunk_map.contains_key(&hash) {
                                 return None; // Defer allocation to unclaimed hunks processing
                             }
@@ -1915,7 +1915,7 @@ fn get_applied_status(
     // process the remaining ones.
     for (filepath, hunks) in base_diffs {
         for hunk in hunks {
-            let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
+            let hash = Hunk::hash_diff(&hunk.diff_lines);
             let locked_to = locked_hunk_map.get(&hash);
 
             let vbranch_pos = if let Some(locks) = locked_to {
@@ -1931,7 +1931,7 @@ fn get_applied_status(
                 default_vbranch_pos
             };
 
-            let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
+            let hash = Hunk::hash_diff(&hunk.diff_lines);
             let mut new_hunk = Hunk::from(&hunk)
                 .with_timestamp(mtimes.mtime_by_path(filepath.as_path()))
                 .with_hash(hash);
@@ -1944,7 +1944,7 @@ fn get_applied_status(
                 file_path: filepath.clone(),
                 hunks: vec![Hunk::from(&hunk)
                     .with_timestamp(mtimes.mtime_by_path(filepath.as_path()))
-                    .with_hash(Hunk::hash_diff(hunk.diff_lines.as_ref()))],
+                    .with_hash(Hunk::hash_diff(&hunk.diff_lines))],
             });
 
             let hunk = match locked_to {
@@ -2080,7 +2080,7 @@ pub fn reset_branch(
     // Assign the new hunks to the branch we're working on.
     for (path, filediff) in diff {
         for hunk in filediff.hunks {
-            let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
+            let hash = Hunk::hash_diff(&hunk.diff_lines);
             branch.ownership.put(
                 format!(
                     "{}:{}-{}-{:?}",
