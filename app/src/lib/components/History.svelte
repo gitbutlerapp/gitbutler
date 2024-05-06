@@ -8,7 +8,7 @@
 
 	export let projectId: string;
 
-	const snapshotsLimit = 100;
+	const snapshotsLimit = 10;
 
 	const vbranchService = getContext(VirtualBranchService);
 	vbranchService.activeBranches.subscribe(() => {
@@ -34,10 +34,11 @@
 		createdAt: number;
 	};
 	let snapshots: Snapshot[] = [];
-	async function listSnapshots(projectId: string, limit: number) {
+	async function listSnapshots(projectId: string, limit: number, sha?: string) {
 		const resp = await invoke<Snapshot[]>('list_snapshots', {
 			projectId: projectId,
-			limit: limit
+			limit: limit,
+			sha: sha
 		});
 		snapshots = resp;
 	}
@@ -48,6 +49,17 @@
 		});
 		// TODO: is there a better way to update all the state?
 		await goto(window.location.href, { replaceState: true });
+	}
+	let listElement;
+	function handle() {
+		if (listElement) {
+			// console.log('listElm is defined');
+			listElement.addEventListener('scroll', function () {
+				if (listElement.scrollTop + listElement.clientHeight >= listElement.scrollHeight) {
+					loadMore();
+				}
+			});
+		}
 	}
 	onMount(async () => {
 		listSnapshots(projectId, snapshotsLimit);
@@ -67,7 +79,8 @@
 								style="pop"
 								size="tag"
 								icon="undo-small"
-								on:click={async () => await restoreSnapshot(projectId, entry.id)}>restore</Button
+								on:click={async () => await restoreSnapshot(projectId, entry.id)}
+								>restore</Button
 							>
 						{:else}
 							(current)
@@ -101,6 +114,9 @@
 				</div>
 			</div>
 		</div>
+		{#if idx == snapshots.length - 1}
+			last
+		{/if}
 	{/each}
 </div>
 
