@@ -6,8 +6,11 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    git, id::Id, types::default_true::DefaultTrue, virtual_branches::VirtualBranchesHandle,
+    git, id::Id, project_repository::Repository, types::default_true::DefaultTrue,
+    virtual_branches::VirtualBranchesHandle,
 };
+
+use super::ConfigError;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -84,8 +87,6 @@ pub struct Project {
     pub project_data_last_fetch: Option<FetchResult>,
     #[serde(default)]
     pub omit_certificate_check: Option<bool>,
-    #[serde(default)]
-    pub enable_snapshots: Option<bool>,
     // The number of changed lines that will trigger a snapshot
     #[serde(default = "default_snapshot_lines_threshold")]
     pub snapshot_lines_threshold: usize,
@@ -117,5 +118,21 @@ impl Project {
     /// Returns a handle to the virtual branches manager of the project.
     pub fn virtual_branches(&self) -> VirtualBranchesHandle {
         VirtualBranchesHandle::new(self.gb_dir())
+    }
+
+    pub fn get_local_config(&self, key: &str) -> Result<Option<String>, ConfigError> {
+        let repo = Repository::open(self).map_err(|e| ConfigError::Other(e.into()))?;
+        repo.config()
+            .get_local(key)
+            .map_err(|e| ConfigError::Other(e.into()))
+    }
+
+    pub fn set_local_config(&self, key: &str, value: &str) -> Result<(), ConfigError> {
+        let repo = Repository::open(self).map_err(|e| ConfigError::Other(e.into()))?;
+        repo.config()
+            .set_local(key, value)
+            .map_err(|e| ConfigError::Other(e.into()))?;
+
+        Ok(())
     }
 }

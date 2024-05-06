@@ -280,11 +280,7 @@ impl Controller {
             error => ConfigError::Other(error.into()),
         })?;
 
-        let repo = project_repository::Repository::open(&project)
-            .map_err(|e| ConfigError::Other(e.into()))?;
-        repo.config()
-            .get_local(key)
-            .map_err(|e| ConfigError::Other(e.into()))
+        project.get_local_config(key)
     }
 
     pub fn set_local_config(
@@ -298,13 +294,7 @@ impl Controller {
             error => ConfigError::Other(error.into()),
         })?;
 
-        let repo = project_repository::Repository::open(&project)
-            .map_err(|e| ConfigError::Other(e.into()))?;
-        repo.config()
-            .set_local(key, value)
-            .map_err(|e| ConfigError::Other(e.into()))?;
-
-        Ok(())
+        project.set_local_config(key, value)
     }
 }
 

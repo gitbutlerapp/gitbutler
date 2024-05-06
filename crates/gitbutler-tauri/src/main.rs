@@ -108,6 +108,9 @@ fn main() {
                     );
                     app_handle.manage(projects_controller.clone());
 
+                    let snapshots_controller = gitbutler_core::snapshots::Controller::new(projects_storage_controller.clone());
+                    app_handle.manage(snapshots_controller.clone());
+
                     app_handle.manage(assets::Proxy::new(app_cache_dir.join("images")));
 
                     let database_controller = database::Database::open_in_directory(&app_data_dir).expect("failed to open database");
@@ -231,6 +234,8 @@ fn main() {
                     virtual_branches::commands::move_commit,
                     snapshots::list_snapshots,
                     snapshots::restore_snapshot,
+                    snapshots::set_snapshots_enabled,
+                    snapshots::snapshots_enabled,
                     menu::menu_item_set_enabled,
                     keys::commands::get_public_key,
                     github::commands::init_device_oauth,
