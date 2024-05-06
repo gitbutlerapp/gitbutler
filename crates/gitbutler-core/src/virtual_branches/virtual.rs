@@ -1792,9 +1792,19 @@ fn get_applied_status(
                         let commit_id = git::Oid::from(blame_hunk.orig_commit_id());
                         if commit_id != *target_sha && commit_id != *integration_commit {
                             let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
-                            let branch_id = uuid::Uuid::parse_str(
-                                &commit_to_branch.get(&commit_id).unwrap().to_string(),
-                            )?;
+                            let id = commit_to_branch.get(&commit_id).map(|id| id.to_string());
+                            let branch_id = if let Some(id) = id {
+                                uuid::Uuid::parse_str(&id)?
+                            } else {
+                                // Log the error and continue
+                                // TODO: Why does that happen?
+                                tracing::error!(
+                                    "commit {:?} not found in commit_to_branch map {:?}",
+                                    commit_id,
+                                    commit_to_branch
+                                );
+                                continue;
+                            };
                             let hunk_lock = diff::HunkLock {
                                 branch_id,
                                 commit_id,
