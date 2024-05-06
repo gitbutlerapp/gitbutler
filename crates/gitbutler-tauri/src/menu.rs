@@ -169,50 +169,30 @@ pub fn handle_event<R: Runtime>(event: &WindowMenuEvent<R>) {
     {
         if event.menu_item_id() == "view/devtools" {
             event.window().open_devtools();
+            return;
         }
     }
 
-    if event.menu_item_id() == "help/documentation" {
-        if let Err(err) = open::that("https://docs.gitbutler.com") {
-            tracing::error!(error = ?err, "failed to open documentation URL");
-        }
-    }
-    if event.menu_item_id() == "help/github" {
-        if let Err(err) = open::that("https://github.com/gitbutlerapp/gitbutler") {
-            tracing::error!(error = ?err, "failed to open GitHub URL");
-        }
-    }
-    if event.menu_item_id() == "help/release-notes" {
-        if let Err(err) =
+    let result = match event.menu_item_id() {
+        "help/documentation" => open::that("https://docs.gitbutler.com"),
+        "help/github" => open::that("https://github.com/gitbutlerapp/gitbutler"),
+        "help/release-notes" => {
             open::that("https://discord.com/channels/1060193121130000425/1183737922785116161")
-        {
-            tracing::error!(error = ?err, "failed to open release notes URL");
         }
-    }
-    if event.menu_item_id() == "help/report-issue" {
-        if let Err(err) = open::that("https://github.com/gitbutlerapp/gitbutler/issues/new") {
-            tracing::error!(error = ?err, "failed to open issue reporting URL");
-        }
-    }
-    if event.menu_item_id() == "help/discord" {
-        if let Err(err) = open::that("https://discord.com/invite/MmFkmaJ42D") {
-            tracing::error!(error = ?err, "failed to open Discord invite URL");
-        }
-    }
-    if event.menu_item_id() == "help/youtube" {
-        if let Err(err) = open::that("https://www.youtube.com/@gitbutlerapp") {
-            tracing::error!(error = ?err, "failed to open YouTube channel URL");
-        }
-    }
-    if event.menu_item_id() == "help/x" {
-        if let Err(err) = open::that("https://x.com/gitbutler") {
-            tracing::error!(error = ?err, "failed to open Twitter profile URL");
-        }
+        "help/report-issue" => open::that("https://github.com/gitbutlerapp/gitbutler/issues/new"),
+        "help/discord" => open::that("https://discord.com/invite/MmFkmaJ42D"),
+        "help/youtube" => open::that("https://www.youtube.com/@gitbutlerapp"),
+        "help/x" => open::that("https://x.com/gitbutler"),
+        unknown => panic!("unknown help menu event emitted: {unknown}"),
+    };
+
+    if let Err(err) = result {
+        tracing::error!(error = ?err, "failed to open url for {}", event.menu_item_id());
     }
 
     emit(
         event.window(),
-        format!("menu://{}/clicked", event.menu_item_id()).as_str(),
+        &format!("menu://{}/clicked", event.menu_item_id()),
     );
 }
 
