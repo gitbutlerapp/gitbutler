@@ -9,6 +9,8 @@ use tracing::instrument;
 
 use super::Repository;
 use crate::git;
+use crate::id::Id;
+use crate::virtual_branches::Branch;
 
 pub type DiffByPathMap = HashMap<PathBuf, FileDiff>;
 
@@ -106,7 +108,7 @@ impl GitHunk {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Copy)]
 #[serde(rename_all = "camelCase")]
 pub struct HunkLock {
-    pub branch_id: uuid::Uuid,
+    pub branch_id: Id<Branch>,
     pub commit_id: git::Oid,
 }
 
