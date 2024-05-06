@@ -25,6 +25,8 @@ pub struct BaseBranch {
     pub branch_name: String,
     pub remote_name: String,
     pub remote_url: String,
+    pub push_remote_name: Option<String>,
+    pub push_remote_url: String,
     pub base_sha: git::Oid,
     pub current_sha: git::Oid,
     pub behind: usize,
@@ -178,11 +180,13 @@ pub fn set_base_branch(
         branch: target_branch_ref.clone(),
         remote_url: remote_url.to_string(),
         sha: target_commit_oid,
+        push_remote_name: None,
     };
 
     let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
     vb_state.set_default_target(target.clone())?;
 
+    // TODO: make sure this is a real branch
     let head_name: git::Refname = current_head
         .name()
         .context("Failed to get HEAD reference name")?;
@@ -271,6 +275,33 @@ pub fn set_base_branch(
 
     let base = target_to_base_branch(project_repository, &target)?;
     Ok(base)
+}
+
+pub fn set_target_push_remote(
+    project_repository: &project_repository::Repository,
+    push_remote_name: &str,
+) -> Result<(), errors::SetBaseBranchError> {
+    let repo = &project_repository.git_repository;
+
+    dbg!(push_remote_name);
+
+    let remote = repo
+        .find_remote(push_remote_name)
+        .context(format!("failed to find remote {}", push_remote_name))?;
+
+    // if target exists, and it is the same as the requested branch, we should go back
+    if let Some(mut target) = default_target(&project_repository.project().gb_dir())? {
+        target.push_remote_name = Some(
+            remote
+                .name()
+                .context("failed to get remote name")?
+                .to_string(),
+        );
+        let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+        vb_state.set_default_target(target.clone())?;
+    }
+
+    Ok(())
 }
 
 fn set_exclude_decoration(project_repository: &project_repository::Repository) -> Result<()> {
@@ -607,10 +638,27 @@ pub fn target_to_base_branch(
         .map(super::commit_to_remote_commit)
         .collect::<Vec<_>>();
 
+    // there has got to be a better way to do this.
+    let push_remote_url = match target.push_remote_name {
+        Some(ref name) => match repo.find_remote(name) {
+            Ok(remote) => match remote.url() {
+                Ok(url) => match url {
+                    Some(url) => url.to_string(),
+                    None => target.remote_url.clone(),
+                },
+                Err(_err) => target.remote_url.clone(),
+            },
+            Err(_err) => target.remote_url.clone(),
+        },
+        None => target.remote_url.clone(),
+    };
+
     let base = super::BaseBranch {
         branch_name: format!("{}/{}", target.branch.remote(), target.branch.branch()),
         remote_name: target.branch.remote().to_string(),
         remote_url: target.remote_url.clone(),
+        push_remote_name: target.push_remote_name.clone(),
+        push_remote_url,
         base_sha: target.sha,
         current_sha: oid,
         behind: upstream_commits.len(),

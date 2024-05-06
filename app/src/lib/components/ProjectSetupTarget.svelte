@@ -26,7 +26,7 @@
 	const platformName = from(platform());
 
 	const dispatch = createEventDispatcher<{
-		branchSelected: string;
+		branchSelected: string[];
 	}>();
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
@@ -34,32 +34,90 @@
 
 	let aiGenCheckbox: Toggle;
 	let loading = false;
-	let selectedBranch = remoteBranches.find(
-		(b) => b.name == 'origin/master' || b.name == 'origin/main'
-	);
+	let selectedBranch = getBestBranch(remoteBranches);
+
+	function getBestBranch(branches: { name: string }[]): { name: string } {
+		// Function to calculate the rank of a branch
+		// eslint-disable-next-line func-style
+		const calculateRank = (branch: string): number => {
+			if (branch === 'upstream/main' || branch === 'upstream/master') {
+				return 100; // Highest preference
+			}
+			if (branch === 'origin/main' || branch === 'origin/master') {
+				return 90;
+			}
+			if (branch.startsWith('origin')) {
+				return 80;
+			}
+			if (branch.endsWith('master') || branch.endsWith('main')) {
+				return 70;
+			}
+			return 10; // Least preference
+		};
+
+		// Sort the branches based on their rank
+		branches.sort((a, b) => calculateRank(b.name) - calculateRank(a.name));
+
+		// Return the branch with the highest rank
+		return branches[0];
+	}
+
+	// split all the branches by the first '/' and gather the unique remote names
+	// then turn remotes into an array of objects with a 'name' and 'value' key
+	let remotes = Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0]))).map((r) => ({
+		name: r,
+		value: r
+	}));
+	let selectedRemote = remotes[0];
+
+	// if there's an 'origin', select it by default
+	let originRemote = remotes.find((r) => r.name === 'origin');
+	if (originRemote) {
+		selectedRemote = originRemote;
+	}
 
 	async function onSetTargetClick() {
 		if (!selectedBranch) return;
-		dispatch('branchSelected', selectedBranch.name);
+		dispatch('branchSelected', [selectedBranch.name, selectedRemote.name]);
 	}
 </script>
 
 <div class="project-setup">
 	<div class="project-setup__info">
 		<ProjectNameLabel {projectName} />
-		<h3 class="text-base-body-14 text-bold">Target branch</h3>
-		<p class="text-base-body-12">
-			This is the branch that you consider "production", normally something like "origin/master" or
-			"origin/main".
-		</p>
+		<h3 class="text-base-body-14 text-bold">Target trunk branch</h3>
 	</div>
-	<Select items={remoteBranches} bind:value={selectedBranch} itemId="name" labelId="name">
-		<SelectItem slot="template" let:item let:selected {selected}>
-			{item.name}
-		</SelectItem>
-	</Select>
+
+	<div class="project-setup__fields">
+		<div class="project-setup__field-wrap">
+			<Select items={remoteBranches} bind:value={selectedBranch} itemId="name" labelId="name">
+				<SelectItem slot="template" let:item let:selected {selected}>
+					{item.name}
+				</SelectItem>
+			</Select>
+			<p class="project-setup__description-text text-base-body-12">
+				This is the branch that you consider "production", normally something like "origin/master"
+				or "upstream/main".
+			</p>
+		</div>
+
+		{#if remotes.length > 1}
+			<div class="project-setup__field-wrap">
+				<Select items={remotes} bind:value={selectedRemote} itemId="name" labelId="name">
+					<SelectItem slot="template" let:item let:selected {selected}>
+						{item.name}
+					</SelectItem>
+				</Select>
+				<p class="project-setup__description-text text-base-body-12">
+					You have branches from multiple remotes. If you want to specify a remote for creating
+					branches that is different from the remote that your target branch is on, change it here.
+				</p>
+			</div>
+		{/if}
+	</div>
+
 	<div class="card features-wrapper">
-		<SetupFeature>
+		<SetupFeature labelFor="aiGenEnabled">
 			<svelte:fragment slot="icon">
 				<svg
 					width="20"
@@ -98,20 +156,15 @@
 			<svelte:fragment slot="title">GitButler features</svelte:fragment>
 
 			<svelte:fragment slot="body">
-				{#if $user}
-					<label class="project-setup__toggle-label" for="aiGenEnabled"
-						>Enable automatic branch and commit message generation (uses OpenAI's API).</label
-					>
-				{:else}
-					Enable automatic branch and commit message generation (uses OpenAI's API).
-				{/if}
+				Enable automatic creation of branches and automatic generation of commit messages (using
+				OpenAI's API).
 			</svelte:fragment>
 			<svelte:fragment slot="toggle">
 				{#if $user}
 					<Toggle
-						name="aiGenEnabled"
 						bind:this={aiGenCheckbox}
 						checked={$aiGenEnabled}
+						id="aiGenEnabled"
 						on:change={() => {
 							$aiGenEnabled = !$aiGenEnabled;
 							$aiGenAutoBranchNamingEnabled = $aiGenEnabled;
@@ -209,6 +262,23 @@
 	}
 
 	.project-setup__info {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-12);
+	}
+
+	.project-setup__fields {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-16);
+		padding-bottom: var(--size-10);
+	}
+
+	.project-setup__description-text {
+		color: var(--clr-text-2);
+	}
+
+	.project-setup__field-wrap {
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-12);

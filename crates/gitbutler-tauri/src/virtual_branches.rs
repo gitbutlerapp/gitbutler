@@ -125,7 +125,9 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch: &str,
+        push_remote: Option<&str>, // optional different name of a remote to push to (defaults to same as the branch)
     ) -> Result<BaseBranch, Error> {
+        dbg!(&project_id, &branch, &push_remote);
         let branch_name = format!("refs/remotes/{}", branch)
             .parse()
             .context("Invalid branch name")?;
@@ -137,6 +139,14 @@ pub mod commands {
             .state::<assets::Proxy>()
             .proxy_base_branch(base_branch)
             .await;
+
+        // if they also sent a different push remote, set that too
+        if let Some(push_remote) = push_remote {
+            handle
+                .state::<Controller>()
+                .set_target_push_remote(&project_id, push_remote)
+                .await?;
+        }
         emit_vbranches(&handle, &project_id).await;
         Ok(base_branch)
     }

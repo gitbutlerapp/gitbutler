@@ -49,7 +49,7 @@
 			help="Branch name that will be used when pushing. You can change it from the lane menu."
 			verticalOrientation={isLaneCollapsed}
 		>
-			origin/{branchName}</Tag
+			{$baseBranch.actualPushRemoteName()}/{branchName}</Tag
 		>
 	{/if}
 {:else}
@@ -75,6 +75,8 @@
 			e.stopPropagation();
 		}}
 	>
-		{isLaneCollapsed ? 'View branch' : `origin/${$branch.upstreamName}`}
+		{isLaneCollapsed
+			? 'View branch'
+			: `${$baseBranch.actualPushRemoteName()}/${$branch.upstreamName}`}
 	</Tag>
 {/if}

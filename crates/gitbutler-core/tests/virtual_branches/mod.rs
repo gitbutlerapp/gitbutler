@@ -788,6 +788,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: target_oid,
+        push_remote_name: None,
     })?;
 
     // add some uncommitted work
@@ -904,6 +905,7 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: target_oid,
+        push_remote_name: None,
     })?;
 
     // add some uncommitted work
@@ -1394,6 +1396,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "http://origin.com/project".to_string(),
         sha: base_commit,
+        push_remote_name: None,
     })?;
     project_repository
         .git_repository

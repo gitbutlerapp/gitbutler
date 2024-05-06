@@ -16,9 +16,9 @@
 		an experimental stage.
 	</p>
 	<SectionCard labelFor="baseBranchSwitching" orientation="row">
-		<svelte:fragment slot="title">Switching the base branch</svelte:fragment>
+		<svelte:fragment slot="title">Switching the target branch</svelte:fragment>
 		<svelte:fragment slot="caption">
-			This allows changing of the base branch (trunk) after the initial project setup from within
+			This allows changing of the target branch (trunk) after the initial project setup from within
 			the project settings. Not fully tested yet, use with caution.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">

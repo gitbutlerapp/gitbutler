@@ -1429,9 +1429,14 @@ pub fn update_branch(
             ));
         };
 
+        let upstream_remote = match default_target.push_remote_name {
+            Some(remote) => remote.clone(),
+            None => default_target.branch.remote().to_owned(),
+        };
+
         let remote_branch = format!(
             "refs/remotes/{}/{}",
-            default_target.branch.remote(),
+            upstream_remote,
             normalize_branch_name(&updated_upstream)
         )
         .parse::<git::RemoteRefname>()
@@ -2458,9 +2463,14 @@ pub fn push(
             ));
         };
 
+        let upstream_remote = match default_target.push_remote_name {
+            Some(remote) => remote.clone(),
+            None => default_target.branch.remote().to_owned(),
+        };
+
         let remote_branch = format!(
             "refs/remotes/{}/{}",
-            default_target.branch.remote(),
+            upstream_remote,
             normalize_branch_name(&vbranch.name)
         )
         .parse::<git::RemoteRefname>()

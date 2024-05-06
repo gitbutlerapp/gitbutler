@@ -155,6 +155,16 @@ impl Controller {
             .set_base_branch(project_id, target_branch)
     }
 
+    pub async fn set_target_push_remote(
+        &self,
+        project_id: &ProjectId,
+        push_remote: &str,
+    ) -> Result<(), Error> {
+        self.inner(project_id)
+            .await
+            .set_target_push_remote(project_id, push_remote)
+    }
+
     pub async fn merge_virtual_branch_upstream(
         &self,
         project_id: &ProjectId,
@@ -595,6 +605,17 @@ impl ControllerInner {
         Ok(result)
     }
 
+    pub fn set_target_push_remote(
+        &self,
+        project_id: &ProjectId,
+        push_remote: &str,
+    ) -> Result<(), Error> {
+        let project = self.projects.get(project_id)?;
+        let project_repository = project_repository::Repository::open(&project)?;
+        super::set_target_push_remote(&project_repository, push_remote)?;
+        Ok(())
+    }
+
     pub async fn merge_virtual_branch_upstream(
         &self,
         project_id: &ProjectId,
@@ -1012,7 +1033,11 @@ impl ControllerInner {
             ))?;
 
         let project_data_last_fetched = match project_repository
-            .fetch(default_target.branch.remote(), &self.helper, askpass)
+            .fetch(
+                default_target.branch.remote(),
+                &self.helper,
+                askpass.clone(),
+            )
             .map_err(errors::FetchFromTargetError::Remote)
         {
             Ok(()) => projects::FetchResult::Fetched {
@@ -1023,6 +1048,13 @@ impl ControllerInner {
                 error: error.to_string(),
             },
         };
+
+        // if we have a push remote, let's fetch from this too
+        if let Some(push_remote) = &default_target.push_remote_name {
+            let _ = project_repository
+                .fetch(push_remote, &self.helper, askpass.clone())
+                .map_err(errors::FetchFromTargetError::Remote);
+        }
 
         let updated_project = self
             .projects

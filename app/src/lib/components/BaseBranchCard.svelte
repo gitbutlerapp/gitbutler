@@ -38,14 +38,14 @@
 
 	{#if !isNavCollapsed}
 		<div class="content">
-			<div class="row_1">
+			<div class="button-head">
 				<span class="text-base-14 text-semibold trunk-label">Trunk</span>
 				{#if ($base?.behind || 0) > 0}
 					<Badge count={$base?.behind || 0} help="Unmerged upstream commits" />
 				{/if}
 				<SyncButton />
 			</div>
-			<div class="row_2 text-base-12">
+			<div class="base-branch-label">
 				{#if $base?.remoteUrl.includes('github.com')}
 					<!-- GitHub logo -->
 					<svg
@@ -64,7 +64,7 @@
 				{:else}
 					<Icon name="branch" />
 				{/if}
-				{$base?.branchName}
+				<span class="text-base-12">{$base?.branchName}</span>
 			</div>
 		</div>
 	{/if}
@@ -96,21 +96,29 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-8);
+		overflow: hidden;
 	}
 	.trunk-label {
 		color: var(--clr-text-1);
 	}
-	.row_1 {
+	.button-head {
 		display: flex;
 		gap: var(--size-4);
 		align-items: center;
 		color: var(--clr-scale-ntrl-10);
 	}
-	.row_2 {
+	.base-branch-label {
 		display: flex;
 		align-items: center;
 		gap: var(--size-4);
 		color: var(--clr-scale-ntrl-40);
+		overflow: hidden;
+
+		& span {
+			overflow: hidden;
+			white-space: nowrap;
+			text-overflow: ellipsis;
+		}
 	}
 	.small-count-badge {
 		position: absolute;

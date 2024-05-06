@@ -468,6 +468,7 @@ mod tests {
             branch: crate::git::RemoteRefname::new("origin", "main"),
             remote_url: Default::default(),
             sha: crate::git::Oid::from_str(&target_sha).unwrap(),
+            push_remote_name: None,
         };
         vb_state.set_default_target(default_target.clone()).unwrap();
         let file_path = dir.path().join("uncommitted.txt");

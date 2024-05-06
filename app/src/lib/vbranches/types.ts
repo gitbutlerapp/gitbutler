@@ -328,6 +328,8 @@ export class BaseBranch {
 	branchName!: string;
 	remoteName!: string;
 	remoteUrl!: string;
+	pushRemoteName!: string;
+	pushRemoteUrl!: string;
 	baseSha!: string;
 	currentSha!: string;
 	behind!: number;
@@ -337,27 +339,40 @@ export class BaseBranch {
 	recentCommits!: RemoteCommit[];
 	lastFetchedMs?: number;
 
+	actualPushRemoteName(): string {
+		return this.pushRemoteName || this.remoteName;
+	}
+
 	get lastFetched(): Date | undefined {
 		return this.lastFetchedMs ? new Date(this.lastFetchedMs) : undefined;
 	}
 
+	get pushRepoBaseUrl(): string {
+		return this.cleanUrl(this.pushRemoteUrl);
+	}
+
 	get repoBaseUrl(): string {
-		if (this.remoteUrl.startsWith('http')) {
-			return this.remoteUrl.replace('.git', '');
+		return this.cleanUrl(this.remoteUrl);
+	}
+
+	// turn a git remote url into a web url (github, gitlab, bitbucket, etc)
+	private cleanUrl(url: string): string {
+		if (url.startsWith('http')) {
+			return url.replace('.git', '').trim();
 		} else {
-			return this.remoteUrl.replace(':', '/').replace('git@', 'https://').replace('.git', '');
+			return url.replace(':', '/').replace('git@', 'https://').replace('.git', '').trim();
 		}
 	}
 
 	commitUrl(commitId: string): string | undefined {
 		// Different Git providers use different paths for the commit url:
 		if (this.isBitBucket) {
-			return `${this.repoBaseUrl}/commits/${commitId}`;
+			return `${this.pushRepoBaseUrl}/commits/${commitId}`;
 		}
 		if (this.isGitlab) {
-			return `${this.repoBaseUrl}/-/commit/${commitId}`;
+			return `${this.pushRepoBaseUrl}/-/commit/${commitId}`;
 		}
-		return `${this.repoBaseUrl}/commit/${commitId}`;
+		return `${this.pushRepoBaseUrl}/commit/${commitId}`;
 	}
 
 	get shortName() {
@@ -368,11 +383,37 @@ export class BaseBranch {
 		if (!upstreamBranchName) return undefined;
 		const baseBranchName = this.branchName.split('/')[1];
 		const branchName = upstreamBranchName.split('/').slice(3).join('/');
+
+		if (this.pushRemoteName) {
+			if (this.isGitHub) {
+				// master...schacon:docs:Virtual-branch
+				const pushUsername = this.extractUsernameFromGitHubUrl(this.pushRemoteUrl);
+				const pushRepoName = this.extractRepoNameFromGitHubUrl(this.pushRemoteUrl);
+				return `${this.repoBaseUrl}/compare/${baseBranchName}...${pushUsername}:${pushRepoName}:${branchName}`;
+			}
+		}
+
 		if (this.isBitBucket) {
-			return `${this.repoBaseUrl.trim()}/branch/${branchName}?dest=${baseBranchName}`;
+			return `${this.repoBaseUrl}/branch/${branchName}?dest=${baseBranchName}`;
 		}
 		// The following branch path is good for at least Gitlab and Github:
-		return `${this.repoBaseUrl.trim()}/compare/${baseBranchName}...${branchName}`;
+		return `${this.repoBaseUrl}/compare/${baseBranchName}...${branchName}`;
+	}
+
+	private extractUsernameFromGitHubUrl(url: string): string | null {
+		const regex = /github\.com[/:]([a-zA-Z0-9_-]+)\/.*/;
+		const match = url.match(regex);
+		return match ? match[1] : null;
+	}
+
+	private extractRepoNameFromGitHubUrl(url: string): string | null {
+		const regex = /github\.com[/:]([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)/;
+		const match = url.match(regex);
+		return match ? match[2] : null;
+	}
+
+	private get isGitHub(): boolean {
+		return this.repoBaseUrl.includes('github.com');
 	}
 
 	private get isBitBucket(): boolean {
