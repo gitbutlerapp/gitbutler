@@ -1,6 +1,3 @@
-import lscache from 'lscache';
-import { BehaviorSubject, config } from 'rxjs';
-import { env } from '$env/dynamic/public';
 import { AIService } from '$lib/ai/service';
 import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 import { AuthService } from '$lib/backend/auth';
@@ -12,6 +9,9 @@ import { UpdaterService } from '$lib/backend/updater';
 import { GitHubService } from '$lib/github/service';
 import { UserService } from '$lib/stores/user';
 import { mockTauri } from '$lib/testing/index';
+import lscache from 'lscache';
+import { BehaviorSubject, config } from 'rxjs';
+import { env } from '$env/dynamic/public';
 
 // call on startup so we don't accumulate old items
 lscache.flushExpired();
