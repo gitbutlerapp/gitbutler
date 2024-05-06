@@ -4,6 +4,7 @@
 	import { getContext } from '$lib/utils/context';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { maybeMoveSelection } from '$lib/utils/selection';
+	import { sleep } from '$lib/utils/sleep';
 	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection, fileKey } from '$lib/vbranches/fileIdSelection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
@@ -18,7 +19,27 @@
 	const fileIdSelection = getContext(FileIdSelection);
 	const commit = getCommitStore();
 
-	$: sortedFiles = sortLikeFileTree(files);
+	let sortedFiles: AnyFile[] = [];
+
+	function chunk<T>(arr: T[], size: number) {
+		return Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
+			arr.slice(i * size, i * size + size)
+		);
+	}
+
+	// Appending the files in this manner prevents any major freezing when rendering a long list of files
+	// The UI may be slightly sluggish while the files are still rendering in, but its quite a bit of an
+	// improvement over being stuck on a frozen icon
+	async function pushSortedFiles(files: AnyFile[]) {
+		sortedFiles = [];
+
+		for (let filesChunk of chunk(files, 100)) {
+			sortedFiles = [...sortedFiles, ...filesChunk];
+			await sleep(0);
+		}
+	}
+
+	$: pushSortedFiles(sortLikeFileTree(files));
 </script>
 
 <BranchFilesHeader {files} {showCheckboxes} />
