@@ -62,9 +62,9 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
     }
 
     let mut file_menu = Menu::new();
-    #[cfg(target_os = "macos")] 
+    #[cfg(target_os = "macos")]
     {
-        // NB: macOS has the concept of having an app running but its 
+        // NB: macOS has the concept of having an app running but its
         // window closed, but other platforms do not
         file_menu = file_menu.add_native_item(MenuItem::CloseWindow);
     }
