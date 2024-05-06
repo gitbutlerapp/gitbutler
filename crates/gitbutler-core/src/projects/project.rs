@@ -93,12 +93,6 @@ fn default_snapshot_lines_threshold() -> usize {
     20
 }
 
-impl AsRef<Project> for Project {
-    fn as_ref(&self) -> &Project {
-        self
-    }
-}
-
 impl Project {
     pub fn is_sync_enabled(&self) -> bool {
         self.api.as_ref().map(|api| api.sync).unwrap_or_default()
