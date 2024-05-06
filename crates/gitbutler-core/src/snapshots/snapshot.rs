@@ -16,9 +16,15 @@ use super::{
 
 const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
 
+pub const SNAPSHOT_ENABLED_KEY: &str = "gitbutler.snapshotEnabled";
+
 /// The Oplog trait allows for crating snapshots of the current state of the project as well as restoring to a previous snapshot.
 /// Snapshots include the state of the working directory as well as all additional GitButler state (e.g virtual branches, conflict state).
 pub trait Oplog {
+    /// Whether shapshots should be taken
+    fn snapshots_enabled(&self) -> bool;
+    /// Sets whether snapshots should be taken
+    fn set_snapshots_enabled(&self, value: bool) -> Result<()>;
     /// Creates a snapshot of the current state of the repository and virtual branches using the given label.
     ///
     /// If this is the first shapshot created, supporting structures are initialized:
@@ -57,8 +63,21 @@ pub trait Oplog {
 }
 
 impl Oplog for Project {
+    fn snapshots_enabled(&self) -> bool {
+        self.get_local_config(SNAPSHOT_ENABLED_KEY)
+            .unwrap_or(None)
+            .unwrap_or("false".into())
+            == "true"
+    }
+
+    fn set_snapshots_enabled(&self, value: bool) -> Result<()> {
+        let value = if value { "true" } else { "false" };
+        self.set_local_config(SNAPSHOT_ENABLED_KEY, value)
+            .map_err(Into::into)
+    }
+
     fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<String>> {
-        if self.enable_snapshots.is_none() || self.enable_snapshots == Some(false) {
+        if !self.snapshots_enabled() {
             return Ok(None);
         }
 
@@ -455,9 +474,9 @@ mod tests {
 
         let project = Project {
             path: dir.path().to_path_buf(),
-            enable_snapshots: Some(true),
             ..Default::default()
         };
+        project.set_snapshots_enabled(true);
         // create gb_dir folder
         std::fs::create_dir_all(project.gb_dir()).unwrap();
 
