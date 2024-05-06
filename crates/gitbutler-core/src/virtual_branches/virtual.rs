@@ -1849,7 +1849,7 @@ fn get_applied_status(
                                 return None; // Defer allocation to unclaimed hunks processing
                             }
                             if claimed_hunk.eq(&Hunk::from(git_diff_hunk)) {
-                                let timestamp = claimed_hunk.timestam_ms().unwrap_or(mtime);
+                                let timestamp = claimed_hunk.timestamp_ms().unwrap_or(mtime);
                                 diffs_by_branch
                                     .entry(branch.id)
                                     .or_default()

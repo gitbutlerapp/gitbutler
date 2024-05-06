@@ -139,7 +139,7 @@ impl Hunk {
         self
     }
 
-    pub fn timestam_ms(&self) -> Option<u128> {
+    pub fn timestamp_ms(&self) -> Option<u128> {
         self.timestamp_ms
     }
 
