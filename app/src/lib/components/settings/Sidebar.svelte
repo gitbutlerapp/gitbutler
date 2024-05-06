@@ -220,7 +220,6 @@
 	}
 
 	/* BANNERS */
-
 	.social-banners {
 		display: flex;
 		flex-direction: column;

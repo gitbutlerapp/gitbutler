@@ -143,24 +143,13 @@
 		modal.close();
 	}
 
-	// if triggered by window menu
-	async function setEnabled(enabled: boolean) {
-		return await invoke('menu_item_set_enabled', {
-			menuItemId: 'project/settings',
-			enabled
-		});
-	}
-
 	onMount(() => {
-		setEnabled(true);
-
 		const unsubscribe = listen<string>('menu://help/share-debug-info/clicked', () => {
 			show();
 		});
 
 		return () => {
 			unsubscribe();
-			setEnabled(false);
 		};
 	});
 </script>
