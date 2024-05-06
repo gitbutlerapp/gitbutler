@@ -1,4 +1,4 @@
-use std::borrow::{Borrow, Cow};
+use std::borrow::Borrow;
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::PermissionsExt;
 use std::time::SystemTime;
@@ -10,9 +10,10 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Context, Result};
-use bstr::{BStr, BString, ByteSlice, ByteVec};
+use bstr::{BString, ByteSlice, ByteVec};
 use diffy::{apply_bytes as diffy_apply, Line, Patch};
 use git2_hooks::HookResult;
+use hex::ToHex;
 use regex::Regex;
 use serde::Serialize;
 
@@ -1566,9 +1567,10 @@ fn set_ownership(
 struct MTimeCache(HashMap<PathBuf, u128>);
 
 impl MTimeCache {
-    fn mtime_by_path<'a>(&mut self, path: impl Into<Cow<'a, Path>>) -> u128 {
-        let path = path.into();
-        if let Some(mtime) = self.0.get(path.as_ref()) {
+    fn mtime_by_path<P: AsRef<Path>>(&mut self, path: P) -> u128 {
+        let path = path.as_ref();
+
+        if let Some(mtime) = self.0.get(path) {
             return *mtime;
         }
 
@@ -1585,7 +1587,7 @@ impl MTimeCache {
             )
             .duration_since(time::UNIX_EPOCH)
             .map_or(0, |d| d.as_millis());
-        self.0.insert(path.into_owned(), mtime);
+        self.0.insert(path.into(), mtime);
         mtime
     }
 }
@@ -2234,7 +2236,7 @@ pub fn write_tree_onto_tree(
                     }
 
                     let patch = Patch::from_bytes(&all_diffs)?;
-                    let blob_contents = apply(blob_contents.into(), &patch).context(format!(
+                    let blob_contents = apply(blob_contents, &patch).context(format!(
                         "failed to apply\n{}\nonto:\n{}",
                         all_diffs.as_bstr(),
                         blob_contents.as_bstr()
@@ -2252,7 +2254,7 @@ pub fn write_tree_onto_tree(
                 hunks.sort_by_key(|hunk| hunk.new_start);
                 for hunk in hunks {
                     let patch = Patch::from_bytes(&hunk.diff_lines)?;
-                    blob_contents = apply(blob_contents.as_ref(), &patch)
+                    blob_contents = apply(&blob_contents, &patch)
                         .context(format!("failed to apply {}", &hunk.diff_lines))?;
                 }
 
@@ -2459,7 +2461,7 @@ pub fn push(
             error => errors::PushError::Other(error.into()),
         })?;
 
-    let remote_branch = if let Some(upstream_branch) = vbranch.upstream.as_ref() {
+    let remote_branch = if let Some(upstream_branch) = &vbranch.upstream {
         upstream_branch.clone()
     } else {
         let Some(default_target) = vb_state
@@ -4337,9 +4339,9 @@ pub fn create_virtual_branch_from_branch(
 }
 
 /// Just like [`diffy::apply()`], but on error it will attach hashes of the input `base_image` and `patch`.
-pub fn apply(base_image: &BStr, patch: &Patch<'_, [u8]>) -> Result<BString> {
+pub fn apply<S: AsRef<[u8]>>(base_image: S, patch: &Patch<'_, [u8]>) -> Result<BString> {
     fn md5_hash_hex(b: impl AsRef<[u8]>) -> String {
-        format!("{:x}", md5::compute(b))
+        md5::compute(b).encode_hex()
     }
 
     #[derive(Debug)]
@@ -4392,7 +4394,7 @@ pub fn apply(base_image: &BStr, patch: &Patch<'_, [u8]>) -> Result<BString> {
         }
     }
 
-    diffy_apply(base_image, patch)
+    diffy_apply(base_image.as_ref(), patch)
         .with_context(|| DebugContext {
             base_image_hash: md5_hash_hex(base_image),
             hunks: patch.hunks().iter().map(Into::into).collect(),

@@ -100,7 +100,7 @@ impl FromStr for Hunk {
 impl Display for Hunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}-{}", self.start, self.end)?;
-        match (self.hash.as_ref(), self.timestamp_ms.as_ref()) {
+        match (&self.hash, &self.timestamp_ms) {
             (Some(hash), Some(timestamp_ms)) => write!(f, "-{:x}-{}", hash, timestamp_ms),
             (Some(hash), None) => write!(f, "-{:x}", hash),
             (None, Some(timestamp_ms)) => write!(f, "--{}", timestamp_ms),
