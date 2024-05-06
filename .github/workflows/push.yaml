@@ -19,6 +19,7 @@ jobs:
       gitbutler-changeset: ${{ steps.filter.outputs.gitbutler-changeset }}
       gitbutler-git: ${{ steps.filter.outputs.gitbutler-git }}
       gitbutler-cli: ${{ steps.filter.outputs.gitbutler-cli }}
+      gitbutler-watcher: ${{ steps.filter.outputs.gitbutler-watcher }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -53,6 +54,9 @@ jobs:
               - *rust
               - 'crates/gitbutler-git/**'
             gitbutler-cli:
+              - *rust
+              - 'crates/gitbutler-cli/**'
+            gitbutler-watcher:
               - *rust
               - 'crates/gitbutler-cli/**'
 
@@ -232,6 +236,31 @@ jobs:
           features: ${{ toJson(matrix.features) }}
           action: ${{ matrix.action }}
 
+  check-gitbutler-watcher:
+    needs: changes
+    if: ${{ needs.changes.outputs.gitbutler-watcher == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    strategy:
+      matrix:
+        action:
+          - test
+          - check
+          - check-tests
+        features:
+          - ''
+          - '*'
+          - []
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-rust
+      - uses: ./.github/actions/check-crate
+        with:
+          crate: gitbutler-watcher
+          features: ${{ toJson(matrix.features) }}
+          action: ${{ matrix.action }}
+
   check-rust:
     if: always()
     needs:
@@ -241,6 +270,7 @@ jobs:
       - check-gitbutler-changeset
       - check-gitbutler-git
       - check-gitbutler-cli
+      - check-gitbutler-watcher
       - check-rust-windows
       - rust-lint
     runs-on: ubuntu-latest
