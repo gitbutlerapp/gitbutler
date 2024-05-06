@@ -303,11 +303,13 @@ fn verify_head_is_clean(
         .peel_to_commit()
         .context("failed to peel to commit")?;
 
+    let vb_handle = VirtualBranchesHandle::new(project_repository.project().gb_dir());
+    let default_target = vb_handle
+        .get_default_target()
+        .context("failed to get default target")?;
+
     let mut extra_commits = project_repository
-        .log(
-            head_commit.id(),
-            LogUntil::When(Box::new(|commit| Ok(is_integration_commit(commit)))),
-        )
+        .log(head_commit.id(), LogUntil::Commit(default_target.sha))
         .context("failed to get log")?;
 
     let integration_commit = extra_commits.pop();
@@ -401,30 +403,4 @@ fn verify_head_is_set(
         None => Err(errors::VerifyError::DetachedHead),
         Some(head_name) => Err(errors::VerifyError::InvalidHead(head_name.to_string())),
     }
-}
-
-fn is_integration_commit(commit: &git::Commit) -> bool {
-    is_integration_commit_author(commit) && is_integration_commit_message(commit)
-}
-
-fn is_integration_commit_author(commit: &git::Commit) -> bool {
-    is_integration_commit_author_email(commit) && is_integration_commit_author_name(commit)
-}
-
-fn is_integration_commit_author_email(commit: &git::Commit) -> bool {
-    commit.author().email().map_or(false, |email| {
-        email == GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL
-    })
-}
-
-fn is_integration_commit_author_name(commit: &git::Commit) -> bool {
-    commit.author().name().map_or(false, |name| {
-        name == GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME
-    })
-}
-
-fn is_integration_commit_message(commit: &git::Commit) -> bool {
-    commit
-        .message()
-        .starts_with(b"GitButler Integration Commit")
 }
