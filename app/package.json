@@ -93,7 +93,6 @@
 		"tauri-plugin-log-api": "github:tauri-apps/tauri-plugin-log#v1",
 		"tauri-plugin-store-api": "github:tauri-apps/tauri-plugin-store#v1",
 		"tinykeys": "^2.1.0",
-		"ts-node": "^10.9.2",
 		"tslib": "^2.6.2",
 		"typescript": "^5.4.5",
 		"vite": "^4.5.3",
@@ -101,6 +100,5 @@
 	},
 	"dependencies": {
 		"openai": "^4.38.5"
-	},
-	"packageManager": "pnpm@8.15.5"
+	}
 }
