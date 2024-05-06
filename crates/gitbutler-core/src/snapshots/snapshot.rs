@@ -37,7 +37,7 @@ pub trait Oplog {
     /// An alternative way of retrieving the snapshots would be to manually the oplog head `git log <oplog_head>` available in `.git/gitbutler/oplog.toml`.
     ///
     /// If there are no snapshots, an empty list is returned.
-    fn list_snapshots(&self, limit: usize) -> Result<Vec<Snapshot>>;
+    fn list_snapshots(&self, limit: usize, sha: Option<String>) -> Result<Vec<Snapshot>>;
     /// Reverts to a previous state of the working directory, virtual branches and commits.
     /// The provided sha must refer to a valid snapshot commit.
     /// Upon success, a new snapshot is created.
@@ -146,17 +146,22 @@ impl Oplog for Project {
         Ok(Some(new_commit_oid.to_string()))
     }
 
-    fn list_snapshots(&self, limit: usize) -> Result<Vec<Snapshot>> {
+    fn list_snapshots(&self, limit: usize, sha: Option<String>) -> Result<Vec<Snapshot>> {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
 
-        let oplog_state = OplogHandle::new(&self.gb_dir());
-        let head_sha = oplog_state.get_oplog_head()?;
-        if head_sha.is_none() {
-            // there are no snapshots to return
-            return Ok(vec![]);
-        }
-        let head_sha = head_sha.unwrap();
+        let head_sha = match sha {
+            Some(sha) => sha,
+            None => {
+                let oplog_state = OplogHandle::new(&self.gb_dir());
+                if let Some(sha) = oplog_state.get_oplog_head()? {
+                    sha
+                } else {
+                    // there are no snapshots so return an empty list
+                    return Ok(vec![]);
+                }
+            }
+        };
 
         let oplog_head_commit = repo.find_commit(git2::Oid::from_str(&head_sha)?)?;
 
@@ -525,7 +530,7 @@ mod tests {
             .create_snapshot(SnapshotDetails::new(OperationType::UpdateWorkspaceBase))
             .unwrap();
 
-        let initial_snapshot = &project.list_snapshots(10).unwrap()[1];
+        let initial_snapshot = &project.list_snapshots(10, None).unwrap()[1];
         assert_eq!(
             initial_snapshot.files_changed,
             vec![
@@ -536,7 +541,7 @@ mod tests {
         );
         assert_eq!(initial_snapshot.lines_added, 3);
         assert_eq!(initial_snapshot.lines_removed, 0);
-        let second_snapshot = &project.list_snapshots(10).unwrap()[0];
+        let second_snapshot = &project.list_snapshots(10, None).unwrap()[0];
         assert_eq!(
             second_snapshot.files_changed,
             vec![
