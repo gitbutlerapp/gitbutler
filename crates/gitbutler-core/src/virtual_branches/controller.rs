@@ -1033,7 +1033,11 @@ impl ControllerInner {
             ))?;
 
         let project_data_last_fetched = match project_repository
-            .fetch(default_target.branch.remote(), &self.helper, askpass)
+            .fetch(
+                default_target.branch.remote(),
+                &self.helper,
+                askpass.clone(),
+            )
             .map_err(errors::FetchFromTargetError::Remote)
         {
             Ok(()) => projects::FetchResult::Fetched {
@@ -1044,6 +1048,13 @@ impl ControllerInner {
                 error: error.to_string(),
             },
         };
+
+        // if we have a push remote, let's fetch from this too
+        if let Some(push_remote) = &default_target.push_remote_name {
+            let _ = project_repository
+                .fetch(push_remote, &self.helper, askpass.clone())
+                .map_err(errors::FetchFromTargetError::Remote);
+        }
 
         let updated_project = self
             .projects
