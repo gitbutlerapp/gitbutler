@@ -13,12 +13,13 @@ pub async fn list_snapshots(
     handle: tauri::AppHandle,
     project_id: ProjectId,
     limit: usize,
+    sha: Option<String>,
 ) -> Result<Vec<Snapshot>, Error> {
     let project = handle
         .state::<projects::Controller>()
         .get(&project_id)
         .context("failed to get project")?;
-    let snapshots = project.list_snapshots(limit)?;
+    let snapshots = project.list_snapshots(limit, sha)?;
     Ok(snapshots)
 }
 
