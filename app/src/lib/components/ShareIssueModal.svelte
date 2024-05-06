@@ -2,7 +2,7 @@
 	import TextArea from './TextArea.svelte';
 	import TextBox from './TextBox.svelte';
 	import { HttpClient } from '$lib/backend/httpClient';
-	import { invoke } from '$lib/backend/ipc';
+	import { invoke, listen } from '$lib/backend/ipc';
 	import * as zip from '$lib/backend/zip';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
@@ -11,6 +11,7 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { getVersion } from '@tauri-apps/api/app';
+	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 
 	type Feedback = {
@@ -141,6 +142,27 @@
 		reset();
 		modal.close();
 	}
+
+	// if triggered by window menu
+	async function setEnabled(enabled: boolean) {
+		return await invoke('menu_item_set_enabled', {
+			menuItemId: 'project/settings',
+			enabled
+		});
+	}
+
+	onMount(() => {
+		setEnabled(true);
+
+		const unsubscribe = listen<string>('menu://help/share-debug-info/clicked', () => {
+			show();
+		});
+
+		return () => {
+			unsubscribe();
+			setEnabled(false);
+		};
+	});
 </script>
 
 <Modal

@@ -50,6 +50,7 @@ tracing-appender = "0.2.3"
 tracing-subscriber = "0.3.17"
 gitbutler-core.workspace = true
 gitbutler-watcher.workspace = true
+open = "5"
 
 [dependencies.tauri]
 version = "1.6.2"
