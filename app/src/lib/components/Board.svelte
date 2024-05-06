@@ -201,12 +201,6 @@
 		height: 100%;
 	}
 
-	.spacer {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-16);
-	}
-
 	.branch {
 		height: 100%;
 	}

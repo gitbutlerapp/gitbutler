@@ -29,7 +29,6 @@ pub mod path;
 pub mod project_repository;
 pub mod projects;
 pub mod reader;
-pub mod repo;
 pub mod sessions;
 pub mod snapshots;
 pub mod ssh;

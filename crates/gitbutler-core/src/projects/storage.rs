@@ -51,7 +51,7 @@ impl Storage {
         match self.inner.read(PROJECTS_FILE)? {
             Some(projects) => {
                 let all_projects: Vec<project::Project> = serde_json::from_str(&projects)?;
-                let all_projects: Vec<project::Project> = all_projects
+                let mut all_projects: Vec<project::Project> = all_projects
                     .into_iter()
                     .map(|mut p| {
                         // backwards compatibility for description field
@@ -63,6 +63,9 @@ impl Storage {
                         p
                     })
                     .collect();
+
+                all_projects.sort_by(|a, b| a.title.cmp(&b.title));
+
                 Ok(all_projects)
             }
             None => Ok(vec![]),

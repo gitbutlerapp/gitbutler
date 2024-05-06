@@ -148,7 +148,7 @@
 	</div>
 {/if}
 
-<style>
+<style lang="postcss">
 	.update-banner {
 		cursor: default;
 		user-select: none;
