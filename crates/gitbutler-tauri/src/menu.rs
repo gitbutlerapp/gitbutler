@@ -167,7 +167,12 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
     help_menu = help_menu.add_item(CustomMenuItem::new("help/discord", "Discord"));
     help_menu = help_menu.add_item(CustomMenuItem::new("help/youtube", "YouTube"));
     help_menu = help_menu.add_item(CustomMenuItem::new("help/x", "X"));
-
+    help_menu = help_menu.add_native_item(MenuItem::Separator);
+    // add version info
+    help_menu = help_menu.add_item(disabled_menu_item(
+        "help/version",
+        format!("Version {}", _package_info.version).as_str(),
+    ));
     // add as a submenu
     menu = menu.add_submenu(Submenu::new("Help", help_menu));
 
