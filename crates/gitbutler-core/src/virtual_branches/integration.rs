@@ -39,7 +39,7 @@ pub fn get_workspace_head(
         .get_default_target()
         .context("failed to get target")?;
     let repo = &project_repository.git_repository;
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let all_virtual_branches = vb_state.list_branches()?;
     let applied_virtual_branches = all_virtual_branches
@@ -170,7 +170,7 @@ pub fn update_gitbutler_integration_with_commit(
     repo.set_head(&GITBUTLER_INTEGRATION_REFERENCE.clone().into())
         .context("failed to set head")?;
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     // get all virtual branches, we need to try to update them all
     let all_virtual_branches = vb_state
@@ -343,7 +343,7 @@ fn verify_head_is_clean(
     .context("failed to create virtual branch")?;
 
     // rebasing the extra commits onto the new branch
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     extra_commits.reverse();
     let mut head = new_branch.head;
     for commit in extra_commits {

@@ -226,7 +226,7 @@ pub fn apply_branch(
     }
     let repo = &project_repository.git_repository;
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     let Some(default_target) = vb_state
         .try_get_default_target()
         .context("failed to get default target")?
@@ -481,7 +481,7 @@ pub fn unapply_ownership(
         ));
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let Some(default_target) = vb_state
         .try_get_default_target()
@@ -628,7 +628,7 @@ pub fn unapply_branch(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
 ) -> Result<Option<branch::Branch>, errors::UnapplyBranchError> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let mut target_branch = vb_state
         .get_branch(branch_id)
@@ -783,7 +783,7 @@ pub fn list_virtual_branches(
 ) -> Result<(Vec<VirtualBranch>, Vec<diff::FileDiff>), errors::ListVirtualBranchesError> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     let default_target = vb_state
         .get_default_target()
         .context("failed to get default target")?;
@@ -1057,7 +1057,7 @@ pub fn create_virtual_branch(
     project_repository: &project_repository::Repository,
     create: &BranchCreateRequest,
 ) -> Result<branch::Branch, errors::CreateVirtualBranchError> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let Some(default_target) = vb_state
         .try_get_default_target()
@@ -1177,7 +1177,7 @@ pub fn merge_virtual_branch_upstream(
         ));
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let mut branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
@@ -1383,7 +1383,7 @@ pub fn update_branch(
     project_repository: &project_repository::Repository,
     branch_update: branch::BranchUpdateRequest,
 ) -> Result<branch::Branch, errors::UpdateBranchError> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     let mut branch = vb_state
         .get_branch(&branch_update.id)
         .map_err(|error| match error {
@@ -1481,7 +1481,7 @@ pub fn delete_branch(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
 ) -> Result<(), Error> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     let branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => return Ok(()),
@@ -1628,7 +1628,7 @@ pub fn get_status_by_branch(
     project_repository: &project_repository::Repository,
     integration_commit: Option<&git::Oid>,
 ) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let Some(default_target) = vb_state
         .try_get_default_target()
@@ -1978,7 +1978,7 @@ fn get_applied_status(
 
     // write updated state if not resolving
     if !project_repository.is_resolving() {
-        let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+        let vb_state = project_repository.project().virtual_branches();
         for (vbranch, files) in &mut hunks_by_branch {
             vbranch.tree = write_tree(project_repository, &vbranch.head, files)?;
             vb_state
@@ -2023,7 +2023,7 @@ pub fn reset_branch(
     branch_id: &BranchId,
     target_commit_oid: git::Oid,
 ) -> Result<(), errors::ResetBranchError> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let Some(default_target) = vb_state
         .try_get_default_target()
@@ -2313,7 +2313,7 @@ pub fn commit(
     run_hooks: bool,
 ) -> Result<git::Oid, errors::CommitError> {
     let mut message_buffer = message.to_owned();
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     if run_hooks {
         let hook_result = project_repository
@@ -2426,7 +2426,7 @@ pub fn commit(
             .context("failed to run hook")?;
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     branch.tree = tree_oid;
     branch.head = commit_oid;
     vb_state
@@ -2446,7 +2446,7 @@ pub fn push(
     credentials: &git::credentials::Helper,
     askpass: Option<(AskpassBroker, Option<BranchId>)>,
 ) -> Result<(), errors::PushError> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let mut vbranch = vb_state
         .get_branch(branch_id)
@@ -2599,7 +2599,7 @@ pub fn is_remote_branch_mergeable(
     project_repository: &project_repository::Repository,
     branch_name: &git::RemoteRefname,
 ) -> Result<bool, errors::IsRemoteBranchMergableError> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let Some(default_target) = vb_state
         .try_get_default_target()
@@ -2655,7 +2655,7 @@ pub fn is_virtual_branch_mergeable(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
 ) -> Result<bool, errors::IsVirtualBranchMergeable> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     let branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::IsVirtualBranchMergeable::BranchNotFound(
@@ -2739,7 +2739,7 @@ pub fn move_commit_file(
     to_commit_oid: git::Oid,
     target_ownership: &BranchOwnershipClaims,
 ) -> Result<git::Oid, errors::VirtualBranchError> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let mut target_branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
@@ -3011,7 +3011,7 @@ pub fn amend(
         ));
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let all_branches = vb_state
         .list_branches()
@@ -3194,7 +3194,7 @@ pub fn reorder_commit(
     commit_oid: git::Oid,
     offset: i32,
 ) -> Result<(), errors::VirtualBranchError> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let Some(default_target) = vb_state
         .try_get_default_target()
@@ -3304,7 +3304,7 @@ pub fn insert_blank_commit(
     user: Option<&users::User>,
     offset: i32,
 ) -> Result<(), errors::VirtualBranchError> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let mut branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
@@ -3371,7 +3371,7 @@ pub fn undo_commit(
     branch_id: &BranchId,
     commit_oid: git::Oid,
 ) -> Result<(), errors::VirtualBranchError> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let mut branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
@@ -3584,7 +3584,7 @@ pub fn cherry_pick(
         }));
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let mut branch = vb_state
         .get_branch(branch_id)
@@ -3767,7 +3767,7 @@ pub fn squash(
         }));
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let Some(default_target) = vb_state
         .try_get_default_target()
@@ -3903,7 +3903,7 @@ pub fn update_commit_message(
         ));
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let Some(default_target) = vb_state
         .try_get_default_target()
@@ -4021,7 +4021,7 @@ pub fn move_commit(
         ));
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let applied_branches = vb_state
         .list_branches()
@@ -4193,7 +4193,7 @@ pub fn create_virtual_branch_from_branch(
         ));
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let Some(default_target) = vb_state
         .try_get_default_target()

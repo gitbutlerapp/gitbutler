@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use anyhow::Result;
 
-use crate::{projects::Project, virtual_branches::VirtualBranchesHandle};
+use crate::projects::Project;
 
 use super::{
     entry::{OperationType, Snapshot, SnapshotDetails, Trailer},
@@ -65,7 +65,7 @@ impl Oplog for Project {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
 
-        let vb_state = VirtualBranchesHandle::new(&self.gb_dir());
+        let vb_state = self.virtual_branches();
         let default_target_sha = vb_state.get_default_target()?.sha;
 
         let oplog_state = OplogHandle::new(&self.gb_dir());
