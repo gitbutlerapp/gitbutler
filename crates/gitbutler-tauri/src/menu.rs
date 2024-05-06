@@ -62,8 +62,12 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
     }
 
     let mut file_menu = Menu::new();
-    file_menu = file_menu.add_native_item(MenuItem::CloseWindow);
-
+    #[cfg(target_os = "macos")]
+    {
+        // NB: macOS has the concept of having an app running but its
+        // window closed, but other platforms do not
+        file_menu = file_menu.add_native_item(MenuItem::CloseWindow);
+    }
     #[cfg(not(target_os = "macos"))]
     {
         file_menu = file_menu.add_native_item(MenuItem::Quit);
@@ -122,17 +126,17 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
         project_menu.add_item(disabled_menu_item("project/settings", "Project Settings"));
     menu = menu.add_submenu(Submenu::new("Project", project_menu));
 
-    let mut window_menu = Menu::new();
-    window_menu = window_menu.add_native_item(MenuItem::Minimize);
-
     #[cfg(target_os = "macos")]
     {
+        let mut window_menu = Menu::new();
+        window_menu = window_menu.add_native_item(MenuItem::Minimize);
+
         window_menu = window_menu.add_native_item(MenuItem::Zoom);
         window_menu = window_menu.add_native_item(MenuItem::Separator);
-    }
 
-    window_menu = window_menu.add_native_item(MenuItem::CloseWindow);
-    menu = menu.add_submenu(Submenu::new("Window", window_menu));
+        window_menu = window_menu.add_native_item(MenuItem::CloseWindow);
+        menu = menu.add_submenu(Submenu::new("Window", window_menu));
+    }
 
     let mut help_menu = Menu::new();
     help_menu = help_menu.add_item(CustomMenuItem::new("help/documentation", "Documentation"));
