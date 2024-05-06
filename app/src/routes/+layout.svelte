@@ -73,7 +73,8 @@
 					...s,
 					showHistoryView: !$userSettings.showHistoryView
 				}));
-			})
+			}),
+			hotkeys.on('$mod+R', () => location.reload())
 		);
 	});
 </script>
