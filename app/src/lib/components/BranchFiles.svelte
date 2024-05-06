@@ -39,8 +39,6 @@
 <style lang="postcss">
 	.branch-files {
 		flex: 1;
-		display: flex;
-		flex-direction: column;
 		background: var(--clr-bg-1);
 		border-radius: var(--radius-m) var(--radius-m) 0 0;
 		padding: 0 var(--size-14) var(--size-14);
