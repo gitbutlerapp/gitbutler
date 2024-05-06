@@ -3,25 +3,23 @@ import { mockIPC } from "@tauri-apps/api/mocks";
 import { mockWindows } from '@tauri-apps/api/mocks';
 
 export function mockTauri() {
+    mockWindows('main');
     mockIPC((cmd, args) => {
-        console.log("MOCKIPC.CMD", cmd, args)
+        console.log(`%c${cmd}`, 'background: #222; color: #4db2ad', args)
 
-        // Open Project Dialog
-        if (cmd === "tauri" && args.__tauriModule === "Dialog" && args.message?.cmd === "openDialog") {
+        // @ts-expect-error 'message' is dynamic
+        if (cmd === "tauri" && args.message?.cmd === "openDialog") {
             return "/Users/user/project"
         }
 
-        // List Projects
         if (cmd === "list_projects") {
             return [project]
         }
 
-        // List Project
         if (cmd === "get_project" && args.id === "ac44a3bb-8bbb-4af9-b8c9-7950dd9ec295") {
             return project
         }
 
-        // Get HEAD
         if (cmd === "git_head") {
             return "refs/heads/gitbutler/integration"
         }
@@ -58,6 +56,4 @@ export function mockTauri() {
             return user
         }
     });
-    mockWindows('main');
-
 }

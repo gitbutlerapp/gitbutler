@@ -1,6 +1,4 @@
-// import type { Project } from '$lib/backend/projects'
-// import type { User } from '$lib/stores/user'
-// import type { BaseBranch, RemoteCommit, Author, RemoteBranchData } from '$lib/vbranches/types'
+import type { User } from '$lib/stores/user'
 
 export type Constructor<T = any> = new (...args: any[]) => T;
 export type Class<T = any> = InstanceType<Constructor<T>>;
@@ -25,11 +23,10 @@ export const project = {
     title: "home2021"
 }
 
-// export const author: Class<Author> = {
 export const author = {
     name: 'John Snow',
     email: 'user@company.com',
-    gravatarUrl: 'https://gravatar.com/abc123',
+    gravatarUrl: 'https://gravatar.com/avatar/abc123'
 }
 
 export const remoteCommit0 = {
@@ -66,8 +63,7 @@ export const baseBranch = {
     lastFetchedMs: 1714843209991,
 }
 
-// export const user: Class<User> = {
-export const user = {
+export const user: User = {
     access_token: "c5da8ec0-2a2e-4f1c-a796-686c5606e566",
     created_at: "2024-05-04T13:27:30Z",
     email: "yo@ndo.dev",
@@ -81,9 +77,9 @@ export const user = {
     picture: "https://source.boringavatar.com/marble/120",
     role: undefined,
     updated_at: "2024-05-05T15:38:02Z",
+    supporter: false
 }
 
-// export const remoteBranchData: Class<RemoteBranchData> = {
 export const remoteBranchData = {
     sha: '90c225edcc74b31718a9cd8963c1bc89c17d8864',
     name: 'test',
