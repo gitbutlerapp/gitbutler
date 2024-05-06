@@ -9,7 +9,7 @@ use std::{path, time};
 use anyhow::{bail, Context, Result};
 use gitbutler_core::projects::ProjectId;
 use gitbutler_core::sessions::SessionId;
-use gitbutler_core::snapshots::entry::{OperationType, SnapshotDetails, Trailer};
+use gitbutler_core::snapshots::entry::{OperationType, SnapshotDetails};
 use gitbutler_core::snapshots::snapshot::Oplog;
 use gitbutler_core::virtual_branches::VirtualBranches;
 use gitbutler_core::{
@@ -280,11 +280,6 @@ impl Handler {
         paths: Vec<PathBuf>,
         project_id: ProjectId,
     ) -> Result<()> {
-        let paths_string = paths
-            .iter()
-            .map(|p| p.to_string_lossy().to_string())
-            .collect::<Vec<_>>()
-            .join(",");
         let calc_deltas = tokio::task::spawn_blocking({
             let this = self.clone();
             move || this.calculate_deltas(paths, project_id)
@@ -292,7 +287,7 @@ impl Handler {
         // Create a snapshot every time there are more than a configurable number of new lines of code (default 20)
         let handle_snapshots = tokio::task::spawn_blocking({
             let this = self.clone();
-            move || this.maybe_create_snapshot(project_id, paths_string)
+            move || this.maybe_create_snapshot(project_id)
         });
         self.calculate_virtual_branches(project_id).await?;
         let _ = handle_snapshots.await;
@@ -300,24 +295,14 @@ impl Handler {
         Ok(())
     }
 
-    fn maybe_create_snapshot(&self, project_id: ProjectId, paths: String) -> anyhow::Result<()> {
+    fn maybe_create_snapshot(&self, project_id: ProjectId) -> anyhow::Result<()> {
         let project = self
             .projects
             .get(&project_id)
             .context("failed to get project")?;
         let changed_lines = project.lines_since_snapshot()?;
         if changed_lines > project.snapshot_lines_threshold {
-            let details = SnapshotDetails {
-                version: Default::default(),
-                operation: OperationType::FileChanges,
-                title: OperationType::FileChanges.to_string(),
-                body: None,
-                trailers: vec![Trailer {
-                    key: "files".to_string(),
-                    value: paths,
-                }],
-            };
-            project.create_snapshot(details)?;
+            project.create_snapshot(SnapshotDetails::new(OperationType::FileChanges))?;
         }
         Ok(())
     }

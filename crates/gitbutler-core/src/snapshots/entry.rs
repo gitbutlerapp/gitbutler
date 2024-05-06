@@ -5,6 +5,7 @@ use serde::Deserialize;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::path::PathBuf;
 use std::str::FromStr;
 use strum::EnumString;
 
@@ -19,6 +20,12 @@ pub struct Snapshot {
     pub id: String,
     /// Snapshot creation time in epoch milliseconds
     pub created_at: i64,
+    /// The number of working directory lines added in the snapshot
+    pub lines_added: usize,
+    /// The number of working directory lines removed in the snapshot
+    pub lines_removed: usize,
+    /// The list of working directory files that were changed in the snapshot
+    pub files_changed: Vec<PathBuf>,
     /// Snapshot details as persisted in the commit message
     pub details: Option<SnapshotDetails>,
 }
@@ -298,6 +305,9 @@ mod tests {
         let snapshot = Snapshot {
             id: commit_sha.clone(),
             created_at,
+            lines_added: 1,
+            lines_removed: 1,
+            files_changed: vec![PathBuf::from("foo.txt")],
             details: Some(details),
         };
         assert_eq!(snapshot.id, commit_sha);

@@ -27,6 +27,9 @@
 	};
 	type Snapshot = {
 		id: string;
+		linesAdded: number;
+		linesRemoved: number;
+		filesChanged: string[];
 		details: SnapshotDetails | undefined;
 		createdAt: number;
 	};
@@ -79,16 +82,22 @@
 				</div>
 				<div style="padding-left: 16px; hidden;">
 					{#if entry.details?.operation === 'RestoreFromSnapshot'}
-						from: {entry.details?.trailers
+						restored_from: {entry.details?.trailers
 							.find((t) => t.key === 'restored_from')
 							?.value?.slice(0, 7)}
-					{:else if entry.details?.operation === 'FileChanges'}
-						{#each entry.details?.trailers
-							.find((t) => t.key === 'files')
-							?.value?.split(',') || [] as file}
-							<div>{file}</div>
-						{/each}
 					{/if}
+				</div>
+				<div>
+					lines added: {entry.linesAdded}
+				</div>
+				<div>
+					lines removed: {entry.linesRemoved}
+				</div>
+				<div>
+					<div>files changed:</div>
+					{#each entry.filesChanged as filePath}
+						<div style="padding-left: 16px;">{filePath}</div>
+					{/each}
 				</div>
 			</div>
 		</div>
