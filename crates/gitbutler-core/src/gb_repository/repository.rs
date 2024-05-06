@@ -21,7 +21,7 @@ use crate::{
     reader,
     sessions::{self, SessionId},
     users,
-    virtual_branches::{target, VirtualBranchesHandle},
+    virtual_branches::target,
 };
 
 pub struct Repository {
@@ -233,7 +233,7 @@ impl Repository {
 
     // take branches from the last session and put them into the current session
     fn copy_branches(&self) -> Result<()> {
-        let vb_state = VirtualBranchesHandle::new(&self.project.gb_dir());
+        let vb_state = self.project.virtual_branches();
 
         let branches = vb_state
             .list_branches()
@@ -491,7 +491,7 @@ impl Repository {
     }
 
     pub fn default_target(&self) -> Result<Option<target::Target>> {
-        let vb_state = VirtualBranchesHandle::new(&self.project.gb_dir());
+        let vb_state = self.project.virtual_branches();
         match vb_state.get_default_target() {
             Result::Ok(target) => Ok(Some(target)),
             Err(reader::Error::NotFound) => Ok(None),

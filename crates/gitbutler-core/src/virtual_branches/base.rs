@@ -66,7 +66,7 @@ fn go_back_to_integration(
         return Err(errors::SetBaseBranchError::DirtyWorkingDirectory);
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     let all_virtual_branches = vb_state
         .list_branches()
         .context("failed to read virtual branches")?;
@@ -183,7 +183,7 @@ pub fn set_base_branch(
         push_remote_name: None,
     };
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     vb_state.set_default_target(target.clone())?;
 
     // TODO: make sure this is a real branch
@@ -297,7 +297,7 @@ pub fn set_target_push_remote(
                 .context("failed to get remote name")?
                 .to_string(),
         );
-        let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+        let vb_state = project_repository.project().virtual_branches();
         vb_state.set_default_target(target.clone())?;
     }
 
@@ -386,7 +386,7 @@ pub fn update_base_branch(
             target.sha
         ))?;
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     let integration_commit = get_workspace_head(&vb_state, project_repository)?;
 
     // try to update every branch

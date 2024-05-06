@@ -9,7 +9,7 @@ use gitbutler_core::projects::ProjectId;
 use gitbutler_core::{
     deltas::{self, operations::Operation},
     reader, sessions,
-    virtual_branches::{self, branch, VirtualBranchesHandle},
+    virtual_branches::{self, branch},
 };
 use once_cell::sync::Lazy;
 
@@ -57,6 +57,7 @@ fn new_test_target() -> virtual_branches::target::Target {
         )
         .parse()
         .unwrap(),
+        push_remote_name: None,
     }
 }
 
@@ -659,7 +660,7 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
         ..
     } = &fixture.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
 
-    let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
+    let vb_state = project.virtual_branches();
     let default_target = new_test_target();
 
     vb_state.set_default_target(default_target.clone())?;
@@ -675,7 +676,7 @@ fn should_persist_branches_targets_state_between_sessions() -> Result<()> {
     std::fs::write(project.path.join("test.txt"), "hello world!").unwrap();
     listener.calculate_delta("test.txt", project.id)?;
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let branches = vb_state.list_branches().unwrap();
     assert_eq!(branches.len(), 2);
@@ -703,7 +704,7 @@ fn should_restore_branches_targets_state_from_head_session() -> Result<()> {
     let Case { project, .. } =
         &fixture.new_case_with_files(HashMap::from([(PathBuf::from("test.txt"), "hello world")]));
 
-    let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
+    let vb_state = project.virtual_branches();
 
     let default_target = new_test_target();
     vb_state.set_default_target(default_target.clone())?;

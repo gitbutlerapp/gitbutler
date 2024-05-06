@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::Result;
-use gitbutler_core::virtual_branches::{self, VirtualBranchesHandle};
+use gitbutler_core::virtual_branches;
 use once_cell::sync::Lazy;
 
 use gitbutler_testsupport::{Case, Suite};
@@ -72,7 +72,7 @@ fn empty_iterator() -> Result<()> {
     let suite = Suite::default();
     let Case { project, .. } = &suite.new_case();
 
-    let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
+    let vb_state = project.virtual_branches();
     let iter = vb_state.list_branches()?;
 
     assert_eq!(iter.len(), 0);
@@ -85,7 +85,7 @@ fn iterate_all() -> Result<()> {
     let suite = Suite::default();
     let Case { project, .. } = &suite.new_case();
 
-    let vb_state = VirtualBranchesHandle::new(&project.gb_dir());
+    let vb_state = project.virtual_branches();
     vb_state.set_default_target(new_test_target())?;
     let branch_1 = new_test_branch();
     vb_state.set_branch(branch_1.clone())?;
