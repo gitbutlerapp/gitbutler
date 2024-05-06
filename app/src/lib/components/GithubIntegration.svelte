@@ -198,10 +198,6 @@
 		margin-bottom: var(--size-8);
 	}
 
-	.disabled-step {
-		opacity: 0.4;
-	}
-
 	.step-section {
 		display: flex;
 		gap: var(--size-16);
