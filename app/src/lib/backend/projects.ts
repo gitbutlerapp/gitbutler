@@ -158,4 +158,12 @@ export class ProjectService {
 			token
 		});
 	}
+
+	async snapshotsEnabled(project: Project): Promise<boolean> {
+		return await invoke<boolean>('snapshots_enabled', { projectId: project.id });
+	}
+
+	async setSnapshotsEnabled(project: Project, value: boolean): Promise<void> {
+		await invoke<void>('set_snapshots_enabled', { projectId: project.id, value });
+	}
 }

@@ -5,6 +5,7 @@
 	import DetailsForm from '$lib/components/DetailsForm.svelte';
 	import KeysForm from '$lib/components/KeysForm.svelte';
 	import PreferencesForm from '$lib/components/PreferencesForm.svelte';
+	import ProjectExperimentalSettings from '$lib/components/ProjectExperimentalSettings.svelte';
 	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
@@ -52,6 +53,7 @@
 		<Spacer />
 	{/if}
 	<PreferencesForm />
+	<ProjectExperimentalSettings />
 	<SectionCard>
 		<svelte:fragment slot="title">Remove project</svelte:fragment>
 		<svelte:fragment slot="caption">
