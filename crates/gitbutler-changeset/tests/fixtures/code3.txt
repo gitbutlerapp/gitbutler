@@ -1,8 +1,0 @@
-    for file in &files {
-        println!("File: {} ({} bytes)", file.0, file.1.len());
-    }
-        
-    let hasher: hamming_lsh::HammingHasher<B, H> = hamming_lsh::HammingHasher::new();
-    println!("Created hasher");
-
- 
