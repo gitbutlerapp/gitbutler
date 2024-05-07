@@ -16,7 +16,6 @@ use super::{
     target, target_to_base_branch, BaseBranch, RemoteBranchFile, VirtualBranchesHandle,
 };
 use crate::{
-    askpass::AskpassBroker,
     git, keys, project_repository,
     projects::{self, ProjectId},
     users,
@@ -336,7 +335,7 @@ impl Controller {
         project_id: &ProjectId,
         branch_id: &BranchId,
         with_force: bool,
-        askpass: Option<(AskpassBroker, Option<BranchId>)>,
+        askpass: Option<Option<BranchId>>,
     ) -> Result<(), Error> {
         self.inner(project_id)
             .await
@@ -403,7 +402,7 @@ impl Controller {
     pub async fn fetch_from_target(
         &self,
         project_id: &ProjectId,
-        askpass: Option<(AskpassBroker, String)>,
+        askpass: Option<String>,
     ) -> Result<BaseBranch, Error> {
         self.inner(project_id)
             .await
@@ -923,7 +922,7 @@ impl ControllerInner {
         project_id: &ProjectId,
         branch_id: &BranchId,
         with_force: bool,
-        askpass: Option<(AskpassBroker, Option<BranchId>)>,
+        askpass: Option<Option<BranchId>>,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
         let helper = self.helper.clone();
@@ -1019,7 +1018,7 @@ impl ControllerInner {
     pub async fn fetch_from_target(
         &self,
         project_id: &ProjectId,
-        askpass: Option<(AskpassBroker, String)>,
+        askpass: Option<String>,
     ) -> Result<BaseBranch, Error> {
         let project = self.projects.get(project_id)?;
         let mut project_repository = project_repository::Repository::open(&project)?;

@@ -3,7 +3,6 @@ use std::{collections::HashMap, path};
 use anyhow::{Context, Result};
 use gitbutler_core::error::Error as CoreError;
 use gitbutler_core::{
-    askpass::AskpassBroker,
     gb_repository, git,
     project_repository::{self, conflicts},
     projects::{self, ProjectId},
@@ -92,7 +91,7 @@ impl App {
         remote_name: &str,
         branch_name: &str,
         credentials: &git::credentials::Helper,
-        askpass: Option<(AskpassBroker, Option<BranchId>)>,
+        askpass: Option<Option<BranchId>>,
     ) -> Result<(), CoreError> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
@@ -104,7 +103,7 @@ impl App {
         project_id: &ProjectId,
         remote_name: &str,
         credentials: &git::credentials::Helper,
-        askpass: Option<(AskpassBroker, String)>,
+        askpass: Option<String>,
     ) -> Result<(), CoreError> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;

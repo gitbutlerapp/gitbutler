@@ -5,6 +5,31 @@ use tokio::sync::{oneshot, Mutex};
 
 use crate::{id::Id, virtual_branches::BranchId};
 
+static mut GLOBAL_ASKPASS_BROKER: Option<AskpassBroker> = None;
+
+/// Initialize the global askpass broker.
+///
+/// # Safety
+/// This function **must** be called **at least once**, from only one thread at a time,
+/// before any other function from this module is called. **Calls to [`get`] before [`init`] will panic.**
+///
+/// This function is **NOT** thread safe.
+pub unsafe fn init(submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 'static) {
+    GLOBAL_ASKPASS_BROKER.replace(AskpassBroker::init(submit_prompt));
+}
+
+/// Get the global askpass broker.
+///
+/// # Panics
+/// Will panic if [`init`] was not called before this function.
+pub fn get_broker() -> &'static AskpassBroker {
+    unsafe {
+        GLOBAL_ASKPASS_BROKER
+            .as_ref()
+            .expect("askpass broker not initialized")
+    }
+}
+
 pub struct AskpassRequest {
     sender: oneshot::Sender<Option<String>>,
 }
