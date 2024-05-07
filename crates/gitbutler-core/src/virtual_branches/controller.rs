@@ -709,11 +709,7 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            super::delete_branch(project_repository, branch_id)?;
-            let _ = project_repository
-                .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::DeleteBranch));
-            Ok(())
+            super::delete_branch(project_repository, branch_id)
         })
     }
 

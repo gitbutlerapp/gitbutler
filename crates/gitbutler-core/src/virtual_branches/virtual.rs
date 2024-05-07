@@ -25,6 +25,7 @@ use super::{
     branch_to_remote_branch, errors, target, RemoteBranch, VirtualBranchesHandle,
 };
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
+use crate::snapshots::snapshoter::Snapshoter;
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
     dedup::{dedup, dedup_fmt},
@@ -1493,6 +1494,7 @@ pub fn delete_branch(
 
     ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
+    _ = branch.snapshot_deletion(project_repository.project());
     Ok(())
 }
 
