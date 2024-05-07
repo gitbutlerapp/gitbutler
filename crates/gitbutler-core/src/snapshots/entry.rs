@@ -59,6 +59,10 @@ impl SnapshotDetails {
             trailers: vec![],
         }
     }
+    pub fn with_trailers(mut self, trailers: Vec<Trailer>) -> Self {
+        self.trailers = trailers;
+        self
+    }
 }
 
 impl FromStr for SnapshotDetails {
