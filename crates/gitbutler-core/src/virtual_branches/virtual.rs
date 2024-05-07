@@ -1484,6 +1484,7 @@ pub fn delete_branch(
     .context("failed to read branch")?;
 
     if branch.applied && unapply_branch(project_repository, branch_id)?.is_none() {
+        _ = branch.snapshot_deletion(project_repository.project());
         return Ok(());
     }
 
