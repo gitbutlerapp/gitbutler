@@ -3,7 +3,7 @@ use crate::{
     virtual_branches::Branch,
 };
 
-use super::{entry::Trailer, snapshot::Oplog};
+use super::{entry::Trailer, oplog::Oplog};
 
 pub trait Snapshoter {
     fn snapshot_deletion(&self, oplog: &dyn Oplog) -> anyhow::Result<()>;

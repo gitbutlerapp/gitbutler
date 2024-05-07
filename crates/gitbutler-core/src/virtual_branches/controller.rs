@@ -2,7 +2,7 @@ use crate::{
     error::Error,
     snapshots::{
         entry::{OperationType, SnapshotDetails},
-        snapshot::Oplog,
+        oplog::Oplog,
     },
 };
 use std::{collections::HashMap, path::Path, sync::Arc};

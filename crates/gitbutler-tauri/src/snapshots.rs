@@ -2,7 +2,7 @@ use crate::error::Error;
 use anyhow::Context;
 use gitbutler_core::{
     projects::{self, ProjectId},
-    snapshots::{entry::Snapshot, snapshot::Oplog},
+    snapshots::{entry::Snapshot, oplog::Oplog},
 };
 use tauri::Manager;
 use tracing::instrument;
