@@ -3,10 +3,10 @@ import { showError, showToast } from '$lib/notifications/toasts';
 import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
+import type { Line } from '$lib/utils/fileSections';
 import type { BaseBranchService } from './baseBranch';
 import type { Branch, Hunk, LocalFile } from './types';
 import type { VirtualBranchService } from './virtualBranch';
-import type { Line } from '$lib/utils/fileSections';
 
 export class BranchController {
 	constructor(

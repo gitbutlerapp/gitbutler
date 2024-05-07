@@ -2,8 +2,8 @@
 	import { create } from '$lib/components/Differ/CodeHighlighter';
 	import { SectionType } from '$lib/utils/fileSections';
 	import { createEventDispatcher } from 'svelte';
-	import type { Line } from '$lib/utils/fileSections';
 	import { writable } from 'svelte/store';
+	import type { Line } from '$lib/utils/fileSections';
 
 	export let line: Line;
 	export let sectionType: SectionType;
@@ -15,7 +15,7 @@
 	export let draggingDisabled: boolean = false;
 	export let tabSize = 4;
 	export let showSplitSelect = false;
-	export let selectedForSplit = writable<Boolean>(false);
+	export let selectedForSplit = writable<boolean>(false);
 
 	const dispatch = createEventDispatcher<{ selected: boolean }>();
 

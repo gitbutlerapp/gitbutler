@@ -8,10 +8,10 @@
 	import { DraggableHunk, DraggableSplitHunk } from '$lib/dragging/draggables';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol, maybeGetContextStore } from '$lib/utils/context';
+	import { SectionType, type HunkSection, type Line } from '$lib/utils/fileSections';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type Hunk } from '$lib/vbranches/types';
 	import { onDestroy } from 'svelte';
-	import { SectionType, type HunkSection, type Line } from '$lib/utils/fileSections';
 	import { writable, type Writable } from 'svelte/store';
 
 	export let viewport: HTMLDivElement | undefined = undefined;
