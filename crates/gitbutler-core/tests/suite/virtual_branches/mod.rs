@@ -72,6 +72,7 @@ mod undo_commit;
 mod update_base_branch;
 mod update_commit_message;
 mod upstream;
+mod verify_branch;
 
 #[tokio::test]
 async fn resolve_conflict_flow() {
