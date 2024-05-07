@@ -1,8 +1,0 @@
-     for i in 0..hashes.len() {
-         for j in i+1..hashes.len() {
--            let (file, hash) = &hashes[i];
-+            let (file1, hash1) = &hashes[i];
-             let (file2, hash2) = &hashes[j];
-             println!("Hamming distance between {} and {}: {}", file1, file2, hash1.distance(hash2));
-         }
-     }
