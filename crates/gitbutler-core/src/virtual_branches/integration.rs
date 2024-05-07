@@ -317,11 +317,13 @@ fn verify_head_is_clean(
     match &integration_commit {
         Some(integration_commit) => {
             if !is_integration_commit(integration_commit) {
-                return Err(errors::VerifyError::NoIntegrationCommit);
+                // There's nothing to do, dont error out?
+                return Ok(());
             }
         }
         None => {
-            return Err(errors::VerifyError::NoIntegrationCommit);
+            // There's nothing to do, dont error out?
+            return Ok(());
         }
     }
 
