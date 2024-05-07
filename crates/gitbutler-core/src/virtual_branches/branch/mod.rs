@@ -81,6 +81,14 @@ pub struct BranchUpdateRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct BranchSplitHunkUpdateRequest {
+    pub id: BranchId,
+    pub source_id: BranchId,
+    pub ownership: String,
+    pub lines: Vec<(Option<i32>, Option<i32>)>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct BranchCreateRequest {
     pub name: Option<String>,
     pub ownership: Option<BranchOwnershipClaims>,

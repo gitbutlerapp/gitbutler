@@ -195,10 +195,12 @@ export class BranchController {
 		try {
 			await invoke<void>('split_hunk_and_update_virtual_branch', {
 				projectId: this.projectId,
-				branchId,
-				sourceBranchId,
-				hunkId: hunk.id,
-				lines: Array.from(lines).map((l) => [l.afterLineNumber, l.beforeLineNumber])
+				branch: {
+					id: branchId,
+					source_id: sourceBranchId,
+					ownership: `${hunk.filePath}:${hunk.id}-${hunk.hash}`,
+					lines: Array.from(lines).map((l) => [l.afterLineNumber, l.beforeLineNumber])
+				}
 			});
 		} catch (err) {
 			showError('Failed to split hunk and update ownership', err);
