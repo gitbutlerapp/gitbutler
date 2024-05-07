@@ -314,9 +314,15 @@ fn verify_head_is_clean(
 
     let integration_commit = extra_commits.pop();
 
-    if integration_commit.is_none() {
-        // no integration commit found
-        return Err(errors::VerifyError::NoIntegrationCommit);
+    match &integration_commit {
+        Some(integration_commit) => {
+            if !is_integration_commit(integration_commit) {
+                return Err(errors::VerifyError::NoIntegrationCommit);
+            }
+        }
+        None => {
+            return Err(errors::VerifyError::NoIntegrationCommit);
+        }
     }
 
     if extra_commits.is_empty() {
@@ -403,4 +409,30 @@ fn verify_head_is_set(
         None => Err(errors::VerifyError::DetachedHead),
         Some(head_name) => Err(errors::VerifyError::InvalidHead(head_name.to_string())),
     }
+}
+
+fn is_integration_commit(commit: &git::Commit) -> bool {
+    is_integration_commit_author(commit) && is_integration_commit_message(commit)
+}
+
+fn is_integration_commit_author(commit: &git::Commit) -> bool {
+    is_integration_commit_author_email(commit) && is_integration_commit_author_name(commit)
+}
+
+fn is_integration_commit_author_email(commit: &git::Commit) -> bool {
+    commit.author().email().map_or(false, |email| {
+        email == GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL
+    })
+}
+
+fn is_integration_commit_author_name(commit: &git::Commit) -> bool {
+    commit.author().name().map_or(false, |name| {
+        name == GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME
+    })
+}
+
+fn is_integration_commit_message(commit: &git::Commit) -> bool {
+    commit
+        .message()
+        .starts_with(b"GitButler Integration Commit")
 }
