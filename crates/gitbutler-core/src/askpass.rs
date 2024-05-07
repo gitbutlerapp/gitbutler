@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, path::Path, sync::Arc};
 
 use serde::Serialize;
 use tokio::sync::{oneshot, Mutex};
@@ -40,6 +40,7 @@ pub struct AskpassRequest {
 pub enum Context {
     Push { branch_id: Option<BranchId> },
     Fetch { action: String },
+    SignedCommit { branch_id: Option<BranchId> },
 }
 
 #[derive(Clone)]
@@ -84,4 +85,36 @@ impl AskpassBroker {
             log::warn!("received response for unknown askpass request: {}", id);
         }
     }
+}
+
+async fn handle_git_prompt_commit_sign_sync(
+    prompt: String,
+    branch_id: Option<BranchId>,
+) -> Option<String> {
+    tracing::info!("received prompt for synchronous signed commit {branch_id:?}: {prompt:?}");
+    get_broker()
+        .submit_prompt(prompt, Context::SignedCommit { branch_id })
+        .await
+}
+
+/// Utility to synchronously sign a commit.
+/// Uses the Tokio runner to run the async function,
+/// and the global askpass broker to handle any prompts.
+pub fn sign_commit_sync<P, Extra>(
+    repo_path: impl AsRef<Path>,
+    base_commitish: impl AsRef<str>,
+    branch_id: Option<BranchId>,
+) -> Result<String, impl std::error::Error> {
+    // Run as sync
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(gitbutler_git::sign_commit(
+            repo_path,
+            gitbutler_git::tokio::TokioExecutor,
+            base_commitish.as_ref().to_string(),
+            handle_git_prompt_commit_sign_sync,
+            branch_id,
+        ))
 }
