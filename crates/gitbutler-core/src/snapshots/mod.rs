@@ -1,5 +1,5 @@
 pub mod entry;
 pub mod oplog;
 mod reflog;
-pub mod snapshoter;
+pub mod snapshot;
 mod state;

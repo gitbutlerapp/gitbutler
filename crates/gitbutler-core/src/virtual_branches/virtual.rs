@@ -25,7 +25,7 @@ use super::{
     branch_to_remote_branch, errors, target, RemoteBranch, VirtualBranchesHandle,
 };
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
-use crate::snapshots::snapshoter::Snapshoter;
+use crate::snapshots::snapshot::Snapshoter;
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
     dedup::{dedup, dedup_fmt},
