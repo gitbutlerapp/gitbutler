@@ -124,10 +124,9 @@
 	}
 
 	function acceptBranchDrop(data: any) {
-		if (
-			(data instanceof DraggableHunk || data instanceof DraggableSplitHunk) &&
-			data.branchId != branch.id
-		) {
+		if (data instanceof DraggableHunk && data.branchId != branch.id) {
+			return !data.hunk.locked;
+		} else if (data instanceof DraggableSplitHunk && data.branchId != branch.id) {
 			return !data.hunk.locked;
 		} else if (data instanceof DraggableFile && data.branchId && data.branchId != branch.id) {
 			return !data.files.some((f) => f.locked);
@@ -150,8 +149,12 @@
 				(newOwnership + '\n' + branch.ownership).trim()
 			);
 		} else if (data instanceof DraggableSplitHunk) {
-			// XXX DEBUG
-			console.log('dragged split commit: ', data);
+			branchController.splitHunkAndUpdateBranchOwnership(
+				branch.id,
+				data.branchId,
+				data.hunk,
+				data.lines
+			);
 		}
 	}
 

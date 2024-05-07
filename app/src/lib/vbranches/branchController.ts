@@ -6,6 +6,7 @@ import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { BaseBranchService } from './baseBranch';
 import type { Branch, Hunk, LocalFile } from './types';
 import type { VirtualBranchService } from './virtualBranch';
+import type { Line } from '$lib/utils/fileSections';
 
 export class BranchController {
 	constructor(
@@ -182,6 +183,25 @@ export class BranchController {
 			});
 		} catch (err) {
 			showError('Failed to update hunk ownership', err);
+		}
+	}
+
+	async splitHunkAndUpdateBranchOwnership(
+		branchId: string,
+		sourceBranchId: string,
+		hunk: Hunk,
+		lines: Set<Line>
+	) {
+		try {
+			await invoke<void>('split_hunk_and_update_virtual_branch', {
+				projectId: this.projectId,
+				branchId,
+				sourceBranchId,
+				hunkId: hunk.id,
+				lines: Array.from(lines).map((l) => [l.afterLineNumber, l.beforeLineNumber])
+			});
+		} catch (err) {
+			showError('Failed to split hunk and update ownership', err);
 		}
 	}
 

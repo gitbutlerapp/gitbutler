@@ -1,6 +1,6 @@
 import { get, type Readable } from 'svelte/store';
 import type { Line } from '$lib/utils/fileSections';
-import type { AnyCommit, AnyFile, Commit, Hunk, RemoteCommit } from '../vbranches/types';
+import type { AnyCommit, AnyFile, Branch, Commit, Hunk, RemoteCommit } from '../vbranches/types';
 
 export function nonDraggable() {
 	return {
@@ -53,4 +53,4 @@ export class DraggableRemoteCommit {
 	) {}
 }
 
-export type Draggable = DraggableFile | DraggableHunk | DraggableCommit;
+export type Draggable = DraggableFile | DraggableHunk | DraggableCommit | DraggableSplitHunk;

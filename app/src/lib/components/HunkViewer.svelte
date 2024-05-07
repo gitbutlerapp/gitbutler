@@ -11,7 +11,7 @@
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type Hunk } from '$lib/vbranches/types';
 	import { onDestroy } from 'svelte';
-	import type { HunkSection, Line } from '$lib/utils/fileSections';
+	import { SectionType, type HunkSection, type Line } from '$lib/utils/fileSections';
 	import { writable, type Writable } from 'svelte/store';
 
 	export let viewport: HTMLDivElement | undefined = undefined;
@@ -76,6 +76,12 @@
 </script>
 
 <div class="scrollable">
+	{#if canSplit}
+		<div>
+			<input type="checkbox" name="split" bind:checked={isSplitting} />
+			<label for="split">Split</label>
+		</div>
+	{/if}
 	<div
 		bind:this={viewport}
 		tabindex="0"
@@ -101,12 +107,7 @@
 			{:else}
 				{#each section.subSections as subsection}
 					{@const hunk = section.hunk}
-					{#if canSplit}
-						<div>
-							<input type="checkbox" name="split" bind:checked={isSplitting} />
-							<label for="split">Split</label>
-						</div>
-					{/if}
+
 					{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
 						<HunkLine
 							{line}
@@ -115,7 +116,7 @@
 							{minWidth}
 							{selectable}
 							{draggingDisabled}
-							showSplitSelect={isSplitting}
+							showSplitSelect={isSplitting && subsection.sectionType !== SectionType.Context}
 							selectedForSplit={getLineStore(line)}
 							tabSize={$userSettings.tabSize}
 							selected={$selectedOwnership?.contains(hunk.filePath, hunk.id)}
