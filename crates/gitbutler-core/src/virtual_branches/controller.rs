@@ -609,11 +609,18 @@ impl ControllerInner {
     pub async fn split_hunk_and_update_virtual_branch(
         &self,
         project_id: &ProjectId,
-        _branch_update: super::branch::BranchSplitHunkUpdateRequest,
+        branch_update: super::branch::BranchSplitHunkUpdateRequest,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |_project_repository, _| Ok(()))
+        self.with_verify_branch(project_id, |project_repository, _| {
+            let mut splits = project_repository.project().splits();
+            splits.load()?;
+            let split_entry = splits.get_mut_or_insert(branch_update.hunk_hash);
+            split_entry.ownership = branch_update.lines.iter().flatten().cloned().collect();
+            splits.save()?;
+            Ok(())
+        })
     }
 
     pub async fn delete_virtual_branch(

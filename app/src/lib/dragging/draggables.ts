@@ -1,5 +1,4 @@
 import { get, type Readable } from 'svelte/store';
-import type { Line } from '$lib/utils/fileSections';
 import type { AnyCommit, AnyFile, Commit, Hunk, RemoteCommit } from '../vbranches/types';
 
 export function nonDraggable() {
@@ -13,7 +12,7 @@ export class DraggableSplitHunk {
 	constructor(
 		public readonly branchId: string,
 		public readonly hunk: Hunk,
-		public readonly lines: Set<Line>
+		public readonly getClaims: () => (boolean | null)[]
 	) {}
 }
 

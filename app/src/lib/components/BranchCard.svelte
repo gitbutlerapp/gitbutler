@@ -153,7 +153,7 @@
 				branch.id,
 				data.branchId,
 				data.hunk,
-				data.lines
+				data.getClaims()
 			);
 		}
 	}

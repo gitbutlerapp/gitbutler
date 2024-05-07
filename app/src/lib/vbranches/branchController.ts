@@ -3,7 +3,6 @@ import { showError, showToast } from '$lib/notifications/toasts';
 import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
-import type { Line } from '$lib/utils/fileSections';
 import type { BaseBranchService } from './baseBranch';
 import type { Branch, Hunk, LocalFile } from './types';
 import type { VirtualBranchService } from './virtualBranch';
@@ -190,16 +189,20 @@ export class BranchController {
 		branchId: string,
 		sourceBranchId: string,
 		hunk: Hunk,
-		lines: Set<Line>
+		claims: (boolean | null)[]
 	) {
 		try {
+			if (!hunk.hash) {
+				throw new Error('Hunk hash is missing; cannot split');
+			}
+
 			await invoke<void>('split_hunk_and_update_virtual_branch', {
 				projectId: this.projectId,
 				branch: {
-					id: branchId,
-					source_id: sourceBranchId,
-					ownership: `${hunk.filePath}:${hunk.id}-${hunk.hash}`,
-					lines: Array.from(lines).map((l) => [l.afterLineNumber, l.beforeLineNumber])
+					hunk_hash: hunk.hash,
+					// Convert to an array of branch IDs (none == context line)
+					// such that each line corresponds to the branch that should own it.
+					lines: Array.from(claims).map((l) => (l === null ? null : l ? branchId : sourceBranchId))
 				}
 			});
 		} catch (err) {

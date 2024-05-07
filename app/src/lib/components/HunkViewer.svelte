@@ -51,7 +51,7 @@
 
 	$: draggingDisabled = readonly || isUnapplied;
 
-	$: canSplit = !isUnapplied && !draggingDisabled;
+	$: canSplit = !isUnapplied && !draggingDisabled && $branch?.id && section.hunk.hash;
 	$: isSplitting = false;
 
 	onDestroy(() => {
@@ -73,6 +73,26 @@
 		const store = lineStores.get(line);
 		return <Writable<boolean>>store;
 	}
+
+	function computeOwnership(): (boolean | null)[] {
+		const ownership = [];
+
+		for (const subsection of section.subSections) {
+			if (subsection.sectionType === SectionType.Context) {
+				for (let i = 0; i < subsection.lines.length; i++) {
+					ownership.push(null);
+				}
+
+				continue;
+			}
+
+			for (const line of subsection.lines) {
+				ownership.push(splitLines.has(line));
+			}
+		}
+
+		return ownership;
+	}
 </script>
 
 <div class="scrollable">
@@ -88,7 +108,7 @@
 		role="cell"
 		use:draggable={{
 			data: isSplitting
-				? new DraggableSplitHunk($branch?.id || '', section.hunk, splitLines)
+				? new DraggableSplitHunk($branch?.id || '', section.hunk, computeOwnership)
 				: new DraggableHunk($branch?.id || '', section.hunk),
 			disabled: draggingDisabled
 		}}

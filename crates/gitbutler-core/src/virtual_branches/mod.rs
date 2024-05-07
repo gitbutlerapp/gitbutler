@@ -24,3 +24,5 @@ pub use remote::*;
 
 mod state;
 pub use state::VirtualBranchesHandle;
+
+pub mod split;
