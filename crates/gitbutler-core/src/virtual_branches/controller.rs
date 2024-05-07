@@ -1,6 +1,6 @@
 use crate::{
     error::Error,
-    snapshots::{
+    ops::{
         entry::{OperationType, SnapshotDetails},
         oplog::Oplog,
     },

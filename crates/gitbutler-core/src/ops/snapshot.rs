@@ -1,5 +1,5 @@
 use crate::{
-    snapshots::entry::{OperationType, SnapshotDetails},
+    ops::entry::{OperationType, SnapshotDetails},
     virtual_branches::Branch,
 };
 
