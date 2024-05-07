@@ -104,6 +104,15 @@
 						restored_from: {entry.details?.trailers
 							.find((t) => t.key === 'restored_from')
 							?.value?.slice(0, 7)}
+					{:else if entry.details?.operation === 'DeleteBranch'}
+						name: {entry.details?.trailers.find((t) => t.key === 'name')?.value}
+					{:else if ['ReorderBranches', 'UpdateBranchName', 'SelectDefaultVirtualBranch', 'UpdateBranchRemoteName'].includes(entry.details?.operation || '')}
+						<div>
+							before: {entry.details?.trailers.find((t) => t.key === 'before')?.value}
+						</div>
+						<div>
+							after: {entry.details?.trailers.find((t) => t.key === 'after')?.value}
+						</div>
 					{/if}
 				</div>
 				<div>
