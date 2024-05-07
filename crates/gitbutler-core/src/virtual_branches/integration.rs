@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
 use lazy_static::lazy_static;
 
-use super::{errors, VirtualBranchesHandle};
+use super::{errors::VerifyError, VirtualBranchesHandle};
 use crate::{
     git::{self},
     project_repository::{self, LogUntil},
@@ -274,7 +274,8 @@ pub fn update_gitbutler_integration(
 
 pub fn verify_branch(
     project_repository: &project_repository::Repository,
-) -> Result<(), errors::VerifyError> {
+) -> Result<(), VerifyError> {
+    verify_current_branch_name(project_repository)?;
     verify_head_is_set(project_repository)?;
     verify_head_is_clean(project_repository)?;
     Ok(())
@@ -282,7 +283,7 @@ pub fn verify_branch(
 
 fn verify_head_is_clean(
     project_repository: &project_repository::Repository,
-) -> Result<(), errors::VerifyError> {
+) -> Result<(), VerifyError> {
     let head_commit = project_repository
         .git_repository
         .head()
@@ -303,7 +304,7 @@ fn verify_head_is_clean(
 
     if integration_commit.is_none() {
         // no integration commit found
-        return Err(errors::VerifyError::NoIntegrationCommit);
+        return Err(VerifyError::NoIntegrationCommit);
     }
 
     if extra_commits.is_empty() {
@@ -377,17 +378,32 @@ fn verify_head_is_clean(
 
 fn verify_head_is_set(
     project_repository: &project_repository::Repository,
-) -> Result<(), errors::VerifyError> {
+) -> Result<(), VerifyError> {
     match project_repository
         .get_head()
         .context("failed to get head")
-        .map_err(errors::VerifyError::Other)?
+        .map_err(VerifyError::Other)?
         .name()
     {
         Some(refname) if refname.to_string() == GITBUTLER_INTEGRATION_REFERENCE.to_string() => {
             Ok(())
         }
-        None => Err(errors::VerifyError::DetachedHead),
-        Some(head_name) => Err(errors::VerifyError::InvalidHead(head_name.to_string())),
+        None => Err(VerifyError::DetachedHead),
+        Some(head_name) => Err(VerifyError::InvalidHead(head_name.to_string())),
+    }
+}
+
+// Returns an error if repo head is not pointing to the integration branch.
+pub fn verify_current_branch_name(
+    project_repository: &project_repository::Repository,
+) -> Result<bool, VerifyError> {
+    match project_repository.get_head()?.name() {
+        Some(head) => {
+            if head.to_string() != GITBUTLER_INTEGRATION_REFERENCE.to_string() {
+                return Err(VerifyError::InvalidHead(head.to_string()));
+            }
+            Ok(true)
+        }
+        None => Err(VerifyError::HeadNotFound),
     }
 }

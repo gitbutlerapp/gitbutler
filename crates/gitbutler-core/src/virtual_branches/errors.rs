@@ -65,8 +65,12 @@ pub enum VerifyError {
     DetachedHead,
     #[error("head is {0}")]
     InvalidHead(String),
+    #[error("head not found")]
+    HeadNotFound,
     #[error("integration commit not found")]
     NoIntegrationCommit,
+    #[error(transparent)]
+    GitError(#[from] git::Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -93,6 +97,12 @@ impl ErrorWithContext for VerifyError {
                 Code::ProjectHead,
                 "GibButler's integration commit not found on head.",
             ),
+            VerifyError::HeadNotFound => {
+                error::Context::new_static(Code::Validation, "Repo HEAD is unavailable")
+            }
+            VerifyError::GitError(error) => {
+                error::Context::new(Code::Validation, error.to_string())
+            }
             VerifyError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }
