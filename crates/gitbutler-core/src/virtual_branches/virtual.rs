@@ -793,12 +793,6 @@ pub fn list_virtual_branches(
         .find_commit(integration_commit_id)
         .unwrap();
 
-    super::integration::update_gitbutler_integration_with_commit(
-        &vb_state,
-        project_repository,
-        Some(integration_commit_id),
-    )?;
-
     let (statuses, skipped_files) =
         get_status_by_branch(project_repository, Some(&integration_commit.id()))?;
     let max_selected_for_changes = statuses

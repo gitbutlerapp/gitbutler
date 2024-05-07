@@ -125,27 +125,11 @@ pub fn update_gitbutler_integration(
     vb_state: &VirtualBranchesHandle,
     project_repository: &project_repository::Repository,
 ) -> Result<git::Oid> {
-    update_gitbutler_integration_with_commit(vb_state, project_repository, None)
-}
-
-pub fn update_gitbutler_integration_with_commit(
-    vb_state: &VirtualBranchesHandle,
-    project_repository: &project_repository::Repository,
-    integration_commit_id: Option<git::Oid>,
-) -> Result<git::Oid> {
     let target = vb_state
         .get_default_target()
         .context("failed to get target")?;
 
     let repo = &project_repository.git_repository;
-
-    // write the currrent target sha to a temp branch as a parent
-    repo.reference(
-        &GITBUTLER_INTEGRATION_REFERENCE.clone().into(),
-        target.sha,
-        true,
-        "update target",
-    )?;
 
     // get commit object from target.sha
     let target_commit = repo.find_commit(target.sha)?;
@@ -166,10 +150,6 @@ pub fn update_gitbutler_integration_with_commit(
         }
     }
 
-    // commit index to temp head for the merge
-    repo.set_head(&GITBUTLER_INTEGRATION_REFERENCE.clone().into())
-        .context("failed to set head")?;
-
     let vb_state = project_repository.project().virtual_branches();
 
     // get all virtual branches, we need to try to update them all
@@ -182,11 +162,8 @@ pub fn update_gitbutler_integration_with_commit(
         .filter(|branch| branch.applied)
         .collect::<Vec<_>>();
 
-    let integration_commit_id = match integration_commit_id {
-        Some(commit_id) => commit_id,
-        _ => get_workspace_head(&vb_state, project_repository)?,
-    };
-    let integration_commit = repo.find_commit(integration_commit_id).unwrap();
+    let integration_commit =
+        repo.find_commit(get_workspace_head(&vb_state, project_repository)?)?;
     let integration_tree = integration_commit.tree()?;
 
     // message that says how to get back to where they were
@@ -233,8 +210,10 @@ pub fn update_gitbutler_integration_with_commit(
 
     let committer = get_committer()?;
 
+    // It would be nice if we could pass an `update_ref` parameter to this function, but that
+    // requires committing to the tip of the branch, and we're mostly replacing the tip.
     let final_commit = repo.commit(
-        Some(&"refs/heads/gitbutler/integration".parse().unwrap()),
+        None,
         &committer,
         &committer,
         &message,
@@ -242,7 +221,15 @@ pub fn update_gitbutler_integration_with_commit(
         &[&target_commit],
     )?;
 
-    // write final_tree as the current index
+    // Create or replace the integration branch reference, then set as HEAD.
+    repo.reference(
+        &GITBUTLER_INTEGRATION_REFERENCE.clone().into(),
+        final_commit,
+        true,
+        "updated integration commit",
+    )?;
+    repo.set_head(&GITBUTLER_INTEGRATION_REFERENCE.clone().into())?;
+
     let mut index = repo.index()?;
     index.read_tree(&integration_tree)?;
     index.write()?;
