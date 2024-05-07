@@ -17,7 +17,7 @@ use super::{
 };
 use crate::{
     askpass::AskpassBroker,
-    git, keys, project_repository,
+    git, project_repository,
     projects::{self, ProjectId},
     users,
 };
@@ -26,7 +26,6 @@ use crate::{
 pub struct Controller {
     projects: projects::Controller,
     users: users::Controller,
-    keys: keys::Controller,
     helper: git::credentials::Helper,
 
     by_project_id: Arc<tokio::sync::Mutex<HashMap<ProjectId, ControllerInner>>>,
@@ -36,7 +35,6 @@ impl Controller {
     pub fn new(
         projects: projects::Controller,
         users: users::Controller,
-        keys: keys::Controller,
         helper: git::credentials::Helper,
     ) -> Self {
         Self {
@@ -44,7 +42,6 @@ impl Controller {
 
             projects,
             users,
-            keys,
             helper,
         }
     }
@@ -54,9 +51,7 @@ impl Controller {
             .lock()
             .await
             .entry(*project_id)
-            .or_insert_with(|| {
-                ControllerInner::new(&self.projects, &self.users, &self.keys, &self.helper)
-            })
+            .or_insert_with(|| ControllerInner::new(&self.projects, &self.users, &self.helper))
             .clone()
     }
 
@@ -430,7 +425,6 @@ struct ControllerInner {
 
     projects: projects::Controller,
     users: users::Controller,
-    keys: keys::Controller,
     helper: git::credentials::Helper,
 }
 
@@ -438,14 +432,12 @@ impl ControllerInner {
     pub fn new(
         projects: &projects::Controller,
         users: &users::Controller,
-        keys: &keys::Controller,
         helper: &git::credentials::Helper,
     ) -> Self {
         Self {
             semaphore: Arc::new(Semaphore::new(1)),
             projects: projects.clone(),
             users: users.clone(),
-            keys: keys.clone(),
             helper: helper.clone(),
         }
     }
@@ -461,23 +453,11 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let signing_key = project_repository
-                .config()
-                .sign_commits()
-                .context("failed to get sign commits option")?
-                .then(|| {
-                    self.keys
-                        .get_or_create()
-                        .context("failed to get private key")
-                })
-                .transpose()?;
-
             let result = super::commit(
                 project_repository,
                 branch_id,
                 message,
                 ownership,
-                signing_key.as_ref(),
                 user,
                 run_hooks,
             )
@@ -548,22 +528,8 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let signing_key = project_repository
-                .config()
-                .sign_commits()
-                .context("failed to get sign commits option")?
-                .then(|| {
-                    self.keys
-                        .get_or_create()
-                        .context("failed to get private key")
-                })
-                .transpose()?;
-            let result = super::create_virtual_branch_from_branch(
-                project_repository,
-                branch,
-                signing_key.as_ref(),
-                user,
-            )?;
+            let result =
+                super::create_virtual_branch_from_branch(project_repository, branch, user)?;
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::CreateBranch));
@@ -624,24 +590,8 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let signing_key = project_repository
-                .config()
-                .sign_commits()
-                .context("failed to get sign commits option")?
-                .then(|| {
-                    self.keys
-                        .get_or_create()
-                        .context("failed to get private key")
-                })
-                .transpose()?;
-
-            let result = super::merge_virtual_branch_upstream(
-                project_repository,
-                branch_id,
-                signing_key.as_ref(),
-                user,
-            )
-            .map_err(Into::into);
+            let result = super::merge_virtual_branch_upstream(project_repository, branch_id, user)
+                .map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::MergeUpstream));
@@ -653,19 +603,7 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let signing_key = project_repository
-                .config()
-                .sign_commits()
-                .context("failed to get sign commits option")?
-                .then(|| {
-                    self.keys
-                        .get_or_create()
-                        .context("failed to get private key")
-                })
-                .transpose()?;
-
-            let result = super::update_base_branch(project_repository, user, signing_key.as_ref())
-                .map_err(Into::into);
+            let result = super::update_base_branch(project_repository, user).map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::UpdateWorkspaceBase));
@@ -726,20 +664,8 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let signing_key = project_repository
-                .config()
-                .sign_commits()
-                .context("failed to get sign commits option")?
-                .then(|| {
-                    self.keys
-                        .get_or_create()
-                        .context("failed to get private key")
-                })
-                .transpose()?;
-
             let result =
-                super::apply_branch(project_repository, branch_id, signing_key.as_ref(), user)
-                    .map_err(Into::into);
+                super::apply_branch(project_repository, branch_id, user).map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::ApplyBranch));
@@ -1083,24 +1009,8 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let signing_key = project_repository
-                .config()
-                .sign_commits()
-                .context("failed to get sign commits option")?
-                .then(|| {
-                    self.keys
-                        .get_or_create()
-                        .context("failed to get private key")
-                })
-                .transpose()?;
-            let result = super::move_commit(
-                project_repository,
-                target_branch_id,
-                commit_oid,
-                user,
-                signing_key.as_ref(),
-            )
-            .map_err(Into::into);
+            let result = super::move_commit(project_repository, target_branch_id, commit_oid, user)
+                .map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::MoveCommit));

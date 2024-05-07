@@ -13,7 +13,6 @@ use crate::{
     askpass::AskpassBroker,
     error,
     git::{self, credentials::HelpError, Url},
-    keys,
     projects::{self, AuthKey},
     ssh, users,
     virtual_branches::{Branch, BranchId},
@@ -344,20 +343,12 @@ impl Repository {
         message: &str,
         tree: &git::Tree,
         parents: &[&git::Commit],
-        signing_key: Option<&keys::PrivateKey>,
         change_id: Option<&str>,
     ) -> Result<git::Oid> {
         let (author, committer) = self.git_signatures(user)?;
-
-        if let Some(key) = signing_key {
-            self.git_repository
-                .commit_signed(&author, message, tree, parents, key, change_id)
-                .context("failed to commit signed")
-        } else {
-            self.git_repository
-                .commit(None, &author, &committer, message, tree, parents, change_id)
-                .context("failed to commit")
-        }
+        self.git_repository
+            .commit(None, &author, &committer, message, tree, parents, change_id)
+            .context("failed to commit")
     }
 
     pub fn push_to_gitbutler_server(

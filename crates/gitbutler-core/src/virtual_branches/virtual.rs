@@ -34,7 +34,6 @@ use crate::{
         diff::{self},
         Commit, Refname, RemoteRefname,
     },
-    keys,
     project_repository::{self, conflicts, LogUntil},
     reader, users,
 };
@@ -101,6 +100,7 @@ pub struct VirtualBranchCommit {
     pub branch_id: BranchId,
     pub change_id: Option<String>,
     pub is_signed: bool,
+    pub stack_points: Option<Vec<HashMap<String, String>>>,
 }
 
 // this struct is a mapping to the view `File` type in Typescript
@@ -215,7 +215,6 @@ pub fn normalize_branch_name(name: &str) -> String {
 pub fn apply_branch(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
-    signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
 ) -> Result<(), errors::ApplyBranchError> {
     if project_repository.is_resolving() {
@@ -359,7 +358,6 @@ pub fn apply_branch(
                 .as_str(),
                 &merged_branch_tree,
                 &[&head_commit, &target_commit],
-                signing_key,
                 None,
             )?;
 
@@ -429,7 +427,6 @@ pub fn apply_branch(
                         .as_str(),
                         &merge_tree,
                         &[&head_commit, &target_commit],
-                        signing_key,
                         None,
                     )
                     .context("failed to commit merge")?;
@@ -1053,6 +1050,7 @@ fn commit_to_vbranch_commit(
         branch_id: branch.id,
         change_id: commit.change_id(),
         is_signed: commit.is_signed(),
+        stack_points: Some(stack_points),
     };
 
     Ok(commit)
@@ -1171,7 +1169,6 @@ pub fn create_virtual_branch(
 pub fn merge_virtual_branch_upstream(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
-    signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
 ) -> Result<(), errors::MergeVirtualBranchUpstreamError> {
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
@@ -1364,7 +1361,6 @@ pub fn merge_virtual_branch_upstream(
             .as_str(),
             &merge_tree,
             &[&head_commit, &upstream_commit],
-            signing_key,
             None,
         )?;
 
@@ -2312,7 +2308,6 @@ pub fn commit(
     branch_id: &BranchId,
     message: &str,
     ownership: Option<&branch::BranchOwnershipClaims>,
-    signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
     run_hooks: bool,
 ) -> Result<git::Oid, errors::CommitError> {
@@ -2415,15 +2410,12 @@ pub fn commit(
                 message,
                 &tree,
                 &[&parent_commit, &merge_parent],
-                signing_key,
                 None,
             )?;
             conflicts::clear(project_repository).context("failed to clear conflicts")?;
             commit_oid
         }
-        None => {
-            project_repository.commit(user, message, &tree, &[&parent_commit], signing_key, None)?
-        }
+        None => project_repository.commit(user, message, &tree, &[&parent_commit], None)?,
     };
 
     if run_hooks {
@@ -3340,8 +3332,7 @@ pub fn insert_blank_commit(
     }
 
     let commit_tree = commit.tree().unwrap();
-    let blank_commit_oid =
-        project_repository.commit(user, "", &commit_tree, &[&commit], None, None)?;
+    let blank_commit_oid = project_repository.commit(user, "", &commit_tree, &[&commit], None)?;
 
     if commit.id() == branch.head && offset < 0 {
         // inserting before the first commit
@@ -3983,7 +3974,6 @@ pub fn move_commit(
     target_branch_id: &BranchId,
     commit_oid: git::Oid,
     user: Option<&users::User>,
-    signing_key: Option<&keys::PrivateKey>,
 ) -> Result<(), errors::MoveCommitError> {
     if project_repository.is_resolving() {
         return Err(errors::MoveCommitError::Conflicted(
@@ -4140,7 +4130,6 @@ pub fn move_commit(
                     .git_repository
                     .find_commit(destination_branch.head)
                     .context("failed to get dst branch head commit")?],
-                signing_key,
                 change_id.as_deref(),
             )
             .context("failed to commit")?;
@@ -4158,7 +4147,6 @@ pub fn move_commit(
 pub fn create_virtual_branch_from_branch(
     project_repository: &project_repository::Repository,
     upstream: &git::Refname,
-    signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
 ) -> Result<BranchId, errors::CreateVirtualBranchFromBranchError> {
     if !matches!(upstream, git::Refname::Local(_) | git::Refname::Remote(_)) {
@@ -4297,7 +4285,7 @@ pub fn create_virtual_branch_from_branch(
 
     project_repository.add_branch_reference(&branch)?;
 
-    match apply_branch(project_repository, &branch.id, signing_key, user) {
+    match apply_branch(project_repository, &branch.id, user) {
         Ok(()) => Ok(branch.id),
         Err(errors::ApplyBranchError::BranchConflicts(_)) => {
             // if branch conflicts with the workspace, it's ok. keep it unapplied

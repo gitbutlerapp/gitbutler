@@ -64,7 +64,6 @@ fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
         "test commit",
         None,
         None,
-        None,
         false,
     )?;
 
@@ -123,7 +122,6 @@ fn signed_commit() -> Result<()> {
         &branch1_id,
         "test commit",
         None,
-        Some(suite.keys.get_or_create()?).as_ref(),
         None,
         false,
     )?;
@@ -212,7 +210,6 @@ fn track_binary_files() -> Result<()> {
         "test commit",
         None,
         None,
-        None,
         false,
     )?;
 
@@ -242,7 +239,6 @@ fn track_binary_files() -> Result<()> {
         project_repository,
         &branch1_id,
         "test commit",
-        None,
         None,
         None,
         false,
@@ -811,12 +807,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     assert_eq!(branch1.commits.len(), 1);
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
-    merge_virtual_branch_upstream(
-        project_repository,
-        &branch1.id,
-        Some(suite.keys.get_or_create()?).as_ref(),
-        None,
-    )?;
+    merge_virtual_branch_upstream(project_repository, &branch1.id, None)?;
 
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
     let branch1 = &branches[0];
@@ -931,7 +922,7 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
     assert_eq!(branch1.commits.len(), 1);
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
-    merge_virtual_branch_upstream(project_repository, &branch1.id, None, None)?;
+    merge_virtual_branch_upstream(project_repository, &branch1.id, None)?;
 
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
     let branch1 = &branches[0];
@@ -961,7 +952,6 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
         project_repository,
         &branch1.id,
         "fix merge conflict",
-        None,
         None,
         None,
         false,
@@ -1095,7 +1085,7 @@ fn unapply_branch() -> Result<()> {
     assert_eq!(branch.files.len(), 1);
     assert!(!branch.active);
 
-    apply_branch(project_repository, &branch1_id, None, None)?;
+    apply_branch(project_repository, &branch1_id, None)?;
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!(
         "line1\nline2\nline3\nline4\nbranch1\n",
@@ -1168,11 +1158,11 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     // check that file3 is gone
     assert!(!Path::new(&project.path).join(file_path3).exists());
 
-    apply_branch(project_repository, &branch2_id, None, None)?;
+    apply_branch(project_repository, &branch2_id, None)?;
     // check that file2 is gone
     assert!(!Path::new(&project.path).join(file_path2).exists());
 
-    apply_branch(project_repository, &branch3_id, None, None)?;
+    apply_branch(project_repository, &branch3_id, None)?;
     // check that file3 is back
     let contents = std::fs::read(Path::new(&project.path).join(file_path3))?;
     assert_eq!("file3\n", String::from_utf8(contents)?);
@@ -1461,14 +1451,12 @@ fn upstream_integrated_vbranch() -> Result<()> {
         "integrated commit",
         None,
         None,
-        None,
         false,
     )?;
     commit(
         project_repository,
         &branch2_id,
         "non-integrated commit",
-        None,
         None,
         None,
         false,
@@ -1531,7 +1519,6 @@ fn commit_same_hunk_twice() -> Result<()> {
         "first commit to test.txt",
         None,
         None,
-        None,
         false,
     )?;
 
@@ -1565,7 +1552,6 @@ fn commit_same_hunk_twice() -> Result<()> {
         project_repository,
         &branch1_id,
         "second commit to test.txt",
-        None,
         None,
         None,
         false,
@@ -1626,7 +1612,6 @@ fn commit_same_file_twice() -> Result<()> {
         "first commit to test.txt",
         None,
         None,
-        None,
         false,
     )?;
 
@@ -1660,7 +1645,6 @@ fn commit_same_file_twice() -> Result<()> {
         project_repository,
         &branch1_id,
         "second commit to test.txt",
-        None,
         None,
         None,
         false,
@@ -1721,7 +1705,6 @@ fn commit_partial_by_hunk() -> Result<()> {
         "first commit to test.txt",
         Some(&"test.txt:1-6".parse::<BranchOwnershipClaims>().unwrap()),
         None,
-        None,
         false,
     )?;
 
@@ -1739,7 +1722,6 @@ fn commit_partial_by_hunk() -> Result<()> {
         &branch1_id,
         "second commit to test.txt",
         Some(&"test.txt:16-22".parse::<BranchOwnershipClaims>().unwrap()),
-        None,
         None,
         false,
     )?;
@@ -1797,7 +1779,6 @@ fn commit_partial_by_file() -> Result<()> {
         project_repository,
         &branch1_id,
         "branch1 commit",
-        None,
         None,
         None,
         false,
@@ -1867,7 +1848,6 @@ fn commit_add_and_delete_files() -> Result<()> {
         "branch1 commit",
         None,
         None,
-        None,
         false,
     )?;
 
@@ -1931,7 +1911,6 @@ fn commit_executable_and_symlinks() -> Result<()> {
         project_repository,
         &branch1_id,
         "branch1 commit",
-        None,
         None,
         None,
         false,
@@ -2110,7 +2089,6 @@ fn pre_commit_hook_rejection() -> Result<()> {
         &branch1_id,
         "test commit",
         None,
-        Some(suite.keys.get_or_create()?).as_ref(),
         None,
         true,
     );
@@ -2175,7 +2153,6 @@ fn post_commit_hook() -> Result<()> {
         &branch1_id,
         "test commit",
         None,
-        Some(suite.keys.get_or_create()?).as_ref(),
         None,
         true,
     )?;
@@ -2224,7 +2201,6 @@ fn commit_msg_hook_rejection() -> Result<()> {
         &branch1_id,
         "test commit",
         None,
-        Some(suite.keys.get_or_create()?).as_ref(),
         None,
         true,
     );

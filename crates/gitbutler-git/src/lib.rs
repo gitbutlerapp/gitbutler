@@ -24,5 +24,5 @@ pub use self::executor::tokio;
 pub use self::{
     error::Error,
     refspec::{Error as RefSpecError, RefSpec},
-    repository::{fetch, push},
+    repository::{fetch, push, sign_commit},
 };

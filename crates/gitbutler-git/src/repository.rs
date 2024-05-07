@@ -59,7 +59,7 @@ pub type Error<E> = RepositoryError<
 #[cold]
 async fn execute_with_auth_harness<P, F, Fut, E, Extra>(
     repo_path: P,
-    executor: E,
+    executor: &E,
     args: &[&str],
     envs: Option<HashMap<String, String>>,
     mut on_prompt: F,
@@ -155,7 +155,7 @@ where
         .or_else(|| std::env::var("GIT_SSH").ok())
     {
         Some(v) => v,
-        None => get_core_sshcommand(&executor, &repo_path)
+        None => get_core_sshcommand(executor, &repo_path)
             .await
             .unwrap_or_else(|| "ssh".into()),
     };
@@ -300,7 +300,7 @@ where
     args.push(&refspec);
 
     let (status, stdout, stderr) =
-        execute_with_auth_harness(repo_path, executor, &args, None, on_prompt, extra).await?;
+        execute_with_auth_harness(repo_path, &executor, &args, None, on_prompt, extra).await?;
 
     if status == 0 {
         Ok(())
@@ -362,7 +362,7 @@ where
     }
 
     let (status, stdout, stderr) =
-        execute_with_auth_harness(repo_path, executor, &args, None, on_prompt, extra).await?;
+        execute_with_auth_harness(repo_path, &executor, &args, None, on_prompt, extra).await?;
 
     if status == 0 {
         Ok(())
@@ -390,6 +390,118 @@ where
             })?
         }
     }
+}
+
+/// Signs the given commit-ish in the repository at the given path.
+/// Returns the newly signed commit SHA.
+///
+/// Any prompts for the user are passed to the asynchronous callback `on_prompt`,
+/// which should return the user's response or `None` if the operation should be
+/// aborted, in which case an `Err` value is returned from this function.
+pub async fn sign_commit<P, E, F, Extra, Fut>(
+    repo_path: P,
+    executor: E,
+    base_commitish: String,
+    on_prompt: F,
+    extra: Extra,
+) -> Result<String, crate::Error<Error<E>>>
+where
+    P: AsRef<Path>,
+    E: GitExecutor,
+    F: FnMut(String, Extra) -> Fut,
+    Fut: std::future::Future<Output = Option<String>>,
+    Extra: Send + Clone,
+{
+    let repo_path = repo_path.as_ref();
+
+    // First, create a worktree to perform the commit.
+    let worktree_path = repo_path
+        .join(".git")
+        .join("gitbutler")
+        .join(".wt")
+        .join(uuid::Uuid::new_v4().to_string());
+    let args = [
+        "worktree",
+        "add",
+        "--detach",
+        "--no-checkout",
+        worktree_path.to_str().unwrap(),
+        base_commitish.as_str(),
+    ];
+    let (status, stdout, stderr) = executor
+        .execute(&args, repo_path, None)
+        .await
+        .map_err(Error::<E>::Exec)?;
+    if status != 0 {
+        return Err(Error::<E>::Failed {
+            status,
+            args: args.into_iter().map(Into::into).collect(),
+            stdout,
+            stderr,
+        })?;
+    }
+
+    // Now, perform the commit.
+    let args = [
+        "commit",
+        "--amend",
+        "-S",
+        "-o",
+        "--no-edit",
+        "--no-verify",
+        "--no-post-rewrite",
+        "--allow-empty",
+        "--allow-empty-message",
+    ];
+    let (status, stdout, stderr) =
+        execute_with_auth_harness(&worktree_path, &executor, &args, None, on_prompt, extra).await?;
+    if status != 0 {
+        return Err(Error::<E>::Failed {
+            status,
+            args: args.into_iter().map(Into::into).collect(),
+            stdout,
+            stderr,
+        })?;
+    }
+
+    // Get the commit hash that was generated
+    let args = ["rev-parse", "--verify", "HEAD"];
+    let (status, stdout, stderr) = executor
+        .execute(&args, &worktree_path, None)
+        .await
+        .map_err(Error::<E>::Exec)?;
+    if status != 0 {
+        return Err(Error::<E>::Failed {
+            status,
+            args: args.into_iter().map(Into::into).collect(),
+            stdout,
+            stderr,
+        })?;
+    }
+
+    let commit_hash = stdout.trim().to_string();
+
+    // Finally, remove the worktree
+    let args = [
+        "worktree",
+        "remove",
+        "--force",
+        worktree_path.to_str().unwrap(),
+    ];
+    let (status, stdout, stderr) = executor
+        .execute(&args, repo_path, None)
+        .await
+        .map_err(Error::<E>::Exec)?;
+    if status != 0 {
+        return Err(Error::<E>::Failed {
+            status,
+            args: args.into_iter().map(Into::into).collect(),
+            stdout,
+            stderr,
+        })?;
+    }
+
+    Ok(commit_hash)
 }
 
 async fn get_core_sshcommand<E: GitExecutor, P: AsRef<Path>>(

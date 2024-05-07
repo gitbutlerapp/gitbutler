@@ -274,6 +274,29 @@ impl Repository {
             .write(git2::ObjectType::Commit, commit_buffer.as_bytes())?;
 
         // check git config for gpg.signingkey
+        let signing_key = self.0.config()?.get_string("commit.gpgSign");
+        dbg!(&signing_key);
+        if let Ok(_should_sign) = signing_key {
+            dbg!("SIGN IT");
+            /*
+            SOMETHING SOMETHING DARK SIDE...
+            let path = self.path().to_path_buf();
+            let res = std::thread::spawn(move || {
+                tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(gitbutler_git::sign_commit(
+                        path,
+                        gitbutler_git::tokio::TokioExecutor,
+                        oid.to_string(),
+                        handle_git_prompt_sign,
+                        extra,
+                    ))
+            })
+            .join()
+            .unwrap()
+            .map_err(|e| Err(anyhow::anyhow!("fuck you")));
+             */
+        }
 
         // update reference
         if let Some(refname) = update_ref {

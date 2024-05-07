@@ -29,6 +29,7 @@ test-askpass-path = []
 thiserror.workspace = true
 serde = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true, features = ["process", "time", "io-util", "net", "fs"] }
+uuid.workspace = true
 rand = "0.8.5"
 futures = "0.3.30"
 sysinfo = "0.30.11"

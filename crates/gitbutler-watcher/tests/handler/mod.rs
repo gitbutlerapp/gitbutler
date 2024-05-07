@@ -37,7 +37,6 @@ mod support {
             let vbranch_controller = virtual_branches::Controller::new(
                 inner.projects.clone(),
                 inner.users.clone(),
-                inner.keys.clone(),
                 git_credentials_helper,
             );
             let assets_proxy = assets::Proxy::new(tmp.path().to_owned());
