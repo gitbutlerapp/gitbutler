@@ -99,6 +99,8 @@ pub struct VirtualBranchCommit {
     pub is_integrated: bool,
     pub parent_ids: Vec<git::Oid>,
     pub branch_id: BranchId,
+    pub change_id: Option<String>,
+    pub is_signed: bool,
 }
 
 // this struct is a mapping to the view `File` type in Typescript
@@ -358,6 +360,7 @@ pub fn apply_branch(
                 &merged_branch_tree,
                 &[&head_commit, &target_commit],
                 signing_key,
+                None,
             )?;
 
             // ok, update the virtual branch
@@ -427,6 +430,7 @@ pub fn apply_branch(
                         &merge_tree,
                         &[&head_commit, &target_commit],
                         signing_key,
+                        None,
                     )
                     .context("failed to commit merge")?;
 
@@ -1047,6 +1051,8 @@ fn commit_to_vbranch_commit(
         is_integrated,
         parent_ids,
         branch_id: branch.id,
+        change_id: commit.change_id(),
+        is_signed: commit.is_signed(),
     };
 
     Ok(commit)
@@ -1359,6 +1365,7 @@ pub fn merge_virtual_branch_upstream(
             &merge_tree,
             &[&head_commit, &upstream_commit],
             signing_key,
+            None,
         )?;
 
         // checkout the merge tree
@@ -2409,11 +2416,14 @@ pub fn commit(
                 &tree,
                 &[&parent_commit, &merge_parent],
                 signing_key,
+                None,
             )?;
             conflicts::clear(project_repository).context("failed to clear conflicts")?;
             commit_oid
         }
-        None => project_repository.commit(user, message, &tree, &[&parent_commit], signing_key)?,
+        None => {
+            project_repository.commit(user, message, &tree, &[&parent_commit], signing_key, None)?
+        }
     };
 
     if run_hooks {
@@ -2871,6 +2881,7 @@ pub fn move_commit_file(
         let new_from_tree = &repo
             .find_tree(new_from_tree_oid)
             .map_err(|_error| errors::VirtualBranchError::GitObjectNotFound(new_from_tree_oid))?;
+        let change_id = from_commit.change_id();
         let new_from_commit_oid = repo
             .commit(
                 None,
@@ -2879,6 +2890,7 @@ pub fn move_commit_file(
                 &from_commit.message().to_str_lossy(),
                 new_from_tree,
                 &[&from_parent],
+                change_id.as_deref(),
             )
             .map_err(|_error| errors::VirtualBranchError::CommitFailed)?;
 
@@ -2949,6 +2961,7 @@ pub fn move_commit_file(
     let parents = amend_commit
         .parents()
         .context("failed to find head commit parents")?;
+    let change_id = amend_commit.change_id();
     let commit_oid = project_repository
         .git_repository
         .commit(
@@ -2958,6 +2971,7 @@ pub fn move_commit_file(
             &amend_commit.message().to_str_lossy(),
             &new_tree,
             &parents.iter().collect::<Vec<_>>(),
+            change_id.as_deref(),
         )
         .context("failed to create commit")?;
 
@@ -3146,6 +3160,7 @@ pub fn amend(
             &amend_commit.message().to_str_lossy(),
             &new_tree,
             &parents.iter().collect::<Vec<_>>(),
+            None,
         )
         .context("failed to create commit")?;
 
@@ -3325,7 +3340,8 @@ pub fn insert_blank_commit(
     }
 
     let commit_tree = commit.tree().unwrap();
-    let blank_commit_oid = project_repository.commit(user, "", &commit_tree, &[&commit], None)?;
+    let blank_commit_oid =
+        project_repository.commit(user, "", &commit_tree, &[&commit], None, None)?;
 
     if commit.id() == branch.head && offset < 0 {
         // inserting before the first commit
@@ -3493,6 +3509,8 @@ fn cherry_rebase_group(
                     .find_tree(merge_tree_oid)
                     .context("failed to find merge tree")?;
 
+                let change_id = to_rebase.change_id();
+
                 let commit_oid = project_repository
                     .git_repository
                     .commit(
@@ -3502,6 +3520,7 @@ fn cherry_rebase_group(
                         &to_rebase.message().to_str_lossy(),
                         &merge_tree,
                         &[&head],
+                        change_id.as_deref(),
                     )
                     .context("failed to create commit")?;
 
@@ -3514,60 +3533,6 @@ fn cherry_rebase_group(
         .id();
 
     Ok(Some(new_head_id))
-}
-
-// runs a simple libgit2 based in-memory rebase on a commit range onto a target commit
-// possibly not used in favor of cherry_rebase
-pub fn simple_rebase(
-    project_repository: &project_repository::Repository,
-    target_commit_oid: git::Oid,
-    start_commit_oid: git::Oid,
-    end_commit_oid: git::Oid,
-) -> Result<Option<git::Oid>, anyhow::Error> {
-    let repo = &project_repository.git_repository;
-    let (_, committer) = project_repository.git_signatures(None)?;
-
-    let mut rebase_options = git2::RebaseOptions::new();
-    rebase_options.quiet(true);
-    rebase_options.inmemory(true);
-    let mut rebase = repo
-        .rebase(
-            Some(end_commit_oid),
-            Some(start_commit_oid),
-            Some(target_commit_oid),
-            Some(&mut rebase_options),
-        )
-        .context("failed to rebase")?;
-
-    let mut rebase_success = true;
-    // check to see if these commits have already been pushed
-    let mut last_rebase_head = target_commit_oid;
-    while rebase.next().is_some() {
-        let index = rebase
-            .inmemory_index()
-            .context("failed to get inmemory index")?;
-        if index.has_conflicts() {
-            rebase_success = false;
-            break;
-        }
-
-        if let Ok(commit_id) = rebase.commit(None, &committer.clone().into(), None) {
-            last_rebase_head = commit_id.into();
-        } else {
-            rebase_success = false;
-            break;
-        }
-    }
-
-    if rebase_success {
-        // rebase worked out, rewrite the branch head
-        rebase.finish(None).context("failed to finish rebase")?;
-        Ok(Some(last_rebase_head))
-    } else {
-        // rebase failed, do a merge commit
-        rebase.abort().context("failed to abort rebase")?;
-        Ok(None)
-    }
 }
 
 pub fn cherry_pick(
@@ -3653,6 +3618,7 @@ pub fn cherry_pick(
                 "wip cherry picking commit",
                 &wip_tree,
                 &[&branch_head_commit],
+                None,
             )
             .context("failed to commit wip work")?;
         project_repository
@@ -3716,6 +3682,7 @@ pub fn cherry_pick(
             .find_commit(branch.head)
             .context("failed to find branch head commit")?;
 
+        let change_id = target_commit.change_id();
         let commit_oid = project_repository
             .git_repository
             .commit(
@@ -3725,6 +3692,7 @@ pub fn cherry_pick(
                 &target_commit.message().to_str_lossy(),
                 &merge_tree,
                 &[&branch_head_commit],
+                change_id.as_deref(),
             )
             .context("failed to create commit")?;
 
@@ -3840,6 +3808,9 @@ pub fn squash(
         .parents()
         .context("failed to find head commit parents")?;
 
+    // use the squash commit's change id
+    let change_id = commit_to_squash.change_id();
+
     let new_commit_oid = project_repository
         .git_repository
         .commit(
@@ -3853,6 +3824,7 @@ pub fn squash(
             ),
             &commit_to_squash.tree().context("failed to find tree")?,
             &parents.iter().collect::<Vec<_>>(),
+            change_id.as_deref(),
         )
         .context("failed to commit")?;
 
@@ -3963,6 +3935,8 @@ pub fn update_commit_message(
         .parents()
         .context("failed to find head commit parents")?;
 
+    let change_id = target_commit.change_id();
+
     let new_commit_oid = project_repository
         .git_repository
         .commit(
@@ -3972,6 +3946,7 @@ pub fn update_commit_message(
             message,
             &target_commit.tree().context("failed to find tree")?,
             &parents.iter().collect::<Vec<_>>(),
+            change_id.as_deref(),
         )
         .context("failed to commit")?;
 
@@ -4155,6 +4130,7 @@ pub fn move_commit(
             .find_tree(new_destination_tree_oid)
             .context("failed to find tree")?;
 
+        let change_id = source_branch_head.change_id();
         let new_destination_head_oid = project_repository
             .commit(
                 user,
@@ -4165,6 +4141,7 @@ pub fn move_commit(
                     .find_commit(destination_branch.head)
                     .context("failed to get dst branch head commit")?],
                 signing_key,
+                change_id.as_deref(),
             )
             .context("failed to commit")?;
 

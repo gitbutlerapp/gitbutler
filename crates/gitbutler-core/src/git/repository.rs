@@ -242,6 +242,7 @@ impl Repository {
         self.0.blob(data).map(Into::into).map_err(Into::into)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn commit(
         &self,
         update_ref: Option<&Refname>,
@@ -250,22 +251,35 @@ impl Repository {
         message: &str,
         tree: &Tree<'_>,
         parents: &[&Commit<'_>],
+        change_id: Option<&str>,
     ) -> Result<Oid> {
         let parents: Vec<&git2::Commit> = parents
             .iter()
             .map(|c| c.to_owned().into())
             .collect::<Vec<_>>();
-        self.0
-            .commit(
-                update_ref.map(ToString::to_string).as_deref(),
-                author.into(),
-                committer.into(),
-                message,
-                tree.into(),
-                &parents,
-            )
-            .map(Into::into)
-            .map_err(Into::into)
+
+        let commit_buffer = self.0.commit_create_buffer(
+            author.into(),
+            committer.into(),
+            message,
+            tree.into(),
+            &parents,
+        )?;
+
+        let commit_buffer = Self::inject_change_id(&commit_buffer, change_id)?;
+
+        let oid = self
+            .0
+            .odb()?
+            .write(git2::ObjectType::Commit, commit_buffer.as_bytes())?;
+
+        // check git config for gpg.signingkey
+
+        // update reference
+        if let Some(refname) = update_ref {
+            self.0.reference(&refname.to_string(), oid, true, message)?;
+        }
+        Ok(oid.into())
     }
 
     pub fn commit_signed(
@@ -275,6 +289,7 @@ impl Repository {
         tree: &Tree<'_>,
         parents: &[&Commit<'_>],
         key: &keys::PrivateKey,
+        change_id: Option<&str>,
     ) -> Result<Oid> {
         let parents: Vec<&git2::Commit> = parents
             .iter()
@@ -289,12 +304,40 @@ impl Repository {
             tree.into(),
             &parents,
         )?;
-        let commit_buffer = str::from_utf8(&commit_buffer).unwrap();
+        let commit_buffer = Self::inject_change_id(&commit_buffer, change_id)?;
         let signature = key.sign(commit_buffer.as_bytes())?;
         self.0
-            .commit_signed(commit_buffer, &signature, None)
+            .commit_signed(&commit_buffer, &signature, None)
             .map(Into::into)
             .map_err(Into::into)
+    }
+
+    // in commit_buffer, inject a line right before the first `\n\n` that we see:
+    // `change-id: <id>`
+    fn inject_change_id(commit_buffer: &[u8], change_id: Option<&str>) -> Result<String> {
+        // if no change id, generate one
+        let change_id = change_id
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| format!("{}", uuid::Uuid::new_v4()));
+
+        let commit_ends_in_newline = commit_buffer.ends_with(b"\n");
+        let commit_buffer = str::from_utf8(commit_buffer).unwrap();
+        let lines = commit_buffer.lines();
+        let mut new_buffer = String::new();
+        let mut found = false;
+        for line in lines {
+            if line.is_empty() && !found {
+                new_buffer.push_str(&format!("change-id {}\n", change_id));
+                found = true;
+            }
+            new_buffer.push_str(line);
+            new_buffer.push('\n');
+        }
+        if !commit_ends_in_newline {
+            // strip last \n
+            new_buffer.pop();
+        }
+        Ok(new_buffer)
     }
 
     pub fn config(&self) -> Result<Config> {

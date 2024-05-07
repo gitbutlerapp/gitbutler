@@ -200,6 +200,7 @@ fn create_initial_commit(repo: &git::Repository) -> git::Oid {
         "initial commit",
         &repo.find_tree(oid).unwrap(),
         &[],
+        None,
     )
     .unwrap()
 }
@@ -224,6 +225,7 @@ fn create_test_commits(repo: &git::Repository, commits: usize) -> git::Oid {
                 &[&repo
                     .find_commit(repo.refname_to_id("HEAD").unwrap())
                     .unwrap()],
+                None,
             )
             .unwrap(),
         );

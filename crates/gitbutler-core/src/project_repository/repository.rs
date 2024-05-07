@@ -345,15 +345,17 @@ impl Repository {
         tree: &git::Tree,
         parents: &[&git::Commit],
         signing_key: Option<&keys::PrivateKey>,
+        change_id: Option<&str>,
     ) -> Result<git::Oid> {
         let (author, committer) = self.git_signatures(user)?;
+
         if let Some(key) = signing_key {
             self.git_repository
-                .commit_signed(&author, message, tree, parents, key)
+                .commit_signed(&author, message, tree, parents, key, change_id)
                 .context("failed to commit signed")
         } else {
             self.git_repository
-                .commit(None, &author, &committer, message, tree, parents)
+                .commit(None, &author, &committer, message, tree, parents, change_id)
                 .context("failed to commit")
         }
     }

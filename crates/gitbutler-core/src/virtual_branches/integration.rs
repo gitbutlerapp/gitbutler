@@ -89,6 +89,7 @@ pub fn get_workspace_head(
         WORKSPACE_HEAD,
         &workspace_tree,
         branch_head_refs.as_slice(),
+        None,
     )?;
     Ok(workspace_head_id)
 }
@@ -240,6 +241,7 @@ pub fn update_gitbutler_integration_with_commit(
         &message,
         &integration_commit.tree()?,
         &[&target_commit],
+        None,
     )?;
 
     // write final_tree as the current index
@@ -270,6 +272,7 @@ pub fn update_gitbutler_integration_with_commit(
                 &message,
                 &wip_tree,
                 &[&branch_head],
+                None,
             )?;
             branch_head = repo.find_commit(branch_head_oid)?;
         }
@@ -333,6 +336,7 @@ fn verify_head_is_clean(
         )
         .context("failed to reset to integration commit")?;
 
+    dbg!("Head creating virtual branch");
     let mut new_branch = super::create_virtual_branch(
         project_repository,
         &BranchCreateRequest {
@@ -363,6 +367,7 @@ fn verify_head_is_clean(
                 &commit.message().to_str_lossy(),
                 &commit.tree().unwrap(),
                 &[&new_branch_head],
+                None,
             )
             .context(format!(
                 "failed to rebase commit {} onto new branch",

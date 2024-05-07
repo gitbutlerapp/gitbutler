@@ -508,12 +508,13 @@ pub fn update_base_branch(
                                         "Merged {}/{} into {}",
                                         target.branch.remote(),
                                         target.branch.branch(),
-                                        branch.name
+                                        branch.name,
                                     )
                                     .as_str(),
                                     &branch_head_merge_tree,
                                     &[&branch_head_commit, &new_target_commit],
                                     signing_key,
+                                    None,
                                 )
                                 .context("failed to commit merge")?;
 

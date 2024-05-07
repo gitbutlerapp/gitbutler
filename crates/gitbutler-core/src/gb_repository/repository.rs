@@ -889,6 +889,7 @@ fn write_gb_commit(
                 "gitbutler check",                                         // commit message
                 &gb_repository.git_repository.find_tree(tree_id).unwrap(), // tree
                 &[&last_commit],                                           // parents
+                None,
             )?;
             Ok(new_commit)
         }
@@ -900,6 +901,7 @@ fn write_gb_commit(
                 "gitbutler check",                                         // commit message
                 &gb_repository.git_repository.find_tree(tree_id).unwrap(), // tree
                 &[],                                                       // parents
+                None,
             )?;
             Ok(new_commit)
         }
