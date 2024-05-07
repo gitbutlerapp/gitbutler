@@ -68,6 +68,17 @@ fn main() {
 
                     logs::init(&app_handle);
 
+                    // SAFETY(qix-): This is safe because we're initializing the askpass broker here,
+                    // SAFETY(qix-): before any other threads would ever access it.
+                    unsafe {
+                        gitbutler_core::askpass::init({
+                            let handle = app_handle.clone();
+                            move |event| {
+                                handle.emit_all("git_prompt", event).expect("tauri event emission doesn't fail in practice")
+                            }
+                        });
+                    }
+
                     let app_data_dir = app_handle.path_resolver().app_data_dir().expect("missing app data dir");
                     let app_cache_dir = app_handle.path_resolver().app_cache_dir().expect("missing app cache dir");
                     let app_log_dir = app_handle.path_resolver().app_log_dir().expect("missing app log dir");
@@ -76,14 +87,6 @@ fn main() {
                     std::fs::create_dir_all(&app_cache_dir).expect("failed to create cache dir");
 
                     tracing::info!(version = %app_handle.package_info().version, name = %app_handle.package_info().name, "starting app");
-
-                    let askpass_broker = gitbutler_core::askpass::AskpassBroker::init({
-                        let handle = app_handle.clone();
-                        move |event| {
-                            handle.emit_all("git_prompt", event).expect("tauri event emission doesn't fail in practice")
-                        }
-                    });
-                    app_handle.manage(askpass_broker);
 
                     let storage_controller = storage::Storage::new(&app_data_dir);
                     app_handle.manage(storage_controller.clone());

@@ -2,7 +2,6 @@ pub mod commands {
     use crate::error::Error;
     use anyhow::Context;
     use gitbutler_core::{
-        askpass::AskpassBroker,
         assets,
         error::Code,
         git, projects,
@@ -266,15 +265,9 @@ pub mod commands {
         branch_id: BranchId,
         with_force: bool,
     ) -> Result<(), Error> {
-        let askpass_broker = handle.state::<AskpassBroker>();
         handle
             .state::<Controller>()
-            .push_virtual_branch(
-                &project_id,
-                &branch_id,
-                with_force,
-                Some((askpass_broker.inner().clone(), Some(branch_id))),
-            )
+            .push_virtual_branch(&project_id, &branch_id, with_force, Some(Some(branch_id)))
             .await
             .map_err(|err| err.context(Code::Unknown))?;
         emit_vbranches(&handle, &project_id).await;
@@ -499,15 +492,11 @@ pub mod commands {
         project_id: ProjectId,
         action: Option<String>,
     ) -> Result<BaseBranch, Error> {
-        let askpass_broker = handle.state::<AskpassBroker>().inner().clone();
         let base_branch = handle
             .state::<Controller>()
             .fetch_from_target(
                 &project_id,
-                Some((
-                    askpass_broker,
-                    action.unwrap_or_else(|| "unknown".to_string()),
-                )),
+                Some(action.unwrap_or_else(|| "unknown".to_string())),
             )
             .await?;
         emit_vbranches(&handle, &project_id).await;

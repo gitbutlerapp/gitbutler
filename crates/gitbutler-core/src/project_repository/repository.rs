@@ -9,9 +9,7 @@ use anyhow::{Context, Result};
 use super::conflicts;
 use crate::error::{AnyhowContextExt, Code, ErrorWithContext};
 use crate::{
-    askpass,
-    askpass::AskpassBroker,
-    error,
+    askpass, error,
     git::{self, credentials::HelpError, Url},
     keys,
     projects::{self, AuthKey},
@@ -171,7 +169,7 @@ impl Repository {
         credentials: &git::credentials::Helper,
         remote_name: &str,
         branch_name: &str,
-        askpass: Option<(AskpassBroker, Option<BranchId>)>,
+        askpass: Option<Option<BranchId>>,
     ) -> Result<()> {
         let target_branch_refname =
             git::Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
@@ -184,14 +182,7 @@ impl Repository {
         let refname =
             git::RemoteRefname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}",))?;
 
-        match self.push(
-            &commit_id,
-            &refname,
-            false,
-            credentials,
-            None,
-            askpass.clone(),
-        ) {
+        match self.push(&commit_id, &refname, false, credentials, None, askpass) {
             Ok(()) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
@@ -446,7 +437,7 @@ impl Repository {
         with_force: bool,
         credentials: &git::credentials::Helper,
         refspec: Option<String>,
-        askpass_broker: Option<(AskpassBroker, Option<BranchId>)>,
+        askpass_broker: Option<Option<BranchId>>,
     ) -> Result<(), RemoteError> {
         let refspec = refspec.unwrap_or_else(|| {
             if with_force {
@@ -545,7 +536,7 @@ impl Repository {
         &self,
         remote_name: &str,
         credentials: &git::credentials::Helper,
-        askpass: Option<(AskpassBroker, String)>,
+        askpass: Option<String>,
     ) -> Result<(), RemoteError> {
         let refspec = format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
 
@@ -658,11 +649,11 @@ pub enum LogUntil {
 
 async fn handle_git_prompt_push(
     prompt: String,
-    askpass: Option<(AskpassBroker, Option<BranchId>)>,
+    askpass: Option<Option<BranchId>>,
 ) -> Option<String> {
-    if let Some((askpass_broker, branch_id)) = askpass {
+    if let Some(branch_id) = askpass {
         tracing::info!("received prompt for branch push {branch_id:?}: {prompt:?}");
-        askpass_broker
+        askpass::get_broker()
             .submit_prompt(prompt, askpass::Context::Push { branch_id })
             .await
     } else {
@@ -671,13 +662,10 @@ async fn handle_git_prompt_push(
     }
 }
 
-async fn handle_git_prompt_fetch(
-    prompt: String,
-    askpass: Option<(AskpassBroker, String)>,
-) -> Option<String> {
-    if let Some((askpass_broker, action)) = askpass {
+async fn handle_git_prompt_fetch(prompt: String, askpass: Option<String>) -> Option<String> {
+    if let Some(action) = askpass {
         tracing::info!("received prompt for fetch with action {action:?}: {prompt:?}");
-        askpass_broker
+        askpass::get_broker()
             .submit_prompt(prompt, askpass::Context::Fetch { action })
             .await
     } else {

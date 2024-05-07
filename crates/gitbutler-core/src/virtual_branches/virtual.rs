@@ -27,7 +27,6 @@ use super::{
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
-    askpass::AskpassBroker,
     dedup::{dedup, dedup_fmt},
     git::{
         self,
@@ -2441,7 +2440,7 @@ pub fn push(
     branch_id: &BranchId,
     with_force: bool,
     credentials: &git::credentials::Helper,
-    askpass: Option<(AskpassBroker, Option<BranchId>)>,
+    askpass: Option<Option<BranchId>>,
 ) -> Result<(), errors::PushError> {
     let vb_state = project_repository.project().virtual_branches();
 
@@ -2505,7 +2504,7 @@ pub fn push(
         with_force,
         credentials,
         None,
-        askpass.clone(),
+        askpass,
     )?;
 
     vbranch.upstream = Some(remote_branch.clone());
@@ -2516,7 +2515,7 @@ pub fn push(
     project_repository.fetch(
         remote_branch.remote(),
         credentials,
-        askpass.map(|(broker, _)| (broker, "modal".to_string())),
+        askpass.map(|_| "modal".to_string()),
     )?;
 
     Ok(())
