@@ -1389,11 +1389,11 @@ pub fn update_branch(
             _ => errors::UpdateBranchError::Other(error.into()),
         })?;
 
-    if let Some(ownership) = branch_update.ownership {
-        set_ownership(&vb_state, &mut branch, &ownership).context("failed to set ownership")?;
+    if let Some(ownership) = &branch_update.ownership {
+        set_ownership(&vb_state, &mut branch, ownership).context("failed to set ownership")?;
     }
 
-    if let Some(name) = branch_update.name {
+    if let Some(name) = &branch_update.name {
         let all_virtual_branches = vb_state
             .list_branches()
             .context("failed to read virtual branches")?;
@@ -1405,13 +1405,13 @@ pub fn update_branch(
                 .iter()
                 .map(|b| b.name.as_str())
                 .collect::<Vec<_>>(),
-            &name,
+            name,
         );
 
         project_repository.add_branch_reference(&branch)?;
     };
 
-    if let Some(updated_upstream) = branch_update.upstream {
+    if let Some(updated_upstream) = &branch_update.upstream {
         let Some(default_target) = vb_state
             .try_get_default_target()
             .context("failed to get default target")?
@@ -1431,14 +1431,14 @@ pub fn update_branch(
         let remote_branch = format!(
             "refs/remotes/{}/{}",
             upstream_remote,
-            normalize_branch_name(&updated_upstream)
+            normalize_branch_name(updated_upstream)
         )
         .parse::<git::RemoteRefname>()
         .unwrap();
         branch.upstream = Some(remote_branch);
     };
 
-    if let Some(notes) = branch_update.notes {
+    if let Some(notes) = branch_update.notes.clone() {
         branch.notes = notes;
     };
 
@@ -1467,6 +1467,7 @@ pub fn update_branch(
         .set_branch(branch.clone())
         .context("failed to write target branch")?;
 
+    _ = branch.snapshot_update(project_repository.project(), branch_update);
     Ok(branch)
 }
 

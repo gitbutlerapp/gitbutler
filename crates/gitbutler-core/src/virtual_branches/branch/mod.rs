@@ -69,7 +69,7 @@ impl Branch {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct BranchUpdateRequest {
     pub id: BranchId,
     pub name: Option<String>,
