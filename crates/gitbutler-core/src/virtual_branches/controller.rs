@@ -178,6 +178,18 @@ impl Controller {
             .update_virtual_branch(project_id, branch_update)
             .await
     }
+
+    pub async fn split_hunk_and_update_virtual_branch(
+        &self,
+        project_id: &ProjectId,
+        branch_update: super::branch::BranchSplitHunkUpdateRequest,
+    ) -> Result<(), Error> {
+        self.inner(project_id)
+            .await
+            .split_hunk_and_update_virtual_branch(project_id, branch_update)
+            .await
+    }
+
     pub async fn delete_virtual_branch(
         &self,
         project_id: ProjectId,
@@ -592,6 +604,16 @@ impl ControllerInner {
             super::update_branch(project_repository, branch_update)?;
             Ok(())
         })
+    }
+
+    pub async fn split_hunk_and_update_virtual_branch(
+        &self,
+        project_id: &ProjectId,
+        _branch_update: super::branch::BranchSplitHunkUpdateRequest,
+    ) -> Result<(), Error> {
+        let _permit = self.semaphore.acquire().await;
+
+        self.with_verify_branch(project_id, |_project_repository, _| Ok(()))
     }
 
     pub async fn delete_virtual_branch(

@@ -179,12 +179,18 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(_handle), err(Debug))]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn split_hunk_and_update_virtual_branch(
-        _handle: AppHandle,
+        handle: AppHandle,
         project_id: ProjectId,
         branch: branch::BranchSplitHunkUpdateRequest,
     ) -> Result<(), Error> {
+        handle
+            .state::<Controller>()
+            .split_hunk_and_update_virtual_branch(&project_id, branch)
+            .await?;
+
+        emit_vbranches(&handle, &project_id).await;
         Ok(())
     }
 
