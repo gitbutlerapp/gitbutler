@@ -680,23 +680,7 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let details = if branch_update.ownership.is_some() {
-                SnapshotDetails::new(OperationType::MoveHunk)
-            } else if branch_update.name.is_some() {
-                SnapshotDetails::new(OperationType::UpdateBranchName)
-            } else if branch_update.notes.is_some() {
-                SnapshotDetails::new(OperationType::UpdateBranchNotes)
-            } else if branch_update.order.is_some() {
-                SnapshotDetails::new(OperationType::ReorderBranches)
-            } else if branch_update.selected_for_changes.is_some() {
-                SnapshotDetails::new(OperationType::SelectDefaultVirtualBranch)
-            } else if branch_update.upstream.is_some() {
-                SnapshotDetails::new(OperationType::UpdateBranchRemoteName)
-            } else {
-                SnapshotDetails::new(OperationType::GenericBranchUpdate)
-            };
             super::update_branch(project_repository, branch_update)?;
-            let _ = project_repository.project().create_snapshot(details);
             Ok(())
         })
     }
