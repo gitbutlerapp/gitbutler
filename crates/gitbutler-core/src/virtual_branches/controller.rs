@@ -1,8 +1,8 @@
 use crate::{
     error::Error,
-    snapshots::{
+    ops::{
         entry::{OperationType, SnapshotDetails},
-        snapshot::Oplog,
+        oplog::Oplog,
     },
 };
 use std::{collections::HashMap, path::Path, sync::Arc};

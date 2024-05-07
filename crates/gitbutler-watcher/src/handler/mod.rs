@@ -7,10 +7,10 @@ use std::sync::Arc;
 use std::{path, time};
 
 use anyhow::{bail, Context, Result};
+use gitbutler_core::ops::entry::{OperationType, SnapshotDetails};
+use gitbutler_core::ops::oplog::Oplog;
 use gitbutler_core::projects::ProjectId;
 use gitbutler_core::sessions::SessionId;
-use gitbutler_core::snapshots::entry::{OperationType, SnapshotDetails};
-use gitbutler_core::snapshots::snapshot::Oplog;
 use gitbutler_core::virtual_branches::VirtualBranches;
 use gitbutler_core::{
     assets, deltas, gb_repository, git, project_repository, projects, reader, sessions, users,

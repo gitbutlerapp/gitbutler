@@ -17,7 +17,7 @@ use std::path::PathBuf;
 
 use gitbutler_core::{assets, database, git, storage};
 use gitbutler_tauri::{
-    app, askpass, commands, deltas, github, keys, logs, menu, projects, sessions, snapshots, users,
+    app, askpass, commands, deltas, github, keys, logs, menu, projects, sessions, undo, users,
     virtual_branches, watcher, zip,
 };
 use tauri::{generate_context, Manager};
@@ -232,8 +232,8 @@ fn main() {
                     virtual_branches::commands::squash_branch_commit,
                     virtual_branches::commands::fetch_from_target,
                     virtual_branches::commands::move_commit,
-                    snapshots::list_snapshots,
-                    snapshots::restore_snapshot,
+                    undo::list_snapshots,
+                    undo::restore_snapshot,
                     menu::menu_item_set_enabled,
                     keys::commands::get_public_key,
                     github::commands::init_device_oauth,

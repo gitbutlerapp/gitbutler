@@ -1,8 +1,8 @@
 use crate::error::Error;
 use anyhow::Context;
 use gitbutler_core::{
+    ops::{entry::Snapshot, oplog::Oplog},
     projects::{self, ProjectId},
-    snapshots::{entry::Snapshot, snapshot::Oplog},
 };
 use tauri::Manager;
 use tracing::instrument;
