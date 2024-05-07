@@ -16,7 +16,7 @@ pub struct Splits {
     split: HashMap<HunkHash, SplitEntry>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct SplitEntry {
     pub ownership: Vec<BranchId>,
 }
