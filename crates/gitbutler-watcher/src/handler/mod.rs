@@ -301,7 +301,7 @@ impl Handler {
             .get(&project_id)
             .context("failed to get project")?;
         let changed_lines = project.lines_since_snapshot()?;
-        if changed_lines > project.snapshot_lines_threshold {
+        if changed_lines > project.snapshot_lines_threshold() {
             project.create_snapshot(SnapshotDetails::new(OperationType::FileChanges))?;
         }
         Ok(())
