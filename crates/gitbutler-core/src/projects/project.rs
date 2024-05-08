@@ -87,12 +87,7 @@ pub struct Project {
     #[serde(default)]
     pub enable_snapshots: Option<bool>,
     // The number of changed lines that will trigger a snapshot
-    #[serde(default = "default_snapshot_lines_threshold")]
-    pub snapshot_lines_threshold: usize,
-}
-
-fn default_snapshot_lines_threshold() -> usize {
-    20
+    pub snapshot_lines_threshold: Option<usize>,
 }
 
 impl Project {
@@ -117,5 +112,9 @@ impl Project {
     /// Returns a handle to the virtual branches manager of the project.
     pub fn virtual_branches(&self) -> VirtualBranchesHandle {
         VirtualBranchesHandle::new(self.gb_dir())
+    }
+
+    pub fn snapshot_lines_threshold(&self) -> usize {
+        self.snapshot_lines_threshold.unwrap_or(20)
     }
 }
