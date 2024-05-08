@@ -2190,6 +2190,7 @@ dependencies = [
  "sysinfo",
  "thiserror",
  "tokio",
+ "uuid",
  "winapi 0.3.9",
  "windows-named-pipe",
 ]
