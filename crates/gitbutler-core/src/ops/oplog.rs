@@ -110,6 +110,13 @@ impl Oplog for Project {
         let tree_id = tree_builder.write()?;
         let tree = repo.find_tree(tree_id)?;
 
+        // Check if there is a difference between the tree and the parent tree, and if not, return so that we dont create noop snapshots
+        let parent_tree = oplog_head_commit.tree()?;
+        let diff = repo.diff_tree_to_tree(Some(&parent_tree), Some(&tree), None)?;
+        if diff.deltas().count() == 0 {
+            return Ok(None);
+        }
+
         // Construct a new commit
         let name = "GitButler";
         let email = "gitbutler@gitbutler.com";
