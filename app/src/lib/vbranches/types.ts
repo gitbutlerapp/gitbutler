@@ -165,6 +165,9 @@ export class Commit {
 	changeId!: string;
 	isSigned!: boolean;
 
+	parent?: Commit;
+	children?: Commit[];
+
 	get isLocal() {
 		return !this.isRemote && !this.isIntegrated;
 	}
@@ -200,6 +203,9 @@ export class RemoteCommit {
 	createdAt!: Date;
 	changeId!: string;
 	isSigned!: boolean;
+
+	parent?: Commit;
+	children?: Commit[];
 
 	get isLocal() {
 		return false;
