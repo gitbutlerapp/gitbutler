@@ -45,6 +45,14 @@
 		});
 		return resp;
 	}
+	async function getSnapshotDiff(projectId: string, sha: string) {
+		const resp = await invoke<string>('snapshot_diff', {
+			projectId: projectId,
+			sha: sha
+		});
+		console.log(JSON.stringify(resp));
+		return resp;
+	}
 	async function restoreSnapshot(projectId: string, sha: string) {
 		await invoke<string>('restore_snapshot', {
 			projectId: projectId,
@@ -80,6 +88,16 @@
 				<div style="display: flex; align-items: center;">
 					<div>id: {entry.id.slice(0, 7)}</div>
 					<div style="flex-grow: 1;" />
+					<div>
+						{#if entry.linesAdded + entry.linesRemoved > 0}
+							<Button
+								style="pop"
+								size="tag"
+								icon="docs-filled"
+								on:click={async () => await getSnapshotDiff(projectId, entry.id)}>diff</Button
+							>
+						{/if}
+					</div>
 					<div>
 						{#if idx != 0}
 							<Button
