@@ -470,7 +470,7 @@ fn get_exclude_list(repo: &git2::Repository) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use std::{io::Write, path::PathBuf};
+    use std::io::Write;
 
     use crate::virtual_branches::Branch;
 
