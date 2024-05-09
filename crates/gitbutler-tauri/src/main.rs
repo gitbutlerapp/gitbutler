@@ -234,6 +234,7 @@ fn main() {
                     virtual_branches::commands::move_commit,
                     undo::list_snapshots,
                     undo::restore_snapshot,
+                    undo::snapshot_diff,
                     menu::menu_item_set_enabled,
                     keys::commands::get_public_key,
                     github::commands::init_device_oauth,

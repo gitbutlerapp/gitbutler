@@ -1,12 +1,14 @@
 use anyhow::anyhow;
 use git2::FileMode;
 use itertools::Itertools;
-use std::fs;
+use std::collections::HashMap;
 use std::str::FromStr;
+use std::{fs, path::PathBuf};
 
 use anyhow::Result;
 
-use crate::projects::Project;
+use crate::git::diff::FileDiff;
+use crate::{git::diff::hunks_by_filepath, projects::Project};
 
 use super::{
     entry::{OperationType, Snapshot, SnapshotDetails, Trailer},
@@ -54,6 +56,10 @@ pub trait Oplog {
     ///
     /// If there are no snapshots, 0 is returned.
     fn lines_since_snapshot(&self) -> Result<usize>;
+    /// Returns the diff of the snapshot and it's parent. It only includes the workdir changes.
+    ///
+    /// This is useful to show what has changed in this particular snapshot
+    fn snapshot_diff(&self, sha: String) -> Result<HashMap<PathBuf, FileDiff>>;
 }
 
 impl Oplog for Project {
@@ -323,6 +329,46 @@ impl Oplog for Project {
         let diff = repo.diff_tree_to_workdir_with_index(Some(&wd_tree), Some(&mut opts));
         let stats = diff?.stats()?;
         Ok(stats.deletions() + stats.insertions())
+    }
+
+    fn snapshot_diff(&self, sha: String) -> Result<HashMap<PathBuf, FileDiff>> {
+        let repo_path = self.path.as_path();
+        let repo = git2::Repository::init(repo_path)?;
+
+        let commit = repo.find_commit(git2::Oid::from_str(&sha)?)?;
+        // Top tree
+        let tree = commit.tree()?;
+        let old_tree = commit.parent(0)?.tree()?;
+
+        let wd_tree_entry = tree
+            .get_name("workdir")
+            .ok_or(anyhow!("failed to get workdir tree entry"))?;
+        let old_wd_tree_entry = old_tree
+            .get_name("workdir")
+            .ok_or(anyhow!("failed to get old workdir tree entry"))?;
+
+        // workdir tree
+        let wd_tree = repo.find_tree(wd_tree_entry.id())?;
+        let old_wd_tree = repo.find_tree(old_wd_tree_entry.id())?;
+
+        // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
+        let files_to_exclude = get_exclude_list(&repo)?;
+        // In-memory, libgit2 internal ignore rule
+        repo.add_ignore_rule(&files_to_exclude)?;
+
+        let mut diff_opts = git2::DiffOptions::new();
+        diff_opts
+            .recurse_untracked_dirs(true)
+            .include_untracked(true)
+            .show_binary(true)
+            .ignore_submodules(true)
+            .show_untracked_content(true);
+
+        let diff =
+            repo.diff_tree_to_tree(Some(&old_wd_tree), Some(&wd_tree), Some(&mut diff_opts))?;
+
+        let hunks = hunks_by_filepath(None, &diff)?;
+        Ok(hunks)
     }
 }
 

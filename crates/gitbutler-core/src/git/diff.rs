@@ -218,7 +218,7 @@ pub fn without_large_files(
 /// `repository` should be `None` if there is no reason to access the workdir, which it will do to
 /// keep the binary data in the object database, which otherwise would be lost to the system
 /// (it's not reconstructable from the delta, or it's not attempted).
-fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result<DiffByPathMap> {
+pub fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result<DiffByPathMap> {
     enum LineOrHexHash<'a> {
         Line(Cow<'a, BStr>),
         HexHashOfBinaryBlob(String),
