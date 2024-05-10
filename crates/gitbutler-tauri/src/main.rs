@@ -174,7 +174,6 @@ fn main() {
                 .plugin(tauri_plugin_store::Builder::default().build())
                 .plugin(log.build())
                 .invoke_handler(tauri::generate_handler![
-                    commands::list_session_files,
                     commands::git_remote_branches,
                     commands::git_head,
                     commands::delete_all_data,

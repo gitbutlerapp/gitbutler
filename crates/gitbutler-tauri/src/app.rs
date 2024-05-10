@@ -37,37 +37,6 @@ impl App {
         }
     }
 
-    pub fn list_session_files(
-        &self,
-        project_id: &ProjectId,
-        session_id: &SessionId,
-        paths: Option<&[&path::Path]>,
-    ) -> Result<HashMap<path::PathBuf, reader::Content>, Error> {
-        let session = self
-            .sessions_database
-            .get_by_project_id_id(project_id, session_id)
-            .context("failed to get session")?
-            .context("session not found")?;
-        let user = self.users.get_user().context("failed to get user")?;
-        let project = self
-            .projects
-            .get(project_id)
-            .map_err(Error::from_error_with_context)?;
-        let project_repository = project_repository::Repository::open(&project)
-            .map_err(Error::from_error_with_context)?;
-        let gb_repo = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open gb repository")?;
-        let session_reader =
-            sessions::Reader::open(&gb_repo, &session).context("failed to open session reader")?;
-        Ok(session_reader
-            .files(paths)
-            .context("failed to read session files")?)
-    }
-
     pub fn mark_resolved(&self, project_id: &ProjectId, path: &str) -> Result<(), CoreError> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
