@@ -1,40 +1,20 @@
-use std::{collections::HashMap, path};
-
 use anyhow::{Context, Result};
 use gitbutler_core::error::Error as CoreError;
 use gitbutler_core::{
-    gb_repository, git,
+    git,
     project_repository::{self, conflicts},
     projects::{self, ProjectId},
-    reader,
-    sessions::{self, SessionId},
-    users,
     virtual_branches::BranchId,
 };
 
-use crate::error::Error;
-
 #[derive(Clone)]
 pub struct App {
-    local_data_dir: path::PathBuf,
     projects: projects::Controller,
-    users: users::Controller,
-    sessions_database: sessions::Database,
 }
 
 impl App {
-    pub fn new(
-        local_data_dir: path::PathBuf,
-        projects: projects::Controller,
-        users: users::Controller,
-        sessions_database: sessions::Database,
-    ) -> Self {
-        Self {
-            local_data_dir,
-            projects,
-            users,
-            sessions_database,
-        }
+    pub fn new(projects: projects::Controller) -> Self {
+        Self { projects }
     }
 
     pub fn mark_resolved(&self, project_id: &ProjectId, path: &str) -> Result<(), CoreError> {

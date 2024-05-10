@@ -158,10 +158,7 @@ fn main() {
                     ));
 
                     let app = app::App::new(
-                        app_data_dir,
                         projects_controller,
-                        users_controller,
-                        sessions_database_controller,
                     );
 
                     app_handle.manage(app);
