@@ -45,6 +45,14 @@
 		});
 		return resp;
 	}
+	async function getSnapshotDiff(projectId: string, sha: string) {
+		const resp = await invoke<string>('snapshot_diff', {
+			projectId: projectId,
+			sha: sha
+		});
+		console.log(JSON.stringify(resp));
+		return resp;
+	}
 	async function restoreSnapshot(projectId: string, sha: string) {
 		await invoke<string>('restore_snapshot', {
 			projectId: projectId,
@@ -81,6 +89,16 @@
 					<div>id: {entry.id.slice(0, 7)}</div>
 					<div style="flex-grow: 1;" />
 					<div>
+						{#if entry.linesAdded + entry.linesRemoved > 0}
+							<Button
+								style="pop"
+								size="tag"
+								icon="docs-filled"
+								on:click={async () => await getSnapshotDiff(projectId, entry.id)}>diff</Button
+							>
+						{/if}
+					</div>
+					<div>
 						{#if idx != 0}
 							<Button
 								style="pop"
@@ -104,6 +122,15 @@
 						restored_from: {entry.details?.trailers
 							.find((t) => t.key === 'restored_from')
 							?.value?.slice(0, 7)}
+					{:else if entry.details?.operation === 'DeleteBranch'}
+						name: {entry.details?.trailers.find((t) => t.key === 'name')?.value}
+					{:else if ['ReorderBranches', 'UpdateBranchName', 'SelectDefaultVirtualBranch', 'UpdateBranchRemoteName'].includes(entry.details?.operation || '')}
+						<div>
+							before: {entry.details?.trailers.find((t) => t.key === 'before')?.value}
+						</div>
+						<div>
+							after: {entry.details?.trailers.find((t) => t.key === 'after')?.value}
+						</div>
 					{/if}
 				</div>
 				<div>

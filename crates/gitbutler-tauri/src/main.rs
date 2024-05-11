@@ -17,7 +17,7 @@ use std::path::PathBuf;
 
 use gitbutler_core::{assets, database, git, storage};
 use gitbutler_tauri::{
-    app, askpass, commands, deltas, github, keys, logs, menu, projects, sessions, snapshots, users,
+    app, askpass, commands, deltas, github, keys, logs, menu, projects, sessions, undo, users,
     virtual_branches, watcher, zip,
 };
 use tauri::{generate_context, Manager};
@@ -68,6 +68,17 @@ fn main() {
 
                     logs::init(&app_handle);
 
+                    // SAFETY(qix-): This is safe because we're initializing the askpass broker here,
+                    // SAFETY(qix-): before any other threads would ever access it.
+                    unsafe {
+                        gitbutler_core::askpass::init({
+                            let handle = app_handle.clone();
+                            move |event| {
+                                handle.emit_all("git_prompt", event).expect("tauri event emission doesn't fail in practice")
+                            }
+                        });
+                    }
+
                     let app_data_dir = app_handle.path_resolver().app_data_dir().expect("missing app data dir");
                     let app_cache_dir = app_handle.path_resolver().app_cache_dir().expect("missing app cache dir");
                     let app_log_dir = app_handle.path_resolver().app_log_dir().expect("missing app log dir");
@@ -76,14 +87,6 @@ fn main() {
                     std::fs::create_dir_all(&app_cache_dir).expect("failed to create cache dir");
 
                     tracing::info!(version = %app_handle.package_info().version, name = %app_handle.package_info().name, "starting app");
-
-                    let askpass_broker = gitbutler_core::askpass::AskpassBroker::init({
-                        let handle = app_handle.clone();
-                        move |event| {
-                            handle.emit_all("git_prompt", event).expect("tauri event emission doesn't fail in practice")
-                        }
-                    });
-                    app_handle.manage(askpass_broker);
 
                     let storage_controller = storage::Storage::new(&app_data_dir);
                     app_handle.manage(storage_controller.clone());
@@ -228,8 +231,9 @@ fn main() {
                     virtual_branches::commands::squash_branch_commit,
                     virtual_branches::commands::fetch_from_target,
                     virtual_branches::commands::move_commit,
-                    snapshots::list_snapshots,
-                    snapshots::restore_snapshot,
+                    undo::list_snapshots,
+                    undo::restore_snapshot,
+                    undo::snapshot_diff,
                     menu::menu_item_set_enabled,
                     keys::commands::get_public_key,
                     github::commands::init_device_oauth,

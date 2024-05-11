@@ -1,8 +1,8 @@
 use crate::{
     error::Error,
-    snapshots::{
+    ops::{
         entry::{OperationType, SnapshotDetails},
-        snapshot::Oplog,
+        oplog::Oplog,
     },
 };
 use std::{collections::HashMap, path::Path, sync::Arc};
@@ -16,7 +16,6 @@ use super::{
     target, target_to_base_branch, BaseBranch, RemoteBranchFile, VirtualBranchesHandle,
 };
 use crate::{
-    askpass::AskpassBroker,
     git, project_repository,
     projects::{self, ProjectId},
     users,
@@ -331,7 +330,7 @@ impl Controller {
         project_id: &ProjectId,
         branch_id: &BranchId,
         with_force: bool,
-        askpass: Option<(AskpassBroker, Option<BranchId>)>,
+        askpass: Option<Option<BranchId>>,
     ) -> Result<(), Error> {
         self.inner(project_id)
             .await
@@ -398,7 +397,7 @@ impl Controller {
     pub async fn fetch_from_target(
         &self,
         project_id: &ProjectId,
-        askpass: Option<(AskpassBroker, String)>,
+        askpass: Option<String>,
     ) -> Result<BaseBranch, Error> {
         self.inner(project_id)
             .await
@@ -619,23 +618,7 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let details = if branch_update.ownership.is_some() {
-                SnapshotDetails::new(OperationType::MoveHunk)
-            } else if branch_update.name.is_some() {
-                SnapshotDetails::new(OperationType::UpdateBranchName)
-            } else if branch_update.notes.is_some() {
-                SnapshotDetails::new(OperationType::UpdateBranchNotes)
-            } else if branch_update.order.is_some() {
-                SnapshotDetails::new(OperationType::ReorderBranches)
-            } else if branch_update.selected_for_changes.is_some() {
-                SnapshotDetails::new(OperationType::SelectDefaultVirtualBranch)
-            } else if branch_update.upstream.is_some() {
-                SnapshotDetails::new(OperationType::UpdateBranchRemoteName)
-            } else {
-                SnapshotDetails::new(OperationType::GenericBranchUpdate)
-            };
             super::update_branch(project_repository, branch_update)?;
-            let _ = project_repository.project().create_snapshot(details);
             Ok(())
         })
     }
@@ -648,11 +631,7 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            super::delete_branch(project_repository, branch_id)?;
-            let _ = project_repository
-                .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::DeleteBranch));
-            Ok(())
+            super::delete_branch(project_repository, branch_id)
         })
     }
 
@@ -849,7 +828,7 @@ impl ControllerInner {
         project_id: &ProjectId,
         branch_id: &BranchId,
         with_force: bool,
-        askpass: Option<(AskpassBroker, Option<BranchId>)>,
+        askpass: Option<Option<BranchId>>,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
         let helper = self.helper.clone();
@@ -945,7 +924,7 @@ impl ControllerInner {
     pub async fn fetch_from_target(
         &self,
         project_id: &ProjectId,
-        askpass: Option<(AskpassBroker, String)>,
+        askpass: Option<String>,
     ) -> Result<BaseBranch, Error> {
         let project = self.projects.get(project_id)?;
         let mut project_repository = project_repository::Repository::open(&project)?;

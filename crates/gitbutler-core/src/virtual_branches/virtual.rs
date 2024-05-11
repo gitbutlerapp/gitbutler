@@ -25,9 +25,9 @@ use super::{
     branch_to_remote_branch, errors, target, RemoteBranch, VirtualBranchesHandle,
 };
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
+use crate::ops::snapshot::Snapshoter;
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
-    askpass::AskpassBroker,
     dedup::{dedup, dedup_fmt},
     git::{
         self,
@@ -100,7 +100,6 @@ pub struct VirtualBranchCommit {
     pub branch_id: BranchId,
     pub change_id: Option<String>,
     pub is_signed: bool,
-    pub stack_points: Option<Vec<HashMap<String, String>>>,
 }
 
 // this struct is a mapping to the view `File` type in Typescript
@@ -795,12 +794,6 @@ pub fn list_virtual_branches(
         .find_commit(integration_commit_id)
         .unwrap();
 
-    super::integration::update_gitbutler_integration_with_commit(
-        &vb_state,
-        project_repository,
-        Some(integration_commit_id),
-    )?;
-
     let (statuses, skipped_files) =
         get_status_by_branch(project_repository, Some(&integration_commit.id()))?;
     let max_selected_for_changes = statuses
@@ -1050,7 +1043,6 @@ fn commit_to_vbranch_commit(
         branch_id: branch.id,
         change_id: commit.change_id(),
         is_signed: commit.is_signed(),
-        stack_points: Some(stack_points),
     };
 
     Ok(commit)
@@ -1398,11 +1390,11 @@ pub fn update_branch(
             _ => errors::UpdateBranchError::Other(error.into()),
         })?;
 
-    if let Some(ownership) = branch_update.ownership {
-        set_ownership(&vb_state, &mut branch, &ownership).context("failed to set ownership")?;
+    if let Some(ownership) = &branch_update.ownership {
+        set_ownership(&vb_state, &mut branch, ownership).context("failed to set ownership")?;
     }
 
-    if let Some(name) = branch_update.name {
+    if let Some(name) = &branch_update.name {
         let all_virtual_branches = vb_state
             .list_branches()
             .context("failed to read virtual branches")?;
@@ -1414,13 +1406,13 @@ pub fn update_branch(
                 .iter()
                 .map(|b| b.name.as_str())
                 .collect::<Vec<_>>(),
-            &name,
+            name,
         );
 
         project_repository.add_branch_reference(&branch)?;
     };
 
-    if let Some(updated_upstream) = branch_update.upstream {
+    if let Some(updated_upstream) = &branch_update.upstream {
         let Some(default_target) = vb_state
             .try_get_default_target()
             .context("failed to get default target")?
@@ -1440,14 +1432,14 @@ pub fn update_branch(
         let remote_branch = format!(
             "refs/remotes/{}/{}",
             upstream_remote,
-            normalize_branch_name(&updated_upstream)
+            normalize_branch_name(updated_upstream)
         )
         .parse::<git::RemoteRefname>()
         .unwrap();
         branch.upstream = Some(remote_branch);
     };
 
-    if let Some(notes) = branch_update.notes {
+    if let Some(notes) = branch_update.notes.clone() {
         branch.notes = notes;
     };
 
@@ -1476,6 +1468,7 @@ pub fn update_branch(
         .set_branch(branch.clone())
         .context("failed to write target branch")?;
 
+    _ = branch.snapshot_update(project_repository.project(), branch_update);
     Ok(branch)
 }
 
@@ -1492,6 +1485,7 @@ pub fn delete_branch(
     .context("failed to read branch")?;
 
     if branch.applied && unapply_branch(project_repository, branch_id)?.is_none() {
+        _ = branch.snapshot_deletion(project_repository.project());
         return Ok(());
     }
 
@@ -1503,6 +1497,7 @@ pub fn delete_branch(
 
     ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
+    _ = branch.snapshot_deletion(project_repository.project());
     Ok(())
 }
 
@@ -2443,7 +2438,7 @@ pub fn push(
     branch_id: &BranchId,
     with_force: bool,
     credentials: &git::credentials::Helper,
-    askpass: Option<(AskpassBroker, Option<BranchId>)>,
+    askpass: Option<Option<BranchId>>,
 ) -> Result<(), errors::PushError> {
     let vb_state = project_repository.project().virtual_branches();
 
@@ -2507,7 +2502,7 @@ pub fn push(
         with_force,
         credentials,
         None,
-        askpass.clone(),
+        askpass,
     )?;
 
     vbranch.upstream = Some(remote_branch.clone());
@@ -2518,7 +2513,7 @@ pub fn push(
     project_repository.fetch(
         remote_branch.remote(),
         credentials,
-        askpass.map(|(broker, _)| (broker, "modal".to_string())),
+        askpass.map(|_| "modal".to_string()),
     )?;
 
     Ok(())

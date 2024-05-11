@@ -606,8 +606,8 @@ pub fn update_base_branch(
         ..target
     })?;
 
+    // Rewriting the integration commit is necessary after changing target sha.
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-
     Ok(())
 }
 

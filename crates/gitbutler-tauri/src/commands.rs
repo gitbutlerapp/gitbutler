@@ -48,16 +48,13 @@ pub async fn git_test_push(
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     let helper = handle.state::<gitbutler_core::git::credentials::Helper>();
-    let askpass_broker = handle
-        .state::<gitbutler_core::askpass::AskpassBroker>()
-        .inner()
-        .clone();
     Ok(app.git_test_push(
         &project_id,
         remote_name,
         branch_name,
         &helper,
-        Some((askpass_broker, None)),
+        // Run askpass, but don't pass any action
+        Some(None),
     )?)
 }
 
@@ -71,15 +68,11 @@ pub async fn git_test_fetch(
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
     let helper = handle.state::<gitbutler_core::git::credentials::Helper>();
-    let askpass_broker = handle
-        .state::<gitbutler_core::askpass::AskpassBroker>()
-        .inner()
-        .clone();
     Ok(app.git_test_fetch(
         &project_id,
         remote_name,
         &helper,
-        Some((askpass_broker, action.unwrap_or_else(|| "test".to_string()))),
+        Some(action.unwrap_or_else(|| "test".to_string())),
     )?)
 }
 
