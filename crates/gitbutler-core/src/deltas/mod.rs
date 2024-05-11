@@ -1,4 +1,3 @@
-pub mod controller;
 mod delta;
 mod document;
 mod reader;
@@ -7,7 +6,6 @@ mod writer;
 pub mod database;
 pub mod operations;
 
-pub use controller::Controller;
 pub use database::Database;
 pub use delta::Delta;
 pub use document::Document;

@@ -17,8 +17,8 @@ use std::path::PathBuf;
 
 use gitbutler_core::{assets, database, git, storage};
 use gitbutler_tauri::{
-    app, askpass, commands, deltas, github, keys, logs, menu, projects, undo, users,
-    virtual_branches, watcher, zip,
+    app, askpass, commands, github, keys, logs, menu, projects, undo, users, virtual_branches,
+    watcher, zip,
 };
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
@@ -124,9 +124,6 @@ fn main() {
                     let deltas_database_controller = gitbutler_core::deltas::database::Database::new(database_controller.clone());
                     app_handle.manage(deltas_database_controller.clone());
 
-                    let deltas_controller = gitbutler_core::deltas::Controller::new(deltas_database_controller.clone());
-                    app_handle.manage(deltas_controller);
-
                     let keys_storage_controller = gitbutler_core::keys::storage::Storage::new(storage_controller.clone());
                     app_handle.manage(keys_storage_controller.clone());
 
@@ -187,7 +184,6 @@ fn main() {
                     projects::commands::set_project_active,
                     projects::commands::git_get_local_config,
                     projects::commands::git_set_local_config,
-                    deltas::commands::list_deltas,
                     virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,
                     virtual_branches::commands::commit_virtual_branch,
