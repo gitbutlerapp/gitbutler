@@ -177,7 +177,6 @@ fn main() {
                     commands::mark_resolved,
                     commands::git_set_global_config,
                     commands::git_get_global_config,
-                    commands::project_flush_and_push,
                     commands::git_test_push,
                     commands::git_test_fetch,
                     commands::git_index_size,
