@@ -158,10 +158,7 @@ fn main() {
                     ));
 
                     let app = app::App::new(
-                        app_data_dir,
                         projects_controller,
-                        users_controller,
-                        sessions_database_controller,
                     );
 
                     app_handle.manage(app);
@@ -174,7 +171,6 @@ fn main() {
                 .plugin(tauri_plugin_store::Builder::default().build())
                 .plugin(log.build())
                 .invoke_handler(tauri::generate_handler![
-                    commands::list_session_files,
                     commands::git_remote_branches,
                     commands::git_head,
                     commands::delete_all_data,
