@@ -1,6 +1,7 @@
 export enum ModelKind {
 	OpenAI = 'openai',
-	Anthropic = 'anthropic'
+	Anthropic = 'anthropic',
+	Ollama = 'ollama'
 }
 
 export enum OpenAIModelName {

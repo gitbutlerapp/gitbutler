@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { AIService, GitAIConfigKey, KeyOption, ModelKind } from '$lib/ai/service';
-	import { OpenAIModelName, AnthropicModelName } from '$lib/ai/types';
+	import { AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
+	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import InfoMessage from '$lib/components/InfoMessage.svelte';
 	import RadioButton from '$lib/components/RadioButton.svelte';

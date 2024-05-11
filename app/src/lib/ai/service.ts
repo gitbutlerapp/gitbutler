@@ -1,7 +1,7 @@
 import { AnthropicAIClient } from '$lib/ai/anthropicClient';
 import { ButlerAIClient } from '$lib/ai/butlerClient';
 import { OpenAIClient } from '$lib/ai/openAIClient';
-import { OpenAIModelName, type AIClient, AnthropicModelName } from '$lib/ai/types';
+import { OpenAIModelName, type AIClient, AnthropicModelName, ModelKind } from '$lib/ai/types';
 import { splitMessage } from '$lib/utils/commitMessage';
 import * as toasts from '$lib/utils/toasts';
 import OpenAI from 'openai';
@@ -38,11 +38,6 @@ Only respond with the branch name.
 Here is my git diff:
 %{diff}
 `;
-
-export enum ModelKind {
-	OpenAI = 'openai',
-	Anthropic = 'anthropic'
-}
 
 export enum KeyOption {
 	BringYourOwn = 'bringYourOwn',
