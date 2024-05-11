@@ -13,6 +13,7 @@ const maxDiffLengthLimitForAPI = 5000;
 
 const defaultCommitTemplate = `
 Please could you write a commit message for my changes.
+Only respond with the commit message. Don't give any notes.
 Explain what were the changes and why the changes were done.
 Focus the most important changes.
 Use the present tense.
@@ -20,7 +21,6 @@ Use a semantic commit prefix.
 Hard wrap lines at 72 characters.
 Ensure the title is only 50 characters.
 Do not start any lines with the hash symbol.
-Only respond with the commit message.
 %{brief_style}
 %{emoji_style}
 
