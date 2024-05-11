@@ -1,19 +1,15 @@
 <script lang="ts">
-	import { Project } from '$lib/backend/projects';
-	import { syncToCloud } from '$lib/backend/sync';
 	import Tag from '$lib/components/Tag.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { getContext } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 
-	const project = getContext(Project);
 	const githubService = getContext(GitHubService);
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
 	$: baseServiceBusy$ = baseBranchService.busy$;
-	$: cloudEnabled = project.api?.sync || false;
 </script>
 
 <Tag
@@ -27,7 +23,6 @@
 	on:mousedown={async (e) => {
 		e.preventDefault();
 		e.stopPropagation();
-		if (cloudEnabled) syncToCloud(project.id); // don't wait for this
 		await baseBranchService.fetchFromTarget('modal');
 		if (githubService.isEnabled) {
 			await githubService.reload();

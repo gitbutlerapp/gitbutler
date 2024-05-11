@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
-	import { syncToCloud } from '$lib/backend/sync';
 	import { BranchService } from '$lib/branches/service';
 	import History from '$lib/components/History.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
@@ -10,13 +9,11 @@
 	import ProjectSettingsMenuAction from '$lib/components/ProjectSettingsMenuAction.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContextStoreBySymbol } from '$lib/utils/context';
-	import * as hotkeys from '$lib/utils/hotkeys';
-	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BaseBranchService, NoDefaultTarget } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import { onDestroy, onMount, setContext } from 'svelte';
+	import { onDestroy, setContext } from 'svelte';
 	import type { LayoutData } from './$types';
 
 	export let data: LayoutData;
@@ -60,15 +57,6 @@
 	function clearFetchInterval() {
 		if (intervalId) clearInterval(intervalId);
 	}
-
-	onMount(() => {
-		const cloudSyncSubscription = hotkeys.on(
-			'Meta+Shift+S',
-			async () => await syncToCloud(projectId)
-		);
-
-		return unsubscribe(cloudSyncSubscription);
-	});
 
 	onDestroy(() => clearFetchInterval());
 </script>
