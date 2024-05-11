@@ -26,7 +26,6 @@ pub mod error;
 pub mod github;
 pub mod keys;
 pub mod projects;
-pub mod sessions;
 pub mod undo;
 pub mod users;
 pub mod virtual_branches;

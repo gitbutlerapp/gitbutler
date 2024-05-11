@@ -17,7 +17,7 @@ use std::path::PathBuf;
 
 use gitbutler_core::{assets, database, git, storage};
 use gitbutler_tauri::{
-    app, askpass, commands, deltas, github, keys, logs, menu, projects, sessions, undo, users,
+    app, askpass, commands, deltas, github, keys, logs, menu, projects, undo, users,
     virtual_branches, watcher, zip,
 };
 use tauri::{generate_context, Manager};
@@ -150,13 +150,6 @@ fn main() {
                     let sessions_database_controller = gitbutler_core::sessions::database::Database::new(database_controller.clone());
                     app_handle.manage(sessions_database_controller.clone());
 
-                    app_handle.manage(gitbutler_core::sessions::Controller::new(
-                        app_data_dir.clone(),
-                        sessions_database_controller.clone(),
-                        projects_controller.clone(),
-                        users_controller.clone(),
-                    ));
-
                     let app = app::App::new(
                         projects_controller,
                     );
@@ -195,7 +188,6 @@ fn main() {
                     projects::commands::set_project_active,
                     projects::commands::git_get_local_config,
                     projects::commands::git_set_local_config,
-                    sessions::commands::list_sessions,
                     deltas::commands::list_deltas,
                     virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,
