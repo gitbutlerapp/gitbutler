@@ -1,5 +1,10 @@
 import { AnthropicAIClient } from '$lib/ai/anthropicClient';
 import { ButlerAIClient } from '$lib/ai/butlerClient';
+import {
+	DEFAULT_OLLAMA_ENDPOINT,
+	DEFAULT_OLLAMA_MODEL_NAME,
+	OllamaClient
+} from '$lib/ai/ollamaClient';
 import { OpenAIClient } from '$lib/ai/openAIClient';
 import { OpenAIModelName, type AIClient, AnthropicModelName, ModelKind } from '$lib/ai/types';
 import { splitMessage } from '$lib/utils/commitMessage';
@@ -52,7 +57,9 @@ export enum GitAIConfigKey {
 	AnthropicKeyOption = 'gitbutler.aiAnthropicKeyOption',
 	AnthropicModelName = 'gitbutler.aiAnthropicModelName',
 	AnthropicKey = 'gitbutler.aiAnthropicKey',
-	DiffLengthLimit = 'gitbutler.diffLengthLimit'
+	DiffLengthLimit = 'gitbutler.diffLengthLimit',
+	OllamaEndpoint = 'gitbutler.aiOllamaEndpoint',
+	OllamaModelName = 'gitbutler.aiOllamaModelName'
 }
 
 type SummarizeCommitOpts = {
@@ -154,6 +161,20 @@ export class AIService {
 		}
 	}
 
+	async getOllamaEndpoint() {
+		return await this.gitConfig.getWithDefault<string>(
+			GitAIConfigKey.OllamaEndpoint,
+			DEFAULT_OLLAMA_ENDPOINT
+		);
+	}
+
+	async getOllamaModelName() {
+		return await this.gitConfig.getWithDefault<string>(
+			GitAIConfigKey.OllamaModelName,
+			DEFAULT_OLLAMA_MODEL_NAME
+		);
+	}
+
 	async usingGitButlerAPI() {
 		const modelKind = await this.getModelKind();
 		const openAIKeyOption = await this.getOpenAIKeyOption();
@@ -171,13 +192,19 @@ export class AIService {
 		const modelKind = await this.getModelKind();
 		const openAIKey = await this.getOpenAIKey();
 		const anthropicKey = await this.getAnthropicKey();
+		const ollamaEndpoint = await this.getOllamaEndpoint();
+		const ollamaModelName = await this.getOllamaModelName();
 
 		if (await this.usingGitButlerAPI()) return !!userToken;
 
 		const openAIActiveAndKeyProvided = modelKind == ModelKind.OpenAI && !!openAIKey;
 		const anthropicActiveAndKeyProvided = modelKind == ModelKind.Anthropic && !!anthropicKey;
+		const ollamaActiveAndEndpointProvided =
+			modelKind == ModelKind.Ollama && !!ollamaEndpoint && !!ollamaModelName;
 
-		return openAIActiveAndKeyProvided || anthropicActiveAndKeyProvided;
+		return (
+			openAIActiveAndKeyProvided || anthropicActiveAndKeyProvided || ollamaActiveAndEndpointProvided
+		);
 	}
 
 	// This optionally returns a summarizer. There are a few conditions for how this may occur
@@ -192,6 +219,12 @@ export class AIService {
 				return;
 			}
 			return new ButlerAIClient(this.cloud, userToken, modelKind);
+		}
+
+		if (modelKind == ModelKind.Ollama) {
+			const ollamaEndpoint = await this.getOllamaEndpoint();
+			const ollamaModelName = await this.getOllamaModelName();
+			return new OllamaClient(ollamaEndpoint, ollamaModelName);
 		}
 
 		if (modelKind == ModelKind.OpenAI) {
@@ -267,7 +300,8 @@ export class AIService {
 
 		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
 		const prompt = branchTemplate.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit));
-		const message = await aiClient.evaluate(prompt);
+		const branchNamePromise = aiClient.evaluate(prompt);
+		const message = await branchNamePromise;
 		return message.replaceAll(' ', '-').replaceAll('\n', '-');
 	}
 }

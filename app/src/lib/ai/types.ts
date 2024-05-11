@@ -17,8 +17,9 @@ export enum AnthropicModelName {
 }
 
 export enum MessageRole {
+	System = 'system',
 	User = 'user',
-	Assistant = 'assisstant'
+	Assistant = 'assistant'
 }
 
 export interface PromptMessage {

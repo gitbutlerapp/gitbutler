@@ -30,6 +30,8 @@
 	let anthropicKey: string | undefined;
 	let anthropicModelName: AnthropicModelName | undefined;
 	let diffLengthLimit: number | undefined;
+	let ollamaEndpoint: string | undefined;
+	let ollamaModel: string | undefined;
 
 	function setConfiguration(key: GitAIConfigKey, value: string | undefined) {
 		if (!initialized) return;
@@ -48,6 +50,9 @@
 	$: setConfiguration(GitAIConfigKey.AnthropicKey, anthropicKey);
 	$: setConfiguration(GitAIConfigKey.DiffLengthLimit, diffLengthLimit?.toString());
 
+	$: setConfiguration(GitAIConfigKey.OllamaEndpoint, ollamaEndpoint);
+	$: setConfiguration(GitAIConfigKey.OllamaModelName, ollamaModel);
+
 	onMount(async () => {
 		modelKind = await aiService.getModelKind();
 
@@ -60,6 +65,9 @@
 		anthropicKey = await aiService.getAnthropicKey();
 
 		diffLengthLimit = await aiService.getDiffLengthLimit();
+
+		ollamaEndpoint = await aiService.getOllamaEndpoint();
+		ollamaModel = await aiService.getOllamaModelName();
 
 		// Ensure reactive declarations have finished running before we set initialized to true
 		await tick();
@@ -261,15 +269,31 @@
 			</SectionCard>
 		{/if}
 
-		<SectionCard roundedTop={false} orientation="row" disabled={true}>
-			<svelte:fragment slot="title">Custom Endpoint</svelte:fragment>
+		<SectionCard
+			roundedTop={false}
+			roundedBottom={modelKind != ModelKind.Ollama}
+			orientation="row"
+			labelFor="ollama"
+			bottomBorder={modelKind != ModelKind.Ollama}
+		>
+			<svelte:fragment slot="title">Ollama 🦙</svelte:fragment>
 			<svelte:fragment slot="actions">
-				<RadioButton disabled={true} name="modelKind" />
+				<RadioButton name="modelKind" id="ollama" value={ModelKind.Ollama} />
 			</svelte:fragment>
-			<svelte:fragment slot="caption"
-				>Support for custom AI endpoints is coming soon!</svelte:fragment
-			>
 		</SectionCard>
+		{#if modelKind == ModelKind.Ollama}
+			<SectionCard hasTopRadius={false} roundedTop={false} orientation="row" topDivider>
+				<div class="inputs-group">
+					<TextBox
+						label="Endpoint"
+						bind:value={ollamaEndpoint}
+						placeholder="http://127.0.0.1:11434"
+					/>
+
+					<TextBox label="Model" bind:value={ollamaModel} placeholder="llama3" />
+				</div>
+			</SectionCard>
+		{/if}
 	</form>
 
 	<Spacer />
