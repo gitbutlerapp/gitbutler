@@ -75,7 +75,6 @@ pub fn watch_in_background(
     let (events_out, mut events_in) = unbounded_channel();
 
     file_monitor::spawn(project_id, path.as_ref(), events_out.clone())?;
-    handler.reindex(project_id)?;
 
     let cancellation_token = CancellationToken::new();
     let handle = WatcherHandle {
