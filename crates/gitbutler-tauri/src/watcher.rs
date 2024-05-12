@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use futures::executor::block_on;
 use gitbutler_core::projects::{self, Project, ProjectId};
-use gitbutler_core::{assets, deltas, sessions, users, virtual_branches};
+use gitbutler_core::{assets, virtual_branches};
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
@@ -113,25 +113,14 @@ pub struct Watchers {
 }
 
 fn handler_from_app(app: &AppHandle) -> anyhow::Result<gitbutler_watcher::Handler> {
-    let app_data_dir = app
-        .path_resolver()
-        .app_data_dir()
-        .context("failed to get app data dir")?;
-    let users = app.state::<users::Controller>().inner().clone();
     let projects = app.state::<projects::Controller>().inner().clone();
     let vbranches = app.state::<virtual_branches::Controller>().inner().clone();
     let assets_proxy = app.state::<assets::Proxy>().inner().clone();
-    let sessions_db = app.state::<sessions::Database>().inner().clone();
-    let deltas_db = app.state::<deltas::Database>().inner().clone();
 
     Ok(gitbutler_watcher::Handler::new(
-        app_data_dir.clone(),
-        users,
         projects,
         vbranches,
         assets_proxy,
-        sessions_db,
-        deltas_db,
         {
             let app = app.clone();
             move |change| ChangeForFrontend::from(change).send(&app)
