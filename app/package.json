@@ -38,7 +38,7 @@
 		"@codemirror/view": "^6.26.3",
 		"@lezer/common": "^1.2.1",
 		"@lezer/highlight": "^1.2.0",
-		"@octokit/rest": "^20.1.0",
+		"@octokit/rest": "^20.1.1",
 		"@replit/codemirror-lang-svelte": "^6.0.0",
 		"@sentry/sveltekit": "^7.112.2",
 		"@sveltejs/adapter-static": "^2.0.3",
