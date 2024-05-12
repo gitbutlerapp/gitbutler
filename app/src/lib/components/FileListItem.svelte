@@ -129,7 +129,7 @@
 		}}
 	>
 		<div class="info">
-			<img draggable="false" class="file-icon" src={getVSIFileIcon(file.path)} alt="js" />
+			<img draggable="false" class="file-icon" src={getVSIFileIcon(file.path)} alt="" />
 			<span class="text-base-12 name">
 				{file.filename}
 			</span>
