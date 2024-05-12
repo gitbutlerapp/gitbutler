@@ -25,7 +25,7 @@ use super::{
     branch_to_remote_branch, errors, target, RemoteBranch, VirtualBranchesHandle,
 };
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
-use crate::ops::snapshot::{Snapshot, Snapshoter};
+use crate::ops::snapshot::Snapshot;
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
     dedup::{dedup, dedup_fmt},
@@ -1469,7 +1469,9 @@ pub fn update_branch(
         .set_branch(branch.clone())
         .context("failed to write target branch")?;
 
-    _ = branch_before_update.snapshot_update(project_repository.project(), branch_update);
+    _ = project_repository
+        .project()
+        .snapshot_branch_update(branch_before_update, branch_update);
     Ok(branch)
 }
 
@@ -1486,7 +1488,9 @@ pub fn delete_branch(
     .context("failed to read branch")?;
 
     if branch.applied && unapply_branch(project_repository, branch_id)?.is_none() {
-        _ = branch.snapshot_deletion(project_repository.project());
+        _ = project_repository
+            .project()
+            .snapshot_branch_deletion(branch.name);
         return Ok(());
     }
 
@@ -1498,7 +1502,9 @@ pub fn delete_branch(
 
     ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
-    _ = branch.snapshot_deletion(project_repository.project());
+    _ = project_repository
+        .project()
+        .snapshot_branch_deletion(branch.name);
     Ok(())
 }
 

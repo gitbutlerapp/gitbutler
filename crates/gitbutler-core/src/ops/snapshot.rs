@@ -9,6 +9,12 @@ use super::{entry::Trailer, oplog::Oplog};
 
 pub trait Snapshot {
     fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()>;
+    fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()>;
+    fn snapshot_branch_update(
+        &self,
+        old_branch: Branch,
+        update: BranchUpdateRequest,
+    ) -> anyhow::Result<()>;
 }
 
 impl<T: Oplog> Snapshot for T {
@@ -21,28 +27,19 @@ impl<T: Oplog> Snapshot for T {
         self.create_snapshot(details)?;
         Ok(())
     }
-}
-
-pub trait Snapshoter {
-    fn snapshot_deletion(&self, oplog: &dyn Oplog) -> anyhow::Result<()>;
-    fn snapshot_update(&self, oplog: &dyn Oplog, update: BranchUpdateRequest)
-        -> anyhow::Result<()>;
-}
-
-impl Snapshoter for Branch {
-    fn snapshot_deletion(&self, oplog: &dyn Oplog) -> anyhow::Result<()> {
+    fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
             SnapshotDetails::new(OperationType::DeleteBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
-                value: self.name.to_string(),
+                value: branch_name.to_string(),
             }]);
 
-        oplog.create_snapshot(details)?;
+        self.create_snapshot(details)?;
         Ok(())
     }
-    fn snapshot_update(
+    fn snapshot_branch_update(
         &self,
-        oplog: &dyn Oplog,
+        old_branch: Branch,
         update: BranchUpdateRequest,
     ) -> anyhow::Result<()> {
         let details = if update.ownership.is_some() {
@@ -51,7 +48,7 @@ impl Snapshoter for Branch {
             SnapshotDetails::new(OperationType::UpdateBranchName).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),
-                    value: self.name.to_string(),
+                    value: old_branch.name.to_string(),
                 },
                 Trailer {
                     key: "after".to_string(),
@@ -64,7 +61,7 @@ impl Snapshoter for Branch {
             SnapshotDetails::new(OperationType::ReorderBranches).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),
-                    value: self.order.to_string(),
+                    value: old_branch.order.to_string(),
                 },
                 Trailer {
                     key: "after".to_string(),
@@ -75,7 +72,10 @@ impl Snapshoter for Branch {
             SnapshotDetails::new(OperationType::SelectDefaultVirtualBranch).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),
-                    value: self.selected_for_changes.unwrap_or_default().to_string(),
+                    value: old_branch
+                        .selected_for_changes
+                        .unwrap_or_default()
+                        .to_string(),
                 },
                 Trailer {
                     key: "after".to_string(),
@@ -86,7 +86,7 @@ impl Snapshoter for Branch {
             SnapshotDetails::new(OperationType::UpdateBranchRemoteName).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),
-                    value: self
+                    value: old_branch
                         .upstream
                         .clone()
                         .map(|r| r.to_string())
@@ -100,7 +100,7 @@ impl Snapshoter for Branch {
         } else {
             SnapshotDetails::new(OperationType::GenericBranchUpdate)
         };
-        oplog.create_snapshot(details)?;
+        self.create_snapshot(details)?;
         Ok(())
     }
 }
