@@ -1,8 +1,8 @@
 use std::fmt::Display;
 use std::path::PathBuf;
 
-use gitbutler_core::{deltas, reader, sessions::SessionId, virtual_branches};
-use gitbutler_core::{projects::ProjectId, sessions};
+use gitbutler_core::projects::ProjectId;
+use gitbutler_core::virtual_branches;
 
 /// An event for internal use, as merge between [super::file_monitor::Event] and [Action].
 #[derive(Debug)]
@@ -92,22 +92,6 @@ pub enum Change {
         head: String,
     },
     GitActivity(ProjectId),
-    File {
-        project_id: ProjectId,
-        session_id: SessionId,
-        file_path: PathBuf,
-        contents: Option<reader::Content>,
-    },
-    Session {
-        project_id: ProjectId,
-        session: sessions::Session,
-    },
-    Deltas {
-        project_id: ProjectId,
-        session_id: SessionId,
-        deltas: Vec<deltas::Delta>,
-        relative_file_path: PathBuf,
-    },
     VirtualBranches {
         project_id: ProjectId,
         virtual_branches: virtual_branches::VirtualBranches,
