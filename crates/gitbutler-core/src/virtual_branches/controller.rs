@@ -532,9 +532,6 @@ impl ControllerInner {
 
         self.with_verify_branch(project_id, |project_repository, _| {
             let branch_id = super::create_virtual_branch(project_repository, create)?.id;
-            let _ = project_repository
-                .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::CreateBranch));
             Ok(branch_id)
         })
     }
@@ -563,9 +560,6 @@ impl ControllerInner {
                 signing_key.as_ref(),
                 user,
             )?;
-            let _ = project_repository
-                .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::CreateBranch));
             Ok(result)
         })
     }

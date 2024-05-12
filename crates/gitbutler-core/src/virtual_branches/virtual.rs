@@ -25,7 +25,7 @@ use super::{
     branch_to_remote_branch, errors, target, RemoteBranch, VirtualBranchesHandle,
 };
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
-use crate::ops::snapshot::Snapshoter;
+use crate::ops::snapshot::Snapshot;
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
     dedup::{dedup, dedup_fmt},
@@ -1129,7 +1129,7 @@ pub fn create_virtual_branch(
 
     let mut branch = Branch {
         id: BranchId::generate(),
-        name,
+        name: name.clone(),
         notes: String::new(),
         applied: true,
         upstream: None,
@@ -1153,6 +1153,7 @@ pub fn create_virtual_branch(
 
     project_repository.add_branch_reference(&branch)?;
 
+    _ = project_repository.project().snapshot_branch_creation(name);
     Ok(branch)
 }
 
@@ -1388,6 +1389,7 @@ pub fn update_branch(
             }
             _ => errors::UpdateBranchError::Other(error.into()),
         })?;
+    let branch_before_update = branch.clone();
 
     if let Some(ownership) = &branch_update.ownership {
         set_ownership(&vb_state, &mut branch, ownership).context("failed to set ownership")?;
@@ -1467,7 +1469,9 @@ pub fn update_branch(
         .set_branch(branch.clone())
         .context("failed to write target branch")?;
 
-    _ = branch.snapshot_update(project_repository.project(), branch_update);
+    _ = project_repository
+        .project()
+        .snapshot_branch_update(branch_before_update, branch_update);
     Ok(branch)
 }
 
@@ -1484,7 +1488,9 @@ pub fn delete_branch(
     .context("failed to read branch")?;
 
     if branch.applied && unapply_branch(project_repository, branch_id)?.is_none() {
-        _ = branch.snapshot_deletion(project_repository.project());
+        _ = project_repository
+            .project()
+            .snapshot_branch_deletion(branch.name);
         return Ok(());
     }
 
@@ -1496,7 +1502,9 @@ pub fn delete_branch(
 
     ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
-    _ = branch.snapshot_deletion(project_repository.project());
+    _ = project_repository
+        .project()
+        .snapshot_branch_deletion(branch.name);
     Ok(())
 }
 
@@ -4292,12 +4300,13 @@ pub fn create_virtual_branch_from_branch(
         },
     );
 
+    let branch_name = upstream
+        .branch()
+        .expect("always a branch reference")
+        .to_string();
     let branch = branch::Branch {
         id: BranchId::generate(),
-        name: upstream
-            .branch()
-            .expect("always a branch reference")
-            .to_string(),
+        name: branch_name.clone(),
         notes: String::new(),
         applied: false,
         upstream_head: upstream_branch.is_some().then_some(head_commit.id()),
@@ -4316,6 +4325,10 @@ pub fn create_virtual_branch_from_branch(
         .context("failed to write branch")?;
 
     project_repository.add_branch_reference(&branch)?;
+
+    let _ = project_repository
+        .project()
+        .snapshot_branch_creation(branch_name);
 
     match apply_branch(project_repository, &branch.id, signing_key, user) {
         Ok(()) => Ok(branch.id),
