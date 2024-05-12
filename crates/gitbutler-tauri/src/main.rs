@@ -106,7 +106,6 @@ fn main() {
                     let projects_controller = gitbutler_core::projects::Controller::new(
                         app_data_dir.clone(),
                         projects_storage_controller.clone(),
-                        users_controller.clone(),
                         Some(watcher_controller.clone())
                     );
                     app_handle.manage(projects_controller.clone());
