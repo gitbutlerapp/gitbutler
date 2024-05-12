@@ -15,9 +15,19 @@ pub trait Snapshot {
         old_branch: Branch,
         update: BranchUpdateRequest,
     ) -> anyhow::Result<()>;
+    fn snapshot_commit_creation(&self, commit_message: String) -> anyhow::Result<()>;
 }
 
 impl<T: Oplog> Snapshot for T {
+    fn snapshot_commit_creation(&self, commit_message: String) -> anyhow::Result<()> {
+        let details =
+            SnapshotDetails::new(OperationType::CreateCommit).with_trailers(vec![Trailer {
+                key: "message".to_string(),
+                value: commit_message,
+            }]);
+        self.create_snapshot(details)?;
+        Ok(())
+    }
     fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
             SnapshotDetails::new(OperationType::CreateBranch).with_trailers(vec![Trailer {

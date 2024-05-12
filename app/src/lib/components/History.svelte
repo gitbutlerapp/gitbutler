@@ -131,6 +131,8 @@
 						<div>
 							after: {entry.details?.trailers.find((t) => t.key === 'after')?.value}
 						</div>
+					{:else if ['CreateCommit'].includes(entry.details?.operation || '')}
+						message: {entry.details?.trailers.find((t) => t.key === 'message')?.value}
 					{/if}
 				</div>
 				<div>
