@@ -25,7 +25,7 @@ use super::{
     branch_to_remote_branch, errors, target, RemoteBranch, VirtualBranchesHandle,
 };
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
-use crate::ops::snapshot::Snapshoter;
+use crate::ops::snapshot::{Snapshot, Snapshoter};
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
     dedup::{dedup, dedup_fmt},
@@ -1129,7 +1129,7 @@ pub fn create_virtual_branch(
 
     let mut branch = Branch {
         id: BranchId::generate(),
-        name,
+        name: name.clone(),
         notes: String::new(),
         applied: true,
         upstream: None,
@@ -1153,6 +1153,7 @@ pub fn create_virtual_branch(
 
     project_repository.add_branch_reference(&branch)?;
 
+    _ = project_repository.project().snapshot_branch_creation(name);
     Ok(branch)
 }
 
@@ -4293,12 +4294,13 @@ pub fn create_virtual_branch_from_branch(
         },
     );
 
+    let branch_name = upstream
+        .branch()
+        .expect("always a branch reference")
+        .to_string();
     let branch = branch::Branch {
         id: BranchId::generate(),
-        name: upstream
-            .branch()
-            .expect("always a branch reference")
-            .to_string(),
+        name: branch_name.clone(),
         notes: String::new(),
         applied: false,
         upstream_head: upstream_branch.is_some().then_some(head_commit.id()),
@@ -4317,6 +4319,10 @@ pub fn create_virtual_branch_from_branch(
         .context("failed to write branch")?;
 
     project_repository.add_branch_reference(&branch)?;
+
+    let _ = project_repository
+        .project()
+        .snapshot_branch_creation(branch_name);
 
     match apply_branch(project_repository, &branch.id, signing_key, user) {
         Ok(()) => Ok(branch.id),

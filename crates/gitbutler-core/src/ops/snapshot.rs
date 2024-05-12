@@ -7,6 +7,22 @@ use crate::{
 
 use super::{entry::Trailer, oplog::Oplog};
 
+pub trait Snapshot {
+    fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()>;
+}
+
+impl<T: Oplog> Snapshot for T {
+    fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()> {
+        let details =
+            SnapshotDetails::new(OperationType::CreateBranch).with_trailers(vec![Trailer {
+                key: "name".to_string(),
+                value: branch_name,
+            }]);
+        self.create_snapshot(details)?;
+        Ok(())
+    }
+}
+
 pub trait Snapshoter {
     fn snapshot_deletion(&self, oplog: &dyn Oplog) -> anyhow::Result<()>;
     fn snapshot_update(&self, oplog: &dyn Oplog, update: BranchUpdateRequest)
