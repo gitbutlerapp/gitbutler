@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
-use crate::{error, gb_repository, project_repository, users};
+use crate::{error, project_repository};
 use crate::{
     error::{AnyhowContextExt, Code, Error, ErrorWithContext},
     projects::AuthKey,
@@ -25,7 +25,6 @@ pub trait Watchers {
 pub struct Controller {
     local_data_dir: PathBuf,
     projects_storage: storage::Storage,
-    users: users::Controller,
     watchers: Option<Arc<dyn Watchers + Send + Sync>>,
 }
 
@@ -33,13 +32,11 @@ impl Controller {
     pub fn new(
         local_data_dir: PathBuf,
         projects_storage: storage::Storage,
-        users: users::Controller,
         watchers: Option<impl Watchers + Send + Sync + 'static>,
     ) -> Self {
         Self {
             local_data_dir,
             projects_storage,
-            users,
             watchers: watchers.map(|w| Arc::new(w) as Arc<_>),
         }
     }
@@ -48,7 +45,6 @@ impl Controller {
         let path = path.into();
         Self {
             projects_storage: storage::Storage::from_path(&path),
-            users: users::Controller::from_path(&path),
             local_data_dir: path,
             watchers: None,
         }
@@ -102,12 +98,6 @@ impl Controller {
             api: None,
             ..Default::default()
         };
-
-        // create all required directories to avoid racing later
-        let user = self.users.get_user()?;
-        let project_repository = project_repository::Repository::open(&project)?;
-        gb_repository::Repository::open(&self.local_data_dir, &project_repository, user.as_ref())
-            .context("failed to open repository")?;
 
         self.projects_storage
             .add(&project)
