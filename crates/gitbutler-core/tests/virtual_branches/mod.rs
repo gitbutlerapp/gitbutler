@@ -795,6 +795,9 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     let file_path2 = Path::new("test2.txt");
     std::fs::write(Path::new(&project.path).join(file_path2), "file2\n")?;
 
+    // Update integration commit
+    virtual_branches::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+
     let remote_branch: git::RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
     let mut branch = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch");

@@ -64,7 +64,8 @@ pub trait Oplog {
 
 impl Oplog for Project {
     fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<String>> {
-        if self.enable_snapshots.is_none() || self.enable_snapshots == Some(false) {
+        // Default feature flag to true
+        if self.enable_snapshots.is_some() && self.enable_snapshots == Some(false) {
             return Ok(None);
         }
 
@@ -135,6 +136,12 @@ impl Oplog for Project {
             &tree,
             &[&oplog_head_commit],
         )?;
+
+        // NOTE: After creating a snapshot we are restoring to the state from the integration commit.
+        // If the integration commit has not been updated, after snapshot creation we may reset to an incorrect state.
+        // This can be fixed by invoking virtual_branches::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+        // before the snapshot creation is initiated in the first place.
+        // However, there should be no conditions under which the integration commit is stale, and if there is, it should be fixed at the source.
 
         // Reset the workdir to how it was
         let integration_branch = repo
