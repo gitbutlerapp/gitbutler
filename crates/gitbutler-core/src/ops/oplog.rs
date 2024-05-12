@@ -64,7 +64,8 @@ pub trait Oplog {
 
 impl Oplog for Project {
     fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<String>> {
-        if self.enable_snapshots.is_none() || self.enable_snapshots == Some(false) {
+        // Default feature flag to true
+        if self.enable_snapshots.is_some() && self.enable_snapshots == Some(false) {
             return Ok(None);
         }
 
