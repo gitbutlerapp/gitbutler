@@ -98,4 +98,3 @@ fn test_remote_repository() -> anyhow::Result<(git2::Repository, TempDir)> {
 mod calculate_delta;
 mod fetch_gitbutler_data;
 mod git_file_change;
-mod push_project_to_gitbutler;

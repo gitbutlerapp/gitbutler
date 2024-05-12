@@ -1,6 +1,5 @@
 mod calculate_deltas;
 mod index;
-mod push_project_to_gitbutler;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -85,10 +84,6 @@ impl Handler {
                 .await
                 .context("failed to handle git file change event"),
 
-            events::InternalEvent::PushGitbutlerData(project_id) => self
-                .push_gb_data(project_id)
-                .context("failed to push gitbutler data"),
-
             events::InternalEvent::FetchGitbutlerData(project_id) => self
                 .fetch_gb_data(project_id, now)
                 .await
@@ -152,12 +147,6 @@ impl Handler {
 
         self.index_session(project_id, session)?;
 
-        let push_gb_data = tokio::task::spawn_blocking({
-            let this = self.clone();
-            move || this.push_gb_data(project_id)
-        });
-        self.push_project_to_gitbutler(project_id, 1000).await?;
-        push_gb_data.await??;
         Ok(())
     }
 
@@ -181,25 +170,6 @@ impl Handler {
             Err(err) if err.is::<virtual_branches::errors::VerifyError>() => Ok(()),
             Err(err) => Err(err.context("failed to list virtual branches").into()),
         }
-    }
-
-    /// NOTE: this is an honest non-async function, and it should stay that way to avoid
-    ///       dealing with git2 repositories across await points, which aren't `Send`.
-    fn push_gb_data(&self, project_id: ProjectId) -> Result<()> {
-        let user = self.users.get_user()?;
-        let project = self.projects.get(&project_id)?;
-        let project_repository =
-            project_repository::Repository::open(&project).context("failed to open repository")?;
-        let gb_repo = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open repository")?;
-
-        gb_repo
-            .push(user.as_ref())
-            .context("failed to push gb repo")
     }
 
     pub async fn fetch_gb_data(&self, project_id: ProjectId, now: time::SystemTime) -> Result<()> {

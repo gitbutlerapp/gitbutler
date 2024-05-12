@@ -11,7 +11,6 @@ pub(super) enum InternalEvent {
     Flush(ProjectId, sessions::Session),
     CalculateVirtualBranches(ProjectId),
     FetchGitbutlerData(ProjectId),
-    PushGitbutlerData(ProjectId),
 
     // From file monitor
     GitFilesChange(ProjectId, Vec<PathBuf>),
@@ -27,7 +26,6 @@ pub enum Action {
     Flush(ProjectId, sessions::Session),
     CalculateVirtualBranches(ProjectId),
     FetchGitbutlerData(ProjectId),
-    PushGitbutlerData(ProjectId),
 }
 
 impl Action {
@@ -36,8 +34,7 @@ impl Action {
         match self {
             Action::FetchGitbutlerData(project_id)
             | Action::Flush(project_id, _)
-            | Action::CalculateVirtualBranches(project_id)
-            | Action::PushGitbutlerData(project_id) => *project_id,
+            | Action::CalculateVirtualBranches(project_id) => *project_id,
         }
     }
 }
@@ -48,7 +45,6 @@ impl From<Action> for InternalEvent {
             Action::Flush(a, b) => InternalEvent::Flush(a, b),
             Action::CalculateVirtualBranches(v) => InternalEvent::CalculateVirtualBranches(v),
             Action::FetchGitbutlerData(v) => InternalEvent::FetchGitbutlerData(v),
-            Action::PushGitbutlerData(v) => InternalEvent::PushGitbutlerData(v),
         }
     }
 }
@@ -79,7 +75,6 @@ impl Display for InternalEvent {
                 )
             }
             InternalEvent::CalculateVirtualBranches(pid) => write!(f, "VirtualBranch({})", pid),
-            InternalEvent::PushGitbutlerData(pid) => write!(f, "PushGitbutlerData({})", pid),
         }
     }
 }
