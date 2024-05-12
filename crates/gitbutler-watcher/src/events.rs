@@ -10,7 +10,6 @@ pub(super) enum InternalEvent {
     // From public action API
     Flush(ProjectId, sessions::Session),
     CalculateVirtualBranches(ProjectId),
-    FetchGitbutlerData(ProjectId),
 
     // From file monitor
     GitFilesChange(ProjectId, Vec<PathBuf>),
@@ -25,16 +24,15 @@ pub(super) enum InternalEvent {
 pub enum Action {
     Flush(ProjectId, sessions::Session),
     CalculateVirtualBranches(ProjectId),
-    FetchGitbutlerData(ProjectId),
 }
 
 impl Action {
     /// Return the action's associated project id.
     pub fn project_id(&self) -> ProjectId {
         match self {
-            Action::FetchGitbutlerData(project_id)
-            | Action::Flush(project_id, _)
-            | Action::CalculateVirtualBranches(project_id) => *project_id,
+            Action::Flush(project_id, _) | Action::CalculateVirtualBranches(project_id) => {
+                *project_id
+            }
         }
     }
 }
@@ -44,7 +42,6 @@ impl From<Action> for InternalEvent {
         match value {
             Action::Flush(a, b) => InternalEvent::Flush(a, b),
             Action::CalculateVirtualBranches(v) => InternalEvent::CalculateVirtualBranches(v),
-            Action::FetchGitbutlerData(v) => InternalEvent::FetchGitbutlerData(v),
         }
     }
 }
@@ -52,9 +49,6 @@ impl From<Action> for InternalEvent {
 impl Display for InternalEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            InternalEvent::FetchGitbutlerData(pid) => {
-                write!(f, "FetchGitbutlerData({})", pid,)
-            }
             InternalEvent::Flush(project_id, session) => {
                 write!(f, "Flush({}, {})", project_id, session.id)
             }

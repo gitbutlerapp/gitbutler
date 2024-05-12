@@ -191,9 +191,4 @@ impl gitbutler_core::projects::Watchers for Watchers {
     async fn stop(&self, id: ProjectId) {
         Watchers::stop(self, id).await
     }
-
-    async fn fetch_gb_data(&self, id: ProjectId) -> Result<()> {
-        self.post(gitbutler_watcher::Action::FetchGitbutlerData(id))
-            .await
-    }
 }

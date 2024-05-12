@@ -1,11 +1,11 @@
 mod calculate_deltas;
 mod index;
 
+use std::path;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::{path, time};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use gitbutler_core::ops::entry::{OperationType, SnapshotDetails};
 use gitbutler_core::ops::oplog::Oplog;
 use gitbutler_core::projects::ProjectId;
@@ -68,12 +68,8 @@ impl Handler {
     }
 
     /// Handle the events that come in from the filesystem, or the public API.
-    #[instrument(skip(self, now), fields(event = %event), err(Debug))]
-    pub(super) async fn handle(
-        &self,
-        event: events::InternalEvent,
-        now: time::SystemTime,
-    ) -> Result<()> {
+    #[instrument(skip(self), fields(event = %event), err(Debug))]
+    pub(super) async fn handle(&self, event: events::InternalEvent) -> Result<()> {
         match event {
             events::InternalEvent::ProjectFilesChange(project_id, path) => {
                 self.recalculate_everything(path, project_id).await
@@ -83,11 +79,6 @@ impl Handler {
                 .git_files_change(paths, project_id)
                 .await
                 .context("failed to handle git file change event"),
-
-            events::InternalEvent::FetchGitbutlerData(project_id) => self
-                .fetch_gb_data(project_id, now)
-                .await
-                .context("failed to fetch gitbutler data"),
 
             events::InternalEvent::Flush(project_id, session) => self
                 .flush_session(project_id, &session)
@@ -170,78 +161,6 @@ impl Handler {
             Err(err) if err.is::<virtual_branches::errors::VerifyError>() => Ok(()),
             Err(err) => Err(err.context("failed to list virtual branches").into()),
         }
-    }
-
-    pub async fn fetch_gb_data(&self, project_id: ProjectId, now: time::SystemTime) -> Result<()> {
-        let user = self.users.get_user()?;
-        let project = self
-            .projects
-            .get(&project_id)
-            .context("failed to get project")?;
-
-        if !project.api.as_ref().map(|api| api.sync).unwrap_or_default() {
-            bail!("sync disabled");
-        }
-
-        let project_repository =
-            project_repository::Repository::open(&project).context("failed to open repository")?;
-        let gb_repo = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open repository")?;
-
-        let sessions_before_fetch = gb_repo
-            .get_sessions_iterator()?
-            .filter_map(Result::ok)
-            .collect::<Vec<_>>();
-
-        let policy = backoff::ExponentialBackoffBuilder::new()
-            .with_max_elapsed_time(Some(time::Duration::from_secs(10 * 60)))
-            .build();
-
-        let fetch_result = backoff::retry(policy, || {
-            gb_repo.fetch(user.as_ref()).map_err(|err| match err {
-                gb_repository::RemoteError::Network => backoff::Error::permanent(err),
-                err @ gb_repository::RemoteError::Other(_) => {
-                    tracing::warn!(%project_id, ?err, will_retry = true, "failed to fetch project data");
-                    backoff::Error::transient(err)
-                }
-            })
-        });
-        let fetch_result = match fetch_result {
-            Ok(()) => projects::FetchResult::Fetched { timestamp: now },
-            Err(backoff::Error::Permanent(gb_repository::RemoteError::Network)) => {
-                projects::FetchResult::Error {
-                    timestamp: now,
-                    error: "network error".to_string(),
-                }
-            }
-            Err(error) => {
-                tracing::error!(%project_id, ?error, will_retry=false, "failed to fetch gitbutler data");
-                projects::FetchResult::Error {
-                    timestamp: now,
-                    error: error.to_string(),
-                }
-            }
-        };
-
-        self.projects
-            .update(&projects::UpdateRequest {
-                id: project_id,
-                gitbutler_data_last_fetched: Some(fetch_result),
-                ..Default::default()
-            })
-            .await
-            .context("failed to update fetched result")?;
-
-        let sessions_after_fetch = gb_repo.get_sessions_iterator()?.filter_map(Result::ok);
-        let new_sessions = sessions_after_fetch.filter(|s| !sessions_before_fetch.contains(s));
-        for session in new_sessions {
-            self.index_session(project_id, session)?;
-        }
-        Ok(())
     }
 
     #[instrument(skip(self, paths, project_id), fields(paths = paths.len()))]
