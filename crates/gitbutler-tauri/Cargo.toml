@@ -29,13 +29,11 @@ backtrace = { version = "0.3.71", optional = true }
 console-subscriber = "0.2.0"
 futures = "0.3"
 git2.workspace = true
-governor = "0.6.3"
 nonzero_ext = "0.3.0"
 once_cell = "1.19"
 reqwest = { version = "0.12.4", features = ["json"] }
 serde.workspace = true
 serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
-slug = "0.1.5"
 tauri-plugin-context-menu = { git = "https://github.com/c2r0b/tauri-plugin-context-menu", branch = "main" }
 tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
