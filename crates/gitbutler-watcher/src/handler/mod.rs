@@ -12,8 +12,7 @@ use gitbutler_core::projects::ProjectId;
 use gitbutler_core::sessions::SessionId;
 use gitbutler_core::virtual_branches::VirtualBranches;
 use gitbutler_core::{
-    assets, deltas, gb_repository, git, project_repository, projects, reader, sessions, users,
-    virtual_branches,
+    assets, deltas, git, project_repository, projects, reader, sessions, users, virtual_branches,
 };
 use tracing::instrument;
 
@@ -80,11 +79,6 @@ impl Handler {
                 .await
                 .context("failed to handle git file change event"),
 
-            events::InternalEvent::Flush(project_id, session) => self
-                .flush_session(project_id, &session)
-                .await
-                .context("failed to handle flush session event"),
-
             events::InternalEvent::CalculateVirtualBranches(project_id) => self
                 .calculate_virtual_branches(project_id)
                 .await
@@ -111,34 +105,6 @@ impl Handler {
             file_path: file_path.to_owned(),
             contents,
         })
-    }
-
-    async fn flush_session(
-        &self,
-        project_id: ProjectId,
-        session: &sessions::Session,
-    ) -> Result<()> {
-        let project = self
-            .projects
-            .get(&project_id)
-            .context("failed to get project")?;
-        let user = self.users.get_user()?;
-        let project_repository =
-            project_repository::Repository::open(&project).context("failed to open repository")?;
-        let gb_repo = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open repository")?;
-
-        let session = gb_repo
-            .flush_session(&project_repository, session, user.as_ref())
-            .context(format!("failed to flush session {}", session.id))?;
-
-        self.index_session(project_id, session)?;
-
-        Ok(())
     }
 
     #[instrument(skip(self, project_id))]
@@ -225,30 +191,6 @@ impl Handler {
                 }
                 "logs/HEAD" => {
                     self.emit_app_event(Change::GitActivity(project.id))?;
-                }
-                "GB_FLUSH" => {
-                    let user = self.users.get_user()?;
-                    let project_repository = open_projects_repository()?;
-                    let gb_repo = gb_repository::Repository::open(
-                        &self.local_data_dir,
-                        &project_repository,
-                        user.as_ref(),
-                    )
-                    .context("failed to open repository")?;
-
-                    let gb_flush_path = project.path.join(".git/GB_FLUSH");
-                    if gb_flush_path.exists() {
-                        if let Err(err) = std::fs::remove_file(&gb_flush_path) {
-                            tracing::error!(%project_id, path = %gb_flush_path.display(), "GB_FLUSH file delete error: {err}");
-                        }
-
-                        if let Some(current_session) = gb_repo
-                            .get_current_session()
-                            .context("failed to get current session")?
-                        {
-                            self.flush_session(project.id, &current_session).await?;
-                        }
-                    }
                 }
                 "HEAD" => {
                     let project_repository = open_projects_repository()?;
