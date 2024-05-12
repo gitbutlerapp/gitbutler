@@ -125,7 +125,7 @@ export type CheckSuites =
 export type CheckSuite = {
 	name?: string;
 	count: number;
-	status: 'queued' | 'in_progress' | 'completed' | null;
+	status: 'queued' | 'in_progress' | 'completed' | 'waiting' | 'requested' | 'pending' | null;
 };
 
 export function parseGitHubCheckSuites(data: GitHubListCheckSuitesResp): CheckSuite[] {
