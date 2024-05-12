@@ -3,6 +3,7 @@ use crate::{
     ops::{
         entry::{OperationType, SnapshotDetails},
         oplog::Oplog,
+        snapshot::Snapshot,
     },
 };
 use std::{collections::HashMap, path::Path, sync::Arc};
@@ -484,7 +485,7 @@ impl ControllerInner {
 
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::CreateCommit));
+                .snapshot_commit_creation(message.to_owned());
             result
         })
     }
