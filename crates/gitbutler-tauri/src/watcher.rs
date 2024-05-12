@@ -44,40 +44,6 @@ mod event {
                     payload: serde_json::json!({}),
                     project_id,
                 },
-                Change::File {
-                    project_id,
-                    session_id,
-                    file_path,
-                    contents,
-                } => ChangeForFrontend {
-                    name: format!("project://{}/sessions/{}/files", project_id, session_id),
-                    payload: serde_json::json!({
-                        "filePath": file_path,
-                        "contents": contents,
-                    }),
-                    project_id,
-                },
-                Change::Session {
-                    project_id,
-                    session,
-                } => ChangeForFrontend {
-                    name: format!("project://{}/sessions", project_id),
-                    payload: serde_json::to_value(session).unwrap(),
-                    project_id,
-                },
-                Change::Deltas {
-                    project_id,
-                    session_id,
-                    deltas,
-                    relative_file_path,
-                } => ChangeForFrontend {
-                    name: format!("project://{}/sessions/{}/deltas", project_id, session_id),
-                    payload: serde_json::json!({
-                        "deltas": deltas,
-                        "filePath": relative_file_path,
-                    }),
-                    project_id,
-                },
                 Change::VirtualBranches {
                     project_id,
                     virtual_branches,
