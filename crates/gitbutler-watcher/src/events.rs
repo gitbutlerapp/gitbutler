@@ -8,10 +8,7 @@ use gitbutler_core::{projects::ProjectId, sessions};
 #[derive(Debug)]
 pub(super) enum InternalEvent {
     // From public action API
-    Flush(ProjectId, sessions::Session),
     CalculateVirtualBranches(ProjectId),
-    FetchGitbutlerData(ProjectId),
-    PushGitbutlerData(ProjectId),
 
     // From file monitor
     GitFilesChange(ProjectId, Vec<PathBuf>),
@@ -24,20 +21,14 @@ pub(super) enum InternalEvent {
 #[derive(Debug, PartialEq, Clone)]
 #[allow(missing_docs)]
 pub enum Action {
-    Flush(ProjectId, sessions::Session),
     CalculateVirtualBranches(ProjectId),
-    FetchGitbutlerData(ProjectId),
-    PushGitbutlerData(ProjectId),
 }
 
 impl Action {
     /// Return the action's associated project id.
     pub fn project_id(&self) -> ProjectId {
         match self {
-            Action::FetchGitbutlerData(project_id)
-            | Action::Flush(project_id, _)
-            | Action::CalculateVirtualBranches(project_id)
-            | Action::PushGitbutlerData(project_id) => *project_id,
+            Action::CalculateVirtualBranches(project_id) => *project_id,
         }
     }
 }
@@ -45,10 +36,7 @@ impl Action {
 impl From<Action> for InternalEvent {
     fn from(value: Action) -> Self {
         match value {
-            Action::Flush(a, b) => InternalEvent::Flush(a, b),
             Action::CalculateVirtualBranches(v) => InternalEvent::CalculateVirtualBranches(v),
-            Action::FetchGitbutlerData(v) => InternalEvent::FetchGitbutlerData(v),
-            Action::PushGitbutlerData(v) => InternalEvent::PushGitbutlerData(v),
         }
     }
 }
@@ -56,12 +44,6 @@ impl From<Action> for InternalEvent {
 impl Display for InternalEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            InternalEvent::FetchGitbutlerData(pid) => {
-                write!(f, "FetchGitbutlerData({})", pid,)
-            }
-            InternalEvent::Flush(project_id, session) => {
-                write!(f, "Flush({}, {})", project_id, session.id)
-            }
             InternalEvent::GitFilesChange(project_id, paths) => {
                 write!(
                     f,
@@ -79,7 +61,6 @@ impl Display for InternalEvent {
                 )
             }
             InternalEvent::CalculateVirtualBranches(pid) => write!(f, "VirtualBranch({})", pid),
-            InternalEvent::PushGitbutlerData(pid) => write!(f, "PushGitbutlerData({})", pid),
         }
     }
 }

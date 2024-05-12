@@ -1,20 +1,18 @@
 mod calculate_deltas;
 mod index;
-mod push_project_to_gitbutler;
 
+use std::path;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::{path, time};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use gitbutler_core::ops::entry::{OperationType, SnapshotDetails};
 use gitbutler_core::ops::oplog::Oplog;
 use gitbutler_core::projects::ProjectId;
 use gitbutler_core::sessions::SessionId;
 use gitbutler_core::virtual_branches::VirtualBranches;
 use gitbutler_core::{
-    assets, deltas, gb_repository, git, project_repository, projects, reader, sessions, users,
-    virtual_branches,
+    assets, deltas, git, project_repository, projects, reader, sessions, users, virtual_branches,
 };
 use tracing::instrument;
 
@@ -69,12 +67,8 @@ impl Handler {
     }
 
     /// Handle the events that come in from the filesystem, or the public API.
-    #[instrument(skip(self, now), fields(event = %event), err(Debug))]
-    pub(super) async fn handle(
-        &self,
-        event: events::InternalEvent,
-        now: time::SystemTime,
-    ) -> Result<()> {
+    #[instrument(skip(self), fields(event = %event), err(Debug))]
+    pub(super) async fn handle(&self, event: events::InternalEvent) -> Result<()> {
         match event {
             events::InternalEvent::ProjectFilesChange(project_id, path) => {
                 self.recalculate_everything(path, project_id).await
@@ -84,20 +78,6 @@ impl Handler {
                 .git_files_change(paths, project_id)
                 .await
                 .context("failed to handle git file change event"),
-
-            events::InternalEvent::PushGitbutlerData(project_id) => self
-                .push_gb_data(project_id)
-                .context("failed to push gitbutler data"),
-
-            events::InternalEvent::FetchGitbutlerData(project_id) => self
-                .fetch_gb_data(project_id, now)
-                .await
-                .context("failed to fetch gitbutler data"),
-
-            events::InternalEvent::Flush(project_id, session) => self
-                .flush_session(project_id, &session)
-                .await
-                .context("failed to handle flush session event"),
 
             events::InternalEvent::CalculateVirtualBranches(project_id) => self
                 .calculate_virtual_branches(project_id)
@@ -127,40 +107,6 @@ impl Handler {
         })
     }
 
-    async fn flush_session(
-        &self,
-        project_id: ProjectId,
-        session: &sessions::Session,
-    ) -> Result<()> {
-        let project = self
-            .projects
-            .get(&project_id)
-            .context("failed to get project")?;
-        let user = self.users.get_user()?;
-        let project_repository =
-            project_repository::Repository::open(&project).context("failed to open repository")?;
-        let gb_repo = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open repository")?;
-
-        let session = gb_repo
-            .flush_session(&project_repository, session, user.as_ref())
-            .context(format!("failed to flush session {}", session.id))?;
-
-        self.index_session(project_id, session)?;
-
-        let push_gb_data = tokio::task::spawn_blocking({
-            let this = self.clone();
-            move || this.push_gb_data(project_id)
-        });
-        self.push_project_to_gitbutler(project_id, 1000).await?;
-        push_gb_data.await??;
-        Ok(())
-    }
-
     #[instrument(skip(self, project_id))]
     async fn calculate_virtual_branches(&self, project_id: ProjectId) -> Result<()> {
         match self
@@ -181,97 +127,6 @@ impl Handler {
             Err(err) if err.is::<virtual_branches::errors::VerifyError>() => Ok(()),
             Err(err) => Err(err.context("failed to list virtual branches").into()),
         }
-    }
-
-    /// NOTE: this is an honest non-async function, and it should stay that way to avoid
-    ///       dealing with git2 repositories across await points, which aren't `Send`.
-    fn push_gb_data(&self, project_id: ProjectId) -> Result<()> {
-        let user = self.users.get_user()?;
-        let project = self.projects.get(&project_id)?;
-        let project_repository =
-            project_repository::Repository::open(&project).context("failed to open repository")?;
-        let gb_repo = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open repository")?;
-
-        gb_repo
-            .push(user.as_ref())
-            .context("failed to push gb repo")
-    }
-
-    pub async fn fetch_gb_data(&self, project_id: ProjectId, now: time::SystemTime) -> Result<()> {
-        let user = self.users.get_user()?;
-        let project = self
-            .projects
-            .get(&project_id)
-            .context("failed to get project")?;
-
-        if !project.api.as_ref().map(|api| api.sync).unwrap_or_default() {
-            bail!("sync disabled");
-        }
-
-        let project_repository =
-            project_repository::Repository::open(&project).context("failed to open repository")?;
-        let gb_repo = gb_repository::Repository::open(
-            &self.local_data_dir,
-            &project_repository,
-            user.as_ref(),
-        )
-        .context("failed to open repository")?;
-
-        let sessions_before_fetch = gb_repo
-            .get_sessions_iterator()?
-            .filter_map(Result::ok)
-            .collect::<Vec<_>>();
-
-        let policy = backoff::ExponentialBackoffBuilder::new()
-            .with_max_elapsed_time(Some(time::Duration::from_secs(10 * 60)))
-            .build();
-
-        let fetch_result = backoff::retry(policy, || {
-            gb_repo.fetch(user.as_ref()).map_err(|err| match err {
-                gb_repository::RemoteError::Network => backoff::Error::permanent(err),
-                err @ gb_repository::RemoteError::Other(_) => {
-                    tracing::warn!(%project_id, ?err, will_retry = true, "failed to fetch project data");
-                    backoff::Error::transient(err)
-                }
-            })
-        });
-        let fetch_result = match fetch_result {
-            Ok(()) => projects::FetchResult::Fetched { timestamp: now },
-            Err(backoff::Error::Permanent(gb_repository::RemoteError::Network)) => {
-                projects::FetchResult::Error {
-                    timestamp: now,
-                    error: "network error".to_string(),
-                }
-            }
-            Err(error) => {
-                tracing::error!(%project_id, ?error, will_retry=false, "failed to fetch gitbutler data");
-                projects::FetchResult::Error {
-                    timestamp: now,
-                    error: error.to_string(),
-                }
-            }
-        };
-
-        self.projects
-            .update(&projects::UpdateRequest {
-                id: project_id,
-                gitbutler_data_last_fetched: Some(fetch_result),
-                ..Default::default()
-            })
-            .await
-            .context("failed to update fetched result")?;
-
-        let sessions_after_fetch = gb_repo.get_sessions_iterator()?.filter_map(Result::ok);
-        let new_sessions = sessions_after_fetch.filter(|s| !sessions_before_fetch.contains(s));
-        for session in new_sessions {
-            self.index_session(project_id, session)?;
-        }
-        Ok(())
     }
 
     #[instrument(skip(self, paths, project_id), fields(paths = paths.len()))]
@@ -336,30 +191,6 @@ impl Handler {
                 }
                 "logs/HEAD" => {
                     self.emit_app_event(Change::GitActivity(project.id))?;
-                }
-                "GB_FLUSH" => {
-                    let user = self.users.get_user()?;
-                    let project_repository = open_projects_repository()?;
-                    let gb_repo = gb_repository::Repository::open(
-                        &self.local_data_dir,
-                        &project_repository,
-                        user.as_ref(),
-                    )
-                    .context("failed to open repository")?;
-
-                    let gb_flush_path = project.path.join(".git/GB_FLUSH");
-                    if gb_flush_path.exists() {
-                        if let Err(err) = std::fs::remove_file(&gb_flush_path) {
-                            tracing::error!(%project_id, path = %gb_flush_path.display(), "GB_FLUSH file delete error: {err}");
-                        }
-
-                        if let Some(current_session) = gb_repo
-                            .get_current_session()
-                            .context("failed to get current session")?
-                        {
-                            self.flush_session(project.id, &current_session).await?;
-                        }
-                    }
                 }
                 "HEAD" => {
                     let project_repository = open_projects_repository()?;

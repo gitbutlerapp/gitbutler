@@ -12,7 +12,6 @@ mod handler;
 pub use handler::Handler;
 
 use std::path::Path;
-use std::time;
 
 use anyhow::{Context, Result};
 use gitbutler_core::projects::ProjectId;
@@ -92,7 +91,7 @@ pub fn watch_in_background(
         //       as well, so nothing can really be done here.
         task::spawn_blocking(move || {
             futures::executor::block_on(async move {
-                handler.handle(event, time::SystemTime::now()).await.ok();
+                handler.handle(event).await.ok();
             });
         });
         Ok(())

@@ -19,8 +19,6 @@ pub trait Watchers {
     fn watch(&self, project: &Project) -> anyhow::Result<()>;
     /// Stop watching filesystem changes.
     async fn stop(&self, id: ProjectId);
-    async fn fetch_gb_data(&self, id: ProjectId) -> anyhow::Result<()>;
-    async fn push_gb_data(&self, id: ProjectId) -> anyhow::Result<()>;
 }
 
 #[derive(Clone)]
@@ -168,28 +166,6 @@ impl Controller {
                 super::storage::Error::NotFound => UpdateError::NotFound,
                 error => UpdateError::Other(error.into()),
             })?;
-
-        if let Some(watchers) = &self.watchers {
-            if let Some(api) = &project.api {
-                if api.sync {
-                    if let Err(error) = watchers.fetch_gb_data(project.id).await {
-                        tracing::error!(
-                            project_id = %project.id,
-                            ?error,
-                            "failed to post fetch project event"
-                        );
-                    }
-                }
-
-                if let Err(error) = watchers.push_gb_data(project.id).await {
-                    tracing::error!(
-                        project_id = %project.id,
-                        ?error,
-                        "failed to post push project event"
-                    );
-                }
-            }
-        }
 
         Ok(updated)
     }
