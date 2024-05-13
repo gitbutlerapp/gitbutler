@@ -147,7 +147,7 @@
 				<div class="commit__id">
 					<code>
 						{#if commit.isSigned}
-						<span class="text-xs">🔒</span>
+							<span class="text-xs">🔒</span>
 						{/if}
 						{#if commit.changeId}
 							{commit.changeId.split('-')[0]}
