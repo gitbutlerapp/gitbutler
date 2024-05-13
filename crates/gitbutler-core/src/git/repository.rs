@@ -1,7 +1,7 @@
-use std::{io::Write, path::Path, str};
-
 use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
+use std::process::Stdio;
+use std::{io::Write, path::Path, str};
 
 use super::{
     Blob, Branch, Commit, Config, Index, Oid, Reference, Refname, Remote, Result, Signature, Tree,
@@ -268,41 +268,60 @@ impl Repository {
 
         let commit_buffer = Self::inject_change_id(&commit_buffer, change_id)?;
 
-        let oid = self
-            .0
-            .odb()?
-            .write(git2::ObjectType::Commit, commit_buffer.as_bytes())?;
-
-        // check git config for gpg.signingkey
-        let signing_key = self.0.config()?.get_string("commit.gpgSign");
-        dbg!(&signing_key);
-        if let Ok(_should_sign) = signing_key {
-            dbg!("SIGN IT");
-            /*
-            SOMETHING SOMETHING DARK SIDE...
-            let path = self.path().to_path_buf();
-            let res = std::thread::spawn(move || {
-                tokio::runtime::Runtime::new()
-                    .unwrap()
-                    .block_on(gitbutler_git::sign_commit(
-                        path,
-                        gitbutler_git::tokio::TokioExecutor,
-                        oid.to_string(),
-                        handle_git_prompt_sign,
-                        extra,
-                    ))
-            })
-            .join()
-            .unwrap()
-            .map_err(|e| Err(anyhow::anyhow!("fuck you")));
-             */
-        }
+        let oid = self.commit_buffer(commit_buffer)?;
 
         // update reference
         if let Some(refname) = update_ref {
             self.0.reference(&refname.to_string(), oid, true, message)?;
         }
         Ok(oid.into())
+    }
+
+    pub fn commit_buffer(&self, buffer: String) -> Result<git2::Oid> {
+        // check git config for gpg.signingkey
+        let should_sign = self.0.config()?.get_string("commit.gpgSign");
+        if let Ok(_should_sign) = should_sign {
+            let signing_key = self.0.config()?.get_string("user.signingkey");
+            if let Ok(signing_key) = signing_key {
+                dbg!(&signing_key);
+                let mut cmd = std::process::Command::new("gpg");
+                cmd.args(["--status-fd=2", "-bsau", &signing_key])
+                    //.arg(&signed_storage)
+                    .arg("-")
+                    .stdout(Stdio::piped())
+                    .stdin(Stdio::piped());
+
+                let mut child = cmd.spawn()?;
+                child
+                    .stdin
+                    .take()
+                    .expect("configured")
+                    .write_all(buffer.to_string().as_ref())?;
+
+                let output = child.wait_with_output()?;
+                if output.status.success() {
+                    // read stdout
+                    let signature = String::from_utf8_lossy(&output.stdout);
+                    dbg!(&signature);
+                    let oid = self
+                        .0
+                        .commit_signed(&buffer, &signature, None)
+                        .map(Into::into)
+                        .map_err(Into::into);
+                    return oid;
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    dbg!(stderr);
+                }
+            }
+        }
+
+        let oid = self
+            .0
+            .odb()?
+            .write(git2::ObjectType::Commit, buffer.as_bytes())?;
+
+        Ok(oid)
     }
 
     pub fn commit_signed(
