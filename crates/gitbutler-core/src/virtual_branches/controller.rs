@@ -813,7 +813,7 @@ impl ControllerInner {
                 super::undo_commit(project_repository, branch_id, commit_oid).map_err(Into::into);
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::UndoCommit));
+                .snapshot_commit_undo(commit_oid.to_string());
             result
         })
     }
