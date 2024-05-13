@@ -85,7 +85,6 @@ fn comma_separated_paths(paths: &[PathBuf]) -> String {
 #[derive(Debug, Clone)]
 #[allow(missing_docs)]
 pub enum Change {
-    GitIndex(ProjectId),
     GitFetch(ProjectId),
     GitHead {
         project_id: ProjectId,

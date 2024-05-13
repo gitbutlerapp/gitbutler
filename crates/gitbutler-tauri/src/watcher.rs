@@ -24,11 +24,6 @@ mod event {
     impl From<Change> for ChangeForFrontend {
         fn from(value: Change) -> Self {
             match value {
-                Change::GitIndex(project_id) => ChangeForFrontend {
-                    name: format!("project://{}/git/index", project_id),
-                    payload: serde_json::json!({}),
-                    project_id,
-                },
                 Change::GitFetch(project_id) => ChangeForFrontend {
                     name: format!("project://{}/git/fetch", project_id),
                     payload: serde_json::json!({}),

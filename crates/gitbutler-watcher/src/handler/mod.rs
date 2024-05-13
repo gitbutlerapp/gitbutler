@@ -60,6 +60,7 @@ impl Handler {
                 .await
                 .context("failed to handle git file change event"),
 
+            // This is only produced at the end of mutating Tauri commands to trigger a fresh state being served to the UI.
             events::InternalEvent::CalculateVirtualBranches(project_id) => self
                 .calculate_virtual_branches(project_id)
                 .await
@@ -174,9 +175,6 @@ impl Handler {
                             head: head.to_string(),
                         })?;
                     }
-                }
-                "index" => {
-                    self.emit_app_event(Change::GitIndex(project.id))?;
                 }
                 _ => {}
             }
