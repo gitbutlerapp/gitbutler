@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
-	import History from '$lib/components/History.svelte';
+	// import History from '$lib/components/History.svelte';
+	import History from '$lib/components/HistoryNew.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';

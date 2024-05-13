@@ -50,7 +50,7 @@
 			projectId: projectId,
 			sha: sha
 		});
-		console.log(JSON.stringify(resp));
+		console.log(resp);
 		return resp;
 	}
 	async function restoreSnapshot(projectId: string, sha: string) {
