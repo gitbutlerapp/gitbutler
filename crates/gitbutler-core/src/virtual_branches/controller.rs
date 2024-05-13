@@ -483,9 +483,10 @@ impl ControllerInner {
             )
             .map_err(Into::into);
 
+            let sha = result.as_ref().ok().map(|oid| oid.to_string());
             let _ = project_repository
                 .project()
-                .snapshot_commit_creation(message.to_owned());
+                .snapshot_commit_creation(message.to_owned(), sha);
             result
         })
     }
