@@ -15,16 +15,39 @@ pub trait Snapshot {
         old_branch: Branch,
         update: BranchUpdateRequest,
     ) -> anyhow::Result<()>;
-    fn snapshot_commit_creation(&self, commit_message: String) -> anyhow::Result<()>;
+    fn snapshot_commit_creation(
+        &self,
+        commit_message: String,
+        sha: Option<String>,
+    ) -> anyhow::Result<()>;
+    fn snapshot_commit_undo(&self, commit_sha: String) -> anyhow::Result<()>;
 }
 
 impl<T: Oplog> Snapshot for T {
-    fn snapshot_commit_creation(&self, commit_message: String) -> anyhow::Result<()> {
+    fn snapshot_commit_undo(&self, commit_sha: String) -> anyhow::Result<()> {
         let details =
-            SnapshotDetails::new(OperationType::CreateCommit).with_trailers(vec![Trailer {
+            SnapshotDetails::new(OperationType::UndoCommit).with_trailers(vec![Trailer {
+                key: "sha".to_string(),
+                value: commit_sha,
+            }]);
+        self.create_snapshot(details)?;
+        Ok(())
+    }
+    fn snapshot_commit_creation(
+        &self,
+        commit_message: String,
+        sha: Option<String>,
+    ) -> anyhow::Result<()> {
+        let details = SnapshotDetails::new(OperationType::CreateCommit).with_trailers(vec![
+            Trailer {
                 key: "message".to_string(),
                 value: commit_message,
-            }]);
+            },
+            Trailer {
+                key: "sha".to_string(),
+                value: sha.unwrap_or_default(),
+            },
+        ]);
         self.create_snapshot(details)?;
         Ok(())
     }

@@ -133,6 +133,9 @@
 						</div>
 					{:else if ['CreateCommit'].includes(entry.details?.operation || '')}
 						message: {entry.details?.trailers.find((t) => t.key === 'message')?.value}
+						sha: {entry.details?.trailers.find((t) => t.key === 'sha')?.value?.slice(0, 7)}
+					{:else if ['UndoCommit', 'CreateCommit'].includes(entry.details?.operation || '')}
+						sha: {entry.details?.trailers.find((t) => t.key === 'sha')?.value?.slice(0, 7)}
 					{/if}
 				</div>
 				<div>
