@@ -13,8 +13,9 @@
     clippy::too_many_lines
 )]
 
-use std::path::PathBuf;
+use std::{future::IntoFuture, path::PathBuf};
 
+use futures::FutureExt;
 use gitbutler_core::{assets, git, storage};
 use gitbutler_tauri::{
     app, askpass, commands, github, keys, logs, menu, projects, undo, users, virtual_branches,
@@ -215,6 +216,17 @@ fn main() {
                 ])
                 .menu(menu::build(tauri_context.package_info()))
                 .on_menu_event(|event|menu::handle_event(&event))
+                .on_window_event(|event| {
+                    if let tauri::WindowEvent::Focused(focused) = event.event() {
+                        if *focused {
+                            tokio::task::spawn(async move {
+                                let _ = event.window().app_handle()
+                                    .state::<watcher::Watchers>()
+                                    .flush().await;
+                            });
+                        }
+                    }
+                })
                 .build(tauri_context)
                 .expect("Failed to build tauri app")
                 .run(|app_handle, event| {
