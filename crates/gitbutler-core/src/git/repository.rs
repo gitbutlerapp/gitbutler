@@ -281,6 +281,7 @@ impl Repository {
         // check git config for gpg.signingkey
         let should_sign = self.0.config()?.get_string("commit.gpgSign");
         if let Ok(_should_sign) = should_sign {
+            // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
             let signing_key = self.0.config()?.get_string("user.signingkey");
             if let Ok(signing_key) = signing_key {
                 let sign_format = self.0.config()?.get_string("gpg.format");

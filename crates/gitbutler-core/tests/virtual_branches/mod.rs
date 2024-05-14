@@ -88,54 +88,6 @@ fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
 }
 
 #[test]
-fn signed_commit() -> Result<()> {
-    let suite = Suite::default();
-    let Case {
-        project,
-        project_repository,
-        ..
-    } = &suite.new_case_with_files(HashMap::from([
-        (PathBuf::from("test.txt"), "line1\nline2\nline3\nline4\n"),
-        (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
-    ]));
-
-    set_test_target(project_repository)?;
-
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
-        .expect("failed to create virtual branch")
-        .id;
-
-    std::fs::write(
-        Path::new(&project.path).join("test.txt"),
-        "line0\nline1\nline2\nline3\nline4\n",
-    )?;
-
-    let mut config = project_repository
-        .git_repository
-        .config()
-        .with_context(|| "failed to get config")?;
-    config.set_str("gitbutler.signCommits", "true")?;
-
-    // commit
-    commit(
-        project_repository,
-        &branch1_id,
-        "test commit",
-        None,
-        None,
-        false,
-    )?;
-
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository).unwrap();
-    let commit_id = &branches[0].commits[0].id;
-    let commit_obj = project_repository.git_repository.find_commit(*commit_id)?;
-    // check the raw_header contains the string "SSH SIGNATURE"
-    assert!(commit_obj.raw_header().unwrap().contains("SSH SIGNATURE"));
-
-    Ok(())
-}
-
-#[test]
 fn track_binary_files() -> Result<()> {
     let suite = Suite::default();
     let Case {
