@@ -284,34 +284,83 @@ impl Repository {
             let signing_key = self.0.config()?.get_string("user.signingkey");
             if let Ok(signing_key) = signing_key {
                 dbg!(&signing_key);
-                let mut cmd = std::process::Command::new("gpg");
-                cmd.args(["--status-fd=2", "-bsau", &signing_key])
-                    //.arg(&signed_storage)
-                    .arg("-")
-                    .stdout(Stdio::piped())
-                    .stdin(Stdio::piped());
 
-                let mut child = cmd.spawn()?;
-                child
-                    .stdin
-                    .take()
-                    .expect("configured")
-                    .write_all(buffer.to_string().as_ref())?;
-
-                let output = child.wait_with_output()?;
-                if output.status.success() {
-                    // read stdout
-                    let signature = String::from_utf8_lossy(&output.stdout);
-                    dbg!(&signature);
-                    let oid = self
-                        .0
-                        .commit_signed(&buffer, &signature, None)
-                        .map(Into::into)
-                        .map_err(Into::into);
-                    return oid;
+                let sign_format = self.0.config()?.get_string("gpg.format");
+                let is_ssh = if let Ok(sign_format) = sign_format {
+                    sign_format == "ssh"
                 } else {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    dbg!(stderr);
+                    false
+                };
+
+                // todo: support gpg.program
+
+                if is_ssh {
+                    // is ssh
+
+                    // write commit data to a temp file so we can sign it
+                    let mut signature_storage = tempfile::NamedTempFile::new()?;
+                    signature_storage.write_all(buffer.as_ref())?;
+                    let signed_storage = signature_storage.into_temp_path();
+
+                    let mut cmd = std::process::Command::new("ssh-keygen");
+                    cmd.args(["-Y", "sign", "-n", "git", "-f"])
+                        .arg(&signing_key)
+                        .arg(&signed_storage)
+                        .stdout(Stdio::piped());
+
+                    // todo: support literal ssh key
+                    // strvec_push(&signer.args, "-U");
+
+                    let child = cmd.spawn()?;
+                    let output = child.wait_with_output()?;
+                    if output.status.success() {
+                        // read signed_storage path plus .sig
+                        let signature_path = signed_storage.with_extension("sig");
+                        let sig_data = std::fs::read(signature_path)?;
+                        let signature = String::from_utf8_lossy(&sig_data);
+                        dbg!(&signature);
+                        let oid = self
+                            .0
+                            .commit_signed(&buffer, &signature, None)
+                            .map(Into::into)
+                            .map_err(Into::into);
+                        dbg!(&oid);
+                        return oid;
+                    } else {
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        dbg!(stderr);
+                    }
+                } else {
+                    // is gpg
+                    let mut cmd = std::process::Command::new("gpg");
+                    cmd.args(["--status-fd=2", "-bsau", &signing_key])
+                        //.arg(&signed_storage)
+                        .arg("-")
+                        .stdout(Stdio::piped())
+                        .stdin(Stdio::piped());
+
+                    let mut child = cmd.spawn()?;
+                    child
+                        .stdin
+                        .take()
+                        .expect("configured")
+                        .write_all(buffer.to_string().as_ref())?;
+
+                    let output = child.wait_with_output()?;
+                    if output.status.success() {
+                        // read stdout
+                        let signature = String::from_utf8_lossy(&output.stdout);
+                        dbg!(&signature);
+                        let oid = self
+                            .0
+                            .commit_signed(&buffer, &signature, None)
+                            .map(Into::into)
+                            .map_err(Into::into);
+                        return oid;
+                    } else {
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        dbg!(stderr);
+                    }
                 }
             }
         }
