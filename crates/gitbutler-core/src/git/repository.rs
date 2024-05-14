@@ -1,13 +1,13 @@
-use git2::{BlameOptions, Submodule};
-use git2_hooks::HookResult;
-use std::process::Stdio;
-use std::{io::Write, path::Path, str};
-
 use super::{
     Blob, Branch, Commit, Config, Index, Oid, Reference, Refname, Remote, Result, Signature, Tree,
     TreeBuilder, Url,
 };
-use crate::{keys, path::Normalize};
+use crate::path::Normalize;
+use git2::{BlameOptions, Submodule};
+use git2_hooks::HookResult;
+use std::os::unix::fs::PermissionsExt;
+use std::process::Stdio;
+use std::{io::Write, path::Path, str};
 
 // wrapper around git2::Repository to get control over how it's used.
 pub struct Repository(git2::Repository);
@@ -283,8 +283,6 @@ impl Repository {
         if let Ok(_should_sign) = should_sign {
             let signing_key = self.0.config()?.get_string("user.signingkey");
             if let Ok(signing_key) = signing_key {
-                dbg!(&signing_key);
-
                 let sign_format = self.0.config()?.get_string("gpg.format");
                 let is_ssh = if let Ok(sign_format) = sign_format {
                     sign_format == "ssh"
@@ -292,33 +290,56 @@ impl Repository {
                     false
                 };
 
-                // todo: support gpg.program
-
                 if is_ssh {
-                    // is ssh
-
                     // write commit data to a temp file so we can sign it
                     let mut signature_storage = tempfile::NamedTempFile::new()?;
                     signature_storage.write_all(buffer.as_ref())?;
-                    let signed_storage = signature_storage.into_temp_path();
+                    let buffer_file_to_sign_path = signature_storage.into_temp_path();
 
-                    let mut cmd = std::process::Command::new("ssh-keygen");
-                    cmd.args(["-Y", "sign", "-n", "git", "-f"])
-                        .arg(&signing_key)
-                        .arg(&signed_storage)
-                        .stdout(Stdio::piped());
+                    let gpg_program = self.0.config()?.get_string("gpg.ssh.program");
+                    let mut cmd =
+                        std::process::Command::new(gpg_program.unwrap_or("ssh-keygen".to_string()));
+                    cmd.args(["-Y", "sign", "-n", "git", "-f"]);
 
-                    // todo: support literal ssh key
-                    // strvec_push(&signer.args, "-U");
+                    let output;
+                    // support literal ssh key
+                    if let (true, signing_key) = Self::is_literal_ssh_key(&signing_key) {
+                        dbg!(&signing_key);
 
-                    let child = cmd.spawn()?;
-                    let output = child.wait_with_output()?;
+                        // write the key to a temp file
+                        let mut key_storage = tempfile::NamedTempFile::new()?;
+                        key_storage.write_all(signing_key.as_bytes())?;
+
+                        // make sure the tempfile permissions are acceptable for a private ssh key
+                        let mut permissions = key_storage.as_file().metadata()?.permissions();
+                        permissions.set_mode(0o600);
+                        key_storage.as_file().set_permissions(permissions)?;
+
+                        let key_file_path = key_storage.into_temp_path();
+                        let key_storage = std::fs::read_to_string(&key_file_path)?;
+                        dbg!(&key_storage);
+
+                        cmd.arg(&key_file_path);
+                        cmd.arg("-U");
+                        cmd.arg(&buffer_file_to_sign_path);
+                        cmd.stdout(Stdio::piped());
+
+                        let child = cmd.spawn()?;
+                        output = child.wait_with_output()?;
+                    } else {
+                        cmd.arg(signing_key);
+                        cmd.arg(&buffer_file_to_sign_path);
+                        cmd.stdout(Stdio::piped());
+
+                        let child = cmd.spawn()?;
+                        output = child.wait_with_output()?;
+                    }
+
                     if output.status.success() {
                         // read signed_storage path plus .sig
-                        let signature_path = signed_storage.with_extension("sig");
+                        let signature_path = buffer_file_to_sign_path.with_extension("sig");
                         let sig_data = std::fs::read(signature_path)?;
                         let signature = String::from_utf8_lossy(&sig_data);
-                        dbg!(&signature);
                         let oid = self
                             .0
                             .commit_signed(&buffer, &signature, None)
@@ -332,7 +353,9 @@ impl Repository {
                     }
                 } else {
                     // is gpg
-                    let mut cmd = std::process::Command::new("gpg");
+                    let gpg_program = self.0.config()?.get_string("gpg.program");
+                    let mut cmd =
+                        std::process::Command::new(gpg_program.unwrap_or("gpg".to_string()));
                     cmd.args(["--status-fd=2", "-bsau", &signing_key])
                         //.arg(&signed_storage)
                         .arg("-")
@@ -373,34 +396,14 @@ impl Repository {
         Ok(oid)
     }
 
-    pub fn commit_signed(
-        &self,
-        author: &Signature<'_>,
-        message: &str,
-        tree: &Tree<'_>,
-        parents: &[&Commit<'_>],
-        key: &keys::PrivateKey,
-        change_id: Option<&str>,
-    ) -> Result<Oid> {
-        let parents: Vec<&git2::Commit> = parents
-            .iter()
-            .map(|c| c.to_owned().into())
-            .collect::<Vec<_>>();
-        let commit_buffer = self.0.commit_create_buffer(
-            author.into(),
-            // author and committer must be the same
-            // for signed commits
-            author.into(),
-            message,
-            tree.into(),
-            &parents,
-        )?;
-        let commit_buffer = Self::inject_change_id(&commit_buffer, change_id)?;
-        let signature = key.sign(commit_buffer.as_bytes())?;
-        self.0
-            .commit_signed(&commit_buffer, &signature, None)
-            .map(Into::into)
-            .map_err(Into::into)
+    fn is_literal_ssh_key(string: &str) -> (bool, &str) {
+        if let Some(key) = string.strip_prefix("key::") {
+            return (true, key);
+        }
+        if string.starts_with("ssh-") {
+            return (true, string);
+        }
+        (false, string)
     }
 
     // in commit_buffer, inject a line right before the first `\n\n` that we see:
