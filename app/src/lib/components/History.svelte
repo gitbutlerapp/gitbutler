@@ -122,7 +122,7 @@
 						restored_from: {entry.details?.trailers
 							.find((t) => t.key === 'restored_from')
 							?.value?.slice(0, 7)}
-					{:else if entry.details?.operation === 'DeleteBranch'}
+					{:else if ['DeleteBranch', 'CreateBranch'].includes(entry.details?.operation || '')}
 						name: {entry.details?.trailers.find((t) => t.key === 'name')?.value}
 					{:else if ['ReorderBranches', 'UpdateBranchName', 'SelectDefaultVirtualBranch', 'UpdateBranchRemoteName'].includes(entry.details?.operation || '')}
 						<div>
@@ -131,6 +131,11 @@
 						<div>
 							after: {entry.details?.trailers.find((t) => t.key === 'after')?.value}
 						</div>
+					{:else if ['CreateCommit'].includes(entry.details?.operation || '')}
+						message: {entry.details?.trailers.find((t) => t.key === 'message')?.value}
+						sha: {entry.details?.trailers.find((t) => t.key === 'sha')?.value?.slice(0, 7)}
+					{:else if ['UndoCommit', 'CreateCommit'].includes(entry.details?.operation || '')}
+						sha: {entry.details?.trailers.find((t) => t.key === 'sha')?.value?.slice(0, 7)}
 					{/if}
 				</div>
 				<div>

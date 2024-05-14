@@ -36,6 +36,9 @@ export default defineConfig({
 	// to make use of `TAURI_DEBUG` and other env variables
 	// https://tauri.studio/v1/api/config#buildconfig.beforedevcommand
 	envPrefix: ['VITE_', 'TAURI_'],
+	resolve: {
+		conditions: ['es2015']
+	},
 	build: {
 		// Tauri supports es2021
 		target: process.env.TAURI_PLATFORM == 'windows' ? 'chrome105' : 'safari13',

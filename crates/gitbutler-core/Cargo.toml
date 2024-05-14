@@ -29,10 +29,7 @@ itertools = "0.12"
 lazy_static = "1.4.0"
 md5 = "0.7.0"
 hex = "0.4.3"
-r2d2 = "0.8.10"
-r2d2_sqlite = "0.22.0"
 rand = "0.8.5"
-refinery = { version = "0.8", features = ["rusqlite"] }
 regex = "1.10"
 reqwest = { version = "0.12.4", features = ["json"] }
 resolve-path = "0.1.0"
@@ -40,8 +37,6 @@ rusqlite.workspace = true
 serde.workspace = true
 serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
 sha2 = "0.10.8"
-similar = { version = "2.5.0", features = ["unicode"] }
-slug = "0.1.5"
 ssh-key = { version = "0.6.6", features = ["alloc", "ed25519"] }
 ssh2 = { version = "0.9.4", features = ["vendored-openssl"] }
 strum = { version = "0.26", features = ["derive"] }

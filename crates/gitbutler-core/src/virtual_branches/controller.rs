@@ -3,6 +3,7 @@ use crate::{
     ops::{
         entry::{OperationType, SnapshotDetails},
         oplog::Oplog,
+        snapshot::Snapshot,
     },
 };
 use std::{collections::HashMap, path::Path, sync::Arc};
@@ -462,9 +463,10 @@ impl ControllerInner {
             )
             .map_err(Into::into);
 
+            let sha = result.as_ref().ok().map(|oid| oid.to_string());
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::CreateCommit));
+                .snapshot_commit_creation(message.to_owned(), sha);
             result
         })
     }
@@ -512,9 +514,6 @@ impl ControllerInner {
 
         self.with_verify_branch(project_id, |project_repository, _| {
             let branch_id = super::create_virtual_branch(project_repository, create)?.id;
-            let _ = project_repository
-                .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::CreateBranch));
             Ok(branch_id)
         })
     }
@@ -529,9 +528,6 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, user| {
             let result =
                 super::create_virtual_branch_from_branch(project_repository, branch, user)?;
-            let _ = project_repository
-                .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::CreateBranch));
             Ok(result)
         })
     }
@@ -743,7 +739,7 @@ impl ControllerInner {
                 super::undo_commit(project_repository, branch_id, commit_oid).map_err(Into::into);
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::UndoCommit));
+                .snapshot_commit_undo(commit_oid.to_string());
             result
         })
     }

@@ -30,7 +30,7 @@
 
 <div class="header">
 	<div class="header__inner">
-		<img src={getVSIFileIcon(file.path)} alt="js" width="13" height="13" class="icon" />
+		<img src={getVSIFileIcon(file.path)} alt="" width="13" height="13" class="icon" />
 		<div class="header__info truncate">
 			<div class="header__filetitle text-base-13 truncate">
 				<span class="header__filename">{fileTitle.filename}</span>
