@@ -453,7 +453,7 @@ pub fn apply_branch(
 
     // apply the branch
     branch.applied = true;
-    vb_state.set_branch(branch)?;
+    vb_state.set_branch(branch.clone())?;
 
     ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
@@ -465,6 +465,9 @@ pub fn apply_branch(
 
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
+    _ = project_repository
+        .project()
+        .snapshot_branch_applied(branch.name);
     Ok(())
 }
 

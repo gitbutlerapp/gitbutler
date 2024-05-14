@@ -122,7 +122,7 @@
 						restored_from: {entry.details?.trailers
 							.find((t) => t.key === 'restored_from')
 							?.value?.slice(0, 7)}
-					{:else if ['DeleteBranch', 'CreateBranch'].includes(entry.details?.operation || '')}
+					{:else if ['DeleteBranch', 'CreateBranch', 'ApplyBranch', 'UnapplyBranch', 'MoveHunk'].includes(entry.details?.operation || '')}
 						name: {entry.details?.trailers.find((t) => t.key === 'name')?.value}
 					{:else if ['ReorderBranches', 'UpdateBranchName', 'SelectDefaultVirtualBranch', 'UpdateBranchRemoteName'].includes(entry.details?.operation || '')}
 						<div>

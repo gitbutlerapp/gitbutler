@@ -10,6 +10,8 @@ use super::{entry::Trailer, oplog::Oplog};
 pub trait Snapshot {
     fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()>;
     fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()>;
+    fn snapshot_branch_applied(&self, branch_name: String) -> anyhow::Result<()>;
+    fn snapshot_branch_unapplied(&self, branch_name: String) -> anyhow::Result<()>;
     fn snapshot_branch_update(
         &self,
         old_branch: Branch,
@@ -24,6 +26,24 @@ pub trait Snapshot {
 }
 
 impl<T: Oplog> Snapshot for T {
+    fn snapshot_branch_applied(&self, branch_name: String) -> anyhow::Result<()> {
+        let details =
+            SnapshotDetails::new(OperationType::ApplyBranch).with_trailers(vec![Trailer {
+                key: "name".to_string(),
+                value: branch_name,
+            }]);
+        self.create_snapshot(details)?;
+        Ok(())
+    }
+    fn snapshot_branch_unapplied(&self, branch_name: String) -> anyhow::Result<()> {
+        let details =
+            SnapshotDetails::new(OperationType::UnapplyBranch).with_trailers(vec![Trailer {
+                key: "name".to_string(),
+                value: branch_name,
+            }]);
+        self.create_snapshot(details)?;
+        Ok(())
+    }
     fn snapshot_commit_undo(&self, commit_sha: String) -> anyhow::Result<()> {
         let details =
             SnapshotDetails::new(OperationType::UndoCommit).with_trailers(vec![Trailer {
@@ -76,7 +96,10 @@ impl<T: Oplog> Snapshot for T {
         update: BranchUpdateRequest,
     ) -> anyhow::Result<()> {
         let details = if update.ownership.is_some() {
-            SnapshotDetails::new(OperationType::MoveHunk)
+            SnapshotDetails::new(OperationType::MoveHunk).with_trailers(vec![Trailer {
+                key: "name".to_string(),
+                value: old_branch.name.to_string(),
+            }])
         } else if let Some(name) = update.name {
             SnapshotDetails::new(OperationType::UpdateBranchName).with_trailers(vec![
                 Trailer {

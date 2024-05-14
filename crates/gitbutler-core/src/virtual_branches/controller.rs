@@ -640,10 +640,8 @@ impl ControllerInner {
 
         self.with_verify_branch(project_id, |project_repository, user| {
             let result =
-                super::apply_branch(project_repository, branch_id, user).map_err(Into::into);
-            let _ = project_repository
-                .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::ApplyBranch));
+                super::apply_branch(project_repository, branch_id, user)
+                    .map_err(Into::into);
             result
         })
     }
@@ -809,13 +807,18 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result = super::unapply_branch(project_repository, branch_id)
-                .map(|_| ())
-                .map_err(Into::into);
+            let result = super::unapply_branch(project_repository, branch_id);
+            let branch_name = result
+                .as_ref()
+                .ok()
+                .cloned()
+                .flatten()
+                .map(|b| b.name)
+                .unwrap_or_default();
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::UnapplyBranch));
-            result
+                .snapshot_branch_unapplied(branch_name);
+            result.map(|_| ()).map_err(Into::into)
         })
     }
 
