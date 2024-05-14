@@ -96,7 +96,10 @@ impl<T: Oplog> Snapshot for T {
         update: BranchUpdateRequest,
     ) -> anyhow::Result<()> {
         let details = if update.ownership.is_some() {
-            SnapshotDetails::new(OperationType::MoveHunk)
+            SnapshotDetails::new(OperationType::MoveHunk).with_trailers(vec![Trailer {
+                key: "name".to_string(),
+                value: old_branch.name.to_string(),
+            }])
         } else if let Some(name) = update.name {
             SnapshotDetails::new(OperationType::UpdateBranchName).with_trailers(vec![
                 Trailer {
