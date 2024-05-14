@@ -293,16 +293,33 @@ impl Oplog for Project {
             vb_blob.content(),
         )?;
 
+        let restored_operation = commit
+            .message()
+            .and_then(|msg| SnapshotDetails::from_str(msg).ok())
+            .map(|d| d.operation.to_string())
+            .unwrap_or_default();
+        let restored_date = commit.time().seconds() * 1000;
+
         // create new snapshot
         let details = SnapshotDetails {
             version: Default::default(),
             operation: OperationType::RestoreFromSnapshot,
             title: "Restored from snapshot".to_string(),
             body: None,
-            trailers: vec![Trailer {
-                key: "restored_from".to_string(),
-                value: sha,
-            }],
+            trailers: vec![
+                Trailer {
+                    key: "restored_from".to_string(),
+                    value: sha,
+                },
+                Trailer {
+                    key: "restored_operation".to_string(),
+                    value: restored_operation,
+                },
+                Trailer {
+                    key: "restored_date".to_string(),
+                    value: restored_date.to_string(),
+                },
+            ],
         };
         self.create_snapshot(details)
     }
