@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 
 	export let foldable: boolean = false;
-	export let foldedAmount: number;
+	export let foldedAmount: number | undefined = undefined;
 	export let foldedHeight = '2.6rem';
 
 	let isOpen: boolean = false;

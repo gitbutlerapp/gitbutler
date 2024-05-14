@@ -1,38 +1,9 @@
-<script lang="ts">
-	import Button from './Button.svelte';
-	import FileCard from './FileCard.svelte';
-	import FileStatusCircle from './FileStatusCircle.svelte';
-	import Icon from './Icon.svelte';
-	import ScrollableContainer from './ScrollableContainer.svelte';
-	import SnapshotAttachment from './SnapshotAttachment.svelte';
-	import SnapshotCard from './SnapshotCard.svelte';
-	import Tag from './Tag.svelte';
-	import { invoke } from '$lib/backend/ipc';
-	import { getVSIFileIcon } from '$lib/ext-icons';
-	import { getContext } from '$lib/utils/context';
-	import { computeFileStatus } from '$lib/utils/fileStatus';
-	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import is from 'date-fns/locale/is';
-	import { onMount, onDestroy } from 'svelte';
-	import type { AnyFile } from '$lib/vbranches/types';
-
-	export let projectId: string;
-
-	const vbranchService = getContext(VirtualBranchService);
-	vbranchService.activeBranches.subscribe(() => {
-		// whenever virtual branches change, we need to reload the snapshots
-		// TODO: if the list has results from more pages, merge into it?
-		listSnapshots(projectId).then((rsp) => {
-			snapshots = rsp;
-			listElement?.scrollTo(0, 0);
-		});
-	});
-
-	type Trailer = {
+<script lang="ts" context="module">
+	export type Trailer = {
 		key: string;
 		value: string;
 	};
-	type Operation =
+	export type Operation =
 		| 'CreateCommit'
 		| 'CreateBranch'
 		| 'SetBaseBranch'
@@ -61,13 +32,13 @@
 		| 'InsertBlankCommit'
 		| 'MoveCommitFile'
 		| 'FileChanges';
-	type SnapshotDetails = {
+	export type SnapshotDetails = {
 		title: string;
 		operation: Operation;
 		body: string | undefined;
 		trailers: Trailer[];
 	};
-	type Snapshot = {
+	export type Snapshot = {
 		id: string;
 		linesAdded: number;
 		linesRemoved: number;
@@ -75,6 +46,34 @@
 		details: SnapshotDetails | undefined;
 		createdAt: number;
 	};
+</script>
+
+<script lang="ts">
+	import Button from './Button.svelte';
+	// import FileCard from './FileCard.svelte';
+	import ScrollableContainer from './ScrollableContainer.svelte';
+	import SnapshotCard from './SnapshotCard.svelte';
+	import { invoke } from '$lib/backend/ipc';
+	// import { getVSIFileIcon } from '$lib/ext-icons';
+	import { getContext } from '$lib/utils/context';
+	// import { computeFileStatus } from '$lib/utils/fileStatus';
+	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import { onMount, onDestroy } from 'svelte';
+	// import type { AnyFile } from '$lib/vbranches/types';
+	import { goto } from '$app/navigation';
+
+	export let projectId: string;
+
+	const vbranchService = getContext(VirtualBranchService);
+	vbranchService.activeBranches.subscribe(() => {
+		// whenever virtual branches change, we need to reload the snapshots
+		// TODO: if the list has results from more pages, merge into it?
+		listSnapshots(projectId).then((rsp) => {
+			snapshots = rsp;
+			listElement?.scrollTo(0, 0);
+		});
+	});
+
 	let snapshots: Snapshot[] = [];
 	async function listSnapshots(projectId: string, sha?: string) {
 		const resp = await invoke<Snapshot[]>('list_snapshots', {
@@ -84,23 +83,24 @@
 		});
 		return resp;
 	}
-	async function getSnapshotDiff(projectId: string, sha: string) {
-		const resp = await invoke<{ [key: string]: AnyFile }>('snapshot_diff', {
-			projectId: projectId,
-			sha: sha
-		});
-		// console.log(resp);
-		return resp;
-	}
 
-	// async function restoreSnapshot(projectId: string, sha: string) {
-	// 	await invoke<string>('restore_snapshot', {
+	// async function getSnapshotDiff(projectId: string, sha: string) {
+	// 	const resp = await invoke<{ [key: string]: AnyFile }>('snapshot_diff', {
 	// 		projectId: projectId,
 	// 		sha: sha
 	// 	});
-	// 	// TODO: is there a better way to update all the state?
-	// 	await goto(window.location.href, { replaceState: true });
+	// 	// console.log(resp);
+	// 	return resp;
 	// }
+
+	async function restoreSnapshot(projectId: string, sha: string) {
+		await invoke<string>('restore_snapshot', {
+			projectId: projectId,
+			sha: sha
+		});
+		// TODO: is there a better way to update all the state?
+		await goto(window.location.href, { replaceState: true });
+	}
 
 	function onLastInView() {
 		if (!listElement) return;
@@ -119,71 +119,6 @@
 		return `${t.toDateString() == d.toDateString() ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' })}, ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 	}
 
-	function mapOperationToText(snapshotDetails: SnapshotDetails) {
-		// console.log('snapshotDetails', snapshotDetails);
-
-		switch (snapshotDetails.operation) {
-			case 'CreateCommit':
-				return 'Commit';
-			case 'CreateBranch':
-				return 'Create branch';
-			case 'SetBaseBranch':
-				return 'Set base branch';
-			case 'MergeUpstream':
-				return 'Merge upstream';
-			case 'UpdateWorkspaceBase':
-				return 'Update workspace base';
-			case 'MoveHunk':
-				return 'Move hunk';
-			case 'UpdateBranchName':
-				return `Branch "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" renamed to "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`;
-			case 'UpdateBranchNotes':
-				return 'Update branch notes';
-			case 'ReorderBranches':
-				return 'Reorder branches';
-			case 'SelectDefaultVirtualBranch':
-				return 'Select default virtual branch';
-			case 'UpdateBranchRemoteName':
-				return 'Update branch remote name';
-			case 'GenericBranchUpdate':
-				return 'Generic branch update';
-			case 'DeleteBranch':
-				return `Delete branch "${snapshotDetails.trailers.find((t) => t.key == 'name')?.value}"`;
-			case 'ApplyBranch':
-				return 'Apply branch';
-			case 'DiscardHunk':
-				return 'Discard hunk';
-			case 'DiscardFile':
-				return 'Discard file';
-			case 'AmendCommit':
-				return 'Amend commit';
-			case 'UndoCommit':
-				return 'Undo commit';
-			case 'UnapplyBranch':
-				return 'Unapply branch';
-			case 'CherryPick':
-				return 'Cherry pick';
-			case 'SquashCommit':
-				return 'Squash commit';
-			case 'UpdateCommitMessage':
-				return 'Update commit message';
-			case 'MoveCommit':
-				return 'Move commit';
-			case 'RestoreFromSnapshot':
-				return 'Restore from snapshot';
-			case 'ReorderCommit':
-				return 'Reorder commit';
-			case 'InsertBlankCommit':
-				return 'Insert blank commit';
-			case 'MoveCommitFile':
-				return 'Move commit file';
-			case 'FileChanges':
-				return 'File changes';
-			default:
-				return snapshotDetails.operation;
-		}
-	}
-
 	onMount(async () => {
 		listSnapshots(projectId).then((rsp) => {
 			snapshots = rsp;
@@ -196,7 +131,7 @@
 
 	// let currentFilePreview: AnyFile | undefined = undefined;
 
-	$: console.log(snapshots);
+	// $: console.log(snapshots);
 </script>
 
 <aside class="sideview">
@@ -242,82 +177,16 @@
 
 					{#if entry.details}
 						<SnapshotCard
-							entry={{
-								isCurrent: idx == 0,
-								createdAt: entry.createdAt,
-								id: entry.id,
-								filesChanged: entry.filesChanged,
-								title: mapOperationToText(entry.details)
+							{entry}
+							isCurrent={idx == 0}
+							isFaded={false}
+							on:restoreClick={() => {
+								restoreSnapshot(projectId, entry.id);
+							}}
+							on:diffClick={(filePath) => {
+								console.log('diff', filePath.detail);
 							}}
 						/>
-						<!-- <div class="snapshot-card">
-							<span class="snapshot-time text-base-12">
-								{createdOnTime(entry.createdAt)}
-							</span>
-
-							<div class="snapshot-line">
-								<Icon name="commit" />
-							</div>
-
-							<div class="snapshot-content">
-								<div class="snapshot-details">
-									{#if idx == 0}
-										<Tag style="pop" kind="soft">Current</Tag>
-									{/if}
-
-									<div class="snapshot-title-wrap">
-										<h4 class="snapshot-title text-base-body-13 text-semibold">
-											<span>{mapOperationToText(entry.details)}</span>
-											<span class="snapshot-sha">
-												• #{entry.id.slice(0, 6)}</span
-											>
-										</h4>
-
-										<div class="restore-btn"><Tag>Resotre</Tag></div>
-									</div>
-								</div>
-
-								{#if entry.filesChanged.length > 0}
-									<SnapshotAttachment
-										foldable={entry.filesChanged.length > 2}
-										foldedAmount={entry.filesChanged.length - 2}
-									>
-										<div class="changed-files-list">
-											{#each entry.filesChanged as filePath}
-												<button
-													class="snapshot-file"
-													on:click={async () => {
-														const allDiffs = await getSnapshotDiff(
-															projectId,
-															entry.id
-														);
-
-														// get the file by path
-														currentFilePreview = allDiffs[filePath];
-														console.log(currentFilePreview);
-													}}
-												>
-													<img
-														draggable="false"
-														class="file-icon"
-														src={getVSIFileIcon(filePath)}
-														alt=""
-													/>
-													<div class="text-base-12 file-path-and-name">
-														<span class="file-name">
-															{filePath.split('/').pop()}
-														</span>
-														<span class="file-path">
-															{filePath.replace(/\/[^/]+$/, '')}
-														</span>
-													</div>
-												</button>
-											{/each}
-										</div>
-									</SnapshotAttachment>
-								{/if}
-							</div>
-						</div> -->
 					{/if}
 				{/each}
 			</div>
@@ -420,10 +289,13 @@
 		padding: var(--size-14) var(--size-14) var(--size-8) 5.25rem;
 		border-top: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
-		margin-top: -1px;
 
 		& h4 {
 			color: var(--clr-text-3);
+		}
+
+		&:first-child {
+			border-top: none;
 		}
 	}
 
