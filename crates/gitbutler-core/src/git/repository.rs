@@ -5,6 +5,7 @@ use super::{
 use crate::path::Normalize;
 use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::process::Stdio;
 use std::{io::Write, path::Path, str};
@@ -311,10 +312,16 @@ impl Repository {
                         let mut key_storage = tempfile::NamedTempFile::new()?;
                         key_storage.write_all(signing_key.as_bytes())?;
 
-                        // make sure the tempfile permissions are acceptable for a private ssh key
-                        let mut permissions = key_storage.as_file().metadata()?.permissions();
-                        permissions.set_mode(0o600);
-                        key_storage.as_file().set_permissions(permissions)?;
+                        // if on unix
+                        #[cfg(unix)]
+                        {
+                            // make sure the tempfile permissions are acceptable for a private ssh key
+                            let mut permissions = key_storage.as_file().metadata()?.permissions();
+                            permissions.set_mode(0o600);
+                            key_storage.as_file().set_permissions(permissions)?;
+                        }
+
+                        // todo: what about windows?
 
                         let key_file_path = key_storage.into_temp_path();
                         let key_storage = std::fs::read_to_string(&key_file_path)?;
