@@ -25,6 +25,7 @@ async fn move_file_down() {
         .create_commit(project_id, &branch_id, "commit one", None, false)
         .await
         .unwrap();
+    let commit1 = repository.find_commit(commit1_id).unwrap();
 
     // create commit
     fs::write(repository.path().join("file2.txt"), "content2").unwrap();
@@ -33,6 +34,7 @@ async fn move_file_down() {
         .create_commit(project_id, &branch_id, "commit two", None, false)
         .await
         .unwrap();
+    let commit2 = repository.find_commit(commit2_id).unwrap();
 
     // amend another hunk
     let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
@@ -50,6 +52,13 @@ async fn move_file_down() {
         .find(|b| b.id == branch_id)
         .unwrap();
 
+    // shas changed but change_id is the same
+    assert_eq!(&commit1.change_id(), &branch.commits[1].change_id);
+    assert_ne!(&commit1.id(), &branch.commits[1].id);
+    assert_eq!(&commit2.change_id(), &branch.commits[0].change_id);
+    assert_ne!(&commit2.id(), &branch.commits[0].id);
+
+    assert_eq!(branch.commits[0].files.len(), 1);
     assert_eq!(branch.commits.len(), 2);
     assert_eq!(branch.commits[0].files.len(), 1);
     assert_eq!(branch.commits[1].files.len(), 2); // this now has both file changes

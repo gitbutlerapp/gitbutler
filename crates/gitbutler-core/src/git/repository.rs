@@ -278,10 +278,13 @@ impl Repository {
         Ok(oid.into())
     }
 
+    /// takes raw commit data and commits it to the repository
+    /// - if the git config commit.gpgSign is set, it will sign the commit
+    /// returns an oid of the new commit object
     pub fn commit_buffer(&self, buffer: String) -> Result<git2::Oid> {
         // check git config for gpg.signingkey
         let should_sign = self.0.config()?.get_string("commit.gpgSign");
-        if let Ok(_should_sign) = should_sign {
+        if should_sign.unwrap_or("false".to_string()) != "false" {
             // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
             let signing_key = self.0.config()?.get_string("user.signingkey");
             if let Ok(signing_key) = signing_key {
@@ -320,7 +323,6 @@ impl Repository {
                         }
 
                         let key_file_path = key_storage.into_temp_path();
-                        let key_storage = std::fs::read_to_string(&key_file_path)?;
 
                         cmd.arg(&key_file_path);
                         cmd.arg("-U");

@@ -667,6 +667,89 @@ fn add_new_hunk_to_the_end() -> Result<()> {
 }
 
 #[test]
+fn commit_id_can_be_generated_or_specified() -> Result<()> {
+    let suite = Suite::default();
+    let Case {
+        project_repository,
+        project,
+        ..
+    } = &suite.new_case();
+
+    let file_path = Path::new("test.txt");
+    std::fs::write(
+        Path::new(&project.path).join(file_path),
+        "line1\nline2\nline3\nline4\n",
+    )?;
+    commit_all(&project_repository.git_repository);
+
+    // lets make sure a change id is generated
+    let target_oid = project_repository
+        .git_repository
+        .head()
+        .unwrap()
+        .target()
+        .unwrap();
+    let target = project_repository
+        .git_repository
+        .find_commit(target_oid)
+        .unwrap();
+    let change_id = target.change_id();
+
+    // make sure we created a change-id
+    assert!(change_id.is_some());
+
+    // ok, make another change and specify a change-id
+    let file_path = Path::new("test.txt");
+    std::fs::write(
+        Path::new(&project.path).join(file_path),
+        "line1\nline2\nline3\nline4\nline5\n",
+    )?;
+
+    let repository = &project_repository.git_repository;
+    let mut index = repository.index().expect("failed to get index");
+    index
+        .add_all(["."], git2::IndexAddOption::DEFAULT, None)
+        .expect("failed to add all");
+    index.write().expect("failed to write index");
+    let oid = index.write_tree().expect("failed to write tree");
+    let signature = gitbutler_core::git::Signature::now("test", "test@email.com").unwrap();
+    let head = repository.head().expect("failed to get head");
+    repository
+        .commit(
+            Some(&head.name().unwrap()),
+            &signature,
+            &signature,
+            "some commit",
+            &repository.find_tree(oid).expect("failed to find tree"),
+            &[&repository
+                .find_commit(
+                    repository
+                        .refname_to_id("HEAD")
+                        .expect("failed to get head"),
+                )
+                .expect("failed to find commit")],
+            Some("my-change-id"),
+        )
+        .expect("failed to commit");
+
+    let target_oid = project_repository
+        .git_repository
+        .head()
+        .unwrap()
+        .target()
+        .unwrap();
+    let target = project_repository
+        .git_repository
+        .find_commit(target_oid)
+        .unwrap();
+    let change_id = target.change_id();
+
+    // the change id should be what we specified, rather than randomly generated
+    assert_eq!(change_id, Some("my-change-id".to_string()));
+    Ok(())
+}
+
+#[test]
 fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     let suite = Suite::default();
     let Case {
