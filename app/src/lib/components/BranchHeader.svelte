@@ -2,16 +2,21 @@
 	import ActiveBranchStatus from './ActiveBranchStatus.svelte';
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
+	import PullRequestButton from './PullRequestButton.svelte';
 	import Tag from './Tag.svelte';
 	import { Project } from '$lib/backend/projects';
+	import { BranchService } from '$lib/branches/service';
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { GitHubService } from '$lib/github/service';
 	import { showError } from '$lib/notifications/toasts';
 	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { Branch } from '$lib/vbranches/types';
+	import { BaseBranch, Branch } from '$lib/vbranches/types';
+	import toast from 'svelte-french-toast';
+	import type { PullRequest } from '$lib/github/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import { goto } from '$app/navigation';
 
@@ -20,16 +25,21 @@
 	export let isLaneCollapsed: Persisted<boolean>;
 
 	const branchController = getContext(BranchController);
+	const githubService = getContext(GitHubService);
 	const branchStore = getContextStore(Branch);
 	const project = getContext(Project);
+	const branchService = getContext(BranchService);
+	const baseBranch = getContextStore(BaseBranch);
 
 	$: branch = $branchStore;
+	$: hasPullRequest = branch.upstreamName && githubService.hasPr(branch.upstreamName);
 
 	let meatballButton: HTMLDivElement;
 	let visible = false;
 	let isApplying = false;
 	let isDeleting = false;
 	let branchName = branch?.upstreamName || normalizeBranchName($branchStore.name);
+	let isLoading: boolean;
 
 	function handleBranchNameChange(title: string) {
 		if (title == '') return;
@@ -49,6 +59,34 @@
 	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
 
 	let headerInfoHeight = 0;
+
+	interface CreatePrOpts {
+		draft: boolean;
+	}
+
+	const defaultPrOpts: CreatePrOpts = {
+		draft: true
+	};
+
+	async function createPr(createPrOpts: CreatePrOpts): Promise<PullRequest | undefined> {
+		const opts = { ...defaultPrOpts, ...createPrOpts };
+		if (!githubService.isEnabled) {
+			toast.error('Cannot create PR without GitHub credentials');
+			return;
+		}
+
+		if (!$baseBranch?.shortName) {
+			toast.error('Cannot create PR without base branch');
+			return;
+		}
+
+		isLoading = true;
+		try {
+			return await branchService.createPr(branch, $baseBranch.shortName, opts.draft);
+		} finally {
+			isLoading = false;
+		}
+	}
 </script>
 
 {#if $isLaneCollapsed}
@@ -215,6 +253,12 @@
 						</Button>
 					{:else}
 						<div class="header__buttons">
+							{#if !hasPullRequest}
+								<PullRequestButton
+									on:click={async (e) => await createPr({ draft: e.detail.action == 'draft' })}
+									loading={isLoading}
+								/>
+							{/if}
 							<Button
 								style="ghost"
 								kind="solid"
@@ -253,6 +297,7 @@
 		z-index: var(--z-lifted);
 		position: sticky;
 		top: var(--size-12);
+		padding-bottom: var(--size-8);
 	}
 	.header {
 		z-index: var(--z-lifted);

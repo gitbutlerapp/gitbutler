@@ -58,11 +58,13 @@ export class VirtualBranchService {
 					const commits = branch.commits;
 					for (let j = 0; j < commits.length; j++) {
 						const commit = commits[j];
-						if (j != 0) {
-							commit.parent = commits[j - 1];
+						if (j == 0) {
+							commit.children = [];
+						} else {
+							commit.children = [commits[j - 1]];
 						}
 						if (j != commits.length - 1) {
-							commit.children = [commits[j + 1]];
+							commit.parent = commits[j + 1];
 						}
 					}
 				}
