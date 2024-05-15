@@ -131,10 +131,6 @@ export class Branch {
 	get remoteCommits() {
 		return this.commits.filter((c) => c.status == 'remote');
 	}
-
-	get integratedCommits() {
-		return this.commits.filter((c) => c.status == 'integrated');
-	}
 }
 
 // Used for dependency injection
@@ -148,7 +144,7 @@ export type ComponentColor =
 	| 'error'
 	| 'warning'
 	| 'purple';
-export type CommitStatus = 'local' | 'remote' | 'integrated' | 'upstream';
+export type CommitStatus = 'local' | 'remote' | 'upstream';
 
 export class Commit {
 	id!: string;
@@ -164,6 +160,7 @@ export class Commit {
 	branchId!: string;
 	changeId!: string;
 	isSigned!: boolean;
+	relatedTo?: RemoteCommit;
 
 	parent?: Commit;
 	children?: Commit[];
@@ -172,14 +169,9 @@ export class Commit {
 		return !this.isRemote && !this.isIntegrated;
 	}
 
-	get status() {
-		if (!this.isIntegrated && !this.isRemote) {
-			return 'local';
-		} else if (!this.isIntegrated && this.isRemote) {
-			return 'remote';
-		} else if (this.isIntegrated) {
-			return 'integrated';
-		}
+	get status(): CommitStatus {
+		if (this.isRemote) return 'remote';
+		return 'local';
 	}
 
 	get descriptionTitle(): string | undefined {
@@ -193,6 +185,10 @@ export class Commit {
 	isParentOf(possibleChild: Commit) {
 		return possibleChild.parentIds.includes(this.id);
 	}
+}
+
+export function isLocalCommit(obj: any): obj is Commit {
+	return obj instanceof Commit;
 }
 
 export class RemoteCommit {
@@ -218,6 +214,14 @@ export class RemoteCommit {
 	get descriptionBody(): string | undefined {
 		return splitMessage(this.description).description || undefined;
 	}
+
+	get status(): CommitStatus {
+		return 'upstream';
+	}
+}
+
+export function isRemoteCommit(obj: any): obj is RemoteCommit {
+	return obj instanceof RemoteCommit;
 }
 
 export type AnyCommit = Commit | RemoteCommit;
@@ -226,6 +230,14 @@ export const LOCAL_COMMITS = Symbol('LocalCommtis');
 export const REMOTE_COMMITS = Symbol('RemoteCommits');
 export const INTEGRATED_COMMITS = Symbol('IntegratedCommits');
 export const UNKNOWN_COMMITS = Symbol('UnknownCommits');
+
+export function commitCompare(left: AnyCommit, right: AnyCommit): boolean {
+	if (left.id == right.id) return true;
+	if (left.description != right.description) return false;
+	if (left.author.name != right.author.name) return false;
+	if (left.author.email != right.author.email) return false;
+	return true;
+}
 
 export class RemoteHunk {
 	diff!: string;

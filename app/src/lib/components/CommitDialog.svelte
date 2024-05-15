@@ -65,7 +65,7 @@
 			</Button>
 		{/if}
 		<Button
-			style="pop"
+			style="neutral"
 			kind="solid"
 			grow
 			loading={isCommitting}

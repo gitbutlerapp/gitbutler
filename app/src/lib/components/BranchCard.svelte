@@ -1,8 +1,9 @@
 <script lang="ts">
-	import BranchCommits from './BranchCommits.svelte';
 	import BranchFiles from './BranchFiles.svelte';
+	import BranchFooter from './BranchFooter.svelte';
 	import BranchHeader from './BranchHeader.svelte';
 	import CommitDialog from './CommitDialog.svelte';
+	import CommitList from './CommitList.svelte';
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
 	import InfoMessage from './InfoMessage.svelte';
 	import PullRequestCard from './PullRequestCard.svelte';
@@ -282,7 +283,8 @@
 						{/if}
 					</div>
 
-					<BranchCommits {isUnapplied} />
+					<CommitList {isUnapplied} />
+					<BranchFooter {isUnapplied} />
 				</div>
 			</ScrollableContainer>
 			<div class="divider-line">
@@ -338,7 +340,6 @@
 		flex-direction: column;
 		flex: 1;
 		min-height: 100%;
-		gap: var(--size-8);
 		padding: var(--size-12);
 	}
 

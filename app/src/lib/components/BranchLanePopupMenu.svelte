@@ -37,7 +37,6 @@
 	$: branch = $branchStore;
 	$: commits = branch.commits;
 	$: setAIConfigurationValid($user);
-	$: hasIntegratedCommits = branch.integratedCommits.length > 0;
 
 	async function setAIConfigurationValid(user: User | undefined) {
 		aiConfigurationValid = await aiService.validateConfiguration(user?.access_token);
@@ -92,7 +91,7 @@
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Set remote branch name"
-				disabled={isUnapplied || hasIntegratedCommits}
+				disabled={isUnapplied}
 				on:click={() => {
 					newRemoteName = branch.upstreamName || normalizeBranchName(branch.name) || '';
 					close();
