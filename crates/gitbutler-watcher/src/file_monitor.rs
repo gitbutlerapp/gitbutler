@@ -11,7 +11,9 @@ use tracing::Level;
 
 /// The timeout for debouncing file change events.
 /// This is used to prevent multiple events from being sent for a single file change.
-const DEBOUNCE_TIMEOUT: Duration = Duration::from_millis(100);
+const DEBOUNCE_TIMEOUT: Duration = Duration::from_secs(60);
+const TICK_RATE: Duration = Duration::from_millis(250);
+const FLUSH_AFTER_EMPTY: u32 = 3;
 
 /// This error is required only because `anyhow::Error` isn't implementing `std::error::Error`, and [`spawn()`]
 /// needs to wrap it into a `backoff::Error` which also has to implement the `Error` trait.
@@ -43,8 +45,13 @@ pub fn spawn(
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
 ) -> Result<()> {
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
-    let mut debouncer =
-        new_debouncer(DEBOUNCE_TIMEOUT, None, notify_tx).context("failed to create debouncer")?;
+    let mut debouncer = new_debouncer(
+        DEBOUNCE_TIMEOUT,
+        Some(TICK_RATE),
+        Some(FLUSH_AFTER_EMPTY),
+        notify_tx,
+    )
+    .context("failed to create debouncer")?;
 
     let policy = backoff::ExponentialBackoffBuilder::new()
         .with_max_elapsed_time(Some(std::time::Duration::from_secs(30)))
