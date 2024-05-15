@@ -1,11 +1,13 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 use std::path::Path;
 use std::time::Duration;
 
+use crate::debouncer::Debouncer;
+use crate::debouncer_cache::FileIdMap;
 use crate::{debouncer::new_debouncer, events::InternalEvent};
 use anyhow::{anyhow, Context, Result};
 use gitbutler_core::{git, projects::ProjectId};
-use notify::Watcher;
+use notify::{RecommendedWatcher, Watcher};
 use tokio::task;
 use tracing::Level;
 
@@ -43,15 +45,16 @@ pub fn spawn(
     project_id: ProjectId,
     worktree_path: &std::path::Path,
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
-) -> Result<()> {
+) -> Result<Arc<Debouncer<RecommendedWatcher, FileIdMap>>> {
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
-    let mut debouncer = new_debouncer(
-        DEBOUNCE_TIMEOUT,
-        Some(TICK_RATE),
-        Some(FLUSH_AFTER_EMPTY),
-        notify_tx,
-    )
-    .context("failed to create debouncer")?;
+    let mut debouncer = Arc::new(new_debouncer(
+            DEBOUNCE_TIMEOUT,
+            Some(TICK_RATE),
+            Some(FLUSH_AFTER_EMPTY),
+            notify_tx,
+        )
+        .context("failed to create debouncer")?,
+    );
 
     let policy = backoff::ExponentialBackoffBuilder::new()
         .with_max_elapsed_time(Some(std::time::Duration::from_secs(30)))
@@ -59,7 +62,8 @@ pub fn spawn(
 
     // Start the watcher, but retry if there are transient errors.
     backoff::retry(policy, || {
-        debouncer
+        Arc::get_mut(&mut debouncer)
+            .expect("")
             .watcher()
             .watch(worktree_path, notify::RecursiveMode::Recursive)
             .map_err(|err| match err.kind {
@@ -74,11 +78,14 @@ pub fn spawn(
     })
     .context("failed to start watcher")?;
 
+    let ret = Ok(debouncer.clone());
+
     let worktree_path = worktree_path.to_owned();
     task::spawn_blocking(move || {
         tracing::debug!(%project_id, "file watcher started");
-        let _debouncer = debouncer;
         let _runtime = tracing::span!(Level::INFO, "file monitor", %project_id ).entered();
+        let _debouncer = debouncer.clone();
+
         'outer: for result in notify_rx {
             let stats = tracing::span!(
                 Level::INFO,
@@ -175,7 +182,8 @@ pub fn spawn(
             }
         }
     });
-    Ok(())
+
+    ret
 }
 
 #[cfg(target_family = "unix")]

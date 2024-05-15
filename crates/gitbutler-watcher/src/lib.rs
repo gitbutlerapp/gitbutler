@@ -31,6 +31,7 @@ pub struct WatcherHandle {
     tx: UnboundedSender<InternalEvent>,
     /// The id of the project we are watching.
     project_id: ProjectId,
+    signal_flush: UnboundedSender<()>,
     /// A way to tell the background process to stop handling events.
     cancellation_token: CancellationToken,
 }
@@ -53,6 +54,11 @@ impl WatcherHandle {
     /// Return the id of the project we are watching.
     pub fn project_id(&self) -> ProjectId {
         self.project_id
+    }
+
+    pub fn flush(&self) -> Result<()> {
+        self.signal_flush.send(())?;
+        Ok(())
     }
 }
 
@@ -77,13 +83,15 @@ pub fn watch_in_background(
     project_id: ProjectId,
 ) -> Result<WatcherHandle, anyhow::Error> {
     let (events_out, mut events_in) = unbounded_channel();
+    let (flush_tx, mut flush_rx) = unbounded_channel();
 
-    file_monitor::spawn(project_id, path.as_ref(), events_out.clone())?;
+    let debounce = file_monitor::spawn(project_id, path.as_ref(), events_out.clone())?;
 
     let cancellation_token = CancellationToken::new();
     let handle = WatcherHandle {
         tx: events_out,
         project_id,
+        signal_flush: flush_tx,
         cancellation_token: cancellation_token.clone(),
     };
     let handle_event = move |event: InternalEvent| -> Result<()> {
@@ -104,6 +112,9 @@ pub fn watch_in_background(
         loop {
             tokio::select! {
                 Some(event) = events_in.recv() => handle_event(event)?,
+                Some(_signal_flush) = flush_rx.recv() => {
+                    debounce.flush_nonblocking();
+                }
                 () = cancellation_token.cancelled() => {
                     break;
                 }
