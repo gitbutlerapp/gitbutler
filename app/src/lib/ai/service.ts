@@ -86,7 +86,7 @@ export function buildDiff(hunks: Hunk[], limit: number) {
 function shuffle<T>(items: T[]): T[] {
 	return items
 		.map((item) => ({ item, value: Math.random() }))
-		.sort()
+		.sort(({ value: a }, { value: b }) => a - b)
 		.map((item) => item.item);
 }
 
