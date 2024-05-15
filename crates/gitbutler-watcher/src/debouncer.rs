@@ -77,7 +77,7 @@ use notify::{
     event::{ModifyKind, RemoveKind, RenameMode},
     Error, ErrorKind, Event, EventKind, RecommendedWatcher, Watcher,
 };
-use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
+use parking_lot::Mutex;
 
 use crate::{
     debouncer_cache::{FileIdCache, FileIdMap},
@@ -189,7 +189,7 @@ impl<T: FileIdCache> DebounceDataInner<T> {
     }
 
     /// Retrieve a vec of debounced events, removing them if not continuous
-    pub fn debounced_events(&mut self) -> Vec<DebouncedEvent> {
+    pub fn debounced_events(&mut self, flush_all: bool) -> Vec<DebouncedEvent> {
         let now = Instant::now();
         let mut events_expired = Vec::with_capacity(self.queues.len());
         let mut queues_remaining = HashMap::with_capacity(self.queues.len());
@@ -223,8 +223,12 @@ impl<T: FileIdCache> DebounceDataInner<T> {
 
                     events_expired.push(event);
                 } else {
-                    queue.events.push_front(event);
-                    break;
+                    if flush_all {
+                        events_expired.push(event);
+                    } else {
+                        queue.events.push_front(event);
+                        break;
+                    }
                 }
             }
 
@@ -499,6 +503,7 @@ pub struct Debouncer<T: Watcher, C: FileIdCache> {
     debouncer_thread: Option<std::thread::JoinHandle<()>>,
     data: DebounceData<C>,
     stop: Arc<AtomicBool>,
+    flush: Arc<AtomicBool>,
 }
 
 impl<T: Watcher, C: FileIdCache> Debouncer<T, C> {
@@ -518,6 +523,11 @@ impl<T: Watcher, C: FileIdCache> Debouncer<T, C> {
 
     fn set_stop(&self) {
         self.stop.store(true, Ordering::Relaxed);
+    }
+
+    /// Indicates that on the next tick of the debouncer thread, all events should be emitted.
+    pub fn flush_nonblocking(&self) {
+        self.flush.store(true, Ordering::Relaxed);
     }
 
     /// Access to the internally used notify Watcher backend
@@ -546,6 +556,7 @@ pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + S
 ) -> Result<Debouncer<T, C>, Error> {
     let data = Arc::new(Mutex::new(DebounceDataInner::new(file_id_cache, timeout)));
     let stop = Arc::new(AtomicBool::new(false));
+    let flush = Arc::new(AtomicBool::new(false));
 
     let tick_div = 4;
     let tick = match tick_rate {
@@ -568,18 +579,27 @@ pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + S
 
     let data_c = data.clone();
     let stop_c = stop.clone();
+    let flush_c = flush.clone();
     let thread = std::thread::Builder::new()
         .name("notify-rs debouncer loop".to_string())
         .spawn(move || loop {
             if stop_c.load(Ordering::Acquire) {
                 break;
             }
+
+            let should_flush = flush_c.load(Ordering::Acquire);
+
             std::thread::sleep(tick);
+
             let send_data;
             let errors;
             {
                 let mut lock = data_c.lock();
-                send_data = lock.debounced_events();
+                send_data = lock.debounced_events(should_flush);
+                if should_flush {
+                    flush_c.store(false, Ordering::Release);
+                }
+
                 errors = lock.errors();
             }
             if !send_data.is_empty() {
@@ -609,6 +629,7 @@ pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + S
         debouncer_thread: Some(thread),
         data,
         stop,
+        flush,
     };
 
     Ok(guard)
