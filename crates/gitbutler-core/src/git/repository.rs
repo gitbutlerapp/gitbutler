@@ -306,8 +306,6 @@ impl Repository {
                     let output;
                     // support literal ssh key
                     if let (true, signing_key) = Self::is_literal_ssh_key(&signing_key) {
-                        dbg!(&signing_key);
-
                         // write the key to a temp file
                         let mut key_storage = tempfile::NamedTempFile::new()?;
                         key_storage.write_all(signing_key.as_bytes())?;
@@ -321,11 +319,8 @@ impl Repository {
                             key_storage.as_file().set_permissions(permissions)?;
                         }
 
-                        // todo: what about windows?
-
                         let key_file_path = key_storage.into_temp_path();
                         let key_storage = std::fs::read_to_string(&key_file_path)?;
-                        dbg!(&key_storage);
 
                         cmd.arg(&key_file_path);
                         cmd.arg("-U");
@@ -353,11 +348,7 @@ impl Repository {
                             .commit_signed(&buffer, &signature, None)
                             .map(Into::into)
                             .map_err(Into::into);
-                        dbg!(&oid);
                         return oid;
-                    } else {
-                        let stderr = String::from_utf8_lossy(&output.stderr);
-                        dbg!(stderr);
                     }
                 } else {
                     // is gpg
@@ -381,16 +372,12 @@ impl Repository {
                     if output.status.success() {
                         // read stdout
                         let signature = String::from_utf8_lossy(&output.stdout);
-                        dbg!(&signature);
                         let oid = self
                             .0
                             .commit_signed(&buffer, &signature, None)
                             .map(Into::into)
                             .map_err(Into::into);
                         return oid;
-                    } else {
-                        let stderr = String::from_utf8_lossy(&output.stderr);
-                        dbg!(stderr);
                     }
                 }
             }
