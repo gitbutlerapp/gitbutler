@@ -35,15 +35,15 @@ reqwest = { version = "0.12.4", features = ["json"] }
 resolve-path = "0.1.0"
 rusqlite.workspace = true
 serde.workspace = true
-serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
+serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
 sha2 = "0.10.8"
-ssh-key = { version = "0.6.6", features = ["alloc", "ed25519"] }
+ssh-key = { version = "0.6.6", features = [ "alloc", "ed25519" ] }
 ssh2 = { version = "0.9.4", features = ["vendored-openssl"] }
 strum = { version = "0.26", features = ["derive"] }
 log = "^0.4"
 tempfile = "3.10"
 thiserror.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "rt", "macros"] }
+tokio = { workspace = true, features = [ "rt-multi-thread", "rt", "macros" ] }
 tracing = "0.1.40"
 url = { version = "2.5", features = ["serde"] }
 urlencoding = "2.1.3"

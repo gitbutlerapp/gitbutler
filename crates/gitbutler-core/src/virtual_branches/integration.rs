@@ -324,7 +324,6 @@ fn verify_head_is_clean(
         )
         .context("failed to reset to integration commit")?;
 
-    dbg!("Head creating virtual branch");
     let mut new_branch = super::create_virtual_branch(
         project_repository,
         &BranchCreateRequest {
