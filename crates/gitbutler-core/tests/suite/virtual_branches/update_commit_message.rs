@@ -42,6 +42,8 @@ async fn head() {
             .await
             .unwrap()
     };
+    let commit_three = repository.find_commit(commit_three_oid).unwrap();
+    let before_change_id = &commit_three.change_id();
 
     controller
         .update_commit_message(
@@ -67,6 +69,13 @@ async fn head() {
         .iter()
         .map(|c| c.description.clone())
         .collect::<Vec<_>>();
+
+    // get the last commit
+    let commit = repository.find_commit(branch.head).unwrap();
+
+    // make sure the SHA changed, but the change ID did not
+    assert_ne!(&commit_three.id(), &commit.id());
+    assert_eq!(before_change_id, &commit.change_id());
 
     assert_eq!(
         descriptions,

@@ -133,7 +133,6 @@ fn main() {
                     app_handle.manage(gitbutler_core::virtual_branches::controller::Controller::new(
                         projects_controller.clone(),
                         users_controller.clone(),
-                        keys_controller.clone(),
                         git_credentials_controller.clone(),
                     ));
 

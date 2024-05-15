@@ -173,6 +173,7 @@ pub fn test_repository() -> (gitbutler_core::git::Repository, TempDir) {
             "Initial commit",
             &repository.find_tree(oid).expect("failed to find tree"),
             &[],
+            None,
         )
         .expect("failed to commit");
     (repository, tmp)
@@ -201,6 +202,7 @@ pub fn commit_all(repository: &gitbutler_core::git::Repository) -> gitbutler_cor
                         .expect("failed to get head"),
                 )
                 .expect("failed to find commit")],
+            None,
         )
         .expect("failed to commit");
     commit_oid

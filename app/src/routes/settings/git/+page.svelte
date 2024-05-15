@@ -16,7 +16,6 @@
 	const gitConfig = getContext(GitConfigService);
 	const authService = getContext(AuthService);
 
-	let signCommits = false;
 	let annotateCommits = true;
 	let sshKey = '';
 
@@ -25,15 +24,9 @@
 		gitConfig.set('gitbutler.gitbutlerCommitter', annotateCommits ? '1' : '0');
 	}
 
-	function toggleSigningSetting() {
-		signCommits = !signCommits;
-		gitConfig.set('gitbutler.signCommits', signCommits ? 'true' : 'false');
-	}
-
 	onMount(async () => {
 		sshKey = await authService.getPublicKey();
 		annotateCommits = (await gitConfig.get('gitbutler.gitbutlerCommitter')) == '1';
-		signCommits = (await gitConfig.get('gitbutler.signCommits')) == 'true';
 	});
 </script>
 
@@ -81,23 +74,5 @@
 				Add key to GitHub
 			</Button>
 		</div>
-	</SectionCard>
-
-	<SectionCard labelFor="signingSetting" orientation="row">
-		<svelte:fragment slot="title">Sign commits with the above SSH key</svelte:fragment>
-		<svelte:fragment slot="caption">
-			If you want GitButler to sign your commits with the SSH key we generated, then you can add
-			that key to GitHub as a signing key to have those commits verified.
-			<Link
-				target="_blank"
-				rel="noreferrer"
-				href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits"
-			>
-				Learn more
-			</Link>
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle id="signingSetting" checked={signCommits} on:change={toggleSigningSetting} />
-		</svelte:fragment>
 	</SectionCard>
 </ContentWrapper>

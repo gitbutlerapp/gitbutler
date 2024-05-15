@@ -12,7 +12,6 @@ use super::{
 };
 use crate::{
     git::{self, diff},
-    keys,
     project_repository::{self, LogUntil},
     projects::FetchResult,
     users,
@@ -342,7 +341,6 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 pub fn update_base_branch(
     project_repository: &project_repository::Repository,
     user: Option<&users::User>,
-    signing_key: Option<&keys::PrivateKey>,
 ) -> Result<(), errors::UpdateBaseBranchError> {
     if project_repository.is_resolving() {
         return Err(errors::UpdateBaseBranchError::Conflict(
@@ -508,12 +506,12 @@ pub fn update_base_branch(
                                         "Merged {}/{} into {}",
                                         target.branch.remote(),
                                         target.branch.branch(),
-                                        branch.name
+                                        branch.name,
                                     )
                                     .as_str(),
                                     &branch_head_merge_tree,
                                     &[&branch_head_commit, &new_target_commit],
-                                    signing_key,
+                                    None,
                                 )
                                 .context("failed to commit merge")?;
 

@@ -71,6 +71,22 @@ impl<'repo> Commit<'repo> {
         self.commit.committer().into()
     }
 
+    pub fn change_id(&self) -> Option<String> {
+        let cid = self.commit.header_field_bytes("change-id").ok()?;
+        if cid.is_empty() {
+            None
+        } else {
+            // convert the Buf to a string
+            let ch_id = std::str::from_utf8(&cid).ok()?.to_owned();
+            Some(ch_id)
+        }
+    }
+
+    pub fn is_signed(&self) -> bool {
+        let cid = self.commit.header_field_bytes("gpgsig").ok();
+        cid.is_some()
+    }
+
     pub fn raw_header(&self) -> Option<&str> {
         self.commit.raw_header()
     }

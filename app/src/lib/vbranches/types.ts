@@ -162,6 +162,8 @@ export class Commit {
 	files!: LocalFile[];
 	parentIds!: string[];
 	branchId!: string;
+	changeId!: string;
+	isSigned!: boolean;
 
 	get isLocal() {
 		return !this.isRemote && !this.isIntegrated;
@@ -196,6 +198,8 @@ export class RemoteCommit {
 	description!: string;
 	@Transform((obj) => new Date(obj.value * 1000))
 	createdAt!: Date;
+	changeId!: string;
+	isSigned!: boolean;
 
 	get isLocal() {
 		return false;

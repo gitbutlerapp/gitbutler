@@ -1,7 +1,7 @@
 use std::{fs, path, str::FromStr};
 
 use gitbutler_core::{
-    git, keys,
+    git,
     projects::{self, ProjectId},
     users,
     virtual_branches::{branch, errors, Controller},
@@ -29,7 +29,6 @@ impl Drop for Test {
 impl Default for Test {
     fn default() -> Self {
         let data_dir = paths::data_dir();
-        let keys = keys::Controller::from_path(data_dir.path());
         let projects = projects::Controller::from_path(data_dir.path());
         let users = users::Controller::from_path(data_dir.path());
         let helper = git::credentials::Helper::from_path(data_dir.path());
@@ -42,7 +41,7 @@ impl Default for Test {
         Self {
             repository: test_project,
             project_id: project.id,
-            controller: Controller::new(projects.clone(), users, keys, helper),
+            controller: Controller::new(projects.clone(), users, helper),
             projects,
             data_dir: Some(data_dir),
         }

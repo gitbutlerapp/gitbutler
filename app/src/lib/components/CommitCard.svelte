@@ -144,11 +144,18 @@
 	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
 		<div class="commit__message">
 			{#if $advancedCommitOperations}
-				{#if !showFiles}
-					<div class="commit__id">
-						<code>{commit.id.substring(0, 6)}</code>
-					</div>
-				{/if}
+				<div class="commit__id">
+					<code>
+						{#if commit.isSigned}
+							<span class="text-xs">🔒</span>
+						{/if}
+						{#if commit.changeId}
+							{commit.changeId.split('-')[0]}
+						{:else}
+							{commit.id.substring(0, 6)}
+						{/if}
+					</code>
+				</div>
 			{/if}
 			<div class="commit__row">
 				{#if isUndoable}

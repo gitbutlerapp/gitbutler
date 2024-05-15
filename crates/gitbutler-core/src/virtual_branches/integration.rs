@@ -89,6 +89,7 @@ pub fn get_workspace_head(
         WORKSPACE_HEAD,
         &workspace_tree,
         branch_head_refs.as_slice(),
+        None,
     )?;
     Ok(workspace_head_id)
 }
@@ -219,6 +220,7 @@ pub fn update_gitbutler_integration(
         &message,
         &integration_commit.tree()?,
         &[&target_commit],
+        None,
     )?;
 
     // Create or replace the integration branch reference, then set as HEAD.
@@ -257,6 +259,7 @@ pub fn update_gitbutler_integration(
                 &message,
                 &wip_tree,
                 &[&branch_head],
+                None,
             )?;
             branch_head = repo.find_commit(branch_head_oid)?;
         }
@@ -351,6 +354,7 @@ fn verify_head_is_clean(
                 &commit.message().to_str_lossy(),
                 &commit.tree().unwrap(),
                 &[&new_branch_head],
+                None,
             )
             .context(format!(
                 "failed to rebase commit {} onto new branch",
