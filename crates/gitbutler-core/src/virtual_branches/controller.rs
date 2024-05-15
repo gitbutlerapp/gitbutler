@@ -640,8 +640,7 @@ impl ControllerInner {
 
         self.with_verify_branch(project_id, |project_repository, user| {
             let result =
-                super::apply_branch(project_repository, branch_id, user)
-                    .map_err(Into::into);
+                super::apply_branch(project_repository, branch_id, user).map_err(Into::into);
             result
         })
     }
