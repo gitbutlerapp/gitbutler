@@ -2,11 +2,10 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::time::Duration;
 
-use crate::events::InternalEvent;
+use crate::{debouncer::new_debouncer, events::InternalEvent};
 use anyhow::{anyhow, Context, Result};
 use gitbutler_core::{git, projects::ProjectId};
 use notify::Watcher;
-use notify_debouncer_full::new_debouncer;
 use tokio::task;
 use tracing::Level;
 

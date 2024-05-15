@@ -7,8 +7,12 @@ mod events;
 use events::InternalEvent;
 pub use events::{Action, Change};
 
+mod debouncer;
+mod debouncer_cache;
+mod debouncer_event;
 mod file_monitor;
 mod handler;
+
 pub use handler::Handler;
 
 use std::path::Path;
