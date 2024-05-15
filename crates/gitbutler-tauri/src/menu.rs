@@ -114,6 +114,9 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
         }
     }
 
+    view_menu = view_menu
+        .add_item(CustomMenuItem::new("view/history", "History").accelerator("CmdOrCtrl+Shift+H"));
+
     #[cfg(any(debug_assertions, feature = "devtools"))]
     {
         view_menu = view_menu.add_item(CustomMenuItem::new("view/devtools", "Developer Tools"));
@@ -179,6 +182,11 @@ pub fn handle_event<R: Runtime>(event: &WindowMenuEvent<R>) {
 
     if event.menu_item_id() == "help/share-debug-info" {
         emit(event.window(), "menu://help/share-debug-info/clicked");
+        return;
+    }
+
+    if event.menu_item_id() == "view/history" {
+        emit(event.window(), "menu://view/history/clicked");
         return;
     }
 

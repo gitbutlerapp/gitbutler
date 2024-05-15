@@ -14,14 +14,21 @@
 			icon="mail"
 			style="ghost"
 			size="cta"
-			on:mousedown={() => events.emit('openSendIssueModal')}
+			on:click={() => events.emit('openSendIssueModal')}
 			wide={isNavCollapsed}
 		/>
 		<Button
 			icon="settings"
 			style="ghost"
 			size="cta"
-			on:mousedown={async () => await goto(`/${projectId}/settings`)}
+			on:click={async () => await goto(`/${projectId}/settings`)}
+			wide={isNavCollapsed}
+		/>
+		<Button
+			icon="timeline"
+			style="ghost"
+			size="cta"
+			on:click={() => events.emit('openHistory')}
 			wide={isNavCollapsed}
 		/>
 	</div>

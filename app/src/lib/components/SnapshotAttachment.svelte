@@ -75,6 +75,7 @@
 	}
 
 	.toggle-btn {
+		position: relative;
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
@@ -82,6 +83,7 @@
 		color: var(--clr-text-2);
 		background-color: var(--clr-bg-1);
 		border-top: 1px solid var(--clr-border-2);
+		border-radius: 0 0 var(--radius-m) var(--radius-m);
 		transition:
 			color var(--transition-fast),
 			background-color var(--transition-fast);

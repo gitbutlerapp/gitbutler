@@ -68,7 +68,7 @@
 	import FileCard from './FileCard.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import SnapshotCard from './SnapshotCard.svelte';
-	import { invoke } from '$lib/backend/ipc';
+	import { invoke, listen } from '$lib/backend/ipc';
 	import { clickOutside } from '$lib/clickOutside';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
@@ -140,12 +140,22 @@
 			...s,
 			showHistoryView: false
 		}));
-
-		currentFilePreview = undefined;
 	}
 
 	onMount(async () => {
 		if (listElement) listElement.addEventListener('scroll', onLastInView, true);
+	});
+	onMount(() => {
+		const unsubscribe = listen<string>('menu://view/history/clicked', () => {
+			userSettings.update((s) => ({
+				...s,
+				showHistoryView: !$userSettings.showHistoryView
+			}));
+		});
+
+		return () => {
+			unsubscribe();
+		};
 	});
 	onDestroy(() => {
 		listElement?.removeEventListener('scroll', onLastInView, true);
@@ -154,11 +164,15 @@
 	// optimisation: don't fetch snapshots if the view is not visible
 	$: if (!$userSettings.showHistoryView) {
 		snapshots = [];
+		currentFilePreview = undefined;
+		selectedFile = undefined;
 	} else {
 		listSnapshots(projectId).then((rsp) => {
 			snapshots = rsp;
 		});
 	}
+
+	let selectedFile: { entryId: string; path: string } | undefined = undefined;
 </script>
 
 {#if $userSettings.showHistoryView}
@@ -220,10 +234,16 @@
 									on:restoreClick={() => {
 										restoreSnapshot(projectId, entry.id);
 									}}
+									{selectedFile}
 									on:diffClick={async (filePath) => {
 										const path = filePath.detail;
 										const diffs = await getSnapshotDiff(projectId, entry.id);
 										const file = diffs[path];
+
+										selectedFile = {
+											entryId: entry.id,
+											path: path
+										};
 
 										currentFilePreview = {
 											path: path,
@@ -231,7 +251,7 @@
 											binary: file.binary
 										};
 
-										console.log('diff', file);
+										console.log('selectedFile', selectedFile);
 									}}
 								/>
 							{/if}
@@ -320,26 +340,26 @@
 		}
 
 		&::before {
-			transform: translate(-50%, -50%) rotate(-900deg);
-			animation: hour-pointer 1.5s forwards;
+			transform: translate(-50%, -50%) rotate(120deg);
+			animation: minute-pointer 1s forwards;
 		}
 
 		&::after {
-			transform: translate(-50%, -50%) rotate(-90deg);
-			animation: minute-pointer 1.5s forwards;
+			transform: translate(-50%, -50%) rotate(0deg);
+			animation: hour-pointer 1.5s forwards;
 		}
 	}
 
-	@keyframes hour-pointer {
+	@keyframes minute-pointer {
 		0% {
-			transform: translate(-50%, -50%) rotate(0deg);
+			transform: translate(-50%, -50%) rotate(120deg);
 		}
 		100% {
 			transform: translate(-50%, -50%) rotate(360deg);
 		}
 	}
 
-	@keyframes minute-pointer {
+	@keyframes hour-pointer {
 		0% {
 			transform: translate(-50%, -50%) rotate(0deg);
 		}
@@ -378,7 +398,7 @@
 		animation: view-fade-in 0.2s forwards;
 
 		& .sideview-content-wrap {
-			animation: view-slide-in 0.26s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+			animation: view-slide-in 0.25s cubic-bezier(0.23, 1, 0.32, 1) forwards;
 			animation-delay: 0.05s;
 		}
 	}
@@ -402,7 +422,7 @@
 	}
 
 	.show-file-view {
-		animation: file-view-slide-in 0.26s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+		animation: file-view-slide-in 0.25s cubic-bezier(0.23, 1, 0.32, 1) forwards;
 	}
 
 	@keyframes file-view-slide-in {

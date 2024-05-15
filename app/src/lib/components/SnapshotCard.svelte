@@ -10,6 +10,12 @@
 	export let entry: Snapshot;
 	export let isCurrent: boolean = false;
 	export let isFaded: boolean = false;
+	export let selectedFile:
+		| {
+				entryId: string;
+				path: string;
+		  }
+		| undefined = undefined;
 
 	function getShortSha(sha: string | undefined) {
 		if (!sha) return '';
@@ -44,19 +50,19 @@
 			case 'ApplyBranch':
 				return `Apply branch "${entry.details?.trailers.find((t) => t.key === 'name')?.value}"`;
 			case 'UpdateBranchName':
-				return `Branch "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" renamed to "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`;
+				return `Renamed branch "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`;
 			case 'CreateBranch':
 				return `Create branch "${snapshotDetails.trailers.find((t) => t.key == 'name')?.value}"`;
 			case 'UnapplyBranch':
 				return `Unapply branch "${snapshotDetails.trailers.find((t) => t.key === 'name')?.value}"`;
+			case 'ReorderBranches':
+				return `Reorder branches "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" and "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`;
+			case 'SelectDefaultVirtualBranch':
+				return `Select default virtual branch "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`;
+			case 'UpdateBranchRemoteName':
+				return `Update branch remote name "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`;
 			case 'SetBaseBranch':
 				return 'Set base branch';
-			case 'ReorderBranches':
-				return 'Reorder branches';
-			case 'SelectDefaultVirtualBranch':
-				return 'Select default virtual branch';
-			case 'UpdateBranchRemoteName':
-				return 'Update branch remote name';
 			case 'GenericBranchUpdate':
 				return 'Generic branch update';
 			// Commit operations
@@ -108,6 +114,8 @@
 	function getPathOnly(path: string) {
 		return path.split('/').slice(0, -1).join('/');
 	}
+
+	// $: console.log(selectedFile);
 </script>
 
 <div
@@ -169,8 +177,11 @@
 					{#each entry.filesChanged as filePath}
 						<button
 							class="files-attacment__file"
+							class:file-selected={selectedFile?.path == filePath &&
+								selectedFile?.entryId == entry.id}
 							on:click={() => {
 								dispatch('diffClick', filePath);
+								// console.log('diffClick', filePath);
 							}}
 						>
 							<img
@@ -346,14 +357,18 @@
 		gap: var(--size-6);
 		padding: var(--size-4);
 
-		&:hover {
+		&:not(.file-selected):hover {
 			background-color: var(--clr-bg-1-muted);
 		}
 	}
 
-	/* .file-selected {
+	.file-selected {
 		background-color: var(--clr-scale-pop-80);
-	} */
+
+		& .files-attacment__file-name {
+			opacity: 0.9;
+		}
+	}
 
 	.files-attacment__file-path-and-name {
 		display: flex;
@@ -362,14 +377,16 @@
 	}
 
 	.files-attacment__file-path {
-		color: var(--clr-text-3);
+		color: var(--clr-text-1);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		opacity: 0.2;
 	}
 
 	.files-attacment__file-name {
-		color: var(--clr-text-2);
+		color: var(--clr-text-1);
+		opacity: 0.6;
 		white-space: nowrap;
 	}
 
