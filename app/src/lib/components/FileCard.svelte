@@ -12,6 +12,7 @@
 	export let isUnapplied: boolean;
 	export let selectable = false;
 	export let readonly = false;
+	export let isCard = true;
 
 	const branchController = getContext(BranchController);
 
@@ -25,13 +26,13 @@
 	}
 	$: parseFile(file);
 
-	// $: isFileLocked = sections
-	// 	.filter((section): section is HunkSection => section instanceof HunkSection)
-	// 	.some((section) => section.hunk.locked);
+	$: isFileLocked = sections
+		.filter((section): section is HunkSection => section instanceof HunkSection)
+		.some((section) => section.hunk.locked);
 </script>
 
-<div id={`file-${file.id}`} class="file-card card">
-	<!-- <FileCardHeader {file} {isFileLocked} on:close /> -->
+<div id={`file-${file.id}`} class="file-card" class:card={isCard}>
+	<FileCardHeader {file} {isFileLocked} on:close />
 	{#if conflicted}
 		<div class="mb-2 bg-red-500 px-2 py-0 font-bold text-white">
 			<button
@@ -50,6 +51,7 @@
 			isBinary={file.binary}
 			{readonly}
 			{sections}
+			{isFileLocked}
 			{isUnapplied}
 			{selectable}
 		/>

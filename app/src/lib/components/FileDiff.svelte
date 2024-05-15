@@ -89,7 +89,7 @@
 		position: relative;
 		max-height: 100%;
 		flex-shrink: 0;
-		padding: var(--size-16);
+		padding: var(--size-14);
 		gap: var(--size-16);
 	}
 	.hunk-wrapper {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { createdOnDay } from './HistoryNew.svelte';
 	import Icon from './Icon.svelte';
 	import SnapshotAttachment from './SnapshotAttachment.svelte';
 	import Tag from './Tag.svelte';
@@ -16,12 +17,22 @@
 		return `#${sha.slice(0, 7)}`;
 	}
 
-	function createdOnTime(dateNumber: number) {
+	function createdAtTime(dateNumber: number) {
 		const d = new Date(dateNumber);
 		return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 	}
 
+	function createdOnDayAndTime(dateNumber: number) {
+		return `${createdOnDay(dateNumber)}, ${createdAtTime(dateNumber)}`;
+	}
+
 	const dispatch = createEventDispatcher<{ restoreClick: void; diffClick: string }>();
+
+	function camelToTitleCase(str: string | undefined) {
+		if (!str) return '';
+		const lowerCaseStr = str.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+		return lowerCaseStr.charAt(0).toUpperCase() + lowerCaseStr.slice(1);
+	}
 
 	function mapOperationToText(snapshotDetails: SnapshotDetails | undefined) {
 		if (!snapshotDetails) return '';
@@ -105,7 +116,7 @@
 	class:restored-snapshot={isRestoreSnapshot}
 >
 	<span class="snapshot-time text-base-12">
-		{createdOnTime(entry.createdAt)}
+		{createdAtTime(entry.createdAt)}
 	</span>
 
 	<div class="snapshot-line">
@@ -147,23 +158,9 @@
 					</div>
 				{/if}
 			</div>
-
-			<!-- {#if isCardInFocus && !entry.isCurrent} -->
-			<!-- <div class="restore-btn">
-				<Tag
-					style="ghost"
-					kind="solid"
-					icon="update-small"
-					clickable
-					on:click={() => {
-						console.log('Restore');
-					}}>Restore</Tag
-				>
-			</div> -->
-			<!-- {/if} -->
 		</div>
 
-		{#if entry.filesChanged.length > 0}
+		{#if entry.filesChanged.length > 0 && !isRestoreSnapshot}
 			<SnapshotAttachment
 				foldable={entry.filesChanged.length > 2}
 				foldedAmount={entry.filesChanged.length - 2}
@@ -201,12 +198,22 @@
 				<div class="restored-attacment">
 					<Icon name="commit" />
 					<div class="restored-attacment__content">
-						<h4 class="text-base-13 text-semibold">Snapshot title</h4>
+						<h4 class="text-base-13 text-semibold">
+							{camelToTitleCase(
+								entry.details?.trailers.find((t) => t.key === 'restored_operation')
+									?.value
+							)}
+						</h4>
 						<span class="restored-attacment__details text-base-12">
 							{getShortSha(
 								entry.details?.trailers.find((t) => t.key === 'restored_from')
 									?.value
-							)} • date
+							)} • {createdOnDayAndTime(
+								parseInt(
+									entry.details?.trailers.find((t) => t.key === 'restored_date')
+										?.value || ''
+								)
+							)}
 						</span>
 					</div>
 				</div>
@@ -293,6 +300,7 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: var(--size-6);
+		overflow: hidden;
 	}
 
 	.snapshot-details {
@@ -343,6 +351,10 @@
 		}
 	}
 
+	/* .file-selected {
+		background-color: var(--clr-scale-pop-80);
+	} */
+
 	.files-attacment__file-path-and-name {
 		display: flex;
 		gap: var(--size-6);
@@ -370,13 +382,13 @@
 	.restored-attacment {
 		display: flex;
 		padding: var(--size-12);
-		gap: var(--size-6);
+		gap: var(--size-8);
 	}
 
 	.restored-attacment__content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-4);
+		gap: var(--size-6);
 	}
 
 	.restored-attacment__details {

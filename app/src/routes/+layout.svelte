@@ -69,6 +69,7 @@
 				e.preventDefault();
 			}),
 			hotkeys.on('$mod+Shift+H', () => {
+				console.log('hotkey');
 				userSettings.update((s) => ({
 					...s,
 					showHistoryView: !$userSettings.showHistoryView

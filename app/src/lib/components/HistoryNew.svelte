@@ -46,23 +46,45 @@
 		details: SnapshotDetails | undefined;
 		createdAt: number;
 	};
+
+	export function createdOnDay(dateNumber: number) {
+		const d = new Date(dateNumber);
+		const t = new Date();
+		return `${t.toDateString() == d.toDateString() ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' })}, ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+	}
+	export type SnapshotDiff = {
+		binary: boolean;
+		hunks: RemoteHunk[];
+		newPath: string;
+		newSizeBytes: number;
+		oldPath: string;
+		oldSizeBytes: number;
+		skipped: boolean;
+	};
 </script>
 
 <script lang="ts">
 	import Button from './Button.svelte';
-	// import FileCard from './FileCard.svelte';
+	import FileCard from './FileCard.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import SnapshotCard from './SnapshotCard.svelte';
 	import { invoke } from '$lib/backend/ipc';
-	// import { getVSIFileIcon } from '$lib/ext-icons';
-	import { getContext } from '$lib/utils/context';
+	import { clickOutside } from '$lib/clickOutside';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	// import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { onMount, onDestroy } from 'svelte';
-	// import type { AnyFile } from '$lib/vbranches/types';
+	// import { quintOut } from 'svelte/easing';
+	// import { slide } from 'svelte/transition';
+	import type { RemoteHunk, RemoteFile } from '$lib/vbranches/types';
+	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
 	export let projectId: string;
+	let currentFilePreview: RemoteFile | undefined = undefined;
+
+	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
 	const vbranchService = getContext(VirtualBranchService);
 	vbranchService.activeBranches.subscribe(() => {
@@ -84,14 +106,14 @@
 		return resp;
 	}
 
-	// async function getSnapshotDiff(projectId: string, sha: string) {
-	// 	const resp = await invoke<{ [key: string]: AnyFile }>('snapshot_diff', {
-	// 		projectId: projectId,
-	// 		sha: sha
-	// 	});
-	// 	// console.log(resp);
-	// 	return resp;
-	// }
+	async function getSnapshotDiff(projectId: string, sha: string) {
+		const resp = await invoke<{ [key: string]: SnapshotDiff }>('snapshot_diff', {
+			projectId: projectId,
+			sha: sha
+		});
+		// console.log(resp);
+		return resp;
+	}
 
 	async function restoreSnapshot(projectId: string, sha: string) {
 		await invoke<string>('restore_snapshot', {
@@ -102,6 +124,8 @@
 		await goto(window.location.href, { replaceState: true });
 	}
 
+	let listElement: HTMLElement | undefined = undefined;
+
 	function onLastInView() {
 		if (!listElement) return;
 		if (listElement.scrollTop + listElement.clientHeight >= listElement.scrollHeight) {
@@ -110,105 +134,143 @@
 			});
 		}
 	}
-	let listElement: HTMLElement | undefined = undefined;
 
-	// Handle formatting
-	function createdOnDay(dateNumber: number) {
-		const d = new Date(dateNumber);
-		const t = new Date();
-		return `${t.toDateString() == d.toDateString() ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' })}, ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+	function closeView() {
+		userSettings.update((s) => ({
+			...s,
+			showHistoryView: false
+		}));
+
+		currentFilePreview = undefined;
 	}
 
 	onMount(async () => {
-		listSnapshots(projectId).then((rsp) => {
-			snapshots = rsp;
-		});
 		if (listElement) listElement.addEventListener('scroll', onLastInView, true);
 	});
 	onDestroy(() => {
 		listElement?.removeEventListener('scroll', onLastInView, true);
 	});
 
-	// let currentFilePreview: AnyFile | undefined = undefined;
-
-	// $: console.log(snapshots);
+	// optimisation: don't fetch snapshots if the view is not visible
+	$: if (!$userSettings.showHistoryView) {
+		snapshots = [];
+	} else {
+		listSnapshots(projectId).then((rsp) => {
+			snapshots = rsp;
+		});
+	}
 </script>
 
-<aside class="sideview">
-	<!-- <div class="file-preview">
-		{#if currentFilePreview}
-			<FileCard
-				conflicted={false}
-				file={currentFilePreview}
-				isUnapplied={false}
-				readonly={true}
-				on:close={() => {
-					currentFilePreview = undefined;
-				}}
-			/>
-		{/if}
-	</div> -->
+{#if $userSettings.showHistoryView}
+	<aside class="sideview-container" class:show-view={$userSettings.showHistoryView}>
+		<div
+			class="sideview-content-wrap"
+			use:clickOutside={{
+				handler: () => {
+					closeView();
+				}
+			}}
+		>
+			{#if currentFilePreview}
+				<div class="file-preview" class:show-file-view={currentFilePreview}>
+					<FileCard
+						isCard={false}
+						conflicted={false}
+						file={currentFilePreview}
+						isUnapplied={false}
+						readonly={true}
+						on:close={() => {
+							currentFilePreview = undefined;
+						}}
+					/>
+				</div>
+			{/if}
 
-	<div class="sideview-wrap">
-		<div class="sideview__header">
-			<i class="clock-icon">
-				<div class="clock-pointers" />
-			</i>
-			<h3 class="sideview__header-title text-base-15 text-bold">Time machine</h3>
-			<Button
-				style="ghost"
-				icon="cross"
-				on:click={() => {
-					console.log('close');
-				}}
-			/>
-		</div>
+			<div class="sideview">
+				<div class="sideview__header" data-tauri-drag-region>
+					<i class="clock-icon">
+						<div class="clock-pointers" />
+					</i>
+					<h3 class="sideview__header-title text-base-15 text-bold">Time machine</h3>
+					<Button
+						style="ghost"
+						icon="cross"
+						on:click={() => {
+							closeView();
+						}}
+					/>
+				</div>
 
-		<ScrollableContainer>
-			<div class="container" bind:this={listElement}>
-				{#each snapshots as entry, idx}
-					{#if idx === 0 || createdOnDay(entry.createdAt) != createdOnDay(snapshots[idx - 1].createdAt)}
-						<div class="sideview__date-header">
-							<h4 class="text-base-12 text-semibold">
-								{createdOnDay(entry.createdAt)}
-							</h4>
-						</div>
-					{/if}
+				<ScrollableContainer on:bottomReached={onLastInView}>
+					<div class="container" bind:this={listElement}>
+						{#each snapshots as entry, idx}
+							{#if idx === 0 || createdOnDay(entry.createdAt) != createdOnDay(snapshots[idx - 1].createdAt)}
+								<div class="sideview__date-header">
+									<h4 class="text-base-12 text-semibold">
+										{createdOnDay(entry.createdAt)}
+									</h4>
+								</div>
+							{/if}
 
-					{#if entry.details}
-						<SnapshotCard
-							{entry}
-							isCurrent={idx == 0}
-							isFaded={false}
-							on:restoreClick={() => {
-								restoreSnapshot(projectId, entry.id);
-							}}
-							on:diffClick={(filePath) => {
-								console.log('diff', filePath.detail);
-							}}
-						/>
-					{/if}
-				{/each}
+							{#if entry.details}
+								<SnapshotCard
+									{entry}
+									isCurrent={idx == 0}
+									isFaded={false}
+									on:restoreClick={() => {
+										restoreSnapshot(projectId, entry.id);
+									}}
+									on:diffClick={async (filePath) => {
+										const path = filePath.detail;
+										const diffs = await getSnapshotDiff(projectId, entry.id);
+										const file = diffs[path];
+
+										currentFilePreview = {
+											path: path,
+											hunks: file.hunks,
+											binary: file.binary
+										};
+
+										console.log('diff', file);
+									}}
+								/>
+							{/if}
+						{/each}
+					</div>
+				</ScrollableContainer>
 			</div>
-		</ScrollableContainer>
-	</div>
-</aside>
+		</div>
+	</aside>
+{/if}
 
 <style lang="postcss">
-	.sideview {
-		position: relative;
+	.sideview-container {
+		z-index: var(--z-floating);
+		position: fixed;
+		top: 0;
+		right: 0;
 		display: flex;
+		justify-content: flex-end;
 		height: 100%;
+		width: 100%;
+		background-color: var(--clr-overlay-bg);
 	}
 
-	.sideview-wrap {
+	.sideview-content-wrap {
+		display: flex;
+		transform: translateX(100%);
+	}
+
+	.sideview {
+		position: relative;
+		z-index: var(--z-lifted);
 		display: flex;
 		flex-direction: column;
 		height: 100%;
 		overflow: hidden;
 		background-color: var(--clr-bg-1);
 		border-left: 1px solid var(--clr-border-2);
-		min-width: 420px;
+		width: 26rem;
 	}
 
 	/* SIDEVIEW HEADER */
@@ -221,10 +283,12 @@
 	}
 
 	.sideview__header-title {
+		pointer-events: none;
 		flex: 1;
 	}
 
 	.clock-icon {
+		pointer-events: none;
 		position: relative;
 		width: var(--size-20);
 		height: var(--size-20);
@@ -300,12 +364,53 @@
 	}
 
 	/* FILE PREVIEW */
-	/* .file-preview {
+	.file-preview {
+		position: relative;
+		z-index: var(--z-ground);
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
-		padding: var(--size-14);
-		background-color: var(--clr-bg-1);
-		border-top: 1px solid var(--clr-border-2);
-	} */
+		width: 32rem;
+		border-left: 1px solid var(--clr-border-2);
+	}
+
+	/* MODIFIERS */
+	.show-view {
+		animation: view-fade-in 0.2s forwards;
+
+		& .sideview-content-wrap {
+			animation: view-slide-in 0.26s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+			animation-delay: 0.05s;
+		}
+	}
+
+	@keyframes view-fade-in {
+		0% {
+			opacity: 0;
+		}
+		100% {
+			opacity: 1;
+		}
+	}
+
+	@keyframes view-slide-in {
+		0% {
+			transform: translateX(100%);
+		}
+		100% {
+			transform: translateX(0);
+		}
+	}
+
+	.show-file-view {
+		animation: file-view-slide-in 0.26s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+	}
+
+	@keyframes file-view-slide-in {
+		0% {
+			transform: translateX(100%);
+		}
+		100% {
+			transform: translateX(0);
+		}
+	}
 </style>
