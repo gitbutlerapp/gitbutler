@@ -13,8 +13,6 @@
     clippy::too_many_lines
 )]
 
-use std::path::PathBuf;
-
 use gitbutler_core::{assets, git, storage};
 use gitbutler_tauri::{
     app, askpass, commands, github, keys, logs, menu, projects, undo, users, virtual_branches,
@@ -126,7 +124,7 @@ fn main() {
                     let git_credentials_controller = git::credentials::Helper::new(
                         keys_controller.clone(),
                         users_controller.clone(),
-                        std::env::var_os("HOME").map(PathBuf::from)
+                        dirs::home_dir()
                     );
                     app_handle.manage(git_credentials_controller.clone());
 
