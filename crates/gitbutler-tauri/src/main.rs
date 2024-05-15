@@ -13,9 +13,8 @@
     clippy::too_many_lines
 )]
 
-use std::{future::IntoFuture, path::PathBuf};
+use std::path::PathBuf;
 
-use futures::FutureExt;
 use gitbutler_core::{assets, git, storage};
 use gitbutler_tauri::{
     app, askpass, commands, github, keys, logs, menu, projects, undo, users, virtual_branches,

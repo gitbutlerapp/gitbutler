@@ -1,6 +1,6 @@
-use std::{collections::HashSet, sync::Arc};
 use std::path::Path;
 use std::time::Duration;
+use std::{collections::HashSet, sync::Arc};
 
 use crate::debouncer::Debouncer;
 use crate::debouncer_cache::FileIdMap;
@@ -11,7 +11,7 @@ use notify::{RecommendedWatcher, Watcher};
 use tokio::task;
 use tracing::Level;
 
-/// We will collect notifications for up to this amount of time at a very 
+/// We will collect notifications for up to this amount of time at a very
 /// maximum before releasing them. This duration will be hit if e.g. a build
 /// is constantly running and producing a lot of file changes, we will process
 /// them even if the build is still running.
@@ -20,7 +20,7 @@ const DEBOUNCE_TIMEOUT: Duration = Duration::from_secs(60);
 // The internal rate at which the debouncer will update its state.
 const TICK_RATE: Duration = Duration::from_millis(250);
 
-// The number of TICK_RATE intervals required of "dead air" (i.e. no new events 
+// The number of TICK_RATE intervals required of "dead air" (i.e. no new events
 // arriving) before we will automatically flush pending events. This means that
 // after the disk is quiet for TICK_RATE * FLUSH_AFTER_EMPTY, we will process
 // the pending events, even if DEBOUNCE_TIMEOUT hasn't expired yet
@@ -56,7 +56,8 @@ pub fn spawn(
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
 ) -> Result<Arc<Debouncer<RecommendedWatcher, FileIdMap>>> {
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
-    let mut debouncer = Arc::new(new_debouncer(
+    let mut debouncer = Arc::new(
+        new_debouncer(
             DEBOUNCE_TIMEOUT,
             Some(TICK_RATE),
             Some(FLUSH_AFTER_EMPTY),

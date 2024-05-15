@@ -1,11 +1,8 @@
-use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use bstr::BString;
 use gix::dir::walk::EmissionMode;
-use gix::tempfile::create_dir::Retries;
-use gix::tempfile::{AutoRemove, ContainingDirectory};
 use walkdir::WalkDir;
 
 // Returns an ordered list of relative paths for files inside a directory recursively.

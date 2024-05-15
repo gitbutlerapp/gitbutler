@@ -91,7 +91,7 @@ unsafe impl super::GitExecutor for TokioExecutor {
             #[cfg(windows)]
             {
                 cmd.envs(envs.iter().map(|(k, v)| {
-                    let v = v.replace("\\", "\\\\");
+                    let v = v.replace('\\', "\\\\");
                     (k, v)
                 }));
             }

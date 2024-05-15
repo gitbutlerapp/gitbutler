@@ -223,14 +223,12 @@ impl<T: FileIdCache> DebounceDataInner<T> {
                     kind_index.insert(event.kind, events_expired.len());
 
                     events_expired.push(event);
+                } else if flush_all {
+                    tracing::debug!("Flushing event! {:?}", event.event);
+                    events_expired.push(event);
                 } else {
-                    if flush_all {
-                        tracing::debug!("Flushing event! {:?}", event.event);
-                        events_expired.push(event);
-                    } else {
-                        queue.events.push_front(event);
-                        break;
-                    }
+                    queue.events.push_front(event);
+                    break;
                 }
             }
 
