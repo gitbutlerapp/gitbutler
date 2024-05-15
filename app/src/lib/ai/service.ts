@@ -6,7 +6,14 @@ import {
 	OllamaClient
 } from '$lib/ai/ollamaClient';
 import { OpenAIClient } from '$lib/ai/openAIClient';
-import { OpenAIModelName, type AIClient, AnthropicModelName, ModelKind } from '$lib/ai/types';
+import {
+	OpenAIModelName,
+	type AIClient,
+	AnthropicModelName,
+	ModelKind,
+	type PromptMessage,
+	MessageRole
+} from '$lib/ai/types';
 import { splitMessage } from '$lib/utils/commitMessage';
 import * as toasts from '$lib/utils/toasts';
 import OpenAI from 'openai';
@@ -15,34 +22,6 @@ import type { HttpClient } from '$lib/backend/httpClient';
 import type { Hunk } from '$lib/vbranches/types';
 
 const maxDiffLengthLimitForAPI = 5000;
-
-const defaultCommitTemplate = `
-Please could you write a commit message for my changes.
-Only respond with the commit message. Don't give any notes.
-Explain what were the changes and why the changes were done.
-Focus the most important changes.
-Use the present tense.
-Use a semantic commit prefix.
-Hard wrap lines at 72 characters.
-Ensure the title is only 50 characters.
-Do not start any lines with the hash symbol.
-%{brief_style}
-%{emoji_style}
-
-Here is my git diff:
-%{diff}
-`;
-
-const defaultBranchTemplate = `
-Please could you write a branch name for my changes.
-A branch name represent a brief description of the changes in the diff (branch).
-Branch names should contain no whitespace and instead use dashes to separate words.
-Branch names should contain a maximum of 5 words.
-Only respond with the branch name.
-
-Here is my git diff:
-%{diff}
-`;
 
 export enum KeyOption {
 	BringYourOwn = 'bringYourOwn',
@@ -66,13 +45,13 @@ type SummarizeCommitOpts = {
 	hunks: Hunk[];
 	useEmojiStyle?: boolean;
 	useBriefStyle?: boolean;
-	commitTemplate?: string;
+	commitTemplate?: PromptMessage[];
 	userToken?: string;
 };
 
 type SummarizeBranchOpts = {
 	hunks: Hunk[];
-	branchTemplate?: string;
+	branchTemplate?: PromptMessage[];
 	userToken?: string;
 };
 
@@ -261,24 +240,37 @@ export class AIService {
 		hunks,
 		useEmojiStyle = false,
 		useBriefStyle = false,
-		commitTemplate = defaultCommitTemplate,
+		commitTemplate,
 		userToken
 	}: SummarizeCommitOpts) {
 		const aiClient = await this.buildClient(userToken);
 		if (!aiClient) return;
 
 		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
-		let prompt = commitTemplate.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit));
+		const defaultedCommitTemplate = commitTemplate || aiClient.defaultCommitTemplate;
 
-		const briefPart = useBriefStyle
-			? 'The commit message must be only one sentence and as short as possible.'
-			: '';
-		prompt = prompt.replaceAll('%{brief_style}', briefPart);
+		const prompt = defaultedCommitTemplate.map((promptMessage) => {
+			if (promptMessage.role != MessageRole.User) {
+				return promptMessage;
+			}
 
-		const emojiPart = useEmojiStyle
-			? 'Make use of GitMoji in the title prefix.'
-			: "Don't use any emoji.";
-		prompt = prompt.replaceAll('%{emoji_style}', emojiPart);
+			let content = promptMessage.content.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit));
+
+			const briefPart = useBriefStyle
+				? 'The commit message must be only one sentence and as short as possible.'
+				: '';
+			content = content.replaceAll('%{brief_style}', briefPart);
+
+			const emojiPart = useEmojiStyle
+				? 'Make use of GitMoji in the title prefix.'
+				: "Don't use any emoji.";
+			content = content.replaceAll('%{emoji_style}', emojiPart);
+
+			return {
+				role: MessageRole.User,
+				content
+			};
+		});
 
 		let message = await aiClient.evaluate(prompt);
 
@@ -290,18 +282,24 @@ export class AIService {
 		return description ? `${title}\n\n${description}` : title;
 	}
 
-	async summarizeBranch({
-		hunks,
-		branchTemplate = defaultBranchTemplate,
-		userToken = undefined
-	}: SummarizeBranchOpts) {
+	async summarizeBranch({ hunks, branchTemplate, userToken = undefined }: SummarizeBranchOpts) {
 		const aiClient = await this.buildClient(userToken);
 		if (!aiClient) return;
 
 		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
-		const prompt = branchTemplate.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit));
-		const branchNamePromise = aiClient.evaluate(prompt);
-		const message = await branchNamePromise;
+		const defaultedBranchTemplate = branchTemplate || aiClient.defaultBranchTemplate;
+		const prompt = defaultedBranchTemplate.map((promptMessage) => {
+			if (promptMessage.role != MessageRole.User) {
+				return promptMessage;
+			}
+
+			return {
+				role: MessageRole.User,
+				content: promptMessage.content.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit))
+			};
+		});
+
+		const message = await aiClient.evaluate(prompt);
 		return message.replaceAll(' ', '-').replaceAll('\n', '-');
 	}
 }

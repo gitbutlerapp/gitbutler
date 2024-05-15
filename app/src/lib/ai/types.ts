@@ -28,5 +28,8 @@ export interface PromptMessage {
 }
 
 export interface AIClient {
-	evaluate(prompt: string): Promise<string>;
+	evaluate(prompt: PromptMessage[]): Promise<string>;
+
+	defaultBranchTemplate: PromptMessage[];
+	defaultCommitTemplate: PromptMessage[];
 }

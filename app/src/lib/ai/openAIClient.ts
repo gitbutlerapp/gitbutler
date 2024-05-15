@@ -1,22 +1,19 @@
-import {
-	MessageRole,
-	type OpenAIModelName,
-	type PromptMessage,
-	type AIClient
-} from '$lib/ai/types';
+import { SHORT_DEFAULT_BRANCH_TEMPLATE, SHORT_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
+import type { OpenAIModelName, PromptMessage, AIClient } from '$lib/ai/types';
 import type OpenAI from 'openai';
 
 export class OpenAIClient implements AIClient {
+	defaultCommitTemplate = SHORT_DEFAULT_COMMIT_TEMPLATE;
+	defaultBranchTemplate = SHORT_DEFAULT_BRANCH_TEMPLATE;
+
 	constructor(
 		private modelName: OpenAIModelName,
 		private openAI: OpenAI
 	) {}
 
-	async evaluate(prompt: string) {
-		const messages: PromptMessage[] = [{ role: MessageRole.User, content: prompt }];
-
+	async evaluate(prompt: PromptMessage[]) {
 		const response = await this.openAI.chat.completions.create({
-			messages,
+			messages: prompt,
 			model: this.modelName,
 			max_tokens: 400
 		});

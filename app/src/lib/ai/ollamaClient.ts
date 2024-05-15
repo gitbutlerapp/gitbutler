@@ -1,58 +1,9 @@
+import { LONG_DEFAULT_BRANCH_TEMPLATE, LONG_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
 import { MessageRole, type PromptMessage, type AIClient } from '$lib/ai/types';
 import { isNonEmptyObject } from '$lib/utils/typeguards';
 
 export const DEFAULT_OLLAMA_ENDPOINT = 'http://127.0.0.1:11434';
 export const DEFAULT_OLLAMA_MODEL_NAME = 'llama3';
-
-const PROMT_EXAMPLE_COMMIT_MESSAGE_GENERATION = `Please could you write a commit message for my changes.
-Explain what were the changes and why the changes were done.
-Focus the most important changes.
-Use the present tense.
-Use a semantic commit prefix.
-Hard wrap lines at 72 characters.
-Ensure the title is only 50 characters.
-Do not start any lines with the hash symbol.
-Only respond with the commit message.
-
-Here is my git diff:
-diff --git a/src/utils/typing.ts b/src/utils/typing.ts
-index 1cbfaa2..7aeebcf 100644
---- a/src/utils/typing.ts
-+++ b/src/utils/typing.ts
-@@ -35,3 +35,10 @@ export function isNonEmptyObject(something: unknown): something is UnknownObject
-     (Object.keys(something).length > 0 || Object.getOwnPropertySymbols(something).length > 0)
-   );
- }
-+
-+export function isArrayOf<T>(
-+  something: unknown,
-+  check: (value: unknown) => value is T
-+): something is T[] {
-+  return Array.isArray(something) && something.every(check);
-+}`;
-
-const PROMPT_EXAMPLE_BRANCH_NAME_GENERATION = `Please could you write a branch name for my changes.
-A branch name represent a brief description of the changes in the diff (branch).
-Branch names should contain no whitespace and instead use dashes to separate words.
-Branch names should contain a maximum of 5 words.
-Only respond with the branch name.
-
-Here is my git diff:
-diff --git a/src/utils/typing.ts b/src/utils/typing.ts
-index 1cbfaa2..7aeebcf 100644
---- a/src/utils/typing.ts
-+++ b/src/utils/typing.ts
-@@ -35,3 +35,10 @@ export function isNonEmptyObject(something: unknown): something is UnknownObject
-     (Object.keys(something).length > 0 || Object.getOwnPropertySymbols(something).length > 0)
-   );
- }
-+
-+export function isArrayOf<T>(
-+  something: unknown,
-+  check: (value: unknown) => value is T
-+): something is T[] {
-+  return Array.isArray(something) && something.every(check);
-+}`;
 
 enum OllamaAPEndpoint {
 	Generate = 'api/generate',
@@ -91,7 +42,7 @@ interface OllamaChatMessageFormat {
 	result: string;
 }
 
-const OllamaChatMessageFormatSchema = {
+const OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA = {
 	type: 'object',
 	properties: {
 		result: { type: 'string' }
@@ -121,32 +72,16 @@ function isOllamaChatResponse(response: unknown): response is OllamaChatResponse
 }
 
 export class OllamaClient implements AIClient {
+	defaultCommitTemplate = LONG_DEFAULT_COMMIT_TEMPLATE;
+	defaultBranchTemplate = LONG_DEFAULT_BRANCH_TEMPLATE;
+
 	constructor(
 		private endpoint: string,
 		private modelName: string
 	) {}
 
-	async branchName(prompt: string): Promise<string> {
-		const messages: PromptMessage[] = [
-			{
-				role: MessageRole.System,
-				content: `You are an expert in software development. Answer the given user prompts following the specified instructions.
-Return your response in JSON and only use the following JSON schema:
-${JSON.stringify(OllamaChatMessageFormatSchema, null, 2)}`
-			},
-			{
-				role: MessageRole.User,
-				content: PROMPT_EXAMPLE_BRANCH_NAME_GENERATION
-			},
-			{
-				role: MessageRole.Assistant,
-				content: JSON.stringify({
-					result: `utils-typing-is-array-of-type`
-				})
-			},
-			{ role: MessageRole.User, content: prompt }
-		];
-
+	async evaluate(prompt: PromptMessage[]) {
+		const messages = this.formatPrompt(prompt);
 		const response = await this.chat(messages);
 		const rawResponse = JSON.parse(response.message.content);
 		if (!isOllamaChatMessageFormat(rawResponse)) {
@@ -156,36 +91,31 @@ ${JSON.stringify(OllamaChatMessageFormatSchema, null, 2)}`
 		return rawResponse.result;
 	}
 
-	async evaluate(prompt: string) {
-		const messages: PromptMessage[] = [
+	/**
+	 * Appends a system message which instructs the model to respond using a particular JSON schema
+	 * Modifies the prompt's Assistant messages to make use of the correct schema
+	 */
+	private formatPrompt(prompt: PromptMessage[]) {
+		const withFormattedResponses = prompt.map((promptMessage) => {
+			if (promptMessage.role == MessageRole.Assistant) {
+				return {
+					role: MessageRole.Assistant,
+					content: JSON.stringify({ result: promptMessage.content })
+				};
+			} else {
+				return promptMessage;
+			}
+		});
+
+		return [
 			{
 				role: MessageRole.System,
 				content: `You are an expert in software development. Answer the given user prompts following the specified instructions.
 Return your response in JSON and only use the following JSON schema:
-${JSON.stringify(OllamaChatMessageFormatSchema, null, 2)}`
+${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 			},
-			{
-				role: MessageRole.User,
-				content: PROMT_EXAMPLE_COMMIT_MESSAGE_GENERATION
-			},
-			{
-				role: MessageRole.Assistant,
-				content: JSON.stringify({
-					result: `Typing utilities: Check for array of type
-
-Added an utility function to check whether a given value is an array of a specific type.`
-				})
-			},
-			{ role: MessageRole.User, content: prompt }
+			...withFormattedResponses
 		];
-
-		const response = await this.chat(messages);
-		const rawResponse = JSON.parse(response.message.content);
-		if (!isOllamaChatMessageFormat(rawResponse)) {
-			throw new Error('Invalid response: ' + response.message.content);
-		}
-
-		return rawResponse.result;
 	}
 
 	/**
