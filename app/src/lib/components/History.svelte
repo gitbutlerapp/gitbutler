@@ -119,9 +119,23 @@
 				</div>
 				<div style="padding-left: 16px; hidden;">
 					{#if entry.details?.operation === 'RestoreFromSnapshot'}
-						restored_from: {entry.details?.trailers
-							.find((t) => t.key === 'restored_from')
-							?.value?.slice(0, 7)}
+						<div>
+							restored_from: {entry.details?.trailers
+								.find((t) => t.key === 'restored_from')
+								?.value?.slice(0, 7)}
+						</div>
+						<div>
+							restored_operation: {entry.details?.trailers.find(
+								(t) => t.key === 'restored_operation'
+							)?.value}
+						</div>
+						<div>
+							restored_date: {new Date(
+								parseInt(
+									entry.details?.trailers.find((t) => t.key === 'restored_date')?.value || ''
+								)
+							).toLocaleString()}
+						</div>
 					{:else if ['DeleteBranch', 'CreateBranch', 'ApplyBranch', 'UnapplyBranch', 'MoveHunk'].includes(entry.details?.operation || '')}
 						name: {entry.details?.trailers.find((t) => t.key === 'name')?.value}
 					{:else if ['ReorderBranches', 'UpdateBranchName', 'SelectDefaultVirtualBranch', 'UpdateBranchRemoteName'].includes(entry.details?.operation || '')}
