@@ -5,11 +5,11 @@
 	import Tag from './Tag.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { createEventDispatcher } from 'svelte';
+	import type iconsJson from '$lib/icons/icons.json';
 	import type { Snapshot, SnapshotDetails } from './HistoryNew.svelte';
 
 	export let entry: Snapshot;
 	export let isCurrent: boolean = false;
-	export let isFaded: boolean = false;
 	export let selectedFile:
 		| {
 				entryId: string;
@@ -40,72 +40,110 @@
 		return lowerCaseStr.charAt(0).toUpperCase() + lowerCaseStr.slice(1);
 	}
 
-	function mapOperationToText(snapshotDetails: SnapshotDetails | undefined) {
-		if (!snapshotDetails) return '';
+	function mapOperation(snapshotDetails: SnapshotDetails | undefined): {
+		text: string;
+		icon: keyof typeof iconsJson;
+	} {
+		if (!snapshotDetails) return { text: '', icon: 'commit' };
 
 		switch (snapshotDetails.operation) {
 			// Branch operations
 			case 'DeleteBranch':
-				return `Delete branch "${entry.details?.trailers.find((t) => t.key === 'name')?.value}"`;
+				return {
+					text: `Delete branch "${entry.details?.trailers.find((t) => t.key == 'name')?.value}"`,
+					icon: 'delete-branch'
+				};
 			case 'ApplyBranch':
-				return `Apply branch "${entry.details?.trailers.find((t) => t.key === 'name')?.value}"`;
+				return {
+					text: `Apply branch "${entry.details?.trailers.find((t) => t.key == 'name')?.value}"`,
+					icon: 'apply-branch'
+				};
 			case 'UpdateBranchName':
-				return `Renamed branch "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`;
+				return {
+					text: `Renamed branch "${snapshotDetails.trailers.find((t) => t.key == 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
+					icon: 'update-branch-name'
+				};
 			case 'CreateBranch':
-				return `Create branch "${snapshotDetails.trailers.find((t) => t.key == 'name')?.value}"`;
+				return {
+					text: `Create branch "${snapshotDetails.trailers.find((t) => t.key == 'name')?.value}"`,
+					icon: 'create-branch'
+				};
 			case 'UnapplyBranch':
-				return `Unapply branch "${snapshotDetails.trailers.find((t) => t.key === 'name')?.value}"`;
+				return {
+					text: `Unapply branch "${snapshotDetails.trailers.find((t) => t.key == 'name')?.value}"`,
+					icon: 'unapply-branch'
+				};
 			case 'ReorderBranches':
-				return `Reorder branches "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" and "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`;
+				return {
+					text: `Reorder branches "${snapshotDetails.trailers.find((t) => t.key == 'before')?.value}" and "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
+					icon: 'reorder-branches'
+				};
 			case 'SelectDefaultVirtualBranch':
-				return `Select default virtual branch "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`;
+				return {
+					text: `Select default virtual branch "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
+					icon: 'set-default-branch'
+				};
 			case 'UpdateBranchRemoteName':
-				return `Update branch remote name "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`;
+				return {
+					text: `Update branch remote name "${snapshotDetails.trailers.find((t) => t.key == 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
+					icon: 'update-branch-name'
+				};
 			case 'SetBaseBranch':
-				return 'Set base branch';
+				return { text: 'Set base branch', icon: 'set-base-branch' };
 			case 'GenericBranchUpdate':
-				return 'Generic branch update';
+				return { text: 'Generic branch update', icon: 'update-branch-name' };
 			// Commit operations
 			case 'CreateCommit':
-				return 'Commit';
+				return {
+					text: `Create commit ${getShortSha(entry.details?.trailers.find((t) => t.key == 'sha')?.value)}`,
+					icon: 'new-commit'
+				};
 			case 'AmendCommit':
-				return 'Amend commit';
+				return { text: 'Amend commit', icon: 'amend-commit' };
 			case 'UndoCommit':
-				return 'Undo commit';
+				return {
+					text: `Undo commit ${getShortSha(entry.details?.trailers.find((t) => t.key == 'sha')?.value)}`,
+					icon: 'undo-commit'
+				};
 			case 'SquashCommit':
-				return 'Squash commit';
+				return { text: 'Squash commit', icon: 'squash-commit' };
 			case 'UpdateCommitMessage':
-				return 'Update commit message';
+				return { text: 'Update commit message', icon: 'edit-text' };
 			case 'MoveCommit':
-				return 'Move commit';
+				return { text: 'Move commit', icon: 'move-commit' };
 			case 'ReorderCommit':
-				return 'Reorder commit';
+				return { text: 'Reorder commit', icon: 'move-commit' };
 			case 'InsertBlankCommit':
-				return 'Insert blank commit';
+				return { text: 'Insert blank commit', icon: 'blank-commit' };
 			case 'MoveCommitFile':
-				return 'Move commit file';
+				return { text: 'Move commit file', icon: 'move-commit-file-small' };
 			// File operations
 			case 'MoveHunk':
-				return `Move hunk to "${entry.details?.trailers.find((t) => t.key === 'name')?.value}"`;
+				return {
+					text: `Move hunk to "${entry.details?.trailers.find((t) => t.key == 'name')?.value}"`,
+					icon: 'move-hunk'
+				};
 			case 'DiscardHunk':
-				return 'Discard hunk';
+				return { text: 'Discard hunk', icon: 'discard-hunk' };
 			case 'DiscardFile':
-				return 'Discard file';
+				return { text: 'Discard file', icon: 'discard-file-small' };
 			case 'FileChanges':
-				return 'File changes';
+				return { text: 'File changes', icon: 'file-changes-small' };
 			// Other operations
 			case 'MergeUpstream':
-				return 'Merge upstream';
+				return { text: 'Merge upstream', icon: 'merged-pr-small' };
 			case 'UpdateWorkspaceBase':
-				return 'Update workspace base';
+				return { text: 'Update workspace base', icon: 'rebase-small' };
 			case 'RestoreFromSnapshot':
-				return 'Restore from snapshot';
+				return { text: 'Restore from snapshot', icon: 'empty' };
 			default:
-				return snapshotDetails.operation;
+				return { text: snapshotDetails.operation, icon: 'commit' };
 		}
 	}
 
-	const isRestoreSnapshot = entry.details?.operation === 'RestoreFromSnapshot';
+	const isRestoreSnapshot = entry.details?.operation == 'RestoreFromSnapshot';
+
+	const operation = mapOperation(entry.details);
 
 	function isRestorable() {
 		return !isCurrent && !isRestoreSnapshot;
@@ -114,8 +152,6 @@
 	function getPathOnly(path: string) {
 		return path.split('/').slice(0, -1).join('/');
 	}
-
-	// $: console.log(selectedFile);
 </script>
 
 <div
@@ -131,15 +167,11 @@
 		{#if isRestoreSnapshot}
 			<img src="/images/history/restore-icon.svg" alt="" />
 		{:else}
-			<Icon name="commit" />
+			<Icon name={operation.icon} />
 		{/if}
 	</div>
 
 	<div class="snapshot-content">
-		{#if isFaded}
-			<span>faded</span>
-		{/if}
-
 		<div class="snapshot-details">
 			{#if isCurrent}
 				<div class="current-tag">
@@ -149,7 +181,7 @@
 
 			<div class="snapshot-title-wrap">
 				<h4 class="snapshot-title text-base-body-13 text-semibold">
-					<span>{mapOperationToText(entry.details)}</span>
+					<span>{operation.text}</span>
 					<span class="snapshot-sha text-base-body-12"> • {getShortSha(entry.id)}</span>
 				</h4>
 
@@ -211,17 +243,16 @@
 					<div class="restored-attacment__content">
 						<h4 class="text-base-13 text-semibold">
 							{camelToTitleCase(
-								entry.details?.trailers.find((t) => t.key === 'restored_operation')
+								entry.details?.trailers.find((t) => t.key == 'restored_operation')
 									?.value
 							)}
 						</h4>
 						<span class="restored-attacment__details text-base-12">
 							{getShortSha(
-								entry.details?.trailers.find((t) => t.key === 'restored_from')
-									?.value
+								entry.details?.trailers.find((t) => t.key == 'restored_from')?.value
 							)} • {createdOnDayAndTime(
 								parseInt(
-									entry.details?.trailers.find((t) => t.key === 'restored_date')
+									entry.details?.trailers.find((t) => t.key == 'restored_date')
 										?.value || ''
 								)
 							)}
@@ -262,17 +293,6 @@
 		/* padding: var(--size-8) var(--size-14); */
 	}
 
-	/* .restore-btn {
-		height: 0;
-		opacity: 0;
-		margin-top: calc(var(--size-6) * -1);
-		overflow: hidden;
-		transition:
-			height 0.2s,
-			opacity 0.3s,
-			margin-top 0.2s;
-	} */
-
 	.snapshot-time {
 		color: var(--clr-text-2);
 		/* background-color: #ffcf887d; */
@@ -311,7 +331,7 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: var(--size-6);
-		overflow: hidden;
+		/* overflow: hidden; */
 	}
 
 	.snapshot-details {

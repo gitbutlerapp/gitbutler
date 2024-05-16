@@ -114,8 +114,9 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
         }
     }
 
-    view_menu = view_menu
-        .add_item(CustomMenuItem::new("view/history", "History").accelerator("CmdOrCtrl+Shift+H"));
+    view_menu = view_menu.add_item(
+        CustomMenuItem::new("view/history", "Project history").accelerator("CmdOrCtrl+Shift+H"),
+    );
 
     #[cfg(any(debug_assertions, feature = "devtools"))]
     {

@@ -65,19 +65,21 @@
 
 <script lang="ts">
 	import Button from './Button.svelte';
+	import EmptyStatePlaceholder from './EmptyStatePlaceholder.svelte';
 	import FileCard from './FileCard.svelte';
+	import FullviewLoading from './FullviewLoading.svelte';
+	import Icon from './Icon.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import SnapshotCard from './SnapshotCard.svelte';
+	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { invoke, listen } from '$lib/backend/ipc';
 	import { clickOutside } from '$lib/clickOutside';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
-	// import { computeFileStatus } from '$lib/utils/fileStatus';
+	import { type RemoteHunk, RemoteFile } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import { plainToInstance } from 'class-transformer';
 	import { onMount, onDestroy } from 'svelte';
-	// import { quintOut } from 'svelte/easing';
-	// import { slide } from 'svelte/transition';
-	import type { RemoteHunk, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
@@ -97,12 +99,18 @@
 	});
 
 	let snapshots: Snapshot[] = [];
+	let isSnapshotsLoading = false;
+
 	async function listSnapshots(projectId: string, sha?: string) {
+		isSnapshotsLoading = true;
+
 		const resp = await invoke<Snapshot[]>('list_snapshots', {
 			projectId: projectId,
 			limit: 32,
 			sha: sha
 		});
+
+		isSnapshotsLoading = false;
 		return resp;
 	}
 
@@ -205,7 +213,7 @@
 					<i class="clock-icon">
 						<div class="clock-pointers" />
 					</i>
-					<h3 class="sideview__header-title text-base-15 text-bold">Time machine</h3>
+					<h3 class="sideview__header-title text-base-15 text-bold">Project history</h3>
 					<Button
 						style="ghost"
 						icon="cross"
@@ -215,53 +223,88 @@
 					/>
 				</div>
 
-				<ScrollableContainer on:bottomReached={onLastInView}>
-					<div class="container" bind:this={listElement}>
-						{#each snapshots as entry, idx}
-							{#if idx === 0 || createdOnDay(entry.createdAt) != createdOnDay(snapshots[idx - 1].createdAt)}
-								<div class="sideview__date-header">
-									<h4 class="text-base-12 text-semibold">
-										{createdOnDay(entry.createdAt)}
-									</h4>
+				<!-- EMPTY STATE -->
+				{#if snapshots.length == 0}
+					<EmptyStatePlaceholder image={emptyFolderSvg}>
+						<svelte:fragment slot="title">No snapshots yet</svelte:fragment>
+						<svelte:fragment slot="caption">
+							Gitbutler saves your work, including file changes, so your progress is
+							always secure. Adjust snapshot settings in project settings.
+						</svelte:fragment>
+					</EmptyStatePlaceholder>
+				{/if}
+
+				{#if isSnapshotsLoading}
+					<FullviewLoading />
+				{/if}
+
+				<!-- SNAPSHOTS -->
+				{#if snapshots.length > 0 && !isSnapshotsLoading}
+					<ScrollableContainer on:bottomReached={onLastInView}>
+						<div class="container" bind:this={listElement}>
+							<!-- SNAPSHOTS FEED -->
+							{#each snapshots as entry, idx}
+								{#if idx === 0 || createdOnDay(entry.createdAt) != createdOnDay(snapshots[idx - 1].createdAt)}
+									<div class="sideview__date-header">
+										<h4 class="text-base-12 text-semibold">
+											{createdOnDay(entry.createdAt)}
+										</h4>
+									</div>
+								{/if}
+
+								{#if entry.details}
+									<SnapshotCard
+										{entry}
+										isCurrent={idx == 0}
+										on:restoreClick={() => {
+											restoreSnapshot(projectId, entry.id);
+										}}
+										{selectedFile}
+										on:diffClick={async (filePath) => {
+											const path = filePath.detail;
+											const diffs = await getSnapshotDiff(
+												projectId,
+												entry.id
+											);
+											const file = diffs[path];
+
+											selectedFile = {
+												entryId: entry.id,
+												path: path
+											};
+
+											currentFilePreview = plainToInstance(RemoteFile, {
+												path: path,
+												hunks: file.hunks,
+												binary: file.binary
+											});
+										}}
+									/>
+								{/if}
+							{/each}
+
+							<div class="welcome-point">
+								<div class="welcome-point__icon">
+									<Icon name="finish" />
 								</div>
-							{/if}
-
-							{#if entry.details}
-								<SnapshotCard
-									{entry}
-									isCurrent={idx == 0}
-									isFaded={false}
-									on:restoreClick={() => {
-										restoreSnapshot(projectId, entry.id);
-									}}
-									{selectedFile}
-									on:diffClick={async (filePath) => {
-										const path = filePath.detail;
-										const diffs = await getSnapshotDiff(projectId, entry.id);
-										const file = diffs[path];
-
-										selectedFile = {
-											entryId: entry.id,
-											path: path
-										};
-
-										currentFilePreview = {
-											path: path,
-											hunks: file.hunks,
-											binary: file.binary
-										};
-
-										console.log('selectedFile', selectedFile);
-									}}
-								/>
-							{/if}
-						{/each}
-					</div>
-				</ScrollableContainer>
+								<div class="welcome-point__content">
+									<p class="text-base-13 text-semibold">Welcome to history!</p>
+									<p class="welcome-point__caption text-base-body-12">
+										Gitbutler saves your work, including file changes, so your
+										progress is always secure. Adjust snapshot settings in
+										project settings.
+									</p>
+								</div>
+							</div>
+						</div>
+					</ScrollableContainer>
+				{/if}
 			</div>
 		</div>
 	</aside>
 {/if}
+
+<!-- TODO: HANDLE LOADING STATE -->
 
 <style lang="postcss">
 	.sideview-container {
@@ -391,6 +434,24 @@
 		flex-direction: column;
 		width: 32rem;
 		border-left: 1px solid var(--clr-border-2);
+	}
+
+	/* WELCOME POINT */
+	.welcome-point {
+		display: flex;
+		gap: var(--size-10);
+		padding: var(--size-12) var(--size-16) var(--size-16) 3.7rem;
+	}
+
+	.welcome-point__content {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-8);
+		margin-top: var(--size-4);
+	}
+
+	.welcome-point__caption {
+		color: var(--clr-text-3);
 	}
 
 	/* MODIFIERS */
