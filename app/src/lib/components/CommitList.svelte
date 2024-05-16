@@ -28,25 +28,25 @@
 			{#if $unknownCommits.length > 0}
 				<CommitLines {hasShadowColumn} {hasLocalColumn} localLine />
 				{#each $unknownCommits as commit, idx (commit.id)}
-					<div class="flex">
+					<div class="commit-lines">
 						<CommitLines
 							{hasLocalColumn}
 							{hasShadowColumn}
-							first={idx == 0}
+							upstreamLine
 							localLine={hasLocalColumn}
 							remoteCommit={commit}
-							upstreamLine
+							first={idx == 0}
 						/>
 						<CommitListItem {commit}>
 							<CommitCard
+								type="upstream"
 								branch={$branch}
 								{commit}
-								commitUrl={$baseBranch?.commitUrl(commit.id)}
-								isHeadCommit={commit.id === headCommit?.id}
 								{isUnapplied}
 								first={idx == 0}
 								last={idx == $unknownCommits.length - 1}
-								type="upstream"
+								commitUrl={$baseBranch?.commitUrl(commit.id)}
+								isHeadCommit={commit.id === headCommit?.id}
 							/>
 						</CommitListItem>
 					</div>
@@ -60,7 +60,7 @@
 					localLine
 				/>
 				{#each $localCommits as commit, idx (commit.id)}
-					<div class="flex">
+					<div class="commit-lines">
 						<CommitLines
 							{hasLocalColumn}
 							{hasShadowColumn}
@@ -85,9 +85,14 @@
 				{/each}
 			{/if}
 			{#if $remoteCommits.length > 0}
-				<CommitLines {hasShadowColumn} {hasLocalColumn} localLine />
+				<CommitLines
+					{hasShadowColumn}
+					{hasLocalColumn}
+					upstreamLine={hasUnknownCommits}
+					localLine
+				/>
 				{#each $remoteCommits as commit, idx (commit.id)}
-					<div class="flex">
+					<div class="commit-lines">
 						<CommitLines
 							{hasLocalColumn}
 							{hasShadowColumn}
@@ -122,16 +127,10 @@
 {/if}
 
 <style lang="postcss">
-	/* .commit-list {
-		&.upstream {
-			background-color: var(--clr-bg-2);
-		}
-		background-color: var(--clr-bg-1);
+	.commit-lines {
 		display: flex;
-		flex-direction: column;
-		position: relative;
-		flex-shrink: 0;
-	} */
+	}
+
 	.commit-list__content {
 		display: flex;
 		flex-direction: column;

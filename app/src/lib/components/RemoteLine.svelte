@@ -1,12 +1,14 @@
 <script lang="ts">
 	import Avatar from './Avatar.svelte';
-	import type { Commit } from '$lib/vbranches/types';
+	import type { Commit, RemoteCommit } from '$lib/vbranches/types';
 
 	export let commit: Commit | undefined;
+	export let remoteCommit: RemoteCommit | undefined;
 	export let base: boolean;
 	export let first: boolean;
 	export let line: boolean;
 	export let root: boolean;
+	export let upstreamLine: boolean;
 
 	$: hasRoot = isRoot(commit);
 
@@ -39,7 +41,12 @@
 		</div>
 	{:else}
 		{#if line}
-			<div class="remote-line" class:first></div>
+			{#if upstreamLine}
+				<div class="remote-line tip" class:upstream={upstreamLine}></div>
+			{/if}
+			<div class="remote-line" class:short={first} />
+		{:else if upstreamLine}
+			<div class="remote-line upstream" class:short={first} />
 		{/if}
 		{#if hasRoot}
 			<div class="root" />
@@ -48,6 +55,12 @@
 			{@const author = commit.author}
 			<div class="avatar" class:first>
 				<Avatar {author} status={commit.status} />
+			</div>
+		{/if}
+		{#if remoteCommit}
+			{@const author = remoteCommit.author}
+			<div class="avatar" class:first>
+				<Avatar {author} status={remoteCommit.status} />
 			</div>
 		{/if}
 	{/if}
@@ -70,7 +83,10 @@
 			top: calc(var(--size-40) + var(--size-2));
 		}
 		&.short {
-			top: 1rem;
+			top: 3rem;
+		}
+		&.tip {
+			bottom: calc(100% - 2.625rem);
 		}
 		&.dashed {
 			background: repeating-linear-gradient(
@@ -80,6 +96,9 @@
 				var(--clr-commit-remote) 0.1875rem,
 				var(--clr-commit-remote) 0.4375rem
 			);
+		}
+		&.upstream {
+			background-color: var(--clr-commit-upstream);
 		}
 	}
 
