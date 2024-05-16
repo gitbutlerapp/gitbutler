@@ -31,6 +31,8 @@
 		commit={localCommit?.status == 'remote' ? localCommit : undefined}
 		line={localCommit?.status == 'remote' || remoteLine}
 		root={localLine}
+		{remoteCommit}
+		{upstreamLine}
 		{first}
 		{base}
 	/>

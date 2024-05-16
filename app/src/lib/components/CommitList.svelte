@@ -32,21 +32,21 @@
 						<CommitLines
 							{hasLocalColumn}
 							{hasShadowColumn}
-							first={idx == 0}
+							upstreamLine
 							localLine={hasLocalColumn}
 							remoteCommit={commit}
-							upstreamLine
+							first={idx == 0}
 						/>
 						<CommitListItem {commit}>
 							<CommitCard
+								type="upstream"
 								branch={$branch}
 								{commit}
-								commitUrl={$baseBranch?.commitUrl(commit.id)}
-								isHeadCommit={commit.id === headCommit?.id}
 								{isUnapplied}
 								first={idx == 0}
 								last={idx == $unknownCommits.length - 1}
-								type="upstream"
+								commitUrl={$baseBranch?.commitUrl(commit.id)}
+								isHeadCommit={commit.id === headCommit?.id}
 							/>
 						</CommitListItem>
 					</div>
@@ -85,7 +85,12 @@
 				{/each}
 			{/if}
 			{#if $remoteCommits.length > 0}
-				<CommitLines {hasShadowColumn} {hasLocalColumn} localLine />
+				<CommitLines
+					{hasShadowColumn}
+					{hasLocalColumn}
+					upstreamLine={hasUnknownCommits}
+					localLine
+				/>
 				{#each $remoteCommits as commit, idx (commit.id)}
 					<div class="flex">
 						<CommitLines
