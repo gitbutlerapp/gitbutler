@@ -43,6 +43,7 @@
 		display: flex;
 		justify-content: space-between;
 		padding: var(--size-12);
+		gap: var(--size-6);
 		border-top: 1px solid var(--clr-border-2);
 		border-color: var(--clr-border-2);
 	}
