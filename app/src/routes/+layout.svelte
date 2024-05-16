@@ -53,6 +53,12 @@
 		return unsubscribe(
 			events.on('goto', async (path: string) => await goto(path)),
 			events.on('openSendIssueModal', () => shareIssueModal?.show()),
+			events.on('openHistory', () => {
+				userSettings.update((s) => ({
+					...s,
+					showHistoryView: !$userSettings.showHistoryView
+				}));
+			}),
 
 			// Zoom using cmd +, - and =
 			hotkeys.on('$mod+Equal', () => (zoom = Math.min(zoom + 0.0625, 3))),

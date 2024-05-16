@@ -14,14 +14,24 @@
 			icon="mail"
 			style="ghost"
 			size="cta"
-			on:mousedown={() => events.emit('openSendIssueModal')}
+			help="Share feedback"
+			on:click={() => events.emit('openSendIssueModal')}
 			wide={isNavCollapsed}
 		/>
 		<Button
 			icon="settings"
 			style="ghost"
 			size="cta"
-			on:mousedown={async () => await goto(`/${projectId}/settings`)}
+			help="Project settings"
+			on:click={async () => await goto(`/${projectId}/settings`)}
+			wide={isNavCollapsed}
+		/>
+		<Button
+			icon="timeline"
+			style="ghost"
+			size="cta"
+			help="Project history"
+			on:click={() => events.emit('openHistory')}
 			wide={isNavCollapsed}
 		/>
 	</div>
@@ -33,6 +43,7 @@
 		display: flex;
 		justify-content: space-between;
 		padding: var(--size-12);
+		gap: var(--size-6);
 		border-top: 1px solid var(--clr-border-2);
 		border-color: var(--clr-border-2);
 	}

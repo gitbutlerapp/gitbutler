@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
-	import History from '$lib/components/History.svelte';
+	// import History from '$lib/components/History.svelte';
+	import History from '$lib/components/HistoryNew.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$lib/components/ProjectSettingsMenuAction.svelte';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getContextStoreBySymbol } from '$lib/utils/context';
+	// import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	// import { getContextStoreBySymbol } from '$lib/utils/context';
 	import { BaseBranchService, NoDefaultTarget } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch } from '$lib/vbranches/types';
@@ -33,7 +34,7 @@
 	$: baseBranch = baseBranchService.base;
 	$: baseError = baseBranchService.error;
 	$: projectError = projectService.error;
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	// const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 	$: setContext(VirtualBranchService, vbranchService);
 	$: setContext(BranchController, branchController);
@@ -82,9 +83,9 @@
 		<div class="view-wrap" role="group" on:dragover|preventDefault>
 			<Navigation />
 			<slot />
-			{#if $userSettings.showHistoryView}
-				<History {projectId} />
-			{/if}
+			<!-- {#if $userSettings.showHistoryView} -->
+			<History {projectId} />
+			<!-- {/if} -->
 		</div>
 	{/if}
 {/key}

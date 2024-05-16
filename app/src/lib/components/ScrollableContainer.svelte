@@ -20,7 +20,7 @@
 
 	let observer: ResizeObserver;
 
-	const dispatch = createEventDispatcher<{ dragging: boolean }>();
+	const dispatch = createEventDispatcher<{ dragging: boolean; bottomReached: boolean }>();
 
 	onMount(() => {
 		observer = new ResizeObserver(() => {
@@ -44,7 +44,12 @@
 	<div
 		bind:this={viewport}
 		on:scroll={(e) => {
-			scrolled = e.currentTarget.scrollTop != 0;
+			const target = e.currentTarget;
+			scrolled = target.scrollTop != 0;
+
+			if (target.scrollTop + target.clientHeight >= target.scrollHeight) {
+				dispatch('bottomReached', true);
+			}
 		}}
 		class="viewport hide-native-scrollbar"
 		style:height
