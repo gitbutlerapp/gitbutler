@@ -125,6 +125,7 @@
 		padding: 0;
 		gap: var(--size-8);
 		flex-grow: 1;
+		overflow: hidden;
 		&:last-child {
 			padding-bottom: 0;
 		}
