@@ -354,7 +354,6 @@
 		color: var(--clr-scale-ntrl-60);
 		background: var(--clr-bg-1);
 		justify-content: center;
-		padding: var(--size-48) 0;
 		border-radius: var(--radius-m);
 		cursor: default; /* was defaulting to text cursor */
 	}
