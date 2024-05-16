@@ -7,7 +7,8 @@ export enum ModelKind {
 export enum OpenAIModelName {
 	GPT35Turbo = 'gpt-3.5-turbo',
 	GPT4 = 'gpt-4',
-	GPT4Turbo = 'gpt-4-turbo-preview'
+	GPT4Turbo = 'gpt-4-turbo-preview',
+	GPT4o = 'gpt-4o'
 }
 
 export enum AnthropicModelName {
