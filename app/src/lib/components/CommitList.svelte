@@ -28,7 +28,7 @@
 			{#if $unknownCommits.length > 0}
 				<CommitLines {hasShadowColumn} {hasLocalColumn} localLine />
 				{#each $unknownCommits as commit, idx (commit.id)}
-					<div class="flex">
+					<div class="commit-lines">
 						<CommitLines
 							{hasLocalColumn}
 							{hasShadowColumn}
@@ -60,7 +60,7 @@
 					localLine
 				/>
 				{#each $localCommits as commit, idx (commit.id)}
-					<div class="flex">
+					<div class="commit-lines">
 						<CommitLines
 							{hasLocalColumn}
 							{hasShadowColumn}
@@ -92,7 +92,7 @@
 					localLine
 				/>
 				{#each $remoteCommits as commit, idx (commit.id)}
-					<div class="flex">
+					<div class="commit-lines">
 						<CommitLines
 							{hasLocalColumn}
 							{hasShadowColumn}
@@ -127,16 +127,10 @@
 {/if}
 
 <style lang="postcss">
-	/* .commit-list {
-		&.upstream {
-			background-color: var(--clr-bg-2);
-		}
-		background-color: var(--clr-bg-1);
+	.commit-lines {
 		display: flex;
-		flex-direction: column;
-		position: relative;
-		flex-shrink: 0;
-	} */
+	}
+
 	.commit-list__content {
 		display: flex;
 		flex-direction: column;
