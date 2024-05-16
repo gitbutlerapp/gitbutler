@@ -4,7 +4,7 @@
 	import { PromptService } from '$lib/backend/prompt';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { getLocalCommits } from '$lib/vbranches/contexts';
+	import { getLocalCommits, getRemoteCommits, getUnknownCommits } from '$lib/vbranches/contexts';
 	import { Branch } from '$lib/vbranches/types';
 
 	export let isUnapplied: boolean;
@@ -19,11 +19,17 @@
 	});
 
 	const localCommits = getLocalCommits();
+	const remoteCommits = getRemoteCommits();
+	const unknownCommits = getUnknownCommits();
+
+	$: hasCommits =
+		$localCommits.length > 0 || $remoteCommits.length > 0 || $unknownCommits.length > 0;
+
 	let isLoading: boolean;
-	$: isPushed = $localCommits.length == 0;
+	$: isPushed = $localCommits.length == 0 && $unknownCommits.length == 0;
 </script>
 
-{#if !isUnapplied}
+{#if !isUnapplied && hasCommits}
 	<div class="actions">
 		{#if !isPushed}
 			{#if $prompt}
