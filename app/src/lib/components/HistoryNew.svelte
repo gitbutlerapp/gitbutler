@@ -89,13 +89,20 @@
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
 	const vbranchService = getContext(VirtualBranchService);
+
+	let listElement: HTMLElement | undefined = undefined;
+
+	// TODO: Fires multiple times nad cause uninitialized variable error
 	vbranchService.activeBranches.subscribe(() => {
 		// whenever virtual branches change, we need to reload the snapshots
 		// TODO: if the list has results from more pages, merge into it?
-		listSnapshots(projectId).then((rsp) => {
-			snapshots = rsp;
-			listElement?.scrollTo(0, 0);
-		});
+		listSnapshots(projectId)
+			.then((rsp) => {
+				snapshots = rsp;
+			})
+			.catch((error) => {
+				console.error('Error occurred while listing snapshots:', error);
+			});
 	});
 
 	let snapshots: Snapshot[] = [];
@@ -119,7 +126,6 @@
 			projectId: projectId,
 			sha: sha
 		});
-		// console.log(resp);
 		return resp;
 	}
 
@@ -128,11 +134,14 @@
 			projectId: projectId,
 			sha: sha
 		});
+
+		await listSnapshots(projectId).then((rsp) => {
+			snapshots = rsp;
+		});
+
 		// TODO: is there a better way to update all the state?
 		await goto(window.location.href, { replaceState: true });
 	}
-
-	let listElement: HTMLElement | undefined = undefined;
 
 	function onLastInView() {
 		if (!listElement) return;
@@ -141,6 +150,23 @@
 				snapshots = [...snapshots, ...rsp.slice(1)];
 			});
 		}
+	}
+
+	function updateFilePreview(entry: Snapshot, path: string) {
+		if (!snapshotFilesTempStore) return;
+
+		const file = snapshotFilesTempStore.diffs[path];
+
+		selectedFile = {
+			entryId: entry.id,
+			path: path
+		};
+
+		currentFilePreview = plainToInstance(RemoteFile, {
+			path: path,
+			hunks: file.hunks,
+			binary: file.binary
+		});
 	}
 
 	function closeView() {
@@ -180,7 +206,14 @@
 		});
 	}
 
+	let snapshotFilesTempStore:
+		| { entryId: string; diffs: { [key: string]: SnapshotDiff } }
+		| undefined = undefined;
 	let selectedFile: { entryId: string; path: string } | undefined = undefined;
+
+	$: if (snapshotFilesTempStore) {
+		console.log(snapshotFilesTempStore);
+	}
 </script>
 
 {#if $userSettings.showHistoryView}
@@ -203,6 +236,7 @@
 						readonly={true}
 						on:close={() => {
 							currentFilePreview = undefined;
+							selectedFile = undefined;
 						}}
 					/>
 				</div>
@@ -262,22 +296,19 @@
 										{selectedFile}
 										on:diffClick={async (filePath) => {
 											const path = filePath.detail;
-											const diffs = await getSnapshotDiff(
-												projectId,
-												entry.id
-											);
-											const file = diffs[path];
 
-											selectedFile = {
-												entryId: entry.id,
-												path: path
-											};
-
-											currentFilePreview = plainToInstance(RemoteFile, {
-												path: path,
-												hunks: file.hunks,
-												binary: file.binary
-											});
+											if (snapshotFilesTempStore?.entryId == entry.id) {
+												updateFilePreview(entry, path);
+											} else {
+												snapshotFilesTempStore = {
+													entryId: entry.id,
+													diffs: await getSnapshotDiff(
+														projectId,
+														entry.id
+													)
+												};
+												updateFilePreview(entry, path);
+											}
 										}}
 									/>
 								{/if}

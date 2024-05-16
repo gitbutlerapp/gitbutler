@@ -174,9 +174,7 @@
 	<div class="snapshot-content">
 		<div class="snapshot-details">
 			{#if isCurrent}
-				<div class="current-tag">
-					<Tag style="pop" kind="soft">Current</Tag>
-				</div>
+				<Tag style="pop" kind="soft">Current</Tag>
 			{/if}
 
 			<div class="snapshot-title-wrap">
@@ -331,7 +329,7 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: var(--size-6);
-		/* overflow: hidden; */
+		overflow: hidden;
 	}
 
 	.snapshot-details {
@@ -341,10 +339,6 @@
 		align-items: flex-start;
 		gap: var(--size-6);
 		min-height: var(--size-tag);
-	}
-
-	.current-tag {
-		margin-top: -0.188rem;
 	}
 
 	.snapshot-title-wrap {

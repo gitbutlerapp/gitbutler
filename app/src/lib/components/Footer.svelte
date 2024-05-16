@@ -14,6 +14,7 @@
 			icon="mail"
 			style="ghost"
 			size="cta"
+			help="Share feedback"
 			on:click={() => events.emit('openSendIssueModal')}
 			wide={isNavCollapsed}
 		/>
@@ -21,6 +22,7 @@
 			icon="settings"
 			style="ghost"
 			size="cta"
+			help="Project settings"
 			on:click={async () => await goto(`/${projectId}/settings`)}
 			wide={isNavCollapsed}
 		/>
@@ -28,6 +30,7 @@
 			icon="timeline"
 			style="ghost"
 			size="cta"
+			help="Project history"
 			on:click={() => events.emit('openHistory')}
 			wide={isNavCollapsed}
 		/>
