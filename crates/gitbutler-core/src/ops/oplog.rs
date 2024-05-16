@@ -275,40 +275,53 @@ impl Oplog for Project {
                 continue;
             };
 
-            let parent_tree = commit.parent(0)?.tree()?;
-            let parent_tree_entry = parent_tree.get_name("workdir");
-            let parent_tree = parent_tree_entry
-                .map(|entry| repo.find_tree(entry.id()))
-                .transpose()?;
-
-            let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
-            let stats = diff.stats()?;
-
-            let mut files_changed = Vec::new();
-            diff.print(git2::DiffFormat::NameOnly, |delta, _, _| {
-                if let Some(path) = delta.new_file().path() {
-                    files_changed.push(path.to_path_buf());
-                }
-                true
-            })?;
-
-            let lines_added = stats.insertions();
-            let lines_removed = stats.deletions();
-
             let details = commit
                 .message()
                 .and_then(|msg| SnapshotDetails::from_str(msg).ok());
 
-            snapshots.push(Snapshot {
-                id: commit_id.to_string(),
-                details,
-                lines_added,
-                lines_removed,
-                files_changed,
-                created_at: commit.time().seconds() * 1000,
-            });
+            if let Ok(parent) = commit.parent(0) {
+                let parent_tree = parent.tree()?;
+                let parent_tree_entry = parent_tree.get_name("workdir");
+                let parent_tree = parent_tree_entry
+                    .map(|entry| repo.find_tree(entry.id()))
+                    .transpose()?;
 
-            if snapshots.len() >= limit {
+                let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
+                let stats = diff.stats()?;
+
+                let mut files_changed = Vec::new();
+                diff.print(git2::DiffFormat::NameOnly, |delta, _, _| {
+                    if let Some(path) = delta.new_file().path() {
+                        files_changed.push(path.to_path_buf());
+                    }
+                    true
+                })?;
+
+                let lines_added = stats.insertions();
+                let lines_removed = stats.deletions();
+
+                snapshots.push(Snapshot {
+                    id: commit_id.to_string(),
+                    details,
+                    lines_added,
+                    lines_removed,
+                    files_changed,
+                    created_at: commit.time().seconds() * 1000,
+                });
+
+                if snapshots.len() >= limit {
+                    break;
+                }
+            } else {
+                // this is the very first snapshot
+                snapshots.push(Snapshot {
+                    id: commit_id.to_string(),
+                    details,
+                    lines_added: 0,
+                    lines_removed: 0,
+                    files_changed: Vec::new(), // Fix: Change 0 to an empty vector
+                    created_at: commit.time().seconds() * 1000,
+                });
                 break;
             }
         }
@@ -793,4 +806,8 @@ mod tests {
         assert!(!&conflicts_path.exists());
         assert!(!&base_merge_parent_path.exists());
     }
+    
+    // test no oplog.toml found
+    // test oplog.toml head is not a commit
+    // test missing commits are recreated
 }
