@@ -232,12 +232,10 @@
 										<InfoMessage noRadius filled outlined={false} style="error">
 											<svelte:fragment slot="title">
 												{#if branch.files.some((f) => f.conflicted)}
-													This virtual branch conflicts with upstream
-													changes. Please resolve all conflicts and commit
-													before you can continue.
+													This virtual branch conflicts with upstream changes. Please resolve all
+													conflicts and commit before you can continue.
 												{:else}
-													Please commit your resolved conflicts to
-													continue.
+													Please commit your resolved conflicts to continue.
 												{/if}
 											</svelte:fragment>
 										</InfoMessage>
@@ -259,9 +257,7 @@
 						{:else if branch.commits.length == 0}
 							<div class="new-branch card">
 								<EmptyStatePlaceholder image={laneNewSvg} width="11rem">
-									<svelte:fragment slot="title"
-										>This is a new branch</svelte:fragment
-									>
+									<svelte:fragment slot="title">This is a new branch</svelte:fragment>
 									<svelte:fragment slot="caption">
 										You can drag and drop files or parts of files here.
 									</svelte:fragment>
@@ -269,11 +265,7 @@
 							</div>
 						{:else}
 							<div class="no-changes card" data-dnd-ignore>
-								<EmptyStatePlaceholder
-									image={noChangesSvg}
-									width="11rem"
-									hasBottomShift={false}
-								>
+								<EmptyStatePlaceholder image={noChangesSvg} width="11rem" hasBottomShift={false}>
 									<svelte:fragment slot="caption"
 										>No uncommitted changes on this branch</svelte:fragment
 									>
@@ -291,9 +283,7 @@
 					direction="right"
 					minWidth={320}
 					sticky
-					defaultLineColor={$fileIdSelection.length == 1
-						? 'transparent'
-						: 'var(--clr-border-2)'}
+					defaultLineColor={$fileIdSelection.length == 1 ? 'transparent' : 'var(--clr-border-2)'}
 					on:width={(e) => {
 						laneWidth = e.detail / (16 * $userSettings.zoom);
 						lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl

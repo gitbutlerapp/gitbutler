@@ -100,9 +100,7 @@
 								popupMenu.openByMouse(e, {
 									hunk,
 									section: subsection,
-									lineNumber: line.afterLineNumber
-										? line.afterLineNumber
-										: line.beforeLineNumber
+									lineNumber: line.afterLineNumber ? line.afterLineNumber : line.beforeLineNumber
 								})}
 						/>
 					{/each}

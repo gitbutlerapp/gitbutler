@@ -58,9 +58,7 @@
 				<BranchPreviewHeader base={$baseBranch} {branch} {pr} />
 				{#if pr?.body}
 					<div class="card">
-						<div class="card__header text-base-body-14 text-semibold">
-							PR Description
-						</div>
+						<div class="card__header text-base-body-14 text-semibold">PR Description</div>
 						<div class="markdown card__content text-base-body-13">
 							{@html marked.parse(pr.body, { renderer })}
 						</div>
@@ -70,10 +68,7 @@
 					{#if branchData.commits && branchData.commits.length > 0}
 						<div class="branch-preview__commits-list">
 							{#each branchData.commits as commit (commit.id)}
-								<CommitCard
-									{commit}
-									commitUrl={$baseBranch?.commitUrl(commit.id)}
-								/>
+								<CommitCard {commit} commitUrl={$baseBranch?.commitUrl(commit.id)} />
 							{/each}
 						</div>
 					{/if}
