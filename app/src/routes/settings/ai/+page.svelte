@@ -100,6 +100,10 @@
 		{
 			name: 'GPT 4 Turbo',
 			value: OpenAIModelName.GPT4Turbo
+		},
+		{
+			name: 'GPT 4 Omni',
+			value: OpenAIModelName.GPT4o
 		}
 	];
 
