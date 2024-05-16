@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '$lib/utils/tooltip';
 	import type { Author, CommitStatus } from '$lib/vbranches/types';
 
 	export let author: Author;
@@ -7,7 +8,6 @@
 
 <img
 	class="avatar"
-	title={author.name}
 	alt="Gravatar for {author.email}"
 	srcset="{author.gravatarUrl} 2x"
 	width="100"
@@ -15,6 +15,7 @@
 	class:remote={status == 'remote'}
 	class:local={status == 'local'}
 	class:upstream={status == 'upstream'}
+	use:tooltip={author.name}
 	on:error
 />
 
