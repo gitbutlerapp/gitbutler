@@ -342,7 +342,7 @@
 			border-bottom-left-radius: var(--radius-m);
 			border-bottom-right-radius: var(--radius-m);
 		}
-		&:not(.is-first):not(.is-commit-open) {
+		&:not(.is-first) {
 			border-top: none;
 		}
 		&:not(.is-commit-open):hover {
@@ -385,7 +385,6 @@
 
 	.is-commit-open {
 		background-color: var(--clr-bg-2);
-		margin: 0.5rem 0;
 
 		& .commit__header {
 			padding-bottom: var(--size-16);
