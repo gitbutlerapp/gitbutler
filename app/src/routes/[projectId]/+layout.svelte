@@ -7,6 +7,7 @@
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$lib/components/ProjectSettingsMenuAction.svelte';
+	import { HistoryService } from '$lib/history/history';
 	import { BaseBranchService, NoDefaultTarget } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch } from '$lib/vbranches/types';
@@ -33,6 +34,7 @@
 	$: projectError = projectService.error;
 	// const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
+	$: setContext(HistoryService, data.historyService);
 	$: setContext(VirtualBranchService, vbranchService);
 	$: setContext(BranchController, branchController);
 	$: setContext(BranchService, branchService);
@@ -80,9 +82,7 @@
 		<div class="view-wrap" role="group" on:dragover|preventDefault>
 			<Navigation />
 			<slot />
-			<!-- {#if $userSettings.showHistoryView} -->
-			<History {projectId} />
-			<!-- {/if} -->
+			<History />
 		</div>
 	{/if}
 {/key}

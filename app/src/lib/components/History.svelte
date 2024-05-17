@@ -1,68 +1,3 @@
-<script lang="ts" context="module">
-	export type Trailer = {
-		key: string;
-		value: string;
-	};
-	export type Operation =
-		| 'CreateCommit'
-		| 'CreateBranch'
-		| 'SetBaseBranch'
-		| 'MergeUpstream'
-		| 'UpdateWorkspaceBase'
-		| 'MoveHunk'
-		| 'UpdateBranchName'
-		| 'UpdateBranchNotes'
-		| 'ReorderBranches'
-		| 'SelectDefaultVirtualBranch'
-		| 'UpdateBranchRemoteName'
-		| 'GenericBranchUpdate'
-		| 'DeleteBranch'
-		| 'ApplyBranch'
-		| 'DiscardHunk'
-		| 'DiscardFile'
-		| 'AmendCommit'
-		| 'UndoCommit'
-		| 'UnapplyBranch'
-		| 'CherryPick'
-		| 'SquashCommit'
-		| 'UpdateCommitMessage'
-		| 'MoveCommit'
-		| 'RestoreFromSnapshot'
-		| 'ReorderCommit'
-		| 'InsertBlankCommit'
-		| 'MoveCommitFile'
-		| 'FileChanges';
-	export type SnapshotDetails = {
-		title: string;
-		operation: Operation;
-		body: string | undefined;
-		trailers: Trailer[];
-	};
-	export type Snapshot = {
-		id: string;
-		linesAdded: number;
-		linesRemoved: number;
-		filesChanged: string[];
-		details: SnapshotDetails | undefined;
-		createdAt: number;
-	};
-
-	export function createdOnDay(dateNumber: number) {
-		const d = new Date(dateNumber);
-		const t = new Date();
-		return `${t.toDateString() == d.toDateString() ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' })}, ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-	}
-	export type SnapshotDiff = {
-		binary: boolean;
-		hunks: RemoteHunk[];
-		newPath: string;
-		newSizeBytes: number;
-		oldPath: string;
-		oldSizeBytes: number;
-		skipped: boolean;
-	};
-</script>
-
 <script lang="ts">
 	import Button from './Button.svelte';
 	import EmptyStatePlaceholder from './EmptyStatePlaceholder.svelte';
@@ -72,84 +7,29 @@
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import SnapshotCard from './SnapshotCard.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
-	import { invoke, listen } from '$lib/backend/ipc';
+	import { listen } from '$lib/backend/ipc';
+	import { Project } from '$lib/backend/projects';
 	import { clickOutside } from '$lib/clickOutside';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
-	import { type RemoteHunk, RemoteFile } from '$lib/vbranches/types';
-	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import { HistoryService, createdOnDay } from '$lib/history/history';
+	import { persisted } from '$lib/persisted/persisted';
+	import { getContext } from '$lib/utils/context';
+	import * as hotkeys from '$lib/utils/hotkeys';
+	import { RemoteFile } from '$lib/vbranches/types';
 	import { plainToInstance } from 'class-transformer';
-	import { onMount, onDestroy } from 'svelte';
-	import type { Writable } from 'svelte/store';
-	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import type { Snapshot, SnapshotDiff } from '$lib/history/types';
 
-	export let projectId: string;
+	const project = getContext(Project);
+	const historyService = getContext(HistoryService);
+	const snapshots = historyService.snapshots;
+
+	const showHistoryView = persisted(false, 'showHistoryView');
+	const loading = historyService.loading;
+
 	let currentFilePreview: RemoteFile | undefined = undefined;
 
-	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
-
-	const vbranchService = getContext(VirtualBranchService);
-
-	let listElement: HTMLElement | undefined = undefined;
-
-	// TODO: Fires multiple times nad cause uninitialized variable error
-	vbranchService.activeBranches.subscribe(() => {
-		// whenever virtual branches change, we need to reload the snapshots
-		// TODO: if the list has results from more pages, merge into it?
-		listSnapshots(projectId)
-			.then((rsp) => {
-				snapshots = rsp;
-			})
-			.catch((error) => {
-				console.error('Error occurred while listing snapshots:', error);
-			});
-	});
-
-	let snapshots: Snapshot[] = [];
-	let isSnapshotsLoading = false;
-
-	async function listSnapshots(projectId: string, sha?: string) {
-		isSnapshotsLoading = true;
-
-		const resp = await invoke<Snapshot[]>('list_snapshots', {
-			projectId: projectId,
-			limit: 32,
-			sha: sha
-		});
-
-		isSnapshotsLoading = false;
-		return resp;
-	}
-
-	async function getSnapshotDiff(projectId: string, sha: string) {
-		const resp = await invoke<{ [key: string]: SnapshotDiff }>('snapshot_diff', {
-			projectId: projectId,
-			sha: sha
-		});
-		return resp;
-	}
-
-	async function restoreSnapshot(projectId: string, sha: string) {
-		await invoke<string>('restore_snapshot', {
-			projectId: projectId,
-			sha: sha
-		});
-
-		await listSnapshots(projectId).then((rsp) => {
-			snapshots = rsp;
-		});
-
-		// TODO: is there a better way to update all the state?
-		await goto(window.location.href, { replaceState: true });
-	}
-
-	function onLastInView() {
-		if (!listElement) return;
-		if (listElement.scrollTop + listElement.clientHeight >= listElement.scrollHeight) {
-			listSnapshots(projectId, snapshots[snapshots.length - 1].id).then((rsp) => {
-				snapshots = [...snapshots, ...rsp.slice(1)];
-			});
-		}
+	async function onLastInView() {
+		if (!$loading) await historyService.loadMore();
 	}
 
 	function updateFilePreview(entry: Snapshot, path: string) {
@@ -169,60 +49,35 @@
 		});
 	}
 
-	function closeView() {
-		userSettings.update((s) => ({
-			...s,
-			showHistoryView: false
-		}));
-	}
-
-	onMount(async () => {
-		if (listElement) listElement.addEventListener('scroll', onLastInView, true);
-	});
 	onMount(() => {
 		const unsubscribe = listen<string>('menu://view/history/clicked', () => {
-			userSettings.update((s) => ({
-				...s,
-				showHistoryView: !$userSettings.showHistoryView
-			}));
+			$showHistoryView = !$showHistoryView;
 		});
 
-		return () => {
+		// TODO: Refactor somehow
+		const unsubscribeHotkeys = hotkeys.on('$mod+Shift+H', () => {
+			$showHistoryView = !$showHistoryView;
+		});
+
+		return async () => {
 			unsubscribe();
+			unsubscribeHotkeys();
 		};
 	});
-	onDestroy(() => {
-		listElement?.removeEventListener('scroll', onLastInView, true);
-	});
-
-	// optimisation: don't fetch snapshots if the view is not visible
-	$: if (!$userSettings.showHistoryView) {
-		snapshots = [];
-		currentFilePreview = undefined;
-		selectedFile = undefined;
-	} else {
-		listSnapshots(projectId).then((rsp) => {
-			snapshots = rsp;
-		});
-	}
 
 	let snapshotFilesTempStore:
 		| { entryId: string; diffs: { [key: string]: SnapshotDiff } }
 		| undefined = undefined;
 	let selectedFile: { entryId: string; path: string } | undefined = undefined;
-
-	$: if (snapshotFilesTempStore) {
-		console.log(snapshotFilesTempStore);
-	}
 </script>
 
-{#if $userSettings.showHistoryView}
-	<aside class="sideview-container" class:show-view={$userSettings.showHistoryView}>
+{#if $showHistoryView}
+	<aside class="sideview-container" class:show-view={$showHistoryView}>
 		<div
 			class="sideview-content-wrap"
 			use:clickOutside={{
 				handler: () => {
-					closeView();
+					$showHistoryView = false;
 				}
 			}}
 		>
@@ -252,13 +107,13 @@
 						style="ghost"
 						icon="cross"
 						on:click={() => {
-							closeView();
+							$showHistoryView = false;
 						}}
 					/>
 				</div>
 
 				<!-- EMPTY STATE -->
-				{#if snapshots.length == 0}
+				{#if $snapshots.length == 0}
 					<EmptyStatePlaceholder image={emptyFolderSvg}>
 						<svelte:fragment slot="title">No snapshots yet</svelte:fragment>
 						<svelte:fragment slot="caption">
@@ -268,17 +123,17 @@
 					</EmptyStatePlaceholder>
 				{/if}
 
-				{#if isSnapshotsLoading}
+				{#if $snapshots.length == 0 && $loading}
 					<FullviewLoading />
 				{/if}
 
 				<!-- SNAPSHOTS -->
-				{#if snapshots.length > 0 && !isSnapshotsLoading}
+				{#if $snapshots.length > 0}
 					<ScrollableContainer on:bottomReached={onLastInView}>
-						<div class="container" bind:this={listElement}>
+						<div class="container">
 							<!-- SNAPSHOTS FEED -->
-							{#each snapshots as entry, idx}
-								{#if idx === 0 || createdOnDay(entry.createdAt) != createdOnDay(snapshots[idx - 1].createdAt)}
+							{#each $snapshots as entry, idx (entry.id)}
+								{#if idx === 0 || createdOnDay(entry.createdAt) != createdOnDay($snapshots[idx - 1].createdAt)}
 									<div class="sideview__date-header">
 										<h4 class="text-base-12 text-semibold">
 											{createdOnDay(entry.createdAt)}
@@ -291,7 +146,7 @@
 										{entry}
 										isCurrent={idx == 0}
 										on:restoreClick={() => {
-											restoreSnapshot(projectId, entry.id);
+											historyService.restoreSnapshot(project.id, entry.id);
 										}}
 										{selectedFile}
 										on:diffClick={async (filePath) => {
@@ -302,7 +157,7 @@
 											} else {
 												snapshotFilesTempStore = {
 													entryId: entry.id,
-													diffs: await getSnapshotDiff(projectId, entry.id)
+													diffs: await historyService.getSnapshotDiff(project.id, entry.id)
 												};
 												updateFilePreview(entry, path);
 											}
