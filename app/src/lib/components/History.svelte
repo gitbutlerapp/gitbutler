@@ -7,23 +7,20 @@
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import SnapshotCard from './SnapshotCard.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
-	import { listen } from '$lib/backend/ipc';
 	import { Project } from '$lib/backend/projects';
 	import { clickOutside } from '$lib/clickOutside';
 	import { HistoryService, createdOnDay } from '$lib/history/history';
-	import { persisted } from '$lib/persisted/persisted';
 	import { getContext } from '$lib/utils/context';
-	import * as hotkeys from '$lib/utils/hotkeys';
 	import { RemoteFile } from '$lib/vbranches/types';
 	import { plainToInstance } from 'class-transformer';
-	import { onMount } from 'svelte';
+	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDiff } from '$lib/history/types';
 
 	const project = getContext(Project);
 	const historyService = getContext(HistoryService);
 	const snapshots = historyService.snapshots;
+	const dispatch = createEventDispatcher<{ hide: any }>();
 
-	const showHistoryView = persisted(false, 'showHistoryView');
 	const loading = historyService.loading;
 
 	let currentFilePreview: RemoteFile | undefined = undefined;
@@ -49,142 +46,122 @@
 		});
 	}
 
-	onMount(() => {
-		const unsubscribe = listen<string>('menu://view/history/clicked', () => {
-			$showHistoryView = !$showHistoryView;
-		});
-
-		// TODO: Refactor somehow
-		const unsubscribeHotkeys = hotkeys.on('$mod+Shift+H', () => {
-			$showHistoryView = !$showHistoryView;
-		});
-
-		return async () => {
-			unsubscribe();
-			unsubscribeHotkeys();
-		};
-	});
-
 	let snapshotFilesTempStore:
 		| { entryId: string; diffs: { [key: string]: SnapshotDiff } }
 		| undefined = undefined;
 	let selectedFile: { entryId: string; path: string } | undefined = undefined;
 </script>
 
-{#if $showHistoryView}
-	<aside class="sideview-container" class:show-view={$showHistoryView}>
-		<div
-			class="sideview-content-wrap"
-			use:clickOutside={{
-				handler: () => {
-					$showHistoryView = false;
-				}
-			}}
-		>
-			{#if currentFilePreview}
-				<div class="file-preview" class:show-file-view={currentFilePreview}>
-					<FileCard
-						isCard={false}
-						conflicted={false}
-						file={currentFilePreview}
-						isUnapplied={false}
-						readonly={true}
-						on:close={() => {
-							currentFilePreview = undefined;
-							selectedFile = undefined;
-						}}
-					/>
-				</div>
+<aside class="sideview-container show-view">
+	<div
+		class="sideview-content-wrap"
+		use:clickOutside={{
+			handler: () => dispatch('hide')
+		}}
+	>
+		{#if currentFilePreview}
+			<div class="file-preview" class:show-file-view={currentFilePreview}>
+				<FileCard
+					isCard={false}
+					conflicted={false}
+					file={currentFilePreview}
+					isUnapplied={false}
+					readonly={true}
+					on:close={() => {
+						currentFilePreview = undefined;
+						selectedFile = undefined;
+					}}
+				/>
+			</div>
+		{/if}
+
+		<div class="sideview">
+			<div class="sideview__header" data-tauri-drag-region>
+				<i class="clock-icon">
+					<div class="clock-pointers" />
+				</i>
+				<h3 class="sideview__header-title text-base-15 text-bold">Project history</h3>
+				<Button
+					style="ghost"
+					icon="cross"
+					on:click={() => {
+						dispatch('hide');
+					}}
+				/>
+			</div>
+
+			<!-- EMPTY STATE -->
+			{#if $snapshots.length == 0}
+				<EmptyStatePlaceholder image={emptyFolderSvg}>
+					<svelte:fragment slot="title">No snapshots yet</svelte:fragment>
+					<svelte:fragment slot="caption">
+						Gitbutler saves your work, including file changes, so your progress is always secure.
+						Adjust snapshot settings in project settings.
+					</svelte:fragment>
+				</EmptyStatePlaceholder>
 			{/if}
 
-			<div class="sideview">
-				<div class="sideview__header" data-tauri-drag-region>
-					<i class="clock-icon">
-						<div class="clock-pointers" />
-					</i>
-					<h3 class="sideview__header-title text-base-15 text-bold">Project history</h3>
-					<Button
-						style="ghost"
-						icon="cross"
-						on:click={() => {
-							$showHistoryView = false;
-						}}
-					/>
-				</div>
+			{#if $snapshots.length == 0 && $loading}
+				<FullviewLoading />
+			{/if}
 
-				<!-- EMPTY STATE -->
-				{#if $snapshots.length == 0}
-					<EmptyStatePlaceholder image={emptyFolderSvg}>
-						<svelte:fragment slot="title">No snapshots yet</svelte:fragment>
-						<svelte:fragment slot="caption">
-							Gitbutler saves your work, including file changes, so your progress is always secure.
-							Adjust snapshot settings in project settings.
-						</svelte:fragment>
-					</EmptyStatePlaceholder>
-				{/if}
-
-				{#if $snapshots.length == 0 && $loading}
-					<FullviewLoading />
-				{/if}
-
-				<!-- SNAPSHOTS -->
-				{#if $snapshots.length > 0}
-					<ScrollableContainer on:bottomReached={onLastInView}>
-						<div class="container">
-							<!-- SNAPSHOTS FEED -->
-							{#each $snapshots as entry, idx (entry.id)}
-								{#if idx === 0 || createdOnDay(entry.createdAt) != createdOnDay($snapshots[idx - 1].createdAt)}
-									<div class="sideview__date-header">
-										<h4 class="text-base-12 text-semibold">
-											{createdOnDay(entry.createdAt)}
-										</h4>
-									</div>
-								{/if}
-
-								{#if entry.details}
-									<SnapshotCard
-										{entry}
-										isCurrent={idx == 0}
-										on:restoreClick={() => {
-											historyService.restoreSnapshot(project.id, entry.id);
-										}}
-										{selectedFile}
-										on:diffClick={async (filePath) => {
-											const path = filePath.detail;
-
-											if (snapshotFilesTempStore?.entryId == entry.id) {
-												updateFilePreview(entry, path);
-											} else {
-												snapshotFilesTempStore = {
-													entryId: entry.id,
-													diffs: await historyService.getSnapshotDiff(project.id, entry.id)
-												};
-												updateFilePreview(entry, path);
-											}
-										}}
-									/>
-								{/if}
-							{/each}
-
-							<div class="welcome-point">
-								<div class="welcome-point__icon">
-									<Icon name="finish" />
+			<!-- SNAPSHOTS -->
+			{#if $snapshots.length > 0}
+				<ScrollableContainer on:bottomReached={onLastInView}>
+					<div class="container">
+						<!-- SNAPSHOTS FEED -->
+						{#each $snapshots as entry, idx (entry.id)}
+							{#if idx === 0 || createdOnDay(entry.createdAt) != createdOnDay($snapshots[idx - 1].createdAt)}
+								<div class="sideview__date-header">
+									<h4 class="text-base-12 text-semibold">
+										{createdOnDay(entry.createdAt)}
+									</h4>
 								</div>
-								<div class="welcome-point__content">
-									<p class="text-base-13 text-semibold">Welcome to history!</p>
-									<p class="welcome-point__caption text-base-body-12">
-										Gitbutler saves your work, including file changes, so your progress is always
-										secure. Adjust snapshot settings in project settings.
-									</p>
-								</div>
+							{/if}
+
+							{#if entry.details}
+								<SnapshotCard
+									{entry}
+									isCurrent={idx == 0}
+									on:restoreClick={() => {
+										historyService.restoreSnapshot(project.id, entry.id);
+									}}
+									{selectedFile}
+									on:diffClick={async (filePath) => {
+										const path = filePath.detail;
+
+										if (snapshotFilesTempStore?.entryId == entry.id) {
+											updateFilePreview(entry, path);
+										} else {
+											snapshotFilesTempStore = {
+												entryId: entry.id,
+												diffs: await historyService.getSnapshotDiff(project.id, entry.id)
+											};
+											updateFilePreview(entry, path);
+										}
+									}}
+								/>
+							{/if}
+						{/each}
+
+						<div class="welcome-point">
+							<div class="welcome-point__icon">
+								<Icon name="finish" />
+							</div>
+							<div class="welcome-point__content">
+								<p class="text-base-13 text-semibold">Welcome to history!</p>
+								<p class="welcome-point__caption text-base-body-12">
+									Gitbutler saves your work, including file changes, so your progress is always
+									secure. Adjust snapshot settings in project settings.
+								</p>
 							</div>
 						</div>
-					</ScrollableContainer>
-				{/if}
-			</div>
+					</div>
+				</ScrollableContainer>
+			{/if}
 		</div>
-	</aside>
-{/if}
+	</div>
+</aside>
 
 <!-- TODO: HANDLE LOADING STATE -->
 
