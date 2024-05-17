@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { createdOnDay } from './HistoryNew.svelte';
+	import { createdOnDay } from './History.svelte';
 	import Icon from './Icon.svelte';
 	import SnapshotAttachment from './SnapshotAttachment.svelte';
 	import Tag from './Tag.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';
-	import type { Snapshot, SnapshotDetails } from './HistoryNew.svelte';
+	import type { Snapshot, SnapshotDetails } from './History.svelte';
 
 	export let entry: Snapshot;
 	export let isCurrent: boolean = false;
