@@ -2,7 +2,7 @@ use std::{fs, path, str::FromStr};
 
 use gitbutler_core::{
     git,
-    projects::{self, ProjectId},
+    projects::{self, Project, ProjectId},
     users,
     virtual_branches::{branch, errors, Controller},
 };
@@ -13,6 +13,7 @@ use gitbutler_testsupport::{paths, TestProject, VAR_NO_CLEANUP};
 struct Test {
     repository: TestProject,
     project_id: ProjectId,
+    project: Project,
     projects: projects::Controller,
     controller: Controller,
     data_dir: Option<TempDir>,
@@ -43,6 +44,7 @@ impl Default for Test {
             project_id: project.id,
             controller: Controller::new(projects.clone(), users, helper),
             projects,
+            project,
             data_dir: Some(data_dir),
         }
     }
@@ -59,6 +61,7 @@ mod init;
 mod insert_blank_commit;
 mod move_commit_file;
 mod move_commit_to_vbranch;
+mod oplog;
 mod references;
 mod reorder_commit;
 mod reset_virtual_branch;
