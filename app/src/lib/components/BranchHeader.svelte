@@ -32,7 +32,8 @@
 	const baseBranch = getContextStore(BaseBranch);
 
 	$: branch = $branchStore;
-	$: hasPullRequest = branch.upstreamName && githubService.hasPr(branch.upstreamName);
+	$: pr$ = githubService.getPr$(branch.upstreamName);
+	$: hasPullRequest = branch.upstreamName && $pr$;
 
 	let meatballButton: HTMLDivElement;
 	let visible = false;
@@ -82,7 +83,8 @@
 
 		isLoading = true;
 		try {
-			return await branchService.createPr(branch, $baseBranch.shortName, opts.draft);
+			await branchService.createPr(branch, $baseBranch.shortName, opts.draft);
+			await githubService.reload();
 		} finally {
 			isLoading = false;
 		}
