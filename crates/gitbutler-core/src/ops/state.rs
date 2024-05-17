@@ -22,7 +22,7 @@ pub struct OplogHandle {
 impl OplogHandle {
     /// Creates a new concurrency-safe handle to the state of the oplog.
     pub fn new(base_path: &Path) -> Self {
-        let file_path = base_path.join("oplog.toml");
+        let file_path = base_path.join("operations-log.toml");
         Self { file_path }
     }
 
