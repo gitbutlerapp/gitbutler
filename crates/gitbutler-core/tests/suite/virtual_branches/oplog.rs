@@ -104,9 +104,7 @@ async fn test_basic_oplog() {
         ]
     );
 
-    project
-        .restore_snapshot(snapshots[1].clone().id)
-        .unwrap();
+    project.restore_snapshot(snapshots[1].clone().id).unwrap();
 
     // restores the conflict files
     let file_lines = std::fs::read_to_string(&conflicts_path).unwrap();
@@ -117,21 +115,23 @@ async fn test_basic_oplog() {
     assert_eq!(snapshots[2].lines_added, 2);
     assert_eq!(snapshots[2].lines_removed, 0);
 
-    project
-        .restore_snapshot(snapshots[3].clone().id)
-        .unwrap();
+    project.restore_snapshot(snapshots[3].clone().id).unwrap();
 
     // the restore removed our new branch
     let branches = controller.list_virtual_branches(project_id).await.unwrap();
     assert_eq!(branches.0.len(), 1);
-    
+
     // assert that the conflicts file was removed
     assert!(!&conflicts_path.try_exists().unwrap());
 
     // remove commit2_oid from odb
     let commit_str = &commit2_id.to_string();
     // find file in odb
-    let file_path = repository.path().join(".git").join("objects").join(&commit_str[..2]);
+    let file_path = repository
+        .path()
+        .join(".git")
+        .join("objects")
+        .join(&commit_str[..2]);
     let file_path = file_path.join(&commit_str[2..]);
     assert!(file_path.exists());
     // remove file
@@ -142,9 +142,7 @@ async fn test_basic_oplog() {
     let commit = repo.find_commit(commit2_id.into());
     assert!(commit.is_err());
 
-    project
-        .restore_snapshot(snapshots[2].clone().id)
-        .unwrap();
+    project.restore_snapshot(snapshots[2].clone().id).unwrap();
 
     // test missing commits are recreated
     let commit = repo.find_commit(commit2_id.into());
@@ -180,7 +178,11 @@ async fn test_oplog_head_corrupt() {
 
     // overwrite oplog head with a non-commit sha
     let file_path = repository.path().join(".git").join("operations-log.toml");
-    fs::write(file_path, "head_sha = \"758d54f587227fba3da3b61fbb54a99c17903d59\"").unwrap();
+    fs::write(
+        file_path,
+        "head_sha = \"758d54f587227fba3da3b61fbb54a99c17903d59\"",
+    )
+    .unwrap();
 
     controller
         .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())

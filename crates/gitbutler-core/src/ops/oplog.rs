@@ -151,14 +151,22 @@ impl Oplog for Project {
                 commit_tree_builder.insert("tree", commit_tree.id(), FileMode::Tree.into())?;
 
                 let commit_tree_id = commit_tree_builder.write()?;
-                commits_tree_builder.insert(&commit_id.to_string(), commit_tree_id, FileMode::Tree.into())?;
+                commits_tree_builder.insert(
+                    &commit_id.to_string(),
+                    commit_tree_id,
+                    FileMode::Tree.into(),
+                )?;
             }
 
             let commits_tree_id = commits_tree_builder.write()?;
-            branch_tree_builder.insert("commits",commits_tree_id, FileMode::Tree.into())?;
+            branch_tree_builder.insert("commits", commits_tree_id, FileMode::Tree.into())?;
 
             let branch_tree_id = branch_tree_builder.write()?;
-            branches_tree_builder.insert(&branch.id.to_string(), branch_tree_id, FileMode::Tree.into())?;
+            branches_tree_builder.insert(
+                &branch.id.to_string(),
+                branch_tree_id,
+                FileMode::Tree.into(),
+            )?;
         }
 
         let branch_tree_id = branches_tree_builder.write()?;
@@ -166,9 +174,11 @@ impl Oplog for Project {
 
         // merge all the branch trees together, this should be our worktree
         // TODO: when we implement sub-hunk splitting, this merge logic will need to incorporate that
-        if head_trees.is_empty() { // if there are no applied branches, then it's just the target tree
+        if head_trees.is_empty() {
+            // if there are no applied branches, then it's just the target tree
             tree_builder.insert("workdir", target_tree_oid, FileMode::Tree.into())?;
-        } else if head_trees.len() == 1 { // if there is just one applied branch, then it's just that branch tree
+        } else if head_trees.len() == 1 {
+            // if there is just one applied branch, then it's just that branch tree
             tree_builder.insert("workdir", head_trees[0].into(), FileMode::Tree.into())?;
         } else {
             // otherwise merge one branch tree at a time with target_tree_oid as the base
@@ -180,18 +190,14 @@ impl Oplog for Project {
             // iterate through all head trees
             for head_tree in head_trees_iter {
                 let current_theirs = repo.find_tree(git2::Oid::from(*head_tree))?;
-                let mut workdir_temp_index = repo.merge_trees(
-                    &base_tree,
-                    &current_ours,
-                    &current_theirs,
-                    None
-                )?;
+                let mut workdir_temp_index =
+                    repo.merge_trees(&base_tree, &current_ours, &current_theirs, None)?;
                 workdir_tree_oid = workdir_temp_index.write_tree_to(&repo)?;
                 current_ours = current_theirs;
             }
             tree_builder.insert("workdir", workdir_tree_oid, FileMode::Tree.into())?;
         }
-            
+
         // ok, write out the final oplog tree
         let tree_id = tree_builder.write()?;
         let tree = repo.find_tree(tree_id)?;
@@ -267,7 +273,7 @@ impl Oplog for Project {
             }
 
             let tree = commit.tree()?;
-            let wd_tree_entry = tree.get_name("workdir"); 
+            let wd_tree_entry = tree.get_name("workdir");
             let tree = if let Some(wd_tree_entry) = wd_tree_entry {
                 repo.find_tree(wd_tree_entry.id())?
             } else {
@@ -352,18 +358,29 @@ impl Oplog for Project {
             .ok_or(anyhow!("failed to get workdir tree entry"))?;
 
         // make sure we reconstitute any commits that were in the snapshot that are not here for some reason
-        // for every entry in the virtual_branches subtree, reconsitute the commits 
+        // for every entry in the virtual_branches subtree, reconsitute the commits
         let vb_tree_entry = top_tree
             .get_name("virtual_branches")
-            .ok_or(anyhow!("failed to get virtual_branches tree entry"))?; 
-        let vb_tree = vb_tree_entry.to_object(&repo)?.into_tree().map_err(|_| anyhow!("failed to convert virtual_branches tree entry to tree"))?;
+            .ok_or(anyhow!("failed to get virtual_branches tree entry"))?;
+        let vb_tree = vb_tree_entry
+            .to_object(&repo)?
+            .into_tree()
+            .map_err(|_| anyhow!("failed to convert virtual_branches tree entry to tree"))?;
 
         // walk through all the entries (branches)
         let walker = vb_tree.iter();
         for branch_entry in walker {
-            let branch_tree = branch_entry.to_object(&repo)?.into_tree().map_err(|_| anyhow!("failed to convert virtual_branches tree entry to tree"))?;
-            let commits_tree_entry = branch_tree.get_name("commits").ok_or(anyhow!("failed to get commits tree entry"))?;
-            let commits_tree = commits_tree_entry.to_object(&repo)?.into_tree().map_err(|_| anyhow!("failed to convert commits tree entry to tree"))?;
+            let branch_tree = branch_entry
+                .to_object(&repo)?
+                .into_tree()
+                .map_err(|_| anyhow!("failed to convert virtual_branches tree entry to tree"))?;
+            let commits_tree_entry = branch_tree
+                .get_name("commits")
+                .ok_or(anyhow!("failed to get commits tree entry"))?;
+            let commits_tree = commits_tree_entry
+                .to_object(&repo)?
+                .into_tree()
+                .map_err(|_| anyhow!("failed to convert commits tree entry to tree"))?;
 
             // walk through all the commits in the branch
             let commit_walker = commits_tree.iter();
@@ -378,13 +395,20 @@ impl Oplog for Project {
 
                     // commit is not in the repo, let's build it from our data
                     // we get the data from the blob entry and create a commit object from it, which should match the oid of the entry
-                    let commit_tree = commit_entry.to_object(&repo)?.into_tree().map_err(|_| anyhow!("failed to convert commit tree entry to tree"))?;
-                    let commit_blob_entry = commit_tree.get_name("commit").ok_or(anyhow!("failed to get workdir tree entry"))?;
+                    let commit_tree = commit_entry
+                        .to_object(&repo)?
+                        .into_tree()
+                        .map_err(|_| anyhow!("failed to convert commit tree entry to tree"))?;
+                    let commit_blob_entry = commit_tree
+                        .get_name("commit")
+                        .ok_or(anyhow!("failed to get workdir tree entry"))?;
                     let commit_blob = commit_blob_entry
                         .to_object(&repo)?
                         .into_blob()
                         .map_err(|_| anyhow!("failed to convert commit tree entry to blob"))?;
-                    let new_commit_oid = repo.odb()?.write(git2::ObjectType::Commit, commit_blob.content())?;
+                    let new_commit_oid = repo
+                        .odb()?
+                        .write(git2::ObjectType::Commit, commit_blob.content())?;
                     if new_commit_oid != commit_oid {
                         return Err(anyhow!("commit oid mismatch"));
                     }
