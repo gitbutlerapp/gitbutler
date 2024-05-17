@@ -6,18 +6,33 @@ import { writable } from 'svelte/store';
 export class HistoryService {
 	cursor: string | undefined = undefined;
 
-	snapshots = writable<Snapshot[]>([], (set) => {
-		this.loadSnapshots().then((x) => set(x));
+	readonly loading = writable(false);
+	readonly snapshots = writable<Snapshot[]>([], (set) => {
+		// Load snapshots when going from 0 -> 1 subscriber.
+		this.fetch().then((x) => set(x));
 		return () => {
+			// Clear store when component last subscriber unsubscribes.
 			set([]);
 			this.cursor = undefined;
 		};
 	});
-	loading = writable(false);
 
 	constructor(private projectId: string) {}
 
-	async loadSnapshots(after?: string) {
+	async load() {
+		if (this.cursor) this.cursor = undefined;
+		this.snapshots.set(await this.fetch());
+		this.loading.set(false);
+	}
+
+	async loadMore() {
+		if (!this.cursor) throw new Error('Unable to load more without a cursor');
+		const more = await this.fetch(this.cursor);
+		// TODO: Update API so we don't have to .slice()
+		this.snapshots.update((snapshots) => [...snapshots, ...more.slice(1)]);
+	}
+
+	private async fetch(after?: string) {
 		this.loading.set(true);
 		const resp = await invoke<Snapshot[]>('list_snapshots', {
 			projectId: this.projectId,
@@ -29,10 +44,8 @@ export class HistoryService {
 		return plainToInstance(Snapshot, resp);
 	}
 
-	async loadMore() {
-		if (!this.cursor) throw new Error('Unable to load more without a cursor');
-		const more = await this.loadSnapshots(this.cursor);
-		this.snapshots.update((snapshots) => [...snapshots, ...more.slice(1)]);
+	clear() {
+		this.snapshots.set([]);
 	}
 
 	async getSnapshotDiff(projectId: string, sha: string) {

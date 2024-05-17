@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { listen } from '$lib/backend/ipc';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import History from '$lib/components/History.svelte';
@@ -8,11 +9,13 @@
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$lib/components/ProjectSettingsMenuAction.svelte';
 	import { HistoryService } from '$lib/history/history';
+	import { persisted } from '$lib/persisted/persisted';
+	import * as hotkeys from '$lib/utils/hotkeys';
 	import { BaseBranchService, NoDefaultTarget } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import { onDestroy, setContext } from 'svelte';
+	import { onDestroy, onMount, setContext } from 'svelte';
 	import type { LayoutData } from './$types';
 
 	export let data: LayoutData;
@@ -42,6 +45,8 @@
 	$: setContext(BaseBranch, baseBranch);
 	$: setContext(Project, project);
 
+	const showHistoryView = persisted(false, 'showHistoryView');
+
 	let intervalId: any;
 
 	// Once on load and every time the project id changes
@@ -57,6 +62,22 @@
 	function clearFetchInterval() {
 		if (intervalId) clearInterval(intervalId);
 	}
+
+	onMount(() => {
+		const unsubscribe = listen<string>('menu://view/history/clicked', () => {
+			$showHistoryView = !$showHistoryView;
+		});
+
+		// TODO: Refactor somehow
+		const unsubscribeHotkeys = hotkeys.on('$mod+Shift+H', () => {
+			$showHistoryView = !$showHistoryView;
+		});
+
+		return async () => {
+			unsubscribe();
+			unsubscribeHotkeys();
+		};
+	});
 
 	onDestroy(() => clearFetchInterval());
 </script>
@@ -81,8 +102,10 @@
 	{:else if $baseBranch}
 		<div class="view-wrap" role="group" on:dragover|preventDefault>
 			<Navigation />
+			{#if $showHistoryView}
+				<History on:hide={() => ($showHistoryView = false)} />
+			{/if}
 			<slot />
-			<History />
 		</div>
 	{/if}
 {/key}
