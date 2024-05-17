@@ -9,6 +9,7 @@
 
 	export let filePath: string;
 	export let projectPath: string | undefined;
+	export let readonly: boolean;
 
 	const branchController = getContext(BranchController);
 
@@ -22,7 +23,7 @@
 <PopupMenu bind:this={popupMenu} let:item let:dismiss>
 	<ContextMenu>
 		<ContextMenuSection>
-			{#if item.hunk !== undefined}
+			{#if item.hunk !== undefined && !readonly}
 				<ContextMenuItem
 					label="Discard"
 					on:click={() => {

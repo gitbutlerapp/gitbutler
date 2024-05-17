@@ -43,7 +43,7 @@
 		if (popupMenu) popupMenu.$destroy();
 		return new HunkContextMenu({
 			target: document.body,
-			props: { projectPath: project.vscodePath, filePath }
+			props: { projectPath: project.vscodePath, filePath, readonly }
 		});
 	}
 
