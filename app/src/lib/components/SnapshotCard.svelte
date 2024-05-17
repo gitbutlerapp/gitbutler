@@ -1,12 +1,13 @@
 <script lang="ts">
-	import { createdOnDay } from './History.svelte';
 	import Icon from './Icon.svelte';
 	import SnapshotAttachment from './SnapshotAttachment.svelte';
 	import Tag from './Tag.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
+	import { createdOnDay } from '$lib/history/history';
+	import { toHumanReadableTime } from '$lib/utils/time';
 	import { createEventDispatcher } from 'svelte';
+	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
 	import type iconsJson from '$lib/icons/icons.json';
-	import type { Snapshot, SnapshotDetails } from './History.svelte';
 
 	export let entry: Snapshot;
 	export let isCurrent: boolean = false;
@@ -23,13 +24,9 @@
 		return `#${sha.slice(0, 7)}`;
 	}
 
-	function createdAtTime(dateNumber: number) {
-		const d = new Date(dateNumber);
-		return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-	}
-
-	function createdOnDayAndTime(dateNumber: number) {
-		return `${createdOnDay(dateNumber)}, ${createdAtTime(dateNumber)}`;
+	function createdOnDayAndTime(epoch: number) {
+		const date = new Date(epoch);
+		return `${createdOnDay(date)}, ${toHumanReadableTime(date)}`;
 	}
 
 	const dispatch = createEventDispatcher<{ restoreClick: void; diffClick: string }>();
@@ -160,7 +157,7 @@
 	class:restored-snapshot={isRestoreSnapshot}
 >
 	<span class="snapshot-time text-base-12">
-		{createdAtTime(entry.createdAt)}
+		{toHumanReadableTime(entry.createdAt)}
 	</span>
 
 	<div class="snapshot-line">
