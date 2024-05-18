@@ -3,8 +3,8 @@
  * it's here is because the type is in this package.
  */
 import { RemoteFile } from './types';
+import { invoke } from '$lib/backend/ipc';
 import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
-import { invoke } from '@tauri-apps/api/tauri';
 import { plainToInstance } from 'class-transformer';
 
 export async function listRemoteCommitFiles(projectId: string, commitOid: string) {
