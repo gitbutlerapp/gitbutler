@@ -10,7 +10,7 @@
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
 
-	let snaphotLinesThreshold = project?.snapshot_lines_threshold;
+	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
 	let allowForcePushing = project?.ok_with_force_push;
 	let omitCertificateCheck = project?.omit_certificate_check;
 
