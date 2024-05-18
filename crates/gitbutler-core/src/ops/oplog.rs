@@ -24,7 +24,7 @@ pub trait Oplog {
     /// Creates a snapshot of the current state of the repository and virtual branches using the given label.
     ///
     /// If this is the first shapshot created, supporting structures are initialized:
-    ///  - The current oplog head is persisted in `.git/gitbutler/oplog.toml`.
+    ///  - The current oplog head is persisted in `.git/gitbutler/operations-log.toml`.
     ///  - A fake branch `gitbutler/target` is created and maintained in order to keep the oplog head reachable.
     ///
     /// The snapshot tree contains:
@@ -36,7 +36,7 @@ pub trait Oplog {
     /// Returns the sha of the created snapshot commit or None if snapshots are disabled.
     fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<String>>;
     /// Lists the snapshots that have been created for the given repository, up to the given limit.
-    /// An alternative way of retrieving the snapshots would be to manually the oplog head `git log <oplog_head>` available in `.git/gitbutler/oplog.toml`.
+    /// An alternative way of retrieving the snapshots would be to manually the oplog head `git log <oplog_head>` available in `.git/gitbutler/operations-log.toml`.
     ///
     /// If there are no snapshots, an empty list is returned.
     fn list_snapshots(&self, limit: usize, sha: Option<String>) -> Result<Vec<Snapshot>>;
@@ -164,6 +164,43 @@ impl Oplog for Project {
             let branch_tree_id = branch_tree_builder.write()?;
             branches_tree_builder.insert(
                 &branch.id.to_string(),
+                branch_tree_id,
+                FileMode::Tree.into(),
+            )?;
+        }
+
+        // also add the gitbutler/integration commit to the branches tree
+        let head = repo.head()?;
+        if head.is_branch() && head.name().unwrap() == "refs/heads/gitbutler/integration" {
+            let commit = head.peel_to_commit()?;
+            let commit_tree = commit.tree()?;
+
+            let mut commit_tree_builder = repo.treebuilder(None)?;
+
+            // get the raw commit data
+            let commit_header = commit.raw_header_bytes();
+            let commit_message = commit.message_raw_bytes();
+            let commit_data = [commit_header, b"\n", commit_message].concat();
+
+            // convert that data into a blob
+            let commit_data_blob = repo.blob(&commit_data)?;
+            commit_tree_builder.insert("commit", commit_data_blob, FileMode::Blob.into())?;
+            commit_tree_builder.insert("tree", commit_tree.id(), FileMode::Tree.into())?;
+            
+            let commit_tree_id = commit_tree_builder.write()?;
+
+            // gotta make a subtree to match
+            let mut commits_tree_builder = repo.treebuilder(None)?;
+            commits_tree_builder.insert(commit.id().to_string(), commit_tree_id, FileMode::Tree.into())?;
+            let commits_tree_id = commits_tree_builder.write()?;
+
+            let mut branch_tree_builder = repo.treebuilder(None)?;
+            branch_tree_builder.insert("tree", commit_tree.id(), FileMode::Tree.into())?;
+            branch_tree_builder.insert("commits", commits_tree_id, FileMode::Tree.into())?;
+            let branch_tree_id = branch_tree_builder.write()?;
+
+            branches_tree_builder.insert(
+                "integration",
                 branch_tree_id,
                 FileMode::Tree.into(),
             )?;
@@ -374,6 +411,8 @@ impl Oplog for Project {
                 .to_object(&repo)?
                 .into_tree()
                 .map_err(|_| anyhow!("failed to convert virtual_branches tree entry to tree"))?;
+            let branch_name = branch_entry.name();
+
             let commits_tree_entry = branch_tree
                 .get_name("commits")
                 .ok_or(anyhow!("failed to get commits tree entry"))?;
@@ -389,29 +428,46 @@ impl Oplog for Project {
                 if let Some(commit_id) = commit_entry.name() {
                     // check for the oid in the repo
                     let commit_oid = git2::Oid::from_str(commit_id)?;
-                    if repo.find_commit(commit_oid).is_ok() {
-                        continue; // commit is here, so keep going
+                    if repo.find_commit(commit_oid).is_err() {
+                        // commit is not in the repo, let's build it from our data
+                        // we get the data from the blob entry and create a commit object from it, which should match the oid of the entry
+                        let commit_tree = commit_entry
+                            .to_object(&repo)?
+                            .into_tree()
+                            .map_err(|_| anyhow!("failed to convert commit tree entry to tree"))?;
+                        let commit_blob_entry = commit_tree
+                            .get_name("commit")
+                            .ok_or(anyhow!("failed to get workdir tree entry"))?;
+                        let commit_blob = commit_blob_entry
+                            .to_object(&repo)?
+                            .into_blob()
+                            .map_err(|_| anyhow!("failed to convert commit tree entry to blob"))?;
+                        let new_commit_oid = repo
+                            .odb()?
+                            .write(git2::ObjectType::Commit, commit_blob.content())?;
+                        if new_commit_oid != commit_oid {
+                            return Err(anyhow!("commit oid mismatch"));
+                        }
                     }
 
-                    // commit is not in the repo, let's build it from our data
-                    // we get the data from the blob entry and create a commit object from it, which should match the oid of the entry
-                    let commit_tree = commit_entry
-                        .to_object(&repo)?
-                        .into_tree()
-                        .map_err(|_| anyhow!("failed to convert commit tree entry to tree"))?;
-                    let commit_blob_entry = commit_tree
-                        .get_name("commit")
-                        .ok_or(anyhow!("failed to get workdir tree entry"))?;
-                    let commit_blob = commit_blob_entry
-                        .to_object(&repo)?
-                        .into_blob()
-                        .map_err(|_| anyhow!("failed to convert commit tree entry to blob"))?;
-                    let new_commit_oid = repo
-                        .odb()?
-                        .write(git2::ObjectType::Commit, commit_blob.content())?;
-                    if new_commit_oid != commit_oid {
-                        return Err(anyhow!("commit oid mismatch"));
+                    // if branch_name is 'integration', we need to create or update the gitbutler/integration branch
+                    if let Some(branch_name) = branch_name {
+                        if branch_name == "integration" {
+                            let integration_commit = repo.find_commit(commit_oid)?;
+                            // reset the branch if it's there
+                            let branch = repo.find_branch("gitbutler/integration", git2::BranchType::Local);
+                            if let Ok(mut branch) = branch {
+                                // need to detatch the head for just a minuto
+                                repo.set_head_detached(commit_oid)?;
+                                branch.delete()?;
+                            }
+                            // ok, now we set the branch to what it was and update HEAD
+                            repo.branch("gitbutler/integration", &integration_commit, true)?;
+                            // make sure head is gitbutler/integration
+                            repo.set_head("refs/heads/gitbutler/integration")?;
+                        }
                     }
+
                 }
             }
         }

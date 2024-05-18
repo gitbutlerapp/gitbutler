@@ -156,8 +156,68 @@ async fn test_basic_oplog() {
     assert_eq!(file_lines, "content");
 }
 
-// test oplog.toml head is not a commit
+#[tokio::test]
+async fn test_oplog_restores_gitbutler_integration() {
+    let Test {
+        repository,
+        project_id,
+        controller,
+        project,
+        ..
+    } = &Test::default();
 
+    controller
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .await
+        .unwrap();
+
+    let branch_id = controller
+        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .await
+        .unwrap();
+
+    // create commit
+    fs::write(repository.path().join("file.txt"), "content").unwrap();
+    let _commit1_id = controller
+        .create_commit(project_id, &branch_id, "commit one", None, false)
+        .await
+        .unwrap();
+
+    let repo = git2::Repository::open(&project.path).unwrap();
+
+    // check the integration commit
+    let head = repo.head();
+    let commit = &head.as_ref().unwrap().peel_to_commit().unwrap();
+    let commit_oid = commit.id();
+    let message = commit.summary().unwrap();
+    assert_eq!(message, "GitButler Integration Commit");
+
+    // create second commit
+    fs::write(repository.path().join("file.txt"), "content").unwrap();
+    let _commit2_id = controller
+        .create_commit(project_id, &branch_id, "commit one", None, false)
+        .await
+        .unwrap(); 
+
+    // check the integration commit changed
+    let head = repo.head();
+    let commit = &head.as_ref().unwrap().peel_to_commit().unwrap();
+    let commit2_oid = commit.id();
+    let message = commit.summary().unwrap();
+    assert_eq!(message, "GitButler Integration Commit");
+    assert_ne!(commit_oid, commit2_oid);
+
+    // restore the first
+    let snapshots = project.list_snapshots(10, None).unwrap();
+    project.restore_snapshot(snapshots[1].clone().id).unwrap();
+
+    let head = repo.head();
+    let commit = &head.as_ref().unwrap().peel_to_commit().unwrap();
+    let commit_restore_oid = commit.id();
+    assert_eq!(commit_oid, commit_restore_oid);
+}
+
+// test operations-log.toml head is not a commit
 #[tokio::test]
 async fn test_oplog_head_corrupt() {
     let Test {
@@ -177,7 +237,7 @@ async fn test_oplog_head_corrupt() {
     assert_eq!(snapshots.len(), 1);
 
     // overwrite oplog head with a non-commit sha
-    let file_path = repository.path().join(".git").join("operations-log.toml");
+    let file_path = repository.path().join(".git").join("gitbutler").join("operations-log.toml");
     fs::write(
         file_path,
         "head_sha = \"758d54f587227fba3da3b61fbb54a99c17903d59\"",
