@@ -42,7 +42,12 @@
 			"http": {
 				"all": true,
 				"request": true,
-				"scope": [" https://api.anthropic.com/v1/messages"]
+				"scope": [
+					"https://api.anthropic.com/v1/messages",
+					"http://127.0.0.1:11434/api/chat",
+					"http://127.0.0.1:11434/api/generate",
+					"http://127.0.0.1:11434/api/embeddings"
+				]
 			}
 		},
 		"bundle": {
