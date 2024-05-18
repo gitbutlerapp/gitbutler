@@ -56,7 +56,7 @@
 				}}
 			/>
 		{:else}
-			Branch origin/second-branch is up to date with the remote.
+			Branch {$branch.name} is up to date with the remote.
 		{/if}
 	</div>
 {/if}
