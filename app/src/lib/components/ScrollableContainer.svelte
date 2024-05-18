@@ -18,6 +18,9 @@
 	export let shift = '0';
 	export let thickness = '0.563rem';
 
+	// How much of a buffer there should be before we consider the bottom reached
+	export let bottomBuffer = 0;
+
 	let observer: ResizeObserver;
 
 	const dispatch = createEventDispatcher<{ dragging: boolean; bottomReached: boolean }>();
@@ -47,7 +50,7 @@
 			const target = e.currentTarget;
 			scrolled = target.scrollTop != 0;
 
-			if (target.scrollTop + target.clientHeight >= target.scrollHeight) {
+			if (target.scrollTop + target.clientHeight + bottomBuffer >= target.scrollHeight) {
 				dispatch('bottomReached', true);
 			}
 		}}

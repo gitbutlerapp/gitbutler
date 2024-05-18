@@ -4,7 +4,6 @@
 	import { getContext } from '$lib/utils/context';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { maybeMoveSelection } from '$lib/utils/selection';
-	import { sleep } from '$lib/utils/sleep';
 	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection, fileKey } from '$lib/vbranches/fileIdSelection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
@@ -27,23 +26,29 @@
 		);
 	}
 
-	// Appending the files in this manner prevents any major freezing when rendering a long list of files
-	// The UI may be slightly sluggish while the files are still rendering in, but its quite a bit of an
-	// improvement over being stuck on a frozen icon
-	async function pushSortedFiles(files: AnyFile[]) {
-		sortedFiles = [];
+	let chunkedFiles: AnyFile[][] = [];
+	let displayedFiles: AnyFile[] = [];
+	let currentDisplayIndex = 0;
 
-		for (let filesChunk of chunk(files, 100)) {
-			sortedFiles = [...sortedFiles, ...filesChunk];
-			await sleep(0);
-		}
+	function setFiles(files: AnyFile[]) {
+		chunkedFiles = chunk(sortLikeFileTree(files), 100);
+		displayedFiles = chunkedFiles[0] || [];
+		currentDisplayIndex = 0;
 	}
 
-	$: pushSortedFiles(sortLikeFileTree(files));
+	// Make sure we display when the file list is reset
+	$: setFiles(files);
+
+	export function loadMore() {
+		if (currentDisplayIndex + 1 >= chunkedFiles.length) return;
+
+		currentDisplayIndex += 1;
+		displayedFiles = [...displayedFiles, ...chunkedFiles[currentDisplayIndex]];
+	}
 </script>
 
 <BranchFilesHeader {files} {showCheckboxes} />
-{#each sortedFiles as file (file.id)}
+{#each displayedFiles as file (file.id)}
 	<FileListItem
 		{file}
 		{readonly}
