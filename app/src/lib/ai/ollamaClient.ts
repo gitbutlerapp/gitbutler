@@ -1,6 +1,7 @@
 import { LONG_DEFAULT_BRANCH_TEMPLATE, LONG_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
 import { MessageRole, type PromptMessage, type AIClient } from '$lib/ai/types';
 import { isNonEmptyObject } from '$lib/utils/typeguards';
+import { fetch, Body, Response } from '@tauri-apps/api/http';
 
 export const DEFAULT_OLLAMA_ENDPOINT = 'http://127.0.0.1:11434';
 export const DEFAULT_OLLAMA_MODEL_NAME = 'llama3';
@@ -123,14 +124,15 @@ ${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 	 * @param request - The OllamaChatRequest object containing the request details.
 	 * @returns A Promise that resolves to the Response object.
 	 */
-	private async fetchChat(request: OllamaChatRequest): Promise<Response> {
+	private async fetchChat(request: OllamaChatRequest): Promise<Response<any>> {
 		const url = new URL(OllamaAPEndpoint.Chat, this.endpoint);
-		const result = await fetch(url, {
+		const body = Body.json(request);
+		const result = await fetch(url.toString(), {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify(request)
+			body
 		});
 		return result;
 	}
@@ -155,11 +157,10 @@ ${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 			format: 'json'
 		});
 
-		const json = await result.json();
-		if (!isOllamaChatResponse(json)) {
-			throw new Error('Invalid response\n' + JSON.stringify(json));
+		if (!isOllamaChatResponse(result.data)) {
+			throw new Error('Invalid response\n' + JSON.stringify(result.data));
 		}
 
-		return json;
+		return result.data;
 	}
 }
