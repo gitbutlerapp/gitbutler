@@ -282,8 +282,6 @@ pub fn set_target_push_remote(
 ) -> Result<(), errors::SetBaseBranchError> {
     let repo = &project_repository.git_repository;
 
-    dbg!(push_remote_name);
-
     let remote = repo
         .find_remote(push_remote_name)
         .context(format!("failed to find remote {}", push_remote_name))?;

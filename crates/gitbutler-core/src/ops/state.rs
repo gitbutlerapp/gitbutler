@@ -7,7 +7,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-/// This tracks the head of the oplog, persisted in oplog.toml.  
+/// This tracks the head of the oplog, persisted in operations-log.toml.  
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Oplog {
     /// This is the sha of the last oplog commit
