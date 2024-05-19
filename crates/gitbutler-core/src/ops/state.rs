@@ -7,6 +7,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use super::OPLOG_FILE_NAME;
+
 /// This tracks the head of the oplog, persisted in operations-log.toml.  
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Oplog {
@@ -22,7 +24,7 @@ pub struct OplogHandle {
 impl OplogHandle {
     /// Creates a new concurrency-safe handle to the state of the oplog.
     pub fn new(base_path: &Path) -> Self {
-        let file_path = base_path.join("operations-log.toml");
+        let file_path = base_path.join(OPLOG_FILE_NAME);
         Self { file_path }
     }
 
