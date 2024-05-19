@@ -64,7 +64,7 @@ export const baseBranch = {
 };
 
 export const user: User = {
-	access_token: 'c5da8ec0-2a2e-4f1c-a796-686c5606e566',
+	access_token: '00000000-0000-0000-0000-000000000000',
 	created_at: '2024-05-04T13:27:30Z',
 	email: 'yo@ndo.dev',
 	family_name: undefined,
