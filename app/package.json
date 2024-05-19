@@ -42,7 +42,7 @@
 		"@lezer/common": "^1.2.1",
 		"@lezer/highlight": "^1.2.0",
 		"@octokit/rest": "^20.1.1",
-		"@playwright/test": "^1.40.0",
+		"@playwright/test": "^1.44.0",
 		"@replit/codemirror-lang-svelte": "^6.0.0",
 		"@sentry/sveltekit": "^7.114.0",
 		"@sveltejs/adapter-static": "^2.0.3",
