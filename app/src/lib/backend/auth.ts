@@ -1,4 +1,4 @@
-import { invoke } from './ipc';
+import { invoke } from '$lib/backend/ipc';
 
 export type GitCredentialCheck = {
 	error?: string;

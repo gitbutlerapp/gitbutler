@@ -1,6 +1,5 @@
 import { listen as listenTauri } from '@tauri-apps/api/event';
 import { invoke as invokeTauri } from '@tauri-apps/api/tauri';
-import { writable } from 'svelte/store';
 import type { EventCallback, EventName } from '@tauri-apps/api/event';
 
 export enum Code {
@@ -31,26 +30,6 @@ export class UserError extends Error {
 	}
 }
 
-interface LoadItem {
-	name: string;
-	startedAt: Date;
-}
-const loadingStore = writable(false);
-export const loadStack: LoadItem[] = [];
-export const isLoading = {
-	...loadingStore,
-	loadStack,
-	push: (item: LoadItem) => {
-		loadStack.push(item);
-		loadingStore.set(true);
-	},
-	pop: (item: LoadItem) => {
-		const i = loadStack.indexOf(item);
-		loadStack.splice(i, 1);
-		if (loadStack.length == 0) loadingStore.set(false);
-	}
-};
-
 export async function invoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {
 	// This commented out code can be used to delay/reject an api call
 	// return new Promise<T>((resolve, reject) => {
@@ -66,8 +45,6 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 	// 	console.error(`ipc->${command}: ${JSON.stringify(params)}`, userError);
 	// 	throw userError;
 	// });
-	const loadingItem = { name: command, startedAt: new Date() };
-	isLoading.push(loadingItem);
 
 	try {
 		return await invokeTauri<T>(command, params);
@@ -75,8 +52,6 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 		const userError = UserError.fromError(reason);
 		console.error(`ipc->${command}: ${JSON.stringify(params)}`, userError, reason);
 		throw userError;
-	} finally {
-		isLoading.pop(loadingItem);
 	}
 }
 
