@@ -101,6 +101,16 @@
 						<span class="text-base-14 text-semibold">Telemetry</span>
 					</button>
 				</li>
+				<li>
+					<button
+						class="profile-sidebar__menu-item"
+						class:item_selected={currentSection == 'experimental'}
+						on:mousedown={() => onMenuClick('experimental')}
+					>
+						<Icon name="idea" />
+						<span class="text-base-14 text-semibold">Experimental</span>
+					</button>
+				</li>
 			</ul>
 		</div>
 	</section>
@@ -210,7 +220,6 @@
 	}
 
 	/* BANNERS */
-
 	.social-banners {
 		display: flex;
 		flex-direction: column;

@@ -53,7 +53,7 @@ body {
 	width: 100vw;
 	overflow-y: hidden;
 	padding: 0;
-	color: var(--clr-scale-ntrl-0);
+	color: var(--clr-text-1);
 	background-color: var(--clr-bg-2);
 
 	/* optimise font rendering */
@@ -116,8 +116,34 @@ button {
 
 /* DIALOG STYLES */
 
+dialog[open] {
+	animation: dialog-zoom 0.25s cubic-bezier(0.34, 1.35, 0.7, 1);
+}
+
+@keyframes dialog-zoom {
+	from {
+		transform: scale(0.95);
+	}
+	to {
+		transform: scale(1);
+	}
+}
+
 dialog::backdrop {
 	background-color: rgba(214, 214, 214, 0.4);
+}
+
+dialog[open]::backdrop {
+	animation: dialog-fade 0.2s ease-out;
+}
+
+@keyframes dialog-fade {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
 }
 
 .dark dialog::backdrop {

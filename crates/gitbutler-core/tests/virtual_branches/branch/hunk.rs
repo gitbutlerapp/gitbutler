@@ -13,7 +13,7 @@ fn parse_invalid() {
 
 #[test]
 fn parse_with_hash() {
-    let hash = Hunk::hash("hash".as_ref());
+    let hash = Hunk::hash("hash");
     assert_eq!(
         format!("2-3-{hash:x}").parse::<Hunk>().unwrap(),
         Hunk::new(2, 3, Some(hash), None).unwrap()
@@ -43,15 +43,15 @@ fn to_string_no_hash() {
 
 #[test]
 fn hash_diff_no_diff_header_is_normal_hash() {
-    let actual = Hunk::hash_diff("a".as_ref());
-    let expected = Hunk::hash("a".as_ref());
+    let actual = Hunk::hash_diff("a");
+    let expected = Hunk::hash("a");
     assert_eq!(actual, expected)
 }
 
 #[test]
 fn hash_diff_empty_is_fine() {
-    let actual = Hunk::hash_diff("".as_ref());
-    let expected = Hunk::hash("".as_ref());
+    let actual = Hunk::hash_diff("");
+    let expected = Hunk::hash("");
     assert_eq!(
         actual, expected,
         "The special hash is the same as a normal one in case of empty input.\
@@ -61,8 +61,8 @@ fn hash_diff_empty_is_fine() {
 
 #[test]
 fn hash_diff_content_hash() {
-    let a_hash = Hunk::hash_diff("@@x\na".into());
-    let b_hash = Hunk::hash_diff("@@y\na".into());
+    let a_hash = Hunk::hash_diff("@@x\na");
+    let b_hash = Hunk::hash_diff("@@y\na");
     assert_eq!(
         a_hash, b_hash,
         "it skips the first line which is assumed to be a diff-header.\
@@ -72,8 +72,8 @@ fn hash_diff_content_hash() {
 
 #[test]
 fn eq() {
-    let a_hash = Hunk::hash("a".as_ref());
-    let b_hash = Hunk::hash("b".as_ref());
+    let a_hash = Hunk::hash("a");
+    let b_hash = Hunk::hash("b");
     assert_ne!(a_hash, b_hash);
     for (a, b, expected) in vec![
         (

@@ -10,7 +10,7 @@ doctest = false
 test = false
 
 [dependencies]
-anyhow = "1.0.81"
+anyhow = "1.0.82"
 once_cell = "1.19"
 git2.workspace = true
 pretty_assertions = "1.4"

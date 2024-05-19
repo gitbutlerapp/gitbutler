@@ -92,7 +92,6 @@ impl Suite {
 pub struct Case {
     pub project: gitbutler_core::projects::Project,
     pub project_repository: gitbutler_core::project_repository::Repository,
-    pub gb_repository: gitbutler_core::gb_repository::Repository,
     pub credentials: gitbutler_core::git::credentials::Helper,
     /// The directory containing the `project_repository`
     project_tmp: Option<TempDir>,
@@ -118,17 +117,10 @@ impl Case {
     ) -> Case {
         let project_repository = gitbutler_core::project_repository::Repository::open(&project)
             .expect("failed to create project repository");
-        let gb_repository = gitbutler_core::gb_repository::Repository::open(
-            suite.local_app_data(),
-            &project_repository,
-            None,
-        )
-        .expect("failed to open gb repository");
         let credentials =
             gitbutler_core::git::credentials::Helper::from_path(suite.local_app_data());
         Case {
             project,
-            gb_repository,
             project_repository,
             project_tmp: Some(project_tmp),
             credentials,
@@ -142,28 +134,15 @@ impl Case {
             .expect("failed to get project");
         let project_repository = gitbutler_core::project_repository::Repository::open(&project)
             .expect("failed to create project repository");
-        let user = suite.users.get_user().expect("failed to get user");
         let credentials =
             gitbutler_core::git::credentials::Helper::from_path(suite.local_app_data());
         Self {
-            gb_repository: gitbutler_core::gb_repository::Repository::open(
-                suite.local_app_data(),
-                &project_repository,
-                user.as_ref(),
-            )
-            .expect("failed to open gb repository"),
             credentials,
             project_repository,
             project,
             project_tmp: self.project_tmp.take(),
         }
     }
-}
-
-pub fn test_database() -> (gitbutler_core::database::Database, TempDir) {
-    let tmp = temp_dir();
-    let db = gitbutler_core::database::Database::open_in_directory(&tmp).unwrap();
-    (db, tmp)
 }
 
 pub fn temp_dir() -> TempDir {
@@ -194,6 +173,7 @@ pub fn test_repository() -> (gitbutler_core::git::Repository, TempDir) {
             "Initial commit",
             &repository.find_tree(oid).expect("failed to find tree"),
             &[],
+            None,
         )
         .expect("failed to commit");
     (repository, tmp)
@@ -222,6 +202,7 @@ pub fn commit_all(repository: &gitbutler_core::git::Repository) -> gitbutler_cor
                         .expect("failed to get head"),
                 )
                 .expect("failed to find commit")],
+            None,
         )
         .expect("failed to commit");
     commit_oid

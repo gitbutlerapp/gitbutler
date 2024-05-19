@@ -1,6 +1,3 @@
-use gix::tempfile::create_dir::Retries;
-use gix::tempfile::{AutoRemove, ContainingDirectory};
-use std::io::Write;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -46,15 +43,7 @@ impl Storage {
     /// Generally, the filesystem is used for synchronization, not in-memory primitives.
     pub fn write(&self, rela_path: impl AsRef<Path>, content: &str) -> std::io::Result<()> {
         let file_path = self.local_data_dir.join(rela_path);
-        let dir = file_path.parent().unwrap();
-        // NOTE: This creates a 0o600 files on Unix by default.
-        let mut tempfile = gix::tempfile::new(
-            dir,
-            ContainingDirectory::CreateAllRaceProof(Retries::default()),
-            AutoRemove::Tempfile,
-        )?;
-        tempfile.write_all(content.as_bytes())?;
-        persist_tempfile(tempfile, file_path)
+        crate::fs::create_dirs_then_write(file_path, content)
     }
 
     /// Delete the file or directory at `rela_path`.
@@ -78,18 +67,5 @@ impl Storage {
             unreachable!("BUG: we do not create or work with symlinks")
         }
         Ok(())
-    }
-}
-
-pub(crate) fn persist_tempfile(
-    tempfile: gix::tempfile::Handle<gix::tempfile::handle::Writable>,
-    to_path: impl AsRef<Path>,
-) -> std::io::Result<()> {
-    match tempfile.persist(to_path) {
-        Ok(Some(_opened_file)) => Ok(()),
-        Ok(None) => unreachable!(
-            "BUG: a signal has caused the tempfile to be removed, but we didn't install a handler"
-        ),
-        Err(err) => Err(err.error),
     }
 }

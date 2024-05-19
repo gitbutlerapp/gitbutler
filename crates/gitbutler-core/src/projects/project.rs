@@ -5,7 +5,9 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{git, id::Id, types::default_true::DefaultTrue};
+use crate::{
+    git, id::Id, types::default_true::DefaultTrue, virtual_branches::VirtualBranchesHandle,
+};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -82,12 +84,10 @@ pub struct Project {
     pub project_data_last_fetch: Option<FetchResult>,
     #[serde(default)]
     pub omit_certificate_check: Option<bool>,
-}
-
-impl AsRef<Project> for Project {
-    fn as_ref(&self) -> &Project {
-        self
-    }
+    #[serde(default)]
+    pub enable_snapshots: Option<bool>,
+    // The number of changed lines that will trigger a snapshot
+    pub snapshot_lines_threshold: Option<usize>,
 }
 
 impl Project {
@@ -107,5 +107,14 @@ impl Project {
     /// Normally this is `.git/gitbutler` in the project's repository.
     pub fn gb_dir(&self) -> PathBuf {
         self.path.join(".git").join("gitbutler")
+    }
+
+    /// Returns a handle to the virtual branches manager of the project.
+    pub fn virtual_branches(&self) -> VirtualBranchesHandle {
+        VirtualBranchesHandle::new(self.gb_dir())
+    }
+
+    pub fn snapshot_lines_threshold(&self) -> usize {
+        self.snapshot_lines_threshold.unwrap_or(20)
     }
 }

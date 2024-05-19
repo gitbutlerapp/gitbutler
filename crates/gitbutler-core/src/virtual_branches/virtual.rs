@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::borrow::Borrow;
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::PermissionsExt;
 use std::time::SystemTime;
@@ -10,29 +10,30 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Context, Result};
-use bstr::{BStr, BString, ByteSlice, ByteVec};
+use bstr::{BString, ByteSlice, ByteVec};
 use diffy::{apply_bytes as diffy_apply, Line, Patch};
 use git2_hooks::HookResult;
+use hex::ToHex;
 use regex::Regex;
 use serde::Serialize;
 
+use super::integration::get_workspace_head;
 use super::{
     branch::{
         self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
     },
     branch_to_remote_branch, errors, target, RemoteBranch, VirtualBranchesHandle,
 };
-use crate::git::diff::{diff_files_into_hunks, DiffByPathMap};
+use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
+use crate::ops::snapshot::Snapshot;
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
-    askpass::AskpassBroker,
     dedup::{dedup, dedup_fmt},
     git::{
         self,
         diff::{self},
         Commit, Refname, RemoteRefname,
     },
-    keys,
     project_repository::{self, conflicts, LogUntil},
     reader, users,
 };
@@ -97,6 +98,8 @@ pub struct VirtualBranchCommit {
     pub is_integrated: bool,
     pub parent_ids: Vec<git::Oid>,
     pub branch_id: BranchId,
+    pub change_id: Option<String>,
+    pub is_signed: bool,
 }
 
 // this struct is a mapping to the view `File` type in Typescript
@@ -110,6 +113,7 @@ pub struct VirtualBranchCommit {
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchFile {
+    // TODO(ST): `id` is just `path` as string - UI could adapt and avoid this copy.
     pub id: String,
     pub path: PathBuf,
     pub hunks: Vec<VirtualBranchHunk>,
@@ -121,7 +125,7 @@ pub struct VirtualBranchFile {
 
 // this struct is a mapping to the view `Hunk` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
-// it holds a materialized view for presentation purposes of one entry of the
+// it holds a materialized view for presentation purposes of one entry of
 // each hunk in one `Branch.ownership` vector entry in Rust.
 // an array of them are returned as part of the `VirtualBranchFile` struct
 //
@@ -142,30 +146,34 @@ pub struct VirtualBranchHunk {
     pub end: u32,
     pub binary: bool,
     pub locked: bool,
-    pub locked_to: Option<Box<[git::Oid]>>,
+    pub locked_to: Option<Box<[diff::HunkLock]>>,
     pub change_type: diff::ChangeType,
 }
 
 /// Lifecycle
 impl VirtualBranchHunk {
+    pub(crate) fn gen_id(new_start: u32, new_lines: u32) -> String {
+        format!("{}-{}", new_start, new_start + new_lines)
+    }
     fn from_git_hunk(
         project_path: &Path,
-        file_path: &Path,
-        hunk: &GitHunk,
+        file_path: PathBuf,
+        hunk: GitHunk,
         mtimes: &mut MTimeCache,
     ) -> Self {
+        let hash = Hunk::hash_diff(&hunk.diff_lines);
         Self {
-            id: format!("{}-{}", hunk.new_start, hunk.new_start + hunk.new_lines),
-            modified_at: mtimes.mtime_by_path(project_path.join(file_path)),
-            file_path: file_path.to_owned(),
-            diff: hunk.diff_lines.clone(),
+            id: Self::gen_id(hunk.new_start, hunk.new_lines),
+            modified_at: mtimes.mtime_by_path(project_path.join(&file_path)),
+            file_path,
+            diff: hunk.diff_lines,
             old_start: hunk.old_start,
             start: hunk.new_start,
             end: hunk.new_start + hunk.new_lines,
             binary: hunk.binary,
-            hash: Hunk::hash_diff(hunk.diff_lines.as_ref()),
+            hash,
             locked: hunk.locked_to.len() > 0,
-            locked_to: Some(hunk.locked_to.clone()),
+            locked_to: Some(hunk.locked_to),
             change_type: hunk.change_type,
         }
     }
@@ -203,20 +211,9 @@ pub fn normalize_branch_name(name: &str) -> String {
     pattern.replace_all(name, "-").to_string()
 }
 
-fn get_default_target(
-    vb_state: &VirtualBranchesHandle,
-) -> Result<Option<target::Target>, reader::Error> {
-    match vb_state.get_default_target() {
-        Ok(target) => Ok(Some(target)),
-        Err(reader::Error::NotFound) => Ok(None),
-        Err(error) => Err(error),
-    }
-}
-
 pub fn apply_branch(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
-    signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
 ) -> Result<(), errors::ApplyBranchError> {
     if project_repository.is_resolving() {
@@ -228,14 +225,17 @@ pub fn apply_branch(
     }
     let repo = &project_repository.git_repository;
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
-    let default_target = get_default_target(&vb_state)
+    let vb_state = project_repository.project().virtual_branches();
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::ApplyBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::ApplyBranchError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let mut branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
@@ -357,7 +357,7 @@ pub fn apply_branch(
                 .as_str(),
                 &merged_branch_tree,
                 &[&head_commit, &target_commit],
-                signing_key,
+                None,
             )?;
 
             // ok, update the virtual branch
@@ -426,7 +426,7 @@ pub fn apply_branch(
                         .as_str(),
                         &merge_tree,
                         &[&head_commit, &target_commit],
-                        signing_key,
+                        None,
                     )
                     .context("failed to commit merge")?;
 
@@ -453,7 +453,7 @@ pub fn apply_branch(
 
     // apply the branch
     branch.applied = true;
-    vb_state.set_branch(branch)?;
+    vb_state.set_branch(branch.clone())?;
 
     ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
@@ -465,6 +465,9 @@ pub fn apply_branch(
 
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
+    _ = project_repository
+        .project()
+        .snapshot_branch_applied(branch.name);
     Ok(())
 }
 
@@ -480,15 +483,18 @@ pub fn unapply_ownership(
         ));
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::UnapplyOwnershipError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::UnapplyOwnershipError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let applied_branches = vb_state
         .list_branches()
@@ -559,7 +565,7 @@ pub fn unapply_ownership(
         target_commit.tree().context("failed to get target tree"),
         |final_tree, status| {
             let final_tree = final_tree?;
-            let tree_oid = write_tree(project_repository, &integration_commit_id, &status.1)?;
+            let tree_oid = write_tree(project_repository, &integration_commit_id, status.1)?;
             let branch_tree = repo.find_tree(tree_oid)?;
             let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
             let final_tree_oid = result.write_tree_to(repo)?;
@@ -568,7 +574,7 @@ pub fn unapply_ownership(
         },
     )?;
 
-    let final_tree_oid = write_tree_onto_tree(project_repository, &final_tree, &diff)?;
+    let final_tree_oid = write_tree_onto_tree(project_repository, &final_tree, diff)?;
     let final_tree = repo
         .find_tree(final_tree_oid)
         .context("failed to find tree")?;
@@ -624,7 +630,7 @@ pub fn unapply_branch(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
 ) -> Result<Option<branch::Branch>, errors::UnapplyBranchError> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let mut target_branch = vb_state
         .get_branch(branch_id)
@@ -642,13 +648,16 @@ pub fn unapply_branch(
         return Ok(Some(target_branch));
     }
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::UnapplyBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::UnapplyBranchError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let repo = &project_repository.git_repository;
     let target_commit = repo
@@ -726,7 +735,7 @@ pub fn unapply_branch(
                 |final_tree, status| {
                     let final_tree = final_tree?;
                     let branch = status.0;
-                    let tree_oid = write_tree(project_repository, &branch.head, &status.1)?;
+                    let tree_oid = write_tree(project_repository, &branch.head, status.1)?;
                     let branch_tree = repo.find_tree(tree_oid)?;
                     let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
                     let final_tree_oid = result.write_tree_to(repo)?;
@@ -776,7 +785,7 @@ pub fn list_virtual_branches(
 ) -> Result<(Vec<VirtualBranch>, Vec<diff::FileDiff>), errors::ListVirtualBranchesError> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     let default_target = vb_state
         .get_default_target()
         .context("failed to get default target")?;
@@ -788,12 +797,6 @@ pub fn list_virtual_branches(
         .find_commit(integration_commit_id)
         .unwrap();
 
-    super::integration::update_gitbutler_integration_with_commit(
-        &vb_state,
-        project_repository,
-        Some(integration_commit_id),
-    )?;
-
     let (statuses, skipped_files) =
         get_status_by_branch(project_repository, Some(&integration_commit.id()))?;
     let max_selected_for_changes = statuses
@@ -802,9 +805,9 @@ pub fn list_virtual_branches(
         .max()
         .unwrap_or(-1);
 
-    for (branch, files) in &statuses {
+    for (branch, files) in statuses {
         let repo = &project_repository.git_repository;
-        update_conflict_markers(project_repository, files)?;
+        update_conflict_markers(project_repository, &files)?;
 
         let upstream_branch = match branch
             .upstream
@@ -869,7 +872,7 @@ pub fn list_virtual_branches(
 
                 commit_to_vbranch_commit(
                     project_repository,
-                    branch,
+                    &branch,
                     commit,
                     is_integrated,
                     is_remote,
@@ -894,29 +897,29 @@ pub fn list_virtual_branches(
             .transpose()?
             .flatten();
 
-        let mut files = diffs_to_virtual_files(project_repository, files);
+        let mut files = diffs_into_virtual_files(project_repository, files);
+
+        let path_claim_positions: HashMap<&PathBuf, usize> = branch
+            .ownership
+            .claims
+            .iter()
+            .enumerate()
+            .map(|(index, ownership_claim)| (&ownership_claim.file_path, index))
+            .collect();
+
         files.sort_by(|a, b| {
-            branch
-                .ownership
-                .claims
-                .iter()
-                .position(|o| o.file_path.eq(&a.path))
-                .unwrap_or(999)
-                .cmp(
-                    &branch
-                        .ownership
-                        .claims
-                        .iter()
-                        .position(|id| id.file_path.eq(&b.path))
-                        .unwrap_or(999),
-                )
+            path_claim_positions
+                .get(&a.path)
+                .unwrap_or(&usize::MAX)
+                .cmp(path_claim_positions.get(&b.path).unwrap_or(&usize::MAX))
         });
 
-        let requires_force = is_requires_force(project_repository, branch)?;
+        let requires_force = is_requires_force(project_repository, &branch)?;
+
         let branch = VirtualBranch {
             id: branch.id,
-            name: branch.name.clone(),
-            notes: branch.notes.clone(),
+            name: branch.name,
+            notes: branch.notes,
             active: branch.applied,
             files,
             order: branch.order,
@@ -925,11 +928,10 @@ pub fn list_virtual_branches(
             upstream,
             upstream_name: branch
                 .upstream
-                .clone()
                 .and_then(|r| Refname::from(r).branch().map(Into::into)),
             conflicted: conflicts::is_resolving(project_repository),
             base_current,
-            ownership: branch.ownership.clone(),
+            ownership: branch.ownership,
             updated_at: branch.updated_timestamp_ms,
             selected_for_changes: branch.selected_for_changes == Some(max_selected_for_changes),
             head: branch.head,
@@ -1009,14 +1011,10 @@ fn list_virtual_commit_files(
         &parent_tree,
         &commit_tree,
     )?;
-    let hunks_by_filepath =
-        virtual_hunks_by_filepath_from_file_diffs(&project_repository.project().path, &diff);
-    Ok(virtual_hunks_to_virtual_files(
+    let hunks_by_filepath = virtual_hunks_by_file_diffs(&project_repository.project().path, diff);
+    Ok(virtual_hunks_into_virtual_files(
         project_repository,
-        &hunks_by_filepath
-            .into_values()
-            .flatten()
-            .collect::<Vec<_>>(),
+        hunks_by_filepath,
     ))
 }
 
@@ -1046,6 +1044,8 @@ fn commit_to_vbranch_commit(
         is_integrated,
         parent_ids,
         branch_id: branch.id,
+        change_id: commit.change_id(),
+        is_signed: commit.is_signed(),
     };
 
     Ok(commit)
@@ -1055,15 +1055,18 @@ pub fn create_virtual_branch(
     project_repository: &project_repository::Repository,
     create: &BranchCreateRequest,
 ) -> Result<branch::Branch, errors::CreateVirtualBranchError> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::CreateVirtualBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::CreateVirtualBranchError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let commit = project_repository
         .git_repository
@@ -1116,11 +1119,6 @@ pub fn create_virtual_branch(
         }
     }
 
-    let now = time::UNIX_EPOCH
-        .elapsed()
-        .context("failed to get elapsed time")?
-        .as_millis();
-
     let name = dedup(
         &all_virtual_branches
             .iter()
@@ -1132,9 +1130,11 @@ pub fn create_virtual_branch(
             .unwrap_or(&"Virtual branch".to_string()),
     );
 
+    let now = crate::time::now_ms();
+
     let mut branch = Branch {
         id: BranchId::generate(),
-        name,
+        name: name.clone(),
         notes: String::new(),
         applied: true,
         upstream: None,
@@ -1158,13 +1158,13 @@ pub fn create_virtual_branch(
 
     project_repository.add_branch_reference(&branch)?;
 
+    _ = project_repository.project().snapshot_branch_creation(name);
     Ok(branch)
 }
 
 pub fn merge_virtual_branch_upstream(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
-    signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
 ) -> Result<(), errors::MergeVirtualBranchUpstreamError> {
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
@@ -1175,7 +1175,7 @@ pub fn merge_virtual_branch_upstream(
         ));
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let mut branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
@@ -1357,7 +1357,7 @@ pub fn merge_virtual_branch_upstream(
             .as_str(),
             &merge_tree,
             &[&head_commit, &upstream_commit],
-            signing_key,
+            None,
         )?;
 
         // checkout the merge tree
@@ -1381,7 +1381,7 @@ pub fn update_branch(
     project_repository: &project_repository::Repository,
     branch_update: branch::BranchUpdateRequest,
 ) -> Result<branch::Branch, errors::UpdateBranchError> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     let mut branch = vb_state
         .get_branch(&branch_update.id)
         .map_err(|error| match error {
@@ -1393,12 +1393,13 @@ pub fn update_branch(
             }
             _ => errors::UpdateBranchError::Other(error.into()),
         })?;
+    let branch_before_update = branch.clone();
 
-    if let Some(ownership) = branch_update.ownership {
-        set_ownership(&vb_state, &mut branch, &ownership).context("failed to set ownership")?;
+    if let Some(ownership) = &branch_update.ownership {
+        set_ownership(&vb_state, &mut branch, ownership).context("failed to set ownership")?;
     }
 
-    if let Some(name) = branch_update.name {
+    if let Some(name) = &branch_update.name {
         let all_virtual_branches = vb_state
             .list_branches()
             .context("failed to read virtual branches")?;
@@ -1410,31 +1411,40 @@ pub fn update_branch(
                 .iter()
                 .map(|b| b.name.as_str())
                 .collect::<Vec<_>>(),
-            &name,
+            name,
         );
 
         project_repository.add_branch_reference(&branch)?;
     };
 
-    if let Some(updated_upstream) = branch_update.upstream {
-        let default_target = get_default_target(&vb_state)
+    if let Some(updated_upstream) = &branch_update.upstream {
+        let Some(default_target) = vb_state
+            .try_get_default_target()
             .context("failed to get default target")?
-            .ok_or_else(|| {
-                errors::UpdateBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+        else {
+            return Err(errors::UpdateBranchError::DefaultTargetNotSet(
+                errors::DefaultTargetNotSet {
                     project_id: project_repository.project().id,
-                })
-            })?;
+                },
+            ));
+        };
+
+        let upstream_remote = match default_target.push_remote_name {
+            Some(remote) => remote.clone(),
+            None => default_target.branch.remote().to_owned(),
+        };
+
         let remote_branch = format!(
             "refs/remotes/{}/{}",
-            default_target.branch.remote(),
-            normalize_branch_name(&updated_upstream)
+            upstream_remote,
+            normalize_branch_name(updated_upstream)
         )
         .parse::<git::RemoteRefname>()
         .unwrap();
         branch.upstream = Some(remote_branch);
     };
 
-    if let Some(notes) = branch_update.notes {
+    if let Some(notes) = branch_update.notes.clone() {
         branch.notes = notes;
     };
 
@@ -1463,6 +1473,9 @@ pub fn update_branch(
         .set_branch(branch.clone())
         .context("failed to write target branch")?;
 
+    _ = project_repository
+        .project()
+        .snapshot_branch_update(branch_before_update, branch_update);
     Ok(branch)
 }
 
@@ -1470,7 +1483,7 @@ pub fn delete_branch(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
 ) -> Result<(), Error> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     let branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => return Ok(()),
@@ -1479,6 +1492,9 @@ pub fn delete_branch(
     .context("failed to read branch")?;
 
     if branch.applied && unapply_branch(project_repository, branch_id)?.is_none() {
+        _ = project_repository
+            .project()
+            .snapshot_branch_deletion(branch.name);
         return Ok(());
     }
 
@@ -1490,6 +1506,9 @@ pub fn delete_branch(
 
     ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
+    _ = project_repository
+        .project()
+        .snapshot_branch_deletion(branch.name);
     Ok(())
 }
 
@@ -1556,9 +1575,10 @@ fn set_ownership(
 struct MTimeCache(HashMap<PathBuf, u128>);
 
 impl MTimeCache {
-    fn mtime_by_path<'a>(&mut self, path: impl Into<Cow<'a, Path>>) -> u128 {
-        let path = path.into();
-        if let Some(mtime) = self.0.get(path.as_ref()) {
+    fn mtime_by_path<P: AsRef<Path>>(&mut self, path: P) -> u128 {
+        let path = path.as_ref();
+
+        if let Some(mtime) = self.0.get(path) {
             return *mtime;
         }
 
@@ -1575,49 +1595,40 @@ impl MTimeCache {
             )
             .duration_since(time::UNIX_EPOCH)
             .map_or(0, |d| d.as_millis());
-        self.0.insert(path.into_owned(), mtime);
+        self.0.insert(path.into(), mtime);
         mtime
     }
 }
 
-pub fn virtual_hunks_by_filepath(
-    project_path: &Path,
-    diff: &BranchStatus,
-) -> HashMap<PathBuf, Vec<VirtualBranchHunk>> {
+pub(super) fn virtual_hunks_by_git_hunks<'a>(
+    project_path: &'a Path,
+    diff: impl IntoIterator<Item = (PathBuf, Vec<diff::GitHunk>)> + 'a,
+) -> impl Iterator<Item = (PathBuf, Vec<VirtualBranchHunk>)> + 'a {
     let mut mtimes = MTimeCache::default();
-    diff.iter()
-        .map(|(file_path, hunks)| {
-            let hunks = hunks
-                .iter()
-                .map(|hunk| {
-                    VirtualBranchHunk::from_git_hunk(project_path, file_path, hunk, &mut mtimes)
-                })
-                .collect::<Vec<_>>();
-            (file_path.clone(), hunks)
-        })
-        .collect::<HashMap<_, _>>()
+    diff.into_iter().map(move |(file_path, hunks)| {
+        let hunks = hunks
+            .into_iter()
+            .map(|hunk| {
+                VirtualBranchHunk::from_git_hunk(project_path, file_path.clone(), hunk, &mut mtimes)
+            })
+            .collect::<Vec<_>>();
+        (file_path, hunks)
+    })
 }
 
-pub fn virtual_hunks_by_filepath_from_file_diffs(
-    project_path: &Path,
-    diff: &DiffByPathMap,
-) -> HashMap<PathBuf, Vec<VirtualBranchHunk>> {
-    let mut mtimes = MTimeCache::default();
-    diff.iter()
-        .map(|(file_path, file)| {
-            let hunks = file
-                .hunks
-                .iter()
-                .map(|hunk| {
-                    VirtualBranchHunk::from_git_hunk(project_path, file_path, hunk, &mut mtimes)
-                })
-                .collect::<Vec<_>>();
-            (file_path.clone(), hunks)
-        })
-        .collect::<HashMap<_, _>>()
+pub fn virtual_hunks_by_file_diffs<'a>(
+    project_path: &'a Path,
+    diff: impl IntoIterator<Item = (PathBuf, FileDiff)> + 'a,
+) -> impl Iterator<Item = (PathBuf, Vec<VirtualBranchHunk>)> + 'a {
+    virtual_hunks_by_git_hunks(
+        project_path,
+        diff.into_iter()
+            .map(move |(file_path, file)| (file_path, file.hunks)),
+    )
 }
 
 pub type BranchStatus = HashMap<PathBuf, Vec<diff::GitHunk>>;
+pub type VirtualBranchHunksByPathMap = HashMap<PathBuf, Vec<VirtualBranchHunk>>;
 
 // list the virtual branches and their file statuses (statusi?)
 #[allow(clippy::type_complexity)]
@@ -1625,15 +1636,14 @@ pub fn get_status_by_branch(
     project_repository: &project_repository::Repository,
     integration_commit: Option<&git::Oid>,
 ) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
-    let default_target =
-        match get_default_target(&vb_state).context("failed to read default target")? {
-            Some(target) => target,
-            None => {
-                return Ok((vec![], vec![]));
-            }
-        };
+    let Some(default_target) = vb_state
+        .try_get_default_target()
+        .context("failed to read default target")?
+    else {
+        return Ok((vec![], vec![]));
+    };
 
     let virtual_branches = vb_state
         .list_branches()
@@ -1698,7 +1708,7 @@ fn get_non_applied_status(
 
             let diff = diff::trees(&project_repository.git_repository, &head_tree, &branch_tree)?;
 
-            Ok((branch, diff::diff_files_into_hunks(diff)))
+            Ok((branch, diff::diff_files_into_hunks(diff).collect()))
         })
         .collect::<Result<Vec<_>>>()
 }
@@ -1720,7 +1730,7 @@ fn get_applied_status(
             skipped_files.push(file_diff.clone());
         }
     }
-    let mut base_diffs = diff_files_into_hunks(base_file_diffs);
+    let mut base_diffs: HashMap<_, _> = diff_files_into_hunks(base_file_diffs).collect();
 
     // sort by order, so that the default branch is first (left in the ui)
     virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));
@@ -1733,13 +1743,20 @@ fn get_applied_status(
             ];
     }
 
+    let mut commit_to_branch = HashMap::new();
+    for branch in &mut virtual_branches {
+        for commit in project_repository.log(branch.head, LogUntil::Commit(*target_sha))? {
+            commit_to_branch.insert(commit.id(), branch.id);
+        }
+    }
+
     let mut diffs_by_branch: HashMap<BranchId, BranchStatus> = virtual_branches
         .iter()
         .map(|branch| (branch.id, HashMap::new()))
         .collect();
 
     let mut mtimes = MTimeCache::default();
-    let mut locked_hunk_map = HashMap::<HunkHash, Vec<git::Oid>>::new();
+    let mut locked_hunk_map = HashMap::<HunkHash, Vec<diff::HunkLock>>::new();
 
     let merge_base = project_repository
         .git_repository
@@ -1782,26 +1799,34 @@ fn get_applied_status(
 
                 if let Ok(blame) = blame {
                     for blame_hunk in blame.iter() {
-                        let commit = git::Oid::from(blame_hunk.orig_commit_id());
-                        if commit != *target_sha && commit != *integration_commit {
-                            let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
+                        let commit_id = git::Oid::from(blame_hunk.orig_commit_id());
+                        if commit_id != *target_sha && commit_id != *integration_commit {
+                            let hash = Hunk::hash_diff(&hunk.diff_lines);
+                            let Some(branch_id) = commit_to_branch.get(&commit_id) else {
+                                // This is a truly absurd situation
+                                // TODO: Test if this still happens
+                                tracing::error!(
+                                    "commit {:?} not found in commit_to_branch map {:?}",
+                                    commit_id,
+                                    commit_to_branch
+                                );
+                                continue;
+                            };
+
+                            let hunk_lock = diff::HunkLock {
+                                branch_id: *branch_id,
+                                commit_id,
+                            };
                             locked_hunk_map
                                 .entry(hash)
-                                .and_modify(|commits| {
-                                    commits.push(commit);
+                                .and_modify(|locks| {
+                                    locks.push(hunk_lock);
                                 })
-                                .or_insert(vec![commit]);
+                                .or_insert(vec![hunk_lock]);
                         }
                     }
                 }
             }
-        }
-    }
-
-    let mut commit_to_branch = HashMap::new();
-    for branch in &mut virtual_branches {
-        for commit in project_repository.log(branch.head, LogUntil::Commit(*target_sha))? {
-            commit_to_branch.insert(commit.id(), branch.id);
         }
     }
 
@@ -1827,12 +1852,12 @@ fn get_applied_status(
                     .filter_map(|claimed_hunk| {
                         // if any of the current hunks intersects with the owned hunk, we want to keep it
                         for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
-                            let hash = Hunk::hash_diff(git_diff_hunk.diff_lines.as_ref());
+                            let hash = Hunk::hash_diff(&git_diff_hunk.diff_lines);
                             if locked_hunk_map.contains_key(&hash) {
                                 return None; // Defer allocation to unclaimed hunks processing
                             }
                             if claimed_hunk.eq(&Hunk::from(git_diff_hunk)) {
-                                let timestamp = claimed_hunk.timestam_ms().unwrap_or(mtime);
+                                let timestamp = claimed_hunk.timestamp_ms().unwrap_or(mtime);
                                 diffs_by_branch
                                     .entry(branch.id)
                                     .or_default()
@@ -1853,7 +1878,7 @@ fn get_applied_status(
                                     .or_default()
                                     .entry(claim.file_path.clone())
                                     .or_default()
-                                    .insert(0, git_diff_hunk.clone());
+                                    .push(git_diff_hunk.clone());
                                 let updated_hunk = Hunk {
                                     start: git_diff_hunk.new_start,
                                     end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
@@ -1898,12 +1923,14 @@ fn get_applied_status(
     // process the remaining ones.
     for (filepath, hunks) in base_diffs {
         for hunk in hunks {
-            let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
+            let hash = Hunk::hash_diff(&hunk.diff_lines);
             let locked_to = locked_hunk_map.get(&hash);
 
-            let vbranch_pos = if let Some(locked_to) = locked_to {
-                let branch_id = commit_to_branch.get(&locked_to[0]).unwrap();
-                let p = virtual_branches.iter().position(|vb| vb.id == *branch_id);
+            let vbranch_pos = if let Some(locks) = locked_to {
+                let first_lock = &locks[0];
+                let p = virtual_branches
+                    .iter()
+                    .position(|vb| vb.id == first_lock.branch_id);
                 match p {
                     Some(p) => p,
                     _ => default_vbranch_pos,
@@ -1912,7 +1939,7 @@ fn get_applied_status(
                 default_vbranch_pos
             };
 
-            let hash = Hunk::hash_diff(hunk.diff_lines.as_ref());
+            let hash = Hunk::hash_diff(&hunk.diff_lines);
             let mut new_hunk = Hunk::from(&hunk)
                 .with_timestamp(mtimes.mtime_by_path(filepath.as_path()))
                 .with_hash(hash);
@@ -1921,14 +1948,12 @@ fn get_applied_status(
                 _ => vec![],
             };
 
-            virtual_branches[vbranch_pos]
-                .ownership
-                .put(&OwnershipClaim {
-                    file_path: filepath.clone(),
-                    hunks: vec![Hunk::from(&hunk)
-                        .with_timestamp(mtimes.mtime_by_path(filepath.as_path()))
-                        .with_hash(Hunk::hash_diff(hunk.diff_lines.as_ref()))],
-                });
+            virtual_branches[vbranch_pos].ownership.put(OwnershipClaim {
+                file_path: filepath.clone(),
+                hunks: vec![Hunk::from(&hunk)
+                    .with_timestamp(mtimes.mtime_by_path(filepath.as_path()))
+                    .with_hash(Hunk::hash_diff(&hunk.diff_lines))],
+            });
 
             let hunk = match locked_to {
                 Some(locks) => hunk.with_locks(locks),
@@ -1959,9 +1984,9 @@ fn get_applied_status(
 
     // write updated state if not resolving
     if !project_repository.is_resolving() {
-        let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+        let vb_state = project_repository.project().virtual_branches();
         for (vbranch, files) in &mut hunks_by_branch {
-            vbranch.tree = write_tree(project_repository, integration_commit, files)?;
+            vbranch.tree = write_tree(project_repository, &vbranch.head, files)?;
             vb_state
                 .set_branch(vbranch.clone())
                 .context(format!("failed to write virtual branch {}", vbranch.name))?;
@@ -1971,31 +1996,29 @@ fn get_applied_status(
     Ok((hunks_by_branch, skipped_files))
 }
 
-fn virtual_hunks_to_virtual_files(
+/// NOTE: There is no use returning an iterator here as this acts like the final product.
+fn virtual_hunks_into_virtual_files(
     project_repository: &project_repository::Repository,
-    hunks: &[VirtualBranchHunk],
+    hunks: impl IntoIterator<Item = (PathBuf, Vec<VirtualBranchHunk>)>,
 ) -> Vec<VirtualBranchFile> {
     hunks
-        .iter()
-        .fold(HashMap::<PathBuf, Vec<_>>::new(), |mut acc, hunk| {
-            acc.entry(hunk.file_path.clone())
-                .or_default()
-                .push(hunk.clone());
-            acc
-        })
         .into_iter()
-        .map(|(file_path, hunks)| VirtualBranchFile {
-            id: file_path.display().to_string(),
-            path: file_path.clone(),
-            hunks: hunks.clone(),
-            binary: hunks.iter().any(|h| h.binary),
-            large: false,
-            modified_at: hunks.iter().map(|h| h.modified_at).max().unwrap_or(0),
-            conflicted: conflicts::is_conflicting(
-                project_repository,
-                Some(&file_path.display().to_string()),
-            )
-            .unwrap_or(false),
+        .map(|(path, hunks)| {
+            let id = path.display().to_string();
+            let conflicted =
+                conflicts::is_conflicting(project_repository, Some(&id)).unwrap_or(false);
+            let binary = hunks.iter().any(|h| h.binary);
+            let modified_at = hunks.iter().map(|h| h.modified_at).max().unwrap_or(0);
+            debug_assert!(hunks.iter().all(|hunk| hunk.file_path == path));
+            VirtualBranchFile {
+                id,
+                path,
+                hunks,
+                binary,
+                large: false,
+                modified_at,
+                conflicted,
+            }
         })
         .collect::<Vec<_>>()
 }
@@ -2006,15 +2029,18 @@ pub fn reset_branch(
     branch_id: &BranchId,
     target_commit_oid: git::Oid,
 ) -> Result<(), errors::ResetBranchError> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to read default target")?
-        .ok_or_else(|| {
-            errors::ResetBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::ResetBranchError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let mut branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
@@ -2042,9 +2068,41 @@ pub fn reset_branch(
         ));
     }
 
+    // Compute the old workspace before resetting so we can can figure out
+    // what hunks were released by this reset, and assign them to this branch.
+    let old_head = get_workspace_head(&vb_state, project_repository)?;
+
     branch.head = target_commit_oid;
     vb_state
         .set_branch(branch.clone())
+        .context("failed to write branch")?;
+
+    let updated_head = get_workspace_head(&vb_state, project_repository)?;
+    let repo = &project_repository.git_repository;
+    let diff = trees(
+        repo,
+        &repo.find_commit(updated_head)?.tree()?,
+        &repo.find_commit(old_head)?.tree()?,
+    )?;
+
+    // Assign the new hunks to the branch we're working on.
+    for (path, filediff) in diff {
+        for hunk in filediff.hunks {
+            let hash = Hunk::hash_diff(&hunk.diff_lines);
+            branch.ownership.put(
+                format!(
+                    "{}:{}-{}-{:?}",
+                    path.display(),
+                    hunk.new_start,
+                    hunk.new_start + hunk.new_lines,
+                    &hash
+                )
+                .parse()?,
+            );
+        }
+    }
+    vb_state
+        .set_branch(branch)
         .context("failed to write branch")?;
 
     super::integration::update_gitbutler_integration(&vb_state, project_repository)
@@ -2053,19 +2111,12 @@ pub fn reset_branch(
     Ok(())
 }
 
-fn diffs_to_virtual_files(
+fn diffs_into_virtual_files(
     project_repository: &project_repository::Repository,
-    diffs: &BranchStatus,
+    diffs: BranchStatus,
 ) -> Vec<VirtualBranchFile> {
-    let hunks_by_filepath = virtual_hunks_by_filepath(&project_repository.project().path, diffs);
-    virtual_hunks_to_virtual_files(
-        project_repository,
-        &hunks_by_filepath
-            .values()
-            .flatten()
-            .cloned()
-            .collect::<Vec<_>>(),
-    )
+    let hunks_by_filepath = virtual_hunks_by_git_hunks(&project_repository.project().path, diffs);
+    virtual_hunks_into_virtual_files(project_repository, hunks_by_filepath)
 }
 
 // this function takes a list of file ownership,
@@ -2074,7 +2125,7 @@ fn diffs_to_virtual_files(
 pub fn write_tree(
     project_repository: &project_repository::Repository,
     target: &git::Oid,
-    files: &BranchStatus,
+    files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
 ) -> Result<git::Oid> {
     write_tree_onto_commit(project_repository, *target, files)
 }
@@ -2082,7 +2133,7 @@ pub fn write_tree(
 pub fn write_tree_onto_commit(
     project_repository: &project_repository::Repository,
     commit_oid: git::Oid,
-    files: &BranchStatus,
+    files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
 ) -> Result<git::Oid> {
     // read the base sha into an index
     let git_repository = &project_repository.git_repository;
@@ -2096,12 +2147,14 @@ pub fn write_tree_onto_commit(
 pub fn write_tree_onto_tree(
     project_repository: &project_repository::Repository,
     base_tree: &git::Tree,
-    files: &BranchStatus,
+    files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
 ) -> Result<git::Oid> {
     let git_repository = &project_repository.git_repository;
     let mut builder = git_repository.treebuilder(Some(base_tree));
     // now update the index with content in the working directory for each file
     for (rel_path, hunks) in files {
+        let rel_path = rel_path.borrow();
+        let hunks = hunks.borrow();
         let full_path = project_repository.path().join(rel_path);
 
         let is_submodule = full_path.is_dir()
@@ -2181,7 +2234,7 @@ pub fn write_tree_onto_tree(
 
                     let blob_contents = blob.content();
 
-                    let mut hunks = hunks.clone();
+                    let mut hunks = hunks.iter().collect::<Vec<_>>();
                     hunks.sort_by_key(|hunk| hunk.new_start);
                     let mut all_diffs = BString::default();
                     for hunk in hunks {
@@ -2189,7 +2242,7 @@ pub fn write_tree_onto_tree(
                     }
 
                     let patch = Patch::from_bytes(&all_diffs)?;
-                    let blob_contents = apply(blob_contents.into(), &patch).context(format!(
+                    let blob_contents = apply(blob_contents, &patch).context(format!(
                         "failed to apply\n{}\nonto:\n{}",
                         all_diffs.as_bstr(),
                         blob_contents.as_bstr()
@@ -2203,11 +2256,11 @@ pub fn write_tree_onto_tree(
             } else if is_submodule {
                 let mut blob_contents = BString::default();
 
-                let mut hunks = hunks.clone();
+                let mut hunks = hunks.iter().collect::<Vec<_>>();
                 hunks.sort_by_key(|hunk| hunk.new_start);
                 for hunk in hunks {
                     let patch = Patch::from_bytes(&hunk.diff_lines)?;
-                    blob_contents = apply(blob_contents.as_ref(), &patch)
+                    blob_contents = apply(&blob_contents, &patch)
                         .context(format!("failed to apply {}", &hunk.diff_lines))?;
                 }
 
@@ -2225,9 +2278,6 @@ pub fn write_tree_onto_tree(
         } else if base_tree.get_path(rel_path).is_ok() {
             // remove file from index if it exists in the base tree
             builder.remove(rel_path);
-        } else {
-            // file not in index or base tree, do nothing
-            // this is the
         }
     }
 
@@ -2264,12 +2314,11 @@ pub fn commit(
     branch_id: &BranchId,
     message: &str,
     ownership: Option<&branch::BranchOwnershipClaims>,
-    signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
     run_hooks: bool,
 ) -> Result<git::Oid, errors::CommitError> {
     let mut message_buffer = message.to_owned();
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     if run_hooks {
         let hook_result = project_repository
@@ -2296,11 +2345,11 @@ pub fn commit(
     let integration_commit_id =
         super::integration::get_workspace_head(&vb_state, project_repository)?;
     // get the files to commit
-    let (mut statuses, _) = get_status_by_branch(project_repository, Some(&integration_commit_id))
+    let (statuses, _) = get_status_by_branch(project_repository, Some(&integration_commit_id))
         .context("failed to get status by branch")?;
 
     let (ref mut branch, files) = statuses
-        .iter_mut()
+        .into_iter()
         .find(|(branch, _)| branch.id == *branch_id)
         .ok_or_else(|| {
             errors::CommitError::BranchNotFound(errors::BranchNotFound {
@@ -2309,7 +2358,7 @@ pub fn commit(
             })
         })?;
 
-    update_conflict_markers(project_repository, files)?;
+    update_conflict_markers(project_repository, &files)?;
 
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
         return Err(errors::CommitError::Conflicted(errors::ProjectConflict {
@@ -2318,33 +2367,29 @@ pub fn commit(
     }
 
     let tree_oid = if let Some(ownership) = ownership {
-        let files = files
-            .iter()
-            .filter_map(|(filepath, hunks)| {
-                let hunks = hunks
-                    .iter()
-                    .filter(|hunk| {
-                        ownership
-                            .claims
-                            .iter()
-                            .find(|f| f.file_path.eq(filepath))
-                            .map_or(false, |f| {
-                                f.hunks.iter().any(|h| {
-                                    h.start == hunk.new_start
-                                        && h.end == hunk.new_start + hunk.new_lines
-                                })
+        let files = files.into_iter().filter_map(|(filepath, hunks)| {
+            let hunks = hunks
+                .into_iter()
+                .filter(|hunk| {
+                    ownership
+                        .claims
+                        .iter()
+                        .find(|f| f.file_path.eq(&filepath))
+                        .map_or(false, |f| {
+                            f.hunks.iter().any(|h| {
+                                h.start == hunk.new_start
+                                    && h.end == hunk.new_start + hunk.new_lines
                             })
-                    })
-                    .cloned()
-                    .collect::<Vec<_>>();
-                if hunks.is_empty() {
-                    None
-                } else {
-                    Some((filepath.clone(), hunks))
-                }
-            })
-            .collect::<HashMap<_, _>>();
-        write_tree_onto_commit(project_repository, branch.head, &files)?
+                        })
+                })
+                .collect::<Vec<_>>();
+            if hunks.is_empty() {
+                None
+            } else {
+                Some((filepath, hunks))
+            }
+        });
+        write_tree_onto_commit(project_repository, branch.head, files)?
     } else {
         write_tree_onto_commit(project_repository, branch.head, files)?
     };
@@ -2371,12 +2416,12 @@ pub fn commit(
                 message,
                 &tree,
                 &[&parent_commit, &merge_parent],
-                signing_key,
+                None,
             )?;
             conflicts::clear(project_repository).context("failed to clear conflicts")?;
             commit_oid
         }
-        None => project_repository.commit(user, message, &tree, &[&parent_commit], signing_key)?,
+        None => project_repository.commit(user, message, &tree, &[&parent_commit], None)?,
     };
 
     if run_hooks {
@@ -2386,7 +2431,7 @@ pub fn commit(
             .context("failed to run hook")?;
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     branch.tree = tree_oid;
     branch.head = commit_oid;
     vb_state
@@ -2404,9 +2449,9 @@ pub fn push(
     branch_id: &BranchId,
     with_force: bool,
     credentials: &git::credentials::Helper,
-    askpass: Option<(AskpassBroker, Option<BranchId>)>,
+    askpass: Option<Option<BranchId>>,
 ) -> Result<(), errors::PushError> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let mut vbranch = vb_state
         .get_branch(branch_id)
@@ -2418,20 +2463,28 @@ pub fn push(
             error => errors::PushError::Other(error.into()),
         })?;
 
-    let remote_branch = if let Some(upstream_branch) = vbranch.upstream.as_ref() {
+    let remote_branch = if let Some(upstream_branch) = &vbranch.upstream {
         upstream_branch.clone()
     } else {
-        let default_target = get_default_target(&vb_state)
+        let Some(default_target) = vb_state
+            .try_get_default_target()
             .context("failed to get default target")?
-            .ok_or_else(|| {
-                errors::PushError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+        else {
+            return Err(errors::PushError::DefaultTargetNotSet(
+                errors::DefaultTargetNotSet {
                     project_id: project_repository.project().id,
-                })
-            })?;
+                },
+            ));
+        };
+
+        let upstream_remote = match default_target.push_remote_name {
+            Some(remote) => remote.clone(),
+            None => default_target.branch.remote().to_owned(),
+        };
 
         let remote_branch = format!(
             "refs/remotes/{}/{}",
-            default_target.branch.remote(),
+            upstream_remote,
             normalize_branch_name(&vbranch.name)
         )
         .parse::<git::RemoteRefname>()
@@ -2460,7 +2513,7 @@ pub fn push(
         with_force,
         credentials,
         None,
-        askpass.clone(),
+        askpass,
     )?;
 
     vbranch.upstream = Some(remote_branch.clone());
@@ -2471,7 +2524,7 @@ pub fn push(
     project_repository.fetch(
         remote_branch.remote(),
         credentials,
-        askpass.map(|(broker, _)| (broker, "modal".to_string())),
+        askpass.map(|_| "modal".to_string()),
     )?;
 
     Ok(())
@@ -2551,15 +2604,18 @@ pub fn is_remote_branch_mergeable(
     project_repository: &project_repository::Repository,
     branch_name: &git::RemoteRefname,
 ) -> Result<bool, errors::IsRemoteBranchMergableError> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::IsRemoteBranchMergableError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::IsRemoteBranchMergableError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let target_commit = project_repository
         .git_repository
@@ -2604,7 +2660,7 @@ pub fn is_virtual_branch_mergeable(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
 ) -> Result<bool, errors::IsVirtualBranchMergeable> {
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     let branch = match vb_state.get_branch(branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::IsVirtualBranchMergeable::BranchNotFound(
@@ -2620,13 +2676,16 @@ pub fn is_virtual_branch_mergeable(
         return Ok(true);
     }
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to read default target")?
-        .ok_or_else(|| {
-            errors::IsVirtualBranchMergeable::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::IsVirtualBranchMergeable::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     // determine if this branch is up to date with the target/base
     let merge_base = project_repository
@@ -2671,28 +2730,309 @@ pub fn is_virtual_branch_mergeable(
     Ok(is_mergeable)
 }
 
+// this function takes a list of file ownership from a "from" commit and "moves"
+// those changes to a "to" commit in a branch. This allows users to drag changes
+// from one commit to another.
+// if the "to" commit is below the "from" commit, the changes are simply added to the "to" commit
+// and the rebase should be simple. if the "to" commit is above the "from" commit,
+// the changes need to be removed from the "from" commit, everything rebased,
+// then added to the "to" commit and everything above that rebased again.
+pub fn move_commit_file(
+    project_repository: &project_repository::Repository,
+    branch_id: &BranchId,
+    from_commit_oid: git::Oid,
+    to_commit_oid: git::Oid,
+    target_ownership: &BranchOwnershipClaims,
+) -> Result<git::Oid, errors::VirtualBranchError> {
+    let vb_state = project_repository.project().virtual_branches();
+
+    let mut target_branch = match vb_state.get_branch(branch_id) {
+        Ok(branch) => Ok(branch),
+        Err(reader::Error::NotFound) => return Ok(to_commit_oid), // this is wrong
+        Err(error) => Err(error),
+    }
+    .context("failed to read branch")?;
+
+    let Some(default_target) = vb_state
+        .try_get_default_target()
+        .context("failed to read default target")?
+    else {
+        return Err(errors::VirtualBranchError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
+                project_id: project_repository.project().id,
+            },
+        ));
+    };
+
+    let mut to_amend_oid = to_commit_oid;
+    let mut amend_commit = project_repository
+        .git_repository
+        .find_commit(to_amend_oid)
+        .context("failed to find commit")?;
+
+    // find all the commits upstream from the target "to" commit
+    let mut upstream_commits = project_repository.l(
+        target_branch.head,
+        project_repository::LogUntil::Commit(amend_commit.id()),
+    )?;
+
+    // get a list of all the diffs across all the virtual branches
+    let base_file_diffs = diff::workdir(&project_repository.git_repository, &default_target.sha)
+        .context("failed to diff workdir")?;
+
+    // filter base_file_diffs to HashMap<filepath, Vec<GitHunk>> only for hunks in target_ownership
+    // this is essentially the group of patches that we're "moving"
+    let diffs_to_amend = target_ownership
+        .claims
+        .iter()
+        .filter_map(|file_ownership| {
+            let hunks = base_file_diffs
+                .get(&file_ownership.file_path)
+                .map(|hunks| {
+                    hunks
+                        .hunks
+                        .iter()
+                        .filter(|hunk| {
+                            file_ownership.hunks.iter().any(|owned_hunk| {
+                                owned_hunk.start == hunk.new_start
+                                    && owned_hunk.end == hunk.new_start + hunk.new_lines
+                            })
+                        })
+                        .cloned()
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            if hunks.is_empty() {
+                None
+            } else {
+                Some((file_ownership.file_path.clone(), hunks))
+            }
+        })
+        .collect::<HashMap<_, _>>();
+
+    // if we're not moving anything, return an error
+    if diffs_to_amend.is_empty() {
+        return Err(errors::VirtualBranchError::TargetOwnerhshipNotFound(
+            target_ownership.clone(),
+        ));
+    }
+
+    // is from_commit_oid in upstream_commits?
+    if !upstream_commits.contains(&from_commit_oid) {
+        // this means that the "from" commit is _below_ the "to" commit in the history
+        // which makes things a little more complicated because in this case we need to
+        // remove the changes from the lower "from" commit, rebase everything, then add the changes
+        // to the _rebased_ version of the "to" commit that is above it.
+
+        // first, let's get the from commit data and it's parent data
+        let from_commit = project_repository
+            .git_repository
+            .find_commit(from_commit_oid)
+            .context("failed to find commit")?;
+        let from_tree = from_commit.tree().context("failed to find tree")?;
+        let from_parent = from_commit.parent(0).context("failed to find parent")?;
+        let from_parent_tree = from_parent.tree().context("failed to find parent tree")?;
+
+        // ok, what is the entire patch introduced in the "from" commit?
+        // we need to remove the parts of this patch that are in target_ownership (the parts we're moving)
+        // and then apply the rest to the parent tree of the "from" commit to
+        // create the new "from" commit without the changes we're moving
+        let from_commit_diffs = diff::trees(
+            &project_repository.git_repository,
+            &from_parent_tree,
+            &from_tree,
+        )
+        .context("failed to diff trees")?;
+
+        // filter from_commit_diffs to HashMap<filepath, Vec<GitHunk>> only for hunks NOT in target_ownership
+        // this is the patch parts we're keeping
+        let diffs_to_keep = from_commit_diffs
+            .iter()
+            .filter_map(|(filepath, file_diff)| {
+                let hunks = file_diff
+                    .hunks
+                    .iter()
+                    .filter(|hunk| {
+                        !target_ownership.claims.iter().any(|file_ownership| {
+                            file_ownership.file_path.eq(filepath)
+                                && file_ownership.hunks.iter().any(|owned_hunk| {
+                                    owned_hunk.start == hunk.new_start
+                                        && owned_hunk.end == hunk.new_start + hunk.new_lines
+                                })
+                        })
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>();
+                if hunks.is_empty() {
+                    None
+                } else {
+                    Some((filepath.clone(), hunks))
+                }
+            })
+            .collect::<HashMap<_, _>>();
+
+        let repo = &project_repository.git_repository;
+
+        // write our new tree and commit for the new "from" commit without the moved changes
+        let new_from_tree_oid =
+            write_tree_onto_commit(project_repository, from_parent.id(), &diffs_to_keep)?;
+        let new_from_tree = &repo
+            .find_tree(new_from_tree_oid)
+            .map_err(|_error| errors::VirtualBranchError::GitObjectNotFound(new_from_tree_oid))?;
+        let change_id = from_commit.change_id();
+        let new_from_commit_oid = repo
+            .commit(
+                None,
+                &from_commit.author(),
+                &from_commit.committer(),
+                &from_commit.message().to_str_lossy(),
+                new_from_tree,
+                &[&from_parent],
+                change_id.as_deref(),
+            )
+            .map_err(|_error| errors::VirtualBranchError::CommitFailed)?;
+
+        // rebase everything above the new "from" commit that has the moved changes removed
+        let new_head = match cherry_rebase(
+            project_repository,
+            new_from_commit_oid,
+            from_commit_oid,
+            target_branch.head,
+        ) {
+            Ok(Some(new_head)) => new_head,
+            _ => {
+                return Err(errors::VirtualBranchError::RebaseFailed);
+            }
+        };
+
+        // ok, now we need to identify which the new "to" commit is in the rebased history
+        // so we'll take a list of the upstream oids and find it simply based on location
+        // (since the order should not have changed in our simple rebase)
+        let old_upstream_commit_oids = project_repository.l(
+            target_branch.head,
+            project_repository::LogUntil::Commit(default_target.sha),
+        )?;
+
+        let new_upstream_commit_oids = project_repository.l(
+            new_head,
+            project_repository::LogUntil::Commit(default_target.sha),
+        )?;
+
+        // find to_commit_oid offset in upstream_commits vector
+        let to_commit_offset = old_upstream_commit_oids
+            .iter()
+            .position(|c| *c == to_amend_oid)
+            .ok_or(errors::VirtualBranchError::Other(anyhow!(
+                "failed to find commit in old commits"
+            )))?;
+
+        // find the new "to" commit in our new rebased upstream commits
+        to_amend_oid = *new_upstream_commit_oids.get(to_commit_offset).ok_or(
+            errors::VirtualBranchError::Other(anyhow!("failed to find commit in new commits")),
+        )?;
+
+        // reset the "to" commit variable for writing the changes back to
+        amend_commit = project_repository
+            .git_repository
+            .find_commit(to_amend_oid)
+            .context("failed to find commit")?;
+
+        // reset the concept of what the upstream commits are to be the rebased ones
+        upstream_commits = project_repository.l(
+            new_head,
+            project_repository::LogUntil::Commit(amend_commit.id()),
+        )?;
+    }
+
+    // ok, now we will apply the moved changes to the "to" commit.
+    // if we were moving the changes down, we didn't need to rewrite the "from" commit
+    // because it will be rewritten with the upcoming rebase.
+    // if we were moving the changes "up" we've already rewritten the "from" commit
+
+    // apply diffs_to_amend to the commit tree
+    // and write a new commit with the changes we're moving
+    let new_tree_oid = write_tree_onto_commit(project_repository, to_amend_oid, &diffs_to_amend)?;
+    let new_tree = project_repository
+        .git_repository
+        .find_tree(new_tree_oid)
+        .context("failed to find new tree")?;
+    let parents = amend_commit
+        .parents()
+        .context("failed to find head commit parents")?;
+    let change_id = amend_commit.change_id();
+    let commit_oid = project_repository
+        .git_repository
+        .commit(
+            None,
+            &amend_commit.author(),
+            &amend_commit.committer(),
+            &amend_commit.message().to_str_lossy(),
+            &new_tree,
+            &parents.iter().collect::<Vec<_>>(),
+            change_id.as_deref(),
+        )
+        .context("failed to create commit")?;
+
+    // now rebase upstream commits, if needed
+
+    // if there are no upstream commits (the "to" commit was the branch head), then we're done
+    if upstream_commits.is_empty() {
+        target_branch.head = commit_oid;
+        vb_state.set_branch(target_branch.clone())?;
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+        return Ok(commit_oid);
+    }
+
+    // otherwise, rebase the upstream commits onto the new commit
+    let last_commit = upstream_commits.first().cloned().unwrap();
+    let new_head = cherry_rebase(
+        project_repository,
+        commit_oid,
+        amend_commit.id(),
+        last_commit,
+    )?;
+
+    // if that rebase worked, update the branch head and the gitbutler integration
+    if let Some(new_head) = new_head {
+        target_branch.head = new_head;
+        vb_state.set_branch(target_branch.clone())?;
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+        Ok(commit_oid)
+    } else {
+        Err(errors::VirtualBranchError::RebaseFailed)
+    }
+}
+
+// takes a list of file ownership and a commit oid and rewrites that commit to
+// add the file changes. The branch is then rebased onto the new commit
+// and the respective branch head is updated
 pub fn amend(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
+    commit_oid: git::Oid,
     target_ownership: &BranchOwnershipClaims,
-) -> Result<git::Oid, errors::AmendError> {
+) -> Result<git::Oid, errors::VirtualBranchError> {
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
-        return Err(errors::AmendError::Conflict(errors::ProjectConflict {
-            project_id: project_repository.project().id,
-        }));
+        return Err(errors::VirtualBranchError::Conflict(
+            errors::ProjectConflict {
+                project_id: project_repository.project().id,
+            },
+        ));
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let all_branches = vb_state
         .list_branches()
         .context("failed to read virtual branches")?;
 
     if !all_branches.iter().any(|b| b.id == *branch_id) {
-        return Err(errors::AmendError::BranchNotFound(errors::BranchNotFound {
-            project_id: project_repository.project().id,
-            branch_id: *branch_id,
-        }));
+        return Err(errors::VirtualBranchError::BranchNotFound(
+            errors::BranchNotFound {
+                project_id: project_repository.project().id,
+                branch_id: *branch_id,
+            },
+        ));
     }
 
     let applied_branches = all_branches
@@ -2701,19 +3041,24 @@ pub fn amend(
         .collect::<Vec<_>>();
 
     if !applied_branches.iter().any(|b| b.id == *branch_id) {
-        return Err(errors::AmendError::BranchNotFound(errors::BranchNotFound {
-            project_id: project_repository.project().id,
-            branch_id: *branch_id,
-        }));
+        return Err(errors::VirtualBranchError::BranchNotFound(
+            errors::BranchNotFound {
+                project_id: project_repository.project().id,
+                branch_id: *branch_id,
+            },
+        ));
     }
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to read default target")?
-        .ok_or_else(|| {
-            errors::AmendError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::VirtualBranchError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let integration_commit_id =
         super::integration::get_workspace_head(&vb_state, project_repository)?;
@@ -2729,7 +3074,7 @@ pub fn amend(
         .iter_mut()
         .find(|(b, _)| b.id == *branch_id)
         .ok_or_else(|| {
-            errors::AmendError::BranchNotFound(errors::BranchNotFound {
+            errors::VirtualBranchError::BranchNotFound(errors::BranchNotFound {
                 project_id: project_repository.project().id,
                 branch_id: *branch_id,
             })
@@ -2737,7 +3082,7 @@ pub fn amend(
 
     if target_branch.upstream.is_some() && !project_repository.project().ok_with_force_push {
         // amending to a pushed head commit will cause a force push that is not allowed
-        return Err(errors::AmendError::ForcePushNotAllowed(
+        return Err(errors::VirtualBranchError::ForcePushNotAllowed(
             errors::ForcePushNotAllowed {
                 project_id: project_repository.project().id,
             },
@@ -2751,13 +3096,14 @@ pub fn amend(
         )?
         .is_empty()
     {
-        return Err(errors::AmendError::BranchHasNoCommits);
+        return Err(errors::VirtualBranchError::BranchHasNoCommits);
     }
 
-    let head_commit = project_repository
+    // find commit oid
+    let amend_commit = project_repository
         .git_repository
-        .find_commit(target_branch.head)
-        .context("failed to find head commit")?;
+        .find_commit(commit_oid)
+        .context("failed to find commit")?;
 
     let diffs_to_amend = target_ownership
         .claims
@@ -2787,19 +3133,19 @@ pub fn amend(
         .collect::<HashMap<_, _>>();
 
     if diffs_to_amend.is_empty() {
-        return Err(errors::AmendError::TargetOwnerhshipNotFound(
+        return Err(errors::VirtualBranchError::TargetOwnerhshipNotFound(
             target_ownership.clone(),
         ));
     }
 
-    let new_tree_oid =
-        write_tree_onto_commit(project_repository, target_branch.head, &diffs_to_amend)?;
+    // apply diffs_to_amend to the commit tree
+    let new_tree_oid = write_tree_onto_commit(project_repository, commit_oid, &diffs_to_amend)?;
     let new_tree = project_repository
         .git_repository
         .find_tree(new_tree_oid)
         .context("failed to find new tree")?;
 
-    let parents = head_commit
+    let parents = amend_commit
         .parents()
         .context("failed to find head commit parents")?;
 
@@ -2807,20 +3153,383 @@ pub fn amend(
         .git_repository
         .commit(
             None,
-            &head_commit.author(),
-            &head_commit.committer(),
-            &head_commit.message().to_str_lossy(),
+            &amend_commit.author(),
+            &amend_commit.committer(),
+            &amend_commit.message().to_str_lossy(),
             &new_tree,
             &parents.iter().collect::<Vec<_>>(),
+            None,
         )
         .context("failed to create commit")?;
 
-    target_branch.head = commit_oid;
-    vb_state.set_branch(target_branch.clone())?;
+    // now rebase upstream commits, if needed
+    let upstream_commits = project_repository.l(
+        target_branch.head,
+        project_repository::LogUntil::Commit(amend_commit.id()),
+    )?;
+    // if there are no upstream commits, we're done
+    if upstream_commits.is_empty() {
+        target_branch.head = commit_oid;
+        vb_state.set_branch(target_branch.clone())?;
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+        return Ok(commit_oid);
+    }
 
-    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+    let last_commit = upstream_commits.first().cloned().unwrap();
 
-    Ok(commit_oid)
+    let new_head = cherry_rebase(
+        project_repository,
+        commit_oid,
+        amend_commit.id(),
+        last_commit,
+    )?;
+
+    if let Some(new_head) = new_head {
+        target_branch.head = new_head;
+        vb_state.set_branch(target_branch.clone())?;
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+        Ok(commit_oid)
+    } else {
+        Err(errors::VirtualBranchError::RebaseFailed)
+    }
+}
+
+// move a given commit in a branch up one or down one
+// if the offset is positive, move the commit down one
+// if the offset is negative, move the commit up one
+// rewrites the branch head to the new head commit
+pub fn reorder_commit(
+    project_repository: &project_repository::Repository,
+    branch_id: &BranchId,
+    commit_oid: git::Oid,
+    offset: i32,
+) -> Result<(), errors::VirtualBranchError> {
+    let vb_state = project_repository.project().virtual_branches();
+
+    let Some(default_target) = vb_state
+        .try_get_default_target()
+        .context("failed to read default target")?
+    else {
+        return Err(errors::VirtualBranchError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
+                project_id: project_repository.project().id,
+            },
+        ));
+    };
+
+    let mut branch = match vb_state.get_branch(branch_id) {
+        Ok(branch) => Ok(branch),
+        Err(reader::Error::NotFound) => Err(errors::VirtualBranchError::BranchNotFound(
+            errors::BranchNotFound {
+                branch_id: *branch_id,
+                project_id: project_repository.project().id,
+            },
+        )),
+        Err(error) => Err(errors::VirtualBranchError::Other(error.into())),
+    }?;
+
+    // find the commit to offset from
+    let commit = project_repository
+        .git_repository
+        .find_commit(commit_oid)
+        .context("failed to find commit")?;
+
+    let parent = commit.parent(0).context("failed to find parent")?;
+    let parent_oid = parent.id();
+
+    if offset < 0 {
+        // move commit up
+        if branch.head == commit_oid {
+            // can't move the head commit up
+            return Ok(());
+        }
+
+        // get a list of the commits to rebase
+        let mut ids_to_rebase = project_repository.l(
+            branch.head,
+            project_repository::LogUntil::Commit(commit.id()),
+        )?;
+        let last_oid = ids_to_rebase.pop().context("failed to pop last oid")?;
+        ids_to_rebase.push(commit_oid);
+        ids_to_rebase.push(last_oid);
+
+        match cherry_rebase_group(project_repository, parent_oid, &mut ids_to_rebase) {
+            Ok(Some(new_head)) => {
+                branch.head = new_head;
+                vb_state
+                    .set_branch(branch.clone())
+                    .context("failed to write branch")?;
+
+                super::integration::update_gitbutler_integration(&vb_state, project_repository)
+                    .context("failed to update gitbutler integration")?;
+            }
+            _ => {
+                return Err(errors::VirtualBranchError::RebaseFailed);
+            }
+        }
+    } else {
+        //  move commit down
+        if default_target.sha == parent_oid {
+            // can't move the commit down past the target
+            return Ok(());
+        }
+
+        let target = parent.parent(0).context("failed to find target")?;
+        let target_oid = target.id();
+
+        // get a list of the commits to rebase
+        let mut ids_to_rebase = project_repository.l(
+            branch.head,
+            project_repository::LogUntil::Commit(commit.id()),
+        )?;
+        ids_to_rebase.push(parent_oid);
+        ids_to_rebase.push(commit_oid);
+
+        match cherry_rebase_group(project_repository, target_oid, &mut ids_to_rebase) {
+            Ok(Some(new_head)) => {
+                branch.head = new_head;
+                vb_state
+                    .set_branch(branch.clone())
+                    .context("failed to write branch")?;
+
+                super::integration::update_gitbutler_integration(&vb_state, project_repository)
+                    .context("failed to update gitbutler integration")?;
+            }
+            _ => {
+                return Err(errors::VirtualBranchError::RebaseFailed);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+// create and insert a blank commit (no tree change) either above or below a commit
+// if offset is positive, insert below, if negative, insert above
+// return the oid of the new head commit of the branch with the inserted blank commit
+pub fn insert_blank_commit(
+    project_repository: &project_repository::Repository,
+    branch_id: &BranchId,
+    commit_oid: git::Oid,
+    user: Option<&users::User>,
+    offset: i32,
+) -> Result<(), errors::VirtualBranchError> {
+    let vb_state = project_repository.project().virtual_branches();
+
+    let mut branch = match vb_state.get_branch(branch_id) {
+        Ok(branch) => Ok(branch),
+        Err(reader::Error::NotFound) => Err(errors::VirtualBranchError::BranchNotFound(
+            errors::BranchNotFound {
+                branch_id: *branch_id,
+                project_id: project_repository.project().id,
+            },
+        )),
+        Err(error) => Err(errors::VirtualBranchError::Other(error.into())),
+    }?;
+
+    // find the commit to offset from
+    let mut commit = project_repository
+        .git_repository
+        .find_commit(commit_oid)
+        .context("failed to find commit")?;
+
+    if offset > 0 {
+        commit = commit.parent(0).context("failed to find parent")?;
+    }
+
+    let commit_tree = commit.tree().unwrap();
+    let blank_commit_oid = project_repository.commit(user, "", &commit_tree, &[&commit], None)?;
+
+    if commit.id() == branch.head && offset < 0 {
+        // inserting before the first commit
+        branch.head = blank_commit_oid;
+        vb_state
+            .set_branch(branch.clone())
+            .context("failed to write branch")?;
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)
+            .context("failed to update gitbutler integration")?;
+    } else {
+        // rebase all commits above it onto the new commit
+        match cherry_rebase(
+            project_repository,
+            blank_commit_oid,
+            commit.id(),
+            branch.head,
+        ) {
+            Ok(Some(new_head)) => {
+                branch.head = new_head;
+                vb_state
+                    .set_branch(branch.clone())
+                    .context("failed to write branch")?;
+
+                super::integration::update_gitbutler_integration(&vb_state, project_repository)
+                    .context("failed to update gitbutler integration")?;
+            }
+            _ => {
+                return Err(errors::VirtualBranchError::RebaseFailed);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+// remove a commit in a branch by rebasing all commits _except_ for it onto it's parent
+// if successful, it will update the branch head to the new head commit
+pub fn undo_commit(
+    project_repository: &project_repository::Repository,
+    branch_id: &BranchId,
+    commit_oid: git::Oid,
+) -> Result<(), errors::VirtualBranchError> {
+    let vb_state = project_repository.project().virtual_branches();
+
+    let mut branch = match vb_state.get_branch(branch_id) {
+        Ok(branch) => Ok(branch),
+        Err(reader::Error::NotFound) => Err(errors::VirtualBranchError::BranchNotFound(
+            errors::BranchNotFound {
+                branch_id: *branch_id,
+                project_id: project_repository.project().id,
+            },
+        )),
+        Err(error) => Err(errors::VirtualBranchError::Other(error.into())),
+    }?;
+
+    let commit = project_repository
+        .git_repository
+        .find_commit(commit_oid)
+        .context("failed to find commit")?;
+
+    let new_commit_oid;
+
+    if branch.head == commit_oid {
+        // if commit is the head, just set head to the parent
+        new_commit_oid = commit.parent(0).context("failed to find parent")?.id();
+    } else {
+        // if commit is not the head, rebase all commits above it onto it's parent
+        let parent_commit_oid = commit.parent(0).context("failed to find parent")?.id();
+
+        match cherry_rebase(
+            project_repository,
+            parent_commit_oid,
+            commit_oid,
+            branch.head,
+        ) {
+            Ok(Some(new_head)) => {
+                new_commit_oid = new_head;
+            }
+            _ => {
+                return Err(errors::VirtualBranchError::RebaseFailed);
+            }
+        }
+    }
+
+    if new_commit_oid != commit_oid {
+        branch.head = new_commit_oid;
+        vb_state
+            .set_branch(branch.clone())
+            .context("failed to write branch")?;
+
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)
+            .context("failed to update gitbutler integration")?;
+    }
+
+    Ok(())
+}
+
+// cherry-pick based rebase, which handles empty commits
+// this function takes a commit range and generates a Vector of commit oids
+// and then passes them to `cherry_rebase_group` to rebase them onto the target commit
+pub fn cherry_rebase(
+    project_repository: &project_repository::Repository,
+    target_commit_oid: git::Oid,
+    start_commit_oid: git::Oid,
+    end_commit_oid: git::Oid,
+) -> Result<Option<git::Oid>, anyhow::Error> {
+    // get a list of the commits to rebase
+    let mut ids_to_rebase = project_repository.l(
+        end_commit_oid,
+        project_repository::LogUntil::Commit(start_commit_oid),
+    )?;
+
+    if ids_to_rebase.is_empty() {
+        return Ok(None);
+    }
+
+    let new_head_id =
+        cherry_rebase_group(project_repository, target_commit_oid, &mut ids_to_rebase)?;
+
+    Ok(new_head_id)
+}
+
+// takes a vector of commit oids and rebases them onto a target commit and returns the
+// new head commit oid if it's successful
+// the difference between this and a libgit2 based rebase is that this will successfully
+// rebase empty commits (two commits with identical trees)
+fn cherry_rebase_group(
+    project_repository: &project_repository::Repository,
+    target_commit_oid: git::Oid,
+    ids_to_rebase: &mut [git::Oid],
+) -> Result<Option<git::Oid>, anyhow::Error> {
+    ids_to_rebase.reverse();
+    // now, rebase unchanged commits onto the new commit
+    let commits_to_rebase = ids_to_rebase
+        .iter()
+        .map(|oid| project_repository.git_repository.find_commit(*oid))
+        .collect::<Result<Vec<_>, _>>()
+        .context("failed to read commits to rebase")?;
+
+    let new_head_id = commits_to_rebase
+        .into_iter()
+        .fold(
+            project_repository
+                .git_repository
+                .find_commit(target_commit_oid)
+                .context("failed to find new commit"),
+            |head, to_rebase| {
+                let head = head?;
+
+                let mut cherrypick_index = project_repository
+                    .git_repository
+                    .cherry_pick(&head, &to_rebase)
+                    .context("failed to cherry pick")?;
+
+                if cherrypick_index.has_conflicts() {
+                    bail!("failed to rebase");
+                }
+
+                let merge_tree_oid = cherrypick_index
+                    .write_tree_to(&project_repository.git_repository)
+                    .context("failed to write merge tree")?;
+
+                let merge_tree = project_repository
+                    .git_repository
+                    .find_tree(merge_tree_oid)
+                    .context("failed to find merge tree")?;
+
+                let change_id = to_rebase.change_id();
+
+                let commit_oid = project_repository
+                    .git_repository
+                    .commit(
+                        None,
+                        &to_rebase.author(),
+                        &to_rebase.committer(),
+                        &to_rebase.message().to_str_lossy(),
+                        &merge_tree,
+                        &[&head],
+                        change_id.as_deref(),
+                    )
+                    .context("failed to create commit")?;
+
+                project_repository
+                    .git_repository
+                    .find_commit(commit_oid)
+                    .context("failed to find commit")
+            },
+        )?
+        .id();
+
+    Ok(Some(new_head_id))
 }
 
 pub fn cherry_pick(
@@ -2834,7 +3543,7 @@ pub fn cherry_pick(
         }));
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let mut branch = vb_state
         .get_branch(branch_id)
@@ -2858,7 +3567,8 @@ pub fn cherry_pick(
         .find_commit(branch.head)
         .context("failed to find branch tree")?;
 
-    let default_target = get_default_target(&vb_state)
+    let default_target = vb_state
+        .try_get_default_target()
         .context("failed to read default target")?
         .context("no default target set")?;
 
@@ -2905,6 +3615,7 @@ pub fn cherry_pick(
                 "wip cherry picking commit",
                 &wip_tree,
                 &[&branch_head_commit],
+                None,
             )
             .context("failed to commit wip work")?;
         project_repository
@@ -2968,6 +3679,7 @@ pub fn cherry_pick(
             .find_commit(branch.head)
             .context("failed to find branch head commit")?;
 
+        let change_id = target_commit.change_id();
         let commit_oid = project_repository
             .git_repository
             .commit(
@@ -2977,6 +3689,7 @@ pub fn cherry_pick(
                 &target_commit.message().to_str_lossy(),
                 &merge_tree,
                 &[&branch_head_commit],
+                change_id.as_deref(),
             )
             .context("failed to create commit")?;
 
@@ -3016,15 +3729,18 @@ pub fn squash(
         }));
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to read default target")?
-        .ok_or_else(|| {
-            errors::SquashError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::SquashError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let mut branch = vb_state
         .get_branch(branch_id)
@@ -3081,13 +3797,6 @@ pub fn squash(
         return Err(errors::SquashError::CantSquashRootCommit);
     }
 
-    let ids_to_rebase = {
-        let ids = branch_commit_oids
-            .split(|oid| oid.eq(&commit_oid))
-            .collect::<Vec<_>>();
-        ids.first().copied()
-    };
-
     // create a commit that:
     //  * has the tree of the target commit
     //  * has the message combined of the target commit and parent commit
@@ -3095,6 +3804,9 @@ pub fn squash(
     let parents = parent_commit
         .parents()
         .context("failed to find head commit parents")?;
+
+    // use the squash commit's change id
+    let change_id = commit_to_squash.change_id();
 
     let new_commit_oid = project_repository
         .git_repository
@@ -3109,82 +3821,36 @@ pub fn squash(
             ),
             &commit_to_squash.tree().context("failed to find tree")?,
             &parents.iter().collect::<Vec<_>>(),
+            change_id.as_deref(),
         )
         .context("failed to commit")?;
 
-    let new_head_id = if let Some(ids_to_rebase) = ids_to_rebase {
-        let mut ids_to_rebase = ids_to_rebase.to_vec();
-        ids_to_rebase.reverse();
+    let ids_to_rebase = {
+        let ids = branch_commit_oids
+            .split(|oid| oid.eq(&commit_oid))
+            .collect::<Vec<_>>();
+        ids.first().copied()
+    }
+    .ok_or(errors::SquashError::CommitNotFound(commit_oid))?;
+    let mut ids_to_rebase = ids_to_rebase.to_vec();
 
-        // now, rebase unchanged commits onto the new commit
-        let commits_to_rebase = ids_to_rebase
-            .iter()
-            .map(|oid| project_repository.git_repository.find_commit(*oid))
-            .collect::<Result<Vec<_>, _>>()
-            .context("failed to read commits to rebase")?;
+    match cherry_rebase_group(project_repository, new_commit_oid, &mut ids_to_rebase) {
+        Ok(Some(new_head_id)) => {
+            // save new branch head
+            branch.head = new_head_id;
+            vb_state
+                .set_branch(branch.clone())
+                .context("failed to write branch")?;
 
-        commits_to_rebase
-            .into_iter()
-            .fold(
-                project_repository
-                    .git_repository
-                    .find_commit(new_commit_oid)
-                    .context("failed to find new commit"),
-                |head, to_rebase| {
-                    let head = head?;
-
-                    let mut cherrypick_index = project_repository
-                        .git_repository
-                        .cherry_pick(&head, &to_rebase)
-                        .context("failed to cherry pick")?;
-
-                    if cherrypick_index.has_conflicts() {
-                        bail!("failed to rebase");
-                    }
-
-                    let merge_tree_oid = cherrypick_index
-                        .write_tree_to(&project_repository.git_repository)
-                        .context("failed to write merge tree")?;
-
-                    let merge_tree = project_repository
-                        .git_repository
-                        .find_tree(merge_tree_oid)
-                        .context("failed to find merge tree")?;
-
-                    let commit_oid = project_repository
-                        .git_repository
-                        .commit(
-                            None,
-                            &to_rebase.author(),
-                            &to_rebase.committer(),
-                            &to_rebase.message().to_str_lossy(),
-                            &merge_tree,
-                            &[&head],
-                        )
-                        .context("failed to create commit")?;
-
-                    project_repository
-                        .git_repository
-                        .find_commit(commit_oid)
-                        .context("failed to find commit")
-                },
-            )?
-            .id()
-    } else {
-        new_commit_oid
-    };
-
-    // save new branch head
-    branch.head = new_head_id;
-    vb_state
-        .set_branch(branch.clone())
-        .context("failed to write branch")?;
-
-    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-
-    Ok(())
+            super::integration::update_gitbutler_integration(&vb_state, project_repository)
+                .context("failed to update gitbutler integration")?;
+            Ok(())
+        }
+        _ => Err(errors::SquashError::Other(anyhow!("rebase error"))),
+    }
 }
 
+// changes a commit message for commit_oid, rebases everything above it, updates branch head if successful
 pub fn update_commit_message(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
@@ -3203,15 +3869,18 @@ pub fn update_commit_message(
         ));
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to read default target")?
-        .ok_or_else(|| {
-            errors::UpdateCommitMessageError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::UpdateCommitMessageError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let mut branch = vb_state
         .get_branch(branch_id)
@@ -3259,16 +3928,11 @@ pub fn update_commit_message(
         .find_commit(commit_oid)
         .context("failed to find commit")?;
 
-    let ids_to_rebase = {
-        let ids = branch_commit_oids
-            .split(|oid| oid.eq(&commit_oid))
-            .collect::<Vec<_>>();
-        ids.first().copied()
-    };
-
     let parents = target_commit
         .parents()
         .context("failed to find head commit parents")?;
+
+    let change_id = target_commit.change_id();
 
     let new_commit_oid = project_repository
         .git_repository
@@ -3279,88 +3943,43 @@ pub fn update_commit_message(
             message,
             &target_commit.tree().context("failed to find tree")?,
             &parents.iter().collect::<Vec<_>>(),
+            change_id.as_deref(),
         )
         .context("failed to commit")?;
 
-    let new_head_id = if let Some(ids_to_rebase) = ids_to_rebase {
-        let mut ids_to_rebase = ids_to_rebase.to_vec();
-        ids_to_rebase.reverse();
-        // now, rebase unchanged commits onto the new commit
-        let commits_to_rebase = ids_to_rebase
-            .iter()
-            .map(|oid| project_repository.git_repository.find_commit(*oid))
-            .collect::<Result<Vec<_>, _>>()
-            .context("failed to read commits to rebase")?;
+    let ids_to_rebase = {
+        let ids = branch_commit_oids
+            .split(|oid| oid.eq(&commit_oid))
+            .collect::<Vec<_>>();
+        ids.first().copied()
+    }
+    .ok_or(errors::UpdateCommitMessageError::CommitNotFound(commit_oid))?;
+    let mut ids_to_rebase = ids_to_rebase.to_vec();
 
-        commits_to_rebase
-            .into_iter()
-            .fold(
-                project_repository
-                    .git_repository
-                    .find_commit(new_commit_oid)
-                    .context("failed to find new commit"),
-                |head, to_rebase| {
-                    let head = head?;
+    match cherry_rebase_group(project_repository, new_commit_oid, &mut ids_to_rebase) {
+        Ok(Some(new_head_id)) => {
+            // save new branch head
+            branch.head = new_head_id;
+            vb_state
+                .set_branch(branch.clone())
+                .context("failed to write branch")?;
 
-                    let mut cherrypick_index = project_repository
-                        .git_repository
-                        .cherry_pick(&head, &to_rebase)
-                        .context("failed to cherry pick")?;
-
-                    if cherrypick_index.has_conflicts() {
-                        bail!("failed to rebase");
-                    }
-
-                    let merge_tree_oid = cherrypick_index
-                        .write_tree_to(&project_repository.git_repository)
-                        .context("failed to write merge tree")?;
-
-                    let merge_tree = project_repository
-                        .git_repository
-                        .find_tree(merge_tree_oid)
-                        .context("failed to find merge tree")?;
-
-                    let commit_oid = project_repository
-                        .git_repository
-                        .commit(
-                            None,
-                            &to_rebase.author(),
-                            &to_rebase.committer(),
-                            &to_rebase.message().to_str_lossy(),
-                            &merge_tree,
-                            &[&head],
-                        )
-                        .context("failed to create commit")?;
-
-                    project_repository
-                        .git_repository
-                        .find_commit(commit_oid)
-                        .context("failed to find commit")
-                },
-            )?
-            .id()
-    } else {
-        new_commit_oid
-    };
-
-    // save new branch head
-    branch.head = new_head_id;
-    vb_state
-        .set_branch(branch.clone())
-        .context("failed to write branch")?;
-
-    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-
-    Ok(())
+            super::integration::update_gitbutler_integration(&vb_state, project_repository)
+                .context("failed to update gitbutler integration")?;
+            Ok(())
+        }
+        _ => Err(errors::UpdateCommitMessageError::Other(anyhow!(
+            "rebase error"
+        ))),
+    }
 }
 
-/// moves commit on top of the to target branch
+/// moves commit from the branch it's in to the top of the target branch
 pub fn move_commit(
     project_repository: &project_repository::Repository,
     target_branch_id: &BranchId,
     commit_oid: git::Oid,
     user: Option<&users::User>,
-    signing_key: Option<&keys::PrivateKey>,
 ) -> Result<(), errors::MoveCommitError> {
     if project_repository.is_resolving() {
         return Err(errors::MoveCommitError::Conflicted(
@@ -3370,7 +3989,7 @@ pub fn move_commit(
         ));
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
     let applied_branches = vb_state
         .list_branches()
@@ -3388,13 +4007,16 @@ pub fn move_commit(
         ));
     }
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::MoveCommitError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
+    else {
+        return Err(errors::MoveCommitError::DefaultTargetNotSet(
+            errors::DefaultTargetNotSet {
                 project_id: project_repository.project().id,
-            })
-        })?;
+            },
+        ));
+    };
 
     let integration_commit_id =
         super::integration::get_workspace_head(&vb_state, project_repository)?;
@@ -3432,7 +4054,7 @@ pub fn move_commit(
         &source_branch_head_tree,
     )?;
 
-    let branch_head_diff = diff::diff_files_into_hunks(branch_head_diff);
+    let branch_head_diff: HashMap<_, _> = diff::diff_files_into_hunks(branch_head_diff).collect();
     let is_source_locked = source_branch_non_comitted_files
         .iter()
         .any(|(path, hunks)| {
@@ -3490,13 +4112,13 @@ pub fn move_commit(
                 })?;
 
         for ownership in ownerships_to_transfer {
-            destination_branch.ownership.put(&ownership);
+            destination_branch.ownership.put(ownership);
         }
 
         let new_destination_tree_oid = write_tree_onto_commit(
             project_repository,
             destination_branch.head,
-            &branch_head_diff,
+            branch_head_diff,
         )
         .context("failed to write tree onto commit")?;
         let new_destination_tree = project_repository
@@ -3504,6 +4126,7 @@ pub fn move_commit(
             .find_tree(new_destination_tree_oid)
             .context("failed to find tree")?;
 
+        let change_id = source_branch_head.change_id();
         let new_destination_head_oid = project_repository
             .commit(
                 user,
@@ -3513,7 +4136,7 @@ pub fn move_commit(
                     .git_repository
                     .find_commit(destination_branch.head)
                     .context("failed to get dst branch head commit")?],
-                signing_key,
+                change_id.as_deref(),
             )
             .context("failed to commit")?;
 
@@ -3530,7 +4153,6 @@ pub fn move_commit(
 pub fn create_virtual_branch_from_branch(
     project_repository: &project_repository::Repository,
     upstream: &git::Refname,
-    signing_key: Option<&keys::PrivateKey>,
     user: Option<&users::User>,
 ) -> Result<BranchId, errors::CreateVirtualBranchFromBranchError> {
     if !matches!(upstream, git::Refname::Local(_) | git::Refname::Remote(_)) {
@@ -3539,17 +4161,20 @@ pub fn create_virtual_branch_from_branch(
         ));
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
 
-    let default_target = get_default_target(&vb_state)
+    let Some(default_target) = vb_state
+        .try_get_default_target()
         .context("failed to get default target")?
-        .ok_or_else(|| {
+    else {
+        return Err(
             errors::CreateVirtualBranchFromBranchError::DefaultTargetNotSet(
                 errors::DefaultTargetNotSet {
                     project_id: project_repository.project().id,
                 },
-            )
-        })?;
+            ),
+        );
+    };
 
     if let git::Refname::Remote(remote_upstream) = upstream {
         if default_target.branch.eq(remote_upstream) {
@@ -3587,10 +4212,7 @@ pub fn create_virtual_branch_from_branch(
         .any(|b| b.selected_for_changes.is_some()))
     .then_some(chrono::Utc::now().timestamp_millis());
 
-    let now = time::UNIX_EPOCH
-        .elapsed()
-        .context("failed to get elapsed time")?
-        .as_millis();
+    let now = crate::time::now_ms();
 
     // only set upstream if it's not the default target
     let upstream_branch = match upstream {
@@ -3624,30 +4246,33 @@ pub fn create_virtual_branch_from_branch(
         &head_commit_tree,
     )
     .context("failed to diff trees")?;
-    let diff = diff::diff_files_into_hunks(diff);
-
-    let hunks_by_filepath =
-        super::virtual_hunks_by_filepath(&project_repository.project().path, &diff);
 
     // assign ownership to the branch
-    let ownership = hunks_by_filepath.values().flatten().fold(
+    let ownership = diff.iter().fold(
         branch::BranchOwnershipClaims::default(),
-        |mut ownership, hunk| {
-            ownership.put(
-                &format!("{}:{}", hunk.file_path.display(), hunk.id)
+        |mut ownership, (file_path, file)| {
+            for hunk in &file.hunks {
+                ownership.put(
+                    format!(
+                        "{}:{}",
+                        file_path.display(),
+                        VirtualBranchHunk::gen_id(hunk.new_start, hunk.new_lines)
+                    )
                     .parse()
                     .unwrap(),
-            );
+                );
+            }
             ownership
         },
     );
 
+    let branch_name = upstream
+        .branch()
+        .expect("always a branch reference")
+        .to_string();
     let branch = branch::Branch {
         id: BranchId::generate(),
-        name: upstream
-            .branch()
-            .expect("always a branch reference")
-            .to_string(),
+        name: branch_name.clone(),
         notes: String::new(),
         applied: false,
         upstream_head: upstream_branch.is_some().then_some(head_commit.id()),
@@ -3667,7 +4292,11 @@ pub fn create_virtual_branch_from_branch(
 
     project_repository.add_branch_reference(&branch)?;
 
-    match apply_branch(project_repository, &branch.id, signing_key, user) {
+    let _ = project_repository
+        .project()
+        .snapshot_branch_creation(branch_name);
+
+    match apply_branch(project_repository, &branch.id, user) {
         Ok(()) => Ok(branch.id),
         Err(errors::ApplyBranchError::BranchConflicts(_)) => {
             // if branch conflicts with the workspace, it's ok. keep it unapplied
@@ -3680,9 +4309,9 @@ pub fn create_virtual_branch_from_branch(
 }
 
 /// Just like [`diffy::apply()`], but on error it will attach hashes of the input `base_image` and `patch`.
-pub fn apply(base_image: &BStr, patch: &Patch<'_, [u8]>) -> Result<BString> {
+pub fn apply<S: AsRef<[u8]>>(base_image: S, patch: &Patch<'_, [u8]>) -> Result<BString> {
     fn md5_hash_hex(b: impl AsRef<[u8]>) -> String {
-        format!("{:x}", md5::compute(b))
+        md5::compute(b).encode_hex()
     }
 
     #[derive(Debug)]
@@ -3735,7 +4364,7 @@ pub fn apply(base_image: &BStr, patch: &Patch<'_, [u8]>) -> Result<BString> {
         }
     }
 
-    diffy_apply(base_image, patch)
+    diffy_apply(base_image.as_ref(), patch)
         .with_context(|| DebugContext {
             base_image_hash: md5_hash_hex(base_image),
             hunks: patch.hunks().iter().map(Into::into).collect(),

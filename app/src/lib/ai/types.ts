@@ -1,12 +1,14 @@
 export enum ModelKind {
 	OpenAI = 'openai',
-	Anthropic = 'anthropic'
+	Anthropic = 'anthropic',
+	Ollama = 'ollama'
 }
 
 export enum OpenAIModelName {
 	GPT35Turbo = 'gpt-3.5-turbo',
 	GPT4 = 'gpt-4',
-	GPT4Turbo = 'gpt-4-turbo-preview'
+	GPT4Turbo = 'gpt-4-turbo',
+	GPT4o = 'gpt-4o'
 }
 
 export enum AnthropicModelName {
@@ -16,8 +18,9 @@ export enum AnthropicModelName {
 }
 
 export enum MessageRole {
+	System = 'system',
 	User = 'user',
-	Assistant = 'assisstant'
+	Assistant = 'assistant'
 }
 
 export interface PromptMessage {
@@ -26,5 +29,8 @@ export interface PromptMessage {
 }
 
 export interface AIClient {
-	evaluate(prompt: string): Promise<string>;
+	evaluate(prompt: PromptMessage[]): Promise<string>;
+
+	defaultBranchTemplate: PromptMessage[];
+	defaultCommitTemplate: PromptMessage[];
 }

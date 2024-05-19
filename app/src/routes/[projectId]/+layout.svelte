@@ -1,14 +1,16 @@
 <script lang="ts">
+	import { listen } from '$lib/backend/ipc';
 	import { Project } from '$lib/backend/projects';
-	import { syncToCloud } from '$lib/backend/sync';
 	import { BranchService } from '$lib/branches/service';
+	import History from '$lib/components/History.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$lib/components/ProjectSettingsMenuAction.svelte';
+	import { HistoryService } from '$lib/history/history';
+	import { persisted } from '$lib/persisted/persisted';
 	import * as hotkeys from '$lib/utils/hotkeys';
-	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BaseBranchService, NoDefaultTarget } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch } from '$lib/vbranches/types';
@@ -33,13 +35,17 @@
 	$: baseBranch = baseBranchService.base;
 	$: baseError = baseBranchService.error;
 	$: projectError = projectService.error;
+	// const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
+	$: setContext(HistoryService, data.historyService);
 	$: setContext(VirtualBranchService, vbranchService);
 	$: setContext(BranchController, branchController);
 	$: setContext(BranchService, branchService);
 	$: setContext(BaseBranchService, baseBranchService);
 	$: setContext(BaseBranch, baseBranch);
 	$: setContext(Project, project);
+
+	const showHistoryView = persisted(false, 'showHistoryView');
 
 	let intervalId: any;
 
@@ -58,12 +64,19 @@
 	}
 
 	onMount(() => {
-		const cloudSyncSubscription = hotkeys.on(
-			'Meta+Shift+S',
-			async () => await syncToCloud(projectId)
-		);
+		const unsubscribe = listen<string>('menu://view/history/clicked', () => {
+			$showHistoryView = !$showHistoryView;
+		});
 
-		return unsubscribe(cloudSyncSubscription);
+		// TODO: Refactor somehow
+		const unsubscribeHotkeys = hotkeys.on('$mod+Shift+H', () => {
+			$showHistoryView = !$showHistoryView;
+		});
+
+		return async () => {
+			unsubscribe();
+			unsubscribeHotkeys();
+		};
 	});
 
 	onDestroy(() => clearFetchInterval());
@@ -89,6 +102,9 @@
 	{:else if $baseBranch}
 		<div class="view-wrap" role="group" on:dragover|preventDefault>
 			<Navigation />
+			{#if $showHistoryView}
+				<History on:hide={() => ($showHistoryView = false)} />
+			{/if}
 			<slot />
 		</div>
 	{/if}

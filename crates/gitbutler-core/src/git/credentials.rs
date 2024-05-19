@@ -117,8 +117,7 @@ impl Helper {
         let path = path.into();
         let keys = keys::Controller::from_path(&path);
         let users = users::Controller::from_path(path);
-        let home_dir = std::env::var_os("HOME").map(PathBuf::from);
-        Self::new(keys, users, home_dir)
+        Self::new(keys, users, dirs::home_dir())
     }
 
     pub fn help<'a>(

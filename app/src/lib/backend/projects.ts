@@ -30,6 +30,7 @@ export class Project {
 	ok_with_force_push!: boolean;
 	omit_certificate_check: boolean | undefined;
 	use_diff_context: boolean | undefined;
+	snapshot_lines_threshold!: number | undefined;
 
 	get vscodePath() {
 		return this.path.includes('\\') ? '/' + this.path.replace('\\', '/') : this.path;

@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
-use crate::{error, gb_repository, project_repository, users};
+use crate::{error, project_repository};
 use crate::{
     error::{AnyhowContextExt, Code, Error, ErrorWithContext},
     projects::AuthKey,
@@ -19,15 +19,12 @@ pub trait Watchers {
     fn watch(&self, project: &Project) -> anyhow::Result<()>;
     /// Stop watching filesystem changes.
     async fn stop(&self, id: ProjectId);
-    async fn fetch_gb_data(&self, id: ProjectId) -> anyhow::Result<()>;
-    async fn push_gb_data(&self, id: ProjectId) -> anyhow::Result<()>;
 }
 
 #[derive(Clone)]
 pub struct Controller {
     local_data_dir: PathBuf,
     projects_storage: storage::Storage,
-    users: users::Controller,
     watchers: Option<Arc<dyn Watchers + Send + Sync>>,
 }
 
@@ -35,13 +32,11 @@ impl Controller {
     pub fn new(
         local_data_dir: PathBuf,
         projects_storage: storage::Storage,
-        users: users::Controller,
         watchers: Option<impl Watchers + Send + Sync + 'static>,
     ) -> Self {
         Self {
             local_data_dir,
             projects_storage,
-            users,
             watchers: watchers.map(|w| Arc::new(w) as Arc<_>),
         }
     }
@@ -50,7 +45,6 @@ impl Controller {
         let path = path.into();
         Self {
             projects_storage: storage::Storage::from_path(&path),
-            users: users::Controller::from_path(&path),
             local_data_dir: path,
             watchers: None,
         }
@@ -104,12 +98,6 @@ impl Controller {
             api: None,
             ..Default::default()
         };
-
-        // create all required directories to avoid racing later
-        let user = self.users.get_user()?;
-        let project_repository = project_repository::Repository::open(&project)?;
-        gb_repository::Repository::open(&self.local_data_dir, &project_repository, user.as_ref())
-            .context("failed to open repository")?;
 
         self.projects_storage
             .add(&project)
@@ -168,28 +156,6 @@ impl Controller {
                 super::storage::Error::NotFound => UpdateError::NotFound,
                 error => UpdateError::Other(error.into()),
             })?;
-
-        if let Some(watchers) = &self.watchers {
-            if let Some(api) = &project.api {
-                if api.sync {
-                    if let Err(error) = watchers.fetch_gb_data(project.id).await {
-                        tracing::error!(
-                            project_id = %project.id,
-                            ?error,
-                            "failed to post fetch project event"
-                        );
-                    }
-                }
-
-                if let Err(error) = watchers.push_gb_data(project.id).await {
-                    tracing::error!(
-                        project_id = %project.id,
-                        ?error,
-                        "failed to post push project event"
-                    );
-                }
-            }
-        }
 
         Ok(updated)
     }

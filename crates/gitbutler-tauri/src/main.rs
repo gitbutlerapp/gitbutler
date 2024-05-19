@@ -13,23 +13,17 @@
     clippy::too_many_lines
 )]
 
-use std::path::PathBuf;
-
-use anyhow::Context;
-use gitbutler_core::{assets, database, git, storage};
+use gitbutler_core::{assets, git, storage};
 use gitbutler_tauri::{
-    app, askpass, commands, deltas, github, keys, logs, menu, projects, sentry, sessions, users,
-    virtual_branches, watcher, zip,
+    app, askpass, commands, github, keys, logs, menu, projects, undo, users, virtual_branches,
+    watcher, zip,
 };
-use tauri::{generate_context, Manager, Wry};
+use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
-use tauri_plugin_store::{with_store, JsonValue, StoreCollection};
 
 fn main() {
     let tauri_context = generate_context!();
 
-    let app_name = tauri_context.package_info().name.clone();
-    let app_version = tauri_context.package_info().version.clone().to_string();
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -72,6 +66,17 @@ fn main() {
 
                     logs::init(&app_handle);
 
+                    // SAFETY(qix-): This is safe because we're initializing the askpass broker here,
+                    // SAFETY(qix-): before any other threads would ever access it.
+                    unsafe {
+                        gitbutler_core::askpass::init({
+                            let handle = app_handle.clone();
+                            move |event| {
+                                handle.emit_all("git_prompt", event).expect("tauri event emission doesn't fail in practice")
+                            }
+                        });
+                    }
+
                     let app_data_dir = app_handle.path_resolver().app_data_dir().expect("missing app data dir");
                     let app_cache_dir = app_handle.path_resolver().app_cache_dir().expect("missing app cache dir");
                     let app_log_dir = app_handle.path_resolver().app_log_dir().expect("missing app log dir");
@@ -80,14 +85,6 @@ fn main() {
                     std::fs::create_dir_all(&app_cache_dir).expect("failed to create cache dir");
 
                     tracing::info!(version = %app_handle.package_info().version, name = %app_handle.package_info().name, "starting app");
-
-                    let askpass_broker = gitbutler_core::askpass::AskpassBroker::init({
-                        let handle = app_handle.clone();
-                        move |event| {
-                            handle.emit_all("git_prompt", event).expect("tauri event emission doesn't fail in practice")
-                        }
-                    });
-                    app_handle.manage(askpass_broker);
 
                     let storage_controller = storage::Storage::new(&app_data_dir);
                     app_handle.manage(storage_controller.clone());
@@ -107,26 +104,16 @@ fn main() {
                     let projects_controller = gitbutler_core::projects::Controller::new(
                         app_data_dir.clone(),
                         projects_storage_controller.clone(),
-                        users_controller.clone(),
                         Some(watcher_controller.clone())
                     );
                     app_handle.manage(projects_controller.clone());
 
                     app_handle.manage(assets::Proxy::new(app_cache_dir.join("images")));
 
-                    let database_controller = database::Database::open_in_directory(&app_data_dir).expect("failed to open database");
-                    app_handle.manage(database_controller.clone());
-
                     let zipper = gitbutler_core::zip::Zipper::new(&app_cache_dir);
                     app_handle.manage(zipper.clone());
 
                     app_handle.manage(gitbutler_core::zip::Controller::new(app_data_dir.clone(), app_log_dir.clone(), zipper.clone(), projects_controller.clone()));
-
-                    let deltas_database_controller = gitbutler_core::deltas::database::Database::new(database_controller.clone());
-                    app_handle.manage(deltas_database_controller.clone());
-
-                    let deltas_controller = gitbutler_core::deltas::Controller::new(deltas_database_controller.clone());
-                    app_handle.manage(deltas_controller);
 
                     let keys_storage_controller = gitbutler_core::keys::storage::Storage::new(storage_controller.clone());
                     app_handle.manage(keys_storage_controller.clone());
@@ -137,64 +124,18 @@ fn main() {
                     let git_credentials_controller = git::credentials::Helper::new(
                         keys_controller.clone(),
                         users_controller.clone(),
-                        std::env::var_os("HOME").map(PathBuf::from)
+                        dirs::home_dir()
                     );
                     app_handle.manage(git_credentials_controller.clone());
 
                     app_handle.manage(gitbutler_core::virtual_branches::controller::Controller::new(
                         projects_controller.clone(),
                         users_controller.clone(),
-                        keys_controller.clone(),
                         git_credentials_controller.clone(),
                     ));
 
-                    let stores = tauri_app.state::<StoreCollection<Wry>>();
-                    if let Some(path) = app_handle.path_resolver().app_config_dir().map(|path| path.join(PathBuf::from("settings.json"))) {
-                        if let Ok((metrics_enabled, error_reporting_enabled)) = with_store(app_handle.clone(), stores, path, |store| {
-                            let metrics_enabled = store.get("appMetricsEnabled")
-                                .and_then(JsonValue::as_bool)
-                                .unwrap_or(true);
-                            let error_reporting_enabled = store.get("appErrorReportingEnabled")
-                                .and_then(JsonValue::as_bool)
-                                .unwrap_or(true);
-                            Ok((metrics_enabled, error_reporting_enabled))
-                        }) {
-                            if metrics_enabled {
-                                let analytics_cfg = if cfg!(debug_assertions) {
-                                    gitbutler_analytics::Config {
-                                        posthog_token: Some("phc_t7VDC9pQELnYep9IiDTxrq2HLseY5wyT7pn0EpHM7rr"),
-                                    }
-                                } else {
-                                    gitbutler_analytics::Config {
-                                        posthog_token: Some("phc_yJx46mXv6kA5KTuM2eEQ6IwNTgl5YW3feKV5gi7mfGG"),
-                                    }
-                                };
-                                let analytics_client = gitbutler_analytics::Client::new(app_handle.package_info().name.clone(), app_handle.package_info().version.to_string(), &analytics_cfg);
-                                tauri_app.manage(analytics_client);
-                            }
-
-                            if error_reporting_enabled {
-                                let _guard = sentry::init(app_name.as_str(), app_version);
-                                sentry::configure_scope(users_controller.get_user().context("failed to get user")?.as_ref());
-                            }
-                        };
-                    }
-
-                    let sessions_database_controller = gitbutler_core::sessions::database::Database::new(database_controller.clone());
-                    app_handle.manage(sessions_database_controller.clone());
-
-                    app_handle.manage(gitbutler_core::sessions::Controller::new(
-                        app_data_dir.clone(),
-                        sessions_database_controller.clone(),
-                        projects_controller.clone(),
-                        users_controller.clone(),
-                    ));
-
                     let app = app::App::new(
-                        app_data_dir,
                         projects_controller,
-                        users_controller,
-                        sessions_database_controller,
                     );
 
                     app_handle.manage(app);
@@ -207,14 +148,12 @@ fn main() {
                 .plugin(tauri_plugin_store::Builder::default().build())
                 .plugin(log.build())
                 .invoke_handler(tauri::generate_handler![
-                    commands::list_session_files,
                     commands::git_remote_branches,
                     commands::git_head,
                     commands::delete_all_data,
                     commands::mark_resolved,
                     commands::git_set_global_config,
                     commands::git_get_global_config,
-                    commands::project_flush_and_push,
                     commands::git_test_push,
                     commands::git_test_fetch,
                     commands::git_index_size,
@@ -232,8 +171,6 @@ fn main() {
                     projects::commands::set_project_active,
                     projects::commands::git_get_local_config,
                     projects::commands::git_set_local_config,
-                    sessions::commands::list_sessions,
-                    deltas::commands::list_deltas,
                     virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,
                     virtual_branches::commands::commit_virtual_branch,
@@ -255,11 +192,19 @@ fn main() {
                     virtual_branches::commands::reset_virtual_branch,
                     virtual_branches::commands::cherry_pick_onto_virtual_branch,
                     virtual_branches::commands::amend_virtual_branch,
+                    virtual_branches::commands::move_commit_file,
+                    virtual_branches::commands::undo_commit,
+                    virtual_branches::commands::insert_blank_commit,
+                    virtual_branches::commands::reorder_commit,
+                    virtual_branches::commands::update_commit_message,
                     virtual_branches::commands::list_remote_branches,
                     virtual_branches::commands::get_remote_branch_data,
                     virtual_branches::commands::squash_branch_commit,
                     virtual_branches::commands::fetch_from_target,
                     virtual_branches::commands::move_commit,
+                    undo::list_snapshots,
+                    undo::restore_snapshot,
+                    undo::snapshot_diff,
                     menu::menu_item_set_enabled,
                     keys::commands::get_public_key,
                     github::commands::init_device_oauth,

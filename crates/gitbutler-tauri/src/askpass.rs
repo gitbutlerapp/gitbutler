@@ -1,21 +1,16 @@
 pub mod commands {
     use gitbutler_core::{
-        askpass::{AskpassBroker, AskpassRequest},
+        askpass::{self, AskpassRequest},
         id::Id,
     };
-    use tauri::{AppHandle, Manager};
 
     #[tauri::command(async)]
-    #[tracing::instrument(skip(handle, response))]
+    #[tracing::instrument(skip(response))]
     pub async fn submit_prompt_response(
-        handle: AppHandle,
         id: Id<AskpassRequest>,
         response: Option<String>,
     ) -> Result<(), ()> {
-        handle
-            .state::<AskpassBroker>()
-            .handle_response(id, response)
-            .await;
+        askpass::get_broker().handle_response(id, response).await;
         Ok(())
     }
 }

@@ -2,6 +2,7 @@ use anyhow::Context;
 use gitbutler_core::error;
 use gitbutler_core::error::Code;
 use serde_json::json;
+
 #[cfg(target_os = "macos")]
 use tauri::AboutMetadata;
 use tauri::{
@@ -22,18 +23,22 @@ pub async fn menu_item_set_enabled(
     let window = handle
         .get_window("main")
         .expect("main window always present");
+
     let menu_item = window
         .menu_handle()
         .try_get_item(menu_item_id)
         .with_context(|| {
             error::Context::new(Code::Menu, format!("menu item not found: {}", menu_item_id))
         })?;
+
     menu_item.set_enabled(enabled).context(Code::Unknown)?;
+
     Ok(())
 }
 
 pub fn build(_package_info: &PackageInfo) -> Menu {
     let mut menu = Menu::new();
+
     #[cfg(target_os = "macos")]
     {
         let app_name = &_package_info.name;
@@ -57,37 +62,48 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
     }
 
     let mut file_menu = Menu::new();
-    file_menu = file_menu.add_native_item(MenuItem::CloseWindow);
+    #[cfg(target_os = "macos")]
+    {
+        // NB: macOS has the concept of having an app running but its
+        // window closed, but other platforms do not
+        file_menu = file_menu.add_native_item(MenuItem::CloseWindow);
+    }
     #[cfg(not(target_os = "macos"))]
     {
         file_menu = file_menu.add_native_item(MenuItem::Quit);
     }
+
     menu = menu.add_submenu(Submenu::new("File", file_menu));
 
     #[cfg(not(target_os = "linux"))]
     let mut edit_menu = Menu::new();
+
     #[cfg(target_os = "macos")]
     {
         edit_menu = edit_menu.add_native_item(MenuItem::Undo);
         edit_menu = edit_menu.add_native_item(MenuItem::Redo);
         edit_menu = edit_menu.add_native_item(MenuItem::Separator);
     }
+
     #[cfg(not(target_os = "linux"))]
     {
         edit_menu = edit_menu.add_native_item(MenuItem::Cut);
         edit_menu = edit_menu.add_native_item(MenuItem::Copy);
         edit_menu = edit_menu.add_native_item(MenuItem::Paste);
     }
+
     #[cfg(target_os = "macos")]
     {
         edit_menu = edit_menu.add_native_item(MenuItem::SelectAll);
     }
+
     #[cfg(not(target_os = "linux"))]
     {
         menu = menu.add_submenu(Submenu::new("Edit", edit_menu));
     }
 
     let mut view_menu = Menu::new();
+
     #[cfg(target_os = "macos")]
     {
         view_menu = view_menu.add_native_item(MenuItem::EnterFullScreen);
@@ -97,10 +113,16 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
             view_menu = view_menu.add_native_item(MenuItem::Separator);
         }
     }
+
+    view_menu = view_menu.add_item(
+        CustomMenuItem::new("view/history", "Project history").accelerator("CmdOrCtrl+Shift+H"),
+    );
+
     #[cfg(any(debug_assertions, feature = "devtools"))]
     {
         view_menu = view_menu.add_item(CustomMenuItem::new("view/devtools", "Developer Tools"));
     }
+
     menu = menu.add_submenu(Submenu::new("View", view_menu));
 
     let mut project_menu = Menu::new();
@@ -108,42 +130,40 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
         project_menu.add_item(disabled_menu_item("project/settings", "Project Settings"));
     menu = menu.add_submenu(Submenu::new("Project", project_menu));
 
-    let mut window_menu = Menu::new();
-    window_menu = window_menu.add_native_item(MenuItem::Minimize);
     #[cfg(target_os = "macos")]
     {
+        let mut window_menu = Menu::new();
+        window_menu = window_menu.add_native_item(MenuItem::Minimize);
+
         window_menu = window_menu.add_native_item(MenuItem::Zoom);
         window_menu = window_menu.add_native_item(MenuItem::Separator);
+
+        window_menu = window_menu.add_native_item(MenuItem::CloseWindow);
+        menu = menu.add_submenu(Submenu::new("Window", window_menu));
     }
-    window_menu = window_menu.add_native_item(MenuItem::CloseWindow);
-    menu = menu.add_submenu(Submenu::new("Window", window_menu));
+
+    let mut help_menu = Menu::new();
+    help_menu = help_menu.add_item(CustomMenuItem::new("help/documentation", "Documentation"));
+    help_menu = help_menu.add_item(CustomMenuItem::new("help/github", "Source Code"));
+    help_menu = help_menu.add_item(CustomMenuItem::new("help/release-notes", "Release Notes"));
+    help_menu = help_menu.add_native_item(MenuItem::Separator);
+    help_menu = help_menu.add_item(CustomMenuItem::new(
+        "help/share-debug-info",
+        "Share Debug Info…",
+    ));
+    help_menu = help_menu.add_item(CustomMenuItem::new("help/report-issue", "Report an Issue…"));
+    help_menu = help_menu.add_native_item(MenuItem::Separator);
+    help_menu = help_menu.add_item(CustomMenuItem::new("help/discord", "Discord"));
+    help_menu = help_menu.add_item(CustomMenuItem::new("help/youtube", "YouTube"));
+    help_menu = help_menu.add_item(CustomMenuItem::new("help/x", "X"));
+    help_menu = help_menu.add_native_item(MenuItem::Separator);
+    help_menu = help_menu.add_item(disabled_menu_item(
+        "help/version",
+        &format!("Version {}", _package_info.version),
+    ));
+    menu = menu.add_submenu(Submenu::new("Help", help_menu));
 
     menu
-
-    //    #[allow(unused_mut)]
-    //    let mut menu = Menu::os_default(&package_info.name)
-    //
-    //    #[cfg(any(debug_assertions, feature = "devtools"))]
-    //    {
-    //        // Try to find the View menu and attach the dev tools item
-    //        let view_menu = menu.items.iter_mut().find(|item| match item {
-    //            MenuEntry::CustomItem(_) => false,
-    //            MenuEntry::Submenu(submenu) => submenu.title == "View",
-    //            MenuEntry::NativeItem(_) => false,
-    //        });
-    //
-    //        let devtools = CustomMenuItem::new("view/devtools", "Developer Tools");
-    //        if let Some(MenuEntry::Submenu(view_menu)) = view_menu {
-    //            view_menu.inner.items.push(devtools.into());
-    //        } else {
-    //            menu = menu.add_submenu(Submenu::new(
-    //                "Developer",
-    //                Menu::with_items([devtools.into()]),
-    //            ));
-    //        }
-    //    }
-    //
-    //    menu
 }
 
 fn disabled_menu_item(id: &str, title: &str) -> CustomMenuItem {
@@ -157,12 +177,44 @@ pub fn handle_event<R: Runtime>(event: &WindowMenuEvent<R>) {
     {
         if event.menu_item_id() == "view/devtools" {
             event.window().open_devtools();
+            return;
         }
     }
-    emit(
-        event.window(),
-        format!("menu://{}/clicked", event.menu_item_id()).as_str(),
-    );
+
+    if event.menu_item_id() == "help/share-debug-info" {
+        emit(event.window(), "menu://help/share-debug-info/clicked");
+        return;
+    }
+
+    if event.menu_item_id() == "view/history" {
+        emit(event.window(), "menu://view/history/clicked");
+        return;
+    }
+
+    'open_link: {
+        let result = match event.menu_item_id() {
+            "help/documentation" => open::that("https://docs.gitbutler.com"),
+            "help/github" => open::that("https://github.com/gitbutlerapp/gitbutler"),
+            "help/release-notes" => {
+                open::that("https://discord.com/channels/1060193121130000425/1183737922785116161")
+            }
+            "help/report-issue" => {
+                open::that("https://github.com/gitbutlerapp/gitbutler/issues/new")
+            }
+            "help/discord" => open::that("https://discord.com/invite/MmFkmaJ42D"),
+            "help/youtube" => open::that("https://www.youtube.com/@gitbutlerapp"),
+            "help/x" => open::that("https://x.com/gitbutler"),
+            _ => break 'open_link,
+        };
+
+        if let Err(err) = result {
+            tracing::error!(error = ?err, "failed to open url for {}", event.menu_item_id());
+        }
+
+        return;
+    }
+
+    tracing::error!("unhandled 'help' menu event: {}", event.menu_item_id());
 }
 
 fn emit<R: Runtime>(window: &tauri::Window<R>, event: &str) {

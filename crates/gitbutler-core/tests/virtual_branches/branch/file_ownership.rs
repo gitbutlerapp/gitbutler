@@ -65,7 +65,7 @@ fn plus() {
         )
     })
     .for_each(|(a, b, expected)| {
-        let got = a.plus(&b);
+        let got = a.plus(b.clone());
         assert_eq!(
             got, expected,
             "{} plus {}, expected {}, got {}",

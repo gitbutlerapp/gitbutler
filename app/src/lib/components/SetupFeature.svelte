@@ -2,10 +2,20 @@
 	export let disabled = false;
 	export let success = false;
 	export let topBorder = false;
+
+	export let labelFor = '';
+
 	const SLOTS = $$props.$$slots;
 </script>
 
-<div class="setup-feature" class:success class:disabled class:top-border={topBorder}>
+<label
+	for={labelFor}
+	class="setup-feature"
+	class:success
+	class:disabled
+	class:top-border={topBorder}
+	class:clickable={labelFor !== '' && !SLOTS.actions}
+>
 	<div class="setup-feature__icon">
 		<slot name="icon" />
 	</div>
@@ -31,7 +41,7 @@
 			</div>
 		{/if}
 	</div>
-</div>
+</label>
 
 <style lang="postcss">
 	.setup-feature {
@@ -44,7 +54,7 @@
 		opacity: 0.5;
 	}
 	.success.setup-feature {
-		background: var(--clr-theme-pop-bg, #f3fcfb);
+		background: var(--clr-theme-pop-bg);
 	}
 
 	.setup-feature__content {
@@ -86,7 +96,13 @@
 		line-height: 100%;
 	}
 
+	/* MODIFIERS */
+
 	.top-border {
 		border-top: 1px solid var(--clr-border-2);
+	}
+
+	.clickable {
+		cursor: pointer;
 	}
 </style>

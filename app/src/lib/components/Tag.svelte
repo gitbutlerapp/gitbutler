@@ -11,7 +11,6 @@
 	export let loading = false;
 	// Layout props
 	export let shrinkable = false;
-	export let verticalOrientation = false;
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let reversedDirection = false;
 	// Style props
@@ -24,7 +23,6 @@
 	class:disabled
 	class:shrinkable
 	class:reversedDirection
-	class:verticalOrientation
 	class:not-button={!clickable}
 	role={clickable ? 'button' : undefined}
 	use:tooltip={help}
@@ -32,13 +30,13 @@
 	on:mousedown
 	on:contextmenu
 >
-	<span class="label" class:verticalLabel={verticalOrientation}>
+	<span class="label">
 		<slot />
 	</span>
 	{#if loading}
 		<Icon name="spinner" />
 	{:else if icon}
-		<div class="icon" class:verticalIcon={verticalOrientation}>
+		<div class="icon">
 			<Icon name={icon} spinnerRadius={3.5} />
 		</div>
 	{/if}
@@ -114,7 +112,7 @@
 
 	.pop {
 		&.soft {
-			color: var(--clr-theme-pop-on-bg);
+			color: var(--clr-theme-pop-on-soft);
 			background: var(--clr-scale-pop-80);
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
@@ -134,7 +132,7 @@
 
 	.success {
 		&.soft {
-			color: var(--clr-theme-succ-on-bg);
+			color: var(--clr-theme-succ-on-soft);
 			background: var(--clr-scale-succ-80);
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
@@ -154,7 +152,7 @@
 
 	.error {
 		&.soft {
-			color: var(--clr-theme-err-on-bg);
+			color: var(--clr-theme-err-on-soft);
 			background: var(--clr-scale-err-80);
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
@@ -174,7 +172,7 @@
 
 	.warning {
 		&.soft {
-			color: var(--clr-theme-warn-on-bg);
+			color: var(--clr-theme-warn-on-soft);
 			background: var(--clr-scale-warn-80);
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
@@ -194,7 +192,7 @@
 
 	.purple {
 		&.soft {
-			color: var(--clr-theme-purp-on-bg);
+			color: var(--clr-theme-purp-on-soft);
 			background: var(--clr-scale-purp-80);
 			/* if button */
 			&:not(.not-button, &:disabled):hover {
@@ -214,43 +212,15 @@
 
 	/* modifiers */
 
-	.not-button {
-		cursor: default;
-		user-select: none;
-	}
-
 	.disabled {
 		cursor: default;
 		pointer-events: none;
-		/* opacity: 0.5; */
+		opacity: 0.6;
+	}
 
-		&.neutral.solid,
-		&.pop.solid,
-		&.success.solid,
-		&.error.solid,
-		&.warning.solid,
-		&.purple.solid {
-			color: var(--clr-text-2);
-			background: oklch(from var(--clr-scale-ntrl-60) l c h / 0.15);
-		}
-
-		&.neutral.soft,
-		&.pop.soft,
-		&.success.soft,
-		&.error.soft,
-		&.warning.soft,
-		&.purple.soft {
-			color: var(--clr-text-2);
-			background: oklch(from var(--clr-scale-ntrl-60) l c h / 0.15);
-		}
-
-		&.ghost {
-			color: var(--clr-text-2);
-		}
-
-		&.ghost.solid {
-			border: 1px solid oklch(from var(--clr-scale-ntrl-0) l c h / 0.1);
-		}
+	.not-button {
+		cursor: default;
+		user-select: none;
 	}
 
 	.reversedDirection {
@@ -264,21 +234,5 @@
 			overflow: hidden;
 			text-overflow: ellipsis;
 		}
-	}
-
-	.verticalOrientation {
-		writing-mode: vertical-rl;
-		height: max-content;
-		width: var(--size-tag);
-		padding: var(--size-4) var(--size-2);
-		transform: rotate(180deg);
-	}
-
-	.verticalIcon {
-		transform: rotate(90deg);
-	}
-
-	.verticalLabel {
-		padding: var(--size-2) 0;
 	}
 </style>

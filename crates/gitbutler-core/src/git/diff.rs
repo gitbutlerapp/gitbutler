@@ -9,7 +9,8 @@ use tracing::instrument;
 
 use super::Repository;
 use crate::git;
-use crate::virtual_branches::BranchStatus;
+use crate::id::Id;
+use crate::virtual_branches::Branch;
 
 pub type DiffByPathMap = HashMap<PathBuf, FileDiff>;
 
@@ -53,7 +54,7 @@ pub struct GitHunk {
     #[serde(rename = "diff", serialize_with = "crate::serde::as_string_lossy")]
     pub diff_lines: BString,
     pub binary: bool,
-    pub locked_to: Box<[git::Oid]>,
+    pub locked_to: Box<[HunkLock]>,
     pub change_type: ChangeType,
 }
 
@@ -95,10 +96,20 @@ impl GitHunk {
         self.new_start <= line && self.new_start + self.new_lines >= line
     }
 
-    pub fn with_locks(mut self, locks: &[git::Oid]) -> Self {
+    pub fn with_locks(mut self, locks: &[HunkLock]) -> Self {
         self.locked_to = locks.to_owned().into();
         self
     }
+}
+
+// A hunk is locked when it depends on changes in commits that are in your
+// workspace. A hunk can be locked to more than one branch if it overlaps
+// with more than one committed hunk.
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Copy)]
+#[serde(rename_all = "camelCase")]
+pub struct HunkLock {
+    pub branch_id: Id<Branch>,
+    pub commit_id: git::Oid,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Default)]
@@ -207,7 +218,7 @@ pub fn without_large_files(
 /// `repository` should be `None` if there is no reason to access the workdir, which it will do to
 /// keep the binary data in the object database, which otherwise would be lost to the system
 /// (it's not reconstructable from the delta, or it's not attempted).
-fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result<DiffByPathMap> {
+pub fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result<DiffByPathMap> {
     enum LineOrHexHash<'a> {
         Line(Cow<'a, BStr>),
         HexHashOfBinaryBlob(String),
@@ -418,8 +429,8 @@ pub fn reverse_hunk(hunk: &GitHunk) -> Option<GitHunk> {
     }
 }
 
-// TODO(ST): turning this into an iterator will trigger a cascade of changes that
-//           mean less unnecessary copies. It also leads to `virtual.rs` - 4k SLOC!
-pub fn diff_files_into_hunks(files: DiffByPathMap) -> BranchStatus {
-    HashMap::from_iter(files.into_iter().map(|(path, file)| (path, file.hunks)))
+pub fn diff_files_into_hunks(
+    files: DiffByPathMap,
+) -> impl Iterator<Item = (PathBuf, Vec<GitHunk>)> {
+    files.into_iter().map(|(path, file)| (path, file.hunks))
 }

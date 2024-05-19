@@ -16,7 +16,6 @@
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
-
 	const activeBranchesError = vbranchService.activeBranchesError;
 	const activeBranches = vbranchService.activeBranches;
 
@@ -253,6 +252,28 @@
 		flex-direction: column;
 		overflow: hidden;
 		padding-left: var(--size-4);
+	}
+
+	.branch-switcher {
+		margin-top: 8px;
+		padding: 8px;
+		background-color: var(--clr-bg-2);
+		border-width: 1px;
+		border-color: var(--clr-border-2);
+		border-radius: 4px;
+	}
+
+	.branch-display {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 4px;
+		margin-bottom: 2px;
+	}
+
+	.branch-name {
+		font-weight: 600;
+		font-family: monospace;
 	}
 
 	.empty-board__image-frame {

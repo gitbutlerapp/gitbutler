@@ -3,8 +3,7 @@ import { createNanoEvents } from 'nanoevents';
 type Events = {
 	goto: (path: string) => void;
 	openSendIssueModal: () => void;
-	openBookmarkModal: () => void;
-	createBookmark: (params: { projectId: string }) => void;
+	openHistory: () => void;
 };
 
 const events = createNanoEvents<Events>();

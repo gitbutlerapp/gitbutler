@@ -61,11 +61,9 @@
 		border: 1px solid transparent;
 	}
 	.branch-name-mesure-el {
-		pointer-events: auto;
+		pointer-events: none;
 		visibility: hidden;
 		border: 2px solid transparent;
-		top: -9999px;
-		left: -9999px;
 		color: black;
 		position: fixed;
 		display: inline-block;
