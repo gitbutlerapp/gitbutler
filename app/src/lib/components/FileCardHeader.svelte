@@ -30,7 +30,7 @@
 
 <div class="header">
 	<div class="header__inner">
-		<img src={getVSIFileIcon(file.path)} alt="js" width="13" height="13" class="icon" />
+		<img src={getVSIFileIcon(file.path)} alt="" width="13" height="13" class="icon" />
 		<div class="header__info truncate">
 			<div class="header__filetitle text-base-13 truncate">
 				<span class="header__filename">{fileTitle.filename}</span>
@@ -72,14 +72,15 @@
 <style lang="postcss">
 	.header {
 		display: flex;
-		padding: var(--size-16);
+		padding: var(--size-10);
 		gap: var(--size-12);
 		border-bottom: 1px solid var(--clr-border-2);
 	}
 	.header__inner {
 		display: flex;
 		flex-grow: 1;
-		gap: var(--size-6);
+		gap: var(--size-8);
+		padding: var(--size-4);
 		overflow: hidden;
 	}
 	.header__info {

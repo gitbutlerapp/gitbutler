@@ -26,6 +26,7 @@ pub struct UpdateRequest {
     pub project_data_last_fetched: Option<project::FetchResult>,
     pub omit_certificate_check: Option<bool>,
     pub use_diff_context: Option<bool>,
+    pub snapshot_lines_threshold: Option<usize>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -51,7 +52,7 @@ impl Storage {
         match self.inner.read(PROJECTS_FILE)? {
             Some(projects) => {
                 let all_projects: Vec<project::Project> = serde_json::from_str(&projects)?;
-                let all_projects: Vec<project::Project> = all_projects
+                let mut all_projects: Vec<project::Project> = all_projects
                     .into_iter()
                     .map(|mut p| {
                         // backwards compatibility for description field
@@ -63,6 +64,9 @@ impl Storage {
                         p
                     })
                     .collect();
+
+                all_projects.sort_by(|a, b| a.title.cmp(&b.title));
+
                 Ok(all_projects)
             }
             None => Ok(vec![]),
@@ -71,13 +75,6 @@ impl Storage {
 
     pub fn get(&self, id: &ProjectId) -> Result<project::Project, Error> {
         let projects = self.list()?;
-        for project in &projects {
-            self.update(&UpdateRequest {
-                id: project.id,
-                preferred_key: Some(project.preferred_key.clone()),
-                ..Default::default()
-            })?;
-        }
         match projects.into_iter().find(|p| p.id == *id) {
             Some(project) => Ok(project),
             None => Err(Error::NotFound),
@@ -127,6 +124,10 @@ impl Storage {
 
         if let Some(omit_certificate_check) = update_request.omit_certificate_check {
             project.omit_certificate_check = Some(omit_certificate_check);
+        }
+
+        if let Some(snapshot_lines_threshold) = update_request.snapshot_lines_threshold {
+            project.snapshot_lines_threshold = Some(snapshot_lines_threshold);
         }
 
         self.inner

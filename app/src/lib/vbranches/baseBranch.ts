@@ -87,9 +87,13 @@ export class BaseBranchService {
 		}
 	}
 
-	async setTarget(branch: string) {
+	async setTarget(branch: string, pushRemote: string | undefined = undefined) {
 		this.busy$.next(true);
-		await invoke<BaseBranch>('set_base_branch', { projectId: this.projectId, branch });
+		await invoke<BaseBranch>('set_base_branch', {
+			projectId: this.projectId,
+			branch,
+			pushRemote
+		});
 		await this.fetchFromTarget();
 	}
 

@@ -1,8 +1,15 @@
 import { AnthropicAIClient } from '$lib/ai/anthropicClient';
 import { ButlerAIClient } from '$lib/ai/butlerClient';
 import { OpenAIClient } from '$lib/ai/openAIClient';
+import { SHORT_DEFAULT_BRANCH_TEMPLATE, SHORT_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
 import { AIService, GitAIConfigKey, KeyOption, buildDiff } from '$lib/ai/service';
-import { AnthropicModelName, ModelKind, OpenAIModelName, type AIClient } from '$lib/ai/types';
+import {
+	AnthropicModelName,
+	ModelKind,
+	OpenAIModelName,
+	type AIClient,
+	type PromptMessage
+} from '$lib/ai/types';
 import { HttpClient } from '$lib/backend/httpClient';
 import * as toasts from '$lib/utils/toasts';
 import { Hunk } from '$lib/vbranches/types';
@@ -40,9 +47,11 @@ const fetchMock = vi.fn();
 const cloud = new HttpClient(fetchMock);
 
 class DummyAIClient implements AIClient {
+	defaultCommitTemplate = SHORT_DEFAULT_COMMIT_TEMPLATE;
+	defaultBranchTemplate = SHORT_DEFAULT_BRANCH_TEMPLATE;
 	constructor(private response = 'lorem ipsum') {}
 
-	async evaluate(_prompt: string) {
+	async evaluate(_prompt: PromptMessage[]) {
 		return this.response;
 	}
 }

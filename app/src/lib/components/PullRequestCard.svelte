@@ -20,8 +20,6 @@
 	import type iconsJson from '../icons/icons.json';
 	import type { Readable } from 'svelte/store';
 
-	export let isLaneCollapsed: boolean;
-
 	type StatusInfo = {
 		text: string;
 		icon: keyof typeof iconsJson | undefined;
@@ -122,11 +120,11 @@
 	function getChecksCount(status: ChecksStatus): string {
 		if (!status) return 'Running checks';
 
+		const completed = status.completed || 0;
 		const skipped = status.skipped || 0;
 		const total = (status.totalCount || 0) - skipped;
-		const queued = total - (status.queued || 0);
 
-		return `Running checks ${queued}/${total}`;
+		return `Checks completed ${completed}/${total}`;
 	}
 
 	function getChecksTagInfo(
@@ -257,7 +255,7 @@
 				}}
 			/>
 		</div>
-		<div class="pr-title text-base-13 font-semibold">
+		<div class="pr-title text-base-13 text-semibold">
 			<span style="color: var(--clr-scale-ntrl-50)">PR #{pr.number}:</span>
 			{pr.title}
 		</div>
@@ -266,7 +264,6 @@
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.style}
 				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status' ? 'solid' : 'soft'}
-				verticalOrientation={isLaneCollapsed}
 			>
 				{prStatusInfo.text}
 			</Tag>
@@ -275,7 +272,6 @@
 					icon={checksTagInfo.icon}
 					style={checksTagInfo.style}
 					kind={checksTagInfo.icon == 'success-small' ? 'solid' : 'soft'}
-					verticalOrientation={isLaneCollapsed}
 				>
 					{checksTagInfo.text}
 				</Tag>
@@ -286,7 +282,6 @@
 				kind="solid"
 				clickable
 				shrinkable
-				verticalOrientation={isLaneCollapsed}
 				on:click={(e) => {
 					const url = pr?.htmlUrl;
 					if (url) openExternalUrl(url);
@@ -355,6 +350,7 @@
 	.pr-card {
 		position: relative;
 		padding: var(--size-14);
+		margin-bottom: var(--size-8);
 	}
 
 	.pr-title {

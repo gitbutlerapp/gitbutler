@@ -30,8 +30,8 @@ pub struct VirtualBranchesHandle {
 
 impl VirtualBranchesHandle {
     /// Creates a new concurrency-safe handle to the state of virtual branches.
-    pub fn new(base_path: &Path) -> Self {
-        let file_path = base_path.join("virtual_branches.toml");
+    pub fn new<P: AsRef<Path>>(base_path: P) -> Self {
+        let file_path = base_path.as_ref().join("virtual_branches.toml");
         Self { file_path }
     }
 
@@ -53,6 +53,19 @@ impl VirtualBranchesHandle {
         virtual_branches?
             .default_target
             .ok_or(crate::reader::Error::NotFound)
+    }
+
+    /// Attempts to get the default target for the given repository,
+    /// returning None if it's not found.
+    ///
+    /// Errors if the file cannot be read or written.
+    #[inline]
+    pub fn try_get_default_target(&self) -> Result<Option<Target>, crate::reader::Error> {
+        match self.get_default_target() {
+            Ok(target) => Ok(Some(target)),
+            Err(crate::reader::Error::NotFound) => Ok(None),
+            Err(e) => Err(e),
+        }
     }
 
     /// Sets the target for the given virtual branch.

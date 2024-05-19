@@ -15,9 +15,10 @@ export class BranchController {
 		readonly targetBranchService: BaseBranchService
 	) {}
 
-	async setTarget(branch: string) {
+	async setTarget(branch: string, pushRemote: string | undefined = undefined) {
 		try {
-			await this.targetBranchService.setTarget(branch);
+			await this.targetBranchService.setTarget(branch, pushRemote);
+			return branch;
 			// TODO: Reloading seems to trigger 4 invocations of `list_virtual_branches`
 		} catch (err: any) {
 			showError('Failed to set base branch', err);

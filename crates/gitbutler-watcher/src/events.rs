@@ -1,21 +1,20 @@
 use std::fmt::Display;
 use std::path::PathBuf;
 
-use gitbutler_core::{deltas, reader, sessions::SessionId, virtual_branches};
-use gitbutler_core::{projects::ProjectId, sessions};
+use gitbutler_core::projects::ProjectId;
+use gitbutler_core::virtual_branches;
 
 /// An event for internal use, as merge between [super::file_monitor::Event] and [Action].
 #[derive(Debug)]
 pub(super) enum InternalEvent {
     // From public action API
-    Flush(ProjectId, sessions::Session),
     CalculateVirtualBranches(ProjectId),
-    FetchGitbutlerData(ProjectId),
-    PushGitbutlerData(ProjectId),
 
     // From file monitor
     GitFilesChange(ProjectId, Vec<PathBuf>),
     ProjectFilesChange(ProjectId, Vec<PathBuf>),
+    // Triggered on change in the `.git/gitbutler` directory
+    GitButlerOplogChange(ProjectId),
 }
 
 /// This type captures all operations that can be fed into a watcher that runs in the background.
@@ -24,20 +23,14 @@ pub(super) enum InternalEvent {
 #[derive(Debug, PartialEq, Clone)]
 #[allow(missing_docs)]
 pub enum Action {
-    Flush(ProjectId, sessions::Session),
     CalculateVirtualBranches(ProjectId),
-    FetchGitbutlerData(ProjectId),
-    PushGitbutlerData(ProjectId),
 }
 
 impl Action {
     /// Return the action's associated project id.
     pub fn project_id(&self) -> ProjectId {
         match self {
-            Action::FetchGitbutlerData(project_id)
-            | Action::Flush(project_id, _)
-            | Action::CalculateVirtualBranches(project_id)
-            | Action::PushGitbutlerData(project_id) => *project_id,
+            Action::CalculateVirtualBranches(project_id) => *project_id,
         }
     }
 }
@@ -45,10 +38,7 @@ impl Action {
 impl From<Action> for InternalEvent {
     fn from(value: Action) -> Self {
         match value {
-            Action::Flush(a, b) => InternalEvent::Flush(a, b),
             Action::CalculateVirtualBranches(v) => InternalEvent::CalculateVirtualBranches(v),
-            Action::FetchGitbutlerData(v) => InternalEvent::FetchGitbutlerData(v),
-            Action::PushGitbutlerData(v) => InternalEvent::PushGitbutlerData(v),
         }
     }
 }
@@ -56,12 +46,6 @@ impl From<Action> for InternalEvent {
 impl Display for InternalEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            InternalEvent::FetchGitbutlerData(pid) => {
-                write!(f, "FetchGitbutlerData({})", pid,)
-            }
-            InternalEvent::Flush(project_id, session) => {
-                write!(f, "Flush({}, {})", project_id, session.id)
-            }
             InternalEvent::GitFilesChange(project_id, paths) => {
                 write!(
                     f,
@@ -69,6 +53,9 @@ impl Display for InternalEvent {
                     project_id,
                     comma_separated_paths(paths)
                 )
+            }
+            InternalEvent::GitButlerOplogChange(project_id) => {
+                write!(f, "GitButlerOplogChange({})", project_id)
             }
             InternalEvent::ProjectFilesChange(project_id, paths) => {
                 write!(
@@ -79,7 +66,6 @@ impl Display for InternalEvent {
                 )
             }
             InternalEvent::CalculateVirtualBranches(pid) => write!(f, "VirtualBranch({})", pid),
-            InternalEvent::PushGitbutlerData(pid) => write!(f, "PushGitbutlerData({})", pid),
         }
     }
 }
@@ -104,29 +90,12 @@ fn comma_separated_paths(paths: &[PathBuf]) -> String {
 #[derive(Debug, Clone)]
 #[allow(missing_docs)]
 pub enum Change {
-    GitIndex(ProjectId),
     GitFetch(ProjectId),
     GitHead {
         project_id: ProjectId,
         head: String,
     },
     GitActivity(ProjectId),
-    File {
-        project_id: ProjectId,
-        session_id: SessionId,
-        file_path: PathBuf,
-        contents: Option<reader::Content>,
-    },
-    Session {
-        project_id: ProjectId,
-        session: sessions::Session,
-    },
-    Deltas {
-        project_id: ProjectId,
-        session_id: SessionId,
-        deltas: Vec<deltas::Delta>,
-        relative_file_path: PathBuf,
-    },
     VirtualBranches {
         project_id: ProjectId,
         virtual_branches: virtual_branches::VirtualBranches,

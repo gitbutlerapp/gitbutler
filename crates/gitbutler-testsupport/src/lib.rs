@@ -18,17 +18,14 @@ pub mod paths {
 }
 
 pub mod virtual_branches {
-    use gitbutler_core::{
-        project_repository,
-        virtual_branches::{self, VirtualBranchesHandle},
-    };
+    use gitbutler_core::{project_repository, virtual_branches};
 
     use crate::empty_bare_repository;
 
     pub fn set_test_target(
         project_repository: &project_repository::Repository,
     ) -> anyhow::Result<()> {
-        let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+        let vb_state = project_repository.project().virtual_branches();
         let (remote_repo, _tmp) = empty_bare_repository();
         let mut remote = project_repository
             .git_repository
@@ -44,6 +41,7 @@ pub mod virtual_branches {
                 branch: "refs/remotes/origin/master".parse().unwrap(),
                 remote_url: remote_repo.path().to_str().unwrap().parse().unwrap(),
                 sha: remote_repo.head().unwrap().target().unwrap(),
+                push_remote_name: None,
             })
             .expect("failed to write target");
 

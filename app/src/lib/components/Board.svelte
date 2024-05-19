@@ -1,16 +1,12 @@
 <script lang="ts" async="true">
-	import Button from './Button.svelte';
 	import FullviewLoading from './FullviewLoading.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import dzenSvg from '$lib/assets/dzen-pc.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import BranchLane from '$lib/components/BranchLane.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import Select from '$lib/components/Select.svelte';
-	import SelectItem from '$lib/components/SelectItem.svelte';
 	import { cloneWithRotation } from '$lib/dragging/draggable';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import { getRemoteBranches } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
@@ -23,12 +19,6 @@
 	const activeBranchesError = vbranchService.activeBranchesError;
 	const activeBranches = vbranchService.activeBranches;
 
-	let selectedBranch:
-		| {
-				name: string;
-		  }
-		| undefined;
-
 	let dragged: any;
 	let dropZone: HTMLDivElement;
 	let priorPosition = 0;
@@ -36,39 +26,12 @@
 
 	let dragHandle: any;
 	let clone: any;
-
-	let showBranchSwitch = false;
-	let isSwitching = false;
-
-	function toggleBranchSwitch() {
-		showBranchSwitch = !showBranchSwitch;
-	}
-
-	async function onSetBaseBranchClick() {
-		if (!selectedBranch) return;
-		// while target is setting, display loading
-		isSwitching = true;
-		await branchController
-			.setTarget(selectedBranch.name)
-			.then((res) => {
-				console.log('done', res);
-			})
-			.catch((err) => {
-				console.log('error', err);
-			})
-			.finally(() => {
-				isSwitching = false;
-				showBranchSwitch = false;
-			});
-	}
 </script>
 
 {#if $activeBranchesError}
 	<div class="p-4" data-tauri-drag-region>Something went wrong...</div>
 {:else if !$activeBranches}
 	<FullviewLoading />
-{:else if isSwitching}
-	<div class="middle-message">switching base branch...</div>
 {:else}
 	<div
 		class="board"
@@ -158,60 +121,6 @@
 								<br />
 								Any edits auto-create a virtual branch for easy management.
 							</p>
-
-							<div class="branch-switcher">
-								{#if showBranchSwitch}
-									{#await getRemoteBranches(project.id)}
-										loading remote branches...
-									{:then remoteBranches}
-										{#if remoteBranches.length == 0}
-											No remote branches
-										{:else}
-											<div class="spacer">
-												<Select
-													items={remoteBranches.filter(
-														(item) => item.name != $baseBranch.branchName
-													)}
-													bind:value={selectedBranch}
-													itemId="name"
-													labelId="name"
-												>
-													<SelectItem slot="template" let:item let:selected {selected}>
-														{item.name}
-													</SelectItem>
-												</Select>
-												<Button
-													style="error"
-													kind="solid"
-													on:click={onSetBaseBranchClick}
-													icon="chevron-right-small"
-													id="set-base-branch"
-												>
-													Update Base Branch
-												</Button>
-											</div>
-										{/if}
-									{:catch}
-										No remote branches
-									{/await}
-								{:else}
-									<div>
-										<div class="branch-display">
-											<div>Your current base branch is:</div>
-											<div class="branch-name">{$baseBranch.branchName}</div>
-										</div>
-										<Button
-											style="pop"
-											kind="solid"
-											on:click={toggleBranchSwitch}
-											icon="chevron-right-small"
-											id="set-base-branch"
-										>
-											Change Base Branch
-										</Button>
-									</div>
-								{/if}
-							</div>
 						</div>
 
 						<div class="empty-board__suggestions">
@@ -292,12 +201,6 @@
 		height: 100%;
 	}
 
-	.spacer {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-16);
-	}
-
 	.branch {
 		height: 100%;
 	}
@@ -354,9 +257,9 @@
 	.branch-switcher {
 		margin-top: 8px;
 		padding: 8px;
-		background-color: #f5f5f5;
+		background-color: var(--clr-bg-2);
 		border-width: 1px;
-		border-color: #888888;
+		border-color: var(--clr-border-2);
 		border-radius: 4px;
 	}
 
@@ -371,16 +274,6 @@
 	.branch-name {
 		font-weight: 600;
 		font-family: monospace;
-	}
-
-	.middle-message {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		height: 100%;
-		width: 100%;
-		font-size: 2em;
-		color: #888888;
 	}
 
 	.empty-board__image-frame {

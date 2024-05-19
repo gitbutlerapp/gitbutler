@@ -82,7 +82,7 @@
 /* text Base Body Classes */
 .text-base-body-10 {
 	font-family: var(--base-font-family);
-	font-size: 625rem;
+	font-size: 0.625rem;
 	font-weight: var(--base-font-weight);
 	line-height: var(--text-body-line-height);
 }

@@ -1,9 +1,11 @@
 <script lang="ts">
-	import BranchCommits from './BranchCommits.svelte';
 	import BranchFiles from './BranchFiles.svelte';
+	import BranchFooter from './BranchFooter.svelte';
 	import BranchHeader from './BranchHeader.svelte';
 	import CommitDialog from './CommitDialog.svelte';
+	import CommitList from './CommitList.svelte';
 	import DropzoneOverlay from './DropzoneOverlay.svelte';
+	import EmptyStatePlaceholder from './EmptyStatePlaceholder.svelte';
 	import InfoMessage from './InfoMessage.svelte';
 	import PullRequestCard from './PullRequestCard.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
@@ -144,7 +146,7 @@
 </script>
 
 {#if $isLaneCollapsed}
-	<div class="collapsed-lane-wrapper">
+	<div class="collapsed-lane-container">
 		<BranchHeader
 			{isUnapplied}
 			uncommittedChanges={branch.files.length}
@@ -184,7 +186,7 @@
 							}
 						}}
 					/>
-					<PullRequestCard isLaneCollapsed={$isLaneCollapsed} />
+					<PullRequestCard />
 					<!-- DROPZONES -->
 					<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
 					<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
@@ -254,35 +256,27 @@
 								{/if}
 							</div>
 						{:else if branch.commits.length == 0}
-							<div class="new-branch card" data-dnd-ignore>
-								<div class="new-branch__content">
-									<div class="new-branch__image">
-										{@html laneNewSvg}
-									</div>
-									<h2 class="new-branch__title text-base-body-15 text-semibold">
-										This is a new branch.
-									</h2>
-									<p class="new-branch__caption text-base-body-13">
+							<div class="new-branch card">
+								<EmptyStatePlaceholder image={laneNewSvg} width="11rem">
+									<svelte:fragment slot="title">This is a new branch</svelte:fragment>
+									<svelte:fragment slot="caption">
 										You can drag and drop files or parts of files here.
-									</p>
-								</div>
+									</svelte:fragment>
+								</EmptyStatePlaceholder>
 							</div>
 						{:else}
-							<!-- attention: these markers have custom css at the bottom of thise file -->
 							<div class="no-changes card" data-dnd-ignore>
-								<div class="new-branch__content">
-									<div class="new-branch__image">
-										{@html noChangesSvg}
-									</div>
-									<h2 class="new-branch__caption text-base-body-13">
-										No uncommitted changes<br />on this branch
-									</h2>
-								</div>
+								<EmptyStatePlaceholder image={noChangesSvg} width="11rem" hasBottomShift={false}>
+									<svelte:fragment slot="caption"
+										>No uncommitted changes on this branch</svelte:fragment
+									>
+								</EmptyStatePlaceholder>
 							</div>
 						{/if}
 					</div>
 
-					<BranchCommits {isUnapplied} />
+					<CommitList {isUnapplied} />
+					<BranchFooter {isUnapplied} />
 				</div>
 			</ScrollableContainer>
 			<div class="divider-line">
@@ -338,7 +332,6 @@
 		flex-direction: column;
 		flex: 1;
 		min-height: 100%;
-		gap: var(--size-8);
 		padding: var(--size-12);
 	}
 
@@ -352,14 +345,6 @@
 		padding: 0 var(--size-12) var(--size-12) var(--size-12);
 	}
 
-	.new-branch__content {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: var(--size-8);
-		max-width: 14rem;
-	}
-
 	.new-branch,
 	.no-changes {
 		user-select: none;
@@ -370,33 +355,8 @@
 		color: var(--clr-scale-ntrl-60);
 		background: var(--clr-bg-1);
 		justify-content: center;
-		padding: var(--size-48) 0;
 		border-radius: var(--radius-m);
 		cursor: default; /* was defaulting to text cursor */
-	}
-
-	.no-changes {
-		color: var(--clr-scale-ntrl-40);
-		text-align: center;
-	}
-
-	.new-branch__title {
-		color: var(--clr-scale-ntrl-40);
-	}
-
-	.new-branch__caption {
-		color: var(--clr-scale-ntrl-50);
-		opacity: 0.6;
-	}
-
-	.new-branch__caption,
-	.new-branch__title {
-		text-align: center;
-	}
-
-	.new-branch__image {
-		width: 7.5rem;
-		margin-bottom: var(--size-10);
 	}
 
 	/* hunks drop zone */
@@ -419,7 +379,7 @@
 	}
 
 	/* COLLAPSED LANE */
-	.collapsed-lane-wrapper {
+	.collapsed-lane-container {
 		display: flex;
 		flex-direction: column;
 		padding: var(--size-12);

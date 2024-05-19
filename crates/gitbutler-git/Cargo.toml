@@ -28,10 +28,17 @@ test-askpass-path = []
 [dependencies]
 thiserror.workspace = true
 serde = { workspace = true, optional = true }
-tokio = { workspace = true, optional = true, features = ["process", "time", "io-util", "net", "fs"] }
+tokio = { workspace = true, optional = true, features = [
+  "process",
+  "time",
+  "io-util",
+  "net",
+  "fs",
+] }
+uuid = { workspace = true, features = ["v4", "fast-rng"] }
 rand = "0.8.5"
 futures = "0.3.30"
-sysinfo = "0.30.5"
+sysinfo = "0.30.11"
 
 [target."cfg(unix)".dependencies]
 nix = { version = "0.28.0", features = ["process", "socket", "user"] }

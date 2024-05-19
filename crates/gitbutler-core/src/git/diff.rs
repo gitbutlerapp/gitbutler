@@ -9,6 +9,8 @@ use tracing::instrument;
 
 use super::Repository;
 use crate::git;
+use crate::id::Id;
+use crate::virtual_branches::Branch;
 
 pub type DiffByPathMap = HashMap<PathBuf, FileDiff>;
 
@@ -106,7 +108,7 @@ impl GitHunk {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Copy)]
 #[serde(rename_all = "camelCase")]
 pub struct HunkLock {
-    pub branch_id: uuid::Uuid,
+    pub branch_id: Id<Branch>,
     pub commit_id: git::Oid,
 }
 
@@ -216,7 +218,7 @@ pub fn without_large_files(
 /// `repository` should be `None` if there is no reason to access the workdir, which it will do to
 /// keep the binary data in the object database, which otherwise would be lost to the system
 /// (it's not reconstructable from the delta, or it's not attempted).
-fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result<DiffByPathMap> {
+pub fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result<DiffByPathMap> {
     enum LineOrHexHash<'a> {
         Line(Cow<'a, BStr>),
         HexHashOfBinaryBlob(String),

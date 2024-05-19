@@ -1,8 +1,8 @@
 use std::{fs, path, str::FromStr};
 
 use gitbutler_core::{
-    git, keys,
-    projects::{self, ProjectId},
+    git,
+    projects::{self, Project, ProjectId},
     users,
     virtual_branches::{branch, errors, Controller},
 };
@@ -13,6 +13,7 @@ use gitbutler_testsupport::{paths, TestProject, VAR_NO_CLEANUP};
 struct Test {
     repository: TestProject,
     project_id: ProjectId,
+    project: Project,
     projects: projects::Controller,
     controller: Controller,
     data_dir: Option<TempDir>,
@@ -29,7 +30,6 @@ impl Drop for Test {
 impl Default for Test {
     fn default() -> Self {
         let data_dir = paths::data_dir();
-        let keys = keys::Controller::from_path(data_dir.path());
         let projects = projects::Controller::from_path(data_dir.path());
         let users = users::Controller::from_path(data_dir.path());
         let helper = git::credentials::Helper::from_path(data_dir.path());
@@ -42,8 +42,9 @@ impl Default for Test {
         Self {
             repository: test_project,
             project_id: project.id,
-            controller: Controller::new(projects.clone(), users, keys, helper),
+            controller: Controller::new(projects.clone(), users, helper),
             projects,
+            project,
             data_dir: Some(data_dir),
         }
     }
@@ -60,6 +61,7 @@ mod init;
 mod insert_blank_commit;
 mod move_commit_file;
 mod move_commit_to_vbranch;
+mod oplog;
 mod references;
 mod reorder_commit;
 mod reset_virtual_branch;
@@ -72,6 +74,7 @@ mod undo_commit;
 mod update_base_branch;
 mod update_commit_message;
 mod upstream;
+mod verify_branch;
 
 #[tokio::test]
 async fn resolve_conflict_flow() {

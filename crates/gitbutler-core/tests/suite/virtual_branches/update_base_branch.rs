@@ -1576,7 +1576,7 @@ mod applied_branch {
             .unwrap();
 
             controller
-                .create_commit(project_id, &branch_id, "third", None, false)
+                .create_commit(project_id, &branch_id, "fourth", None, false)
                 .await
                 .unwrap();
 
@@ -1928,5 +1928,83 @@ mod applied_branch {
             let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 0);
         }
+    }
+
+    // Ensure integrated branch is dropped and that a commit on another
+    // branch does not lead to the introduction of gost/phantom diffs.
+    #[tokio::test]
+    async fn should_not_get_confused_by_commits_in_other_branches() {
+        let Test {
+            repository,
+            project_id,
+            controller,
+            ..
+        } = &Test::default();
+
+        fs::write(repository.path().join("file-1.txt"), "one").unwrap();
+        let first_commit_oid = repository.commit_all("first");
+        fs::write(repository.path().join("file-2.txt"), "two").unwrap();
+        repository.commit_all("second");
+        repository.push();
+        repository.reset_hard(Some(first_commit_oid));
+
+        controller
+            .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .await
+            .unwrap();
+
+        let branch_1_id = controller
+            .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+            .await
+            .unwrap();
+
+        fs::write(repository.path().join("file-3.txt"), "three").unwrap();
+        controller
+            .create_commit(project_id, &branch_1_id, "third", None, false)
+            .await
+            .unwrap();
+
+        let branch_2_id = controller
+            .create_virtual_branch(
+                project_id,
+                &branch::BranchCreateRequest {
+                    selected_for_changes: Some(true),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+
+        fs::write(repository.path().join("file-4.txt"), "four").unwrap();
+
+        controller
+            .create_commit(project_id, &branch_2_id, "fourth", None, false)
+            .await
+            .unwrap();
+
+        controller
+            .push_virtual_branch(project_id, &branch_2_id, false, None)
+            .await
+            .unwrap();
+
+        let branch = controller
+            .list_virtual_branches(project_id)
+            .await
+            .unwrap()
+            .0[1]
+            .clone();
+
+        repository.merge(&branch.upstream.as_ref().unwrap().name);
+        repository.fetch();
+
+        // TODO(mg): Figure out why test fails without listing first.
+        controller.list_virtual_branches(project_id).await.unwrap();
+        controller.update_base_branch(project_id).await.unwrap();
+
+        // Verify we have only the first branch left, and that no files
+        // are present.
+        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        assert_eq!(branches.len(), 1);
+        assert_eq!(branches[0].files.len(), 0);
     }
 }

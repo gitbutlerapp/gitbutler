@@ -21,13 +21,11 @@ pub mod menu;
 pub mod watcher;
 
 pub mod askpass;
-pub mod deltas;
 pub mod error;
 pub mod github;
 pub mod keys;
 pub mod projects;
-pub mod sessions;
-pub mod snapshots;
+pub mod undo;
 pub mod users;
 pub mod virtual_branches;
 pub mod zip;

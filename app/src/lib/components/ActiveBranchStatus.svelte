@@ -20,8 +20,7 @@
 			icon="virtual-branch-small"
 			style="neutral"
 			help="These changes are stashed away from your working directory."
-			reversedDirection
-			verticalOrientation={isLaneCollapsed}>unapplied</Tag
+			reversedDirection>unapplied</Tag
 		>
 	{:else if hasIntegratedCommits}
 		<Tag
@@ -29,16 +28,14 @@
 			style="success"
 			kind="solid"
 			help="These changes have been integrated upstream, update your workspace to make this lane disappear."
-			reversedDirection
-			verticalOrientation={isLaneCollapsed}>Integrated</Tag
+			reversedDirection>Integrated</Tag
 		>
 	{:else}
 		<Tag
 			icon="virtual-branch-small"
 			style="neutral"
 			help="These changes are in your working directory."
-			reversedDirection
-			verticalOrientation={isLaneCollapsed}>Virtual</Tag
+			reversedDirection>Virtual</Tag
 		>
 	{/if}
 	{#if !isUnapplied && !isLaneCollapsed}
@@ -47,9 +44,8 @@
 			shrinkable
 			disabled
 			help="Branch name that will be used when pushing. You can change it from the lane menu."
-			verticalOrientation={isLaneCollapsed}
 		>
-			origin/{branchName}</Tag
+			{$baseBranch.actualPushRemoteName()}/{branchName}</Tag
 		>
 	{/if}
 {:else}
@@ -58,7 +54,6 @@
 		kind="solid"
 		icon="remote-branch-small"
 		help="At least some of your changes have been pushed"
-		verticalOrientation={isLaneCollapsed}
 		reversedDirection>Remote</Tag
 	>
 	<Tag
@@ -67,7 +62,6 @@
 		kind="solid"
 		clickable
 		shrinkable
-		verticalOrientation={isLaneCollapsed}
 		on:click={(e) => {
 			const url = $baseBranch?.branchUrl($branch.upstream?.name);
 			if (url) openExternalUrl(url);
@@ -75,6 +69,8 @@
 			e.stopPropagation();
 		}}
 	>
-		{isLaneCollapsed ? 'View branch' : `origin/${$branch.upstreamName}`}
+		{isLaneCollapsed
+			? 'View branch'
+			: `${$baseBranch.actualPushRemoteName()}/${$branch.upstreamName}`}
 	</Tag>
 {/if}

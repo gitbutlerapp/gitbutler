@@ -2,16 +2,21 @@
 	import ActiveBranchStatus from './ActiveBranchStatus.svelte';
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
+	import PullRequestButton from './PullRequestButton.svelte';
 	import Tag from './Tag.svelte';
 	import { Project } from '$lib/backend/projects';
+	import { BranchService } from '$lib/branches/service';
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { GitHubService } from '$lib/github/service';
 	import { showError } from '$lib/notifications/toasts';
 	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { Branch } from '$lib/vbranches/types';
+	import { BaseBranch, Branch } from '$lib/vbranches/types';
+	import toast from 'svelte-french-toast';
+	import type { PullRequest } from '$lib/github/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import { goto } from '$app/navigation';
 
@@ -20,16 +25,22 @@
 	export let isLaneCollapsed: Persisted<boolean>;
 
 	const branchController = getContext(BranchController);
+	const githubService = getContext(GitHubService);
 	const branchStore = getContextStore(Branch);
 	const project = getContext(Project);
+	const branchService = getContext(BranchService);
+	const baseBranch = getContextStore(BaseBranch);
 
 	$: branch = $branchStore;
+	$: pr$ = githubService.getPr$(branch.upstreamName);
+	$: hasPullRequest = branch.upstreamName && $pr$;
 
 	let meatballButton: HTMLDivElement;
 	let visible = false;
 	let isApplying = false;
 	let isDeleting = false;
 	let branchName = branch?.upstreamName || normalizeBranchName($branchStore.name);
+	let isLoading: boolean;
 
 	function handleBranchNameChange(title: string) {
 		if (title == '') return;
@@ -47,6 +58,37 @@
 	}
 
 	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
+
+	let headerInfoHeight = 0;
+
+	interface CreatePrOpts {
+		draft: boolean;
+	}
+
+	const defaultPrOpts: CreatePrOpts = {
+		draft: true
+	};
+
+	async function createPr(createPrOpts: CreatePrOpts): Promise<PullRequest | undefined> {
+		const opts = { ...defaultPrOpts, ...createPrOpts };
+		if (!githubService.isEnabled) {
+			toast.error('Cannot create PR without GitHub credentials');
+			return;
+		}
+
+		if (!$baseBranch?.shortName) {
+			toast.error('Cannot create PR without base branch');
+			return;
+		}
+
+		isLoading = true;
+		try {
+			await branchService.createPr(branch, $baseBranch.shortName, opts.draft);
+			await githubService.reload();
+		} finally {
+			isLoading = false;
+		}
+	}
 </script>
 
 {#if $isLaneCollapsed}
@@ -69,31 +111,32 @@
 			/>
 		</div>
 
-		<div class="collapsed-lane__info">
-			<div class="collapsed-lane__label-wrap">
-				{#if uncommittedChanges > 0}
-					<Tag style="warning" kind="soft" verticalOrientation help="Uncommitted changes">
-						{uncommittedChanges}
-						{uncommittedChanges == 1 ? 'change' : 'changes'}
-					</Tag>
-				{/if}
+		<div class="collapsed-lane__info-wrap" bind:clientHeight={headerInfoHeight}>
+			<div class="collapsed-lane__info" style="width: {headerInfoHeight}px">
+				<div class="collapsed-lane__label-wrap">
+					<h3 class="collapsed-lane__label text-base-13 text-bold">
+						{branch.name}
+					</h3>
+					{#if uncommittedChanges > 0}
+						<Tag style="warning" kind="soft" help="Uncommitted changes">
+							{uncommittedChanges}
+							{uncommittedChanges == 1 ? 'change' : 'changes'}
+						</Tag>
+					{/if}
+				</div>
 
-				<h3 class="collapsed-lane__label text-base-13 text-bold">
-					{branch.name}
-				</h3>
-			</div>
-
-			<div class="collapsed-lane__info__details">
-				<ActiveBranchStatus
-					branchName={branch.upstreamName ?? branchName}
-					{isUnapplied}
-					{hasIntegratedCommits}
-					remoteExists={!!branch.upstreamName}
-					isLaneCollapsed={$isLaneCollapsed}
-				/>
-				{#if branch.selectedForChanges}
-					<Tag style="pop" kind="solid" icon="target" verticalOrientation>Default branch</Tag>
-				{/if}
+				<div class="collapsed-lane__info__details">
+					<ActiveBranchStatus
+						branchName={branch.upstreamName ?? branchName}
+						{isUnapplied}
+						{hasIntegratedCommits}
+						remoteExists={!!branch.upstream}
+						isLaneCollapsed={$isLaneCollapsed}
+					/>
+					{#if branch.selectedForChanges}
+						<Tag style="pop" kind="solid" icon="target">Default branch</Tag>
+					{/if}
+				</div>
 			</div>
 		</div>
 	</div>
@@ -118,7 +161,7 @@
 							branchName={branch.upstreamName ?? branchName}
 							{isUnapplied}
 							{hasIntegratedCommits}
-							remoteExists={!!branch.upstreamName}
+							remoteExists={!!branch.upstream}
 							isLaneCollapsed={$isLaneCollapsed}
 						/>
 
@@ -212,6 +255,12 @@
 						</Button>
 					{:else}
 						<div class="header__buttons">
+							{#if !hasPullRequest}
+								<PullRequestButton
+									on:click={async (e) => await createPr({ draft: e.detail.action == 'draft' })}
+									loading={isLoading}
+								/>
+							{/if}
 							<Button
 								style="ghost"
 								kind="solid"
@@ -250,6 +299,7 @@
 		z-index: var(--z-lifted);
 		position: sticky;
 		top: var(--size-12);
+		padding-bottom: var(--size-8);
 	}
 	.header {
 		z-index: var(--z-lifted);
@@ -332,6 +382,8 @@
 		user-select: none;
 		align-items: center;
 		height: 100%;
+		width: var(--size-48);
+		overflow: hidden;
 		gap: var(--size-8);
 		padding: var(--size-8) var(--size-8) var(--size-20);
 
@@ -360,17 +412,22 @@
 		}
 	}
 
-	.collapsed-lane__info {
-		flex: 1;
-		display: flex;
-		flex-direction: row-reverse;
-		align-items: center;
-		justify-content: space-between;
-		height: 100%;
+	/*  */
 
-		writing-mode: vertical-rl;
-		gap: var(--size-8);
+	.collapsed-lane__info-wrap {
+		display: flex;
+		height: 100%;
 	}
+
+	.collapsed-lane__info {
+		display: flex;
+		justify-content: space-between;
+		gap: var(--size-8);
+		transform: rotate(-90deg);
+		direction: ltr;
+	}
+
+	/*  */
 
 	.collapsed-lane__info__details {
 		display: flex;
@@ -388,7 +445,6 @@
 
 	.collapsed-lane__label {
 		color: var(--clr-scale-ntrl-0);
-		transform: rotate(180deg);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;

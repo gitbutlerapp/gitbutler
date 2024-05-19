@@ -10,6 +10,7 @@ use notify_debouncer_full::new_debouncer;
 use tokio::task;
 use tracing::Level;
 
+use gitbutler_core::ops::OPLOG_FILE_NAME;
 /// The timeout for debouncing file change events.
 /// This is used to prevent multiple events from being sent for a single file change.
 const DEBOUNCE_TIMEOUT: Duration = Duration::from_millis(100);
@@ -114,12 +115,16 @@ pub fn spawn(
                                 .map_or(FileKind::Project, |repo| classify_file(repo, &file));
                             (file, kind)
                         });
+                    let mut oplog_changed = false;
                     let (mut stripped_git_paths, mut worktree_relative_paths) =
                         (HashSet::new(), HashSet::new());
                     for (file_path, kind) in classified_file_paths {
                         match kind {
                             FileKind::ProjectIgnored => ignored += 1,
                             FileKind::GitUninteresting => git_noop += 1,
+                            FileKind::GitButlerOplog => {
+                                oplog_changed = true;
+                            }
                             FileKind::Project | FileKind::Git => match file_path
                                 .strip_prefix(&worktree_path)
                             {
@@ -165,6 +170,13 @@ pub fn spawn(
                             break 'outer;
                         }
                     }
+                    if oplog_changed {
+                        let event = InternalEvent::GitButlerOplogChange(project_id);
+                        if out.send(event).is_err() {
+                            tracing::info!("channel closed - stopping file watcher");
+                            break 'outer;
+                        }
+                    }
                 }
             }
         }
@@ -201,6 +213,8 @@ enum FileKind {
     Project,
     /// A file that was ignored in the project, and thus shouldn't trigger a computation.
     ProjectIgnored,
+    /// GitButler oplog file (`.git/gitbutler/operations-log.toml`)
+    GitButlerOplog,
 }
 
 fn classify_file(git_repo: &git::Repository, file_path: &Path) -> FileKind {
@@ -212,6 +226,8 @@ fn classify_file(git_repo: &git::Repository, file_path: &Path) -> FileKind {
             || check_file_path == Path::new("index")
         {
             FileKind::Git
+        } else if check_file_path == Path::new("gitbutler").join(OPLOG_FILE_NAME) {
+            FileKind::GitButlerOplog
         } else {
             FileKind::GitUninteresting
         }

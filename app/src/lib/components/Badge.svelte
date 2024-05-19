@@ -5,7 +5,7 @@
 	export let help = '';
 </script>
 
-<div class="badge text-base-9 text-semibold" use:tooltip={help}>
+<div class="badge text-base-10 text-bold" use:tooltip={help}>
 	{count}
 </div>
 

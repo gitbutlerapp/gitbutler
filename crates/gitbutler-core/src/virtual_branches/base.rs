@@ -5,12 +5,13 @@ use serde::Serialize;
 
 use super::{
     branch, errors,
-    integration::{update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE},
+    integration::{
+        get_workspace_head, update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE,
+    },
     target, BranchId, RemoteCommit, VirtualBranchHunk, VirtualBranchesHandle,
 };
 use crate::{
     git::{self, diff},
-    keys,
     project_repository::{self, LogUntil},
     projects::FetchResult,
     users,
@@ -23,6 +24,8 @@ pub struct BaseBranch {
     pub branch_name: String,
     pub remote_name: String,
     pub remote_url: String,
+    pub push_remote_name: Option<String>,
+    pub push_remote_url: String,
     pub base_sha: git::Oid,
     pub current_sha: git::Oid,
     pub behind: usize,
@@ -62,7 +65,7 @@ fn go_back_to_integration(
         return Err(errors::SetBaseBranchError::DirtyWorkingDirectory);
     }
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     let all_virtual_branches = vb_state
         .list_branches()
         .context("failed to read virtual branches")?;
@@ -176,11 +179,13 @@ pub fn set_base_branch(
         branch: target_branch_ref.clone(),
         remote_url: remote_url.to_string(),
         sha: target_commit_oid,
+        push_remote_name: None,
     };
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
     vb_state.set_default_target(target.clone())?;
 
+    // TODO: make sure this is a real branch
     let head_name: git::Refname = current_head
         .name()
         .context("Failed to get HEAD reference name")?;
@@ -212,10 +217,7 @@ pub fn set_base_branch(
                 },
             );
 
-            let now_ms = time::UNIX_EPOCH
-                .elapsed()
-                .context("failed to get elapsed time")?
-                .as_millis();
+            let now_ms = crate::time::now_ms();
 
             let (upstream, upstream_head) = if let git::Refname::Local(head_name) = &head_name {
                 let upstream_name = target_branch_ref.with_branch(head_name.branch());
@@ -274,6 +276,31 @@ pub fn set_base_branch(
     Ok(base)
 }
 
+pub fn set_target_push_remote(
+    project_repository: &project_repository::Repository,
+    push_remote_name: &str,
+) -> Result<(), errors::SetBaseBranchError> {
+    let repo = &project_repository.git_repository;
+
+    let remote = repo
+        .find_remote(push_remote_name)
+        .context(format!("failed to find remote {}", push_remote_name))?;
+
+    // if target exists, and it is the same as the requested branch, we should go back
+    if let Some(mut target) = default_target(&project_repository.project().gb_dir())? {
+        target.push_remote_name = Some(
+            remote
+                .name()
+                .context("failed to get remote name")?
+                .to_string(),
+        );
+        let vb_state = project_repository.project().virtual_branches();
+        vb_state.set_default_target(target.clone())?;
+    }
+
+    Ok(())
+}
+
 fn set_exclude_decoration(project_repository: &project_repository::Repository) -> Result<()> {
     let repo = &project_repository.git_repository;
     let mut config = repo.config()?;
@@ -312,7 +339,6 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 pub fn update_base_branch(
     project_repository: &project_repository::Repository,
     user: Option<&users::User>,
-    signing_key: Option<&keys::PrivateKey>,
 ) -> Result<(), errors::UpdateBaseBranchError> {
     if project_repository.is_resolving() {
         return Err(errors::UpdateBaseBranchError::Conflict(
@@ -340,14 +366,10 @@ pub fn update_base_branch(
         .peel_to_commit()
         .context(format!("failed to peel branch {} to commit", target.branch))?;
 
-    // if the target has not changed, do nothing
     if new_target_commit.id() == target.sha {
         return Ok(());
     }
 
-    // ok, target has changed, so now we need to merge it into our current work and update our branches
-
-    // get tree from new target
     let new_target_tree = new_target_commit
         .tree()
         .context("failed to get new target commit tree")?;
@@ -360,196 +382,201 @@ pub fn update_base_branch(
             target.sha
         ))?;
 
-    let vb_state = VirtualBranchesHandle::new(&project_repository.project().gb_dir());
+    let vb_state = project_repository.project().virtual_branches();
+    let integration_commit = get_workspace_head(&vb_state, project_repository)?;
 
     // try to update every branch
-    let updated_vbranches = super::get_status_by_branch(project_repository, None)?
-        .0
-        .into_iter()
-        .map(|(branch, _)| branch)
-        .map(
-            |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
-                let branch_tree = repo.find_tree(branch.tree)?;
+    let updated_vbranches =
+        super::get_status_by_branch(project_repository, Some(&integration_commit))?
+            .0
+            .into_iter()
+            .map(|(branch, _)| branch)
+            .map(
+                |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
+                    let branch_tree = repo.find_tree(branch.tree)?;
 
-                let branch_head_commit = repo.find_commit(branch.head).context(format!(
-                    "failed to find commit {} for branch {}",
-                    branch.head, branch.id
-                ))?;
-                let branch_head_tree = branch_head_commit.tree().context(format!(
-                    "failed to find tree for commit {} for branch {}",
-                    branch.head, branch.id
-                ))?;
+                    let branch_head_commit = repo.find_commit(branch.head).context(format!(
+                        "failed to find commit {} for branch {}",
+                        branch.head, branch.id
+                    ))?;
+                    let branch_head_tree = branch_head_commit.tree().context(format!(
+                        "failed to find tree for commit {} for branch {}",
+                        branch.head, branch.id
+                    ))?;
 
-                let result_integrated_detected =
-                    |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
-                        // branch head tree is the same as the new target tree.
-                        // meaning we can safely use the new target commit as the branch head.
+                    let result_integrated_detected =
+                        |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
+                            // branch head tree is the same as the new target tree.
+                            // meaning we can safely use the new target commit as the branch head.
 
+                            branch.head = new_target_commit.id();
+
+                            // it also means that the branch is fully integrated into the target.
+                            // disconnect it from the upstream
+                            branch.upstream = None;
+                            branch.upstream_head = None;
+
+                            let non_commited_files = diff::trees(
+                                &project_repository.git_repository,
+                                &branch_head_tree,
+                                &branch_tree,
+                            )?;
+                            if non_commited_files.is_empty() {
+                                // if there are no commited files, then the branch is fully merged
+                                // and we can delete it.
+                                vb_state.remove_branch(branch.id)?;
+                                project_repository.delete_branch_reference(&branch)?;
+                                Ok(None)
+                            } else {
+                                vb_state.set_branch(branch.clone())?;
+                                Ok(Some(branch))
+                            }
+                        };
+
+                    if branch_head_tree.id() == new_target_tree.id() {
+                        return result_integrated_detected(branch);
+                    }
+
+                    // try to merge branch head with new target
+                    let mut branch_tree_merge_index = repo
+                        .merge_trees(&old_target_tree, &branch_tree, &new_target_tree)
+                        .context(format!("failed to merge trees for branch {}", branch.id))?;
+
+                    if branch_tree_merge_index.has_conflicts() {
+                        // branch tree conflicts with new target, unapply branch for now. we'll handle it later, when user applies it back.
+                        branch.applied = false;
+                        vb_state.set_branch(branch.clone())?;
+                        return Ok(Some(branch));
+                    }
+
+                    let branch_merge_index_tree_oid =
+                        branch_tree_merge_index.write_tree_to(repo)?;
+
+                    if branch_merge_index_tree_oid == new_target_tree.id() {
+                        return result_integrated_detected(branch);
+                    }
+
+                    if branch.head == target.sha {
+                        // there are no commits on the branch, so we can just update the head to the new target and calculate the new tree
                         branch.head = new_target_commit.id();
+                        branch.tree = branch_merge_index_tree_oid;
+                        vb_state.set_branch(branch.clone())?;
+                        return Ok(Some(branch));
+                    }
 
-                        // it also means that the branch is fully integrated into the target.
-                        // disconnect it from the upstream
-                        branch.upstream = None;
-                        branch.upstream_head = None;
+                    let mut branch_head_merge_index = repo
+                        .merge_trees(&old_target_tree, &branch_head_tree, &new_target_tree)
+                        .context(format!(
+                            "failed to merge head tree for branch {}",
+                            branch.id
+                        ))?;
 
-                        let non_commited_files = diff::trees(
-                            &project_repository.git_repository,
-                            &branch_head_tree,
-                            &branch_tree,
-                        )?;
-                        if non_commited_files.is_empty() {
-                            // if there are no commited files, then the branch is fully merged
-                            // and we can delete it.
-                            vb_state.remove_branch(branch.id)?;
-                            project_repository.delete_branch_reference(&branch)?;
-                            Ok(None)
-                        } else {
+                    if branch_head_merge_index.has_conflicts() {
+                        // branch commits conflict with new target, make sure the branch is
+                        // unapplied. conflicts witll be dealt with when applying it back.
+                        branch.applied = false;
+                        vb_state.set_branch(branch.clone())?;
+                        return Ok(Some(branch));
+                    }
+
+                    // branch commits do not conflict with new target, so lets merge them
+                    let branch_head_merge_tree_oid = branch_head_merge_index
+                        .write_tree_to(repo)
+                        .context(format!(
+                            "failed to write head merge index for {}",
+                            branch.id
+                        ))?;
+
+                    let ok_with_force_push = project_repository.project().ok_with_force_push;
+
+                    let result_merge =
+                        |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
+                            // branch was pushed to upstream, and user doesn't like force pushing.
+                            // create a merge commit to avoid the need of force pushing then.
+                            let branch_head_merge_tree = repo
+                                .find_tree(branch_head_merge_tree_oid)
+                                .context("failed to find tree")?;
+
+                            let new_target_head = project_repository
+                                .commit(
+                                    user,
+                                    format!(
+                                        "Merged {}/{} into {}",
+                                        target.branch.remote(),
+                                        target.branch.branch(),
+                                        branch.name,
+                                    )
+                                    .as_str(),
+                                    &branch_head_merge_tree,
+                                    &[&branch_head_commit, &new_target_commit],
+                                    None,
+                                )
+                                .context("failed to commit merge")?;
+
+                            branch.head = new_target_head;
+                            branch.tree = branch_merge_index_tree_oid;
                             vb_state.set_branch(branch.clone())?;
                             Ok(Some(branch))
-                        }
-                    };
+                        };
 
-                if branch_head_tree.id() == new_target_tree.id() {
-                    return result_integrated_detected(branch);
-                }
+                    if branch.upstream.is_some() && !ok_with_force_push {
+                        return result_merge(branch);
+                    }
 
-                // try to merge branch head with new target
-                let mut branch_tree_merge_index = repo
-                    .merge_trees(&old_target_tree, &branch_tree, &new_target_tree)
-                    .context(format!("failed to merge trees for branch {}", branch.id))?;
-
-                if branch_tree_merge_index.has_conflicts() {
-                    // branch tree conflicts with new target, unapply branch for now. we'll handle it later, when user applies it back.
-                    branch.applied = false;
-                    vb_state.set_branch(branch.clone())?;
-                    return Ok(Some(branch));
-                }
-
-                let branch_merge_index_tree_oid = branch_tree_merge_index.write_tree_to(repo)?;
-
-                if branch_merge_index_tree_oid == new_target_tree.id() {
-                    return result_integrated_detected(branch);
-                }
-
-                if branch.head == target.sha {
-                    // there are no commits on the branch, so we can just update the head to the new target and calculate the new tree
-                    branch.head = new_target_commit.id();
-                    branch.tree = branch_merge_index_tree_oid;
-                    vb_state.set_branch(branch.clone())?;
-                    return Ok(Some(branch));
-                }
-
-                let mut branch_head_merge_index = repo
-                    .merge_trees(&old_target_tree, &branch_head_tree, &new_target_tree)
-                    .context(format!(
-                        "failed to merge head tree for branch {}",
-                        branch.id
-                    ))?;
-
-                if branch_head_merge_index.has_conflicts() {
-                    // branch commits conflict with new target, make sure the branch is
-                    // unapplied. conflicts witll be dealt with when applying it back.
-                    branch.applied = false;
-                    vb_state.set_branch(branch.clone())?;
-                    return Ok(Some(branch));
-                }
-
-                // branch commits do not conflict with new target, so lets merge them
-                let branch_head_merge_tree_oid = branch_head_merge_index
-                    .write_tree_to(repo)
-                    .context(format!(
-                        "failed to write head merge index for {}",
-                        branch.id
-                    ))?;
-
-                let ok_with_force_push = project_repository.project().ok_with_force_push;
-
-                let result_merge = |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
-                    // branch was pushed to upstream, and user doesn't like force pushing.
-                    // create a merge commit to avoid the need of force pushing then.
-                    let branch_head_merge_tree = repo
-                        .find_tree(branch_head_merge_tree_oid)
-                        .context("failed to find tree")?;
-
-                    let new_target_head = project_repository
-                        .commit(
-                            user,
-                            format!(
-                                "Merged {}/{} into {}",
-                                target.branch.remote(),
-                                target.branch.branch(),
-                                branch.name
-                            )
-                            .as_str(),
-                            &branch_head_merge_tree,
-                            &[&branch_head_commit, &new_target_commit],
-                            signing_key,
+                    // branch was not pushed to upstream yet. attempt a rebase,
+                    let (_, committer) = project_repository.git_signatures(user)?;
+                    let mut rebase_options = git2::RebaseOptions::new();
+                    rebase_options.quiet(true);
+                    rebase_options.inmemory(true);
+                    let mut rebase = repo
+                        .rebase(
+                            Some(branch.head),
+                            Some(new_target_commit.id()),
+                            None,
+                            Some(&mut rebase_options),
                         )
-                        .context("failed to commit merge")?;
+                        .context("failed to rebase")?;
 
-                    branch.head = new_target_head;
-                    branch.tree = branch_merge_index_tree_oid;
-                    vb_state.set_branch(branch.clone())?;
-                    Ok(Some(branch))
-                };
+                    let mut rebase_success = true;
+                    // check to see if these commits have already been pushed
+                    let mut last_rebase_head = branch.head;
+                    while rebase.next().is_some() {
+                        let index = rebase
+                            .inmemory_index()
+                            .context("failed to get inmemory index")?;
+                        if index.has_conflicts() {
+                            rebase_success = false;
+                            break;
+                        }
 
-                if branch.upstream.is_some() && !ok_with_force_push {
-                    return result_merge(branch);
-                }
-
-                // branch was not pushed to upstream yet. attempt a rebase,
-                let (_, committer) = project_repository.git_signatures(user)?;
-                let mut rebase_options = git2::RebaseOptions::new();
-                rebase_options.quiet(true);
-                rebase_options.inmemory(true);
-                let mut rebase = repo
-                    .rebase(
-                        Some(branch.head),
-                        Some(new_target_commit.id()),
-                        None,
-                        Some(&mut rebase_options),
-                    )
-                    .context("failed to rebase")?;
-
-                let mut rebase_success = true;
-                // check to see if these commits have already been pushed
-                let mut last_rebase_head = branch.head;
-                while rebase.next().is_some() {
-                    let index = rebase
-                        .inmemory_index()
-                        .context("failed to get inmemory index")?;
-                    if index.has_conflicts() {
-                        rebase_success = false;
-                        break;
+                        if let Ok(commit_id) = rebase.commit(None, &committer.clone().into(), None)
+                        {
+                            last_rebase_head = commit_id.into();
+                        } else {
+                            rebase_success = false;
+                            break;
+                        }
                     }
 
-                    if let Ok(commit_id) = rebase.commit(None, &committer.clone().into(), None) {
-                        last_rebase_head = commit_id.into();
-                    } else {
-                        rebase_success = false;
-                        break;
+                    if rebase_success {
+                        // rebase worked out, rewrite the branch head
+                        rebase.finish(None).context("failed to finish rebase")?;
+                        branch.head = last_rebase_head;
+                        branch.tree = branch_merge_index_tree_oid;
+                        vb_state.set_branch(branch.clone())?;
+                        return Ok(Some(branch));
                     }
-                }
 
-                if rebase_success {
-                    // rebase worked out, rewrite the branch head
-                    rebase.finish(None).context("failed to finish rebase")?;
-                    branch.head = last_rebase_head;
-                    branch.tree = branch_merge_index_tree_oid;
-                    vb_state.set_branch(branch.clone())?;
-                    return Ok(Some(branch));
-                }
+                    // rebase failed, do a merge commit
+                    rebase.abort().context("failed to abort rebase")?;
 
-                // rebase failed, do a merge commit
-                rebase.abort().context("failed to abort rebase")?;
-
-                result_merge(branch)
-            },
-        )
-        .collect::<Result<Vec<_>>>()?
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
+                    result_merge(branch)
+                },
+            )
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
 
     // ok, now all the problematic branches have been unapplied
     // now we calculate and checkout new tree for the working directory
@@ -577,8 +604,8 @@ pub fn update_base_branch(
         ..target
     })?;
 
+    // Rewriting the integration commit is necessary after changing target sha.
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-
     Ok(())
 }
 
@@ -607,10 +634,27 @@ pub fn target_to_base_branch(
         .map(super::commit_to_remote_commit)
         .collect::<Vec<_>>();
 
+    // there has got to be a better way to do this.
+    let push_remote_url = match target.push_remote_name {
+        Some(ref name) => match repo.find_remote(name) {
+            Ok(remote) => match remote.url() {
+                Ok(url) => match url {
+                    Some(url) => url.to_string(),
+                    None => target.remote_url.clone(),
+                },
+                Err(_err) => target.remote_url.clone(),
+            },
+            Err(_err) => target.remote_url.clone(),
+        },
+        None => target.remote_url.clone(),
+    };
+
     let base = super::BaseBranch {
         branch_name: format!("{}/{}", target.branch.remote(), target.branch.branch()),
         remote_name: target.branch.remote().to_string(),
         remote_url: target.remote_url.clone(),
+        push_remote_name: target.push_remote_name.clone(),
+        push_remote_url,
         base_sha: target.sha,
         current_sha: oid,
         behind: upstream_commits.len(),

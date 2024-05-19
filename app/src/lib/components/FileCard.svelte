@@ -12,6 +12,7 @@
 	export let isUnapplied: boolean;
 	export let selectable = false;
 	export let readonly = false;
+	export let isCard = true;
 
 	const branchController = getContext(BranchController);
 
@@ -30,7 +31,7 @@
 		.some((section) => section.hunk.locked);
 </script>
 
-<div id={`file-${file.id}`} class="file-card card">
+<div id={`file-${file.id}`} class="file-card" class:card={isCard}>
 	<FileCardHeader {file} {isFileLocked} on:close />
 	{#if conflicted}
 		<div class="mb-2 bg-red-500 px-2 py-0 font-bold text-white">

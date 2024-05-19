@@ -1,5 +1,6 @@
 import { invoke } from '$lib/backend/ipc';
 import { BranchService } from '$lib/branches/service';
+import { HistoryService } from '$lib/history/history';
 import { getFetchNotifications } from '$lib/stores/fetches';
 import { getHeads } from '$lib/stores/head';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
@@ -39,6 +40,7 @@ export async function load({ params, parent }) {
 	const heads$ = getHeads(projectId);
 	const gbBranchActive$ = heads$.pipe(map((head) => head == 'gitbutler/integration'));
 
+	const historyService = new HistoryService(projectId);
 	const baseBranchService = new BaseBranchService(projectId, remoteUrl$, fetches$, heads$);
 	const vbranchService = new VirtualBranchService(projectId, gbBranchActive$);
 
@@ -67,6 +69,7 @@ export async function load({ params, parent }) {
 		branchController,
 		branchService,
 		githubService,
+		historyService,
 		projectId,
 		project,
 		remoteBranchService,

@@ -2,7 +2,6 @@ pub mod commands {
     use crate::error::Error;
     use anyhow::Context;
     use gitbutler_core::{
-        askpass::AskpassBroker,
         assets,
         error::Code,
         git, projects,
@@ -125,6 +124,7 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch: &str,
+        push_remote: Option<&str>, // optional different name of a remote to push to (defaults to same as the branch)
     ) -> Result<BaseBranch, Error> {
         let branch_name = format!("refs/remotes/{}", branch)
             .parse()
@@ -137,6 +137,14 @@ pub mod commands {
             .state::<assets::Proxy>()
             .proxy_base_branch(base_branch)
             .await;
+
+        // if they also sent a different push remote, set that too
+        if let Some(push_remote) = push_remote {
+            handle
+                .state::<Controller>()
+                .set_target_push_remote(&project_id, push_remote)
+                .await?;
+        }
         emit_vbranches(&handle, &project_id).await;
         Ok(base_branch)
     }
@@ -256,15 +264,9 @@ pub mod commands {
         branch_id: BranchId,
         with_force: bool,
     ) -> Result<(), Error> {
-        let askpass_broker = handle.state::<AskpassBroker>();
         handle
             .state::<Controller>()
-            .push_virtual_branch(
-                &project_id,
-                &branch_id,
-                with_force,
-                Some((askpass_broker.inner().clone(), Some(branch_id))),
-            )
+            .push_virtual_branch(&project_id, &branch_id, with_force, Some(Some(branch_id)))
             .await
             .map_err(|err| err.context(Code::Unknown))?;
         emit_vbranches(&handle, &project_id).await;
@@ -489,15 +491,11 @@ pub mod commands {
         project_id: ProjectId,
         action: Option<String>,
     ) -> Result<BaseBranch, Error> {
-        let askpass_broker = handle.state::<AskpassBroker>().inner().clone();
         let base_branch = handle
             .state::<Controller>()
             .fetch_from_target(
                 &project_id,
-                Some((
-                    askpass_broker,
-                    action.unwrap_or_else(|| "unknown".to_string()),
-                )),
+                Some(action.unwrap_or_else(|| "unknown".to_string())),
             )
             .await?;
         emit_vbranches(&handle, &project_id).await;

@@ -7,3 +7,6 @@
 .idea
 
 .DS_Store
+
+.env
+.env.*

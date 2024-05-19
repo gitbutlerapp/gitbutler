@@ -43,6 +43,7 @@ impl Default for TestProject {
                     .find_tree(oid)
                     .expect("failed to find tree"),
                 &[],
+                None,
             )
             .expect("failed to commit");
 
@@ -237,6 +238,7 @@ impl TestProject {
                 &format!("Merge pull request from {}", branch_name),
                 &merge_tree,
                 &[&master_branch_commit, &branch_commit],
+                None,
             )
             .unwrap();
     }
@@ -312,6 +314,7 @@ impl TestProject {
                             .expect("failed to get head"),
                     )
                     .expect("failed to find commit")],
+                None,
             )
             .expect("failed to commit")
     }

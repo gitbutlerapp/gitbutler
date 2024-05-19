@@ -53,6 +53,12 @@
 		return unsubscribe(
 			events.on('goto', async (path: string) => await goto(path)),
 			events.on('openSendIssueModal', () => shareIssueModal?.show()),
+			events.on('openHistory', () => {
+				userSettings.update((s) => ({
+					...s,
+					showHistoryView: !$userSettings.showHistoryView
+				}));
+			}),
 
 			// Zoom using cmd +, - and =
 			hotkeys.on('$mod+Equal', () => (zoom = Math.min(zoom + 0.0625, 3))),
@@ -68,15 +74,12 @@
 				// This prevent backspace from navigating back
 				e.preventDefault();
 			}),
-			hotkeys.on('$mod+Shift+H', () => {
-				userSettings.update((s) => ({
-					...s,
-					showHistoryView: !$userSettings.showHistoryView
-				}));
-			})
+			hotkeys.on('$mod+R', () => location.reload())
 		);
 	});
 </script>
+
+<svelte:window on:drop={(e) => e.preventDefault()} on:dragover={(e) => e.preventDefault()} />
 
 <div
 	data-tauri-drag-region

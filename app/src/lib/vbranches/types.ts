@@ -131,10 +131,6 @@ export class Branch {
 	get remoteCommits() {
 		return this.commits.filter((c) => c.status == 'remote');
 	}
-
-	get integratedCommits() {
-		return this.commits.filter((c) => c.status == 'integrated');
-	}
 }
 
 // Used for dependency injection
@@ -148,7 +144,7 @@ export type ComponentColor =
 	| 'error'
 	| 'warning'
 	| 'purple';
-export type CommitStatus = 'local' | 'remote' | 'integrated' | 'upstream';
+export type CommitStatus = 'local' | 'remote' | 'upstream';
 
 export class Commit {
 	id!: string;
@@ -162,19 +158,20 @@ export class Commit {
 	files!: LocalFile[];
 	parentIds!: string[];
 	branchId!: string;
+	changeId!: string;
+	isSigned!: boolean;
+	relatedTo?: RemoteCommit;
+
+	parent?: Commit;
+	children?: Commit[];
 
 	get isLocal() {
 		return !this.isRemote && !this.isIntegrated;
 	}
 
-	get status() {
-		if (!this.isIntegrated && !this.isRemote) {
-			return 'local';
-		} else if (!this.isIntegrated && this.isRemote) {
-			return 'remote';
-		} else if (this.isIntegrated) {
-			return 'integrated';
-		}
+	get status(): CommitStatus {
+		if (this.isRemote) return 'remote';
+		return 'local';
 	}
 
 	get descriptionTitle(): string | undefined {
@@ -190,12 +187,21 @@ export class Commit {
 	}
 }
 
+export function isLocalCommit(obj: any): obj is Commit {
+	return obj instanceof Commit;
+}
+
 export class RemoteCommit {
 	id!: string;
 	author!: Author;
 	description!: string;
 	@Transform((obj) => new Date(obj.value * 1000))
 	createdAt!: Date;
+	changeId!: string;
+	isSigned!: boolean;
+
+	parent?: Commit;
+	children?: Commit[];
 
 	get isLocal() {
 		return false;
@@ -208,6 +214,14 @@ export class RemoteCommit {
 	get descriptionBody(): string | undefined {
 		return splitMessage(this.description).description || undefined;
 	}
+
+	get status(): CommitStatus {
+		return 'upstream';
+	}
+}
+
+export function isRemoteCommit(obj: any): obj is RemoteCommit {
+	return obj instanceof RemoteCommit;
 }
 
 export type AnyCommit = Commit | RemoteCommit;
@@ -216,6 +230,14 @@ export const LOCAL_COMMITS = Symbol('LocalCommtis');
 export const REMOTE_COMMITS = Symbol('RemoteCommits');
 export const INTEGRATED_COMMITS = Symbol('IntegratedCommits');
 export const UNKNOWN_COMMITS = Symbol('UnknownCommits');
+
+export function commitCompare(left: AnyCommit, right: AnyCommit): boolean {
+	if (left.id == right.id) return true;
+	if (left.description != right.description) return false;
+	if (left.author.name != right.author.name) return false;
+	if (left.author.email != right.author.email) return false;
+	return true;
+}
 
 export class RemoteHunk {
 	diff!: string;
@@ -328,6 +350,8 @@ export class BaseBranch {
 	branchName!: string;
 	remoteName!: string;
 	remoteUrl!: string;
+	pushRemoteName!: string;
+	pushRemoteUrl!: string;
 	baseSha!: string;
 	currentSha!: string;
 	behind!: number;
@@ -337,27 +361,40 @@ export class BaseBranch {
 	recentCommits!: RemoteCommit[];
 	lastFetchedMs?: number;
 
+	actualPushRemoteName(): string {
+		return this.pushRemoteName || this.remoteName;
+	}
+
 	get lastFetched(): Date | undefined {
 		return this.lastFetchedMs ? new Date(this.lastFetchedMs) : undefined;
 	}
 
+	get pushRepoBaseUrl(): string {
+		return this.cleanUrl(this.pushRemoteUrl);
+	}
+
 	get repoBaseUrl(): string {
-		if (this.remoteUrl.startsWith('http')) {
-			return this.remoteUrl.replace('.git', '');
+		return this.cleanUrl(this.remoteUrl);
+	}
+
+	// turn a git remote url into a web url (github, gitlab, bitbucket, etc)
+	private cleanUrl(url: string): string {
+		if (url.startsWith('http')) {
+			return url.replace('.git', '').trim();
 		} else {
-			return this.remoteUrl.replace(':', '/').replace('git@', 'https://').replace('.git', '');
+			return url.replace(':', '/').replace('git@', 'https://').replace('.git', '').trim();
 		}
 	}
 
 	commitUrl(commitId: string): string | undefined {
 		// Different Git providers use different paths for the commit url:
 		if (this.isBitBucket) {
-			return `${this.repoBaseUrl}/commits/${commitId}`;
+			return `${this.pushRepoBaseUrl}/commits/${commitId}`;
 		}
 		if (this.isGitlab) {
-			return `${this.repoBaseUrl}/-/commit/${commitId}`;
+			return `${this.pushRepoBaseUrl}/-/commit/${commitId}`;
 		}
-		return `${this.repoBaseUrl}/commit/${commitId}`;
+		return `${this.pushRepoBaseUrl}/commit/${commitId}`;
 	}
 
 	get shortName() {
@@ -368,11 +405,37 @@ export class BaseBranch {
 		if (!upstreamBranchName) return undefined;
 		const baseBranchName = this.branchName.split('/')[1];
 		const branchName = upstreamBranchName.split('/').slice(3).join('/');
+
+		if (this.pushRemoteName) {
+			if (this.isGitHub) {
+				// master...schacon:docs:Virtual-branch
+				const pushUsername = this.extractUsernameFromGitHubUrl(this.pushRemoteUrl);
+				const pushRepoName = this.extractRepoNameFromGitHubUrl(this.pushRemoteUrl);
+				return `${this.repoBaseUrl}/compare/${baseBranchName}...${pushUsername}:${pushRepoName}:${branchName}`;
+			}
+		}
+
 		if (this.isBitBucket) {
-			return `${this.repoBaseUrl.trim()}/branch/${branchName}?dest=${baseBranchName}`;
+			return `${this.repoBaseUrl}/branch/${branchName}?dest=${baseBranchName}`;
 		}
 		// The following branch path is good for at least Gitlab and Github:
-		return `${this.repoBaseUrl.trim()}/compare/${baseBranchName}...${branchName}`;
+		return `${this.repoBaseUrl}/compare/${baseBranchName}...${branchName}`;
+	}
+
+	private extractUsernameFromGitHubUrl(url: string): string | null {
+		const regex = /github\.com[/:]([a-zA-Z0-9_-]+)\/.*/;
+		const match = url.match(regex);
+		return match ? match[1] : null;
+	}
+
+	private extractRepoNameFromGitHubUrl(url: string): string | null {
+		const regex = /github\.com[/:]([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)/;
+		const match = url.match(regex);
+		return match ? match[2] : null;
+	}
+
+	private get isGitHub(): boolean {
+		return this.repoBaseUrl.includes('github.com');
 	}
 
 	private get isBitBucket(): boolean {
