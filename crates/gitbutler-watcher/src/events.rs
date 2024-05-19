@@ -13,6 +13,8 @@ pub(super) enum InternalEvent {
     // From file monitor
     GitFilesChange(ProjectId, Vec<PathBuf>),
     ProjectFilesChange(ProjectId, Vec<PathBuf>),
+    // Triggered on change in the `.git/gitbutler` directory
+    GitButlerOplogChange(ProjectId),
 }
 
 /// This type captures all operations that can be fed into a watcher that runs in the background.
@@ -51,6 +53,9 @@ impl Display for InternalEvent {
                     project_id,
                     comma_separated_paths(paths)
                 )
+            }
+            InternalEvent::GitButlerOplogChange(project_id) => {
+                write!(f, "GitButlerOplogChange({})", project_id)
             }
             InternalEvent::ProjectFilesChange(project_id, paths) => {
                 write!(
