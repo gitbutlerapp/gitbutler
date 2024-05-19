@@ -197,7 +197,7 @@ async fn test_oplog_restores_gitbutler_integration() {
     let _commit2_id = controller
         .create_commit(project_id, &branch_id, "commit one", None, false)
         .await
-        .unwrap(); 
+        .unwrap();
 
     // check the integration commit changed
     let head = repo.head();
@@ -237,7 +237,11 @@ async fn test_oplog_head_corrupt() {
     assert_eq!(snapshots.len(), 1);
 
     // overwrite oplog head with a non-commit sha
-    let file_path = repository.path().join(".git").join("gitbutler").join("operations-log.toml");
+    let file_path = repository
+        .path()
+        .join(".git")
+        .join("gitbutler")
+        .join("operations-log.toml");
     fs::write(
         file_path,
         "head_sha = \"758d54f587227fba3da3b61fbb54a99c17903d59\"",

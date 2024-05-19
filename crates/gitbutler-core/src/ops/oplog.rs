@@ -186,12 +186,16 @@ impl Oplog for Project {
             let commit_data_blob = repo.blob(&commit_data)?;
             commit_tree_builder.insert("commit", commit_data_blob, FileMode::Blob.into())?;
             commit_tree_builder.insert("tree", commit_tree.id(), FileMode::Tree.into())?;
-            
+
             let commit_tree_id = commit_tree_builder.write()?;
 
             // gotta make a subtree to match
             let mut commits_tree_builder = repo.treebuilder(None)?;
-            commits_tree_builder.insert(commit.id().to_string(), commit_tree_id, FileMode::Tree.into())?;
+            commits_tree_builder.insert(
+                commit.id().to_string(),
+                commit_tree_id,
+                FileMode::Tree.into(),
+            )?;
             let commits_tree_id = commits_tree_builder.write()?;
 
             let mut branch_tree_builder = repo.treebuilder(None)?;
@@ -199,11 +203,7 @@ impl Oplog for Project {
             branch_tree_builder.insert("commits", commits_tree_id, FileMode::Tree.into())?;
             let branch_tree_id = branch_tree_builder.write()?;
 
-            branches_tree_builder.insert(
-                "integration",
-                branch_tree_id,
-                FileMode::Tree.into(),
-            )?;
+            branches_tree_builder.insert("integration", branch_tree_id, FileMode::Tree.into())?;
         }
 
         let branch_tree_id = branches_tree_builder.write()?;
@@ -455,7 +455,8 @@ impl Oplog for Project {
                         if branch_name == "integration" {
                             let integration_commit = repo.find_commit(commit_oid)?;
                             // reset the branch if it's there
-                            let branch = repo.find_branch("gitbutler/integration", git2::BranchType::Local);
+                            let branch =
+                                repo.find_branch("gitbutler/integration", git2::BranchType::Local);
                             if let Ok(mut branch) = branch {
                                 // need to detatch the head for just a minuto
                                 repo.set_head_detached(commit_oid)?;
@@ -467,7 +468,6 @@ impl Oplog for Project {
                             repo.set_head("refs/heads/gitbutler/integration")?;
                         }
                     }
-
                 }
             }
         }
