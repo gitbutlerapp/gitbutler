@@ -51,6 +51,7 @@ export default defineConfig({
 		deps: {
 			inline: ['sorcery']
 		},
-		includeSource: ['src/**/*.{js,ts}']
+		includeSource: ['src/**/*.{js,ts}'],
+		exclude: ['**/e2e/playwright/**/*', 'node_modules/**/*']
 	}
 });

@@ -8,8 +8,10 @@ import { PromptService } from '$lib/backend/prompt';
 import { UpdaterService } from '$lib/backend/updater';
 import { GitHubService } from '$lib/github/service';
 import { UserService } from '$lib/stores/user';
+import { mockTauri } from '$lib/testing/index';
 import lscache from 'lscache';
 import { BehaviorSubject, config } from 'rxjs';
+import { env } from '$env/dynamic/public';
 
 // call on startup so we don't accumulate old items
 lscache.flushExpired();
@@ -22,6 +24,10 @@ export const prerender = false;
 export const csr = true;
 
 export async function load() {
+	// Mock Tauri API during E2E tests
+	if (env.PUBLIC_TESTING) {
+		mockTauri();
+	}
 	initAnalyticsIfEnabled();
 
 	// TODO: Find a workaround to avoid this dynamic import
