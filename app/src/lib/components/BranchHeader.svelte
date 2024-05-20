@@ -147,8 +147,7 @@
 		<div
 			class="header card"
 			class:header_target-branch={branch.selectedForChanges}
-			class:header_target-branch-animation={isTargetBranchAnimated}
-			on:animationend={() => (isTargetBranchAnimated = false)}
+			class:header_target-branch-animation={isTargetBranchAnimated && branch.selectedForChanges}
 		>
 			<div class="header__info-wrapper">
 				{#if !isUnapplied}
@@ -324,7 +323,7 @@
 		margin-bottom: var(--size-4);
 	}
 	.header_target-branch-animation {
-		animation: setTargetAnimation 0.3s ease-in-out;
+		animation: setTargetAnimation 0.25s ease-in-out forwards;
 	}
 	@keyframes setTargetAnimation {
 		0% {
