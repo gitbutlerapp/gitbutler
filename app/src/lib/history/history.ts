@@ -7,6 +7,7 @@ export class HistoryService {
 	cursor: string | undefined = undefined;
 
 	readonly loading = writable(false);
+	readonly isAllLoaded = writable(false);
 	readonly snapshots = writable<Snapshot[]>([], (set) => {
 		// Load snapshots when going from 0 -> 1 subscriber.
 		this.fetch().then((x) => set(x));
@@ -30,6 +31,10 @@ export class HistoryService {
 		const more = await this.fetch(this.cursor);
 		// TODO: Update API so we don't have to .slice()
 		this.snapshots.update((snapshots) => [...snapshots, ...more.slice(1)]);
+
+		if (more.slice(1).length == 0) {
+			this.isAllLoaded.set(true);
+		}
 	}
 
 	private async fetch(after?: string) {
