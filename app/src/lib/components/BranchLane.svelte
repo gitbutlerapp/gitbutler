@@ -136,8 +136,6 @@
 		flex-shrink: 0;
 		user-select: none; /* here because of user-select draggable interference in board */
 		position: relative;
-		--target-branch-background: var(--clr-bg-2);
-		background-color: var(--target-branch-background);
 	}
 
 	.file-preview {

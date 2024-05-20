@@ -41,6 +41,7 @@
 	let isDeleting = false;
 	let branchName = branch?.upstreamName || normalizeBranchName($branchStore.name);
 	let isLoading: boolean;
+	let isTargetBranchAnimated = false;
 
 	function handleBranchNameChange(title: string) {
 		if (title == '') return;
@@ -94,6 +95,7 @@
 {#if $isLaneCollapsed}
 	<div
 		class="card collapsed-lane"
+		class:collapsed-lane_target-branch={branch.selectedForChanges}
 		on:keydown={(e) => e.key === 'Enter' && expandLane()}
 		tabindex="0"
 		role="button"
@@ -142,7 +144,11 @@
 	</div>
 {:else}
 	<div class="header__wrapper">
-		<div class="header card">
+		<div
+			class="header card"
+			class:header_target-branch={branch.selectedForChanges}
+			class:header_target-branch-animation={isTargetBranchAnimated && branch.selectedForChanges}
+		>
 			<div class="header__info-wrapper">
 				{#if !isUnapplied}
 					<div class="draggable" data-drag-handle>
@@ -200,6 +206,7 @@
 								icon="target"
 								disabled={isUnapplied}
 								on:mousedown={async () => {
+									isTargetBranchAnimated = true;
 									await branchController.setSelectedForChanges(branch.id);
 								}}
 							>
@@ -306,7 +313,38 @@
 		position: relative;
 		flex-direction: column;
 		gap: var(--size-2);
+		transition:
+			border-color 0.12s ease-in-out,
+			box-shadow 0.12s ease-in-out;
 	}
+	.header_target-branch {
+		border-color: var(--clr-theme-pop-element);
+		box-shadow: 0 var(--size-4) 0 var(--clr-theme-pop-element);
+		margin-bottom: var(--size-4);
+	}
+	.header_target-branch-animation {
+		animation: setTargetAnimation 0.25s ease-in-out forwards;
+	}
+	@keyframes setTargetAnimation {
+		0% {
+		}
+		40% {
+			transform: scale(1.015) rotate(0.5deg);
+		}
+		50% {
+			border-color: var(--clr-theme-pop-element);
+			box-shadow: 0 var(--size-4) 0 var(--clr-theme-pop-element);
+			margin-bottom: var(--size-4);
+		}
+		70%,
+		100% {
+			transform: scale(1);
+			border-color: var(--clr-theme-pop-element);
+			box-shadow: 0 var(--size-4) 0 var(--clr-theme-pop-element);
+			margin-bottom: var(--size-4);
+		}
+	}
+
 	.header__top-overlay {
 		z-index: var(--z-ground);
 		position: absolute;
@@ -314,7 +352,7 @@
 		left: 0;
 		width: 100%;
 		height: var(--size-20);
-		background: var(--target-branch-background);
+		background: var(--clr-bg-2);
 	}
 	.header__info-wrapper {
 		display: flex;
@@ -390,6 +428,10 @@
 		&:focus-within {
 			outline: none;
 		}
+	}
+
+	.collapsed-lane_target-branch {
+		border-color: var(--clr-theme-pop-element);
 	}
 
 	.collapsed-lane__actions {

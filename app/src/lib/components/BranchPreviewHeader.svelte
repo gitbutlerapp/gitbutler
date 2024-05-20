@@ -134,7 +134,7 @@
 		left: 0;
 		width: 100%;
 		height: var(--size-20);
-		background: var(--target-branch-background);
+		background: var(--clr-bg-2);
 	}
 	.header__info {
 		display: flex;

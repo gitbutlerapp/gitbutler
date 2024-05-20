@@ -132,7 +132,12 @@
 										const path = filePath.detail;
 
 										if (snapshotFilesTempStore?.entryId == entry.id) {
-											updateFilePreview(entry, path);
+											if (selectedFile?.path == path) {
+												currentFilePreview = undefined;
+												selectedFile = undefined;
+											} else {
+												updateFilePreview(entry, path);
+											}
 										} else {
 											snapshotFilesTempStore = {
 												entryId: entry.id,
