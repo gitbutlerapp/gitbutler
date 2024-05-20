@@ -22,6 +22,7 @@
 	const dispatch = createEventDispatcher<{ hide: any }>();
 
 	const loading = historyService.loading;
+	const isAllLoaded = historyService.isAllLoaded;
 
 	let currentFilePreview: RemoteFile | undefined = undefined;
 
@@ -113,7 +114,7 @@
 						{#each $snapshots as entry, idx (entry.id)}
 							{#if idx === 0 || createdOnDay(entry.createdAt) != createdOnDay($snapshots[idx - 1].createdAt)}
 								<div class="sideview__date-header">
-									<h4 class="text-base-12 text-semibold">
+									<h4 class="text-base-13 text-semibold">
 										{createdOnDay(entry.createdAt)}
 									</h4>
 								</div>
@@ -144,18 +145,20 @@
 							{/if}
 						{/each}
 
-						<div class="welcome-point">
-							<div class="welcome-point__icon">
-								<Icon name="finish" />
+						{#if $isAllLoaded}
+							<div class="welcome-point">
+								<div class="welcome-point__icon">
+									<Icon name="finish" />
+								</div>
+								<div class="welcome-point__content">
+									<p class="text-base-13 text-semibold">Welcome to history!</p>
+									<p class="welcome-point__caption text-base-body-12">
+										Gitbutler saves your work, including file changes, so your progress is always
+										secure. Adjust snapshot settings in project settings.
+									</p>
+								</div>
 							</div>
-							<div class="welcome-point__content">
-								<p class="text-base-13 text-semibold">Welcome to history!</p>
-								<p class="welcome-point__caption text-base-body-12">
-									Gitbutler saves your work, including file changes, so your progress is always
-									secure. Adjust snapshot settings in project settings.
-								</p>
-							</div>
-						</div>
+						{/if}
 					</div>
 				</ScrollableContainer>
 			{/if}
@@ -192,7 +195,7 @@
 		overflow: hidden;
 		background-color: var(--clr-bg-1);
 		border-left: 1px solid var(--clr-border-2);
-		width: 26rem;
+		width: 28rem;
 	}
 
 	/* SIDEVIEW HEADER */
@@ -272,7 +275,7 @@
 
 	/* DATE HEADER */
 	.sideview__date-header {
-		padding: var(--size-14) var(--size-14) var(--size-8) 5.25rem;
+		padding: var(--size-14) var(--size-14) var(--size-8) 6.8rem;
 		border-top: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 
@@ -299,7 +302,7 @@
 	.welcome-point {
 		display: flex;
 		gap: var(--size-10);
-		padding: var(--size-12) var(--size-16) var(--size-16) 3.7rem;
+		padding: var(--size-12) var(--size-16) var(--size-32) 5.2rem;
 	}
 
 	.welcome-point__content {

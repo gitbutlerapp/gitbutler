@@ -266,8 +266,6 @@
 	}
 
 	.restore-btn_visible {
-		/* padding: var(--size-10) var(--size-14) var(--size-12) var(--size-14); */
-
 		&:hover {
 			& .restore-btn {
 				display: flex;
@@ -279,17 +277,14 @@
 
 	.restore-btn {
 		display: none;
-		/* padding: var(--size-8) var(--size-14); */
 	}
 
 	.snapshot-time {
 		color: var(--clr-text-2);
-		/* background-color: #ffcf887d; */
-		width: 2.15rem;
+		width: 3.7rem;
 
 		text-align: right;
 		line-height: 1.5;
-		/* margin-top: var(--size-2); */
 	}
 
 	.snapshot-line {
@@ -298,8 +293,6 @@
 		align-items: center;
 		flex-direction: column;
 		gap: var(--size-4);
-		/* margin-top: var(--size-2); */
-		/* background-color: rgba(0, 255, 255, 0.299); */
 
 		&::after {
 			position: absolute;
