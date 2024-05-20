@@ -29,7 +29,6 @@
 	async function setSnapshotLinesThreshold(value: number) {
 		project.snapshot_lines_threshold = value;
 		await projectService.updateProject(project);
-		console.log(value);
 	}
 </script>
 
