@@ -208,7 +208,6 @@
 								selectedFile?.entryId == entry.id}
 							on:click={() => {
 								dispatch('diffClick', filePath);
-								// console.log('diffClick', filePath);
 							}}
 						>
 							<img
