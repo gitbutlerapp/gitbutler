@@ -280,9 +280,10 @@
 
 	/* DATE HEADER */
 	.sideview__date-header {
-		padding: var(--size-14) var(--size-14) var(--size-8) 6.8rem;
+		padding: var(--size-20) var(--size-14) var(--size-14) 6.8rem;
 		border-top: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
+		margin-top: var(--size-12);
 
 		& h4 {
 			color: var(--clr-text-3);
@@ -290,6 +291,7 @@
 
 		&:first-child {
 			border-top: none;
+			margin-top: 0;
 		}
 	}
 
@@ -323,10 +325,10 @@
 
 	/* MODIFIERS */
 	.show-view {
-		animation: view-fade-in 0.2s forwards;
+		animation: view-fade-in 0.3s forwards;
 
 		& .sideview-content-wrap {
-			animation: view-slide-in 0.25s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+			animation: view-slide-in 0.35s cubic-bezier(0.23, 1, 0.32, 1) forwards;
 			animation-delay: 0.05s;
 		}
 	}
