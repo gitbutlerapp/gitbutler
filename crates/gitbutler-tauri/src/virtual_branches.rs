@@ -105,17 +105,16 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
     ) -> Result<Option<BaseBranch>, Error> {
-        if let Some(base_branch) = handle
+        if let Ok(base_branch) = handle
             .state::<Controller>()
             .get_base_branch_data(&project_id)
-            .await?
+            .await
         {
             let proxy = handle.state::<assets::Proxy>();
             let base_branch = proxy.proxy_base_branch(base_branch).await;
-            Ok(Some(base_branch))
-        } else {
-            Ok(None)
+            return Ok(Some(base_branch));
         }
+        Ok(None)
     }
 
     #[tauri::command(async)]

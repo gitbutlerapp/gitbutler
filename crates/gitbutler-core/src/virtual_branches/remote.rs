@@ -52,13 +52,7 @@ pub struct RemoteCommit {
 pub fn list_remote_branches(
     project_repository: &project_repository::Repository,
 ) -> Result<Vec<RemoteBranch>, errors::ListRemoteBranchesError> {
-    let default_target = default_target(&project_repository.project().gb_dir())
-        .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::ListRemoteBranchesError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
-                project_id: project_repository.project().id,
-            })
-        })?;
+    let default_target = default_target(&project_repository.project().gb_dir())?;
 
     let remote_branches = project_repository
         .git_repository
@@ -81,13 +75,7 @@ pub fn get_branch_data(
     project_repository: &project_repository::Repository,
     refname: &git::Refname,
 ) -> Result<super::RemoteBranchData, errors::GetRemoteBranchDataError> {
-    let default_target = default_target(&project_repository.project().gb_dir())
-        .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::GetRemoteBranchDataError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
-                project_id: project_repository.project().id,
-            })
-        })?;
+    let default_target = default_target(&project_repository.project().gb_dir())?;
 
     let branch = project_repository
         .git_repository
@@ -191,11 +179,6 @@ pub fn commit_to_remote_commit(commit: &git::Commit) -> RemoteCommit {
     }
 }
 
-fn default_target(base_path: &Path) -> Result<Option<target::Target>> {
-    let vb_state = VirtualBranchesHandle::new(base_path);
-    match vb_state.get_default_target() {
-        Result::Ok(target) => Ok(Some(target)),
-        Err(crate::reader::Error::NotFound) => Ok(None),
-        Err(err) => Err(err.into()),
-    }
+fn default_target(base_path: &Path) -> Result<target::Target> {
+    VirtualBranchesHandle::new(base_path).get_default_target()
 }

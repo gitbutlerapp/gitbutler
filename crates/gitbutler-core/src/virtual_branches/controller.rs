@@ -13,7 +13,7 @@ use tokio::{sync::Semaphore, task::JoinHandle};
 
 use super::{
     branch::{BranchId, BranchOwnershipClaims},
-    errors::{self, FetchFromTargetError},
+    errors::{self},
     target, target_to_base_branch, BaseBranch, RemoteBranchFile, VirtualBranchesHandle,
 };
 use crate::{
@@ -121,10 +121,7 @@ impl Controller {
             .await
     }
 
-    pub async fn get_base_branch_data(
-        &self,
-        project_id: &ProjectId,
-    ) -> Result<Option<BaseBranch>, Error> {
+    pub async fn get_base_branch_data(&self, project_id: &ProjectId) -> Result<BaseBranch, Error> {
         self.inner(project_id)
             .await
             .get_base_branch_data(project_id)
@@ -532,10 +529,7 @@ impl ControllerInner {
         })
     }
 
-    pub fn get_base_branch_data(
-        &self,
-        project_id: &ProjectId,
-    ) -> Result<Option<BaseBranch>, Error> {
+    pub fn get_base_branch_data(&self, project_id: &ProjectId) -> Result<BaseBranch, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         Ok(super::get_base_branch_data(&project_repository)?)
@@ -925,13 +919,7 @@ impl ControllerInner {
         let project = self.projects.get(project_id)?;
         let mut project_repository = project_repository::Repository::open(&project)?;
 
-        let default_target = default_target(&project_repository.project().gb_dir())
-            .context("failed to get default target")?
-            .ok_or(FetchFromTargetError::DefaultTargetNotSet(
-                errors::DefaultTargetNotSet {
-                    project_id: *project_id,
-                },
-            ))?;
+        let default_target = default_target(&project_repository.project().gb_dir())?;
 
         let project_data_last_fetched = match project_repository
             .fetch(
@@ -1024,11 +1012,6 @@ impl ControllerInner {
     }
 }
 
-fn default_target(base_path: &Path) -> anyhow::Result<Option<target::Target>> {
-    let vb_state = VirtualBranchesHandle::new(base_path);
-    match vb_state.get_default_target() {
-        Result::Ok(target) => Ok(Some(target)),
-        Err(crate::reader::Error::NotFound) => Ok(None),
-        Err(err) => Err(err.into()),
-    }
+fn default_target(base_path: &Path) -> anyhow::Result<target::Target> {
+    VirtualBranchesHandle::new(base_path).get_default_target()
 }

@@ -36,17 +36,10 @@ pub struct BaseBranch {
 
 pub fn get_base_branch_data(
     project_repository: &project_repository::Repository,
-) -> Result<Option<BaseBranch>> {
-    match default_target(&project_repository.project().gb_dir())
-        .context("failed to get default target")?
-    {
-        None => Ok(None),
-        Some(target) => {
-            let base = target_to_base_branch(project_repository, &target)
-                .context("failed to convert default target to base branch")?;
-            Ok(Some(base))
-        }
-    }
+) -> Result<BaseBranch> {
+    let target = default_target(&project_repository.project().gb_dir())?;
+    let base = target_to_base_branch(project_repository, &target)?;
+    Ok(base)
 }
 
 fn go_back_to_integration(
@@ -127,7 +120,7 @@ pub fn set_base_branch(
     let repo = &project_repository.git_repository;
 
     // if target exists, and it is the same as the requested branch, we should go back
-    if let Some(target) = default_target(&project_repository.project().gb_dir())? {
+    if let Ok(target) = default_target(&project_repository.project().gb_dir()) {
         if target.branch.eq(target_branch_ref) {
             return go_back_to_integration(project_repository, &target);
         }
@@ -287,16 +280,16 @@ pub fn set_target_push_remote(
         .context(format!("failed to find remote {}", push_remote_name))?;
 
     // if target exists, and it is the same as the requested branch, we should go back
-    if let Some(mut target) = default_target(&project_repository.project().gb_dir())? {
-        target.push_remote_name = Some(
-            remote
-                .name()
-                .context("failed to get remote name")?
-                .to_string(),
-        );
-        let vb_state = project_repository.project().virtual_branches();
-        vb_state.set_default_target(target.clone())?;
-    }
+    let mut target = default_target(&project_repository.project().gb_dir())?;
+
+    target.push_remote_name = Some(
+        remote
+            .name()
+            .context("failed to get remote name")?
+            .to_string(),
+    );
+    let vb_state = project_repository.project().virtual_branches();
+    vb_state.set_default_target(target.clone())?;
 
     Ok(())
 }
@@ -349,14 +342,7 @@ pub fn update_base_branch(
     }
 
     // look up the target and see if there is a new oid
-    let target = default_target(&project_repository.project().gb_dir())
-        .context("failed to get default target")?
-        .ok_or_else(|| {
-            errors::UpdateBaseBranchError::DefaultTargetNotSet(errors::DefaultTargetNotSet {
-                project_id: project_repository.project().id,
-            })
-        })?;
-
+    let target = default_target(&project_repository.project().gb_dir())?;
     let repo = &project_repository.git_repository;
     let target_branch = repo
         .find_branch(&target.branch.clone().into())
@@ -671,11 +657,6 @@ pub fn target_to_base_branch(
     Ok(base)
 }
 
-fn default_target(base_path: &Path) -> Result<Option<target::Target>> {
-    let vb_state = VirtualBranchesHandle::new(base_path);
-    match vb_state.get_default_target() {
-        Result::Ok(target) => Ok(Some(target)),
-        Err(crate::reader::Error::NotFound) => Ok(None),
-        Err(err) => Err(err.into()),
-    }
+fn default_target(base_path: &Path) -> Result<target::Target> {
+    VirtualBranchesHandle::new(base_path).get_default_target()
 }
