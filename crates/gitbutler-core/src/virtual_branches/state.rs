@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
 use super::{target::Target, Branch};
@@ -48,24 +49,11 @@ impl VirtualBranchesHandle {
     /// Gets the default target for the given repository.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn get_default_target(&self) -> Result<Target, crate::reader::Error> {
+    pub fn get_default_target(&self) -> anyhow::Result<Target> {
         let virtual_branches = self.read_file();
         virtual_branches?
             .default_target
-            .ok_or(crate::reader::Error::NotFound)
-    }
-
-    /// Attempts to get the default target for the given repository,
-    /// returning None if it's not found.
-    ///
-    /// Errors if the file cannot be read or written.
-    #[inline]
-    pub fn try_get_default_target(&self) -> Result<Option<Target>, crate::reader::Error> {
-        match self.get_default_target() {
-            Ok(target) => Ok(Some(target)),
-            Err(crate::reader::Error::NotFound) => Ok(None),
-            Err(e) => Err(e),
-        }
+            .ok_or(anyhow!("No default target"))
     }
 
     /// Sets the target for the given virtual branch.
@@ -76,18 +64,6 @@ impl VirtualBranchesHandle {
         virtual_branches.branch_targets.insert(id, target);
         self.write_file(&virtual_branches)?;
         Ok(())
-    }
-
-    /// Gets the target for the given virtual branch.
-    ///
-    /// Errors if the file cannot be read or written.
-    pub fn get_branch_target(&self, id: &BranchId) -> Result<Target, crate::reader::Error> {
-        let virtual_branches = self.read_file()?;
-        let tartget = virtual_branches.branch_targets.get(id).cloned();
-        match tartget {
-            Some(target) => Ok(target),
-            None => self.get_default_target(),
-        }
     }
 
     /// Sets the state of the given virtual branch.
