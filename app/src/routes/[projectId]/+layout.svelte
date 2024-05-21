@@ -65,7 +65,7 @@
 	}
 
 	onMount(() => {
-		const unsubscribe = listen<string>('menu://view/history/clicked', () => {
+		const unsubscribe = listen<string>('menu://project/history/clicked', () => {
 			$showHistoryView = !$showHistoryView;
 		});
 
