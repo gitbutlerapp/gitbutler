@@ -1128,27 +1128,11 @@ pub fn merge_virtual_branch_upstream(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     user: Option<&users::User>,
-) -> Result<(), errors::MergeVirtualBranchUpstreamError> {
-    if conflicts::is_conflicting::<&Path>(project_repository, None)? {
-        return Err(errors::MergeVirtualBranchUpstreamError::Conflict(
-            errors::ProjectConflict {
-                project_id: project_repository.project().id,
-            },
-        ));
-    }
+) -> Result<(), Error> {
+    conflicts::is_conflicting::<&Path>(project_repository, None)?;
 
     let vb_state = project_repository.project().virtual_branches();
-
-    let mut branch = match vb_state.get_branch(branch_id) {
-        Ok(branch) => Ok(branch),
-        Err(reader::Error::NotFound) => Err(
-            errors::MergeVirtualBranchUpstreamError::BranchNotFound(errors::BranchNotFound {
-                project_id: project_repository.project().id,
-                branch_id: *branch_id,
-            }),
-        ),
-        Err(error) => Err(errors::MergeVirtualBranchUpstreamError::Other(error.into())),
-    }?;
+    let mut branch = vb_state.get_branch(branch_id).map_err(Error::from_err)?;
 
     // check if the branch upstream can be merged into the wd cleanly
     let repo = &project_repository.git_repository;
