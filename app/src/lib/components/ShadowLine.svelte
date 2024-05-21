@@ -48,7 +48,6 @@
 
 	.shadow-line {
 		position: absolute;
-		height: 100%;
 		width: var(--size-2);
 		background-color: var(--clr-commit-shadow);
 		left: 75%;
