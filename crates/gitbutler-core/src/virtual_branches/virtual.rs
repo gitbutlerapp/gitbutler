@@ -1131,33 +1131,14 @@ pub fn merge_virtual_branch_upstream(
 ) -> Result<(), Error> {
     conflicts::is_conflicting::<&Path>(project_repository, None)?;
 
+    let repo = &project_repository.git_repository;
     let vb_state = project_repository.project().virtual_branches();
     let mut branch = vb_state.get_branch(branch_id).map_err(Error::from_err)?;
 
-    // check if the branch upstream can be merged into the wd cleanly
-    let repo = &project_repository.git_repository;
-
-    // get upstream from the branch and find the remote branch
-    let mut upstream_commit = None;
-    let upstream_branch = branch
-        .upstream
-        .as_ref()
-        .context("no upstream branch found")?;
-    if let Ok(upstream_oid) = repo.refname_to_id(&upstream_branch.to_string()) {
-        if let Ok(upstream_commit_obj) = repo.find_commit(upstream_oid) {
-            upstream_commit = Some(upstream_commit_obj);
-        }
-    }
-
-    // if there is no upstream commit, then there is nothing to do
-    if upstream_commit.is_none() {
-        // no upstream commit, no merge to be done
-        return Ok(());
-    }
-
-    // there is an upstream commit, so lets check it out
-    let upstream_commit = upstream_commit.unwrap();
-    let remote_tree = upstream_commit.tree().context("failed to get tree")?;
+    let upstream_branch = branch.upstream.as_ref().context("upstream not found")?;
+    let upstream_oid = repo.refname_to_id(&upstream_branch.to_string())?;
+    let upstream_commit = repo.find_commit(upstream_oid)?;
+    let remote_tree = upstream_commit.tree()?;
 
     if upstream_commit.id() == branch.head {
         // upstream is already merged, nothing to do
@@ -1165,51 +1146,32 @@ pub fn merge_virtual_branch_upstream(
     }
 
     // if any other branches are applied, unapply them
-    let applied_branches = vb_state
-        .list_branches()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter(|b| b.applied)
-        .filter(|b| b.id != *branch_id)
-        .collect::<Vec<_>>();
+    // let applied_branches = vb_state
+    //     .list_branches()?
+    //     .into_iter()
+    //     .filter(|b| b.applied && b.id != *branch_id)
+    //     .collect::<Vec<_>>();
 
     // unapply all other branches
-    for other_branch in applied_branches {
-        unapply_branch(project_repository, &other_branch.id).context("failed to unapply branch")?;
-    }
+    // for other_branch in applied_branches {
+    //     unapply_branch(project_repository, &other_branch.id).context("failed to unapply branch")?;
+    // }
 
-    // get merge base from remote branch commit and target commit
-    let merge_base = repo
-        .merge_base(upstream_commit.id(), branch.head)
-        .context("failed to find merge base")?;
-
-    let merge_tree = repo
-        .find_commit(merge_base)
-        .and_then(|c| c.tree())
-        .context(format!(
-            "failed to find merge base commit {} tree",
-            merge_base
-        ))?;
-
-    // get wd tree
+    let merge_base = repo.merge_base(upstream_commit.id(), branch.head)?;
+    let merge_tree = repo.find_commit(merge_base).and_then(|c| c.tree())?;
     let wd_tree = project_repository.get_wd_tree()?;
 
-    // try to merge our wd tree with the upstream tree
-    let mut merge_index = repo
-        .merge_trees(&merge_tree, &wd_tree, &remote_tree)
-        .context("failed to merge trees")?;
+    // check if the branch upstream can be merged into the wd cleanly
+    let mut merge_index = repo.merge_trees(&merge_tree, &wd_tree, &remote_tree)?;
 
     if merge_index.has_conflicts() {
-        // checkout the conflicts
         repo.checkout_index(&mut merge_index)
             .allow_conflicts()
             .conflict_style_merge()
             .force()
-            .checkout()
-            .context("failed to checkout index")?;
+            .checkout()?;
 
-        // mark conflicts
-        let conflicts = merge_index.conflicts().context("failed to get conflicts")?;
+        let conflicts = merge_index.conflicts()?;
         let mut merge_conflicts = Vec::new();
         for path in conflicts.flatten() {
             if let Some(ours) = path.our {
@@ -1225,35 +1187,27 @@ pub fn merge_virtual_branch_upstream(
             Some(upstream_commit.id()),
         )?;
     } else {
-        let merge_tree_oid = merge_index
-            .write_tree_to(repo)
-            .context("failed to write tree")?;
-        let merge_tree = repo
-            .find_tree(merge_tree_oid)
-            .context("failed to find merge tree")?;
+        let merge_tree_oid = merge_index.write_tree_to(repo)?;
+        let merge_tree = repo.find_tree(merge_tree_oid)?;
 
         if *project_repository.project().ok_with_force_push {
-            // attempt a rebase
             let (_, committer) = project_repository.git_signatures(user)?;
             let mut rebase_options = git2::RebaseOptions::new();
             rebase_options.quiet(true);
             rebase_options.inmemory(true);
-            let mut rebase = repo
-                .rebase(
-                    Some(branch.head),
-                    Some(upstream_commit.id()),
-                    None,
-                    Some(&mut rebase_options),
-                )
-                .context("failed to rebase")?;
+            let mut rebase = repo.rebase(
+                Some(branch.head),
+                Some(upstream_commit.id()),
+                None,
+                Some(&mut rebase_options),
+            )?;
 
             let mut rebase_success = true;
+
             // check to see if these commits have already been pushed
             let mut last_rebase_head = upstream_commit.id();
             while rebase.next().is_some() {
-                let index = rebase
-                    .inmemory_index()
-                    .context("failed to get inmemory index")?;
+                let index = rebase.inmemory_index().map_err(Error::from_err)?;
                 if index.has_conflicts() {
                     rebase_success = false;
                     break;
@@ -1275,8 +1229,7 @@ pub fn merge_virtual_branch_upstream(
                     .git_repository
                     .checkout_tree(&merge_tree)
                     .force()
-                    .checkout()
-                    .context("failed to checkout tree")?;
+                    .checkout()?;
 
                 branch.head = last_rebase_head;
                 branch.tree = merge_tree_oid;
@@ -1307,13 +1260,11 @@ pub fn merge_virtual_branch_upstream(
             None,
         )?;
 
-        // checkout the merge tree
         repo.checkout_tree(&merge_tree)
             .force()
             .checkout()
             .context("failed to checkout tree")?;
 
-        // write the branch data
         branch.head = new_branch_head;
         branch.tree = merge_tree_oid;
         vb_state.set_branch(branch.clone())?;
