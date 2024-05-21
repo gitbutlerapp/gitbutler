@@ -7,6 +7,8 @@ use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use std::process::Stdio;
 use std::{io::Write, path::Path, str};
 
@@ -306,6 +308,9 @@ impl Repository {
                         std::process::Command::new(gpg_program.unwrap_or("ssh-keygen".to_string()));
                     cmd.args(["-Y", "sign", "-n", "git", "-f"]);
 
+                    #[cfg(windows)]
+                    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+
                     let output;
                     // support literal ssh key
                     if let (true, signing_key) = Self::is_literal_ssh_key(&signing_key) {
@@ -362,6 +367,9 @@ impl Repository {
                         .arg("-")
                         .stdout(Stdio::piped())
                         .stdin(Stdio::piped());
+
+                    #[cfg(windows)]
+                    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
 
                     let mut child = cmd.spawn()?;
                     child
