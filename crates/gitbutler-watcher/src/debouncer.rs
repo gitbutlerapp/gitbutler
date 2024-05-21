@@ -507,6 +507,7 @@ impl<T: FileIdCache> DebounceDataInner<T> {
 pub struct Debouncer<T: Watcher, C: FileIdCache> {
     watcher: T,
     debouncer_thread: Option<std::thread::JoinHandle<()>>,
+    #[allow(dead_code)]
     data: DebounceData<C>,
     stop: Arc<AtomicBool>,
     flush: Arc<AtomicBool>,
@@ -515,6 +516,7 @@ pub struct Debouncer<T: Watcher, C: FileIdCache> {
 impl<T: Watcher, C: FileIdCache> Debouncer<T, C> {
     /// Stop the debouncer, waits for the event thread to finish.
     /// May block for the duration of one tick_rate.
+    #[allow(dead_code)]
     pub fn stop(mut self) {
         self.set_stop();
         if let Some(t) = self.debouncer_thread.take() {
@@ -523,6 +525,7 @@ impl<T: Watcher, C: FileIdCache> Debouncer<T, C> {
     }
 
     /// Stop the debouncer, does not wait for the event thread to finish.
+    #[allow(dead_code)]
     pub fn stop_nonblocking(self) {
         self.set_stop();
     }

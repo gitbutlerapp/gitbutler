@@ -99,6 +99,7 @@ pub(crate) fn create_dirs_then_write<P: AsRef<Path>>(
     }
 }
 
+#[allow(dead_code)]
 fn persist_tempfile(
     tempfile: gix::tempfile::Handle<gix::tempfile::handle::Writable>,
     to_path: impl AsRef<Path>,
