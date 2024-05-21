@@ -25,7 +25,7 @@ const TICK_RATE: Duration = Duration::from_millis(250);
 // arriving) before we will automatically flush pending events. This means that
 // after the disk is quiet for TICK_RATE * FLUSH_AFTER_EMPTY, we will process
 // the pending events, even if DEBOUNCE_TIMEOUT hasn't expired yet
-const FLUSH_AFTER_EMPTY: u32 = 6;
+const FLUSH_AFTER_EMPTY: u32 = 3;
 
 /// This error is required only because `anyhow::Error` isn't implementing `std::error::Error`, and [`spawn()`]
 /// needs to wrap it into a `backoff::Error` which also has to implement the `Error` trait.
