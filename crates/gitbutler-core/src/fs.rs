@@ -1,8 +1,14 @@
-use std::path::{Path, PathBuf};
+use std::{
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Result;
 use bstr::BString;
-use gix::dir::walk::EmissionMode;
+use gix::{
+    dir::walk::EmissionMode,
+    tempfile::{create_dir::Retries, AutoRemove, ContainingDirectory},
+};
 use walkdir::WalkDir;
 
 // Returns an ordered list of relative paths for files inside a directory recursively.
@@ -55,21 +61,13 @@ pub(crate) fn write<P: AsRef<Path>>(
     file_path: P,
     contents: impl AsRef<[u8]>,
 ) -> anyhow::Result<()> {
-    #[cfg(windows)]
-    {
-        Ok(std::fs::write(file_path, contents)?)
-    }
-
-    #[cfg(not(windows))]
-    {
-        let mut temp_file = gix::tempfile::new(
-            file_path.as_ref().parent().unwrap(),
-            ContainingDirectory::Exists,
-            AutoRemove::Tempfile,
-        )?;
-        temp_file.write_all(contents.as_ref())?;
-        Ok(persist_tempfile(temp_file, file_path)?)
-    }
+    let mut temp_file = gix::tempfile::new(
+        file_path.as_ref().parent().unwrap(),
+        ContainingDirectory::Exists,
+        AutoRemove::Tempfile,
+    )?;
+    temp_file.write_all(contents.as_ref())?;
+    Ok(persist_tempfile(temp_file, file_path)?)
 }
 
 /// Write a single file so that the write either fully succeeds, or fully fails,
@@ -78,25 +76,13 @@ pub(crate) fn create_dirs_then_write<P: AsRef<Path>>(
     file_path: P,
     contents: impl AsRef<[u8]>,
 ) -> std::io::Result<()> {
-    #[cfg(windows)]
-    {
-        let dir = file_path.as_ref().parent().unwrap();
-        if !dir.exists() {
-            std::fs::create_dir_all(dir)?;
-        }
-        std::fs::write(file_path, contents)
-    }
-
-    #[cfg(not(windows))]
-    {
-        let mut temp_file = gix::tempfile::new(
-            file_path.as_ref().parent().unwrap(),
-            ContainingDirectory::CreateAllRaceProof(Retries::default()),
-            AutoRemove::Tempfile,
-        )?;
-        temp_file.write_all(contents.as_ref())?;
-        persist_tempfile(temp_file, file_path)
-    }
+    let mut temp_file = gix::tempfile::new(
+        file_path.as_ref().parent().unwrap(),
+        ContainingDirectory::CreateAllRaceProof(Retries::default()),
+        AutoRemove::Tempfile,
+    )?;
+    temp_file.write_all(contents.as_ref())?;
+    persist_tempfile(temp_file, file_path)
 }
 
 #[allow(dead_code)]
