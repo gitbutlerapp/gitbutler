@@ -107,6 +107,8 @@ export class ProjectService {
 		const path = await this.promptForDirectory();
 		if (!path) return;
 
+		if (!this.validateProjectPath(path)) return;
+
 		try {
 			const project = await this.add(path);
 			if (!project) return;
@@ -116,6 +118,32 @@ export class ProjectService {
 		} catch (e: any) {
 			showError('There was a problem', e.message);
 		}
+	}
+
+	validateProjectPath(path: string, showErrors = true) {
+		if (/^\\\\wsl.localhost/i.test(path)) {
+			if (showErrors) {
+				showError(
+					'Use the Linux version of GitButler',
+					'For WSL2 projects, install the Linux version of GitButler inside of your WSL2 distro'
+				);
+			}
+
+			return false;
+		}
+
+		if (/^\\\\/i.test(path)) {
+			if (showErrors) {
+				showError(
+					'UNC Paths are not directly supported',
+					'Using git across a network is not recommended. Either clone the repo locally, or use the NET USE command to map a network drive'
+				);
+			}
+
+			return false;
+		}
+
+		return true;
 	}
 
 	getLastOpenedProject() {
