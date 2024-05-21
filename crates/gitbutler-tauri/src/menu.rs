@@ -114,10 +114,6 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
         }
     }
 
-    view_menu = view_menu.add_item(
-        CustomMenuItem::new("view/history", "Project History").accelerator("CmdOrCtrl+Shift+H"),
-    );
-
     #[cfg(any(debug_assertions, feature = "devtools"))]
     {
         view_menu = view_menu.add_item(CustomMenuItem::new("view/devtools", "Developer Tools"));
@@ -126,8 +122,17 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
     menu = menu.add_submenu(Submenu::new("View", view_menu));
 
     let mut project_menu = Menu::new();
+    project_menu = project_menu.add_item(
+        CustomMenuItem::new("project/history", "Project History").accelerator("CmdOrCtrl+Shift+H"),
+    );
+    project_menu = project_menu.add_item(CustomMenuItem::new(
+        "project/open-in-vscode",
+        "Open in VS Code",
+    ));
+
+    project_menu = project_menu.add_native_item(MenuItem::Separator);
     project_menu =
-        project_menu.add_item(disabled_menu_item("project/settings", "Project Settings"));
+        project_menu.add_item(CustomMenuItem::new("project/settings", "Project Settings"));
     menu = menu.add_submenu(Submenu::new("Project", project_menu));
 
     #[cfg(target_os = "macos")]
@@ -186,8 +191,18 @@ pub fn handle_event<R: Runtime>(event: &WindowMenuEvent<R>) {
         return;
     }
 
-    if event.menu_item_id() == "view/history" {
-        emit(event.window(), "menu://view/history/clicked");
+    if event.menu_item_id() == "project/history" {
+        emit(event.window(), "menu://project/history/clicked");
+        return;
+    }
+
+    if event.menu_item_id() == "project/open-in-vscode" {
+        emit(event.window(), "menu://project/open-in-vscode/clicked");
+        return;
+    }
+
+    if event.menu_item_id() == "project/settings" {
+        emit(event.window(), "menu://project/settings/clicked");
         return;
     }
 
