@@ -143,6 +143,12 @@
 			);
 		}
 	}
+
+	let branchFiles: BranchFiles | undefined;
+
+	function onBottomReached() {
+		branchFiles?.loadMore();
+	}
 </script>
 
 {#if $isLaneCollapsed}
@@ -171,6 +177,8 @@
 					top: `var(--size-12)`,
 					bottom: `var(--size-12)`
 				}}
+				bottomBuffer={300}
+				on:bottomReached={onBottomReached}
 			>
 				<div
 					bind:this={rsViewport}
@@ -227,6 +235,7 @@
 									{isUnapplied}
 									showCheckboxes={$commitBoxOpen}
 									allowMultiple
+									bind:this={branchFiles}
 								/>
 								{#if branch.active && branch.conflicted}
 									<div class="card-notifications">
