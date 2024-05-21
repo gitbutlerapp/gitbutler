@@ -1,14 +1,12 @@
 <script lang="ts" context="module">
 	export enum BranchAction {
 		Push = 'push',
-		Pr = 'pr',
-		DraftPr = 'draftPr'
+		Rebase = 'rebase'
 	}
 </script>
 
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
-	import Button from '$lib/components/Button.svelte';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
@@ -16,17 +14,17 @@
 	import { persisted, type Persisted } from '$lib/persisted/persisted';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
+	import { getLocalCommits, getUnknownCommits } from '$lib/vbranches/contexts';
 	import { createEventDispatcher } from 'svelte';
 	import type { Branch } from '$lib/vbranches/types';
 
-	export let type: string;
 	export let isLoading = false;
-	export let githubEnabled: boolean;
 	export let wide = false;
 	export let branch: Branch;
-	export let isPr = false;
 
 	const project = getContext(Project);
+	const localCommits = getLocalCommits();
+	const unknownCommits = getUnknownCommits();
 
 	function defaultAction(): Persisted<BranchAction> {
 		const key = 'projectDefaultAction_';
@@ -39,100 +37,80 @@
 	let contextMenu: ContextMenu;
 	let dropDown: DropDownButton;
 	let disabled = false;
-
+	let isPushed = $localCommits.length == 0 && !branch.requiresForce;
+	$: canBeRebased = $unknownCommits.length > 0;
 	$: selection$ = contextMenu?.selection$;
+	$: action = selectAction(isPushed, $preferredAction);
 
-	let action!: BranchAction;
-	$: {
-		isPushed; // selectAction is dependant on isPushed
-		action = selectAction($preferredAction);
-	}
-
-	function selectAction(preferredAction: BranchAction) {
-		if (isPushed && !githubEnabled) {
-			// TODO: Refactor such that this is not necessary
-			console.log('No push actions possible');
-			return BranchAction.Push;
-		} else if (isPushed) {
-			if (preferredAction == BranchAction.Push) return BranchAction.Pr;
-			return preferredAction;
-		} else if (!githubEnabled) {
+	function selectAction(isPushed: boolean, preferredAction: BranchAction) {
+		// TODO: Refactor such that this is not necessary
+		if (isPushed) {
+			return BranchAction.Rebase;
+		} else if (!branch.requiresForce) {
 			return BranchAction.Push;
 		}
 		return preferredAction;
 	}
 
-	$: pushLabel = branch.requiresForce ? 'Force push to remote' : 'Push to remote';
-	$: commits = branch.commits.filter((c) => c.status == type);
-	$: isPushed = type === 'remote' && !branch.requiresForce;
+	$: pushLabel = branch.requiresForce ? 'Force push' : 'Push';
 </script>
 
-{#if (isPr || commits.length === 0) && !isPushed}
-	<Button
-		style="ghost"
-		kind="solid"
-		{wide}
-		disabled={isPushed}
-		loading={isLoading}
-		on:click={() => {
-			dispatch('trigger', { action: BranchAction.Push });
-		}}>{pushLabel}</Button
-	>
-{:else if !isPr}
-	<DropDownButton
-		style="ghost"
-		kind="solid"
-		loading={isLoading}
-		bind:this={dropDown}
-		{wide}
-		{disabled}
-		on:click={() => {
-			dispatch('trigger', { action });
+<DropDownButton
+	style="pop"
+	kind="soft"
+	loading={isLoading}
+	bind:this={dropDown}
+	{wide}
+	{disabled}
+	on:click={() => {
+		dispatch('trigger', { action });
+	}}
+>
+	{$selection$?.label}
+	<ContextMenu
+		type="select"
+		slot="context-menu"
+		bind:this={contextMenu}
+		on:select={(e) => {
+			// TODO: Refactor to use generics if/when that works with Svelte
+			switch (e.detail?.id) {
+				case BranchAction.Push:
+					$preferredAction = BranchAction.Push;
+					break;
+				case BranchAction.Rebase:
+					$preferredAction = BranchAction.Rebase;
+					break;
+				default:
+					toasts.error('Uknown branch action');
+			}
+			dropDown.close();
 		}}
 	>
-		{$selection$?.label}
-		<ContextMenu
-			type="select"
-			slot="context-menu"
-			bind:this={contextMenu}
-			on:select={(e) => {
-				// TODO: Refactor to use generics if/when that works with Svelte
-				switch (e.detail?.id) {
-					case BranchAction.Push:
-						$preferredAction = BranchAction.Push;
-						break;
-					case BranchAction.Pr:
-						$preferredAction = BranchAction.Pr;
-						break;
-					case BranchAction.DraftPr:
-						$preferredAction = BranchAction.DraftPr;
-						break;
-					default:
-						toasts.error('Uknown branch action');
-				}
-				dropDown.close();
-			}}
-		>
-			<ContextMenuSection>
+		<ContextMenuSection>
+			{#if !isPushed}
 				<ContextMenuItem
 					id="push"
 					label={pushLabel}
 					selected={action == BranchAction.Push}
 					disabled={isPushed}
 				/>
+			{/if}
+			{#if !branch.requiresForce}
 				<ContextMenuItem
-					id="pr"
-					label="Create pull request"
-					disabled={!githubEnabled}
-					selected={action == BranchAction.Pr}
+					id="rebase"
+					label="Rebase upstream"
+					selected={action == BranchAction.Rebase}
+					disabled={isPushed}
 				/>
+			{/if}
+			{#if canBeRebased}
 				<ContextMenuItem
-					id="draftPr"
-					label="Create draft pull request"
-					disabled={!githubEnabled}
-					selected={action == BranchAction.DraftPr}
+					id="rebase"
+					label="Rebase upstream"
+					selected={action == BranchAction.Rebase}
+					disabled={isPushed}
 				/>
-			</ContextMenuSection>
-		</ContextMenu>
-	</DropDownButton>
-{/if}
+			{/if}
+		</ContextMenuSection>
+	</ContextMenu>
+</DropDownButton>

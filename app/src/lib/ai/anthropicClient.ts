@@ -1,24 +1,21 @@
-import {
-	MessageRole,
-	type AIClient,
-	type AnthropicModelName,
-	type PromptMessage
-} from '$lib/ai/types';
+import { SHORT_DEFAULT_COMMIT_TEMPLATE, SHORT_DEFAULT_BRANCH_TEMPLATE } from '$lib/ai/prompts';
 import { fetch, Body } from '@tauri-apps/api/http';
+import type { AIClient, AnthropicModelName, PromptMessage } from '$lib/ai/types';
 
 type AnthropicAPIResponse = { content: { text: string }[] };
 
 export class AnthropicAIClient implements AIClient {
+	defaultCommitTemplate = SHORT_DEFAULT_COMMIT_TEMPLATE;
+	defaultBranchTemplate = SHORT_DEFAULT_BRANCH_TEMPLATE;
+
 	constructor(
 		private apiKey: string,
 		private modelName: AnthropicModelName
 	) {}
 
-	async evaluate(prompt: string) {
-		const messages: PromptMessage[] = [{ role: MessageRole.User, content: prompt }];
-
+	async evaluate(prompt: PromptMessage[]) {
 		const body = Body.json({
-			messages,
+			messages: prompt,
 			max_tokens: 1024,
 			model: this.modelName
 		});

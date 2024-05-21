@@ -60,6 +60,11 @@ impl Handler {
                 .await
                 .context("failed to handle git file change event"),
 
+            events::InternalEvent::GitButlerOplogChange(project_id) => self
+                .gitbutler_oplog_change(project_id)
+                .await
+                .context("failed to handle gitbutler oplog change event"),
+
             // This is only produced at the end of mutating Tauri commands to trigger a fresh state being served to the UI.
             events::InternalEvent::CalculateVirtualBranches(project_id) => self
                 .calculate_virtual_branches(project_id)
@@ -179,6 +184,10 @@ impl Handler {
                 _ => {}
             }
         }
+        Ok(())
+    }
+    async fn gitbutler_oplog_change(&self, _project_id: ProjectId) -> Result<()> {
+        // TODO: Queue up pushing of data here, if configured
         Ok(())
     }
 }

@@ -103,7 +103,7 @@
 	}
 	.button-head {
 		display: flex;
-		gap: var(--size-4);
+		gap: var(--size-6);
 		align-items: center;
 		color: var(--clr-scale-ntrl-10);
 	}

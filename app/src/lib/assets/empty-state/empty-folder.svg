@@ -1,0 +1,10 @@
+
+
+<svg width="120" height="100" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path opacity="0.26" d="M22 70V30C22 24.4772 26.4772 20 32 20H50.412C53.8847 20 57.1086 21.8015 58.9286 24.759L61.0714 28.241C62.8914 31.1984 66.1153 33 69.588 33H88C93.5229 33 98 37.4772 98 43V70C98 75.5228 93.5229 80 88 80H32C26.4772 80 22 75.5228 22 70Z" fill="var(--clr-scale-ntrl-60)"/>
+<rect opacity="0.32" x="37" y="48" width="46" height="5" rx="2.5" fill="var(--clr-scale-ntrl-60)"/>
+<rect opacity="0.32" x="37" y="59" width="46" height="5" rx="2.5" fill="var(--clr-scale-ntrl-60)"/>
+<circle opacity="0.32" cx="81" cy="23" r="3" fill="var(--clr-scale-ntrl-60)"/>
+<circle opacity="0.32" cx="14" cy="55" r="2" fill="var(--clr-scale-ntrl-60)"/>
+<circle opacity="0.32" cx="109" cy="53" r="2" fill="var(--clr-scale-ntrl-60)"/>
+</svg>

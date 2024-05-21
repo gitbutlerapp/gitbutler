@@ -126,7 +126,6 @@ pub mod commands {
         branch: &str,
         push_remote: Option<&str>, // optional different name of a remote to push to (defaults to same as the branch)
     ) -> Result<BaseBranch, Error> {
-        dbg!(&project_id, &branch, &push_remote);
         let branch_name = format!("refs/remotes/{}", branch)
             .parse()
             .context("Invalid branch name")?;

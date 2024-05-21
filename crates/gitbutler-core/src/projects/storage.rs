@@ -26,6 +26,7 @@ pub struct UpdateRequest {
     pub project_data_last_fetched: Option<project::FetchResult>,
     pub omit_certificate_check: Option<bool>,
     pub use_diff_context: Option<bool>,
+    pub snapshot_lines_threshold: Option<usize>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -123,6 +124,10 @@ impl Storage {
 
         if let Some(omit_certificate_check) = update_request.omit_certificate_check {
             project.omit_certificate_check = Some(omit_certificate_check);
+        }
+
+        if let Some(snapshot_lines_threshold) = update_request.snapshot_lines_threshold {
+            project.snapshot_lines_threshold = Some(snapshot_lines_threshold);
         }
 
         self.inner

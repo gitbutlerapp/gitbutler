@@ -10,7 +10,6 @@
 	import { getContext, getContextStoreBySymbol, createContextStore } from '$lib/utils/context';
 	import { isDefined } from '$lib/utils/typeguards';
 	import {
-		createIntegratedContextStore,
 		createLocalContextStore,
 		createRemoteContextStore,
 		createSelectedFiles,
@@ -18,7 +17,7 @@
 	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import { RemoteFile, Branch } from '$lib/vbranches/types';
+	import { RemoteFile, Branch, commitCompare, RemoteCommit } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { setContext } from 'svelte';
 	import { quintOut } from 'svelte/easing';
@@ -40,11 +39,8 @@
 	const remoteCommits = createRemoteContextStore(branch.remoteCommits);
 	$: remoteCommits.set(branch.remoteCommits);
 
-	const integratedCommits = createIntegratedContextStore(branch.integratedCommits);
-	$: integratedCommits.set(branch.integratedCommits);
-
 	// Set the store immediately so it can be updated later.
-	const unknownCommits = createUnknownContextStore([]);
+	const upstreamCommits = createUnknownContextStore([]);
 	$: if (branch.upstream?.name) loadRemoteBranch(branch.upstream?.name);
 
 	const fileIdSelection = new FileIdSelection();
@@ -63,11 +59,20 @@
 	$: displayedFile = $selectedFiles.length == 1 ? $selectedFiles[0] : undefined;
 
 	async function loadRemoteBranch(name: string) {
-		const remoteBranchData = await getRemoteBranchData(project.id, name);
-		const commits = remoteBranchData?.commits.filter(
-			(remoteCommit) => !branch.commits.find((commit) => remoteCommit.id == commit.id)
-		);
-		unknownCommits.set(commits);
+		const upstream = await getRemoteBranchData(project.id, name);
+		if (!upstream.commits) return;
+		const unknownCommits: RemoteCommit[] = [];
+		upstream?.commits.forEach((upstreamCommit) => {
+			let match = branch.commits.find((commit) => commitCompare(upstreamCommit, commit));
+			if (match) {
+				match.relatedTo = upstreamCommit;
+			} else unknownCommits.push(upstreamCommit);
+		});
+		if (upstream.commits.length != unknownCommits.length) {
+			// Force update since we've mutated local commits
+			localCommits.set($localCommits);
+		}
+		upstreamCommits.set(unknownCommits);
 	}
 
 	const project = getContext(Project);
@@ -88,12 +93,7 @@
 	}
 </script>
 
-<div
-	class="wrapper"
-	data-tauri-drag-region
-	class:target-branch={branch.active && branch.selectedForChanges}
-	class:file-selected={displayedFile}
->
+<div class="wrapper" data-tauri-drag-region class:file-selected={displayedFile}>
 	<BranchCard {isUnapplied} {commitBoxOpen} bind:isLaneCollapsed />
 
 	{#if displayedFile}
@@ -136,12 +136,6 @@
 		flex-shrink: 0;
 		user-select: none; /* here because of user-select draggable interference in board */
 		position: relative;
-		--target-branch-background: var(--clr-bg-2);
-		background-color: var(--target-branch-background);
-	}
-
-	.target-branch {
-		--target-branch-background: color-mix(in srgb, var(--clr-scale-pop-60) 20%, var(--clr-bg-2));
 	}
 
 	.file-preview {

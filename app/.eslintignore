@@ -4,6 +4,7 @@ butler/target
 /build
 /.svelte-kit
 /package
+/e2e
 .env
 .env.*
 !.env.example
@@ -22,6 +23,7 @@ yarn.lock
 /svelte.config.js
 /postcss.config.cjs
 /tailwind.config.cjs
+/playwright.config.ts
 
 # Written to disk when using `act`
 .pnpm-store

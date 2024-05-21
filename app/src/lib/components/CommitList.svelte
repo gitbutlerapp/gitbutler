@@ -1,86 +1,139 @@
 <script lang="ts">
-	import CommitListFooter from './CommitListFooter.svelte';
-	import CommitListHeader from './CommitListHeader.svelte';
+	import CommitCard from './CommitCard.svelte';
+	import CommitLines from './CommitLines.svelte';
 	import CommitListItem from './CommitListItem.svelte';
-	import { getContext, getContextStore } from '$lib/utils/context';
-	import { Branch, type Commit, type CommitStatus, type RemoteCommit } from '$lib/vbranches/types';
-	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import { map } from 'rxjs';
+	import { getContextStore } from '$lib/utils/context';
+	import { getLocalCommits, getRemoteCommits, getUnknownCommits } from '$lib/vbranches/contexts';
+	import { BaseBranch, Branch } from '$lib/vbranches/types';
 
-	export let type: CommitStatus;
 	export let isUnapplied: boolean;
-	export let commits: Commit[] | RemoteCommit[];
 
-	const branchService = getContext(VirtualBranchService);
 	const branch = getContextStore(Branch);
+	const localCommits = getLocalCommits();
+	const remoteCommits = getRemoteCommits();
+	const unknownCommits = getUnknownCommits();
+	const baseBranch = getContextStore(BaseBranch);
 
-	let headerHeight: number;
-	let expanded = true;
-
-	$: headCommit = $branch.commits[0];
-	$: hasCommits = commits && commits.length > 0;
-
-	$: remoteRequiresForcePush = type === 'remote' && $branch.requiresForce;
-	$: branchCount = branchService.activeBranches$.pipe(map((branches) => branches?.length || 0));
+	$: hasShadowColumn = $localCommits.some((c) => !!c.relatedTo);
+	$: hasLocalColumn = $localCommits.length > 0;
+	$: hasCommits = $branch.commits && $branch.commits.length > 0;
+	$: headCommit = $branch.commits.at(0);
+	$: hasUnknownCommits = $unknownCommits.length > 0;
 </script>
 
-{#if hasCommits || remoteRequiresForcePush}
-	<div class="commit-list card" class:upstream={type == 'upstream'}>
-		<CommitListHeader
-			{type}
-			bind:expanded
-			bind:height={headerHeight}
-			isExpandable={hasCommits}
-			commitCount={commits.length}
-		/>
-		{#if expanded}
-			<div class="commit-list__content">
-				{#if hasCommits}
-					<div class="commits">
-						{#each commits as commit, idx (commit.id)}
-							<CommitListItem
+{#if hasCommits}
+	<div class="commit-list__content">
+		<div class="title text-base-13 text-semibold"></div>
+		<div class="commits">
+			{#if $unknownCommits.length > 0}
+				<CommitLines {hasShadowColumn} {hasLocalColumn} localLine />
+				{#each $unknownCommits as commit, idx (commit.id)}
+					<div class="commit-lines">
+						<CommitLines
+							{hasLocalColumn}
+							{hasShadowColumn}
+							upstreamLine
+							localLine={hasLocalColumn}
+							remoteCommit={commit}
+							first={idx == 0}
+						/>
+						<CommitListItem {commit}>
+							<CommitCard
+								type="upstream"
+								branch={$branch}
 								{commit}
 								{isUnapplied}
-								isChained={idx != commits.length - 1}
+								first={idx == 0}
+								last={idx == $unknownCommits.length - 1}
+								commitUrl={$baseBranch?.commitUrl(commit.id)}
 								isHeadCommit={commit.id === headCommit?.id}
 							/>
-						{/each}
+						</CommitListItem>
 					</div>
-				{/if}
-				{#if type == 'upstream' && $branchCount > 1}
-					<div class="upstream-message text-base-body-11">
-						You have {$branchCount} active branches. To merge upstream work, we will unapply all other
-						branches.
-					</div>{/if}
-				<CommitListFooter {type} {isUnapplied} {hasCommits} />
-			</div>
-		{/if}
+				{/each}
+			{/if}
+			{#if $localCommits.length > 0}
+				<CommitLines
+					{hasShadowColumn}
+					{hasLocalColumn}
+					upstreamLine={hasUnknownCommits}
+					localLine
+				/>
+				{#each $localCommits as commit, idx (commit.id)}
+					<div class="commit-lines">
+						<CommitLines
+							{hasLocalColumn}
+							{hasShadowColumn}
+							localCommit={commit}
+							shadowLine={hasShadowColumn}
+							first={idx == 0}
+							upstreamLine={hasUnknownCommits}
+						/>
+						<CommitListItem {commit}>
+							<CommitCard
+								branch={$branch}
+								{commit}
+								commitUrl={$baseBranch?.commitUrl(commit.id)}
+								isHeadCommit={commit.id === headCommit?.id}
+								{isUnapplied}
+								first={idx == 0}
+								last={idx == $localCommits.length - 1}
+								type="local"
+							/>
+						</CommitListItem>
+					</div>
+				{/each}
+			{/if}
+			{#if $remoteCommits.length > 0}
+				<CommitLines
+					{hasShadowColumn}
+					{hasLocalColumn}
+					upstreamLine={hasUnknownCommits}
+					localLine
+				/>
+				{#each $remoteCommits as commit, idx (commit.id)}
+					<div class="commit-lines">
+						<CommitLines
+							{hasLocalColumn}
+							{hasShadowColumn}
+							localCommit={commit}
+							first={idx == 0}
+							upstreamLine={hasUnknownCommits}
+						/>
+						<CommitListItem {commit}>
+							<CommitCard
+								branch={$branch}
+								{commit}
+								commitUrl={$baseBranch?.commitUrl(commit.id)}
+								isHeadCommit={commit.id === headCommit?.id}
+								{isUnapplied}
+								first={idx == 0}
+								last={idx == $remoteCommits.length - 1}
+								type="remote"
+							/>
+						</CommitListItem>
+					</div>
+				{/each}
+			{/if}
+			<CommitLines
+				{hasShadowColumn}
+				localLine={$remoteCommits.length == 0 && $localCommits.length > 0}
+				remoteLine={$remoteCommits.length > 0}
+				shadowLine={hasShadowColumn}
+				base
+			/>
+		</div>
 	</div>
 {/if}
 
 <style lang="postcss">
-	.commit-list {
-		&.upstream {
-			background-color: var(--clr-bg-2);
-		}
-		background-color: var(--clr-bg-1);
+	.commit-lines {
 		display: flex;
-		flex-direction: column;
-		position: relative;
-		flex-shrink: 0;
 	}
+
 	.commit-list__content {
 		display: flex;
 		flex-direction: column;
-		padding: 0 var(--size-14) var(--size-14) var(--size-14);
-		gap: var(--size-8);
-	}
-	.upstream-message {
-		color: var(--clr-scale-warn-30);
-		border-radius: var(--radius-m);
-		background: var(--clr-scale-warn-80);
-		padding: var(--size-12);
-		margin-left: var(--size-16);
 	}
 
 	.commits {

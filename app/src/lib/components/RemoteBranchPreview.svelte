@@ -68,7 +68,7 @@
 					{#if branchData.commits && branchData.commits.length > 0}
 						<div class="branch-preview__commits-list">
 							{#each branchData.commits as commit (commit.id)}
-								<CommitCard {commit} commitUrl={$baseBranch?.commitUrl(commit.id)} />
+								<CommitCard {commit} commitUrl={$baseBranch?.commitUrl(commit.id)} type="remote" />
 							{/each}
 						</div>
 					{/if}
@@ -93,6 +93,7 @@
 				isUnapplied={false}
 				readonly={true}
 				on:close={() => {
+					console.log(selected);
 					fileIdSelection.clear();
 				}}
 			/>
@@ -125,7 +126,6 @@
 		flex-direction: column;
 		gap: var(--size-8);
 		margin: var(--size-12) var(--size-6) var(--size-12) var(--size-12);
-		--target-branch-background: var(--clr-bg-2);
 	}
 
 	.card__content {

@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '$lib/backend/ipc';
 
 export class GitConfigService {
 	async get<T extends string>(key: string): Promise<T | undefined> {

@@ -68,12 +68,6 @@
 				// This prevent backspace from navigating back
 				e.preventDefault();
 			}),
-			hotkeys.on('$mod+Shift+H', () => {
-				userSettings.update((s) => ({
-					...s,
-					showHistoryView: !$userSettings.showHistoryView
-				}));
-			}),
 			hotkeys.on('$mod+R', () => location.reload())
 		);
 	});

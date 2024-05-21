@@ -151,7 +151,7 @@ export class GitHubService {
 
 			if (!skipCache) {
 				const cachedRsp = lscache.get(key);
-				if (cachedRsp) subscriber.next(cachedRsp.data.map(ghResponseToInstance));
+				if (cachedRsp?.data) subscriber.next(cachedRsp.data.map(ghResponseToInstance));
 			}
 
 			try {
@@ -237,6 +237,10 @@ export class GitHubService {
 	getPr$(branch: string | undefined): Observable<PullRequest | undefined> {
 		if (!branch) return of(undefined);
 		return this.prs$.pipe(map((prs) => prs.find((pr) => pr.targetBranch == branch)));
+	}
+
+	hasPr(branch: string): boolean {
+		return !!this.prs$.value.find((pr) => pr.targetBranch == branch);
 	}
 
 	/* TODO: Figure out a way to cleanup old behavior subjects */

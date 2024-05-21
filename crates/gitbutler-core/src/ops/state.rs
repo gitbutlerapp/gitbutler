@@ -7,7 +7,9 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-/// This tracks the head of the oplog, persisted in oplog.toml.  
+use super::OPLOG_FILE_NAME;
+
+/// This tracks the head of the oplog, persisted in operations-log.toml.  
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Oplog {
     /// This is the sha of the last oplog commit
@@ -22,7 +24,7 @@ pub struct OplogHandle {
 impl OplogHandle {
     /// Creates a new concurrency-safe handle to the state of the oplog.
     pub fn new(base_path: &Path) -> Self {
-        let file_path = base_path.join("oplog.toml");
+        let file_path = base_path.join(OPLOG_FILE_NAME);
         Self { file_path }
     }
 
