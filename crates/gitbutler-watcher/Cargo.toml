@@ -19,7 +19,9 @@ git2.workspace = true
 
 backoff = "0.4.0"
 notify = { version = "6.0.1" }
-notify-debouncer-full = "0.3.1"
+parking_lot = "0.12.1"
+file-id = "0.2.1"
+walkdir = "2.2.2"
 crossbeam-channel = "0.5.12"
 itertools = "0.12"
 

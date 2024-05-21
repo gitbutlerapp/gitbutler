@@ -121,6 +121,15 @@ impl Watchers {
         }
     }
 
+    pub async fn flush(&self) -> Result<()> {
+        let watcher = self.watcher.lock().await;
+        if let Some(handle) = watcher.as_ref() {
+            handle.flush()?;
+        }
+
+        Ok(())
+    }
+
     pub async fn stop(&self, project_id: ProjectId) {
         let mut handle = self.watcher.lock().await;
         if handle

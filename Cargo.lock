@@ -2211,19 +2211,21 @@ dependencies = [
  "anyhow",
  "backoff",
  "crossbeam-channel",
+ "file-id",
  "futures",
  "git2",
  "gitbutler-core",
  "gitbutler-testsupport",
  "itertools 0.12.1",
  "notify",
- "notify-debouncer-full",
  "once_cell",
+ "parking_lot 0.12.1",
  "tempfile",
  "thiserror",
  "tokio",
  "tokio-util",
  "tracing",
+ "walkdir",
 ]
 
 [[package]]
@@ -4100,20 +4102,6 @@ dependencies = [
  "mio",
  "walkdir",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "notify-debouncer-full"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49f5dab59c348b9b50cf7f261960a20e389feb2713636399cd9082cd4b536154"
-dependencies = [
- "crossbeam-channel",
- "file-id",
- "log",
- "notify",
- "parking_lot 0.12.1",
- "walkdir",
 ]
 
 [[package]]

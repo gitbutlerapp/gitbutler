@@ -1,19 +1,31 @@
-use std::collections::HashSet;
 use std::path::Path;
 use std::time::Duration;
+use std::{collections::HashSet, sync::Arc};
 
-use crate::events::InternalEvent;
+use crate::debouncer::Debouncer;
+use crate::debouncer_cache::FileIdMap;
+use crate::{debouncer::new_debouncer, events::InternalEvent};
 use anyhow::{anyhow, Context, Result};
+use gitbutler_core::ops::OPLOG_FILE_NAME;
 use gitbutler_core::{git, projects::ProjectId};
-use notify::Watcher;
-use notify_debouncer_full::new_debouncer;
+use notify::{RecommendedWatcher, Watcher};
 use tokio::task;
 use tracing::Level;
 
-use gitbutler_core::ops::OPLOG_FILE_NAME;
-/// The timeout for debouncing file change events.
-/// This is used to prevent multiple events from being sent for a single file change.
-const DEBOUNCE_TIMEOUT: Duration = Duration::from_millis(100);
+/// We will collect notifications for up to this amount of time at a very
+/// maximum before releasing them. This duration will be hit if e.g. a build
+/// is constantly running and producing a lot of file changes, we will process
+/// them even if the build is still running.
+const DEBOUNCE_TIMEOUT: Duration = Duration::from_secs(60);
+
+// The internal rate at which the debouncer will update its state.
+const TICK_RATE: Duration = Duration::from_millis(250);
+
+// The number of TICK_RATE intervals required of "dead air" (i.e. no new events
+// arriving) before we will automatically flush pending events. This means that
+// after the disk is quiet for TICK_RATE * FLUSH_AFTER_EMPTY, we will process
+// the pending events, even if DEBOUNCE_TIMEOUT hasn't expired yet
+const FLUSH_AFTER_EMPTY: u32 = 3;
 
 /// This error is required only because `anyhow::Error` isn't implementing `std::error::Error`, and [`spawn()`]
 /// needs to wrap it into a `backoff::Error` which also has to implement the `Error` trait.
@@ -43,10 +55,17 @@ pub fn spawn(
     project_id: ProjectId,
     worktree_path: &std::path::Path,
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
-) -> Result<()> {
+) -> Result<Arc<Debouncer<RecommendedWatcher, FileIdMap>>> {
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
-    let mut debouncer =
-        new_debouncer(DEBOUNCE_TIMEOUT, None, notify_tx).context("failed to create debouncer")?;
+    let mut debouncer = Arc::new(
+        new_debouncer(
+            DEBOUNCE_TIMEOUT,
+            Some(TICK_RATE),
+            Some(FLUSH_AFTER_EMPTY),
+            notify_tx,
+        )
+        .context("failed to create debouncer")?,
+    );
 
     let policy = backoff::ExponentialBackoffBuilder::new()
         .with_max_elapsed_time(Some(std::time::Duration::from_secs(30)))
@@ -54,7 +73,8 @@ pub fn spawn(
 
     // Start the watcher, but retry if there are transient errors.
     backoff::retry(policy, || {
-        debouncer
+        Arc::get_mut(&mut debouncer)
+            .expect("")
             .watcher()
             .watch(worktree_path, notify::RecursiveMode::Recursive)
             .map_err(|err| match err.kind {
@@ -69,11 +89,14 @@ pub fn spawn(
     })
     .context("failed to start watcher")?;
 
+    let ret = Ok(debouncer.clone());
+
     let worktree_path = worktree_path.to_owned();
     task::spawn_blocking(move || {
         tracing::debug!(%project_id, "file watcher started");
-        let _debouncer = debouncer;
         let _runtime = tracing::span!(Level::INFO, "file monitor", %project_id ).entered();
+        let _debouncer = debouncer.clone();
+
         'outer: for result in notify_rx {
             let stats = tracing::span!(
                 Level::INFO,
@@ -181,7 +204,8 @@ pub fn spawn(
             }
         }
     });
-    Ok(())
+
+    ret
 }
 
 #[cfg(target_family = "unix")]
