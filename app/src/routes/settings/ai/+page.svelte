@@ -2,6 +2,7 @@
 	import { AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
+	import AiPromptEdit from '$lib/components/AIPromptEdit/AIPromptEdit.svelte';
 	import InfoMessage from '$lib/components/InfoMessage.svelte';
 	import RadioButton from '$lib/components/RadioButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
@@ -321,6 +322,9 @@
 			/>
 		</svelte:fragment>
 	</SectionCard>
+
+	<AiPromptEdit promptUse="commits" />
+	<AiPromptEdit promptUse="branches" />
 
 	<style>
 		.ai-settings__text {

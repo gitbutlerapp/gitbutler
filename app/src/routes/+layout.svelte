@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../styles/main.postcss';
 
+	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { AuthService } from '$lib/backend/auth';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
@@ -44,6 +45,7 @@
 	setContext(HttpClient, data.cloud);
 	setContext(User, data.userService.user);
 	setContext(RemotesService, data.remotesService);
+	setContext(AIPromptService, data.aiPromptService);
 
 	let shareIssueModal: ShareIssueModal;
 

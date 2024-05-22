@@ -16,12 +16,15 @@
 	export let noBorder = false;
 	export let labelFor = '';
 	export let disabled = false;
+	export let clickable = false;
 
 	const SLOTS = $$props.$$slots;
 
 	const dispatch = createEventDispatcher<{ hover: boolean }>();
 </script>
 
+<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+<!-- svelte-ignore a11y-click-events-have-key-events -->
 <label
 	for={labelFor}
 	class="section-card"
@@ -36,8 +39,9 @@
 	class:loading={background == 'loading'}
 	class:success={background == 'success'}
 	class:error={background == 'error'}
-	class:clickable={labelFor !== ''}
+	class:clickable={labelFor !== '' || clickable}
 	class:disabled
+	on:click
 	on:mouseenter={() => dispatch('hover', true)}
 	on:mouseleave={() => dispatch('hover', false)}
 >

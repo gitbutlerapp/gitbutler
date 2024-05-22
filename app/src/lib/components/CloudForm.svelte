@@ -2,6 +2,8 @@
 	import SectionCard from './SectionCard.svelte';
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
 	import { Project, ProjectService } from '$lib/backend/projects';
+	import AiPromptSelect from '$lib/components/AIPromptSelect.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
@@ -12,6 +14,7 @@
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	const userService = getContext(UserService);
@@ -103,6 +106,11 @@
 				/>
 			</svelte:fragment>
 		</SectionCard>
+	</div>
+	<AiPromptSelect promptUse="commits" />
+	<AiPromptSelect promptUse="branches" />
+	<div>
+		<Button style="pop" on:click={async () => await goto('/settings/ai')}>Customize prompts</Button>
 	</div>
 </Section>
 

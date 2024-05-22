@@ -234,6 +234,7 @@
 
 	.shrinkable {
 		overflow: hidden;
+		width: fit-content;
 
 		& span {
 			overflow: hidden;

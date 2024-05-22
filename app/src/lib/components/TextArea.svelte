@@ -11,6 +11,7 @@
 	export let autocorrect: string | undefined = undefined;
 	export let spellcheck = false;
 	export let label: string | undefined = undefined;
+	export let resizeable = false;
 
 	const dispatch = createEventDispatcher<{ input: string; change: string }>();
 </script>
@@ -23,6 +24,7 @@
 	{/if}
 	<textarea
 		class="text-input text-base-body-13 textarea"
+		class:resizeable
 		bind:value
 		{disabled}
 		{id}
@@ -50,6 +52,10 @@
 		resize: none;
 		padding-top: var(--size-12);
 		padding-bottom: var(--size-12);
+	}
+
+	.resizeable {
+		resize: vertical;
 	}
 
 	.textbox__label {
