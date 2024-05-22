@@ -2,8 +2,8 @@ import 'reflect-metadata';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '$lib/utils/string';
 import { isDefined, notNull } from '$lib/utils/typeguards';
-import { Type, Transform } from 'class-transformer';
 import { cleanUrl } from '$lib/utils/url';
+import { Type, Transform } from 'class-transformer';
 
 export type ChangeType =
 	/// Entry does not exist in old version
