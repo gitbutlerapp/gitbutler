@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '$lib/utils/string';
 import { isDefined, notNull } from '$lib/utils/typeguards';
+import { cleanUrl } from '$lib/utils/url';
 import { Type, Transform } from 'class-transformer';
 
 export type ChangeType =
@@ -370,20 +371,11 @@ export class BaseBranch {
 	}
 
 	get pushRepoBaseUrl(): string {
-		return this.cleanUrl(this.pushRemoteUrl);
+		return cleanUrl(this.pushRemoteUrl);
 	}
 
 	get repoBaseUrl(): string {
-		return this.cleanUrl(this.remoteUrl);
-	}
-
-	// turn a git remote url into a web url (github, gitlab, bitbucket, etc)
-	private cleanUrl(url: string): string {
-		if (url.startsWith('http')) {
-			return url.replace('.git', '').trim();
-		} else {
-			return url.replace(':', '/').replace('git@', 'https://').replace('.git', '').trim();
-		}
+		return cleanUrl(this.remoteUrl);
 	}
 
 	commitUrl(commitId: string): string | undefined {
