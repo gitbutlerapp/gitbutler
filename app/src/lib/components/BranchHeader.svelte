@@ -50,10 +50,6 @@
 		branchController.updateBranchName(branch.id, title);
 	}
 
-	function collapseLane() {
-		$isLaneCollapsed = true;
-	}
-
 	function expandLane() {
 		$isLaneCollapsed = false;
 	}
@@ -109,7 +105,7 @@
 				kind="solid"
 				icon="unfold-lane"
 				help="Expand lane"
-				on:mousedown={expandLane}
+				on:click={expandLane}
 			/>
 		</div>
 
@@ -205,7 +201,7 @@
 								help="When selected, new changes will land here"
 								icon="target"
 								disabled={isUnapplied}
-								on:mousedown={async () => {
+								on:click={async () => {
 									isTargetBranchAnimated = true;
 									await branchController.setSelectedForChanges(branch.id);
 								}}
@@ -268,13 +264,6 @@
 									loading={isLoading}
 								/>
 							{/if}
-							<Button
-								style="ghost"
-								kind="solid"
-								icon="fold-lane"
-								help="Collapse lane"
-								on:mousedown={collapseLane}
-							/>
 							<Button
 								style="ghost"
 								kind="solid"
@@ -369,7 +358,8 @@
 	.header__actions {
 		display: flex;
 		gap: var(--size-4);
-		background: var(--clr-bg-2);
+		background: var(--clr-bg-1);
+		border-top: 1px solid var(--clr-border-2);
 		padding: var(--size-14);
 		justify-content: space-between;
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
