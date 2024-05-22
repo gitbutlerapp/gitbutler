@@ -3,6 +3,7 @@ import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '$lib/utils/string';
 import { isDefined, notNull } from '$lib/utils/typeguards';
 import { Type, Transform } from 'class-transformer';
+import { cleanUrl } from '$lib/utils/url';
 
 export type ChangeType =
 	/// Entry does not exist in old version
@@ -370,27 +371,11 @@ export class BaseBranch {
 	}
 
 	get pushRepoBaseUrl(): string {
-		return this.cleanUrl(this.pushRemoteUrl);
+		return cleanUrl(this.pushRemoteUrl);
 	}
 
 	get repoBaseUrl(): string {
-		return this.cleanUrl(this.remoteUrl);
-	}
-
-	// turn a git remote url into a web url (github, gitlab, bitbucket, etc)
-	private cleanUrl(url: string): string {
-		if (url.startsWith('http')) {
-			return url.replace('.git', '').trim();
-		} else if (url.startsWith('ssh')) {
-			url = url.replace('ssh://git@', '');
-			const [host, ...paths] = url.split('/');
-            const path = paths.join('/').replace('.git', '');
-            const protocol = /\d+\.\d+\.\d+\.\d+/.test(host) ? 'http' : 'https';
-            const [hostname, _port] = host.split(':');
-            return `${protocol}://${hostname}/${path}`;
-		} else {
-			return url.replace(':', '/').replace('git@', 'https://').replace('.git', '').trim();
-		}
+		return cleanUrl(this.remoteUrl);
 	}
 
 	commitUrl(commitId: string): string | undefined {
