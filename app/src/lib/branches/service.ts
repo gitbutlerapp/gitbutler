@@ -145,8 +145,14 @@ function mergeBranchesAndPrs(
 		);
 	}
 
+	// deduplicate - don't show branches that point to the same SHA
+	// prioritize PRs, then remote branches, then local only
+	const deduped = contributions.filter(
+		(value, index, self) => self.findIndex((v) => v.sha === value.sha) === index
+	);
+
 	// This should be everything considered a branch in one list
-	const filtered = contributions
+	const filtered = deduped
 		.filter((b) => !b.vbranch || !b.vbranch.active)
 		.sort((a, b) => {
 			return (a.modifiedAt || new Date(0)) < (b.modifiedAt || new Date(0)) ? 1 : -1;

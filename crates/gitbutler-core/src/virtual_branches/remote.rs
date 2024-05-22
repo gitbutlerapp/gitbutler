@@ -49,6 +49,8 @@ pub struct RemoteCommit {
     pub author: Author,
 }
 
+// for legacy purposes, this is still named "remote" branches, but it's actually
+// a list of all the normal (non-gitbutler) git branches.
 pub fn list_remote_branches(
     project_repository: &project_repository::Repository,
 ) -> Result<Vec<RemoteBranch>, errors::ListRemoteBranchesError> {
@@ -56,7 +58,7 @@ pub fn list_remote_branches(
 
     let remote_branches = project_repository
         .git_repository
-        .branches(Some(git2::BranchType::Remote))
+        .branches(None)
         .context("failed to list remote branches")?
         .flatten()
         .map(|(branch, _)| branch)
@@ -66,6 +68,8 @@ pub fn list_remote_branches(
         .into_iter()
         .flatten()
         .filter(|branch| branch.name.branch() != Some(default_target.branch.branch()))
+        .filter(|branch| branch.name.branch() != Some("gitbutler/integration"))
+        .filter(|branch| branch.name.branch() != Some("gitbutler/target"))
         .collect::<Vec<_>>();
 
     Ok(remote_branches)
