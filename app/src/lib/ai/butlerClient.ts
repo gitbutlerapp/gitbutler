@@ -1,5 +1,5 @@
 import { SHORT_DEFAULT_BRANCH_TEMPLATE, SHORT_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
-import type { AIClient, ModelKind, PromptMessage } from '$lib/ai/types';
+import type { AIClient, ModelKind, Prompt } from '$lib/ai/types';
 import type { HttpClient } from '$lib/backend/httpClient';
 
 export class ButlerAIClient implements AIClient {
@@ -12,7 +12,7 @@ export class ButlerAIClient implements AIClient {
 		private modelKind: ModelKind
 	) {}
 
-	async evaluate(prompt: PromptMessage[]) {
+	async evaluate(prompt: Prompt) {
 		const response = await this.cloud.post<{ message: string }>('evaluate_prompt/predict.json', {
 			body: {
 				messages: prompt,

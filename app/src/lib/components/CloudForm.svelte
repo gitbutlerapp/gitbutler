@@ -2,6 +2,7 @@
 	import SectionCard from './SectionCard.svelte';
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
 	import { Project, ProjectService } from '$lib/backend/projects';
+	import AiPromptSelect from '$lib/components/AIPromptSelect.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
@@ -104,6 +105,8 @@
 			</svelte:fragment>
 		</SectionCard>
 	</div>
+	<AiPromptSelect promptUse="commits" />
+	<AiPromptSelect promptUse="branches" />
 </Section>
 
 {#if $user?.role === 'admin'}

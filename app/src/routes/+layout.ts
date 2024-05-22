@@ -1,3 +1,4 @@
+import { PromptService as AIPromptService } from '$lib/ai/promptService';
 import { AIService } from '$lib/ai/service';
 import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 import { AuthService } from '$lib/backend/auth';
@@ -52,6 +53,7 @@ export async function load() {
 
 	const gitConfig = new GitConfigService();
 	const aiService = new AIService(gitConfig, httpClient);
+	const aiPromptService = new AIPromptService();
 
 	return {
 		authService,
@@ -64,6 +66,7 @@ export async function load() {
 		// These observables are provided for convenience
 		remoteUrl$,
 		gitConfig,
-		aiService
+		aiService,
+		aiPromptService
 	};
 }
