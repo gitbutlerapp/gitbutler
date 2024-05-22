@@ -24,7 +24,7 @@ export function openExternalUrl(href: string) {
 }
 
 // turn a git remote url into a web url (github, gitlab, bitbucket, etc)
-export function cleanUrl(url: string): string {
+export function convertRemoteToWebUrl(url: string): string {
 	if (url.startsWith('http')) {
 		return url.replace('.git', '').trim();
 	} else if (url.startsWith('ssh')) {
