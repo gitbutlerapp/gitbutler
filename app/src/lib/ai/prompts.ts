@@ -1,6 +1,6 @@
-import { type PromptMessage, MessageRole } from '$lib/ai/types';
+import { type Prompt, MessageRole } from '$lib/ai/types';
 
-export const SHORT_DEFAULT_COMMIT_TEMPLATE: PromptMessage[] = [
+export const SHORT_DEFAULT_COMMIT_TEMPLATE: Prompt = [
 	{
 		role: MessageRole.User,
 		content: `Please could you write a commit message for my changes.
@@ -20,7 +20,7 @@ Here is my git diff:
 	}
 ];
 
-export const LONG_DEFAULT_COMMIT_TEMPLATE: PromptMessage[] = [
+export const LONG_DEFAULT_COMMIT_TEMPLATE: Prompt = [
 	{
 		role: MessageRole.User,
 		content: `Please could you write a commit message for my changes.
@@ -59,7 +59,7 @@ Added an utility function to check whether a given value is an array of a specif
 	...SHORT_DEFAULT_COMMIT_TEMPLATE
 ];
 
-export const SHORT_DEFAULT_BRANCH_TEMPLATE: PromptMessage[] = [
+export const SHORT_DEFAULT_BRANCH_TEMPLATE: Prompt = [
 	{
 		role: MessageRole.User,
 		content: `Please could you write a branch name for my changes.
@@ -73,7 +73,7 @@ Here is my git diff:
 	}
 ];
 
-export const LONG_DEFAULT_BRANCH_TEMPLATE: PromptMessage[] = [
+export const LONG_DEFAULT_BRANCH_TEMPLATE: Prompt = [
 	{
 		role: MessageRole.User,
 		content: `Please could you write a branch name for my changes.

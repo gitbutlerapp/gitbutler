@@ -11,8 +11,8 @@ import {
 	type AIClient,
 	AnthropicModelName,
 	ModelKind,
-	type PromptMessage,
-	MessageRole
+	MessageRole,
+	type Prompt
 } from '$lib/ai/types';
 import { splitMessage } from '$lib/utils/commitMessage';
 import * as toasts from '$lib/utils/toasts';
@@ -45,13 +45,13 @@ type SummarizeCommitOpts = {
 	hunks: Hunk[];
 	useEmojiStyle?: boolean;
 	useBriefStyle?: boolean;
-	commitTemplate?: PromptMessage[];
+	commitTemplate?: Prompt;
 	userToken?: string;
 };
 
 type SummarizeBranchOpts = {
 	hunks: Hunk[];
-	branchTemplate?: PromptMessage[];
+	branchTemplate?: Prompt;
 	userToken?: string;
 };
 

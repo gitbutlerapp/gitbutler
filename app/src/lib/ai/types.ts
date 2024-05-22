@@ -1,3 +1,5 @@
+import type { Persisted } from '$lib/persisted/persisted';
+
 export enum ModelKind {
 	OpenAI = 'openai',
 	Anthropic = 'anthropic',
@@ -28,9 +30,22 @@ export interface PromptMessage {
 	role: MessageRole;
 }
 
-export interface AIClient {
-	evaluate(prompt: PromptMessage[]): Promise<string>;
+export type Prompt = PromptMessage[];
 
-	defaultBranchTemplate: PromptMessage[];
-	defaultCommitTemplate: PromptMessage[];
+export interface AIClient {
+	evaluate(prompt: Prompt): Promise<string>;
+
+	defaultBranchTemplate: Prompt;
+	defaultCommitTemplate: Prompt;
+}
+
+export interface UserPrompt {
+	id: string;
+	name: string;
+	prompt: Prompt;
+}
+
+export interface Prompts {
+	defaultPrompt: Prompt;
+	userPrompts: Persisted<UserPrompt[]>;
 }

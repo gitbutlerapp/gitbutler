@@ -1,6 +1,6 @@
 import { SHORT_DEFAULT_COMMIT_TEMPLATE, SHORT_DEFAULT_BRANCH_TEMPLATE } from '$lib/ai/prompts';
 import { fetch, Body } from '@tauri-apps/api/http';
-import type { AIClient, AnthropicModelName, PromptMessage } from '$lib/ai/types';
+import type { AIClient, AnthropicModelName, Prompt } from '$lib/ai/types';
 
 type AnthropicAPIResponse = { content: { text: string }[] };
 
@@ -13,7 +13,7 @@ export class AnthropicAIClient implements AIClient {
 		private modelName: AnthropicModelName
 	) {}
 
-	async evaluate(prompt: PromptMessage[]) {
+	async evaluate(prompt: Prompt) {
 		const body = Body.json({
 			messages: prompt,
 			max_tokens: 1024,

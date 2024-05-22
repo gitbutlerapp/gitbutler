@@ -1,5 +1,5 @@
 import { LONG_DEFAULT_BRANCH_TEMPLATE, LONG_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
-import { MessageRole, type PromptMessage, type AIClient } from '$lib/ai/types';
+import { MessageRole, type PromptMessage, type AIClient, type Prompt } from '$lib/ai/types';
 import { isNonEmptyObject } from '$lib/utils/typeguards';
 import { fetch, Body, Response } from '@tauri-apps/api/http';
 
@@ -22,7 +22,7 @@ interface OllamaRequestOptions {
 
 interface OllamaChatRequest {
 	model: string;
-	messages: PromptMessage[];
+	messages: Prompt;
 	stream: boolean;
 	format?: 'json';
 	options?: OllamaRequestOptions;
@@ -81,7 +81,7 @@ export class OllamaClient implements AIClient {
 		private modelName: string
 	) {}
 
-	async evaluate(prompt: PromptMessage[]) {
+	async evaluate(prompt: Prompt) {
 		const messages = this.formatPrompt(prompt);
 		const response = await this.chat(messages);
 		const rawResponse = JSON.parse(response.message.content);
@@ -96,7 +96,7 @@ export class OllamaClient implements AIClient {
 	 * Appends a system message which instructs the model to respond using a particular JSON schema
 	 * Modifies the prompt's Assistant messages to make use of the correct schema
 	 */
-	private formatPrompt(prompt: PromptMessage[]) {
+	private formatPrompt(prompt: Prompt) {
 		const withFormattedResponses = prompt.map((promptMessage) => {
 			if (promptMessage.role == MessageRole.Assistant) {
 				return {
@@ -146,7 +146,7 @@ ${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 	 * @returns A Promise that resolves to an LLMResponse object representing the response from the LLM model.
 	 */
 	private async chat(
-		messages: PromptMessage[],
+		messages: Prompt,
 		options?: OllamaRequestOptions
 	): Promise<OllamaChatResponse> {
 		const result = await this.fetchChat({
