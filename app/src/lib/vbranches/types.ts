@@ -387,7 +387,7 @@ export class BaseBranch {
             const path = paths.join('/').replace('.git', '');
             const protocol = /\d+\.\d+\.\d+\.\d+/.test(host) ? 'http' : 'https';
             const [hostname, _port] = host.split(':');
-            return `${protocol}://${hostname}/${path}`
+            return `${protocol}://${hostname}/${path}`;
 		} else {
 			return url.replace(':', '/').replace('git@', 'https://').replace('.git', '').trim();
 		}
