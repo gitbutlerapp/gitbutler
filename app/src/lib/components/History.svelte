@@ -126,6 +126,9 @@
 									isCurrent={idx == 0}
 									on:restoreClick={() => {
 										historyService.restoreSnapshot(project.id, entry.id);
+										// In some cases, restoring the snapshot doesnt update the UI correctly
+										// Until we have that figured out, we need to reload the page.
+										location.reload();
 									}}
 									{selectedFile}
 									on:diffClick={async (filePath) => {
