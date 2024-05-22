@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '$lib/utils/string';
 import { isDefined, notNull } from '$lib/utils/typeguards';
-import { cleanUrl } from '$lib/utils/url';
+import { convertRemoteToWebUrl } from '$lib/utils/url';
 import { Type, Transform } from 'class-transformer';
 
 export type ChangeType =
@@ -371,11 +371,11 @@ export class BaseBranch {
 	}
 
 	get pushRepoBaseUrl(): string {
-		return cleanUrl(this.pushRemoteUrl);
+		return convertRemoteToWebUrl(this.pushRemoteUrl);
 	}
 
 	get repoBaseUrl(): string {
-		return cleanUrl(this.remoteUrl);
+		return convertRemoteToWebUrl(this.remoteUrl);
 	}
 
 	commitUrl(commitId: string): string | undefined {
