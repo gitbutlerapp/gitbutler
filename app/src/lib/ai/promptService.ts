@@ -30,7 +30,9 @@ export class PromptService {
 	selectedBranchPrompt(projectId: string): Prompt | undefined {
 		const id = get(this.selectedBranchPromptId(projectId));
 
-		return get(this.branchPrompts.userPrompts).find((userPrompt) => userPrompt.id == id)?.prompt;
+		if (!id) return;
+
+		return this.findPrompt(get(this.branchPrompts.userPrompts), id);
 	}
 
 	selectedCommitPromptId(projectId: string): Persisted<string | undefined> {
@@ -39,9 +41,19 @@ export class PromptService {
 
 	selectedCommitPrompt(projectId: string): Prompt | undefined {
 		const id = get(this.selectedCommitPromptId(projectId));
-		console.log(id);
 
-		return get(this.commitPrompts.userPrompts).find((userPrompt) => userPrompt.id == id)?.prompt;
+		if (!id) return;
+
+		return this.findPrompt(get(this.commitPrompts.userPrompts), id);
+	}
+
+	findPrompt(prompts: UserPrompt[], promptId: string) {
+		const prompt = prompts.find((userPrompt) => userPrompt.id == promptId)?.prompt;
+
+		if (!prompt) return;
+		if (this.promptMissingContent(prompt)) return;
+
+		return prompt;
 	}
 
 	promptEquals(prompt1: Prompt, prompt2: Prompt) {

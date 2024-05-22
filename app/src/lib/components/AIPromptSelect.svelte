@@ -41,7 +41,8 @@
 	}
 
 	function initializeForm(form: HTMLFormElement) {
-		if ($selectedPromptId) {
+		// If the selectedPromptId is present and cooresponds to a valid prompt
+		if ($selectedPromptId && promptService.findPrompt($userPrompts, $selectedPromptId)) {
 			form.prompt.value = $selectedPromptId;
 		} else {
 			form.prompt.value = defaultId;
