@@ -19,6 +19,14 @@ export class CombinedBranch {
 		this.remoteBranch = remoteBranch;
 		this.pr = pr;
 	}
+
+	get sha(): string {
+		if (this.vbranch) return this.vbranch.head;
+		if (this.remoteBranch) return this.remoteBranch.sha;
+		if (this.pr) return this.pr.number.toString(); // probably shouldn't hit this, but :shrug:
+		return 'unknown';
+	}
+
 	get displayName(): string {
 		if (this.vbranch) return this.vbranch.name;
 		if (this.pr) return this.pr.title;

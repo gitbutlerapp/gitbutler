@@ -107,6 +107,7 @@ export class Branch {
 	commits!: Commit[];
 	requiresForce!: boolean;
 	description!: string;
+	head!: string;
 	order!: number;
 	@Type(() => RemoteBranch)
 	upstream?: RemoteBranch;
