@@ -381,6 +381,13 @@ export class BaseBranch {
 	private cleanUrl(url: string): string {
 		if (url.startsWith('http')) {
 			return url.replace('.git', '').trim();
+		} else if (url.startsWith('ssh')) {
+			url = url.replace('ssh://git@', '');
+			const [host, ...paths] = url.split('/');
+            const path = paths.join('/').replace('.git', '');
+            const protocol = /\d+\.\d+\.\d+\.\d+/.test(host) ? 'http' : 'https';
+            const [hostname, _port] = host.split(':');
+            return `${protocol}://${hostname}/${path}`
 		} else {
 			return url.replace(':', '/').replace('git@', 'https://').replace('.git', '').trim();
 		}
