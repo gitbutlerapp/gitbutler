@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use git2::FileMode;
+use git2::{FileMode, Oid};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -576,18 +576,11 @@ impl Oplog for Project {
         let commit = repo.find_commit(git2::Oid::from_str(&sha)?)?;
         // Top tree
         let tree = commit.tree()?;
-        let old_tree = commit.parent(0)?.tree()?;
-
         let wd_tree_entry = tree
             .get_name("workdir")
             .ok_or(anyhow!("failed to get workdir tree entry"))?;
-        let old_wd_tree_entry = old_tree
-            .get_name("workdir")
-            .ok_or(anyhow!("failed to get old workdir tree entry"))?;
-
         // workdir tree
         let wd_tree = repo.find_tree(wd_tree_entry.id())?;
-        let old_wd_tree = repo.find_tree(old_wd_tree_entry.id())?;
 
         // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
         let files_to_exclude = get_exclude_list(&repo)?;
@@ -602,11 +595,45 @@ impl Oplog for Project {
             .ignore_submodules(true)
             .show_untracked_content(true);
 
-        let diff =
-            repo.diff_tree_to_tree(Some(&old_wd_tree), Some(&wd_tree), Some(&mut diff_opts))?;
+        let oplog_state = OplogHandle::new(&self.gb_dir());
+        let head_sha = oplog_state.get_oplog_head()?;
+        let child_commit_oid = get_child_commit(&repo, head_sha, commit.id())?;
 
-        let hunks = hunks_by_filepath(None, &diff)?;
-        Ok(hunks)
+        if let Some(child_commit_oid) = child_commit_oid {
+            let child_commit = repo.find_commit(child_commit_oid)?;
+            let child_tree = child_commit.tree()?;
+            let child_wd_tree_entry = child_tree
+                .get_name("workdir")
+                .ok_or(anyhow!("failed to get workdir tree entry"))?;
+            let child_wd_tree = repo.find_tree(child_wd_tree_entry.id())?;
+            let diff = repo.diff_tree_to_tree(Some(&wd_tree), Some(&child_wd_tree), None)?;
+            let hunks = hunks_by_filepath(None, &diff)?;
+            Ok(hunks)
+        } else {
+            let diff =
+                repo.diff_tree_to_workdir_with_index(Some(&wd_tree), Some(&mut diff_opts))?;
+            let hunks = hunks_by_filepath(None, &diff)?;
+            Ok(hunks)
+        }
+    }
+}
+
+fn get_child_commit(
+    repo: &git2::Repository,
+    head_sha: Option<String>,
+    sha: Oid,
+) -> Result<Option<Oid>> {
+    if let Some(head_sha) = head_sha {
+        // If this is the head, there are no children
+        if sha.to_string() == head_sha {
+            return Ok(None);
+        }
+        let mut revwalk = repo.revwalk()?;
+        _ = revwalk.push_range(&format!("{:}..{:}", sha, &head_sha));
+        let mut commits = revwalk.collect::<Result<Vec<_>, _>>()?;
+        Ok(commits.pop())
+    } else {
+        Ok(None)
     }
 }
 
