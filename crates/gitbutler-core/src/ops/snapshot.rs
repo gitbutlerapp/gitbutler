@@ -124,7 +124,7 @@ impl<T: Oplog> Snapshot for T {
                     value: order.to_string(),
                 },
             ])
-        } else if let Some(selected_for_changes) = update.selected_for_changes {
+        } else if let Some(_selected_for_changes) = update.selected_for_changes {
             SnapshotDetails::new(OperationType::SelectDefaultVirtualBranch).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),
@@ -135,7 +135,7 @@ impl<T: Oplog> Snapshot for T {
                 },
                 Trailer {
                     key: "after".to_string(),
-                    value: selected_for_changes.to_string(),
+                    value: old_branch.name,
                 },
             ])
         } else if let Some(upstream) = update.upstream {
