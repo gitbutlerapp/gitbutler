@@ -52,6 +52,17 @@
 		<ContextMenuSection>
 			{#if !isUnapplied}
 				<ContextMenuItem
+					label="Collapse lane"
+					on:click={() => {
+						dispatch('action', 'collapse');
+						close();
+					}}
+				/>
+			{/if}
+		</ContextMenuSection>
+		<ContextMenuSection>
+			{#if !isUnapplied}
+				<ContextMenuItem
 					label="Unapply"
 					on:click={() => {
 						if (branch.id) branchController.unapplyBranch(branch.id);

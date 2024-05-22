@@ -192,6 +192,9 @@
 							if (e.detail == 'generate-branch-name') {
 								generateBranchName();
 							}
+							if (e.detail == 'collapse') {
+								$isLaneCollapsed = true;
+							}
 						}}
 					/>
 					<PullRequestCard />
@@ -292,7 +295,7 @@
 				<Resizer
 					viewport={rsViewport}
 					direction="right"
-					minWidth={320}
+					minWidth={340}
 					sticky
 					defaultLineColor={$fileIdSelection.length == 1 ? 'transparent' : 'var(--clr-border-2)'}
 					on:width={(e) => {
