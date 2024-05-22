@@ -349,7 +349,7 @@ impl Oplog for Project {
                     lines_added,
                     lines_removed,
                     files_changed,
-                    created_at: commit.time().seconds() * 1000,
+                    created_at: commit.time().seconds(),
                 });
 
                 if snapshots.len() >= limit {
@@ -363,7 +363,7 @@ impl Oplog for Project {
                     lines_added: 0,
                     lines_removed: 0,
                     files_changed: Vec::new(), // Fix: Change 0 to an empty vector
-                    created_at: commit.time().seconds() * 1000,
+                    created_at: commit.time().seconds(),
                 });
                 break;
             }
