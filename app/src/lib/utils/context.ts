@@ -52,8 +52,8 @@ export function maybeGetContextStore<
  */
 export function createContextStore<T extends Class>(
 	key: T | symbol,
-	value: InstanceType<T>
-): Writable<InstanceType<T>> {
+	value: InstanceType<T> | undefined
+): Writable<InstanceType<T> | undefined> {
 	const instance = svelteGetContext<Writable<InstanceType<T>> | undefined>(key);
 	if (instance) {
 		throw new Error('Context store already defined for key: ' + key.toString());
@@ -78,13 +78,13 @@ export function createContextStore<T extends Class>(
  */
 export function buildContextStore<T, S extends Readable<T> = Readable<T>>(
 	name: string
-): [() => S, (value: T) => Writable<T>] {
+): [() => S, (value: T | undefined) => Writable<T>] {
 	const identifier = Symbol(name);
 	return [
 		() => {
 			return getContextStoreBySymbol<T, S>(identifier);
 		},
-		(value: T) => {
+		(value: T | undefined) => {
 			return createContextStore(identifier, value);
 		}
 	];

@@ -13,6 +13,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { Branch } from '$lib/vbranches/types';
+	import { distinctUntilChanged } from 'rxjs';
 	import { onDestroy } from 'svelte';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
 	import type { ComponentColor } from '$lib/vbranches/types';
@@ -43,8 +44,12 @@
 	let checksStatus: ChecksStatus | null | undefined = undefined;
 	let lastDetailsFetch: Readable<string> | undefined;
 
-	$: pr$ = githubService.getPr$($branch.upstreamName);
-	$: if ($branch && $pr$) updateDetailsAndChecks();
+	$: pr$ = githubService.getPr$($branch.upstreamName).pipe(
+		distinctUntilChanged((prev, curr) => {
+			return prev?.modifiedAt.getTime() === curr?.modifiedAt.getTime();
+		})
+	);
+	$: if ($pr$) updateDetailsAndChecks();
 
 	$: checksTagInfo = getChecksTagInfo(checksStatus, isFetchingChecks);
 	$: infoProps = getInfoMessageInfo(detailedPr, mergeableState, checksStatus, isFetchingChecks);
