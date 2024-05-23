@@ -655,11 +655,10 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result = super::reset_files(project_repository, ownership).map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::DiscardFile));
-            result
+            super::reset_files(project_repository, ownership).map_err(Into::into)
         })
     }
 
