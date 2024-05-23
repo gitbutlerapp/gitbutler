@@ -10,15 +10,9 @@
 	export let line: boolean;
 	export let root: boolean;
 	export let upstreamLine: boolean;
-
-	$: hasRoot = isRoot(commit);
-
-	function isRoot(commit: Commit | undefined): boolean {
-		return commit?.status == 'remote' && commit?.children?.[0]?.status == 'local';
-	}
 </script>
 
-<div class="remote-column" class:has-root={hasRoot}>
+<div class="remote-column" class:has-root={root}>
 	{#if base}
 		<div class="remote-line dashed" class:short={!line} />
 		{#if root}
@@ -49,7 +43,7 @@
 		{:else if upstreamLine}
 			<div class="remote-line upstream" class:short class:first />
 		{/if}
-		{#if hasRoot}
+		{#if root}
 			<div class="root" />
 		{/if}
 		{#if commit}

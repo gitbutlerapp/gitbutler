@@ -125,6 +125,7 @@
 			<CommitLines
 				{hasShadowColumn}
 				localLine={$remoteCommits.length == 0 && $localCommits.length > 0}
+				localRoot={$remoteCommits.length == 0 && $localCommits.length > 0}
 				remoteLine={$remoteCommits.length > 0}
 				shadowLine={hasShadowColumn}
 				base

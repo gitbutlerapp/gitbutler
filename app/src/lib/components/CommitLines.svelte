@@ -10,6 +10,7 @@
 	export let remoteCommit: RemoteCommit | undefined = undefined;
 	export let first = false;
 	export let localLine = false;
+	export let localRoot = false;
 	export let remoteLine = false;
 	export let upstreamLine = false;
 	export let shadowLine = false;
@@ -32,7 +33,8 @@
 	<RemoteLine
 		commit={localCommit?.status == 'remote' ? localCommit : undefined}
 		line={localCommit?.status == 'remote' || remoteLine}
-		root={localLine}
+		root={localRoot ||
+			(localCommit?.status == 'remote' && localCommit?.children?.[0]?.status == 'local')}
 		remoteCommit={!hasShadowColumn ? remoteCommit : undefined}
 		upstreamLine={upstreamLine && !hasShadowColumn}
 		{first}
