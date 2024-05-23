@@ -12,6 +12,7 @@ use std::{
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice, ByteVec};
 use diffy::{apply_bytes as diffy_apply, Line, Patch};
+use git2::IndexConflicts;
 use git2_hooks::HookResult;
 use hex::ToHex;
 use regex::Regex;
@@ -24,6 +25,7 @@ use super::{
     },
     branch_to_remote_branch, errors, target, RemoteBranch, VirtualBranchesHandle,
 };
+use crate::error::{self, AnyhowContextExt, Code};
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
 use crate::ops::snapshot::Snapshot;
 use crate::virtual_branches::branch::HunkHash;
@@ -1124,45 +1126,144 @@ pub fn create_virtual_branch(
     Ok(branch)
 }
 
-pub fn merge_virtual_branch_upstream(
+/// Integrates upstream work from a remote branch.
+///
+/// First we determine strategy based on preferences and branch state. If you
+/// have allowed force push then it is likely branch commits frequently get
+/// rebased, meaning we want to cherry pick new upstream work onto our rebased
+/// commits.
+///
+/// If your local branch has been rebased, but you have new local only commits,
+/// we _must_ rebase the upstream commits on top of the last rebased commit. We
+/// do this to avoid duplicate commits, but we then need to let the user decide
+/// if the local only commits get rebased on top of new upstream work or merged
+/// with the new commits. The latter is sometimes preferable because you have
+/// at most one merge conflict to resolve, while rebasing requires a multi-step
+/// interactive process (currently not supported, so we abort).
+///
+/// If you do not allow force push then first validate the remote branch and
+/// your local branch have the same merge base. A different merge base means
+/// means either you or the remote branch has been rebased, and merging the
+/// two would introduce duplicate commits (same changes, different hash).
+///
+/// Additionally, if we succeed in integrating the upstream commit, we still
+/// need to merge the new branch tree with the working directory tree. This
+/// might introduce more conflicts, but there is no need to commit at the
+/// end since there will only be one parent commit.
+///
+pub fn integrate_upstream_commits(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     user: Option<&users::User>,
-) -> Result<(), Error> {
+) -> Result<(), anyhow::Error> {
     conflicts::is_conflicting::<&Path>(project_repository, None)?;
 
     let repo = &project_repository.git_repository;
-    let vb_state = project_repository.project().virtual_branches();
+    let project = project_repository.project();
+    let vb_state = project.virtual_branches();
+
     let mut branch = vb_state.get_branch(branch_id).map_err(Error::from_err)?;
+    let default_target = vb_state.get_default_target()?;
 
     let upstream_branch = branch.upstream.as_ref().context("upstream not found")?;
     let upstream_oid = repo.refname_to_id(&upstream_branch.to_string())?;
     let upstream_commit = repo.find_commit(upstream_oid)?;
-    let remote_tree = upstream_commit.tree()?;
 
     if upstream_commit.id() == branch.head {
-        // upstream is already merged, nothing to do
         return Ok(());
     }
 
-    // if any other branches are applied, unapply them
-    // let applied_branches = vb_state
-    //     .list_branches()?
-    //     .into_iter()
-    //     .filter(|b| b.applied && b.id != *branch_id)
-    //     .collect::<Vec<_>>();
+    let upstream_commits =
+        project_repository.list_commits(upstream_commit.id(), default_target.sha)?;
+    let branch_commits = project_repository.list_commits(branch.head, default_target.sha)?;
 
-    // unapply all other branches
-    // for other_branch in applied_branches {
-    //     unapply_branch(project_repository, &other_branch.id).context("failed to unapply branch")?;
-    // }
+    let branch_commit_ids = branch_commits.iter().map(|c| c.id()).collect::<Vec<_>>();
 
-    let merge_base = repo.merge_base(upstream_commit.id(), branch.head)?;
-    let merge_tree = repo.find_commit(merge_base).and_then(|c| c.tree())?;
+    let branch_change_ids = branch_commits
+        .iter()
+        .filter_map(|c| c.change_id())
+        .collect::<Vec<_>>();
+
+    let mut unknown_commits = upstream_commits
+        .iter()
+        .filter(|c| {
+            (!c.change_id()
+                .is_some_and(|cid| branch_change_ids.contains(&cid)))
+                && !branch_commit_ids.contains(&c.id())
+        })
+        .map(|c| c.id())
+        .collect::<Vec<_>>();
+
+    let rebased_commits = upstream_commits
+        .iter()
+        .filter(|c| {
+            c.change_id()
+                .is_some_and(|cid| branch_change_ids.contains(&cid))
+                && !branch_commit_ids.contains(&c.id())
+        })
+        .map(|c| c.id())
+        .collect::<Vec<_>>();
+
+    // If there are no new commits then there is nothing to do.
+    if unknown_commits.is_empty() {
+        return Ok(());
+    };
+
+    let merge_base = repo.merge_base(default_target.sha, upstream_oid)?;
+
+    // Booleans needed for a decision on how integrate upstream commits.
+    // let is_same_base = default_target.sha == merge_base;
+    let can_use_force = *project.ok_with_force_push;
+    let has_rebased_commits = !rebased_commits.is_empty();
+
+    // We can't proceed if we rebased local commits but no permission to force push. In this
+    // scenario we would need to "cherry rebase" new upstream commits onto the last rebased
+    // local commit.
+    if has_rebased_commits && !can_use_force {
+        let message = "Aborted because force push is disallowed and commits have been rebased.";
+        return Err(anyhow!("Cannot merge rebased commits without force push")
+            .context(error::Context::new(Code::ProjectConflict, message)));
+    }
+
+    let integration_result = match can_use_force {
+        true => integrate_with_rebase(project_repository, &mut branch, &mut unknown_commits),
+        false => {
+            if has_rebased_commits {
+                let message =
+                    "Aborted because force push is disallowed and commits have been rebased.";
+                return Err(anyhow!("Cannot merge rebased commits without force push")
+                    .context(error::Context::new(Code::ProjectConflict, message)));
+            }
+            integrate_with_merge(
+                project_repository,
+                user,
+                &mut branch,
+                &upstream_commit,
+                merge_base,
+            )
+        }
+    };
+
+    // TODO: Use thiserror for the two integrate_with functions instead of this?
+    if let Err(err) = &integration_result {
+        if err
+            .custom_context()
+            .is_some_and(|c| c.code == Code::ProjectConflict)
+        {
+            return Ok(());
+        };
+    };
+
+    let new_head = integration_result?;
+    let new_head_tree = repo.find_commit(new_head)?.tree()?;
+    let head_commit = repo.find_commit(new_head)?;
+
     let wd_tree = project_repository.get_wd_tree()?;
+    let integration_tree = repo
+        .find_commit(get_workspace_head(&vb_state, project_repository)?)?
+        .tree()?;
 
-    // check if the branch upstream can be merged into the wd cleanly
-    let mut merge_index = repo.merge_trees(&merge_tree, &wd_tree, &remote_tree)?;
+    let mut merge_index = repo.merge_trees(&integration_tree, &new_head_tree, &wd_tree)?;
 
     if merge_index.has_conflicts() {
         repo.checkout_index(&mut merge_index)
@@ -1170,109 +1271,84 @@ pub fn merge_virtual_branch_upstream(
             .conflict_style_merge()
             .force()
             .checkout()?;
-
-        let conflicts = merge_index.conflicts()?;
-        let mut merge_conflicts = Vec::new();
-        for path in conflicts.flatten() {
-            if let Some(ours) = path.our {
-                let path = std::str::from_utf8(&ours.path)
-                    .context("failed to convert path to utf8")?
-                    .to_string();
-                merge_conflicts.push(path);
-            }
-        }
-        conflicts::mark(
-            project_repository,
-            &merge_conflicts,
-            Some(upstream_commit.id()),
-        )?;
     } else {
-        let merge_tree_oid = merge_index.write_tree_to(repo)?;
-        let merge_tree = repo.find_tree(merge_tree_oid)?;
-
-        if *project_repository.project().ok_with_force_push {
-            let (_, committer) = project_repository.git_signatures(user)?;
-            let mut rebase_options = git2::RebaseOptions::new();
-            rebase_options.quiet(true);
-            rebase_options.inmemory(true);
-            let mut rebase = repo.rebase(
-                Some(branch.head),
-                Some(upstream_commit.id()),
-                None,
-                Some(&mut rebase_options),
-            )?;
-
-            let mut rebase_success = true;
-
-            // check to see if these commits have already been pushed
-            let mut last_rebase_head = upstream_commit.id();
-            while rebase.next().is_some() {
-                let index = rebase.inmemory_index().map_err(Error::from_err)?;
-                if index.has_conflicts() {
-                    rebase_success = false;
-                    break;
-                }
-
-                if let Ok(commit_id) = rebase.commit(None, &committer.clone().into(), None) {
-                    last_rebase_head = commit_id.into();
-                } else {
-                    rebase_success = false;
-                    break;
-                }
-            }
-
-            if rebase_success {
-                // rebase worked out, rewrite the branch head
-                rebase.finish(None).context("failed to finish rebase")?;
-
-                project_repository
-                    .git_repository
-                    .checkout_tree(&merge_tree)
-                    .force()
-                    .checkout()?;
-
-                branch.head = last_rebase_head;
-                branch.tree = merge_tree_oid;
-                vb_state.set_branch(branch.clone())?;
-                super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-
-                return Ok(());
-            }
-
-            rebase.abort().context("failed to abort rebase")?;
-        }
-
-        let head_commit = repo
-            .find_commit(branch.head)
-            .context("failed to find head commit")?;
-
-        let new_branch_head = project_repository.commit(
-            user,
-            format!(
-                "Merged {}/{} into {}",
-                upstream_branch.remote(),
-                upstream_branch.branch(),
-                branch.name
-            )
-            .as_str(),
-            &merge_tree,
-            &[&head_commit, &upstream_commit],
-            None,
-        )?;
-
-        repo.checkout_tree(&merge_tree)
-            .force()
-            .checkout()
-            .context("failed to checkout tree")?;
-
-        branch.head = new_branch_head;
-        branch.tree = merge_tree_oid;
+        branch.head = new_head;
+        branch.tree = head_commit.tree()?.id();
         vb_state.set_branch(branch.clone())?;
-    }
+        repo.checkout_index(&mut merge_index).force().checkout()?;
+    };
 
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-
     Ok(())
+}
+
+pub fn integrate_with_rebase(
+    project_repository: &project_repository::Repository,
+    branch: &mut Branch,
+    unknown_commits: &mut Vec<git::Oid>,
+) -> Result<git::Oid> {
+    cherry_rebase_group(
+        project_repository,
+        branch.head,
+        unknown_commits.as_mut_slice(),
+    )
+}
+
+pub fn integrate_with_merge(
+    project_repository: &project_repository::Repository,
+    user: Option<&users::User>,
+    branch: &mut Branch,
+    upstream_commit: &git::Commit,
+    merge_base: git::Oid,
+) -> Result<git::Oid> {
+    let wd_tree = project_repository.get_wd_tree()?;
+    let repo = &project_repository.git_repository;
+    let remote_tree = upstream_commit.tree().context("failed to get tree")?;
+    let upstream_branch = branch.upstream.as_ref().context("upstream not found")?;
+    let merge_tree = repo.find_commit(merge_base).and_then(|c| c.tree())?;
+
+    let mut merge_index = repo.merge_trees(&merge_tree, &wd_tree, &remote_tree)?;
+
+    if merge_index.has_conflicts() {
+        let conflicts = merge_index.conflicts()?;
+        let merge_conflicts = conflicts
+            .flatten()
+            .filter_map(|c| c.our)
+            .map(|our| std::string::String::from_utf8_lossy(&our.path).to_string())
+            .collect::<Vec<_>>();
+        conflicts::mark(
+            project_repository,
+            merge_conflicts,
+            Some(upstream_commit.id()),
+        )?;
+        repo.checkout_index(&mut merge_index)
+            .allow_conflicts()
+            .conflict_style_merge()
+            .force()
+            .checkout()?;
+        return Err(anyhow!("Merging")).context(error::Context::new_static(
+            Code::ProjectConflict,
+            "Merge problem",
+        ));
+    }
+
+    let merge_tree_oid = merge_index.write_tree_to(repo)?;
+    let merge_tree = repo.find_tree(merge_tree_oid)?;
+    let head_commit = repo.find_commit(branch.head)?;
+
+    project_repository.commit(
+        user,
+        format!(
+            "Merged {}/{} into {}",
+            upstream_branch.remote(),
+            upstream_branch.branch(),
+            branch.name
+        )
+        .as_str(),
+        &merge_tree,
+        &[&head_commit, upstream_commit],
+        None,
+    )
 }
 
 pub fn update_branch(
@@ -3071,7 +3147,7 @@ pub fn reorder_commit(
         ids_to_rebase.push(last_oid);
 
         match cherry_rebase_group(project_repository, parent_oid, &mut ids_to_rebase) {
-            Ok(Some(new_head)) => {
+            Ok(new_head) => {
                 branch.head = new_head;
                 vb_state
                     .set_branch(branch.clone())
@@ -3103,7 +3179,7 @@ pub fn reorder_commit(
         ids_to_rebase.push(commit_oid);
 
         match cherry_rebase_group(project_repository, target_oid, &mut ids_to_rebase) {
-            Ok(Some(new_head)) => {
+            Ok(new_head) => {
                 branch.head = new_head;
                 vb_state
                     .set_branch(branch.clone())
@@ -3275,7 +3351,7 @@ pub fn cherry_rebase(
     let new_head_id =
         cherry_rebase_group(project_repository, target_commit_oid, &mut ids_to_rebase)?;
 
-    Ok(new_head_id)
+    Ok(Some(new_head_id))
 }
 
 // takes a vector of commit oids and rebases them onto a target commit and returns the
@@ -3286,7 +3362,7 @@ fn cherry_rebase_group(
     project_repository: &project_repository::Repository,
     target_commit_oid: git::Oid,
     ids_to_rebase: &mut [git::Oid],
-) -> Result<Option<git::Oid>, anyhow::Error> {
+) -> Result<git::Oid, anyhow::Error> {
     ids_to_rebase.reverse();
     // now, rebase unchanged commits onto the new commit
     let commits_to_rebase = ids_to_rebase
@@ -3346,7 +3422,7 @@ fn cherry_rebase_group(
         )?
         .id();
 
-    Ok(Some(new_head_id))
+    Ok(new_head_id)
 }
 
 pub fn cherry_pick(
@@ -3640,7 +3716,7 @@ pub fn squash(
     let mut ids_to_rebase = ids_to_rebase.to_vec();
 
     match cherry_rebase_group(project_repository, new_commit_oid, &mut ids_to_rebase) {
-        Ok(Some(new_head_id)) => {
+        Ok(new_head_id) => {
             // save new branch head
             branch.head = new_head_id;
             vb_state
@@ -3752,7 +3828,7 @@ pub fn update_commit_message(
     let mut ids_to_rebase = ids_to_rebase.to_vec();
 
     match cherry_rebase_group(project_repository, new_commit_oid, &mut ids_to_rebase) {
-        Ok(Some(new_head_id)) => {
+        Ok(new_head_id) => {
             // save new branch head
             branch.head = new_head_id;
             vb_state
@@ -4201,3 +4277,26 @@ mod tests {
         assert_eq!(normalize_branch_name("foo!branch"), "foo-branch");
     }
 }
+
+// let conflicts = merge_index.conflicts()?;
+// let conflict_message = conflicts_to_string(conflicts)?;
+// return Err(anyhow!("Merge failed")
+//     .context(error::Context::new(Code::ProjectConflict, conflict_message))
+//     .);
+
+// fn conflicts_to_string(conflicts: IndexConflicts) -> Result<String> {
+//     // mark conflicts
+//     let mut merge_conflicts = Vec::new();
+//     for path in conflicts.flatten() {
+//         if let Some(ours) = path.our {
+//             let path = std::str::from_utf8(&ours.path)
+//                 .context("failed to convert path to utf8")?
+//                 .to_string();
+//             merge_conflicts.push(path);
+//         }
+//     }
+//     Ok(format!(
+//         "Aborted due to conflicts with:\n{}",
+//         merge_conflicts.join("\n")
+//     ))
+// }

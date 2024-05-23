@@ -20,9 +20,10 @@ use gitbutler_core::{
         branch::{BranchCreateRequest, BranchOwnershipClaims},
         commit, create_virtual_branch,
         errors::CommitError,
+        integrate_upstream_commits,
         integration::verify_branch,
         is_remote_branch_mergeable, is_virtual_branch_mergeable, list_remote_branches,
-        merge_virtual_branch_upstream, unapply_ownership, update_branch,
+        unapply_ownership, update_branch,
     },
 };
 use pretty_assertions::assert_eq;
@@ -845,7 +846,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     assert_eq!(branch1.commits.len(), 1);
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
-    merge_virtual_branch_upstream(project_repository, &branch1.id, None)?;
+    integrate_upstream_commits(project_repository, &branch1.id, None)?;
 
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
     let branch1 = &branches[0];
@@ -864,14 +865,25 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn merge_vbranch_upstream_conflict() -> Result<()> {
+#[tokio::test]
+async fn merge_vbranch_upstream_conflict() -> Result<()> {
     let suite = Suite::default();
-    let Case {
-        project_repository,
-        project,
-        ..
-    } = &suite.new_case();
+    let mut case = suite.new_case();
+    let project = &case.project;
+
+    suite
+        .projects
+        .update(&gitbutler_core::projects::UpdateRequest {
+            id: project.id,
+            ok_with_force_push: Some(false),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+
+    case = case.refresh(&suite);
+    let project_repository = &case.project_repository;
+    let project = &case.project;
 
     // create a commit and set the target
     let file_path = Path::new("test.txt");
@@ -960,7 +972,7 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
     assert_eq!(branch1.commits.len(), 1);
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
-    merge_virtual_branch_upstream(project_repository, &branch1.id, None)?;
+    integrate_upstream_commits(project_repository, &branch1.id, None)?;
 
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
     let branch1 = &branches[0];
