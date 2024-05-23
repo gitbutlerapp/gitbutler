@@ -588,11 +588,10 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let result = super::update_base_branch(project_repository, user).map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::UpdateWorkspaceBase));
-            result
+            super::update_base_branch(project_repository, user).map_err(Into::into)
         })
     }
 
