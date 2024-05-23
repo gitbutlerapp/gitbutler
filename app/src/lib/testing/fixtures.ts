@@ -86,8 +86,8 @@ export const remoteBranchData = {
 	upstream: 'abc123',
 	authors: [author],
 	displayName: 'test',
-	lastCommitTs: { secs: 1714902366, nanos: 0},
-	firstCommitAt: { secs: 1714902366, nanos: 0},
+	lastCommitTs: { secs: 1714902366, nanos: 0 },
+	firstCommitAt: { secs: 1714902366, nanos: 0 },
 	ahead: 0,
 	behind: 0,
 	commits: [remoteCommit0],
@@ -114,7 +114,7 @@ export const fileHunk = {
 	id: '63-70',
 	locked: false,
 	lockedTo: null,
-	modifiedAt: { secs: 1714902366, nanos: 0},
+	modifiedAt: { secs: 1714902366, nanos: 0 },
 	oldStart: 63,
 	start: 63
 };
@@ -125,7 +125,7 @@ export const file0 = {
 	hunks: [fileHunk],
 	id: 'package.json',
 	large: false,
-	modifiedAt: { secs: 1714902366, nanos: 0},
+	modifiedAt: { secs: 1714902366, nanos: 0 },
 	path: 'package.json'
 };
 
@@ -143,7 +143,7 @@ export const virtualBranch = {
 	ownership:
 		'package.json:63-70-dc79c984a36b2f8a29007633bde4daf3-1714829528116,23-58-fbf18cec4afef8aafbbc2dddef3e3391-1714829528116,79-85-c4d0a57fca736c384cde2a68009ffcb3-1714829503193',
 	requiresForce: false,
-	updatedAt: { secs: 1714902366, nanos: 0},
+	updatedAt: { secs: 1714902366, nanos: 0 },
 	upstream: null,
 	upstreamName: null
 };

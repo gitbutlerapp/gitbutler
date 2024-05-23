@@ -19,10 +19,10 @@ function isDuration(object: any): object is Duration {
 
 export function dateFromDuration(params: TransformFnParams): Date | undefined {
 	if (!params.value) return;
+	if (params.value instanceof Date) return params.value;
 
-	if (!isDuration(params.value)) {
-		throw Error('Expected a Duration object');
-	}
+	if (!isDuration(params.value)) throw Error('Expected a Duration object');
+
 	return new Date(params.value.secs * 1000 + params.value.nanos / 1000000);
 }
 
