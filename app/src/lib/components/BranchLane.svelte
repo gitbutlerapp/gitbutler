@@ -42,8 +42,9 @@
 	// Set the store immediately so it can be updated later.
 	const upstreamCommits = createUpstreamContextStore([]);
 	$: upstreamCommits.set(branch.upstreamData?.commits ?? []);
+
 	const unknownCommits = createUnknownCommitsStore([]);
-	$: unknownCommits.set($upstreamCommits.filter((c) => !c.relatedTo || c.id != c.relatedTo.id));
+	$: unknownCommits.set($upstreamCommits.filter((c) => !c.relatedTo));
 
 	const fileIdSelection = new FileIdSelection();
 	setContext(FileIdSelection, fileIdSelection);
