@@ -1373,7 +1373,9 @@ pub fn update_branch(
             }
             _ => errors::UpdateBranchError::Other(error.into()),
         })?;
-    let branch_before_update = branch.clone();
+    _ = project_repository
+        .project()
+        .snapshot_branch_update(&branch, &branch_update);
 
     if let Some(ownership) = &branch_update.ownership {
         set_ownership(&vb_state, &mut branch, ownership).context("failed to set ownership")?;
@@ -1442,10 +1444,6 @@ pub fn update_branch(
     vb_state
         .set_branch(branch.clone())
         .context("failed to write target branch")?;
-
-    _ = project_repository
-        .project()
-        .snapshot_branch_update(branch_before_update, branch_update);
     Ok(branch)
 }
 
