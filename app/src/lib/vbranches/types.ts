@@ -173,7 +173,7 @@ export class Commit {
 	}
 
 	get status(): CommitStatus {
-		if (this.isRemote && !this.relatedTo) return 'remote';
+		if (this.isRemote && (!this.relatedTo || this.id == this.relatedTo.id)) return 'remote';
 		return 'local';
 	}
 

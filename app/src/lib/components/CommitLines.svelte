@@ -36,7 +36,7 @@
 		remoteCommit={!hasShadowColumn ? remoteCommit : undefined}
 		upstreamLine={upstreamLine && !hasShadowColumn}
 		{first}
-		short={(!!localCommit && !localCommit?.children?.[0]?.relatedTo && !upstreamLine) ||
+		short={(!!localCommit && !localCommit?.children?.[0] && !upstreamLine) ||
 			(!!remoteCommit && !remoteCommit?.children?.[0])}
 		{base}
 	/>

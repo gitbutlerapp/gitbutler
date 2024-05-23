@@ -159,7 +159,7 @@ function linkAsParentChildren(commits: Commit[] | RemoteCommit[]) {
 		if (j == 0) {
 			commit.children = [];
 		} else {
-			const commit = commits[j - 1];
+			const commit = commits[j];
 			if (commit instanceof Commit) commit.children = [commit];
 			if (commit instanceof RemoteCommit) commit.children = [commit];
 		}
