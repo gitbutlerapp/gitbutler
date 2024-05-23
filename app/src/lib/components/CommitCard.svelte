@@ -47,6 +47,7 @@
 	console.log(commit);
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
+	const isConflicted = commit instanceof Commit && commit.conflictedFiles;
 
 	let showFiles = false;
 	let files: RemoteFile[] = [];
@@ -177,13 +178,16 @@
 		{/if}
 		<div class="commit__message">
 			{#if $advancedCommitOperations}
+				{#if isConflicted}
+					{commit.conflictedFiles}
+				{/if}
 				<div class="commit__id">
 					<code>
 						{#if commit.isSigned}
 							<span class="text-xs">🔒</span>
 						{/if}
 						{#if commit.changeId}
-							{commit.changeId.split('-')[0]}
+							{commit.changeId.split('-')[0]}:{commit.id.substring(0, 6)}
 						{:else}
 							{commit.id.substring(0, 6)}
 						{/if}

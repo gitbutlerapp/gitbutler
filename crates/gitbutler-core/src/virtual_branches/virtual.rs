@@ -3386,29 +3386,13 @@ fn cherry_pick_gitbutler(
             .git_repository
             .find_commit(base_oid)
             .context("failed to find merge base commit")?;
-        let base_tree = base_commit.tree().context("failed to find merge base tree")?;
 
-        let tree_0 = head.tree()?;
-        let tree_0 = if is_conflict_0.is_some() {
-            let subtree_id = is_conflict_0.unwrap().id();
-            project_repository
-                .git_repository
-                .find_tree(subtree_id)
-                .context("failed to find subtree")?
-        } else {
-            tree_0
-        };
+        let base_tree = find_real_tree(project_repository, &base_commit, None)?;
+        let tree_0 = find_real_tree(project_repository, head, None)?;
+        let tree_1 = find_real_tree(project_repository, to_rebase, Some(".conflict-side-1".to_string()))?;
 
-        let tree_1 = to_rebase.tree()?;
-        let tree_1 = if is_conflict_1.is_some() {
-            let subtree_id = is_conflict_1.unwrap().id();
-            project_repository
-                .git_repository
-                .find_tree(subtree_id)
-                .context("failed to find subtree")?
-        } else {
-            tree_1
-        };
+        dbg!("REBASE PICK");
+        dbg!(&base_tree.id(), &tree_1.id(), &tree_0.id());
 
         project_repository
             .git_repository
@@ -3419,6 +3403,33 @@ fn cherry_pick_gitbutler(
             .git_repository
             .cherry_pick(head, to_rebase)
             .context("failed to cherry pick")
+    }
+}
+
+// find the real tree of a commit, which is the tree of the commit if it's not in a conflicted state
+// or the parent parent tree if it is in a conflicted state
+fn find_real_tree<'a>(
+    project_repository: &'a project_repository::Repository,
+    commit: &'a git::Commit<'a>,
+    side: Option<String>,
+) -> Result<git::Tree<'a>, anyhow::Error> {
+    let tree = commit.tree()?;
+    let entry_name = match side {
+        Some(side) => side,
+        None => ".conflict-side-0".to_string(),
+    };
+    let is_conflict = tree.get_name(&entry_name);
+    if is_conflict.is_some() {
+        let subtree_id = is_conflict.unwrap().id();
+        project_repository
+            .git_repository
+            .find_tree(subtree_id)
+            .context("failed to find subtree")
+    } else {
+        project_repository
+            .git_repository
+            .find_tree(tree.id())
+            .context("failed to find subtree")
     }
 }
 
@@ -3454,6 +3465,7 @@ fn cherry_rebase_group(
             |head, to_rebase| {
                 let head = head?;
 
+                dbg!("REBASE", &head.id(), &to_rebase.id());
                 let mut cherrypick_index = cherry_pick_gitbutler(project_repository, &head, &to_rebase)?;
 
                 if cherrypick_index.has_conflicts() {
@@ -3467,10 +3479,7 @@ fn cherry_rebase_group(
                         .git_repository
                         .find_commit(merge_base_commit_oid)
                         .context("failed to find merge base commit")?;
-                    let base_tree = project_repository
-                        .git_repository
-                        .find_tree(merge_base_commit.tree_id())
-                        .context("failed to find tree")?;
+                    let base_tree = find_real_tree(project_repository, &merge_base_commit, None)?;
 
                     // in case someone checks this out with vanilla Git, we should warn why it looks like this
                     let readme_content = b"You have checked out a GitButler Conflicted commit. You probably didn't mean to do this.";
@@ -3496,9 +3505,12 @@ fn cherry_rebase_group(
                         .git_repository
                         .treebuilder(None);
 
+                    let side0 = find_real_tree(project_repository, &head, None)?;
+                    let side1 = find_real_tree(project_repository, &to_rebase, Some(".conflict-side-1".to_string()))?;
+
                     // save the state of the conflict, so we can recreate it later
-                    tree_writer.upsert(".conflict-side-0", head.tree_id(), FileMode::Tree);
-                    tree_writer.upsert(".conflict-side-1", to_rebase.tree_id(), FileMode::Tree);
+                    tree_writer.upsert(".conflict-side-0", side0.id(), FileMode::Tree);
+                    tree_writer.upsert(".conflict-side-1", side1.id(), FileMode::Tree);
                     tree_writer.upsert(".conflict-base-0", base_tree.id(), FileMode::Tree);
                     tree_writer.upsert(".conflict-files", conflicted_files_blob, FileMode::Blob);
                     tree_writer.upsert("README.txt", readme_blob, FileMode::Blob);

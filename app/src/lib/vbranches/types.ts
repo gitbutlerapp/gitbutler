@@ -226,6 +226,7 @@ export class RemoteCommit {
 	parent?: RemoteCommit;
 	children?: RemoteCommit[];
 	relatedTo?: Commit;
+	conflictedFiles!: number;
 
 	get isLocal() {
 		return false;
