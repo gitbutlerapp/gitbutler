@@ -24,7 +24,8 @@
 
 	const project = getContext(Project);
 	const localCommits = getLocalCommits();
-	const unknownCommits = getUpstreamCommits();
+	const upstreamCommits = getUpstreamCommits();
+	$: unknownCommits = $upstreamCommits.filter((c) => !c.relatedTo || c.id != c.relatedTo.id);
 
 	function defaultAction(): Persisted<BranchAction> {
 		const key = 'projectDefaultAction_';
@@ -38,7 +39,7 @@
 	let dropDown: DropDownButton;
 	let disabled = false;
 	let isPushed = $localCommits.length == 0 && !branch.requiresForce;
-	$: canBeRebased = $unknownCommits.length > 0;
+	$: canBeRebased = $upstreamCommits.length != unknownCommits.length;
 	$: selection$ = contextMenu?.selection$;
 	$: action = selectAction(isPushed, $preferredAction);
 
@@ -100,7 +101,7 @@
 					id="rebase"
 					label="Rebase upstream"
 					selected={action == BranchAction.Rebase}
-					disabled={isPushed}
+					disabled={isPushed || unknownCommits.length == 0}
 				/>
 			{/if}
 			{#if canBeRebased}
@@ -108,7 +109,7 @@
 					id="rebase"
 					label="Rebase upstream"
 					selected={action == BranchAction.Rebase}
-					disabled={isPushed}
+					disabled={isPushed || unknownCommits.length == 0}
 				/>
 			{/if}
 		</ContextMenuSection>

@@ -20,13 +20,15 @@
 
 	const localCommits = getLocalCommits();
 	const remoteCommits = getRemoteCommits();
-	const unknownCommits = getUpstreamCommits();
+	const upstreamCommits = getUpstreamCommits();
+	$: unknownCommits = $upstreamCommits.filter((c) => !c.relatedTo || c.id != c.relatedTo.id);
+	$: console.log(unknownCommits);
 
 	$: hasCommits =
-		$localCommits.length > 0 || $remoteCommits.length > 0 || $unknownCommits.length > 0;
+		$localCommits.length > 0 || $remoteCommits.length > 0 || unknownCommits.length > 0;
 
 	let isLoading: boolean;
-	$: isPushed = $localCommits.length == 0 && $unknownCommits.length == 0;
+	$: isPushed = $localCommits.length == 0 && unknownCommits.length == 0;
 </script>
 
 {#if !isUnapplied && hasCommits}
