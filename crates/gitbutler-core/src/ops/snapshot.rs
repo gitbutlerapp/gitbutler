@@ -14,8 +14,8 @@ pub trait Snapshot {
     fn snapshot_branch_unapplied(&self, branch_name: String) -> anyhow::Result<()>;
     fn snapshot_branch_update(
         &self,
-        old_branch: Branch,
-        update: BranchUpdateRequest,
+        old_branch: &Branch,
+        update: &BranchUpdateRequest,
     ) -> anyhow::Result<()>;
     fn snapshot_commit_creation(
         &self,
@@ -92,15 +92,15 @@ impl<T: Oplog> Snapshot for T {
     }
     fn snapshot_branch_update(
         &self,
-        old_branch: Branch,
-        update: BranchUpdateRequest,
+        old_branch: &Branch,
+        update: &BranchUpdateRequest,
     ) -> anyhow::Result<()> {
         let details = if update.ownership.is_some() {
             SnapshotDetails::new(OperationType::MoveHunk).with_trailers(vec![Trailer {
                 key: "name".to_string(),
                 value: old_branch.name.to_string(),
             }])
-        } else if let Some(name) = update.name {
+        } else if let Some(name) = update.name.clone() {
             SnapshotDetails::new(OperationType::UpdateBranchName).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),
@@ -135,10 +135,10 @@ impl<T: Oplog> Snapshot for T {
                 },
                 Trailer {
                     key: "after".to_string(),
-                    value: old_branch.name,
+                    value: old_branch.name.clone(),
                 },
             ])
-        } else if let Some(upstream) = update.upstream {
+        } else if let Some(upstream) = update.upstream.clone() {
             SnapshotDetails::new(OperationType::UpdateBranchRemoteName).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),

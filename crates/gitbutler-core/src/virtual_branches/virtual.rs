@@ -240,6 +240,10 @@ pub fn apply_branch(
         Err(error) => Err(errors::ApplyBranchError::Other(error.into())),
     }?;
 
+    _ = project_repository
+        .project()
+        .snapshot_branch_applied(branch.name.clone());
+
     if branch.applied {
         return Ok(());
     }
@@ -456,10 +460,6 @@ pub fn apply_branch(
         .context("failed to checkout index")?;
 
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-
-    _ = project_repository
-        .project()
-        .snapshot_branch_applied(branch.name);
     Ok(())
 }
 
@@ -629,6 +629,9 @@ pub fn unapply_branch(
     if !target_branch.applied {
         return Ok(Some(target_branch));
     }
+    let _ = project_repository
+        .project()
+        .snapshot_branch_unapplied(target_branch.name.clone());
 
     let default_target = vb_state.get_default_target()?;
     let repo = &project_repository.git_repository;
@@ -1043,6 +1046,22 @@ pub fn create_virtual_branch(
     let mut all_virtual_branches = vb_state
         .list_branches()
         .context("failed to read virtual branches")?;
+
+    let name = dedup(
+        &all_virtual_branches
+            .iter()
+            .map(|b| b.name.as_str())
+            .collect::<Vec<_>>(),
+        create
+            .name
+            .as_ref()
+            .unwrap_or(&"Virtual branch".to_string()),
+    );
+
+    _ = project_repository
+        .project()
+        .snapshot_branch_creation(name.clone());
+
     all_virtual_branches.sort_by_key(|branch| branch.order);
 
     let order = create
@@ -1082,17 +1101,6 @@ pub fn create_virtual_branch(
         }
     }
 
-    let name = dedup(
-        &all_virtual_branches
-            .iter()
-            .map(|b| b.name.as_str())
-            .collect::<Vec<_>>(),
-        create
-            .name
-            .as_ref()
-            .unwrap_or(&"Virtual branch".to_string()),
-    );
-
     let now = crate::time::now_ms();
 
     let mut branch = Branch {
@@ -1121,7 +1129,6 @@ pub fn create_virtual_branch(
 
     project_repository.add_branch_reference(&branch)?;
 
-    _ = project_repository.project().snapshot_branch_creation(name);
     Ok(branch)
 }
 
@@ -1366,7 +1373,9 @@ pub fn update_branch(
             }
             _ => errors::UpdateBranchError::Other(error.into()),
         })?;
-    let branch_before_update = branch.clone();
+    _ = project_repository
+        .project()
+        .snapshot_branch_update(&branch, &branch_update);
 
     if let Some(ownership) = &branch_update.ownership {
         set_ownership(&vb_state, &mut branch, ownership).context("failed to set ownership")?;
@@ -1435,10 +1444,6 @@ pub fn update_branch(
     vb_state
         .set_branch(branch.clone())
         .context("failed to write target branch")?;
-
-    _ = project_repository
-        .project()
-        .snapshot_branch_update(branch_before_update, branch_update);
     Ok(branch)
 }
 
@@ -1453,11 +1458,11 @@ pub fn delete_branch(
         Err(error) => Err(error),
     }
     .context("failed to read branch")?;
+    _ = project_repository
+        .project()
+        .snapshot_branch_deletion(branch.name.clone());
 
     if branch.applied && unapply_branch(project_repository, branch_id)?.is_none() {
-        _ = project_repository
-            .project()
-            .snapshot_branch_deletion(branch.name);
         return Ok(());
     }
 
@@ -1469,9 +1474,6 @@ pub fn delete_branch(
 
     ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
-    _ = project_repository
-        .project()
-        .snapshot_branch_deletion(branch.name);
     Ok(())
 }
 
@@ -4022,6 +4024,15 @@ pub fn create_virtual_branch_from_branch(
         ));
     }
 
+    let branch_name = upstream
+        .branch()
+        .expect("always a branch reference")
+        .to_string();
+
+    let _ = project_repository
+        .project()
+        .snapshot_branch_creation(branch_name.clone());
+
     let vb_state = project_repository.project().virtual_branches();
 
     let default_target = vb_state.get_default_target()?;
@@ -4115,10 +4126,6 @@ pub fn create_virtual_branch_from_branch(
         },
     );
 
-    let branch_name = upstream
-        .branch()
-        .expect("always a branch reference")
-        .to_string();
     let branch = branch::Branch {
         id: BranchId::generate(),
         name: branch_name.clone(),
@@ -4140,10 +4147,6 @@ pub fn create_virtual_branch_from_branch(
         .context("failed to write branch")?;
 
     project_repository.add_branch_reference(&branch)?;
-
-    let _ = project_repository
-        .project()
-        .snapshot_branch_creation(branch_name);
 
     match apply_branch(project_repository, &branch.id, user) {
         Ok(()) => Ok(branch.id),
