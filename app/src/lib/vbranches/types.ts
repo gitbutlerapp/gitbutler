@@ -109,6 +109,7 @@ export class Branch {
 	order!: number;
 	@Type(() => RemoteBranch)
 	upstream?: RemoteBranch;
+	upstreamData?: RemoteBranchData;
 	upstreamName?: string;
 	conflicted!: boolean;
 	// TODO: to be removed from the API
@@ -170,7 +171,7 @@ export class Commit {
 	}
 
 	get status(): CommitStatus {
-		if (this.isRemote) return 'remote';
+		if (this.isRemote && !this.relatedTo) return 'remote';
 		return 'local';
 	}
 
@@ -200,8 +201,9 @@ export class RemoteCommit {
 	changeId!: string;
 	isSigned!: boolean;
 
-	parent?: Commit;
-	children?: Commit[];
+	parent?: RemoteCommit;
+	children?: RemoteCommit[];
+	relatedTo?: Commit;
 
 	get isLocal() {
 		return false;
@@ -233,6 +235,8 @@ export const UNKNOWN_COMMITS = Symbol('UnknownCommits');
 
 export function commitCompare(left: AnyCommit, right: AnyCommit): boolean {
 	if (left.id == right.id) return true;
+	if (left.changeId && right.changeId && left.changeId == right.changeId) return true;
+
 	if (left.description != right.description) return false;
 	if (left.author.name != right.author.name) return false;
 	if (left.author.email != right.author.email) return false;

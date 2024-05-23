@@ -3,7 +3,7 @@
 	import CommitLines from './CommitLines.svelte';
 	import CommitListItem from './CommitListItem.svelte';
 	import { getContextStore } from '$lib/utils/context';
-	import { getLocalCommits, getRemoteCommits, getUnknownCommits } from '$lib/vbranches/contexts';
+	import { getLocalCommits, getRemoteCommits, getUpstreamCommits } from '$lib/vbranches/contexts';
 	import { BaseBranch, Branch } from '$lib/vbranches/types';
 
 	export let isUnapplied: boolean;
@@ -11,23 +11,29 @@
 	const branch = getContextStore(Branch);
 	const localCommits = getLocalCommits();
 	const remoteCommits = getRemoteCommits();
-	const unknownCommits = getUnknownCommits();
+	const upstreamCommits = getUpstreamCommits();
 	const baseBranch = getContextStore(BaseBranch);
 
-	$: hasShadowColumn = $localCommits.some((c) => !!c.relatedTo);
+	$: hasShadowColumn = $localCommits.some((c) => !c.relatedTo || c.id != c.relatedTo.id);
 	$: hasLocalColumn = $localCommits.length > 0;
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
-	$: hasUnknownCommits = $unknownCommits.length > 0;
+
+	$: unknownCommits = $upstreamCommits.filter((c) => !c.relatedTo || c.id != c.relatedTo.id);
+	$: $upstreamCommits.forEach((c) => console.log(`${c.id}, ${c.relatedTo?.id}`));
+	$: console.log(unknownCommits);
+	$: console.log($upstreamCommits);
+
+	$: hasUnknownCommits = unknownCommits.length > 0;
 </script>
 
 {#if hasCommits}
 	<div class="commit-list__content">
 		<div class="title text-base-13 text-semibold"></div>
 		<div class="commits">
-			{#if $unknownCommits.length > 0}
+			{#if unknownCommits.length > 0}
 				<CommitLines {hasShadowColumn} {hasLocalColumn} localLine />
-				{#each $unknownCommits as commit, idx (commit.id)}
+				{#each unknownCommits as commit, idx (commit.id)}
 					<div class="commit-lines">
 						<CommitLines
 							{hasLocalColumn}
@@ -44,7 +50,7 @@
 								{commit}
 								{isUnapplied}
 								first={idx == 0}
-								last={idx == $unknownCommits.length - 1}
+								last={idx == $upstreamCommits.length - 1}
 								commitUrl={$baseBranch?.commitUrl(commit.id)}
 								isHeadCommit={commit.id === headCommit?.id}
 							/>
@@ -65,7 +71,7 @@
 							{hasLocalColumn}
 							{hasShadowColumn}
 							localCommit={commit}
-							shadowLine={hasShadowColumn}
+							shadowLine={hasShadowColumn && !!commit.relatedTo}
 							first={idx == 0}
 							upstreamLine={hasUnknownCommits}
 						/>
