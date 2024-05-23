@@ -12,7 +12,6 @@ use std::{
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice, ByteVec};
 use diffy::{apply_bytes as diffy_apply, Line, Patch};
-use git2::IndexConflicts;
 use git2_hooks::HookResult;
 use hex::ToHex;
 use regex::Regex;
