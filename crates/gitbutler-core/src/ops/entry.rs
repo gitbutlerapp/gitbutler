@@ -19,7 +19,7 @@ use serde::Serialize;
 pub struct Snapshot {
     /// The sha of the commit that represents the snapshot
     pub id: String,
-    /// Snapshot creation time in epoch milliseconds
+    /// Snapshot creation time as a duration since the Unix epoch
     pub created_at: Duration,
     /// The number of working directory lines added in the snapshot
     pub lines_added: usize,
