@@ -690,18 +690,17 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result = super::move_commit_file(
+            let _ = project_repository
+                .project()
+                .create_snapshot(SnapshotDetails::new(OperationType::MoveCommitFile));
+            super::move_commit_file(
                 project_repository,
                 branch_id,
                 from_commit_oid,
                 to_commit_oid,
                 ownership,
             )
-            .map_err(Into::into);
-            let _ = project_repository
-                .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::MoveCommitFile));
-            result
+            .map_err(Into::into)
         })
     }
 
