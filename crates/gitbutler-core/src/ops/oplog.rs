@@ -538,6 +538,9 @@ impl Oplog for Project {
         self.create_snapshot(details)
     }
 
+    // This looks at the diff between the tree of the currenly selected as 'default' branch (where new changes go)
+    // and that same tree in the last snapshot. For some reason, comparing workdir to the workdir subree from
+    // the snapshot simply does not give us what we need here, so instead using tree to tree comparison.
     fn lines_since_snapshot(&self) -> Result<usize> {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
@@ -554,17 +557,42 @@ impl Oplog for Project {
         }
         let head_sha = head_sha.unwrap();
 
+        let vb_state = self.virtual_branches();
+        let binding = vb_state.list_branches()?;
+        let active_branch = binding
+            .iter()
+            .filter(|b| b.applied)
+            .max_by_key(|branch| branch.selected_for_changes.unwrap_or(i64::MIN));
+        if active_branch.is_none() {
+            return Ok(0);
+        }
+        let active_branch = active_branch.unwrap();
+        let active_branch_tree = repo.find_tree(active_branch.tree.into())?;
+
         let commit = repo.find_commit(git2::Oid::from_str(&head_sha)?)?;
         let head_tree = commit.tree()?;
-
-        let wd_tree_entry = head_tree
-            .get_name("workdir")
-            .ok_or(anyhow!("failed to get workdir tree entry"))?;
-        let wd_tree = repo.find_tree(wd_tree_entry.id())?;
+        let virtual_branches = head_tree
+            .get_name("virtual_branches")
+            .ok_or(anyhow!("failed to get virtual_branches tree entry"))?;
+        let virtual_branches = repo.find_tree(virtual_branches.id())?;
+        let old_active_branch = virtual_branches
+            .get_name(active_branch.id.to_string().as_str())
+            .ok_or(anyhow!("failed to get active branch from tree entry"))?;
+        let old_active_branch = repo.find_tree(old_active_branch.id())?;
+        let old_active_branch_tree = old_active_branch
+            .get_name("tree")
+            .ok_or(anyhow!("failed to get integration tree entry"))?;
+        let old_active_branch_tree = repo.find_tree(old_active_branch_tree.id())?;
 
         let mut opts = git2::DiffOptions::new();
         opts.include_untracked(true);
-        let diff = repo.diff_tree_to_workdir_with_index(Some(&wd_tree), Some(&mut opts));
+        opts.ignore_submodules(true);
+
+        let diff = repo.diff_tree_to_tree(
+            Some(&active_branch_tree),
+            Some(&old_active_branch_tree),
+            Some(&mut opts),
+        );
         let stats = diff?.stats()?;
         Ok(stats.deletions() + stats.insertions())
     }
