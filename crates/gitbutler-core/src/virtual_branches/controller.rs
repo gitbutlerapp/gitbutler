@@ -450,7 +450,10 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let result = super::commit(
+            let _ = project_repository
+                .project()
+                .snapshot_commit_creation(message.to_owned(), Some("".to_string())); // TODO(kv): We can do this properly when we make the snapshotting in 2 parts (create tree + commit)
+            super::commit(
                 project_repository,
                 branch_id,
                 message,
@@ -458,13 +461,7 @@ impl ControllerInner {
                 user,
                 run_hooks,
             )
-            .map_err(Into::into);
-
-            let sha = result.as_ref().ok().map(|oid| oid.to_string());
-            let _ = project_repository
-                .project()
-                .snapshot_commit_creation(message.to_owned(), sha);
-            result
+            .map_err(Into::into)
         })
     }
 
