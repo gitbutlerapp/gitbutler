@@ -79,13 +79,13 @@ impl WatcherHandle {
 /// was changed to what it is now, which should be much less wasteful.
 pub fn watch_in_background(
     handler: handler::Handler,
-    path: impl AsRef<Path>,
+    worktree_path: impl AsRef<Path>,
     project_id: ProjectId,
 ) -> Result<WatcherHandle, anyhow::Error> {
     let (events_out, mut events_in) = unbounded_channel();
     let (flush_tx, mut flush_rx) = unbounded_channel();
 
-    let debounce = file_monitor::spawn(project_id, path.as_ref(), events_out.clone())?;
+    let debounce = file_monitor::spawn(project_id, worktree_path.as_ref(), events_out.clone())?;
 
     let cancellation_token = CancellationToken::new();
     let handle = WatcherHandle {
