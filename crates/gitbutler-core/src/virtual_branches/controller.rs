@@ -799,16 +799,6 @@ impl ControllerInner {
 
         self.with_verify_branch(project_id, |project_repository, _| {
             let result = super::unapply_branch(project_repository, branch_id);
-            let branch_name = result
-                .as_ref()
-                .ok()
-                .cloned()
-                .flatten()
-                .map(|b| b.name)
-                .unwrap_or_default();
-            let _ = project_repository
-                .project()
-                .snapshot_branch_unapplied(branch_name);
             result.map(|_| ()).map_err(Into::into)
         })
     }

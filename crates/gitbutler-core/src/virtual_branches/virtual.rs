@@ -629,6 +629,9 @@ pub fn unapply_branch(
     if !target_branch.applied {
         return Ok(Some(target_branch));
     }
+    let _ = project_repository
+        .project()
+        .snapshot_branch_unapplied(target_branch.name.clone());
 
     let default_target = vb_state.get_default_target()?;
     let repo = &project_repository.git_repository;
