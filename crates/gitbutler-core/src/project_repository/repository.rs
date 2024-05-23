@@ -316,6 +316,19 @@ impl Repository {
         .context("failed to collect oids")
     }
 
+    // returns a list of oids from the first oid to the second oid
+    pub fn list(&self, from: git::Oid, to: git::Oid) -> Result<Vec<git::Oid>> {
+        self.l(from, LogUntil::Commit(to))
+    }
+
+    pub fn list_commits(&self, from: git::Oid, to: git::Oid) -> Result<Vec<git::Commit>> {
+        Ok(self
+            .list(from, to)?
+            .into_iter()
+            .map(|oid| self.git_repository.find_commit(oid))
+            .collect::<Result<Vec<_>, _>>()?)
+    }
+
     // returns a list of commits from the first oid to the second oid
     pub fn log(&self, from: git::Oid, to: LogUntil) -> Result<Vec<git::Commit>> {
         self.l(from, to)?

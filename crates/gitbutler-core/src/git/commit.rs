@@ -3,6 +3,7 @@ use std::time::Duration;
 use super::{Oid, Result, Signature, Tree};
 use bstr::BStr;
 
+#[derive(Debug)]
 pub struct Commit<'repo> {
     commit: git2::Commit<'repo>,
 }

@@ -212,7 +212,7 @@
 					{/if}
 				</div>
 
-				<div class="relative" bind:this={meatballButton}>
+				<div class="relative">
 					{#if isUnapplied}
 						<Button
 							style="ghost"
@@ -265,6 +265,7 @@
 								/>
 							{/if}
 							<Button
+								element={meatballButton}
 								style="ghost"
 								kind="solid"
 								icon="kebab"

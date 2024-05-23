@@ -285,8 +285,8 @@ impl Repository {
     /// returns an oid of the new commit object
     pub fn commit_buffer(&self, buffer: String) -> Result<git2::Oid> {
         // check git config for gpg.signingkey
-        let should_sign = self.0.config()?.get_string("commit.gpgSign");
-        if should_sign.unwrap_or("false".to_string()) != "false" {
+        let should_sign = self.0.config()?.get_bool("commit.gpgSign").unwrap_or(false);
+        if should_sign {
             // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
             let signing_key = self.0.config()?.get_string("user.signingkey");
             if let Ok(signing_key) = signing_key {

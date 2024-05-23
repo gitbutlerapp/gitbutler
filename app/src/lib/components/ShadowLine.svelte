@@ -4,6 +4,7 @@
 
 	export let line: boolean;
 	export let first: boolean;
+	export let short: boolean;
 	export let remoteCommit: RemoteCommit | undefined;
 	export let localCommit: Commit | undefined;
 	export let dashed: boolean;
@@ -15,17 +16,22 @@
 		{#if upstreamLine}
 			<div class="shadow-line tip" class:upstream={upstreamLine}></div>
 		{/if}
-		<div class="shadow-line" class:dashed class:short={first} />
+		<div class="shadow-line" class:dashed class:short class:first />
 	{:else if upstreamLine}
-		<div class="shadow-line upstream" class:short={first} />
+		<div class="shadow-line upstream" class:short class:first />
 	{/if}
 	{#if localCommit}
-		<div class="shadow-marker" class:first use:tooltip={localCommit.descriptionTitle}></div>
+		<div
+			class="shadow-marker"
+			class:first
+			class:short
+			use:tooltip={localCommit.descriptionTitle}
+		></div>
 	{/if}
 	{#if remoteCommit}
 		{@const author = remoteCommit.author}
 		<img
-			class="avatar avatar"
+			class="avatar"
 			class:first
 			title={author.name}
 			alt="Gravatar for {author.email}"
@@ -54,7 +60,10 @@
 		bottom: 0;
 		top: 0;
 		&.short {
-			top: 3rem;
+			top: 1rem;
+			&.first {
+				top: 3rem;
+			}
 		}
 		&.dashed {
 			background: repeating-linear-gradient(

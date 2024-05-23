@@ -14,7 +14,7 @@
 	import { persisted, type Persisted } from '$lib/persisted/persisted';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
-	import { getLocalCommits, getUnknownCommits } from '$lib/vbranches/contexts';
+	import { getLocalCommits, getUnknownCommits, getUpstreamCommits } from '$lib/vbranches/contexts';
 	import { createEventDispatcher } from 'svelte';
 	import type { Branch } from '$lib/vbranches/types';
 
@@ -24,6 +24,7 @@
 
 	const project = getContext(Project);
 	const localCommits = getLocalCommits();
+	const upstreamCommits = getUpstreamCommits();
 	const unknownCommits = getUnknownCommits();
 
 	function defaultAction(): Persisted<BranchAction> {
@@ -38,7 +39,7 @@
 	let dropDown: DropDownButton;
 	let disabled = false;
 	let isPushed = $localCommits.length == 0 && !branch.requiresForce;
-	$: canBeRebased = $unknownCommits.length > 0;
+	$: canBeRebased = $upstreamCommits.length != $unknownCommits.length;
 	$: selection$ = contextMenu?.selection$;
 	$: action = selectAction(isPushed, $preferredAction);
 
@@ -95,20 +96,12 @@
 					disabled={isPushed}
 				/>
 			{/if}
-			{#if !branch.requiresForce}
+			{#if !branch.requiresForce || canBeRebased}
 				<ContextMenuItem
 					id="rebase"
 					label="Rebase upstream"
 					selected={action == BranchAction.Rebase}
-					disabled={isPushed}
-				/>
-			{/if}
-			{#if canBeRebased}
-				<ContextMenuItem
-					id="rebase"
-					label="Rebase upstream"
-					selected={action == BranchAction.Rebase}
-					disabled={isPushed}
+					disabled={isPushed || $unknownCommits.length == 0}
 				/>
 			{/if}
 		</ContextMenuSection>

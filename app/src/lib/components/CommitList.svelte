@@ -3,7 +3,12 @@
 	import CommitLines from './CommitLines.svelte';
 	import CommitListItem from './CommitListItem.svelte';
 	import { getContextStore } from '$lib/utils/context';
-	import { getLocalCommits, getRemoteCommits, getUnknownCommits } from '$lib/vbranches/contexts';
+	import {
+		getLocalCommits,
+		getRemoteCommits,
+		getUnknownCommits,
+		getUpstreamCommits
+	} from '$lib/vbranches/contexts';
 	import { BaseBranch, Branch } from '$lib/vbranches/types';
 
 	export let isUnapplied: boolean;
@@ -11,10 +16,11 @@
 	const branch = getContextStore(Branch);
 	const localCommits = getLocalCommits();
 	const remoteCommits = getRemoteCommits();
+	const upstreamCommits = getUpstreamCommits();
 	const unknownCommits = getUnknownCommits();
 	const baseBranch = getContextStore(BaseBranch);
 
-	$: hasShadowColumn = $localCommits.some((c) => !!c.relatedTo);
+	$: hasShadowColumn = $localCommits.some((c) => c.relatedTo && c.id != c.relatedTo.id);
 	$: hasLocalColumn = $localCommits.length > 0;
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
@@ -44,7 +50,7 @@
 								{commit}
 								{isUnapplied}
 								first={idx == 0}
-								last={idx == $unknownCommits.length - 1}
+								last={idx == $upstreamCommits.length - 1}
 								commitUrl={$baseBranch?.commitUrl(commit.id)}
 								isHeadCommit={commit.id === headCommit?.id}
 							/>
@@ -65,7 +71,7 @@
 							{hasLocalColumn}
 							{hasShadowColumn}
 							localCommit={commit}
-							shadowLine={hasShadowColumn}
+							shadowLine={hasShadowColumn && !!commit.relatedTo}
 							first={idx == 0}
 							upstreamLine={hasUnknownCommits}
 						/>
@@ -97,6 +103,7 @@
 							{hasLocalColumn}
 							{hasShadowColumn}
 							localCommit={commit}
+							localLine={idx == 0 && commit.parent?.status == 'local'}
 							first={idx == 0}
 							upstreamLine={hasUnknownCommits}
 						/>

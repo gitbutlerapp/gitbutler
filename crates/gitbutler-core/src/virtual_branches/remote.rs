@@ -47,6 +47,7 @@ pub struct RemoteCommit {
     pub description: BString,
     pub created_at: Duration,
     pub author: Author,
+    pub change_id: Option<String>,
 }
 
 // for legacy purposes, this is still named "remote" branches, but it's actually
@@ -182,6 +183,7 @@ pub fn commit_to_remote_commit(commit: &git::Commit) -> RemoteCommit {
         description: commit.message().to_owned(),
         created_at: commit.time(),
         author: commit.author().into(),
+        change_id: commit.change_id(),
     }
 }
 

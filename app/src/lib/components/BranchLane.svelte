@@ -6,18 +6,18 @@
 	import { projectLaneCollapsed } from '$lib/config/config';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStoreBySymbol, createContextStore } from '$lib/utils/context';
 	import { isDefined } from '$lib/utils/typeguards';
 	import {
 		createLocalContextStore,
 		createRemoteContextStore,
 		createSelectedFiles,
-		createUnknownContextStore
+		createUnknownCommitsStore,
+		createUpstreamContextStore
 	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import { RemoteFile, Branch, commitCompare, RemoteCommit } from '$lib/vbranches/types';
+	import { RemoteFile, Branch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { setContext } from 'svelte';
 	import { quintOut } from 'svelte/easing';
@@ -40,8 +40,10 @@
 	$: remoteCommits.set(branch.remoteCommits);
 
 	// Set the store immediately so it can be updated later.
-	const upstreamCommits = createUnknownContextStore([]);
-	$: if (branch.upstream?.name) loadRemoteBranch(branch.upstream?.name);
+	const upstreamCommits = createUpstreamContextStore([]);
+	$: upstreamCommits.set(branch.upstreamData?.commits ?? []);
+	const unknownCommits = createUnknownCommitsStore([]);
+	$: unknownCommits.set($upstreamCommits.filter((c) => !c.relatedTo || c.id != c.relatedTo.id));
 
 	const fileIdSelection = new FileIdSelection();
 	setContext(FileIdSelection, fileIdSelection);
@@ -57,23 +59,6 @@
 	}
 
 	$: displayedFile = $selectedFiles.length == 1 ? $selectedFiles[0] : undefined;
-
-	async function loadRemoteBranch(name: string) {
-		const upstream = await getRemoteBranchData(project.id, name);
-		if (!upstream.commits) return;
-		const unknownCommits: RemoteCommit[] = [];
-		upstream?.commits.forEach((upstreamCommit) => {
-			let match = branch.commits.find((commit) => commitCompare(upstreamCommit, commit));
-			if (match) {
-				match.relatedTo = upstreamCommit;
-			} else unknownCommits.push(upstreamCommit);
-		});
-		if (upstream.commits.length != unknownCommits.length) {
-			// Force update since we've mutated local commits
-			localCommits.set($localCommits);
-		}
-		upstreamCommits.set(unknownCommits);
-	}
 
 	const project = getContext(Project);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);

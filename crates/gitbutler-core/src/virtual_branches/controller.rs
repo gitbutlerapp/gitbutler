@@ -157,14 +157,14 @@ impl Controller {
             .set_target_push_remote(project_id, push_remote)
     }
 
-    pub async fn merge_virtual_branch_upstream(
+    pub async fn integrate_upstream_commits(
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
     ) -> Result<(), Error> {
         self.inner(project_id)
             .await
-            .merge_virtual_branch_upstream(project_id, branch_id)
+            .integrate_upstream_commits(project_id, branch_id)
             .await
     }
 
@@ -450,7 +450,10 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let result = super::commit(
+            let _ = project_repository
+                .project()
+                .snapshot_commit_creation(message.to_owned(), Some("".to_string())); // TODO(kv): We can do this properly when we make the snapshotting in 2 parts (create tree + commit)
+            super::commit(
                 project_repository,
                 branch_id,
                 message,
@@ -458,13 +461,7 @@ impl ControllerInner {
                 user,
                 run_hooks,
             )
-            .map_err(Into::into);
-
-            let sha = result.as_ref().ok().map(|oid| oid.to_string());
-            let _ = project_repository
-                .project()
-                .snapshot_commit_creation(message.to_owned(), sha);
-            result
+            .map_err(Into::into)
         })
     }
 
@@ -553,10 +550,10 @@ impl ControllerInner {
     ) -> Result<super::BaseBranch, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        let result = super::set_base_branch(&project_repository, target_branch)?;
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationType::SetBaseBranch));
+        let result = super::set_base_branch(&project_repository, target_branch)?;
         Ok(result)
     }
 
@@ -571,7 +568,7 @@ impl ControllerInner {
         Ok(())
     }
 
-    pub async fn merge_virtual_branch_upstream(
+    pub async fn integrate_upstream_commits(
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
@@ -579,12 +576,11 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let result = super::merge_virtual_branch_upstream(project_repository, branch_id, user)
-                .map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::MergeUpstream));
-            result
+            super::integrate_upstream_commits(project_repository, branch_id, user)
+                .map_err(Into::into)
         })
     }
 
@@ -592,11 +588,10 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let result = super::update_base_branch(project_repository, user).map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::UpdateWorkspaceBase));
-            result
+            super::update_base_branch(project_repository, user).map_err(Into::into)
         })
     }
 
@@ -645,12 +640,10 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result =
-                super::unapply_ownership(project_repository, ownership).map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::DiscardHunk));
-            result
+            super::unapply_ownership(project_repository, ownership).map_err(Into::into)
         })
     }
 
@@ -662,11 +655,10 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result = super::reset_files(project_repository, ownership).map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::DiscardFile));
-            result
+            super::reset_files(project_repository, ownership).map_err(Into::into)
         })
     }
 
@@ -680,12 +672,10 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result = super::amend(project_repository, branch_id, commit_oid, ownership)
-                .map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::AmendCommit));
-            result
+            super::amend(project_repository, branch_id, commit_oid, ownership).map_err(Into::into)
         })
     }
 
@@ -700,18 +690,17 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result = super::move_commit_file(
+            let _ = project_repository
+                .project()
+                .create_snapshot(SnapshotDetails::new(OperationType::MoveCommitFile));
+            super::move_commit_file(
                 project_repository,
                 branch_id,
                 from_commit_oid,
                 to_commit_oid,
                 ownership,
             )
-            .map_err(Into::into);
-            let _ = project_repository
-                .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::MoveCommitFile));
-            result
+            .map_err(Into::into)
         })
     }
 
@@ -724,12 +713,10 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result =
-                super::undo_commit(project_repository, branch_id, commit_oid).map_err(Into::into);
             let _ = project_repository
                 .project()
                 .snapshot_commit_undo(commit_oid.to_string());
-            result
+            super::undo_commit(project_repository, branch_id, commit_oid).map_err(Into::into)
         })
     }
 
@@ -743,13 +730,11 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let result =
-                super::insert_blank_commit(project_repository, branch_id, commit_oid, user, offset)
-                    .map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::InsertBlankCommit));
-            result
+            super::insert_blank_commit(project_repository, branch_id, commit_oid, user, offset)
+                .map_err(Into::into)
         })
     }
 
@@ -763,12 +748,11 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result = super::reorder_commit(project_repository, branch_id, commit_oid, offset)
-                .map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::ReorderCommit));
-            result
+            super::reorder_commit(project_repository, branch_id, commit_oid, offset)
+                .map_err(Into::into)
         })
     }
 
@@ -781,12 +765,11 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result = super::reset_branch(project_repository, branch_id, target_commit_oid)
-                .map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::UndoCommit));
-            result
+            super::reset_branch(project_repository, branch_id, target_commit_oid)
+                .map_err(Into::into)
         })
     }
 
@@ -799,16 +782,6 @@ impl ControllerInner {
 
         self.with_verify_branch(project_id, |project_repository, _| {
             let result = super::unapply_branch(project_repository, branch_id);
-            let branch_name = result
-                .as_ref()
-                .ok()
-                .cloned()
-                .flatten()
-                .map(|b| b.name)
-                .unwrap_or_default();
-            let _ = project_repository
-                .project()
-                .snapshot_branch_unapplied(branch_name);
             result.map(|_| ()).map_err(Into::into)
         })
     }
@@ -846,12 +819,10 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result =
-                super::cherry_pick(project_repository, branch_id, commit_oid).map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::CherryPick));
-            result
+            super::cherry_pick(project_repository, branch_id, commit_oid).map_err(Into::into)
         })
     }
 
@@ -883,12 +854,10 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result =
-                super::squash(project_repository, branch_id, commit_oid).map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::SquashCommit));
-            result
+            super::squash(project_repository, branch_id, commit_oid).map_err(Into::into)
         })
     }
 
@@ -901,13 +870,11 @@ impl ControllerInner {
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result =
-                super::update_commit_message(project_repository, branch_id, commit_oid, message)
-                    .map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::UpdateCommitMessage));
-            result
+            super::update_commit_message(project_repository, branch_id, commit_oid, message)
+                .map_err(Into::into)
         })
     }
 
@@ -972,12 +939,11 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let result = super::move_commit(project_repository, target_branch_id, commit_oid, user)
-                .map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::MoveCommit));
-            result
+            super::move_commit(project_repository, target_branch_id, commit_oid, user)
+                .map_err(Into::into)
         })
     }
 }
