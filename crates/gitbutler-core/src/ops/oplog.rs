@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use git2::FileMode;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -9,6 +9,7 @@ use std::{fs, path::PathBuf};
 use anyhow::Result;
 
 use crate::git::diff::FileDiff;
+use crate::virtual_branches::Branch;
 use crate::{git::diff::hunks_by_filepath, projects::Project};
 
 use super::{
@@ -53,10 +54,17 @@ pub trait Oplog {
     /// If there are files that are untracked and larger than SNAPSHOT_FILE_LIMIT_BYTES, they are excluded from snapshot creation and restoring.
     /// Returns the sha of the created revert snapshot commit or None if snapshots are disabled.
     fn restore_snapshot(&self, sha: String) -> Result<Option<String>>;
-    /// Returns the number of lines of code (added plus removed) since the last snapshot. Includes untracked files.
+    /// Determines if a new snapshot should be created due to file changes being created since the last snapshot.
+    /// The needs for the automatic snapshotting are:
+    ///  - It needs to facilitate backup of work in progress code
+    ///  - The snapshots should not be too frequent or small - both for UX and performance reasons
+    ///  - Checking if an automatic snapshot is needed should be fast and efficient since it is called on filesystem events
     ///
-    /// If there are no snapshots, 0 is returned.
-    fn lines_since_snapshot(&self) -> Result<usize>;
+    /// This implementation works as follows:
+    ///  - If it's been more than 5 minutes since the last snapshot,
+    ///    check the sum of added and removed lines since the last snapshot, otherwise return false.
+    ///  - If the sum of added and removed lines is greater than a configured threshold, return true, otherwise return false.
+    fn should_auto_snapshot(&self) -> Result<bool>;
     /// Returns the diff of the snapshot and it's parent. It only includes the workdir changes.
     ///
     /// This is useful to show what has changed in this particular snapshot
@@ -539,63 +547,21 @@ impl Oplog for Project {
         self.create_snapshot(details)
     }
 
-    // This looks at the diff between the tree of the currenly selected as 'default' branch (where new changes go)
-    // and that same tree in the last snapshot. For some reason, comparing workdir to the workdir subree from
-    // the snapshot simply does not give us what we need here, so instead using tree to tree comparison.
-    fn lines_since_snapshot(&self) -> Result<usize> {
-        let repo_path = self.path.as_path();
-        let repo = git2::Repository::init(repo_path)?;
-
-        // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
-        let files_to_exclude = get_exclude_list(&repo)?;
-        // In-memory, libgit2 internal ignore rule
-        repo.add_ignore_rule(&files_to_exclude)?;
-
+    fn should_auto_snapshot(&self) -> Result<bool> {
         let oplog_state = OplogHandle::new(&self.gb_dir());
-        let head_sha = oplog_state.get_oplog_head()?;
-        if head_sha.is_none() {
-            return Ok(0);
+        let last_snapshot_time = oplog_state.get_modified_at().unwrap_or_default();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .context("failed to get time since epoch")?;
+        if now - last_snapshot_time < Duration::from_secs(300) {
+            return Ok(false);
+        } else {
+            let changed_lines = lines_since_snapshot(self)?;
+            if changed_lines > self.snapshot_lines_threshold() {
+                return Ok(true);
+            }
         }
-        let head_sha = head_sha.unwrap();
-
-        let vb_state = self.virtual_branches();
-        let binding = vb_state.list_branches()?;
-        let active_branch = binding
-            .iter()
-            .filter(|b| b.applied)
-            .max_by_key(|branch| branch.selected_for_changes.unwrap_or(i64::MIN));
-        if active_branch.is_none() {
-            return Ok(0);
-        }
-        let active_branch = active_branch.unwrap();
-        let active_branch_tree = repo.find_tree(active_branch.tree.into())?;
-
-        let commit = repo.find_commit(git2::Oid::from_str(&head_sha)?)?;
-        let head_tree = commit.tree()?;
-        let virtual_branches = head_tree
-            .get_name("virtual_branches")
-            .ok_or(anyhow!("failed to get virtual_branches tree entry"))?;
-        let virtual_branches = repo.find_tree(virtual_branches.id())?;
-        let old_active_branch = virtual_branches
-            .get_name(active_branch.id.to_string().as_str())
-            .ok_or(anyhow!("failed to get active branch from tree entry"))?;
-        let old_active_branch = repo.find_tree(old_active_branch.id())?;
-        let old_active_branch_tree = old_active_branch
-            .get_name("tree")
-            .ok_or(anyhow!("failed to get integration tree entry"))?;
-        let old_active_branch_tree = repo.find_tree(old_active_branch_tree.id())?;
-
-        let mut opts = git2::DiffOptions::new();
-        opts.include_untracked(true);
-        opts.ignore_submodules(true);
-
-        let diff = repo.diff_tree_to_tree(
-            Some(&active_branch_tree),
-            Some(&old_active_branch_tree),
-            Some(&mut opts),
-        );
-        let stats = diff?.stats()?;
-        Ok(stats.deletions() + stats.insertions())
+        Ok(false)
     }
 
     fn snapshot_diff(&self, sha: String) -> Result<HashMap<PathBuf, FileDiff>> {
@@ -733,4 +699,78 @@ fn get_exclude_list(repo: &git2::Repository) -> Result<String> {
         .filter_map(|f| f.to_str())
         .join(" ");
     Ok(files_to_exclude)
+}
+
+/// Returns the number of lines of code (added plus removed) since the last snapshot. Includes untracked files.
+///
+/// If there are no snapshots, 0 is returned.
+fn lines_since_snapshot(project: &Project) -> Result<usize> {
+    // This looks at the diff between the tree of the currenly selected as 'default' branch (where new changes go)
+    // and that same tree in the last snapshot. For some reason, comparing workdir to the workdir subree from
+    // the snapshot simply does not give us what we need here, so instead using tree to tree comparison.
+
+    let repo_path = project.path.as_path();
+    let repo = git2::Repository::init(repo_path)?;
+
+    // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
+    let files_to_exclude = get_exclude_list(&repo)?;
+    // In-memory, libgit2 internal ignore rule
+    repo.add_ignore_rule(&files_to_exclude)?;
+
+    let oplog_state = OplogHandle::new(&project.gb_dir());
+    let head_sha = oplog_state.get_oplog_head()?;
+    if head_sha.is_none() {
+        return Ok(0);
+    }
+    let head_sha = head_sha.unwrap();
+
+    let vb_state = project.virtual_branches();
+    let binding = vb_state.list_branches()?;
+
+    let dirty_branches: Vec<&Branch> = binding
+        .iter()
+        .filter(|b| b.applied)
+        .filter(|b| !b.ownership.claims.is_empty())
+        .collect();
+
+    let mut lines_changed = 0;
+    for branch in dirty_branches {
+        lines_changed += branch_lines_since_snapshot(branch, &repo, head_sha.clone())?;
+    }
+    Ok(lines_changed)
+}
+
+fn branch_lines_since_snapshot(
+    branch: &Branch,
+    repo: &git2::Repository,
+    head_sha: String,
+) -> Result<usize> {
+    let active_branch_tree = repo.find_tree(branch.tree.into())?;
+
+    let commit = repo.find_commit(git2::Oid::from_str(&head_sha)?)?;
+    let head_tree = commit.tree()?;
+    let virtual_branches = head_tree
+        .get_name("virtual_branches")
+        .ok_or(anyhow!("failed to get virtual_branches tree entry"))?;
+    let virtual_branches = repo.find_tree(virtual_branches.id())?;
+    let old_active_branch = virtual_branches
+        .get_name(branch.id.to_string().as_str())
+        .ok_or(anyhow!("failed to get active branch from tree entry"))?;
+    let old_active_branch = repo.find_tree(old_active_branch.id())?;
+    let old_active_branch_tree = old_active_branch
+        .get_name("tree")
+        .ok_or(anyhow!("failed to get integration tree entry"))?;
+    let old_active_branch_tree = repo.find_tree(old_active_branch_tree.id())?;
+
+    let mut opts = git2::DiffOptions::new();
+    opts.include_untracked(true);
+    opts.ignore_submodules(true);
+
+    let diff = repo.diff_tree_to_tree(
+        Some(&active_branch_tree),
+        Some(&old_active_branch_tree),
+        Some(&mut opts),
+    );
+    let stats = diff?.stats()?;
+    Ok(stats.deletions() + stats.insertions())
 }
