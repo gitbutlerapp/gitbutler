@@ -1453,11 +1453,11 @@ pub fn delete_branch(
         Err(error) => Err(error),
     }
     .context("failed to read branch")?;
+    _ = project_repository
+        .project()
+        .snapshot_branch_deletion(branch.name.clone());
 
     if branch.applied && unapply_branch(project_repository, branch_id)?.is_none() {
-        _ = project_repository
-            .project()
-            .snapshot_branch_deletion(branch.name);
         return Ok(());
     }
 
@@ -1469,9 +1469,6 @@ pub fn delete_branch(
 
     ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
-    _ = project_repository
-        .project()
-        .snapshot_branch_deletion(branch.name);
     Ok(())
 }
 
