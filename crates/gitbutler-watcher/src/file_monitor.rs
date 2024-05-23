@@ -7,7 +7,7 @@ use crate::debouncer_cache::FileIdMap;
 use crate::{debouncer::new_debouncer, events::InternalEvent};
 use anyhow::{anyhow, Context, Result};
 use gitbutler_core::ops::OPLOG_FILE_NAME;
-use gitbutler_core::{git, projects::ProjectId};
+use gitbutler_core::projects::ProjectId;
 use notify::{RecommendedWatcher, Watcher};
 use tokio::task;
 use tracing::Level;
@@ -86,7 +86,7 @@ pub fn spawn(
     })
     .context("failed to start watcher")?;
 
-    let git_dir = git2::Repository::open(worktree_path)
+    let git_dir = gix::open_opts(worktree_path, gix::open::Options::isolated())
         .context(format!(
             "failed to open project repository to obtain git-dir: {}",
             worktree_path.display()
@@ -132,10 +132,16 @@ pub fn spawn(
                         .iter()
                         .any(|(_, kind)| *kind == FileKind::Project)
                     {
-                        if let Ok(repo) = git::Repository::open(&worktree_path) {
-                            for (file_path, kind) in classified_file_paths.iter_mut() {
-                                if repo.is_path_ignored(file_path).unwrap_or(false) {
-                                    *kind = FileKind::ProjectIgnored
+                        if let Ok(repo) = gix::open(&worktree_path) {
+                            if let Ok(index) = repo.index_or_empty() {
+                                if let Ok(mut excludes) = repo.excludes(&index, None, gix::worktree::stack::state::ignore::Source::WorktreeThenIdMappingIfNotSkipped) {
+                                    for (file_path, kind) in classified_file_paths.iter_mut() {
+                                        if let Ok(relative_path) = file_path.strip_prefix(&worktree_path) {
+                                            if excludes.at_path(relative_path, None).map(|platform| platform.is_excluded()).unwrap_or(false) {
+                                                *kind = FileKind::ProjectIgnored
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
