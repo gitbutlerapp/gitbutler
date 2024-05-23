@@ -30,13 +30,13 @@
 	// TODO: Update store here rather than reset it
 	$: ownershipStore.set(Ownership.fromBranch(branch));
 
-	const branchStore = createContextStore(Branch, branch);
+	const branchStore = createContextStore(Branch, undefined);
 	$: branchStore.set(branch);
 
-	const localCommits = createLocalContextStore(branch.localCommits);
+	const localCommits = createLocalContextStore(undefined);
 	$: localCommits.set(branch.localCommits);
 
-	const remoteCommits = createRemoteContextStore(branch.remoteCommits);
+	const remoteCommits = createRemoteContextStore(undefined);
 	$: remoteCommits.set(branch.remoteCommits);
 
 	// Set the store immediately so it can be updated later.
