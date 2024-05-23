@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Avatar from './Avatar.svelte';
+	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import type { Commit } from '$lib/vbranches/types';
 
 	export let dashed: boolean;
@@ -7,6 +8,7 @@
 	export let first: boolean;
 
 	$: hasRoot = isRoot(commit);
+	$: tooltipText = getAvatarTooltip(commit);
 
 	function isRoot(commit: Commit | undefined): boolean {
 		return !!commit && (commit.parent == undefined || commit.parent?.status == 'remote');
@@ -25,7 +27,7 @@
 	{#if commit}
 		{@const author = commit.author}
 		<div class="avatar" class:first>
-			<Avatar {author} status={commit.status} />
+			<Avatar {author} status={commit.status} help={tooltipText} />
 		</div>
 	{/if}
 	{#if hasRoot}

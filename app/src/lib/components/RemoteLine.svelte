@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Avatar from './Avatar.svelte';
+	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import type { Commit, RemoteCommit } from '$lib/vbranches/types';
 
 	export let commit: Commit | undefined;
@@ -10,6 +11,8 @@
 	export let line: boolean;
 	export let root: boolean;
 	export let upstreamLine: boolean;
+
+	$: tooltipText = getAvatarTooltip(commit || remoteCommit);
 </script>
 
 <div class="remote-column" class:has-root={root}>
@@ -49,13 +52,13 @@
 		{#if commit}
 			{@const author = commit.author}
 			<div class="avatar" class:first class:short>
-				<Avatar {author} status={commit.status} />
+				<Avatar {author} status={commit.status} help={tooltipText} />
 			</div>
 		{/if}
 		{#if remoteCommit}
 			{@const author = remoteCommit.author}
 			<div class="avatar" class:first class:short>
-				<Avatar {author} status={remoteCommit.status} />
+				<Avatar {author} status={remoteCommit.status} help={tooltipText} />
 			</div>
 		{/if}
 	{/if}
