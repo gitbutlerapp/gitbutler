@@ -9,7 +9,7 @@ pub use hunk::{Hunk, HunkHash};
 pub use ownership::{reconcile_claims, BranchOwnershipClaims};
 use serde::{Deserialize, Serialize};
 
-use crate::time::duration_serializer;
+use crate::time::duration_int_string_serde;
 use crate::{git, id::Id};
 
 pub type BranchId = Id<Branch>;
@@ -27,9 +27,9 @@ pub struct Branch {
     pub upstream: Option<git::RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
     pub upstream_head: Option<git::Oid>,
-    #[serde(rename = "created_timestamp_ms", with = "duration_serializer")]
+    #[serde(rename = "created_timestamp_ms", with = "duration_int_string_serde")]
     pub created_at: Duration,
-    #[serde(rename = "updated_timestamp_ms", with = "duration_serializer")]
+    #[serde(rename = "updated_timestamp_ms", with = "duration_int_string_serde")]
     pub updated_at: Duration,
     /// tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
     pub tree: git::Oid,

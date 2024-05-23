@@ -18,7 +18,7 @@ pub fn now_ms() -> u128 {
     now().as_millis()
 }
 
-pub mod duration_serializer {
+pub mod duration_int_string_serde {
     use std::time::Duration;
 
     use serde::{Deserialize, Deserializer, Serializer};
