@@ -748,12 +748,11 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result = super::reorder_commit(project_repository, branch_id, commit_oid, offset)
-                .map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::ReorderCommit));
-            result
+            super::reorder_commit(project_repository, branch_id, commit_oid, offset)
+                .map_err(Into::into)
         })
     }
 
