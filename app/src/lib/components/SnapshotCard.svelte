@@ -21,7 +21,7 @@
 	function getShortSha(sha: string | undefined) {
 		if (!sha) return '';
 
-		return `#${sha.slice(0, 7)}`;
+		return `${sha.slice(0, 7)}`;
 	}
 
 	function createdOnDayAndTime(epoch: number) {
@@ -48,47 +48,48 @@
 			case 'DeleteBranch':
 				return {
 					text: `Delete branch "${entry.details?.trailers.find((t) => t.key == 'name')?.value}"`,
-					icon: 'delete-branch'
+					icon: 'item-cross'
 				};
 			case 'ApplyBranch':
 				return {
 					text: `Apply branch "${entry.details?.trailers.find((t) => t.key == 'name')?.value}"`,
-					icon: 'apply-branch'
-				};
-			case 'UpdateBranchName':
-				return {
-					text: `Renamed branch "${snapshotDetails.trailers.find((t) => t.key == 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
-					icon: 'update-branch-name'
-				};
-			case 'CreateBranch':
-				return {
-					text: `Create branch "${snapshotDetails.trailers.find((t) => t.key == 'name')?.value}"`,
-					icon: 'create-branch'
+					icon: 'item-tick'
 				};
 			case 'UnapplyBranch':
 				return {
 					text: `Unapply branch "${snapshotDetails.trailers.find((t) => t.key == 'name')?.value}"`,
-					icon: 'unapply-branch'
+					icon: 'item-dashed'
 				};
+			case 'UpdateBranchName':
+				return {
+					text: `Renamed branch "${snapshotDetails.trailers.find((t) => t.key == 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
+					icon: 'item-slash'
+				};
+			case 'CreateBranch':
+				return {
+					text: `Create branch "${snapshotDetails.trailers.find((t) => t.key == 'name')?.value}"`,
+					icon: 'item-plus'
+				};
+
 			case 'ReorderBranches':
 				return {
 					text: `Reorder branches "${snapshotDetails.trailers.find((t) => t.key == 'before')?.value}" and "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
-					icon: 'reorder-branches'
+					icon: 'item-link'
 				};
 			case 'SelectDefaultVirtualBranch':
 				return {
 					text: `Select default virtual branch "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
-					icon: 'set-default-branch'
+					icon: 'item-dot'
 				};
 			case 'UpdateBranchRemoteName':
 				return {
 					text: `Update branch remote name "${snapshotDetails.trailers.find((t) => t.key == 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
-					icon: 'update-branch-name'
+					icon: 'item-slash'
 				};
 			case 'SetBaseBranch':
-				return { text: 'Set base branch', icon: 'set-base-branch' };
+				return { text: 'Set base branch', icon: 'item-slash' };
 			case 'GenericBranchUpdate':
-				return { text: 'Generic branch update', icon: 'update-branch-name' };
+				return { text: 'Generic branch update', icon: 'item-slash' };
 			// Commit operations
 			case 'CreateCommit':
 				return {
@@ -118,10 +119,10 @@
 			case 'MoveHunk':
 				return {
 					text: `Move hunk to "${entry.details?.trailers.find((t) => t.key == 'name')?.value}"`,
-					icon: 'move-hunk'
+					icon: 'item-move'
 				};
 			case 'DiscardHunk':
-				return { text: 'Discard hunk', icon: 'discard-hunk' };
+				return { text: 'Discard hunk', icon: 'item-cross' };
 			case 'DiscardFile':
 				return { text: 'Discard file', icon: 'discard-file-small' };
 			case 'FileChanges':
@@ -153,12 +154,24 @@
 
 <div
 	class="snapshot-card"
-	class:restore-btn_visible={isRestorable()}
 	class:restored-snapshot={isRestoreSnapshot}
+	class:show-restore-on-hover={isRestorable()}
 >
-	<span class="snapshot-time text-base-12">
-		{toHumanReadableTime(entry.createdAt)}
-	</span>
+	<div class="snapshot-right-container">
+		<div class="restore-btn">
+			<Tag
+				style="ghost"
+				kind="solid"
+				clickable
+				on:click={() => {
+					dispatch('restoreClick');
+				}}>Restore</Tag
+			>
+		</div>
+		<span class="snapshot-time text-base-11">
+			{toHumanReadableTime(entry.createdAt)}
+		</span>
+	</div>
 
 	<div class="snapshot-line">
 		{#if isRestoreSnapshot}
@@ -174,25 +187,10 @@
 				<Tag style="pop" kind="soft">Current</Tag>
 			{/if}
 
-			<div class="snapshot-title-wrap">
-				<h4 class="snapshot-title text-base-body-13 text-semibold">
-					<span>{operation.text}</span>
-					<span class="snapshot-sha text-base-body-12"> • {getShortSha(entry.id)}</span>
-				</h4>
-
-				{#if isRestorable()}
-					<div class="restore-btn">
-						<Tag
-							style="ghost"
-							kind="solid"
-							clickable
-							on:click={() => {
-								dispatch('restoreClick');
-							}}>Restore</Tag
-						>
-					</div>
-				{/if}
-			</div>
+			<h4 class="snapshot-title text-base-body-13 text-semibold">
+				<span>{operation.text}</span>
+				<span class="snapshot-sha text-base-body-12"> • {getShortSha(entry.id)}</span>
+			</h4>
 		</div>
 
 		{#if entry.filesChanged.length > 0 && !isRestoreSnapshot}
@@ -257,21 +255,31 @@
 	.snapshot-card {
 		position: relative;
 		display: flex;
-		gap: var(--size-10);
+		gap: var(--size-12);
 		padding: var(--size-10) var(--size-14) var(--size-8) var(--size-14);
 		overflow: hidden;
 		background-color: var(--clr-bg-1);
 		transition: padding 0.2s;
 	}
 
-	.restore-btn_visible {
+	.show-restore-on-hover {
 		&:hover {
 			& .restore-btn {
 				display: flex;
 			}
 
+			& .snapshot-time {
+				display: none;
+			}
+
 			background-color: var(--clr-bg-2);
 		}
+	}
+
+	.snapshot-right-container {
+		display: flex;
+		justify-content: flex-end;
+		width: 3.7rem;
 	}
 
 	.restore-btn {
@@ -280,10 +288,9 @@
 
 	.snapshot-time {
 		color: var(--clr-text-2);
-		width: 3.7rem;
-
 		text-align: right;
-		line-height: 1.5;
+		line-height: 1.8;
+		margin-top: var(--size-2);
 	}
 
 	.snapshot-line {
@@ -291,11 +298,11 @@
 		display: flex;
 		align-items: center;
 		flex-direction: column;
-		gap: var(--size-4);
+		margin-top: 0.188rem;
 
 		&::after {
 			position: absolute;
-			top: var(--size-20);
+			top: var(--size-24);
 			content: '';
 			height: calc(100% - var(--size-12));
 			min-height: var(--size-8);
@@ -312,7 +319,9 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: var(--size-6);
+		min-height: var(--size-tag);
 		overflow: hidden;
+		padding-bottom: var(--size-4);
 	}
 
 	.snapshot-details {
@@ -321,13 +330,7 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: var(--size-6);
-		min-height: var(--size-tag);
-	}
-
-	.snapshot-title-wrap {
-		display: flex;
-		gap: var(--size-6);
-		width: 100%;
+		margin-top: var(--size-2);
 	}
 
 	.snapshot-title {
