@@ -30,6 +30,11 @@ impl Default for TestProject {
         let local_tmp = temp_dir();
         let local_repository = git::Repository::init_opts(local_tmp.path(), &init_opts())
             .expect("failed to init repository");
+        local_repository
+            .config()
+            .unwrap()
+            .set_local("commit.gpgsign", "false")
+            .unwrap();
         let mut index = local_repository.index().expect("failed to get index");
         let oid = index.write_tree().expect("failed to write tree");
         let signature = git::Signature::now("test", "test@email.com").unwrap();
@@ -55,6 +60,11 @@ impl Default for TestProject {
                 .external_template(false),
         )
         .expect("failed to init repository");
+        remote_repository
+            .config()
+            .unwrap()
+            .set_local("commit.gpgsign", "false")
+            .unwrap();
 
         {
             let mut remote = local_repository
