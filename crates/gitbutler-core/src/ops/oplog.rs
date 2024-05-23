@@ -9,6 +9,7 @@ use std::{fs, path::PathBuf};
 use anyhow::Result;
 
 use crate::git::diff::FileDiff;
+use crate::virtual_branches::Branch;
 use crate::{git::diff::hunks_by_filepath, projects::Project};
 
 use super::{
@@ -725,15 +726,26 @@ fn lines_since_snapshot(project: &Project) -> Result<usize> {
 
     let vb_state = project.virtual_branches();
     let binding = vb_state.list_branches()?;
-    let active_branch = binding
+
+    let dirty_branches: Vec<&Branch> = binding
         .iter()
         .filter(|b| b.applied)
-        .max_by_key(|branch| branch.selected_for_changes.unwrap_or(i64::MIN));
-    if active_branch.is_none() {
-        return Ok(0);
+        .filter(|b| !b.ownership.claims.is_empty())
+        .collect();
+
+    let mut lines_changed = 0;
+    for branch in dirty_branches {
+        lines_changed += branch_lines_since_snapshot(branch, &repo, head_sha.clone())?;
     }
-    let active_branch = active_branch.unwrap();
-    let active_branch_tree = repo.find_tree(active_branch.tree.into())?;
+    Ok(lines_changed)
+}
+
+fn branch_lines_since_snapshot(
+    branch: &Branch,
+    repo: &git2::Repository,
+    head_sha: String,
+) -> Result<usize> {
+    let active_branch_tree = repo.find_tree(branch.tree.into())?;
 
     let commit = repo.find_commit(git2::Oid::from_str(&head_sha)?)?;
     let head_tree = commit.tree()?;
@@ -742,7 +754,7 @@ fn lines_since_snapshot(project: &Project) -> Result<usize> {
         .ok_or(anyhow!("failed to get virtual_branches tree entry"))?;
     let virtual_branches = repo.find_tree(virtual_branches.id())?;
     let old_active_branch = virtual_branches
-        .get_name(active_branch.id.to_string().as_str())
+        .get_name(branch.id.to_string().as_str())
         .ok_or(anyhow!("failed to get active branch from tree entry"))?;
     let old_active_branch = repo.find_tree(old_active_branch.id())?;
     let old_active_branch_tree = old_active_branch
