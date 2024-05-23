@@ -33,21 +33,21 @@ export const remoteCommit0 = {
 	id: 'fe30876278739f7182effd27e9d9debde648b4de',
 	author,
 	description: 'fix: updated files',
-	createdAt: 1714902366
+	createdAt: { secs: 1714902366, nanos: 0 }
 };
 
 export const remoteCommit1 = {
 	id: 'fe30876278739f7182effd27e9d9debde648b4dd',
 	author,
 	description: 'fix: updated files',
-	createdAt: 1714902366
+	createdAt: { secs: 1714902366, nanos: 0 }
 };
 
 export const remoteBranch0 = {
 	sha: '90c225edcc74b31718a9cd8963c1bc89c17d8863',
 	name: '',
 	upstream: '',
-	lastCommitTimestampMs: 1714902366140,
+	lastCommitAt: { secs: 1714902366, nanos: 25 },
 	lastCommitAuthor: 'John Snow'
 };
 
@@ -60,7 +60,7 @@ export const baseBranch = {
 	behind: 0,
 	upstreamCommits: [],
 	recentCommits: [remoteCommit0],
-	lastFetchedAt: new Date(1714843209991)
+	lastFetchedAt: { secs: 1714843209, nanos: 123 }
 };
 
 export const user: User = {
@@ -86,8 +86,8 @@ export const remoteBranchData = {
 	upstream: 'abc123',
 	authors: [author],
 	displayName: 'test',
-	lastCommitTs: new Date(),
-	firstCommitAt: new Date(),
+	lastCommitTs: { secs: 1714902366, nanos: 0},
+	firstCommitAt: { secs: 1714902366, nanos: 0},
 	ahead: 0,
 	behind: 0,
 	commits: [remoteCommit0],
@@ -114,7 +114,7 @@ export const fileHunk = {
 	id: '63-70',
 	locked: false,
 	lockedTo: null,
-	modifiedAt: 1714829527993,
+	modifiedAt: { secs: 1714902366, nanos: 0},
 	oldStart: 63,
 	start: 63
 };
@@ -125,7 +125,7 @@ export const file0 = {
 	hunks: [fileHunk],
 	id: 'package.json',
 	large: false,
-	modifiedAt: 1714829589111,
+	modifiedAt: { secs: 1714902366, nanos: 0},
 	path: 'package.json'
 };
 
@@ -143,7 +143,7 @@ export const virtualBranch = {
 	ownership:
 		'package.json:63-70-dc79c984a36b2f8a29007633bde4daf3-1714829528116,23-58-fbf18cec4afef8aafbbc2dddef3e3391-1714829528116,79-85-c4d0a57fca736c384cde2a68009ffcb3-1714829503193',
 	requiresForce: false,
-	updatedAt: 1714829503190,
+	updatedAt: { secs: 1714902366, nanos: 0},
 	upstream: null,
 	upstreamName: null
 };

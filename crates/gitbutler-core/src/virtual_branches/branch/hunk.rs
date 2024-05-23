@@ -102,10 +102,10 @@ impl Display for Hunk {
         write!(f, "{}-{}", self.start, self.end)?;
         match (&self.hash, &self.timestamp) {
             (Some(hash), Some(timestamp)) => {
-                write!(f, "-{:x}-{}", hash, timestamp.as_millis())
+                write!(f, "-{:x}-{}", hash, timestamp.as_secs())
             }
             (Some(hash), None) => write!(f, "-{:x}", hash),
-            (None, Some(timestamp)) => write!(f, "--{}", timestamp.as_millis()),
+            (None, Some(timestamp)) => write!(f, "--{}", timestamp.as_secs()),
             (None, None) => Ok(()),
         }
     }
