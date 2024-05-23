@@ -550,10 +550,10 @@ impl ControllerInner {
     ) -> Result<super::BaseBranch, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        let result = super::set_base_branch(&project_repository, target_branch)?;
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationType::SetBaseBranch));
+        let result = super::set_base_branch(&project_repository, target_branch)?;
         Ok(result)
     }
 
