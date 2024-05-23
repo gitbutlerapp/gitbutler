@@ -14,16 +14,11 @@
 	const upstreamCommits = getUpstreamCommits();
 	const baseBranch = getContextStore(BaseBranch);
 
-	$: hasShadowColumn = $localCommits.some((c) => !c.relatedTo || c.id != c.relatedTo.id);
+	$: hasShadowColumn = $localCommits.some((c) => c.relatedTo && c.id != c.relatedTo.id);
 	$: hasLocalColumn = $localCommits.length > 0;
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
-
 	$: unknownCommits = $upstreamCommits.filter((c) => !c.relatedTo || c.id != c.relatedTo.id);
-	$: $upstreamCommits.forEach((c) => console.log(`${c.id}, ${c.relatedTo?.id}`));
-	$: console.log(unknownCommits);
-	$: console.log($upstreamCommits);
-
 	$: hasUnknownCommits = unknownCommits.length > 0;
 </script>
 
