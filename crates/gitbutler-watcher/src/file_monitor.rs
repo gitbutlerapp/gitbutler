@@ -7,7 +7,7 @@ use crate::debouncer_cache::FileIdMap;
 use crate::{debouncer::new_debouncer, events::InternalEvent};
 use anyhow::{anyhow, Context, Result};
 use gitbutler_core::ops::OPLOG_FILE_NAME;
-use gitbutler_core::{git, projects::ProjectId};
+use gitbutler_core::projects::ProjectId;
 use notify::{RecommendedWatcher, Watcher};
 use tokio::task;
 use tracing::Level;
@@ -57,26 +57,47 @@ pub fn spawn(
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
 ) -> Result<Arc<Debouncer<RecommendedWatcher, FileIdMap>>> {
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
-    let mut debouncer = Arc::new(
-        new_debouncer(
-            DEBOUNCE_TIMEOUT,
-            Some(TICK_RATE),
-            Some(FLUSH_AFTER_EMPTY),
-            notify_tx,
-        )
-        .context("failed to create debouncer")?,
-    );
+    let mut debouncer = new_debouncer(
+        DEBOUNCE_TIMEOUT,
+        Some(TICK_RATE),
+        Some(FLUSH_AFTER_EMPTY),
+        notify_tx,
+    )
+    .context("failed to create debouncer")?;
 
     let policy = backoff::ExponentialBackoffBuilder::new()
         .with_max_elapsed_time(Some(std::time::Duration::from_secs(30)))
         .build();
 
+    let git_dir = gix::open_opts(worktree_path, gix::open::Options::isolated())
+        .context(format!(
+            "failed to open project repository to obtain git-dir: {}",
+            worktree_path.display()
+        ))?
+        .path()
+        .to_owned();
+    let extra_git_dir_to_watch = {
+        let mut enclosing_worktree_dir = git_dir.clone();
+        enclosing_worktree_dir.pop();
+        if enclosing_worktree_dir != worktree_path {
+            Some(git_dir.as_path())
+        } else {
+            None
+        }
+    };
+
     // Start the watcher, but retry if there are transient errors.
     backoff::retry(policy, || {
-        Arc::get_mut(&mut debouncer)
-            .expect("")
-            .watcher()
+        let watcher = debouncer.watcher();
+        watcher
             .watch(worktree_path, notify::RecursiveMode::Recursive)
+            .and_then(|()| {
+                if let Some(git_dir) = extra_git_dir_to_watch {
+                    watcher.watch(git_dir, notify::RecursiveMode::Recursive)
+                } else {
+                    Ok(())
+                }
+            })
             .map_err(|err| match err.kind {
                 notify::ErrorKind::PathNotFound => backoff::Error::permanent(RunError::from(
                     anyhow!("{} not found", worktree_path.display()),
@@ -89,13 +110,10 @@ pub fn spawn(
     })
     .context("failed to start watcher")?;
 
-    let ret = Ok(debouncer.clone());
-
     let worktree_path = worktree_path.to_owned();
     task::spawn_blocking(move || {
         tracing::debug!(%project_id, "file watcher started");
         let _runtime = tracing::span!(Level::INFO, "file monitor", %project_id ).entered();
-        let _debouncer = debouncer.clone();
 
         'outer: for result in notify_rx {
             let stats = tracing::span!(
@@ -116,28 +134,34 @@ pub fn spawn(
                     tracing::error!(?err, "ignored file watcher error");
                 }
                 Ok(events) => {
-                    let maybe_repo = git::Repository::open(&worktree_path)
-                        .with_context(|| format!("failed to open project repository: {}", worktree_path.display()))
-                        .map(Some)
-                        .unwrap_or_else(|err| {
-                            tracing::error!(
-                                ?err,
-                                "will consider changes to all files as repository couldn't be opened"
-                            );
-                            None
-                        });
-
                     let num_events = events.len();
-                    let classified_file_paths = events
+                    let mut classified_file_paths: Vec<_> = events
                         .into_iter()
                         .filter(|event| is_interesting_kind(event.kind))
                         .flat_map(|event| event.event.paths)
                         .map(|file| {
-                            let kind = maybe_repo
-                                .as_ref()
-                                .map_or(FileKind::Project, |repo| classify_file(repo, &file));
+                            let kind = classify_file(&git_dir, &file);
                             (file, kind)
-                        });
+                        })
+                        .collect();
+                    if classified_file_paths
+                        .iter()
+                        .any(|(_, kind)| *kind == FileKind::Project)
+                    {
+                        if let Ok(repo) = gix::open(&worktree_path) {
+                            if let Ok(index) = repo.index_or_empty() {
+                                if let Ok(mut excludes) = repo.excludes(&index, None, gix::worktree::stack::state::ignore::Source::WorktreeThenIdMappingIfNotSkipped) {
+                                    for (file_path, kind) in classified_file_paths.iter_mut() {
+                                        if let Ok(relative_path) = file_path.strip_prefix(&worktree_path) {
+                                            if excludes.at_path(relative_path, None).map(|platform| platform.is_excluded()).unwrap_or(false) {
+                                                *kind = FileKind::ProjectIgnored
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     let mut oplog_changed = false;
                     let (mut stripped_git_paths, mut worktree_relative_paths) =
                         (HashSet::new(), HashSet::new());
@@ -204,8 +228,7 @@ pub fn spawn(
             }
         }
     });
-
-    ret
+    Ok(debouncer.into())
 }
 
 #[cfg(target_family = "unix")]
@@ -228,6 +251,7 @@ fn is_interesting_kind(kind: notify::EventKind) -> bool {
 }
 
 /// A classification for a changed file.
+#[derive(Eq, PartialEq)]
 enum FileKind {
     /// A file in the `.git` repository of the current project itself.
     Git,
@@ -241,8 +265,8 @@ enum FileKind {
     GitButlerOplog,
 }
 
-fn classify_file(git_repo: &git::Repository, file_path: &Path) -> FileKind {
-    if let Ok(check_file_path) = file_path.strip_prefix(git_repo.path()) {
+fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
+    if let Ok(check_file_path) = file_path.strip_prefix(git_dir) {
         if check_file_path == Path::new("FETCH_HEAD")
             || check_file_path == Path::new("logs/HEAD")
             || check_file_path == Path::new("HEAD")
@@ -255,8 +279,6 @@ fn classify_file(git_repo: &git::Repository, file_path: &Path) -> FileKind {
         } else {
             FileKind::GitUninteresting
         }
-    } else if git_repo.is_path_ignored(file_path).unwrap_or(false) {
-        FileKind::ProjectIgnored
     } else {
         FileKind::Project
     }
