@@ -9,6 +9,8 @@ export const [getLocalCommits, createLocalContextStore] =
 export const [getRemoteCommits, createRemoteContextStore] =
 	buildContextStore<Commit[]>('remoteCommits');
 export const [getUpstreamCommits, createUpstreamContextStore] =
+	buildContextStore<RemoteCommit[]>('upstreamCommits');
+export const [getUnknownCommits, createUnknownCommitsStore] =
 	buildContextStore<RemoteCommit[]>('unknownCommits');
 export const [getSelectedFiles, createSelectedFiles] = buildContextStore<
 	AnyFile[],
