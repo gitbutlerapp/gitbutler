@@ -3,12 +3,7 @@
 	import CommitLines from './CommitLines.svelte';
 	import CommitListItem from './CommitListItem.svelte';
 	import { getContextStore } from '$lib/utils/context';
-	import {
-		getLocalCommits,
-		getRemoteCommits,
-		getUnknownCommits,
-		getUpstreamCommits
-	} from '$lib/vbranches/contexts';
+	import { getLocalCommits, getRemoteCommits, getUnknownCommits } from '$lib/vbranches/contexts';
 	import { BaseBranch, Branch } from '$lib/vbranches/types';
 
 	export let isUnapplied: boolean;
@@ -16,7 +11,6 @@
 	const branch = getContextStore(Branch);
 	const localCommits = getLocalCommits();
 	const remoteCommits = getRemoteCommits();
-	const upstreamCommits = getUpstreamCommits();
 	const unknownCommits = getUnknownCommits();
 	const baseBranch = getContextStore(BaseBranch);
 
@@ -50,7 +44,7 @@
 								{commit}
 								{isUnapplied}
 								first={idx == 0}
-								last={idx == $upstreamCommits.length - 1}
+								last={idx == $unknownCommits.length - 1}
 								commitUrl={$baseBranch?.commitUrl(commit.id)}
 								isHeadCommit={commit.id === headCommit?.id}
 							/>
