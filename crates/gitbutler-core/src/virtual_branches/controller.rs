@@ -730,13 +730,11 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let result =
-                super::insert_blank_commit(project_repository, branch_id, commit_oid, user, offset)
-                    .map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::InsertBlankCommit));
-            result
+            super::insert_blank_commit(project_repository, branch_id, commit_oid, user, offset)
+                .map_err(Into::into)
         })
     }
 
