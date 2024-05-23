@@ -514,7 +514,12 @@ pub fn update_base_branch(
                     }
 
                     // branch was not pushed to upstream yet. attempt a rebase,
-                    let rebased_head_oid = cherry_rebase(project_repository, new_target_commit.id(), new_target_commit.id(), branch.head)?;
+                    let rebased_head_oid = cherry_rebase(
+                        project_repository,
+                        new_target_commit.id(),
+                        new_target_commit.id(),
+                        branch.head,
+                    )?;
                     if let Some(rebased_head_oid) = rebased_head_oid {
                         // rebase worked out, rewrite the branch head
                         branch.head = rebased_head_oid;
