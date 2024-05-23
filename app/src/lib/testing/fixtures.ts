@@ -60,7 +60,7 @@ export const baseBranch = {
 	behind: 0,
 	upstreamCommits: [],
 	recentCommits: [remoteCommit0],
-	lastFetchedMs: 1714843209991
+	lastFetchedAt: new Date(1714843209991)
 };
 
 export const user: User = {

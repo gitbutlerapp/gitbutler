@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, time::Duration};
 
 use anyhow::{Context, Result};
 use bstr::BString;
@@ -25,7 +25,7 @@ pub struct RemoteBranch {
     pub sha: git::Oid,
     pub name: git::Refname,
     pub upstream: Option<git::RemoteRefname>,
-    pub last_commit_timestamp_ms: Option<u128>,
+    pub last_commit_at: Option<Duration>,
     pub last_commit_author: Option<String>,
 }
 
@@ -45,7 +45,7 @@ pub struct RemoteCommit {
     pub id: String,
     #[serde(serialize_with = "crate::serde::as_string_lossy")]
     pub description: BString,
-    pub created_at: u128,
+    pub created_at: Duration,
     pub author: Author,
 }
 
@@ -128,12 +128,7 @@ pub fn branch_to_remote_branch(branch: &git::Branch) -> Result<Option<RemoteBran
                         None
                     },
                     name,
-                    last_commit_timestamp_ms: commit
-                        .time()
-                        .seconds()
-                        .try_into()
-                        .map(|t: u128| t * 1000)
-                        .ok(),
+                    last_commit_at: Some(commit.time()),
                     last_commit_author: commit
                         .author()
                         .name()
@@ -185,7 +180,7 @@ pub fn commit_to_remote_commit(commit: &git::Commit) -> RemoteCommit {
     RemoteCommit {
         id: commit.id().to_string(),
         description: commit.message().to_owned(),
-        created_at: commit.time().seconds().try_into().unwrap(),
+        created_at: commit.time(),
         author: commit.author().into(),
     }
 }

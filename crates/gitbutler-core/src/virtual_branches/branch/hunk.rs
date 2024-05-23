@@ -2,6 +2,7 @@ use std::{fmt::Display, ops::RangeInclusive, str::FromStr};
 
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
+use std::time::Duration;
 
 use crate::git::diff;
 
@@ -10,7 +11,7 @@ pub type HunkHash = md5::Digest;
 #[derive(Debug, Eq, Clone)]
 pub struct Hunk {
     pub hash: Option<HunkHash>,
-    pub timestamp_ms: Option<u128>,
+    pub timestamp: Option<Duration>,
     pub start: u32,
     pub end: u32,
     pub locked_to: Vec<diff::HunkLock>,
@@ -22,7 +23,7 @@ impl From<&diff::GitHunk> for Hunk {
             start: hunk.new_start,
             end: hunk.new_start + hunk.new_lines,
             hash: Some(Hunk::hash_diff(&hunk.diff_lines)),
-            timestamp_ms: None,
+            timestamp: None,
             locked_to: hunk.locked_to.to_vec(),
         }
     }
@@ -44,7 +45,7 @@ impl From<RangeInclusive<u32>> for Hunk {
             start: *range.start(),
             end: *range.end(),
             hash: None,
-            timestamp_ms: None,
+            timestamp: None,
             locked_to: vec![],
         }
     }
@@ -83,27 +84,28 @@ impl FromStr for Hunk {
             None
         };
 
-        let timestamp_ms = if let Some(raw_timestamp_ms) = range.next() {
-            Some(
-                raw_timestamp_ms
-                    .parse::<u128>()
-                    .context(format!("failed to parse timestamp_ms of range: {}", s))?,
-            )
+        let timestamp = if let Some(raw_timestamp_ms) = range.next() {
+            let parsed_millis = raw_timestamp_ms
+                .parse::<u64>()
+                .context(format!("failed to parse timestamp_ms of range: {}", s))?;
+            Some(Duration::from_millis(parsed_millis))
         } else {
             None
         };
 
-        Hunk::new(start, end, hash, timestamp_ms)
+        Hunk::new(start, end, hash, timestamp)
     }
 }
 
 impl Display for Hunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}-{}", self.start, self.end)?;
-        match (&self.hash, &self.timestamp_ms) {
-            (Some(hash), Some(timestamp_ms)) => write!(f, "-{:x}-{}", hash, timestamp_ms),
+        match (&self.hash, &self.timestamp) {
+            (Some(hash), Some(timestamp)) => {
+                write!(f, "-{:x}-{}", hash, timestamp.as_millis())
+            }
             (Some(hash), None) => write!(f, "-{:x}", hash),
-            (None, Some(timestamp_ms)) => write!(f, "--{}", timestamp_ms),
+            (None, Some(timestamp)) => write!(f, "--{}", timestamp.as_millis()),
             (None, None) => Ok(()),
         }
     }
@@ -114,14 +116,14 @@ impl Hunk {
         start: u32,
         end: u32,
         hash: Option<HunkHash>,
-        timestamp_ms: Option<u128>,
+        timestamp: Option<Duration>,
     ) -> Result<Self> {
         if start > end {
             Err(anyhow!("invalid range: {}-{}", start, end))
         } else {
             Ok(Hunk {
                 hash,
-                timestamp_ms,
+                timestamp,
                 start,
                 end,
                 locked_to: vec![],
@@ -134,13 +136,13 @@ impl Hunk {
         self
     }
 
-    pub fn with_timestamp(mut self, timestamp_ms: u128) -> Self {
-        self.timestamp_ms = Some(timestamp_ms);
+    pub fn with_timestamp(mut self, timestamp: Duration) -> Self {
+        self.timestamp = Some(timestamp);
         self
     }
 
-    pub fn timestamp_ms(&self) -> Option<u128> {
-        self.timestamp_ms
+    pub fn timestamp(&self) -> Option<Duration> {
+        self.timestamp
     }
 
     pub fn contains(&self, line: u32) -> bool {
