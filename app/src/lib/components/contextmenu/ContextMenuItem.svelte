@@ -61,6 +61,7 @@
 		white-space: nowrap;
 	}
 	.disabled {
+		cursor: default;
 		color: var(--clr-scale-ntrl-50);
 	}
 </style>

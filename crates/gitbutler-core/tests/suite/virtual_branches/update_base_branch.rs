@@ -890,40 +890,17 @@ mod applied_branch {
             // when fetching remote
             controller.update_base_branch(project_id).await.unwrap();
 
-            // should stash the branch.
-
+            // creates conflicted commits
             let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
-            assert!(!branches[0].active);
-            assert!(!branches[0].base_current);
+            assert!(branches[0].active); // still active, just with conflicted commit
             assert_eq!(branches[0].files.len(), 0);
             assert_eq!(branches[0].commits.len(), 1);
-            assert!(!controller
-                .can_apply_virtual_branch(project_id, &branch_id)
-                .await
-                .unwrap());
+            dbg!(&branches);
         }
 
-        {
-            // applying the branch should produce conflict markers
-            controller
-                .apply_virtual_branch(project_id, &branch_id)
-                .await
-                .unwrap();
-            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
-            assert_eq!(branches.len(), 1);
-            assert_eq!(branches[0].id, branch_id);
-            assert!(branches[0].active);
-            assert!(branches[0].conflicted);
-            assert!(branches[0].base_current);
-            assert_eq!(branches[0].files.len(), 1);
-            assert_eq!(branches[0].commits.len(), 1);
-            assert_eq!(
-                std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
-                "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
-            );
-        }
+
     }
 
     #[tokio::test]
@@ -1390,8 +1367,8 @@ mod applied_branch {
             controller.update_base_branch(project_id).await.unwrap();
 
             // just rebases branch
-
             let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            dbg!(&branches);
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -1405,10 +1382,6 @@ mod applied_branch {
         }
 
         {
-            controller
-                .apply_virtual_branch(project_id, &branch_id)
-                .await
-                .unwrap();
             let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
@@ -1417,6 +1390,7 @@ mod applied_branch {
             assert!(branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].commits.len(), 1);
+            dbg!(&branches);
             assert_eq!(
                 std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                 "second"

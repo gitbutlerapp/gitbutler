@@ -44,6 +44,7 @@
 
 	const commitStore = createCommitStore(commit);
 	$: commitStore.set(commit);
+	console.log(commit);
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 

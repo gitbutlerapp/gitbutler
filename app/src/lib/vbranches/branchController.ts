@@ -72,7 +72,7 @@ export class BranchController {
 
 	async mergeUpstream(branch: string) {
 		try {
-			await invoke<void>('merge_virtual_branch_upstream', {
+			await invoke<void>('integrate_upstream_commits', {
 				projectId: this.projectId,
 				branch
 			});

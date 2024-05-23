@@ -1,6 +1,9 @@
+use std::time::Duration;
+
 use super::{Oid, Result, Signature, Tree};
 use bstr::BStr;
 
+#[derive(Debug)]
 pub struct Commit<'repo> {
     commit: git2::Commit<'repo>,
 }
@@ -54,8 +57,8 @@ impl<'repo> Commit<'repo> {
         self.commit.parent(n).map(Into::into).map_err(Into::into)
     }
 
-    pub fn time(&self) -> git2::Time {
-        self.commit.time()
+    pub fn time(&self) -> Duration {
+        Duration::from_secs(self.commit.time().seconds().try_into().unwrap())
     }
 
     pub fn author(&self) -> Signature<'_> {
@@ -85,6 +88,22 @@ impl<'repo> Commit<'repo> {
     pub fn is_signed(&self) -> bool {
         let cid = self.commit.header_field_bytes("gpgsig").ok();
         cid.is_some()
+    }
+
+    pub fn is_conflicted(&self) -> bool {
+        let cid = self.commit.header_field_bytes("conflicted").ok();
+        cid.is_some()
+    }
+
+    pub fn conflicted_files(&self) -> Option<u32> {
+        let cid = self.commit.header_field_bytes("conflicted").ok();
+        if let Some(cid) = cid {
+            let cid = std::str::from_utf8(&cid).ok()?;
+            let cid = cid.parse::<u32>().ok()?;
+            Some(cid)
+        } else {
+            None
+        }
     }
 
     pub fn raw_header(&self) -> Option<&str> {

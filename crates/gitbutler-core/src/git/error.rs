@@ -1,6 +1,9 @@
 use std::str::Utf8Error;
 
-use crate::keys;
+use crate::{
+    error::{Context, ErrorWithContext},
+    keys,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -46,6 +49,12 @@ impl From<git2::Error> for Error {
                 _ => Error::Other(err),
             },
         }
+    }
+}
+
+impl ErrorWithContext for Error {
+    fn context(&self) -> Option<Context> {
+        None
     }
 }
 

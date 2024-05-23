@@ -100,7 +100,6 @@ async fn test_basic_oplog() {
             "CreateCommit",
             "CreateCommit",
             "CreateBranch",
-            "SetBaseBranch",
         ]
     );
 
@@ -112,10 +111,10 @@ async fn test_basic_oplog() {
     let file_lines = std::fs::read_to_string(&base_merge_parent_path).unwrap();
     assert_eq!(file_lines, "parent A");
 
-    assert_eq!(snapshots[2].lines_added, 2);
-    assert_eq!(snapshots[2].lines_removed, 0);
+    assert_eq!(snapshots[1].lines_added, 2);
+    assert_eq!(snapshots[1].lines_removed, 0);
 
-    project.restore_snapshot(snapshots[3].clone().id).unwrap();
+    project.restore_snapshot(snapshots[2].clone().id).unwrap();
 
     // the restore removed our new branch
     let branches = controller.list_virtual_branches(project_id).await.unwrap();
@@ -142,7 +141,7 @@ async fn test_basic_oplog() {
     let commit = repo.find_commit(commit2_id.into());
     assert!(commit.is_err());
 
-    project.restore_snapshot(snapshots[2].clone().id).unwrap();
+    project.restore_snapshot(snapshots[1].clone().id).unwrap();
 
     // test missing commits are recreated
     let commit = repo.find_commit(commit2_id.into());
@@ -209,7 +208,7 @@ async fn test_oplog_restores_gitbutler_integration() {
 
     // restore the first
     let snapshots = project.list_snapshots(10, None).unwrap();
-    project.restore_snapshot(snapshots[1].clone().id).unwrap();
+    project.restore_snapshot(snapshots[0].clone().id).unwrap();
 
     let head = repo.head();
     let commit = &head.as_ref().unwrap().peel_to_commit().unwrap();
@@ -228,6 +227,11 @@ async fn test_oplog_head_corrupt() {
         ..
     } = &Test::default();
 
+    // No snapshots can be created before a base branch is set
+    controller
+        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .await
+        .unwrap();
     controller
         .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await

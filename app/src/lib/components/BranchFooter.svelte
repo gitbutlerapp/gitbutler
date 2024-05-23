@@ -56,17 +56,12 @@
 				}}
 			/>
 		{:else}
-			<span class="text-base-body-11 text-in-the-bottom">
-				Branch {$branch.name} is up to date with the remote.
-			</span>
+			Branch {$branch.name} is up to date with the remote.
 		{/if}
 	</div>
 {/if}
 
 <style lang="postcss">
-	.text-in-the-bottom {
-		color: var(--clr-scale-ntrl-50);
-	}
 	.actions {
 		background: var(--clr-bg-1);
 		padding: var(--size-16);

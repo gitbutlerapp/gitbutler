@@ -242,28 +242,6 @@ impl ErrorWithContext for CreateVirtualBranchError {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum MergeVirtualBranchUpstreamError {
-    #[error("project")]
-    Conflict(ProjectConflict),
-    #[error("branch not found")]
-    BranchNotFound(BranchNotFound),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-impl ErrorWithContext for MergeVirtualBranchUpstreamError {
-    fn context(&self) -> Option<Context> {
-        Some(match self {
-            MergeVirtualBranchUpstreamError::BranchNotFound(ctx) => ctx.to_context(),
-            MergeVirtualBranchUpstreamError::Conflict(ctx) => ctx.to_context(),
-            MergeVirtualBranchUpstreamError::Other(error) => {
-                return error.custom_context_or_root_cause().into()
-            }
-        })
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
 pub enum CommitError {
     #[error("branch not found")]
     BranchNotFound(BranchNotFound),

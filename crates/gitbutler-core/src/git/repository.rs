@@ -256,6 +256,38 @@ impl Repository {
         parents: &[&Commit<'_>],
         change_id: Option<&str>,
     ) -> Result<Oid> {
+        let mut headers = Vec::new();
+        match change_id {
+            Some(change_id) => {
+                headers.push(("change-id".to_string(), change_id.to_string()));
+            },
+            None => {
+                let change_id = format!("{}", uuid::Uuid::new_v4()).clone();
+                headers.push(("change-id".to_string(), change_id.clone()));
+            }
+        }
+        self.commit_with_headers(
+            update_ref,
+            author,
+            committer,
+            message,
+            tree,
+            parents,
+            Some(headers),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn commit_with_headers(
+        &self,
+        update_ref: Option<&Refname>,
+        author: &Signature<'_>,
+        committer: &Signature<'_>,
+        message: &str,
+        tree: &Tree<'_>,
+        parents: &[&Commit<'_>],
+        headers: Option<Vec<(String, String)>>,
+    ) -> Result<Oid> {
         let parents: Vec<&git2::Commit> = parents
             .iter()
             .map(|c| c.to_owned().into())
@@ -269,7 +301,15 @@ impl Repository {
             &parents,
         )?;
 
-        let commit_buffer = Self::inject_change_id(&commit_buffer, change_id)?;
+        let commit_buffer = commit_buffer.as_str().unwrap();
+        let mut commit_buffer = commit_buffer.to_string();
+
+        // for each header, add it to the commit buffer
+        if let Some(headers) = headers {
+            for header in headers {
+                commit_buffer = Self::inject_header(commit_buffer, header)?;
+            }
+        }
 
         let oid = self.commit_buffer(commit_buffer)?;
 
@@ -285,8 +325,8 @@ impl Repository {
     /// returns an oid of the new commit object
     pub fn commit_buffer(&self, buffer: String) -> Result<git2::Oid> {
         // check git config for gpg.signingkey
-        let should_sign = self.0.config()?.get_string("commit.gpgSign");
-        if should_sign.unwrap_or("false".to_string()) != "false" {
+        let should_sign = self.0.config()?.get_bool("commit.gpgSign").unwrap_or(false);
+        if should_sign {
             // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
             let signing_key = self.0.config()?.get_string("user.signingkey");
             if let Ok(signing_key) = signing_key {
@@ -413,20 +453,15 @@ impl Repository {
 
     // in commit_buffer, inject a line right before the first `\n\n` that we see:
     // `change-id: <id>`
-    fn inject_change_id(commit_buffer: &[u8], change_id: Option<&str>) -> Result<String> {
-        // if no change id, generate one
-        let change_id = change_id
-            .map(|id| id.to_string())
-            .unwrap_or_else(|| format!("{}", uuid::Uuid::new_v4()));
-
-        let commit_ends_in_newline = commit_buffer.ends_with(b"\n");
-        let commit_buffer = str::from_utf8(commit_buffer).unwrap();
+    fn inject_header(commit_buffer: String, header: (String, String)) -> Result<String> {
+        //determine if this &str ends in a newline
+        let commit_ends_in_newline = commit_buffer.ends_with('\n');
         let lines = commit_buffer.lines();
         let mut new_buffer = String::new();
         let mut found = false;
         for line in lines {
             if line.is_empty() && !found {
-                new_buffer.push_str(&format!("change-id {}\n", change_id));
+                new_buffer.push_str(&format!("{} {}\n", header.0, header.1));
                 found = true;
             }
             new_buffer.push_str(line);

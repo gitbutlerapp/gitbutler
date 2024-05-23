@@ -1,4 +1,7 @@
-use std::{path::Path, time};
+use std::{
+    path::Path,
+    time::{self, Duration},
+};
 
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -31,7 +34,7 @@ pub struct BaseBranch {
     pub behind: usize,
     pub upstream_commits: Vec<RemoteCommit>,
     pub recent_commits: Vec<RemoteCommit>,
-    pub last_fetched_ms: Option<u128>,
+    pub last_fetched_at: Option<Duration>,
 }
 
 pub fn get_base_branch_data(
@@ -210,7 +213,7 @@ pub fn set_base_branch(
                 },
             );
 
-            let now_ms = crate::time::now_ms();
+            let now = crate::time::now();
 
             let (upstream, upstream_head) = if let git::Refname::Local(head_name) = &head_name {
                 let upstream_name = target_branch_ref.with_branch(head_name.branch());
@@ -244,8 +247,8 @@ pub fn set_base_branch(
                 applied: true,
                 upstream,
                 upstream_head,
-                created_timestamp_ms: now_ms,
-                updated_timestamp_ms: now_ms,
+                created_at: now,
+                updated_at: now,
                 head: current_head_commit.id(),
                 tree: super::write_tree_onto_commit(
                     project_repository,
@@ -379,6 +382,7 @@ pub fn update_base_branch(
             .map(|(branch, _)| branch)
             .map(
                 |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
+
                     let branch_tree = repo.find_tree(branch.tree)?;
 
                     let branch_head_commit = repo.find_commit(branch.head).context(format!(
@@ -389,6 +393,34 @@ pub fn update_base_branch(
                         "failed to find tree for commit {} for branch {}",
                         branch.head, branch.id
                     ))?;
+
+                    let ok_with_force_push = project_repository.project().ok_with_force_push;
+                    if *ok_with_force_push {
+                        // EXPERIMENTAL: just run the branch head through cherry_rebase_group
+                        let mut branch_head = branch.head;
+
+                        // if there is uncommitted work, temp commit the wip
+                        if branch_head_tree.id() != branch_tree.id() {
+                            let (author, committer) = project_repository.git_signatures(user)?;
+                            branch_head = repo.commit(None, &author, &committer, "wip", &branch_tree, &[&branch_head_commit], None)?;
+                        }
+
+                        let rebased_head_oid = cherry_rebase(project_repository, new_target_commit.id(), new_target_commit.id(), branch_head)?;
+                        let rebased_head = repo.find_commit(rebased_head_oid.unwrap()).context("failed to find rebased head")?;
+                        branch.tree = rebased_head.tree_id();
+                        branch.head = rebased_head.id();
+
+                        // ok, it's rebased, now undo the wip commit but keep the tree
+                        if branch_head_tree.id() != branch_tree.id() {
+                            let parent = rebased_head.parent(0).context("failed to get parent")?;
+                            branch.head = parent.id();
+                        }
+
+                        vb_state.set_branch(branch.clone())?;
+                        return Ok(Some(branch))
+                    }
+
+                    // back to the non-experimental code
 
                     let result_integrated_detected =
                         |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
@@ -472,8 +504,6 @@ pub fn update_base_branch(
                             "failed to write head merge index for {}",
                             branch.id
                         ))?;
-
-                    let ok_with_force_push = project_repository.project().ok_with_force_push;
 
                     let result_merge =
                         |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
@@ -573,7 +603,17 @@ pub fn update_base_branch(
         .fold(new_target_commit.tree(), |final_tree, branch| {
             let final_tree = final_tree?;
             let branch_tree = repo.find_tree(branch.tree)?;
-            let mut merge_result = repo.merge_trees(&new_target_tree, &final_tree, &branch_tree)?;
+
+            // if we see a .conflict-side-0 entry, we know that the commit is conflicted
+            // use that subtree for the merge instead
+            let conflict_side_0 = branch_tree.get_name(".conflict-side-0");
+            let merge_tree = if let Some(conflict_side_0) = conflict_side_0 {
+                repo.find_tree(conflict_side_0.id())?
+            } else {
+                repo.find_tree(branch_tree.id())? // dumb, but sort of a clone()
+            };
+
+            let mut merge_result = repo.merge_trees(&new_target_tree, &final_tree, &merge_tree)?;
             let final_tree_oid = merge_result.write_tree_to(repo)?;
             repo.find_tree(final_tree_oid)
         })
@@ -646,13 +686,13 @@ pub fn target_to_base_branch(
         behind: upstream_commits.len(),
         upstream_commits,
         recent_commits,
-        last_fetched_ms: project_repository
+        last_fetched_at: project_repository
             .project()
             .project_data_last_fetch
             .as_ref()
             .map(FetchResult::timestamp)
             .copied()
-            .map(|t| t.duration_since(time::UNIX_EPOCH).unwrap().as_millis()),
+            .map(|t| t.duration_since(time::UNIX_EPOCH).unwrap()),
     };
     Ok(base)
 }

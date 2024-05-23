@@ -51,7 +51,7 @@
 			{loading}
 			disabled={disabled || loading}
 			isDropdownChild
-			on:click={() => (visible = !visible)}
+			on:mousedown={() => (visible = !visible)}
 		/>
 	</div>
 	<div

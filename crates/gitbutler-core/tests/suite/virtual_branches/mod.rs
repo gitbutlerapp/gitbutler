@@ -30,6 +30,7 @@ impl Drop for Test {
 impl Default for Test {
     fn default() -> Self {
         let data_dir = paths::data_dir();
+        dbg!(&data_dir);
         let projects = projects::Controller::from_path(data_dir.path());
         let users = users::Controller::from_path(data_dir.path());
         let helper = git::credentials::Helper::from_path(data_dir.path());

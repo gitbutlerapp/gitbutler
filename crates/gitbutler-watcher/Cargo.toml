@@ -15,7 +15,7 @@ futures = "0.3.30"
 tokio = { workspace = true, features = [ "macros" ] }
 tokio-util = "0.7.10"
 tracing = "0.1.40"
-git2.workspace = true
+gix = { workspace = true, features = ["excludes"] }
 
 backoff = "0.4.0"
 notify = { version = "6.0.1" }
@@ -24,12 +24,6 @@ file-id = "0.2.1"
 walkdir = "2.2.2"
 crossbeam-channel = "0.5.12"
 itertools = "0.12"
-
-[dev-dependencies]
-gitbutler-testsupport.workspace = true
-git2.workspace = true
-tempfile = "3.10"
-once_cell = "1.19"
 
 [lints.clippy]
 all = "deny"
