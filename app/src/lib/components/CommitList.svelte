@@ -3,7 +3,12 @@
 	import CommitLines from './CommitLines.svelte';
 	import CommitListItem from './CommitListItem.svelte';
 	import { getContextStore } from '$lib/utils/context';
-	import { getLocalCommits, getRemoteCommits, getUpstreamCommits } from '$lib/vbranches/contexts';
+	import {
+		getLocalCommits,
+		getRemoteCommits,
+		getUnknownCommits,
+		getUpstreamCommits
+	} from '$lib/vbranches/contexts';
 	import { BaseBranch, Branch } from '$lib/vbranches/types';
 
 	export let isUnapplied: boolean;
@@ -12,23 +17,23 @@
 	const localCommits = getLocalCommits();
 	const remoteCommits = getRemoteCommits();
 	const upstreamCommits = getUpstreamCommits();
+	const unknownCommits = getUnknownCommits();
 	const baseBranch = getContextStore(BaseBranch);
 
 	$: hasShadowColumn = $localCommits.some((c) => c.relatedTo && c.id != c.relatedTo.id);
 	$: hasLocalColumn = $localCommits.length > 0;
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
-	$: unknownCommits = $upstreamCommits.filter((c) => !c.relatedTo || c.id != c.relatedTo.id);
-	$: hasUnknownCommits = unknownCommits.length > 0;
+	$: hasUnknownCommits = $unknownCommits.length > 0;
 </script>
 
 {#if hasCommits}
 	<div class="commit-list__content">
 		<div class="title text-base-13 text-semibold"></div>
 		<div class="commits">
-			{#if unknownCommits.length > 0}
+			{#if $unknownCommits.length > 0}
 				<CommitLines {hasShadowColumn} {hasLocalColumn} localLine />
-				{#each unknownCommits as commit, idx (commit.id)}
+				{#each $unknownCommits as commit, idx (commit.id)}
 					<div class="commit-lines">
 						<CommitLines
 							{hasLocalColumn}
@@ -98,6 +103,7 @@
 							{hasLocalColumn}
 							{hasShadowColumn}
 							localCommit={commit}
+							localLine={idx == 0 && commit.parent?.status == 'local'}
 							first={idx == 0}
 							upstreamLine={hasUnknownCommits}
 						/>

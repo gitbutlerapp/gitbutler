@@ -12,6 +12,7 @@
 		createLocalContextStore,
 		createRemoteContextStore,
 		createSelectedFiles,
+		createUnknownCommitsStore,
 		createUpstreamContextStore
 	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
@@ -41,7 +42,8 @@
 	// Set the store immediately so it can be updated later.
 	const upstreamCommits = createUpstreamContextStore([]);
 	$: upstreamCommits.set(branch.upstreamData?.commits ?? []);
-	// $: if (branch.upstream?.name) loadRemoteBranch(branch.upstream?.name);
+	const unknownCommits = createUnknownCommitsStore([]);
+	$: unknownCommits.set($upstreamCommits.filter((c) => !c.relatedTo || c.id != c.relatedTo.id));
 
 	const fileIdSelection = new FileIdSelection();
 	setContext(FileIdSelection, fileIdSelection);

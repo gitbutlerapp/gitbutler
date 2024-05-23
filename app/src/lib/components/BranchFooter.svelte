@@ -4,7 +4,7 @@
 	import { PromptService } from '$lib/backend/prompt';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { getLocalCommits, getRemoteCommits, getUpstreamCommits } from '$lib/vbranches/contexts';
+	import { getLocalCommits, getRemoteCommits, getUnknownCommits } from '$lib/vbranches/contexts';
 	import { Branch } from '$lib/vbranches/types';
 
 	export let isUnapplied: boolean;
@@ -20,15 +20,13 @@
 
 	const localCommits = getLocalCommits();
 	const remoteCommits = getRemoteCommits();
-	const upstreamCommits = getUpstreamCommits();
-	$: unknownCommits = $upstreamCommits.filter((c) => !c.relatedTo || c.id != c.relatedTo.id);
-	$: console.log(unknownCommits);
+	const unknownCommits = getUnknownCommits();
 
 	$: hasCommits =
-		$localCommits.length > 0 || $remoteCommits.length > 0 || unknownCommits.length > 0;
+		$localCommits.length > 0 || $remoteCommits.length > 0 || $unknownCommits.length > 0;
 
 	let isLoading: boolean;
-	$: isPushed = $localCommits.length == 0 && unknownCommits.length == 0;
+	$: isPushed = $localCommits.length == 0 && $unknownCommits.length == 0;
 </script>
 
 {#if !isUnapplied && hasCommits}
@@ -58,17 +56,12 @@
 				}}
 			/>
 		{:else}
-			<span class="text-base-body-11 text-in-the-bottom">
-				Branch {$branch.name} is up to date with the remote.
-			</span>
+			Branch {$branch.name} is up to date with the remote.
 		{/if}
 	</div>
 {/if}
 
 <style lang="postcss">
-	.text-in-the-bottom {
-		color: var(--clr-scale-ntrl-50);
-	}
 	.actions {
 		background: var(--clr-bg-1);
 		padding: var(--size-16);
