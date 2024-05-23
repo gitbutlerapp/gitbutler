@@ -19,6 +19,7 @@ pub trait Snapshot {
     ) -> anyhow::Result<()>;
     fn snapshot_commit_creation(
         &self,
+        snapshot_tree: String,
         commit_message: String,
         sha: Option<String>,
     ) -> anyhow::Result<()>;
@@ -55,6 +56,7 @@ impl<T: Oplog> Snapshot for T {
     }
     fn snapshot_commit_creation(
         &self,
+        snapshot_tree: String,
         commit_message: String,
         sha: Option<String>,
     ) -> anyhow::Result<()> {
@@ -68,7 +70,7 @@ impl<T: Oplog> Snapshot for T {
                 value: sha.unwrap_or_default(),
             },
         ]);
-        self.create_snapshot(details)?;
+        self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
     fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()> {

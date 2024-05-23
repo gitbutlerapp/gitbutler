@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context};
-use git2::FileMode;
+use git2::{FileMode, Oid};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -22,20 +22,32 @@ const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
 
 /// The Oplog trait allows for crating snapshots of the current state of the project as well as restoring to a previous snapshot.
 /// Snapshots include the state of the working directory as well as all additional GitButler state (e.g virtual branches, conflict state).
+/// The data is stored as git trees in the following shape:
+/// .
+/// ├── workdir/
+/// ├── virtual_branches
+/// │   └── [branch-id]
+/// │       ├── commit-message.txt
+/// │       └── tree (subtree)
+/// │   └── [branch-id]
+/// │       ├── commit-message.txt
+/// │       └── tree (subtree)
+/// └── virtual_branches.toml
 pub trait Oplog {
-    /// Creates a snapshot of the current state of the repository and virtual branches using the given label.
-    ///
-    /// If this is the first shapshot created, supporting structures are initialized:
-    ///  - The current oplog head is persisted in `.git/gitbutler/operations-log.toml`.
-    ///  - A fake branch `gitbutler/target` is created and maintained in order to keep the oplog head reachable.
-    ///
-    /// The snapshot tree contains:
-    ///  - The current state of the working directory under a subtree `workdir`.
-    ///  - The state of virtual branches from `.git/gitbutler/virtual_branches.toml` as a blob `virtual_branches.toml`.
-    ///  - The state of conflicts from `.git/base_merge_parent` and `.git/conflicts` if present as blobs under a subtree `conflicts`
-    ///
+    /// Prepares a snapshot of the current state of the working directory as well as GitButler data.
+    /// Returns a tree sha of the snapshot. The snapshot is not discoverable until it is comitted with `commit_snapshot`
     /// If there are files that are untracked and larger than SNAPSHOT_FILE_LIMIT_BYTES, they are excluded from snapshot creation and restoring.
+    fn prepare_snapshot(&self) -> Result<String>;
+    /// Commits the snapshot tree that is created with the `prepare_snapshot` method.
+    /// Committing it makes the snapshot discoverable in `list_snapshots` as well as restorable with `restore_snapshot`.
     /// Returns the sha of the created snapshot commit or None if snapshots are disabled.
+    fn commit_snapshot(
+        &self,
+        snapshot_tree_sha: String,
+        details: SnapshotDetails,
+    ) -> Result<Option<String>>;
+    /// Creates a snapshot of the current state of the working directory as well as GitButler data.
+    /// This is a convinience method that combines `prepare_snapshot` and `commit_snapshot`.
     fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<String>>;
     /// Lists the snapshots that have been created for the given repository, up to the given limit.
     /// An alternative way of retrieving the snapshots would be to manually the oplog head `git log <oplog_head>` available in `.git/gitbutler/operations-log.toml`.
@@ -72,12 +84,7 @@ pub trait Oplog {
 }
 
 impl Oplog for Project {
-    fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<String>> {
-        // Default feature flag to true
-        if self.enable_snapshots.is_some() && self.enable_snapshots == Some(false) {
-            return Ok(None);
-        }
-
+    fn prepare_snapshot(&self) -> Result<String> {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
 
@@ -87,17 +94,6 @@ impl Oplog for Project {
         let default_target_sha = vb_state.get_default_target()?.sha;
         let default_target = repo.find_commit(default_target_sha.into())?;
         let target_tree_oid = default_target.tree_id();
-
-        // figure out the oplog parent
-        let oplog_state = OplogHandle::new(&self.gb_dir());
-        let oplog_head_commit = match oplog_state.get_oplog_head()? {
-            Some(head_sha) => match repo.find_commit(git2::Oid::from_str(&head_sha)?) {
-                Ok(commit) => Some(commit),
-                Err(_) => None, // cant find the old one, start over
-            },
-            // This is the first snapshot - no parents
-            None => None,
-        };
 
         // Create a blob out of `.git/gitbutler/virtual_branches.toml`
         let vb_path = repo_path
@@ -246,7 +242,24 @@ impl Oplog for Project {
 
         // ok, write out the final oplog tree
         let tree_id = tree_builder.write()?;
-        let tree = repo.find_tree(tree_id)?;
+        Ok(tree_id.to_string())
+    }
+
+    fn commit_snapshot(&self, tree_id: String, details: SnapshotDetails) -> Result<Option<String>> {
+        let repo_path = self.path.as_path();
+        let repo = git2::Repository::init(repo_path)?;
+
+        let tree = repo.find_tree(Oid::from_str(&tree_id)?)?;
+
+        let oplog_state = OplogHandle::new(&self.gb_dir());
+        let oplog_head_commit = match oplog_state.get_oplog_head()? {
+            Some(head_sha) => match repo.find_commit(git2::Oid::from_str(&head_sha)?) {
+                Ok(commit) => Some(commit),
+                Err(_) => None, // cant find the old one, start over
+            },
+            // This is the first snapshot - no parents
+            None => None,
+        };
 
         // Check if there is a difference between the tree and the parent tree, and if not, return so that we dont create noop snapshots
         if let Some(ref head_commit) = oplog_head_commit {
@@ -277,6 +290,10 @@ impl Oplog for Project {
 
         oplog_state.set_oplog_head(new_commit_oid.to_string())?;
 
+        let vb_state = self.virtual_branches();
+        // grab the target tree sha
+        let default_target_sha = vb_state.get_default_target()?.sha;
+
         set_reference_to_oplog(
             self,
             &default_target_sha.to_string(),
@@ -284,6 +301,11 @@ impl Oplog for Project {
         )?;
 
         Ok(Some(new_commit_oid.to_string()))
+    }
+
+    fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<String>> {
+        let tree_id = self.prepare_snapshot()?;
+        self.commit_snapshot(tree_id, details)
     }
 
     fn list_snapshots(&self, limit: usize, sha: Option<String>) -> Result<Vec<Snapshot>> {
@@ -384,6 +406,9 @@ impl Oplog for Project {
     fn restore_snapshot(&self, sha: String) -> Result<Option<String>> {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
+
+        // prepare snapshot
+        let snapshot_tree = self.prepare_snapshot();
 
         let commit = repo.find_commit(git2::Oid::from_str(&sha)?)?;
         // Top tree
@@ -544,7 +569,7 @@ impl Oplog for Project {
                 },
             ],
         };
-        self.create_snapshot(details)
+        snapshot_tree.and_then(|snapshot_tree| self.commit_snapshot(snapshot_tree, details))
     }
 
     fn should_auto_snapshot(&self) -> Result<bool> {
