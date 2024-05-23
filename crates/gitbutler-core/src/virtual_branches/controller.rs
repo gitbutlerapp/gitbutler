@@ -640,12 +640,10 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result =
-                super::unapply_ownership(project_repository, ownership).map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::DiscardHunk));
-            result
+            super::unapply_ownership(project_repository, ownership).map_err(Into::into)
         })
     }
 
