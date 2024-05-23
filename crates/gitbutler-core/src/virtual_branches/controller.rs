@@ -576,12 +576,11 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let result = super::integrate_upstream_commits(project_repository, branch_id, user)
-                .map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::MergeUpstream));
-            result
+            super::integrate_upstream_commits(project_repository, branch_id, user)
+                .map_err(Into::into)
         })
     }
 
