@@ -4,7 +4,7 @@
 	import { PromptService } from '$lib/backend/prompt';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { getLocalCommits, getRemoteCommits, getUnknownCommits } from '$lib/vbranches/contexts';
+	import { getLocalCommits, getRemoteCommits, getUpstreamCommits } from '$lib/vbranches/contexts';
 	import { Branch } from '$lib/vbranches/types';
 
 	export let isUnapplied: boolean;
@@ -20,7 +20,7 @@
 
 	const localCommits = getLocalCommits();
 	const remoteCommits = getRemoteCommits();
-	const unknownCommits = getUnknownCommits();
+	const unknownCommits = getUpstreamCommits();
 
 	$: hasCommits =
 		$localCommits.length > 0 || $remoteCommits.length > 0 || $unknownCommits.length > 0;

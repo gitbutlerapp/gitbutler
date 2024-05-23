@@ -14,7 +14,7 @@
 	import { persisted, type Persisted } from '$lib/persisted/persisted';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
-	import { getLocalCommits, getUnknownCommits } from '$lib/vbranches/contexts';
+	import { getLocalCommits, getUpstreamCommits } from '$lib/vbranches/contexts';
 	import { createEventDispatcher } from 'svelte';
 	import type { Branch } from '$lib/vbranches/types';
 
@@ -24,7 +24,7 @@
 
 	const project = getContext(Project);
 	const localCommits = getLocalCommits();
-	const unknownCommits = getUnknownCommits();
+	const unknownCommits = getUpstreamCommits();
 
 	function defaultAction(): Persisted<BranchAction> {
 		const key = 'projectDefaultAction_';
