@@ -240,6 +240,10 @@ pub fn apply_branch(
         Err(error) => Err(errors::ApplyBranchError::Other(error.into())),
     }?;
 
+    _ = project_repository
+        .project()
+        .snapshot_branch_applied(branch.name.clone());
+
     if branch.applied {
         return Ok(());
     }
@@ -456,10 +460,6 @@ pub fn apply_branch(
         .context("failed to checkout index")?;
 
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-
-    _ = project_repository
-        .project()
-        .snapshot_branch_applied(branch.name);
     Ok(())
 }
 
