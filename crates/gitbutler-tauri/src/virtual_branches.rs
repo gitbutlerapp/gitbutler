@@ -86,14 +86,14 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
-    pub async fn merge_virtual_branch_upstream(
+    pub async fn integrate_upstream_commits(
         handle: AppHandle,
         project_id: ProjectId,
         branch: BranchId,
     ) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .merge_virtual_branch_upstream(&project_id, &branch)
+            .integrate_upstream_commits(&project_id, &branch)
             .await?;
         emit_vbranches(&handle, &project_id).await;
         Ok(())

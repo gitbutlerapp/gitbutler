@@ -157,14 +157,14 @@ impl Controller {
             .set_target_push_remote(project_id, push_remote)
     }
 
-    pub async fn merge_virtual_branch_upstream(
+    pub async fn integrate_upstream_commits(
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
     ) -> Result<(), Error> {
         self.inner(project_id)
             .await
-            .merge_virtual_branch_upstream(project_id, branch_id)
+            .integrate_upstream_commits(project_id, branch_id)
             .await
     }
 
@@ -571,7 +571,7 @@ impl ControllerInner {
         Ok(())
     }
 
-    pub async fn merge_virtual_branch_upstream(
+    pub async fn integrate_upstream_commits(
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
