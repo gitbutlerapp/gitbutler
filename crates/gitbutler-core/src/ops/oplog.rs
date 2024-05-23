@@ -407,6 +407,9 @@ impl Oplog for Project {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
 
+        // prepare snapshot
+        let snapshot_tree = self.prepare_snapshot();
+
         let commit = repo.find_commit(git2::Oid::from_str(&sha)?)?;
         // Top tree
         let top_tree = commit.tree()?;
@@ -566,7 +569,7 @@ impl Oplog for Project {
                 },
             ],
         };
-        self.create_snapshot(details)
+        snapshot_tree.and_then(|snapshot_tree| self.commit_snapshot(snapshot_tree, details))
     }
 
     fn should_auto_snapshot(&self) -> Result<bool> {
