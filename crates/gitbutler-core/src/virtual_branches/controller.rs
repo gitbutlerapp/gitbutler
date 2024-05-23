@@ -721,12 +721,10 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result =
-                super::undo_commit(project_repository, branch_id, commit_oid).map_err(Into::into);
             let _ = project_repository
                 .project()
                 .snapshot_commit_undo(commit_oid.to_string());
-            result
+            super::undo_commit(project_repository, branch_id, commit_oid).map_err(Into::into)
         })
     }
 
