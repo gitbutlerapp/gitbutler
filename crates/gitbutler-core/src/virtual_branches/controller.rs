@@ -939,12 +939,11 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let result = super::move_commit(project_repository, target_branch_id, commit_oid, user)
-                .map_err(Into::into);
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationType::MoveCommit));
-            result
+            super::move_commit(project_repository, target_branch_id, commit_oid, user)
+                .map_err(Into::into)
         })
     }
 }
