@@ -1,7 +1,8 @@
-use std::{path::Path, time::Duration};
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use bstr::BString;
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use super::{errors, target, Author, VirtualBranchesHandle};
@@ -25,7 +26,7 @@ pub struct RemoteBranch {
     pub sha: git::Oid,
     pub name: git::Refname,
     pub upstream: Option<git::RemoteRefname>,
-    pub last_commit_at: Option<Duration>,
+    pub last_commit_at: Option<DateTime<Utc>>,
     pub last_commit_author: Option<String>,
 }
 
@@ -45,7 +46,7 @@ pub struct RemoteCommit {
     pub id: String,
     #[serde(serialize_with = "crate::serde::as_string_lossy")]
     pub description: BString,
-    pub created_at: Duration,
+    pub created_at: DateTime<Utc>,
     pub author: Author,
     pub change_id: Option<String>,
 }

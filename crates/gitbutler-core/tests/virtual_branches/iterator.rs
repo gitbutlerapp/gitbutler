@@ -1,9 +1,7 @@
-use std::{
-    sync::atomic::{AtomicUsize, Ordering},
-    time::Duration,
-};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::Result;
+use chrono::DateTime;
 use gitbutler_core::virtual_branches;
 use once_cell::sync::Lazy;
 
@@ -28,8 +26,9 @@ fn new_test_branch() -> virtual_branches::branch::Branch {
             .unwrap(),
         ),
         upstream_head: None,
-        created_at: Duration::from_millis(TEST_INDEX.load(Ordering::Relaxed) as u64),
-        updated_at: Duration::from_millis((TEST_INDEX.load(Ordering::Relaxed) + 100) as u64),
+        created_at: DateTime::from_timestamp(TEST_INDEX.load(Ordering::Relaxed) as i64, 0).unwrap(),
+        updated_at: DateTime::from_timestamp((TEST_INDEX.load(Ordering::Relaxed) + 100) as i64, 0)
+            .unwrap(),
         head: format!(
             "0123456789abcdef0123456789abcdef0123456{}",
             TEST_INDEX.load(Ordering::Relaxed)

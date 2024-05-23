@@ -3,6 +3,7 @@ use std::{
     time::SystemTime,
 };
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -47,17 +48,19 @@ pub enum FetchResult {
 }
 
 impl FetchResult {
-    pub fn timestamp(&self) -> &SystemTime {
+    pub fn timestamp(&self) -> DateTime<Utc> {
         match self {
             FetchResult::Fetched { timestamp } | FetchResult::Error { timestamp, .. } => timestamp,
         }
+        .clone()
+        .into()
     }
 }
 
 #[derive(Debug, Deserialize, Serialize, Copy, Clone)]
 pub struct CodePushState {
     pub id: git::Oid,
-    pub timestamp: SystemTime,
+    pub timestamp: DateTime<Utc>,
 }
 
 pub type ProjectId = Id<Project>;

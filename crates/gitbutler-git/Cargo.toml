@@ -39,6 +39,7 @@ uuid = { workspace = true, features = ["v4", "fast-rng"] }
 rand = "0.8.5"
 futures = "0.3.30"
 sysinfo = "0.30.11"
+chrono = "0.4.10"
 
 [target."cfg(unix)".dependencies]
 nix = { version = "0.28.0", features = ["process", "socket", "user"] }

@@ -2,8 +2,7 @@ mod file_ownership;
 mod hunk;
 mod ownership;
 
-use std::time::Duration;
-
+use chrono::{DateTime, Utc};
 pub use file_ownership::OwnershipClaim;
 pub use hunk::{Hunk, HunkHash};
 pub use ownership::{reconcile_claims, BranchOwnershipClaims};
@@ -28,9 +27,9 @@ pub struct Branch {
     // upstream_head is the last commit on we've pushed to the upstream branch
     pub upstream_head: Option<git::Oid>,
     #[serde(rename = "created_timestamp_ms", with = "duration_int_string_serde")]
-    pub created_at: Duration,
+    pub created_at: DateTime<Utc>,
     #[serde(rename = "updated_timestamp_ms", with = "duration_int_string_serde")]
-    pub updated_at: Duration,
+    pub updated_at: DateTime<Utc>,
     /// tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
     pub tree: git::Oid,
     /// head is id of the last "virtual" commit in this branch

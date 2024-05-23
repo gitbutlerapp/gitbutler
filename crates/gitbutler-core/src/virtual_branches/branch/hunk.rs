@@ -2,7 +2,7 @@ use std::{fmt::Display, ops::RangeInclusive, str::FromStr};
 
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
-use std::time::Duration;
+use chrono::{DateTime, Utc};
 
 use crate::git::diff;
 
@@ -11,7 +11,7 @@ pub type HunkHash = md5::Digest;
 #[derive(Debug, Eq, Clone)]
 pub struct Hunk {
     pub hash: Option<HunkHash>,
-    pub timestamp: Option<Duration>,
+    pub timestamp: Option<DateTime<Utc>>,
     pub start: u32,
     pub end: u32,
     pub locked_to: Vec<diff::HunkLock>,
@@ -86,9 +86,9 @@ impl FromStr for Hunk {
 
         let timestamp = if let Some(raw_timestamp_ms) = range.next() {
             let parsed_millis = raw_timestamp_ms
-                .parse::<u64>()
+                .parse::<i64>()
                 .context(format!("failed to parse timestamp_ms of range: {}", s))?;
-            Some(Duration::from_millis(parsed_millis))
+            DateTime::from_timestamp_millis(parsed_millis).into()
         } else {
             None
         };
@@ -102,10 +102,10 @@ impl Display for Hunk {
         write!(f, "{}-{}", self.start, self.end)?;
         match (&self.hash, &self.timestamp) {
             (Some(hash), Some(timestamp)) => {
-                write!(f, "-{:x}-{}", hash, timestamp.as_secs())
+                write!(f, "-{:x}-{}", hash, timestamp.timestamp())
             }
             (Some(hash), None) => write!(f, "-{:x}", hash),
-            (None, Some(timestamp)) => write!(f, "--{}", timestamp.as_secs()),
+            (None, Some(timestamp)) => write!(f, "--{}", timestamp.timestamp()),
             (None, None) => Ok(()),
         }
     }
@@ -116,7 +116,7 @@ impl Hunk {
         start: u32,
         end: u32,
         hash: Option<HunkHash>,
-        timestamp: Option<Duration>,
+        timestamp: Option<DateTime<Utc>>,
     ) -> Result<Self> {
         if start > end {
             Err(anyhow!("invalid range: {}-{}", start, end))
@@ -136,12 +136,12 @@ impl Hunk {
         self
     }
 
-    pub fn with_timestamp(mut self, timestamp: Duration) -> Self {
+    pub fn with_timestamp(mut self, timestamp: DateTime<Utc>) -> Self {
         self.timestamp = Some(timestamp);
         self
     }
 
-    pub fn timestamp(&self) -> Option<Duration> {
+    pub fn timestamp(&self) -> Option<DateTime<Utc>> {
         self.timestamp
     }
 

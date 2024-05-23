@@ -1,16 +1,16 @@
-use std::borrow::Borrow;
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::PermissionsExt;
-use std::time::{Duration, SystemTime};
+use std::{borrow::Borrow, time::SystemTime};
 use std::{
     collections::HashMap,
     hash::Hash,
     path::{Path, PathBuf},
-    time, vec,
+    vec,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice, ByteVec};
+use chrono::{DateTime, Utc};
 use diffy::{apply_bytes as diffy_apply, Line, Patch};
 use git2_hooks::HookResult;
 use hex::ToHex;
@@ -66,7 +66,7 @@ pub struct VirtualBranch {
     pub upstream_name: Option<String>, // the upstream branch where this branch will push to on next push
     pub base_current: bool, // is this vbranch based on the current base branch? if false, this needs to be manually merged with conflicts
     pub ownership: BranchOwnershipClaims,
-    pub updated_at: Duration,
+    pub updated_at: DateTime<Utc>,
     pub selected_for_changes: bool,
     pub head: git::Oid,
 }
@@ -92,7 +92,7 @@ pub struct VirtualBranchCommit {
     pub id: git::Oid,
     #[serde(serialize_with = "crate::serde::as_string_lossy")]
     pub description: BString,
-    pub created_at: Duration,
+    pub created_at: DateTime<Utc>,
     pub author: Author,
     pub is_remote: bool,
     pub files: Vec<VirtualBranchFile>,
@@ -118,7 +118,7 @@ pub struct VirtualBranchFile {
     pub id: String,
     pub path: PathBuf,
     pub hunks: Vec<VirtualBranchHunk>,
-    pub modified_at: Duration,
+    pub modified_at: DateTime<Utc>,
     pub conflicted: bool,
     pub binary: bool,
     pub large: bool,
@@ -138,7 +138,7 @@ pub struct VirtualBranchHunk {
     pub id: String,
     #[serde(serialize_with = "crate::serde::as_string_lossy")]
     pub diff: BString,
-    pub modified_at: Duration,
+    pub modified_at: DateTime<Utc>,
     pub file_path: PathBuf,
     #[serde(serialize_with = "crate::serde::hash_to_hex")]
     pub hash: HunkHash,
@@ -1101,7 +1101,7 @@ pub fn create_virtual_branch(
         }
     }
 
-    let now = crate::time::now();
+    let now = Utc::now();
 
     let mut branch = Branch {
         id: BranchId::generate(),
@@ -1537,10 +1537,10 @@ fn set_ownership(
 }
 
 #[derive(Default)]
-struct MTimeCache(HashMap<PathBuf, Duration>);
+struct MTimeCache(HashMap<PathBuf, DateTime<Utc>>);
 
 impl MTimeCache {
-    fn mtime_by_path<P: AsRef<Path>>(&mut self, path: P) -> Duration {
+    fn mtime_by_path<P: AsRef<Path>>(&mut self, path: P) -> DateTime<Utc> {
         let path = path.as_ref();
 
         if let Some(mtime) = self.0.get(path) {
@@ -1558,8 +1558,7 @@ impl MTimeCache {
                         .unwrap_or_else(|_| SystemTime::now())
                 },
             )
-            .duration_since(time::UNIX_EPOCH)
-            .unwrap_or(Duration::ZERO);
+            .into();
         self.0.insert(path.into(), mtime);
         mtime
     }
@@ -1972,7 +1971,7 @@ fn virtual_hunks_into_virtual_files(
                 .iter()
                 .map(|h| h.modified_at)
                 .max()
-                .unwrap_or(Duration::ZERO);
+                .unwrap_or(DateTime::<Utc>::MIN_UTC);
             debug_assert!(hunks.iter().all(|hunk| hunk.file_path == path));
             VirtualBranchFile {
                 id,
@@ -4077,7 +4076,7 @@ pub fn create_virtual_branch_from_branch(
         .any(|b| b.selected_for_changes.is_some()))
     .then_some(chrono::Utc::now().timestamp_millis());
 
-    let now = crate::time::now();
+    let now = Utc::now();
 
     // only set upstream if it's not the default target
     let upstream_branch = match upstream {

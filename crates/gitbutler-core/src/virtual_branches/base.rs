@@ -1,9 +1,7 @@
-use std::{
-    path::Path,
-    time::{self, Duration},
-};
+use std::path::Path;
 
 use anyhow::{Context, Result};
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use super::{
@@ -34,7 +32,7 @@ pub struct BaseBranch {
     pub behind: usize,
     pub upstream_commits: Vec<RemoteCommit>,
     pub recent_commits: Vec<RemoteCommit>,
-    pub last_fetched_at: Option<Duration>,
+    pub last_fetched_at: Option<DateTime<Utc>>,
 }
 
 pub fn get_base_branch_data(
@@ -213,7 +211,7 @@ pub fn set_base_branch(
                 },
             );
 
-            let now = crate::time::now();
+            let now = Utc::now();
 
             let (upstream, upstream_head) = if let git::Refname::Local(head_name) = &head_name {
                 let upstream_name = target_branch_ref.with_branch(head_name.branch());
@@ -653,9 +651,7 @@ pub fn target_to_base_branch(
             .project()
             .project_data_last_fetch
             .as_ref()
-            .map(FetchResult::timestamp)
-            .copied()
-            .map(|t| t.duration_since(time::UNIX_EPOCH).unwrap()),
+            .map(FetchResult::timestamp),
     };
     Ok(base)
 }

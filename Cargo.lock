@@ -2143,6 +2143,7 @@ dependencies = [
 name = "gitbutler-git"
 version = "0.0.0"
 dependencies = [
+ "chrono",
  "futures",
  "nix 0.28.0",
  "rand 0.8.5",

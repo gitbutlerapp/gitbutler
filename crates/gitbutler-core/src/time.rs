@@ -1,43 +1,29 @@
-use std::time::{Duration, UNIX_EPOCH};
-
-/// Gets the duration of time since the Unix epoch.
-///
-/// # Panics
-/// Panics if the system time is set before the Unix epoch.
-pub fn now() -> Duration {
-    UNIX_EPOCH
-        .elapsed()
-        .expect("system time is set before the Unix epoch")
-}
+use chrono::Utc;
 
 /// Gets the number of milliseconds since the Unix epoch.
-///
-/// # Panics
-/// Panics if the system time is set before the Unix epoch.
-pub fn now_ms() -> u128 {
-    now().as_millis()
+pub fn now_ms() -> i64 {
+    Utc::now().timestamp_millis()
 }
 
 pub mod duration_int_string_serde {
-    use std::time::Duration;
-
+    use chrono::{DateTime, Utc};
     use serde::{Deserialize, Deserializer, Serializer};
 
-    pub fn serialize<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(date_time: &DateTime<Utc>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_str(&duration.as_millis().to_string())
+        serializer.serialize_str(&date_time.timestamp_millis().to_string())
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
     where
         D: Deserializer<'de>,
     {
         let millis_str = String::deserialize(deserializer)?;
         let millis = millis_str
-            .parse::<u64>()
+            .parse::<i64>()
             .map_err(serde::de::Error::custom)?;
-        Ok(Duration::from_millis(millis))
+        DateTime::from_timestamp_millis(millis).ok_or(serde::de::Error::custom("Invalid timestamp"))
     }
 }
