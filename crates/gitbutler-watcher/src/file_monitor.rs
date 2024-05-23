@@ -5,7 +5,7 @@ use std::{collections::HashSet, sync::Arc};
 use crate::debouncer::Debouncer;
 use crate::debouncer_cache::FileIdMap;
 use crate::{debouncer::new_debouncer, events::InternalEvent};
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use gitbutler_core::ops::OPLOG_FILE_NAME;
 use gitbutler_core::projects::ProjectId;
 use notify::{RecommendedWatcher, Watcher};
@@ -69,11 +69,35 @@ pub fn spawn(
         .with_max_elapsed_time(Some(std::time::Duration::from_secs(30)))
         .build();
 
+    let git_dir = gix::open_opts(worktree_path, gix::open::Options::isolated())
+        .context(format!(
+            "failed to open project repository to obtain git-dir: {}",
+            worktree_path.display()
+        ))?
+        .path()
+        .to_owned();
+    let extra_git_dir_to_watch = {
+        let mut enclosing_worktree_dir = git_dir.clone();
+        enclosing_worktree_dir.pop();
+        if enclosing_worktree_dir != worktree_path {
+            Some(git_dir.as_path())
+        } else {
+            None
+        }
+    };
+
     // Start the watcher, but retry if there are transient errors.
     backoff::retry(policy, || {
-        debouncer
-            .watcher()
+        let watcher = debouncer.watcher();
+        watcher
             .watch(worktree_path, notify::RecursiveMode::Recursive)
+            .and_then(|()| {
+                if let Some(git_dir) = extra_git_dir_to_watch {
+                    watcher.watch(git_dir, notify::RecursiveMode::Recursive)
+                } else {
+                    Ok(())
+                }
+            })
             .map_err(|err| match err.kind {
                 notify::ErrorKind::PathNotFound => backoff::Error::permanent(RunError::from(
                     anyhow!("{} not found", worktree_path.display()),
@@ -85,21 +109,6 @@ pub fn spawn(
             })
     })
     .context("failed to start watcher")?;
-
-    let git_dir = gix::open_opts(worktree_path, gix::open::Options::isolated())
-        .context(format!(
-            "failed to open project repository to obtain git-dir: {}",
-            worktree_path.display()
-        ))?
-        .path()
-        .to_owned();
-    {
-        let mut enclosing_worktree_dir = git_dir.clone();
-        enclosing_worktree_dir.pop();
-        if enclosing_worktree_dir != worktree_path {
-            bail!("Cannot currently handle watching two directories at the same time - git-dir is {git_dir:?}, worktree-dir is {worktree_path:?}")
-        }
-    }
 
     let worktree_path = worktree_path.to_owned();
     task::spawn_blocking(move || {
