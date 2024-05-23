@@ -27,7 +27,7 @@
 	let currentFilePreview: RemoteFile | undefined = undefined;
 
 	async function onLastInView() {
-		if (!$loading) await historyService.loadMore();
+		if (!$loading && !$isAllLoaded) await historyService.loadMore();
 	}
 
 	function updateFilePreview(entry: Snapshot, path: string) {
@@ -102,7 +102,8 @@
 				</EmptyStatePlaceholder>
 			{/if}
 
-			{#if $snapshots.length == 0 && $loading}
+			<!-- INITIAL LOADING -->
+			{#if $loading && $snapshots.length == 0}
 				<FullviewLoading />
 			{/if}
 
@@ -153,7 +154,15 @@
 							{/if}
 						{/each}
 
-						{#if $isAllLoaded}
+						<!-- LOAD MORE -->
+						{#if $loading}
+							<div class="load-more">
+								<span class="text-base-body-13"> Loading more snapshots… </span>
+							</div>
+						{/if}
+
+						<!-- ALL SNAPSHOTS LOADED -->
+						{#if !$loading && $isAllLoaded}
 							<div class="welcome-point">
 								<div class="welcome-point__icon">
 									<Icon name="finish" />
@@ -312,7 +321,7 @@
 	.welcome-point {
 		display: flex;
 		gap: var(--size-10);
-		padding: var(--size-12) var(--size-16) var(--size-32) 5.2rem;
+		padding: var(--size-12) var(--size-16) var(--size-32) 5.3rem;
 	}
 
 	.welcome-point__content {
@@ -323,6 +332,16 @@
 	}
 
 	.welcome-point__caption {
+		color: var(--clr-text-3);
+	}
+
+	.load-more {
+		display: flex;
+		justify-content: center;
+		padding: var(--size-24) var(--size-14);
+	}
+
+	.load-more span {
 		color: var(--clr-text-3);
 	}
 
