@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use gitbutler_core::virtual_branches::branch::Hunk;
 
 #[test]
@@ -24,7 +26,7 @@ fn parse_with_hash() {
 fn parse_with_timestamp() {
     assert_eq!(
         "2-3--123".parse::<Hunk>().unwrap(),
-        Hunk::new(2, 3, None, Some(123)).unwrap()
+        Hunk::new(2, 3, None, Some(Duration::from_secs(123))).unwrap()
     );
 }
 
@@ -37,7 +39,9 @@ fn parse_invalid_2() {
 fn to_string_no_hash() {
     assert_eq!(
         "1-2--123",
-        Hunk::new(1, 2, None, Some(123)).unwrap().to_string()
+        Hunk::new(1, 2, None, Some(Duration::from_secs(123)))
+            .unwrap()
+            .to_string()
     );
 }
 

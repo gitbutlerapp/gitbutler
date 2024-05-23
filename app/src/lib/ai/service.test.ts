@@ -72,7 +72,7 @@ const diff1 = `
 const hunk1 = plainToInstance(Hunk, {
 	id: 'asdf',
 	diff: diff1,
-	modifiedAt: new Date().toISOString(),
+	modifiedAt: new Date(),
 	filePath: 'foo/bar/baz.ts',
 	locked: false,
 	lockedTo: undefined,
@@ -92,7 +92,7 @@ const diff2 = `
 const hunk2 = plainToInstance(Hunk, {
 	id: 'asdf',
 	diff: diff2,
-	modifiedAt: new Date().toISOString(),
+	modifiedAt: new Date(),
 	filePath: 'random.ts',
 	locked: false,
 	lockedTo: undefined,

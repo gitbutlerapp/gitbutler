@@ -6,7 +6,7 @@ use crate::{
         snapshot::Snapshot,
     },
 };
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{collections::HashMap, path::Path, sync::Arc, time::SystemTime};
 
 use anyhow::Context;
 use tokio::{sync::Semaphore, task::JoinHandle};
@@ -897,10 +897,10 @@ impl ControllerInner {
             .map_err(errors::FetchFromTargetError::Remote)
         {
             Ok(()) => projects::FetchResult::Fetched {
-                timestamp: std::time::SystemTime::now(),
+                timestamp: SystemTime::now(),
             },
             Err(error) => projects::FetchResult::Error {
-                timestamp: std::time::SystemTime::now(),
+                timestamp: SystemTime::now(),
                 error: error.to_string(),
             },
         };

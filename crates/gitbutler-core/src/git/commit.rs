@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use super::{Oid, Result, Signature, Tree};
 use bstr::BStr;
 
@@ -55,8 +57,8 @@ impl<'repo> Commit<'repo> {
         self.commit.parent(n).map(Into::into).map_err(Into::into)
     }
 
-    pub fn time(&self) -> git2::Time {
-        self.commit.time()
+    pub fn time(&self) -> Duration {
+        Duration::from_secs(self.commit.time().seconds().try_into().unwrap())
     }
 
     pub fn author(&self) -> Signature<'_> {

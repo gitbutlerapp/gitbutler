@@ -14,29 +14,29 @@ async fn should_update_last_fetched() {
         .unwrap();
 
     let before_fetch = controller.get_base_branch_data(project_id).await.unwrap();
-    assert!(before_fetch.last_fetched_ms.is_none());
+    assert!(before_fetch.last_fetched_at.is_none());
 
     let fetch = controller
         .fetch_from_target(project_id, None)
         .await
         .unwrap();
-    assert!(fetch.last_fetched_ms.is_some());
+    assert!(fetch.last_fetched_at.is_some());
 
     let after_fetch = controller.get_base_branch_data(project_id).await.unwrap();
-    assert!(after_fetch.last_fetched_ms.is_some());
-    assert_eq!(fetch.last_fetched_ms, after_fetch.last_fetched_ms);
+    assert!(after_fetch.last_fetched_at.is_some());
+    assert_eq!(fetch.last_fetched_at, after_fetch.last_fetched_at);
 
     let second_fetch = controller
         .fetch_from_target(project_id, None)
         .await
         .unwrap();
-    assert!(second_fetch.last_fetched_ms.is_some());
-    assert_ne!(fetch.last_fetched_ms, second_fetch.last_fetched_ms);
+    assert!(second_fetch.last_fetched_at.is_some());
+    assert_ne!(fetch.last_fetched_at, second_fetch.last_fetched_at);
 
     let after_second_fetch = controller.get_base_branch_data(project_id).await.unwrap();
-    assert!(after_second_fetch.last_fetched_ms.is_some());
+    assert!(after_second_fetch.last_fetched_at.is_some());
     assert_eq!(
-        second_fetch.last_fetched_ms,
-        after_second_fetch.last_fetched_ms
+        second_fetch.last_fetched_at,
+        after_second_fetch.last_fetched_at
     );
 }

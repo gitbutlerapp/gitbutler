@@ -7,13 +7,16 @@ use std::{
 use anyhow::{Context, Result};
 
 use super::conflicts;
-use crate::error::{AnyhowContextExt, Code, ErrorWithContext};
 use crate::{
     askpass, error,
     git::{self, credentials::HelpError, Url},
     projects::{self, AuthKey},
     ssh, users,
     virtual_branches::{Branch, BranchId},
+};
+use crate::{
+    error::{AnyhowContextExt, Code, ErrorWithContext},
+    time,
 };
 
 pub struct Repository {
@@ -175,7 +178,7 @@ impl Repository {
         let branch = self.git_repository.find_branch(&target_branch_refname)?;
         let commit_id = branch.peel_to_commit()?.id();
 
-        let now = crate::time::now_ms();
+        let now = time::now_ms();
         let branch_name = format!("test-push-{now}");
 
         let refname =
