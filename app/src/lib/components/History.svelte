@@ -124,7 +124,6 @@
 							{#if entry.details}
 								<SnapshotCard
 									{entry}
-									isCurrent={idx == 0}
 									on:restoreClick={() => {
 										historyService.restoreSnapshot(project.id, entry.id);
 										// In some cases, restoring the snapshot doesnt update the UI correctly
