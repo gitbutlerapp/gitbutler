@@ -52,6 +52,8 @@ use parking_lot::Mutex;
 
 pub(crate) mod cache;
 mod event;
+#[cfg(test)]
+mod testing;
 
 use cache::{FileIdCache, FileIdMap};
 use event::DebouncedEvent;
