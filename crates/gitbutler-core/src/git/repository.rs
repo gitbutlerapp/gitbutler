@@ -3,7 +3,6 @@ use super::{
     TreeBuilder, Url,
 };
 use crate::path::Normalize;
-use git2::string_array::StringArray;
 use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
 #[cfg(unix)]
@@ -12,7 +11,6 @@ use std::os::unix::fs::PermissionsExt;
 use std::os::windows::process::CommandExt;
 use std::process::Stdio;
 use std::{io::Write, path::Path, str};
-use tokio::sync::Mutex;
 
 // wrapper around git2::Repository to get control over how it's used.
 pub struct Repository(git2::Repository);
