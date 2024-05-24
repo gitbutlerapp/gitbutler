@@ -13,6 +13,7 @@
 	export let help = '';
 	export let badgeLabel: string | number | undefined = undefined;
 	export let badgeIcon: keyof typeof iconsJson | undefined = undefined;
+	export let dropdownPosition: 'top' | 'bottom' = 'bottom';
 	let visible = false;
 
 	export function show() {
@@ -63,6 +64,8 @@
 		}}
 		bind:this={contextMenuContainer}
 		style:display={visible ? 'block' : 'none'}
+		class:dropdown-top={dropdownPosition == 'top'}
+		class:dropdown-bottom={dropdownPosition == 'bottom'}
 	>
 		<slot name="context-menu" />
 	</div>
@@ -83,9 +86,17 @@
 	.context-menu-container {
 		position: absolute;
 		right: 0;
+		z-index: var(--z-floating);
+	}
+
+	.dropdown-top {
 		bottom: 100%;
 		padding-bottom: var(--size-4);
-		z-index: var(--z-floating);
+	}
+
+	.dropdown-bottom {
+		top: 100%;
+		padding-top: var(--size-4);
 	}
 
 	.wide {
