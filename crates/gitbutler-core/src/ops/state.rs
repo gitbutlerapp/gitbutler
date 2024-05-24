@@ -1,23 +1,48 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::{
     fs::File,
     io::Read,
     path::{Path, PathBuf},
-    time::Duration,
+    time::SystemTime,
 };
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use super::OPLOG_FILE_NAME;
 
+/// SystemTime used to be serialized as a u64 of seconds, but is now a propper SystemTime struct.
+/// This function will handle the old format gracefully.
+fn unfailing_system_time_deserialize<'de, D>(deserializer: D) -> Result<SystemTime, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(SystemTime::deserialize(deserializer).unwrap_or(SystemTime::UNIX_EPOCH))
+}
+
+fn unix_epoch() -> SystemTime {
+    SystemTime::UNIX_EPOCH
+}
+
 /// This tracks the head of the oplog, persisted in operations-log.toml.  
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Oplog {
     /// This is the sha of the last oplog commit
     pub head_sha: Option<String>,
     /// The time when the last snapshot was created. Seconds since Epoch
-    #[serde(default)]
-    pub modified_at: u64,
+    #[serde(
+        deserialize_with = "unfailing_system_time_deserialize",
+        default = "unix_epoch"
+    )]
+    pub modified_at: SystemTime,
+}
+
+impl Default for Oplog {
+    fn default() -> Self {
+        Self {
+            head_sha: None,
+            modified_at: SystemTime::UNIX_EPOCH,
+        }
+    }
 }
 
 pub struct OplogHandle {
@@ -53,9 +78,9 @@ impl OplogHandle {
     /// Gets the time when the last snapshot was created.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn get_modified_at(&self) -> anyhow::Result<Duration> {
+    pub fn get_modified_at(&self) -> anyhow::Result<SystemTime> {
         let oplog = self.read_file()?;
-        Ok(Duration::from_secs(oplog.modified_at))
+        Ok(oplog.modified_at)
     }
 
     /// Reads and parses the state file.
@@ -73,15 +98,14 @@ impl OplogHandle {
                 path: self.file_path.clone(),
                 source: e,
             })?;
+
         Ok(oplog)
     }
 
     fn write_file(&self, oplog: Oplog) -> anyhow::Result<()> {
         let mut oplog = oplog;
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .context("failed to get time since epoch")?;
-        oplog.modified_at = now.as_secs();
+        let now = std::time::SystemTime::now();
+        oplog.modified_at = now;
         write(self.file_path.as_path(), &oplog)
     }
 }
