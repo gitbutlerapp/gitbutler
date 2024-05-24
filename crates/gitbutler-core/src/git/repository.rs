@@ -3,6 +3,7 @@ use super::{
     TreeBuilder, Url,
 };
 use crate::path::Normalize;
+use git2::string_array::StringArray;
 use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
 #[cfg(unix)]
@@ -11,6 +12,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::os::windows::process::CommandExt;
 use std::process::Stdio;
 use std::{io::Write, path::Path, str};
+use tokio::sync::Mutex;
 
 // wrapper around git2::Repository to get control over how it's used.
 pub struct Repository(git2::Repository);
@@ -637,6 +639,21 @@ impl Repository {
         self.0
             .blame_file(path, Some(&mut opts))
             .map_err(super::Error::Blame)
+    }
+
+    /// Returns a list of remotes
+    ///
+    /// Returns Vec<String> instead of StringArray because StringArray cannot safly be sent between threads
+    pub fn remotes(&self) -> Result<Vec<String>> {
+        self.0
+            .remotes()
+            .map(|string_array| {
+                string_array
+                    .iter()
+                    .filter_map(|s| s.map(String::from))
+                    .collect()
+            })
+            .map_err(super::Error::Remotes)
     }
 }
 

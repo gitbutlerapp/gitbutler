@@ -892,24 +892,35 @@ impl ControllerInner {
         let project = self.projects.get(project_id)?;
         let mut project_repository = project_repository::Repository::open(&project)?;
 
-        let default_target = default_target(&project_repository.project().gb_dir())?;
+        let remotes = project_repository.remotes()?;
+        let fetch_results: Vec<Result<(), errors::FetchFromTargetError>> = remotes
+            .iter()
+            .map(|remote| {
+                project_repository
+                    .fetch(remote, &self.helper, askpass.clone())
+                    .map_err(errors::FetchFromTargetError::Remote)
+            })
+            .collect();
 
-        let project_data_last_fetched = match project_repository
-            .fetch(
-                default_target.branch.remote(),
-                &self.helper,
-                askpass.clone(),
-            )
-            .map_err(errors::FetchFromTargetError::Remote)
-        {
-            Ok(()) => projects::FetchResult::Fetched {
+        let project_data_last_fetched = if fetch_results.iter().any(Result::is_err) {
+            projects::FetchResult::Error {
                 timestamp: std::time::SystemTime::now(),
-            },
-            Err(error) => projects::FetchResult::Error {
+                error: fetch_results
+                    .iter()
+                    .filter_map(|result| match result {
+                        Ok(_) => None,
+                        Err(error) => Some(error.to_string()),
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            }
+        } else {
+            projects::FetchResult::Fetched {
                 timestamp: std::time::SystemTime::now(),
-                error: error.to_string(),
-            },
+            }
         };
+
+        let default_target = default_target(&project_repository.project().gb_dir())?;
 
         // if we have a push remote, let's fetch from this too
         if let Some(push_remote) = &default_target.push_remote_name {
