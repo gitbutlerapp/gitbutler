@@ -108,10 +108,11 @@ use notify::{
 };
 use parking_lot::Mutex;
 
-use crate::{
-    debouncer_cache::{FileIdCache, FileIdMap},
-    debouncer_event::DebouncedEvent,
-};
+pub(crate) mod cache;
+mod event;
+
+use cache::{FileIdCache, FileIdMap};
+use event::DebouncedEvent;
 
 /// The set of requirements for watcher debounce event handling functions.
 ///

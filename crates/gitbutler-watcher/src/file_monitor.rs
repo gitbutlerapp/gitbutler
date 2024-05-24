@@ -2,8 +2,8 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::time::Duration;
 
+use crate::debouncer::cache::FileIdMap;
 use crate::debouncer::Debouncer;
-use crate::debouncer_cache::FileIdMap;
 use crate::{debouncer::new_debouncer, events::InternalEvent};
 use anyhow::{anyhow, Context, Result};
 use gitbutler_core::ops::OPLOG_FILE_NAME;
