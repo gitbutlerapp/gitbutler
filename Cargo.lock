@@ -2113,7 +2113,6 @@ dependencies = [
  "async-trait",
  "backtrace",
  "bstr",
- "chrono",
  "diffy",
  "dirs 5.0.1",
  "filetime",
