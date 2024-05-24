@@ -34,8 +34,10 @@ use mock_instant::Instant;
 pub(crate) use schema::TestCase;
 
 use mock_instant::MockClock;
+use notify::RecursiveMode;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
+use std::path::PathBuf;
 
 #[rstest]
 fn state(
@@ -87,8 +89,7 @@ fn state(
     let time = Instant::now();
 
     let mut state = test_case.state.into_debounce_data_inner(time);
-    // TODO: bring that back
-    // state.roots = vec![(PathBuf::from("/"), RecursiveMode::Recursive)];
+    state.roots = vec![(PathBuf::from("/"), RecursiveMode::Recursive)];
 
     for event in test_case.events {
         let event = event.into_debounced_event(time, None);
@@ -171,6 +172,7 @@ mod utils {
     use crate::debouncer::FileIdCache;
 
     use file_id::FileId;
+    use notify::RecursiveMode;
     use std::collections::HashMap;
     use std::path::{Path, PathBuf};
 
@@ -191,9 +193,11 @@ mod utils {
             self.paths.get(path)
         }
 
-        fn add_path(&mut self, path: &Path) {
+        fn add_path(&mut self, path: &Path, recursive_mode: RecursiveMode) {
             for (file_path, file_id) in &self.file_system {
-                if file_path == path || file_path.starts_with(path) {
+                if file_path == path
+                    || (file_path.starts_with(path) && recursive_mode == RecursiveMode::Recursive)
+                {
                     self.paths.insert(file_path.clone(), *file_id);
                 }
             }
@@ -202,7 +206,5 @@ mod utils {
         fn remove_path(&mut self, path: &Path) {
             self.paths.remove(path);
         }
-
-        fn rescan(&mut self) {}
     }
 }

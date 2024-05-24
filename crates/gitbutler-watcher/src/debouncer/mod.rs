@@ -27,6 +27,7 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 // IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
+use std::path::Path;
 use std::{
     collections::{HashMap, VecDeque},
     path::PathBuf,
@@ -46,7 +47,7 @@ use std::time::Instant;
 use file_id::FileId;
 use notify::{
     event::{ModifyKind, RemoveKind, RenameMode},
-    Error, ErrorKind, Event, EventKind, RecommendedWatcher, Watcher,
+    Error, ErrorKind, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
 };
 use parking_lot::Mutex;
 
@@ -123,6 +124,7 @@ impl Queue {
 #[derive(Debug)]
 pub(crate) struct DebounceDataInner<T> {
     queues: HashMap<PathBuf, Queue>,
+    roots: Vec<(PathBuf, RecursiveMode)>,
     cache: T,
     rename_event: Option<(DebouncedEvent, Option<FileId>)>,
     rescan_event: Option<DebouncedEvent>,
@@ -134,6 +136,7 @@ impl<T: FileIdCache> DebounceDataInner<T> {
     pub(crate) fn new(cache: T, timeout: Duration) -> Self {
         Self {
             queues: HashMap::new(),
+            roots: Vec::new(),
             cache,
             rename_event: None,
             rescan_event: None,
@@ -227,7 +230,7 @@ impl<T: FileIdCache> DebounceDataInner<T> {
         tracing::trace!("Received event: {:?}", event);
 
         if event.need_rescan() {
-            self.cache.rescan();
+            self.cache.rescan(&self.roots);
             self.rescan_event = Some(event.into());
             return;
         }
@@ -236,8 +239,7 @@ impl<T: FileIdCache> DebounceDataInner<T> {
 
         match &event.kind {
             EventKind::Create(_) => {
-                self.cache.add_path(path);
-
+                self.cache.add_path(path, self.recursive_mode(path));
                 self.push_event(event, Instant::now());
             }
             EventKind::Modify(ModifyKind::Name(rename_mode)) => {
@@ -271,12 +273,25 @@ impl<T: FileIdCache> DebounceDataInner<T> {
             }
             _ => {
                 if self.cache.cached_file_id(path).is_none() {
-                    self.cache.add_path(path);
+                    self.cache.add_path(path, self.recursive_mode(path));
                 }
 
                 self.push_event(event, Instant::now());
             }
         }
+    }
+
+    fn recursive_mode(&self, path: &Path) -> RecursiveMode {
+        self.roots
+            .iter()
+            .find_map(|(root, recursive_mode)| {
+                if path.starts_with(root) {
+                    Some(*recursive_mode)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(RecursiveMode::NonRecursive)
     }
 
     fn handle_rename_from(&mut self, event: Event) {
@@ -293,7 +308,8 @@ impl<T: FileIdCache> DebounceDataInner<T> {
     }
 
     fn handle_rename_to(&mut self, event: Event) {
-        self.cache.add_path(&event.paths[0]);
+        let path = &event.paths[0];
+        self.cache.add_path(path, self.recursive_mode(path));
 
         let trackers_match = self
             .rename_event
@@ -313,7 +329,7 @@ impl<T: FileIdCache> DebounceDataInner<T> {
             .and_then(|(_, id)| id.as_ref())
             .and_then(|from_file_id| {
                 self.cache
-                    .cached_file_id(&event.paths[0])
+                    .cached_file_id(path)
                     .map(|to_file_id| from_file_id == to_file_id)
             })
             .unwrap_or_default();
@@ -488,14 +504,35 @@ impl<T: Watcher, C: FileIdCache> Debouncer<T, C> {
         self.stop.store(true, Ordering::Relaxed);
     }
 
+    fn add_root(&mut self, path: impl Into<PathBuf>, recursive_mode: RecursiveMode) {
+        let path = path.into();
+
+        let mut data = self.data.lock();
+
+        // skip, if the root has already been added
+        if data.roots.iter().any(|(p, _)| p == &path) {
+            return;
+        }
+
+        data.roots.push((path.clone(), recursive_mode));
+
+        data.cache.add_path(&path, recursive_mode);
+    }
+
+    // Note that code for unwatching/remove_root is available in the history.
+    pub fn watch(
+        &mut self,
+        path: impl AsRef<Path>,
+        recursive_mode: RecursiveMode,
+    ) -> notify::Result<()> {
+        self.watcher.watch(path.as_ref(), recursive_mode)?;
+        self.add_root(path.as_ref(), recursive_mode);
+        Ok(())
+    }
+
     /// Indicates that on the next tick of the debouncer thread, all events should be emitted.
     pub fn flush_nonblocking(&self) {
         self.flush.store(true, Ordering::Relaxed);
-    }
-
-    /// Access to the internally used notify Watcher backend
-    pub fn watcher(&mut self) -> &mut T {
-        &mut self.watcher
     }
 }
 

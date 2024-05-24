@@ -42,6 +42,7 @@
         cache: {
             /watch/file-a: 1
             /watch/file-b: 2
+            /watch/file-c: 3
         }
         events: {
             short: []

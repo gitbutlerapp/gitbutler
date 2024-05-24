@@ -49,7 +49,7 @@ pub trait FileIdCache {
     /// Add a new path to the cache or update its value.
     ///
     /// This will be called if a new file or directory is created or if an existing file is overridden.
-    fn add_path(&mut self, path: &Path);
+    fn add_path(&mut self, path: &Path, recursive_mode: RecursiveMode);
 
     /// Remove a path from the cache.
     ///
@@ -59,7 +59,11 @@ pub trait FileIdCache {
     /// Re-scan all paths.
     ///
     /// This will be called if the notification back-end has dropped events.
-    fn rescan(&mut self);
+    fn rescan(&mut self, roots: &[(PathBuf, RecursiveMode)]) {
+        for (root, recursive_mode) in roots {
+            self.add_path(root, *recursive_mode);
+        }
+    }
 }
 
 /// A cache to hold the file system IDs of all watched files.
@@ -69,34 +73,9 @@ pub trait FileIdCache {
 #[derive(Debug, Clone, Default)]
 pub struct FileIdMap {
     paths: HashMap<PathBuf, FileId>,
-    roots: Vec<(PathBuf, RecursiveMode)>,
 }
 
 impl FileIdMap {
-    /// Add a path to the cache.
-    ///
-    /// If `recursive_mode` is `Recursive`, all children will be added to the cache as well
-    /// and all paths will be kept up-to-date in case of changes like new files being added,
-    /// files being removed or renamed.
-    #[allow(dead_code)]
-    pub fn add_root(&mut self, path: impl Into<PathBuf>, recursive_mode: RecursiveMode) {
-        let path = path.into();
-
-        self.roots.push((path.clone(), recursive_mode));
-
-        self.add_path(&path);
-    }
-
-    /// Remove a path form the cache.
-    ///
-    /// If the path was added with `Recursive` mode, all children will also be removed from the cache.
-    #[allow(dead_code)]
-    pub fn remove_root(&mut self, path: impl AsRef<Path>) {
-        self.roots.retain(|(root, _)| !root.starts_with(&path));
-
-        self.remove_path(path.as_ref());
-    }
-
     fn dir_scan_depth(is_recursive: bool) -> usize {
         if is_recursive {
             usize::max_value()
@@ -111,18 +90,8 @@ impl FileIdCache for FileIdMap {
         self.paths.get(path)
     }
 
-    fn add_path(&mut self, path: &Path) {
-        let is_recursive = self
-            .roots
-            .iter()
-            .find_map(|(root, recursive_mode)| {
-                if path.starts_with(root) {
-                    Some(*recursive_mode == RecursiveMode::Recursive)
-                } else {
-                    None
-                }
-            })
-            .unwrap_or_default();
+    fn add_path(&mut self, path: &Path, recursive_mode: RecursiveMode) {
+        let is_recursive = recursive_mode == RecursiveMode::Recursive;
 
         for (path, file_id) in WalkDir::new(path)
             .follow_links(true)
@@ -140,11 +109,5 @@ impl FileIdCache for FileIdMap {
 
     fn remove_path(&mut self, path: &Path) {
         self.paths.retain(|p, _| !p.starts_with(path));
-    }
-
-    fn rescan(&mut self) {
-        for (root, _) in self.roots.clone() {
-            self.add_path(&root);
-        }
     }
 }

@@ -8,7 +8,7 @@ use crate::{debouncer::new_debouncer, events::InternalEvent};
 use anyhow::{anyhow, Context, Result};
 use gitbutler_core::ops::OPLOG_FILE_NAME;
 use gitbutler_core::projects::ProjectId;
-use notify::{RecommendedWatcher, Watcher};
+use notify::RecommendedWatcher;
 use tokio::task;
 use tracing::Level;
 
@@ -88,12 +88,11 @@ pub fn spawn(
 
     // Start the watcher, but retry if there are transient errors.
     backoff::retry(policy, || {
-        let watcher = debouncer.watcher();
-        watcher
+        debouncer
             .watch(worktree_path, notify::RecursiveMode::Recursive)
             .and_then(|()| {
                 if let Some(git_dir) = extra_git_dir_to_watch {
-                    watcher.watch(git_dir, notify::RecursiveMode::Recursive)
+                    debouncer.watch(git_dir, notify::RecursiveMode::Recursive)
                 } else {
                     Ok(())
                 }
