@@ -65,7 +65,7 @@
 						e.stopPropagation();
 					}}
 				>
-					origin/{branch.displayName}
+					{branch.displayName}
 				</Tag>
 				{#if pr?.htmlUrl}
 					<Tag

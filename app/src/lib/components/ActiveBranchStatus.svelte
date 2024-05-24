@@ -7,7 +7,6 @@
 	export let isUnapplied = false;
 	export let hasIntegratedCommits = false;
 	export let isLaneCollapsed: boolean;
-	export let branchName: string;
 	export let remoteExists: boolean;
 
 	const baseBranch = getContextStore(BaseBranch);
@@ -45,8 +44,8 @@
 			disabled
 			help="Branch name that will be used when pushing. You can change it from the lane menu."
 		>
-			{$baseBranch.actualPushRemoteName()}/{branchName}</Tag
-		>
+			{isLaneCollapsed ? 'View branch' : $branch.displayName}
+		</Tag>
 	{/if}
 {:else}
 	<Tag
@@ -69,8 +68,6 @@
 			e.stopPropagation();
 		}}
 	>
-		{isLaneCollapsed
-			? 'View branch'
-			: `${$baseBranch.actualPushRemoteName()}/${$branch.upstreamName}`}
+		{isLaneCollapsed ? 'View branch' : $branch.displayName}
 	</Tag>
 {/if}

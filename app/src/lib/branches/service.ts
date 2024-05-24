@@ -106,11 +106,7 @@ function mergeBranchesAndPrs(
 	if (vbranches) {
 		contributions.push(
 			...vbranches.map((vb) => {
-				const upstream = vb.upstream?.upstream;
-				const pr =
-					upstream && pullRequests
-						? pullRequests.find((pr) => isBranchNameMatch(pr.targetBranch, upstream))
-						: undefined;
+				const pr = pullRequests?.find((pr) => pr.sha == vb.head);
 				return new CombinedBranch({ vbranch: vb, remoteBranch: vb.upstream, pr });
 			})
 		);
@@ -120,11 +116,9 @@ function mergeBranchesAndPrs(
 	if (remoteBranches) {
 		contributions.push(
 			...remoteBranches
-				.filter((rb) => !vbranches?.some((vb) => isBranchNameMatch(rb.name, vb.upstreamName)))
+				.filter((rb) => !contributions.some((cb) => rb.sha == cb.sha))
 				.map((rb) => {
-					const pr = pullRequests
-						? pullRequests.find((pr) => isBranchNameMatch(pr.targetBranch, rb.name))
-						: undefined;
+					const pr = pullRequests?.find((pr) => pr.sha == rb.sha);
 					return new CombinedBranch({ remoteBranch: rb, pr });
 				})
 		);
@@ -134,33 +128,18 @@ function mergeBranchesAndPrs(
 	if (pullRequests) {
 		contributions.push(
 			...pullRequests
-				.filter((pr) =>
-					remoteBranches
-						? !remoteBranches.some((rb) => isBranchNameMatch(pr.targetBranch, rb.name))
-						: false
-				)
+				.filter((pr) => !contributions.some((cb) => pr.sha == cb.sha))
 				.map((pr) => {
 					return new CombinedBranch({ pr });
 				})
 		);
 	}
 
-	// deduplicate - don't show branches that point to the same SHA
-	// prioritize PRs, then remote branches, then local only
-	const deduped = contributions.filter(
-		(value, index, self) => self.findIndex((v) => v.sha === value.sha) === index
-	);
-
 	// This should be everything considered a branch in one list
-	const filtered = deduped
+	const filtered = contributions
 		.filter((b) => !b.vbranch || !b.vbranch.active)
 		.sort((a, b) => {
 			return (a.modifiedAt || new Date(0)) < (b.modifiedAt || new Date(0)) ? 1 : -1;
 		});
 	return filtered;
-}
-
-function isBranchNameMatch(left: string | undefined, right: string | undefined): boolean {
-	if (!left || !right) return false;
-	return left.split('/').pop() === right.split('/').pop();
 }

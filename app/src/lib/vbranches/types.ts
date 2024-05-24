@@ -134,6 +134,12 @@ export class Branch {
 	get remoteCommits() {
 		return this.commits.filter((c) => c.status == 'remote');
 	}
+
+	get displayName() {
+		if (this.upstream?.displayName) return this.upstream?.displayName;
+
+		return this.upstreamName || this.name;
+	}
 }
 
 // Used for dependency injection
@@ -314,7 +320,7 @@ export class RemoteBranch {
 	lastCommitAuthor?: string | undefined;
 
 	get displayName(): string {
-		return this.name.replace('refs/remotes/', '').replace('origin/', '').replace('refs/heads/', '');
+		return this.name.replace('refs/remotes/', '').replace('refs/heads/', '');
 	}
 }
 

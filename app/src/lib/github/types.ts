@@ -17,6 +17,7 @@ export interface PullRequest {
 	draft: boolean;
 	targetBranch: string;
 	sourceBranch: string;
+	sha: string;
 	createdAt: Date;
 	modifiedAt: Date;
 	mergedAt?: Date;
@@ -99,6 +100,7 @@ export function ghResponseToInstance(
 		modifiedAt: new Date(pr.created_at),
 		targetBranch: pr.head.ref,
 		sourceBranch: pr.base.ref,
+		sha: pr.head.sha,
 		mergedAt: pr.merged_at ? new Date(pr.merged_at) : undefined,
 		closedAt: pr.closed_at ? new Date(pr.closed_at) : undefined
 	};

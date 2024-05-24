@@ -11,7 +11,6 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { showError } from '$lib/notifications/toasts';
-	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch, Branch } from '$lib/vbranches/types';
@@ -39,14 +38,12 @@
 	let visible = false;
 	let isApplying = false;
 	let isDeleting = false;
-	let branchName = branch?.upstreamName || normalizeBranchName($branchStore.name);
 	let isLoading: boolean;
 	let isTargetBranchAnimated = false;
 
 	function handleBranchNameChange(title: string) {
 		if (title == '') return;
 
-		branchName = normalizeBranchName(title);
 		branchController.updateBranchName(branch.id, title);
 	}
 
@@ -125,7 +122,6 @@
 
 				<div class="collapsed-lane__info__details">
 					<ActiveBranchStatus
-						branchName={branch.upstreamName ?? branchName}
 						{isUnapplied}
 						{hasIntegratedCommits}
 						remoteExists={!!branch.upstream}
@@ -160,7 +156,6 @@
 					/>
 					<div class="header__remote-branch">
 						<ActiveBranchStatus
-							branchName={branch.upstreamName ?? branchName}
 							{isUnapplied}
 							{hasIntegratedCommits}
 							remoteExists={!!branch.upstream}
