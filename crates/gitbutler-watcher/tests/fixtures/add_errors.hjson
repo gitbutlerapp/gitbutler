@@ -1,0 +1,13 @@
+{
+    state: {}
+    errors: [
+        { kind: "max-files-watch" }
+        { kind: "path-not-found", paths: ["/watch/file"] }
+    ]
+    expected: {
+        errors: [
+            { kind: "max-files-watch" }
+            { kind: "path-not-found", paths: ["/watch/file"] }
+        ]
+    }
+}

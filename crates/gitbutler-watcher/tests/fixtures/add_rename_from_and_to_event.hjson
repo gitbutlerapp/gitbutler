@@ -1,0 +1,16 @@
+{
+    state: {}
+    events: [
+        { kind: "rename-from", paths: ["/watch/source"], tracker: 1 }
+        { kind: "rename-to", paths: ["/watch/target"], tracker: 1 }
+    ]
+    expected: {
+        queues: {
+            /watch/target: {
+                events: [
+                    { kind: "rename-both", paths: ["/watch/source", "/watch/target"], tracker: 1 }
+                ]
+            }
+        }
+    }
+}

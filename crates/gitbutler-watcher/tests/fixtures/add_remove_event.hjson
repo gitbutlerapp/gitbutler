@@ -1,0 +1,15 @@
+{
+    state: {}
+    events: [
+        { kind: "remove-any", paths: ["/watch/file"] }
+    ]
+    expected: {
+        queues: {
+            /watch/file: {
+                events: [
+                    { kind: "remove-any", paths: ["*"] }
+                ]
+            }
+        }
+    }
+}
