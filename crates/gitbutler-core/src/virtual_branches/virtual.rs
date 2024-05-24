@@ -27,6 +27,7 @@ use super::{
 use crate::error::{self, AnyhowContextExt, Code};
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
 use crate::ops::snapshot::Snapshot;
+use crate::time::now_since_unix_epoch_ms;
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
     dedup::{dedup, dedup_fmt},
@@ -1078,7 +1079,7 @@ pub fn create_virtual_branch(
                 other_branch.selected_for_changes = None;
                 vb_state.set_branch(other_branch.clone())?;
             }
-            Some(chrono::Utc::now().timestamp_millis())
+            Some(now_since_unix_epoch_ms())
         } else {
             None
         }
@@ -1086,7 +1087,7 @@ pub fn create_virtual_branch(
         (!all_virtual_branches
             .iter()
             .any(|b| b.selected_for_changes.is_some()))
-        .then_some(chrono::Utc::now().timestamp_millis())
+        .then_some(now_since_unix_epoch_ms())
     };
 
     // make space for the new branch
@@ -1435,7 +1436,7 @@ pub fn update_branch(
                 other_branch.selected_for_changes = None;
                 vb_state.set_branch(other_branch.clone())?;
             }
-            Some(chrono::Utc::now().timestamp_millis())
+            Some(now_since_unix_epoch_ms())
         } else {
             None
         };
@@ -1500,7 +1501,7 @@ fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> Result<()> {
 
     applied_branches.sort_by_key(|branch| branch.order);
 
-    applied_branches[0].selected_for_changes = Some(chrono::Utc::now().timestamp_millis());
+    applied_branches[0].selected_for_changes = Some(now_since_unix_epoch_ms());
     vb_state.set_branch(applied_branches[0].clone())?;
     Ok(())
 }
@@ -4071,7 +4072,7 @@ pub fn create_virtual_branch_from_branch(
     let selected_for_changes = (!all_virtual_branches
         .iter()
         .any(|b| b.selected_for_changes.is_some()))
-    .then_some(chrono::Utc::now().timestamp_millis());
+    .then_some(now_since_unix_epoch_ms());
 
     let now = crate::time::now_ms();
 
