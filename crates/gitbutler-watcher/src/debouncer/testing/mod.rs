@@ -159,7 +159,7 @@ fn state(
             .collect::<Vec<_>>();
 
         assert_eq!(
-            state.debounced_events(),
+            state.debounced_events(false),
             events,
             "debounced events after a `{delay}` delay"
         );
@@ -169,7 +169,6 @@ fn state(
 mod schema;
 mod utils {
     use crate::debouncer::FileIdCache;
-    use notify::RecursiveMode;
 
     use file_id::FileId;
     use std::collections::HashMap;
@@ -192,11 +191,9 @@ mod utils {
             self.paths.get(path)
         }
 
-        fn add_path(&mut self, path: &Path, recursive_mode: RecursiveMode) {
+        fn add_path(&mut self, path: &Path) {
             for (file_path, file_id) in &self.file_system {
-                if file_path == path
-                    || (file_path.starts_with(path) && recursive_mode == RecursiveMode::Recursive)
-                {
+                if file_path == path || file_path.starts_with(path) {
                     self.paths.insert(file_path.clone(), *file_id);
                 }
             }
@@ -205,5 +202,7 @@ mod utils {
         fn remove_path(&mut self, path: &Path) {
             self.paths.remove(path);
         }
+
+        fn rescan(&mut self) {}
     }
 }

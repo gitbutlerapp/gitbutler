@@ -286,7 +286,6 @@ impl State {
 
         DebounceDataInner {
             queues,
-            roots: Vec::new(),
             cache,
             rename_event,
             rescan_event,
