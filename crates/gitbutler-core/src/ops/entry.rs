@@ -7,7 +7,6 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::time::Duration;
 use strum::EnumString;
 
 use serde::Serialize;
@@ -19,8 +18,8 @@ use serde::Serialize;
 pub struct Snapshot {
     /// The sha of the commit that represents the snapshot
     pub id: String,
-    /// Snapshot creation time as a duration since the Unix epoch
-    pub created_at: Duration,
+    /// Snapshot creation time in epoch milliseconds
+    pub created_at: i64,
     /// The number of working directory lines added in the snapshot
     pub lines_added: usize,
     /// The number of working directory lines removed in the snapshot
@@ -305,7 +304,7 @@ mod tests {
         let commit_sha = "1234567890".to_string();
         let commit_message =
             "Create a new snapshot\n\nBody text 1\nBody text2\n\nBody text 3\n\nVersion: 1\nOperation: CreateCommit\nFoo: Bar\n".to_string();
-        let created_at = Duration::from_secs(1234567890);
+        let created_at = 1234567890;
         let details = SnapshotDetails::from_str(&commit_message.clone()).unwrap();
         let snapshot = Snapshot {
             id: commit_sha.clone(),

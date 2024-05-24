@@ -3,7 +3,6 @@ use git2::{FileMode, Oid};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::str::FromStr;
-use std::time::Duration;
 use std::{fs, path::PathBuf};
 
 use anyhow::Result;
@@ -380,7 +379,7 @@ impl Oplog for Project {
                     lines_added,
                     lines_removed,
                     files_changed,
-                    created_at: Duration::from_secs(commit.time().seconds().try_into().unwrap()),
+                    created_at: commit.time().seconds(),
                 });
 
                 if snapshots.len() >= limit {
@@ -394,7 +393,7 @@ impl Oplog for Project {
                     lines_added: 0,
                     lines_removed: 0,
                     files_changed: Vec::new(), // Fix: Change 0 to an empty vector
-                    created_at: Duration::from_secs(commit.time().seconds().try_into().unwrap()),
+                    created_at: commit.time().seconds(),
                 });
                 break;
             }

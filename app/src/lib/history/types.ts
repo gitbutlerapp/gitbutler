@@ -1,4 +1,4 @@
-import { RemoteHunk, dateFromDuration } from '$lib/vbranches/types';
+import { RemoteHunk } from '$lib/vbranches/types';
 import { Transform, Type } from 'class-transformer';
 
 export type Operation =
@@ -61,6 +61,6 @@ export class Snapshot {
 	linesRemoved!: number;
 	filesChanged!: string[];
 	details?: SnapshotDetails;
-	@Transform(dateFromDuration)
+	@Transform((obj) => new Date(obj.value * 1000))
 	createdAt!: Date;
 }

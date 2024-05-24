@@ -3,28 +3,7 @@ import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '$lib/utils/string';
 import { isDefined, notNull } from '$lib/utils/typeguards';
 import { convertRemoteToWebUrl } from '$lib/utils/url';
-import { Type, Transform, type TransformFnParams } from 'class-transformer';
-
-interface Duration {
-	secs: number;
-	nanos: number;
-}
-
-function isDuration(object: any): object is Duration {
-	const secsIsNumber = typeof object.secs === 'number';
-	const nanosIsNumber = typeof object.nanos === 'number';
-
-	return secsIsNumber && nanosIsNumber;
-}
-
-export function dateFromDuration(params: TransformFnParams): Date | undefined {
-	if (!params.value) return;
-	if (params.value instanceof Date) return params.value;
-
-	if (!isDuration(params.value)) throw Error('Expected a Duration object');
-
-	return new Date(params.value.secs * 1000 + params.value.nanos / 1000000);
-}
+import { Type, Transform } from 'class-transformer';
 
 export type ChangeType =
 	/// Entry does not exist in old version
@@ -37,7 +16,9 @@ export type ChangeType =
 export class Hunk {
 	id!: string;
 	diff!: string;
-	@Transform(dateFromDuration)
+	@Transform((obj) => {
+		return new Date(obj.value);
+	})
 	modifiedAt!: Date;
 	filePath!: string;
 	hash?: string;
@@ -62,7 +43,7 @@ export class LocalFile {
 	@Type(() => Hunk)
 	hunks!: Hunk[];
 	expanded?: boolean;
-	@Transform(dateFromDuration)
+	@Transform((obj) => new Date(obj.value))
 	modifiedAt!: Date;
 	// This indicates if a file has merge conflict markers generated and not yet resolved.
 	// This is true for files after a branch which does not apply cleanly (Branch.isMergeable == false) is applied.
@@ -141,7 +122,7 @@ export class Branch {
 	// If the branch has been already applied, then it was either performed cleanly or we generated conflict markers in the diffs.
 	// (therefore this field is applicable for stashed/unapplied or remote branches, i.e. active == false)
 	isMergeable!: Promise<boolean>;
-	@Transform(dateFromDuration)
+	@Transform((obj) => new Date(obj.value))
 	updatedAt!: Date;
 	// Indicates that branch is default target for new changes
 	selectedForChanges!: boolean;
@@ -172,7 +153,7 @@ export class Commit {
 	id!: string;
 	author!: Author;
 	description!: string;
-	@Transform(dateFromDuration)
+	@Transform((obj) => new Date(obj.value))
 	createdAt!: Date;
 	isRemote!: boolean;
 	isIntegrated!: boolean;
@@ -217,7 +198,7 @@ export class RemoteCommit {
 	id!: string;
 	author!: Author;
 	description!: string;
-	@Transform(dateFromDuration)
+	@Transform((obj) => new Date(obj.value * 1000))
 	createdAt!: Date;
 	changeId!: string;
 	isSigned!: boolean;
@@ -384,11 +365,14 @@ export class BaseBranch {
 	upstreamCommits!: RemoteCommit[];
 	@Type(() => RemoteCommit)
 	recentCommits!: RemoteCommit[];
-	@Transform(dateFromDuration)
-	lastFetchedAt?: Date;
+	lastFetchedMs?: number;
 
 	actualPushRemoteName(): string {
 		return this.pushRemoteName || this.remoteName;
+	}
+
+	get lastFetched(): Date | undefined {
+		return this.lastFetchedMs ? new Date(this.lastFetchedMs) : undefined;
 	}
 
 	get pushRepoBaseUrl(): string {

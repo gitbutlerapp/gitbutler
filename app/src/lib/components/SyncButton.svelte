@@ -31,8 +31,8 @@
 >
 	{#if $baseServiceBusy$}
 		<div class="sync-btn__busy-label">busy…</div>
-	{:else if $baseBranch?.lastFetchedAt}
-		<TimeAgo date={$baseBranch?.lastFetchedAt} />
+	{:else if $baseBranch?.lastFetched}
+		<TimeAgo date={$baseBranch?.lastFetched} />
 	{/if}
 </Tag>
 

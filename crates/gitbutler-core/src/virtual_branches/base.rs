@@ -1,7 +1,4 @@
-use std::{
-    path::Path,
-    time::{self, Duration},
-};
+use std::{path::Path, time};
 
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -35,7 +32,7 @@ pub struct BaseBranch {
     pub behind: usize,
     pub upstream_commits: Vec<RemoteCommit>,
     pub recent_commits: Vec<RemoteCommit>,
-    pub last_fetched_at: Option<Duration>,
+    pub last_fetched_ms: Option<u128>,
 }
 
 pub fn get_base_branch_data(
@@ -214,7 +211,7 @@ pub fn set_base_branch(
                 },
             );
 
-            let now = crate::time::now();
+            let now_ms = crate::time::now_ms();
 
             let (upstream, upstream_head) = if let git::Refname::Local(head_name) = &head_name {
                 let upstream_name = target_branch_ref.with_branch(head_name.branch());
@@ -248,8 +245,8 @@ pub fn set_base_branch(
                 applied: true,
                 upstream,
                 upstream_head,
-                created_at: now,
-                updated_at: now,
+                created_timestamp_ms: now_ms,
+                updated_timestamp_ms: now_ms,
                 head: current_head_commit.id(),
                 tree: super::write_tree_onto_commit(
                     project_repository,
@@ -618,13 +615,13 @@ pub fn target_to_base_branch(
         behind: upstream_commits.len(),
         upstream_commits,
         recent_commits,
-        last_fetched_at: project_repository
+        last_fetched_ms: project_repository
             .project()
             .project_data_last_fetch
             .as_ref()
             .map(FetchResult::timestamp)
             .copied()
-            .map(|t| t.duration_since(time::UNIX_EPOCH).unwrap()),
+            .map(|t| t.duration_since(time::UNIX_EPOCH).unwrap().as_millis()),
     };
     Ok(base)
 }
