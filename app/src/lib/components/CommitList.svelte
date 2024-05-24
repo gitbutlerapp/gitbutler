@@ -131,11 +131,17 @@
 <style lang="postcss">
 	.commit-lines {
 		display: flex;
+		gap: var(--size-8);
 	}
 
 	.commit-list__content {
 		display: flex;
 		flex-direction: column;
+		background-color: var(--clr-bg-2);
+		border-top: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--clr-border-2);
+		padding-right: var(--size-14);
+		padding-left: var(--size-8);
 	}
 
 	.commits {

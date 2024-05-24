@@ -131,9 +131,7 @@
 <Modal bind:this={commitMessageModal}>
 	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
 	<svelte:fragment slot="controls">
-		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}
-			>Cancel</Button
-		>
+		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
@@ -164,13 +162,7 @@
 		class:upstream={type == 'upstream'}
 	></div>
 
-	<div
-		class="commit__header"
-		on:click={toggleFiles}
-		on:keyup={onKeyup}
-		role="button"
-		tabindex="0"
-	>
+	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
 		{#if first}
 			<div class="commit__type text-semibold text-base-12">
 				{#if type == 'remote'}
@@ -200,32 +192,13 @@
 			<div class="commit__row">
 				{#if isUndoable}
 					{#if commit.descriptionTitle}
-						<span
-							class="commit__title text-semibold text-base-12"
-							class:truncate={!showFiles}
-						>
+						<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
 							{commit.descriptionTitle}
 						</span>
 					{:else}
-						<span
-							class="commit__title_no_desc text-base-12"
-							class:truncate={!showFiles}
-						>
+						<span class="commit__title_no_desc text-base-12" class:truncate={!showFiles}>
 							<i>empty commit message</i>
 						</span>
-					{/if}
-					{#if !showFiles}
-						<Tag
-							style="ghost"
-							kind="solid"
-							icon="undo-small"
-							clickable
-							on:click={(e) => {
-								currentCommitMessage.set(commit.description);
-								e.stopPropagation();
-								undoCommit(commit);
-							}}>Undo</Tag
-						>
 					{/if}
 				{:else}
 					<span class="commit__title text-base-12" class:truncate={!showFiles}>
@@ -339,6 +312,7 @@
 
 		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
+		border-left: none;
 		overflow: hidden;
 		transition: background-color var(--transition-fast);
 

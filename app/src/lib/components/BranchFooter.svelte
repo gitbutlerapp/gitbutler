@@ -65,7 +65,6 @@
 	.actions {
 		background: var(--clr-bg-1);
 		padding: var(--size-16);
-		border-radius: 0 0 var(--radius-m) var(--radius-m);
-		border: 1px solid var(--clr-border-2);
+		/* border: 1px solid var(--clr-border-2); */
 	}
 </style>

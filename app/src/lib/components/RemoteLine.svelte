@@ -134,7 +134,9 @@
 	}
 
 	.commit-icon {
-		display: inline-block;
+		display: flex;
+		justify-content: center;
+		align-items: center;
 		position: absolute;
 		border-radius: 6px;
 		left: var(--size-4);
