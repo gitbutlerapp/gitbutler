@@ -110,7 +110,8 @@ pub fn watch_in_background(
             tokio::select! {
                 Some(event) = events_in.recv() => handle_event(event)?,
                 Some(_signal_flush) = flush_rx.recv() => {
-                    debounce.flush_nonblocking();
+                    // TODO: re-add this
+                    // debounce.flush_nonblocking();
                 }
                 () = cancellation_token.cancelled() => {
                     break;

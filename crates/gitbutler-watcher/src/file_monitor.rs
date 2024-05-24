@@ -60,7 +60,8 @@ pub fn spawn(
     let mut debouncer = new_debouncer(
         DEBOUNCE_TIMEOUT,
         Some(TICK_RATE),
-        Some(FLUSH_AFTER_EMPTY),
+        // TODO: re-enable this
+        // Some(FLUSH_AFTER_EMPTY),
         notify_tx,
     )
     .context("failed to create debouncer")?;
@@ -88,12 +89,11 @@ pub fn spawn(
 
     // Start the watcher, but retry if there are transient errors.
     backoff::retry(policy, || {
-        let watcher = debouncer.watcher();
-        watcher
+        debouncer
             .watch(worktree_path, notify::RecursiveMode::Recursive)
             .and_then(|()| {
                 if let Some(git_dir) = extra_git_dir_to_watch {
-                    watcher.watch(git_dir, notify::RecursiveMode::Recursive)
+                    debouncer.watch(git_dir, notify::RecursiveMode::Recursive)
                 } else {
                     Ok(())
                 }
