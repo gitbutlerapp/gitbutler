@@ -523,7 +523,7 @@ pub fn update_base_branch(
 
                     // rebase failed, just do the merge
                     if rebased_head_oid.is_err() {
-                        return result_merge(branch)
+                        return result_merge(branch);
                     }
 
                     if let Some(rebased_head_oid) = rebased_head_oid? {
