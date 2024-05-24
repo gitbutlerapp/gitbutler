@@ -131,7 +131,9 @@
 <Modal bind:this={commitMessageModal}>
 	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
 	<svelte:fragment slot="controls">
-		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}>Cancel</Button>
+		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}
+			>Cancel</Button
+		>
 		<Button
 			style="pop"
 			kind="solid"
@@ -162,15 +164,21 @@
 		class:upstream={type == 'upstream'}
 	></div>
 
-	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
+	<div
+		class="commit__header"
+		on:click={toggleFiles}
+		on:keyup={onKeyup}
+		role="button"
+		tabindex="0"
+	>
 		{#if first}
 			<div class="commit__type text-semibold text-base-12">
 				{#if type == 'remote'}
-					Local and remote <Icon name="local-remote" />
+					Local and remote
 				{:else if type == 'local'}
 					Local <Icon name="local" />
 				{:else if type == 'upstream'}
-					Remote upstream <Icon name="remote" />
+					Remote upstream
 				{/if}
 			</div>
 		{/if}
@@ -179,7 +187,7 @@
 				<div class="commit__id">
 					<code>
 						{#if commit.isSigned}
-							<span class="text-xs">🔒</span>
+							<span>🔒</span>
 						{/if}
 						{#if commit.changeId}
 							{commit.changeId.split('-')[0]}
@@ -192,12 +200,15 @@
 			<div class="commit__row">
 				{#if isUndoable}
 					{#if commit.descriptionTitle}
-						<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
+						<span
+							class="commit__title text-semibold text-base-12"
+							class:truncate={!showFiles}
+						>
 							{commit.descriptionTitle}
 						</span>
 					{:else}
 						<span
-							class="commit__title_no_desc text-base-12 text-zinc-400"
+							class="commit__title_no_desc text-base-12"
 							class:truncate={!showFiles}
 						>
 							<i>empty commit message</i>
@@ -236,9 +247,6 @@
 				{/if}
 			{/if}
 		</div>
-		<!-- <span class="commit__time text-base-11">
-				<TimeAgo date={commit.createdAt} />
-			</span> -->
 	</div>
 
 	{#if showFiles}
