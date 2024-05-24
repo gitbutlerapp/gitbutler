@@ -55,7 +55,12 @@ pub fn list_remote_commit_files(
     }
 
     let parent = commit.parent(0).context("failed to get parent commit")?;
-    let parent_tree = parent.tree().context("failed to get parent tree")?;
+    let mut parent_tree = parent.tree().context("failed to get parent tree")?;
+
+    if parent.is_conflicted() {
+        parent_tree = repository.find_real_tree(&parent, None).unwrap();
+    }
+
     let diff_files = diff::trees(repository, &parent_tree, &commit_tree)?;
 
     Ok(diff_files

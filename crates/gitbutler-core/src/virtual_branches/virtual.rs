@@ -980,6 +980,7 @@ fn list_virtual_commit_files(
     if commit.parent_count() == 0 {
         return Ok(vec![]);
     }
+
     let parent = commit.parent(0).context("failed to get parent commit")?;
     let commit_tree = commit.tree().context("failed to get commit tree")?;
     let parent_tree = parent.tree().context("failed to get parent tree")?;
@@ -3373,26 +3374,20 @@ fn cherry_pick_gitbutler(
     let is_conflict_0 = tree_0.get_name(".conflict-side-0");
     let tree_1 = to_rebase.tree()?;
     let is_conflict_1 = tree_1.get_name(".conflict-side-0");
+    let base_commit = to_rebase.parent(0)?;
+    let base_tree = base_commit.tree()?;
+    let is_conflict_base = base_tree.get_name(".conflict-side-0");
 
     // if either side is in a conflicted state, we need to do a manual 3-way merge
-    if is_conflict_0.is_some() || is_conflict_1.is_some() {
-        // we need to do a manual 3-way merge
-        // find the base tree
-        let base_oid = project_repository
-            .git_repository
-            .merge_base(head.id(), to_rebase.id())
-            .context("failed to find merge base")?;
-        let base_commit = project_repository
-            .git_repository
-            .find_commit(base_oid)
-            .context("failed to find merge base commit")?;
-
+    if is_conflict_0.is_some() || is_conflict_1.is_some() || is_conflict_base.is_some() {
+        // we need to do a manual 3-way patch merge
+        // find the base, which is the parent of to_rebase
         let base_tree = find_real_tree(project_repository, &base_commit, None)?;
         let tree_0 = find_real_tree(project_repository, head, None)?;
         let tree_1 = find_real_tree(project_repository, to_rebase, Some(".conflict-side-1".to_string()))?;
 
         dbg!("REBASE PICK");
-        dbg!(&base_tree.id(), &tree_1.id(), &tree_0.id());
+        dbg!(&base_tree.id(), &tree_0.id(), &tree_1.id());
 
         project_repository
             .git_repository
@@ -3408,7 +3403,7 @@ fn cherry_pick_gitbutler(
 
 // find the real tree of a commit, which is the tree of the commit if it's not in a conflicted state
 // or the parent parent tree if it is in a conflicted state
-fn find_real_tree<'a>(
+pub fn find_real_tree<'a>(
     project_repository: &'a project_repository::Repository,
     commit: &'a git::Commit<'a>,
     side: Option<String>,

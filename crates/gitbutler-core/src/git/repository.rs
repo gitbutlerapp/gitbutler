@@ -151,6 +151,27 @@ impl Repository {
             .map_err(Into::into)
     }
 
+    // find the real tree of a commit, which is the tree of the commit if it's not in a conflicted state
+    // or the parent parent tree if it is in a conflicted state
+    pub fn find_real_tree(
+        &self,
+        commit: &Commit,
+        side: Option<String>,
+    ) -> Result<Tree> {
+        let tree = commit.tree()?;
+        let entry_name = match side {
+            Some(side) => side,
+            None => ".conflict-side-0".to_string(),
+        };
+        let is_conflict = tree.get_name(&entry_name);
+        if is_conflict.is_some() {
+            let subtree_id = is_conflict.unwrap().id();
+            self.0.find_tree(subtree_id.into()).map_err(Into::into).map(Tree::from)
+        } else {
+            self.0.find_tree(tree.id().into()).map_err(Into::into).map(Tree::from)
+        }
+    }
+
     pub fn reset(
         &self,
         commit: &Commit<'_>,

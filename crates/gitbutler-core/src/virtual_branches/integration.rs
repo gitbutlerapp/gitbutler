@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
 use lazy_static::lazy_static;
 
-use super::{errors::VerifyError, VirtualBranchesHandle};
+use super::{errors::VerifyError, find_real_tree, VirtualBranchesHandle};
 use crate::{
     git::{self},
     project_repository::{self, LogUntil},
@@ -51,10 +51,14 @@ pub fn get_workspace_head(
     let target_tree = target_commit.tree()?;
     let mut workspace_tree = target_commit.tree()?;
 
+    dbg!("WORKSPACE HEAD");
+    dbg!(workspace_tree.id());
+
     // Merge applied branches into one `workspace_tree`.
     for branch in &applied_virtual_branches {
         let branch_head = repo.find_commit(branch.head)?;
-        let branch_tree = branch_head.tree()?;
+        let branch_tree = find_real_tree(project_repository, &branch_head, None)?;
+        dbg!(branch_tree.id());
 
         if let Ok(mut result) = repo.merge_trees(&target_tree, &workspace_tree, &branch_tree) {
             if !result.has_conflicts() {
