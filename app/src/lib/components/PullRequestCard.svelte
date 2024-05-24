@@ -15,11 +15,11 @@
 	import { Branch } from '$lib/vbranches/types';
 	import { distinctUntilChanged } from 'rxjs';
 	import { onDestroy } from 'svelte';
+	import { derived, type Readable } from 'svelte/store';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
 	import type { ComponentColor } from '$lib/vbranches/types';
 	import type { MessageStyle } from './InfoMessage.svelte';
 	import type iconsJson from '../icons/icons.json';
-	import type { Readable } from 'svelte/store';
 
 	type StatusInfo = {
 		text: string;
@@ -44,7 +44,14 @@
 	let checksStatus: ChecksStatus | null | undefined = undefined;
 	let lastDetailsFetch: Readable<string> | undefined;
 
-	$: pr$ = githubService.getPr$($branch.upstreamName).pipe(
+	// We only want to call `.getPr$()` when the upstream name changes, rather
+	// than each time the branch object updates.
+	let distinctUpstreamName = derived<Readable<Branch>, string | undefined>(branch, (b, set) => {
+		set(b.upstreamName);
+	});
+
+	$: pr$ = githubService.getPr$($distinctUpstreamName).pipe(
+		// Only emit a new objcect if the modified timestamp has changed.
 		distinctUntilChanged((prev, curr) => {
 			return prev?.modifiedAt.getTime() === curr?.modifiedAt.getTime();
 		})
