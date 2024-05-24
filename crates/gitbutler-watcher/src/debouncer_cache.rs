@@ -73,11 +73,6 @@ pub struct FileIdMap {
 }
 
 impl FileIdMap {
-    /// Construct an empty cache.
-    pub fn new() -> Self {
-        Default::default()
-    }
-
     /// Add a path to the cache.
     ///
     /// If `recursive_mode` is `Recursive`, all children will be added to the cache as well
@@ -152,21 +147,4 @@ impl FileIdCache for FileIdMap {
             self.add_path(&root);
         }
     }
-}
-
-/// An implementation of the `FileIdCache` trait that doesn't hold any data.
-///
-/// This pseudo cache can be used to disable the file tracking using file system IDs.
-pub struct NoCache;
-
-impl FileIdCache for NoCache {
-    fn cached_file_id(&self, _path: &Path) -> Option<&FileId> {
-        None
-    }
-
-    fn add_path(&mut self, _path: &Path) {}
-
-    fn remove_path(&mut self, _path: &Path) {}
-
-    fn rescan(&mut self) {}
 }

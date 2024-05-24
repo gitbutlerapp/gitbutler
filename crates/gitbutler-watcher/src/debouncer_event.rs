@@ -63,15 +63,6 @@ impl DerefMut for DebouncedEvent {
     }
 }
 
-impl Default for DebouncedEvent {
-    fn default() -> Self {
-        Self {
-            event: Default::default(),
-            time: Instant::now(),
-        }
-    }
-}
-
 impl From<Event> for DebouncedEvent {
     fn from(event: Event) -> Self {
         Self {

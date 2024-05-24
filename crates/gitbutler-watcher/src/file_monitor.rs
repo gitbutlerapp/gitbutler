@@ -1,6 +1,6 @@
+use std::collections::HashSet;
 use std::path::Path;
 use std::time::Duration;
-use std::{collections::HashSet, sync::Arc};
 
 use crate::debouncer::Debouncer;
 use crate::debouncer_cache::FileIdMap;
@@ -55,7 +55,7 @@ pub fn spawn(
     project_id: ProjectId,
     worktree_path: &std::path::Path,
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
-) -> Result<Arc<Debouncer<RecommendedWatcher, FileIdMap>>> {
+) -> Result<Debouncer<RecommendedWatcher, FileIdMap>> {
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
     let mut debouncer = new_debouncer(
         DEBOUNCE_TIMEOUT,
@@ -228,7 +228,7 @@ pub fn spawn(
             }
         }
     });
-    Ok(debouncer.into())
+    Ok(debouncer)
 }
 
 #[cfg(target_family = "unix")]

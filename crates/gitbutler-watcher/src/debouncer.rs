@@ -712,7 +712,7 @@ pub fn new_debouncer<F: DebounceEventHandler>(
         tick_rate,
         flush_after,
         event_handler,
-        FileIdMap::new(),
+        FileIdMap::default(),
         notify::Config::default(),
     )
 }
