@@ -1,5 +1,5 @@
-use anyhow::anyhow;
-use git2::FileMode;
+use anyhow::{anyhow, Context};
+use git2::{FileMode, Oid};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -9,6 +9,7 @@ use std::{fs, path::PathBuf};
 use anyhow::Result;
 
 use crate::git::diff::FileDiff;
+use crate::virtual_branches::Branch;
 use crate::{git::diff::hunks_by_filepath, projects::Project};
 
 use super::{
@@ -21,20 +22,32 @@ const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
 
 /// The Oplog trait allows for crating snapshots of the current state of the project as well as restoring to a previous snapshot.
 /// Snapshots include the state of the working directory as well as all additional GitButler state (e.g virtual branches, conflict state).
+/// The data is stored as git trees in the following shape:
+/// .
+/// ├── workdir/
+/// ├── virtual_branches
+/// │   └── [branch-id]
+/// │       ├── commit-message.txt
+/// │       └── tree (subtree)
+/// │   └── [branch-id]
+/// │       ├── commit-message.txt
+/// │       └── tree (subtree)
+/// └── virtual_branches.toml
 pub trait Oplog {
-    /// Creates a snapshot of the current state of the repository and virtual branches using the given label.
-    ///
-    /// If this is the first shapshot created, supporting structures are initialized:
-    ///  - The current oplog head is persisted in `.git/gitbutler/operations-log.toml`.
-    ///  - A fake branch `gitbutler/target` is created and maintained in order to keep the oplog head reachable.
-    ///
-    /// The snapshot tree contains:
-    ///  - The current state of the working directory under a subtree `workdir`.
-    ///  - The state of virtual branches from `.git/gitbutler/virtual_branches.toml` as a blob `virtual_branches.toml`.
-    ///  - The state of conflicts from `.git/base_merge_parent` and `.git/conflicts` if present as blobs under a subtree `conflicts`
-    ///
+    /// Prepares a snapshot of the current state of the working directory as well as GitButler data.
+    /// Returns a tree sha of the snapshot. The snapshot is not discoverable until it is comitted with `commit_snapshot`
     /// If there are files that are untracked and larger than SNAPSHOT_FILE_LIMIT_BYTES, they are excluded from snapshot creation and restoring.
+    fn prepare_snapshot(&self) -> Result<String>;
+    /// Commits the snapshot tree that is created with the `prepare_snapshot` method.
+    /// Committing it makes the snapshot discoverable in `list_snapshots` as well as restorable with `restore_snapshot`.
     /// Returns the sha of the created snapshot commit or None if snapshots are disabled.
+    fn commit_snapshot(
+        &self,
+        snapshot_tree_sha: String,
+        details: SnapshotDetails,
+    ) -> Result<Option<String>>;
+    /// Creates a snapshot of the current state of the working directory as well as GitButler data.
+    /// This is a convinience method that combines `prepare_snapshot` and `commit_snapshot`.
     fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<String>>;
     /// Lists the snapshots that have been created for the given repository, up to the given limit.
     /// An alternative way of retrieving the snapshots would be to manually the oplog head `git log <oplog_head>` available in `.git/gitbutler/operations-log.toml`.
@@ -53,10 +66,17 @@ pub trait Oplog {
     /// If there are files that are untracked and larger than SNAPSHOT_FILE_LIMIT_BYTES, they are excluded from snapshot creation and restoring.
     /// Returns the sha of the created revert snapshot commit or None if snapshots are disabled.
     fn restore_snapshot(&self, sha: String) -> Result<Option<String>>;
-    /// Returns the number of lines of code (added plus removed) since the last snapshot. Includes untracked files.
+    /// Determines if a new snapshot should be created due to file changes being created since the last snapshot.
+    /// The needs for the automatic snapshotting are:
+    ///  - It needs to facilitate backup of work in progress code
+    ///  - The snapshots should not be too frequent or small - both for UX and performance reasons
+    ///  - Checking if an automatic snapshot is needed should be fast and efficient since it is called on filesystem events
     ///
-    /// If there are no snapshots, 0 is returned.
-    fn lines_since_snapshot(&self) -> Result<usize>;
+    /// This implementation works as follows:
+    ///  - If it's been more than 5 minutes since the last snapshot,
+    ///    check the sum of added and removed lines since the last snapshot, otherwise return false.
+    ///  - If the sum of added and removed lines is greater than a configured threshold, return true, otherwise return false.
+    fn should_auto_snapshot(&self) -> Result<bool>;
     /// Returns the diff of the snapshot and it's parent. It only includes the workdir changes.
     ///
     /// This is useful to show what has changed in this particular snapshot
@@ -64,12 +84,7 @@ pub trait Oplog {
 }
 
 impl Oplog for Project {
-    fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<String>> {
-        // Default feature flag to true
-        if self.enable_snapshots.is_some() && self.enable_snapshots == Some(false) {
-            return Ok(None);
-        }
-
+    fn prepare_snapshot(&self) -> Result<String> {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
 
@@ -79,17 +94,6 @@ impl Oplog for Project {
         let default_target_sha = vb_state.get_default_target()?.sha;
         let default_target = repo.find_commit(default_target_sha.into())?;
         let target_tree_oid = default_target.tree_id();
-
-        // figure out the oplog parent
-        let oplog_state = OplogHandle::new(&self.gb_dir());
-        let oplog_head_commit = match oplog_state.get_oplog_head()? {
-            Some(head_sha) => match repo.find_commit(git2::Oid::from_str(&head_sha)?) {
-                Ok(commit) => Some(commit),
-                Err(_) => None, // cant find the old one, start over
-            },
-            // This is the first snapshot - no parents
-            None => None,
-        };
 
         // Create a blob out of `.git/gitbutler/virtual_branches.toml`
         let vb_path = repo_path
@@ -238,7 +242,24 @@ impl Oplog for Project {
 
         // ok, write out the final oplog tree
         let tree_id = tree_builder.write()?;
-        let tree = repo.find_tree(tree_id)?;
+        Ok(tree_id.to_string())
+    }
+
+    fn commit_snapshot(&self, tree_id: String, details: SnapshotDetails) -> Result<Option<String>> {
+        let repo_path = self.path.as_path();
+        let repo = git2::Repository::init(repo_path)?;
+
+        let tree = repo.find_tree(Oid::from_str(&tree_id)?)?;
+
+        let oplog_state = OplogHandle::new(&self.gb_dir());
+        let oplog_head_commit = match oplog_state.get_oplog_head()? {
+            Some(head_sha) => match repo.find_commit(git2::Oid::from_str(&head_sha)?) {
+                Ok(commit) => Some(commit),
+                Err(_) => None, // cant find the old one, start over
+            },
+            // This is the first snapshot - no parents
+            None => None,
+        };
 
         // Check if there is a difference between the tree and the parent tree, and if not, return so that we dont create noop snapshots
         if let Some(ref head_commit) = oplog_head_commit {
@@ -269,6 +290,10 @@ impl Oplog for Project {
 
         oplog_state.set_oplog_head(new_commit_oid.to_string())?;
 
+        let vb_state = self.virtual_branches();
+        // grab the target tree sha
+        let default_target_sha = vb_state.get_default_target()?.sha;
+
         set_reference_to_oplog(
             self,
             &default_target_sha.to_string(),
@@ -276,6 +301,11 @@ impl Oplog for Project {
         )?;
 
         Ok(Some(new_commit_oid.to_string()))
+    }
+
+    fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<String>> {
+        let tree_id = self.prepare_snapshot()?;
+        self.commit_snapshot(tree_id, details)
     }
 
     fn list_snapshots(&self, limit: usize, sha: Option<String>) -> Result<Vec<Snapshot>> {
@@ -376,6 +406,9 @@ impl Oplog for Project {
     fn restore_snapshot(&self, sha: String) -> Result<Option<String>> {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
+
+        // prepare snapshot
+        let snapshot_tree = self.prepare_snapshot();
 
         let commit = repo.find_commit(git2::Oid::from_str(&sha)?)?;
         // Top tree
@@ -536,66 +569,24 @@ impl Oplog for Project {
                 },
             ],
         };
-        self.create_snapshot(details)
+        snapshot_tree.and_then(|snapshot_tree| self.commit_snapshot(snapshot_tree, details))
     }
 
-    // This looks at the diff between the tree of the currenly selected as 'default' branch (where new changes go)
-    // and that same tree in the last snapshot. For some reason, comparing workdir to the workdir subree from
-    // the snapshot simply does not give us what we need here, so instead using tree to tree comparison.
-    fn lines_since_snapshot(&self) -> Result<usize> {
-        let repo_path = self.path.as_path();
-        let repo = git2::Repository::init(repo_path)?;
-
-        // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
-        let files_to_exclude = get_exclude_list(&repo)?;
-        // In-memory, libgit2 internal ignore rule
-        repo.add_ignore_rule(&files_to_exclude)?;
-
+    fn should_auto_snapshot(&self) -> Result<bool> {
         let oplog_state = OplogHandle::new(&self.gb_dir());
-        let head_sha = oplog_state.get_oplog_head()?;
-        if head_sha.is_none() {
-            return Ok(0);
+        let last_snapshot_time = oplog_state.get_modified_at().unwrap_or_default();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .context("failed to get time since epoch")?;
+        if now - last_snapshot_time < Duration::from_secs(300) {
+            return Ok(false);
+        } else {
+            let changed_lines = lines_since_snapshot(self)?;
+            if changed_lines > self.snapshot_lines_threshold() {
+                return Ok(true);
+            }
         }
-        let head_sha = head_sha.unwrap();
-
-        let vb_state = self.virtual_branches();
-        let binding = vb_state.list_branches()?;
-        let active_branch = binding
-            .iter()
-            .filter(|b| b.applied)
-            .max_by_key(|branch| branch.selected_for_changes.unwrap_or(i64::MIN));
-        if active_branch.is_none() {
-            return Ok(0);
-        }
-        let active_branch = active_branch.unwrap();
-        let active_branch_tree = repo.find_tree(active_branch.tree.into())?;
-
-        let commit = repo.find_commit(git2::Oid::from_str(&head_sha)?)?;
-        let head_tree = commit.tree()?;
-        let virtual_branches = head_tree
-            .get_name("virtual_branches")
-            .ok_or(anyhow!("failed to get virtual_branches tree entry"))?;
-        let virtual_branches = repo.find_tree(virtual_branches.id())?;
-        let old_active_branch = virtual_branches
-            .get_name(active_branch.id.to_string().as_str())
-            .ok_or(anyhow!("failed to get active branch from tree entry"))?;
-        let old_active_branch = repo.find_tree(old_active_branch.id())?;
-        let old_active_branch_tree = old_active_branch
-            .get_name("tree")
-            .ok_or(anyhow!("failed to get integration tree entry"))?;
-        let old_active_branch_tree = repo.find_tree(old_active_branch_tree.id())?;
-
-        let mut opts = git2::DiffOptions::new();
-        opts.include_untracked(true);
-        opts.ignore_submodules(true);
-
-        let diff = repo.diff_tree_to_tree(
-            Some(&active_branch_tree),
-            Some(&old_active_branch_tree),
-            Some(&mut opts),
-        );
-        let stats = diff?.stats()?;
-        Ok(stats.deletions() + stats.insertions())
+        Ok(false)
     }
 
     fn snapshot_diff(&self, sha: String) -> Result<HashMap<PathBuf, FileDiff>> {
@@ -733,4 +724,78 @@ fn get_exclude_list(repo: &git2::Repository) -> Result<String> {
         .filter_map(|f| f.to_str())
         .join(" ");
     Ok(files_to_exclude)
+}
+
+/// Returns the number of lines of code (added plus removed) since the last snapshot. Includes untracked files.
+///
+/// If there are no snapshots, 0 is returned.
+fn lines_since_snapshot(project: &Project) -> Result<usize> {
+    // This looks at the diff between the tree of the currenly selected as 'default' branch (where new changes go)
+    // and that same tree in the last snapshot. For some reason, comparing workdir to the workdir subree from
+    // the snapshot simply does not give us what we need here, so instead using tree to tree comparison.
+
+    let repo_path = project.path.as_path();
+    let repo = git2::Repository::init(repo_path)?;
+
+    // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
+    let files_to_exclude = get_exclude_list(&repo)?;
+    // In-memory, libgit2 internal ignore rule
+    repo.add_ignore_rule(&files_to_exclude)?;
+
+    let oplog_state = OplogHandle::new(&project.gb_dir());
+    let head_sha = oplog_state.get_oplog_head()?;
+    if head_sha.is_none() {
+        return Ok(0);
+    }
+    let head_sha = head_sha.unwrap();
+
+    let vb_state = project.virtual_branches();
+    let binding = vb_state.list_branches()?;
+
+    let dirty_branches: Vec<&Branch> = binding
+        .iter()
+        .filter(|b| b.applied)
+        .filter(|b| !b.ownership.claims.is_empty())
+        .collect();
+
+    let mut lines_changed = 0;
+    for branch in dirty_branches {
+        lines_changed += branch_lines_since_snapshot(branch, &repo, head_sha.clone())?;
+    }
+    Ok(lines_changed)
+}
+
+fn branch_lines_since_snapshot(
+    branch: &Branch,
+    repo: &git2::Repository,
+    head_sha: String,
+) -> Result<usize> {
+    let active_branch_tree = repo.find_tree(branch.tree.into())?;
+
+    let commit = repo.find_commit(git2::Oid::from_str(&head_sha)?)?;
+    let head_tree = commit.tree()?;
+    let virtual_branches = head_tree
+        .get_name("virtual_branches")
+        .ok_or(anyhow!("failed to get virtual_branches tree entry"))?;
+    let virtual_branches = repo.find_tree(virtual_branches.id())?;
+    let old_active_branch = virtual_branches
+        .get_name(branch.id.to_string().as_str())
+        .ok_or(anyhow!("failed to get active branch from tree entry"))?;
+    let old_active_branch = repo.find_tree(old_active_branch.id())?;
+    let old_active_branch_tree = old_active_branch
+        .get_name("tree")
+        .ok_or(anyhow!("failed to get integration tree entry"))?;
+    let old_active_branch_tree = repo.find_tree(old_active_branch_tree.id())?;
+
+    let mut opts = git2::DiffOptions::new();
+    opts.include_untracked(true);
+    opts.ignore_submodules(true);
+
+    let diff = repo.diff_tree_to_tree(
+        Some(&active_branch_tree),
+        Some(&old_active_branch_tree),
+        Some(&mut opts),
+    );
+    let stats = diff?.stats()?;
+    Ok(stats.deletions() + stats.insertions())
 }

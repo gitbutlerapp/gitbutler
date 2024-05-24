@@ -4,6 +4,7 @@
 
 	export let author: Author;
 	export let status: CommitStatus;
+	export let help: string | undefined = undefined;
 </script>
 
 <img
@@ -15,7 +16,7 @@
 	class:remote={status == 'remote'}
 	class:local={status == 'local'}
 	class:upstream={status == 'upstream'}
-	use:tooltip={author.name}
+	use:tooltip={help}
 	on:error
 />
 

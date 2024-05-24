@@ -10,7 +10,6 @@
 	import type iconsJson from '$lib/icons/icons.json';
 
 	export let entry: Snapshot;
-	export let isCurrent: boolean = false;
 	export let selectedFile:
 		| {
 				entryId: string;
@@ -143,20 +142,12 @@
 
 	const operation = mapOperation(entry.details);
 
-	function isRestorable() {
-		return !isCurrent && !isRestoreSnapshot;
-	}
-
 	function getPathOnly(path: string) {
 		return path.split('/').slice(0, -1).join('/');
 	}
 </script>
 
-<div
-	class="snapshot-card"
-	class:restored-snapshot={isRestoreSnapshot}
-	class:show-restore-on-hover={isRestorable()}
->
+<div class="snapshot-card show-restore-on-hover" class:restored-snapshot={isRestoreSnapshot}>
 	<div class="snapshot-right-container">
 		<div class="restore-btn">
 			<Tag
@@ -183,10 +174,6 @@
 
 	<div class="snapshot-content">
 		<div class="snapshot-details">
-			{#if isCurrent}
-				<Tag style="pop" kind="soft">Current</Tag>
-			{/if}
-
 			<h4 class="snapshot-title text-base-body-13 text-semibold">
 				<span>{operation.text}</span>
 				<span class="snapshot-sha text-base-body-12"> • {getShortSha(entry.id)}</span>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Avatar from './Avatar.svelte';
+	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import type { Commit, RemoteCommit } from '$lib/vbranches/types';
 
 	export let commit: Commit | undefined;
@@ -11,14 +12,10 @@
 	export let root: boolean;
 	export let upstreamLine: boolean;
 
-	$: hasRoot = isRoot(commit);
-
-	function isRoot(commit: Commit | undefined): boolean {
-		return commit?.status == 'remote' && commit?.children?.[0]?.status == 'local';
-	}
+	$: tooltipText = getAvatarTooltip(commit || remoteCommit);
 </script>
 
-<div class="remote-column" class:has-root={hasRoot}>
+<div class="remote-column" class:has-root={root}>
 	{#if base}
 		<div class="remote-line dashed" class:short={!line} />
 		{#if root}
@@ -49,19 +46,19 @@
 		{:else if upstreamLine}
 			<div class="remote-line upstream" class:short class:first />
 		{/if}
-		{#if hasRoot}
+		{#if root}
 			<div class="root" />
 		{/if}
 		{#if commit}
 			{@const author = commit.author}
 			<div class="avatar" class:first class:short>
-				<Avatar {author} status={commit.status} />
+				<Avatar {author} status={commit.status} help={tooltipText} />
 			</div>
 		{/if}
 		{#if remoteCommit}
 			{@const author = remoteCommit.author}
 			<div class="avatar" class:first class:short>
-				<Avatar {author} status={remoteCommit.status} />
+				<Avatar {author} status={remoteCommit.status} help={tooltipText} />
 			</div>
 		{/if}
 	{/if}

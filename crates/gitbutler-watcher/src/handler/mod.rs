@@ -122,8 +122,7 @@ impl Handler {
             .projects
             .get(&project_id)
             .context("failed to get project")?;
-        let changed_lines = project.lines_since_snapshot()?;
-        if changed_lines > project.snapshot_lines_threshold() {
+        if project.should_auto_snapshot().unwrap_or_default() {
             project.create_snapshot(SnapshotDetails::new(OperationType::FileChanges))?;
         }
         Ok(())

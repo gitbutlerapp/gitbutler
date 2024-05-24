@@ -30,20 +30,21 @@
 	// TODO: Update store here rather than reset it
 	$: ownershipStore.set(Ownership.fromBranch(branch));
 
-	const branchStore = createContextStore(Branch, branch);
+	const branchStore = createContextStore(Branch, undefined);
 	$: branchStore.set(branch);
 
-	const localCommits = createLocalContextStore(branch.localCommits);
+	const localCommits = createLocalContextStore(undefined);
 	$: localCommits.set(branch.localCommits);
 
-	const remoteCommits = createRemoteContextStore(branch.remoteCommits);
+	const remoteCommits = createRemoteContextStore(undefined);
 	$: remoteCommits.set(branch.remoteCommits);
 
 	// Set the store immediately so it can be updated later.
 	const upstreamCommits = createUpstreamContextStore([]);
 	$: upstreamCommits.set(branch.upstreamData?.commits ?? []);
+
 	const unknownCommits = createUnknownCommitsStore([]);
-	$: unknownCommits.set($upstreamCommits.filter((c) => !c.relatedTo || c.id != c.relatedTo.id));
+	$: unknownCommits.set($upstreamCommits.filter((c) => !c.relatedTo));
 
 	const fileIdSelection = new FileIdSelection();
 	setContext(FileIdSelection, fileIdSelection);

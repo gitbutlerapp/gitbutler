@@ -19,6 +19,7 @@ use crate::{
     projects::FetchResult,
     users,
     virtual_branches::branch::BranchOwnershipClaims,
+    virtual_branches::cherry_rebase,
 };
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
@@ -335,9 +336,9 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 pub fn update_base_branch(
     project_repository: &project_repository::Repository,
     user: Option<&users::User>,
-) -> Result<(), errors::UpdateBaseBranchError> {
+) -> anyhow::Result<()> {
     if project_repository.is_resolving() {
-        return Err(errors::UpdateBaseBranchError::Conflict(
+        anyhow::bail!(errors::UpdateBaseBranchError::Conflict(
             errors::ProjectConflict {
                 project_id: project_repository.project().id,
             },
@@ -543,51 +544,25 @@ pub fn update_base_branch(
                     }
 
                     // branch was not pushed to upstream yet. attempt a rebase,
-                    let (_, committer) = project_repository.git_signatures(user)?;
-                    let mut rebase_options = git2::RebaseOptions::new();
-                    rebase_options.quiet(true);
-                    rebase_options.inmemory(true);
-                    let mut rebase = repo
-                        .rebase(
-                            Some(branch.head),
-                            Some(new_target_commit.id()),
-                            None,
-                            Some(&mut rebase_options),
-                        )
-                        .context("failed to rebase")?;
+                    let rebased_head_oid = cherry_rebase(
+                        project_repository,
+                        new_target_commit.id(),
+                        new_target_commit.id(),
+                        branch.head,
+                    );
 
-                    let mut rebase_success = true;
-                    // check to see if these commits have already been pushed
-                    let mut last_rebase_head = branch.head;
-                    while rebase.next().is_some() {
-                        let index = rebase
-                            .inmemory_index()
-                            .context("failed to get inmemory index")?;
-                        if index.has_conflicts() {
-                            rebase_success = false;
-                            break;
-                        }
-
-                        if let Ok(commit_id) = rebase.commit(None, &committer.clone().into(), None)
-                        {
-                            last_rebase_head = commit_id.into();
-                        } else {
-                            rebase_success = false;
-                            break;
-                        }
+                    // rebase failed, just do the merge
+                    if rebased_head_oid.is_err() {
+                        return result_merge(branch);
                     }
 
-                    if rebase_success {
+                    if let Some(rebased_head_oid) = rebased_head_oid? {
                         // rebase worked out, rewrite the branch head
-                        rebase.finish(None).context("failed to finish rebase")?;
-                        branch.head = last_rebase_head;
+                        branch.head = rebased_head_oid;
                         branch.tree = branch_merge_index_tree_oid;
                         vb_state.set_branch(branch.clone())?;
                         return Ok(Some(branch));
                     }
-
-                    // rebase failed, do a merge commit
-                    rebase.abort().context("failed to abort rebase")?;
 
                     result_merge(branch)
                 },

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Avatar from './Avatar.svelte';
+	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import { tooltip } from '$lib/utils/tooltip';
 	import type { Commit, RemoteCommit } from '$lib/vbranches/types';
 
@@ -9,6 +11,8 @@
 	export let localCommit: Commit | undefined;
 	export let dashed: boolean;
 	export let upstreamLine: boolean;
+
+	$: tooltipText = getAvatarTooltip(localCommit || remoteCommit);
 </script>
 
 <div class="shadow-column">
@@ -21,25 +25,13 @@
 		<div class="shadow-line upstream" class:short class:first />
 	{/if}
 	{#if localCommit}
-		<div
-			class="shadow-marker"
-			class:first
-			class:short
-			use:tooltip={localCommit.descriptionTitle}
-		></div>
+		<div class="shadow-marker" class:first class:short use:tooltip={tooltipText}></div>
 	{/if}
 	{#if remoteCommit}
 		{@const author = remoteCommit.author}
-		<img
-			class="avatar"
-			class:first
-			title={author.name}
-			alt="Gravatar for {author.email}"
-			srcset="{author.gravatarUrl} 2x"
-			width="100"
-			height="100"
-			on:error
-		/>
+		<div class="avatar" class:first class:short>
+			<Avatar {author} status={remoteCommit.status} help={tooltipText} />
+		</div>
 	{/if}
 </div>
 
@@ -97,14 +89,10 @@
 
 	.avatar {
 		position: absolute;
-		width: var(--size-16);
-		height: var(--size-16);
-		border-radius: var(--radius-m);
 		top: var(--size-10);
 		left: var(--size-4);
-		border: var(--size-2) solid var(--clr-commit-upstream);
 		&.first {
-			top: var(--size-40);
+			top: calc(var(--size-40) + var(--size-2));
 		}
 	}
 </style>
