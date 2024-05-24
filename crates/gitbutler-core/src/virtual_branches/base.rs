@@ -519,8 +519,14 @@ pub fn update_base_branch(
                         new_target_commit.id(),
                         new_target_commit.id(),
                         branch.head,
-                    )?;
-                    if let Some(rebased_head_oid) = rebased_head_oid {
+                    );
+
+                    // rebase failed, just do the merge
+                    if rebased_head_oid.is_err() {
+                        return result_merge(branch);
+                    }
+
+                    if let Some(rebased_head_oid) = rebased_head_oid? {
                         // rebase worked out, rewrite the branch head
                         branch.head = rebased_head_oid;
                         branch.tree = branch_merge_index_tree_oid;
