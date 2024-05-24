@@ -27,70 +27,6 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 // IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
-//! A debouncer for [notify] that is optimized for ease of use.
-//!
-//! * Only emits a single `Rename` event if the rename `From` and `To` events can be matched
-//! * Merges multiple `Rename` events
-//! * Takes `Rename` events into account and updates paths for events that occurred before the rename event, but which haven't been emitted, yet
-//! * Optionally keeps track of the file system IDs all files and stiches rename events together (FSevents, Windows)
-//! * Emits only one `Remove` event when deleting a directory (inotify)
-//! * Doesn't emit duplicate create events
-//! * Doesn't emit `Modify` events after a `Create` event
-//!
-//! # Installation
-//!
-//! ```toml
-//! [dependencies]
-//! notify-debouncer-full = "0.3.1"
-//! ```
-//!
-//! In case you want to select specific features of notify,
-//! specify notify as dependency explicitly in your dependencies.
-//! Otherwise you can just use the re-export of notify from debouncer-full.
-//!
-//! ```toml
-//! notify-debouncer-full = "0.3.1"
-//! notify = { version = "..", features = [".."] }
-//! ```
-//!  
-//! # Examples
-//!
-//! ```rust,no_run
-//! # use std::path::Path;
-//! # use std::time::Duration;
-//! use notify_debouncer_full::{notify::*, new_debouncer, DebounceEventResult};
-//!
-//! // Select recommended watcher for debouncer.
-//! // Using a callback here, could also be a channel.
-//! let mut debouncer = new_debouncer(Duration::from_secs(2), None, |result: DebounceEventResult| {
-//!     match result {
-//!         Ok(events) => events.iter().for_each(|event| println!("{event:?}")),
-//!         Err(errors) => errors.iter().for_each(|error| println!("{error:?}")),
-//!     }
-//! }).unwrap();
-//!
-//! // Add a path to be watched. All files and directories at that path and
-//! // below will be monitored for changes.
-//! debouncer.watcher().watch(Path::new("."), RecursiveMode::Recursive).unwrap();
-//!
-//! // Add the same path to the file ID cache. The cache uses unique file IDs
-//! // provided by the file system and is used to stich together rename events
-//! // in case the notification back-end doesn't emit rename cookies.
-//! debouncer.cache().add_root(Path::new("."), RecursiveMode::Recursive);
-//! ```
-//!
-//! # Features
-//!
-//! The following crate features can be turned on or off in your cargo dependency config:
-//!
-//! - `crossbeam` enabled by default, adds [`DebounceEventHandler`](DebounceEventHandler) support for crossbeam channels.
-//!   Also enables crossbeam-channel in the re-exported notify. You may want to disable this when using the tokio async runtime.
-//! - `serde` enables serde support for events.
-//!
-//! # Caveats
-//!
-//! As all file events are sourced from notify, the [known problems](https://docs.rs/notify/latest/notify/#known-problems) section applies here too.
-
 use std::{
     collections::{HashMap, VecDeque},
     path::PathBuf,
@@ -98,8 +34,14 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::{Duration, Instant},
+    time::Duration,
 };
+
+#[cfg(feature = "mock_instant")]
+use mock_instant::Instant;
+
+#[cfg(not(feature = "mock_instant"))]
+use std::time::Instant;
 
 use file_id::FileId;
 use notify::{
@@ -114,26 +56,6 @@ mod event;
 use cache::{FileIdCache, FileIdMap};
 use event::DebouncedEvent;
 
-/// The set of requirements for watcher debounce event handling functions.
-///
-/// # Example implementation
-///
-/// ```rust,no_run
-/// # use notify::{Event, Result, EventHandler};
-/// # use notify_debouncer_full::{DebounceEventHandler, DebounceEventResult};
-///
-/// /// Prints received events
-/// struct EventPrinter;
-///
-/// impl DebounceEventHandler for EventPrinter {
-///     fn handle_event(&mut self, result: DebounceEventResult) {
-///         match result {
-///             Ok(events) => events.iter().for_each(|event| println!("{event:?}")),
-///             Err(errors) => errors.iter().for_each(|error| println!("{error:?}")),
-///         }
-///     }
-/// }
-/// ```
 pub trait DebounceEventHandler: Send + 'static {
     /// Handles an event.
     fn handle_event(&mut self, event: DebounceEventResult);

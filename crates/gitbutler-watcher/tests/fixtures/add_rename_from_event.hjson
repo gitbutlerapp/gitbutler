@@ -1,0 +1,16 @@
+{
+    state: {}
+    events: [
+        { kind: "rename-from", paths: ["/watch/source"] }
+    ]
+    expected: {
+        queues: {
+            /watch/source: {
+                events: [
+                    { kind: "rename-from", paths: ["*"] }
+                ]
+            }
+        }
+        rename_event: { kind: "rename-from", paths: ["/watch/source"] }
+    }
+}

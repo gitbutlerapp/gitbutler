@@ -1,0 +1,56 @@
+{
+    state: {
+        queues: {
+            /watch/file-a: {
+                events: [
+                    { kind: "create-any", paths: ["*"], time: 1 }
+                ]
+            }
+            /watch/file-b: {
+                events: [
+                    { kind: "create-any", paths: ["*"], time: 2 }
+                ]
+            }
+        }
+        cache: {
+            /watch/file-a: 1
+            /watch/file-b: 2
+        }
+        file_system: {
+            /watch/file-a: 1
+            /watch/file-b: 2
+            /watch/file-c: 3
+        }
+    }
+    events: [
+        { kind: "other", flags: ["rescan"], time: 3 }
+    ]
+    expected: {
+        queues: {
+            /watch/file-a: {
+                events: [
+                    { kind: "create-any", paths: ["*"], time: 1 }
+                ]
+            }
+            /watch/file-b: {
+                events: [
+                    { kind: "create-any", paths: ["*"], time: 2 }
+                ]
+            }
+        }
+        rescan_event: { kind: "other", flags: ["rescan"], time: 3 }
+        cache: {
+            /watch/file-a: 1
+            /watch/file-b: 2
+            /watch/file-c: 3
+        }
+        events: {
+            short: []
+            long: [
+                { kind: "create-any", paths: ["/watch/file-a"], time: 1 }
+                { kind: "create-any", paths: ["/watch/file-b"], time: 2 }
+                { kind: "other", flags: ["rescan"], time: 3 }
+            ]
+        }
+    }
+}

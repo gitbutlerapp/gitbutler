@@ -1,0 +1,22 @@
+{
+    state: {
+        file_system: {
+            /watch/file: 1
+        }
+    }
+    events: [
+        { kind: "modify-data-any", paths: ["/watch/file"] }
+    ]
+    expected: {
+        queues: {
+            /watch/file: {
+                events: [
+                    { kind: "modify-data-any", paths: ["*"] }
+                ]
+            }
+        }
+        cache: {
+            /watch/file: 1
+        }
+    }
+}

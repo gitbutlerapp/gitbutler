@@ -29,6 +29,10 @@
 // DEALINGS IN THE SOFTWARE.
 use std::ops::{Deref, DerefMut};
 
+#[cfg(feature = "mock_instant")]
+use mock_instant::Instant;
+
+#[cfg(not(feature = "mock_instant"))]
 use std::time::Instant;
 
 use notify::Event;
