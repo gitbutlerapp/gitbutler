@@ -381,6 +381,9 @@ export class GitHubService {
 		const totalCount = resp?.data.total_count;
 
 		const success = queued == 0 && failed == 0 && skipped + succeeded == totalCount;
+		const finished = checks.filter(
+			(c) => c.conclusion && ['failure', 'success'].includes(c.conclusion)
+		).length;
 
 		return {
 			startedAt: firstStart,
@@ -389,7 +392,8 @@ export class GitHubService {
 			completed,
 			queued,
 			totalCount,
-			skipped
+			skipped,
+			finished
 		};
 	}
 

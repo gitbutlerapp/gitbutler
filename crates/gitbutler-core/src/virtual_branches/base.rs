@@ -333,9 +333,9 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 pub fn update_base_branch(
     project_repository: &project_repository::Repository,
     user: Option<&users::User>,
-) -> Result<(), errors::UpdateBaseBranchError> {
+) -> anyhow::Result<()> {
     if project_repository.is_resolving() {
-        return Err(errors::UpdateBaseBranchError::Conflict(
+        anyhow::bail!(errors::UpdateBaseBranchError::Conflict(
             errors::ProjectConflict {
                 project_id: project_repository.project().id,
             },
@@ -516,8 +516,14 @@ pub fn update_base_branch(
                         new_target_commit.id(),
                         new_target_commit.id(),
                         branch.head,
-                    )?;
-                    if let Some(rebased_head_oid) = rebased_head_oid {
+                    );
+
+                    // rebase failed, just do the merge
+                    if rebased_head_oid.is_err() {
+                        return result_merge(branch);
+                    }
+
+                    if let Some(rebased_head_oid) = rebased_head_oid? {
                         // rebase worked out, rewrite the branch head
                         branch.head = rebased_head_oid;
                         branch.tree = branch_merge_index_tree_oid;

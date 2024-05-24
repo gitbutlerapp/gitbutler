@@ -21,7 +21,7 @@
 	$: hasUnknownCommits = $unknownCommits.length > 0;
 </script>
 
-{#if hasCommits}
+{#if hasCommits || hasUnknownCommits}
 	<div class="commit-list__content">
 		<div class="title text-base-13 text-semibold"></div>
 		<div class="commits">
