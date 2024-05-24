@@ -336,9 +336,9 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 pub fn update_base_branch(
     project_repository: &project_repository::Repository,
     user: Option<&users::User>,
-) -> Result<(), errors::UpdateBaseBranchError> {
+) -> anyhow::Result<()> {
     if project_repository.is_resolving() {
-        return Err(errors::UpdateBaseBranchError::Conflict(
+        anyhow::bail!(errors::UpdateBaseBranchError::Conflict(
             errors::ProjectConflict {
                 project_id: project_repository.project().id,
             },
