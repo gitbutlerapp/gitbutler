@@ -160,7 +160,7 @@
 		class:local={type == 'local'}
 		class:remote={type == 'remote'}
 		class:upstream={type == 'upstream'}
-	></div>
+	/>
 
 	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
 		{#if first}
@@ -345,12 +345,6 @@
 		&.upstream {
 			background-color: var(--clr-commit-upstream);
 		}
-		&.is-first {
-			border-top-left-radius: var(--radius-m);
-		}
-		&.is-last {
-			border-bottom-left-radius: var(--radius-m);
-		}
 	}
 
 	.commit__header {
@@ -367,6 +361,7 @@
 
 	.is-commit-open {
 		background-color: var(--clr-bg-2);
+		/* margin: 0.5rem 0; */
 
 		& .commit__header {
 			padding-bottom: var(--size-16);

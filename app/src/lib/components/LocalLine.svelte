@@ -6,6 +6,7 @@
 	export let dashed: boolean;
 	export let commit: Commit | undefined;
 	export let first: boolean;
+	export let isEmpty: boolean = false;
 
 	$: hasRoot = isRoot(commit);
 	$: tooltipText = getAvatarTooltip(commit);
@@ -16,22 +17,24 @@
 </script>
 
 <div class="local-column">
-	{#if !commit && dashed}
-		<div class="local-line dashed"></div>
-	{:else if commit}
-		{#if first}
-			<div class="local-line dashed tip" />
+	{#if !isEmpty}
+		{#if !commit && dashed}
+			<div class="local-line dashed"></div>
+		{:else if commit}
+			{#if first}
+				<div class="local-line dashed tip" />
+			{/if}
+			<div class="local-line" class:has-root={hasRoot} class:short={first} />
 		{/if}
-		<div class="local-line" class:has-root={hasRoot} class:short={first} />
-	{/if}
-	{#if commit}
-		{@const author = commit.author}
-		<div class="avatar" class:first>
-			<Avatar {author} status={commit.status} help={tooltipText} />
-		</div>
-	{/if}
-	{#if hasRoot}
-		<div class="root" class:long-root={commit?.parent} />
+		{#if commit}
+			{@const author = commit.author}
+			<div class="avatar" class:first>
+				<Avatar {author} status={commit.status} help={tooltipText} />
+			</div>
+		{/if}
+		{#if hasRoot}
+			<div class="root" class:long-root={commit?.parent} />
+		{/if}
 	{/if}
 </div>
 
@@ -39,6 +42,7 @@
 	.local-column {
 		position: relative;
 		width: var(--size-16);
+		/* background-color: rgba(255, 228, 196, 0.46); */
 	}
 	.avatar {
 		position: absolute;

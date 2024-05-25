@@ -15,13 +15,13 @@
 	$: tooltipText = getAvatarTooltip(commit || remoteCommit);
 </script>
 
-<div class="remote-column" class:has-root={root}>
+<div class="remote-column" class:has-root={root} class:base>
 	{#if base}
 		<div class="remote-line dashed" class:short={!line} />
 		{#if root}
 			<div class="root base" />
 		{/if}
-		<div class="commit-icon">
+		<div class="base-icon">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				width="16"
@@ -68,6 +68,11 @@
 	.remote-column {
 		position: relative;
 		width: var(--size-24);
+		/* background-color: rgba(125, 138, 154, 0.307); */
+
+		&.base {
+			margin-top: calc(var(--size-8) * -1);
+		}
 	}
 
 	.remote-line {
@@ -124,7 +129,7 @@
 		width: var(--size-10);
 		top: 1.875rem;
 		border-radius: var(--radius-l) 0 0 0;
-		height: var(--size-10);
+		height: var(--size-16);
 		left: calc(var(--size-10) + var(--size-1));
 		border-color: var(--clr-commit-local);
 		border-width: var(--size-2) 0 0 var(--size-2);
@@ -133,17 +138,20 @@
 		}
 	}
 
-	.commit-icon {
+	.base-icon {
 		display: flex;
 		justify-content: center;
 		align-items: center;
 		position: absolute;
 		border-radius: 6px;
-		left: var(--size-4);
+		top: var(--base-icon-top);
+		left: 50%;
+		transform: translateX(-50%);
 		background: var(--clr-commit-remote);
-		height: var(--size-16);
-		width: var(--size-16);
-		top: var(--size-10);
+		height: 1.125rem;
+		width: 1.125rem;
+		transition: top var(--transition-medium);
+
 		& svg {
 			height: var(--size-16);
 			width: var(--size-16);

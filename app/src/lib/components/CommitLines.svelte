@@ -17,7 +17,7 @@
 	export let base = false;
 </script>
 
-<div class="lines" class:base>
+<div class="lines">
 	{#if hasShadowColumn}
 		<ShadowLine
 			line={shadowLine}
@@ -42,13 +42,15 @@
 			(!!remoteCommit && !remoteCommit?.children?.[0])}
 		{base}
 	/>
-	{#if hasLocalColumn}
-		<LocalLine
-			commit={localCommit?.status == 'local' ? localCommit : undefined}
-			dashed={localLine}
-			{first}
-		/>
-	{/if}
+
+	<!-- {#if hasLocalColumn} -->
+	<LocalLine
+		isEmpty={!hasLocalColumn}
+		commit={localCommit?.status == 'local' ? localCommit : undefined}
+		dashed={localLine}
+		{first}
+	/>
+	<!-- {/if} -->
 </div>
 
 <style lang="postcss">
@@ -56,8 +58,5 @@
 		display: flex;
 		align-items: stretch;
 		min-height: var(--size-16);
-		&.base {
-			height: var(--size-40);
-		}
 	}
 </style>

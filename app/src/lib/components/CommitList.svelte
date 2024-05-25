@@ -2,9 +2,12 @@
 	import CommitCard from './CommitCard.svelte';
 	import CommitLines from './CommitLines.svelte';
 	import CommitListItem from './CommitListItem.svelte';
+	import { Project } from '$lib/backend/projects';
+	import { getContext } from '$lib/utils/context';
 	import { getContextStore } from '$lib/utils/context';
 	import { getLocalCommits, getRemoteCommits, getUnknownCommits } from '$lib/vbranches/contexts';
 	import { BaseBranch, Branch } from '$lib/vbranches/types';
+	import { goto } from '$app/navigation';
 
 	export let isUnapplied: boolean;
 
@@ -13,19 +16,23 @@
 	const remoteCommits = getRemoteCommits();
 	const unknownCommits = getUnknownCommits();
 	const baseBranch = getContextStore(BaseBranch);
+	const project = getContext(Project);
 
 	$: hasShadowColumn = $localCommits.some((c) => c.relatedTo && c.id != c.relatedTo.id);
 	$: hasLocalColumn = $localCommits.length > 0;
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
 	$: hasUnknownCommits = $unknownCommits.length > 0;
+	$: baseCommit = $baseBranch.recentCommits.at($baseBranch.recentCommits.length - 1)?.id;
+
+	let baseIsUnfolded = false;
 </script>
 
 {#if hasCommits || hasUnknownCommits}
-	<div class="commit-list__content">
-		<div class="title text-base-13 text-semibold"></div>
-		<div class="commits">
-			{#if $unknownCommits.length > 0}
+	<div class="commits">
+		<!-- UPSTREAM COMMITS -->
+		{#if $unknownCommits.length > 0}
+			<div class="commit-group">
 				<CommitLines {hasShadowColumn} {hasLocalColumn} localLine />
 				{#each $unknownCommits as commit, idx (commit.id)}
 					<div class="commit-lines">
@@ -51,8 +58,11 @@
 						</CommitListItem>
 					</div>
 				{/each}
-			{/if}
-			{#if $localCommits.length > 0}
+			</div>
+		{/if}
+		<!-- LOCAL COMMITS -->
+		{#if $localCommits.length > 0}
+			<div class="commit-group">
 				<CommitLines
 					{hasShadowColumn}
 					{hasLocalColumn}
@@ -83,8 +93,11 @@
 						</CommitListItem>
 					</div>
 				{/each}
-			{/if}
-			{#if $remoteCommits.length > 0}
+			</div>
+		{/if}
+		<!-- REMOTE COMMITS -->
+		{#if $remoteCommits.length > 0}
+			<div class="commit-group">
 				<CommitLines
 					{hasShadowColumn}
 					{hasLocalColumn}
@@ -115,15 +128,36 @@
 						</CommitListItem>
 					</div>
 				{/each}
-			{/if}
-			<CommitLines
-				{hasShadowColumn}
-				localLine={$remoteCommits.length == 0 && $localCommits.length > 0}
-				localRoot={$remoteCommits.length == 0 && $localCommits.length > 0}
-				remoteLine={$remoteCommits.length > 0}
-				shadowLine={hasShadowColumn}
-				base
-			/>
+			</div>
+		{/if}
+		<!-- BASE -->
+		<div class="base-row-container" class:base-row-container_unfolded={baseIsUnfolded}>
+			<div
+				class="commit-group base-row"
+				tabindex="0"
+				role="button"
+				on:click|stopPropagation={() => (baseIsUnfolded = !baseIsUnfolded)}
+				on:keydown={(e) => e.key === 'Enter' && (baseIsUnfolded = !baseIsUnfolded)}
+			>
+				<CommitLines
+					{hasShadowColumn}
+					localLine={$remoteCommits.length == 0 && $localCommits.length > 0}
+					localRoot={$remoteCommits.length == 0 && $localCommits.length > 0}
+					remoteLine={$remoteCommits.length > 0}
+					shadowLine={hasShadowColumn}
+					base
+				/>
+				<div class="base-row__content">
+					<span class="text-base-11 base-row__text"
+						>Base commit <button
+							class="base-row__commit-link"
+							on:click={async () => await goto(`/${project.id}/base`)}
+						>
+							{baseCommit ? baseCommit.slice(0, 7) : ''}
+						</button>
+					</span>
+				</div>
+			</div>
 		</div>
 	</div>
 {/if}
@@ -134,18 +168,68 @@
 		gap: var(--size-8);
 	}
 
-	.commit-list__content {
+	.commits {
 		display: flex;
 		flex-direction: column;
 		background-color: var(--clr-bg-2);
 		border-top: 1px solid var(--clr-border-2);
 		border-bottom: 1px solid var(--clr-border-2);
+
+		--base-top-margin: var(--size-8);
+		--base-icon-top: var(--size-16);
+		--base-unfolded: var(--size-48);
+	}
+
+	.commit-group {
 		padding-right: var(--size-14);
 		padding-left: var(--size-8);
 	}
 
-	.commits {
+	/* BASE ROW */
+
+	.base-row-container {
 		display: flex;
 		flex-direction: column;
+		height: var(--size-20);
+		overflow: hidden;
+		transition: height var(--transition-medium);
+	}
+
+	.base-row-container_unfolded {
+		height: var(--base-unfolded);
+		--base-icon-top: var(--size-20);
+
+		& .base-row__text {
+			opacity: 1;
+		}
+	}
+
+	.base-row {
+		display: flex;
+		gap: var(--size-8);
+		min-height: calc(var(--base-unfolded) - var(--base-top-margin));
+		margin-top: var(--base-top-margin);
+		transition: background-color var(--transition-fast);
+
+		&:hover {
+			background-color: var(--clr-bg-3);
+		}
+	}
+
+	.base-row__content {
+		display: flex;
+		align-items: center;
+	}
+
+	.base-row__text {
+		color: var(--clr-text-2);
+		opacity: 0;
+		margin-top: var(--size-2);
+		transition: opacity var(--transition-fast);
+	}
+
+	.base-row__commit-link {
+		text-decoration: underline;
+		cursor: pointer;
 	}
 </style>
