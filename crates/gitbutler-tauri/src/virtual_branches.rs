@@ -438,6 +438,22 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
+    pub async fn resolve_conflict_start(
+        handle: AppHandle,
+        project_id: ProjectId,
+        branch_id: BranchId,
+        commit_oid: git::Oid,
+    ) -> Result<(), Error> {
+        handle
+            .state::<Controller>()
+            .resolve_conflict_start(&project_id, &branch_id, commit_oid)
+            .await?;
+        emit_vbranches(&handle, &project_id).await;
+        Ok(())
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(handle), err(Debug))]
     pub async fn list_remote_branches(
         handle: tauri::AppHandle,
         project_id: ProjectId,

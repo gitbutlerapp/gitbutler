@@ -98,7 +98,15 @@
 		branchController.reorderCommit(branch.id, commit.id, offset);
 	}
 
-	let isUndoable = false;
+	function resolveConflict(commit: Commit | RemoteCommit) {
+		if (!branch || !$baseBranch) {
+			console.error('Unable to start conflict resolution - no branch');
+			return;
+		}
+		branchController.resolveConflictStart(branch.id, commit.id);
+	}
+
+	let isUndoable = !isConflicted;
 
 	$: if ($advancedCommitOperations) {
 		isUndoable = !!branch?.active && commit instanceof Commit;
@@ -164,7 +172,7 @@
 		class:upstream={type == 'upstream'}
 	></div>
 
-	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
+	<div class="{isConflicted ? 'commit__header-conflict' : 'commit__header'}" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
 		{#if first}
 			<div class="commit__type text-semibold text-base-12">
 				{#if type == 'remote'}
@@ -178,9 +186,6 @@
 		{/if}
 		<div class="commit__message">
 			{#if $advancedCommitOperations}
-				{#if isConflicted}
-					{commit.conflictedFiles}
-				{/if}
 				<div class="commit__id">
 					<code>
 						{#if commit.isSigned}
@@ -208,7 +213,7 @@
 							<i>empty commit message</i>
 						</span>
 					{/if}
-					{#if !showFiles}
+					{#if !showFiles && !isConflicted}
 						<Tag
 							style="ghost"
 							kind="solid"
@@ -236,7 +241,7 @@
 					</div>
 				{/if}
 
-				{#if $advancedCommitOperations && isUndoable}
+				{#if $advancedCommitOperations && isUndoable && !isConflicted}
 					<Tag clickable on:click={openCommitMessageModal}>Edit</Tag>
 				{/if}
 			{/if}
@@ -247,75 +252,89 @@
 	</div>
 
 	{#if showFiles}
-		<div class="files-container" transition:slide={{ duration: 100 }}>
-			<BranchFilesList {files} {isUnapplied} />
-		</div>
+		{#if isConflicted}
+			<div class="conflict-zone">
+					<Tag
+					style="ghost"
+					kind="solid"
+					clickable
+					on:click={(e) => {
+						e.stopPropagation();
+						resolveConflict(commit);
+					}}>Resolve Conflict</Tag
+				>
+			</div>
+		{:else}
+			<div class="files-container" transition:slide={{ duration: 100 }}>
+				<BranchFilesList {files} {isUnapplied} />
+			</div>
 
-		{#if hasCommitUrl || isUndoable}
-			<div class="files__footer">
-				{#if isUndoable}
-					{#if $advancedCommitOperations}
+			{#if hasCommitUrl || isUndoable}
+				<div class="files__footer">
+					{#if isUndoable}
+						{#if $advancedCommitOperations}
+							<Tag
+								style="ghost"
+								kind="solid"
+								clickable
+								on:click={(e) => {
+									e.stopPropagation();
+									reorderCommit(commit, -1);
+								}}>Move Up</Tag
+							>
+							<Tag
+								style="ghost"
+								kind="solid"
+								clickable
+								on:click={(e) => {
+									e.stopPropagation();
+									reorderCommit(commit, 1);
+								}}>Move Down</Tag
+							>
+							<Tag
+								style="ghost"
+								kind="solid"
+								clickable
+								on:click={(e) => {
+									e.stopPropagation();
+									insertBlankCommit(commit, -1);
+								}}>Add Before</Tag
+							>
+							<Tag
+								style="ghost"
+								kind="solid"
+								clickable
+								on:click={(e) => {
+									e.stopPropagation();
+									insertBlankCommit(commit, 1);
+								}}>Add After</Tag
+							>
+						{/if}
 						<Tag
 							style="ghost"
 							kind="solid"
+							icon="undo-small"
 							clickable
 							on:click={(e) => {
+								currentCommitMessage.set(commit.description);
 								e.stopPropagation();
-								reorderCommit(commit, -1);
-							}}>Move Up</Tag
-						>
-						<Tag
-							style="ghost"
-							kind="solid"
-							clickable
-							on:click={(e) => {
-								e.stopPropagation();
-								reorderCommit(commit, 1);
-							}}>Move Down</Tag
-						>
-						<Tag
-							style="ghost"
-							kind="solid"
-							clickable
-							on:click={(e) => {
-								e.stopPropagation();
-								insertBlankCommit(commit, -1);
-							}}>Add Before</Tag
-						>
-						<Tag
-							style="ghost"
-							kind="solid"
-							clickable
-							on:click={(e) => {
-								e.stopPropagation();
-								insertBlankCommit(commit, 1);
-							}}>Add After</Tag
+								undoCommit(commit);
+							}}>Undo</Tag
 						>
 					{/if}
-					<Tag
-						style="ghost"
-						kind="solid"
-						icon="undo-small"
-						clickable
-						on:click={(e) => {
-							currentCommitMessage.set(commit.description);
-							e.stopPropagation();
-							undoCommit(commit);
-						}}>Undo</Tag
-					>
-				{/if}
-				{#if hasCommitUrl}
-					<Tag
-						style="ghost"
-						kind="solid"
-						icon="open-link"
-						clickable
-						on:click={() => {
-							if (commitUrl) openExternalUrl(commitUrl);
-						}}>Open commit</Tag
-					>
-				{/if}
-			</div>
+					{#if hasCommitUrl}
+						<Tag
+							style="ghost"
+							kind="solid"
+							icon="open-link"
+							clickable
+							on:click={() => {
+								if (commitUrl) openExternalUrl(commitUrl);
+							}}>Open commit</Tag
+						>
+					{/if}
+				</div>
+			{/if}
 		{/if}
 	{/if}
 </div>
@@ -382,6 +401,15 @@
 		flex-direction: column;
 		gap: var(--size-10);
 		padding: var(--size-14);
+	}
+
+	.commit__header-conflict {
+		cursor: pointer;
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-10);
+		padding: var(--size-16);
+		background-color: rgba(255, 229, 230, 1);
 	}
 
 	.commit__type {

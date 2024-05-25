@@ -377,6 +377,19 @@ export class BranchController {
 		}
 	}
 
+	async resolveConflictStart(branchId: string, commitOid: string) {
+		try {
+			await invoke<void>('resolve_conflict_start', {
+				projectId: this.projectId,
+				branchId,
+				commitOid
+			});
+		} catch (err: any) {
+			showError('Failed to start commit conflict resolution', err);
+		}
+	}
+
+
 	async moveCommit(targetBranchId: string, commitOid: string) {
 		try {
 			await invoke<void>('move_commit', {

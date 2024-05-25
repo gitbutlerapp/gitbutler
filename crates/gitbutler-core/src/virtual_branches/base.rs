@@ -19,7 +19,7 @@ use crate::{
     projects::FetchResult,
     users,
     virtual_branches::branch::BranchOwnershipClaims,
-    virtual_branches::cherry_rebase,
+    virtual_branches::{cherry_rebase, find_real_tree}
 };
 
 #[derive(Debug, Serialize, PartialEq, Clone)]

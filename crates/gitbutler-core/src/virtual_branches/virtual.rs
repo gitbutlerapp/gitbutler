@@ -3105,6 +3105,15 @@ pub fn amend(
     }
 }
 
+pub fn resolve_conflict_start(
+    project_repository: &project_repository::Repository,
+    branch_id: &BranchId,
+    commit_oid: git::Oid,
+) -> Result<(), errors::VirtualBranchError> {
+    dbg!("start conflict resolve");
+    Ok(())
+}
+
 // move a given commit in a branch up one or down one
 // if the offset is positive, move the commit down one
 // if the offset is negative, move the commit up one
