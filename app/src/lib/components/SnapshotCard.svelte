@@ -39,11 +39,12 @@
 	function mapOperation(snapshotDetails: SnapshotDetails | undefined): {
 		text: string;
 		icon: keyof typeof iconsJson;
+		commitMessage?: string;
 	} {
 		if (!snapshotDetails) return { text: '', icon: 'commit' };
 
 		switch (snapshotDetails.operation) {
-			// Branch operations
+			// BRANCH OPERATIONS
 			case 'DeleteBranch':
 				return {
 					text: `Delete branch "${entry.details?.trailers.find((t) => t.key == 'name')?.value}"`,
@@ -69,7 +70,6 @@
 					text: `Create branch "${snapshotDetails.trailers.find((t) => t.key == 'name')?.value}"`,
 					icon: 'item-plus'
 				};
-
 			case 'ReorderBranches':
 				return {
 					text: `Reorder branches "${snapshotDetails.trailers.find((t) => t.key == 'before')?.value}" and "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
@@ -89,19 +89,22 @@
 				return { text: 'Set base branch', icon: 'item-slash' };
 			case 'GenericBranchUpdate':
 				return { text: 'Generic branch update', icon: 'item-slash' };
-			// Commit operations
+
+			// COMMIT OPERATIONS
 			case 'CreateCommit':
 				return {
 					text: `Create commit ${getShortSha(entry.details?.trailers.find((t) => t.key == 'sha')?.value)}`,
-					icon: 'new-commit'
+					icon: 'new-commit',
+					commitMessage: entry.details?.trailers.find((t) => t.key == 'message')?.value
 				};
-			case 'AmendCommit':
-				return { text: 'Amend commit', icon: 'amend-commit' };
 			case 'UndoCommit':
 				return {
 					text: `Undo commit ${getShortSha(entry.details?.trailers.find((t) => t.key == 'sha')?.value)}`,
-					icon: 'undo-commit'
+					icon: 'undo-commit',
+					commitMessage: entry.details?.trailers.find((t) => t.key == 'message')?.value
 				};
+			case 'AmendCommit':
+				return { text: 'Amend commit', icon: 'amend-commit' };
 			case 'SquashCommit':
 				return { text: 'Squash commit', icon: 'squash-commit' };
 			case 'UpdateCommitMessage':
@@ -114,7 +117,8 @@
 				return { text: 'Insert blank commit', icon: 'blank-commit' };
 			case 'MoveCommitFile':
 				return { text: 'Move commit file', icon: 'move-commit-file-small' };
-			// File operations
+
+			// FILE OPERATIONS
 			case 'MoveHunk':
 				return {
 					text: `Move hunk to "${entry.details?.trailers.find((t) => t.key == 'name')?.value}"`,
@@ -126,13 +130,14 @@
 				return { text: 'Discard file', icon: 'discard-file-small' };
 			case 'FileChanges':
 				return { text: 'File changes', icon: 'file-changes-small' };
-			// Other operations
+
+			// OTHER OPERATIONS
 			case 'MergeUpstream':
 				return { text: 'Merge upstream', icon: 'merged-pr-small' };
 			case 'UpdateWorkspaceBase':
 				return { text: 'Update workspace base', icon: 'rebase-small' };
 			case 'RestoreFromSnapshot':
-				return { text: 'Restore from snapshot', icon: 'empty' };
+				return { text: 'Revert snapshot', icon: 'empty' };
 			default:
 				return { text: snapshotDetails.operation, icon: 'commit' };
 		}
@@ -156,7 +161,7 @@
 				clickable
 				on:click={() => {
 					dispatch('restoreClick');
-				}}>Restore</Tag
+				}}>Revert</Tag
 			>
 		</div>
 		<span class="snapshot-time text-base-11">
@@ -178,6 +183,13 @@
 				<span>{operation.text}</span>
 				<span class="snapshot-sha text-base-body-12"> • {getShortSha(entry.id)}</span>
 			</h4>
+
+			{#if operation.commitMessage}
+				<p class="text-base-12 snapshot-commit-message">
+					<span>Message:</span>
+					{operation.commitMessage}
+				</p>
+			{/if}
 		</div>
 
 		{#if entry.filesChanged.length > 0 && !isRestoreSnapshot}
@@ -308,7 +320,7 @@
 		gap: var(--size-6);
 		min-height: var(--size-tag);
 		overflow: hidden;
-		padding-bottom: var(--size-4);
+		/* padding-bottom: var(--size-4); */
 	}
 
 	.snapshot-details {
@@ -318,10 +330,20 @@
 		align-items: flex-start;
 		gap: var(--size-6);
 		margin-top: var(--size-2);
+		margin-bottom: var(--size-4);
 	}
 
 	.snapshot-title {
 		flex: 1;
+	}
+
+	.snapshot-commit-message {
+		color: var(--clr-text-2);
+		margin-bottom: var(--size-2);
+
+		& span {
+			color: var(--clr-text-3);
+		}
 	}
 
 	.snapshot-sha {
