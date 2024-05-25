@@ -209,7 +209,8 @@ pub struct Trailer {
 
 impl Display for Trailer {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}: {}", self.key, self.value)
+        let escaped_value = self.value.replace('\n', "\\n");
+        write!(f, "{}: {}", self.key, escaped_value)
     }
 }
 
@@ -220,9 +221,10 @@ impl FromStr for Trailer {
         if parts.len() != 2 {
             return Err(anyhow!("Invalid trailer format"));
         }
+        let unescaped_value = parts[1].trim().replace("\\n", "\n");
         Ok(Self {
             key: parts[0].trim().to_string(),
-            value: parts[1].trim().to_string(),
+            value: unescaped_value,
         })
     }
 }
@@ -332,5 +334,22 @@ mod tests {
             }]
         );
         assert_eq!(details.to_string(), commit_message);
+    }
+
+    #[test]
+    fn test_create_snapshot_containing_trailer_with_newline() {
+        let snapshot_details = SnapshotDetails {
+            version: Version(1),
+            operation: OperationType::CreateCommit,
+            title: "Create a new snapshot".to_string(),
+            body: None,
+            trailers: vec![Trailer {
+                key: "Message".to_string(),
+                value: "Header\n\nBody".to_string(),
+            }],
+        };
+        let serialized = snapshot_details.to_string();
+        let deserialized = SnapshotDetails::from_str(&serialized).unwrap();
+        assert_eq!(deserialized, snapshot_details)
     }
 }
