@@ -6,7 +6,7 @@ use std::{
     collections::HashMap,
     hash::Hash,
     path::{Path, PathBuf},
-    time, vec,
+    time, vec, fs
 };
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -3134,6 +3134,9 @@ pub fn resolve_conflict_start(
         .context("failed to checkout index")?;
 
     // mark the working directory as in a conflicted state
+    // write a file into .git/gitbutler/conflicted
+    let conflicted_path = project_repository.git_repository.path().join("conflicted");
+    fs::write(conflicted_path, "booyah").context("failed to write conflicted file")?;
 
     Ok(())
 }
