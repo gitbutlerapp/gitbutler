@@ -81,6 +81,8 @@ pub trait Oplog {
     ///
     /// This is useful to show what has changed in this particular snapshot
     fn snapshot_diff(&self, sha: String) -> Result<HashMap<PathBuf, FileDiff>>;
+    /// Gets the sha of the last snapshot commit if present.
+    fn oplog_head(&self) -> Result<Option<String>>;
 }
 
 impl Oplog for Project {
@@ -624,6 +626,10 @@ impl Oplog for Project {
 
         let hunks = hunks_by_filepath(None, &diff)?;
         Ok(hunks)
+    }
+    fn oplog_head(&self) -> Result<Option<String>> {
+        let oplog_state = OplogHandle::new(&self.gb_dir());
+        oplog_state.get_oplog_head()
     }
 }
 

@@ -5,8 +5,9 @@ use anyhow::{Context, Result};
 use gitbutler_core::ops::entry::{OperationType, SnapshotDetails};
 use gitbutler_core::ops::oplog::Oplog;
 use gitbutler_core::projects::ProjectId;
+use gitbutler_core::synchronize::sync_with_gitbutler;
 use gitbutler_core::virtual_branches::VirtualBranches;
-use gitbutler_core::{assets, git, project_repository, projects, virtual_branches};
+use gitbutler_core::{assets, git, project_repository, projects, users, virtual_branches};
 use tracing::instrument;
 
 use super::{events, Change};
@@ -22,6 +23,7 @@ pub struct Handler {
     // the tauri app, assuming that such application would not be `Send + Sync` everywhere and thus would
     // need extra protection.
     projects: projects::Controller,
+    users: users::Controller,
     vbranch_controller: virtual_branches::Controller,
     assets_proxy: assets::Proxy,
 
@@ -35,12 +37,14 @@ impl Handler {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         projects: projects::Controller,
+        users: users::Controller,
         vbranch_controller: virtual_branches::Controller,
         assets_proxy: assets::Proxy,
         send_event: impl Fn(Change) -> Result<()> + Send + Sync + 'static,
     ) -> Self {
         Handler {
             projects,
+            users,
             vbranch_controller,
             assets_proxy,
             send_event: Arc::new(send_event),
@@ -185,8 +189,22 @@ impl Handler {
         }
         Ok(())
     }
-    async fn gitbutler_oplog_change(&self, _project_id: ProjectId) -> Result<()> {
-        // TODO: Queue up pushing of data here, if configured
+
+    /// Invoked whenever there's a new oplog entry.
+    /// If synchronizing with GitButler's servers is enabled it will push Oplog refs
+    async fn gitbutler_oplog_change(&self, project_id: ProjectId) -> Result<()> {
+        let project = self
+            .projects
+            .get(&project_id)
+            .context("failed to get project")?;
+
+        if project.is_sync_enabled() && project.has_code_url() {
+            if let Some(user) = self.users.get_user()? {
+                let repository = project_repository::Repository::open(&project)
+                    .context("failed to open project repository for project")?;
+                return sync_with_gitbutler(&repository, &user, &self.projects).await;
+            }
+        }
         Ok(())
     }
 }
