@@ -20,6 +20,7 @@ you right. Let's get started.
     - [Building on Windows](#building-on-windows)
     - [File permissions](#file-permissions)
     - [Perl](#perl)
+    - [Crosscompilation](#crosscompilation)
 - [Design](#design)
 - [Contributing](#contributing)
 - [Some Other Random Notes](#some-other-random-notes)
@@ -195,6 +196,41 @@ after installation, just make sure to restart the terminal after installing).
 Note that it might appear that the build has hung or frozen on the `openssl-sys` crate.
 It's not, it's just that Cargo can't report the status of a C/C++ build happening
 under the hood, and openssl is _large_. It'll take a while to compile.
+
+### Crosscompilation
+
+This paragraph is about crosscompilation to x86_64-MSVC from ARM Windows,
+a configuration typical for people with Apple Silicon and Parallels VMs,
+which only allow ARM Windows to be used.
+
+The `winapi` dependency on `gitbutler-git` doesn't currently compile on ARM,
+which means cross-compilation to x86-64 is required to workaround that. Besides,
+most users will probably still be on INTEL machines, making this capability 
+a common requirement.
+
+In a Git `bash`, *with MSVC for x86-64 installed on the system*, run the following
+to prepare the environment.
+
+```bash
+export TRIPLE_OVERRIDE=x86_64-pc-windows-msvc
+export CARGO_BUILD_TARGET=x86_64-pc-windows-msvc
+export OPENSSL_SRC_PERL="c:/Strawberry/perl/bin/perl.exe"
+```
+
+Here is how to produce a nightly release build:
+
+```
+pnpm tauri build --features windows,devtools --config  crates/gitbutler-tauri/tauri.conf.nightly.json
+```
+
+And this is how to get a local developer debug build:
+
+```bash
+pnpm tauri dev --features windows --target x86_64-pc-windows-msvc
+```
+
+Note that it's necessary to repeat the `--target` specification as otherwise the final copy operation doesn't work,
+triggered by `tauri` itself.
 
 ---
 

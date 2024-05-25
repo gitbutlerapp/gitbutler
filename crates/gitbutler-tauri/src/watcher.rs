@@ -117,7 +117,11 @@ impl Watchers {
         {
             handle.post(action).await.context("failed to post event")
         } else {
-            Err(anyhow::anyhow!("watcher not found",))
+            Err(anyhow::anyhow!(
+                "matching watcher to post event not found, wanted {wanted}, got {actual:?}",
+                wanted = action.project_id(),
+                actual = watcher.as_ref().map(|w| w.project_id())
+            ))
         }
     }
 
