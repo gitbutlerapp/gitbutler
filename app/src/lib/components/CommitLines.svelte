@@ -43,14 +43,14 @@
 		{base}
 	/>
 
-	<!-- {#if hasLocalColumn} -->
-	<LocalLine
-		isEmpty={!hasLocalColumn}
-		commit={localCommit?.status == 'local' ? localCommit : undefined}
-		dashed={localLine}
-		{first}
-	/>
-	<!-- {/if} -->
+	{#if hasLocalColumn}
+		<LocalLine
+			isEmpty={base}
+			commit={localCommit?.status == 'local' ? localCommit : undefined}
+			dashed={localLine}
+			{first}
+		/>
+	{/if}
 </div>
 
 <style lang="postcss">

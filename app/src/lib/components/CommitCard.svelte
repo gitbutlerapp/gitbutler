@@ -131,7 +131,9 @@
 <Modal bind:this={commitMessageModal}>
 	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
 	<svelte:fragment slot="controls">
-		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}>Cancel</Button>
+		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}
+			>Cancel</Button
+		>
 		<Button
 			style="pop"
 			kind="solid"
@@ -162,7 +164,13 @@
 		class:upstream={type == 'upstream'}
 	/>
 
-	<div class="commit__header" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
+	<div
+		class="commit__header"
+		on:click={toggleFiles}
+		on:keyup={onKeyup}
+		role="button"
+		tabindex="0"
+	>
 		{#if first}
 			<div class="commit__type text-semibold text-base-12">
 				{#if type == 'remote'}
@@ -170,7 +178,7 @@
 				{:else if type == 'local'}
 					Local <Icon name="local" />
 				{:else if type == 'upstream'}
-					Remote upstream
+					Remote upstream <Icon name="remote" />
 				{/if}
 			</div>
 		{/if}
@@ -192,11 +200,17 @@
 			<div class="commit__row">
 				{#if isUndoable}
 					{#if commit.descriptionTitle}
-						<span class="commit__title text-semibold text-base-12" class:truncate={!showFiles}>
+						<span
+							class="commit__title text-semibold text-base-12"
+							class:truncate={!showFiles}
+						>
 							{commit.descriptionTitle}
 						</span>
 					{:else}
-						<span class="commit__title_no_desc text-base-12" class:truncate={!showFiles}>
+						<span
+							class="commit__title_no_desc text-base-12"
+							class:truncate={!showFiles}
+						>
 							<i>empty commit message</i>
 						</span>
 					{/if}

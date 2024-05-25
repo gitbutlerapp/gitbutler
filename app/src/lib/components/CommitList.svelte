@@ -145,6 +145,7 @@
 					localRoot={$remoteCommits.length == 0 && $localCommits.length > 0}
 					remoteLine={$remoteCommits.length > 0}
 					shadowLine={hasShadowColumn}
+					{hasLocalColumn}
 					base
 				/>
 				<div class="base-row__content">
@@ -212,7 +213,7 @@
 		transition: background-color var(--transition-fast);
 
 		&:hover {
-			background-color: var(--clr-bg-3);
+			background-color: var(--clr-bg-2-muted);
 		}
 	}
 
@@ -225,7 +226,7 @@
 		color: var(--clr-text-2);
 		opacity: 0;
 		margin-top: var(--size-2);
-		transition: opacity var(--transition-fast);
+		transition: opacity var(--transition-medium);
 	}
 
 	.base-row__commit-link {
