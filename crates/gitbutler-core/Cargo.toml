@@ -17,7 +17,6 @@ anyhow = "1.0.82"
 async-trait = "0.1.80"
 backtrace = { version = "0.3.71", optional = true }
 bstr = "1.9.1"
-chrono = { version = "0.4.38", features = ["serde"] }
 diffy = "0.3.0"
 dirs = "5.0.1"
 filetime = "0.2.23"

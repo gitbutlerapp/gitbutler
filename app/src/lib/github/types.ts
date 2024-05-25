@@ -64,6 +64,7 @@ export type ChecksStatus =
 			queued?: number;
 			totalCount?: number;
 			skipped?: number;
+			finished?: number;
 	  }
 	| null
 	| undefined;

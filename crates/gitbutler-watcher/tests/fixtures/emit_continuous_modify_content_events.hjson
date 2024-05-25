@@ -1,0 +1,49 @@
+{
+    state: {
+        timeout: 5
+    }
+    events: [
+        { kind: "modify-data-content", paths: ["/watch/file"], time: 1 }
+        { kind: "modify-data-content", paths: ["/watch/file"], time: 2 }
+        { kind: "modify-data-content", paths: ["/watch/file"], time: 3 }
+    ]
+    expected: {
+        queues: {
+            /watch/file: {
+                events: [
+                    { kind: "modify-data-content", paths: ["*"], time: 1 }
+                    { kind: "modify-data-content", paths: ["*"], time: 2 }
+                    { kind: "modify-data-content", paths: ["*"], time: 3 }
+                ]
+            }
+        }
+        events: {
+            1: []
+            2: []
+            3: []
+            4: []
+            5: []
+            6: [
+                { kind: "modify-data-content", paths: ["/watch/file"], time: 1 }
+            ]
+            7: [
+                { kind: "modify-data-content", paths: ["/watch/file"], time: 2 }
+            ]
+            8: [
+                { kind: "modify-data-content", paths: ["/watch/file"], time: 3 }
+            ]
+            9: [
+                { kind: "modify-data-content", paths: ["/watch/file"], time: 3 }
+            ]
+            10: [
+                { kind: "modify-data-content", paths: ["/watch/file"], time: 3 }
+            ]
+            100: [
+                { kind: "modify-data-content", paths: ["/watch/file"], time: 3 }
+            ]
+            1000: [
+                { kind: "modify-data-content", paths: ["/watch/file"], time: 3 }
+            ]
+        }
+    }
+}

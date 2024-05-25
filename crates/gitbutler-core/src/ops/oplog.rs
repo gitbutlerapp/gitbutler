@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
 use git2::{FileMode, Oid};
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -380,7 +380,7 @@ impl Oplog for Project {
                     lines_added,
                     lines_removed,
                     files_changed,
-                    created_at: Duration::from_secs(commit.time().seconds().try_into().unwrap()),
+                    created_at: commit.time().seconds(),
                 });
 
                 if snapshots.len() >= limit {
@@ -394,7 +394,7 @@ impl Oplog for Project {
                     lines_added: 0,
                     lines_removed: 0,
                     files_changed: Vec::new(), // Fix: Change 0 to an empty vector
-                    created_at: Duration::from_secs(commit.time().seconds().try_into().unwrap()),
+                    created_at: commit.time().seconds(),
                 });
                 break;
             }
@@ -574,17 +574,14 @@ impl Oplog for Project {
 
     fn should_auto_snapshot(&self) -> Result<bool> {
         let oplog_state = OplogHandle::new(&self.gb_dir());
-        let last_snapshot_time = oplog_state.get_modified_at().unwrap_or_default();
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .context("failed to get time since epoch")?;
-        if now - last_snapshot_time < Duration::from_secs(300) {
-            return Ok(false);
-        } else {
+        let last_snapshot_time = oplog_state.get_modified_at()?;
+        if last_snapshot_time.elapsed()? > Duration::from_secs(300) {
             let changed_lines = lines_since_snapshot(self)?;
             if changed_lines > self.snapshot_lines_threshold() {
                 return Ok(true);
             }
+        } else {
+            return Ok(false);
         }
         Ok(false)
     }

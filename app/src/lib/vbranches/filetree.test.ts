@@ -10,7 +10,7 @@ test('creates a file tree', () => {
 			path: 'test/foo.py',
 			hunks: [],
 			expanded: true,
-			modifiedAt: new Date(),
+			modifiedAt: Date.now(),
 			conflicted: false,
 			content: undefined,
 			binary: false
@@ -20,7 +20,7 @@ test('creates a file tree', () => {
 			path: 'test/bar.rs',
 			hunks: [],
 			expanded: true,
-			modifiedAt: new Date(),
+			modifiedAt: Date.now(),
 			conflicted: false,
 			content: undefined,
 			binary: false
@@ -30,7 +30,7 @@ test('creates a file tree', () => {
 			path: 'src/hello/world.txt',
 			hunks: [],
 			expanded: true,
-			modifiedAt: new Date(),
+			modifiedAt: Date.now(),
 			conflicted: false,
 			content: undefined,
 			binary: false

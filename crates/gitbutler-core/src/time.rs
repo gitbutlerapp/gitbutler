@@ -1,43 +1,27 @@
-use std::time::{Duration, UNIX_EPOCH};
-
-/// Gets the duration of time since the Unix epoch.
-///
-/// # Panics
-/// Panics if the system time is set before the Unix epoch.
-pub fn now() -> Duration {
-    UNIX_EPOCH
-        .elapsed()
-        .expect("system time is set before the Unix epoch")
-}
+use std::time::UNIX_EPOCH;
 
 /// Gets the number of milliseconds since the Unix epoch.
 ///
 /// # Panics
 /// Panics if the system time is set before the Unix epoch.
 pub fn now_ms() -> u128 {
-    now().as_millis()
+    UNIX_EPOCH
+        .elapsed()
+        .expect("system time is set before the Unix epoch")
+        .as_millis()
 }
 
-pub mod duration_int_string_serde {
-    use std::time::Duration;
-
-    use serde::{Deserialize, Deserializer, Serializer};
-
-    pub fn serialize<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&duration.as_millis().to_string())
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Duration, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let millis_str = String::deserialize(deserializer)?;
-        let millis = millis_str
-            .parse::<u64>()
-            .map_err(serde::de::Error::custom)?;
-        Ok(Duration::from_millis(millis))
-    }
+pub fn now_since_unix_epoch_ms() -> i64 {
+    UNIX_EPOCH
+        .elapsed()
+        .map(|d| i64::try_from(d.as_millis()).expect("no system date is this far in the future"))
+        .unwrap_or_else(|_| {
+            -i64::try_from(
+                UNIX_EPOCH
+                    .duration_since(std::time::SystemTime::now())
+                    .expect("'now' is in the past")
+                    .as_millis(),
+            )
+            .expect("no time is that far in the past")
+        })
 }

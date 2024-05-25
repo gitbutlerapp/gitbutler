@@ -1,6 +1,6 @@
 use std::{
     path::{self, PathBuf},
-    time::SystemTime,
+    time,
 };
 
 use serde::{Deserialize, Serialize};
@@ -38,16 +38,16 @@ pub struct ApiProject {
 #[serde(rename_all = "camelCase")]
 pub enum FetchResult {
     Fetched {
-        timestamp: SystemTime,
+        timestamp: time::SystemTime,
     },
     Error {
-        timestamp: SystemTime,
+        timestamp: time::SystemTime,
         error: String,
     },
 }
 
 impl FetchResult {
-    pub fn timestamp(&self) -> &SystemTime {
+    pub fn timestamp(&self) -> &time::SystemTime {
         match self {
             FetchResult::Fetched { timestamp } | FetchResult::Error { timestamp, .. } => timestamp,
         }
@@ -57,7 +57,7 @@ impl FetchResult {
 #[derive(Debug, Deserialize, Serialize, Copy, Clone)]
 pub struct CodePushState {
     pub id: git::Oid,
-    pub timestamp: SystemTime,
+    pub timestamp: time::SystemTime,
 }
 
 pub type ProjectId = Id<Project>;

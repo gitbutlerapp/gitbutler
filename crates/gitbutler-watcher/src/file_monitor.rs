@@ -1,14 +1,14 @@
+use std::collections::HashSet;
 use std::path::Path;
 use std::time::Duration;
-use std::{collections::HashSet, sync::Arc};
 
+use crate::debouncer::cache::FileIdMap;
 use crate::debouncer::Debouncer;
-use crate::debouncer_cache::FileIdMap;
 use crate::{debouncer::new_debouncer, events::InternalEvent};
 use anyhow::{anyhow, Context, Result};
 use gitbutler_core::ops::OPLOG_FILE_NAME;
 use gitbutler_core::projects::ProjectId;
-use notify::{RecommendedWatcher, Watcher};
+use notify::RecommendedWatcher;
 use tokio::task;
 use tracing::Level;
 
@@ -55,7 +55,7 @@ pub fn spawn(
     project_id: ProjectId,
     worktree_path: &std::path::Path,
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
-) -> Result<Arc<Debouncer<RecommendedWatcher, FileIdMap>>> {
+) -> Result<Debouncer<RecommendedWatcher, FileIdMap>> {
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
     let mut debouncer = new_debouncer(
         DEBOUNCE_TIMEOUT,
@@ -88,12 +88,11 @@ pub fn spawn(
 
     // Start the watcher, but retry if there are transient errors.
     backoff::retry(policy, || {
-        let watcher = debouncer.watcher();
-        watcher
+        debouncer
             .watch(worktree_path, notify::RecursiveMode::Recursive)
             .and_then(|()| {
                 if let Some(git_dir) = extra_git_dir_to_watch {
-                    watcher.watch(git_dir, notify::RecursiveMode::Recursive)
+                    debouncer.watch(git_dir, notify::RecursiveMode::Recursive)
                 } else {
                     Ok(())
                 }
@@ -228,7 +227,7 @@ pub fn spawn(
             }
         }
     });
-    Ok(debouncer.into())
+    Ok(debouncer)
 }
 
 #[cfg(target_family = "unix")]

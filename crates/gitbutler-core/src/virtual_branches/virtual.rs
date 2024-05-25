@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::PermissionsExt;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 use std::{
     collections::HashMap,
     hash::Hash,
@@ -28,6 +28,7 @@ use crate::error::{self, AnyhowContextExt, Code};
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
 use crate::git::FileMode;
 use crate::ops::snapshot::Snapshot;
+use crate::time::now_since_unix_epoch_ms;
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
     dedup::{dedup, dedup_fmt},
@@ -67,7 +68,7 @@ pub struct VirtualBranch {
     pub upstream_name: Option<String>, // the upstream branch where this branch will push to on next push
     pub base_current: bool, // is this vbranch based on the current base branch? if false, this needs to be manually merged with conflicts
     pub ownership: BranchOwnershipClaims,
-    pub updated_at: Duration,
+    pub updated_at: u128,
     pub selected_for_changes: bool,
     pub head: git::Oid,
 }
@@ -93,7 +94,7 @@ pub struct VirtualBranchCommit {
     pub id: git::Oid,
     #[serde(serialize_with = "crate::serde::as_string_lossy")]
     pub description: BString,
-    pub created_at: Duration,
+    pub created_at: u128,
     pub author: Author,
     pub is_remote: bool,
     pub files: Vec<VirtualBranchFile>,
@@ -120,7 +121,7 @@ pub struct VirtualBranchFile {
     pub id: String,
     pub path: PathBuf,
     pub hunks: Vec<VirtualBranchHunk>,
-    pub modified_at: Duration,
+    pub modified_at: u128,
     pub conflicted: bool,
     pub binary: bool,
     pub large: bool,
@@ -140,7 +141,7 @@ pub struct VirtualBranchHunk {
     pub id: String,
     #[serde(serialize_with = "crate::serde::as_string_lossy")]
     pub diff: BString,
-    pub modified_at: Duration,
+    pub modified_at: u128,
     pub file_path: PathBuf,
     #[serde(serialize_with = "crate::serde::hash_to_hex")]
     pub hash: HunkHash,
@@ -909,7 +910,7 @@ pub fn list_virtual_branches(
             conflicted: conflicts::is_resolving(project_repository),
             base_current,
             ownership: branch.ownership,
-            updated_at: branch.updated_at,
+            updated_at: branch.updated_timestamp_ms,
             selected_for_changes: branch.selected_for_changes == Some(max_selected_for_changes),
             head: branch.head,
         };
@@ -1003,7 +1004,7 @@ fn commit_to_vbranch_commit(
     is_integrated: bool,
     is_remote: bool,
 ) -> Result<VirtualBranchCommit> {
-    let timestamp = commit.time();
+    let timestamp = u128::try_from(commit.time().seconds())?;
     let signature = commit.author();
     let message = commit.message().to_owned();
 
@@ -1014,7 +1015,7 @@ fn commit_to_vbranch_commit(
 
     let commit = VirtualBranchCommit {
         id: commit.id(),
-        created_at: timestamp,
+        created_at: timestamp * 1000,
         author: Author::from(signature),
         description: message,
         is_remote,
@@ -1082,7 +1083,7 @@ pub fn create_virtual_branch(
                 other_branch.selected_for_changes = None;
                 vb_state.set_branch(other_branch.clone())?;
             }
-            Some(chrono::Utc::now().timestamp_millis())
+            Some(now_since_unix_epoch_ms())
         } else {
             None
         }
@@ -1090,7 +1091,7 @@ pub fn create_virtual_branch(
         (!all_virtual_branches
             .iter()
             .any(|b| b.selected_for_changes.is_some()))
-        .then_some(chrono::Utc::now().timestamp_millis())
+        .then_some(now_since_unix_epoch_ms())
     };
 
     // make space for the new branch
@@ -1105,7 +1106,7 @@ pub fn create_virtual_branch(
         }
     }
 
-    let now = crate::time::now();
+    let now = crate::time::now_ms();
 
     let mut branch = Branch {
         id: BranchId::generate(),
@@ -1116,8 +1117,8 @@ pub fn create_virtual_branch(
         upstream_head: None,
         tree: tree.id(),
         head: default_target.sha,
-        created_at: now,
-        updated_at: now,
+        created_timestamp_ms: now,
+        updated_timestamp_ms: now,
         ownership: BranchOwnershipClaims::default(),
         order,
         selected_for_changes,
@@ -1439,7 +1440,7 @@ pub fn update_branch(
                 other_branch.selected_for_changes = None;
                 vb_state.set_branch(other_branch.clone())?;
             }
-            Some(chrono::Utc::now().timestamp_millis())
+            Some(now_since_unix_epoch_ms())
         } else {
             None
         };
@@ -1504,7 +1505,7 @@ fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> Result<()> {
 
     applied_branches.sort_by_key(|branch| branch.order);
 
-    applied_branches[0].selected_for_changes = Some(chrono::Utc::now().timestamp_millis());
+    applied_branches[0].selected_for_changes = Some(now_since_unix_epoch_ms());
     vb_state.set_branch(applied_branches[0].clone())?;
     Ok(())
 }
@@ -1541,10 +1542,10 @@ fn set_ownership(
 }
 
 #[derive(Default)]
-struct MTimeCache(HashMap<PathBuf, Duration>);
+struct MTimeCache(HashMap<PathBuf, u128>);
 
 impl MTimeCache {
-    fn mtime_by_path<P: AsRef<Path>>(&mut self, path: P) -> Duration {
+    fn mtime_by_path<P: AsRef<Path>>(&mut self, path: P) -> u128 {
         let path = path.as_ref();
 
         if let Some(mtime) = self.0.get(path) {
@@ -1563,7 +1564,7 @@ impl MTimeCache {
                 },
             )
             .duration_since(time::UNIX_EPOCH)
-            .unwrap_or(Duration::ZERO);
+            .map_or(0, |d| d.as_millis());
         self.0.insert(path.into(), mtime);
         mtime
     }
@@ -1821,7 +1822,7 @@ fn get_applied_status(
                                 return None; // Defer allocation to unclaimed hunks processing
                             }
                             if claimed_hunk.eq(&Hunk::from(git_diff_hunk)) {
-                                let timestamp = claimed_hunk.timestamp().unwrap_or(mtime);
+                                let timestamp = claimed_hunk.timestamp_ms().unwrap_or(mtime);
                                 diffs_by_branch
                                     .entry(branch.id)
                                     .or_default()
@@ -1846,7 +1847,7 @@ fn get_applied_status(
                                 let updated_hunk = Hunk {
                                     start: git_diff_hunk.new_start,
                                     end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
-                                    timestamp: Some(mtime),
+                                    timestamp_ms: Some(mtime),
                                     hash: Some(hash),
                                     locked_to: git_diff_hunk.locked_to.to_vec(),
                                 };
@@ -1972,11 +1973,7 @@ fn virtual_hunks_into_virtual_files(
             let conflicted =
                 conflicts::is_conflicting(project_repository, Some(&id)).unwrap_or(false);
             let binary = hunks.iter().any(|h| h.binary);
-            let modified_at = hunks
-                .iter()
-                .map(|h| h.modified_at)
-                .max()
-                .unwrap_or(Duration::ZERO);
+            let modified_at = hunks.iter().map(|h| h.modified_at).max().unwrap_or(0);
             debug_assert!(hunks.iter().all(|hunk| hunk.file_path == path));
             VirtualBranchFile {
                 id,
@@ -4231,9 +4228,9 @@ pub fn create_virtual_branch_from_branch(
     let selected_for_changes = (!all_virtual_branches
         .iter()
         .any(|b| b.selected_for_changes.is_some()))
-    .then_some(chrono::Utc::now().timestamp_millis());
+    .then_some(now_since_unix_epoch_ms());
 
-    let now = crate::time::now();
+    let now = crate::time::now_ms();
 
     // only set upstream if it's not the default target
     let upstream_branch = match upstream {
@@ -4295,8 +4292,8 @@ pub fn create_virtual_branch_from_branch(
         upstream: upstream_branch,
         tree: head_commit_tree.id(),
         head: head_commit.id(),
-        created_at: now,
-        updated_at: now,
+        created_timestamp_ms: now,
+        updated_timestamp_ms: now,
         ownership,
         order,
         selected_for_changes,
