@@ -29,6 +29,7 @@ pub mod projects;
 pub mod reader;
 pub mod ssh;
 pub mod storage;
+pub mod synchronize;
 pub mod time;
 pub mod types;
 pub mod users;
