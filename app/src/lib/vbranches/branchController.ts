@@ -389,6 +389,31 @@ export class BranchController {
 		}
 	}
 
+	async resolveConflictFinish(branchId: string, commitOid: string) {
+		try {
+			await invoke<void>('resolve_conflict_finish', {
+				projectId: this.projectId,
+				branchId,
+				commitOid
+			});
+		} catch (err: any) {
+			showError('Failed to finish commit conflict resolution', err);
+		}
+	}
+
+	async resolveConflictAbandon(branchId: string, commitOid: string) {
+		try {
+			await invoke<void>('resolve_conflict_abandon', {
+				projectId: this.projectId,
+				branchId,
+				commitOid
+			});
+		} catch (err: any) {
+			showError('Failed to finish commit conflict resolution', err);
+		}
+	}
+
+
 
 	async moveCommit(targetBranchId: string, commitOid: string) {
 		try {

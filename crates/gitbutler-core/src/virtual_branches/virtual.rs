@@ -3106,8 +3106,55 @@ pub fn resolve_conflict_start(
     project_repository: &project_repository::Repository,
     branch_id: &BranchId,
     commit_oid: git::Oid,
+) -> Result<(), anyhow::Error> {
+    dbg!("-------- start conflict resolve -----------");
+    dbg!(&commit_oid);
+
+    // redo the merge conflict and checkout the index into the working directory hard
+
+    let repo = &project_repository.git_repository;
+    let commit = repo.find_commit(commit_oid).context("failed to find commit")?;
+    let tree = commit.tree().context("failed to find tree")?;
+    let side0 = tree.get_name(".conflict-side-0").context("failed to get side0")?;
+    let side1 = tree.get_name(".conflict-side-1").context("failed to get side1")?;
+    let base0  = tree.get_name(".conflict-base-0").context("failed to get base tree")?;
+
+    let side0_tree =  repo.find_tree(side0.id())?;
+    let side1_tree =  repo.find_tree(side1.id())?;
+    let base0_tree =  repo.find_tree(base0.id())?;
+
+    let mut merge_index = repo.merge_trees(&base0_tree, &side0_tree, &side1_tree).context("failed to merge trees")?;
+
+    // checkout the conflicts
+    repo.checkout_index(&mut merge_index)
+        .allow_conflicts()
+        .conflict_style_merge()
+        .force()
+        .checkout()
+        .context("failed to checkout index")?;
+
+    // mark the working directory as in a conflicted state
+
+    Ok(())
+}
+
+pub fn resolve_conflict_finish(
+    project_repository: &project_repository::Repository,
+    branch_id: &BranchId,
+    commit_oid: git::Oid,
 ) -> Result<(), errors::VirtualBranchError> {
-    dbg!("start conflict resolve");
+    dbg!("-------- finish conflict resolve -----------");
+    dbg!(&commit_oid);
+    Ok(())
+}
+
+pub fn resolve_conflict_abandon(
+    project_repository: &project_repository::Repository,
+    branch_id: &BranchId,
+    commit_oid: git::Oid,
+) -> Result<(), errors::VirtualBranchError> {
+    dbg!("-------- abandon conflict resolve -----------");
+    dbg!(&commit_oid);
     Ok(())
 }
 

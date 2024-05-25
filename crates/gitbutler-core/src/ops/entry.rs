@@ -162,6 +162,9 @@ pub enum OperationType {
     RestoreFromSnapshot,
     ReorderCommit,
     InsertBlankCommit,
+    ConflictStart,
+    ConflictFinish,
+    ConflictAbandon,
     MoveCommitFile,
     FileChanges,
     #[default]

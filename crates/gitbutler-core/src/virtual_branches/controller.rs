@@ -312,6 +312,30 @@ impl Controller {
             .await
     }
 
+    pub async fn resolve_conflict_finish(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        commit_oid: git::Oid,
+    ) -> Result<(), Error> {
+        self.inner(project_id)
+            .await
+            .resolve_conflict_finish(project_id, branch_id, commit_oid)
+            .await
+    }
+
+    pub async fn resolve_conflict_abandon(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        commit_oid: git::Oid,
+    ) -> Result<(), Error> {
+        self.inner(project_id)
+            .await
+            .resolve_conflict_abandon(project_id, branch_id, commit_oid)
+            .await
+    }
+
     pub async fn reset_virtual_branch(
         &self,
         project_id: &ProjectId,
@@ -785,8 +809,42 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::ReorderCommit));
+                .create_snapshot(SnapshotDetails::new(OperationType::ConflictStart));
             super::resolve_conflict_start(project_repository, branch_id, commit_oid)
+                .map_err(Into::into)
+        })
+    }
+
+    pub async fn resolve_conflict_finish(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        commit_oid: git::Oid
+    ) -> Result<(), Error> {
+        let _permit = self.semaphore.acquire().await;
+
+        self.with_verify_branch(project_id, |project_repository, _| {
+            let _ = project_repository
+                .project()
+                .create_snapshot(SnapshotDetails::new(OperationType::ConflictFinish));
+            super::resolve_conflict_finish(project_repository, branch_id, commit_oid)
+                .map_err(Into::into)
+        })
+    }
+
+    pub async fn resolve_conflict_abandon(
+        &self,
+        project_id: &ProjectId,
+        branch_id: &BranchId,
+        commit_oid: git::Oid
+    ) -> Result<(), Error> {
+        let _permit = self.semaphore.acquire().await;
+
+        self.with_verify_branch(project_id, |project_repository, _| {
+            let _ = project_repository
+                .project()
+                .create_snapshot(SnapshotDetails::new(OperationType::ConflictAbandon));
+            super::resolve_conflict_abandon(project_repository, branch_id, commit_oid)
                 .map_err(Into::into)
         })
     }

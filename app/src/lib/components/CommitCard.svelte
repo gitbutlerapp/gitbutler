@@ -98,12 +98,28 @@
 		branchController.reorderCommit(branch.id, commit.id, offset);
 	}
 
-	function resolveConflict(commit: Commit | RemoteCommit) {
+	function resolveConflictStart(commit: Commit | RemoteCommit) {
 		if (!branch || !$baseBranch) {
 			console.error('Unable to start conflict resolution - no branch');
 			return;
 		}
 		branchController.resolveConflictStart(branch.id, commit.id);
+	}
+
+	function resolveConflictFinish(commit: Commit | RemoteCommit) {
+		if (!branch || !$baseBranch) {
+			console.error('Unable to start conflict resolution - no branch');
+			return;
+		}
+		branchController.resolveConflictFinish(branch.id, commit.id);
+	}
+
+	function resolveConflictAbandon(commit: Commit | RemoteCommit) {
+		if (!branch || !$baseBranch) {
+			console.error('Unable to start conflict resolution - no branch');
+			return;
+		}
+		branchController.resolveConflictAbandon(branch.id, commit.id);
 	}
 
 	let isUndoable = !isConflicted;
@@ -260,8 +276,30 @@
 					clickable
 					on:click={(e) => {
 						e.stopPropagation();
-						resolveConflict(commit);
-					}}>Resolve Conflict</Tag
+						resolveConflictStart(commit);
+					}}>Start</Tag
+				>
+			</div>
+			<div class="conflict-zone">
+					<Tag
+					style="ghost"
+					kind="solid"
+					clickable
+					on:click={(e) => {
+						e.stopPropagation();
+						resolveConflictFinish(commit);
+					}}>Finish</Tag
+				>
+			</div>
+			<div class="conflict-zone">
+					<Tag
+					style="ghost"
+					kind="solid"
+					clickable
+					on:click={(e) => {
+						e.stopPropagation();
+						resolveConflictAbandon(commit);
+					}}>Abandon</Tag
 				>
 			</div>
 		{:else}
