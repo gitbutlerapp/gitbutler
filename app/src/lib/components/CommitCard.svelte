@@ -189,9 +189,10 @@
 			{/if}
 
 			{#if isUndoable && !commit.descriptionTitle}
-				<span class="commit__empty-title">empty commit message</span>
+				<span class="text-base-body-13 text-semibold commit__empty-title">empty commit message</span
+				>
 			{:else}
-				<h5 class="commit__title text-base-body-13 text-semibold" class:truncate={!showDetails}>
+				<h5 class="text-base-body-13 text-semibold commit__title" class:truncate={!showDetails}>
 					{commit.descriptionTitle}
 				</h5>
 
@@ -387,8 +388,12 @@
 	.commit__title {
 		flex: 1;
 		display: block;
-		color: var(--clr-scale-ntrl-0);
+		color: var(--clr-text-1);
 		width: 100%;
+	}
+
+	.commit__empty-title {
+		color: var(--clr-text-3);
 	}
 
 	.commit__subtitle {
