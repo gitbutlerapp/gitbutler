@@ -69,7 +69,6 @@ fn restore_snapshot(repo_dir: &str, snapshot_id: &str) -> Result<()> {
 fn project_from_path(repo_dir: &str) -> Project {
     Project {
         path: std::path::PathBuf::from(repo_dir),
-        enable_snapshots: Some(true),
         ..Default::default()
     }
 }
