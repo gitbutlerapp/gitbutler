@@ -9,6 +9,7 @@
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import type { AnyFile } from '$lib/vbranches/types';
 
+	export let title: string = 'Changes';
 	export let files: AnyFile[];
 	export let isUnapplied = false;
 	export let showCheckboxes = false;
@@ -47,7 +48,7 @@
 	}
 </script>
 
-<BranchFilesHeader {files} {showCheckboxes} />
+<BranchFilesHeader {title} {files} {showCheckboxes} />
 {#each displayedFiles as file (file.id)}
 	<FileListItem
 		{file}

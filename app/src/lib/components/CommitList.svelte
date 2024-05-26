@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CommitCard from './CommitCard.svelte';
+	import CommitDragItem from './CommitDragItem.svelte';
 	import CommitLines from './CommitLines.svelte';
-	import CommitListItem from './CommitListItem.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { getContext } from '$lib/utils/context';
 	import { getContextStore } from '$lib/utils/context';
@@ -44,7 +44,7 @@
 							remoteCommit={commit}
 							first={idx == 0}
 						/>
-						<CommitListItem {commit}>
+						<CommitDragItem {commit}>
 							<CommitCard
 								type="upstream"
 								branch={$branch}
@@ -54,8 +54,11 @@
 								last={idx == $unknownCommits.length - 1}
 								commitUrl={$baseBranch?.commitUrl(commit.id)}
 								isHeadCommit={commit.id === headCommit?.id}
+								on:toggle={() => {
+									console.log('toggle upstream');
+								}}
 							/>
-						</CommitListItem>
+						</CommitDragItem>
 					</div>
 				{/each}
 			</div>
@@ -79,7 +82,7 @@
 							first={idx == 0}
 							upstreamLine={hasUnknownCommits}
 						/>
-						<CommitListItem {commit}>
+						<CommitDragItem {commit}>
 							<CommitCard
 								branch={$branch}
 								{commit}
@@ -89,8 +92,11 @@
 								first={idx == 0}
 								last={idx == $localCommits.length - 1}
 								type="local"
+								on:toggle={() => {
+									console.log('toggle local');
+								}}
 							/>
-						</CommitListItem>
+						</CommitDragItem>
 					</div>
 				{/each}
 			</div>
@@ -114,7 +120,7 @@
 							first={idx == 0}
 							upstreamLine={hasUnknownCommits}
 						/>
-						<CommitListItem {commit}>
+						<CommitDragItem {commit}>
 							<CommitCard
 								branch={$branch}
 								{commit}
@@ -124,8 +130,11 @@
 								first={idx == 0}
 								last={idx == $remoteCommits.length - 1}
 								type="remote"
+								on:toggle={() => {
+									console.log('toggle remote');
+								}}
 							/>
-						</CommitListItem>
+						</CommitDragItem>
 					</div>
 				{/each}
 			</div>

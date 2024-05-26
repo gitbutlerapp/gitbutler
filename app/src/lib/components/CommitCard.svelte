@@ -2,14 +2,10 @@
 	import BranchFilesList from './BranchFilesList.svelte';
 	import Icon from './Icon.svelte';
 	import { Project } from '$lib/backend/projects';
-	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import CommitMessageInput from '$lib/components/CommitMessageInput.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Tag from '$lib/components/Tag.svelte';
-	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
-	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { featureAdvancedCommitOperations } from '$lib/config/uiFeatureFlags';
 	import { draggable } from '$lib/dragging/draggable';
@@ -29,7 +25,8 @@
 		BaseBranch,
 		type CommitStatus
 	} from '$lib/vbranches/types';
-	import { slide } from 'svelte/transition';
+	import { createEventDispatcher } from 'svelte';
+	// import { slide } from 'svelte/transition';
 
 	export let branch: Branch | undefined = undefined;
 	export let commit: Commit | RemoteCommit;
@@ -52,8 +49,10 @@
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
-	let showDetails = false;
+	const dispatch = createEventDispatcher<{ toggle: void }>();
+
 	let files: RemoteFile[] = [];
+	let showDetails = false;
 
 	$: selectedFile =
 		$fileIdSelection.length == 1 &&
@@ -67,6 +66,7 @@
 
 	function toggleFiles() {
 		showDetails = !showDetails;
+		dispatch('toggle');
 
 		if (showDetails) loadFiles();
 	}
@@ -101,7 +101,6 @@
 		branchController.reorderCommit(branch.id, commit.id, offset);
 	}
 
-	let contextMenuVisible = false;
 	let isUndoable = false;
 
 	$: if ($advancedCommitOperations) {
@@ -132,11 +131,6 @@
 
 		commitMessageModal.close();
 	}
-
-	let meatballButton: HTMLButtonElement;
-
-	// console log commit time
-	// console.log(commit);
 </script>
 
 <Modal bind:this={commitMessageModal}>
@@ -213,7 +207,7 @@
 						<span class="commit__subtitle-divider">•</span>
 
 						<span
-							>{getTimeAgo(commit.createdAt)}{type == 'remote'
+							>{getTimeAgo(commit.createdAt)}{type == 'remote' || type == 'upstream'
 								? ` by ${commit.author.name}`
 								: ''}</span
 						>
@@ -309,8 +303,8 @@
 	</div>
 
 	{#if showDetails}
-		<div class="files-container" transition:slide={{ duration: 100 }}>
-			<BranchFilesList {files} {isUnapplied} />
+		<div class="files-container">
+			<BranchFilesList title="Files" {files} {isUnapplied} />
 		</div>
 	{/if}
 </div>
@@ -441,16 +435,15 @@
 
 	/* FILES */
 	.files-container {
-		background-color: var(--clr-bg-1);
 		border-top: 1px solid var(--clr-border-2);
-		padding: 0 var(--size-14) var(--size-14);
 	}
 
 	/* MODIFIERS */
 	.is-commit-open {
 		/* background-color: var(--clr-bg-2); */
 		/* border-top: 1px solid var(--clr-border-2); */
-		/* margin: var(--size-4) 0; */
+		/* background-color: red; */
+		/* margin: var(--size-8) 0; */
 
 		/* &:not(.is-last) {
 			border-top: 1px solid var(--clr-border-2);
