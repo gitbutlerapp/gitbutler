@@ -1,11 +1,10 @@
 use anyhow::Result;
 use std::{
-    fs::File,
-    io::Read,
     path::{Path, PathBuf},
     time::SystemTime,
 };
 
+use crate::fs::read_toml_file_or_default;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use super::OPLOG_FILE_NAME;
@@ -70,7 +69,7 @@ impl OplogHandle {
     /// Gets the oplog head sha for the given repository.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn get_oplog_head(&self) -> anyhow::Result<Option<String>> {
+    pub fn get_oplog_head(&self) -> Result<Option<String>> {
         let oplog = self.read_file()?;
         Ok(oplog.head_sha)
     }
@@ -78,7 +77,7 @@ impl OplogHandle {
     /// Gets the time when the last snapshot was created.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn get_modified_at(&self) -> anyhow::Result<SystemTime> {
+    pub fn get_modified_at(&self) -> Result<SystemTime> {
         let oplog = self.read_file()?;
         Ok(oplog.modified_at)
     }
@@ -87,22 +86,10 @@ impl OplogHandle {
     ///
     /// If the file does not exist, it will be created.
     fn read_file(&self) -> Result<Oplog> {
-        if !self.file_path.exists() {
-            return Ok(Oplog::default());
-        }
-        let mut file: File = File::open(self.file_path.as_path())?;
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
-        let oplog: Oplog =
-            toml::from_str(&contents).map_err(|e| crate::reader::Error::ParseError {
-                path: self.file_path.clone(),
-                source: e,
-            })?;
-
-        Ok(oplog)
+        Ok(read_toml_file_or_default(&self.file_path)?)
     }
 
-    fn write_file(&self, mut oplog: Oplog) -> anyhow::Result<()> {
+    fn write_file(&self, mut oplog: Oplog) -> Result<()> {
         oplog.modified_at = SystemTime::now();
         crate::fs::write(&self.file_path, toml::to_string(&oplog)?)
     }
