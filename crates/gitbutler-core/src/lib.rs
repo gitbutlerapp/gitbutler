@@ -56,4 +56,11 @@ pub mod serde {
     {
         format!("{v:x}").serialize(s)
     }
+
+    pub fn as_time_seconds_from_unix_epoch<S>(v: &git2::Time, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        v.seconds().serialize(s)
+    }
 }

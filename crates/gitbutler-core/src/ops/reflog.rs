@@ -20,7 +20,7 @@ use crate::projects::Project;
 /// <target branch head sha>                 <oplog head sha>
 ///
 /// The reflog entry is continuously updated to refer to the current target and oplog head commits.
-pub fn set_reference_to_oplog(
+pub(crate) fn set_reference_to_oplog(
     project: &Project,
     target_head_sha: &str,
     oplog_head_sha: &str,

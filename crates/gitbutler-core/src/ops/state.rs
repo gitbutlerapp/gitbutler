@@ -10,7 +10,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use super::OPLOG_FILE_NAME;
 
-/// SystemTime used to be serialized as a u64 of seconds, but is now a propper SystemTime struct.
+/// SystemTime used to be serialized as u64 of seconds, but is now a proper SystemTime struct.
 /// This function will handle the old format gracefully.
 fn unfailing_system_time_deserialize<'de, D>(deserializer: D) -> Result<SystemTime, D::Error>
 where
@@ -45,7 +45,7 @@ impl Default for Oplog {
     }
 }
 
-pub struct OplogHandle {
+pub(crate) struct OplogHandle {
     /// The path to the file containing the oplog head state.
     file_path: PathBuf,
 }
@@ -102,15 +102,8 @@ impl OplogHandle {
         Ok(oplog)
     }
 
-    fn write_file(&self, oplog: Oplog) -> anyhow::Result<()> {
-        let mut oplog = oplog;
-        let now = std::time::SystemTime::now();
-        oplog.modified_at = now;
-        write(self.file_path.as_path(), &oplog)
+    fn write_file(&self, mut oplog: Oplog) -> anyhow::Result<()> {
+        oplog.modified_at = SystemTime::now();
+        crate::fs::write(&self.file_path, toml::to_string(&oplog)?)
     }
-}
-
-fn write<P: AsRef<Path>>(file_path: P, oplog: &Oplog) -> anyhow::Result<()> {
-    let contents = toml::to_string(&oplog)?;
-    crate::fs::write(file_path, contents)
 }

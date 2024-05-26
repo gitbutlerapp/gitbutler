@@ -7,13 +7,14 @@ use std::time::Duration;
 use std::{fs, path::PathBuf};
 
 use anyhow::Result;
+use tracing::instrument;
 
 use crate::git::diff::FileDiff;
 use crate::virtual_branches::Branch;
 use crate::{git::diff::hunks_by_filepath, projects::Project};
 
 use super::{
-    entry::{OperationType, Snapshot, SnapshotDetails, Trailer},
+    entry::{OperationKind, Snapshot, SnapshotDetails, Trailer},
     reflog::set_reference_to_oplog,
     state::OplogHandle,
 };
@@ -305,6 +306,8 @@ impl Oplog for Project {
         Ok(Some(new_commit_oid.to_string()))
     }
 
+    /// Note that errors in snapshot creation is typically ignored, so we want to learn about them.
+    #[instrument(skip(details), err(Debug))]
     fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<String>> {
         let tree_id = self.prepare_snapshot()?;
         self.commit_snapshot(tree_id, details)
@@ -382,7 +385,7 @@ impl Oplog for Project {
                     lines_added,
                     lines_removed,
                     files_changed,
-                    created_at: commit.time().seconds(),
+                    created_at: commit.time(),
                 });
 
                 if snapshots.len() >= limit {
@@ -396,7 +399,7 @@ impl Oplog for Project {
                     lines_added: 0,
                     lines_removed: 0,
                     files_changed: Vec::new(), // Fix: Change 0 to an empty vector
-                    created_at: commit.time().seconds(),
+                    created_at: commit.time(),
                 });
                 break;
             }
@@ -553,7 +556,7 @@ impl Oplog for Project {
         // create new snapshot
         let details = SnapshotDetails {
             version: Default::default(),
-            operation: OperationType::RestoreFromSnapshot,
+            operation: OperationKind::RestoreFromSnapshot,
             title: "Restored from snapshot".to_string(),
             body: None,
             trailers: vec![

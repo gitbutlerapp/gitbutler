@@ -1,7 +1,7 @@
 use std::vec;
 
 use crate::{
-    ops::entry::{OperationType, SnapshotDetails},
+    ops::entry::{OperationKind, SnapshotDetails},
     virtual_branches::{branch::BranchUpdateRequest, Branch},
 };
 
@@ -29,7 +29,7 @@ pub trait Snapshot {
 impl<T: Oplog> Snapshot for T {
     fn snapshot_branch_applied(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
-            SnapshotDetails::new(OperationType::ApplyBranch).with_trailers(vec![Trailer {
+            SnapshotDetails::new(OperationKind::ApplyBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
                 value: branch_name,
             }]);
@@ -38,7 +38,7 @@ impl<T: Oplog> Snapshot for T {
     }
     fn snapshot_branch_unapplied(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
-            SnapshotDetails::new(OperationType::UnapplyBranch).with_trailers(vec![Trailer {
+            SnapshotDetails::new(OperationKind::UnapplyBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
                 value: branch_name,
             }]);
@@ -47,7 +47,7 @@ impl<T: Oplog> Snapshot for T {
     }
     fn snapshot_commit_undo(&self, commit_sha: String) -> anyhow::Result<()> {
         let details =
-            SnapshotDetails::new(OperationType::UndoCommit).with_trailers(vec![Trailer {
+            SnapshotDetails::new(OperationKind::UndoCommit).with_trailers(vec![Trailer {
                 key: "sha".to_string(),
                 value: commit_sha,
             }]);
@@ -60,7 +60,7 @@ impl<T: Oplog> Snapshot for T {
         commit_message: String,
         sha: Option<String>,
     ) -> anyhow::Result<()> {
-        let details = SnapshotDetails::new(OperationType::CreateCommit).with_trailers(vec![
+        let details = SnapshotDetails::new(OperationKind::CreateCommit).with_trailers(vec![
             Trailer {
                 key: "message".to_string(),
                 value: commit_message,
@@ -75,7 +75,7 @@ impl<T: Oplog> Snapshot for T {
     }
     fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
-            SnapshotDetails::new(OperationType::CreateBranch).with_trailers(vec![Trailer {
+            SnapshotDetails::new(OperationKind::CreateBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
                 value: branch_name,
             }]);
@@ -84,7 +84,7 @@ impl<T: Oplog> Snapshot for T {
     }
     fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
-            SnapshotDetails::new(OperationType::DeleteBranch).with_trailers(vec![Trailer {
+            SnapshotDetails::new(OperationKind::DeleteBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
                 value: branch_name.to_string(),
             }]);
@@ -98,12 +98,12 @@ impl<T: Oplog> Snapshot for T {
         update: &BranchUpdateRequest,
     ) -> anyhow::Result<()> {
         let details = if update.ownership.is_some() {
-            SnapshotDetails::new(OperationType::MoveHunk).with_trailers(vec![Trailer {
+            SnapshotDetails::new(OperationKind::MoveHunk).with_trailers(vec![Trailer {
                 key: "name".to_string(),
                 value: old_branch.name.to_string(),
             }])
         } else if let Some(name) = update.name.clone() {
-            SnapshotDetails::new(OperationType::UpdateBranchName).with_trailers(vec![
+            SnapshotDetails::new(OperationKind::UpdateBranchName).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),
                     value: old_branch.name.to_string(),
@@ -114,9 +114,9 @@ impl<T: Oplog> Snapshot for T {
                 },
             ])
         } else if update.notes.is_some() {
-            SnapshotDetails::new(OperationType::UpdateBranchNotes)
+            SnapshotDetails::new(OperationKind::UpdateBranchNotes)
         } else if let Some(order) = update.order {
-            SnapshotDetails::new(OperationType::ReorderBranches).with_trailers(vec![
+            SnapshotDetails::new(OperationKind::ReorderBranches).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),
                     value: old_branch.order.to_string(),
@@ -127,7 +127,7 @@ impl<T: Oplog> Snapshot for T {
                 },
             ])
         } else if let Some(_selected_for_changes) = update.selected_for_changes {
-            SnapshotDetails::new(OperationType::SelectDefaultVirtualBranch).with_trailers(vec![
+            SnapshotDetails::new(OperationKind::SelectDefaultVirtualBranch).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),
                     value: old_branch
@@ -141,7 +141,7 @@ impl<T: Oplog> Snapshot for T {
                 },
             ])
         } else if let Some(upstream) = update.upstream.clone() {
-            SnapshotDetails::new(OperationType::UpdateBranchRemoteName).with_trailers(vec![
+            SnapshotDetails::new(OperationKind::UpdateBranchRemoteName).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),
                     value: old_branch
@@ -156,7 +156,7 @@ impl<T: Oplog> Snapshot for T {
                 },
             ])
         } else {
-            SnapshotDetails::new(OperationType::GenericBranchUpdate)
+            SnapshotDetails::new(OperationKind::GenericBranchUpdate)
         };
         self.create_snapshot(details)?;
         Ok(())

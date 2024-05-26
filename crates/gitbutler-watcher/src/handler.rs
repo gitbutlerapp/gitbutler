@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use gitbutler_core::ops::entry::{OperationType, SnapshotDetails};
+use gitbutler_core::ops::entry::{OperationKind, SnapshotDetails};
 use gitbutler_core::ops::oplog::Oplog;
 use gitbutler_core::projects::ProjectId;
 use gitbutler_core::synchronize::sync_with_gitbutler;
@@ -127,7 +127,7 @@ impl Handler {
             .get(&project_id)
             .context("failed to get project")?;
         if project.should_auto_snapshot().unwrap_or_default() {
-            project.create_snapshot(SnapshotDetails::new(OperationType::FileChanges))?;
+            project.create_snapshot(SnapshotDetails::new(OperationKind::FileChanges))?;
         }
         Ok(())
     }

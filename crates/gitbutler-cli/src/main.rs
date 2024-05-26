@@ -51,7 +51,7 @@ fn list_snapshots(repo_dir: &str) -> Result<()> {
     let project = project_from_path(repo_dir);
     let snapshots = project.list_snapshots(100, None)?;
     for snapshot in snapshots {
-        let ts = chrono::DateTime::from_timestamp(snapshot.created_at / 1000, 0);
+        let ts = chrono::DateTime::from_timestamp(snapshot.created_at.seconds(), 0);
         let details = snapshot.details;
         if let (Some(ts), Some(details)) = (ts, details) {
             println!("{} {} {}", ts, snapshot.id, details.operation);
