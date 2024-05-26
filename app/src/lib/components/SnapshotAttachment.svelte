@@ -4,7 +4,7 @@
 
 	export let foldable: boolean = false;
 	export let foldedAmount: number | undefined = undefined;
-	export let foldedHeight = '2.6rem';
+	export let foldedHeight = '3rem';
 
 	let isOpen: boolean = false;
 	let el: HTMLElement;

@@ -59,7 +59,60 @@
 	});
 </script>
 
-<div class:list-item-wrapper={showCheckbox}>
+<div
+	bind:this={draggableElt}
+	class="file-list-item"
+	class:selected-draggable={selected}
+	id={`file-${file.id}`}
+	data-locked={file.locked}
+	on:click
+	on:keydown
+	on:dragstart={() => {
+		// Reset selection if the file being dragged is not in the selected list
+		if ($fileIdSelection.length > 0 && !fileIdSelection.has(file.id, $commit?.id)) {
+			fileIdSelection.clear();
+			fileIdSelection.add(file.id, $commit?.id);
+		}
+
+		if ($selectedFiles.length > 0) {
+			$selectedFiles.forEach((f) => {
+				if (f.locked) {
+					const lockedElement = document.getElementById(`file-${f.id}`);
+
+					if (lockedElement) {
+						// add a class to the locked file
+						lockedElement.classList.add('locked-file-animation');
+					}
+				}
+			});
+		} else if (file.locked) {
+			draggableElt.classList.add('locked-file-animation');
+		}
+	}}
+	on:animationend={() => {
+		// remove the class after the animation ends
+		if (file.locked) {
+			draggableElt.classList.remove('locked-file-animation');
+		}
+	}}
+	use:draggable={{
+		data: new DraggableFile($branch?.id || '', file, $commit, selectedFiles),
+		disabled: readonly || isUnapplied,
+		viewportId: 'board-viewport',
+		selector: '.selected-draggable'
+	}}
+	role="button"
+	tabindex="0"
+	on:contextmenu|preventDefault={(e) => {
+		const files = fileIdSelection.has(file.id, $commit?.id)
+			? $fileIdSelection
+					.map((key) => $selectedFiles?.find((f) => fileKey(f.id, $commit?.id) == key))
+					.filter(isDefined)
+			: [file];
+		if (files.length > 0) popupMenu.openByMouse(e, { files });
+		else console.error('No files selected');
+	}}
+>
 	{#if showCheckbox}
 		<Checkbox
 			small
@@ -74,97 +127,39 @@
 			}}
 		/>
 	{/if}
-	<div
-		bind:this={draggableElt}
-		class="file-list-item"
-		class:selected-draggable={selected}
-		id={`file-${file.id}`}
-		data-locked={file.locked}
-		on:click
-		on:keydown
-		on:dragstart={() => {
-			// Reset selection if the file being dragged is not in the selected list
-			if ($fileIdSelection.length > 0 && !fileIdSelection.has(file.id, $commit?.id)) {
-				fileIdSelection.clear();
-				fileIdSelection.add(file.id, $commit?.id);
-			}
-
-			if ($selectedFiles.length > 0) {
-				$selectedFiles.forEach((f) => {
-					if (f.locked) {
-						const lockedElement = document.getElementById(`file-${f.id}`);
-
-						if (lockedElement) {
-							// add a class to the locked file
-							lockedElement.classList.add('locked-file-animation');
-						}
-					}
-				});
-			} else if (file.locked) {
-				draggableElt.classList.add('locked-file-animation');
-			}
-		}}
-		on:animationend={() => {
-			// remove the class after the animation ends
-			if (file.locked) {
-				draggableElt.classList.remove('locked-file-animation');
-			}
-		}}
-		use:draggable={{
-			data: new DraggableFile($branch?.id || '', file, $commit, selectedFiles),
-			disabled: readonly || isUnapplied,
-			viewportId: 'board-viewport',
-			selector: '.selected-draggable'
-		}}
-		role="button"
-		tabindex="0"
-		on:contextmenu|preventDefault={(e) => {
-			const files = fileIdSelection.has(file.id, $commit?.id)
-				? $fileIdSelection
-						.map((key) => $selectedFiles?.find((f) => fileKey(f.id, $commit?.id) == key))
-						.filter(isDefined)
-				: [file];
-			if (files.length > 0) popupMenu.openByMouse(e, { files });
-			else console.error('No files selected');
-		}}
-	>
-		<div class="info">
-			<img draggable="false" class="file-icon" src={getVSIFileIcon(file.path)} alt="" />
-			<span class="text-base-12 name">
-				{file.filename}
-			</span>
-			<span class="text-base-12 path">
-				{file.justpath}
-			</span>
-		</div>
-		<FileStatusIcons {file} />
+	<div class="info">
+		<img draggable="false" class="file-icon" src={getVSIFileIcon(file.path)} alt="" />
+		<span class="text-base-12 name">
+			{file.filename}
+		</span>
+		<span class="text-base-12 path">
+			{file.justpath}
+		</span>
 	</div>
+	<FileStatusIcons {file} />
 </div>
 
 <style lang="postcss">
-	.list-item-wrapper {
-		display: flex;
-		align-items: center;
-		gap: var(--size-8);
-	}
-
 	.file-list-item {
 		flex: 1;
 		display: flex;
 		align-items: center;
-		height: var(--size-28);
-		padding: var(--size-4) var(--size-8);
-		gap: var(--size-16);
-		border-radius: var(--radius-s);
+		padding: var(--size-6) var(--size-14);
+		gap: var(--size-10);
+		height: 2rem;
 		overflow: hidden;
 		text-align: left;
 		user-select: none;
 		outline: none;
 		background: var(--clr-bg-1);
-		border: 1px solid transparent;
+		border-bottom: 1px solid var(--clr-border-3);
 
 		&:not(.selected-draggable):hover {
-			background-color: var(--clr-bg-2);
+			background-color: var(--clr-bg-1-muted);
+		}
+
+		&:last-child {
+			border-bottom: none;
 		}
 	}
 
@@ -180,6 +175,7 @@
 	.file-icon {
 		width: var(--size-12);
 	}
+
 	.name {
 		color: var(--clr-scale-ntrl-0);
 		white-space: nowrap;
@@ -188,6 +184,7 @@
 		overflow: hidden;
 		line-height: 120%;
 	}
+
 	.path {
 		color: var(--clr-scale-ntrl-0);
 		line-height: 120%;
@@ -198,12 +195,9 @@
 		opacity: 0.3;
 	}
 
-	.selected-draggable {
-		background-color: var(--clr-scale-pop-80);
-		border: 1px solid var(--clr-bg-1);
+	/* MODIFIERS */
 
-		&:hover {
-			background-color: var(--clr-scale-pop-80);
-		}
+	.selected-draggable {
+		background-color: var(--clr-theme-pop-bg);
 	}
 </style>

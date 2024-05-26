@@ -1,6 +1,7 @@
 <script lang="ts">
 	import PassphraseBox from './PassphraseBox.svelte';
 	import PushButton, { BranchAction } from './PushButton.svelte';
+	import emptyStateImg from '$lib/assets/empty-state/commits-up-to-date.svg?raw';
 	import { PromptService } from '$lib/backend/prompt';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -56,7 +57,15 @@
 				}}
 			/>
 		{:else}
-			Branch {$branch.name} is up to date with the remote.
+			<div class="empty-state">
+				<span class="text-base-body-12 empty-state__text"
+					>Your branch is up to date with the remote.</span
+				>
+
+				<i class="empty-state__image">
+					{@html emptyStateImg}
+				</i>
+			</div>
 		{/if}
 	</div>
 {/if}
@@ -65,7 +74,24 @@
 	.actions {
 		background: var(--clr-bg-1);
 		padding: var(--size-16);
-		border-radius: 0 0 var(--radius-m) var(--radius-m);
-		border: 1px solid var(--clr-border-2);
+	}
+
+	/* EMPTY STATE */
+
+	.empty-state {
+		display: flex;
+		/* justify-content: space-between; */
+		align-items: center;
+		gap: var(--size-20);
+	}
+
+	.empty-state__image {
+		flex-shrink: 0;
+	}
+
+	.empty-state__text {
+		color: var(--clr-text-3);
+		flex: 1;
+		/* max-width: 8rem; */
 	}
 </style>

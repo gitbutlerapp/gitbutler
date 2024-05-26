@@ -24,7 +24,7 @@
 	.avatar {
 		width: var(--size-16);
 		height: var(--size-16);
-		border-radius: var(--radius-m);
+		border-radius: var(--radius-l);
 	}
 
 	.local {
