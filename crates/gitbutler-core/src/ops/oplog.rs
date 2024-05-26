@@ -10,6 +10,9 @@ use anyhow::Result;
 use tracing::instrument;
 
 use crate::git::diff::FileDiff;
+use crate::virtual_branches::integration::{
+    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
+};
 use crate::virtual_branches::Branch;
 use crate::{git, git::diff::hunks_by_filepath, projects::Project};
 
@@ -232,9 +235,11 @@ impl Project {
         }
 
         // Construct a new commit
-        let name = "GitButler";
-        let email = "gitbutler@gitbutler.com";
-        let signature = git2::Signature::now(name, email).unwrap();
+        let signature = git2::Signature::now(
+            GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
+            GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
+        )
+        .unwrap();
         let parents = if let Some(ref oplog_head_commit) = oplog_head_commit {
             vec![oplog_head_commit]
         } else {
@@ -255,7 +260,7 @@ impl Project {
         // grab the target tree sha
         let default_target_sha = vb_state.get_default_target()?.sha;
 
-        set_reference_to_oplog(self, default_target_sha, new_commit_oid.into())?;
+        set_reference_to_oplog(&self.path, default_target_sha, new_commit_oid.into())?;
 
         Ok(Some(new_commit_oid.into()))
     }

@@ -86,15 +86,15 @@ impl Project {
                 key: "name".to_string(),
                 value: old_branch.name.to_string(),
             }])
-        } else if let Some(name) = update.name.clone() {
+        } else if let Some(name) = update.name.as_deref() {
             SnapshotDetails::new(OperationKind::UpdateBranchName).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),
-                    value: old_branch.name.to_string(),
+                    value: old_branch.name.clone(),
                 },
                 Trailer {
                     key: "after".to_string(),
-                    value: name,
+                    value: name.to_owned(),
                 },
             ])
         } else if update.notes.is_some() {
@@ -124,19 +124,19 @@ impl Project {
                     value: old_branch.name.clone(),
                 },
             ])
-        } else if let Some(upstream) = update.upstream.clone() {
+        } else if let Some(upstream) = update.upstream.as_deref() {
             SnapshotDetails::new(OperationKind::UpdateBranchRemoteName).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),
                     value: old_branch
                         .upstream
-                        .clone()
+                        .as_ref()
                         .map(|r| r.to_string())
-                        .unwrap_or("".to_string()),
+                        .unwrap_or_default(),
                 },
                 Trailer {
                     key: "after".to_string(),
-                    value: upstream,
+                    value: upstream.to_owned(),
                 },
             ])
         } else {

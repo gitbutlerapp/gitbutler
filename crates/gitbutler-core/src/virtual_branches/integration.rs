@@ -17,8 +17,8 @@ lazy_static! {
 }
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
-const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME: &str = "GitButler";
-const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
+pub const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME: &str = "GitButler";
+pub const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
 
 fn get_committer<'a>() -> Result<git::Signature<'a>> {
     Ok(git::Signature::now(
