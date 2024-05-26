@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use futures::executor::block_on;
 use gitbutler_core::projects::{self, Project, ProjectId};
-use gitbutler_core::{assets, virtual_branches};
+use gitbutler_core::{assets, users, virtual_branches};
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
@@ -75,11 +75,13 @@ pub struct Watchers {
 
 fn handler_from_app(app: &AppHandle) -> anyhow::Result<gitbutler_watcher::Handler> {
     let projects = app.state::<projects::Controller>().inner().clone();
+    let users = app.state::<users::Controller>().inner().clone();
     let vbranches = app.state::<virtual_branches::Controller>().inner().clone();
     let assets_proxy = app.state::<assets::Proxy>().inner().clone();
 
     Ok(gitbutler_watcher::Handler::new(
         projects,
+        users,
         vbranches,
         assets_proxy,
         {
@@ -117,7 +119,11 @@ impl Watchers {
         {
             handle.post(action).await.context("failed to post event")
         } else {
-            Err(anyhow::anyhow!("watcher not found",))
+            Err(anyhow::anyhow!(
+                "matching watcher to post event not found, wanted {wanted}, got {actual:?}",
+                wanted = action.project_id(),
+                actual = watcher.as_ref().map(|w| w.project_id())
+            ))
         }
     }
 

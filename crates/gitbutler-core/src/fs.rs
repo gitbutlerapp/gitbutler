@@ -85,18 +85,12 @@ pub(crate) fn create_dirs_then_write<P: AsRef<Path>>(
     persist_tempfile(temp_file, file_path)
 }
 
-#[allow(dead_code)]
 fn persist_tempfile(
     tempfile: gix::tempfile::Handle<gix::tempfile::handle::Writable>,
     to_path: impl AsRef<Path>,
 ) -> std::io::Result<()> {
     match tempfile.persist(to_path) {
-        Ok(Some(_opened_file)) => {
-            // EXPERIMENT: Does this fix #3601?
-            #[cfg(windows)]
-            _opened_file.sync_all()?;
-            Ok(())
-        }
+        Ok(Some(_opened_file)) => Ok(()),
         Ok(None) => unreachable!(
             "BUG: a signal has caused the tempfile to be removed, but we didn't install a handler"
         ),

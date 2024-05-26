@@ -17,9 +17,9 @@ export function createTimeAgoStore(
 			if (seconds < 10) {
 				set('just now');
 			} else if (seconds < 60) {
-				set(`< 1 minute ${addSuffix ? ' ago' : ''}`);
+				set(`< 1 min ${addSuffix ? ' ago' : ''}`);
 			} else {
-				set(formatDistanceToNowStrict(date, { addSuffix }));
+				set(customFormatDistance(date, addSuffix));
 			}
 			timeoutId = window.setTimeout(() => {
 				updateStore();
@@ -45,4 +45,28 @@ function getSecondsUntilUpdate(seconds: number) {
 	} else {
 		return 3600;
 	}
+}
+
+// SHORTHAND WORDS
+const unitShorthandMap: Record<string, string> = {
+	second: 'sec',
+	seconds: 'sec',
+	minute: 'min',
+	minutes: 'min',
+	hour: 'hr',
+	hours: 'hr',
+	day: 'day',
+	days: 'days',
+	month: 'mo',
+	months: 'mo',
+	year: 'yr',
+	years: 'yr'
+};
+
+function customFormatDistance(date: Date, addSuffix: boolean): string {
+	const distance = formatDistanceToNowStrict(date, { addSuffix });
+	return distance.replace(
+		/\b(seconds?|minutes?|hours?|days?|months?|years?)\b/g,
+		(match) => unitShorthandMap[match]
+	);
 }
