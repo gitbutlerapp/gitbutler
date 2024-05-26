@@ -186,7 +186,7 @@
 			orientation="row"
 			labelFor="git-executable"
 		>
-			<svelte:fragment slot="title">Use a Git executable</svelte:fragment>
+			<svelte:fragment slot="title">Use a Git executable (default)</svelte:fragment>
 
 			<svelte:fragment slot="caption">
 				{#if selectedType == 'systemExecutable'}
