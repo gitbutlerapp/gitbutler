@@ -21,7 +21,7 @@ use super::{
 
 const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
 
-/// The Oplog trait allows for crating snapshots of the current state of the project as well as restoring to a previous snapshot.
+/// The Oplog allows for crating snapshots of the current state of the project as well as restoring to a previous snapshot.
 /// Snapshots include the state of the working directory as well as all additional GitButler state (e.g virtual branches, conflict state).
 /// The data is stored as git trees in the following shape:
 /// .
@@ -34,60 +34,11 @@ const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
 /// │       ├── commit-message.txt
 /// │       └── tree (subtree)
 /// └── virtual_branches.toml
-pub trait Oplog {
+impl Project {
     /// Prepares a snapshot of the current state of the working directory as well as GitButler data.
     /// Returns a tree sha of the snapshot. The snapshot is not discoverable until it is comitted with `commit_snapshot`
-    /// If there are files that are untracked and larger than SNAPSHOT_FILE_LIMIT_BYTES, they are excluded from snapshot creation and restoring.
-    fn prepare_snapshot(&self) -> Result<String>;
-    /// Commits the snapshot tree that is created with the `prepare_snapshot` method.
-    /// Committing it makes the snapshot discoverable in `list_snapshots` as well as restorable with `restore_snapshot`.
-    /// Returns the sha of the created snapshot commit or None if snapshots are disabled.
-    fn commit_snapshot(
-        &self,
-        snapshot_tree_sha: String,
-        details: SnapshotDetails,
-    ) -> Result<Option<String>>;
-    /// Creates a snapshot of the current state of the working directory as well as GitButler data.
-    /// This is a convinience method that combines `prepare_snapshot` and `commit_snapshot`.
-    fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<String>>;
-    /// Lists the snapshots that have been created for the given repository, up to the given limit.
-    /// An alternative way of retrieving the snapshots would be to manually the oplog head `git log <oplog_head>` available in `.git/gitbutler/operations-log.toml`.
-    ///
-    /// If there are no snapshots, an empty list is returned.
-    fn list_snapshots(&self, limit: usize, sha: Option<String>) -> Result<Vec<Snapshot>>;
-    /// Reverts to a previous state of the working directory, virtual branches and commits.
-    /// The provided sha must refer to a valid snapshot commit.
-    /// Upon success, a new snapshot is created.
-    ///
-    /// This will restore the following:
-    ///  - The state of the working directory is checked out from the subtree `workdir` in the snapshot.
-    ///  - The state of virtual branches is restored from the blob `virtual_branches.toml` in the snapshot.
-    ///  - The state of conflicts (.git/base_merge_parent and .git/conflicts) is restored from the subtree `conflicts` in the snapshot (if not present, existing files are deleted).
-    ///
-    /// If there are files that are untracked and larger than SNAPSHOT_FILE_LIMIT_BYTES, they are excluded from snapshot creation and restoring.
-    /// Returns the sha of the created revert snapshot commit or None if snapshots are disabled.
-    fn restore_snapshot(&self, sha: String) -> Result<Option<String>>;
-    /// Determines if a new snapshot should be created due to file changes being created since the last snapshot.
-    /// The needs for the automatic snapshotting are:
-    ///  - It needs to facilitate backup of work in progress code
-    ///  - The snapshots should not be too frequent or small - both for UX and performance reasons
-    ///  - Checking if an automatic snapshot is needed should be fast and efficient since it is called on filesystem events
-    ///
-    /// This implementation works as follows:
-    ///  - If it's been more than 5 minutes since the last snapshot,
-    ///    check the sum of added and removed lines since the last snapshot, otherwise return false.
-    ///  - If the sum of added and removed lines is greater than a configured threshold, return true, otherwise return false.
-    fn should_auto_snapshot(&self) -> Result<bool>;
-    /// Returns the diff of the snapshot and it's parent. It only includes the workdir changes.
-    ///
-    /// This is useful to show what has changed in this particular snapshot
-    fn snapshot_diff(&self, sha: String) -> Result<HashMap<PathBuf, FileDiff>>;
-    /// Gets the sha of the last snapshot commit if present.
-    fn oplog_head(&self) -> Result<Option<String>>;
-}
-
-impl Oplog for Project {
-    fn prepare_snapshot(&self) -> Result<String> {
+    /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
+    pub(crate) fn prepare_snapshot(&self) -> Result<String> {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
 
@@ -248,7 +199,14 @@ impl Oplog for Project {
         Ok(tree_id.to_string())
     }
 
-    fn commit_snapshot(&self, tree_id: String, details: SnapshotDetails) -> Result<Option<String>> {
+    /// Commits the snapshot tree that is created with the `prepare_snapshot` method.
+    /// Committing it makes the snapshot discoverable in `list_snapshots` as well as restorable with `restore_snapshot`.
+    /// Returns the sha of the created snapshot commit or None if snapshots are disabled.
+    pub(crate) fn commit_snapshot(
+        &self,
+        tree_id: String,
+        details: SnapshotDetails,
+    ) -> Result<Option<String>> {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
 
@@ -306,14 +264,21 @@ impl Oplog for Project {
         Ok(Some(new_commit_oid.to_string()))
     }
 
+    /// Creates a snapshot of the current state of the working directory as well as GitButler data.
+    /// This is a convinience method that combines `prepare_snapshot` and `commit_snapshot`.
+    ///
     /// Note that errors in snapshot creation is typically ignored, so we want to learn about them.
     #[instrument(skip(details), err(Debug))]
-    fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<String>> {
+    pub fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<String>> {
         let tree_id = self.prepare_snapshot()?;
         self.commit_snapshot(tree_id, details)
     }
 
-    fn list_snapshots(&self, limit: usize, sha: Option<String>) -> Result<Vec<Snapshot>> {
+    /// Lists the snapshots that have been created for the given repository, up to the given limit.
+    /// An alternative way of retrieving the snapshots would be to manually the oplog head `git log <oplog_head>` available in `.git/gitbutler/operations-log.toml`.
+    ///
+    /// If there are no snapshots, an empty list is returned.
+    pub fn list_snapshots(&self, limit: usize, sha: Option<String>) -> Result<Vec<Snapshot>> {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
 
@@ -408,7 +373,18 @@ impl Oplog for Project {
         Ok(snapshots)
     }
 
-    fn restore_snapshot(&self, sha: String) -> Result<Option<String>> {
+    /// Reverts to a previous state of the working directory, virtual branches and commits.
+    /// The provided sha must refer to a valid snapshot commit.
+    /// Upon success, a new snapshot is created.
+    ///
+    /// This will restore the following:
+    ///  - The state of the working directory is checked out from the subtree `workdir` in the snapshot.
+    ///  - The state of virtual branches is restored from the blob `virtual_branches.toml` in the snapshot.
+    ///  - The state of conflicts (.git/base_merge_parent and .git/conflicts) is restored from the subtree `conflicts` in the snapshot (if not present, existing files are deleted).
+    ///
+    /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
+    /// Returns the sha of the created revert snapshot commit or None if snapshots are disabled.
+    pub fn restore_snapshot(&self, sha: String) -> Result<Option<String>> {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
 
@@ -577,7 +553,17 @@ impl Oplog for Project {
         snapshot_tree.and_then(|snapshot_tree| self.commit_snapshot(snapshot_tree, details))
     }
 
-    fn should_auto_snapshot(&self) -> Result<bool> {
+    /// Determines if a new snapshot should be created due to file changes being created since the last snapshot.
+    /// The needs for the automatic snapshotting are:
+    ///  - It needs to facilitate backup of work in progress code
+    ///  - The snapshots should not be too frequent or small - both for UX and performance reasons
+    ///  - Checking if an automatic snapshot is needed should be fast and efficient since it is called on filesystem events
+    ///
+    /// This implementation works as follows:
+    ///  - If it's been more than 5 minutes since the last snapshot,
+    ///    check the sum of added and removed lines since the last snapshot, otherwise return false.
+    ///  - If the sum of added and removed lines is greater than a configured threshold, return true, otherwise return false.
+    pub fn should_auto_snapshot(&self) -> Result<bool> {
         let oplog_state = OplogHandle::new(&self.gb_dir());
         let last_snapshot_time = oplog_state.get_modified_at()?;
         if last_snapshot_time.elapsed()? > Duration::from_secs(300) {
@@ -591,7 +577,10 @@ impl Oplog for Project {
         Ok(false)
     }
 
-    fn snapshot_diff(&self, sha: String) -> Result<HashMap<PathBuf, FileDiff>> {
+    /// Returns the diff of the snapshot and it's parent. It only includes the workdir changes.
+    ///
+    /// This is useful to show what has changed in this particular snapshot
+    pub fn snapshot_diff(&self, sha: String) -> Result<HashMap<PathBuf, FileDiff>> {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
 
@@ -630,7 +619,9 @@ impl Oplog for Project {
         let hunks = hunks_by_filepath(None, &diff)?;
         Ok(hunks)
     }
-    fn oplog_head(&self) -> Result<Option<String>> {
+
+    /// Gets the sha of the last snapshot commit if present.
+    pub fn oplog_head(&self) -> Result<Option<String>> {
         let oplog_state = OplogHandle::new(&self.gb_dir());
         oplog_state.get_oplog_head()
     }

@@ -1,7 +1,6 @@
 use std::time;
 
 use crate::id::Id;
-use crate::ops::oplog::Oplog;
 use crate::{
     git::{self, Oid},
     project_repository,

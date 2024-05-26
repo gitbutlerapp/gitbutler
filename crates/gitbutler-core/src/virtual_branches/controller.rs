@@ -1,10 +1,6 @@
 use crate::{
     error::Error,
-    ops::{
-        entry::{OperationKind, SnapshotDetails},
-        oplog::Oplog,
-        snapshot::Snapshot,
-    },
+    ops::entry::{OperationKind, SnapshotDetails},
 };
 use std::{collections::HashMap, path::Path, sync::Arc};
 

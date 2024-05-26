@@ -1,33 +1,16 @@
 use std::vec;
 
+use crate::projects::Project;
 use crate::{
     ops::entry::{OperationKind, SnapshotDetails},
     virtual_branches::{branch::BranchUpdateRequest, Branch},
 };
 
-use super::{entry::Trailer, oplog::Oplog};
+use super::entry::Trailer;
 
-pub trait Snapshot {
-    fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()>;
-    fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()>;
-    fn snapshot_branch_applied(&self, branch_name: String) -> anyhow::Result<()>;
-    fn snapshot_branch_unapplied(&self, branch_name: String) -> anyhow::Result<()>;
-    fn snapshot_branch_update(
-        &self,
-        old_branch: &Branch,
-        update: &BranchUpdateRequest,
-    ) -> anyhow::Result<()>;
-    fn snapshot_commit_creation(
-        &self,
-        snapshot_tree: String,
-        commit_message: String,
-        sha: Option<String>,
-    ) -> anyhow::Result<()>;
-    fn snapshot_commit_undo(&self, commit_sha: String) -> anyhow::Result<()>;
-}
-
-impl<T: Oplog> Snapshot for T {
-    fn snapshot_branch_applied(&self, branch_name: String) -> anyhow::Result<()> {
+/// Snapshot functionality
+impl Project {
+    pub(crate) fn snapshot_branch_applied(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
             SnapshotDetails::new(OperationKind::ApplyBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
@@ -36,7 +19,7 @@ impl<T: Oplog> Snapshot for T {
         self.create_snapshot(details)?;
         Ok(())
     }
-    fn snapshot_branch_unapplied(&self, branch_name: String) -> anyhow::Result<()> {
+    pub(crate) fn snapshot_branch_unapplied(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
             SnapshotDetails::new(OperationKind::UnapplyBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
@@ -45,7 +28,7 @@ impl<T: Oplog> Snapshot for T {
         self.create_snapshot(details)?;
         Ok(())
     }
-    fn snapshot_commit_undo(&self, commit_sha: String) -> anyhow::Result<()> {
+    pub(crate) fn snapshot_commit_undo(&self, commit_sha: String) -> anyhow::Result<()> {
         let details =
             SnapshotDetails::new(OperationKind::UndoCommit).with_trailers(vec![Trailer {
                 key: "sha".to_string(),
@@ -54,7 +37,7 @@ impl<T: Oplog> Snapshot for T {
         self.create_snapshot(details)?;
         Ok(())
     }
-    fn snapshot_commit_creation(
+    pub(crate) fn snapshot_commit_creation(
         &self,
         snapshot_tree: String,
         commit_message: String,
@@ -73,7 +56,7 @@ impl<T: Oplog> Snapshot for T {
         self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
-    fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()> {
+    pub(crate) fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
             SnapshotDetails::new(OperationKind::CreateBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
@@ -82,7 +65,7 @@ impl<T: Oplog> Snapshot for T {
         self.create_snapshot(details)?;
         Ok(())
     }
-    fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()> {
+    pub(crate) fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
             SnapshotDetails::new(OperationKind::DeleteBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
@@ -92,7 +75,7 @@ impl<T: Oplog> Snapshot for T {
         self.create_snapshot(details)?;
         Ok(())
     }
-    fn snapshot_branch_update(
+    pub(crate) fn snapshot_branch_update(
         &self,
         old_branch: &Branch,
         update: &BranchUpdateRequest,

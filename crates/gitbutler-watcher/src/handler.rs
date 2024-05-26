@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use gitbutler_core::ops::entry::{OperationKind, SnapshotDetails};
-use gitbutler_core::ops::oplog::Oplog;
 use gitbutler_core::projects::ProjectId;
 use gitbutler_core::synchronize::sync_with_gitbutler;
 use gitbutler_core::virtual_branches::VirtualBranches;

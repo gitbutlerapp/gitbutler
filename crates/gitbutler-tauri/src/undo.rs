@@ -2,7 +2,7 @@ use crate::error::Error;
 use anyhow::Context;
 use gitbutler_core::git::diff::FileDiff;
 use gitbutler_core::{
-    ops::{entry::Snapshot, oplog::Oplog},
+    ops::entry::Snapshot,
     projects::{self, ProjectId},
 };
 use std::collections::HashMap;

@@ -1,7 +1,5 @@
 use std::io::Write;
 
-use gitbutler_core::ops::oplog::Oplog;
-
 use super::*;
 
 #[tokio::test]
