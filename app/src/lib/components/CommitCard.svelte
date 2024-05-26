@@ -2,15 +2,20 @@
 	import BranchFilesList from './BranchFilesList.svelte';
 	import Icon from './Icon.svelte';
 	import { Project } from '$lib/backend/projects';
+	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import CommitMessageInput from '$lib/components/CommitMessageInput.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Tag from '$lib/components/Tag.svelte';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
+	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
+	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { featureAdvancedCommitOperations } from '$lib/config/uiFeatureFlags';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import { getContext, getContextStore } from '$lib/utils/context';
+	import { getTimeAgo } from '$lib/utils/timeAgo';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore, getSelectedFiles } from '$lib/vbranches/contexts';
@@ -47,7 +52,7 @@
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
-	let showFiles = false;
+	let showDetails = false;
 	let files: RemoteFile[] = [];
 
 	$: selectedFile =
@@ -61,9 +66,9 @@
 	}
 
 	function toggleFiles() {
-		showFiles = !showFiles;
+		showDetails = !showDetails;
 
-		if (showFiles) loadFiles();
+		if (showDetails) loadFiles();
 	}
 
 	function onKeyup(e: KeyboardEvent) {
@@ -96,6 +101,7 @@
 		branchController.reorderCommit(branch.id, commit.id, offset);
 	}
 
+	let contextMenuVisible = false;
 	let isUndoable = false;
 
 	$: if ($advancedCommitOperations) {
@@ -126,14 +132,17 @@
 
 		commitMessageModal.close();
 	}
+
+	let meatballButton: HTMLButtonElement;
+
+	// console log commit time
+	// console.log(commit);
 </script>
 
 <Modal bind:this={commitMessageModal}>
 	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
 	<svelte:fragment slot="controls">
-		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}
-			>Cancel</Button
-		>
+		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
@@ -151,12 +160,12 @@
 			}
 		: nonDraggable()}
 	class="commit"
-	class:is-commit-open={showFiles}
+	class:is-commit-open={showDetails}
 	class:is-first={first}
 	class:is-last={last}
 >
 	<div
-		class="accent"
+		class="accent-border-line"
 		class:is-first={first}
 		class:is-last={last}
 		class:local={type == 'local'}
@@ -164,149 +173,144 @@
 		class:upstream={type == 'upstream'}
 	/>
 
-	<div
-		class="commit__header"
-		on:click={toggleFiles}
-		on:keyup={onKeyup}
-		role="button"
-		tabindex="0"
-	>
-		{#if first}
-			<div class="commit__type text-semibold text-base-12">
-				{#if type == 'remote'}
-					Local and remote
-				{:else if type == 'local'}
-					Local <Icon name="local" />
-				{:else if type == 'upstream'}
-					Remote upstream <Icon name="remote" />
-				{/if}
-			</div>
-		{/if}
-		<div class="commit__message">
-			{#if $advancedCommitOperations}
-				<div class="commit__id">
-					<code>
-						{#if commit.isSigned}
-							<span>🔒</span>
-						{/if}
-						{#if commit.changeId}
-							{commit.changeId.split('-')[0]}
-						{:else}
-							{commit.id.substring(0, 6)}
-						{/if}
-					</code>
+	<div class="commit__content">
+		<!-- GENERAL INFO -->
+		<div class="commit__about" on:click={toggleFiles} on:keyup={onKeyup} role="button" tabindex="0">
+			{#if first}
+				<div class="commit__type text-semibold text-base-12">
+					{#if type == 'remote'}
+						Local and remote
+					{:else if type == 'local'}
+						Local <Icon name="local" />
+					{:else if type == 'upstream'}
+						Remote upstream <Icon name="remote" />
+					{/if}
 				</div>
 			{/if}
-			<div class="commit__row">
-				{#if isUndoable}
-					{#if commit.descriptionTitle}
-						<span
-							class="commit__title text-semibold text-base-12"
-							class:truncate={!showFiles}
-						>
-							{commit.descriptionTitle}
+
+			{#if isUndoable && !commit.descriptionTitle}
+				<span class="commit__empty-title">empty commit message</span>
+			{:else}
+				<h5 class="commit__title text-base-body-13 text-semibold" class:truncate={!showDetails}>
+					{commit.descriptionTitle}
+				</h5>
+
+				{#if $advancedCommitOperations}
+					<div class="text-base-11 commit__subtitle">
+						<span class="commit__id">
+							{#if commit.changeId}
+								{commit.changeId.split('-')[0]}
+							{:else}
+								{commit.id.substring(0, 6)}
+							{/if}
+
+							{#if commit.isSigned}
+								<Icon name="locked-small" />
+							{/if}
 						</span>
-					{:else}
+
+						<span class="commit__subtitle-divider">•</span>
+
 						<span
-							class="commit__title_no_desc text-base-12"
-							class:truncate={!showFiles}
+							>{getTimeAgo(commit.createdAt)}{type == 'remote'
+								? ` by ${commit.author.name}`
+								: ''}</span
 						>
-							<i>empty commit message</i>
-						</span>
-					{/if}
-				{:else}
-					<span class="commit__title text-base-12" class:truncate={!showFiles}>
-						{commit.descriptionTitle}
-					</span>
+					</div>
 				{/if}
-			</div>
-			{#if showFiles}
-				{#if commit.descriptionBody}
-					<div class="commit__row" transition:slide={{ duration: 100 }}>
-						<span class="commit__body text-base-body-12">
-							{commit.descriptionBody}
-						</span>
+			{/if}
+		</div>
+
+		<!-- HIDDEN -->
+		{#if showDetails}
+			<div class="commit__details">
+				{#if hasCommitUrl || isUndoable}
+					<div class="commit__actions hide-native-scrollbar">
+						{#if isUndoable}
+							<Tag
+								style="ghost"
+								kind="solid"
+								icon="undo-small"
+								clickable
+								on:click={(e) => {
+									currentCommitMessage.set(commit.description);
+									e.stopPropagation();
+									undoCommit(commit);
+								}}>Undo</Tag
+							>
+							{#if $advancedCommitOperations}
+								<Tag
+									style="ghost"
+									kind="solid"
+									icon="edit-text"
+									clickable
+									on:click={openCommitMessageModal}>Edit message</Tag
+								>
+								<Tag
+									style="ghost"
+									kind="solid"
+									clickable
+									on:click={(e) => {
+										e.stopPropagation();
+										reorderCommit(commit, -1);
+									}}>Move Up</Tag
+								>
+								<Tag
+									style="ghost"
+									kind="solid"
+									clickable
+									on:click={(e) => {
+										e.stopPropagation();
+										reorderCommit(commit, 1);
+									}}>Move Down</Tag
+								>
+								<Tag
+									style="ghost"
+									kind="solid"
+									clickable
+									on:click={(e) => {
+										e.stopPropagation();
+										insertBlankCommit(commit, -1);
+									}}>Add Before</Tag
+								>
+								<Tag
+									style="ghost"
+									kind="solid"
+									clickable
+									on:click={(e) => {
+										e.stopPropagation();
+										insertBlankCommit(commit, 1);
+									}}>Add After</Tag
+								>
+							{/if}
+						{/if}
+						{#if hasCommitUrl}
+							<Tag
+								style="ghost"
+								kind="solid"
+								icon="open-link"
+								clickable
+								on:click={() => {
+									if (commitUrl) openExternalUrl(commitUrl);
+								}}>Open</Tag
+							>
+						{/if}
 					</div>
 				{/if}
 
-				{#if $advancedCommitOperations && isUndoable}
-					<Tag clickable on:click={openCommitMessageModal}>Edit</Tag>
-				{/if}
-			{/if}
-		</div>
-	</div>
-
-	{#if showFiles}
-		<div class="files-container" transition:slide={{ duration: 100 }}>
-			<BranchFilesList {files} {isUnapplied} />
-		</div>
-
-		{#if hasCommitUrl || isUndoable}
-			<div class="files__footer">
-				{#if isUndoable}
-					{#if $advancedCommitOperations}
-						<Tag
-							style="ghost"
-							kind="solid"
-							clickable
-							on:click={(e) => {
-								e.stopPropagation();
-								reorderCommit(commit, -1);
-							}}>Move Up</Tag
-						>
-						<Tag
-							style="ghost"
-							kind="solid"
-							clickable
-							on:click={(e) => {
-								e.stopPropagation();
-								reorderCommit(commit, 1);
-							}}>Move Down</Tag
-						>
-						<Tag
-							style="ghost"
-							kind="solid"
-							clickable
-							on:click={(e) => {
-								e.stopPropagation();
-								insertBlankCommit(commit, -1);
-							}}>Add Before</Tag
-						>
-						<Tag
-							style="ghost"
-							kind="solid"
-							clickable
-							on:click={(e) => {
-								e.stopPropagation();
-								insertBlankCommit(commit, 1);
-							}}>Add After</Tag
-						>
-					{/if}
-					<Tag
-						style="ghost"
-						kind="solid"
-						icon="undo-small"
-						clickable
-						on:click={(e) => {
-							currentCommitMessage.set(commit.description);
-							e.stopPropagation();
-							undoCommit(commit);
-						}}>Undo</Tag
-					>
-				{/if}
-				{#if hasCommitUrl}
-					<Tag
-						style="ghost"
-						kind="solid"
-						icon="open-link"
-						clickable
-						on:click={() => {
-							if (commitUrl) openExternalUrl(commitUrl);
-						}}>Open commit</Tag
-					>
+				{#if commit.descriptionBody}
+					<span class="commit__description text-base-body-12">
+						{commit.descriptionBody}
+					</span>
 				{/if}
 			</div>
 		{/if}
+	</div>
+
+	{#if showDetails}
+		<div class="files-container" transition:slide={{ duration: 100 }}>
+			<BranchFilesList {files} {isUnapplied} />
+		</div>
 	{/if}
 </div>
 
@@ -341,12 +345,9 @@
 		&:not(.is-first) {
 			border-top: none;
 		}
-		&:not(.is-commit-open):hover {
-			background-color: var(--clr-bg-2);
-		}
 	}
 
-	.accent {
+	.accent-border-line {
 		position: absolute;
 		width: var(--size-4);
 		height: 100%;
@@ -361,36 +362,26 @@
 		}
 	}
 
-	.commit__header {
-		cursor: pointer;
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-10);
-		padding: var(--size-14);
-	}
-
 	.commit__type {
 		opacity: 0.4;
 	}
 
-	.is-commit-open {
-		background-color: var(--clr-bg-2);
-		/* margin: 0.5rem 0; */
-
-		& .commit__header {
-			padding-bottom: var(--size-16);
-			border-bottom: 1px solid var(--clr-border-2);
-		}
-
-		& .commit__message {
-			margin-bottom: var(--size-4);
-		}
+	/* HEADER */
+	.commit__content {
+		display: flex;
+		flex-direction: column;
 	}
 
-	.commit__message {
+	.commit__about {
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-6);
+		padding: var(--size-14);
+		/* transition: background-color var(--transition-fast); */
+
+		&:hover {
+			background-color: var(--clr-bg-1-muted);
+		}
 	}
 
 	.commit__title {
@@ -399,54 +390,71 @@
 		color: var(--clr-scale-ntrl-0);
 		width: 100%;
 	}
-	.commit__title_no_desc {
-		flex: 1;
-		display: block;
-		width: 100%;
-	}
 
-	.commit__body {
-		flex: 1;
-		display: block;
-		width: 100%;
-		color: var(--clr-scale-ntrl-40);
-		white-space: pre-line;
-		word-wrap: anywhere;
-	}
-
-	.commit__row {
+	.commit__subtitle {
 		display: flex;
 		align-items: center;
-		gap: var(--size-8);
+		flex-wrap: nowrap;
+		gap: var(--size-4);
+		color: var(--clr-text-2);
+		overflow: hidden;
+
+		& > span {
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
 	}
 
 	.commit__id {
 		display: flex;
 		align-items: center;
-		justify-content: center;
-		margin-top: -14px;
-	}
-	.commit__id > code {
-		background-color: #eeeeee;
-		padding: 1px 12px;
-		color: #888888;
-		font-size: x-small;
-		border-radius: 0px 0px 6px 6px;
-		margin-bottom: -8px;
+		gap: var(--size-4);
 	}
 
+	.commit__subtitle-divider {
+		opacity: 0.4;
+	}
+
+	/* DETAILS */
+
+	.commit__details {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-12);
+		padding: var(--size-14);
+		border-top: 1px solid var(--clr-border-2);
+	}
+
+	.commit__actions {
+		display: flex;
+		gap: var(--size-4);
+		overflow-x: auto;
+		margin: 0 calc(var(--size-14) * -1);
+		padding: 0 var(--size-14);
+	}
+
+	/* FILES */
 	.files-container {
 		background-color: var(--clr-bg-1);
+		border-top: 1px solid var(--clr-border-2);
 		padding: 0 var(--size-14) var(--size-14);
 	}
 
-	.files__footer {
-		display: flex;
-		justify-content: flex-end;
-		flex-wrap: wrap;
-		gap: var(--size-8);
-		padding: var(--size-14);
-		background-color: var(--clr-bg-1);
-		border-top: 1px solid var(--clr-border-2);
+	/* MODIFIERS */
+	.is-commit-open {
+		/* background-color: var(--clr-bg-2); */
+		/* border-top: 1px solid var(--clr-border-2); */
+		/* margin: var(--size-4) 0; */
+
+		/* &:not(.is-last) {
+			border-top: 1px solid var(--clr-border-2);
+			border-top-left-radius: var(--radius-m);
+			border-top-right-radius: var(--radius-m);
+		} */
+
+		& .commit__about {
+			background-color: var(--clr-bg-1-muted);
+		}
 	}
 </style>

@@ -297,7 +297,7 @@
 				<Resizer
 					viewport={rsViewport}
 					direction="right"
-					minWidth={360}
+					minWidth={380}
 					sticky
 					defaultLineColor={$fileIdSelection.length == 1 ? 'transparent' : 'var(--clr-border-2)'}
 					on:width={(e) => {

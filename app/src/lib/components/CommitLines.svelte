@@ -57,6 +57,7 @@
 	.lines {
 		display: flex;
 		align-items: stretch;
-		min-height: var(--size-16);
+		min-height: var(--size-12);
+		/* margin-top: -1px; */
 	}
 </style>
