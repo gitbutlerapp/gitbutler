@@ -70,9 +70,9 @@
 		width: var(--size-24);
 		/* background-color: rgba(125, 138, 154, 0.307); */
 
-		&.base {
+		/* &.base {
 			margin-top: calc(var(--size-8) * -1);
-		}
+		} */
 	}
 
 	.remote-line {
@@ -86,9 +86,9 @@
 			top: calc(var(--size-40) + var(--size-2));
 		}
 		&.short {
-			top: 1rem;
+			top: var(--avatar-top);
 			&.first {
-				top: 3rem;
+				top: var(--avatar-first-top);
 			}
 		}
 		&.tip {
@@ -107,9 +107,9 @@
 			background-color: var(--clr-commit-upstream);
 			top: 0;
 			&.short {
-				top: 1rem;
+				top: var(--avatar-top);
 				&.first {
-					top: calc(var(--size-40) + var(--size-2));
+					top: var(--avatar-first-top);
 				}
 			}
 		}
@@ -117,10 +117,10 @@
 
 	.avatar {
 		position: absolute;
-		top: var(--size-10);
+		top: var(--avatar-top);
 		left: var(--size-4);
 		&.first {
-			top: calc(var(--size-40) + var(--size-2));
+			top: var(--avatar-first-top);
 		}
 	}
 
@@ -134,7 +134,7 @@
 		border-color: var(--clr-commit-local);
 		border-width: var(--size-2) 0 0 var(--size-2);
 		&.base {
-			top: 0;
+			top: -1px;
 		}
 	}
 

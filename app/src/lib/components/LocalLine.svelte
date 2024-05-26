@@ -41,15 +41,15 @@
 <style lang="postcss">
 	.local-column {
 		position: relative;
-		width: var(--size-16);
+		width: var(--size-14);
 		/* background-color: rgba(255, 228, 196, 0.46); */
 	}
 	.avatar {
 		position: absolute;
-		top: var(--size-12);
-		left: calc(-1 * var(--size-4));
+		top: var(--avatar-top);
+		left: -0.188rem;
 		&.first {
-			top: 2.625rem;
+			top: var(--avatar-first-top);
 		}
 	}
 
@@ -83,14 +83,14 @@
 	.root {
 		position: absolute;
 		width: var(--size-10);
-		top: calc(100% - var(--size-12));
+		top: calc(100% - var(--size-14));
 		left: calc(-1 * var(--size-4));
 		bottom: calc(-1 * var(--size-2));
 		border-radius: 0 0 var(--radius-l) 0;
 		border-color: var(--clr-commit-local);
 		border-width: 0 var(--size-2) var(--size-2) 0;
 		&.long-root {
-			bottom: -2.75rem;
+			bottom: -2rem;
 		}
 	}
 </style>

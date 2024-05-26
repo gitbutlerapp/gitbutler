@@ -58,6 +58,7 @@
 		display: flex;
 		align-items: stretch;
 		min-height: var(--size-12);
+		padding-left: var(--size-8);
 		/* margin-top: -1px; */
 	}
 </style>
