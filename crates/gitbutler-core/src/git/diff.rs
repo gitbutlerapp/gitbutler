@@ -225,6 +225,7 @@ pub fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result
     }
     // find all the hunks
     let mut diff_files = HashMap::new();
+    let mut err = None;
 
     diff.print(
         git2::DiffFormat::Patch,
@@ -258,11 +259,10 @@ pub fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result
                     {
                         if !delta.new_file().id().is_zero() && full_path.exists() {
                             let oid = repo.blob_path(full_path.as_path()).unwrap();
-                            assert_eq!(
-                                delta.new_file().id(),
-                                oid.into(),
-                                "BUG: we only store the file which is already known by the diff system, but it was different"
-                            )
+                            if delta.new_file().id() != oid.into() {
+                                err = Some(format!("we only store the file which is already known by the diff system, but it was different: {} != {}", delta.new_file().id(), oid));
+                                return false
+                            }
                         }
                     }
                     Some(LineOrHexHash::HexHashOfBinaryBlob(delta.new_file().id().to_string()))
@@ -286,7 +286,10 @@ pub fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result
                                 old_size_bytes: delta.old_file().size(),
                                 new_size_bytes: delta.new_file().size(),
                         });
-                    assert_eq!(existing, None, "BUG: this only happens for file-headers, they are provided once");
+                    if existing.is_some() {
+                        err = Some(format!("Encountered an invalid internal state related to the diff: {existing:?}"));
+                        return false;
+                    }
                 }
                 Some(line) => {
                     let hunks = &mut diff_files.get_mut(file_path).expect("File header inserts the hunk-list").hunks;
@@ -332,7 +335,7 @@ pub fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result
             true
         },
     )
-    .context("failed to print diff")?;
+    .with_context(|| format!("failed to print diff: {err:?}"))?;
 
     for file in diff_files.values_mut() {
         if let Some(binary_hunk) = file
