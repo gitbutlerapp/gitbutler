@@ -460,7 +460,7 @@ impl ControllerInner {
                 project_repository.project().snapshot_commit_creation(
                     snapshot_tree,
                     message.to_owned(),
-                    Some("".to_string()),
+                    None,
                 )
             });
             result
@@ -717,7 +717,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
-                .snapshot_commit_undo(commit_oid.to_string());
+                .snapshot_commit_undo(commit_oid);
             super::undo_commit(project_repository, branch_id, commit_oid).map_err(Into::into)
         })
     }

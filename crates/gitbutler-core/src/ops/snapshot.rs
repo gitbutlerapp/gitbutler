@@ -2,6 +2,7 @@ use std::vec;
 
 use crate::projects::Project;
 use crate::{
+    git,
     ops::entry::{OperationKind, SnapshotDetails},
     virtual_branches::{branch::BranchUpdateRequest, Branch},
 };
@@ -28,20 +29,20 @@ impl Project {
         self.create_snapshot(details)?;
         Ok(())
     }
-    pub(crate) fn snapshot_commit_undo(&self, commit_sha: String) -> anyhow::Result<()> {
+    pub(crate) fn snapshot_commit_undo(&self, commit_sha: git::Oid) -> anyhow::Result<()> {
         let details =
             SnapshotDetails::new(OperationKind::UndoCommit).with_trailers(vec![Trailer {
                 key: "sha".to_string(),
-                value: commit_sha,
+                value: commit_sha.to_string(),
             }]);
         self.create_snapshot(details)?;
         Ok(())
     }
     pub(crate) fn snapshot_commit_creation(
         &self,
-        snapshot_tree: String,
+        snapshot_tree: git::Oid,
         commit_message: String,
-        sha: Option<String>,
+        sha: Option<git::Oid>,
     ) -> anyhow::Result<()> {
         let details = SnapshotDetails::new(OperationKind::CreateCommit).with_trailers(vec![
             Trailer {
@@ -50,7 +51,7 @@ impl Project {
             },
             Trailer {
                 key: "sha".to_string(),
-                value: sha.unwrap_or_default(),
+                value: sha.map(|sha| sha.to_string()).unwrap_or_default(),
             },
         ]);
         self.commit_snapshot(snapshot_tree, details)?;

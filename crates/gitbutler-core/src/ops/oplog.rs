@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use git2::{FileMode, Oid};
+use git2::FileMode;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -11,7 +11,7 @@ use tracing::instrument;
 
 use crate::git::diff::FileDiff;
 use crate::virtual_branches::Branch;
-use crate::{git::diff::hunks_by_filepath, projects::Project};
+use crate::{git, git::diff::hunks_by_filepath, projects::Project};
 
 use super::{
     entry::{OperationKind, Snapshot, SnapshotDetails, Trailer},
@@ -38,7 +38,7 @@ impl Project {
     /// Prepares a snapshot of the current state of the working directory as well as GitButler data.
     /// Returns a tree sha of the snapshot. The snapshot is not discoverable until it is comitted with `commit_snapshot`
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
-    pub(crate) fn prepare_snapshot(&self) -> Result<String> {
+    pub(crate) fn prepare_snapshot(&self) -> Result<git::Oid> {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
 
@@ -68,7 +68,7 @@ impl Project {
         let mut tree_builder = repo.treebuilder(None)?;
         tree_builder.insert("index", index_tree_oid, FileMode::Tree.into())?;
         tree_builder.insert("target_tree", target_tree_oid, FileMode::Tree.into())?;
-        tree_builder.insert("conflicts", conflicts_tree, FileMode::Tree.into())?;
+        tree_builder.insert("conflicts", conflicts_tree.into(), FileMode::Tree.into())?;
         tree_builder.insert("virtual_branches.toml", vb_blob, FileMode::Blob.into())?;
 
         // go through all virtual branches and create a subtree for each with the tree and any commits encoded
@@ -185,7 +185,7 @@ impl Project {
             let head_trees_iter = head_trees.iter();
             // iterate through all head trees
             for head_tree in head_trees_iter {
-                let current_theirs = repo.find_tree(git2::Oid::from(*head_tree))?;
+                let current_theirs = repo.find_tree((*head_tree).into())?;
                 let mut workdir_temp_index =
                     repo.merge_trees(&base_tree, &current_ours, &current_theirs, None)?;
                 workdir_tree_oid = workdir_temp_index.write_tree_to(&repo)?;
@@ -196,7 +196,7 @@ impl Project {
 
         // ok, write out the final oplog tree
         let tree_id = tree_builder.write()?;
-        Ok(tree_id.to_string())
+        Ok(tree_id.into())
     }
 
     /// Commits the snapshot tree that is created with the `prepare_snapshot` method.
@@ -204,17 +204,17 @@ impl Project {
     /// Returns the sha of the created snapshot commit or None if snapshots are disabled.
     pub(crate) fn commit_snapshot(
         &self,
-        tree_id: String,
+        tree_id: git::Oid,
         details: SnapshotDetails,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<git::Oid>> {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
 
-        let tree = repo.find_tree(Oid::from_str(&tree_id)?)?;
+        let tree = repo.find_tree(tree_id.into())?;
 
         let oplog_state = OplogHandle::new(&self.gb_dir());
         let oplog_head_commit = match oplog_state.get_oplog_head()? {
-            Some(head_sha) => match repo.find_commit(git2::Oid::from_str(&head_sha)?) {
+            Some(head_sha) => match repo.find_commit(head_sha.into()) {
                 Ok(commit) => Some(commit),
                 Err(_) => None, // cant find the old one, start over
             },
@@ -249,19 +249,15 @@ impl Project {
             parents.as_slice(),
         )?;
 
-        oplog_state.set_oplog_head(new_commit_oid.to_string())?;
+        oplog_state.set_oplog_head(new_commit_oid.into())?;
 
         let vb_state = self.virtual_branches();
         // grab the target tree sha
         let default_target_sha = vb_state.get_default_target()?.sha;
 
-        set_reference_to_oplog(
-            self,
-            &default_target_sha.to_string(),
-            &new_commit_oid.to_string(),
-        )?;
+        set_reference_to_oplog(self, default_target_sha, new_commit_oid.into())?;
 
-        Ok(Some(new_commit_oid.to_string()))
+        Ok(Some(new_commit_oid.into()))
     }
 
     /// Creates a snapshot of the current state of the working directory as well as GitButler data.
@@ -269,7 +265,7 @@ impl Project {
     ///
     /// Note that errors in snapshot creation is typically ignored, so we want to learn about them.
     #[instrument(skip(details), err(Debug))]
-    pub fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<String>> {
+    pub fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<git::Oid>> {
         let tree_id = self.prepare_snapshot()?;
         self.commit_snapshot(tree_id, details)
     }
@@ -278,7 +274,7 @@ impl Project {
     /// An alternative way of retrieving the snapshots would be to manually the oplog head `git log <oplog_head>` available in `.git/gitbutler/operations-log.toml`.
     ///
     /// If there are no snapshots, an empty list is returned.
-    pub fn list_snapshots(&self, limit: usize, sha: Option<String>) -> Result<Vec<Snapshot>> {
+    pub fn list_snapshots(&self, limit: usize, sha: Option<git::Oid>) -> Result<Vec<Snapshot>> {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
 
@@ -295,7 +291,7 @@ impl Project {
             }
         };
 
-        let oplog_head_commit = repo.find_commit(git2::Oid::from_str(&head_sha)?)?;
+        let oplog_head_commit = repo.find_commit(head_sha.into())?;
 
         let mut revwalk = repo.revwalk()?;
         revwalk.push(oplog_head_commit.id())?;
@@ -345,7 +341,7 @@ impl Project {
                 let lines_removed = stats.deletions();
 
                 snapshots.push(Snapshot {
-                    id: commit_id.to_string(),
+                    id: commit_id.into(),
                     details,
                     lines_added,
                     lines_removed,
@@ -359,7 +355,7 @@ impl Project {
             } else {
                 // this is the very first snapshot
                 snapshots.push(Snapshot {
-                    id: commit_id.to_string(),
+                    id: commit_id.into(),
                     details,
                     lines_added: 0,
                     lines_removed: 0,
@@ -384,14 +380,14 @@ impl Project {
     ///
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
     /// Returns the sha of the created revert snapshot commit or None if snapshots are disabled.
-    pub fn restore_snapshot(&self, sha: String) -> Result<Option<String>> {
+    pub fn restore_snapshot(&self, sha: git::Oid) -> Result<Option<git::Oid>> {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
 
         // prepare snapshot
         let snapshot_tree = self.prepare_snapshot();
 
-        let commit = repo.find_commit(git2::Oid::from_str(&sha)?)?;
+        let commit = repo.find_commit(sha.into())?;
         // Top tree
         let top_tree = commit.tree()?;
         let vb_tree_entry = top_tree
@@ -442,8 +438,8 @@ impl Project {
                 // for each commit, recreate the commit from the commit data if it doesn't exist
                 if let Some(commit_id) = commit_entry.name() {
                     // check for the oid in the repo
-                    let commit_oid = git2::Oid::from_str(commit_id)?;
-                    if repo.find_commit(commit_oid).is_err() {
+                    let commit_oid = git::Oid::from_str(commit_id)?;
+                    if repo.find_commit(commit_oid.into()).is_err() {
                         // commit is not in the repo, let's build it from our data
                         // we get the data from the blob entry and create a commit object from it, which should match the oid of the entry
                         let commit_tree = commit_entry
@@ -460,7 +456,7 @@ impl Project {
                         let new_commit_oid = repo
                             .odb()?
                             .write(git2::ObjectType::Commit, commit_blob.content())?;
-                        if new_commit_oid != commit_oid {
+                        if new_commit_oid != commit_oid.into() {
                             return Err(anyhow!("commit oid mismatch"));
                         }
                     }
@@ -468,13 +464,13 @@ impl Project {
                     // if branch_name is 'integration', we need to create or update the gitbutler/integration branch
                     if let Some(branch_name) = branch_name {
                         if branch_name == "integration" {
-                            let integration_commit = repo.find_commit(commit_oid)?;
+                            let integration_commit = repo.find_commit(commit_oid.into())?;
                             // reset the branch if it's there
                             let branch =
                                 repo.find_branch("gitbutler/integration", git2::BranchType::Local);
                             if let Ok(mut branch) = branch {
                                 // need to detatch the head for just a minuto
-                                repo.set_head_detached(commit_oid)?;
+                                repo.set_head_detached(commit_oid.into())?;
                                 branch.delete()?;
                             }
                             // ok, now we set the branch to what it was and update HEAD
@@ -538,7 +534,7 @@ impl Project {
             trailers: vec![
                 Trailer {
                     key: "restored_from".to_string(),
-                    value: sha,
+                    value: sha.to_string(),
                 },
                 Trailer {
                     key: "restored_operation".to_string(),
@@ -580,11 +576,11 @@ impl Project {
     /// Returns the diff of the snapshot and it's parent. It only includes the workdir changes.
     ///
     /// This is useful to show what has changed in this particular snapshot
-    pub fn snapshot_diff(&self, sha: String) -> Result<HashMap<PathBuf, FileDiff>> {
+    pub fn snapshot_diff(&self, sha: git::Oid) -> Result<HashMap<PathBuf, FileDiff>> {
         let repo_path = self.path.as_path();
         let repo = git2::Repository::init(repo_path)?;
 
-        let commit = repo.find_commit(git2::Oid::from_str(&sha)?)?;
+        let commit = repo.find_commit(sha.into())?;
         // Top tree
         let tree = commit.tree()?;
         let old_tree = commit.parent(0)?.tree()?;
@@ -621,7 +617,7 @@ impl Project {
     }
 
     /// Gets the sha of the last snapshot commit if present.
-    pub fn oplog_head(&self) -> Result<Option<String>> {
+    pub fn oplog_head(&self) -> Result<Option<git::Oid>> {
         let oplog_state = OplogHandle::new(&self.gb_dir());
         oplog_state.get_oplog_head()
     }
@@ -663,7 +659,7 @@ fn restore_conflicts_tree(
     Ok(())
 }
 
-fn write_conflicts_tree(repo_path: &std::path::Path, repo: &git2::Repository) -> Result<git2::Oid> {
+fn write_conflicts_tree(repo_path: &std::path::Path, repo: &git2::Repository) -> Result<git::Oid> {
     let merge_parent_path = repo_path.join(".git").join("base_merge_parent");
     let merge_parent_blob = if merge_parent_path.exists() {
         let merge_parent_content = fs::read(merge_parent_path)?;
@@ -690,7 +686,7 @@ fn write_conflicts_tree(repo_path: &std::path::Path, repo: &git2::Repository) ->
         tree_builder.insert("conflicts", conflicts_blob.unwrap(), FileMode::Blob.into())?;
     }
     let conflicts_tree = tree_builder.write()?;
-    Ok(conflicts_tree)
+    Ok(conflicts_tree.into())
 }
 
 fn get_exclude_list(repo: &git2::Repository) -> Result<String> {
@@ -740,11 +736,9 @@ fn lines_since_snapshot(project: &Project) -> Result<usize> {
     repo.add_ignore_rule(&files_to_exclude)?;
 
     let oplog_state = OplogHandle::new(&project.gb_dir());
-    let head_sha = oplog_state.get_oplog_head()?;
-    if head_sha.is_none() {
+    let Some(head_sha) = oplog_state.get_oplog_head()? else {
         return Ok(0);
-    }
-    let head_sha = head_sha.unwrap();
+    };
 
     let vb_state = project.virtual_branches();
     let binding = vb_state.list_branches()?;
@@ -757,7 +751,7 @@ fn lines_since_snapshot(project: &Project) -> Result<usize> {
 
     let mut lines_changed = 0;
     for branch in dirty_branches {
-        lines_changed += branch_lines_since_snapshot(branch, &repo, head_sha.clone())?;
+        lines_changed += branch_lines_since_snapshot(branch, &repo, head_sha)?;
     }
     Ok(lines_changed)
 }
@@ -765,11 +759,11 @@ fn lines_since_snapshot(project: &Project) -> Result<usize> {
 fn branch_lines_since_snapshot(
     branch: &Branch,
     repo: &git2::Repository,
-    head_sha: String,
+    head_sha: git::Oid,
 ) -> Result<usize> {
     let active_branch_tree = repo.find_tree(branch.tree.into())?;
 
-    let commit = repo.find_commit(git2::Oid::from_str(&head_sha)?)?;
+    let commit = repo.find_commit(head_sha.into())?;
     let head_tree = commit.tree()?;
     let virtual_branches = head_tree
         .get_name("virtual_branches")

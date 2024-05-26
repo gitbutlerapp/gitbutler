@@ -22,7 +22,11 @@ pub async fn list_snapshots(
         .state::<projects::Controller>()
         .get(&project_id)
         .context("failed to get project")?;
-    let snapshots = project.list_snapshots(limit, sha)?;
+    let snapshots = project.list_snapshots(
+        limit,
+        sha.map(|hex| hex.parse().map_err(anyhow::Error::from))
+            .transpose()?,
+    )?;
     Ok(snapshots)
 }
 
@@ -37,7 +41,7 @@ pub async fn restore_snapshot(
         .state::<projects::Controller>()
         .get(&project_id)
         .context("failed to get project")?;
-    project.restore_snapshot(sha)?;
+    project.restore_snapshot(sha.parse().map_err(anyhow::Error::from)?)?;
     Ok(())
 }
 
@@ -52,6 +56,6 @@ pub async fn snapshot_diff(
         .state::<projects::Controller>()
         .get(&project_id)
         .context("failed to get project")?;
-    let diff = project.snapshot_diff(sha)?;
+    let diff = project.snapshot_diff(sha.parse().map_err(anyhow::Error::from)?)?;
     Ok(diff)
 }

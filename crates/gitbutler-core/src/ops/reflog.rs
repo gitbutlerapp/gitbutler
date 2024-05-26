@@ -1,4 +1,5 @@
 use crate::fs::write;
+use crate::git;
 use anyhow::Result;
 use itertools::Itertools;
 use std::path::PathBuf;
@@ -22,8 +23,8 @@ use crate::projects::Project;
 /// The reflog entry is continuously updated to refer to the current target and oplog head commits.
 pub(crate) fn set_reference_to_oplog(
     project: &Project,
-    target_head_sha: &str,
-    oplog_head_sha: &str,
+    target_head_sha: git::Oid,
+    oplog_head_sha: git::Oid,
 ) -> Result<()> {
     let repo_path = project.path.as_path();
     let reflog_file_path = repo_path
@@ -36,7 +37,7 @@ pub(crate) fn set_reference_to_oplog(
 
     if !reflog_file_path.exists() {
         let repo = git2::Repository::init(repo_path)?;
-        let commit = repo.find_commit(git2::Oid::from_str(target_head_sha)?)?;
+        let commit = repo.find_commit(target_head_sha.into())?;
         repo.branch("gitbutler/target", &commit, false)?;
     }
 
@@ -46,8 +47,8 @@ pub(crate) fn set_reference_to_oplog(
         ));
     }
 
-    set_target_ref(&reflog_file_path, target_head_sha)?;
-    set_oplog_ref(&reflog_file_path, oplog_head_sha)?;
+    set_target_ref(&reflog_file_path, &target_head_sha.to_string())?;
+    set_oplog_ref(&reflog_file_path, &oplog_head_sha.to_string())?;
 
     Ok(())
 }
@@ -88,6 +89,7 @@ fn set_oplog_ref(file_path: &PathBuf, sha: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
     use tempfile::tempdir;
 
     #[test]
@@ -109,7 +111,8 @@ mod tests {
         assert!(!log_file_path.exists());
 
         // Set ref for the first time
-        assert!(set_reference_to_oplog(&project, &commit_id.to_string(), "oplog_sha").is_ok());
+        let oplog_sha = git::Oid::from_str("0123456789abcdef0123456789abcdef0123456").unwrap();
+        assert!(set_reference_to_oplog(&project, commit_id.into(), oplog_sha).is_ok());
         assert!(log_file_path.exists());
         let log_file = std::fs::read_to_string(&log_file_path).unwrap();
         let log_lines = log_file.lines().collect::<Vec<_>>();
@@ -119,13 +122,12 @@ mod tests {
             commit_id
         )));
         assert!(log_lines[0].ends_with(&format!("branch: Created from {}", commit_id)));
-        assert!(log_lines[1].starts_with(&format!("{} {}", commit_id, "oplog_sha")));
-        assert!(log_lines[1].ends_with("reset: moving to oplog_sha"));
+        assert!(log_lines[1].starts_with(&format!("{} {}", commit_id, oplog_sha)));
+        assert!(log_lines[1].ends_with(&format!("reset: moving to {oplog_sha}")));
 
         // Update the oplog head only
-        assert!(
-            set_reference_to_oplog(&project, &commit_id.to_string(), "another_oplog_sha").is_ok()
-        );
+        let another_oplog_sha = git2::Oid::zero().into();
+        assert!(set_reference_to_oplog(&project, commit_id.into(), another_oplog_sha).is_ok());
         let log_file = std::fs::read_to_string(&log_file_path).unwrap();
         let log_lines = log_file.lines().collect::<Vec<_>>();
         assert_eq!(log_lines.len(), 2);
@@ -134,23 +136,21 @@ mod tests {
             commit_id
         )));
         assert!(log_lines[0].ends_with(&format!("branch: Created from {}", commit_id)));
-        println!("{:?}", log_lines[1]);
-        assert!(log_lines[1].starts_with(&format!("{} {}", commit_id, "another_oplog_sha")));
-        assert!(log_lines[1].ends_with("reset: moving to another_oplog_sha"));
+        assert!(log_lines[1].starts_with(&format!("{} {}", commit_id, another_oplog_sha)));
+        assert!(log_lines[1].ends_with(&format!("reset: moving to {another_oplog_sha}")));
 
         // Update the target head only
-        assert!(set_reference_to_oplog(&project, "new_target", "another_oplog_sha").is_ok());
+        let new_target = git::Oid::from_str("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap();
+        assert!(set_reference_to_oplog(&project, new_target, another_oplog_sha).is_ok());
         let log_file = std::fs::read_to_string(&log_file_path).unwrap();
         let log_lines = log_file.lines().collect::<Vec<_>>();
         assert_eq!(log_lines.len(), 2);
         assert!(log_lines[0].starts_with(&format!(
-            "0000000000000000000000000000000000000000 {}",
-            "new_target"
+            "0000000000000000000000000000000000000000 {new_target}"
         )));
-        assert!(log_lines[0].ends_with(&format!("branch: Created from {}", "new_target")));
-        println!("{:?}", log_lines[1]);
-        assert!(log_lines[1].starts_with(&format!("{} {}", "new_target", "another_oplog_sha")));
-        assert!(log_lines[1].ends_with("reset: moving to another_oplog_sha"));
+        assert!(log_lines[0].ends_with(&format!("branch: Created from {new_target}")));
+        assert!(log_lines[1].starts_with(&format!("{new_target} {another_oplog_sha}")));
+        assert!(log_lines[1].ends_with(&format!("reset: moving to {another_oplog_sha}")));
     }
 
     fn setup_repo() -> (tempfile::TempDir, git2::Oid) {

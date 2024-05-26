@@ -62,7 +62,7 @@ fn list_snapshots(repo_dir: &str) -> Result<()> {
 
 fn restore_snapshot(repo_dir: &str, snapshot_id: &str) -> Result<()> {
     let project = project_from_path(repo_dir);
-    project.restore_snapshot(snapshot_id.to_owned())?;
+    project.restore_snapshot(snapshot_id.parse()?)?;
     Ok(())
 }
 

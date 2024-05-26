@@ -88,14 +88,14 @@ mod snapshot_details {
 
     #[test]
     fn new() {
-        let commit_sha = "1234567890".to_string();
+        let commit_sha = git2::Oid::zero().into();
         let commit_message =
             "Create a new snapshot\n\nBody text 1\nBody text2\n\nBody text 3\n\nVersion: 1\nOperation: CreateCommit\nFoo: Bar\n".to_string();
         let timezone_offset_does_not_matter = 1234;
         let created_at = git2::Time::new(1234567890, timezone_offset_does_not_matter);
         let details = SnapshotDetails::from_str(&commit_message.clone()).unwrap();
         let snapshot = Snapshot {
-            id: commit_sha.clone(),
+            id: commit_sha,
             created_at,
             lines_added: 1,
             lines_removed: 1,
