@@ -46,10 +46,12 @@
 		>
 			Merge into common base
 		</Button>
-		<div class="commits-list">
-			{#each base.upstreamCommits as commit}
+		<div>
+			{#each base.upstreamCommits as commit, index}
 				<CommitCard
 					{commit}
+					first={index == 0}
+					last={index == base.upstreamCommits.length - 1}
 					isUnapplied={true}
 					commitUrl={base.commitUrl(commit.id)}
 					type="upstream"
@@ -59,15 +61,22 @@
 		<Spacer margin={2} />
 	{/if}
 
-	<div class="commits-list">
+	<div>
 		<h1
 			class="text-base-13 info-text text-bold"
 			use:tooltip={'This is the current base for your virtual branches.'}
 		>
 			Local
 		</h1>
-		{#each base.recentCommits as commit}
-			<CommitCard {commit} isUnapplied={true} commitUrl={base.commitUrl(commit.id)} type="remote" />
+		{#each base.recentCommits as commit, index}
+			<CommitCard
+				{commit}
+				first={index == 0}
+				last={index == base.recentCommits.length - 1}
+				isUnapplied={true}
+				commitUrl={base.commitUrl(commit.id)}
+				type="remote"
+			/>
 		{/each}
 	</div>
 </div>
@@ -123,13 +132,6 @@
 
 	.info-text {
 		opacity: 0.5;
-	}
-
-	.commits-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-8);
-		width: 100%;
 	}
 
 	.modal-content {

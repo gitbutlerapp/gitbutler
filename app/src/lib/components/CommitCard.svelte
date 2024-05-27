@@ -153,6 +153,7 @@
 	class:is-commit-open={showDetails}
 	class:is-first={first}
 	class:is-last={last}
+	class:has-lines={$$slots.lines}
 >
 	<slot name="lines" />
 	<CommitDragItem {commit}>
@@ -339,7 +340,10 @@
 		position: relative;
 		display: flex;
 		gap: var(--size-8);
-		padding-right: var(--size-14);
+		&.has-lines {
+			padding-right: var(--size-14);
+		}
+
 		/* border-top: 1px solid var(--clr-border-2); */
 		/* padding-left: var(--size-8); */
 
@@ -479,26 +483,20 @@
 
 	/* MODIFIERS */
 	.is-commit-open {
-		&:not(.is-first) {
-			border-top: 1px solid var(--clr-border-3);
-
-			& .commit-card {
-				margin-top: var(--size-8);
-			}
+		& .commit__about {
+			background-color: var(--clr-bg-1-muted);
 		}
 
 		& .commit-card {
-			border-top: 1px solid var(--clr-border-2);
-			border-bottom: 1px solid var(--clr-border-2);
-			border-radius: var(--radius-m);
-		}
+			&:not(.is-first) {
+				margin-top: var(--size-8);
+				border-top: 1px solid var(--clr-border-2);
+			}
 
-		&:not(.is-last) .commit-card {
-			margin-bottom: var(--size-8);
-		}
-
-		& .commit__about {
-			background-color: var(--clr-bg-1-muted);
+			&:not(.is-last) {
+				margin-bottom: var(--size-8);
+				border-bottom: 1px solid var(--clr-border-2);
+			}
 		}
 	}
 </style>
