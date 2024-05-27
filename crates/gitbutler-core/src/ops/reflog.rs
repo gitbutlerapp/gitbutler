@@ -21,14 +21,14 @@ use crate::virtual_branches::integration::{
 /// Then in the reflog entry logs/refs/heads/gitbutler/target we pretend that the ref originally pointed to the
 /// oplog head commit like so:
 ///
-/// 0000000000000000000000000000000000000000 <target branch head sha>
-/// <target branch head sha>                 <oplog head sha>
+/// 0000000000000000000000000000000000000000 <target branch head>
+/// <target branch head>                     <oplog head>
 ///
 /// The reflog entry is continuously updated to refer to the current target and oplog head commits.
 pub(super) fn set_reference_to_oplog(
     worktree_dir: &Path,
-    target_head_sha: git::Oid,
-    oplog_head_sha: git::Oid,
+    target_commit: git::Oid,
+    oplog_commit: git::Oid,
 ) -> Result<()> {
     let reflog_file_path = worktree_dir
         .join(".git")
@@ -41,60 +41,83 @@ pub(super) fn set_reference_to_oplog(
     let mut repo = gix::open_opts(
         worktree_dir,
         // We may override the username as we only write a specific commit log, unrelated to the user.
-        gix::open::Options::isolated().config_overrides([
-            gix::config::tree::User::NAME
-                .validated_assignment(GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME.into())?,
-            gix::config::tree::User::EMAIL
-                .validated_assignment(GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL.into())?,
-        ]),
+        gix::open::Options::isolated().config_overrides({
+            let sig = standard_signature();
+            [
+                gix::config::tree::User::NAME.validated_assignment(sig.name)?,
+                gix::config::tree::User::EMAIL.validated_assignment(sig.email)?,
+            ]
+        }),
     )?;
     // The check is here only to avoid unnecessary writes
     if repo.try_find_reference("gitbutler/target")?.is_none() {
         repo.refs.write_reflog = gix::refs::store::WriteReflog::Always;
+        let target_commit_hex = target_commit.to_string();
         repo.reference(
             "refs/heads/gitbutler/target",
-            target_head_sha.to_string().parse::<gix::ObjectId>()?,
+            target_commit_hex.parse::<gix::ObjectId>()?,
             gix::refs::transaction::PreviousValue::Any,
-            format!("branch: Created from {target_head_sha}"),
+            branch_creation_message(&target_commit_hex),
         )?;
     }
 
     let mut content = std::fs::read_to_string(&reflog_file_path)
         .context("A reflog for gitbutler/target which is needed for undo snapshotting")?;
-    content = set_target_ref(&content, &target_head_sha.to_string()).with_context(|| {
+    content = set_target_ref(&content, &target_commit.to_string()).with_context(|| {
         format!(
-            "Something was wrong with \"{}\"",
+            "Something was wrong with oplog reflog file at \"{}\"",
             reflog_file_path.display()
         )
     })?;
-    content = set_oplog_ref(&content, &oplog_head_sha.to_string())?;
+    content = set_oplog_ref(&content, &oplog_commit.to_string())?;
     write(reflog_file_path, content)?;
 
     Ok(())
 }
 
-fn set_target_ref(content: &str, sha: &str) -> Result<String> {
-    // 0000000000000000000000000000000000000000 82873b54925ab268e9949557f28d070d388e7774 Kiril Videlov <kiril@videlov.com> 1714037434 +0200\tbranch: Created from 82873b54925ab268e9949557f28d070d388e7774
-    let mut lines = gix::refs::file::log::iter::forward(content.as_bytes());
-    let mut first_line = lines.next().context("need the creation-line in reflog")??;
+fn branch_creation_message(commit_hash_hex: &str) -> String {
+    format!("branch: Created from {commit_hash_hex}")
+}
 
-    first_line.new_oid = sha.into();
-    let message = format!("branch: Created from {sha}");
+fn standard_signature() -> gix::actor::SignatureRef<'static> {
+    gix::actor::SignatureRef {
+        name: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME.into(),
+        email: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL.into(),
+        time: Default::default(),
+    }
+}
+
+fn set_target_ref(reflog_content: &str, target_commit_hex: &str) -> Result<String> {
+    // 0000000000000000000000000000000000000000 82873b54925ab268e9949557f28d070d388e7774 Kiril Videlov <kiril@videlov.com> 1714037434 +0200\tbranch: Created from 82873b54925ab268e9949557f28d070d388e7774
+    let mut lines = gix::refs::file::log::iter::forward(reflog_content.as_bytes());
+    let message = branch_creation_message(target_commit_hex);
+    let expected_first_line = gix::refs::file::log::LineRef {
+        previous_oid: "0000000000000000000000000000000000000000".into(),
+        new_oid: target_commit_hex.into(),
+        signature: standard_signature(),
+        message: message.as_str().into(),
+    };
+    let mut first_line = lines.next().unwrap_or(Ok(expected_first_line))?;
+
+    first_line.new_oid = target_commit_hex.into();
+    let message = format!("branch: Created from {target_commit_hex}");
     first_line.message = message.as_str().into();
 
     Ok(serialize_line(first_line))
 }
 
-fn set_oplog_ref(content: &str, sha: &str) -> Result<String> {
+fn set_oplog_ref(reflog_content: &str, oplog_commit_hex: &str) -> Result<String> {
     // 82873b54925ab268e9949557f28d070d388e7774 7e8eab472636a26611214bebea7d6b79c971fb8b Kiril Videlov <kiril@videlov.com> 1714044124 +0200\treset: moving to 7e8eab472636a26611214bebea7d6b79c971fb8b
-    let mut lines = gix::refs::file::log::iter::forward(content.as_bytes());
+    let mut lines = gix::refs::file::log::iter::forward(reflog_content.as_bytes());
     let first_line = lines.next().context("need the creation-line in reflog")??;
 
-    let new_msg = format!("reset: moving to {}", sha);
-    let mut second_line = first_line.clone();
-    second_line.previous_oid = first_line.new_oid;
-    second_line.new_oid = sha.into();
-    second_line.message = new_msg.as_str().into();
+    let new_msg = format!("reset: moving to {}", oplog_commit_hex);
+    let second_line = gix::refs::file::log::LineRef {
+        previous_oid: first_line.new_oid,
+        new_oid: oplog_commit_hex.into(),
+        message: new_msg.as_str().into(),
+        ..first_line
+    };
 
     Ok(format!(
         "{}\n{}\n",
@@ -131,17 +154,35 @@ mod set_target_ref {
     use tempfile::tempdir;
 
     #[test]
+    fn reflog_present_but_empty() -> anyhow::Result<()> {
+        let (dir, commit_id) = setup_repo()?;
+        let worktree_dir = dir.path();
+
+        let oplog = git::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
+        set_reference_to_oplog(worktree_dir, commit_id.into(), oplog).expect("success");
+
+        let log_file_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
+        std::fs::write(&log_file_path, [])?;
+
+        set_reference_to_oplog(worktree_dir, commit_id.into(), oplog).expect("success");
+
+        let contents = std::fs::read_to_string(&log_file_path)?;
+        assert_eq!(reflog_lines(&contents).len(), 2);
+        Ok(())
+    }
+
+    #[test]
     fn reflog_present_but_branch_missing_recreates_branch() -> anyhow::Result<()> {
         let (dir, commit_id) = setup_repo()?;
         let worktree_dir = dir.path();
 
-        let oplog_sha = git::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
-        set_reference_to_oplog(&worktree_dir, commit_id.into(), oplog_sha).expect("success");
+        let oplog = git::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
+        set_reference_to_oplog(worktree_dir, commit_id.into(), oplog).expect("success");
 
         let loose_ref_file = worktree_dir.join(".git/refs/heads/gitbutler/target");
         std::fs::remove_file(&loose_ref_file)?;
 
-        set_reference_to_oplog(&worktree_dir, commit_id.into(), oplog_sha).expect("success");
+        set_reference_to_oplog(worktree_dir, commit_id.into(), oplog).expect("success");
         assert!(
             loose_ref_file.is_file(),
             "the file was recreated, just in case there is only a reflog and no branch"
@@ -152,14 +193,17 @@ mod set_target_ref {
     #[test]
     fn new_and_update() -> anyhow::Result<()> {
         let (dir, commit_id) = setup_repo()?;
+        let commit_id_hex = commit_id.to_string();
+        let commit_id_hex: &gix::bstr::BStr = commit_id_hex.as_str().into();
         let worktree_dir = dir.path();
 
         let log_file_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
         assert!(!log_file_path.exists());
 
         // Set ref for the first time
-        let oplog_sha = git::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
-        set_reference_to_oplog(&worktree_dir, commit_id.into(), oplog_sha).expect("success");
+        let oplog_hex = "0123456789abcdef0123456789abcdef01234567";
+        let oplog = git::Oid::from_str(oplog_hex)?;
+        set_reference_to_oplog(worktree_dir, commit_id.into(), oplog).expect("success");
         assert!(log_file_path.exists());
         let contents = std::fs::read_to_string(&log_file_path)?;
         let lines = reflog_lines(&contents);
@@ -169,79 +213,85 @@ mod set_target_ref {
             "lines parse and it's exactly two, one for branch creation, another for oplog id"
         );
 
-        let first_line = &lines[0];
-        assert_eq!(
-            first_line.previous_oid, "0000000000000000000000000000000000000000",
-            "start from nothing"
-        );
-        assert_eq!(
-            first_line.new_oid.to_string(),
-            commit_id.to_string(),
-            "the new hash is the target id"
-        );
-        let first_line_message = format!("branch: Created from {}", commit_id);
-        assert_eq!(first_line.message, first_line_message);
+        let first_line = lines[0];
         assert_signature(first_line.signature);
+        let first_line_message = format!("branch: Created from {}", commit_id);
+        let expected_line = gix::refs::file::log::LineRef {
+            previous_oid: "0000000000000000000000000000000000000000".into(),
+            new_oid: commit_id_hex,
+            signature: first_line.signature,
+            message: first_line_message.as_str().into(),
+        };
+        assert_eq!(first_line, expected_line);
 
-        let second_line = &lines[1];
-        assert_eq!(
-            second_line.previous_oid.to_string(),
-            commit_id.to_string(),
-            "second entry starts where the first left off"
-        );
-        assert_eq!(second_line.new_oid.to_string(), oplog_sha.to_string());
-        let line2_message = format!("reset: moving to {oplog_sha}");
-        assert_eq!(second_line.message, line2_message);
-        assert_signature(second_line.signature);
+        let second_line = lines[1];
+        let second_line_message = format!("reset: moving to {oplog}");
+        let expected_line = gix::refs::file::log::LineRef {
+            previous_oid: commit_id_hex,
+            new_oid: oplog_hex.into(),
+            signature: first_line.signature,
+            message: second_line_message.as_str().into(),
+        };
+        assert_eq!(second_line, expected_line);
 
         // Update the oplog head only
-        let another_oplog_sha = git::Oid::from_str("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")?;
-        set_reference_to_oplog(&worktree_dir, commit_id.into(), another_oplog_sha)
-            .expect("success");
+        let another_oplog_hex = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        let another_oplog = git::Oid::from_str(another_oplog_hex)?;
+        set_reference_to_oplog(worktree_dir, commit_id.into(), another_oplog).expect("success");
 
         let contents = std::fs::read_to_string(&log_file_path)?;
         let lines: Vec<_> = reflog_lines(&contents);
         assert_eq!(lines.len(), 2);
-        let first_line = &lines[0];
-        assert_eq!(
-            format!("{} {}", first_line.previous_oid, first_line.new_oid),
-            format!("0000000000000000000000000000000000000000 {}", commit_id)
-        );
-        assert_eq!(first_line.message, first_line_message);
-        assert_signature(first_line.signature);
 
-        let second_line = &lines[1];
-        assert_eq!(
-            format!("{} {}", second_line.previous_oid, second_line.new_oid),
-            format!("{} {}", commit_id, another_oplog_sha)
-        );
-        let second_line_message = format!("reset: moving to {another_oplog_sha}");
-        assert_eq!(second_line.message, second_line_message);
-        assert_signature(second_line.signature);
+        let first_line = lines[0];
+        assert_signature(first_line.signature);
+        let expected_line = gix::refs::file::log::LineRef {
+            previous_oid: "0000000000000000000000000000000000000000".into(),
+            new_oid: commit_id_hex,
+            signature: first_line.signature,
+            message: first_line_message.as_str().into(),
+        };
+        assert_eq!(first_line, expected_line);
+
+        let second_line = lines[1];
+        let second_line_message = format!("reset: moving to {another_oplog}");
+        let expected_line = gix::refs::file::log::LineRef {
+            previous_oid: commit_id_hex,
+            new_oid: another_oplog_hex.into(),
+            signature: first_line.signature,
+            message: second_line_message.as_str().into(),
+        };
+        assert_eq!(second_line, expected_line);
 
         // Update the target head only
-        let new_target = git::Oid::from_str("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")?;
-        set_reference_to_oplog(&worktree_dir, new_target, another_oplog_sha).expect("success");
+        let new_target_hex = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let new_target = git::Oid::from_str(new_target_hex)?;
+        set_reference_to_oplog(worktree_dir, new_target, another_oplog).expect("success");
 
         let contents = std::fs::read_to_string(&log_file_path)?;
         let lines: Vec<_> = reflog_lines(&contents);
         assert_eq!(lines.len(), 2);
-        let first_line = &lines[0];
-        assert_eq!(
-            format!("{} {}", first_line.previous_oid, first_line.new_oid),
-            format!("0000000000000000000000000000000000000000 {}", new_target)
-        );
-        let line1_message = format!("branch: Created from {new_target}");
-        assert_eq!(first_line.message, line1_message);
-        assert_signature(first_line.signature);
 
-        let second_line = &lines[1];
-        assert_eq!(
-            format!("{} {}", second_line.previous_oid, second_line.new_oid),
-            format!("{} {}", new_target, another_oplog_sha)
-        );
-        assert_eq!(second_line.message, second_line_message);
+        let first_line = lines[0];
+        assert_signature(first_line.signature);
+        let first_line_message = format!("branch: Created from {new_target}");
+        let expected_line = gix::refs::file::log::LineRef {
+            previous_oid: "0000000000000000000000000000000000000000".into(),
+            new_oid: new_target_hex.into(),
+            signature: first_line.signature,
+            message: first_line_message.as_str().into(),
+        };
+        assert_eq!(first_line, expected_line);
+
+        let second_line = lines[1];
         assert_signature(second_line.signature);
+        let expected_line = gix::refs::file::log::LineRef {
+            previous_oid: new_target_hex.into(),
+            new_oid: another_oplog_hex.into(),
+            signature: first_line.signature,
+            message: second_line_message.as_str().into(),
+        };
+        assert_eq!(second_line, expected_line);
 
         Ok(())
     }
