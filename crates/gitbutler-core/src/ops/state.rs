@@ -71,7 +71,7 @@ impl OplogHandle {
     /// Gets the oplog head sha for the given repository.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn get_oplog_head(&self) -> Result<Option<git::Oid>> {
+    pub fn oplog_head(&self) -> Result<Option<git::Oid>> {
         let oplog = self.read_file()?;
         Ok(oplog.head_sha)
     }
@@ -79,7 +79,7 @@ impl OplogHandle {
     /// Gets the time when the last snapshot was created.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn get_modified_at(&self) -> Result<SystemTime> {
+    pub fn modified_at(&self) -> Result<SystemTime> {
         let oplog = self.read_file()?;
         Ok(oplog.modified_at)
     }

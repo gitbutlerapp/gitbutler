@@ -17,10 +17,10 @@ use serde::Serialize;
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
-    /// The sha of the commit that represents the snapshot
-    #[serde(with = "crate::serde::oid")]
-    pub id: git::Oid,
-    /// Snapshot creation time in seconds from Unix epoch seconds, based on a Git commit
+    /// The id of the commit that represents the snapshot
+    #[serde(rename = "id", with = "crate::serde::oid")]
+    pub commit_id: git::Oid,
+    /// Snapshot creation time in seconds from Unix epoch seconds, based on a commit as `commit_id`.
     #[serde(serialize_with = "crate::serde::as_time_seconds_from_unix_epoch")]
     pub created_at: git2::Time,
     /// The number of working directory lines added in the snapshot
@@ -159,6 +159,12 @@ pub enum OperationKind {
     FileChanges,
     #[default]
     Unknown,
+}
+
+impl From<OperationKind> for SnapshotDetails {
+    fn from(value: OperationKind) -> Self {
+        SnapshotDetails::new(value)
+    }
 }
 
 impl fmt::Display for OperationKind {

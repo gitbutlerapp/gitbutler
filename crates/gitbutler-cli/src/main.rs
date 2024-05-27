@@ -54,7 +54,7 @@ fn list_snapshots(repo_dir: &str) -> Result<()> {
         let ts = chrono::DateTime::from_timestamp(snapshot.created_at.seconds(), 0);
         let details = snapshot.details;
         if let (Some(ts), Some(details)) = (ts, details) {
-            println!("{} {} {}", ts, snapshot.id, details.operation);
+            println!("{} {} {}", ts, snapshot.commit_id, details.operation);
         }
     }
     Ok(())

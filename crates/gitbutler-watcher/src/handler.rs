@@ -125,7 +125,10 @@ impl Handler {
             .projects
             .get(&project_id)
             .context("failed to get project")?;
-        if project.should_auto_snapshot().unwrap_or_default() {
+        if project
+            .should_auto_snapshot(std::time::Duration::from_secs(300))
+            .unwrap_or_default()
+        {
             project.create_snapshot(SnapshotDetails::new(OperationKind::FileChanges))?;
         }
         Ok(())

@@ -27,8 +27,8 @@ use crate::virtual_branches::integration::{
 /// The reflog entry is continuously updated to refer to the current target and oplog head commits.
 pub(super) fn set_reference_to_oplog(
     worktree_dir: &Path,
-    target_commit: git::Oid,
-    oplog_commit: git::Oid,
+    target_commit_id: git::Oid,
+    oplog_commit_id: git::Oid,
 ) -> Result<()> {
     let reflog_file_path = worktree_dir
         .join(".git")
@@ -52,7 +52,7 @@ pub(super) fn set_reference_to_oplog(
     // The check is here only to avoid unnecessary writes
     if repo.try_find_reference("gitbutler/target")?.is_none() {
         repo.refs.write_reflog = gix::refs::store::WriteReflog::Always;
-        let target_commit_hex = target_commit.to_string();
+        let target_commit_hex = target_commit_id.to_string();
         repo.reference(
             "refs/heads/gitbutler/target",
             target_commit_hex.parse::<gix::ObjectId>()?,
@@ -63,20 +63,20 @@ pub(super) fn set_reference_to_oplog(
 
     let mut content = std::fs::read_to_string(&reflog_file_path)
         .context("A reflog for gitbutler/target which is needed for undo snapshotting")?;
-    content = set_target_ref(&content, &target_commit.to_string()).with_context(|| {
+    content = set_target_ref(&content, &target_commit_id.to_string()).with_context(|| {
         format!(
             "Something was wrong with oplog reflog file at \"{}\"",
             reflog_file_path.display()
         )
     })?;
-    content = set_oplog_ref(&content, &oplog_commit.to_string())?;
+    content = set_oplog_ref(&content, &oplog_commit_id.to_string())?;
     write(reflog_file_path, content)?;
 
     Ok(())
 }
 
-fn branch_creation_message(commit_hash_hex: &str) -> String {
-    format!("branch: Created from {commit_hash_hex}")
+fn branch_creation_message(commit_id_hex: &str) -> String {
+    format!("branch: Created from {commit_id_hex}")
 }
 
 fn standard_signature() -> gix::actor::SignatureRef<'static> {
@@ -87,34 +87,37 @@ fn standard_signature() -> gix::actor::SignatureRef<'static> {
     }
 }
 
-fn set_target_ref(reflog_content: &str, target_commit_hex: &str) -> Result<String> {
+fn set_target_ref(reflog_content: &str, target_commit_id_hex: &str) -> Result<String> {
     // 0000000000000000000000000000000000000000 82873b54925ab268e9949557f28d070d388e7774 Kiril Videlov <kiril@videlov.com> 1714037434 +0200\tbranch: Created from 82873b54925ab268e9949557f28d070d388e7774
     let mut lines = gix::refs::file::log::iter::forward(reflog_content.as_bytes());
-    let message = branch_creation_message(target_commit_hex);
+    let message = branch_creation_message(target_commit_id_hex);
     let expected_first_line = gix::refs::file::log::LineRef {
         previous_oid: "0000000000000000000000000000000000000000".into(),
-        new_oid: target_commit_hex.into(),
+        new_oid: target_commit_id_hex.into(),
         signature: standard_signature(),
         message: message.as_str().into(),
     };
-    let mut first_line = lines.next().unwrap_or(Ok(expected_first_line))?;
+    let mut first_line = lines
+        .next()
+        .unwrap_or(Ok(expected_first_line))
+        .unwrap_or(expected_first_line);
 
-    first_line.new_oid = target_commit_hex.into();
-    let message = format!("branch: Created from {target_commit_hex}");
+    first_line.new_oid = target_commit_id_hex.into();
+    let message = format!("branch: Created from {target_commit_id_hex}");
     first_line.message = message.as_str().into();
 
     Ok(serialize_line(first_line))
 }
 
-fn set_oplog_ref(reflog_content: &str, oplog_commit_hex: &str) -> Result<String> {
+fn set_oplog_ref(reflog_content: &str, oplog_commit_id_hex: &str) -> Result<String> {
     // 82873b54925ab268e9949557f28d070d388e7774 7e8eab472636a26611214bebea7d6b79c971fb8b Kiril Videlov <kiril@videlov.com> 1714044124 +0200\treset: moving to 7e8eab472636a26611214bebea7d6b79c971fb8b
     let mut lines = gix::refs::file::log::iter::forward(reflog_content.as_bytes());
     let first_line = lines.next().context("need the creation-line in reflog")??;
 
-    let new_msg = format!("reset: moving to {}", oplog_commit_hex);
+    let new_msg = format!("reset: moving to {}", oplog_commit_id_hex);
     let second_line = gix::refs::file::log::LineRef {
         previous_oid: first_line.new_oid,
-        new_oid: oplog_commit_hex.into(),
+        new_oid: oplog_commit_id_hex.into(),
         message: new_msg.as_str().into(),
         ..first_line
     };
@@ -172,7 +175,25 @@ mod set_target_ref {
     }
 
     #[test]
-    fn reflog_present_but_branch_missing_recreates_branch() -> anyhow::Result<()> {
+    fn reflog_present_but_broken() -> anyhow::Result<()> {
+        let (dir, commit_id) = setup_repo()?;
+        let worktree_dir = dir.path();
+
+        let oplog = git::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
+        set_reference_to_oplog(worktree_dir, commit_id.into(), oplog).expect("success");
+
+        let log_file_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
+        std::fs::write(&log_file_path, b"a gobbled mess that is no reflog")?;
+
+        set_reference_to_oplog(worktree_dir, commit_id.into(), oplog).expect("success");
+
+        let contents = std::fs::read_to_string(&log_file_path)?;
+        assert_eq!(reflog_lines(&contents).len(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn reflog_present_but_branch_is_missing() -> anyhow::Result<()> {
         let (dir, commit_id) = setup_repo()?;
         let worktree_dir = dir.path();
 

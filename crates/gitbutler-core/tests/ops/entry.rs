@@ -95,14 +95,14 @@ mod snapshot_details {
         let created_at = git2::Time::new(1234567890, timezone_offset_does_not_matter);
         let details = SnapshotDetails::from_str(&commit_message.clone()).unwrap();
         let snapshot = Snapshot {
-            id: commit_sha,
+            commit_id: commit_sha,
             created_at,
             lines_added: 1,
             lines_removed: 1,
             files_changed: vec![PathBuf::from("foo.txt")],
             details: Some(details),
         };
-        assert_eq!(snapshot.id, commit_sha);
+        assert_eq!(snapshot.commit_id, commit_sha);
         assert_eq!(snapshot.created_at, created_at);
         let details = snapshot.details.unwrap();
         assert_eq!(details.version, Version::default());
