@@ -3,7 +3,7 @@
 	import { Project } from '$lib/backend/projects';
 	import { DraggableCommit, DraggableFile, DraggableHunk } from '$lib/dragging/draggables';
 	import { dropzone } from '$lib/dragging/dropzone';
-	import { getContext, getContextStore } from '$lib/utils/context';
+	import { getContext, maybeGetContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { filesToOwnership, filesToSimpleOwnership } from '$lib/vbranches/ownership';
 	import { RemoteCommit, Branch, Commit, LocalFile, RemoteFile } from '$lib/vbranches/types';
@@ -12,9 +12,11 @@
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
-	const branch = getContextStore(Branch);
+	const branch = maybeGetContextStore(Branch);
 
 	function acceptAmend(commit: Commit | RemoteCommit) {
+		if (!$branch) return;
+
 		if (commit instanceof RemoteCommit) {
 			return () => false;
 		}
@@ -38,6 +40,8 @@
 	}
 
 	function onAmend(commit: Commit | RemoteCommit) {
+		if (!$branch) return;
+
 		return (data: any) => {
 			if (data instanceof DraggableHunk) {
 				const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
@@ -59,6 +63,8 @@
 	}
 
 	function acceptSquash(commit: Commit | RemoteCommit) {
+		if (!$branch) return;
+
 		if (commit instanceof RemoteCommit) {
 			return () => false;
 		}
@@ -81,6 +87,8 @@
 	}
 
 	function onSquash(commit: Commit | RemoteCommit) {
+		if (!$branch) return;
+
 		if (commit instanceof RemoteCommit) {
 			return () => false;
 		}
