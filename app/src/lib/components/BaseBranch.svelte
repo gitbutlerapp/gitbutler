@@ -22,8 +22,6 @@
 	let mergeUpstreamWarningDismissedCheckbox = false;
 
 	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length == 0 : false;
-
-	console.log(base);
 </script>
 
 <div class="wrapper">
