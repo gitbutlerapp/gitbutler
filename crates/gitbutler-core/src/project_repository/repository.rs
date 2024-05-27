@@ -607,6 +607,10 @@ impl Repository {
 
         Err(RemoteError::Auth)
     }
+
+    pub fn remotes(&self) -> Result<Vec<String>> {
+        self.git_repository.remotes().map_err(anyhow::Error::from)
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

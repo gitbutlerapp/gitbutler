@@ -21,17 +21,11 @@ export class CombinedBranch {
 	}
 
 	get sha(): string {
-		if (this.vbranch) return this.vbranch.head;
-		if (this.remoteBranch) return this.remoteBranch.sha;
-		if (this.pr) return this.pr.number.toString(); // probably shouldn't hit this, but :shrug:
-		return 'unknown';
+		return this.pr?.sha || this.remoteBranch?.sha || this.vbranch?.head || 'unknown';
 	}
 
 	get displayName(): string {
-		if (this.vbranch) return this.vbranch.name;
-		if (this.pr) return this.pr.title;
-		if (this.remoteBranch) return this.remoteBranch.displayName;
-		return 'unknown';
+		return this.pr?.title || this.remoteBranch?.displayName || this.vbranch?.name || 'unknown';
 	}
 
 	get authors(): Author[] {
@@ -115,9 +109,9 @@ export class CombinedBranch {
 	}
 
 	currentState(): BranchState | undefined {
-		if (this.vbranch) return BranchState.VirtualBranch;
 		if (this.pr) return BranchState.PR;
 		if (this.remoteBranch) return BranchState.RemoteBranch;
+		if (this.vbranch) return BranchState.VirtualBranch;
 		return undefined;
 	}
 }

@@ -638,6 +638,21 @@ impl Repository {
             .blame_file(path, Some(&mut opts))
             .map_err(super::Error::Blame)
     }
+
+    /// Returns a list of remotes
+    ///
+    /// Returns Vec<String> instead of StringArray because StringArray cannot safly be sent between threads
+    pub fn remotes(&self) -> Result<Vec<String>> {
+        self.0
+            .remotes()
+            .map(|string_array| {
+                string_array
+                    .iter()
+                    .filter_map(|s| s.map(String::from))
+                    .collect()
+            })
+            .map_err(super::Error::Remotes)
+    }
 }
 
 pub struct CheckoutTreeBuidler<'a> {

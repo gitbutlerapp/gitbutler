@@ -31,6 +31,8 @@ pub enum Error {
     Other(git2::Error),
     #[error(transparent)]
     Utf8(#[from] Utf8Error),
+    #[error(transparent)]
+    Remotes(git2::Error),
 }
 
 impl From<git2::Error> for Error {
