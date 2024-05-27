@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { PromptService } from '$lib/ai/promptService';
 	import Content from '$lib/components/AIPromptEdit/Content.svelte';
-	import Expandable from '$lib/components/AIPromptEdit/Expandable.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import TextBox from '$lib/components/TextBox.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { get } from 'svelte/store';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
@@ -39,47 +37,27 @@
 		</h3>
 		<div>
 			{#if prompts.defaultPrompt}
-				<!-- svelte-ignore a11y-no-static-element-interactions -->
-				<Expandable roundedTop={true} roundedBottom={$userPrompts.length == 0}>
-					<svelte:fragment slot="header">
-						<div class="prompt-name">
-							<p class="text-base-15 text-semibold">Default Prompt</p>
-						</div>
-					</svelte:fragment>
-
-					<!-- svelte-ignore a11y-click-events-have-key-events -->
-					<div on:click|stopPropagation class="not-clickable">
-						<Content displayMode="readOnly" bind:promptMessages={prompts.defaultPrompt} />
-					</div>
-				</Expandable>
+				<Content
+					displayMode="readOnly"
+					prompt={{ prompt: prompts.defaultPrompt, name: 'Default Prompt', id: 'default' }}
+					roundedTop={true}
+					roundedBottom={$userPrompts.length == 0}
+				/>
 			{/if}
 			{#each $userPrompts as prompt, index}
-				<Expandable roundedTop={false} roundedBottom={index + 1 == $userPrompts.length}>
-					<svelte:fragment slot="header">
-						<div class="prompt-name">
-							<TextBox bind:value={prompt.name} wide on:click={(e) => e.stopPropagation()} />
-							<Button
-								on:click={(e) => {
-									e.stopPropagation();
-									deletePrompt(prompt);
-								}}
-								icon="bin"
-							/>
-						</div>
-					</svelte:fragment>
-
-					<!-- svelte-ignore a11y-click-events-have-key-events -->
-					<!-- svelte-ignore a11y-no-static-element-interactions -->
-					<div on:click|stopPropagation class="not-clickable">
-						<Content displayMode="writable" bind:promptMessages={prompt.prompt} />
-					</div>
-				</Expandable>
+				<Content
+					bind:prompt
+					displayMode="writable"
+					roundedTop={false}
+					roundedBottom={index + 1 == $userPrompts.length}
+					on:deletePrompt={(e) => deletePrompt(e.detail.prompt)}
+				/>
 			{/each}
 		</div>
 
-		<div>
-			<Button style="pop" on:click={createNewPrompt}>Create new prompt</Button>
-		</div>
+		<Button kind="solid" style="ghost" icon="plus-small" on:click={createNewPrompt}
+			>New prompt</Button
+		>
 	</div>
 {/if}
 
@@ -89,14 +67,5 @@
 		flex-direction: column;
 
 		gap: var(--size-8);
-	}
-	.prompt-name {
-		display: flex;
-		align-items: center;
-		gap: var(--size-8);
-	}
-
-	.not-clickable {
-		cursor: default;
 	}
 </style>
