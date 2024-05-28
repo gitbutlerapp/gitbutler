@@ -3,7 +3,7 @@ use bstr::BStr;
 
 #[derive(Debug)]
 pub struct Commit<'repo> {
-    commit: git2::Commit<'repo>,
+    pub commit: git2::Commit<'repo>,
 }
 
 impl<'repo> From<git2::Commit<'repo>> for Commit<'repo> {

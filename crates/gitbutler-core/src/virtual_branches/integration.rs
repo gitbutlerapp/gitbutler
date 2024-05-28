@@ -38,7 +38,7 @@ pub fn get_workspace_head(
     let target = vb_state
         .get_default_target()
         .context("failed to get target")?;
-    let repo = &project_repository.git_repository;
+    let repo: &git2::Repository = (&project_repository.git_repository).into();
     let vb_state = project_repository.project().virtual_branches();
 
     let all_virtual_branches = vb_state.list_branches()?;
@@ -47,16 +47,17 @@ pub fn get_workspace_head(
         .filter(|branch| branch.applied)
         .collect::<Vec<_>>();
 
-    let target_commit = repo.find_commit(target.sha)?;
+    let target_commit = repo.find_commit(target.sha.into())?;
     let target_tree = target_commit.tree()?;
     let mut workspace_tree = target_commit.tree()?;
 
     // Merge applied branches into one `workspace_tree`.
     for branch in &applied_virtual_branches {
-        let branch_head = repo.find_commit(branch.head)?;
+        let branch_head = repo.find_commit(branch.head.into())?;
         let branch_tree = branch_head.tree()?;
 
-        if let Ok(mut result) = repo.merge_trees(&target_tree, &workspace_tree, &branch_tree) {
+        if let Ok(mut result) = repo.merge_trees(&target_tree, &workspace_tree, &branch_tree, None)
+        {
             if !result.has_conflicts() {
                 let final_tree_oid = result.write_tree_to(repo)?;
                 workspace_tree = repo.find_tree(final_tree_oid)?;
@@ -69,13 +70,13 @@ pub fn get_workspace_head(
 
     let branch_heads = applied_virtual_branches
         .iter()
-        .map(|b| repo.find_commit(b.head))
+        .map(|b| repo.find_commit(b.head.into()))
         .collect::<Result<Vec<_>, _>>()?;
     let branch_head_refs = branch_heads.iter().collect::<Vec<_>>();
 
     // If no branches are applied then the workspace head is the target.
     if branch_head_refs.is_empty() {
-        return Ok(target_commit.id());
+        return Ok(target_commit.id().into());
     }
 
     // TODO(mg): Can we make this a constant?
@@ -84,14 +85,13 @@ pub fn get_workspace_head(
     // Create merge commit of branch heads.
     let workspace_head_id = repo.commit(
         None,
-        &committer,
-        &committer,
+        &committer.signature,
+        &committer.signature,
         WORKSPACE_HEAD,
         &workspace_tree,
-        branch_head_refs.as_slice(),
-        None,
+        &branch_head_refs,
     )?;
-    Ok(workspace_head_id)
+    Ok(workspace_head_id.into())
 }
 
 // Before switching the user to our gitbutler integration branch we save
@@ -117,7 +117,7 @@ fn read_integration_file(path: &PathBuf) -> Result<Option<PreviousHead>> {
     }
 }
 
-fn write_integration_file(head: &git::Reference, path: PathBuf) -> Result<()> {
+fn write_integration_file(head: &git2::Reference, path: PathBuf) -> Result<()> {
     let sha = head.target().unwrap().to_string();
     std::fs::write(path, format!(":{}", sha))?;
     Ok(())
@@ -130,10 +130,10 @@ pub fn update_gitbutler_integration(
         .get_default_target()
         .context("failed to get target")?;
 
-    let repo = &project_repository.git_repository;
+    let repo: &git2::Repository = (&project_repository.git_repository).into();
 
     // get commit object from target.sha
-    let target_commit = repo.find_commit(target.sha)?;
+    let target_commit = repo.find_commit(target.sha.into())?;
 
     // get current repo head for reference
     let head_ref = repo.head()?;
@@ -164,7 +164,7 @@ pub fn update_gitbutler_integration(
         .collect::<Vec<_>>();
 
     let integration_commit =
-        repo.find_commit(get_workspace_head(&vb_state, project_repository)?)?;
+        repo.find_commit(get_workspace_head(&vb_state, project_repository)?.into())?;
     let integration_tree = integration_commit.tree()?;
 
     // message that says how to get back to where they were
@@ -215,22 +215,21 @@ pub fn update_gitbutler_integration(
     // requires committing to the tip of the branch, and we're mostly replacing the tip.
     let final_commit = repo.commit(
         None,
-        &committer,
-        &committer,
+        &committer.signature,
+        &committer.signature,
         &message,
         &integration_commit.tree()?,
         &[&target_commit],
-        None,
     )?;
 
     // Create or replace the integration branch reference, then set as HEAD.
     repo.reference(
-        &GITBUTLER_INTEGRATION_REFERENCE.clone().into(),
+        &GITBUTLER_INTEGRATION_REFERENCE.clone().to_string(),
         final_commit,
         true,
         "updated integration commit",
     )?;
-    repo.set_head(&GITBUTLER_INTEGRATION_REFERENCE.clone().into())?;
+    repo.set_head(&GITBUTLER_INTEGRATION_REFERENCE.clone().to_string())?;
 
     let mut index = repo.index()?;
     index.read_tree(&integration_tree)?;
@@ -238,8 +237,8 @@ pub fn update_gitbutler_integration(
 
     // finally, update the refs/gitbutler/ heads to the states of the current virtual branches
     for branch in &all_virtual_branches {
-        let wip_tree = repo.find_tree(branch.tree)?;
-        let mut branch_head = repo.find_commit(branch.head)?;
+        let wip_tree = repo.find_tree(branch.tree.into())?;
+        let mut branch_head = repo.find_commit(branch.head.into())?;
         let head_tree = branch_head.tree()?;
 
         // create a wip commit if there is wip
@@ -254,25 +253,25 @@ pub fn update_gitbutler_integration(
             message.push_str("anything else.\n\n");
             let branch_head_oid = repo.commit(
                 None,
-                &committer,
-                &committer,
+                &committer.signature,
+                &committer.signature,
                 &message,
                 &wip_tree,
                 &[&branch_head],
-                None,
+                // None,
             )?;
             branch_head = repo.find_commit(branch_head_oid)?;
         }
 
         repo.reference(
-            &branch.refname().into(),
+            &branch.refname().to_string(),
             branch_head.id(),
             true,
             "update virtual branch",
         )?;
     }
 
-    Ok(final_commit)
+    Ok(final_commit.into())
 }
 
 pub fn verify_branch(
