@@ -7,6 +7,7 @@ import { ProjectService } from '$lib/backend/projects';
 import { PromptService } from '$lib/backend/prompt';
 import { UpdaterService } from '$lib/backend/updater';
 import { GitHubService } from '$lib/github/service';
+import { RemotesService } from '$lib/remotes/service';
 import { UserService } from '$lib/stores/user';
 import { mockTauri } from '$lib/testing/index';
 import lscache from 'lscache';
@@ -52,6 +53,7 @@ export async function load() {
 
 	const gitConfig = new GitConfigService();
 	const aiService = new AIService(gitConfig, httpClient);
+	const remotesService = new RemotesService();
 
 	return {
 		authService,
@@ -64,6 +66,7 @@ export async function load() {
 		// These observables are provided for convenience
 		remoteUrl$,
 		gitConfig,
-		aiService
+		aiService,
+		remotesService
 	};
 }
