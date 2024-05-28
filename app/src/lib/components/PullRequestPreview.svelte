@@ -11,6 +11,7 @@
 	import * as toasts from '$lib/utils/toasts';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { marked } from 'marked';
 	import type { PullRequest } from '$lib/github/types';
 	import { goto } from '$app/navigation';
@@ -21,6 +22,7 @@
 	const project = getContext(Project);
 	const remotesService = getContext(RemotesService);
 	const baseBranchService = getContext(BaseBranchService);
+	const virtualBranchService = getContext(VirtualBranchService);
 
 	let remoteName = structuredClone(pullrequest.repoName) || '';
 	let createRemoteModal: Modal | undefined;
@@ -49,7 +51,22 @@
 			await branchController.createvBranchFromBranch(
 				`refs/remotes/${remoteName}/${pullrequest.targetBranch}`
 			);
-			goto(`/${project.id}/board`);
+			await virtualBranchService.reload();
+			const vbranch = await virtualBranchService.getByUpstreamSha(pullrequest.sha);
+
+			// This is a little absurd, but it makes it soundly typed
+			if (!vbranch) {
+				goto(`/${project.id}/board`);
+				return;
+			}
+
+			// Active seems to be a more reliable metric to determine whether to go to the branch page
+			if (vbranch.active) {
+				goto(`/${project.id}/board`);
+			} else {
+				goto(`/${project.id}/stashed/${vbranch.id}`);
+			}
+
 			createRemoteModal?.close();
 		} finally {
 			loading = false;
