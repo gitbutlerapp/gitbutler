@@ -57,12 +57,15 @@
 	}
 </script>
 
-<Modal bind:this={createRemoteModal}>
-	<p class="">Choose a remote name</p>
-	<TextBox bind:value={remoteName}></TextBox>
+<Modal width="small" bind:this={createRemoteModal}>
+	<p class="text-base-15 fork-notice">
+		In order to apply a branch from a fork, GitButler must first add a remote.
+	</p>
+	<TextBox label="Choose a remote name" bind:value={remoteName}></TextBox>
 	<svelte:fragment slot="controls">
 		<Button style="ghost" kind="solid" on:click={closeModal}>Cancel</Button>
-		<Button style="pop" kind="solid" grow on:click={createRemoteAndBranch} {loading}>Submit</Button>
+		<Button style="pop" kind="solid" grow on:click={createRemoteAndBranch} {loading}>Confirm</Button
+		>
 	</svelte:fragment>
 </Modal>
 
@@ -132,5 +135,9 @@
 	.card__title-pr {
 		opacity: 0.4;
 		margin-left: var(--size-4);
+	}
+
+	.fork-notice {
+		margin-bottom: var(--size-8);
 	}
 </style>
