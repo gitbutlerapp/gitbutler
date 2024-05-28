@@ -580,13 +580,6 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn get_wd_tree(&self) -> Result<Tree> {
-        let mut index = self.0.index()?;
-        index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
-        let oid = index.write_tree()?;
-        self.0.find_tree(oid).map(Into::into).map_err(Into::into)
-    }
-
     pub fn remote(&self, name: &str, url: &Url) -> Result<Remote> {
         self.0
             .remote(name, &url.to_string())
