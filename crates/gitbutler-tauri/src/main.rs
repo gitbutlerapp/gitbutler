@@ -200,7 +200,7 @@ fn main() {
                     virtual_branches::commands::list_remote_branches,
                     virtual_branches::commands::get_remote_branch_data,
                     virtual_branches::commands::squash_branch_commit,
-                    virtual_branches::commands::fetch_from_target,
+                    virtual_branches::commands::fetch_from_remotes,
                     virtual_branches::commands::move_commit,
                     undo::list_snapshots,
                     undo::restore_snapshot,

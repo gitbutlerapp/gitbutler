@@ -103,7 +103,7 @@ async fn integration() {
     {
         // should mark commits as integrated
         controller
-            .fetch_from_target(project_id, None)
+            .fetch_from_remotes(project_id, None)
             .await
             .unwrap();
 

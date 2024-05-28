@@ -17,7 +17,7 @@ async fn should_update_last_fetched() {
     assert!(before_fetch.last_fetched_ms.is_none());
 
     let fetch = controller
-        .fetch_from_target(project_id, None)
+        .fetch_from_remotes(project_id, None)
         .await
         .unwrap();
     assert!(fetch.last_fetched_ms.is_some());
@@ -27,7 +27,7 @@ async fn should_update_last_fetched() {
     assert_eq!(fetch.last_fetched_ms, after_fetch.last_fetched_ms);
 
     let second_fetch = controller
-        .fetch_from_target(project_id, None)
+        .fetch_from_remotes(project_id, None)
         .await
         .unwrap();
     assert!(second_fetch.last_fetched_ms.is_some());

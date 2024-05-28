@@ -28,7 +28,7 @@ export function mockTauri() {
 			return null;
 		}
 
-		if (cmd === 'fetch_from_target') {
+		if (cmd === 'fetch_from_remotes') {
 			return true;
 		}
 

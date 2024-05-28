@@ -54,10 +54,10 @@
 	$: if (projectId) setupFetchInterval();
 
 	function setupFetchInterval() {
-		baseBranchService.fetchFromTarget();
+		baseBranchService.fetchFromRemotes();
 		clearFetchInterval();
 		const intervalMs = 15 * 60 * 1000; // 15 minutes
-		intervalId = setInterval(async () => await baseBranchService.fetchFromTarget(), intervalMs);
+		intervalId = setInterval(async () => await baseBranchService.fetchFromRemotes(), intervalMs);
 	}
 
 	function clearFetchInterval() {

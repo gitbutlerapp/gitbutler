@@ -347,7 +347,7 @@
 							toasts.error('Failed to merge pull request');
 						} finally {
 							isMerging = false;
-							baseBranchService.fetchFromTarget();
+							baseBranchService.fetchFromRemotes();
 							branchService.reloadVirtualBranches();
 							updateDetailsAndChecks();
 						}
