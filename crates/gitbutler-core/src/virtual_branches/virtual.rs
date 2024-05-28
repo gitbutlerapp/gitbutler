@@ -359,8 +359,6 @@ pub fn apply_branch(
 
             // ok, update the virtual branch
             branch.head = new_branch_head;
-            branch.tree = merged_branch_tree_oid;
-            vb_state.set_branch(branch.clone())?;
         } else {
             // branch was not pushed to upstream yet. attempt a rebase,
             let (_, committer) = project_repository.git_signatures(user)?;
@@ -400,7 +398,6 @@ pub fn apply_branch(
                 // rebase worked out, rewrite the branch head
                 rebase.finish(None).context("failed to finish rebase")?;
                 branch.head = last_rebase_head;
-                branch.tree = merged_branch_tree_oid;
             } else {
                 // rebase failed, do a merge commit
                 rebase.abort().context("failed to abort rebase")?;
@@ -428,9 +425,11 @@ pub fn apply_branch(
                     .context("failed to commit merge")?;
 
                 branch.head = new_branch_head;
-                branch.tree = merged_branch_tree_oid;
             }
         }
+
+        branch.tree = repo.find_commit(branch.head)?.tree()?.id();
+        vb_state.set_branch(branch.clone())?;
     }
 
     let wd_tree = project_repository.get_wd_tree()?;
