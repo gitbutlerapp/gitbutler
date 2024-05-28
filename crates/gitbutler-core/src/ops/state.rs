@@ -1,16 +1,16 @@
 use anyhow::Result;
 use std::{
-    fs::File,
-    io::Read,
     path::{Path, PathBuf},
     time::SystemTime,
 };
 
+use crate::fs::read_toml_file_or_default;
+use crate::git;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use super::OPLOG_FILE_NAME;
 
-/// SystemTime used to be serialized as a u64 of seconds, but is now a propper SystemTime struct.
+/// SystemTime used to be serialized as u64 of seconds, but is now a proper SystemTime struct.
 /// This function will handle the old format gracefully.
 fn unfailing_system_time_deserialize<'de, D>(deserializer: D) -> Result<SystemTime, D::Error>
 where
@@ -27,7 +27,8 @@ fn unix_epoch() -> SystemTime {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Oplog {
     /// This is the sha of the last oplog commit
-    pub head_sha: Option<String>,
+    #[serde(with = "crate::serde::oid_opt")]
+    pub head_sha: Option<git::Oid>,
     /// The time when the last snapshot was created. Seconds since Epoch
     #[serde(
         deserialize_with = "unfailing_system_time_deserialize",
@@ -45,7 +46,7 @@ impl Default for Oplog {
     }
 }
 
-pub struct OplogHandle {
+pub(crate) struct OplogHandle {
     /// The path to the file containing the oplog head state.
     file_path: PathBuf,
 }
@@ -60,7 +61,7 @@ impl OplogHandle {
     /// Persists the oplog head for the given repository.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn set_oplog_head(&self, sha: String) -> Result<()> {
+    pub fn set_oplog_head(&self, sha: git::Oid) -> Result<()> {
         let mut oplog = self.read_file()?;
         oplog.head_sha = Some(sha);
         self.write_file(oplog)?;
@@ -70,7 +71,7 @@ impl OplogHandle {
     /// Gets the oplog head sha for the given repository.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn get_oplog_head(&self) -> anyhow::Result<Option<String>> {
+    pub fn oplog_head(&self) -> Result<Option<git::Oid>> {
         let oplog = self.read_file()?;
         Ok(oplog.head_sha)
     }
@@ -78,7 +79,7 @@ impl OplogHandle {
     /// Gets the time when the last snapshot was created.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn get_modified_at(&self) -> anyhow::Result<SystemTime> {
+    pub fn modified_at(&self) -> Result<SystemTime> {
         let oplog = self.read_file()?;
         Ok(oplog.modified_at)
     }
@@ -87,30 +88,11 @@ impl OplogHandle {
     ///
     /// If the file does not exist, it will be created.
     fn read_file(&self) -> Result<Oplog> {
-        if !self.file_path.exists() {
-            return Ok(Oplog::default());
-        }
-        let mut file: File = File::open(self.file_path.as_path())?;
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
-        let oplog: Oplog =
-            toml::from_str(&contents).map_err(|e| crate::reader::Error::ParseError {
-                path: self.file_path.clone(),
-                source: e,
-            })?;
-
-        Ok(oplog)
+        Ok(read_toml_file_or_default(&self.file_path)?)
     }
 
-    fn write_file(&self, oplog: Oplog) -> anyhow::Result<()> {
-        let mut oplog = oplog;
-        let now = std::time::SystemTime::now();
-        oplog.modified_at = now;
-        write(self.file_path.as_path(), &oplog)
+    fn write_file(&self, mut oplog: Oplog) -> Result<()> {
+        oplog.modified_at = SystemTime::now();
+        crate::fs::write(&self.file_path, toml::to_string(&oplog)?)
     }
-}
-
-fn write<P: AsRef<Path>>(file_path: P, oplog: &Oplog) -> anyhow::Result<()> {
-    let contents = toml::to_string(&oplog)?;
-    crate::fs::write(file_path, contents)
 }

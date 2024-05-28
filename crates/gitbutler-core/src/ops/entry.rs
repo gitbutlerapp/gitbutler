@@ -3,12 +3,13 @@ use anyhow::Result;
 use itertools::Itertools;
 use serde::Deserialize;
 use std::fmt;
-use std::fmt::Display;
 use std::fmt::Formatter;
+use std::fmt::{Debug, Display};
 use std::path::PathBuf;
 use std::str::FromStr;
 use strum::EnumString;
 
+use crate::git;
 use serde::Serialize;
 
 /// A snapshot of the repository and virtual branches state that GitButler can restore to.
@@ -16,17 +17,19 @@ use serde::Serialize;
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
-    /// The sha of the commit that represents the snapshot
-    pub id: String,
-    /// Snapshot creation time in epoch seconds
-    pub created_at: i64,
+    /// The id of the commit that represents the snapshot
+    #[serde(rename = "id", with = "crate::serde::oid")]
+    pub commit_id: git::Oid,
+    /// Snapshot creation time in seconds from Unix epoch seconds, based on a commit as `commit_id`.
+    #[serde(serialize_with = "crate::serde::as_time_seconds_from_unix_epoch")]
+    pub created_at: git2::Time,
     /// The number of working directory lines added in the snapshot
     pub lines_added: usize,
     /// The number of working directory lines removed in the snapshot
     pub lines_removed: usize,
     /// The list of working directory files that were changed in the snapshot
     pub files_changed: Vec<PathBuf>,
-    /// Snapshot details as persisted in the commit message
+    /// Snapshot details as persisted in the commit message, or `None` if the details couldn't be parsed.
     pub details: Option<SnapshotDetails>,
 }
 
@@ -39,8 +42,8 @@ pub struct SnapshotDetails {
     /// The version of the snapshot format
     pub version: Version,
     /// The type of operation that was performed just before the snapshot was created
-    pub operation: OperationType,
-    /// The title / lablel of the snapshot
+    pub operation: OperationKind,
+    /// The title / label of the snapshot
     pub title: String,
     /// Additional text describing the snapshot
     pub body: Option<String>,
@@ -49,7 +52,7 @@ pub struct SnapshotDetails {
 }
 
 impl SnapshotDetails {
-    pub fn new(operation: OperationType) -> Self {
+    pub fn new(operation: OperationKind) -> Self {
         let title = operation.to_string();
         SnapshotDetails {
             version: Default::default(),
@@ -70,39 +73,31 @@ impl FromStr for SnapshotDetails {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let message_lines: Vec<&str> = s.lines().collect();
-        let mut split: Vec<Vec<&str>> = message_lines
-            .split(|line| line.is_empty())
-            .map(|s| s.to_vec())
-            .collect();
+        let mut split: Vec<&[&str]> = message_lines.split(|line| line.is_empty()).collect();
         let title = split.remove(0).join("\n");
         let mut trailers: Vec<Trailer> = split
             .pop()
             .ok_or(anyhow!("No trailers found on snapshot commit message"))?
             .iter()
-            .map(|s| Trailer::from_str(s))
-            .filter_map(Result::ok)
+            .filter_map(|s| Trailer::from_str(s).ok())
             .collect();
         let body = split.iter().map(|v| v.join("\n")).join("\n\n");
         let body = if body.is_empty() { None } else { Some(body) };
 
-        let version = Version::from_str(
-            &trailers
-                .iter()
-                .find(|t| t.key == "Version")
-                .cloned()
-                .ok_or(anyhow!("No version found on snapshot commit message"))?
-                .value,
-        )?;
+        let version = trailers
+            .iter()
+            .find(|t| t.key == "Version")
+            .ok_or(anyhow!("No version found on snapshot commit message"))?
+            .value
+            .parse()?;
 
-        let operation = OperationType::from_str(
-            &trailers
-                .iter()
-                .find(|t| t.key == "Operation")
-                .cloned()
-                .ok_or(anyhow!("No operation found on snapshot commit message"))?
-                .value,
-        )
-        .unwrap_or(Default::default());
+        let operation = trailers
+            .iter()
+            .find(|t| t.key == "Operation")
+            .ok_or(anyhow!("No operation found on snapshot commit message"))?
+            .value
+            .parse()
+            .unwrap_or_default();
 
         // remove the version and operation attributes from the trailers since they have dedicated fields
         trailers.retain(|t| t.key != "Version" && t.key != "Operation");
@@ -119,11 +114,9 @@ impl FromStr for SnapshotDetails {
 
 impl Display for SnapshotDetails {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        writeln!(f, "{}", self.title)?;
-        writeln!(f)?;
+        writeln!(f, "{}\n", self.title)?;
         if let Some(body) = &self.body {
-            writeln!(f, "{}", body)?;
-            writeln!(f)?;
+            writeln!(f, "{}\n", body)?;
         }
         writeln!(f, "Version: {}", self.version)?;
         writeln!(f, "Operation: {}", self.operation)?;
@@ -134,8 +127,8 @@ impl Display for SnapshotDetails {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, EnumString, Default)]
-pub enum OperationType {
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize, EnumString, Default)]
+pub enum OperationKind {
     CreateCommit,
     CreateBranch,
     SetBaseBranch,
@@ -168,9 +161,15 @@ pub enum OperationType {
     Unknown,
 }
 
-impl fmt::Display for OperationType {
+impl From<OperationKind> for SnapshotDetails {
+    fn from(value: OperationKind) -> Self {
+        SnapshotDetails::new(value)
+    }
+}
+
+impl fmt::Display for OperationKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        Debug::fmt(self, f)
     }
 }
 
@@ -182,9 +181,9 @@ impl Default for Version {
     }
 }
 
-impl fmt::Display for Version {
+impl Display for Version {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
+        Display::fmt(&self.0, f)
     }
 }
 
@@ -196,7 +195,7 @@ impl FromStr for Version {
     }
 }
 
-/// Represents a key value pair stored in a snapshot.
+/// Represents a key value pair stored in a snapshot, like `key: value\n`
 /// Using the git trailer format (https://git-scm.com/docs/git-interpret-trailers)
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -219,137 +218,12 @@ impl FromStr for Trailer {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parts: Vec<&str> = s.splitn(2, ':').collect();
         if parts.len() != 2 {
-            return Err(anyhow!("Invalid trailer format"));
+            return Err(anyhow!("Invalid trailer format, expected `key: value`"));
         }
         let unescaped_value = parts[1].trim().replace("\\n", "\n");
         Ok(Self {
             key: parts[0].trim().to_string(),
             value: unescaped_value,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_trailer_display() {
-        let trailer = Trailer {
-            key: "foo".to_string(),
-            value: "bar".to_string(),
-        };
-        assert_eq!(format!("{}", trailer), "foo: bar");
-    }
-
-    #[test]
-    fn test_trailer_from_str() {
-        let s = "foo: bar";
-        let trailer = Trailer::from_str(s).unwrap();
-        assert_eq!(trailer.key, "foo");
-        assert_eq!(trailer.value, "bar");
-    }
-
-    #[test]
-    fn test_trailer_from_str_invalid() {
-        let s = "foobar";
-        let result = Trailer::from_str(s);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_version_from_trailer() {
-        let s = "Version: 1";
-        let trailer = Trailer::from_str(s).unwrap();
-        let version = Version::from_str(&trailer.value).unwrap();
-        assert_eq!(version.0, 1);
-    }
-
-    #[test]
-    fn test_version_invalid() {
-        let s = "Version: -1";
-        let trailer = Trailer::from_str(s).unwrap();
-        let version = Version::from_str(&trailer.value);
-        assert!(version.is_err());
-    }
-
-    #[test]
-    fn test_operation_type_from_trailer() {
-        let s = "Operation: CreateCommit";
-        let trailer = Trailer::from_str(s).unwrap();
-        let operation = OperationType::from_str(&trailer.value).unwrap();
-        assert_eq!(operation, OperationType::CreateCommit);
-    }
-
-    #[test]
-    fn test_operation_unknown() {
-        let commit_message = "Create a new snapshot\n\nBody text 1\nBody text2\n\nBody text 3\n\nVersion: 1\nOperation: Asdf\nFoo: Bar\n";
-        let details = SnapshotDetails::from_str(commit_message).unwrap();
-        assert_eq!(details.version.0, 1);
-        assert_eq!(details.operation, OperationType::Unknown);
-        assert_eq!(details.title, "Create a new snapshot");
-        assert_eq!(
-            details.body,
-            Some("Body text 1\nBody text2\n\nBody text 3".to_string())
-        );
-        assert_eq!(
-            details.trailers,
-            vec![Trailer {
-                key: "Foo".to_string(),
-                value: "Bar".to_string(),
-            }]
-        );
-    }
-
-    #[test]
-    fn test_new_snapshot() {
-        let commit_sha = "1234567890".to_string();
-        let commit_message =
-            "Create a new snapshot\n\nBody text 1\nBody text2\n\nBody text 3\n\nVersion: 1\nOperation: CreateCommit\nFoo: Bar\n".to_string();
-        let created_at = 1234567890;
-        let details = SnapshotDetails::from_str(&commit_message.clone()).unwrap();
-        let snapshot = Snapshot {
-            id: commit_sha.clone(),
-            created_at,
-            lines_added: 1,
-            lines_removed: 1,
-            files_changed: vec![PathBuf::from("foo.txt")],
-            details: Some(details),
-        };
-        assert_eq!(snapshot.id, commit_sha);
-        assert_eq!(snapshot.created_at, created_at);
-        let details = snapshot.details.unwrap();
-        assert_eq!(details.version.0, 1);
-        assert_eq!(details.operation, OperationType::CreateCommit);
-        assert_eq!(details.title, "Create a new snapshot");
-        assert_eq!(
-            details.body,
-            Some("Body text 1\nBody text2\n\nBody text 3".to_string())
-        );
-        assert_eq!(
-            details.trailers,
-            vec![Trailer {
-                key: "Foo".to_string(),
-                value: "Bar".to_string(),
-            }]
-        );
-        assert_eq!(details.to_string(), commit_message);
-    }
-
-    #[test]
-    fn test_create_snapshot_containing_trailer_with_newline() {
-        let snapshot_details = SnapshotDetails {
-            version: Version(1),
-            operation: OperationType::CreateCommit,
-            title: "Create a new snapshot".to_string(),
-            body: None,
-            trailers: vec![Trailer {
-                key: "Message".to_string(),
-                value: "Header\n\nBody".to_string(),
-            }],
-        };
-        let serialized = snapshot_details.to_string();
-        let deserialized = SnapshotDetails::from_str(&serialized).unwrap();
-        assert_eq!(deserialized, snapshot_details)
     }
 }

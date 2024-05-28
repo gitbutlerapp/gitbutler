@@ -1,90 +1,74 @@
 use std::vec;
 
+use crate::projects::Project;
 use crate::{
-    ops::entry::{OperationType, SnapshotDetails},
+    git,
+    ops::entry::{OperationKind, SnapshotDetails},
     virtual_branches::{branch::BranchUpdateRequest, Branch},
 };
 
-use super::{entry::Trailer, oplog::Oplog};
+use super::entry::Trailer;
 
-pub trait Snapshot {
-    fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()>;
-    fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()>;
-    fn snapshot_branch_applied(&self, branch_name: String) -> anyhow::Result<()>;
-    fn snapshot_branch_unapplied(&self, branch_name: String) -> anyhow::Result<()>;
-    fn snapshot_branch_update(
-        &self,
-        old_branch: &Branch,
-        update: &BranchUpdateRequest,
-    ) -> anyhow::Result<()>;
-    fn snapshot_commit_creation(
-        &self,
-        snapshot_tree: String,
-        commit_message: String,
-        sha: Option<String>,
-    ) -> anyhow::Result<()>;
-    fn snapshot_commit_undo(&self, commit_sha: String) -> anyhow::Result<()>;
-}
-
-impl<T: Oplog> Snapshot for T {
-    fn snapshot_branch_applied(&self, branch_name: String) -> anyhow::Result<()> {
+/// Snapshot functionality
+impl Project {
+    pub(crate) fn snapshot_branch_applied(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
-            SnapshotDetails::new(OperationType::ApplyBranch).with_trailers(vec![Trailer {
+            SnapshotDetails::new(OperationKind::ApplyBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
                 value: branch_name,
             }]);
         self.create_snapshot(details)?;
         Ok(())
     }
-    fn snapshot_branch_unapplied(&self, branch_name: String) -> anyhow::Result<()> {
+    pub(crate) fn snapshot_branch_unapplied(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
-            SnapshotDetails::new(OperationType::UnapplyBranch).with_trailers(vec![Trailer {
+            SnapshotDetails::new(OperationKind::UnapplyBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
                 value: branch_name,
             }]);
         self.create_snapshot(details)?;
         Ok(())
     }
-    fn snapshot_commit_undo(&self, commit_sha: String) -> anyhow::Result<()> {
+    pub(crate) fn snapshot_commit_undo(&self, commit_sha: git::Oid) -> anyhow::Result<()> {
         let details =
-            SnapshotDetails::new(OperationType::UndoCommit).with_trailers(vec![Trailer {
+            SnapshotDetails::new(OperationKind::UndoCommit).with_trailers(vec![Trailer {
                 key: "sha".to_string(),
-                value: commit_sha,
+                value: commit_sha.to_string(),
             }]);
         self.create_snapshot(details)?;
         Ok(())
     }
-    fn snapshot_commit_creation(
+    pub(crate) fn snapshot_commit_creation(
         &self,
-        snapshot_tree: String,
+        snapshot_tree: git::Oid,
         commit_message: String,
-        sha: Option<String>,
+        sha: Option<git::Oid>,
     ) -> anyhow::Result<()> {
-        let details = SnapshotDetails::new(OperationType::CreateCommit).with_trailers(vec![
+        let details = SnapshotDetails::new(OperationKind::CreateCommit).with_trailers(vec![
             Trailer {
                 key: "message".to_string(),
                 value: commit_message,
             },
             Trailer {
                 key: "sha".to_string(),
-                value: sha.unwrap_or_default(),
+                value: sha.map(|sha| sha.to_string()).unwrap_or_default(),
             },
         ]);
         self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
-    fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()> {
+    pub(crate) fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
-            SnapshotDetails::new(OperationType::CreateBranch).with_trailers(vec![Trailer {
+            SnapshotDetails::new(OperationKind::CreateBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
                 value: branch_name,
             }]);
         self.create_snapshot(details)?;
         Ok(())
     }
-    fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()> {
+    pub(crate) fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
-            SnapshotDetails::new(OperationType::DeleteBranch).with_trailers(vec![Trailer {
+            SnapshotDetails::new(OperationKind::DeleteBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
                 value: branch_name.to_string(),
             }]);
@@ -92,31 +76,31 @@ impl<T: Oplog> Snapshot for T {
         self.create_snapshot(details)?;
         Ok(())
     }
-    fn snapshot_branch_update(
+    pub(crate) fn snapshot_branch_update(
         &self,
         old_branch: &Branch,
         update: &BranchUpdateRequest,
     ) -> anyhow::Result<()> {
         let details = if update.ownership.is_some() {
-            SnapshotDetails::new(OperationType::MoveHunk).with_trailers(vec![Trailer {
+            SnapshotDetails::new(OperationKind::MoveHunk).with_trailers(vec![Trailer {
                 key: "name".to_string(),
                 value: old_branch.name.to_string(),
             }])
-        } else if let Some(name) = update.name.clone() {
-            SnapshotDetails::new(OperationType::UpdateBranchName).with_trailers(vec![
+        } else if let Some(name) = update.name.as_deref() {
+            SnapshotDetails::new(OperationKind::UpdateBranchName).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),
-                    value: old_branch.name.to_string(),
+                    value: old_branch.name.clone(),
                 },
                 Trailer {
                     key: "after".to_string(),
-                    value: name,
+                    value: name.to_owned(),
                 },
             ])
         } else if update.notes.is_some() {
-            SnapshotDetails::new(OperationType::UpdateBranchNotes)
+            SnapshotDetails::new(OperationKind::UpdateBranchNotes)
         } else if let Some(order) = update.order {
-            SnapshotDetails::new(OperationType::ReorderBranches).with_trailers(vec![
+            SnapshotDetails::new(OperationKind::ReorderBranches).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),
                     value: old_branch.order.to_string(),
@@ -127,7 +111,7 @@ impl<T: Oplog> Snapshot for T {
                 },
             ])
         } else if let Some(_selected_for_changes) = update.selected_for_changes {
-            SnapshotDetails::new(OperationType::SelectDefaultVirtualBranch).with_trailers(vec![
+            SnapshotDetails::new(OperationKind::SelectDefaultVirtualBranch).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),
                     value: old_branch
@@ -140,23 +124,23 @@ impl<T: Oplog> Snapshot for T {
                     value: old_branch.name.clone(),
                 },
             ])
-        } else if let Some(upstream) = update.upstream.clone() {
-            SnapshotDetails::new(OperationType::UpdateBranchRemoteName).with_trailers(vec![
+        } else if let Some(upstream) = update.upstream.as_deref() {
+            SnapshotDetails::new(OperationKind::UpdateBranchRemoteName).with_trailers(vec![
                 Trailer {
                     key: "before".to_string(),
                     value: old_branch
                         .upstream
-                        .clone()
+                        .as_ref()
                         .map(|r| r.to_string())
-                        .unwrap_or("".to_string()),
+                        .unwrap_or_default(),
                 },
                 Trailer {
                     key: "after".to_string(),
-                    value: upstream,
+                    value: upstream.to_owned(),
                 },
             ])
         } else {
-            SnapshotDetails::new(OperationType::GenericBranchUpdate)
+            SnapshotDetails::new(OperationKind::GenericBranchUpdate)
         };
         self.create_snapshot(details)?;
         Ok(())

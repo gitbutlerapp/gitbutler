@@ -7,6 +7,7 @@ mod error;
 mod git;
 mod keys;
 mod lock;
+mod ops;
 mod reader;
 mod types;
 pub mod virtual_branches;

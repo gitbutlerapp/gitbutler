@@ -34,7 +34,7 @@ regex = "1.10"
 reqwest = { version = "0.12.4", features = ["json"] }
 resolve-path = "0.1.0"
 rusqlite.workspace = true
-serde.workspace = true
+serde = { workspace = true, features = ["std"]}
 serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
 sha2 = "0.10.8"
 ssh-key = { version = "0.6.6", features = [ "alloc", "ed25519" ] }
