@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::{fs, path, str::FromStr};
 
 use gitbutler_core::{
@@ -47,6 +48,16 @@ impl Default for Test {
             project,
             data_dir: Some(data_dir),
         }
+    }
+}
+
+impl Test {
+    /// Consume this instance and keep the temp directory that held the local repository, returning it.
+    /// Best used inside a `dbg!(test.debug_local_repo())`
+    #[allow(dead_code)]
+    pub fn debug_local_repo(mut self) -> PathBuf {
+        let repo = std::mem::take(&mut self.repository);
+        repo.debug_local_repo()
     }
 }
 
