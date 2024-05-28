@@ -10,11 +10,32 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use itertools::Itertools;
 
 use super::Repository;
 use crate::git;
+
+pub fn mark_from_index(
+    repository: &Repository,
+    merge_index: &git::Index,
+    parent: Option<git::Oid>
+) -> Result<()> {
+    // mark conflicts
+    let conflicts = merge_index
+        .conflicts()
+        .context("failed to get merge index conflicts")?;
+    let mut merge_conflicts = Vec::new();
+    for path in conflicts.flatten() {
+        if let Some(ours) = path.our {
+            let path = std::str::from_utf8(&ours.path)
+                .context("failed to convert path to utf8")?
+                .to_string();
+            merge_conflicts.push(path);
+        }
+    }
+    mark(repository, &merge_conflicts, parent)
+}
 
 pub fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
     repository: &Repository,
@@ -63,6 +84,8 @@ pub fn merge_parent(repository: &Repository) -> Result<Option<git::Oid>> {
 
 pub fn resolve<P: AsRef<Path>>(repository: &Repository, path: P) -> Result<()> {
     let path = path.as_ref();
+
+    // remove path from conflicts file
     let conflicts_path = repository.git_repository.path().join("conflicts");
     let file = std::fs::File::open(conflicts_path.clone())?;
     let reader = std::io::BufReader::new(file);
@@ -81,6 +104,14 @@ pub fn resolve<P: AsRef<Path>>(repository: &Repository, path: P) -> Result<()> {
     if !remaining.is_empty() {
         mark(repository, &remaining, None)?;
     }
+
+    // finally, run 'git add' on the path for the project index
+    repository
+        .git_repository
+        .index()?
+        .add_path(path)
+        .context("failed to add path to index")?;
+
     Ok(())
 }
 

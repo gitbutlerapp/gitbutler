@@ -381,6 +381,9 @@ pub fn update_base_branch(
             .map(
                 |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
 
+                    dbg!("UPDATING BRANCH");
+                    dbg!(&branch);
+
                     let branch_tree = repo.find_tree(branch.tree)?;
 
                     let branch_head_commit = repo.find_commit(branch.head).context(format!(
@@ -393,7 +396,9 @@ pub fn update_base_branch(
                     ))?;
 
                     let ok_with_force_push = project_repository.project().ok_with_force_push;
+
                     if *ok_with_force_push {
+                        dbg!("ok with force push, RUNNING EXPERIMENTAL ");
                         // EXPERIMENTAL: just run the branch head through cherry_rebase_group
                         let mut branch_head = branch.head;
 

@@ -459,13 +459,13 @@ pub mod commands {
         project_id: ProjectId,
         branch_id: BranchId,
         commit_oid: git::Oid,
-    ) -> Result<(), Error> {
-        handle
+    ) -> Result<git::Oid, Error> {
+        let oid = handle
             .state::<Controller>()
             .resolve_conflict_finish(&project_id, &branch_id, commit_oid)
             .await?;
         emit_vbranches(&handle, &project_id).await;
-        Ok(())
+        Ok(oid)
     }
 
     #[tauri::command(async)]

@@ -317,7 +317,7 @@ impl Controller {
         project_id: &ProjectId,
         branch_id: &BranchId,
         commit_oid: git::Oid,
-    ) -> Result<(), Error> {
+    ) -> Result<git::Oid, Error> {
         self.inner(project_id)
             .await
             .resolve_conflict_finish(project_id, branch_id, commit_oid)
@@ -807,20 +807,21 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let _ = project_repository
+            let restore_snapshot = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::ConflictStart));
-            super::resolve_conflict_start(project_repository, branch_id, commit_oid)
+                .create_snapshot(SnapshotDetails::new(OperationType::ConflictStart))?;
+            super::resolve_conflict_start(project_repository, branch_id, commit_oid, restore_snapshot)
                 .map_err(Into::into)
         })
     }
 
+    // resolves conflict, updates the branch, returns the new branch head
     pub async fn resolve_conflict_finish(
         &self,
         project_id: &ProjectId,
         branch_id: &BranchId,
         commit_oid: git::Oid
-    ) -> Result<(), Error> {
+    ) -> Result<git::Oid, Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
