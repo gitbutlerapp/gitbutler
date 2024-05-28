@@ -333,6 +333,7 @@ impl Repository {
                         cmd.arg("-U");
                         cmd.arg(&buffer_file_to_sign_path);
                         cmd.stdout(Stdio::piped());
+                        cmd.stdin(Stdio::null());
 
                         let child = cmd.spawn()?;
                         output = child.wait_with_output()?;
@@ -340,6 +341,7 @@ impl Repository {
                         cmd.arg(signing_key);
                         cmd.arg(&buffer_file_to_sign_path);
                         cmd.stdout(Stdio::piped());
+                        cmd.stdin(Stdio::null());
 
                         let child = cmd.spawn()?;
                         output = child.wait_with_output()?;
