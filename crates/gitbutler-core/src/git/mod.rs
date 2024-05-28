@@ -39,3 +39,6 @@ pub use config::*;
 
 mod url;
 pub use self::url::*;
+
+mod repository_ext;
+pub use repository_ext::*;

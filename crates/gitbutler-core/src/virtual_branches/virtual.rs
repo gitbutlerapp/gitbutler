@@ -26,6 +26,7 @@ use super::{
 };
 use crate::error::{self, AnyhowContextExt, Code};
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
+use crate::git::RepositoryExt;
 use crate::time::now_since_unix_epoch_ms;
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
@@ -431,7 +432,7 @@ pub fn apply_branch(
         vb_state.set_branch(branch.clone())?;
     }
 
-    let wd_tree = project_repository.get_wd_tree()?;
+    let wd_tree = project_repository.repo().get_wd_tree()?;
 
     let branch_tree = repo
         .find_tree(branch.tree)
@@ -439,7 +440,7 @@ pub fn apply_branch(
 
     // check index for conflicts
     let mut merge_index = repo
-        .merge_trees(&target_tree, &wd_tree, &branch_tree)
+        .merge_trees(&target_tree, &wd_tree.into(), &branch_tree)
         .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {
@@ -1263,12 +1264,12 @@ pub fn integrate_upstream_commits(
     let new_head_tree = repo.find_commit(new_head)?.tree()?;
     let head_commit = repo.find_commit(new_head)?;
 
-    let wd_tree = project_repository.get_wd_tree()?;
+    let wd_tree = project_repository.repo().get_wd_tree()?;
     let integration_tree = repo
         .find_commit(get_workspace_head(&vb_state, project_repository)?)?
         .tree()?;
 
-    let mut merge_index = repo.merge_trees(&integration_tree, &new_head_tree, &wd_tree)?;
+    let mut merge_index = repo.merge_trees(&integration_tree, &new_head_tree, &wd_tree.into())?;
 
     if merge_index.has_conflicts() {
         repo.checkout_index(&mut merge_index)
@@ -1306,13 +1307,13 @@ pub fn integrate_with_merge(
     upstream_commit: &git::Commit,
     merge_base: git::Oid,
 ) -> Result<git::Oid> {
-    let wd_tree = project_repository.get_wd_tree()?;
+    let wd_tree = project_repository.repo().get_wd_tree()?;
     let repo = &project_repository.git_repository;
     let remote_tree = upstream_commit.tree().context("failed to get tree")?;
     let upstream_branch = branch.upstream.as_ref().context("upstream not found")?;
     let merge_tree = repo.find_commit(merge_base).and_then(|c| c.tree())?;
 
-    let mut merge_index = repo.merge_trees(&merge_tree, &wd_tree, &remote_tree)?;
+    let mut merge_index = repo.merge_trees(&merge_tree, &wd_tree.into(), &remote_tree)?;
 
     if merge_index.has_conflicts() {
         let conflicts = merge_index.conflicts()?;
@@ -2574,12 +2575,12 @@ pub fn is_remote_branch_mergeable(
         &target_commit,
     )?;
 
-    let wd_tree = project_repository.get_wd_tree()?;
+    let wd_tree = project_repository.repo().get_wd_tree()?;
 
     let branch_tree = branch_commit.tree().context("failed to find branch tree")?;
     let mergeable = !project_repository
         .git_repository
-        .merge_trees(&base_tree, &branch_tree, &wd_tree)
+        .merge_trees(&base_tree, &branch_tree, &wd_tree.into())
         .context("failed to merge trees")?
         .has_conflicts();
 
@@ -2633,7 +2634,7 @@ pub fn is_virtual_branch_mergeable(
         &target_commit,
     )?;
 
-    let wd_tree = project_repository.get_wd_tree()?;
+    let wd_tree = project_repository.repo().get_wd_tree()?;
 
     // determine if this tree is mergeable
     let branch_tree = project_repository
@@ -2643,7 +2644,7 @@ pub fn is_virtual_branch_mergeable(
 
     let is_mergeable = !project_repository
         .git_repository
-        .merge_trees(&base_tree, &branch_tree, &wd_tree)
+        .merge_trees(&base_tree, &branch_tree, &wd_tree.into())
         .context("failed to merge trees")?
         .has_conflicts();
 

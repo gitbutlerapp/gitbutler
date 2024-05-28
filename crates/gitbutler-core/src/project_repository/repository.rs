@@ -136,11 +136,6 @@ impl Repository {
         Ok(head)
     }
 
-    pub fn get_wd_tree(&self) -> Result<git::Tree> {
-        let tree = self.git_repository.get_wd_tree()?;
-        Ok(tree)
-    }
-
     pub fn is_path_ignored<P: AsRef<std::path::Path>>(&self, path: P) -> Result<bool> {
         let path = path.as_ref();
         let ignored = self.git_repository.is_path_ignored(path)?;
@@ -616,6 +611,11 @@ impl Repository {
         self.git_repository
             .add_remote(name, url)
             .map_err(anyhow::Error::from)
+    }
+
+    pub fn repo(&self) -> &git2::Repository {
+        let r = &self.git_repository;
+        r.into()
     }
 }
 
