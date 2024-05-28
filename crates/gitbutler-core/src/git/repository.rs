@@ -2,7 +2,6 @@ use super::{
     Blob, Branch, Commit, Config, Index, Oid, Reference, Refname, Remote, Result, Signature, Tree,
     TreeBuilder, Url,
 };
-use crate::path::Normalize;
 use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
 #[cfg(unix)]
