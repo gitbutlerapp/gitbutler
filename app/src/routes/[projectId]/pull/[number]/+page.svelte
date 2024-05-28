@@ -1,4 +1,9 @@
 <script lang="ts">
+	// This page is displayed when:
+	// - A pr is found
+	// - And it does NOT have a cooresponding vbranch
+	// - And it does NOT have a cooresponding remote
+	// It may also display details about a cooresponding pr if they exist
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import PullRequestPreview from '$lib/components/PullRequestPreview.svelte';
 	import { GitHubService } from '$lib/github/service';

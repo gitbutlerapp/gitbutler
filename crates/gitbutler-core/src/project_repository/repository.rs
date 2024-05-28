@@ -611,6 +611,12 @@ impl Repository {
     pub fn remotes(&self) -> Result<Vec<String>> {
         self.git_repository.remotes().map_err(anyhow::Error::from)
     }
+
+    pub fn add_remote(&self, name: &str, url: &str) -> Result<()> {
+        self.git_repository
+            .add_remote(name, url)
+            .map_err(anyhow::Error::from)
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

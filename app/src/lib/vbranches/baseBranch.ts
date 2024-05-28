@@ -63,12 +63,12 @@ export class BaseBranchService {
 		[this.base, this.error] = observableToStore(this.base$, this.reload$);
 	}
 
-	async fetchFromTarget(action: string | undefined = undefined) {
+	async fetchFromRemotes(action: string | undefined = undefined) {
 		this.busy$.next(true);
 		try {
 			// Note that we expect the back end to emit new fetches event, and therefore
 			// trigger a base branch reload. It feels a bit awkward and should be improved.
-			await invoke<void>('fetch_from_target', {
+			await invoke<void>('fetch_from_remotes', {
 				projectId: this.projectId,
 				action: action || 'auto'
 			});
@@ -94,7 +94,7 @@ export class BaseBranchService {
 			branch,
 			pushRemote
 		});
-		await this.fetchFromTarget();
+		await this.fetchFromRemotes();
 	}
 
 	reload() {

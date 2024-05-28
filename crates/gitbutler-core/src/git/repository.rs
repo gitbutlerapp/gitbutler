@@ -655,6 +655,11 @@ impl Repository {
             })
             .map_err(super::Error::Remotes)
     }
+
+    pub fn add_remote(&self, name: &str, url: &str) -> Result<()> {
+        self.0.remote(name, url)?;
+        Ok(())
+    }
 }
 
 pub struct CheckoutTreeBuidler<'a> {

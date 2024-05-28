@@ -15,11 +15,11 @@
 	import { Branch } from '$lib/vbranches/types';
 	import { distinctUntilChanged } from 'rxjs';
 	import { onDestroy } from 'svelte';
-	import { derived, type Readable } from 'svelte/store';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
 	import type { ComponentColor } from '$lib/vbranches/types';
 	import type { MessageStyle } from './InfoMessage.svelte';
 	import type iconsJson from '../icons/icons.json';
+	import type { Readable } from 'svelte/store';
 
 	type StatusInfo = {
 		text: string;
@@ -44,13 +44,7 @@
 	let checksStatus: ChecksStatus | null | undefined = undefined;
 	let lastDetailsFetch: Readable<string> | undefined;
 
-	// We only want to call `.getPr$()` when the upstream name changes, rather
-	// than each time the branch object updates.
-	let distinctUpstreamName = derived<Readable<Branch>, string | undefined>(branch, (b, set) => {
-		set(b.upstreamName);
-	});
-
-	$: pr$ = githubService.getPr$($distinctUpstreamName).pipe(
+	$: pr$ = githubService.getPr$($branch.upstream?.sha || $branch.head).pipe(
 		// Only emit a new objcect if the modified timestamp has changed.
 		distinctUntilChanged((prev, curr) => {
 			return prev?.modifiedAt.getTime() === curr?.modifiedAt.getTime();
@@ -63,15 +57,16 @@
 	$: prStatusInfo = getPrStatusInfo(detailedPr);
 
 	async function updateDetailsAndChecks() {
-		if (!isFetchingDetails) await updateDetailedPullRequest($pr$?.targetBranch, true);
+		if (!$pr$) return;
+		if (!isFetchingDetails) await updateDetailedPullRequest($pr$.sha, true);
 		if (!isFetchingChecks) await fetchChecks();
 	}
 
-	async function updateDetailedPullRequest(targetBranch: string | undefined, skipCache: boolean) {
+	async function updateDetailedPullRequest(targetBranchSha: string, skipCache: boolean) {
 		detailsError = undefined;
 		isFetchingDetails = true;
 		try {
-			detailedPr = await githubService.getDetailedPr(targetBranch, skipCache);
+			detailedPr = await githubService.getDetailedPr(targetBranchSha, skipCache);
 			mergeableState = detailedPr?.mergeableState;
 			lastDetailsFetch = createTimeAgoStore(new Date(), true);
 		} catch (err: any) {
@@ -347,7 +342,7 @@
 							toasts.error('Failed to merge pull request');
 						} finally {
 							isMerging = false;
-							baseBranchService.fetchFromTarget();
+							baseBranchService.fetchFromRemotes();
 							branchService.reloadVirtualBranches();
 							updateDetailsAndChecks();
 						}

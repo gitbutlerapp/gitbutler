@@ -388,14 +388,14 @@ impl Controller {
             .await
     }
 
-    pub async fn fetch_from_target(
+    pub async fn fetch_from_remotes(
         &self,
         project_id: &ProjectId,
         askpass: Option<String>,
     ) -> Result<BaseBranch, Error> {
         self.inner(project_id)
             .await
-            .fetch_from_target(project_id, askpass)
+            .fetch_from_remotes(project_id, askpass)
             .await
     }
 
@@ -880,7 +880,7 @@ impl ControllerInner {
         })
     }
 
-    pub async fn fetch_from_target(
+    pub async fn fetch_from_remotes(
         &self,
         project_id: &ProjectId,
         askpass: Option<String>,

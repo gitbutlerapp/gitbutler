@@ -20,8 +20,14 @@ export class CombinedBranch {
 		this.pr = pr;
 	}
 
-	get sha(): string {
-		return this.pr?.sha || this.remoteBranch?.sha || this.vbranch?.head || 'unknown';
+	get upstreamSha(): string {
+		return (
+			this.pr?.sha ||
+			this.remoteBranch?.sha ||
+			this.vbranch?.upstream?.sha ||
+			this.vbranch?.head ||
+			'unknown'
+		);
 	}
 
 	get displayName(): string {

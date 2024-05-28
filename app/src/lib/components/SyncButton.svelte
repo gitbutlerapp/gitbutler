@@ -23,7 +23,7 @@
 	on:mousedown={async (e) => {
 		e.preventDefault();
 		e.stopPropagation();
-		await baseBranchService.fetchFromTarget('modal');
+		await baseBranchService.fetchFromRemotes('modal');
 		if (githubService.isEnabled) {
 			await githubService.reload();
 		}

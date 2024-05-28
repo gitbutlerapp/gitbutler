@@ -15,8 +15,8 @@
 
 use gitbutler_core::{assets, git, storage};
 use gitbutler_tauri::{
-    app, askpass, commands, github, keys, logs, menu, projects, undo, users, virtual_branches,
-    watcher, zip,
+    app, askpass, commands, github, keys, logs, menu, projects, remotes, undo, users,
+    virtual_branches, watcher, zip,
 };
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
@@ -134,6 +134,12 @@ fn main() {
                         git_credentials_controller.clone(),
                     ));
 
+                    let remotes_controller = gitbutler_core::remotes::controller::Controller::new(
+                        projects_controller.clone(),
+                    );
+
+                    app_handle.manage(remotes_controller.clone());
+
                     let app = app::App::new(
                         projects_controller,
                     );
@@ -200,7 +206,7 @@ fn main() {
                     virtual_branches::commands::list_remote_branches,
                     virtual_branches::commands::get_remote_branch_data,
                     virtual_branches::commands::squash_branch_commit,
-                    virtual_branches::commands::fetch_from_target,
+                    virtual_branches::commands::fetch_from_remotes,
                     virtual_branches::commands::move_commit,
                     undo::list_snapshots,
                     undo::restore_snapshot,
@@ -210,6 +216,8 @@ fn main() {
                     github::commands::init_device_oauth,
                     github::commands::check_auth_status,
                     askpass::commands::submit_prompt_response,
+                    remotes::list_remotes,
+                    remotes::add_remote
                 ])
                 .menu(menu::build(tauri_context.package_info()))
                 .on_menu_event(|event|menu::handle_event(&event))

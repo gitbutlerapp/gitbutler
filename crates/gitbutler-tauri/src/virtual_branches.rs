@@ -485,14 +485,14 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
-    pub async fn fetch_from_target(
+    pub async fn fetch_from_remotes(
         handle: tauri::AppHandle,
         project_id: ProjectId,
         action: Option<String>,
     ) -> Result<BaseBranch, Error> {
         let base_branch = handle
             .state::<Controller>()
-            .fetch_from_target(
+            .fetch_from_remotes(
                 &project_id,
                 Some(action.unwrap_or_else(|| "unknown".to_string())),
             )

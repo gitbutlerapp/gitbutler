@@ -56,7 +56,7 @@ mod cherry_pick;
 mod create_commit;
 mod create_virtual_branch_from_branch;
 mod delete_virtual_branch;
-mod fetch_from_target;
+mod fetch_from_remotes;
 mod init;
 mod insert_blank_commit;
 mod move_commit_file;

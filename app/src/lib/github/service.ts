@@ -173,21 +173,19 @@ export class GitHubService {
 	}
 
 	async getDetailedPr(
-		branch: string | undefined,
+		branchSha: string,
 		skipCache: boolean
 	): Promise<DetailedPullRequest | undefined> {
-		if (!branch) return;
-
-		const cachedPr = !skipCache && this.prCache.get(branch);
+		const cachedPr = !skipCache && this.prCache.get(branchSha);
 		if (cachedPr) {
 			const cacheTimeMs = 2 * 1000;
 			const age = new Date().getTime() - cachedPr.fetchedAt.getTime();
 			if (age < cacheTimeMs) return cachedPr.value;
 		}
 
-		const prNumber = this.getListedPr(branch)?.number;
+		const prNumber = this.getListedPr(branchSha)?.number;
 		if (!prNumber) {
-			toasts.error('No pull request number for branch ' + branch);
+			toasts.error('No pull request number for branch ' + branchSha);
 			return;
 		}
 
@@ -209,7 +207,7 @@ export class GitHubService {
 			attempt++;
 			try {
 				pr = await request();
-				if (pr) this.prCache.set(branch, { value: pr, fetchedAt: new Date() });
+				if (pr) this.prCache.set(branchSha, { value: pr, fetchedAt: new Date() });
 				return pr;
 			} catch (err: any) {
 				if (err.status != 422) throw err;
@@ -229,18 +227,12 @@ export class GitHubService {
 		if (checkSuites.some((suite) => suite.status != 'completed')) return true;
 	}
 
-	getListedPr(branch: string | undefined): PullRequest | undefined {
-		if (!branch) return;
-		return this.prs?.find((pr) => pr.targetBranch == branch);
+	getListedPr(branchSha: string): PullRequest | undefined {
+		return this.prs?.find((pr) => pr.sha == branchSha);
 	}
 
-	getPr$(branch: string | undefined): Observable<PullRequest | undefined> {
-		if (!branch) return of(undefined);
-		return this.prs$.pipe(map((prs) => prs.find((pr) => pr.targetBranch == branch)));
-	}
-
-	hasPr(branch: string): boolean {
-		return !!this.prs$.value.find((pr) => pr.targetBranch == branch);
+	getPr$(branchSha: string): Observable<PullRequest | undefined> {
+		return this.prs$.pipe(map((prs) => prs.find((pr) => pr.sha == branchSha)));
 	}
 
 	/* TODO: Figure out a way to cleanup old behavior subjects */

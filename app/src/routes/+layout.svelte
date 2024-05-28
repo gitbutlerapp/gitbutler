@@ -13,6 +13,7 @@
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import ToastController from '$lib/notifications/ToastController.svelte';
+	import { RemotesService } from '$lib/remotes/service';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
 	import { User, UserService } from '$lib/stores/user';
 	import * as events from '$lib/utils/events';
@@ -42,6 +43,7 @@
 	setContext(AuthService, data.authService);
 	setContext(HttpClient, data.cloud);
 	setContext(User, data.userService.user);
+	setContext(RemotesService, data.remotesService);
 
 	let shareIssueModal: ShareIssueModal;
 
