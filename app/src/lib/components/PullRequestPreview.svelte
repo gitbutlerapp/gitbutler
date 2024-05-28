@@ -1,4 +1,5 @@
 <script lang="ts">
+	// This is always displayed in the context of not having a cooresponding vbranch or remote
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import Tag from '$lib/components/Tag.svelte';

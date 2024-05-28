@@ -1,4 +1,8 @@
 <script lang="ts">
+	// This page is displayed when:
+	// - A remote branch is found
+	// - And it does NOT have a cooresponding vbranch
+	// It may also display details about a cooresponding pr if they exist
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import RemoteBranchPreview from '$lib/components/RemoteBranchPreview.svelte';
 	import { GitHubService } from '$lib/github/service';
