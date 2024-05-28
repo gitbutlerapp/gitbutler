@@ -22,6 +22,8 @@ export interface PullRequest {
 	modifiedAt: Date;
 	mergedAt?: Date;
 	closedAt?: Date;
+	repoName?: string;
+	sshUrl?: string;
 }
 
 export type DetailedGitHubPullRequest = RestEndpointMethodTypes['pulls']['get']['response']['data'];
@@ -102,7 +104,9 @@ export function ghResponseToInstance(
 		sourceBranch: pr.base.ref,
 		sha: pr.head.sha,
 		mergedAt: pr.merged_at ? new Date(pr.merged_at) : undefined,
-		closedAt: pr.closed_at ? new Date(pr.closed_at) : undefined
+		closedAt: pr.closed_at ? new Date(pr.closed_at) : undefined,
+		repoName: pr.head.repo?.full_name,
+		sshUrl: pr.head.repo?.ssh_url
 	};
 }
 
