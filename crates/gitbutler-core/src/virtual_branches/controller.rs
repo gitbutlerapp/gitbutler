@@ -458,8 +458,7 @@ impl ControllerInner {
                 ownership,
                 user,
                 run_hooks,
-            )
-            .map_err(Into::into);
+            )?;
             let _ = snapshot_tree.and_then(|snapshot_tree| {
                 project_repository.project().snapshot_commit_creation(
                     snapshot_tree,
@@ -467,7 +466,7 @@ impl ControllerInner {
                     Some("".to_string()),
                 )
             });
-            result
+            Ok(result)
         })
     }
 
