@@ -361,7 +361,9 @@ pub fn apply_branch(
             branch.head = new_branch_head;
         } else {
             // branch was not pushed to upstream yet. attempt a rebase,
-            let (_, committer) = project_repository.git_signatures(user)?;
+            let (_, committer) =
+                project_repository::signatures::signatures(project_repository, user)
+                    .context("failed to get signatures")?;
             let mut rebase_options = git2::RebaseOptions::new();
             rebase_options.quiet(true);
             rebase_options.inmemory(true);
@@ -386,7 +388,7 @@ pub fn apply_branch(
                     break;
                 }
 
-                if let Ok(commit_id) = rebase.commit(None, &committer.clone().into(), None) {
+                if let Ok(commit_id) = rebase.commit(None, &committer.clone(), None) {
                     last_rebase_head = commit_id.into();
                 } else {
                     rebase_success = false;

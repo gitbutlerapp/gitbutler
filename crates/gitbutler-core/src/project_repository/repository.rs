@@ -114,13 +114,6 @@ impl Repository {
         super::Config::from(&self.git_repository)
     }
 
-    pub fn git_signatures<'a>(
-        &self,
-        user: Option<&users::User>,
-    ) -> Result<(git::Signature<'a>, git::Signature<'a>)> {
-        super::signatures::signatures(self, user).context("failed to get signatures")
-    }
-
     pub fn project(&self) -> &projects::Project {
         &self.project
     }
@@ -347,9 +340,18 @@ impl Repository {
         parents: &[&git2::Commit],
         change_id: Option<&str>,
     ) -> Result<git::Oid> {
-        let (author, committer) = self.git_signatures(user)?;
+        let (author, committer) =
+            super::signatures::signatures(self, user).context("failed to get signatures")?;
         self.git_repository
-            .commit(None, &author, &committer, message, tree, parents, change_id)
+            .commit(
+                None,
+                &author.into(),
+                &committer.into(),
+                message,
+                tree,
+                parents,
+                change_id,
+            )
             .context("failed to commit")
     }
 

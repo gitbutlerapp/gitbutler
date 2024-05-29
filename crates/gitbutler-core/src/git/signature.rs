@@ -1,5 +1,3 @@
-use crate::users;
-
 pub struct Signature<'a> {
     pub signature: git2::Signature<'a>,
 }
@@ -27,26 +25,6 @@ impl<'a> From<&'a Signature<'a>> for &'a git2::Signature<'a> {
 impl<'a> From<git2::Signature<'a>> for Signature<'a> {
     fn from(value: git2::Signature<'a>) -> Self {
         Self { signature: value }
-    }
-}
-
-impl TryFrom<&users::User> for Signature<'_> {
-    type Error = super::Error;
-
-    fn try_from(value: &users::User) -> Result<Self, Self::Error> {
-        if let Some(name) = &value.name {
-            git2::Signature::now(name, &value.email)
-                .map(Into::into)
-                .map_err(Into::into)
-        } else if let Some(name) = &value.given_name {
-            git2::Signature::now(name, &value.email)
-                .map(Into::into)
-                .map_err(Into::into)
-        } else {
-            git2::Signature::now(&value.email, &value.email)
-                .map(Into::into)
-                .map_err(Into::into)
-        }
     }
 }
 
