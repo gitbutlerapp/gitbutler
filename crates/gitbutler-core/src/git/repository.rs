@@ -1,6 +1,5 @@
 use super::{
-    Blob, Branch, Config, Index, Oid, Reference, Refname, Remote, Result, Signature, TreeBuilder,
-    Url,
+    Branch, Config, Index, Oid, Reference, Refname, Remote, Result, Signature, TreeBuilder, Url,
 };
 use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
@@ -161,13 +160,6 @@ impl Repository {
 
     pub fn find_commit(&self, id: Oid) -> Result<git2::Commit> {
         self.0.find_commit(id.into()).map_err(Into::into)
-    }
-
-    pub fn find_blob(&self, id: Oid) -> Result<Blob> {
-        self.0
-            .find_blob(id.into())
-            .map(Into::into)
-            .map_err(Into::into)
     }
 
     pub fn revwalk(&self) -> Result<git2::Revwalk> {
