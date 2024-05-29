@@ -6,7 +6,7 @@ use std::{
     collections::HashMap,
     hash::Hash,
     path::{Path, PathBuf},
-    time, vec, fs
+    time, vec
 };
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -27,8 +27,6 @@ use super::{
 use crate::error::{self, AnyhowContextExt, Code};
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
 use crate::git::FileMode;
-use crate::ops::oplog::Oplog;
-use crate::ops::snapshot::Snapshot;
 use crate::project_repository::edit_mode;
 use crate::git::RepositoryExt;
 use crate::time::now_since_unix_epoch_ms;
@@ -3093,9 +3091,9 @@ pub fn amend(
 
 pub fn resolve_conflict_start(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    _branch_id: &BranchId,
     commit_oid: git::Oid,
-    restore_snapshot: Option<String>,
+    restore_snapshot: Option<git::Oid>,
 ) -> Result<(), anyhow::Error> {
     dbg!("-------- start conflict resolve -----------");
     dbg!(&commit_oid);
@@ -3174,7 +3172,7 @@ pub fn resolve_conflict_finish(
     )?;
 
     // get the wd state
-    let wd_tree = project_repository.get_wd_tree()?;
+    let wd_tree = project_repository.repo().get_wd_tree()?;
     dbg!(&wd_tree.id());
 
     // write a new commit with this new tree and rebase the branch
@@ -3189,7 +3187,7 @@ pub fn resolve_conflict_finish(
             &commit.author(),
             &commit.committer(),
             &commit.message().to_str_lossy(),
-            &wd_tree,
+            &wd_tree.clone().into(),
             &parents.iter().collect::<Vec<_>>(),
             change_id.as_deref(),
         )?;
@@ -3204,7 +3202,7 @@ pub fn resolve_conflict_finish(
     // if there are no upstream commits (the "to" commit was the branch head), then we're done
     if upstream_commits.is_empty() {
         target_branch.head = new_commit_oid;
-        target_branch.tree = wd_tree.id();
+        target_branch.tree = wd_tree.id().into();
         vb_state.set_branch(target_branch.clone())?;
         checkout_merged_applied_branches(project_repository)?;
         super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
@@ -3581,9 +3579,9 @@ fn cherry_pick_gitbutler(
     if is_conflict_0.is_some() || is_conflict_1.is_some() || is_conflict_base.is_some() {
         // we need to do a manual 3-way patch merge
         // find the base, which is the parent of to_rebase
-        let base_tree = find_real_tree(project_repository, &base_commit, None)?;
-        let tree_0 = find_real_tree(project_repository, head, None)?;
-        let tree_1 = find_real_tree(project_repository, to_rebase, Some(".conflict-side-1".to_string()))?;
+        let base_tree = find_real_tree(project_repository, (&base_commit).into(), None)?;
+        let tree_0 = find_real_tree(project_repository, head.into(), None)?;
+        let tree_1 = find_real_tree(project_repository, to_rebase.into(), Some(".conflict-side-1".to_string()))?;
 
         dbg!("REBASE PICK");
         dbg!(&base_tree.id(), &tree_0.id(), &tree_1.id());
@@ -3604,7 +3602,7 @@ fn cherry_pick_gitbutler(
 // or the parent parent tree if it is in a conflicted state
 pub fn find_real_tree<'a>(
     project_repository: &'a project_repository::Repository,
-    commit: &'a git::Commit<'a>,
+    commit: &'a git2::Commit<'a>,
     side: Option<String>,
 ) -> Result<git::Tree<'a>, anyhow::Error> {
     let tree = commit.tree()?;
@@ -3617,12 +3615,12 @@ pub fn find_real_tree<'a>(
         let subtree_id = is_conflict.unwrap().id();
         project_repository
             .git_repository
-            .find_tree(subtree_id)
+            .find_tree(subtree_id.into())
             .context("failed to find subtree")
     } else {
         project_repository
             .git_repository
-            .find_tree(tree.id())
+            .find_tree(tree.id().into())
             .context("failed to find subtree")
     }
 }
@@ -3673,7 +3671,7 @@ fn cherry_rebase_group(
                         .git_repository
                         .find_commit(merge_base_commit_oid)
                         .context("failed to find merge base commit")?;
-                    let base_tree = find_real_tree(project_repository, &merge_base_commit, None)?;
+                    let base_tree = find_real_tree(project_repository, (&merge_base_commit).into(), None)?;
 
                     // in case someone checks this out with vanilla Git, we should warn why it looks like this
                     let readme_content = b"You have checked out a GitButler Conflicted commit. You probably didn't mean to do this.";
@@ -3699,8 +3697,8 @@ fn cherry_rebase_group(
                         .git_repository
                         .treebuilder(None);
 
-                    let side0 = find_real_tree(project_repository, &head, None)?;
-                    let side1 = find_real_tree(project_repository, &to_rebase, Some(".conflict-side-1".to_string()))?;
+                    let side0 = find_real_tree(project_repository, (&head).into(), None)?;
+                    let side1 = find_real_tree(project_repository, (&to_rebase).into(), Some(".conflict-side-1".to_string()))?;
 
                     // save the state of the conflict, so we can recreate it later
                     tree_writer.upsert(".conflict-side-0", side0.id(), FileMode::Tree);

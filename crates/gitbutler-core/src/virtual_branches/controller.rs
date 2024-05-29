@@ -805,7 +805,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let restore_snapshot = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::ConflictStart))?;
+                .create_snapshot(SnapshotDetails::new(OperationKind::ConflictStart))?;
             super::resolve_conflict_start(project_repository, branch_id, commit_oid, restore_snapshot)
                 .map_err(Into::into)
         })
@@ -823,7 +823,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::ConflictFinish));
+                .create_snapshot(SnapshotDetails::new(OperationKind::ConflictFinish));
             super::resolve_conflict_finish(project_repository, branch_id, commit_oid)
                 .map_err(Into::into)
         })
@@ -840,7 +840,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::ConflictAbandon));
+                .create_snapshot(SnapshotDetails::new(OperationKind::ConflictAbandon));
             super::resolve_conflict_abandon(project_repository, branch_id, commit_oid)
                 .map_err(Into::into)
         })

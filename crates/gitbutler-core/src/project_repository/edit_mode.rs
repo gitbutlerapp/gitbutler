@@ -1,7 +1,7 @@
 // stuff to manage edit mode state
 // if in edit mode, the commit sha that is checked out is in .git/gitbutler/edit_sha
 
-use std::{io::Write, str::FromStr};
+use std::io::Write;
 use anyhow::Result;
 
 use super::Repository;
@@ -10,7 +10,7 @@ use crate::git;
 pub fn set_edit_mode(
   repository: &Repository,
   edit_sha: &git::Oid,
-  restore_snapshot_sha: Option<String>
+  restore_snapshot_sha: Option<git::Oid>
 ) -> Result<()> {
     let edit_mode_path = repository.git_repository.path().join("gitbutler").join("edit_sha");
 
@@ -20,9 +20,9 @@ pub fn set_edit_mode(
     file.write_all(b"\n")?;
 
     if let Some(restore_snapshot_sha) = restore_snapshot_sha {
-      let restore_path = repository.git_repository.path().join("gitbutler").join("restore_sha");
+    let restore_path = repository.git_repository.path().join("gitbutler").join("restore_sha");
       let mut file = std::fs::File::create(restore_path)?;
-      file.write_all(restore_snapshot_sha.as_bytes())?;
+      file.write_all(restore_snapshot_sha.to_string().as_bytes())?;
       file.write_all(b"\n")?;
     }
 
@@ -31,7 +31,7 @@ pub fn set_edit_mode(
 
 pub fn clear_edit_mode(
   repository: &Repository
-) -> Result<Option<String>> {
+) -> Result<Option<git::Oid>> {
     let edit_mode_path = repository.git_repository.path().join("gitbutler").join("edit_sha");
     let restore_path = repository.git_repository.path().join("gitbutler").join("restore_sha");
 
@@ -42,8 +42,9 @@ pub fn clear_edit_mode(
     if restore_path.exists() {
       let restore_sha = std::fs::read_to_string(&restore_path)?;
       let restore_sha = restore_sha.trim();
+      let restore_id = git2::Oid::from_str(restore_sha)?;
       std::fs::remove_file(restore_path)?;
-      return Ok(Some(restore_sha.to_string()));
+      return Ok(Some(restore_id.into()));
     }
 
     Ok(None)

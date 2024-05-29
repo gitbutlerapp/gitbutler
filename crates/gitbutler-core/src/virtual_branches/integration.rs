@@ -56,7 +56,7 @@ pub fn get_workspace_head(
         let branch_head = repo.find_commit(branch.head.into())?;
         let branch_tree = find_real_tree(project_repository, &branch_head, None)?;
 
-        if let Ok(mut result) = repo.merge_trees(&target_tree, &workspace_tree, &branch_tree, None)
+        if let Ok(mut result) = repo.merge_trees(&target_tree, &workspace_tree, (&branch_tree).into(), None)
         {
             if !result.has_conflicts() {
                 let final_tree_oid = result.write_tree_to(repo)?;
