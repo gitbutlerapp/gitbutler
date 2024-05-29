@@ -2134,13 +2134,13 @@ pub fn write_tree_onto_tree(
         // if file exists
         if full_path.exists() {
             // if file is executable, use 755, otherwise 644
-            let mut filemode = git::FileMode::Blob;
+            let mut filemode = git2::FileMode::Blob;
             // check if full_path file is executable
             if let Ok(metadata) = std::fs::symlink_metadata(&full_path) {
                 #[cfg(target_family = "unix")]
                 {
                     if metadata.permissions().mode() & 0o111 != 0 {
-                        filemode = git::FileMode::BlobExecutable;
+                        filemode = git2::FileMode::BlobExecutable;
                     }
                 }
 
@@ -2155,18 +2155,18 @@ pub fn write_tree_onto_tree(
                         .and_then(|entry| {
                             (entry.filemode() & 0o100000 == 0o100000
                                 && entry.filemode() & 0o111 != 0)
-                                .then_some(git::FileMode::BlobExecutable)
+                                .then_some(git2::FileMode::BlobExecutable)
                         })
                         .unwrap_or(filemode);
                 }
 
                 if metadata.file_type().is_symlink() {
-                    filemode = git::FileMode::Link;
+                    filemode = git2::FileMode::Link;
                 }
             }
 
             // get the blob
-            if filemode == git::FileMode::Link {
+            if filemode == git2::FileMode::Link {
                 // it's a symlink, make the content the path of the link
                 let link_target = std::fs::read_link(&full_path)?;
 
