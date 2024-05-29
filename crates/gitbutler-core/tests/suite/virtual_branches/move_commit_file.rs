@@ -1,3 +1,5 @@
+use git::CommitExt;
+
 use super::*;
 
 #[tokio::test]
@@ -54,9 +56,9 @@ async fn move_file_down() {
 
     // shas changed but change_id is the same
     assert_eq!(&commit1.change_id(), &branch.commits[1].change_id);
-    assert_ne!(&commit1.id(), &branch.commits[1].id);
+    assert_ne!(&commit1.id(), &branch.commits[1].id.into());
     assert_eq!(&commit2.change_id(), &branch.commits[0].change_id);
-    assert_ne!(&commit2.id(), &branch.commits[0].id);
+    assert_ne!(&commit2.id(), &branch.commits[0].id.into());
 
     assert_eq!(branch.commits[0].files.len(), 1);
     assert_eq!(branch.commits.len(), 2);

@@ -15,7 +15,7 @@ use std::{
 use anyhow::{Context, Result};
 use git2::TreeEntry;
 use gitbutler_core::{
-    git::{self},
+    git::{self, CommitExt},
     virtual_branches::{
         self, apply_branch,
         branch::{BranchCreateRequest, BranchOwnershipClaims},

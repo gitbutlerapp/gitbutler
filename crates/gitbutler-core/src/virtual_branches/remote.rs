@@ -6,7 +6,7 @@ use serde::Serialize;
 
 use super::{errors, target, Author, VirtualBranchesHandle};
 use crate::{
-    git,
+    git::{self, CommitExt},
     project_repository::{self, LogUntil},
 };
 
@@ -188,12 +188,13 @@ pub fn branch_to_remote_branch_data(
         .transpose()
 }
 
-pub fn commit_to_remote_commit(commit: &git::Commit) -> RemoteCommit {
+pub fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
+    let signature: git::Signature = commit.author().into();
     RemoteCommit {
         id: commit.id().to_string(),
-        description: commit.message().to_owned(),
+        description: commit.message_bstr().to_owned(),
         created_at: commit.time().seconds().try_into().unwrap(),
-        author: commit.author().into(),
+        author: signature.into(),
         change_id: commit.change_id(),
     }
 }

@@ -1,7 +1,7 @@
 mod refname;
 pub use refname::{LocalRefname, Refname, RemoteRefname, VirtualRefname};
 
-use super::{Commit, Oid, Result};
+use super::{Oid, Result};
 
 pub struct Reference<'repo> {
     reference: git2::Reference<'repo>,
@@ -28,7 +28,7 @@ impl<'repo> Reference<'repo> {
         self.reference.target().map(Into::into)
     }
 
-    pub fn peel_to_commit(&self) -> Result<Commit<'repo>> {
+    pub fn peel_to_commit(&self) -> Result<git2::Commit<'repo>> {
         self.reference
             .peel_to_commit()
             .map(Into::into)
