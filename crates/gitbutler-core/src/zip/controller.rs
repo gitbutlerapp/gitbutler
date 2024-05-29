@@ -28,12 +28,12 @@ impl Controller {
         }
     }
 
-    pub fn archive(&self, project_id: &ProjectId) -> Result<path::PathBuf, Error> {
+    pub fn archive(&self, project_id: ProjectId) -> Result<path::PathBuf, Error> {
         let project = self.projects_controller.get(project_id)?;
         self.zipper.zip(project.path).map_err(Into::into)
     }
 
-    pub fn data_archive(&self, project_id: &ProjectId) -> Result<path::PathBuf, Error> {
+    pub fn data_archive(&self, project_id: ProjectId) -> Result<path::PathBuf, Error> {
         let project = self.projects_controller.get(project_id)?;
         self.zipper
             .zip(

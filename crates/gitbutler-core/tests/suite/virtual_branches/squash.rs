@@ -10,19 +10,19 @@ async fn head() {
     } = &Test::default();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit one", None, false)
+            .create_commit(*project_id, branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
@@ -30,7 +30,7 @@ async fn head() {
     {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit two", None, false)
+            .create_commit(*project_id, branch_id, "commit two", None, false)
             .await
             .unwrap()
     };
@@ -38,7 +38,7 @@ async fn head() {
     {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit three", None, false)
+            .create_commit(*project_id, branch_id, "commit three", None, false)
             .await
             .unwrap()
     };
@@ -46,18 +46,18 @@ async fn head() {
     let commit_four_oid = {
         fs::write(repository.path().join("file four.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit four", None, false)
+            .create_commit(*project_id, branch_id, "commit four", None, false)
             .await
             .unwrap()
     };
 
     controller
-        .squash(project_id, &branch_id, commit_four_oid)
+        .squash(*project_id, branch_id, commit_four_oid)
         .await
         .unwrap();
 
     let branch = controller
-        .list_virtual_branches(project_id)
+        .list_virtual_branches(*project_id)
         .await
         .unwrap()
         .0
@@ -86,19 +86,19 @@ async fn middle() {
     } = &Test::default();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit one", None, false)
+            .create_commit(*project_id, branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
@@ -106,7 +106,7 @@ async fn middle() {
     let commit_two_oid = {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit two", None, false)
+            .create_commit(*project_id, branch_id, "commit two", None, false)
             .await
             .unwrap()
     };
@@ -114,7 +114,7 @@ async fn middle() {
     {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit three", None, false)
+            .create_commit(*project_id, branch_id, "commit three", None, false)
             .await
             .unwrap()
     };
@@ -122,18 +122,18 @@ async fn middle() {
     {
         fs::write(repository.path().join("file four.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit four", None, false)
+            .create_commit(*project_id, branch_id, "commit four", None, false)
             .await
             .unwrap()
     };
 
     controller
-        .squash(project_id, &branch_id, commit_two_oid)
+        .squash(*project_id, branch_id, commit_two_oid)
         .await
         .unwrap();
 
     let branch = controller
-        .list_virtual_branches(project_id)
+        .list_virtual_branches(*project_id)
         .await
         .unwrap()
         .0
@@ -172,32 +172,32 @@ async fn forcepush_allowed() {
         .unwrap();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit one", None, false)
+            .create_commit(*project_id, branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
 
     controller
-        .push_virtual_branch(project_id, &branch_id, false, None)
+        .push_virtual_branch(*project_id, branch_id, false, None)
         .await
         .unwrap();
 
     let commit_two_oid = {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit two", None, false)
+            .create_commit(*project_id, branch_id, "commit two", None, false)
             .await
             .unwrap()
     };
@@ -205,7 +205,7 @@ async fn forcepush_allowed() {
     {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit three", None, false)
+            .create_commit(*project_id, branch_id, "commit three", None, false)
             .await
             .unwrap()
     };
@@ -213,18 +213,18 @@ async fn forcepush_allowed() {
     {
         fs::write(repository.path().join("file four.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit four", None, false)
+            .create_commit(*project_id, branch_id, "commit four", None, false)
             .await
             .unwrap()
     };
 
     controller
-        .squash(project_id, &branch_id, commit_two_oid)
+        .squash(*project_id, branch_id, commit_two_oid)
         .await
         .unwrap();
 
     let branch = controller
-        .list_virtual_branches(project_id)
+        .list_virtual_branches(*project_id)
         .await
         .unwrap()
         .0
@@ -255,25 +255,25 @@ async fn forcepush_forbidden() {
     } = &Test::default();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit one", None, false)
+            .create_commit(*project_id, branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
 
     controller
-        .push_virtual_branch(project_id, &branch_id, false, None)
+        .push_virtual_branch(*project_id, branch_id, false, None)
         .await
         .unwrap();
 
@@ -289,7 +289,7 @@ async fn forcepush_forbidden() {
     let commit_two_oid = {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit two", None, false)
+            .create_commit(*project_id, branch_id, "commit two", None, false)
             .await
             .unwrap()
     };
@@ -297,7 +297,7 @@ async fn forcepush_forbidden() {
     {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit three", None, false)
+            .create_commit(*project_id, branch_id, "commit three", None, false)
             .await
             .unwrap()
     };
@@ -305,14 +305,14 @@ async fn forcepush_forbidden() {
     {
         fs::write(repository.path().join("file four.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit four", None, false)
+            .create_commit(*project_id, branch_id, "commit four", None, false)
             .await
             .unwrap()
     };
 
     assert!(matches!(
         controller
-            .squash(project_id, &branch_id, commit_two_oid)
+            .squash(*project_id, branch_id, commit_two_oid)
             .await
             .unwrap_err()
             .downcast_ref(),
@@ -330,26 +330,26 @@ async fn root() {
     } = &Test::default();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(project_id, &branch_id, "commit one", None, false)
+            .create_commit(*project_id, branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
 
     assert!(matches!(
         controller
-            .squash(project_id, &branch_id, commit_one_oid)
+            .squash(*project_id, branch_id, commit_one_oid)
             .await
             .unwrap_err()
             .downcast_ref(),

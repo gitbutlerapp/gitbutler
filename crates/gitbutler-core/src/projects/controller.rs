@@ -160,7 +160,7 @@ impl Controller {
         Ok(updated)
     }
 
-    pub fn get(&self, id: &ProjectId) -> Result<Project, GetError> {
+    pub fn get(&self, id: ProjectId) -> Result<Project, GetError> {
         let project = self.projects_storage.get(id).map_err(|error| match error {
             super::storage::Error::NotFound => GetError::NotFound,
             error => GetError::Other(error.into()),
@@ -200,7 +200,7 @@ impl Controller {
         self.projects_storage.list().map_err(Into::into)
     }
 
-    pub async fn delete(&self, id: &ProjectId) -> Result<(), Error> {
+    pub async fn delete(&self, id: ProjectId) -> Result<(), Error> {
         let project = match self.projects_storage.get(id) {
             Ok(project) => Ok(project),
             Err(super::storage::Error::NotFound) => return Ok(()),
@@ -208,11 +208,11 @@ impl Controller {
         }?;
 
         if let Some(watchers) = &self.watchers {
-            watchers.stop(*id).await;
+            watchers.stop(id).await;
         }
 
         self.projects_storage
-            .purge(&project.id)
+            .purge(project.id)
             .map_err(anyhow::Error::from)?;
 
         if let Err(error) = std::fs::remove_dir_all(
@@ -238,7 +238,7 @@ impl Controller {
 
     pub fn get_local_config(
         &self,
-        id: &ProjectId,
+        id: ProjectId,
         key: &str,
     ) -> Result<Option<String>, ConfigError> {
         let project = self.projects_storage.get(id).map_err(|error| match error {
@@ -255,7 +255,7 @@ impl Controller {
 
     pub fn set_local_config(
         &self,
-        id: &ProjectId,
+        id: ProjectId,
         key: &str,
         value: &str,
     ) -> Result<(), ConfigError> {

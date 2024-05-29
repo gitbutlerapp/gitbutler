@@ -17,34 +17,34 @@ async fn no_diffs() {
     } = &Test::default();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
     let commit_oid = controller
-        .create_commit(project_id, &source_branch_id, "commit", None, false)
+        .create_commit(*project_id, source_branch_id, "commit", None, false)
         .await
         .unwrap();
 
     let target_branch_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     controller
-        .move_commit(project_id, &target_branch_id, commit_oid)
+        .move_commit(*project_id, target_branch_id, commit_oid)
         .await
         .unwrap();
 
     let destination_branch = controller
-        .list_virtual_branches(project_id)
+        .list_virtual_branches(*project_id)
         .await
         .unwrap()
         .0
@@ -53,7 +53,7 @@ async fn no_diffs() {
         .unwrap();
 
     let source_branch = controller
-        .list_virtual_branches(project_id)
+        .list_virtual_branches(*project_id)
         .await
         .unwrap()
         .0
@@ -77,19 +77,19 @@ async fn diffs_on_source_branch() {
     } = &Test::default();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
     let commit_oid = controller
-        .create_commit(project_id, &source_branch_id, "commit", None, false)
+        .create_commit(*project_id, source_branch_id, "commit", None, false)
         .await
         .unwrap();
 
@@ -100,17 +100,17 @@ async fn diffs_on_source_branch() {
     .unwrap();
 
     let target_branch_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     controller
-        .move_commit(project_id, &target_branch_id, commit_oid)
+        .move_commit(*project_id, target_branch_id, commit_oid)
         .await
         .unwrap();
 
     let destination_branch = controller
-        .list_virtual_branches(project_id)
+        .list_virtual_branches(*project_id)
         .await
         .unwrap()
         .0
@@ -119,7 +119,7 @@ async fn diffs_on_source_branch() {
         .unwrap();
 
     let source_branch = controller
-        .list_virtual_branches(project_id)
+        .list_virtual_branches(*project_id)
         .await
         .unwrap()
         .0
@@ -143,25 +143,25 @@ async fn diffs_on_target_branch() {
     } = &Test::default();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
     let commit_oid = controller
-        .create_commit(project_id, &source_branch_id, "commit", None, false)
+        .create_commit(*project_id, source_branch_id, "commit", None, false)
         .await
         .unwrap();
 
     let target_branch_id = controller
         .create_virtual_branch(
-            project_id,
+            *project_id,
             &branch::BranchCreateRequest {
                 selected_for_changes: Some(true),
                 ..Default::default()
@@ -177,12 +177,12 @@ async fn diffs_on_target_branch() {
     .unwrap();
 
     controller
-        .move_commit(project_id, &target_branch_id, commit_oid)
+        .move_commit(*project_id, target_branch_id, commit_oid)
         .await
         .unwrap();
 
     let destination_branch = controller
-        .list_virtual_branches(project_id)
+        .list_virtual_branches(*project_id)
         .await
         .unwrap()
         .0
@@ -191,7 +191,7 @@ async fn diffs_on_target_branch() {
         .unwrap();
 
     let source_branch = controller
-        .list_virtual_branches(project_id)
+        .list_virtual_branches(*project_id)
         .await
         .unwrap()
         .0
@@ -215,32 +215,32 @@ async fn locked_hunks_on_source_branch() {
     } = &Test::default();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
     let commit_oid = controller
-        .create_commit(project_id, &source_branch_id, "commit", None, false)
+        .create_commit(*project_id, source_branch_id, "commit", None, false)
         .await
         .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "locked content").unwrap();
 
     let target_branch_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     assert!(matches!(
         controller
-            .move_commit(project_id, &target_branch_id, commit_oid)
+            .move_commit(*project_id, target_branch_id, commit_oid)
             .await
             .unwrap_err()
             .downcast_ref(),
@@ -258,32 +258,32 @@ async fn no_commit() {
     } = &Test::default();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
     controller
-        .create_commit(project_id, &source_branch_id, "commit", None, false)
+        .create_commit(*project_id, source_branch_id, "commit", None, false)
         .await
         .unwrap();
 
     let target_branch_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     assert!(matches!(
         controller
             .move_commit(
-                project_id,
-                &target_branch_id,
+                *project_id,
+                target_branch_id,
                 git::Oid::from_str("a99c95cca7a60f1a2180c2f86fb18af97333c192").unwrap()
             )
             .await
@@ -303,25 +303,25 @@ async fn no_branch() {
     } = &Test::default();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
 
     let commit_oid = controller
-        .create_commit(project_id, &source_branch_id, "commit", None, false)
+        .create_commit(*project_id, source_branch_id, "commit", None, false)
         .await
         .unwrap();
 
     assert!(matches!(
         controller
-            .move_commit(project_id, &BranchId::generate(), commit_oid)
+            .move_commit(*project_id, BranchId::generate(), commit_oid)
             .await
             .unwrap_err()
             .downcast_ref(),

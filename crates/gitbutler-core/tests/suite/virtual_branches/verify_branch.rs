@@ -14,7 +14,7 @@ async fn should_fail_on_incorrect_branch() {
 
     let branch_name: git::LocalRefname = "refs/heads/somebranch".parse().unwrap();
     repository.checkout(&branch_name);
-    let result = controller.list_virtual_branches(project_id).await;
+    let result = controller.list_virtual_branches(*project_id).await;
 
     let error = result.err();
     assert!(&error.is_some());

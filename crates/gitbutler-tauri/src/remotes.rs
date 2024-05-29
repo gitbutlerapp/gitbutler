@@ -11,7 +11,7 @@ pub async fn list_remotes(
 ) -> Result<Vec<String>, Error> {
     handle
         .state::<Controller>()
-        .remotes(&project_id)
+        .remotes(project_id)
         .await
         .map_err(Into::into)
 }
@@ -26,7 +26,7 @@ pub async fn add_remote(
 ) -> Result<(), Error> {
     handle
         .state::<Controller>()
-        .add_remote(&project_id, name, url)
+        .add_remote(project_id, name, url)
         .await
         .map_err(Into::into)
 }

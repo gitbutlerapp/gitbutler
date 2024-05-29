@@ -62,7 +62,7 @@ fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
     // commit
     commit(
         project_repository,
-        &branch1_id,
+        branch1_id,
         "test commit",
         None,
         None,
@@ -160,7 +160,7 @@ fn track_binary_files() -> Result<()> {
     // commit
     commit(
         project_repository,
-        &branch1_id,
+        branch1_id,
         "test commit",
         None,
         None,
@@ -191,7 +191,7 @@ fn track_binary_files() -> Result<()> {
     // commit
     commit(
         project_repository,
-        &branch1_id,
+        branch1_id,
         "test commit",
         None,
         None,
@@ -231,7 +231,7 @@ fn create_branch_with_ownership() -> Result<()> {
     virtual_branches::get_status_by_branch(project_repository, None).expect("failed to get status");
 
     let vb_state = project_repository.project().virtual_branches();
-    let branch0 = vb_state.get_branch(&branch0.id).unwrap();
+    let branch0 = vb_state.get_branch(branch0.id).unwrap();
 
     let branch1 = create_virtual_branch(
         project_repository,
@@ -471,12 +471,12 @@ fn move_hunks_multiple_sources() -> Result<()> {
     )?;
 
     let vb_state = project.virtual_branches();
-    let mut branch2 = vb_state.get_branch(&branch2_id)?;
+    let mut branch2 = vb_state.get_branch(branch2_id)?;
     branch2.ownership = BranchOwnershipClaims {
         claims: vec!["test.txt:1-5".parse()?],
     };
     vb_state.set_branch(branch2.clone())?;
-    let mut branch1 = vb_state.get_branch(&branch1_id)?;
+    let mut branch1 = vb_state.get_branch(branch1_id)?;
     branch1.ownership = BranchOwnershipClaims {
         claims: vec!["test.txt:11-15".parse()?],
     };
@@ -847,7 +847,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     assert_eq!(branch1.commits.len(), 1);
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
-    integrate_upstream_commits(project_repository, &branch1.id, None)?;
+    integrate_upstream_commits(project_repository, branch1.id, None)?;
 
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
     let branch1 = &branches[0];
@@ -973,7 +973,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
     assert_eq!(branch1.commits.len(), 1);
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
-    integrate_upstream_commits(project_repository, &branch1.id, None)?;
+    integrate_upstream_commits(project_repository, branch1.id, None)?;
 
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
     let branch1 = &branches[0];
@@ -1001,7 +1001,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
     // commit the merge resolution
     commit(
         project_repository,
-        &branch1.id,
+        branch1.id,
         "fix merge conflict",
         None,
         None,
@@ -1124,7 +1124,7 @@ fn unapply_branch() -> Result<()> {
     assert_eq!(branch.files.len(), 1);
     assert!(branch.active);
 
-    virtual_branches::unapply_branch(project_repository, &branch1_id)?;
+    virtual_branches::unapply_branch(project_repository, branch1_id)?;
 
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!("line1\nline2\nline3\nline4\n", String::from_utf8(contents)?);
@@ -1136,7 +1136,7 @@ fn unapply_branch() -> Result<()> {
     assert_eq!(branch.files.len(), 1);
     assert!(!branch.active);
 
-    apply_branch(project_repository, &branch1_id, None)?;
+    apply_branch(project_repository, branch1_id, None)?;
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!(
         "line1\nline2\nline3\nline4\nbranch1\n",
@@ -1200,20 +1200,20 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
         },
     )?;
 
-    virtual_branches::unapply_branch(project_repository, &branch2_id)?;
+    virtual_branches::unapply_branch(project_repository, branch2_id)?;
     // check that file2 is back
     let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("file2\n", String::from_utf8(contents)?);
 
-    virtual_branches::unapply_branch(project_repository, &branch3_id)?;
+    virtual_branches::unapply_branch(project_repository, branch3_id)?;
     // check that file3 is gone
     assert!(!Path::new(&project.path).join(file_path3).exists());
 
-    apply_branch(project_repository, &branch2_id, None)?;
+    apply_branch(project_repository, branch2_id, None)?;
     // check that file2 is gone
     assert!(!Path::new(&project.path).join(file_path2).exists());
 
-    apply_branch(project_repository, &branch3_id, None)?;
+    apply_branch(project_repository, branch3_id, None)?;
     // check that file3 is back
     let contents = std::fs::read(Path::new(&project.path).join(file_path3))?;
     assert_eq!("file3\n", String::from_utf8(contents)?);
@@ -1265,8 +1265,8 @@ fn detect_mergeable_branch() -> Result<()> {
     .expect("failed to update branch");
 
     // unapply both branches and create some conflicting ones
-    virtual_branches::unapply_branch(project_repository, &branch1_id)?;
-    virtual_branches::unapply_branch(project_repository, &branch2_id)?;
+    virtual_branches::unapply_branch(project_repository, branch1_id)?;
+    virtual_branches::unapply_branch(project_repository, branch2_id)?;
 
     project_repository
         .git_repository
@@ -1346,7 +1346,7 @@ fn detect_mergeable_branch() -> Result<()> {
 
     let vb_state = project.virtual_branches();
 
-    let mut branch4 = vb_state.get_branch(&branch4_id)?;
+    let mut branch4 = vb_state.get_branch(branch4_id)?;
     branch4.ownership = BranchOwnershipClaims {
         claims: vec!["test2.txt:1-6".parse()?],
     };
@@ -1357,11 +1357,11 @@ fn detect_mergeable_branch() -> Result<()> {
 
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
     assert!(!branch1.active);
-    assert!(!is_virtual_branch_mergeable(project_repository, &branch1.id).unwrap());
+    assert!(!is_virtual_branch_mergeable(project_repository, branch1.id).unwrap());
 
     let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
     assert!(!branch2.active);
-    assert!(is_virtual_branch_mergeable(project_repository, &branch2.id).unwrap());
+    assert!(is_virtual_branch_mergeable(project_repository, branch2.id).unwrap());
 
     let remotes = list_remote_branches(project_repository).expect("failed to list remotes");
     let _remote1 = &remotes
@@ -1498,7 +1498,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
     // create a new virtual branch from the remote branch
     commit(
         project_repository,
-        &branch1_id,
+        branch1_id,
         "integrated commit",
         None,
         None,
@@ -1506,7 +1506,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
     )?;
     commit(
         project_repository,
-        &branch2_id,
+        branch2_id,
         "non-integrated commit",
         None,
         None,
@@ -1566,7 +1566,7 @@ fn commit_same_hunk_twice() -> Result<()> {
     // commit
     commit(
         project_repository,
-        &branch1_id,
+        branch1_id,
         "first commit to test.txt",
         None,
         None,
@@ -1601,7 +1601,7 @@ fn commit_same_hunk_twice() -> Result<()> {
 
     commit(
         project_repository,
-        &branch1_id,
+        branch1_id,
         "second commit to test.txt",
         None,
         None,
@@ -1659,7 +1659,7 @@ fn commit_same_file_twice() -> Result<()> {
     // commit
     commit(
         project_repository,
-        &branch1_id,
+        branch1_id,
         "first commit to test.txt",
         None,
         None,
@@ -1694,7 +1694,7 @@ fn commit_same_file_twice() -> Result<()> {
 
     commit(
         project_repository,
-        &branch1_id,
+        branch1_id,
         "second commit to test.txt",
         None,
         None,
@@ -1752,7 +1752,7 @@ fn commit_partial_by_hunk() -> Result<()> {
     // commit
     commit(
         project_repository,
-        &branch1_id,
+        branch1_id,
         "first commit to test.txt",
         Some(&"test.txt:1-6".parse::<BranchOwnershipClaims>().unwrap()),
         None,
@@ -1770,7 +1770,7 @@ fn commit_partial_by_hunk() -> Result<()> {
 
     commit(
         project_repository,
-        &branch1_id,
+        branch1_id,
         "second commit to test.txt",
         Some(&"test.txt:16-22".parse::<BranchOwnershipClaims>().unwrap()),
         None,
@@ -1828,7 +1828,7 @@ fn commit_partial_by_file() -> Result<()> {
     // commit
     commit(
         project_repository,
-        &branch1_id,
+        branch1_id,
         "branch1 commit",
         None,
         None,
@@ -1895,7 +1895,7 @@ fn commit_add_and_delete_files() -> Result<()> {
     // commit
     commit(
         project_repository,
-        &branch1_id,
+        branch1_id,
         "branch1 commit",
         None,
         None,
@@ -1960,7 +1960,7 @@ fn commit_executable_and_symlinks() -> Result<()> {
     // commit
     commit(
         project_repository,
-        &branch1_id,
+        branch1_id,
         "branch1 commit",
         None,
         None,
@@ -2137,7 +2137,7 @@ fn pre_commit_hook_rejection() -> Result<()> {
 
     let res = commit(
         project_repository,
-        &branch1_id,
+        branch1_id,
         "test commit",
         None,
         None,
@@ -2201,7 +2201,7 @@ fn post_commit_hook() -> Result<()> {
 
     commit(
         project_repository,
-        &branch1_id,
+        branch1_id,
         "test commit",
         None,
         None,
@@ -2249,7 +2249,7 @@ fn commit_msg_hook_rejection() -> Result<()> {
 
     let res = commit(
         project_repository,
-        &branch1_id,
+        branch1_id,
         "test commit",
         None,
         None,

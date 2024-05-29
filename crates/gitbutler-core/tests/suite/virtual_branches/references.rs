@@ -13,16 +13,16 @@ mod create_virtual_branch {
         } = &Test::default();
 
         controller
-            .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
         let branch_id = controller
-            .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
             .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch_id);
         assert_eq!(branches[0].name, "Virtual branch");
@@ -45,13 +45,13 @@ mod create_virtual_branch {
         } = &Test::default();
 
         controller
-            .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
         let branch1_id = controller
             .create_virtual_branch(
-                project_id,
+                *project_id,
                 &gitbutler_core::virtual_branches::branch::BranchCreateRequest {
                     name: Some("name".to_string()),
                     ..Default::default()
@@ -62,7 +62,7 @@ mod create_virtual_branch {
 
         let branch2_id = controller
             .create_virtual_branch(
-                project_id,
+                *project_id,
                 &gitbutler_core::virtual_branches::branch::BranchCreateRequest {
                     name: Some("name".to_string()),
                     ..Default::default()
@@ -71,7 +71,7 @@ mod create_virtual_branch {
             .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert_eq!(branches.len(), 2);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].name, "name");
@@ -101,13 +101,13 @@ mod update_virtual_branch {
         } = &Test::default();
 
         controller
-            .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
         let branch_id = controller
             .create_virtual_branch(
-                project_id,
+                *project_id,
                 &branch::BranchCreateRequest {
                     name: Some("name".to_string()),
                     ..Default::default()
@@ -118,7 +118,7 @@ mod update_virtual_branch {
 
         controller
             .update_virtual_branch(
-                project_id,
+                *project_id,
                 branch::BranchUpdateRequest {
                     id: branch_id,
                     name: Some("new name".to_string()),
@@ -128,7 +128,7 @@ mod update_virtual_branch {
             .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch_id);
         assert_eq!(branches[0].name, "new name");
@@ -152,13 +152,13 @@ mod update_virtual_branch {
         } = &Test::default();
 
         controller
-            .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
         let branch1_id = controller
             .create_virtual_branch(
-                project_id,
+                *project_id,
                 &branch::BranchCreateRequest {
                     name: Some("name".to_string()),
                     ..Default::default()
@@ -169,7 +169,7 @@ mod update_virtual_branch {
 
         let branch2_id = controller
             .create_virtual_branch(
-                project_id,
+                *project_id,
                 &branch::BranchCreateRequest {
                     ..Default::default()
                 },
@@ -179,7 +179,7 @@ mod update_virtual_branch {
 
         controller
             .update_virtual_branch(
-                project_id,
+                *project_id,
                 branch::BranchUpdateRequest {
                     id: branch2_id,
                     name: Some("name".to_string()),
@@ -189,7 +189,7 @@ mod update_virtual_branch {
             .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert_eq!(branches.len(), 2);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].name, "name");
@@ -220,13 +220,13 @@ mod push_virtual_branch {
         } = &Test::default();
 
         controller
-            .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
         let branch1_id = controller
             .create_virtual_branch(
-                project_id,
+                *project_id,
                 &branch::BranchCreateRequest {
                     name: Some("name".to_string()),
                     ..Default::default()
@@ -238,15 +238,15 @@ mod push_virtual_branch {
         fs::write(repository.path().join("file.txt"), "content").unwrap();
 
         controller
-            .create_commit(project_id, &branch1_id, "test", None, false)
+            .create_commit(*project_id, branch1_id, "test", None, false)
             .await
             .unwrap();
         controller
-            .push_virtual_branch(project_id, &branch1_id, false, None)
+            .push_virtual_branch(*project_id, branch1_id, false, None)
             .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].name, "name");
@@ -273,7 +273,7 @@ mod push_virtual_branch {
         } = &Test::default();
 
         controller
-            .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
@@ -281,7 +281,7 @@ mod push_virtual_branch {
             // create and push branch with some work
             let branch1_id = controller
                 .create_virtual_branch(
-                    project_id,
+                    *project_id,
                     &branch::BranchCreateRequest {
                         name: Some("name".to_string()),
                         ..Default::default()
@@ -291,11 +291,11 @@ mod push_virtual_branch {
                 .unwrap();
             fs::write(repository.path().join("file.txt"), "content").unwrap();
             controller
-                .create_commit(project_id, &branch1_id, "test", None, false)
+                .create_commit(*project_id, branch1_id, "test", None, false)
                 .await
                 .unwrap();
             controller
-                .push_virtual_branch(project_id, &branch1_id, false, None)
+                .push_virtual_branch(*project_id, branch1_id, false, None)
                 .await
                 .unwrap();
             branch1_id
@@ -304,7 +304,7 @@ mod push_virtual_branch {
         // rename first branch
         controller
             .update_virtual_branch(
-                project_id,
+                *project_id,
                 branch::BranchUpdateRequest {
                     id: branch1_id,
                     name: Some("updated name".to_string()),
@@ -318,7 +318,7 @@ mod push_virtual_branch {
             // create another branch with first branch's old name and push it
             let branch2_id = controller
                 .create_virtual_branch(
-                    project_id,
+                    *project_id,
                     &branch::BranchCreateRequest {
                         name: Some("name".to_string()),
                         ..Default::default()
@@ -328,17 +328,17 @@ mod push_virtual_branch {
                 .unwrap();
             fs::write(repository.path().join("file.txt"), "updated content").unwrap();
             controller
-                .create_commit(project_id, &branch2_id, "test", None, false)
+                .create_commit(*project_id, branch2_id, "test", None, false)
                 .await
                 .unwrap();
             controller
-                .push_virtual_branch(project_id, &branch2_id, false, None)
+                .push_virtual_branch(*project_id, branch2_id, false, None)
                 .await
                 .unwrap();
             branch2_id
         };
 
-        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert_eq!(branches.len(), 2);
         // first branch is pushing to old ref remotely
         assert_eq!(branches[0].id, branch1_id);
