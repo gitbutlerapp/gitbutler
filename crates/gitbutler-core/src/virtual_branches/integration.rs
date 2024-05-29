@@ -6,7 +6,7 @@ use lazy_static::lazy_static;
 
 use super::{errors::VerifyError, VirtualBranchesHandle};
 use crate::{
-    git::{self},
+    git::{self, CommitExt},
     project_repository::{self, LogUntil},
     virtual_branches::branch::BranchCreateRequest,
 };
@@ -299,7 +299,10 @@ fn verify_head_is_clean(
         .context("failed to get default target")?;
 
     let mut extra_commits = project_repository
-        .log(head_commit.id(), LogUntil::Commit(default_target.sha))
+        .log(
+            head_commit.id().into(),
+            LogUntil::Commit(default_target.sha),
+        )
         .context("failed to get log")?;
 
     let integration_commit = extra_commits.pop();
@@ -328,7 +331,7 @@ fn verify_head_is_clean(
         &BranchCreateRequest {
             name: extra_commits
                 .last()
-                .map(|commit| commit.message().to_string()),
+                .map(|commit| commit.message_bstr().to_string()),
             ..Default::default()
         },
     )
@@ -348,9 +351,9 @@ fn verify_head_is_clean(
             .git_repository
             .commit(
                 None,
-                &commit.author(),
-                &commit.committer(),
-                &commit.message().to_str_lossy(),
+                &commit.author().into(),
+                &commit.committer().into(),
+                &commit.message_bstr().to_str_lossy(),
                 &commit.tree().unwrap(),
                 &[&new_branch_head],
                 None,
@@ -368,13 +371,13 @@ fn verify_head_is_clean(
                 rebased_commit_oid
             ))?;
 
-        new_branch.head = rebased_commit.id();
-        new_branch.tree = rebased_commit.tree_id();
+        new_branch.head = rebased_commit.id().into();
+        new_branch.tree = rebased_commit.tree_id().into();
         vb_state
             .set_branch(new_branch.clone())
             .context("failed to write branch")?;
 
-        head = rebased_commit.id();
+        head = rebased_commit.id().into();
     }
     Ok(())
 }

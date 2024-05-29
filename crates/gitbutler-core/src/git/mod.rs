@@ -13,9 +13,6 @@ mod repository;
 
 pub use repository::*;
 
-mod commit;
-pub use commit::*;
-
 mod branch;
 pub use branch::*;
 
@@ -45,3 +42,6 @@ pub use repository_ext::*;
 
 mod tree_ext;
 pub use tree_ext::*;
+
+mod commit_ext;
+pub use commit_ext::*;

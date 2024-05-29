@@ -1,6 +1,7 @@
 use std::{path::Path, time};
 
 use anyhow::{Context, Result};
+use git2::Index;
 use serde::Serialize;
 
 use super::{
@@ -15,8 +16,7 @@ use crate::{
     project_repository::{self, LogUntil},
     projects::FetchResult,
     users,
-    virtual_branches::branch::BranchOwnershipClaims,
-    virtual_branches::cherry_rebase,
+    virtual_branches::{branch::BranchOwnershipClaims, cherry_rebase},
 };
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
@@ -162,7 +162,10 @@ pub fn set_base_branch(
 
     // calculate the commit as the merge-base between HEAD in project_repository and this target commit
     let target_commit_oid = repo
-        .merge_base(current_head_commit.id(), target_branch_head.id())
+        .merge_base(
+            current_head_commit.id().into(),
+            target_branch_head.id().into(),
+        )
         .context(format!(
             "Failed to calculate merge base between {} and {}",
             current_head_commit.id(),
@@ -190,8 +193,8 @@ pub fn set_base_branch(
         // if there are any commits on the head branch or uncommitted changes in the working directory, we need to
         // put them into a virtual branch
 
-        let wd_diff = diff::workdir(repo, &current_head_commit.id())?;
-        if !wd_diff.is_empty() || current_head_commit.id() != target.sha {
+        let wd_diff = diff::workdir(repo, &current_head_commit.id().into())?;
+        if !wd_diff.is_empty() || current_head_commit.id() != target.sha.into() {
             // assign ownership to the branch
             let ownership = wd_diff.iter().fold(
                 BranchOwnershipClaims::default(),
@@ -244,13 +247,13 @@ pub fn set_base_branch(
                 notes: String::new(),
                 applied: true,
                 upstream,
-                upstream_head,
+                upstream_head: upstream_head.map(|h| h.into()),
                 created_timestamp_ms: now_ms,
                 updated_timestamp_ms: now_ms,
-                head: current_head_commit.id(),
+                head: current_head_commit.id().into(),
                 tree: super::write_tree_onto_commit(
                     project_repository,
-                    current_head_commit.id(),
+                    current_head_commit.id().into(),
                     diff::diff_files_into_hunks(wd_diff),
                 )?,
                 ownership,
@@ -353,7 +356,7 @@ pub fn update_base_branch(
         .peel_to_commit()
         .context(format!("failed to peel branch {} to commit", target.branch))?;
 
-    if new_target_commit.id() == target.sha {
+    if new_target_commit.id() == target.sha.into() {
         return Ok(());
     }
 
@@ -361,13 +364,10 @@ pub fn update_base_branch(
         .tree()
         .context("failed to get new target commit tree")?;
 
-    let old_target_tree = repo
-        .find_commit(target.sha)
-        .and_then(|commit| commit.tree())
-        .context(format!(
-            "failed to get old target commit tree {}",
-            target.sha
-        ))?;
+    let old_target_tree = repo.find_commit(target.sha)?.tree().context(format!(
+        "failed to get old target commit tree {}",
+        target.sha
+    ))?;
 
     let vb_state = project_repository.project().virtual_branches();
     let integration_commit = get_workspace_head(&vb_state, project_repository)?;
@@ -396,7 +396,7 @@ pub fn update_base_branch(
                             // branch head tree is the same as the new target tree.
                             // meaning we can safely use the new target commit as the branch head.
 
-                            branch.head = new_target_commit.id();
+                            branch.head = new_target_commit.id().into();
 
                             // it also means that the branch is fully integrated into the target.
                             // disconnect it from the upstream
@@ -445,7 +445,7 @@ pub fn update_base_branch(
 
                     if branch.head == target.sha {
                         // there are no commits on the branch, so we can just update the head to the new target and calculate the new tree
-                        branch.head = new_target_commit.id();
+                        branch.head = new_target_commit.id().into();
                         branch.tree = branch_merge_index_tree_oid;
                         vb_state.set_branch(branch.clone())?;
                         return Ok(Some(branch));
@@ -513,8 +513,8 @@ pub fn update_base_branch(
                     // branch was not pushed to upstream yet. attempt a rebase,
                     let rebased_head_oid = cherry_rebase(
                         project_repository,
-                        new_target_commit.id(),
-                        new_target_commit.id(),
+                        new_target_commit.id().into(),
+                        new_target_commit.id().into(),
                         branch.head,
                     );
 
@@ -546,9 +546,11 @@ pub fn update_base_branch(
         .iter()
         .filter(|branch| branch.applied)
         .fold(new_target_commit.tree(), |final_tree, branch| {
+            let repo: &git2::Repository = repo.into();
             let final_tree = final_tree?;
-            let branch_tree = repo.find_tree(branch.tree)?;
-            let mut merge_result = repo.merge_trees(&new_target_tree, &final_tree, &branch_tree)?;
+            let branch_tree = repo.find_tree(branch.tree.into())?;
+            let mut merge_result: Index =
+                repo.merge_trees(&new_target_tree, &final_tree, &branch_tree, None)?;
             let final_tree_oid = merge_result.write_tree_to(repo)?;
             repo.find_tree(final_tree_oid)
         })
@@ -561,7 +563,7 @@ pub fn update_base_branch(
 
     // write new target oid
     vb_state.set_default_target(target::Target {
-        sha: new_target_commit.id(),
+        sha: new_target_commit.id().into(),
         ..target
     })?;
 
@@ -581,7 +583,7 @@ pub fn target_to_base_branch(
 
     // gather a list of commits between oid and target.sha
     let upstream_commits = project_repository
-        .log(oid, project_repository::LogUntil::Commit(target.sha))
+        .log(oid.into(), project_repository::LogUntil::Commit(target.sha))
         .context("failed to get upstream commits")?
         .iter()
         .map(super::commit_to_remote_commit)
@@ -617,7 +619,7 @@ pub fn target_to_base_branch(
         push_remote_name: target.push_remote_name.clone(),
         push_remote_url,
         base_sha: target.sha,
-        current_sha: oid,
+        current_sha: oid.into(),
         behind: upstream_commits.len(),
         upstream_commits,
         recent_commits,

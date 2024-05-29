@@ -1,6 +1,6 @@
 use super::{
-    Blob, Branch, Commit, Config, Index, Oid, Reference, Refname, Remote, Result, Signature,
-    TreeBuilder, Url,
+    Blob, Branch, Config, Index, Oid, Reference, Refname, Remote, Result, Signature, TreeBuilder,
+    Url,
 };
 use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
@@ -134,11 +134,11 @@ impl Repository {
 
     pub fn reset(
         &self,
-        commit: &Commit<'_>,
+        commit: &git2::Commit<'_>,
         kind: git2::ResetType,
         checkout: Option<&mut git2::build::CheckoutBuilder<'_>>,
     ) -> Result<()> {
-        let commit: &git2::Commit = commit.into();
+        let commit: &git2::Commit = commit;
         self.0
             .reset(commit.as_object(), kind, checkout)
             .map_err(Into::into)
@@ -159,11 +159,8 @@ impl Repository {
         self.0.find_tree(id.into()).map_err(Into::into)
     }
 
-    pub fn find_commit(&self, id: Oid) -> Result<Commit> {
-        self.0
-            .find_commit(id.into())
-            .map(Commit::from)
-            .map_err(Into::into)
+    pub fn find_commit(&self, id: Oid) -> Result<git2::Commit> {
+        self.0.find_commit(id.into()).map_err(Into::into)
     }
 
     pub fn find_blob(&self, id: Oid) -> Result<Blob> {
@@ -212,9 +209,9 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn cherry_pick(&self, base: &Commit, target: &Commit) -> Result<Index> {
+    pub fn cherry_pick(&self, base: &git2::Commit, target: &git2::Commit) -> Result<Index> {
         self.0
-            .cherrypick_commit(target.into(), base.into(), 0, None)
+            .cherrypick_commit(target, base, 0, None)
             .map(Into::into)
             .map_err(Into::into)
     }
@@ -231,13 +228,10 @@ impl Repository {
         committer: &Signature<'_>,
         message: &str,
         tree: &git2::Tree<'_>,
-        parents: &[&Commit<'_>],
+        parents: &[&git2::Commit<'_>],
         change_id: Option<&str>,
     ) -> Result<Oid> {
-        let parents: Vec<&git2::Commit> = parents
-            .iter()
-            .map(|c| c.to_owned().into())
-            .collect::<Vec<_>>();
+        let parents: Vec<&git2::Commit> = parents.iter().map(|c| c.to_owned()).collect::<Vec<_>>();
 
         let commit_buffer = self.0.commit_create_buffer(
             author.into(),
@@ -538,9 +532,9 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn branch(&self, name: &Refname, target: &Commit, force: bool) -> Result<Branch> {
+    pub fn branch(&self, name: &Refname, target: &git2::Commit, force: bool) -> Result<Branch> {
         self.0
-            .branch(&name.to_string(), target.into(), force)
+            .branch(&name.to_string(), target, force)
             .map(Into::into)
             .map_err(Into::into)
     }

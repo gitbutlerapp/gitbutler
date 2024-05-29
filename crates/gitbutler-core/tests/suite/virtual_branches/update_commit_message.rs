@@ -1,3 +1,5 @@
+use git::CommitExt;
+
 use super::*;
 
 #[tokio::test]

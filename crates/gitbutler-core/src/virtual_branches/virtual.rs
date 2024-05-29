@@ -26,7 +26,7 @@ use super::{
 };
 use crate::error::{self, AnyhowContextExt, Code};
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
-use crate::git::RepositoryExt;
+use crate::git::{CommitExt, RepositoryExt, Signature};
 use crate::time::now_since_unix_epoch_ms;
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
@@ -34,7 +34,7 @@ use crate::{
     git::{
         self,
         diff::{self},
-        Commit, Refname, RemoteRefname,
+        Refname, RemoteRefname,
     },
     project_repository::{self, conflicts, LogUntil},
     reader, users,
@@ -282,7 +282,7 @@ pub fn apply_branch(
         if merge_index.has_conflicts() {
             // currently we can only deal with the merge problem branch
             for mut branch in
-                super::get_status_by_branch(project_repository, Some(&target_commit.id()))?
+                super::get_status_by_branch(project_repository, Some(&target_commit.id().into()))?
                     .0
                     .into_iter()
                     .map(|(branch, _)| branch)
@@ -368,7 +368,7 @@ pub fn apply_branch(
             let mut rebase = repo
                 .rebase(
                     Some(branch.head),
-                    Some(target_commit.id()),
+                    Some(target_commit.id().into()),
                     None,
                     Some(&mut rebase_options),
                 )
@@ -428,7 +428,7 @@ pub fn apply_branch(
             }
         }
 
-        branch.tree = repo.find_commit(branch.head)?.tree()?.id().into();
+        branch.tree = repo.find_commit(branch.head)?.tree_gb()?.id().into();
         vb_state.set_branch(branch.clone())?;
     }
 
@@ -738,12 +738,12 @@ pub fn unapply_branch(
 
 fn find_base_tree<'a>(
     repo: &'a git::Repository,
-    branch_commit: &'a git::Commit<'a>,
-    target_commit: &'a git::Commit<'a>,
+    branch_commit: &'a git2::Commit<'a>,
+    target_commit: &'a git2::Commit<'a>,
 ) -> Result<git2::Tree<'a>> {
     // find merge base between target_commit and branch_commit
     let merge_base = repo
-        .merge_base(target_commit.id(), branch_commit.id())
+        .merge_base(target_commit.id().into(), branch_commit.id().into())
         .context("failed to find merge base")?;
     // turn oid into a commit
     let merge_base_commit = repo
@@ -773,7 +773,7 @@ pub fn list_virtual_branches(
         .unwrap();
 
     let (statuses, skipped_files) =
-        get_status_by_branch(project_repository, Some(&integration_commit.id()))?;
+        get_status_by_branch(project_repository, Some(&integration_commit.id().into()))?;
     let max_selected_for_changes = statuses
         .iter()
         .filter_map(|(branch, _)| branch.selected_for_changes)
@@ -811,14 +811,14 @@ pub fn list_virtual_branches(
         // find upstream commits if we found an upstream reference
         let mut pushed_commits = HashMap::new();
         if let Some(upstream) = &upstram_branch_commit {
-            let merge_base =
-                repo.merge_base(upstream.id(), default_target.sha)
-                    .context(format!(
-                        "failed to find merge base between {} and {}",
-                        upstream.id(),
-                        default_target.sha
-                    ))?;
-            for oid in project_repository.l(upstream.id(), LogUntil::Commit(merge_base))? {
+            let merge_base = repo
+                .merge_base(upstream.id().into(), default_target.sha)
+                .context(format!(
+                    "failed to find merge base between {} and {}",
+                    upstream.id(),
+                    default_target.sha
+                ))?;
+            for oid in project_repository.l(upstream.id().into(), LogUntil::Commit(merge_base))? {
                 pushed_commits.insert(oid, true);
             }
         }
@@ -835,7 +835,7 @@ pub fn list_virtual_branches(
                 is_remote = if is_remote {
                     is_remote
                 } else {
-                    pushed_commits.contains_key(&commit.id())
+                    pushed_commits.contains_key(&commit.id().into())
                 };
 
                 // only check for integration if we haven't already found an integration
@@ -966,14 +966,14 @@ fn is_requires_force(
 
     let merge_base = project_repository
         .git_repository
-        .merge_base(upstream_commit.id(), branch.head)?;
+        .merge_base(upstream_commit.id().into(), branch.head)?;
 
-    Ok(merge_base != upstream_commit.id())
+    Ok(merge_base != upstream_commit.id().into())
 }
 
 fn list_virtual_commit_files(
     project_repository: &project_repository::Repository,
-    commit: &git::Commit,
+    commit: &git2::Commit,
 ) -> Result<Vec<VirtualBranchFile>> {
     if commit.parent_count() == 0 {
         return Ok(vec![]);
@@ -996,21 +996,28 @@ fn list_virtual_commit_files(
 fn commit_to_vbranch_commit(
     repository: &project_repository::Repository,
     branch: &branch::Branch,
-    commit: &git::Commit,
+    commit: &git2::Commit,
     is_integrated: bool,
     is_remote: bool,
 ) -> Result<VirtualBranchCommit> {
     let timestamp = u128::try_from(commit.time().seconds())?;
-    let signature = commit.author();
-    let message = commit.message().to_owned();
+    let signature: Signature = commit.author().into();
+    let message = commit.message_bstr().to_owned();
 
     let files =
         list_virtual_commit_files(repository, commit).context("failed to list commit files")?;
 
-    let parent_ids = commit.parents()?.iter().map(Commit::id).collect::<Vec<_>>();
+    let parent_ids: Vec<git::Oid> = commit
+        .parents_gb()?
+        .iter()
+        .map(|c| {
+            let c: git::Oid = c.id().into();
+            c
+        })
+        .collect::<Vec<_>>();
 
     let commit = VirtualBranchCommit {
-        id: commit.id(),
+        id: commit.id().into(),
         created_at: timestamp * 1000,
         author: Author::from(signature),
         description: message,
@@ -1175,12 +1182,12 @@ pub fn integrate_upstream_commits(
     let upstream_oid = repo.refname_to_id(&upstream_branch.to_string())?;
     let upstream_commit = repo.find_commit(upstream_oid)?;
 
-    if upstream_commit.id() == branch.head {
+    if upstream_commit.id() == branch.head.into() {
         return Ok(());
     }
 
     let upstream_commits =
-        project_repository.list_commits(upstream_commit.id(), default_target.sha)?;
+        project_repository.list_commits(upstream_commit.id().into(), default_target.sha)?;
     let branch_commits = project_repository.list_commits(branch.head, default_target.sha)?;
 
     let branch_commit_ids = branch_commits.iter().map(|c| c.id()).collect::<Vec<_>>();
@@ -1190,14 +1197,14 @@ pub fn integrate_upstream_commits(
         .filter_map(|c| c.change_id())
         .collect::<Vec<_>>();
 
-    let mut unknown_commits = upstream_commits
+    let mut unknown_commits: Vec<git::Oid> = upstream_commits
         .iter()
         .filter(|c| {
             (!c.change_id()
                 .is_some_and(|cid| branch_change_ids.contains(&cid)))
                 && !branch_commit_ids.contains(&c.id())
         })
-        .map(|c| c.id())
+        .map(|c| c.id().into())
         .collect::<Vec<_>>();
 
     let rebased_commits = upstream_commits
@@ -1304,14 +1311,16 @@ pub fn integrate_with_merge(
     project_repository: &project_repository::Repository,
     user: Option<&users::User>,
     branch: &mut Branch,
-    upstream_commit: &git::Commit,
+    upstream_commit: &git2::Commit,
     merge_base: git::Oid,
 ) -> Result<git::Oid> {
     let wd_tree = project_repository.repo().get_wd_tree()?;
     let repo = &project_repository.git_repository;
     let remote_tree = upstream_commit.tree().context("failed to get tree")?;
     let upstream_branch = branch.upstream.as_ref().context("upstream not found")?;
-    let merge_tree = repo.find_commit(merge_base).and_then(|c| c.tree())?;
+    // let merge_tree = repo.find_commit(merge_base).and_then(|c| c.tree())?;
+    let merge_tree = repo.find_commit(merge_base)?;
+    let merge_tree = merge_tree.tree()?;
 
     let mut merge_index = repo.merge_trees(&merge_tree, &wd_tree, &remote_tree)?;
 
@@ -1325,7 +1334,7 @@ pub fn integrate_with_merge(
         conflicts::mark(
             project_repository,
             merge_conflicts,
-            Some(upstream_commit.id()),
+            Some(upstream_commit.id().into()),
         )?;
         repo.checkout_index(&mut merge_index)
             .allow_conflicts()
@@ -1762,7 +1771,7 @@ fn get_applied_status(
                         let commit_id = git::Oid::from(blame_hunk.orig_commit_id());
                         if commit_id != *target_sha && commit_id != *integration_commit {
                             let hash = Hunk::hash_diff(&hunk.diff_lines);
-                            let Some(branch_id) = commit_to_branch.get(&commit_id) else {
+                            let Some(branch_id) = commit_to_branch.get(&commit_id.into()) else {
                                 // This is a truly absurd situation
                                 // TODO: Test if this still happens
                                 tracing::error!(
@@ -2032,8 +2041,8 @@ pub fn reset_branch(
     let repo = &project_repository.git_repository;
     let diff = trees(
         repo,
-        &repo.find_commit(updated_head)?.tree()?,
-        &repo.find_commit(old_head)?.tree()?,
+        &repo.find_commit(updated_head)?.tree_gb()?,
+        &repo.find_commit(old_head)?.tree_gb()?,
     )?;
 
     // Assign the new hunks to the branch we're working on.
@@ -2474,18 +2483,18 @@ pub fn push(
 fn is_commit_integrated(
     project_repository: &project_repository::Repository,
     target: &target::Target,
-    commit: &git::Commit,
+    commit: &git2::Commit,
 ) -> Result<bool> {
     let remote_branch = project_repository
         .git_repository
         .find_branch(&target.branch.clone().into())?;
     let remote_head = remote_branch.peel_to_commit()?;
     let upstream_commits = project_repository.l(
-        remote_head.id(),
+        remote_head.id().into(),
         project_repository::LogUntil::Commit(target.sha),
     )?;
 
-    if target.sha.eq(&commit.id()) {
+    if target.sha.eq(&commit.id().into()) {
         // could not be integrated if heads are the same.
         return Ok(false);
     }
@@ -2495,14 +2504,14 @@ fn is_commit_integrated(
         return Ok(false);
     }
 
-    if upstream_commits.contains(&commit.id()) {
+    if upstream_commits.contains(&commit.id().into()) {
         return Ok(true);
     }
 
     let merge_base_id = project_repository
         .git_repository
-        .merge_base(target.sha, commit.id())?;
-    if merge_base_id.eq(&commit.id()) {
+        .merge_base(target.sha, commit.id().into())?;
+    if merge_base_id.eq(&commit.id().into()) {
         // if merge branch is the same as branch head and there are upstream commits
         // then it's integrated
         return Ok(true);
@@ -2514,7 +2523,7 @@ fn is_commit_integrated(
     let merge_base_tree = merge_base.tree()?;
     let upstream = project_repository
         .git_repository
-        .find_commit(remote_head.id())?;
+        .find_commit(remote_head.id().into())?;
     let upstream_tree = upstream.tree()?;
 
     if merge_base_tree.id() == upstream_tree.id() {
@@ -2685,7 +2694,7 @@ pub fn move_commit_file(
     // find all the commits upstream from the target "to" commit
     let mut upstream_commits = project_repository.l(
         target_branch.head,
-        project_repository::LogUntil::Commit(amend_commit.id()),
+        project_repository::LogUntil::Commit(amend_commit.id().into()),
     )?;
 
     // get a list of all the diffs across all the virtual branches
@@ -2787,7 +2796,7 @@ pub fn move_commit_file(
 
         // write our new tree and commit for the new "from" commit without the moved changes
         let new_from_tree_oid =
-            write_tree_onto_commit(project_repository, from_parent.id(), &diffs_to_keep)?;
+            write_tree_onto_commit(project_repository, from_parent.id().into(), &diffs_to_keep)?;
         let new_from_tree = &repo
             .find_tree(new_from_tree_oid)
             .map_err(|_error| errors::VirtualBranchError::GitObjectNotFound(new_from_tree_oid))?;
@@ -2795,9 +2804,9 @@ pub fn move_commit_file(
         let new_from_commit_oid = repo
             .commit(
                 None,
-                &from_commit.author(),
-                &from_commit.committer(),
-                &from_commit.message().to_str_lossy(),
+                &from_commit.author().into(),
+                &from_commit.committer().into(),
+                &from_commit.message_bstr().to_str_lossy(),
                 new_from_tree,
                 &[&from_parent],
                 change_id.as_deref(),
@@ -2852,7 +2861,7 @@ pub fn move_commit_file(
         // reset the concept of what the upstream commits are to be the rebased ones
         upstream_commits = project_repository.l(
             new_head,
-            project_repository::LogUntil::Commit(amend_commit.id()),
+            project_repository::LogUntil::Commit(amend_commit.id().into()),
         )?;
     }
 
@@ -2869,16 +2878,16 @@ pub fn move_commit_file(
         .find_tree(new_tree_oid)
         .context("failed to find new tree")?;
     let parents = amend_commit
-        .parents()
+        .parents_gb()
         .context("failed to find head commit parents")?;
     let change_id = amend_commit.change_id();
     let commit_oid = project_repository
         .git_repository
         .commit(
             None,
-            &amend_commit.author(),
-            &amend_commit.committer(),
-            &amend_commit.message().to_str_lossy(),
+            &amend_commit.author().into(),
+            &amend_commit.committer().into(),
+            &amend_commit.message_bstr().to_str_lossy(),
             &new_tree,
             &parents.iter().collect::<Vec<_>>(),
             change_id.as_deref(),
@@ -2900,7 +2909,7 @@ pub fn move_commit_file(
     let new_head = cherry_rebase(
         project_repository,
         commit_oid,
-        amend_commit.id(),
+        amend_commit.id().into(),
         last_commit,
     )?;
 
@@ -3049,16 +3058,16 @@ pub fn amend(
         .context("failed to find new tree")?;
 
     let parents = amend_commit
-        .parents()
+        .parents_gb()
         .context("failed to find head commit parents")?;
 
     let commit_oid = project_repository
         .git_repository
         .commit(
             None,
-            &amend_commit.author(),
-            &amend_commit.committer(),
-            &amend_commit.message().to_str_lossy(),
+            &amend_commit.author().into(),
+            &amend_commit.committer().into(),
+            &amend_commit.message_bstr().to_str_lossy(),
             &new_tree,
             &parents.iter().collect::<Vec<_>>(),
             None,
@@ -3068,7 +3077,7 @@ pub fn amend(
     // now rebase upstream commits, if needed
     let upstream_commits = project_repository.l(
         target_branch.head,
-        project_repository::LogUntil::Commit(amend_commit.id()),
+        project_repository::LogUntil::Commit(amend_commit.id().into()),
     )?;
     // if there are no upstream commits, we're done
     if upstream_commits.is_empty() {
@@ -3083,7 +3092,7 @@ pub fn amend(
     let new_head = cherry_rebase(
         project_repository,
         commit_oid,
-        amend_commit.id(),
+        amend_commit.id().into(),
         last_commit,
     )?;
 
@@ -3141,13 +3150,13 @@ pub fn reorder_commit(
         // get a list of the commits to rebase
         let mut ids_to_rebase = project_repository.l(
             branch.head,
-            project_repository::LogUntil::Commit(commit.id()),
+            project_repository::LogUntil::Commit(commit.id().into()),
         )?;
         let last_oid = ids_to_rebase.pop().context("failed to pop last oid")?;
         ids_to_rebase.push(commit_oid);
         ids_to_rebase.push(last_oid);
 
-        match cherry_rebase_group(project_repository, parent_oid, &mut ids_to_rebase) {
+        match cherry_rebase_group(project_repository, parent_oid.into(), &mut ids_to_rebase) {
             Ok(new_head) => {
                 branch.head = new_head;
                 vb_state
@@ -3163,7 +3172,7 @@ pub fn reorder_commit(
         }
     } else {
         //  move commit down
-        if default_target.sha == parent_oid {
+        if default_target.sha == parent_oid.into() {
             // can't move the commit down past the target
             return Ok(());
         }
@@ -3174,12 +3183,12 @@ pub fn reorder_commit(
         // get a list of the commits to rebase
         let mut ids_to_rebase = project_repository.l(
             branch.head,
-            project_repository::LogUntil::Commit(commit.id()),
+            project_repository::LogUntil::Commit(commit.id().into()),
         )?;
-        ids_to_rebase.push(parent_oid);
+        ids_to_rebase.push(parent_oid.into());
         ids_to_rebase.push(commit_oid);
 
-        match cherry_rebase_group(project_repository, target_oid, &mut ids_to_rebase) {
+        match cherry_rebase_group(project_repository, target_oid.into(), &mut ids_to_rebase) {
             Ok(new_head) => {
                 branch.head = new_head;
                 vb_state
@@ -3234,7 +3243,7 @@ pub fn insert_blank_commit(
     let commit_tree = commit.tree().unwrap();
     let blank_commit_oid = project_repository.commit(user, "", &commit_tree, &[&commit], None)?;
 
-    if commit.id() == branch.head && offset < 0 {
+    if commit.id() == branch.head.into() && offset < 0 {
         // inserting before the first commit
         branch.head = blank_commit_oid;
         vb_state
@@ -3247,7 +3256,7 @@ pub fn insert_blank_commit(
         match cherry_rebase(
             project_repository,
             blank_commit_oid,
-            commit.id(),
+            commit.id().into(),
             branch.head,
         ) {
             Ok(Some(new_head)) => {
@@ -3304,12 +3313,12 @@ pub fn undo_commit(
 
         match cherry_rebase(
             project_repository,
-            parent_commit_oid,
+            parent_commit_oid.into(),
             commit_oid,
             branch.head,
         ) {
             Ok(Some(new_head)) => {
-                new_commit_oid = new_head;
+                new_commit_oid = new_head.into();
             }
             _ => {
                 return Err(errors::VirtualBranchError::RebaseFailed);
@@ -3317,8 +3326,8 @@ pub fn undo_commit(
         }
     }
 
-    if new_commit_oid != commit_oid {
-        branch.head = new_commit_oid;
+    if new_commit_oid != commit_oid.into() {
+        branch.head = new_commit_oid.into();
         vb_state
             .set_branch(branch.clone())
             .context("failed to write branch")?;
@@ -3406,9 +3415,9 @@ fn cherry_rebase_group(
                     .git_repository
                     .commit(
                         None,
-                        &to_rebase.author(),
-                        &to_rebase.committer(),
-                        &to_rebase.message().to_str_lossy(),
+                        &to_rebase.author().into(),
+                        &to_rebase.committer().into(),
+                        &to_rebase.message_bstr().to_str_lossy(),
                         &merge_tree,
                         &[&head],
                         change_id.as_deref(),
@@ -3423,7 +3432,7 @@ fn cherry_rebase_group(
         )?
         .id();
 
-    Ok(new_head_id)
+    Ok(new_head_id.into())
 }
 
 pub fn cherry_pick(
@@ -3575,9 +3584,9 @@ pub fn cherry_pick(
             .git_repository
             .commit(
                 None,
-                &target_commit.author(),
-                &target_commit.committer(),
-                &target_commit.message().to_str_lossy(),
+                &target_commit.author().into(),
+                &target_commit.committer().into(),
+                &target_commit.message_bstr().to_str_lossy(),
                 &merge_tree,
                 &[&branch_head_commit],
                 change_id.as_deref(),
@@ -3664,7 +3673,7 @@ pub fn squash(
         },
     )?;
 
-    if pushed_commit_oids.contains(&parent_commit.id())
+    if pushed_commit_oids.contains(&parent_commit.id().into())
         && !project_repository.project().ok_with_force_push
     {
         // squashing into a pushed commit will cause a force push that is not allowed
@@ -3675,7 +3684,7 @@ pub fn squash(
         ));
     }
 
-    if !branch_commit_oids.contains(&parent_commit.id()) {
+    if !branch_commit_oids.contains(&parent_commit.id().into()) {
         return Err(errors::SquashError::CantSquashRootCommit);
     }
 
@@ -3684,7 +3693,7 @@ pub fn squash(
     //  * has the message combined of the target commit and parent commit
     //  * has parents of the parents commit.
     let parents = parent_commit
-        .parents()
+        .parents_gb()
         .context("failed to find head commit parents")?;
 
     // use the squash commit's change id
@@ -3694,12 +3703,12 @@ pub fn squash(
         .git_repository
         .commit(
             None,
-            &commit_to_squash.author(),
-            &commit_to_squash.committer(),
+            &commit_to_squash.author().into(),
+            &commit_to_squash.committer().into(),
             &format!(
                 "{}\n{}",
-                parent_commit.message(),
-                commit_to_squash.message(),
+                parent_commit.message_bstr(),
+                commit_to_squash.message_bstr(),
             ),
             &commit_to_squash.tree().context("failed to find tree")?,
             &parents.iter().collect::<Vec<_>>(),
@@ -3801,7 +3810,7 @@ pub fn update_commit_message(
         .context("failed to find commit")?;
 
     let parents = target_commit
-        .parents()
+        .parents_gb()
         .context("failed to find head commit parents")?;
 
     let change_id = target_commit.change_id();
@@ -3810,8 +3819,8 @@ pub fn update_commit_message(
         .git_repository
         .commit(
             None,
-            &target_commit.author(),
-            &target_commit.committer(),
+            &target_commit.author().into(),
+            &target_commit.committer().into(),
             message,
             &target_commit.tree().context("failed to find tree")?,
             &parents.iter().collect::<Vec<_>>(),
@@ -3955,7 +3964,7 @@ pub fn move_commit(
 
     // reset the source branch to the parent commit
     {
-        source_branch.head = source_branch_head_parent.id();
+        source_branch.head = source_branch_head_parent.id().into();
         vb_state.set_branch(source_branch.clone())?;
     }
 
@@ -3993,7 +4002,7 @@ pub fn move_commit(
         let new_destination_head_oid = project_repository
             .commit(
                 user,
-                &source_branch_head.message().to_str_lossy(),
+                &source_branch_head.message_bstr().to_str_lossy(),
                 &new_destination_tree,
                 &[&project_repository
                     .git_repository
@@ -4092,7 +4101,7 @@ pub fn create_virtual_branch_from_branch(
         .find_commit(default_target.sha)
         .map_err(|error| errors::CreateVirtualBranchFromBranchError::Other(error.into()))?;
     let merge_base_oid = repo
-        .merge_base(target_commit.id(), head_commit.id())
+        .merge_base(target_commit.id().into(), head_commit.id().into())
         .map_err(|error| errors::CreateVirtualBranchFromBranchError::Other(error.into()))?;
     let merge_base_tree = repo
         .find_commit(merge_base_oid)
@@ -4131,10 +4140,10 @@ pub fn create_virtual_branch_from_branch(
         name: branch_name.clone(),
         notes: String::new(),
         applied: false,
-        upstream_head: upstream_branch.is_some().then_some(head_commit.id()),
+        upstream_head: upstream_branch.is_some().then_some(head_commit.id().into()),
         upstream: upstream_branch,
         tree: head_commit_tree.id().into(),
-        head: head_commit.id(),
+        head: head_commit.id().into(),
         created_timestamp_ms: now,
         updated_timestamp_ms: now,
         ownership,
