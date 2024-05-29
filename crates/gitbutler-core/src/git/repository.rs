@@ -223,15 +223,9 @@ impl Repository {
         parents: &[&git2::Commit<'_>],
         change_id: Option<&str>,
     ) -> Result<Oid> {
-        let parents: Vec<&git2::Commit> = parents.iter().map(|c| c.to_owned()).collect::<Vec<_>>();
-
-        let commit_buffer = self.0.commit_create_buffer(
-            author.into(),
-            committer.into(),
-            message,
-            tree,
-            &parents,
-        )?;
+        let commit_buffer =
+            self.0
+                .commit_create_buffer(author.into(), committer.into(), message, tree, parents)?;
 
         let commit_buffer = Self::inject_change_id(&commit_buffer, change_id)?;
 

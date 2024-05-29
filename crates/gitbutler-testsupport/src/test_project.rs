@@ -1,7 +1,7 @@
 use std::path;
 use std::path::PathBuf;
 
-use gitbutler_core::git::{self, CommitExt};
+use gitbutler_core::git::{self};
 use tempfile::TempDir;
 
 use crate::{init_opts, VAR_NO_CLEANUP};
@@ -276,16 +276,15 @@ impl TestProject {
             .peel_to_commit()
             .unwrap();
         let tree = match self.local_repository.find_branch(&branch) {
-            Ok(branch) => branch.peel_to_tree(),
+            Ok(branch) => branch.peel_to_tree().unwrap(),
             Err(git::Error::NotFound(_)) => {
                 self.local_repository
                     .reference(&branch, head_commit.id().into(), false, "new branch")
                     .unwrap();
-                head_commit.tree_gb()
+                head_commit.tree().unwrap()
             }
-            Err(error) => Err(error),
-        }
-        .unwrap();
+            Err(error) => panic!("{:?}", error),
+        };
         self.local_repository.set_head(&branch).unwrap();
         self.local_repository
             .checkout_tree(&tree)
