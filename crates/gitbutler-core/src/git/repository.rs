@@ -1,6 +1,4 @@
-use super::{
-    Branch, Config, Index, Oid, Reference, Refname, Remote, Result, Signature, TreeBuilder, Url,
-};
+use super::{Branch, Config, Index, Oid, Reference, Refname, Remote, Result, Signature, Url};
 use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
 #[cfg(unix)]
@@ -401,10 +399,6 @@ impl Repository {
 
     pub fn config(&self) -> Result<Config> {
         self.0.config().map(Into::into).map_err(Into::into)
-    }
-
-    pub fn treebuilder<'repo>(&'repo self, tree: Option<&'repo git2::Tree>) -> TreeBuilder<'repo> {
-        TreeBuilder::new(self, tree)
     }
 
     pub fn path(&self) -> &Path {
