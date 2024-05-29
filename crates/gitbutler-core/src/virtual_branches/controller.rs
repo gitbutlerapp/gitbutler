@@ -298,8 +298,8 @@ impl Controller {
 
     pub async fn resolve_conflict_start(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
     ) -> Result<(), Error> {
         self.inner(project_id)
@@ -310,8 +310,8 @@ impl Controller {
 
     pub async fn resolve_conflict_finish(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
     ) -> Result<git::Oid, Error> {
         self.inner(project_id)
@@ -322,8 +322,8 @@ impl Controller {
 
     pub async fn resolve_conflict_abandon(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
     ) -> Result<(), Error> {
         self.inner(project_id)
@@ -796,8 +796,8 @@ impl ControllerInner {
 
     pub async fn resolve_conflict_start(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
@@ -806,7 +806,7 @@ impl ControllerInner {
             let restore_snapshot = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::ConflictStart))?;
-            super::resolve_conflict_start(project_repository, branch_id, commit_oid, restore_snapshot)
+            super::resolve_conflict_start(project_repository, &branch_id, commit_oid, restore_snapshot)
                 .map_err(Into::into)
         })
     }
@@ -814,8 +814,8 @@ impl ControllerInner {
     // resolves conflict, updates the branch, returns the new branch head
     pub async fn resolve_conflict_finish(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid
     ) -> Result<git::Oid, Error> {
         let _permit = self.semaphore.acquire().await;
@@ -824,15 +824,15 @@ impl ControllerInner {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::ConflictFinish));
-            super::resolve_conflict_finish(project_repository, branch_id, commit_oid)
+            super::resolve_conflict_finish(project_repository, &branch_id, commit_oid)
                 .map_err(Into::into)
         })
     }
 
     pub async fn resolve_conflict_abandon(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
@@ -841,7 +841,7 @@ impl ControllerInner {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::ConflictAbandon));
-            super::resolve_conflict_abandon(project_repository, branch_id, commit_oid)
+            super::resolve_conflict_abandon(project_repository, &branch_id, commit_oid)
                 .map_err(Into::into)
         })
     }

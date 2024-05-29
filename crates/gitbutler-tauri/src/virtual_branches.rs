@@ -446,9 +446,9 @@ pub mod commands {
     ) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .resolve_conflict_start(&project_id, &branch_id, commit_oid)
+            .resolve_conflict_start(project_id, branch_id, commit_oid)
             .await?;
-        emit_vbranches(&handle, &project_id).await;
+        emit_vbranches(&handle, project_id).await;
         Ok(())
     }
 
@@ -462,9 +462,9 @@ pub mod commands {
     ) -> Result<git::Oid, Error> {
         let oid = handle
             .state::<Controller>()
-            .resolve_conflict_finish(&project_id, &branch_id, commit_oid)
+            .resolve_conflict_finish(project_id, branch_id, commit_oid)
             .await?;
-        emit_vbranches(&handle, &project_id).await;
+        emit_vbranches(&handle, project_id).await;
         Ok(oid)
     }
 
@@ -478,9 +478,9 @@ pub mod commands {
     ) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .resolve_conflict_abandon(&project_id, &branch_id, commit_oid)
+            .resolve_conflict_abandon(project_id, branch_id, commit_oid)
             .await?;
-        emit_vbranches(&handle, &project_id).await;
+        emit_vbranches(&handle, project_id).await;
         Ok(())
     }
 

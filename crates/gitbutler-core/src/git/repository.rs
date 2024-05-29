@@ -138,7 +138,7 @@ impl Repository {
         &self,
         commit: &Commit,
         side: Option<String>,
-    ) -> Result<Tree> {
+    ) -> Result<git2::Tree> {
         let tree = commit.tree()?;
         let entry_name = match side {
             Some(side) => side,
@@ -147,9 +147,9 @@ impl Repository {
         let is_conflict = tree.get_name(&entry_name);
         if is_conflict.is_some() {
             let subtree_id = is_conflict.unwrap().id();
-            self.0.find_tree(subtree_id.into()).map_err(Into::into).map(Tree::from)
+            self.0.find_tree(subtree_id.into()).map_err(Into::into).map(git2::Tree::from)
         } else {
-            self.0.find_tree(tree.id().into()).map_err(Into::into).map(Tree::from)
+            self.0.find_tree(tree.id().into()).map_err(Into::into).map(git2::Tree::from)
         }
     }
 
@@ -283,7 +283,7 @@ impl Repository {
         author: &Signature<'_>,
         committer: &Signature<'_>,
         message: &str,
-        tree: &Tree<'_>,
+        tree: &git2::Tree<'_>,
         parents: &[&Commit<'_>],
         headers: Option<Vec<(String, String)>>,
     ) -> Result<Oid> {

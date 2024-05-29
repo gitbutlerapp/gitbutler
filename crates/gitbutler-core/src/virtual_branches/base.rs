@@ -411,7 +411,7 @@ pub fn update_base_branch(
                         let rebased_head_oid = cherry_rebase(project_repository, new_target_commit.id(), new_target_commit.id(), branch_head)?;
                         let rebased_head = repo.find_commit(rebased_head_oid.unwrap()).context("failed to find rebased head")?;
 
-                        branch.tree = find_real_tree(project_repository, (&rebased_head).into(), None)?.id();
+                        branch.tree = find_real_tree(project_repository, (&rebased_head).into(), None)?.id().into();
                         branch.head = rebased_head.id();
 
                         dbg!(&branch);
@@ -588,9 +588,9 @@ pub fn update_base_branch(
             // use that subtree for the merge instead
             let conflict_side_0 = branch_tree.get_name(".conflict-side-0");
             let merge_tree = if let Some(conflict_side_0) = conflict_side_0 {
-                repo.find_tree(conflict_side_0.id())?
+                repo.find_tree(conflict_side_0.id().into())?
             } else {
-                repo.find_tree(branch_tree.id())? // dumb, but sort of a clone()
+                repo.find_tree(branch_tree.id().into())? // dumb, but sort of a clone()
             };
 
             let mut merge_result = repo.merge_trees(&new_target_tree, &final_tree, &merge_tree)?;

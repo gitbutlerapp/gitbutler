@@ -35,7 +35,7 @@ pub fn list_remote_commit_files(
     // if we have a conflicted commit, we just need a vector of the files that conflicted
     if commit.is_conflicted() {
         let conflict_files_list = commit_tree.get_name(".conflict-files").unwrap();
-        let files_list = conflict_files_list.to_object(repository).unwrap();
+        let files_list = conflict_files_list.to_object(repository.into()).unwrap();
         let list = files_list.as_blob().context("failed to get conflict files list")?;
         // split this list blob into lines and return a Vec of RemoteBranchFile
         let files = list

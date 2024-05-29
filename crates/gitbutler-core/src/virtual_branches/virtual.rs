@@ -3106,9 +3106,9 @@ pub fn resolve_conflict_start(
     let side1 = tree.get_name(".conflict-side-1").context("failed to get side1")?;
     let base0  = tree.get_name(".conflict-base-0").context("failed to get base tree")?;
 
-    let side0_tree =  repo.find_tree(side0.id())?;
-    let side1_tree =  repo.find_tree(side1.id())?;
-    let base0_tree =  repo.find_tree(base0.id())?;
+    let side0_tree =  repo.find_tree(side0.id().into())?;
+    let side1_tree =  repo.find_tree(side1.id().into())?;
+    let base0_tree =  repo.find_tree(base0.id().into())?;
 
     let mut merge_index = repo.merge_trees(&base0_tree, &side0_tree, &side1_tree).context("failed to merge trees")?;
 
@@ -3158,7 +3158,7 @@ pub fn resolve_conflict_finish(
     // first get a list of the upstream commits
     let vb_state = project_repository.project().virtual_branches();
 
-    let mut target_branch = match vb_state.get_branch(branch_id) {
+    let mut target_branch = match vb_state.get_branch(*branch_id) {
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => return Ok(commit_oid), // this is wrong
         Err(error) => Err(error),
@@ -3227,7 +3227,7 @@ pub fn resolve_conflict_finish(
     // if that rebase worked, update the branch head and the gitbutler integration
     if let Some(new_head_oid) = new_head_oid {
         target_branch.head = new_head_oid;
-        target_branch.tree = new_head_commit.tree()?.id();
+        target_branch.tree = new_head_commit.tree()?.id().into();
         vb_state.set_branch(target_branch.clone())?;
         checkout_merged_applied_branches(project_repository)?;
         super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
@@ -3280,9 +3280,9 @@ pub fn checkout_merged_applied_branches(
 
             let conflict_side_0 = branch_tree.get_name(".conflict-side-0");
             let merge_tree = if let Some(conflict_side_0) = conflict_side_0 {
-                repo.find_tree(conflict_side_0.id())?
+                repo.find_tree(conflict_side_0.id().into())?
             } else {
-                repo.find_tree(branch_tree.id())? // dumb, but sort of a clone()
+                repo.find_tree(branch_tree.id().into())? // dumb, but sort of a clone()
             };
 
             let mut merge_result = repo.merge_trees(&target_tree, &final_tree, &merge_tree)?;
@@ -3604,7 +3604,7 @@ pub fn find_real_tree<'a>(
     project_repository: &'a project_repository::Repository,
     commit: &'a git2::Commit<'a>,
     side: Option<String>,
-) -> Result<git::Tree<'a>, anyhow::Error> {
+) -> Result<git2::Tree<'a>, anyhow::Error> {
     let tree = commit.tree()?;
     let entry_name = match side {
         Some(side) => side,
@@ -3701,9 +3701,9 @@ fn cherry_rebase_group(
                     let side1 = find_real_tree(project_repository, (&to_rebase).into(), Some(".conflict-side-1".to_string()))?;
 
                     // save the state of the conflict, so we can recreate it later
-                    tree_writer.upsert(".conflict-side-0", side0.id(), FileMode::Tree);
-                    tree_writer.upsert(".conflict-side-1", side1.id(), FileMode::Tree);
-                    tree_writer.upsert(".conflict-base-0", base_tree.id(), FileMode::Tree);
+                    tree_writer.upsert(".conflict-side-0", side0.id().into(), FileMode::Tree);
+                    tree_writer.upsert(".conflict-side-1", side1.id().into(), FileMode::Tree);
+                    tree_writer.upsert(".conflict-base-0", base_tree.id().into(), FileMode::Tree);
                     tree_writer.upsert(".conflict-files", conflicted_files_blob, FileMode::Blob);
                     tree_writer.upsert("README.txt", readme_blob, FileMode::Blob);
 
