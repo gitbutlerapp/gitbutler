@@ -1,4 +1,4 @@
-use super::{Branch, Config, Index, Oid, Reference, Refname, Remote, Result, Signature, Url};
+use super::{Branch, Config, Index, Oid, Reference, Refname, Remote, Result, Url};
 use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
 #[cfg(unix)]
@@ -214,16 +214,16 @@ impl Repository {
     pub fn commit(
         &self,
         update_ref: Option<&Refname>,
-        author: &Signature<'_>,
-        committer: &Signature<'_>,
+        author: &git2::Signature<'_>,
+        committer: &git2::Signature<'_>,
         message: &str,
         tree: &git2::Tree<'_>,
         parents: &[&git2::Commit<'_>],
         change_id: Option<&str>,
     ) -> Result<Oid> {
-        let commit_buffer =
-            self.0
-                .commit_create_buffer(author.into(), committer.into(), message, tree, parents)?;
+        let commit_buffer = self
+            .0
+            .commit_create_buffer(author, committer, message, tree, parents)?;
 
         let commit_buffer = Self::inject_change_id(&commit_buffer, change_id)?;
 

@@ -20,8 +20,8 @@ const WORKSPACE_HEAD: &str = "Workspace Head";
 pub const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME: &str = "GitButler";
 pub const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
 
-fn get_committer<'a>() -> Result<git::Signature<'a>> {
-    Ok(git::Signature::now(
+fn get_committer<'a>() -> Result<git2::Signature<'a>> {
+    Ok(git2::Signature::now(
         GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
         GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
     )?)
@@ -85,8 +85,8 @@ pub fn get_workspace_head(
     // Create merge commit of branch heads.
     let workspace_head_id = repo.commit(
         None,
-        &committer.signature,
-        &committer.signature,
+        &committer,
+        &committer,
         WORKSPACE_HEAD,
         &workspace_tree,
         &branch_head_refs,
@@ -215,8 +215,8 @@ pub fn update_gitbutler_integration(
     // requires committing to the tip of the branch, and we're mostly replacing the tip.
     let final_commit = repo.commit(
         None,
-        &committer.signature,
-        &committer.signature,
+        &committer,
+        &committer,
         &message,
         &integration_commit.tree()?,
         &[&target_commit],
@@ -253,8 +253,8 @@ pub fn update_gitbutler_integration(
             message.push_str("anything else.\n\n");
             let branch_head_oid = repo.commit(
                 None,
-                &committer.signature,
-                &committer.signature,
+                &committer,
+                &committer,
                 &message,
                 &wip_tree,
                 &[&branch_head],
@@ -351,8 +351,8 @@ fn verify_head_is_clean(
             .git_repository
             .commit(
                 None,
-                &commit.author().into(),
-                &commit.committer().into(),
+                &commit.author(),
+                &commit.committer(),
                 &commit.message_bstr().to_str_lossy(),
                 &commit.tree().unwrap(),
                 &[&new_branch_head],

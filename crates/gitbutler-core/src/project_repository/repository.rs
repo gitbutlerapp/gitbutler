@@ -343,15 +343,7 @@ impl Repository {
         let (author, committer) =
             super::signatures::signatures(self, user).context("failed to get signatures")?;
         self.git_repository
-            .commit(
-                None,
-                &author.into(),
-                &committer.into(),
-                message,
-                tree,
-                parents,
-                change_id,
-            )
+            .commit(None, &author, &committer, message, tree, parents, change_id)
             .context("failed to commit")
     }
 
