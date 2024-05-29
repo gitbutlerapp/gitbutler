@@ -15,7 +15,7 @@ impl Controller {
     }
 
     pub async fn remotes(&self, project_id: ProjectId) -> Result<Vec<String>, Error> {
-        let project = self.projects.get(&project_id)?;
+        let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
 
         Ok(project_repository.remotes()?)
@@ -27,7 +27,7 @@ impl Controller {
         name: &str,
         url: &str,
     ) -> Result<(), Error> {
-        let project = self.projects.get(&project_id)?;
+        let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
 
         Ok(project_repository.add_remote(name, url)?)

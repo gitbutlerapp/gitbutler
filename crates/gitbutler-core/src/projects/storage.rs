@@ -73,9 +73,9 @@ impl Storage {
         }
     }
 
-    pub fn get(&self, id: &ProjectId) -> Result<project::Project, Error> {
+    pub fn get(&self, id: ProjectId) -> Result<project::Project, Error> {
         let projects = self.list()?;
-        match projects.into_iter().find(|p| p.id == *id) {
+        match projects.into_iter().find(|p| p.id == id) {
             Some(project) => Ok(project),
             None => Err(Error::NotFound),
         }
@@ -140,9 +140,9 @@ impl Storage {
             .clone())
     }
 
-    pub fn purge(&self, id: &ProjectId) -> Result<(), Error> {
+    pub fn purge(&self, id: ProjectId) -> Result<(), Error> {
         let mut projects = self.list()?;
-        if let Some(index) = projects.iter().position(|p| p.id == *id) {
+        if let Some(index) = projects.iter().position(|p| p.id == id) {
             projects.remove(index);
             self.inner
                 .write(PROJECTS_FILE, &serde_json::to_string_pretty(&projects)?)?;

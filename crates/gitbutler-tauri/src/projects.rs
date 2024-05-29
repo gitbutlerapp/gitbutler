@@ -43,7 +43,7 @@ pub mod commands {
     ) -> Result<projects::Project, Error> {
         handle
             .state::<Controller>()
-            .get(&id)
+            .get(id)
             .map_err(Error::from_error_with_context)
     }
 
@@ -61,7 +61,7 @@ pub mod commands {
     pub async fn set_project_active(handle: tauri::AppHandle, id: ProjectId) -> Result<(), Error> {
         let project = handle
             .state::<Controller>()
-            .get(&id)
+            .get(id)
             .context("project not found")?;
         Ok(handle.state::<Watchers>().watch(&project)?)
     }
@@ -71,7 +71,7 @@ pub mod commands {
     pub async fn delete_project(handle: tauri::AppHandle, id: ProjectId) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .delete(&id)
+            .delete(id)
             .await
             .map_err(Into::into)
     }
@@ -85,7 +85,7 @@ pub mod commands {
     ) -> Result<Option<String>, Error> {
         Ok(handle
             .state::<Controller>()
-            .get_local_config(&id, key)
+            .get_local_config(id, key)
             .context(Code::Projects)?)
     }
 
@@ -99,7 +99,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         Ok(handle
             .state::<Controller>()
-            .set_local_config(&id, key, value)
+            .set_local_config(id, key, value)
             .context(Code::Projects)?)
     }
 }

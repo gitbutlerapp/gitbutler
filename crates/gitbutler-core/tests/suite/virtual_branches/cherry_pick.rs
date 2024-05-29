@@ -14,19 +14,19 @@ mod cleanly {
         } = &Test::default();
 
         controller
-            .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
         let branch_id = controller
-            .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
             .await
             .unwrap();
 
         let commit_one = {
             fs::write(repository.path().join("file.txt"), "content").unwrap();
             controller
-                .create_commit(project_id, &branch_id, "commit", None, false)
+                .create_commit(*project_id, &branch_id, "commit", None, false)
                 .await
                 .unwrap()
         };
@@ -34,18 +34,18 @@ mod cleanly {
         let commit_two = {
             fs::write(repository.path().join("file.txt"), "content two").unwrap();
             controller
-                .create_commit(project_id, &branch_id, "commit", None, false)
+                .create_commit(*project_id, &branch_id, "commit", None, false)
                 .await
                 .unwrap()
         };
 
         controller
-            .push_virtual_branch(project_id, &branch_id, false, None)
+            .push_virtual_branch(*project_id, &branch_id, false, None)
             .await
             .unwrap();
 
         controller
-            .reset_virtual_branch(project_id, &branch_id, commit_one)
+            .reset_virtual_branch(*project_id, &branch_id, commit_one)
             .await
             .unwrap();
 
@@ -57,7 +57,7 @@ mod cleanly {
         );
 
         let cherry_picked_commit_oid = controller
-            .cherry_pick(project_id, &branch_id, commit_two)
+            .cherry_pick(*project_id, &branch_id, commit_two)
             .await
             .unwrap();
         assert!(cherry_picked_commit_oid.is_some());
@@ -67,7 +67,7 @@ mod cleanly {
             "content two"
         );
 
-        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch_id);
         assert!(branches[0].active);
@@ -86,19 +86,19 @@ mod cleanly {
         } = &Test::default();
 
         controller
-            .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
         let branch_id = controller
-            .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
             .await
             .unwrap();
 
         let commit_one = {
             fs::write(repository.path().join("file.txt"), "content").unwrap();
             controller
-                .create_commit(project_id, &branch_id, "commit", None, false)
+                .create_commit(*project_id, &branch_id, "commit", None, false)
                 .await
                 .unwrap()
         };
@@ -106,18 +106,18 @@ mod cleanly {
         let commit_two = {
             fs::write(repository.path().join("file_two.txt"), "content two").unwrap();
             controller
-                .create_commit(project_id, &branch_id, "commit", None, false)
+                .create_commit(*project_id, &branch_id, "commit", None, false)
                 .await
                 .unwrap()
         };
 
         controller
-            .push_virtual_branch(project_id, &branch_id, false, None)
+            .push_virtual_branch(*project_id, &branch_id, false, None)
             .await
             .unwrap();
 
         controller
-            .reset_virtual_branch(project_id, &branch_id, commit_one)
+            .reset_virtual_branch(*project_id, &branch_id, commit_one)
             .await
             .unwrap();
 
@@ -130,17 +130,17 @@ mod cleanly {
         assert!(!repository.path().join("file_two.txt").exists());
 
         let branch_two_id = controller
-            .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
             .await
             .unwrap();
 
         let cherry_picked_commit_oid = controller
-            .cherry_pick(project_id, &branch_two_id, commit_two)
+            .cherry_pick(*project_id, &branch_two_id, commit_two)
             .await
             .unwrap();
         assert!(cherry_picked_commit_oid.is_some());
 
-        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert!(repository.path().join("file_two.txt").exists());
         assert_eq!(
             fs::read_to_string(repository.path().join("file_two.txt")).unwrap(),
@@ -169,19 +169,19 @@ mod cleanly {
         } = &Test::default();
 
         controller
-            .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
         let branch_id = controller
-            .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
             .await
             .unwrap();
 
         let commit_one_oid = {
             fs::write(repository.path().join("file.txt"), "content").unwrap();
             controller
-                .create_commit(project_id, &branch_id, "commit", None, false)
+                .create_commit(*project_id, &branch_id, "commit", None, false)
                 .await
                 .unwrap()
         };
@@ -189,7 +189,7 @@ mod cleanly {
         {
             fs::write(repository.path().join("file_two.txt"), "content two").unwrap();
             controller
-                .create_commit(project_id, &branch_id, "commit", None, false)
+                .create_commit(*project_id, &branch_id, "commit", None, false)
                 .await
                 .unwrap()
         };
@@ -197,24 +197,24 @@ mod cleanly {
         let commit_three_oid = {
             fs::write(repository.path().join("file_three.txt"), "content three").unwrap();
             controller
-                .create_commit(project_id, &branch_id, "commit", None, false)
+                .create_commit(*project_id, &branch_id, "commit", None, false)
                 .await
                 .unwrap()
         };
 
         controller
-            .reset_virtual_branch(project_id, &branch_id, commit_one_oid)
+            .reset_virtual_branch(*project_id, &branch_id, commit_one_oid)
             .await
             .unwrap();
 
         controller
-            .unapply_virtual_branch(project_id, &branch_id)
+            .unapply_virtual_branch(*project_id, &branch_id)
             .await
             .unwrap();
 
         assert!(matches!(
             controller
-                .cherry_pick(project_id, &branch_id, commit_three_oid)
+                .cherry_pick(*project_id, &branch_id, commit_three_oid)
                 .await
                 .unwrap_err()
                 .downcast_ref(),
@@ -237,19 +237,19 @@ mod with_conflicts {
         } = &Test::default();
 
         controller
-            .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
         let branch_id = controller
-            .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
             .await
             .unwrap();
 
         let commit_one = {
             fs::write(repository.path().join("file.txt"), "content").unwrap();
             controller
-                .create_commit(project_id, &branch_id, "commit one", None, false)
+                .create_commit(*project_id, &branch_id, "commit one", None, false)
                 .await
                 .unwrap()
         };
@@ -257,7 +257,7 @@ mod with_conflicts {
         {
             fs::write(repository.path().join("file_two.txt"), "content two").unwrap();
             controller
-                .create_commit(project_id, &branch_id, "commit two", None, false)
+                .create_commit(*project_id, &branch_id, "commit two", None, false)
                 .await
                 .unwrap()
         };
@@ -265,18 +265,18 @@ mod with_conflicts {
         let commit_three = {
             fs::write(repository.path().join("file_three.txt"), "content three").unwrap();
             controller
-                .create_commit(project_id, &branch_id, "commit three", None, false)
+                .create_commit(*project_id, &branch_id, "commit three", None, false)
                 .await
                 .unwrap()
         };
 
         controller
-            .push_virtual_branch(project_id, &branch_id, false, None)
+            .push_virtual_branch(*project_id, &branch_id, false, None)
             .await
             .unwrap();
 
         controller
-            .reset_virtual_branch(project_id, &branch_id, commit_one)
+            .reset_virtual_branch(*project_id, &branch_id, commit_one)
             .await
             .unwrap();
 
@@ -294,7 +294,7 @@ mod with_conflicts {
         {
             // cherry picking leads to conflict
             let cherry_picked_commit_oid = controller
-                .cherry_pick(project_id, &branch_id, commit_three)
+                .cherry_pick(*project_id, &branch_id, commit_three)
                 .await
                 .unwrap();
             assert!(cherry_picked_commit_oid.is_none());
@@ -304,7 +304,7 @@ mod with_conflicts {
                 "<<<<<<< ours\nconflict\n=======\ncontent three\n>>>>>>> theirs\n"
             );
 
-            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -318,14 +318,14 @@ mod with_conflicts {
             // conflict can be resolved
             fs::write(repository.path().join("file_three.txt"), "resolved").unwrap();
             let commited_oid = controller
-                .create_commit(project_id, &branch_id, "resolution", None, false)
+                .create_commit(*project_id, &branch_id, "resolution", None, false)
                 .await
                 .unwrap();
 
             let commit = repository.find_commit(commited_oid).unwrap();
             assert_eq!(commit.parent_count(), 2);
 
-            let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+            let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -357,12 +357,12 @@ mod with_conflicts {
         };
 
         controller
-            .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+            .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
             .await
             .unwrap();
 
         let branch_id = controller
-            .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
             .await
             .unwrap();
 
@@ -370,13 +370,13 @@ mod with_conflicts {
         fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
         controller
-            .unapply_virtual_branch(project_id, &branch_id)
+            .unapply_virtual_branch(*project_id, &branch_id)
             .await
             .unwrap();
 
         assert!(matches!(
             controller
-                .cherry_pick(project_id, &branch_id, commit_oid)
+                .cherry_pick(*project_id, &branch_id, commit_oid)
                 .await
                 .unwrap_err()
                 .downcast_ref(),

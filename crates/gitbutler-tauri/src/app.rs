@@ -17,7 +17,7 @@ impl App {
         Self { projects }
     }
 
-    pub fn mark_resolved(&self, project_id: &ProjectId, path: &str) -> Result<(), CoreError> {
+    pub fn mark_resolved(&self, project_id: ProjectId, path: &str) -> Result<(), CoreError> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         // mark file as resolved
@@ -27,7 +27,7 @@ impl App {
 
     pub fn git_remote_branches(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
     ) -> Result<Vec<git::RemoteRefname>, CoreError> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
@@ -36,7 +36,7 @@ impl App {
 
     pub fn git_test_push(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         remote_name: &str,
         branch_name: &str,
         credentials: &git::credentials::Helper,
@@ -49,7 +49,7 @@ impl App {
 
     pub fn git_test_fetch(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         remote_name: &str,
         credentials: &git::credentials::Helper,
         askpass: Option<String>,
@@ -59,7 +59,7 @@ impl App {
         Ok(project_repository.fetch(remote_name, credentials, askpass)?)
     }
 
-    pub fn git_index_size(&self, project_id: &ProjectId) -> Result<usize, CoreError> {
+    pub fn git_index_size(&self, project_id: ProjectId) -> Result<usize, CoreError> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         let size = project_repository
@@ -68,7 +68,7 @@ impl App {
         Ok(size)
     }
 
-    pub fn git_head(&self, project_id: &ProjectId) -> Result<String, CoreError> {
+    pub fn git_head(&self, project_id: ProjectId) -> Result<String, CoreError> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         let head = project_repository
@@ -101,7 +101,7 @@ impl App {
     pub async fn delete_all_data(&self) -> Result<(), CoreError> {
         for project in self.projects.list().context("failed to list projects")? {
             self.projects
-                .delete(&project.id)
+                .delete(project.id)
                 .await
                 .map_err(|err| err.context("failed to delete project"))?;
         }

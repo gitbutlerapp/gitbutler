@@ -123,9 +123,9 @@ mod delete {
         let repository = gitbutler_testsupport::TestProject::default();
         let path = repository.path();
         let project = controller.add(path).unwrap();
-        assert!(controller.delete(&project.id).await.is_ok());
-        assert!(controller.delete(&project.id).await.is_ok()); // idempotent
-        assert!(controller.get(&project.id).is_err());
+        assert!(controller.delete(project.id).await.is_ok());
+        assert!(controller.delete(project.id).await.is_ok()); // idempotent
+        assert!(controller.get(project.id).is_err());
         assert!(!project.gb_dir().exists());
         assert!(!project.path.join(".gitbutler.json").exists());
     }
