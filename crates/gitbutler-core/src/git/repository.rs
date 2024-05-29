@@ -1,5 +1,5 @@
 use super::{
-    Blob, Branch, Commit, Config, Index, Oid, Reference, Refname, Remote, Result, Signature, Tree,
+    Blob, Branch, Commit, Config, Index, Oid, Reference, Refname, Remote, Result, Signature,
     TreeBuilder, Url,
 };
 use git2::{BlameOptions, Submodule};
@@ -98,42 +98,37 @@ impl Repository {
 
     pub fn merge_trees(
         &self,
-        ancestor_tree: &Tree<'_>,
-        our_tree: &Tree<'_>,
-        their_tree: &Tree<'_>,
+        ancestor_tree: &git2::Tree<'_>,
+        our_tree: &git2::Tree<'_>,
+        their_tree: &git2::Tree<'_>,
     ) -> Result<Index> {
         self.0
-            .merge_trees(
-                ancestor_tree.into(),
-                our_tree.into(),
-                their_tree.into(),
-                None,
-            )
+            .merge_trees(ancestor_tree, our_tree, their_tree, None)
             .map(Index::from)
             .map_err(Into::into)
     }
 
     pub fn diff_tree_to_tree(
         &self,
-        old_tree: Option<&Tree<'_>>,
-        new_tree: Option<&Tree<'_>>,
+        old_tree: Option<&git2::Tree<'_>>,
+        new_tree: Option<&git2::Tree<'_>>,
         opts: Option<&mut git2::DiffOptions>,
     ) -> Result<git2::Diff<'_>> {
         self.0
-            .diff_tree_to_tree(old_tree.map(Into::into), new_tree.map(Into::into), opts)
+            .diff_tree_to_tree(old_tree, new_tree, opts)
             .map_err(Into::into)
     }
 
     pub fn diff_tree_to_workdir(
         &self,
-        old_tree: Option<&Tree<'_>>,
+        old_tree: Option<&git2::Tree<'_>>,
         opts: Option<&mut git2::DiffOptions>,
     ) -> Result<git2::Diff<'_>> {
         if let Ok(mut index) = self.0.index() {
             index.update_all(vec!["*"], None)?;
         }
         self.0
-            .diff_tree_to_workdir_with_index(old_tree.map(Into::into), opts)
+            .diff_tree_to_workdir_with_index(old_tree, opts)
             .map_err(Into::into)
     }
 
@@ -160,11 +155,8 @@ impl Repository {
         self.0.head().map(Reference::from).map_err(Into::into)
     }
 
-    pub fn find_tree(&self, id: Oid) -> Result<Tree> {
-        self.0
-            .find_tree(id.into())
-            .map(Tree::from)
-            .map_err(Into::into)
+    pub fn find_tree(&self, id: Oid) -> Result<git2::Tree> {
+        self.0.find_tree(id.into()).map_err(Into::into)
     }
 
     pub fn find_commit(&self, id: Oid) -> Result<Commit> {
@@ -238,7 +230,7 @@ impl Repository {
         author: &Signature<'_>,
         committer: &Signature<'_>,
         message: &str,
-        tree: &Tree<'_>,
+        tree: &git2::Tree<'_>,
         parents: &[&Commit<'_>],
         change_id: Option<&str>,
     ) -> Result<Oid> {
@@ -251,7 +243,7 @@ impl Repository {
             author.into(),
             committer.into(),
             message,
-            tree.into(),
+            tree,
             &parents,
         )?;
 
@@ -431,7 +423,7 @@ impl Repository {
         self.0.config().map(Into::into).map_err(Into::into)
     }
 
-    pub fn treebuilder<'repo>(&'repo self, tree: Option<&'repo Tree>) -> TreeBuilder<'repo> {
+    pub fn treebuilder<'repo>(&'repo self, tree: Option<&'repo git2::Tree>) -> TreeBuilder<'repo> {
         TreeBuilder::new(self, tree)
     }
 
@@ -528,9 +520,9 @@ impl Repository {
         Ok(())
     }
 
-    pub fn checkout_tree<'a>(&'a self, tree: &'a Tree<'a>) -> CheckoutTreeBuidler {
+    pub fn checkout_tree<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler {
         CheckoutTreeBuidler {
-            tree: tree.into(),
+            tree,
             repo: &self.0,
             checkout_builder: git2::build::CheckoutBuilder::new(),
         }

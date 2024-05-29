@@ -1,4 +1,4 @@
-use super::{Commit, Oid, Result, Tree};
+use super::{Commit, Oid, Result};
 
 pub struct Branch<'repo> {
     branch: git2::Branch<'repo>,
@@ -31,12 +31,8 @@ impl<'repo> Branch<'repo> {
         self.branch.get().name_bytes()
     }
 
-    pub fn peel_to_tree(&self) -> Result<Tree<'repo>> {
-        self.branch
-            .get()
-            .peel_to_tree()
-            .map_err(Into::into)
-            .map(Into::into)
+    pub fn peel_to_tree(&self) -> Result<git2::Tree<'repo>> {
+        self.branch.get().peel_to_tree().map_err(Into::into)
     }
 
     pub fn peel_to_commit(&self) -> Result<Commit<'repo>> {

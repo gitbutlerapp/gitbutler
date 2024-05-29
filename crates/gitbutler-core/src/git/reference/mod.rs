@@ -1,7 +1,7 @@
 mod refname;
 pub use refname::{LocalRefname, Refname, RemoteRefname, VirtualRefname};
 
-use super::{Commit, Oid, Result, Tree};
+use super::{Commit, Oid, Result};
 
 pub struct Reference<'repo> {
     reference: git2::Reference<'repo>,
@@ -31,13 +31,6 @@ impl<'repo> Reference<'repo> {
     pub fn peel_to_commit(&self) -> Result<Commit<'repo>> {
         self.reference
             .peel_to_commit()
-            .map(Into::into)
-            .map_err(Into::into)
-    }
-
-    pub fn peel_to_tree(&self) -> Result<Tree<'repo>> {
-        self.reference
-            .peel_to_tree()
             .map(Into::into)
             .map_err(Into::into)
     }

@@ -340,7 +340,7 @@ impl Repository {
         &self,
         user: Option<&users::User>,
         message: &str,
-        tree: &git::Tree,
+        tree: &git2::Tree,
         parents: &[&git::Commit],
         change_id: Option<&str>,
     ) -> Result<git::Oid> {

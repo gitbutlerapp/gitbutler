@@ -2,28 +2,10 @@ use std::path;
 
 use filetime::FileTime;
 
-use super::{Error, Oid, Repository, Result, Tree};
+use super::{Oid, Repository, Result};
 
 pub struct Index {
     index: git2::Index,
-}
-
-impl TryFrom<Tree<'_>> for Index {
-    type Error = Error;
-
-    fn try_from(value: Tree<'_>) -> std::result::Result<Self, Self::Error> {
-        Self::try_from(&value)
-    }
-}
-
-impl TryFrom<&Tree<'_>> for Index {
-    type Error = Error;
-
-    fn try_from(value: &Tree) -> Result<Self> {
-        let mut empty_index = Self::new()?;
-        empty_index.read_tree(value)?;
-        Ok(empty_index)
-    }
 }
 
 impl<'a> From<&'a mut Index> for &'a mut git2::Index {
@@ -60,10 +42,6 @@ impl Index {
 
     pub fn conflicts(&self) -> Result<git2::IndexConflicts> {
         self.index.conflicts().map_err(Into::into)
-    }
-
-    pub fn read_tree(&mut self, tree: &Tree) -> Result<()> {
-        self.index.read_tree(tree.into()).map_err(Into::into)
     }
 
     pub fn write_tree_to(&mut self, repo: &Repository) -> Result<Oid> {

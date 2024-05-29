@@ -13,8 +13,9 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use git2::TreeEntry;
 use gitbutler_core::{
-    git,
+    git::{self},
     virtual_branches::{
         self, apply_branch,
         branch::{BranchCreateRequest, BranchOwnershipClaims},
@@ -1991,16 +1992,16 @@ fn commit_executable_and_symlinks() -> Result<()> {
     Ok(())
 }
 
-fn tree_to_file_list(repository: &git::Repository, tree: &git::Tree) -> Vec<String> {
+fn tree_to_file_list(repository: &git::Repository, tree: &git2::Tree) -> Vec<String> {
     let mut file_list = Vec::new();
-    tree.walk(|_, entry| {
+    walk(tree, |_, entry| {
         let path = entry.name().unwrap();
         let entry = tree.get_path(Path::new(path)).unwrap();
-        let object = entry.to_object(repository).unwrap();
+        let object = entry.to_object(repository.into()).unwrap();
         if object.kind() == Some(git2::ObjectType::Blob) {
             file_list.push(path.to_string());
         }
-        git::TreeWalkResult::Continue
+        TreeWalkResult::Continue
     })
     .expect("failed to walk tree");
     file_list
@@ -2008,13 +2009,13 @@ fn tree_to_file_list(repository: &git::Repository, tree: &git::Tree) -> Vec<Stri
 
 fn tree_to_entry_list(
     repository: &git::Repository,
-    tree: &git::Tree,
+    tree: &git2::Tree,
 ) -> Vec<(String, String, String, String)> {
     let mut file_list = Vec::new();
-    tree.walk(|_root, entry| {
+    walk(tree, |_root, entry| {
         let path = entry.name().unwrap();
         let entry = tree.get_path(Path::new(path)).unwrap();
-        let object = entry.to_object(repository).unwrap();
+        let object = entry.to_object(repository.into()).unwrap();
         let blob = object.as_blob().expect("failed to get blob");
         // convert content to string
         let octal_mode = format!("{:o}", entry.filemode());
@@ -2035,7 +2036,7 @@ fn tree_to_entry_list(
                 blob.id().to_string(),
             ));
         }
-        git::TreeWalkResult::Continue
+        TreeWalkResult::Continue
     })
     .expect("failed to walk tree");
     file_list
@@ -2266,4 +2267,24 @@ fn commit_msg_hook_rejection() -> Result<()> {
     assert_eq!(&output, "rejected\n");
 
     Ok(())
+}
+
+fn walk<C>(tree: &git2::Tree, mut callback: C) -> Result<()>
+where
+    C: FnMut(&str, &TreeEntry) -> TreeWalkResult,
+{
+    tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
+        match callback(root, &entry.clone()) {
+            TreeWalkResult::Continue => git2::TreeWalkResult::Ok,
+            // TreeWalkResult::Skip => git2::TreeWalkResult::Skip,
+            // TreeWalkResult::Stop => git2::TreeWalkResult::Abort,
+        }
+    })
+    .map_err(Into::into)
+}
+
+enum TreeWalkResult {
+    Continue,
+    // Skip,
+    // Stop,
 }
