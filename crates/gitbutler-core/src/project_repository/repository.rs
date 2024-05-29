@@ -615,8 +615,7 @@ impl Repository {
     }
 
     pub fn repo(&self) -> &git2::Repository {
-        let r = &self.git_repository;
-        r.into()
+        (&self.git_repository).into()
     }
 }
 

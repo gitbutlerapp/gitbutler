@@ -2123,6 +2123,7 @@ dependencies = [
  "gitbutler-git",
  "gitbutler-testsupport",
  "gix",
+ "glob",
  "hex",
  "itertools 0.12.1",
  "lazy_static",

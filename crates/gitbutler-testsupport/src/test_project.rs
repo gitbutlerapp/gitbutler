@@ -1,4 +1,5 @@
 use std::path;
+use std::path::PathBuf;
 
 use gitbutler_core::git::{self, CommitExt};
 use tempfile::TempDir;
@@ -85,6 +86,11 @@ impl Default for TestProject {
 }
 
 impl TestProject {
+    /// Consume this instance and keep the temp directory that held the local repository, returning it.
+    /// Best used inside a `dbg!(test_project.debug_local_repo())`
+    pub fn debug_local_repo(mut self) -> PathBuf {
+        self.local_tmp.take().unwrap().into_path()
+    }
     pub fn path(&self) -> &std::path::Path {
         self.local_repository.workdir().unwrap()
     }
