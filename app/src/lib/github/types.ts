@@ -1,4 +1,4 @@
-import type { Author } from '$lib/vbranches/types';
+import { BranchIdentifier, type Author } from '$lib/vbranches/types';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
 
 export interface Label {
@@ -24,6 +24,7 @@ export interface PullRequest {
 	closedAt?: Date;
 	repoName?: string;
 	sshUrl?: string;
+	branchIdentifier: BranchIdentifier;
 }
 
 export type DetailedGitHubPullRequest = RestEndpointMethodTypes['pulls']['get']['response']['data'];
@@ -83,6 +84,9 @@ export function ghResponseToInstance(
 		color: label.color
 	}));
 
+	const [owner, repo] = pr.head.repo?.full_name?.split('/') || [];
+	const branchIdentifier = new BranchIdentifier(owner, repo, pr.head.ref);
+
 	return {
 		htmlUrl: pr.html_url,
 		number: pr.number,
@@ -106,7 +110,8 @@ export function ghResponseToInstance(
 		mergedAt: pr.merged_at ? new Date(pr.merged_at) : undefined,
 		closedAt: pr.closed_at ? new Date(pr.closed_at) : undefined,
 		repoName: pr.head.repo?.full_name,
-		sshUrl: pr.head.repo?.ssh_url
+		sshUrl: pr.head.repo?.ssh_url,
+		branchIdentifier
 	};
 }
 

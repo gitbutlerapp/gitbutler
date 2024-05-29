@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '$lib/utils/string';
 import { isDefined, notNull } from '$lib/utils/typeguards';
-import { convertRemoteToWebUrl } from '$lib/utils/url';
+import { convertRemoteToWebUrl, getOwnerAndRepoFromRemoteUrl } from '$lib/utils/url';
 import { Type, Transform } from 'class-transformer';
 
 export type ChangeType =
@@ -95,6 +95,22 @@ export class VirtualBranches {
 	skippedFiles!: SkippedFile[];
 }
 
+export class BranchIdentifier {
+	constructor(
+		public repoOwner?: string,
+		public repoName?: string,
+		public branchName?: string
+	) {}
+
+	equal(other: BranchIdentifier): boolean {
+		return (
+			this.repoOwner == other.repoOwner &&
+			this.repoName == other.repoName &&
+			this.branchName == other.branchName
+		);
+	}
+}
+
 export class Branch {
 	id!: string;
 	name!: string;
@@ -126,6 +142,17 @@ export class Branch {
 	updatedAt!: Date;
 	// Indicates that branch is default target for new changes
 	selectedForChanges!: boolean;
+
+	#branchIdentifier: BranchIdentifier | undefined;
+
+	get branchIdentifier(): BranchIdentifier {
+		if (this.upstream) return this.upstream.branchIdentifier;
+
+		this.#branchIdentifier =
+			this.#branchIdentifier || new BranchIdentifier(undefined, undefined, this.name);
+
+		return this.#branchIdentifier;
+	}
 
 	get localCommits() {
 		return this.commits.filter((c) => c.status == 'local');
@@ -318,6 +345,19 @@ export class RemoteBranch {
 	upstream?: string;
 	lastCommitTimestampMs?: number | undefined;
 	lastCommitAuthor?: string | undefined;
+	remoteUrl?: string;
+
+	#branchIdentifier: BranchIdentifier | undefined;
+
+	get branchIdentifier(): BranchIdentifier {
+		// TODO: Fill me in
+		const [owner, repo] = this.remoteUrl
+			? getOwnerAndRepoFromRemoteUrl(this.remoteUrl)
+			: [undefined, undefined];
+		this.#branchIdentifier = this.#branchIdentifier || new BranchIdentifier(owner, repo, this.name);
+
+		return this.#branchIdentifier;
+	}
 
 	get displayName(): string {
 		return this.name.replace('refs/remotes/', '').replace('refs/heads/', '');
@@ -372,9 +412,19 @@ export class BaseBranch {
 	@Type(() => RemoteCommit)
 	recentCommits!: RemoteCommit[];
 	lastFetchedMs?: number;
+	#branchIdentifier: BranchIdentifier | undefined;
 
 	actualPushRemoteName(): string {
 		return this.pushRemoteName || this.remoteName;
+	}
+
+	get branchIdentifier(): BranchIdentifier {
+		const [owner, repo] = getOwnerAndRepoFromRemoteUrl(this.remoteUrl);
+
+		this.#branchIdentifier =
+			this.#branchIdentifier || new BranchIdentifier(owner, repo, this.branchName);
+
+		return this.#branchIdentifier;
 	}
 
 	get lastFetched(): Date | undefined {

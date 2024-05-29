@@ -23,6 +23,23 @@ export function openExternalUrl(href: string) {
 	}
 }
 
+// URL examples
+// GitHub
+// git@github.com:gitbutlerapp/gitbutler.git
+// https://github.com/gitbutlerapp/gitbutler.git
+// GitLab
+// git@gitlab.com:vmeet1/vmeet-native.git
+// https://gitlab.com/vmeet1/vmeet-native.git
+// Gitea
+// git@gitea.com:Caleb-T-Owens/bestrepo.git
+// https://gitea.com/Caleb-T-Owens/bestrepo.git
+// BitBucket
+// git@bitbucket.org:calebowens1/bestrepo.git
+// https://calebowens1-admin@bitbucket.org/calebowens1/bestrepo.git
+// Funky ssh url
+// ssh://git@192.168.1.1:22/user/repo.git
+// TODO: Consider whether we want to validate input urls: (git@|http:\/\/|https:\/\/|ssh:\/\/git@).*(\/|:).*\/.*\.git
+
 // turn a git remote url into a web url (github, gitlab, bitbucket, etc)
 export function convertRemoteToWebUrl(url: string): string {
 	if (url.startsWith('http')) {
@@ -37,4 +54,9 @@ export function convertRemoteToWebUrl(url: string): string {
 	} else {
 		return url.replace(':', '/').replace('git@', 'https://').replace('.git', '').trim();
 	}
+}
+
+export function getOwnerAndRepoFromRemoteUrl(url: string): [string, string] {
+	const [owner, repo] = url.replace('.git', '').split('/').slice(-2);
+	return [owner, repo];
 }

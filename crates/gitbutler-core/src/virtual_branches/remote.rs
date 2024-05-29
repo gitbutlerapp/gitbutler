@@ -24,6 +24,7 @@ use crate::{
 pub struct RemoteBranch {
     pub sha: git::Oid,
     pub name: git::Refname,
+    pub remote_url: Option<String>,
     pub upstream: Option<git::RemoteRefname>,
     pub last_commit_timestamp_ms: Option<u128>,
     pub last_commit_author: Option<String>,
@@ -64,7 +65,7 @@ pub fn list_remote_branches(
         .context("failed to list remote branches")?
         .flatten()
     {
-        let branch = branch_to_remote_branch(&branch)?;
+        let branch = branch_to_remote_branch(&branch, project_repository.repo())?;
 
         if let Some(branch) = branch {
             let upstream_remote = branch.upstream.as_ref().map(|u| u.remote());
@@ -110,7 +111,10 @@ pub fn get_branch_data(
         })
 }
 
-pub fn branch_to_remote_branch(branch: &git::Branch) -> Result<Option<RemoteBranch>> {
+pub fn branch_to_remote_branch(
+    branch: &git::Branch,
+    repository: &git2::Repository,
+) -> Result<Option<RemoteBranch>> {
     let commit = match branch.peel_to_commit() {
         Ok(c) => c,
         Err(err) => {
@@ -122,34 +126,54 @@ pub fn branch_to_remote_branch(branch: &git::Branch) -> Result<Option<RemoteBran
             return Ok(None);
         }
     };
-    let name = git::Refname::try_from(branch).context("could not get branch name");
-    match name {
-        Ok(name) => branch
-            .target()
-            .map(|sha| {
-                Ok(RemoteBranch {
-                    sha,
-                    upstream: if let git::Refname::Local(local_name) = &name {
-                        local_name.remote().cloned()
-                    } else {
-                        None
-                    },
-                    name,
-                    last_commit_timestamp_ms: commit
-                        .time()
-                        .seconds()
-                        .try_into()
-                        .map(|t: u128| t * 1000)
-                        .ok(),
-                    last_commit_author: commit
-                        .author()
-                        .name()
-                        .map(std::string::ToString::to_string),
-                })
-            })
-            .transpose(),
-        Err(_) => Ok(None),
-    }
+
+    let name = match git::Refname::try_from(branch) {
+        Ok(name) => name,
+        Err(err) => {
+            tracing::warn!(
+                ?err,
+                "ignoring branch {:?} as refname could not be parsed",
+                branch.name()
+            );
+
+            return Ok(None);
+        }
+    };
+
+    let Some(sha) = branch.target() else {
+        tracing::warn!(
+            "ignoring branch {:?} as target could not be found",
+            branch.name()
+        );
+        return Ok(None);
+    };
+
+    let remote_url = name
+        .remote_name()
+        .map(|remote| repository.find_remote(remote).ok())
+        .flatten()
+        .map(|remote| remote.url().map(String::from))
+        .flatten();
+
+    let remote_branch = RemoteBranch {
+        sha,
+        upstream: if let git::Refname::Local(local_name) = &name {
+            local_name.remote().cloned()
+        } else {
+            None
+        },
+        name,
+        last_commit_timestamp_ms: commit
+            .time()
+            .seconds()
+            .try_into()
+            .map(|t: u128| t * 1000)
+            .ok(),
+        last_commit_author: commit.author().name().map(String::from),
+        remote_url,
+    };
+
+    Ok(Some(remote_branch))
 }
 
 pub fn branch_to_remote_branch_data(
