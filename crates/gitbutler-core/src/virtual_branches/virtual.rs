@@ -235,7 +235,7 @@ pub fn apply_branch(
         Err(reader::Error::NotFound) => Err(errors::ApplyBranchError::BranchNotFound(
             errors::BranchNotFound {
                 project_id: project_repository.project().id,
-                branch_id: branch_id,
+                branch_id,
             },
         )),
         Err(error) => Err(errors::ApplyBranchError::Other(error.into())),
@@ -620,7 +620,7 @@ pub fn unapply_branch(
             reader::Error::NotFound => {
                 errors::UnapplyBranchError::BranchNotFound(errors::BranchNotFound {
                     project_id: project_repository.project().id,
-                    branch_id: branch_id,
+                    branch_id,
                 })
             }
             error => errors::UnapplyBranchError::Other(error.into()),
@@ -1997,7 +1997,7 @@ pub fn reset_branch(
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::ResetBranchError::BranchNotFound(
             errors::BranchNotFound {
-                branch_id: branch_id,
+                branch_id,
                 project_id: project_repository.project().id,
             },
         )),
@@ -2305,7 +2305,7 @@ pub fn commit(
         .ok_or_else(|| {
             errors::CommitError::BranchNotFound(errors::BranchNotFound {
                 project_id: project_repository.project().id,
-                branch_id: branch_id,
+                branch_id,
             })
         })?;
 
@@ -2409,7 +2409,7 @@ pub fn push(
         .map_err(|error| match error {
             reader::Error::NotFound => errors::PushError::BranchNotFound(errors::BranchNotFound {
                 project_id: project_repository.project().id,
-                branch_id: branch_id,
+                branch_id,
             }),
             error => errors::PushError::Other(error.into()),
         })?;
@@ -2597,7 +2597,7 @@ pub fn is_virtual_branch_mergeable(
         Err(reader::Error::NotFound) => Err(errors::IsVirtualBranchMergeable::BranchNotFound(
             errors::BranchNotFound {
                 project_id: project_repository.project().id,
-                branch_id: branch_id,
+                branch_id,
             },
         )),
         Err(error) => Err(errors::IsVirtualBranchMergeable::Other(error.into())),
@@ -2942,7 +2942,7 @@ pub fn amend(
         return Err(errors::VirtualBranchError::BranchNotFound(
             errors::BranchNotFound {
                 project_id: project_repository.project().id,
-                branch_id: branch_id,
+                branch_id,
             },
         ));
     }
@@ -2956,7 +2956,7 @@ pub fn amend(
         return Err(errors::VirtualBranchError::BranchNotFound(
             errors::BranchNotFound {
                 project_id: project_repository.project().id,
-                branch_id: branch_id,
+                branch_id,
             },
         ));
     }
@@ -2979,7 +2979,7 @@ pub fn amend(
         .ok_or_else(|| {
             errors::VirtualBranchError::BranchNotFound(errors::BranchNotFound {
                 project_id: project_repository.project().id,
-                branch_id: branch_id,
+                branch_id,
             })
         })?;
 
@@ -3115,7 +3115,7 @@ pub fn reorder_commit(
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::VirtualBranchError::BranchNotFound(
             errors::BranchNotFound {
-                branch_id: branch_id,
+                branch_id,
                 project_id: project_repository.project().id,
             },
         )),
@@ -3214,7 +3214,7 @@ pub fn insert_blank_commit(
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::VirtualBranchError::BranchNotFound(
             errors::BranchNotFound {
-                branch_id: branch_id,
+                branch_id,
                 project_id: project_repository.project().id,
             },
         )),
@@ -3281,7 +3281,7 @@ pub fn undo_commit(
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::VirtualBranchError::BranchNotFound(
             errors::BranchNotFound {
-                branch_id: branch_id,
+                branch_id,
                 project_id: project_repository.project().id,
             },
         )),
@@ -3630,7 +3630,7 @@ pub fn squash(
             reader::Error::NotFound => {
                 errors::SquashError::BranchNotFound(errors::BranchNotFound {
                     project_id: project_repository.project().id,
-                    branch_id: branch_id,
+                    branch_id,
                 })
             }
             error => errors::SquashError::Other(error.into()),
@@ -3760,7 +3760,7 @@ pub fn update_commit_message(
             reader::Error::NotFound => {
                 errors::UpdateCommitMessageError::BranchNotFound(errors::BranchNotFound {
                     project_id: project_repository.project().id,
-                    branch_id: branch_id,
+                    branch_id,
                 })
             }
             error => errors::UpdateCommitMessageError::Other(error.into()),
