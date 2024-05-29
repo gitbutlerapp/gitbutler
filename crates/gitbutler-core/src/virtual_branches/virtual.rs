@@ -428,7 +428,12 @@ pub fn apply_branch(
             }
         }
 
-        branch.tree = repo.find_commit(branch.head)?.tree_gb()?.id().into();
+        branch.tree = repo
+            .find_commit(branch.head)?
+            .tree()
+            .map_err(anyhow::Error::from)?
+            .id()
+            .into();
         vb_state.set_branch(branch.clone())?;
     }
 
@@ -1008,8 +1013,7 @@ fn commit_to_vbranch_commit(
         list_virtual_commit_files(repository, commit).context("failed to list commit files")?;
 
     let parent_ids: Vec<git::Oid> = commit
-        .parents_gb()?
-        .iter()
+        .parents()
         .map(|c| {
             let c: git::Oid = c.id().into();
             c
@@ -2041,8 +2045,14 @@ pub fn reset_branch(
     let repo = &project_repository.git_repository;
     let diff = trees(
         repo,
-        &repo.find_commit(updated_head)?.tree_gb()?,
-        &repo.find_commit(old_head)?.tree_gb()?,
+        &repo
+            .find_commit(updated_head)?
+            .tree()
+            .map_err(anyhow::Error::from)?,
+        &repo
+            .find_commit(old_head)?
+            .tree()
+            .map_err(anyhow::Error::from)?,
     )?;
 
     // Assign the new hunks to the branch we're working on.
@@ -2877,9 +2887,7 @@ pub fn move_commit_file(
         .git_repository
         .find_tree(new_tree_oid)
         .context("failed to find new tree")?;
-    let parents = amend_commit
-        .parents_gb()
-        .context("failed to find head commit parents")?;
+    let parents: Vec<_> = amend_commit.parents().collect();
     let change_id = amend_commit.change_id();
     let commit_oid = project_repository
         .git_repository
@@ -3057,10 +3065,7 @@ pub fn amend(
         .find_tree(new_tree_oid)
         .context("failed to find new tree")?;
 
-    let parents = amend_commit
-        .parents_gb()
-        .context("failed to find head commit parents")?;
-
+    let parents: Vec<_> = amend_commit.parents().collect();
     let commit_oid = project_repository
         .git_repository
         .commit(
@@ -3692,9 +3697,7 @@ pub fn squash(
     //  * has the tree of the target commit
     //  * has the message combined of the target commit and parent commit
     //  * has parents of the parents commit.
-    let parents = parent_commit
-        .parents_gb()
-        .context("failed to find head commit parents")?;
+    let parents: Vec<_> = parent_commit.parents().collect();
 
     // use the squash commit's change id
     let change_id = commit_to_squash.change_id();
@@ -3809,9 +3812,7 @@ pub fn update_commit_message(
         .find_commit(commit_oid)
         .context("failed to find commit")?;
 
-    let parents = target_commit
-        .parents_gb()
-        .context("failed to find head commit parents")?;
+    let parents: Vec<_> = target_commit.parents().collect();
 
     let change_id = target_commit.change_id();
 
