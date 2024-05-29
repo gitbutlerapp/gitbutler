@@ -102,7 +102,7 @@
 			<Resizer
 				viewport={rsViewport}
 				direction="right"
-				minWidth={320}
+				minWidth={400}
 				defaultLineColor="var(--clr-border-2)"
 				on:width={(e) => {
 					fileWidth = e.detail / (16 * $userSettings.zoom);

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Avatar from './Avatar.svelte';
 	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import { tooltip } from '$lib/utils/tooltip';
 	import type { Commit, RemoteCommit } from '$lib/vbranches/types';
@@ -27,12 +26,6 @@
 	{#if localCommit}
 		<div class="shadow-marker" class:first class:short use:tooltip={tooltipText}></div>
 	{/if}
-	{#if remoteCommit}
-		{@const author = remoteCommit.author}
-		<div class="avatar" class:first class:short>
-			<Avatar {author} status={remoteCommit.status} help={tooltipText} />
-		</div>
-	{/if}
 </div>
 
 <style lang="postcss">
@@ -52,9 +45,9 @@
 		bottom: 0;
 		top: 0;
 		&.short {
-			top: 1rem;
+			top: calc(var(--avatar-top) + var(--size-2));
 			&.first {
-				top: 3rem;
+				top: calc(var(--avatar-first-top) + var(--size-2));
 			}
 		}
 		&.dashed {
@@ -80,19 +73,10 @@
 		height: var(--size-10);
 		border-radius: 100%;
 		background-color: var(--clr-commit-shadow);
-		top: var(--size-14);
+		top: calc(var(--avatar-top) + var(--size-2));
 		left: 50%;
 		&.first {
-			top: 2.75rem;
-		}
-	}
-
-	.avatar {
-		position: absolute;
-		top: var(--size-10);
-		left: var(--size-4);
-		&.first {
-			top: calc(var(--size-40) + var(--size-2));
+			top: calc(var(--avatar-first-top) + var(--size-2));
 		}
 	}
 </style>

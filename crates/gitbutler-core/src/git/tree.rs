@@ -4,7 +4,7 @@ use super::{Oid, Repository, Result};
 use crate::path::Normalize;
 
 pub struct Tree<'repo> {
-    tree: git2::Tree<'repo>,
+    pub tree: git2::Tree<'repo>,
 }
 
 impl<'repo> From<git2::Tree<'repo>> for Tree<'repo> {

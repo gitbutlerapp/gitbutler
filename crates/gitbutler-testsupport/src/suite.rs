@@ -162,6 +162,11 @@ pub fn test_repository() -> (gitbutler_core::git::Repository, TempDir) {
     let tmp = temp_dir();
     let repository = gitbutler_core::git::Repository::init_opts(&tmp, &init_opts())
         .expect("failed to init repository");
+    repository
+        .config()
+        .unwrap()
+        .set_local("commit.gpgsign", "false")
+        .unwrap();
     let mut index = repository.index().expect("failed to get index");
     let oid = index.write_tree().expect("failed to write tree");
     let signature = gitbutler_core::git::Signature::now("test", "test@email.com").unwrap();

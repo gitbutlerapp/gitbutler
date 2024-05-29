@@ -92,7 +92,6 @@
 		background: var(--clr-bg-1);
 		border-top: 1px solid var(--clr-border-2);
 		transition: background-color var(--transition-medium);
-		border-radius: 0 0 var(--radius-m) var(--radius-m);
 	}
 
 	.commit-box__expander {

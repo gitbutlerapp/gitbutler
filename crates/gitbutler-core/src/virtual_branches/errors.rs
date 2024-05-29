@@ -142,10 +142,12 @@ pub enum ApplyBranchError {
     Conflict(ProjectConflict),
     #[error("branch not found")]
     BranchNotFound(BranchNotFound),
-    #[error("branch conflicts with other branches - sorry bro.")]
+    #[error("branch being applied conflicts with other branch: {0}")]
     BranchConflicts(BranchId),
     #[error("default target not set")]
     DefaultTargetNotSet(DefaultTargetNotSet),
+    #[error(transparent)]
+    GitError(#[from] git::Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -160,6 +162,7 @@ impl ErrorWithContext for ApplyBranchError {
                 Code::Branches,
                 format!("Branch {} is in a conflicting state", id),
             ),
+            ApplyBranchError::GitError(_) => return None,
             ApplyBranchError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
     }

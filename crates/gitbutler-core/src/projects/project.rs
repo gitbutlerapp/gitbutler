@@ -68,6 +68,8 @@ pub struct Project {
     pub title: String,
     pub description: Option<String>,
     /// The worktree directory of the project's repository.
+    // TODO(ST): rename this to `worktree_dir` and while at it, add a `git_dir` if it's retrieved from a repo.
+    //           Then find `.join(".git")` and use the `git_dir` instead.
     pub path: path::PathBuf,
     #[serde(default)]
     pub preferred_key: AuthKey,
@@ -84,8 +86,6 @@ pub struct Project {
     pub project_data_last_fetch: Option<FetchResult>,
     #[serde(default)]
     pub omit_certificate_check: Option<bool>,
-    #[serde(default)]
-    pub enable_snapshots: Option<bool>,
     // The number of changed lines that will trigger a snapshot
     pub snapshot_lines_threshold: Option<usize>,
 }

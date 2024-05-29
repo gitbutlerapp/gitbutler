@@ -27,6 +27,7 @@ pub mod path;
 pub mod project_repository;
 pub mod projects;
 pub mod reader;
+pub mod remotes;
 pub mod ssh;
 pub mod storage;
 pub mod synchronize;
@@ -55,5 +56,57 @@ pub mod serde {
         S: serde::Serializer,
     {
         format!("{v:x}").serialize(s)
+    }
+
+    pub fn as_time_seconds_from_unix_epoch<S>(v: &git2::Time, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        v.seconds().serialize(s)
+    }
+
+    pub mod oid_opt {
+        use crate::git;
+        use serde::{Deserialize, Deserializer, Serialize};
+
+        pub fn serialize<S>(v: &Option<git::Oid>, s: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            v.as_ref().map(|v| v.to_string()).serialize(s)
+        }
+
+        pub fn deserialize<'de, D>(d: D) -> Result<Option<git::Oid>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let hex = <Option<String> as Deserialize>::deserialize(d)?;
+            hex.map(|v| {
+                v.parse()
+                    .map_err(|err: git2::Error| serde::de::Error::custom(err.to_string()))
+            })
+            .transpose()
+        }
+    }
+
+    pub mod oid {
+        use crate::git;
+        use serde::{Deserialize, Deserializer, Serialize};
+
+        pub fn serialize<S>(v: &git::Oid, s: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            v.to_string().serialize(s)
+        }
+
+        pub fn deserialize<'de, D>(d: D) -> Result<git::Oid, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let hex = String::deserialize(d)?;
+            hex.parse()
+                .map_err(|err: git2::Error| serde::de::Error::custom(err.to_string()))
+        }
     }
 }

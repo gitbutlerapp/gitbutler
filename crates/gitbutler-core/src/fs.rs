@@ -1,3 +1,5 @@
+use std::fs::File;
+use std::io::Read;
 use std::{
     io::Write,
     path::{Path, PathBuf},
@@ -9,6 +11,7 @@ use gix::{
     dir::walk::EmissionMode,
     tempfile::{create_dir::Retries, AutoRemove, ContainingDirectory},
 };
+use serde::de::DeserializeOwned;
 use walkdir::WalkDir;
 
 // Returns an ordered list of relative paths for files inside a directory recursively.
@@ -96,4 +99,24 @@ fn persist_tempfile(
         ),
         Err(err) => Err(err.error),
     }
+}
+
+/// Reads and parses the state file.
+///
+/// If the file does not exist, it will be created.
+pub(crate) fn read_toml_file_or_default<T: DeserializeOwned + Default>(
+    path: &Path,
+) -> Result<T, crate::reader::Error> {
+    let mut file = match File::open(path) {
+        Ok(f) => f,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(T::default()),
+        Err(err) => return Err(err.into()),
+    };
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    let value: T = toml::from_str(&contents).map_err(|err| crate::reader::Error::ParseError {
+        path: path.to_owned(),
+        source: err,
+    })?;
+    Ok(value)
 }

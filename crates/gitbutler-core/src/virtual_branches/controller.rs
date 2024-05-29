@@ -1,10 +1,6 @@
 use crate::{
     error::Error,
-    ops::{
-        entry::{OperationType, SnapshotDetails},
-        oplog::Oplog,
-        snapshot::Snapshot,
-    },
+    ops::entry::{OperationKind, SnapshotDetails},
 };
 use std::{collections::HashMap, path::Path, sync::Arc};
 
@@ -428,14 +424,14 @@ impl Controller {
             .await
     }
 
-    pub async fn fetch_from_target(
+    pub async fn fetch_from_remotes(
         &self,
         project_id: &ProjectId,
         askpass: Option<String>,
     ) -> Result<BaseBranch, Error> {
         self.inner(project_id)
             .await
-            .fetch_from_target(project_id, askpass)
+            .fetch_from_remotes(project_id, askpass)
             .await
     }
 
@@ -500,7 +496,7 @@ impl ControllerInner {
                 project_repository.project().snapshot_commit_creation(
                     snapshot_tree,
                     message.to_owned(),
-                    Some("".to_string()),
+                    None,
                 )
             });
             result
@@ -594,7 +590,7 @@ impl ControllerInner {
         let project_repository = project_repository::Repository::open(&project)?;
         let _ = project_repository
             .project()
-            .create_snapshot(SnapshotDetails::new(OperationType::SetBaseBranch));
+            .create_snapshot(SnapshotDetails::new(OperationKind::SetBaseBranch));
         let result = super::set_base_branch(&project_repository, target_branch)?;
         Ok(result)
     }
@@ -620,7 +616,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, user| {
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::MergeUpstream));
+                .create_snapshot(SnapshotDetails::new(OperationKind::MergeUpstream));
             super::integrate_upstream_commits(project_repository, branch_id, user)
                 .map_err(Into::into)
         })
@@ -632,7 +628,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, user| {
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::UpdateWorkspaceBase));
+                .create_snapshot(SnapshotDetails::new(OperationKind::UpdateWorkspaceBase));
             super::update_base_branch(project_repository, user).map_err(Into::into)
         })
     }
@@ -684,7 +680,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::DiscardHunk));
+                .create_snapshot(SnapshotDetails::new(OperationKind::DiscardHunk));
             super::unapply_ownership(project_repository, ownership).map_err(Into::into)
         })
     }
@@ -699,7 +695,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::DiscardFile));
+                .create_snapshot(SnapshotDetails::new(OperationKind::DiscardFile));
             super::reset_files(project_repository, ownership).map_err(Into::into)
         })
     }
@@ -716,7 +712,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::AmendCommit));
+                .create_snapshot(SnapshotDetails::new(OperationKind::AmendCommit));
             super::amend(project_repository, branch_id, commit_oid, ownership).map_err(Into::into)
         })
     }
@@ -734,7 +730,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::MoveCommitFile));
+                .create_snapshot(SnapshotDetails::new(OperationKind::MoveCommitFile));
             super::move_commit_file(
                 project_repository,
                 branch_id,
@@ -757,7 +753,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
-                .snapshot_commit_undo(commit_oid.to_string());
+                .snapshot_commit_undo(commit_oid);
             super::undo_commit(project_repository, branch_id, commit_oid).map_err(Into::into)
         })
     }
@@ -774,7 +770,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, user| {
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::InsertBlankCommit));
+                .create_snapshot(SnapshotDetails::new(OperationKind::InsertBlankCommit));
             super::insert_blank_commit(project_repository, branch_id, commit_oid, user, offset)
                 .map_err(Into::into)
         })
@@ -792,7 +788,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::ReorderCommit));
+                .create_snapshot(SnapshotDetails::new(OperationKind::ReorderCommit));
             super::reorder_commit(project_repository, branch_id, commit_oid, offset)
                 .map_err(Into::into)
         })
@@ -861,7 +857,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::UndoCommit));
+                .create_snapshot(SnapshotDetails::new(OperationKind::UndoCommit));
             super::reset_branch(project_repository, branch_id, target_commit_oid)
                 .map_err(Into::into)
         })
@@ -915,7 +911,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::CherryPick));
+                .create_snapshot(SnapshotDetails::new(OperationKind::CherryPick));
             super::cherry_pick(project_repository, branch_id, commit_oid).map_err(Into::into)
         })
     }
@@ -950,7 +946,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::SquashCommit));
+                .create_snapshot(SnapshotDetails::new(OperationKind::SquashCommit));
             super::squash(project_repository, branch_id, commit_oid).map_err(Into::into)
         })
     }
@@ -966,13 +962,13 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::UpdateCommitMessage));
+                .create_snapshot(SnapshotDetails::new(OperationKind::UpdateCommitMessage));
             super::update_commit_message(project_repository, branch_id, commit_oid, message)
                 .map_err(Into::into)
         })
     }
 
-    pub async fn fetch_from_target(
+    pub async fn fetch_from_remotes(
         &self,
         project_id: &ProjectId,
         askpass: Option<String>,
@@ -980,24 +976,35 @@ impl ControllerInner {
         let project = self.projects.get(project_id)?;
         let mut project_repository = project_repository::Repository::open(&project)?;
 
-        let default_target = default_target(&project_repository.project().gb_dir())?;
+        let remotes = project_repository.remotes()?;
+        let fetch_results: Vec<Result<(), errors::FetchFromTargetError>> = remotes
+            .iter()
+            .map(|remote| {
+                project_repository
+                    .fetch(remote, &self.helper, askpass.clone())
+                    .map_err(errors::FetchFromTargetError::Remote)
+            })
+            .collect();
 
-        let project_data_last_fetched = match project_repository
-            .fetch(
-                default_target.branch.remote(),
-                &self.helper,
-                askpass.clone(),
-            )
-            .map_err(errors::FetchFromTargetError::Remote)
-        {
-            Ok(()) => projects::FetchResult::Fetched {
+        let project_data_last_fetched = if fetch_results.iter().any(Result::is_err) {
+            projects::FetchResult::Error {
                 timestamp: std::time::SystemTime::now(),
-            },
-            Err(error) => projects::FetchResult::Error {
+                error: fetch_results
+                    .iter()
+                    .filter_map(|result| match result {
+                        Ok(_) => None,
+                        Err(error) => Some(error.to_string()),
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            }
+        } else {
+            projects::FetchResult::Fetched {
                 timestamp: std::time::SystemTime::now(),
-                error: error.to_string(),
-            },
+            }
         };
+
+        let default_target = default_target(&project_repository.project().gb_dir())?;
 
         // if we have a push remote, let's fetch from this too
         if let Some(push_remote) = &default_target.push_remote_name {
@@ -1035,7 +1042,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, user| {
             let _ = project_repository
                 .project()
-                .create_snapshot(SnapshotDetails::new(OperationType::MoveCommit));
+                .create_snapshot(SnapshotDetails::new(OperationKind::MoveCommit));
             super::move_commit(project_repository, target_branch_id, commit_oid, user)
                 .map_err(Into::into)
         })

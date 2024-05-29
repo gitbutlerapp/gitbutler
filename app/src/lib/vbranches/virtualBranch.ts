@@ -139,6 +139,15 @@ export class VirtualBranchService {
 			)
 		);
 	}
+
+	async getByUpstreamSha(upstreamSha: string) {
+		return await firstValueFrom(
+			this.branches$.pipe(
+				timeout(10000),
+				map((branches) => branches?.find((b) => b.upstream?.sha == upstreamSha))
+			)
+		);
+	}
 }
 
 function subscribeToVirtualBranches(projectId: string, callback: (branches: Branch[]) => void) {

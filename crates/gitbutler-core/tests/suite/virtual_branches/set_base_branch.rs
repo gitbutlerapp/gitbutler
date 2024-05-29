@@ -157,7 +157,6 @@ mod go_back_to_integration {
             controller
                 .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
                 .await
-                .map_err(|error| dbg!(error))
                 .unwrap_err()
                 .downcast_ref(),
             Some(errors::SetBaseBranchError::DirtyWorkingDirectory)

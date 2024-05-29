@@ -203,99 +203,101 @@
 					<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
 					<DropzoneOverlay class="lane-dz-marker" label="Move here" />
 
-					<div
-						class="branch-card__dropzone-wrapper"
-						use:dropzone={{
-							hover: 'move-commit-dz-hover',
-							active: 'move-commit-dz-active',
-							accepts: acceptMoveCommit,
-							onDrop: onCommitDrop,
-							disabled: isUnapplied
-						}}
-						use:dropzone={{
-							hover: 'cherrypick-dz-hover',
-							active: 'cherrypick-dz-active',
-							accepts: acceptCherrypick,
-							onDrop: onCherrypicked,
-							disabled: isUnapplied
-						}}
-						use:dropzone={{
-							hover: 'lane-dz-hover',
-							active: 'lane-dz-active',
-							accepts: acceptBranchDrop,
-							onDrop: onBranchDrop,
-							disabled: isUnapplied
-						}}
-					>
-						<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
-						<DropzoneOverlay class="lane-dz-marker" label="Move here" />
-						<DropzoneOverlay class="move-commit-dz-marker" label="Move here" />
+					<div class="card">
+						<div
+							class="branch-card__dropzone-wrapper"
+							use:dropzone={{
+								hover: 'move-commit-dz-hover',
+								active: 'move-commit-dz-active',
+								accepts: acceptMoveCommit,
+								onDrop: onCommitDrop,
+								disabled: isUnapplied
+							}}
+							use:dropzone={{
+								hover: 'cherrypick-dz-hover',
+								active: 'cherrypick-dz-active',
+								accepts: acceptCherrypick,
+								onDrop: onCherrypicked,
+								disabled: isUnapplied
+							}}
+							use:dropzone={{
+								hover: 'lane-dz-hover',
+								active: 'lane-dz-active',
+								accepts: acceptBranchDrop,
+								onDrop: onBranchDrop,
+								disabled: isUnapplied
+							}}
+						>
+							<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
+							<DropzoneOverlay class="lane-dz-marker" label="Move here" />
+							<DropzoneOverlay class="move-commit-dz-marker" label="Move here" />
 
-						{#if branch.files?.length > 0}
-							<div class="card">
-								<BranchFiles
-									files={branch.files}
-									{isUnapplied}
-									showCheckboxes={$commitBoxOpen}
-									allowMultiple
-									bind:this={branchFiles}
-								/>
-								{#if branch.active && branch.conflicted}
-									<div class="card-notifications">
-										<InfoMessage noRadius filled outlined={false} style="error">
-											<svelte:fragment slot="title">
-												{#if branch.files.some((f) => f.conflicted)}
-													This virtual branch conflicts with upstream changes. Please resolve all
-													conflicts and commit before you can continue.
-												{:else}
-													Please commit your resolved conflicts to continue.
-												{/if}
-											</svelte:fragment>
-										</InfoMessage>
-									</div>
-								{/if}
-
-								{#if branch.active}
-									<CommitDialog
-										projectId={project.id}
-										expanded={commitBoxOpen}
-										on:action={(e) => {
-											if (e.detail == 'generate-branch-name') {
-												generateBranchName();
-											}
-										}}
+							{#if branch.files?.length > 0}
+								<div class="branch-card__files">
+									<BranchFiles
+										files={branch.files}
+										{isUnapplied}
+										showCheckboxes={$commitBoxOpen}
+										allowMultiple
+										bind:this={branchFiles}
 									/>
-								{/if}
-							</div>
-						{:else if branch.commits.length == 0}
-							<div class="new-branch card">
-								<EmptyStatePlaceholder image={laneNewSvg} width="11rem">
-									<svelte:fragment slot="title">This is a new branch</svelte:fragment>
-									<svelte:fragment slot="caption">
-										You can drag and drop files or parts of files here.
-									</svelte:fragment>
-								</EmptyStatePlaceholder>
-							</div>
-						{:else}
-							<div class="no-changes card" data-dnd-ignore>
-								<EmptyStatePlaceholder image={noChangesSvg} width="11rem" hasBottomShift={false}>
-									<svelte:fragment slot="caption"
-										>No uncommitted changes on this branch</svelte:fragment
-									>
-								</EmptyStatePlaceholder>
-							</div>
-						{/if}
-					</div>
+									{#if branch.active && branch.conflicted}
+										<div class="card-notifications">
+											<InfoMessage noRadius filled outlined={false} style="error">
+												<svelte:fragment slot="title">
+													{#if branch.files.some((f) => f.conflicted)}
+														This virtual branch conflicts with upstream changes. Please resolve all
+														conflicts and commit before you can continue.
+													{:else}
+														Please commit your resolved conflicts to continue.
+													{/if}
+												</svelte:fragment>
+											</InfoMessage>
+										</div>
+									{/if}
 
-					<CommitList {isUnapplied} />
-					<BranchFooter {isUnapplied} />
+									{#if branch.active}
+										<CommitDialog
+											projectId={project.id}
+											expanded={commitBoxOpen}
+											on:action={(e) => {
+												if (e.detail == 'generate-branch-name') {
+													generateBranchName();
+												}
+											}}
+										/>
+									{/if}
+								</div>
+							{:else if branch.commits.length == 0}
+								<div class="new-branch">
+									<EmptyStatePlaceholder image={laneNewSvg} width="11rem">
+										<svelte:fragment slot="title">This is a new branch</svelte:fragment>
+										<svelte:fragment slot="caption">
+											You can drag and drop files or parts of files here.
+										</svelte:fragment>
+									</EmptyStatePlaceholder>
+								</div>
+							{:else}
+								<div class="no-changes" data-dnd-ignore>
+									<EmptyStatePlaceholder image={noChangesSvg} width="11rem" hasBottomShift={false}>
+										<svelte:fragment slot="caption"
+											>No uncommitted changes on this branch</svelte:fragment
+										>
+									</EmptyStatePlaceholder>
+								</div>
+							{/if}
+						</div>
+
+						<CommitList {isUnapplied} />
+						<BranchFooter {isUnapplied} />
+					</div>
 				</div>
 			</ScrollableContainer>
 			<div class="divider-line">
 				<Resizer
 					viewport={rsViewport}
 					direction="right"
-					minWidth={340}
+					minWidth={380}
 					sticky
 					defaultLineColor={$fileIdSelection.length == 1 ? 'transparent' : 'var(--clr-border-2)'}
 					on:width={(e) => {
@@ -348,6 +350,13 @@
 	}
 
 	.card {
+		flex: 1;
+		overflow: hidden;
+	}
+
+	.branch-card__files {
+		display: flex;
+		flex-direction: column;
 		flex: 1;
 	}
 

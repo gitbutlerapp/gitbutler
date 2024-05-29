@@ -1,7 +1,7 @@
 use crate::users;
 
 pub struct Signature<'a> {
-    signature: git2::Signature<'a>,
+    pub signature: git2::Signature<'a>,
 }
 
 impl Clone for Signature<'static> {

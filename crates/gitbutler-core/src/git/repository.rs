@@ -2,7 +2,6 @@ use super::{
     Blob, Branch, Commit, Config, Index, Oid, Reference, Refname, Remote, Result, Signature, Tree,
     TreeBuilder, Url,
 };
-use crate::path::Normalize;
 use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
 #[cfg(unix)]
@@ -41,19 +40,6 @@ impl Repository {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         let inner = git2::Repository::open(path)?;
         Ok(Repository(inner))
-    }
-
-    pub fn add_disk_alternate<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let alternates_path = self.0.path().join("objects/info/alternates");
-        if !alternates_path.exists() {
-            let path = path.as_ref().normalize();
-            let mut alternates_file = std::fs::File::create(&alternates_path)?;
-            alternates_file.write_all(path.as_path().as_os_str().as_encoded_bytes())?;
-            alternates_file.write_all(b"\n")?;
-            self.0.odb().and_then(|odb| odb.refresh())?;
-        }
-
-        Ok(())
     }
 
     pub fn add_submodule<P: AsRef<Path>>(&self, url: &Url, path: P) -> Result<Submodule<'_>> {
@@ -394,6 +380,7 @@ impl Repository {
                         cmd.arg("-U");
                         cmd.arg(&buffer_file_to_sign_path);
                         cmd.stdout(Stdio::piped());
+                        cmd.stdin(Stdio::null());
 
                         let child = cmd.spawn()?;
                         output = child.wait_with_output()?;
@@ -401,6 +388,7 @@ impl Repository {
                         cmd.arg(signing_key);
                         cmd.arg(&buffer_file_to_sign_path);
                         cmd.stdout(Stdio::piped());
+                        cmd.stdin(Stdio::null());
 
                         let child = cmd.spawn()?;
                         output = child.wait_with_output()?;
@@ -634,13 +622,6 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn get_wd_tree(&self) -> Result<Tree> {
-        let mut index = self.0.index()?;
-        index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
-        let oid = index.write_tree()?;
-        self.0.find_tree(oid).map(Into::into).map_err(Into::into)
-    }
-
     pub fn remote(&self, name: &str, url: &Url) -> Result<Remote> {
         self.0
             .remote(name, &url.to_string())
@@ -693,6 +674,26 @@ impl Repository {
         self.0
             .blame_file(path, Some(&mut opts))
             .map_err(super::Error::Blame)
+    }
+
+    /// Returns a list of remotes
+    ///
+    /// Returns Vec<String> instead of StringArray because StringArray cannot safly be sent between threads
+    pub fn remotes(&self) -> Result<Vec<String>> {
+        self.0
+            .remotes()
+            .map(|string_array| {
+                string_array
+                    .iter()
+                    .filter_map(|s| s.map(String::from))
+                    .collect()
+            })
+            .map_err(super::Error::Remotes)
+    }
+
+    pub fn add_remote(&self, name: &str, url: &str) -> Result<()> {
+        self.0.remote(name, url)?;
+        Ok(())
     }
 }
 

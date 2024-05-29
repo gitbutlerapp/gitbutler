@@ -16,6 +16,8 @@
 	// Style props
 	export let style: ComponentColor = 'neutral';
 	export let kind: ComponentStyleKind = 'soft';
+
+	const SLOTS = $$props.$$slots;
 </script>
 
 <div
@@ -30,9 +32,12 @@
 	on:mousedown
 	on:contextmenu
 >
-	<span class="label">
-		<slot />
-	</span>
+	{#if SLOTS?.default}
+		<span class="label">
+			<slot />
+		</span>
+	{/if}
+
 	{#if loading}
 		<Icon name="spinner" />
 	{:else if icon}

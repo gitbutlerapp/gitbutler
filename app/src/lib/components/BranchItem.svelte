@@ -45,7 +45,6 @@
 						by {branch.author?.name ?? 'unknown'}
 					{/if}
 				</span>
-				<!-- <AuthorIcons authors={branch.authors} /> -->
 			</div>
 		{/if}
 	</div>

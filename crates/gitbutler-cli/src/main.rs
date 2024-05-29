@@ -1,5 +1,5 @@
 use anyhow::Result;
-use gitbutler_core::{ops::oplog::Oplog, projects::Project};
+use gitbutler_core::projects::Project;
 
 use clap::{arg, Command};
 #[cfg(not(windows))]
@@ -51,10 +51,10 @@ fn list_snapshots(repo_dir: &str) -> Result<()> {
     let project = project_from_path(repo_dir);
     let snapshots = project.list_snapshots(100, None)?;
     for snapshot in snapshots {
-        let ts = chrono::DateTime::from_timestamp(snapshot.created_at / 1000, 0);
+        let ts = chrono::DateTime::from_timestamp(snapshot.created_at.seconds(), 0);
         let details = snapshot.details;
         if let (Some(ts), Some(details)) = (ts, details) {
-            println!("{} {} {}", ts, snapshot.id, details.operation);
+            println!("{} {} {}", ts, snapshot.commit_id, details.operation);
         }
     }
     Ok(())
@@ -62,14 +62,13 @@ fn list_snapshots(repo_dir: &str) -> Result<()> {
 
 fn restore_snapshot(repo_dir: &str, snapshot_id: &str) -> Result<()> {
     let project = project_from_path(repo_dir);
-    project.restore_snapshot(snapshot_id.to_owned())?;
+    project.restore_snapshot(snapshot_id.parse()?)?;
     Ok(())
 }
 
 fn project_from_path(repo_dir: &str) -> Project {
     Project {
         path: std::path::PathBuf::from(repo_dir),
-        enable_snapshots: Some(true),
         ..Default::default()
     }
 }

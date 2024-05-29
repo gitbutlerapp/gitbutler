@@ -6,6 +6,7 @@
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
+	export let title: string;
 	export let files: AnyFile[];
 	export let showCheckboxes = false;
 
@@ -58,7 +59,7 @@
 			/>
 		{/if}
 		<div class="header__title text-base-13 text-semibold">
-			<span>Changes</span>
+			<span>{title}</span>
 			<Badge count={files.length} />
 		</div>
 	</div>
@@ -69,8 +70,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding-top: var(--size-14);
-		padding-bottom: var(--size-14);
+		padding: var(--size-14);
 	}
 	.header__title {
 		display: flex;

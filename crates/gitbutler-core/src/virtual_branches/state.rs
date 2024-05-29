@@ -1,10 +1,9 @@
 use std::{
     collections::HashMap,
-    fs::File,
-    io::Read,
     path::{Path, PathBuf},
 };
 
+use crate::fs::read_toml_file_or_default;
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
@@ -118,19 +117,7 @@ impl VirtualBranchesHandle {
     ///
     /// If the file does not exist, it will be created.
     fn read_file(&self) -> Result<VirtualBranches, crate::reader::Error> {
-        // let file_path = &self.file_path.lock().await;
-        if !self.file_path.exists() {
-            return Ok(VirtualBranches::default());
-        }
-        let mut file: File = File::open(self.file_path.as_path())?;
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
-        let virtual_branches: VirtualBranches =
-            toml::from_str(&contents).map_err(|e| crate::reader::Error::ParseError {
-                path: self.file_path.clone(),
-                source: e,
-            })?;
-        Ok(virtual_branches)
+        read_toml_file_or_default(&self.file_path)
     }
 
     fn write_file(&self, virtual_branches: &VirtualBranches) -> anyhow::Result<()> {
