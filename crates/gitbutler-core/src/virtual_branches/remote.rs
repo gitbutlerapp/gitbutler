@@ -148,6 +148,9 @@ pub fn branch_to_remote_branch(
         return Ok(None);
     };
 
+    println!("{:?}", name);
+    println!("{:?}", name.remote_name());
+
     let remote_url = name
         .remote_name()
         .map(|remote| repository.find_remote(remote).ok())

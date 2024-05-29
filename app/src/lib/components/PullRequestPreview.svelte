@@ -52,7 +52,9 @@
 				`refs/remotes/${remoteName}/${pullrequest.targetBranch}`
 			);
 			await virtualBranchService.reload();
-			const vbranch = await virtualBranchService.getByUpstreamSha(pullrequest.sha);
+			const vbranch = await virtualBranchService.getByBranchIdentifier(
+				pullrequest.branchIdentifier
+			);
 
 			// This is a little absurd, but it makes it soundly typed
 			if (!vbranch) {

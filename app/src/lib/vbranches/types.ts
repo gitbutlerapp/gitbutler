@@ -350,10 +350,11 @@ export class RemoteBranch {
 	#branchIdentifier: BranchIdentifier | undefined;
 
 	get branchIdentifier(): BranchIdentifier {
-		// TODO: Fill me in
+		console.log(this.name, this.remoteUrl);
 		const [owner, repo] = this.remoteUrl
 			? getOwnerAndRepoFromRemoteUrl(this.remoteUrl)
 			: [undefined, undefined];
+		console.log(owner, repo);
 		this.#branchIdentifier = this.#branchIdentifier || new BranchIdentifier(owner, repo, this.name);
 
 		return this.#branchIdentifier;

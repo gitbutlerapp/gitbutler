@@ -57,6 +57,6 @@ export function convertRemoteToWebUrl(url: string): string {
 }
 
 export function getOwnerAndRepoFromRemoteUrl(url: string): [string, string] {
-	const [owner, repo] = url.replace('.git', '').split('/').slice(-2);
+	const [owner, repo] = url.replace('.git', '').split(/\/|:/).slice(-2);
 	return [owner, repo];
 }

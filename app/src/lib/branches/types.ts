@@ -34,16 +34,6 @@ export class CombinedBranch {
 		return branchIdentifier;
 	}
 
-	get upstreamSha(): string {
-		return (
-			this.pr?.sha ||
-			this.remoteBranch?.sha ||
-			this.vbranch?.upstream?.sha ||
-			this.vbranch?.head ||
-			'unknown'
-		);
-	}
-
 	get displayName(): string {
 		return this.pr?.title || this.remoteBranch?.displayName || this.vbranch?.name || 'unknown';
 	}
