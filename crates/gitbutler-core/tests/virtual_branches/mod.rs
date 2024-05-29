@@ -714,7 +714,7 @@ fn commit_id_can_be_generated_or_specified() -> Result<()> {
         .expect("failed to add all");
     index.write().expect("failed to write index");
     let oid = index.write_tree().expect("failed to write tree");
-    let signature = gitbutler_core::git::Signature::now("test", "test@email.com").unwrap();
+    let signature = git2::Signature::now("test", "test@email.com").unwrap();
     let head = repository.head().expect("failed to get head");
     repository
         .commit(

@@ -26,7 +26,7 @@ use super::{
 };
 use crate::error::{self, AnyhowContextExt, Code};
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
-use crate::git::{CommitExt, RepositoryExt, Signature};
+use crate::git::{CommitExt, RepositoryExt};
 use crate::time::now_since_unix_epoch_ms;
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
@@ -189,8 +189,8 @@ pub struct Author {
     pub gravatar_url: url::Url,
 }
 
-impl From<git::Signature<'_>> for Author {
-    fn from(value: git::Signature) -> Self {
+impl From<git2::Signature<'_>> for Author {
+    fn from(value: git2::Signature) -> Self {
         let name = value.name().unwrap_or_default().to_string();
         let email = value.email().unwrap_or_default().to_string();
 
@@ -361,7 +361,9 @@ pub fn apply_branch(
             branch.head = new_branch_head;
         } else {
             // branch was not pushed to upstream yet. attempt a rebase,
-            let (_, committer) = project_repository.git_signatures(user)?;
+            let (_, committer) =
+                project_repository::signatures::signatures(project_repository, user)
+                    .context("failed to get signatures")?;
             let mut rebase_options = git2::RebaseOptions::new();
             rebase_options.quiet(true);
             rebase_options.inmemory(true);
@@ -386,7 +388,7 @@ pub fn apply_branch(
                     break;
                 }
 
-                if let Ok(commit_id) = rebase.commit(None, &committer.clone().into(), None) {
+                if let Ok(commit_id) = rebase.commit(None, &committer.clone(), None) {
                     last_rebase_head = commit_id.into();
                 } else {
                     rebase_success = false;
@@ -1006,7 +1008,6 @@ fn commit_to_vbranch_commit(
     is_remote: bool,
 ) -> Result<VirtualBranchCommit> {
     let timestamp = u128::try_from(commit.time().seconds())?;
-    let signature: Signature = commit.author().into();
     let message = commit.message_bstr().to_owned();
 
     let files =
@@ -1023,7 +1024,7 @@ fn commit_to_vbranch_commit(
     let commit = VirtualBranchCommit {
         id: commit.id().into(),
         created_at: timestamp * 1000,
-        author: Author::from(signature),
+        author: commit.author().into(),
         description: message,
         is_remote,
         files,
@@ -2816,8 +2817,8 @@ pub fn move_commit_file(
         let new_from_commit_oid = repo
             .commit(
                 None,
-                &from_commit.author().into(),
-                &from_commit.committer().into(),
+                &from_commit.author(),
+                &from_commit.committer(),
                 &from_commit.message_bstr().to_str_lossy(),
                 new_from_tree,
                 &[&from_parent],
@@ -2895,8 +2896,8 @@ pub fn move_commit_file(
         .git_repository
         .commit(
             None,
-            &amend_commit.author().into(),
-            &amend_commit.committer().into(),
+            &amend_commit.author(),
+            &amend_commit.committer(),
             &amend_commit.message_bstr().to_str_lossy(),
             &new_tree,
             &parents.iter().collect::<Vec<_>>(),
@@ -3072,8 +3073,8 @@ pub fn amend(
         .git_repository
         .commit(
             None,
-            &amend_commit.author().into(),
-            &amend_commit.committer().into(),
+            &amend_commit.author(),
+            &amend_commit.committer(),
             &amend_commit.message_bstr().to_str_lossy(),
             &new_tree,
             &parents.iter().collect::<Vec<_>>(),
@@ -3422,8 +3423,8 @@ fn cherry_rebase_group(
                     .git_repository
                     .commit(
                         None,
-                        &to_rebase.author().into(),
-                        &to_rebase.committer().into(),
+                        &to_rebase.author(),
+                        &to_rebase.committer(),
                         &to_rebase.message_bstr().to_str_lossy(),
                         &merge_tree,
                         &[&head],
@@ -3511,7 +3512,7 @@ pub fn cherry_pick(
             .find_tree(wip_tree_oid)
             .context("failed to find tree")?;
 
-        let signature = git::Signature::now("GitButler", "gitbutler@gitbutler.com")
+        let signature = git2::Signature::now("GitButler", "gitbutler@gitbutler.com")
             .context("failed to make gb signature")?;
         let oid = project_repository
             .git_repository
@@ -3591,8 +3592,8 @@ pub fn cherry_pick(
             .git_repository
             .commit(
                 None,
-                &target_commit.author().into(),
-                &target_commit.committer().into(),
+                &target_commit.author(),
+                &target_commit.committer(),
                 &target_commit.message_bstr().to_str_lossy(),
                 &merge_tree,
                 &[&branch_head_commit],
@@ -3708,8 +3709,8 @@ pub fn squash(
         .git_repository
         .commit(
             None,
-            &commit_to_squash.author().into(),
-            &commit_to_squash.committer().into(),
+            &commit_to_squash.author(),
+            &commit_to_squash.committer(),
             &format!(
                 "{}\n{}",
                 parent_commit.message_bstr(),
@@ -3822,8 +3823,8 @@ pub fn update_commit_message(
         .git_repository
         .commit(
             None,
-            &target_commit.author().into(),
-            &target_commit.committer().into(),
+            &target_commit.author(),
+            &target_commit.committer(),
             message,
             &target_commit.tree().context("failed to find tree")?,
             &parents.iter().collect::<Vec<_>>(),

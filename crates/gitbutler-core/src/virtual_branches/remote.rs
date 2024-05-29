@@ -189,12 +189,11 @@ pub fn branch_to_remote_branch_data(
 }
 
 pub fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
-    let signature: git::Signature = commit.author().into();
     RemoteCommit {
         id: commit.id().to_string(),
         description: commit.message_bstr().to_owned(),
         created_at: commit.time().seconds().try_into().unwrap(),
-        author: signature.into(),
+        author: commit.author().into(),
         change_id: commit.change_id(),
     }
 }

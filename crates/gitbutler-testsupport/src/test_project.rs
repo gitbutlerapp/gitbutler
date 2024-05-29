@@ -34,7 +34,7 @@ impl Default for TestProject {
         setup_config(&local_repository.config().unwrap()).unwrap();
         let mut index = local_repository.index().expect("failed to get index");
         let oid = index.write_tree().expect("failed to write tree");
-        let signature = git::Signature::now("test", "test@email.com").unwrap();
+        let signature = git2::Signature::now("test", "test@email.com").unwrap();
         local_repository
             .commit(
                 Some(&"refs/heads/master".parse().unwrap()),
@@ -241,8 +241,8 @@ impl TestProject {
         self.remote_repository
             .commit(
                 Some(&"refs/heads/master".parse().unwrap()),
-                &branch_commit.author().into(),
-                &branch_commit.committer().into(),
+                &branch_commit.author(),
+                &branch_commit.committer(),
                 &format!("Merge pull request from {}", branch_name),
                 &merge_tree,
                 &[&master_branch_commit, &branch_commit],
@@ -302,7 +302,7 @@ impl TestProject {
             .expect("failed to add all");
         index.write().expect("failed to write index");
         let oid = index.write_tree().expect("failed to write tree");
-        let signature = git::Signature::now("test", "test@email.com").unwrap();
+        let signature = git2::Signature::now("test", "test@email.com").unwrap();
         self.local_repository
             .commit(
                 head.name().as_ref(),

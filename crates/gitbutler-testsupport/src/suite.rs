@@ -169,7 +169,7 @@ pub fn test_repository() -> (gitbutler_core::git::Repository, TempDir) {
         .unwrap();
     let mut index = repository.index().expect("failed to get index");
     let oid = index.write_tree().expect("failed to write tree");
-    let signature = gitbutler_core::git::Signature::now("test", "test@email.com").unwrap();
+    let signature = git2::Signature::now("test", "test@email.com").unwrap();
     repository
         .commit(
             Some(&"refs/heads/master".parse().unwrap()),
@@ -191,7 +191,7 @@ pub fn commit_all(repository: &gitbutler_core::git::Repository) -> gitbutler_cor
         .expect("failed to add all");
     index.write().expect("failed to write index");
     let oid = index.write_tree().expect("failed to write tree");
-    let signature = gitbutler_core::git::Signature::now("test", "test@email.com").unwrap();
+    let signature = git2::Signature::now("test", "test@email.com").unwrap();
     let head = repository.head().expect("failed to get head");
     let commit_oid = repository
         .commit(
