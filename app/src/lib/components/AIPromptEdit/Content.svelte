@@ -106,7 +106,7 @@
 
 				<div class="prompt-messages">
 					{#if displayMode == 'writable' && editing}
-						<TextArea bind:value={promptMessage.content} resizeable />
+						<TextArea rows={2} bind:value={promptMessage.content} />
 					{:else}
 						<pre>{promptMessage.content}</pre>
 					{/if}
