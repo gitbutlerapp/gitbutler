@@ -61,13 +61,14 @@
 			/>
 		</div>
 		<div class="base__right">
-			{#if selected}
+			{#if selected && $fileIdSelection.length > 0}
 				<FileCard
 					conflicted={selected.conflicted}
 					file={selected}
 					isUnapplied={false}
 					readonly={true}
 					on:close={() => {
+						selectedFiles.set([]);
 						fileIdSelection.clear();
 					}}
 				/>
