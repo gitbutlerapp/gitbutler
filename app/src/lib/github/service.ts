@@ -604,7 +604,7 @@ function mapErrorToToast(err: any): Toast | undefined {
 		return {
 			title: 'Draft pull requests are not enabled',
 			message: `
-                It looks like draft pull requests are not enabled in your repository
+                It looks like draft pull requests are not enabled in your repository.
 
                 Please see our [documentation](https://docs.gitbutler.com/)
                 for additional help.
