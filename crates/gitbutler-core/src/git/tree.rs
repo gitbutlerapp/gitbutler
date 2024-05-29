@@ -2,25 +2,6 @@ use std::path::Path;
 
 use super::{Oid, Repository, Result};
 
-#[derive(PartialEq)]
-pub enum FileMode {
-    Blob,
-    BlobExecutable,
-    Link,
-    Tree,
-}
-
-impl From<FileMode> for git2::FileMode {
-    fn from(filemod: FileMode) -> Self {
-        match filemod {
-            FileMode::Blob => git2::FileMode::Blob,
-            FileMode::BlobExecutable => git2::FileMode::BlobExecutable,
-            FileMode::Link => git2::FileMode::Link,
-            FileMode::Tree => git2::FileMode::Tree,
-        }
-    }
-}
-
 pub struct TreeBuilder<'repo> {
     repo: &'repo git2::Repository,
     builder: git2::build::TreeUpdateBuilder,
@@ -36,9 +17,8 @@ impl<'repo> TreeBuilder<'repo> {
         }
     }
 
-    pub fn upsert<P: AsRef<Path>>(&mut self, filename: P, oid: Oid, filemode: FileMode) {
-        self.builder
-            .upsert(filename.as_ref(), oid.into(), filemode.into());
+    pub fn upsert<P: AsRef<Path>>(&mut self, filename: P, oid: Oid, filemode: git2::FileMode) {
+        self.builder.upsert(filename.as_ref(), oid.into(), filemode);
     }
 
     pub fn remove<P: AsRef<Path>>(&mut self, filename: P) {
