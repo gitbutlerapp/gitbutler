@@ -10,12 +10,12 @@ async fn detect_upstream_commits() {
     } = &Test::default();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch1_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -23,7 +23,7 @@ async fn detect_upstream_commits() {
         // create first commit
         fs::write(repository.path().join("file.txt"), "content").unwrap();
         controller
-            .create_commit(project_id, &branch1_id, "commit", None, false)
+            .create_commit(*project_id, branch1_id, "commit", None, false)
             .await
             .unwrap()
     };
@@ -32,14 +32,14 @@ async fn detect_upstream_commits() {
         // create second commit
         fs::write(repository.path().join("file.txt"), "content2").unwrap();
         controller
-            .create_commit(project_id, &branch1_id, "commit", None, false)
+            .create_commit(*project_id, branch1_id, "commit", None, false)
             .await
             .unwrap()
     };
 
     // push
     controller
-        .push_virtual_branch(project_id, &branch1_id, false, None)
+        .push_virtual_branch(*project_id, branch1_id, false, None)
         .await
         .unwrap();
 
@@ -47,14 +47,14 @@ async fn detect_upstream_commits() {
         // create third commit
         fs::write(repository.path().join("file.txt"), "content3").unwrap();
         controller
-            .create_commit(project_id, &branch1_id, "commit", None, false)
+            .create_commit(*project_id, branch1_id, "commit", None, false)
             .await
             .unwrap()
     };
 
     {
         // should correctly detect pushed commits
-        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 3);
@@ -77,12 +77,12 @@ async fn detect_integrated_commits() {
     } = &Test::default();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch1_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -90,7 +90,7 @@ async fn detect_integrated_commits() {
         // create first commit
         fs::write(repository.path().join("file.txt"), "content").unwrap();
         controller
-            .create_commit(project_id, &branch1_id, "commit", None, false)
+            .create_commit(*project_id, branch1_id, "commit", None, false)
             .await
             .unwrap()
     };
@@ -99,21 +99,21 @@ async fn detect_integrated_commits() {
         // create second commit
         fs::write(repository.path().join("file.txt"), "content2").unwrap();
         controller
-            .create_commit(project_id, &branch1_id, "commit", None, false)
+            .create_commit(*project_id, branch1_id, "commit", None, false)
             .await
             .unwrap()
     };
 
     // push
     controller
-        .push_virtual_branch(project_id, &branch1_id, false, None)
+        .push_virtual_branch(*project_id, branch1_id, false, None)
         .await
         .unwrap();
 
     {
         // merge branch upstream
         let branch = controller
-            .list_virtual_branches(project_id)
+            .list_virtual_branches(*project_id)
             .await
             .unwrap()
             .0
@@ -128,14 +128,14 @@ async fn detect_integrated_commits() {
         // create third commit
         fs::write(repository.path().join("file.txt"), "content3").unwrap();
         controller
-            .create_commit(project_id, &branch1_id, "commit", None, false)
+            .create_commit(*project_id, branch1_id, "commit", None, false)
             .await
             .unwrap()
     };
 
     {
         // should correctly detect pushed commits
-        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 3);

@@ -42,3 +42,6 @@ pub use self::url::*;
 
 mod repository_ext;
 pub use repository_ext::*;
+
+mod tree_ext;
+pub use tree_ext::*;

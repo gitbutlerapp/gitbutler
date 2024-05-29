@@ -130,7 +130,7 @@ impl Case {
     pub fn refresh(mut self, suite: &Suite) -> Self {
         let project = suite
             .projects
-            .get(&self.project.id)
+            .get(self.project.id)
             .expect("failed to get project");
         let project_repository = gitbutler_core::project_repository::Repository::open(&project)
             .expect("failed to create project repository");

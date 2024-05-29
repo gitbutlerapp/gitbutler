@@ -20,7 +20,7 @@ pub async fn list_snapshots(
 ) -> Result<Vec<Snapshot>, Error> {
     let project = handle
         .state::<projects::Controller>()
-        .get(&project_id)
+        .get(project_id)
         .context("failed to get project")?;
     let snapshots = project.list_snapshots(
         limit,
@@ -39,7 +39,7 @@ pub async fn restore_snapshot(
 ) -> Result<(), Error> {
     let project = handle
         .state::<projects::Controller>()
-        .get(&project_id)
+        .get(project_id)
         .context("failed to get project")?;
     project.restore_snapshot(sha.parse().map_err(anyhow::Error::from)?)?;
     Ok(())
@@ -54,7 +54,7 @@ pub async fn snapshot_diff(
 ) -> Result<HashMap<PathBuf, FileDiff>, Error> {
     let project = handle
         .state::<projects::Controller>()
-        .get(&project_id)
+        .get(project_id)
         .context("failed to get project")?;
     let diff = project.snapshot_diff(sha.parse().map_err(anyhow::Error::from)?)?;
     Ok(diff)

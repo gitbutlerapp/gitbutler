@@ -86,7 +86,7 @@ impl Handler {
     async fn calculate_virtual_branches(&self, project_id: ProjectId) -> Result<()> {
         match self
             .vbranch_controller
-            .list_virtual_branches(&project_id)
+            .list_virtual_branches(project_id)
             .await
         {
             Ok((branches, skipped_files)) => {
@@ -123,7 +123,7 @@ impl Handler {
     fn maybe_create_snapshot(&self, project_id: ProjectId) -> anyhow::Result<()> {
         let project = self
             .projects
-            .get(&project_id)
+            .get(project_id)
             .context("failed to get project")?;
         if project
             .should_auto_snapshot(std::time::Duration::from_secs(300))
@@ -145,7 +145,7 @@ impl Handler {
     pub async fn git_files_change(&self, paths: Vec<PathBuf>, project_id: ProjectId) -> Result<()> {
         let project = self
             .projects
-            .get(&project_id)
+            .get(project_id)
             .context("failed to get project")?;
         let open_projects_repository = || {
             project_repository::Repository::open(&project)
@@ -197,7 +197,7 @@ impl Handler {
     async fn gitbutler_oplog_change(&self, project_id: ProjectId) -> Result<()> {
         let project = self
             .projects
-            .get(&project_id)
+            .get(project_id)
             .context("failed to get project")?;
 
         if project.is_sync_enabled() && project.has_code_url() {

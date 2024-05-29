@@ -103,10 +103,9 @@ impl Watchers {
     pub fn watch(&self, project: &projects::Project) -> Result<()> {
         let handler = handler_from_app(&self.app_handle)?;
 
-        let project_id = project.id;
         let project_path = project.path.clone();
 
-        let handle = gitbutler_watcher::watch_in_background(handler, project_path, project_id)?;
+        let handle = gitbutler_watcher::watch_in_background(handler, project_path, project.id)?;
         block_on(self.watcher.lock()).replace(handle);
         Ok(())
     }

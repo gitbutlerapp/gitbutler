@@ -340,7 +340,7 @@ impl Repository {
         &self,
         user: Option<&users::User>,
         message: &str,
-        tree: &git::Tree,
+        tree: &git2::Tree,
         parents: &[&git::Commit],
         change_id: Option<&str>,
     ) -> Result<git::Oid> {
@@ -604,13 +604,11 @@ impl Repository {
     }
 
     pub fn remotes(&self) -> Result<Vec<String>> {
-        self.git_repository.remotes().map_err(anyhow::Error::from)
+        Ok(self.git_repository.remotes()?)
     }
 
     pub fn add_remote(&self, name: &str, url: &str) -> Result<()> {
-        self.git_repository
-            .add_remote(name, url)
-            .map_err(anyhow::Error::from)
+        Ok(self.git_repository.add_remote(name, url)?)
     }
 
     pub fn repo(&self) -> &git2::Repository {

@@ -97,19 +97,19 @@ async fn resolve_conflict_flow() {
     }
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch1_id = {
         // make a branch that conflicts with the remote branch, but doesn't know about it yet
         let branch1_id = controller
-            .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
             .await
             .unwrap();
         fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
@@ -119,10 +119,10 @@ async fn resolve_conflict_flow() {
 
     {
         // fetch remote
-        controller.update_base_branch(project_id).await.unwrap();
+        controller.update_base_branch(*project_id).await.unwrap();
 
         // there is a conflict now, so the branch should be inactive
-        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(!branches[0].active);
@@ -131,11 +131,11 @@ async fn resolve_conflict_flow() {
     {
         // when we apply conflicted branch, it has conflict
         controller
-            .apply_virtual_branch(project_id, &branch1_id)
+            .apply_virtual_branch(*project_id, branch1_id)
             .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
@@ -152,7 +152,7 @@ async fn resolve_conflict_flow() {
         // can't commit conflicts
         assert!(matches!(
             controller
-                .create_commit(project_id, &branch1_id, "commit conflicts", None, false)
+                .create_commit(*project_id, branch1_id, "commit conflicts", None, false)
                 .await
                 .unwrap_err()
                 .downcast_ref(),
@@ -164,14 +164,14 @@ async fn resolve_conflict_flow() {
         // fixing the conflict removes conflicted mark
         fs::write(repository.path().join("file.txt"), "resolved").unwrap();
         let commit_oid = controller
-            .create_commit(project_id, &branch1_id, "resolution", None, false)
+            .create_commit(*project_id, branch1_id, "resolution", None, false)
             .await
             .unwrap();
 
         let commit = repository.find_commit(commit_oid).unwrap();
         assert_eq!(commit.parent_count(), 2);
 
-        let (branches, _) = controller.list_virtual_branches(project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);

@@ -42,19 +42,19 @@ impl Controller {
         }
     }
 
-    async fn inner(&self, project_id: &ProjectId) -> ControllerInner {
+    async fn inner(&self, project_id: ProjectId) -> ControllerInner {
         self.by_project_id
             .lock()
             .await
-            .entry(*project_id)
+            .entry(project_id)
             .or_insert_with(|| ControllerInner::new(&self.projects, &self.users, &self.helper))
             .clone()
     }
 
     pub async fn create_commit(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         message: &str,
         ownership: Option<&BranchOwnershipClaims>,
         run_hooks: bool,
@@ -67,7 +67,7 @@ impl Controller {
 
     pub async fn can_apply_remote_branch(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         branch_name: &git::RemoteRefname,
     ) -> Result<bool, Error> {
         self.inner(project_id)
@@ -77,8 +77,8 @@ impl Controller {
 
     pub async fn can_apply_virtual_branch(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
     ) -> Result<bool, Error> {
         self.inner(project_id)
             .await
@@ -87,7 +87,7 @@ impl Controller {
 
     pub async fn list_virtual_branches(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
     ) -> Result<(Vec<super::VirtualBranch>, Vec<git::diff::FileDiff>), Error> {
         self.inner(project_id)
             .await
@@ -97,7 +97,7 @@ impl Controller {
 
     pub async fn create_virtual_branch(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         create: &super::branch::BranchCreateRequest,
     ) -> Result<BranchId, Error> {
         self.inner(project_id)
@@ -108,7 +108,7 @@ impl Controller {
 
     pub async fn create_virtual_branch_from_branch(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         branch: &git::Refname,
     ) -> Result<BranchId, Error> {
         self.inner(project_id)
@@ -117,7 +117,7 @@ impl Controller {
             .await
     }
 
-    pub async fn get_base_branch_data(&self, project_id: &ProjectId) -> Result<BaseBranch, Error> {
+    pub async fn get_base_branch_data(&self, project_id: ProjectId) -> Result<BaseBranch, Error> {
         self.inner(project_id)
             .await
             .get_base_branch_data(project_id)
@@ -125,7 +125,7 @@ impl Controller {
 
     pub async fn list_remote_commit_files(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         commit_oid: git::Oid,
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         self.inner(project_id)
@@ -135,7 +135,7 @@ impl Controller {
 
     pub async fn set_base_branch(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         target_branch: &git::RemoteRefname,
     ) -> Result<super::BaseBranch, Error> {
         self.inner(project_id)
@@ -145,7 +145,7 @@ impl Controller {
 
     pub async fn set_target_push_remote(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         push_remote: &str,
     ) -> Result<(), Error> {
         self.inner(project_id)
@@ -155,8 +155,8 @@ impl Controller {
 
     pub async fn integrate_upstream_commits(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
     ) -> Result<(), Error> {
         self.inner(project_id)
             .await
@@ -164,7 +164,7 @@ impl Controller {
             .await
     }
 
-    pub async fn update_base_branch(&self, project_id: &ProjectId) -> Result<(), Error> {
+    pub async fn update_base_branch(&self, project_id: ProjectId) -> Result<(), Error> {
         self.inner(project_id)
             .await
             .update_base_branch(project_id)
@@ -173,7 +173,7 @@ impl Controller {
 
     pub async fn update_virtual_branch(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         branch_update: super::branch::BranchUpdateRequest,
     ) -> Result<(), Error> {
         self.inner(project_id)
@@ -183,8 +183,8 @@ impl Controller {
     }
     pub async fn delete_virtual_branch(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
     ) -> Result<(), Error> {
         self.inner(project_id)
             .await
@@ -194,8 +194,8 @@ impl Controller {
 
     pub async fn apply_virtual_branch(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
     ) -> Result<(), Error> {
         self.inner(project_id)
             .await
@@ -205,7 +205,7 @@ impl Controller {
 
     pub async fn unapply_ownership(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         ownership: &BranchOwnershipClaims,
     ) -> Result<(), Error> {
         self.inner(project_id)
@@ -216,7 +216,7 @@ impl Controller {
 
     pub async fn reset_files(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         files: &Vec<String>,
     ) -> Result<(), Error> {
         self.inner(project_id)
@@ -227,8 +227,8 @@ impl Controller {
 
     pub async fn amend(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
         ownership: &BranchOwnershipClaims,
     ) -> Result<git::Oid, Error> {
@@ -240,8 +240,8 @@ impl Controller {
 
     pub async fn move_commit_file(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         from_commit_oid: git::Oid,
         to_commit_oid: git::Oid,
         ownership: &BranchOwnershipClaims,
@@ -260,8 +260,8 @@ impl Controller {
 
     pub async fn undo_commit(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
     ) -> Result<(), Error> {
         self.inner(project_id)
@@ -272,8 +272,8 @@ impl Controller {
 
     pub async fn insert_blank_commit(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
         offset: i32,
     ) -> Result<(), Error> {
@@ -285,8 +285,8 @@ impl Controller {
 
     pub async fn reorder_commit(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
         offset: i32,
     ) -> Result<(), Error> {
@@ -334,8 +334,8 @@ impl Controller {
 
     pub async fn reset_virtual_branch(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         target_commit_oid: git::Oid,
     ) -> Result<(), Error> {
         self.inner(project_id)
@@ -346,8 +346,8 @@ impl Controller {
 
     pub async fn unapply_virtual_branch(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
     ) -> Result<(), Error> {
         self.inner(project_id)
             .await
@@ -357,8 +357,8 @@ impl Controller {
 
     pub async fn push_virtual_branch(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         with_force: bool,
         askpass: Option<Option<BranchId>>,
     ) -> Result<(), Error> {
@@ -370,8 +370,8 @@ impl Controller {
 
     pub async fn cherry_pick(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
     ) -> Result<Option<git::Oid>, Error> {
         self.inner(project_id)
@@ -382,7 +382,7 @@ impl Controller {
 
     pub async fn list_remote_branches(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
     ) -> Result<Vec<super::RemoteBranch>, Error> {
         self.inner(project_id)
             .await
@@ -391,7 +391,7 @@ impl Controller {
 
     pub async fn get_remote_branch_data(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         refname: &git::Refname,
     ) -> Result<super::RemoteBranchData, Error> {
         self.inner(project_id)
@@ -401,8 +401,8 @@ impl Controller {
 
     pub async fn squash(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
     ) -> Result<(), Error> {
         self.inner(project_id)
@@ -413,8 +413,8 @@ impl Controller {
 
     pub async fn update_commit_message(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
         message: &str,
     ) -> Result<(), Error> {
@@ -426,7 +426,7 @@ impl Controller {
 
     pub async fn fetch_from_remotes(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         askpass: Option<String>,
     ) -> Result<BaseBranch, Error> {
         self.inner(project_id)
@@ -437,8 +437,8 @@ impl Controller {
 
     pub async fn move_commit(
         &self,
-        project_id: &ProjectId,
-        target_branch_id: &BranchId,
+        project_id: ProjectId,
+        target_branch_id: BranchId,
         commit_oid: git::Oid,
     ) -> Result<(), Error> {
         self.inner(project_id)
@@ -473,8 +473,8 @@ impl ControllerInner {
 
     pub async fn create_commit(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         message: &str,
         ownership: Option<&BranchOwnershipClaims>,
         run_hooks: bool,
@@ -505,7 +505,7 @@ impl ControllerInner {
 
     pub fn can_apply_remote_branch(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         branch_name: &git::RemoteRefname,
     ) -> Result<bool, Error> {
         let project = self.projects.get(project_id)?;
@@ -518,8 +518,8 @@ impl ControllerInner {
 
     pub fn can_apply_virtual_branch(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
     ) -> Result<bool, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
@@ -528,7 +528,7 @@ impl ControllerInner {
 
     pub async fn list_virtual_branches(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
     ) -> Result<(Vec<super::VirtualBranch>, Vec<git::diff::FileDiff>), Error> {
         let _permit = self.semaphore.acquire().await;
 
@@ -539,7 +539,7 @@ impl ControllerInner {
 
     pub async fn create_virtual_branch(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         create: &super::branch::BranchCreateRequest,
     ) -> Result<BranchId, Error> {
         let _permit = self.semaphore.acquire().await;
@@ -552,7 +552,7 @@ impl ControllerInner {
 
     pub async fn create_virtual_branch_from_branch(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         branch: &git::Refname,
     ) -> Result<BranchId, Error> {
         let _permit = self.semaphore.acquire().await;
@@ -564,7 +564,7 @@ impl ControllerInner {
         })
     }
 
-    pub fn get_base_branch_data(&self, project_id: &ProjectId) -> Result<BaseBranch, Error> {
+    pub fn get_base_branch_data(&self, project_id: ProjectId) -> Result<BaseBranch, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         Ok(super::get_base_branch_data(&project_repository)?)
@@ -572,7 +572,7 @@ impl ControllerInner {
 
     pub fn list_remote_commit_files(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         commit_oid: git::Oid,
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = self.projects.get(project_id)?;
@@ -583,7 +583,7 @@ impl ControllerInner {
 
     pub fn set_base_branch(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         target_branch: &git::RemoteRefname,
     ) -> Result<super::BaseBranch, Error> {
         let project = self.projects.get(project_id)?;
@@ -597,7 +597,7 @@ impl ControllerInner {
 
     pub fn set_target_push_remote(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         push_remote: &str,
     ) -> Result<(), Error> {
         let project = self.projects.get(project_id)?;
@@ -608,8 +608,8 @@ impl ControllerInner {
 
     pub async fn integrate_upstream_commits(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
@@ -622,7 +622,7 @@ impl ControllerInner {
         })
     }
 
-    pub async fn update_base_branch(&self, project_id: &ProjectId) -> Result<(), Error> {
+    pub async fn update_base_branch(&self, project_id: ProjectId) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
@@ -635,7 +635,7 @@ impl ControllerInner {
 
     pub async fn update_virtual_branch(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         branch_update: super::branch::BranchUpdateRequest,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
@@ -648,8 +648,8 @@ impl ControllerInner {
 
     pub async fn delete_virtual_branch(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
@@ -660,8 +660,8 @@ impl ControllerInner {
 
     pub async fn apply_virtual_branch(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
@@ -672,7 +672,7 @@ impl ControllerInner {
 
     pub async fn unapply_ownership(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         ownership: &BranchOwnershipClaims,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
@@ -687,7 +687,7 @@ impl ControllerInner {
 
     pub async fn reset_files(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         ownership: &Vec<String>,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
@@ -702,8 +702,8 @@ impl ControllerInner {
 
     pub async fn amend(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
         ownership: &BranchOwnershipClaims,
     ) -> Result<git::Oid, Error> {
@@ -719,8 +719,8 @@ impl ControllerInner {
 
     pub async fn move_commit_file(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         from_commit_oid: git::Oid,
         to_commit_oid: git::Oid,
         ownership: &BranchOwnershipClaims,
@@ -744,8 +744,8 @@ impl ControllerInner {
 
     pub async fn undo_commit(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
@@ -760,8 +760,8 @@ impl ControllerInner {
 
     pub async fn insert_blank_commit(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
         offset: i32,
     ) -> Result<(), Error> {
@@ -778,8 +778,8 @@ impl ControllerInner {
 
     pub async fn reorder_commit(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
         offset: i32,
     ) -> Result<(), Error> {
@@ -848,8 +848,8 @@ impl ControllerInner {
 
     pub async fn reset_virtual_branch(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         target_commit_oid: git::Oid,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
@@ -865,8 +865,8 @@ impl ControllerInner {
 
     pub async fn unapply_virtual_branch(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
@@ -878,19 +878,17 @@ impl ControllerInner {
 
     pub async fn push_virtual_branch(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         with_force: bool,
         askpass: Option<Option<BranchId>>,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
         let helper = self.helper.clone();
-        let project_id = *project_id;
-        let branch_id = *branch_id;
-        self.with_verify_branch_async(&project_id, move |project_repository, _| {
+        self.with_verify_branch_async(project_id, move |project_repository, _| {
             Ok(super::push(
                 project_repository,
-                &branch_id,
+                branch_id,
                 with_force,
                 &helper,
                 askpass,
@@ -902,8 +900,8 @@ impl ControllerInner {
 
     pub async fn cherry_pick(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
     ) -> Result<Option<git::Oid>, Error> {
         let _permit = self.semaphore.acquire().await;
@@ -918,7 +916,7 @@ impl ControllerInner {
 
     pub fn list_remote_branches(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
     ) -> Result<Vec<super::RemoteBranch>, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
@@ -927,7 +925,7 @@ impl ControllerInner {
 
     pub fn get_remote_branch_data(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         refname: &git::Refname,
     ) -> Result<super::RemoteBranchData, Error> {
         let project = self.projects.get(project_id)?;
@@ -937,8 +935,8 @@ impl ControllerInner {
 
     pub async fn squash(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
@@ -953,8 +951,8 @@ impl ControllerInner {
 
     pub async fn update_commit_message(
         &self,
-        project_id: &ProjectId,
-        branch_id: &BranchId,
+        project_id: ProjectId,
+        branch_id: BranchId,
         commit_oid: git::Oid,
         message: &str,
     ) -> Result<(), Error> {
@@ -970,7 +968,7 @@ impl ControllerInner {
 
     pub async fn fetch_from_remotes(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         askpass: Option<String>,
     ) -> Result<BaseBranch, Error> {
         let project = self.projects.get(project_id)?;
@@ -1016,7 +1014,7 @@ impl ControllerInner {
         let updated_project = self
             .projects
             .update(&projects::UpdateRequest {
-                id: *project_id,
+                id: project_id,
                 project_data_last_fetched: Some(project_data_last_fetched),
                 ..Default::default()
             })
@@ -1033,8 +1031,8 @@ impl ControllerInner {
 
     pub async fn move_commit(
         &self,
-        project_id: &ProjectId,
-        target_branch_id: &BranchId,
+        project_id: ProjectId,
+        target_branch_id: BranchId,
         commit_oid: git::Oid,
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
@@ -1052,7 +1050,7 @@ impl ControllerInner {
 impl ControllerInner {
     fn with_verify_branch<T>(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         action: impl FnOnce(&project_repository::Repository, Option<&users::User>) -> Result<T, Error>,
     ) -> Result<T, Error> {
         let project = self.projects.get(project_id)?;
@@ -1064,7 +1062,7 @@ impl ControllerInner {
 
     fn with_verify_branch_async<T: Send + 'static>(
         &self,
-        project_id: &ProjectId,
+        project_id: ProjectId,
         action: impl FnOnce(&project_repository::Repository, Option<&users::User>) -> Result<T, Error>
             + Send
             + 'static,

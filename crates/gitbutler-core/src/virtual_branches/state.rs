@@ -88,11 +88,11 @@ impl VirtualBranchesHandle {
     /// Gets the state of the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn get_branch(&self, id: &BranchId) -> Result<Branch, crate::reader::Error> {
+    pub fn get_branch(&self, id: BranchId) -> Result<Branch, crate::reader::Error> {
         let virtual_branches = self.read_file()?;
         virtual_branches
             .branches
-            .get(id)
+            .get(&id)
             .cloned()
             .ok_or(crate::reader::Error::NotFound)
     }

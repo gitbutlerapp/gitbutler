@@ -20,7 +20,7 @@ async fn forcepush_allowed() {
         .unwrap();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
@@ -34,19 +34,19 @@ async fn forcepush_allowed() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit_id = controller
-        .create_commit(project_id, &branch_id, "commit one", None, false)
+        .create_commit(*project_id, branch_id, "commit one", None, false)
         .await
         .unwrap();
 
     controller
-        .push_virtual_branch(project_id, &branch_id, false, None)
+        .push_virtual_branch(*project_id, branch_id, false, None)
         .await
         .unwrap();
 
@@ -55,12 +55,12 @@ async fn forcepush_allowed() {
         fs::write(repository.path().join("file2.txt"), "content2").unwrap();
         let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         controller
-            .amend(project_id, &branch_id, commit_id, &to_amend)
+            .amend(*project_id, branch_id, commit_id, &to_amend)
             .await
             .unwrap();
 
         let branch = controller
-            .list_virtual_branches(project_id)
+            .list_virtual_branches(*project_id)
             .await
             .unwrap()
             .0
@@ -85,7 +85,7 @@ async fn forcepush_forbidden() {
     } = &Test::default();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
@@ -99,19 +99,19 @@ async fn forcepush_forbidden() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit_oid = controller
-        .create_commit(project_id, &branch_id, "commit one", None, false)
+        .create_commit(*project_id, branch_id, "commit one", None, false)
         .await
         .unwrap();
 
     controller
-        .push_virtual_branch(project_id, &branch_id, false, None)
+        .push_virtual_branch(*project_id, branch_id, false, None)
         .await
         .unwrap();
 
@@ -120,7 +120,7 @@ async fn forcepush_forbidden() {
         let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         assert!(matches!(
             controller
-                .amend(project_id, &branch_id, commit_oid, &to_amend)
+                .amend(*project_id, branch_id, commit_oid, &to_amend)
                 .await
                 .unwrap_err()
                 .downcast_ref(),
@@ -139,24 +139,24 @@ async fn non_locked_hunk() {
     } = &Test::default();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit_oid = controller
-        .create_commit(project_id, &branch_id, "commit one", None, false)
+        .create_commit(*project_id, branch_id, "commit one", None, false)
         .await
         .unwrap();
 
     let branch = controller
-        .list_virtual_branches(project_id)
+        .list_virtual_branches(*project_id)
         .await
         .unwrap()
         .0
@@ -172,12 +172,12 @@ async fn non_locked_hunk() {
         fs::write(repository.path().join("file2.txt"), "content2").unwrap();
         let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         controller
-            .amend(project_id, &branch_id, commit_oid, &to_amend)
+            .amend(*project_id, branch_id, commit_oid, &to_amend)
             .await
             .unwrap();
 
         let branch = controller
-            .list_virtual_branches(project_id)
+            .list_virtual_branches(*project_id)
             .await
             .unwrap()
             .0
@@ -200,24 +200,24 @@ async fn locked_hunk() {
     } = &Test::default();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit_oid = controller
-        .create_commit(project_id, &branch_id, "commit one", None, false)
+        .create_commit(*project_id, branch_id, "commit one", None, false)
         .await
         .unwrap();
 
     let branch = controller
-        .list_virtual_branches(project_id)
+        .list_virtual_branches(*project_id)
         .await
         .unwrap()
         .0
@@ -237,12 +237,12 @@ async fn locked_hunk() {
         fs::write(repository.path().join("file.txt"), "more content").unwrap();
         let to_amend: branch::BranchOwnershipClaims = "file.txt:1-2".parse().unwrap();
         controller
-            .amend(project_id, &branch_id, commit_oid, &to_amend)
+            .amend(*project_id, branch_id, commit_oid, &to_amend)
             .await
             .unwrap();
 
         let branch = controller
-            .list_virtual_branches(project_id)
+            .list_virtual_branches(*project_id)
             .await
             .unwrap()
             .0
@@ -270,24 +270,24 @@ async fn non_existing_ownership() {
     } = &Test::default();
 
     controller
-        .set_base_branch(project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit_oid = controller
-        .create_commit(project_id, &branch_id, "commit one", None, false)
+        .create_commit(*project_id, branch_id, "commit one", None, false)
         .await
         .unwrap();
 
     let branch = controller
-        .list_virtual_branches(project_id)
+        .list_virtual_branches(*project_id)
         .await
         .unwrap()
         .0
@@ -303,7 +303,7 @@ async fn non_existing_ownership() {
         let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         assert!(matches!(
             controller
-                .amend(project_id, &branch_id, commit_oid, &to_amend)
+                .amend(*project_id, branch_id, commit_oid, &to_amend)
                 .await
                 .unwrap_err()
                 .downcast_ref(),

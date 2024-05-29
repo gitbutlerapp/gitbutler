@@ -218,7 +218,7 @@ pub fn normalize_branch_name(name: &str) -> String {
 
 pub fn apply_branch(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    branch_id: BranchId,
     user: Option<&users::User>,
 ) -> Result<(), errors::ApplyBranchError> {
     if project_repository.is_resolving() {
@@ -238,7 +238,7 @@ pub fn apply_branch(
         Err(reader::Error::NotFound) => Err(errors::ApplyBranchError::BranchNotFound(
             errors::BranchNotFound {
                 project_id: project_repository.project().id,
-                branch_id: *branch_id,
+                branch_id,
             },
         )),
         Err(error) => Err(errors::ApplyBranchError::Other(error.into())),
@@ -418,7 +418,7 @@ pub fn apply_branch(
             }
         }
 
-        branch.tree = repo.find_commit(branch.head)?.tree()?.id();
+        branch.tree = repo.find_commit(branch.head)?.tree()?.id().into();
         vb_state.set_branch(branch.clone())?;
     }
 
@@ -430,11 +430,11 @@ pub fn apply_branch(
 
     // check index for conflicts
     let mut merge_index = repo
-        .merge_trees(&target_tree, &wd_tree.into(), &branch_tree)
+        .merge_trees(&target_tree, &wd_tree, &branch_tree)
         .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {
-        return Err(errors::ApplyBranchError::BranchConflicts(*branch_id));
+        return Err(errors::ApplyBranchError::BranchConflicts(branch_id));
     }
 
     // apply the branch
@@ -600,7 +600,7 @@ pub fn reset_files(
 // to unapply a branch, we need to write the current tree out, then remove those file changes from the wd
 pub fn unapply_branch(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    branch_id: BranchId,
 ) -> Result<Option<branch::Branch>, errors::UnapplyBranchError> {
     let vb_state = project_repository.project().virtual_branches();
 
@@ -610,7 +610,7 @@ pub fn unapply_branch(
             reader::Error::NotFound => {
                 errors::UnapplyBranchError::BranchNotFound(errors::BranchNotFound {
                     project_id: project_repository.project().id,
-                    branch_id: *branch_id,
+                    branch_id,
                 })
             }
             error => errors::UnapplyBranchError::Other(error.into()),
@@ -694,7 +694,7 @@ pub fn unapply_branch(
         // then check that out into the working directory
         let final_tree = applied_statuses
             .into_iter()
-            .filter(|(branch, _)| &branch.id != branch_id)
+            .filter(|(branch, _)| branch.id != branch_id)
             .fold(
                 target_commit.tree().context("failed to get target tree"),
                 |final_tree, status| {
@@ -730,7 +730,7 @@ fn find_base_tree<'a>(
     repo: &'a git::Repository,
     branch_commit: &'a git::Commit<'a>,
     target_commit: &'a git::Commit<'a>,
-) -> Result<git::Tree<'a>> {
+) -> Result<git2::Tree<'a>> {
     // find merge base between target_commit and branch_commit
     let merge_base = repo
         .merge_base(target_commit.id(), branch_commit.id())
@@ -1102,7 +1102,7 @@ pub fn create_virtual_branch(
         applied: true,
         upstream: None,
         upstream_head: None,
-        tree: tree.id(),
+        tree: tree.id().into(),
         head: default_target.sha,
         created_timestamp_ms: now,
         updated_timestamp_ms: now,
@@ -1151,7 +1151,7 @@ pub fn create_virtual_branch(
 ///
 pub fn integrate_upstream_commits(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    branch_id: BranchId,
     user: Option<&users::User>,
 ) -> Result<(), anyhow::Error> {
     conflicts::is_conflicting::<&Path>(project_repository, None)?;
@@ -1261,7 +1261,7 @@ pub fn integrate_upstream_commits(
         .find_commit(get_workspace_head(&vb_state, project_repository)?)?
         .tree()?;
 
-    let mut merge_index = repo.merge_trees(&integration_tree, &new_head_tree, &wd_tree.into())?;
+    let mut merge_index = repo.merge_trees(&integration_tree, &new_head_tree, &wd_tree)?;
 
     if merge_index.has_conflicts() {
         repo.checkout_index(&mut merge_index)
@@ -1271,7 +1271,7 @@ pub fn integrate_upstream_commits(
             .checkout()?;
     } else {
         branch.head = new_head;
-        branch.tree = head_commit.tree()?.id();
+        branch.tree = head_commit.tree()?.id().into();
         vb_state.set_branch(branch.clone())?;
         repo.checkout_index(&mut merge_index).force().checkout()?;
     };
@@ -1305,7 +1305,7 @@ pub fn integrate_with_merge(
     let upstream_branch = branch.upstream.as_ref().context("upstream not found")?;
     let merge_tree = repo.find_commit(merge_base).and_then(|c| c.tree())?;
 
-    let mut merge_index = repo.merge_trees(&merge_tree, &wd_tree.into(), &remote_tree)?;
+    let mut merge_index = repo.merge_trees(&merge_tree, &wd_tree, &remote_tree)?;
 
     if merge_index.has_conflicts() {
         let conflicts = merge_index.conflicts()?;
@@ -1355,7 +1355,7 @@ pub fn update_branch(
 ) -> Result<branch::Branch, errors::UpdateBranchError> {
     let vb_state = project_repository.project().virtual_branches();
     let mut branch = vb_state
-        .get_branch(&branch_update.id)
+        .get_branch(branch_update.id)
         .map_err(|error| match error {
             reader::Error::NotFound => {
                 errors::UpdateBranchError::BranchNotFound(errors::BranchNotFound {
@@ -1441,7 +1441,7 @@ pub fn update_branch(
 
 pub fn delete_branch(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    branch_id: BranchId,
 ) -> Result<(), Error> {
     let vb_state = project_repository.project().virtual_branches();
     let branch = match vb_state.get_branch(branch_id) {
@@ -1978,7 +1978,7 @@ fn virtual_hunks_into_virtual_files(
 // reset virtual branch to a specific commit
 pub fn reset_branch(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    branch_id: BranchId,
     target_commit_oid: git::Oid,
 ) -> Result<(), errors::ResetBranchError> {
     let vb_state = project_repository.project().virtual_branches();
@@ -1989,7 +1989,7 @@ pub fn reset_branch(
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::ResetBranchError::BranchNotFound(
             errors::BranchNotFound {
-                branch_id: *branch_id,
+                branch_id,
                 project_id: project_repository.project().id,
             },
         )),
@@ -2089,7 +2089,7 @@ pub fn write_tree_onto_commit(
 
 pub fn write_tree_onto_tree(
     project_repository: &project_repository::Repository,
-    base_tree: &git::Tree,
+    base_tree: &git2::Tree,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
 ) -> Result<git::Oid> {
     let git_repository = &project_repository.git_repository;
@@ -2170,7 +2170,7 @@ pub fn write_tree_onto_tree(
                 } else {
                     // blob from tree_entry
                     let blob = tree_entry
-                        .to_object(git_repository)
+                        .to_object(git_repository.into())
                         .unwrap()
                         .peel_to_blob()
                         .context("failed to get blob")?;
@@ -2254,7 +2254,7 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 #[allow(clippy::too_many_arguments)]
 pub fn commit(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    branch_id: BranchId,
     message: &str,
     ownership: Option<&branch::BranchOwnershipClaims>,
     user: Option<&users::User>,
@@ -2293,11 +2293,11 @@ pub fn commit(
 
     let (ref mut branch, files) = statuses
         .into_iter()
-        .find(|(branch, _)| branch.id == *branch_id)
+        .find(|(branch, _)| branch.id == branch_id)
         .ok_or_else(|| {
             errors::CommitError::BranchNotFound(errors::BranchNotFound {
                 project_id: project_repository.project().id,
-                branch_id: *branch_id,
+                branch_id,
             })
         })?;
 
@@ -2389,7 +2389,7 @@ pub fn commit(
 
 pub fn push(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    branch_id: BranchId,
     with_force: bool,
     credentials: &git::credentials::Helper,
     askpass: Option<Option<BranchId>>,
@@ -2401,7 +2401,7 @@ pub fn push(
         .map_err(|error| match error {
             reader::Error::NotFound => errors::PushError::BranchNotFound(errors::BranchNotFound {
                 project_id: project_repository.project().id,
-                branch_id: *branch_id,
+                branch_id,
             }),
             error => errors::PushError::Other(error.into()),
         })?;
@@ -2530,7 +2530,7 @@ fn is_commit_integrated(
 
     // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
     // then the vbranch is fully merged
-    Ok(merge_tree_oid == upstream_tree.id())
+    Ok(merge_tree_oid == upstream_tree.id().into())
 }
 
 pub fn is_remote_branch_mergeable(
@@ -2572,7 +2572,7 @@ pub fn is_remote_branch_mergeable(
     let branch_tree = branch_commit.tree().context("failed to find branch tree")?;
     let mergeable = !project_repository
         .git_repository
-        .merge_trees(&base_tree, &branch_tree, &wd_tree.into())
+        .merge_trees(&base_tree, &branch_tree, &wd_tree)
         .context("failed to merge trees")?
         .has_conflicts();
 
@@ -2581,7 +2581,7 @@ pub fn is_remote_branch_mergeable(
 
 pub fn is_virtual_branch_mergeable(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    branch_id: BranchId,
 ) -> Result<bool, errors::IsVirtualBranchMergeable> {
     let vb_state = project_repository.project().virtual_branches();
     let branch = match vb_state.get_branch(branch_id) {
@@ -2589,7 +2589,7 @@ pub fn is_virtual_branch_mergeable(
         Err(reader::Error::NotFound) => Err(errors::IsVirtualBranchMergeable::BranchNotFound(
             errors::BranchNotFound {
                 project_id: project_repository.project().id,
-                branch_id: *branch_id,
+                branch_id,
             },
         )),
         Err(error) => Err(errors::IsVirtualBranchMergeable::Other(error.into())),
@@ -2636,7 +2636,7 @@ pub fn is_virtual_branch_mergeable(
 
     let is_mergeable = !project_repository
         .git_repository
-        .merge_trees(&base_tree, &branch_tree, &wd_tree.into())
+        .merge_trees(&base_tree, &branch_tree, &wd_tree)
         .context("failed to merge trees")?
         .has_conflicts();
 
@@ -2652,7 +2652,7 @@ pub fn is_virtual_branch_mergeable(
 // then added to the "to" commit and everything above that rebased again.
 pub fn move_commit_file(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    branch_id: BranchId,
     from_commit_oid: git::Oid,
     to_commit_oid: git::Oid,
     target_ownership: &BranchOwnershipClaims,
@@ -2912,7 +2912,7 @@ pub fn move_commit_file(
 // and the respective branch head is updated
 pub fn amend(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    branch_id: BranchId,
     commit_oid: git::Oid,
     target_ownership: &BranchOwnershipClaims,
 ) -> Result<git::Oid, errors::VirtualBranchError> {
@@ -2930,11 +2930,11 @@ pub fn amend(
         .list_branches()
         .context("failed to read virtual branches")?;
 
-    if !all_branches.iter().any(|b| b.id == *branch_id) {
+    if !all_branches.iter().any(|b| b.id == branch_id) {
         return Err(errors::VirtualBranchError::BranchNotFound(
             errors::BranchNotFound {
                 project_id: project_repository.project().id,
-                branch_id: *branch_id,
+                branch_id,
             },
         ));
     }
@@ -2944,11 +2944,11 @@ pub fn amend(
         .filter(|b| b.applied)
         .collect::<Vec<_>>();
 
-    if !applied_branches.iter().any(|b| b.id == *branch_id) {
+    if !applied_branches.iter().any(|b| b.id == branch_id) {
         return Err(errors::VirtualBranchError::BranchNotFound(
             errors::BranchNotFound {
                 project_id: project_repository.project().id,
-                branch_id: *branch_id,
+                branch_id,
             },
         ));
     }
@@ -2967,11 +2967,11 @@ pub fn amend(
 
     let (ref mut target_branch, target_status) = applied_statuses
         .iter_mut()
-        .find(|(b, _)| b.id == *branch_id)
+        .find(|(b, _)| b.id == branch_id)
         .ok_or_else(|| {
             errors::VirtualBranchError::BranchNotFound(errors::BranchNotFound {
                 project_id: project_repository.project().id,
-                branch_id: *branch_id,
+                branch_id,
             })
         })?;
 
@@ -3308,7 +3308,7 @@ pub fn checkout_merged_applied_branches(
 // rewrites the branch head to the new head commit
 pub fn reorder_commit(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    branch_id: BranchId,
     commit_oid: git::Oid,
     offset: i32,
 ) -> Result<(), errors::VirtualBranchError> {
@@ -3320,7 +3320,7 @@ pub fn reorder_commit(
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::VirtualBranchError::BranchNotFound(
             errors::BranchNotFound {
-                branch_id: *branch_id,
+                branch_id,
                 project_id: project_repository.project().id,
             },
         )),
@@ -3408,7 +3408,7 @@ pub fn reorder_commit(
 // return the oid of the new head commit of the branch with the inserted blank commit
 pub fn insert_blank_commit(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    branch_id: BranchId,
     commit_oid: git::Oid,
     user: Option<&users::User>,
     offset: i32,
@@ -3419,7 +3419,7 @@ pub fn insert_blank_commit(
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::VirtualBranchError::BranchNotFound(
             errors::BranchNotFound {
-                branch_id: *branch_id,
+                branch_id,
                 project_id: project_repository.project().id,
             },
         )),
@@ -3477,7 +3477,7 @@ pub fn insert_blank_commit(
 // if successful, it will update the branch head to the new head commit
 pub fn undo_commit(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    branch_id: BranchId,
     commit_oid: git::Oid,
 ) -> Result<(), errors::VirtualBranchError> {
     let vb_state = project_repository.project().virtual_branches();
@@ -3486,7 +3486,7 @@ pub fn undo_commit(
         Ok(branch) => Ok(branch),
         Err(reader::Error::NotFound) => Err(errors::VirtualBranchError::BranchNotFound(
             errors::BranchNotFound {
-                branch_id: *branch_id,
+                branch_id,
                 project_id: project_repository.project().id,
             },
         )),
@@ -3776,7 +3776,7 @@ fn cherry_rebase_group(
 
 pub fn cherry_pick(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    branch_id: BranchId,
     target_commit_oid: git::Oid,
 ) -> Result<Option<git::Oid>, errors::CherryPickError> {
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
@@ -3831,7 +3831,7 @@ pub fn cherry_pick(
 
     let branch_files = applied_statuses
         .iter()
-        .find(|(b, _)| b.id == *branch_id)
+        .find(|(b, _)| b.id == branch_id)
         .map(|(_, f)| f)
         .context("branch status not found")?;
 
@@ -3874,7 +3874,7 @@ pub fn cherry_pick(
         .filter(|(b, _)| b.id != branch.id)
         .map(|(b, _)| b)
     {
-        unapply_branch(project_repository, &other_branch.id).context("failed to unapply branch")?;
+        unapply_branch(project_repository, other_branch.id).context("failed to unapply branch")?;
     }
 
     let commit_oid = if cherrypick_index.has_conflicts() {
@@ -3959,7 +3959,7 @@ pub fn cherry_pick(
 /// squashes a commit from a virtual branch into it's parent.
 pub fn squash(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    branch_id: BranchId,
     commit_oid: git::Oid,
 ) -> Result<(), errors::SquashError> {
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
@@ -3978,7 +3978,7 @@ pub fn squash(
             reader::Error::NotFound => {
                 errors::SquashError::BranchNotFound(errors::BranchNotFound {
                     project_id: project_repository.project().id,
-                    branch_id: *branch_id,
+                    branch_id,
                 })
             }
             error => errors::SquashError::Other(error.into()),
@@ -4083,7 +4083,7 @@ pub fn squash(
 // changes a commit message for commit_oid, rebases everything above it, updates branch head if successful
 pub fn update_commit_message(
     project_repository: &project_repository::Repository,
-    branch_id: &BranchId,
+    branch_id: BranchId,
     commit_oid: git::Oid,
     message: &str,
 ) -> Result<(), errors::UpdateCommitMessageError> {
@@ -4108,7 +4108,7 @@ pub fn update_commit_message(
             reader::Error::NotFound => {
                 errors::UpdateCommitMessageError::BranchNotFound(errors::BranchNotFound {
                     project_id: project_repository.project().id,
-                    branch_id: *branch_id,
+                    branch_id,
                 })
             }
             error => errors::UpdateCommitMessageError::Other(error.into()),
@@ -4197,7 +4197,7 @@ pub fn update_commit_message(
 /// moves commit from the branch it's in to the top of the target branch
 pub fn move_commit(
     project_repository: &project_repository::Repository,
-    target_branch_id: &BranchId,
+    target_branch_id: BranchId,
     commit_oid: git::Oid,
     user: Option<&users::User>,
 ) -> Result<(), errors::MoveCommitError> {
@@ -4218,11 +4218,11 @@ pub fn move_commit(
         .filter(|b| b.applied)
         .collect::<Vec<_>>();
 
-    if !applied_branches.iter().any(|b| b.id == *target_branch_id) {
+    if !applied_branches.iter().any(|b| b.id == target_branch_id) {
         return Err(errors::MoveCommitError::BranchNotFound(
             errors::BranchNotFound {
                 project_id: project_repository.project().id,
-                branch_id: *target_branch_id,
+                branch_id: target_branch_id,
             },
         ));
     }
@@ -4316,7 +4316,7 @@ pub fn move_commit(
                     reader::Error::NotFound => {
                         errors::MoveCommitError::BranchNotFound(errors::BranchNotFound {
                             project_id: project_repository.project().id,
-                            branch_id: *target_branch_id,
+                            branch_id: target_branch_id,
                         })
                     }
                     error => errors::MoveCommitError::Other(error.into()),
@@ -4481,7 +4481,7 @@ pub fn create_virtual_branch_from_branch(
         applied: false,
         upstream_head: upstream_branch.is_some().then_some(head_commit.id()),
         upstream: upstream_branch,
-        tree: head_commit_tree.id(),
+        tree: head_commit_tree.id().into(),
         head: head_commit.id(),
         created_timestamp_ms: now,
         updated_timestamp_ms: now,
@@ -4496,7 +4496,7 @@ pub fn create_virtual_branch_from_branch(
 
     project_repository.add_branch_reference(&branch)?;
 
-    match apply_branch(project_repository, &branch.id, user) {
+    match apply_branch(project_repository, branch.id, user) {
         Ok(()) => Ok(branch.id),
         Err(errors::ApplyBranchError::BranchConflicts(_)) => {
             // if branch conflicts with the workspace, it's ok. keep it unapplied

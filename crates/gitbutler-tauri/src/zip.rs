@@ -23,7 +23,7 @@ pub mod commands {
         ))?;
         handle
             .state::<controller::Controller>()
-            .archive(&project_id)
+            .archive(project_id)
             .map_err(Into::into)
     }
 
@@ -39,7 +39,7 @@ pub mod commands {
         ))?;
         handle
             .state::<controller::Controller>()
-            .data_archive(&project_id)
+            .data_archive(project_id)
             .map_err(Into::into)
     }
 
