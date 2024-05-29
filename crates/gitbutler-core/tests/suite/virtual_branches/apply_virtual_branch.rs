@@ -26,7 +26,7 @@ async fn deltect_conflict() {
 
     // unapply first vbranch
     controller
-        .unapply_virtual_branch(*project_id, &branch1_id)
+        .unapply_virtual_branch(*project_id, branch1_id)
         .await
         .unwrap();
 
@@ -42,13 +42,13 @@ async fn deltect_conflict() {
     {
         // it should not be possible to apply the first branch
         assert!(!controller
-            .can_apply_virtual_branch(*project_id, &branch1_id)
+            .can_apply_virtual_branch(*project_id, branch1_id)
             .await
             .unwrap());
 
         assert!(matches!(
             controller
-                .apply_virtual_branch(*project_id, &branch1_id)
+                .apply_virtual_branch(*project_id, branch1_id)
                 .await
                 .unwrap_err()
                 .downcast_ref(),
@@ -91,7 +91,7 @@ async fn rebase_commit() {
         fs::write(repository.path().join("another_file.txt"), "virtual").unwrap();
 
         controller
-            .create_commit(*project_id, &branch1_id, "virtual commit", None, false)
+            .create_commit(*project_id, branch1_id, "virtual commit", None, false)
             .await
             .unwrap();
 
@@ -108,7 +108,7 @@ async fn rebase_commit() {
     {
         // unapply first vbranch
         controller
-            .unapply_virtual_branch(*project_id, &branch1_id)
+            .unapply_virtual_branch(*project_id, branch1_id)
             .await
             .unwrap();
 
@@ -155,7 +155,7 @@ async fn rebase_commit() {
     {
         // apply first vbranch again
         controller
-            .apply_virtual_branch(*project_id, &branch1_id)
+            .apply_virtual_branch(*project_id, branch1_id)
             .await
             .unwrap();
 
@@ -224,7 +224,7 @@ async fn rebase_work() {
     {
         // unapply first vbranch
         controller
-            .unapply_virtual_branch(*project_id, &branch1_id)
+            .unapply_virtual_branch(*project_id, branch1_id)
             .await
             .unwrap();
 
@@ -259,7 +259,7 @@ async fn rebase_work() {
     {
         // apply first vbranch again
         controller
-            .apply_virtual_branch(*project_id, &branch1_id)
+            .apply_virtual_branch(*project_id, branch1_id)
             .await
             .unwrap();
 

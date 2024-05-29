@@ -29,7 +29,7 @@ async fn should_unapply_with_commits() {
     )
     .unwrap();
     controller
-        .create_commit(*project_id, &branch_id, "test", None, false)
+        .create_commit(*project_id, branch_id, "test", None, false)
         .await
         .unwrap();
 

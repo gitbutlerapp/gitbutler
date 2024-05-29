@@ -29,7 +29,7 @@ pub mod commands {
     ) -> Result<git::Oid, Error> {
         let oid = handle
             .state::<Controller>()
-            .create_commit(project_id, &branch, message, ownership.as_ref(), run_hooks)
+            .create_commit(project_id, branch, message, ownership.as_ref(), run_hooks)
             .await?;
         emit_vbranches(&handle, project_id).await;
         Ok(oid)
@@ -93,7 +93,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .integrate_upstream_commits(project_id, &branch)
+            .integrate_upstream_commits(project_id, branch)
             .await?;
         emit_vbranches(&handle, project_id).await;
         Ok(())
@@ -184,7 +184,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .delete_virtual_branch(project_id, &branch_id)
+            .delete_virtual_branch(project_id, branch_id)
             .await?;
         emit_vbranches(&handle, project_id).await;
         Ok(())
@@ -199,7 +199,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .apply_virtual_branch(project_id, &branch)
+            .apply_virtual_branch(project_id, branch)
             .await?;
         emit_vbranches(&handle, project_id).await;
         Ok(())
@@ -214,7 +214,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .unapply_virtual_branch(project_id, &branch)
+            .unapply_virtual_branch(project_id, branch)
             .await?;
         emit_vbranches(&handle, project_id).await;
         Ok(())
@@ -265,7 +265,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .push_virtual_branch(project_id, &branch_id, with_force, Some(Some(branch_id)))
+            .push_virtual_branch(project_id, branch_id, with_force, Some(Some(branch_id)))
             .await
             .map_err(|err| err.context(Code::Unknown))?;
         emit_vbranches(&handle, project_id).await;
@@ -281,7 +281,7 @@ pub mod commands {
     ) -> Result<bool, Error> {
         handle
             .state::<Controller>()
-            .can_apply_virtual_branch(project_id, &branch_id)
+            .can_apply_virtual_branch(project_id, branch_id)
             .await
             .map_err(Into::into)
     }
@@ -323,7 +323,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .reset_virtual_branch(project_id, &branch_id, target_commit_oid)
+            .reset_virtual_branch(project_id, branch_id, target_commit_oid)
             .await?;
         emit_vbranches(&handle, project_id).await;
         Ok(())
@@ -339,7 +339,7 @@ pub mod commands {
     ) -> Result<Option<git::Oid>, Error> {
         let oid = handle
             .state::<Controller>()
-            .cherry_pick(project_id, &branch_id, target_commit_oid)
+            .cherry_pick(project_id, branch_id, target_commit_oid)
             .await?;
         emit_vbranches(&handle, project_id).await;
         Ok(oid)
@@ -356,7 +356,7 @@ pub mod commands {
     ) -> Result<git::Oid, Error> {
         let oid = handle
             .state::<Controller>()
-            .amend(project_id, &branch_id, commit_oid, &ownership)
+            .amend(project_id, branch_id, commit_oid, &ownership)
             .await?;
         emit_vbranches(&handle, project_id).await;
         Ok(oid)
@@ -376,7 +376,7 @@ pub mod commands {
             .state::<Controller>()
             .move_commit_file(
                 project_id,
-                &branch_id,
+                branch_id,
                 from_commit_oid,
                 to_commit_oid,
                 &ownership,
@@ -396,7 +396,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .undo_commit(project_id, &branch_id, commit_oid)
+            .undo_commit(project_id, branch_id, commit_oid)
             .await?;
         emit_vbranches(&handle, project_id).await;
         Ok(())
@@ -413,7 +413,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .insert_blank_commit(project_id, &branch_id, commit_oid, offset)
+            .insert_blank_commit(project_id, branch_id, commit_oid, offset)
             .await?;
         emit_vbranches(&handle, project_id).await;
         Ok(())
@@ -430,7 +430,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .reorder_commit(project_id, &branch_id, commit_oid, offset)
+            .reorder_commit(project_id, branch_id, commit_oid, offset)
             .await?;
         emit_vbranches(&handle, project_id).await;
         Ok(())
@@ -477,7 +477,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .squash(project_id, &branch_id, target_commit_oid)
+            .squash(project_id, branch_id, target_commit_oid)
             .await?;
         emit_vbranches(&handle, project_id).await;
         Ok(())
@@ -511,7 +511,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .move_commit(project_id, &target_branch_id, commit_oid)
+            .move_commit(project_id, target_branch_id, commit_oid)
             .await?;
         emit_vbranches(&handle, project_id).await;
         Ok(())
@@ -528,7 +528,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .update_commit_message(project_id, &branch_id, commit_oid, message)
+            .update_commit_message(project_id, branch_id, commit_oid, message)
             .await?;
         emit_vbranches(&handle, project_id).await;
         Ok(())

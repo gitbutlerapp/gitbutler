@@ -119,7 +119,7 @@ impl Project {
 
             let branch_tree_id = branch_tree_builder.write()?;
             branches_tree_builder.insert(
-                &branch.id.to_string(),
+                branch.id.to_string(),
                 branch_tree_id,
                 FileMode::Tree.into(),
             )?;

@@ -23,7 +23,7 @@ async fn detect_upstream_commits() {
         // create first commit
         fs::write(repository.path().join("file.txt"), "content").unwrap();
         controller
-            .create_commit(*project_id, &branch1_id, "commit", None, false)
+            .create_commit(*project_id, branch1_id, "commit", None, false)
             .await
             .unwrap()
     };
@@ -32,14 +32,14 @@ async fn detect_upstream_commits() {
         // create second commit
         fs::write(repository.path().join("file.txt"), "content2").unwrap();
         controller
-            .create_commit(*project_id, &branch1_id, "commit", None, false)
+            .create_commit(*project_id, branch1_id, "commit", None, false)
             .await
             .unwrap()
     };
 
     // push
     controller
-        .push_virtual_branch(*project_id, &branch1_id, false, None)
+        .push_virtual_branch(*project_id, branch1_id, false, None)
         .await
         .unwrap();
 
@@ -47,7 +47,7 @@ async fn detect_upstream_commits() {
         // create third commit
         fs::write(repository.path().join("file.txt"), "content3").unwrap();
         controller
-            .create_commit(*project_id, &branch1_id, "commit", None, false)
+            .create_commit(*project_id, branch1_id, "commit", None, false)
             .await
             .unwrap()
     };
@@ -90,7 +90,7 @@ async fn detect_integrated_commits() {
         // create first commit
         fs::write(repository.path().join("file.txt"), "content").unwrap();
         controller
-            .create_commit(*project_id, &branch1_id, "commit", None, false)
+            .create_commit(*project_id, branch1_id, "commit", None, false)
             .await
             .unwrap()
     };
@@ -99,14 +99,14 @@ async fn detect_integrated_commits() {
         // create second commit
         fs::write(repository.path().join("file.txt"), "content2").unwrap();
         controller
-            .create_commit(*project_id, &branch1_id, "commit", None, false)
+            .create_commit(*project_id, branch1_id, "commit", None, false)
             .await
             .unwrap()
     };
 
     // push
     controller
-        .push_virtual_branch(*project_id, &branch1_id, false, None)
+        .push_virtual_branch(*project_id, branch1_id, false, None)
         .await
         .unwrap();
 
@@ -128,7 +128,7 @@ async fn detect_integrated_commits() {
         // create third commit
         fs::write(repository.path().join("file.txt"), "content3").unwrap();
         controller
-            .create_commit(*project_id, &branch1_id, "commit", None, false)
+            .create_commit(*project_id, branch1_id, "commit", None, false)
             .await
             .unwrap()
     };

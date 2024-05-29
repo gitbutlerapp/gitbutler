@@ -20,7 +20,7 @@ async fn should_unapply_diff() {
     let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
 
     controller
-        .delete_virtual_branch(*project_id, &branches[0].id)
+        .delete_virtual_branch(*project_id, branches[0].id)
         .await
         .unwrap();
 
@@ -62,7 +62,7 @@ async fn should_remove_reference() {
         .unwrap();
 
     controller
-        .delete_virtual_branch(*project_id, &id)
+        .delete_virtual_branch(*project_id, id)
         .await
         .unwrap();
 

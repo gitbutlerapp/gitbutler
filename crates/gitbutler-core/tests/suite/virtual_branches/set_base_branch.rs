@@ -71,7 +71,7 @@ mod go_back_to_integration {
 
         std::fs::write(repository.path().join("another file.txt"), "content").unwrap();
         controller
-            .create_commit(*project_id, &vbranch_id, "one", None, false)
+            .create_commit(*project_id, vbranch_id, "one", None, false)
             .await
             .unwrap();
 

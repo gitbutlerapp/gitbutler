@@ -24,11 +24,11 @@ async fn integration() {
 
         std::fs::write(repository.path().join("file.txt"), "first\n").unwrap();
         controller
-            .create_commit(*project_id, &branch_id, "first", None, false)
+            .create_commit(*project_id, branch_id, "first", None, false)
             .await
             .unwrap();
         controller
-            .push_virtual_branch(*project_id, &branch_id, false, None)
+            .push_virtual_branch(*project_id, branch_id, false, None)
             .await
             .unwrap();
 
@@ -44,7 +44,7 @@ async fn integration() {
         let name = branch.upstream.unwrap().name;
 
         controller
-            .delete_virtual_branch(*project_id, &branch_id)
+            .delete_virtual_branch(*project_id, branch_id)
             .await
             .unwrap();
 
@@ -62,7 +62,7 @@ async fn integration() {
         std::fs::write(repository.path().join("file.txt"), "first\nsecond").unwrap();
 
         controller
-            .create_commit(*project_id, &branch_id, "second", None, false)
+            .create_commit(*project_id, branch_id, "second", None, false)
             .await
             .unwrap();
     }
@@ -79,7 +79,7 @@ async fn integration() {
     {
         // merge branch into master
         controller
-            .push_virtual_branch(*project_id, &branch_id, false, None)
+            .push_virtual_branch(*project_id, branch_id, false, None)
             .await
             .unwrap();
 
@@ -251,7 +251,7 @@ async fn conflicts_with_commited() {
         assert_eq!(branches.len(), 1);
 
         controller
-            .create_commit(*project_id, &branches[0].id, "hej", None, false)
+            .create_commit(*project_id, branches[0].id, "hej", None, false)
             .await
             .unwrap();
     };

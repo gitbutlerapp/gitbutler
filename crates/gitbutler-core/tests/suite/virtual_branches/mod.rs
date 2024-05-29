@@ -130,7 +130,7 @@ async fn resolve_conflict_flow() {
     {
         // when we apply conflicted branch, it has conflict
         controller
-            .apply_virtual_branch(*project_id, &branch1_id)
+            .apply_virtual_branch(*project_id, branch1_id)
             .await
             .unwrap();
 
@@ -151,7 +151,7 @@ async fn resolve_conflict_flow() {
         // can't commit conflicts
         assert!(matches!(
             controller
-                .create_commit(*project_id, &branch1_id, "commit conflicts", None, false)
+                .create_commit(*project_id, branch1_id, "commit conflicts", None, false)
                 .await
                 .unwrap_err()
                 .downcast_ref(),
@@ -163,7 +163,7 @@ async fn resolve_conflict_flow() {
         // fixing the conflict removes conflicted mark
         fs::write(repository.path().join("file.txt"), "resolved").unwrap();
         let commit_oid = controller
-            .create_commit(*project_id, &branch1_id, "resolution", None, false)
+            .create_commit(*project_id, branch1_id, "resolution", None, false)
             .await
             .unwrap();
 

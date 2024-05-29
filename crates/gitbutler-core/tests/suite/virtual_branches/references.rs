@@ -238,11 +238,11 @@ mod push_virtual_branch {
         fs::write(repository.path().join("file.txt"), "content").unwrap();
 
         controller
-            .create_commit(*project_id, &branch1_id, "test", None, false)
+            .create_commit(*project_id, branch1_id, "test", None, false)
             .await
             .unwrap();
         controller
-            .push_virtual_branch(*project_id, &branch1_id, false, None)
+            .push_virtual_branch(*project_id, branch1_id, false, None)
             .await
             .unwrap();
 
@@ -291,11 +291,11 @@ mod push_virtual_branch {
                 .unwrap();
             fs::write(repository.path().join("file.txt"), "content").unwrap();
             controller
-                .create_commit(*project_id, &branch1_id, "test", None, false)
+                .create_commit(*project_id, branch1_id, "test", None, false)
                 .await
                 .unwrap();
             controller
-                .push_virtual_branch(*project_id, &branch1_id, false, None)
+                .push_virtual_branch(*project_id, branch1_id, false, None)
                 .await
                 .unwrap();
             branch1_id
@@ -328,11 +328,11 @@ mod push_virtual_branch {
                 .unwrap();
             fs::write(repository.path().join("file.txt"), "updated content").unwrap();
             controller
-                .create_commit(*project_id, &branch2_id, "test", None, false)
+                .create_commit(*project_id, branch2_id, "test", None, false)
                 .await
                 .unwrap();
             controller
-                .push_virtual_branch(*project_id, &branch2_id, false, None)
+                .push_virtual_branch(*project_id, branch2_id, false, None)
                 .await
                 .unwrap();
             branch2_id

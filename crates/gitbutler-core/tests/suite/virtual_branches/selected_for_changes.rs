@@ -38,7 +38,7 @@ async fn unapplying_selected_branch_selects_anther() {
     assert!(!b2.selected_for_changes);
 
     controller
-        .unapply_virtual_branch(*project_id, &b_id)
+        .unapply_virtual_branch(*project_id, b_id)
         .await
         .unwrap();
 
@@ -88,7 +88,7 @@ async fn deleting_selected_branch_selects_anther() {
     assert!(!b2.selected_for_changes);
 
     controller
-        .delete_virtual_branch(*project_id, &b_id)
+        .delete_virtual_branch(*project_id, b_id)
         .await
         .unwrap();
 
@@ -290,7 +290,7 @@ async fn unapply_virtual_branch_should_reset_selected_for_changes() {
     assert!(b1.selected_for_changes);
 
     controller
-        .unapply_virtual_branch(*project_id, &b1_id)
+        .unapply_virtual_branch(*project_id, b1_id)
         .await
         .unwrap();
 
@@ -360,11 +360,11 @@ async fn applying_first_branch() {
     assert_eq!(branches.len(), 1);
 
     controller
-        .unapply_virtual_branch(*project_id, &branches[0].id)
+        .unapply_virtual_branch(*project_id, branches[0].id)
         .await
         .unwrap();
     controller
-        .apply_virtual_branch(*project_id, &branches[0].id)
+        .apply_virtual_branch(*project_id, branches[0].id)
         .await
         .unwrap();
 

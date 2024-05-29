@@ -37,7 +37,7 @@ mod unapplied_branch {
 
             fs::write(repository.path().join("file.txt"), "conflict").unwrap();
             controller
-                .unapply_virtual_branch(*project_id, &branch_id)
+                .unapply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
 
@@ -58,7 +58,7 @@ mod unapplied_branch {
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].commits.len(), 0);
             assert!(!controller
-                .can_apply_virtual_branch(*project_id, &branch_id)
+                .can_apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap());
         }
@@ -66,7 +66,7 @@ mod unapplied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
@@ -118,12 +118,12 @@ mod unapplied_branch {
 
             fs::write(repository.path().join("file.txt"), "conflict").unwrap();
             controller
-                .create_commit(*project_id, &branch_id, "conflicting commit", None, false)
+                .create_commit(*project_id, branch_id, "conflicting commit", None, false)
                 .await
                 .unwrap();
 
             controller
-                .unapply_virtual_branch(*project_id, &branch_id)
+                .unapply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
 
@@ -144,7 +144,7 @@ mod unapplied_branch {
             assert_eq!(branches[0].files.len(), 0);
             assert_eq!(branches[0].commits.len(), 1);
             assert!(!controller
-                .can_apply_virtual_branch(*project_id, &branch_id)
+                .can_apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap());
         }
@@ -152,7 +152,7 @@ mod unapplied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
@@ -204,17 +204,17 @@ mod unapplied_branch {
 
             fs::write(repository.path().join("file.txt"), "conflict").unwrap();
             controller
-                .create_commit(*project_id, &branch_id, "conflicting commit", None, false)
+                .create_commit(*project_id, branch_id, "conflicting commit", None, false)
                 .await
                 .unwrap();
 
             controller
-                .push_virtual_branch(*project_id, &branch_id, false, None)
+                .push_virtual_branch(*project_id, branch_id, false, None)
                 .await
                 .unwrap();
 
             controller
-                .unapply_virtual_branch(*project_id, &branch_id)
+                .unapply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
 
@@ -235,7 +235,7 @@ mod unapplied_branch {
             assert_eq!(branches[0].files.len(), 0);
             assert_eq!(branches[0].commits.len(), 1);
             assert!(!controller
-                .can_apply_virtual_branch(*project_id, &branch_id)
+                .can_apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap());
         }
@@ -243,7 +243,7 @@ mod unapplied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
@@ -295,14 +295,14 @@ mod unapplied_branch {
 
             fs::write(repository.path().join("file.txt"), "conflict").unwrap();
             controller
-                .create_commit(*project_id, &branch_id, "conflicting commit", None, false)
+                .create_commit(*project_id, branch_id, "conflicting commit", None, false)
                 .await
                 .unwrap();
 
             fs::write(repository.path().join("file.txt"), "fix conflict").unwrap();
 
             controller
-                .unapply_virtual_branch(*project_id, &branch_id)
+                .unapply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
 
@@ -323,7 +323,7 @@ mod unapplied_branch {
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].commits.len(), 1);
             assert!(!controller
-                .can_apply_virtual_branch(*project_id, &branch_id)
+                .can_apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap()); // TODO: should be true
         }
@@ -331,7 +331,7 @@ mod unapplied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
@@ -383,14 +383,14 @@ mod unapplied_branch {
 
             fs::write(repository.path().join("file.txt"), "conflict").unwrap();
             controller
-                .create_commit(*project_id, &branch_id, "conflicting commit", None, false)
+                .create_commit(*project_id, branch_id, "conflicting commit", None, false)
                 .await
                 .unwrap();
 
             fs::write(repository.path().join("file.txt"), "fix conflict").unwrap();
 
             controller
-                .unapply_virtual_branch(*project_id, &branch_id)
+                .unapply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
 
@@ -411,7 +411,7 @@ mod unapplied_branch {
             assert_eq!(branches[0].commits.len(), 1);
             assert_eq!(branches[0].files.len(), 1);
             assert!(!controller
-                .can_apply_virtual_branch(*project_id, &branch_id)
+                .can_apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap());
         }
@@ -419,7 +419,7 @@ mod unapplied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
@@ -473,7 +473,7 @@ mod unapplied_branch {
             controller
                 .create_commit(
                     *project_id,
-                    &branch_id,
+                    branch_id,
                     "non conflicting commit",
                     None,
                     false,
@@ -484,7 +484,7 @@ mod unapplied_branch {
             fs::write(repository.path().join("file2.txt"), "still no conflicts").unwrap();
 
             controller
-                .unapply_virtual_branch(*project_id, &branch_id)
+                .unapply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
 
@@ -506,7 +506,7 @@ mod unapplied_branch {
             assert_eq!(branches[0].commits.len(), 1);
             assert!(branches[0].upstream.is_none());
             assert!(controller
-                .can_apply_virtual_branch(*project_id, &branch_id)
+                .can_apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap());
         }
@@ -514,7 +514,7 @@ mod unapplied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
@@ -561,7 +561,7 @@ mod unapplied_branch {
 
             fs::write(repository.path().join("file.txt"), "second").unwrap();
             controller
-                .create_commit(*project_id, &branch_id, "second", None, false)
+                .create_commit(*project_id, branch_id, "second", None, false)
                 .await
                 .unwrap();
 
@@ -569,7 +569,7 @@ mod unapplied_branch {
             fs::write(repository.path().join("file2.txt"), "other").unwrap();
 
             controller
-                .push_virtual_branch(*project_id, &branch_id, false, None)
+                .push_virtual_branch(*project_id, branch_id, false, None)
                 .await
                 .unwrap();
 
@@ -589,7 +589,7 @@ mod unapplied_branch {
             }
 
             controller
-                .unapply_virtual_branch(*project_id, &branch_id)
+                .unapply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
             branch_id
@@ -610,7 +610,7 @@ mod unapplied_branch {
             assert_eq!(branches[0].commits.len(), 0);
             assert!(branches[0].upstream.is_none());
             assert!(controller
-                .can_apply_virtual_branch(*project_id, &branch_id)
+                .can_apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap());
         }
@@ -618,7 +618,7 @@ mod unapplied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
@@ -674,12 +674,12 @@ mod unapplied_branch {
             fs::write(repository.path().join("file.txt"), "second").unwrap();
 
             controller
-                .create_commit(*project_id, &branch_id, "second", None, false)
+                .create_commit(*project_id, branch_id, "second", None, false)
                 .await
                 .unwrap();
 
             controller
-                .unapply_virtual_branch(*project_id, &branch_id)
+                .unapply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
         };
@@ -728,17 +728,17 @@ mod unapplied_branch {
             // open pr
             fs::write(repository.path().join("file2.txt"), "new file").unwrap();
             controller
-                .create_commit(*project_id, &branch_id, "second", None, false)
+                .create_commit(*project_id, branch_id, "second", None, false)
                 .await
                 .unwrap();
             controller
-                .push_virtual_branch(*project_id, &branch_id, false, None)
+                .push_virtual_branch(*project_id, branch_id, false, None)
                 .await
                 .unwrap();
         }
 
         controller
-            .unapply_virtual_branch(*project_id, &branch_id)
+            .unapply_virtual_branch(*project_id, branch_id)
             .await
             .unwrap();
 
@@ -819,7 +819,7 @@ mod applied_branch {
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].commits.len(), 0);
             assert!(!controller
-                .can_apply_virtual_branch(*project_id, &branch_id)
+                .can_apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap());
         }
@@ -827,7 +827,7 @@ mod applied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
@@ -879,7 +879,7 @@ mod applied_branch {
 
             fs::write(repository.path().join("file.txt"), "conflict").unwrap();
             controller
-                .create_commit(*project_id, &branch_id, "conflicting commit", None, false)
+                .create_commit(*project_id, branch_id, "conflicting commit", None, false)
                 .await
                 .unwrap();
 
@@ -900,7 +900,7 @@ mod applied_branch {
             assert_eq!(branches[0].files.len(), 0);
             assert_eq!(branches[0].commits.len(), 1);
             assert!(!controller
-                .can_apply_virtual_branch(*project_id, &branch_id)
+                .can_apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap());
         }
@@ -908,7 +908,7 @@ mod applied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
@@ -960,12 +960,12 @@ mod applied_branch {
 
             fs::write(repository.path().join("file.txt"), "conflict").unwrap();
             controller
-                .create_commit(*project_id, &branch_id, "conflicting commit", None, false)
+                .create_commit(*project_id, branch_id, "conflicting commit", None, false)
                 .await
                 .unwrap();
 
             controller
-                .push_virtual_branch(*project_id, &branch_id, false, None)
+                .push_virtual_branch(*project_id, branch_id, false, None)
                 .await
                 .unwrap();
 
@@ -986,7 +986,7 @@ mod applied_branch {
             assert_eq!(branches[0].files.len(), 0);
             assert_eq!(branches[0].commits.len(), 1);
             assert!(!controller
-                .can_apply_virtual_branch(*project_id, &branch_id)
+                .can_apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap());
         }
@@ -994,7 +994,7 @@ mod applied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
@@ -1046,7 +1046,7 @@ mod applied_branch {
 
             fs::write(repository.path().join("file.txt"), "conflict").unwrap();
             controller
-                .create_commit(*project_id, &branch_id, "conflicting commit", None, false)
+                .create_commit(*project_id, branch_id, "conflicting commit", None, false)
                 .await
                 .unwrap();
 
@@ -1069,7 +1069,7 @@ mod applied_branch {
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].commits.len(), 1);
             assert!(!controller
-                .can_apply_virtual_branch(*project_id, &branch_id)
+                .can_apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap()); // TODO: should be true
         }
@@ -1077,7 +1077,7 @@ mod applied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
@@ -1129,7 +1129,7 @@ mod applied_branch {
 
             fs::write(repository.path().join("file.txt"), "conflict").unwrap();
             controller
-                .create_commit(*project_id, &branch_id, "conflicting commit", None, false)
+                .create_commit(*project_id, branch_id, "conflicting commit", None, false)
                 .await
                 .unwrap();
 
@@ -1152,7 +1152,7 @@ mod applied_branch {
             assert_eq!(branches[0].commits.len(), 1); // TODO: should be 2
             assert_eq!(branches[0].files.len(), 1);
             assert!(!controller
-                .can_apply_virtual_branch(*project_id, &branch_id)
+                .can_apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap()); // TODO: should be true
         }
@@ -1160,7 +1160,7 @@ mod applied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
@@ -1224,11 +1224,11 @@ mod applied_branch {
                 fs::write(repository.path().join("file2.txt"), "no conflict").unwrap();
 
                 controller
-                    .create_commit(*project_id, &branch_id, "no conflicts", None, false)
+                    .create_commit(*project_id, branch_id, "no conflicts", None, false)
                     .await
                     .unwrap();
                 controller
-                    .push_virtual_branch(*project_id, &branch_id, false, None)
+                    .push_virtual_branch(*project_id, branch_id, false, None)
                     .await
                     .unwrap();
 
@@ -1255,7 +1255,7 @@ mod applied_branch {
                 assert!(!branches[0].commits[0].is_remote);
                 assert!(!branches[0].commits[0].is_integrated);
                 assert!(controller
-                    .can_apply_virtual_branch(*project_id, &branch_id)
+                    .can_apply_virtual_branch(*project_id, branch_id)
                     .await
                     .unwrap());
             }
@@ -1295,11 +1295,11 @@ mod applied_branch {
                 fs::write(repository.path().join("file2.txt"), "no conflict").unwrap();
 
                 controller
-                    .create_commit(*project_id, &branch_id, "no conflicts", None, false)
+                    .create_commit(*project_id, branch_id, "no conflicts", None, false)
                     .await
                     .unwrap();
                 controller
-                    .push_virtual_branch(*project_id, &branch_id, false, None)
+                    .push_virtual_branch(*project_id, branch_id, false, None)
                     .await
                     .unwrap();
 
@@ -1336,7 +1336,7 @@ mod applied_branch {
                 assert!(branches[0].commits[1].is_remote);
                 assert!(!branches[0].commits[1].is_integrated);
                 assert!(controller
-                    .can_apply_virtual_branch(*project_id, &branch_id)
+                    .can_apply_virtual_branch(*project_id, branch_id)
                     .await
                     .unwrap());
             }
@@ -1376,7 +1376,7 @@ mod applied_branch {
             fs::write(repository.path().join("file2.txt"), "no conflict").unwrap();
 
             controller
-                .create_commit(*project_id, &branch_id, "no conflicts", None, false)
+                .create_commit(*project_id, branch_id, "no conflicts", None, false)
                 .await
                 .unwrap();
 
@@ -1399,14 +1399,14 @@ mod applied_branch {
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].commits.len(), 1);
             assert!(controller
-                .can_apply_virtual_branch(*project_id, &branch_id)
+                .can_apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap());
         }
 
         {
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
@@ -1458,11 +1458,11 @@ mod applied_branch {
             fs::write(repository.path().join("file.txt"), "second").unwrap();
 
             controller
-                .create_commit(*project_id, &branch_id, "second", None, false)
+                .create_commit(*project_id, branch_id, "second", None, false)
                 .await
                 .unwrap();
             controller
-                .push_virtual_branch(*project_id, &branch_id, false, None)
+                .push_virtual_branch(*project_id, branch_id, false, None)
                 .await
                 .unwrap();
 
@@ -1500,7 +1500,7 @@ mod applied_branch {
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].commits.len(), 0);
             assert!(controller
-                .can_apply_virtual_branch(*project_id, &branch_id)
+                .can_apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap());
         }
@@ -1508,7 +1508,7 @@ mod applied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
@@ -1576,7 +1576,7 @@ mod applied_branch {
             .unwrap();
 
             controller
-                .create_commit(*project_id, &branch_id, "fourth", None, false)
+                .create_commit(*project_id, branch_id, "fourth", None, false)
                 .await
                 .unwrap();
 
@@ -1585,7 +1585,7 @@ mod applied_branch {
 
         // push the branch
         controller
-            .push_virtual_branch(*project_id, &branch_id, false, None)
+            .push_virtual_branch(*project_id, branch_id, false, None)
             .await
             .unwrap();
 
@@ -1624,7 +1624,7 @@ mod applied_branch {
 
         {
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
 
@@ -1676,7 +1676,7 @@ mod applied_branch {
             fs::write(repository.path().join("file.txt"), "first").unwrap();
 
             controller
-                .create_commit(*project_id, &branch_id, "first", None, false)
+                .create_commit(*project_id, branch_id, "first", None, false)
                 .await
                 .unwrap();
 
@@ -1684,7 +1684,7 @@ mod applied_branch {
         };
 
         controller
-            .push_virtual_branch(*project_id, &branch_id, false, None)
+            .push_virtual_branch(*project_id, branch_id, false, None)
             .await
             .unwrap();
 
@@ -1720,7 +1720,7 @@ mod applied_branch {
 
         {
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
 
@@ -1758,7 +1758,7 @@ mod applied_branch {
             fs::write(repository.path().join("file.txt"), "first").unwrap();
 
             controller
-                .create_commit(*project_id, &branch_id, "first", None, false)
+                .create_commit(*project_id, branch_id, "first", None, false)
                 .await
                 .unwrap();
 
@@ -1766,7 +1766,7 @@ mod applied_branch {
         };
 
         controller
-            .push_virtual_branch(*project_id, &branch_id, false, None)
+            .push_virtual_branch(*project_id, branch_id, false, None)
             .await
             .unwrap();
 
@@ -1802,7 +1802,7 @@ mod applied_branch {
 
         {
             controller
-                .apply_virtual_branch(*project_id, &branch_id)
+                .apply_virtual_branch(*project_id, branch_id)
                 .await
                 .unwrap();
 
@@ -1850,7 +1850,7 @@ mod applied_branch {
             fs::write(repository.path().join("file.txt"), "second").unwrap();
 
             controller
-                .create_commit(*project_id, &branch_id, "second", None, false)
+                .create_commit(*project_id, branch_id, "second", None, false)
                 .await
                 .unwrap();
         };
@@ -1899,11 +1899,11 @@ mod applied_branch {
             // open pr
             fs::write(repository.path().join("file2.txt"), "new file").unwrap();
             controller
-                .create_commit(*project_id, &branch_id, "second", None, false)
+                .create_commit(*project_id, branch_id, "second", None, false)
                 .await
                 .unwrap();
             controller
-                .push_virtual_branch(*project_id, &branch_id, false, None)
+                .push_virtual_branch(*project_id, branch_id, false, None)
                 .await
                 .unwrap();
         }
@@ -1960,7 +1960,7 @@ mod applied_branch {
 
         fs::write(repository.path().join("file-3.txt"), "three").unwrap();
         controller
-            .create_commit(*project_id, &branch_1_id, "third", None, false)
+            .create_commit(*project_id, branch_1_id, "third", None, false)
             .await
             .unwrap();
 
@@ -1978,12 +1978,12 @@ mod applied_branch {
         fs::write(repository.path().join("file-4.txt"), "four").unwrap();
 
         controller
-            .create_commit(*project_id, &branch_2_id, "fourth", None, false)
+            .create_commit(*project_id, branch_2_id, "fourth", None, false)
             .await
             .unwrap();
 
         controller
-            .push_virtual_branch(*project_id, &branch_2_id, false, None)
+            .push_virtual_branch(*project_id, branch_2_id, false, None)
             .await
             .unwrap();
 

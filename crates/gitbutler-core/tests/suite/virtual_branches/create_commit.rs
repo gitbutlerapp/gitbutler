@@ -36,7 +36,7 @@ async fn should_lock_updated_hunks() {
     }
 
     controller
-        .create_commit(*project_id, &branch_id, "test", None, false)
+        .create_commit(*project_id, branch_id, "test", None, false)
         .await
         .unwrap();
 
@@ -95,11 +95,11 @@ async fn should_not_lock_disjointed_hunks() {
     }
 
     controller
-        .create_commit(*project_id, &branch_id, "test commit", None, false)
+        .create_commit(*project_id, branch_id, "test commit", None, false)
         .await
         .unwrap();
     controller
-        .push_virtual_branch(*project_id, &branch_id, false, None)
+        .push_virtual_branch(*project_id, branch_id, false, None)
         .await
         .unwrap();
 
@@ -196,7 +196,7 @@ async fn should_reset_into_same_branch() {
     write_file(repository, "file.txt", &lines);
 
     controller
-        .create_commit(*project_id, &branch_2_id, "commit to branch 2", None, false)
+        .create_commit(*project_id, branch_2_id, "commit to branch 2", None, false)
         .await
         .unwrap();
 
@@ -219,7 +219,7 @@ async fn should_reset_into_same_branch() {
         .unwrap();
 
     controller
-        .reset_virtual_branch(*project_id, &branch_2_id, base_branch.base_sha)
+        .reset_virtual_branch(*project_id, branch_2_id, base_branch.base_sha)
         .await
         .unwrap();
 
@@ -256,7 +256,7 @@ async fn should_double_lock() {
     write_file(repository, "file.txt", &lines);
 
     let commit_1 = controller
-        .create_commit(*project_id, &branch_id, "commit 1", None, false)
+        .create_commit(*project_id, branch_id, "commit 1", None, false)
         .await
         .unwrap();
 
@@ -264,7 +264,7 @@ async fn should_double_lock() {
     write_file(repository, "file.txt", &lines);
 
     let commit_2 = controller
-        .create_commit(*project_id, &branch_id, "commit 2", None, false)
+        .create_commit(*project_id, branch_id, "commit 2", None, false)
         .await
         .unwrap();
 

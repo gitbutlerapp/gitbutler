@@ -22,7 +22,7 @@ async fn head() {
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(*project_id, &branch_id, "commit one", None, false)
+            .create_commit(*project_id, branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
@@ -30,7 +30,7 @@ async fn head() {
     {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
         controller
-            .create_commit(*project_id, &branch_id, "commit two", None, false)
+            .create_commit(*project_id, branch_id, "commit two", None, false)
             .await
             .unwrap()
     };
@@ -38,7 +38,7 @@ async fn head() {
     let commit_three_oid = {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
         controller
-            .create_commit(*project_id, &branch_id, "commit three", None, false)
+            .create_commit(*project_id, branch_id, "commit three", None, false)
             .await
             .unwrap()
     };
@@ -48,7 +48,7 @@ async fn head() {
     controller
         .update_commit_message(
             *project_id,
-            &branch_id,
+            branch_id,
             commit_three_oid,
             "commit three updated",
         )
@@ -105,7 +105,7 @@ async fn middle() {
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(*project_id, &branch_id, "commit one", None, false)
+            .create_commit(*project_id, branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
@@ -113,7 +113,7 @@ async fn middle() {
     let commit_two_oid = {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
         controller
-            .create_commit(*project_id, &branch_id, "commit two", None, false)
+            .create_commit(*project_id, branch_id, "commit two", None, false)
             .await
             .unwrap()
     };
@@ -121,18 +121,13 @@ async fn middle() {
     {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
         controller
-            .create_commit(*project_id, &branch_id, "commit three", None, false)
+            .create_commit(*project_id, branch_id, "commit three", None, false)
             .await
             .unwrap()
     };
 
     controller
-        .update_commit_message(
-            *project_id,
-            &branch_id,
-            commit_two_oid,
-            "commit two updated",
-        )
+        .update_commit_message(*project_id, branch_id, commit_two_oid, "commit two updated")
         .await
         .unwrap();
 
@@ -188,23 +183,18 @@ async fn forcepush_allowed() {
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(*project_id, &branch_id, "commit one", None, false)
+            .create_commit(*project_id, branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
 
     controller
-        .push_virtual_branch(*project_id, &branch_id, false, None)
+        .push_virtual_branch(*project_id, branch_id, false, None)
         .await
         .unwrap();
 
     controller
-        .update_commit_message(
-            *project_id,
-            &branch_id,
-            commit_one_oid,
-            "commit one updated",
-        )
+        .update_commit_message(*project_id, branch_id, commit_one_oid, "commit one updated")
         .await
         .unwrap();
 
@@ -258,24 +248,19 @@ async fn forcepush_forbidden() {
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(*project_id, &branch_id, "commit one", None, false)
+            .create_commit(*project_id, branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
 
     controller
-        .push_virtual_branch(*project_id, &branch_id, false, None)
+        .push_virtual_branch(*project_id, branch_id, false, None)
         .await
         .unwrap();
 
     assert!(matches!(
         controller
-            .update_commit_message(
-                *project_id,
-                &branch_id,
-                commit_one_oid,
-                "commit one updated",
-            )
+            .update_commit_message(*project_id, branch_id, commit_one_oid, "commit one updated",)
             .await
             .unwrap_err()
             .downcast_ref(),
@@ -305,7 +290,7 @@ async fn root() {
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(*project_id, &branch_id, "commit one", None, false)
+            .create_commit(*project_id, branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
@@ -313,7 +298,7 @@ async fn root() {
     {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
         controller
-            .create_commit(*project_id, &branch_id, "commit two", None, false)
+            .create_commit(*project_id, branch_id, "commit two", None, false)
             .await
             .unwrap()
     };
@@ -321,18 +306,13 @@ async fn root() {
     {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
         controller
-            .create_commit(*project_id, &branch_id, "commit three", None, false)
+            .create_commit(*project_id, branch_id, "commit three", None, false)
             .await
             .unwrap()
     };
 
     controller
-        .update_commit_message(
-            *project_id,
-            &branch_id,
-            commit_one_oid,
-            "commit one updated",
-        )
+        .update_commit_message(*project_id, branch_id, commit_one_oid, "commit one updated")
         .await
         .unwrap();
 
@@ -378,14 +358,14 @@ async fn empty() {
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
-            .create_commit(*project_id, &branch_id, "commit one", None, false)
+            .create_commit(*project_id, branch_id, "commit one", None, false)
             .await
             .unwrap()
     };
 
     assert!(matches!(
         controller
-            .update_commit_message(*project_id, &branch_id, commit_one_oid, "",)
+            .update_commit_message(*project_id, branch_id, commit_one_oid, "",)
             .await
             .unwrap_err()
             .downcast_ref(),

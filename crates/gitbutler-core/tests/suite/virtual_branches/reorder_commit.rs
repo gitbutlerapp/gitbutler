@@ -22,7 +22,7 @@ async fn reorder_commit_down() {
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let _commit1_id = controller
-        .create_commit(*project_id, &branch_id, "commit one", None, false)
+        .create_commit(*project_id, branch_id, "commit one", None, false)
         .await
         .unwrap();
 
@@ -30,12 +30,12 @@ async fn reorder_commit_down() {
     fs::write(repository.path().join("file2.txt"), "content2").unwrap();
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
     let commit2_id = controller
-        .create_commit(*project_id, &branch_id, "commit two", None, false)
+        .create_commit(*project_id, branch_id, "commit two", None, false)
         .await
         .unwrap();
 
     controller
-        .reorder_commit(*project_id, &branch_id, commit2_id, 1)
+        .reorder_commit(*project_id, branch_id, commit2_id, 1)
         .await
         .unwrap();
 
@@ -83,7 +83,7 @@ async fn reorder_commit_up() {
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit1_id = controller
-        .create_commit(*project_id, &branch_id, "commit one", None, false)
+        .create_commit(*project_id, branch_id, "commit one", None, false)
         .await
         .unwrap();
 
@@ -91,12 +91,12 @@ async fn reorder_commit_up() {
     fs::write(repository.path().join("file2.txt"), "content2").unwrap();
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
     let _commit2_id = controller
-        .create_commit(*project_id, &branch_id, "commit two", None, false)
+        .create_commit(*project_id, branch_id, "commit two", None, false)
         .await
         .unwrap();
 
     controller
-        .reorder_commit(*project_id, &branch_id, commit1_id, -1)
+        .reorder_commit(*project_id, branch_id, commit1_id, -1)
         .await
         .unwrap();
 
