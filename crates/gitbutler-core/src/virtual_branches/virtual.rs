@@ -2120,7 +2120,7 @@ pub fn write_tree_onto_tree(
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
 ) -> Result<git::Oid> {
     let git_repository = &project_repository.git_repository;
-    let mut builder = git_repository.treebuilder(Some(base_tree));
+    let mut builder = git2::build::TreeUpdateBuilder::new();
     // now update the index with content in the working directory for each file
     for (rel_path, hunks) in files {
         let rel_path = rel_path.borrow();
@@ -2183,7 +2183,7 @@ pub fn write_tree_onto_tree(
                         })?
                         .as_bytes(),
                 )?;
-                builder.upsert(rel_path, blob_oid, filemode);
+                builder.upsert(rel_path, blob_oid.into(), filemode);
             } else if let Ok(tree_entry) = base_tree.get_path(rel_path) {
                 if hunks.len() == 1 && hunks[0].binary {
                     let new_blob_oid = &hunks[0].diff_lines;
@@ -2221,7 +2221,7 @@ pub fn write_tree_onto_tree(
                     // create a blob
                     let new_blob_oid = git_repository.blob(&blob_contents)?;
                     // upsert into the builder
-                    builder.upsert(rel_path, new_blob_oid, filemode);
+                    builder.upsert(rel_path, new_blob_oid.into(), filemode);
                 }
             } else if is_submodule {
                 let mut blob_contents = BString::default();
@@ -2237,13 +2237,13 @@ pub fn write_tree_onto_tree(
                 // create a blob
                 let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
                 // upsert into the builder
-                builder.upsert(rel_path, new_blob_oid, filemode);
+                builder.upsert(rel_path, new_blob_oid.into(), filemode);
             } else {
                 // create a git blob from a file on disk
                 let blob_oid = git_repository
                     .blob_path(&full_path)
                     .context(format!("failed to create blob from path {:?}", &full_path))?;
-                builder.upsert(rel_path, blob_oid, filemode);
+                builder.upsert(rel_path, blob_oid.into(), filemode);
             }
         } else if base_tree.get_path(rel_path).is_ok() {
             // remove file from index if it exists in the base tree
@@ -2252,9 +2252,11 @@ pub fn write_tree_onto_tree(
     }
 
     // now write out the tree
-    let tree_oid = builder.write().context("failed to write updated tree")?;
+    let tree_oid = builder
+        .create_updated(project_repository.repo(), base_tree)
+        .context("failed to write updated tree")?;
 
-    Ok(tree_oid)
+    Ok(tree_oid.into())
 }
 
 fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
