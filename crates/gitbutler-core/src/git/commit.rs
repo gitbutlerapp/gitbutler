@@ -1,4 +1,4 @@
-use super::{Oid, Result, Signature, Tree};
+use super::{Oid, Result, Signature};
 use bstr::BStr;
 
 #[derive(Debug)]
@@ -35,8 +35,8 @@ impl<'repo> Commit<'repo> {
         self.commit.parent_count()
     }
 
-    pub fn tree(&self) -> Result<Tree<'repo>> {
-        self.commit.tree().map(Into::into).map_err(Into::into)
+    pub fn tree(&self) -> Result<git2::Tree<'repo>> {
+        self.commit.tree().map_err(Into::into)
     }
 
     pub fn tree_id(&self) -> Oid {

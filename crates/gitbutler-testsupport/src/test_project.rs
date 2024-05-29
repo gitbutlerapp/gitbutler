@@ -224,8 +224,8 @@ impl TestProject {
                 .remote_repository
                 .merge_trees(
                     &merge_base.tree().unwrap(),
-                    &master_branch.peel_to_tree().unwrap().into(),
-                    &branch.peel_to_tree().unwrap().into(),
+                    &master_branch.peel_to_tree().unwrap(),
+                    &branch.peel_to_tree().unwrap(),
                 )
                 .unwrap();
             let oid = merge_index.write_tree_to(&self.remote_repository).unwrap();
@@ -264,7 +264,7 @@ impl TestProject {
     pub fn checkout(&self, branch: &git::LocalRefname) {
         let branch: git::Refname = branch.into();
         let tree = match self.local_repository.find_branch(&branch) {
-            Ok(branch) => branch.peel_to_tree().map(|t| t.into()),
+            Ok(branch) => branch.peel_to_tree(),
             Err(git::Error::NotFound(_)) => {
                 let head_commit = self
                     .local_repository

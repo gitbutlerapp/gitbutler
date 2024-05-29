@@ -160,8 +160,8 @@ pub fn workdir(repository: &Repository, commit_oid: &git::Oid) -> Result<DiffByP
 
 pub fn trees(
     repository: &Repository,
-    old_tree: &git::Tree,
-    new_tree: &git::Tree,
+    old_tree: &git2::Tree,
+    new_tree: &git2::Tree,
 ) -> Result<DiffByPathMap> {
     let mut diff_opts = git2::DiffOptions::new();
     diff_opts

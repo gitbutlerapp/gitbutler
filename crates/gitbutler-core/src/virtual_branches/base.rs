@@ -439,7 +439,7 @@ pub fn update_base_branch(
                     let branch_merge_index_tree_oid =
                         branch_tree_merge_index.write_tree_to(repo)?;
 
-                    if branch_merge_index_tree_oid == new_target_tree.id() {
+                    if branch_merge_index_tree_oid == new_target_tree.id().into() {
                         return result_integrated_detected(branch);
                     }
 

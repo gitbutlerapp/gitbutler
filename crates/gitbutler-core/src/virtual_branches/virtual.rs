@@ -428,7 +428,7 @@ pub fn apply_branch(
             }
         }
 
-        branch.tree = repo.find_commit(branch.head)?.tree()?.id();
+        branch.tree = repo.find_commit(branch.head)?.tree()?.id().into();
         vb_state.set_branch(branch.clone())?;
     }
 
@@ -440,7 +440,7 @@ pub fn apply_branch(
 
     // check index for conflicts
     let mut merge_index = repo
-        .merge_trees(&target_tree, &wd_tree.into(), &branch_tree)
+        .merge_trees(&target_tree, &wd_tree, &branch_tree)
         .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {
@@ -740,7 +740,7 @@ fn find_base_tree<'a>(
     repo: &'a git::Repository,
     branch_commit: &'a git::Commit<'a>,
     target_commit: &'a git::Commit<'a>,
-) -> Result<git::Tree<'a>> {
+) -> Result<git2::Tree<'a>> {
     // find merge base between target_commit and branch_commit
     let merge_base = repo
         .merge_base(target_commit.id(), branch_commit.id())
@@ -1110,7 +1110,7 @@ pub fn create_virtual_branch(
         applied: true,
         upstream: None,
         upstream_head: None,
-        tree: tree.id(),
+        tree: tree.id().into(),
         head: default_target.sha,
         created_timestamp_ms: now,
         updated_timestamp_ms: now,
@@ -1269,7 +1269,7 @@ pub fn integrate_upstream_commits(
         .find_commit(get_workspace_head(&vb_state, project_repository)?)?
         .tree()?;
 
-    let mut merge_index = repo.merge_trees(&integration_tree, &new_head_tree, &wd_tree.into())?;
+    let mut merge_index = repo.merge_trees(&integration_tree, &new_head_tree, &wd_tree)?;
 
     if merge_index.has_conflicts() {
         repo.checkout_index(&mut merge_index)
@@ -1279,7 +1279,7 @@ pub fn integrate_upstream_commits(
             .checkout()?;
     } else {
         branch.head = new_head;
-        branch.tree = head_commit.tree()?.id();
+        branch.tree = head_commit.tree()?.id().into();
         vb_state.set_branch(branch.clone())?;
         repo.checkout_index(&mut merge_index).force().checkout()?;
     };
@@ -1313,7 +1313,7 @@ pub fn integrate_with_merge(
     let upstream_branch = branch.upstream.as_ref().context("upstream not found")?;
     let merge_tree = repo.find_commit(merge_base).and_then(|c| c.tree())?;
 
-    let mut merge_index = repo.merge_trees(&merge_tree, &wd_tree.into(), &remote_tree)?;
+    let mut merge_index = repo.merge_trees(&merge_tree, &wd_tree, &remote_tree)?;
 
     if merge_index.has_conflicts() {
         let conflicts = merge_index.conflicts()?;
@@ -2097,7 +2097,7 @@ pub fn write_tree_onto_commit(
 
 pub fn write_tree_onto_tree(
     project_repository: &project_repository::Repository,
-    base_tree: &git::Tree,
+    base_tree: &git2::Tree,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
 ) -> Result<git::Oid> {
     let git_repository = &project_repository.git_repository;
@@ -2178,7 +2178,7 @@ pub fn write_tree_onto_tree(
                 } else {
                     // blob from tree_entry
                     let blob = tree_entry
-                        .to_object(git_repository)
+                        .to_object(git_repository.into())
                         .unwrap()
                         .peel_to_blob()
                         .context("failed to get blob")?;
@@ -2538,7 +2538,7 @@ fn is_commit_integrated(
 
     // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
     // then the vbranch is fully merged
-    Ok(merge_tree_oid == upstream_tree.id())
+    Ok(merge_tree_oid == upstream_tree.id().into())
 }
 
 pub fn is_remote_branch_mergeable(
@@ -2580,7 +2580,7 @@ pub fn is_remote_branch_mergeable(
     let branch_tree = branch_commit.tree().context("failed to find branch tree")?;
     let mergeable = !project_repository
         .git_repository
-        .merge_trees(&base_tree, &branch_tree, &wd_tree.into())
+        .merge_trees(&base_tree, &branch_tree, &wd_tree)
         .context("failed to merge trees")?
         .has_conflicts();
 
@@ -2644,7 +2644,7 @@ pub fn is_virtual_branch_mergeable(
 
     let is_mergeable = !project_repository
         .git_repository
-        .merge_trees(&base_tree, &branch_tree, &wd_tree.into())
+        .merge_trees(&base_tree, &branch_tree, &wd_tree)
         .context("failed to merge trees")?
         .has_conflicts();
 
@@ -4133,7 +4133,7 @@ pub fn create_virtual_branch_from_branch(
         applied: false,
         upstream_head: upstream_branch.is_some().then_some(head_commit.id()),
         upstream: upstream_branch,
-        tree: head_commit_tree.id(),
+        tree: head_commit_tree.id().into(),
         head: head_commit.id(),
         created_timestamp_ms: now,
         updated_timestamp_ms: now,
