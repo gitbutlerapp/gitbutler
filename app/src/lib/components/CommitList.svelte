@@ -23,7 +23,6 @@
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
 	$: hasUnknownCommits = $unknownCommits.length > 0;
-	$: baseCommit = $baseBranch.recentCommits.at($baseBranch.recentCommits.length - 1)?.id;
 
 	let baseIsUnfolded = false;
 </script>
@@ -144,7 +143,7 @@
 							class="base-row__commit-link"
 							on:click={async () => await goto(`/${project.id}/base`)}
 						>
-							{baseCommit ? baseCommit.slice(0, 7) : ''}
+							{$branch.mergeBase ? $branch.mergeBase.slice(0, 7) : ''}
 						</button>
 					</span>
 				</div>
