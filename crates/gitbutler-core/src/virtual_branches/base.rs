@@ -420,18 +420,19 @@ pub fn update_base_branch(
 
                         let rebased_head_oid = cherry_rebase(
                             project_repository,
-                            new_target_commit.id().into(),
-                            new_target_commit.id().into(),
+                            new_target_commit.id(),
+                            new_target_commit.id(),
                             branch_head.into(),
-                        )?;
+                        )?
+                        .unwrap(); // this should now always work, cleanup later
+
                         let rebased_head = repo
-                            .find_commit(rebased_head_oid.unwrap().into())
+                            .find_commit(rebased_head_oid.into())
                             .context("failed to find rebased head")?;
 
-                        branch.tree =
-                            find_real_tree(project_repository, (&rebased_head).into(), None)?
-                                .id()
-                                .into();
+                        branch.tree = find_real_tree(project_repository, &rebased_head, None)?
+                            .id()
+                            .into();
                         branch.head = rebased_head.id().into();
 
                         dbg!(&branch);

@@ -3570,7 +3570,7 @@ pub fn cherry_rebase(
     )?;
 
     if ids_to_rebase.is_empty() {
-        return Ok(None);
+        return Ok(Some(end_commit_oid));
     }
 
     let new_head_id = cherry_rebase_group(
@@ -3601,11 +3601,11 @@ fn cherry_pick_gitbutler(
     if is_conflict_0.is_some() || is_conflict_1.is_some() || is_conflict_base.is_some() {
         // we need to do a manual 3-way patch merge
         // find the base, which is the parent of to_rebase
-        let base_tree = find_real_tree(project_repository, (&base_commit).into(), None)?;
-        let tree_0 = find_real_tree(project_repository, head.into(), None)?;
+        let base_tree = find_real_tree(project_repository, &base_commit, None)?;
+        let tree_0 = find_real_tree(project_repository, head, None)?;
         let tree_1 = find_real_tree(
             project_repository,
-            to_rebase.into(),
+            to_rebase,
             Some(".conflict-side-1".to_string()),
         )?;
 
@@ -3721,13 +3721,13 @@ fn cherry_rebase_group(
                     // create a treewriter
                     let mut tree_writer = project_repository.repo().treebuilder(None)?;
 
-                    let side0 = find_real_tree(project_repository, (&head).into(), None)?;
-                    let side1 = find_real_tree(project_repository, (&to_rebase).into(), Some(".conflict-side-1".to_string()))?;
+                    let side0 = find_real_tree(project_repository, &head, None)?;
+                    let side1 = find_real_tree(project_repository, &to_rebase, Some(".conflict-side-1".to_string()))?;
 
                     // save the state of the conflict, so we can recreate it later
-                    tree_writer.insert(".conflict-side-0", side0.id().into(), 0o040000)?;
-                    tree_writer.insert(".conflict-side-1", side1.id().into(), 0o040000)?;
-                    tree_writer.insert(".conflict-base-0", base_tree.id().into(), 0o040000)?;
+                    tree_writer.insert(".conflict-side-0", side0.id(), 0o040000)?;
+                    tree_writer.insert(".conflict-side-1", side1.id(), 0o040000)?;
+                    tree_writer.insert(".conflict-base-0", base_tree.id(), 0o040000)?;
                     tree_writer.insert(".conflict-files", conflicted_files_blob.into(), 0o100644)?;
                     tree_writer.insert("README.txt", readme_blob.into(), 0o100644)?;
 
