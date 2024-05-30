@@ -26,7 +26,8 @@ pub fn list_remote_commit_files(
         Err(error) => Err(errors::ListRemoteCommitFilesError::Other(error.into())),
     }?;
 
-    if commit.parent_count() == 0 {
+    // If it's a merge commit, we list nothing. In the future we could to a fork exec of `git diff-tree --cc`
+    if commit.parent_count() != 1 {
         return Ok(vec![]);
     }
 
