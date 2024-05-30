@@ -138,6 +138,7 @@
 						shadowLine={hasShadowColumn}
 						{hasLocalColumn}
 						base
+						upstreamLine={hasUnknownCommits && $remoteCommits.length == 0}
 					/>
 				</div>
 				<div class="base-row__content">
