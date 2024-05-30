@@ -2,6 +2,7 @@
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
 	import Button from './Button.svelte';
 	import FileListItem from './FileListItem.svelte';
+	import TextBox from '$lib/components/TextBox.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext } from '$lib/utils/context';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
@@ -52,20 +53,20 @@
 {#if !$commit?.isMergeCommit()}
 	<BranchFilesHeader {title} {files} {showCheckboxes} />
 {:else}
-	<div
-		class="text-base-11"
-		style="padding-left: 1rem; padding-right: 1rem; color: var(--clr-scale-ntrl-50); "
-	>
-		<span style="font-style: italic;">Merge commit diff:</span>
-		<br />
-		<span style="font-family: monospace; user-select: text;"
-			>{mergeDiffCommand + $commit.id.slice(0, 7)}</span
-		>
-		<Button
-			size="tag"
-			icon="copy"
-			on:mousedown={() => copyToClipboard(mergeDiffCommand + $commit.id.slice(0, 7))}
-		></Button>
+	<div class="merge-commit-error">
+		<p class="info">
+			Displaying diffs for merge commits is currently not supported. Please view the merge commit in
+			GitHub, or run the following command in your project directory:
+		</p>
+		<div class="command">
+			<TextBox value={mergeDiffCommand + $commit.id.slice(0, 7)} wide readonly />
+			<Button
+				icon="copy"
+				style="ghost"
+				kind="solid"
+				on:mousedown={() => copyToClipboard(mergeDiffCommand + $commit.id.slice(0, 7))}
+			></Button>
+		</div>
 	</div>
 {/if}
 {#each displayedFiles as file (file.id)}
@@ -84,3 +85,21 @@
 		}}
 	/>
 {/each}
+
+<style lang="postcss">
+	.merge-commit-error {
+		padding: var(--size-14);
+
+		& .info {
+			margin-bottom: var(--size-8);
+			color: var(--clr-text-2);
+		}
+
+		& .command {
+			display: flex;
+			gap: var(--size-8);
+			align-items: center;
+			width: 100%;
+		}
+	}
+</style>
