@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 use super::{errors::VerifyError, VirtualBranchesHandle};
 use crate::{
     git::{self, CommitExt},
-    project_repository::{self, LogUntil},
+    project_repository::{self, conflicts, LogUntil},
     virtual_branches::branch::BranchCreateRequest,
 };
 
@@ -33,42 +33,45 @@ fn get_committer<'a>() -> Result<git2::Signature<'a>> {
 // what files have been modified.
 pub fn get_workspace_head(
     vb_state: &VirtualBranchesHandle,
-    project_repository: &project_repository::Repository,
+    project_repo: &project_repository::Repository,
 ) -> Result<git::Oid> {
     let target = vb_state
         .get_default_target()
         .context("failed to get target")?;
-    let repo: &git2::Repository = (&project_repository.git_repository).into();
-    let vb_state = project_repository.project().virtual_branches();
+    let repo: &git2::Repository = (&project_repo.git_repository).into();
+    let vb_state = project_repo.project().virtual_branches();
 
     let all_virtual_branches = vb_state.list_branches()?;
-    let applied_virtual_branches = all_virtual_branches
+    let applied_branches = all_virtual_branches
         .iter()
         .filter(|branch| branch.applied)
         .collect::<Vec<_>>();
 
     let target_commit = repo.find_commit(target.sha.into())?;
-    let target_tree = target_commit.tree()?;
     let mut workspace_tree = target_commit.tree()?;
 
-    // Merge applied branches into one `workspace_tree`.
-    for branch in &applied_virtual_branches {
-        let branch_head = repo.find_commit(branch.head.into())?;
-        let branch_tree = branch_head.tree()?;
+    if conflicts::is_conflicting::<String>(project_repo, None)? {
+        let merge_parent =
+            conflicts::merge_parent(project_repo)?.ok_or(anyhow!("No merge parent"))?;
+        let first_branch = applied_branches.first().ok_or(anyhow!("No branches"))?;
 
-        if let Ok(mut result) = repo.merge_trees(&target_tree, &workspace_tree, &branch_tree, None)
-        {
-            if !result.has_conflicts() {
-                let final_tree_oid = result.write_tree_to(repo)?;
-                workspace_tree = repo.find_tree(final_tree_oid)?;
+        let merge_base = repo.merge_base(first_branch.head.into(), merge_parent.into())?;
+        workspace_tree = repo.find_commit(merge_base)?.tree()?;
+    } else {
+        for branch in &applied_branches {
+            let branch_tree = repo.find_commit(branch.head.into())?.tree()?;
+            let merge_tree = repo.find_commit(target.sha.into())?.tree()?;
+            let mut index = repo.merge_trees(&merge_tree, &workspace_tree, &branch_tree, None)?;
+
+            if !index.has_conflicts() {
+                workspace_tree = repo.find_tree(index.write_tree_to(repo)?)?;
             } else {
-                // TODO: Create error type and provide context.
-                return Err(anyhow!("Unexpected merge conflict"));
+                return Err(anyhow!("Merge conflict between base and {:?}", branch.name));
             }
         }
     }
 
-    let branch_heads = applied_virtual_branches
+    let branch_heads = applied_branches
         .iter()
         .map(|b| repo.find_commit(b.head.into()))
         .collect::<Result<Vec<_>, _>>()?;
