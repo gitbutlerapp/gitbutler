@@ -154,7 +154,7 @@
 		}
 
 		return {
-			style: 'warning',
+			style: status.failed > 0 ? 'error' : 'warning',
 			icon: 'spinner',
 			text: getChecksCount(status)
 		};
