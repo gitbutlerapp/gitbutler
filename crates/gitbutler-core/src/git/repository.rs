@@ -580,7 +580,8 @@ impl Repository {
         opts.min_line(min_line as usize)
             .max_line(max_line as usize)
             .newest_commit(git2::Oid::from(*newest_commit))
-            .oldest_commit(git2::Oid::from(*oldest_commit));
+            .oldest_commit(git2::Oid::from(*oldest_commit))
+            .first_parent(true);
         self.0
             .blame_file(path, Some(&mut opts))
             .map_err(super::Error::Blame)
