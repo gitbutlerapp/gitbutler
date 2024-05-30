@@ -18,6 +18,7 @@
         }
         cache: {
             /watch/parent: 1
+            /watch/parent/child: 2
         }
     }
 }

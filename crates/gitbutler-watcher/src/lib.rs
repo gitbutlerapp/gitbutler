@@ -82,7 +82,6 @@ pub fn watch_in_background(
     let (events_out, mut events_in) = unbounded_channel();
     let (flush_tx, mut flush_rx) = unbounded_channel();
 
-    #[allow(unused_variables)]
     let debounce = file_monitor::spawn(project_id, worktree_path.as_ref(), events_out.clone())?;
 
     let cancellation_token = CancellationToken::new();
@@ -111,8 +110,7 @@ pub fn watch_in_background(
             tokio::select! {
                 Some(event) = events_in.recv() => handle_event(event)?,
                 Some(_signal_flush) = flush_rx.recv() => {
-                    // TODO: re-add this
-                    // debounce.flush_nonblocking();
+                    debounce.flush_nonblocking();
                 }
                 () = cancellation_token.cancelled() => {
                     break;
