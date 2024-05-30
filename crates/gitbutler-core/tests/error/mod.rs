@@ -13,9 +13,9 @@ mod into_anyhow {
             }
         }
 
-        let err = into_anyhow(Error(Code::Projects));
+        let err = into_anyhow(Error(Code::Validation));
         let ctx = err.downcast_ref::<Context>().unwrap();
-        assert_eq!(ctx.code, Code::Projects, "the context is attached");
+        assert_eq!(ctx.code, Code::Validation, "the context is attached");
         assert_eq!(
             ctx.message, None,
             "there is no message when context was created from bare code"
@@ -38,11 +38,11 @@ mod into_anyhow {
             }
         }
 
-        let err = into_anyhow(Outer::from(Inner(Code::Projects)));
+        let err = into_anyhow(Outer::from(Inner(Code::Validation)));
         let ctx = err.downcast_ref::<Context>().unwrap();
         assert_eq!(
             ctx.code,
-            Code::Projects,
+            Code::Validation,
             "there is no magic here, it's all about manually implementing the nesting :/"
         );
     }

@@ -1233,7 +1233,7 @@ pub fn integrate_upstream_commits(
     if has_rebased_commits && !can_use_force {
         let message = "Aborted because force push is disallowed and commits have been rebased.";
         return Err(anyhow!("Cannot merge rebased commits without force push")
-            .context(error::Context::new(Code::ProjectConflict, message)));
+            .context(error::Context::new(message)));
     }
 
     let integration_result = match can_use_force {
@@ -1243,7 +1243,7 @@ pub fn integrate_upstream_commits(
                 let message =
                     "Aborted because force push is disallowed and commits have been rebased.";
                 return Err(anyhow!("Cannot merge rebased commits without force push")
-                    .context(error::Context::new(Code::ProjectConflict, message)));
+                    .context(error::Context::new(message)));
             }
             integrate_with_merge(
                 project_repository,

@@ -7,11 +7,8 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
-use crate::{error, project_repository};
-use crate::{
-    error::{AnyhowContextExt, Code, Error, ErrorWithContext},
-    projects::AuthKey,
-};
+use crate::project_repository;
+use crate::{error::Error, projects::AuthKey};
 
 #[async_trait]
 pub trait Watchers {
@@ -160,40 +157,28 @@ impl Controller {
         Ok(updated)
     }
 
-    pub fn get(&self, id: ProjectId) -> Result<Project, GetError> {
-        let project = self.projects_storage.get(id).map_err(|error| match error {
-            super::storage::Error::NotFound => GetError::NotFound,
-            error => GetError::Other(error.into()),
-        });
-        if let Ok(project) = &project {
-            if !project.gb_dir().exists() {
-                if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
-                    tracing::error!(project_id = %project.id, ?error, "failed to create {:?} on project get", project.gb_dir());
-                }
+    pub fn get(&self, id: ProjectId) -> Result<Project> {
+        let project = self.projects_storage.get(id)?;
+        if !project.gb_dir().exists() {
+            if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
+                tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project get", project.gb_dir().display());
             }
-            // Clean up old virtual_branches.toml that was never used
-            if project
-                .path
-                .join(".git")
-                .join("virtual_branches.toml")
-                .exists()
-            {
-                if let Err(error) =
-                    std::fs::remove_file(project.path.join(".git").join("virtual_branches.toml"))
-                {
-                    tracing::error!(project_id = %project.id, ?error, "failed to remove old virtual_branches.toml");
-                }
+        }
+        // Clean up old virtual_branches.toml that was never used
+        let old_virtual_branches_path = project.path.join(".git").join("virtual_branches.toml");
+        if old_virtual_branches_path.exists() {
+            if let Err(error) = std::fs::remove_file(old_virtual_branches_path) {
+                tracing::error!(project_id = %project.id, ?error, "failed to remove old virtual_branches.toml");
             }
         }
 
         // FIXME(qix-): On windows, we have to force to system executable
         #[cfg(windows)]
-        let project = project.map(|mut p| {
-            p.preferred_key = AuthKey::SystemExecutable;
-            p
-        });
+        {
+            project.preferred_key = AuthKey::SystemExecutable;
+        }
 
-        project
+        Ok(project)
     }
 
     pub fn list(&self) -> Result<Vec<Project>> {
@@ -246,8 +231,7 @@ impl Controller {
             error => ConfigError::Other(error.into()),
         })?;
 
-        let repo = project_repository::Repository::open(&project)
-            .map_err(|e| ConfigError::Other(e.into()))?;
+        let repo = project_repository::Repository::open(&project).map_err(ConfigError::Other)?;
         repo.config()
             .get_local(key)
             .map_err(|e| ConfigError::Other(e.into()))
@@ -264,8 +248,7 @@ impl Controller {
             error => ConfigError::Other(error.into()),
         })?;
 
-        let repo = project_repository::Repository::open(&project)
-            .map_err(|e| ConfigError::Other(e.into()))?;
+        let repo = project_repository::Repository::open(&project).map_err(ConfigError::Other)?;
         repo.config()
             .set_local(key, value)
             .map_err(|e| ConfigError::Other(e.into()))?;
@@ -290,17 +273,6 @@ pub enum GetError {
     Other(#[from] anyhow::Error),
 }
 
-impl error::ErrorWithContext for GetError {
-    fn context(&self) -> Option<error::Context> {
-        match self {
-            GetError::NotFound => {
-                error::Context::new_static(Code::Projects, "Project not found").into()
-            }
-            GetError::Other(error) => error.custom_context_or_root_cause().into(),
-        }
-    }
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum UpdateError {
     #[error("project not found")]
@@ -309,26 +281,6 @@ pub enum UpdateError {
     Validation(UpdateValidationError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl ErrorWithContext for UpdateError {
-    fn context(&self) -> Option<error::Context> {
-        Some(match self {
-            UpdateError::Validation(UpdateValidationError::KeyNotFound(path)) => {
-                error::Context::new(Code::Projects, format!("'{}' not found", path.display()))
-            }
-            UpdateError::Validation(UpdateValidationError::KeyNotFile(path)) => {
-                error::Context::new(
-                    Code::Projects,
-                    format!("'{}' is not a file", path.display()),
-                )
-            }
-            UpdateError::NotFound => {
-                error::Context::new_static(Code::Projects, "Project not found")
-            }
-            UpdateError::Other(error) => return error.custom_context_or_root_cause().into(),
-        })
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -343,47 +295,18 @@ pub enum UpdateValidationError {
 pub enum AddError {
     #[error("not a directory")]
     NotADirectory,
-    #[error("not a git repository")]
+    #[error("must be a Git repository")]
     NotAGitRepository(#[from] Box<gix::open::Error>),
-    #[error("bare repositories are not supported")]
+    #[error("bare repositories are unsupported")]
     BareUnsupported,
-    #[error("worktrees unsupported")]
+    #[error("can only work in main worktrees")]
     WorktreeNotSupported,
     #[error("path not found")]
     PathNotFound,
     #[error("project already exists")]
     AlreadyExists,
-    #[error("submodules not supported")]
+    #[error("repositories with git submodules are not supported")]
     SubmodulesNotSupported,
     #[error(transparent)]
-    OpenProjectRepository(#[from] project_repository::OpenError),
-    #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl ErrorWithContext for AddError {
-    fn context(&self) -> Option<error::Context> {
-        Some(match self {
-            AddError::NotAGitRepository(_) => {
-                error::Context::new_static(Code::Projects, "Must be a git directory")
-            }
-            AddError::BareUnsupported => {
-                error::Context::new_static(Code::Projects, "Bare repositories are unsupported")
-            }
-            AddError::AlreadyExists => {
-                error::Context::new_static(Code::Projects, "Project already exists")
-            }
-            AddError::OpenProjectRepository(error) => return error.context(),
-            AddError::NotADirectory => error::Context::new(Code::Projects, "Not a directory"),
-            AddError::WorktreeNotSupported => {
-                error::Context::new(Code::Projects, "Can only work in main worktrees")
-            }
-            AddError::PathNotFound => error::Context::new(Code::Projects, "Path not found"),
-            AddError::SubmodulesNotSupported => error::Context::new_static(
-                Code::Projects,
-                "Repositories with git submodules are not supported",
-            ),
-            AddError::Other(error) => return error.custom_context_or_root_cause().into(),
-        })
-    }
 }

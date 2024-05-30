@@ -2,7 +2,6 @@ pub mod commands {
     use anyhow::Context;
     use std::path;
 
-    use gitbutler_core::error::Code;
     use gitbutler_core::projects::{self, controller::Controller, ProjectId};
     use tauri::Manager;
     use tracing::instrument;
@@ -20,7 +19,7 @@ pub mod commands {
             .state::<Controller>()
             .update(&project)
             .await
-            .map_err(Error::from_error_with_context)
+            .map_err(Error::from_error_without_context)
     }
 
     #[tauri::command(async)]
@@ -32,7 +31,7 @@ pub mod commands {
         handle
             .state::<Controller>()
             .add(path)
-            .map_err(Error::from_error_with_context)
+            .map_err(Error::from_error_without_context)
     }
 
     #[tauri::command(async)]
@@ -41,10 +40,7 @@ pub mod commands {
         handle: tauri::AppHandle,
         id: ProjectId,
     ) -> Result<projects::Project, Error> {
-        handle
-            .state::<Controller>()
-            .get(id)
-            .map_err(Error::from_error_with_context)
+        Ok(handle.state::<Controller>().get(id)?)
     }
 
     #[tauri::command(async)]
@@ -83,10 +79,10 @@ pub mod commands {
         id: ProjectId,
         key: &str,
     ) -> Result<Option<String>, Error> {
-        Ok(handle
+        handle
             .state::<Controller>()
             .get_local_config(id, key)
-            .context(Code::Projects)?)
+            .map_err(Error::from_error_without_context)
     }
 
     #[tauri::command(async)]
@@ -97,9 +93,9 @@ pub mod commands {
         key: &str,
         value: &str,
     ) -> Result<(), Error> {
-        Ok(handle
+        handle
             .state::<Controller>()
             .set_local_config(id, key, value)
-            .context(Code::Projects)?)
+            .map_err(Error::from_error_without_context)
     }
 }

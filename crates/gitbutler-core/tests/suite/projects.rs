@@ -93,7 +93,7 @@ mod add {
 
             let worktree = repo.worktree("feature", &worktree_dir, None).unwrap();
             let err = controller.add(worktree.path()).unwrap_err();
-            assert_eq!(err.to_string(), "worktrees unsupported");
+            assert_eq!(err.to_string(), "can only work in main worktrees");
         }
 
         fn create_initial_commit(repo: &git2::Repository) -> git2::Oid {

@@ -123,49 +123,44 @@ use std::borrow::Cow;
 use std::fmt::{self, Debug, Display};
 
 /// A unique code that consumers of the API may rely on to identify errors.
+///
+/// ### Important
+///
+/// **Only add variants if a consumer, like the *frontend*, is actually using them**.
+/// Remove variants when no longer in use.
+///
+/// In practice, it should match its [frontend counterpart](https://github.com/gitbutlerapp/gitbutler/blob/fa973fd8f1ae8807621f47601803d98b8a9cf348/app/src/lib/backend/ipc.ts#L5).
 #[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq)]
 pub enum Code {
+    /// Much like a catch-all error code. It shouldn't be attached explicitly unless
+    /// a message is provided as well as part of a [`Context`].
     #[default]
     Unknown,
     Validation,
-    Projects,
-    Branches,
     ProjectGitAuth,
-    ProjectGitRemote,
-    /// The push operation failed, specifically because the remote rejected it.
-    ProjectGitPush,
+    // TODO(ST): try to remove this and replace it with downcasting or thiserror pattern matching
     ProjectConflict,
-    ProjectHead,
-    Menu,
-    PreCommitHook,
-    CommitMsgHook,
 }
 
 impl std::fmt::Display for Code {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let code = match self {
-            Code::Menu => "errors.menu",
             Code::Unknown => "errors.unknown",
             Code::Validation => "errors.validation",
-            Code::Projects => "errors.projects",
-            Code::Branches => "errors.branches",
             Code::ProjectGitAuth => "errors.projects.git.auth",
-            Code::ProjectGitRemote => "errors.projects.git.remote",
-            Code::ProjectGitPush => "errors.projects.git.push",
-            Code::ProjectHead => "errors.projects.head",
             Code::ProjectConflict => "errors.projects.conflict",
-            //TODO: rename js side to be more precise what kind of hook error this is
-            Code::PreCommitHook => "errors.hook",
-            Code::CommitMsgHook => "errors.hooks.commit.msg",
         };
         f.write_str(code)
     }
 }
 
-/// A context to wrap around lower errors to allow its classification, along with a message for the user.
+/// A context for classifying errors.
+///
+/// It provides a [`Code`], which may be [unknown](Code::Unknown), and a `message` which explains
+/// more about the problem at hand.
 #[derive(Default, Debug, Clone)]
 pub struct Context {
-    /// The identifier of the error.
+    /// The classification of the error.
     pub code: Code,
     /// A description of what went wrong, if available.
     pub message: Option<Cow<'static, str>>,
@@ -188,9 +183,9 @@ impl From<Code> for Context {
 
 impl Context {
     /// Create a new instance with `code` and an owned `message`.
-    pub fn new(code: Code, message: impl Into<String>) -> Self {
+    pub fn new(message: impl Into<String>) -> Self {
         Context {
-            code,
+            code: Code::Unknown,
             message: Some(Cow::Owned(message.into())),
         }
     }
@@ -201,6 +196,12 @@ impl Context {
             code,
             message: Some(Cow::Borrowed(message)),
         }
+    }
+
+    /// Adjust the `code` of this instance to the given one.
+    pub fn with_code(mut self, code: Code) -> Self {
+        self.code = code;
+        self
     }
 }
 

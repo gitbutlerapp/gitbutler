@@ -48,6 +48,17 @@ mod frontend {
         pub fn from_error_with_context(err: impl ErrorWithContext + Send + Sync + 'static) -> Self {
             Self(into_anyhow(err))
         }
+
+        /// Convert an error without context to our type.
+        ///
+        /// For now, we avoid using a conversion as it would be so general, we'd miss errors with context
+        /// which need [`from_error_with_context`](Self::from_error_with_context) for the context to be
+        /// picked up.
+        pub fn from_error_without_context(
+            err: impl std::error::Error + Send + Sync + 'static,
+        ) -> Self {
+            Self(err.into())
+        }
     }
 
     impl Serialize for Error {
@@ -92,30 +103,30 @@ mod frontend {
 
         #[test]
         fn find_code() {
-            let err = anyhow!("err msg").context(Code::Projects);
+            let err = anyhow!("err msg").context(Code::Validation);
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.projects\",\"message\":\"err msg\"}",
+                "{\"code\":\"errors.validation\",\"message\":\"err msg\"}",
                 "the 'code' is available as string, but the message is taken from the source error"
             );
         }
 
         #[test]
         fn find_context() {
-            let err = anyhow!("err msg").context(Context::new_static(Code::Projects, "ctx msg"));
+            let err = anyhow!("err msg").context(Context::new_static(Code::Validation, "ctx msg"));
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.projects\",\"message\":\"ctx msg\"}",
+                "{\"code\":\"errors.validation\",\"message\":\"ctx msg\"}",
                 "Contexts often provide their own message, so the error message is ignored"
             );
         }
 
         #[test]
         fn find_context_without_message() {
-            let err = anyhow!("err msg").context(Context::from(Code::Projects));
+            let err = anyhow!("err msg").context(Context::from(Code::Validation));
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.projects\",\"message\":\"err msg\"}",
+                "{\"code\":\"errors.validation\",\"message\":\"err msg\"}",
                 "Contexts without a message show the error's message as well"
             );
         }
@@ -124,10 +135,10 @@ mod frontend {
         fn find_nested_code() {
             let err = anyhow!("bottom msg")
                 .context("top msg")
-                .context(Code::Projects);
+                .context(Code::Validation);
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.projects\",\"message\":\"top msg\"}",
+                "{\"code\":\"errors.validation\",\"message\":\"top msg\"}",
                 "the 'code' gets the message of the error that it provides context to, and it finds it down the chain"
             );
         }
@@ -135,12 +146,12 @@ mod frontend {
         #[test]
         fn multiple_codes() {
             let err = anyhow!("bottom msg")
-                .context(Code::Menu)
+                .context(Code::ProjectGitAuth)
                 .context("top msg")
-                .context(Code::Projects);
+                .context(Code::Validation);
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.projects\",\"message\":\"top msg\"}",
+                "{\"code\":\"errors.validation\",\"message\":\"top msg\"}",
                 "it finds the most recent 'code' (and the same would be true for contexts, of course)"
             );
         }

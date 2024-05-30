@@ -455,7 +455,7 @@ impl ControllerInner {
                 user,
                 run_hooks,
             )
-            .map_err(Into::into);
+            .map_err(Error::from_err);
             let _ = snapshot_tree.and_then(|snapshot_tree| {
                 project_repository.project().snapshot_commit_creation(
                     snapshot_tree,
@@ -475,10 +475,7 @@ impl ControllerInner {
     ) -> Result<bool, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        Ok(super::is_remote_branch_mergeable(
-            &project_repository,
-            branch_name,
-        )?)
+        super::is_remote_branch_mergeable(&project_repository, branch_name).map_err(Error::from_err)
     }
 
     pub fn can_apply_virtual_branch(
@@ -523,9 +520,8 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            let result =
-                super::create_virtual_branch_from_branch(project_repository, branch, user)?;
-            Ok(result)
+            super::create_virtual_branch_from_branch(project_repository, branch, user)
+                .map_err(Error::from_err)
         })
     }
 
@@ -543,7 +539,7 @@ impl ControllerInner {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         super::list_remote_commit_files(&project_repository.git_repository, commit_oid)
-            .map_err(Into::into)
+            .map_err(Error::from_err)
     }
 
     pub fn set_base_branch(
@@ -556,8 +552,7 @@ impl ControllerInner {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::SetBaseBranch));
-        let result = super::set_base_branch(&project_repository, target_branch)?;
-        Ok(result)
+        super::set_base_branch(&project_repository, target_branch).map_err(Error::from_err)
     }
 
     pub fn set_target_push_remote(
@@ -567,8 +562,7 @@ impl ControllerInner {
     ) -> Result<(), Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        super::set_target_push_remote(&project_repository, push_remote)?;
-        Ok(())
+        super::set_target_push_remote(&project_repository, push_remote).map_err(Error::from_err)
     }
 
     pub async fn integrate_upstream_commits(
@@ -633,7 +627,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, user| {
             let snapshot_tree = project_repository.project().prepare_snapshot();
             let result =
-                super::apply_branch(project_repository, branch_id, user).map_err(Into::into);
+                super::apply_branch(project_repository, branch_id, user).map_err(Error::from_err);
 
             let _ = snapshot_tree.and_then(|snapshot_tree| {
                 project_repository
@@ -687,7 +681,8 @@ impl ControllerInner {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::AmendCommit));
-            super::amend(project_repository, branch_id, commit_oid, ownership).map_err(Into::into)
+            super::amend(project_repository, branch_id, commit_oid, ownership)
+                .map_err(Error::from_err)
         })
     }
 
@@ -712,7 +707,7 @@ impl ControllerInner {
                 to_commit_oid,
                 ownership,
             )
-            .map_err(Into::into)
+            .map_err(Error::from_err)
         })
     }
 
@@ -727,7 +722,7 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let snapshot_tree = project_repository.project().prepare_snapshot();
             let result: Result<(), Error> =
-                super::undo_commit(project_repository, branch_id, commit_oid).map_err(Into::into);
+                super::undo_commit(project_repository, branch_id, commit_oid).map_err(Error::from_err);
             let _ = snapshot_tree.and_then(|snapshot_tree| {
                 project_repository.project().snapshot_commit_undo(
                     snapshot_tree,
@@ -753,7 +748,7 @@ impl ControllerInner {
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::InsertBlankCommit));
             super::insert_blank_commit(project_repository, branch_id, commit_oid, user, offset)
-                .map_err(Into::into)
+                .map_err(Error::from_err)
         })
     }
 
@@ -771,7 +766,7 @@ impl ControllerInner {
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::ReorderCommit));
             super::reorder_commit(project_repository, branch_id, commit_oid, offset)
-                .map_err(Into::into)
+                .map_err(Error::from_err)
         })
     }
 
@@ -788,7 +783,7 @@ impl ControllerInner {
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::UndoCommit));
             super::reset_branch(project_repository, branch_id, target_commit_oid)
-                .map_err(Into::into)
+                .map_err(Error::from_err)
         })
     }
 
@@ -845,7 +840,7 @@ impl ControllerInner {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::CherryPick));
-            super::cherry_pick(project_repository, branch_id, commit_oid).map_err(Into::into)
+            super::cherry_pick(project_repository, branch_id, commit_oid).map_err(Error::from_err)
         })
     }
 
@@ -880,7 +875,7 @@ impl ControllerInner {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::SquashCommit));
-            super::squash(project_repository, branch_id, commit_oid).map_err(Into::into)
+            super::squash(project_repository, branch_id, commit_oid).map_err(Error::from_err)
         })
     }
 
@@ -897,7 +892,7 @@ impl ControllerInner {
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::UpdateCommitMessage));
             super::update_commit_message(project_repository, branch_id, commit_oid, message)
-                .map_err(Into::into)
+                .map_err(Error::from_err)
         })
     }
 
@@ -977,7 +972,7 @@ impl ControllerInner {
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::MoveCommit));
             super::move_commit(project_repository, target_branch_id, commit_oid, user)
-                .map_err(Into::into)
+                .map_err(Error::from_err)
         })
     }
 }
@@ -991,7 +986,7 @@ impl ControllerInner {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         let user = self.users.get_user()?;
-        super::integration::verify_branch(&project_repository)?;
+        super::integration::verify_branch(&project_repository).map_err(Error::from_err)?;
         action(&project_repository, user.as_ref())
     }
 
@@ -1005,7 +1000,7 @@ impl ControllerInner {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         let user = self.users.get_user()?;
-        super::integration::verify_branch(&project_repository)?;
+        super::integration::verify_branch(&project_repository).map_err(Error::from_err)?;
         Ok(tokio::task::spawn_blocking(move || {
             action(&project_repository, user.as_ref())
         }))

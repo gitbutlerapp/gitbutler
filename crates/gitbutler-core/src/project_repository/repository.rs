@@ -4,7 +4,7 @@ use std::{
     sync::{atomic::AtomicUsize, Arc},
 };
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 
 use super::conflicts;
 use crate::{
@@ -24,82 +24,63 @@ pub struct Repository {
     project: projects::Project,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum OpenError {
-    #[error("repository not found at {0}")]
-    NotFound(path::PathBuf),
-    #[error(transparent)]
-    Other(anyhow::Error),
-}
-
-impl ErrorWithContext for OpenError {
-    fn context(&self) -> Option<crate::error::Context> {
-        match self {
-            OpenError::NotFound(path) => {
-                error::Context::new(Code::Projects, format!("{} not found", path.display())).into()
-            }
-            OpenError::Other(error) => error.custom_context_or_root_cause().into(),
-        }
-    }
-}
-
 impl Repository {
-    pub fn open(project: &projects::Project) -> Result<Self, OpenError> {
-        git::Repository::open(&project.path)
-            .map_err(|error| match error {
-                git::Error::NotFound(_) => OpenError::NotFound(project.path.clone()),
-                other => OpenError::Other(other.into()),
-            })
-            .map(|git_repository| {
-                // XXX(qix-): This is a temporary measure to disable GC on the project repository.
-                // XXX(qix-): We do this because the internal repository we use to store the "virtual"
-                // XXX(qix-): refs and information use Git's alternative-objects mechanism to refer
-                // XXX(qix-): to the project repository's objects. However, the project repository
-                // XXX(qix-): has no knowledge of these refs, and will GC them away (usually after
-                // XXX(qix-): about 2 weeks) which will corrupt the internal repository.
-                // XXX(qix-):
-                // XXX(qix-): We will ultimately move away from an internal repository for a variety
-                // XXX(qix-): of reasons, but for now, this is a simple, short-term solution that we
-                // XXX(qix-): can clean up later on. We're aware this isn't ideal.
-                if let Ok(config) = git_repository.config().as_mut() {
-                    let should_set = match config.get_bool("gitbutler.didSetPrune") {
-                        Ok(None | Some(false)) => true,
-                        Ok(Some(true)) => false,
-                        Err(error) => {
-                            tracing::warn!(
+    pub fn open(project: &projects::Project) -> Result<Self> {
+        let repo = git::Repository::open(&project.path).or_else(|err| match err {
+            git::Error::NotFound(_) => Err(anyhow::Error::from(err)).context(format!(
+                "repository not found at \"{}\"",
+                project.path.display()
+            )),
+            other => Err(other.into()),
+        })?;
+
+        // XXX(qix-): This is a temporary measure to disable GC on the project repository.
+        // XXX(qix-): We do this because the internal repository we use to store the "virtual"
+        // XXX(qix-): refs and information use Git's alternative-objects mechanism to refer
+        // XXX(qix-): to the project repository's objects. However, the project repository
+        // XXX(qix-): has no knowledge of these refs, and will GC them away (usually after
+        // XXX(qix-): about 2 weeks) which will corrupt the internal repository.
+        // XXX(qix-):
+        // XXX(qix-): We will ultimately move away from an internal repository for a variety
+        // XXX(qix-): of reasons, but for now, this is a simple, short-term solution that we
+        // XXX(qix-): can clean up later on. We're aware this isn't ideal.
+        if let Ok(config) = repo.config().as_mut() {
+            let should_set = match config.get_bool("gitbutler.didSetPrune") {
+                Ok(None | Some(false)) => true,
+                Ok(Some(true)) => false,
+                Err(err) => {
+                    tracing::warn!(
                                 "failed to get gitbutler.didSetPrune for repository at {}; cannot disable gc: {}",
                                 project.path.display(),
-                                error
+                                err
                             );
-                            false
-                        }
-                    };
+                    false
+                }
+            };
 
-                    if should_set {
-                        if let Err(error) = config
-                            .set_str("gc.pruneExpire", "never")
-                            .and_then(|()| config.set_bool("gitbutler.didSetPrune", true))
-                        {
-                            tracing::warn!(
+            if should_set {
+                if let Err(error) = config
+                    .set_str("gc.pruneExpire", "never")
+                    .and_then(|()| config.set_bool("gitbutler.didSetPrune", true))
+                {
+                    tracing::warn!(
                                 "failed to set gc.auto to false for repository at {}; cannot disable gc: {}",
                                 project.path.display(),
                                 error
                             );
-                        }
-                    }
-                } else {
-                    tracing::warn!(
-                        "failed to get config for repository at {}; cannot disable gc",
-                        project.path.display()
-                    );
                 }
+            }
+        } else {
+            tracing::warn!(
+                "failed to get config for repository at {}; cannot disable gc",
+                project.path.display()
+            );
+        }
 
-                git_repository
-            })
-            .map(|git_repository| Self {
-                git_repository,
-                project: project.clone(),
-            })
+        Ok(Self {
+            git_repository: repo,
+            project: project.clone(),
+        })
     }
 
     pub fn is_resolving(&self) -> bool {
@@ -517,9 +498,7 @@ impl Repository {
                     }
                     Err(err) => {
                         if let Some(err) = update_refs_error.as_ref() {
-                            return Err(RemoteError::Other(
-                                anyhow::anyhow!(err.to_string()).context(Code::ProjectGitPush),
-                            ));
+                            return Err(RemoteError::Other(anyhow!(err.to_string())));
                         }
                         return Err(RemoteError::Other(err.into()));
                     }
@@ -630,17 +609,13 @@ pub enum RemoteError {
 impl ErrorWithContext for RemoteError {
     fn context(&self) -> Option<error::Context> {
         Some(match self {
-            RemoteError::Help(error) => return error.context(),
-            RemoteError::Network => {
-                error::Context::new_static(Code::ProjectGitRemote, "Network error occurred")
+            RemoteError::Help(_) | RemoteError::Network | RemoteError::Git(_) => {
+                error::Context::default()
             }
             RemoteError::Auth => error::Context::new_static(
                 Code::ProjectGitAuth,
                 "Project remote authentication error",
             ),
-            RemoteError::Git(_) => {
-                error::Context::new_static(Code::ProjectGitRemote, "Git command failed")
-            }
             RemoteError::Other(error) => {
                 return error.custom_context_or_root_cause().into();
             }

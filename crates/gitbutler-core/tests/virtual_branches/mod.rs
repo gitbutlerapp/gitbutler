@@ -2095,7 +2095,7 @@ fn verify_branch_not_integration() -> Result<()> {
     assert!(verify_result.is_err());
     assert_eq!(
         verify_result.unwrap_err().to_string(),
-        "head is refs/heads/master"
+        "project is on refs/heads/master. Please checkout gitbutler/integration to continue"
     );
 
     Ok(())
