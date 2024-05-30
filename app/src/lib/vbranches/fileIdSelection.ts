@@ -1,7 +1,7 @@
+import { isDefined } from '$lib/utils/typeguards';
 import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 import { derived } from 'svelte/store';
 import type { AnyFile, LocalFile } from '$lib/vbranches/types';
-import { isDefined } from '$lib/utils/typeguards';
 
 export interface FileKey {
 	fileId: string;

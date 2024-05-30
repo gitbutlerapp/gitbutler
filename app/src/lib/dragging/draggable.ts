@@ -1,7 +1,7 @@
 import { dzRegistry } from './dropzone';
 import type { DraggableCommit, DraggableFile, DraggableHunk } from './draggables';
 
-type Draggable = DraggableFile | DraggableHunk | DraggableCommit;
+export type Draggable = DraggableFile | DraggableHunk | DraggableCommit;
 export interface DraggableConfig {
 	readonly selector?: string;
 	readonly disabled?: boolean;
@@ -119,63 +119,63 @@ export function draggable(node: HTMLElement, initialOpts: DraggableConfig) {
 		document.body.appendChild(clone);
 
 		// activate destination zones
-		dzRegistry
-			.filter(([_node, dz]) => dz.accepts(opts.data))
-			.forEach(([target, dz]) => {
-				function onDrop(e: DragEvent) {
-					e.preventDefault();
-					dz.onDrop(opts.data);
-				}
+		dzRegistry.forEach(async ([target, dz]) => {
+			if (!dz.accepts(await opts.data)) return;
 
-				function onDragEnter(e: DragEvent) {
-					e.preventDefault();
-					target.classList.add(dz.hover);
-				}
+			async function onDrop(e: DragEvent) {
+				e.preventDefault();
+				dz.onDrop(await opts.data);
+			}
 
-				function onDragLeave(e: DragEvent) {
-					e.preventDefault();
-					target.classList.remove(dz.hover);
-				}
+			function onDragEnter(e: DragEvent) {
+				e.preventDefault();
+				target.classList.add(dz.hover);
+			}
 
-				function onDragOver(e: DragEvent) {
-					e.preventDefault();
-				}
+			function onDragLeave(e: DragEvent) {
+				e.preventDefault();
+				target.classList.remove(dz.hover);
+			}
 
-				// keep track of listeners so that we can remove them later
-				if (onDropListeners.has(target)) {
-					onDropListeners.get(target)!.push(onDrop);
-				} else {
-					onDropListeners.set(target, [onDrop]);
-				}
+			function onDragOver(e: DragEvent) {
+				e.preventDefault();
+			}
 
-				if (onDragEnterListeners.has(target)) {
-					onDragEnterListeners.get(target)!.push(onDragEnter);
-				} else {
-					onDragEnterListeners.set(target, [onDragEnter]);
-				}
+			// keep track of listeners so that we can remove them later
+			if (onDropListeners.has(target)) {
+				onDropListeners.get(target)!.push(onDrop);
+			} else {
+				onDropListeners.set(target, [onDrop]);
+			}
 
-				if (onDragLeaveListeners.has(target)) {
-					onDragLeaveListeners.get(target)!.push(onDragLeave);
-				} else {
-					onDragLeaveListeners.set(target, [onDragLeave]);
-				}
+			if (onDragEnterListeners.has(target)) {
+				onDragEnterListeners.get(target)!.push(onDragEnter);
+			} else {
+				onDragEnterListeners.set(target, [onDragEnter]);
+			}
 
-				if (onDragOverListeners.has(target)) {
-					onDragOverListeners.get(target)!.push(onDragOver);
-				} else {
-					onDragOverListeners.set(target, [onDragOver]);
-				}
+			if (onDragLeaveListeners.has(target)) {
+				onDragLeaveListeners.get(target)!.push(onDragLeave);
+			} else {
+				onDragLeaveListeners.set(target, [onDragLeave]);
+			}
 
-				// https://stackoverflow.com/questions/14203734/dragend-dragenter-and-dragleave-firing-off-immediately-when-i-drag
-				setTimeout(() => {
-					target.classList.add(dz.active);
-				}, 10);
+			if (onDragOverListeners.has(target)) {
+				onDragOverListeners.get(target)!.push(onDragOver);
+			} else {
+				onDragOverListeners.set(target, [onDragOver]);
+			}
 
-				target.addEventListener('drop', onDrop);
-				target.addEventListener('dragenter', onDragEnter);
-				target.addEventListener('dragleave', onDragLeave);
-				target.addEventListener('dragover', onDragOver);
-			});
+			// https://stackoverflow.com/questions/14203734/dragend-dragenter-and-dragleave-firing-off-immediately-when-i-drag
+			setTimeout(() => {
+				target.classList.add(dz.active);
+			}, 10);
+
+			target.addEventListener('drop', onDrop);
+			target.addEventListener('dragenter', onDragEnter);
+			target.addEventListener('dragleave', onDragLeave);
+			target.addEventListener('dragover', onDragOver);
+		});
 
 		// Get chromium to fire dragover & drop events
 		// https://stackoverflow.com/questions/6481094/html5-drag-and-drop-ondragover-not-firing-in-chrome/6483205#6483205
@@ -196,26 +196,25 @@ export function draggable(node: HTMLElement, initialOpts: DraggableConfig) {
 		});
 
 		// deactivate destination zones
-		dzRegistry
-			.filter(([_node, dz]) => dz.accepts(opts.data))
-			.forEach(([node, dz]) => {
-				// remove all listeners
-				onDropListeners.get(node)?.forEach((listener) => {
-					node.removeEventListener('drop', listener);
-				});
-				onDragEnterListeners.get(node)?.forEach((listener) => {
-					node.removeEventListener('dragenter', listener);
-				});
-				onDragLeaveListeners.get(node)?.forEach((listener) => {
-					node.removeEventListener('dragleave', listener);
-				});
-				onDragOverListeners.get(node)?.forEach((listener) => {
-					node.removeEventListener('dragover', listener);
-				});
-
-				node.classList.remove(dz.active);
-				node.classList.remove(dz.hover);
+		dzRegistry.forEach(async ([node, dz]) => {
+			if (!dz.accepts(await opts.data)) return;
+			// remove all listeners
+			onDropListeners.get(node)?.forEach((listener) => {
+				node.removeEventListener('drop', listener);
 			});
+			onDragEnterListeners.get(node)?.forEach((listener) => {
+				node.removeEventListener('dragenter', listener);
+			});
+			onDragLeaveListeners.get(node)?.forEach((listener) => {
+				node.removeEventListener('dragleave', listener);
+			});
+			onDragOverListeners.get(node)?.forEach((listener) => {
+				node.removeEventListener('dragover', listener);
+			});
+
+			node.classList.remove(dz.active);
+			node.classList.remove(dz.hover);
+		});
 
 		e.stopPropagation();
 	}
