@@ -31,6 +31,7 @@ export class Project {
 	omit_certificate_check: boolean | undefined;
 	use_diff_context: boolean | undefined;
 	snapshot_lines_threshold!: number | undefined;
+	patch_stack_branches!: boolean | false;
 
 	get vscodePath() {
 		return this.path.includes('\\') ? '/' + this.path.replace('\\', '/') : this.path;

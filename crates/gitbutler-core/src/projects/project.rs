@@ -88,6 +88,7 @@ pub struct Project {
     pub omit_certificate_check: Option<bool>,
     // The number of changed lines that will trigger a snapshot
     pub snapshot_lines_threshold: Option<usize>,
+    pub patch_stack_branches: Option<bool>,
 }
 
 impl Project {

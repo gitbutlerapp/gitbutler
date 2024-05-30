@@ -11,6 +11,7 @@ export const project = {
 	id: 'ac44a3bb-8bbb-4af9-b8c9-7950dd9ec295',
 	ok_with_force_push: true,
 	omit_certificate_check: null,
+	patch_stack_branches: null,
 	path: '/opt/ndomino/home2021',
 	preferred_key: 'systemExecutable',
 	project_data_last_fetch: Object,

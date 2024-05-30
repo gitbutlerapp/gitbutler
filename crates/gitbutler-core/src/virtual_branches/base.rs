@@ -371,6 +371,10 @@ pub fn update_base_branch(
     let vb_state = project_repository.project().virtual_branches();
     let integration_commit = get_workspace_head(&vb_state, project_repository)?;
 
+    let ok_with_force_push = project_repository.project().ok_with_force_push;
+    let patch_stack_branches = project_repository.project().patch_stack_branches;
+    let patch_stack_branches = patch_stack_branches.is_some_and(|x| x);
+
     // try to update every branch
     let updated_vbranches =
         super::get_status_by_branch(project_repository, Some(&integration_commit))?
@@ -393,10 +397,8 @@ pub fn update_base_branch(
                         branch.head, branch.id
                     ))?;
 
-                    let ok_with_force_push = project_repository.project().ok_with_force_push;
-
-                    if *ok_with_force_push {
-                        dbg!("ok with force push, RUNNING EXPERIMENTAL ");
+                    if patch_stack_branches {
+                        dbg!("patch stack mode, RUNNING EXPERIMENTAL ");
                         // EXPERIMENTAL: just run the branch head through cherry_rebase_group
                         let mut branch_head = branch.head;
 

@@ -3686,7 +3686,14 @@ fn cherry_rebase_group(
                 dbg!("REBASE", &head.id(), &to_rebase.id());
                 let mut cherrypick_index = cherry_pick_gitbutler(project_repository, &head, &to_rebase)?;
 
+                let patch_stack_branches = project_repository.project().patch_stack_branches;
+                let patch_stack_mode = patch_stack_branches.is_some_and(|x| x);
+
                 if cherrypick_index.has_conflicts() {
+                    if !patch_stack_mode {
+                        return Err(anyhow::anyhow!("rebase has conflict"));
+                    }
+
                     // there is a merge conflict, let's store the state so they can fix it later
                     // store tree as the same as the parent
                     let merge_base_commit_oid = project_repository

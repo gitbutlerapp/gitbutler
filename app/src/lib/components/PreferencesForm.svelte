@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SectionCard from './SectionCard.svelte';
+	import Section from '$lib/components/settings/Section.svelte';
 	import Spacer from './Spacer.svelte';
 	import TextBox from './TextBox.svelte';
 	import { Project, ProjectService } from '$lib/backend/projects';
@@ -13,6 +14,7 @@
 	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
 	let allowForcePushing = project?.ok_with_force_push;
 	let omitCertificateCheck = project?.omit_certificate_check;
+	let patchStackBranches = project?.patch_stack_branches;
 
 	const runCommitHooks = projectRunCommitHooks(project.id);
 
@@ -30,14 +32,23 @@
 		project.snapshot_lines_threshold = value;
 		await projectService.updateProject(project);
 	}
+
+	async function setPatchStackBranches(value: boolean) {
+		project.patch_stack_branches = value;
+		await projectService.updateProject(project);
+	}
 </script>
 
-<section class="wrapper">
+<Section>
+	<svelte:fragment slot="title">Preferences</svelte:fragment>
+	<svelte:fragment slot="description">
+		Other settings to customize your GitButler experience.
+	</svelte:fragment>
 	<SectionCard orientation="row" labelFor="allowForcePush">
 		<svelte:fragment slot="title">Allow force pushing</svelte:fragment>
 		<svelte:fragment slot="caption">
-			Force pushing allows GitButler to override branches even if they were pushed to remote. We
-			will never force push to the trunk.
+			Force pushing allows GitButler to override branches even if they were pushed to remote.
+			We will never force push to the trunk.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Toggle
@@ -94,7 +105,32 @@
 			/>
 		</svelte:fragment>
 	</SectionCard>
-</section>
+</Section>
+
+<Spacer />
+
+<Section>
+	<svelte:fragment slot="title">Experimental Stuff</svelte:fragment>
+	<svelte:fragment slot="description">
+		Configure the authentication flow for GitButler when authenticating with your Git remote
+		provider.
+	</svelte:fragment>
+	<SectionCard orientation="row" labelFor="patchStackBranches">
+		<svelte:fragment slot="title">Patch Stack Branches</svelte:fragment>
+		<svelte:fragment slot="caption">
+			This mode enables "patch stack branches" which allows for a more flexible way of
+			managing commits in a branch. It enables much easier rebase-style patch-focused
+			workflows. It is highly experimental and not recommended for general use.
+		</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Toggle
+				id="patchStackBranches"
+				bind:checked={patchStackBranches}
+				on:change={async () => await setPatchStackBranches(patchStackBranches)}
+			/>
+		</svelte:fragment>
+	</SectionCard>
+</Section>
 
 <Spacer />
 
