@@ -102,6 +102,8 @@ async fn resolve_conflict_flow() {
         let first_commit_oid = repository.commit_all("first");
         fs::write(repository.path().join("file.txt"), "second").unwrap();
         repository.commit_all("second");
+        fs::write(repository.path().join("third.txt"), "three").unwrap();
+        repository.commit_all("third");
         repository.push();
         repository.reset_hard(Some(first_commit_oid));
     }
@@ -150,6 +152,7 @@ async fn resolve_conflict_flow() {
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
         assert!(branches[0].conflicted);
+        assert_eq!(branches[0].files.len(), 2); // third.txt should be present during conflict
 
         // and the conflict markers are in the file
         assert_eq!(
