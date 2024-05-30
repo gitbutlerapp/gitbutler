@@ -145,12 +145,12 @@ impl Repository {
         if is_conflict.is_some() {
             let subtree_id = is_conflict.unwrap().id();
             self.0
-                .find_tree(subtree_id.into())
+                .find_tree(subtree_id)
                 .map_err(Into::into)
                 .map(git2::Tree::from)
         } else {
             self.0
-                .find_tree(tree.id().into())
+                .find_tree(tree.id())
                 .map_err(Into::into)
                 .map(git2::Tree::from)
         }
@@ -280,18 +280,11 @@ impl Repository {
         parents: &[&git2::Commit<'_>],
         headers: Option<Vec<(String, String)>>,
     ) -> Result<Oid> {
-        let parents: Vec<&git2::Commit> = parents
-            .iter()
-            .map(|c| c.to_owned().into())
-            .collect::<Vec<_>>();
+        let parents: Vec<&git2::Commit> = parents.iter().map(|c| c.to_owned()).collect::<Vec<_>>();
 
-        let commit_buffer = self.0.commit_create_buffer(
-            author.into(),
-            committer.into(),
-            message,
-            tree,
-            &parents,
-        )?;
+        let commit_buffer = self
+            .0
+            .commit_create_buffer(author, committer, message, tree, &parents)?;
 
         let commit_buffer = commit_buffer.as_str().unwrap();
         let mut commit_buffer = commit_buffer.to_string();

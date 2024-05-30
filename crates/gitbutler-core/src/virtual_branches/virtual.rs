@@ -2914,7 +2914,7 @@ pub fn move_commit_file(
     let new_head = cherry_rebase(
         project_repository,
         commit_oid.into(),
-        amend_commit.id().into(),
+        amend_commit.id(),
         last_commit.into(),
     )?;
 
@@ -3094,7 +3094,7 @@ pub fn amend(
     let new_head = cherry_rebase(
         project_repository,
         commit_oid.into(),
-        amend_commit.id().into(),
+        amend_commit.id(),
         last_commit.into(),
     )?;
 
@@ -3210,7 +3210,7 @@ pub fn resolve_conflict_finish(
         &commit.author(),
         &commit.committer(),
         &commit.message_bstr().to_str_lossy(),
-        &wd_tree.clone().into(),
+        &wd_tree.clone(),
         &parents.iter().collect::<Vec<_>>(),
         change_id.as_deref(),
     )?;
@@ -3306,15 +3306,15 @@ pub fn checkout_merged_applied_branches(
 
             let conflict_side_0 = branch_tree.get_name(".conflict-side-0");
             let merge_tree = if let Some(conflict_side_0) = conflict_side_0 {
-                repo.find_tree(conflict_side_0.id().into())?
+                repo.find_tree(conflict_side_0.id())?
             } else {
-                repo.find_tree(branch_tree.id().into())? // dumb, but sort of a clone()
+                repo.find_tree(branch_tree.id())? // dumb, but sort of a clone()
             };
 
             let mut merge_result =
                 repo.merge_trees(&target_tree, &final_tree, &merge_tree, None)?;
             let final_tree_oid = merge_result.write_tree_to(repo)?;
-            repo.find_tree(final_tree_oid.into())
+            repo.find_tree(final_tree_oid)
         })
         .context("failed to calculate final tree")?;
 
@@ -3478,7 +3478,7 @@ pub fn insert_blank_commit(
         match cherry_rebase(
             project_repository,
             blank_commit_oid.into(),
-            commit.id().into(),
+            commit.id(),
             branch.head.into(),
         ) {
             Ok(Some(new_head)) => {
@@ -3535,12 +3535,12 @@ pub fn undo_commit(
 
         match cherry_rebase(
             project_repository,
-            parent_commit_oid.into(),
+            parent_commit_oid,
             commit_oid.into(),
             branch.head.into(),
         ) {
             Ok(Some(new_head)) => {
-                new_commit_oid = new_head.into();
+                new_commit_oid = new_head;
             }
             _ => {
                 return Err(errors::VirtualBranchError::RebaseFailed);
@@ -3711,7 +3711,7 @@ fn cherry_rebase_group(
                         .git_repository
                         .find_commit(merge_base_commit_oid)
                         .context("failed to find merge base commit")?;
-                    let base_tree = find_real_tree(project_repository, (&merge_base_commit).into(), None)?;
+                    let base_tree = find_real_tree(project_repository, &merge_base_commit, None)?;
 
                     // in case someone checks this out with vanilla Git, we should warn why it looks like this
                     let readme_content = b"You have checked out a GitButler Conflicted commit. You probably didn't mean to do this.";
@@ -3782,7 +3782,7 @@ fn cherry_rebase_group(
 
                     let merge_tree = project_repository
                         .git_repository
-                        .find_tree(merge_tree_oid.into())
+                        .find_tree(merge_tree_oid)
                         .context("failed to find merge tree")?;
 
                     let change_id = to_rebase.change_id();

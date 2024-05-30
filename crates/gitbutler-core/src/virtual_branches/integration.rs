@@ -101,7 +101,7 @@ pub fn get_workspace_head(
         .collect();
 
     if heads.is_empty() {
-        heads = vec![target_commit]
+        heads = vec![target_commit.clone()]
     }
 
     // TODO: Why does commit only accept a slice of commits? Feels like we

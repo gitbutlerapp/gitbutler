@@ -571,8 +571,8 @@ pub fn update_base_branch(
                     // branch was not pushed to upstream yet. attempt a rebase,
                     let rebased_head_oid = cherry_rebase(
                         project_repository,
-                        new_target_commit.id().into(),
-                        new_target_commit.id().into(),
+                        new_target_commit.id(),
+                        new_target_commit.id(),
                         branch.head.into(),
                     );
 
@@ -612,9 +612,9 @@ pub fn update_base_branch(
             // use that subtree for the merge instead
             let conflict_side_0 = branch_tree.get_name(".conflict-side-0");
             let merge_tree = if let Some(conflict_side_0) = conflict_side_0 {
-                repo.find_tree(conflict_side_0.id().into())?
+                repo.find_tree(conflict_side_0.id())?
             } else {
-                repo.find_tree(branch_tree.id().into())? // dumb, but sort of a clone()
+                repo.find_tree(branch_tree.id())? // dumb, but sort of a clone()
             };
 
             let mut merge_result =
