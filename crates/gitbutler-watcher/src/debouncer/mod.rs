@@ -146,7 +146,7 @@ impl<T: FileIdCache> DebounceDataInner<T> {
     }
 
     /// Retrieve a vec of debounced events, removing them if not continuous
-    pub fn debounced_events(&mut self, flush_all: bool) -> Vec<DebouncedEvent> {
+    pub fn debounced_events(&mut self) -> Vec<DebouncedEvent> {
         let now = Instant::now();
         let mut events_expired = Vec::with_capacity(self.queues.len());
         let mut queues_remaining = HashMap::with_capacity(self.queues.len());
@@ -163,7 +163,6 @@ impl<T: FileIdCache> DebounceDataInner<T> {
         for (path, mut queue) in self.queues.drain() {
             let mut kind_index = HashMap::new();
 
-            tracing::trace!("Checking path: {:?}", path);
             while let Some(event) = queue.events.pop_front() {
                 if now.saturating_duration_since(event.time) >= self.timeout {
                     // remove previous event of the same kind
@@ -179,9 +178,6 @@ impl<T: FileIdCache> DebounceDataInner<T> {
 
                     kind_index.insert(event.kind, events_expired.len());
 
-                    events_expired.push(event);
-                } else if flush_all {
-                    tracing::trace!("Flushing event! {:?}", event.event);
                     events_expired.push(event);
                 } else {
                     queue.events.push_front(event);
@@ -205,10 +201,6 @@ impl<T: FileIdCache> DebounceDataInner<T> {
                 event_a.time.cmp(&event_b.time)
             }
         });
-
-        for event in &events_expired {
-            tracing::trace!("Dispatching event: {:?}", event.event);
-        }
 
         events_expired
     }
@@ -476,11 +468,10 @@ impl<T: FileIdCache> DebounceDataInner<T> {
 #[derive(Debug)]
 pub struct Debouncer<T: Watcher, C: FileIdCache> {
     watcher: T,
-    debouncer_thread: Option<std::thread::JoinHandle<()>>,
     #[allow(dead_code)]
+    debouncer_thread: Option<std::thread::JoinHandle<()>>,
     data: DebounceData<C>,
     stop: Arc<AtomicBool>,
-    flush: Arc<AtomicBool>,
 }
 
 impl<T: Watcher, C: FileIdCache> Debouncer<T, C> {
@@ -529,11 +520,6 @@ impl<T: Watcher, C: FileIdCache> Debouncer<T, C> {
         self.add_root(path.as_ref(), recursive_mode);
         Ok(())
     }
-
-    /// Indicates that on the next tick of the debouncer thread, all events should be emitted.
-    pub fn flush_nonblocking(&self) {
-        self.flush.store(true, Ordering::Relaxed);
-    }
 }
 
 impl<T: Watcher, C: FileIdCache> Drop for Debouncer<T, C> {
@@ -550,14 +536,12 @@ impl<T: Watcher, C: FileIdCache> Drop for Debouncer<T, C> {
 pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + Send + 'static>(
     timeout: Duration,
     tick_rate: Option<Duration>,
-    flush_after: Option<u32>,
     mut event_handler: F,
     file_id_cache: C,
     config: notify::Config,
 ) -> Result<Debouncer<T, C>, Error> {
     let data = Arc::new(Mutex::new(DebounceDataInner::new(file_id_cache, timeout)));
     let stop = Arc::new(AtomicBool::new(false));
-    let flush = Arc::new(AtomicBool::new(false));
 
     let tick_div = 4;
     let tick = match tick_rate {
@@ -580,52 +564,21 @@ pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + S
 
     let data_c = data.clone();
     let stop_c = stop.clone();
-    let flush_c = flush.clone();
-    let mut idle_count = 0;
-    let mut prev_queue_count = 0;
     let thread = std::thread::Builder::new()
         .name("notify-rs debouncer loop".to_string())
         .spawn(move || loop {
             if stop_c.load(Ordering::Acquire) {
                 break;
             }
-
-            let mut should_flush = flush_c.load(Ordering::Acquire);
-
             std::thread::sleep(tick);
-
             let send_data;
             let errors;
             {
                 let mut lock = data_c.lock();
-
-                let queue_count = lock.queues.values().fold(0, |acc, x| acc + x.events.len());
-                if prev_queue_count == queue_count {
-                    idle_count += 1;
-                } else {
-                    prev_queue_count = queue_count
-                }
-
-                if let Some(threshold) = flush_after {
-                    if idle_count >= threshold {
-                        idle_count = 0;
-                        prev_queue_count = 0;
-                        should_flush = true;
-                    }
-                }
-
-                send_data = lock.debounced_events(should_flush);
-                if should_flush {
-                    flush_c.store(false, Ordering::Release);
-                }
-
+                send_data = lock.debounced_events();
                 errors = lock.errors();
             }
             if !send_data.is_empty() {
-                if should_flush {
-                    tracing::trace!("Flushed {} events", send_data.len());
-                }
-
                 event_handler.handle_event(Ok(send_data));
             }
             if !errors.is_empty() {
@@ -652,7 +605,6 @@ pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + S
         debouncer_thread: Some(thread),
         data,
         stop,
-        flush,
     };
 
     Ok(guard)
@@ -666,13 +618,11 @@ pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + S
 pub fn new_debouncer<F: DebounceEventHandler>(
     timeout: Duration,
     tick_rate: Option<Duration>,
-    flush_after: Option<u32>,
     event_handler: F,
 ) -> Result<Debouncer<RecommendedWatcher, FileIdMap>, Error> {
     new_debouncer_opt::<F, RecommendedWatcher, FileIdMap>(
         timeout,
         tick_rate,
-        flush_after,
         event_handler,
         FileIdMap::default(),
         notify::Config::default(),
