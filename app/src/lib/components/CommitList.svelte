@@ -18,7 +18,10 @@
 	const project = getContext(Project);
 
 	$: hasShadowColumn =
-		$remoteCommits.length > 0 && $remoteCommits.at(0)?.relatedTo?.id != $remoteCommits.at(0)?.id;
+		$remoteCommits.length == 0 &&
+		$localCommits.length > 0 &&
+		$localCommits.at(0)?.relatedTo &&
+		$localCommits.at(0)?.relatedTo?.id != $localCommits.at(0)?.id;
 	$: hasLocalColumn = $localCommits.length > 0;
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
