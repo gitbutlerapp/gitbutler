@@ -1,5 +1,23 @@
-export function fileKey(fileId: string, commitId?: string) {
+import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
+import { derived } from 'svelte/store';
+import type { AnyFile, LocalFile } from '$lib/vbranches/types';
+
+export interface FileKey {
+	fileId: string;
+	commitId?: string;
+}
+
+export function stringifyFileKey(fileId: string, commitId?: string) {
 	return fileId + '|' + commitId;
+}
+
+export function parseFileKey(fileKeyString: string): FileKey {
+	const [fileId, commitId] = fileKeyString.split('|');
+
+	return {
+		fileId,
+		commitId: commitId == 'undefined' ? undefined : commitId
+	};
 }
 
 export type SelectedFile = {
@@ -29,16 +47,16 @@ export class FileIdSelection {
 	}
 
 	add(fileId: string, commitId?: string) {
-		this.value.push(fileKey(fileId, commitId));
+		this.value.push(stringifyFileKey(fileId, commitId));
 		this.emit();
 	}
 
 	has(fileId: string, commitId?: string) {
-		return this.value.includes(fileKey(fileId, commitId));
+		return this.value.includes(stringifyFileKey(fileId, commitId));
 	}
 
 	remove(fileId: string, commitId?: string) {
-		this.value = this.value.filter((key) => key != fileKey(fileId, commitId));
+		this.value = this.value.filter((key) => key != stringifyFileKey(fileId, commitId));
 		this.emit();
 	}
 
@@ -62,12 +80,30 @@ export class FileIdSelection {
 		}
 	}
 
-	only() {
-		const [fileId, commitId] = this.value[0].split('|');
-		return { fileId, commitId };
+	only(): FileKey | undefined {
+		if (this.value.length != 1) return;
+		const fileKey = parseFileKey(this.value[0]);
+		return fileKey;
+	}
+
+	selectedFile(localFiles: LocalFile[], branchId: string) {
+		return derived(this, async (value): Promise<AnyFile | undefined> => {
+			if (value.length != 1) return;
+			const fileKey = parseFileKey(value[0]);
+			return await findFileByKey(localFiles, branchId, fileKey);
+		});
 	}
 
 	get length() {
 		return this.value.length;
+	}
+}
+
+export async function findFileByKey(localFiles: LocalFile[], projectId: string, key: FileKey) {
+	if (key.commitId) {
+		const remoteFiles = await listRemoteCommitFiles(projectId, key.commitId);
+		return remoteFiles.find((file) => file.id == key.fileId);
+	} else {
+		return localFiles.find((file) => file.id == key.fileId);
 	}
 }

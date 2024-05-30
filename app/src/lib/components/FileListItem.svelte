@@ -8,8 +8,8 @@
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
 	import { updateFocus } from '$lib/utils/selection';
 	import { isDefined } from '$lib/utils/typeguards';
-	import { getCommitStore, getSelectedFiles } from '$lib/vbranches/contexts';
-	import { FileIdSelection, fileKey } from '$lib/vbranches/fileIdSelection';
+	import { getCommitStore } from '$lib/vbranches/contexts';
+	import { FileIdSelection, stringifyFileKey } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type AnyFile } from '$lib/vbranches/types';
 	import { onDestroy } from 'svelte';
@@ -24,7 +24,6 @@
 	const branch = maybeGetContextStore(Branch);
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 	const fileIdSelection = getContext(FileIdSelection);
-	const selectedFiles = getSelectedFiles();
 	const commit = getCommitStore();
 
 	let checked = false;
@@ -74,20 +73,20 @@
 			fileIdSelection.add(file.id, $commit?.id);
 		}
 
-		if ($selectedFiles.length > 0) {
-			$selectedFiles.forEach((f) => {
-				if (f.locked) {
-					const lockedElement = document.getElementById(`file-${f.id}`);
+		// if ($selectedFiles.length > 0) {
+		// 	$selectedFiles.forEach((f) => {
+		// 		if (f.locked) {
+		// 			const lockedElement = document.getElementById(`file-${f.id}`);
 
-					if (lockedElement) {
-						// add a class to the locked file
-						lockedElement.classList.add('locked-file-animation');
-					}
-				}
-			});
-		} else if (file.locked) {
-			draggableElt.classList.add('locked-file-animation');
-		}
+		// 			if (lockedElement) {
+		// 				// add a class to the locked file
+		// 				lockedElement.classList.add('locked-file-animation');
+		// 			}
+		// 		}
+		// 	});
+		// } else if (file.locked) {
+		// 	draggableElt.classList.add('locked-file-animation');
+		// }
 	}}
 	on:animationend={() => {
 		// remove the class after the animation ends
@@ -95,22 +94,22 @@
 			draggableElt.classList.remove('locked-file-animation');
 		}
 	}}
-	use:draggable={{
-		data: new DraggableFile($branch?.id || '', file, $commit, selectedFiles),
-		disabled: readonly || isUnapplied,
-		viewportId: 'board-viewport',
-		selector: '.selected-draggable'
-	}}
 	role="button"
 	tabindex="0"
 	on:contextmenu|preventDefault={(e) => {
-		const files = fileIdSelection.has(file.id, $commit?.id)
-			? $fileIdSelection
-					.map((key) => $selectedFiles?.find((f) => fileKey(f.id, $commit?.id) == key))
-					.filter(isDefined)
-			: [file];
-		if (files.length > 0) popupMenu.openByMouse(e, { files });
-		else console.error('No files selected');
+		// use:draggable={{
+		// 	data: new DraggableFile($branch?.id || '', file, $commit, selectedFiles),
+		// 	disabled: readonly || isUnapplied,
+		// 	viewportId: 'board-viewport',
+		// 	selector: '.selected-draggable'
+		// }}
+		// const files = fileIdSelection.has(file.id, $commit?.id)
+		// 	? $fileIdSelection
+		// 			.map((key) => $selectedFiles?.find((f) => fileKey(f.id, $commit?.id) == key))
+		// 			.filter(isDefined)
+		// 	: [file];
+		// if (files.length > 0) popupMenu.openByMouse(e, { files });
+		// else console.error('No files selected');
 	}}
 >
 	{#if showCheckbox}

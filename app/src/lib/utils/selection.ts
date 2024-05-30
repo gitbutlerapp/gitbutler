@@ -35,8 +35,8 @@ export function updateFocus(
 	fileIdSelection: FileIdSelection,
 	commitId?: string
 ) {
-	if (fileIdSelection.length != 1) return;
 	const selected = fileIdSelection.only();
+	if (!selected) return;
 	if (selected.fileId == file.id && selected.commitId == commitId) elt.focus();
 }
 
@@ -46,11 +46,10 @@ export function maybeMoveSelection(
 	selectedFileIds: FileIdSelection
 ) {
 	if (key != 'ArrowUp' && key != 'ArrowDown') return;
-	if (selectedFileIds.length == 0) return;
 
-	const newSelection = getFileByKey(key, selectedFileIds.only().fileId, files);
-	if (newSelection) {
-		selectedFileIds.clear();
-		selectedFileIds.add(newSelection.id);
-	}
+	// const newSelection = getFileByKey(key, selectedFileIds.only().fileId, files);
+	// if (newSelection) {
+	// 	selectedFileIds.clear();
+	// 	selectedFileIds.add(newSelection.id);
+	// }
 }

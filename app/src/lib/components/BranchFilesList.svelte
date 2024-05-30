@@ -7,7 +7,7 @@
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { maybeMoveSelection } from '$lib/utils/selection';
 	import { getCommitStore } from '$lib/vbranches/contexts';
-	import { FileIdSelection, fileKey } from '$lib/vbranches/fileIdSelection';
+	import { FileIdSelection, stringifyFileKey } from '$lib/vbranches/fileIdSelection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import type { AnyFile } from '$lib/vbranches/types';
 
@@ -76,7 +76,7 @@
 		{readonly}
 		{isUnapplied}
 		showCheckbox={showCheckboxes}
-		selected={$fileIdSelection.includes(fileKey(file.id, $commit?.id))}
+		selected={$fileIdSelection.includes(stringifyFileKey(file.id, $commit?.id))}
 		on:click={(e) => {
 			selectFilesInList(e, file, fileIdSelection, sortedFiles, allowMultiple, $commit);
 		}}

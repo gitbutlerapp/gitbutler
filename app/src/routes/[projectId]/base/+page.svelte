@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Project } from '$lib/backend/projects';
 	import BaseBranch from '$lib/components/BaseBranch.svelte';
 	import FileCard from '$lib/components/FileCard.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
@@ -7,7 +8,6 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
-	import { createSelectedFiles } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import lscache from 'lscache';
 	import { onMount, setContext } from 'svelte';
@@ -17,17 +17,17 @@
 
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
+	const project = getContext(Project);
 
 	const fileIdSelection = new FileIdSelection();
 	setContext(FileIdSelection, fileIdSelection);
 
-	const selectedFiles = createSelectedFiles([]);
+	const selectedFile = fileIdSelection.selectedFile([], project.id);
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
 
 	$: error$ = baseBranchService.error$;
-	$: selected = $selectedFiles.length == 1 ? $selectedFiles[0] : undefined;
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
@@ -61,17 +61,19 @@
 			/>
 		</div>
 		<div class="base__right">
-			{#if selected}
-				<FileCard
-					conflicted={selected.conflicted}
-					file={selected}
-					isUnapplied={false}
-					readonly={true}
-					on:close={() => {
-						fileIdSelection.clear();
-					}}
-				/>
-			{/if}
+			{#await $selectedFile then selected}
+				{#if selected}
+					<FileCard
+						conflicted={selected.conflicted}
+						file={selected}
+						isUnapplied={false}
+						readonly={true}
+						on:close={() => {
+							fileIdSelection.clear();
+						}}
+					/>
+				{/if}
+			{/await}
 		</div>
 	</div>
 {/if}
