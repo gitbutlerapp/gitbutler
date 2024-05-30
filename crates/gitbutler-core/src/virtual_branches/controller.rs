@@ -638,7 +638,7 @@ impl ControllerInner {
             let _ = snapshot_tree.and_then(|snapshot_tree| {
                 project_repository
                     .project()
-                    .snapshot_branch_applied(snapshot_tree, &result)
+                    .snapshot_branch_applied(snapshot_tree, result.as_ref())
             });
             result.map(|_| ())
         })
@@ -793,8 +793,14 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result = super::unapply_branch(project_repository, branch_id);
-            result.map(|_| ()).map_err(Into::into)
+            let snapshot_tree = project_repository.project().prepare_snapshot();
+            let result = super::unapply_branch(project_repository, branch_id).map_err(Into::into);
+            let _ = snapshot_tree.and_then(|snapshot_tree| {
+                project_repository
+                    .project()
+                    .snapshot_branch_unapplied(snapshot_tree, result.as_ref())
+            });
+            result.map(|_| ())
         })
     }
 
