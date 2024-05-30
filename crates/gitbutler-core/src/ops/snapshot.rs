@@ -34,13 +34,16 @@ impl Project {
         self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
-    pub(crate) fn snapshot_commit_undo(&self, commit_sha: git::Oid) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::UndoCommit).with_trailers(vec![Trailer {
-                key: "sha".to_string(),
-                value: commit_sha.to_string(),
-            }]);
-        self.create_snapshot(details)?;
+    pub(crate) fn snapshot_commit_undo(
+        &self,
+        snapshot_tree: git::Oid,
+        result: Result<&(), &Error>,
+        commit_sha: git::Oid,
+    ) -> anyhow::Result<()> {
+        let result = result.map(|_| Some(commit_sha.to_string()));
+        let details = SnapshotDetails::new(OperationKind::UndoCommit)
+            .with_trailers(result_trailer(result, "sha".to_string()));
+        self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
     pub(crate) fn snapshot_commit_creation(
