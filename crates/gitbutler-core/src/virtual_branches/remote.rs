@@ -48,6 +48,7 @@ pub struct RemoteCommit {
     pub created_at: u128,
     pub author: Author,
     pub change_id: Option<String>,
+    pub parent_ids: Vec<git::Oid>,
 }
 
 // for legacy purposes, this is still named "remote" branches, but it's actually
@@ -187,12 +188,20 @@ pub fn branch_to_remote_branch_data(
 }
 
 pub fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
+    let parent_ids: Vec<git::Oid> = commit
+        .parents()
+        .map(|c| {
+            let c: git::Oid = c.id().into();
+            c
+        })
+        .collect::<Vec<_>>();
     RemoteCommit {
         id: commit.id().to_string(),
         description: commit.message_bstr().to_owned(),
         created_at: commit.time().seconds().try_into().unwrap(),
         author: commit.author().into(),
         change_id: commit.change_id(),
+        parent_ids,
     }
 }
 
