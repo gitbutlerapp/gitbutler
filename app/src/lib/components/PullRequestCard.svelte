@@ -15,11 +15,11 @@
 	import { Branch } from '$lib/vbranches/types';
 	import { distinctUntilChanged } from 'rxjs';
 	import { onDestroy } from 'svelte';
+	import { derived, type Readable } from 'svelte/store';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
 	import type { ComponentColor } from '$lib/vbranches/types';
 	import type { MessageStyle } from './InfoMessage.svelte';
 	import type iconsJson from '../icons/icons.json';
-	import type { Readable } from 'svelte/store';
 
 	type StatusInfo = {
 		text: string;
@@ -44,7 +44,11 @@
 	let checksStatus: ChecksStatus | null | undefined = undefined;
 	let lastDetailsFetch: Readable<string> | undefined;
 
-	$: pr$ = githubService.getPr$($branch.upstream?.sha || $branch.head).pipe(
+	const distinctId = derived([branch], ([branch]) => {
+		return branch.upstream?.sha || branch.head;
+	});
+
+	$: pr$ = githubService.getPr$($distinctId).pipe(
 		// Only emit a new objcect if the modified timestamp has changed.
 		distinctUntilChanged((prev, curr) => {
 			return prev?.modifiedAt.getTime() === curr?.modifiedAt.getTime();
