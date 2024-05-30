@@ -16,7 +16,6 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore } from '$lib/vbranches/contexts';
-	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 	import {
 		RemoteCommit,

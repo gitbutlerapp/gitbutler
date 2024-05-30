@@ -22,7 +22,7 @@
 	const fileIdSelection = new FileIdSelection();
 	setContext(FileIdSelection, fileIdSelection);
 
-	const selectedFile = fileIdSelection.selectedFile([], project.id);
+	$: selectedFile = fileIdSelection.selectedFile([], project.id);
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;

@@ -49,7 +49,7 @@
 	const fileIdSelection = new FileIdSelection();
 	setContext(FileIdSelection, fileIdSelection);
 
-	const selectedFile = fileIdSelection.selectedFile(branch.files, project.id);
+	$: selectedFile = fileIdSelection.selectedFile(branch.files, project.id);
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 

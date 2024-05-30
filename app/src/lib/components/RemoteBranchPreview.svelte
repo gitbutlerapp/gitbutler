@@ -24,7 +24,7 @@
 	const fileIdSelection = new FileIdSelection();
 	setContext(FileIdSelection, fileIdSelection);
 
-	const selectedFile = fileIdSelection.selectedFile([], project.id);
+	$: selectedFile = fileIdSelection.selectedFile([], project.id);
 
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'branchPreviewLaneWidth';

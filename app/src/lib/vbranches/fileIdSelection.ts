@@ -95,10 +95,6 @@ export class FileIdSelection {
 		});
 	}
 
-	fileKeys() {
-		return derived(this, (value) => value.map(parseFileKey));
-	}
-
 	files(localFiles: LocalFile[], branchId: string) {
 		return derived(this, async (value) => {
 			const files = await Promise.all(

@@ -27,7 +27,7 @@
 	const project = getContext(Project);
 	const commit = getCommitStore();
 
-	const selectedFiles = fileIdSelection.files($branch?.files || [], project.id);
+	$: selectedFiles = fileIdSelection.files($branch?.files || [], project.id);
 
 	let checked = false;
 	let indeterminate = false;
