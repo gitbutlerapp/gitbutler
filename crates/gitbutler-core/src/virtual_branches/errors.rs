@@ -307,16 +307,6 @@ pub enum UpdateCommitMessageError {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum SetBaseBranchError {
-    #[error("Current HEAD is dirty.")]
-    DirtyWorkingDirectory,
-    #[error("remote branch '{0}' not found")]
-    BranchNotFound(git::RemoteRefname),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-#[derive(Debug, thiserror::Error)]
 pub enum UpdateBaseBranchError {
     #[error("project is in conflicting state")]
     Conflict(ProjectConflict),
@@ -379,6 +369,7 @@ impl ProjectConflict {
             "project {} is in a conflicted state",
             self.project_id
         ))
+        .with_code(Code::ProjectConflict)
     }
 }
 
@@ -389,10 +380,11 @@ pub struct DefaultTargetNotSet {
 
 impl DefaultTargetNotSet {
     fn to_context(&self) -> error::Context {
-        error::Context::new(format!(
+        Context::new(format!(
             "project {} does not have a default target set",
             self.project_id
         ))
+        .with_code(Code::ProjectConflict)
     }
 }
 

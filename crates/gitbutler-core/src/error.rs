@@ -120,7 +120,7 @@
 //! here. It is made to only automatically convert from types that have context information.
 //! Those who have not will need to be converted by hand using [`Error::from_err()`].
 use std::borrow::Cow;
-use std::fmt::{self, Debug, Display};
+use std::fmt::{Debug, Display, Formatter};
 
 /// A unique code that consumers of the API may rely on to identify errors.
 ///
@@ -138,7 +138,9 @@ pub enum Code {
     Unknown,
     Validation,
     ProjectGitAuth,
-    // TODO(ST): try to remove this and replace it with downcasting or thiserror pattern matching
+    /// An indicator for a conflict in the project which is used for flow-control.
+    ///
+    /// See usages for details on what these conflicts can be.
     ProjectConflict,
 }
 
@@ -281,18 +283,18 @@ impl From<Error> for anyhow::Error {
     }
 }
 
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
-
 impl<E> From<E> for Error
 where
     E: ErrorWithContext + Send + Sync + 'static,
 {
     fn from(value: E) -> Self {
         Self(into_anyhow(value))
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.0, f)
     }
 }
 

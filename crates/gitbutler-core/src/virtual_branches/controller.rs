@@ -137,7 +137,7 @@ impl Controller {
         &self,
         project_id: ProjectId,
         target_branch: &git::RemoteRefname,
-    ) -> Result<super::BaseBranch, Error> {
+    ) -> Result<BaseBranch, Error> {
         self.inner(project_id)
             .await
             .set_base_branch(project_id, target_branch)
@@ -546,13 +546,13 @@ impl ControllerInner {
         &self,
         project_id: ProjectId,
         target_branch: &git::RemoteRefname,
-    ) -> Result<super::BaseBranch, Error> {
+    ) -> Result<BaseBranch, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::SetBaseBranch));
-        super::set_base_branch(&project_repository, target_branch).map_err(Error::from_err)
+        Ok(super::set_base_branch(&project_repository, target_branch)?)
     }
 
     pub fn set_target_push_remote(
@@ -562,7 +562,10 @@ impl ControllerInner {
     ) -> Result<(), Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        super::set_target_push_remote(&project_repository, push_remote).map_err(Error::from_err)
+        Ok(super::set_target_push_remote(
+            &project_repository,
+            push_remote,
+        )?)
     }
 
     pub async fn integrate_upstream_commits(
