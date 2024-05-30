@@ -77,6 +77,14 @@ impl Refname {
             Refname::Other(raw) => raw.to_string(),
         }
     }
+
+    pub fn remote_name(&self) -> Option<&str> {
+        match self {
+            Self::Remote(remote) => Some(remote.remote()),
+            Self::Local(remote) => remote.remote().map(|r| r.remote()),
+            _ => None,
+        }
+    }
 }
 
 impl FromStr for Refname {

@@ -16,7 +16,7 @@
 	import { distinctUntilChanged } from 'rxjs';
 	import { onDestroy } from 'svelte';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
-	import type { ComponentColor } from '$lib/vbranches/types';
+	import type { BranchIdentifier, ComponentColor } from '$lib/vbranches/types';
 	import type { MessageStyle } from './InfoMessage.svelte';
 	import type iconsJson from '../icons/icons.json';
 	import type { Readable } from 'svelte/store';
@@ -44,7 +44,7 @@
 	let checksStatus: ChecksStatus | null | undefined = undefined;
 	let lastDetailsFetch: Readable<string> | undefined;
 
-	$: pr$ = githubService.getPr$($branch.upstream?.sha || $branch.head).pipe(
+	$: pr$ = githubService.getPr$($branch.branchIdentifier).pipe(
 		// Only emit a new objcect if the modified timestamp has changed.
 		distinctUntilChanged((prev, curr) => {
 			return prev?.modifiedAt.getTime() === curr?.modifiedAt.getTime();
@@ -58,15 +58,18 @@
 
 	async function updateDetailsAndChecks() {
 		if (!$pr$) return;
-		if (!isFetchingDetails) await updateDetailedPullRequest($pr$.sha, true);
+		if (!isFetchingDetails) await updateDetailedPullRequest($pr$.branchIdentifier, true);
 		if (!isFetchingChecks) await fetchChecks();
 	}
 
-	async function updateDetailedPullRequest(targetBranchSha: string, skipCache: boolean) {
+	async function updateDetailedPullRequest(
+		targetBranchIdentifier: BranchIdentifier,
+		skipCache: boolean
+	) {
 		detailsError = undefined;
 		isFetchingDetails = true;
 		try {
-			detailedPr = await githubService.getDetailedPr(targetBranchSha, skipCache);
+			detailedPr = await githubService.getDetailedPr(targetBranchIdentifier, skipCache);
 			mergeableState = detailedPr?.mergeableState;
 			lastDetailsFetch = createTimeAgoStore(new Date(), true);
 		} catch (err: any) {

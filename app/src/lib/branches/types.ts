@@ -1,5 +1,5 @@
 import type { PullRequest } from '$lib/github/types';
-import type { Author, Branch, RemoteBranch } from '$lib/vbranches/types';
+import type { Author, Branch, BranchIdentifier, RemoteBranch } from '$lib/vbranches/types';
 
 export class CombinedBranch {
 	pr?: PullRequest;
@@ -20,14 +20,18 @@ export class CombinedBranch {
 		this.pr = pr;
 	}
 
-	get upstreamSha(): string {
-		return (
-			this.pr?.sha ||
-			this.remoteBranch?.sha ||
-			this.vbranch?.upstream?.sha ||
-			this.vbranch?.head ||
-			'unknown'
-		);
+	get branchIdentifier(): BranchIdentifier {
+		const branchIdentifier =
+			this.pr?.branchIdentifier ||
+			this.remoteBranch?.branchIdentifier ||
+			this.vbranch?.branchIdentifier;
+
+		// This should never happen
+		if (!branchIdentifier) {
+			throw new Error('Branch identifier is missing');
+		}
+
+		return branchIdentifier;
 	}
 
 	get displayName(): string {

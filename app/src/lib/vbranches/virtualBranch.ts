@@ -1,4 +1,11 @@
-import { Branch, Commit, RemoteCommit, VirtualBranches, commitCompare } from './types';
+import {
+	Branch,
+	BranchIdentifier,
+	Commit,
+	RemoteCommit,
+	VirtualBranches,
+	commitCompare
+} from './types';
 import { invoke, listen } from '$lib/backend/ipc';
 import { observableToStore } from '$lib/rxjs/store';
 import { getRemoteBranchData } from '$lib/stores/remoteBranches';
@@ -140,11 +147,11 @@ export class VirtualBranchService {
 		);
 	}
 
-	async getByUpstreamSha(upstreamSha: string) {
+	async getByBranchIdentifier(branchIdentifier: BranchIdentifier) {
 		return await firstValueFrom(
 			this.branches$.pipe(
 				timeout(10000),
-				map((branches) => branches?.find((b) => b.upstream?.sha == upstreamSha))
+				map((branches) => branches?.find((b) => b.branchIdentifier.equal(branchIdentifier)))
 			)
 		);
 	}

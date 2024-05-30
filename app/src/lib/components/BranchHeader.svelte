@@ -31,7 +31,7 @@
 	const baseBranch = getContextStore(BaseBranch);
 
 	$: branch = $branchStore;
-	$: pr$ = githubService.getPr$(branch.upstream?.sha || branch.head);
+	$: pr$ = githubService.getPr$(branch.branchIdentifier);
 	$: hasPullRequest = branch.upstreamName && $pr$;
 
 	let meatballButton: HTMLDivElement;
