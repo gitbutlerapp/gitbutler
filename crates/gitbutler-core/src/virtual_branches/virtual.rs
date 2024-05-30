@@ -1167,7 +1167,7 @@ pub fn integrate_upstream_commits(
     branch_id: BranchId,
     user: Option<&users::User>,
 ) -> Result<(), anyhow::Error> {
-    conflicts::is_conflicting::<&Path>(project_repository, None)?;
+    conflicts::is_conflicting(project_repository, None)?;
 
     let repo = &project_repository.git_repository;
     let project = project_repository.project();
@@ -1979,7 +1979,7 @@ fn virtual_hunks_into_virtual_files(
         .map(|(path, hunks)| {
             let id = path.display().to_string();
             let conflicted =
-                conflicts::is_conflicting(project_repository, Some(&id)).unwrap_or(false);
+                conflicts::is_conflicting(project_repository, Some(id.as_ref())).unwrap_or(false);
             let binary = hunks.iter().any(|h| h.binary);
             let modified_at = hunks.iter().map(|h| h.modified_at).max().unwrap_or(0);
             debug_assert!(hunks.iter().all(|hunk| hunk.file_path == path));
@@ -2332,7 +2332,7 @@ pub fn commit(
 
     update_conflict_markers(project_repository, &files)?;
 
-    if conflicts::is_conflicting::<&Path>(project_repository, None)? {
+    if conflicts::is_conflicting(project_repository, None)? {
         return Err(errors::CommitError::Conflicted(errors::ProjectConflict {
             project_id: project_repository.project().id,
         }));
@@ -2943,7 +2943,7 @@ pub fn amend(
     commit_oid: git::Oid,
     target_ownership: &BranchOwnershipClaims,
 ) -> Result<git::Oid, errors::VirtualBranchError> {
-    if conflicts::is_conflicting::<&Path>(project_repository, None)? {
+    if conflicts::is_conflicting(project_repository, None)? {
         return Err(errors::VirtualBranchError::Conflict(
             errors::ProjectConflict {
                 project_id: project_repository.project().id,
@@ -3447,7 +3447,7 @@ pub fn cherry_pick(
     branch_id: BranchId,
     target_commit_oid: git::Oid,
 ) -> Result<Option<git::Oid>, errors::CherryPickError> {
-    if conflicts::is_conflicting::<&Path>(project_repository, None)? {
+    if conflicts::is_conflicting(project_repository, None)? {
         return Err(errors::CherryPickError::Conflict(errors::ProjectConflict {
             project_id: project_repository.project().id,
         }));
@@ -3630,7 +3630,7 @@ pub fn squash(
     branch_id: BranchId,
     commit_oid: git::Oid,
 ) -> Result<(), errors::SquashError> {
-    if conflicts::is_conflicting::<&Path>(project_repository, None)? {
+    if conflicts::is_conflicting(project_repository, None)? {
         return Err(errors::SquashError::Conflict(errors::ProjectConflict {
             project_id: project_repository.project().id,
         }));
@@ -3757,7 +3757,7 @@ pub fn update_commit_message(
         return Err(errors::UpdateCommitMessageError::EmptyMessage);
     }
 
-    if conflicts::is_conflicting::<&Path>(project_repository, None)? {
+    if conflicts::is_conflicting(project_repository, None)? {
         return Err(errors::UpdateCommitMessageError::Conflict(
             errors::ProjectConflict {
                 project_id: project_repository.project().id,

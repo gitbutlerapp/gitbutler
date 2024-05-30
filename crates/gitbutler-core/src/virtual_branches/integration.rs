@@ -50,7 +50,7 @@ pub fn get_workspace_head(
     let target_commit = repo.find_commit(target.sha.into())?;
     let mut workspace_tree = target_commit.tree()?;
 
-    if conflicts::is_conflicting::<String>(project_repo, None)? {
+    if conflicts::is_conflicting(project_repo, None)? {
         let merge_parent =
             conflicts::merge_parent(project_repo)?.ok_or(anyhow!("No merge parent"))?;
         let first_branch = applied_branches.first().ok_or(anyhow!("No branches"))?;

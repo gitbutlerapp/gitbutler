@@ -21,18 +21,11 @@ pub fn signatures<'a>(
     Ok((author, comitter))
 }
 
-fn try_from<'a>(value: &users::User) -> Result<git2::Signature<'a>, git::Error> {
-    if let Some(name) = &value.name {
-        git2::Signature::now(name, &value.email)
-            .map(Into::into)
-            .map_err(Into::into)
-    } else if let Some(name) = &value.given_name {
-        git2::Signature::now(name, &value.email)
-            .map(Into::into)
-            .map_err(Into::into)
-    } else {
-        git2::Signature::now(&value.email, &value.email)
-            .map(Into::into)
-            .map_err(Into::into)
-    }
+fn try_from(value: &users::User) -> Result<git2::Signature<'static>, git::Error> {
+    let name = value
+        .name
+        .as_deref()
+        .or(value.given_name.as_deref())
+        .unwrap_or(&value.email);
+    Ok(git2::Signature::now(name, &value.email)?)
 }
