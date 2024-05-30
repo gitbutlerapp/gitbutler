@@ -120,7 +120,7 @@
 //! here. It is made to only automatically convert from types that have context information.
 //! Those who have not will need to be converted by hand using [`Error::from_err()`].
 use std::borrow::Cow;
-use std::fmt::{Debug, Display};
+use std::fmt::{self, Debug, Display};
 
 /// A unique code that consumers of the API may rely on to identify errors.
 #[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq)]
@@ -277,6 +277,12 @@ impl From<anyhow::Error> for Error {
 impl From<Error> for anyhow::Error {
     fn from(value: Error) -> Self {
         value.0
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Display::fmt(&self.0, f)
     }
 }
 

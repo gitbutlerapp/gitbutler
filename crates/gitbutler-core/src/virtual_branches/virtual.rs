@@ -220,7 +220,7 @@ pub fn apply_branch(
     project_repository: &project_repository::Repository,
     branch_id: BranchId,
     user: Option<&users::User>,
-) -> Result<(), errors::ApplyBranchError> {
+) -> Result<String, errors::ApplyBranchError> {
     if project_repository.is_resolving() {
         return Err(errors::ApplyBranchError::Conflict(
             errors::ProjectConflict {
@@ -244,12 +244,8 @@ pub fn apply_branch(
         Err(error) => Err(errors::ApplyBranchError::Other(error.into())),
     }?;
 
-    _ = project_repository
-        .project()
-        .snapshot_branch_applied(branch.name.clone());
-
     if branch.applied {
-        return Ok(());
+        return Ok(branch.name);
     }
 
     let target_commit = repo
@@ -297,7 +293,7 @@ pub fn apply_branch(
 
             // apply the branch
             branch.applied = true;
-            vb_state.set_branch(branch)?;
+            vb_state.set_branch(branch.clone())?;
 
             // checkout the conflicts
             repo.checkout_index(&mut merge_index)
@@ -326,7 +322,7 @@ pub fn apply_branch(
                 Some(default_target.sha),
             )?;
 
-            return Ok(());
+            return Ok(branch.name);
         }
 
         let head_commit = repo
@@ -470,7 +466,7 @@ pub fn apply_branch(
         .context("failed to checkout index")?;
 
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-    Ok(())
+    Ok(branch.name)
 }
 
 pub fn unapply_ownership(
@@ -639,9 +635,6 @@ pub fn unapply_branch(
     if !target_branch.applied {
         return Ok(Some(target_branch));
     }
-    let _ = project_repository
-        .project()
-        .snapshot_branch_unapplied(target_branch.name.clone());
 
     let default_target = vb_state.get_default_target()?;
     let repo = &project_repository.git_repository;
@@ -4168,7 +4161,7 @@ pub fn create_virtual_branch_from_branch(
     project_repository.add_branch_reference(&branch)?;
 
     match apply_branch(project_repository, branch.id, user) {
-        Ok(()) => Ok(branch.id),
+        Ok(_) => Ok(branch.id),
         Err(errors::ApplyBranchError::BranchConflicts(_)) => {
             // if branch conflicts with the workspace, it's ok. keep it unapplied
             Ok(branch.id)

@@ -459,6 +459,7 @@ impl ControllerInner {
             let _ = snapshot_tree.and_then(|snapshot_tree| {
                 project_repository.project().snapshot_commit_creation(
                     snapshot_tree,
+                    result.as_ref().err(),
                     message.to_owned(),
                     None,
                 )
@@ -630,7 +631,16 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
-            super::apply_branch(project_repository, branch_id, user).map_err(Into::into)
+            let snapshot_tree = project_repository.project().prepare_snapshot();
+            let result =
+                super::apply_branch(project_repository, branch_id, user).map_err(Into::into);
+
+            let _ = snapshot_tree.and_then(|snapshot_tree| {
+                project_repository
+                    .project()
+                    .snapshot_branch_applied(snapshot_tree, result.as_ref())
+            });
+            result.map(|_| ())
         })
     }
 
@@ -715,10 +725,17 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let _ = project_repository
-                .project()
-                .snapshot_commit_undo(commit_oid);
-            super::undo_commit(project_repository, branch_id, commit_oid).map_err(Into::into)
+            let snapshot_tree = project_repository.project().prepare_snapshot();
+            let result: Result<(), Error> =
+                super::undo_commit(project_repository, branch_id, commit_oid).map_err(Into::into);
+            let _ = snapshot_tree.and_then(|snapshot_tree| {
+                project_repository.project().snapshot_commit_undo(
+                    snapshot_tree,
+                    result.as_ref(),
+                    commit_oid,
+                )
+            });
+            result
         })
     }
 
@@ -783,8 +800,14 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            let result = super::unapply_branch(project_repository, branch_id);
-            result.map(|_| ()).map_err(Into::into)
+            let snapshot_tree = project_repository.project().prepare_snapshot();
+            let result = super::unapply_branch(project_repository, branch_id).map_err(Into::into);
+            let _ = snapshot_tree.and_then(|snapshot_tree| {
+                project_repository
+                    .project()
+                    .snapshot_branch_unapplied(snapshot_tree, result.as_ref())
+            });
+            result.map(|_| ())
         })
     }
 
