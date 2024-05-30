@@ -22,7 +22,7 @@ export function selectFilesInList(
 		}
 	} else if (e.shiftKey && allowMultiple) {
 		const initiallySelectedIndex = sortedFiles.findIndex(
-			(file) => stringifyFileKey(file.id, undefined) == selectedFileIds[0]
+			(f) => f.id == fileIdSelection.only()?.fileId
 		);
 
 		// detect the direction of the selection
