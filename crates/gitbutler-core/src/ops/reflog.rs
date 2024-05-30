@@ -86,7 +86,7 @@ fn standard_signature() -> gix::actor::SignatureRef<'static> {
     gix::actor::SignatureRef {
         name: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME.into(),
         email: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL.into(),
-        time: Default::default(),
+        time: gix::date::Time::now_local_or_utc(),
     }
 }
 
