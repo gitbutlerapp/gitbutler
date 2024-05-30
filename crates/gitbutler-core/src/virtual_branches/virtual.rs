@@ -1682,20 +1682,21 @@ fn get_non_applied_status(
 
 fn compute_merge_base(
     project_repository: &project_repository::Repository,
-    integration_commit: &git::Oid,
     target_sha: &git::Oid,
+    virtual_branches: &Vec<branch::Branch>,
 ) -> Result<git::Oid> {
     let repo = &project_repository.git_repository;
-    let workspace_commit = repo.find_commit(*integration_commit)?;
     let mut merge_base = *target_sha;
-    for c in workspace_commit.parents() {
-        let mut non_merge_parent = c;
-        // Find the first non-merge commit since a merge with base means the
-        // merge base is equal to the base.
-        while non_merge_parent.parent_count() > 1 {
-            non_merge_parent = non_merge_parent.parent(0)?
+    for branch in virtual_branches {
+        if let Some(last) = project_repository
+            .l(branch.head, LogUntil::Commit(*target_sha))?
+            .last()
+            .map(|id| repo.find_commit(*id))
+        {
+            if let Ok(parent) = last?.parent(0) {
+                merge_base = repo.merge_base(parent.id().into(), merge_base)?;
+            }
         }
-        merge_base = repo.merge_base(merge_base, non_merge_parent.id().into())?;
     }
     Ok(merge_base)
 }
@@ -1707,7 +1708,7 @@ fn compute_locks(
     base_diffs: &BranchStatus,
     virtual_branches: &Vec<branch::Branch>,
 ) -> Result<HashMap<HunkHash, Vec<diff::HunkLock>>> {
-    let merge_base = compute_merge_base(project_repository, integration_commit, target_sha)?;
+    let merge_base = compute_merge_base(project_repository, target_sha, virtual_branches)?;
     let mut locked_hunk_map = HashMap::<HunkHash, Vec<diff::HunkLock>>::new();
 
     let mut commit_to_branch = HashMap::new();
