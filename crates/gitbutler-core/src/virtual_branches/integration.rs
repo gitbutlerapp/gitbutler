@@ -51,11 +51,12 @@ pub fn get_workspace_head(
     let target_tree = find_real_tree(project_repo, &target_commit, None)?;
     let mut workspace_tree = target_commit.tree()?;
 
-    if conflicts::is_conflicting::<String>(project_repo, None)? {
-        let merge_parent =
-            conflicts::merge_parent(project_repo)?.ok_or(anyhow!("No merge parent"))?;
-        let first_branch = applied_branches.first().ok_or(anyhow!("No branches"))?;
+    let merge_parent = conflicts::merge_parent(project_repo)?;
+    let is_conflicting = conflicts::is_conflicting::<String>(project_repo, None)?;
 
+    if is_conflicting && merge_parent.is_some() {
+        let merge_parent = merge_parent.unwrap();
+        let first_branch = applied_branches.first().ok_or(anyhow!("No branches"))?;
         let merge_base = repo.merge_base(first_branch.head.into(), merge_parent.into())?;
         workspace_tree = repo.find_commit(merge_base)?.tree()?;
     } else {

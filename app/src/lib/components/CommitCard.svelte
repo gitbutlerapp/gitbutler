@@ -163,7 +163,9 @@
 <Modal bind:this={commitMessageModal}>
 	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
 	<svelte:fragment slot="controls">
-		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}>Cancel</Button>
+		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}
+			>Cancel</Button
+		>
 		<Button
 			style="pop"
 			kind="solid"
@@ -202,7 +204,7 @@
 				class:upstream={type == 'upstream'}
 			/>
 
-			<div class="commit__content">
+			<div class={isConflicted ? 'commit__content-conflicted' : 'commit__content'}>
 				<!-- GENERAL INFO -->
 				<div
 					class="commit__about"
@@ -228,7 +230,10 @@
 							>empty commit message</span
 						>
 					{:else}
-						<h5 class="text-base-body-13 text-semibold commit__title" class:truncate={!showDetails}>
+						<h5
+							class="text-base-body-13 text-semibold commit__title"
+							class:truncate={!showDetails}
+						>
 							{commit.descriptionTitle}
 						</h5>
 
@@ -249,7 +254,8 @@
 								<span class="commit__subtitle-divider">•</span>
 
 								<span
-									>{getTimeAgo(commit.createdAt)}{type == 'remote' || type == 'upstream'
+									>{getTimeAgo(commit.createdAt)}{type == 'remote' ||
+									type == 'upstream'
 										? ` by ${commit.author.name}`
 										: ''}</span
 								>
@@ -350,41 +356,41 @@
 				</div>
 			{/if}
 
-		{#if isConflicted}
-			<div class="conflict-zone">
-				<Tag
-				style="ghost"
-				kind="solid"
-				clickable
-				on:click={(e) => {
-					e.stopPropagation();
-					resolveConflictStart(commit);
-				}}>Start</Tag
-			>
-			</div>
-			<div class="conflict-zone">
+			{#if isConflicted}
+				<div class="conflict-zone">
 					<Tag
-					style="ghost"
-					kind="solid"
-					clickable
-					on:click={(e) => {
-						e.stopPropagation();
-						resolveConflictFinish(commit);
-					}}>Finish</Tag
-				>
-			</div>
-			<div class="conflict-zone">
+						style="ghost"
+						kind="solid"
+						clickable
+						on:click={(e) => {
+							e.stopPropagation();
+							resolveConflictStart(commit);
+						}}>Start</Tag
+					>
+				</div>
+				<div class="conflict-zone">
 					<Tag
-					style="ghost"
-					kind="solid"
-					clickable
-					on:click={(e) => {
-						e.stopPropagation();
-						resolveConflictAbandon(commit);
-					}}>Abandon</Tag
-				>
-			</div>
-		{/if}
+						style="ghost"
+						kind="solid"
+						clickable
+						on:click={(e) => {
+							e.stopPropagation();
+							resolveConflictFinish(commit);
+						}}>Finish</Tag
+					>
+				</div>
+				<div class="conflict-zone">
+					<Tag
+						style="ghost"
+						kind="solid"
+						clickable
+						on:click={(e) => {
+							e.stopPropagation();
+							resolveConflictAbandon(commit);
+						}}>Abandon</Tag
+					>
+				</div>
+			{/if}
 		</div>
 	</CommitDragItem>
 </div>
@@ -459,15 +465,6 @@
 		}
 	}
 
-	.commit__header-conflict {
-		cursor: pointer;
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-10);
-		padding: var(--size-16);
-		background-color: rgba(255, 229, 230, 1);
-	}
-
 	.commit__type {
 		opacity: 0.4;
 	}
@@ -476,6 +473,14 @@
 	.commit__content {
 		display: flex;
 		flex-direction: column;
+	}
+
+	.commit__content-conflicted {
+		display: flex;
+		flex-direction: column;
+		cursor: pointer;
+		gap: var(--size-10);
+		background-color: rgba(255, 229, 230, 1);
 	}
 
 	.commit__about {
