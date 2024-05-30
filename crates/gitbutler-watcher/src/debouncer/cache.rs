@@ -108,7 +108,6 @@ impl FileIdCache for FileIdMap {
     }
 
     fn remove_path(&mut self, path: &Path) {
-        println!("n_paths {:?}", self.paths.len());
         self.paths.retain(|p, _| !p.starts_with(path));
     }
 }

@@ -160,7 +160,7 @@ fn state(
             .collect::<Vec<_>>();
 
         assert_eq!(
-            state.debounced_events(),
+            state.debounced_events(false),
             events,
             "debounced events after a `{delay}` delay"
         );
@@ -170,9 +170,9 @@ fn state(
 mod schema;
 mod utils {
     use crate::debouncer::FileIdCache;
-    use notify::RecursiveMode;
 
     use file_id::FileId;
+    use notify::RecursiveMode;
     use std::collections::HashMap;
     use std::path::{Path, PathBuf};
 
