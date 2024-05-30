@@ -16,7 +16,10 @@ Do not start any lines with the hash symbol.
 %{emoji_style}
 
 Here is my git diff:
-%{diff}`
+\`\`\`
+%{diff}
+\`\`\`
+`
 	}
 ];
 
@@ -34,6 +37,7 @@ Do not start any lines with the hash symbol.
 Only respond with the commit message.
 
 Here is my git diff:
+\`\`\`
 diff --git a/src/utils/typing.ts b/src/utils/typing.ts
 index 1cbfaa2..7aeebcf 100644
 --- a/src/utils/typing.ts
@@ -48,7 +52,9 @@ index 1cbfaa2..7aeebcf 100644
 +  check: (value: unknown) => value is T
 +): something is T[] {
 +  return Array.isArray(something) && something.every(check);
-+}`
++}
+\`\`\`
+`
 	},
 	{
 		role: MessageRole.Assistant,
@@ -69,7 +75,10 @@ Branch names should contain a maximum of 5 words.
 Only respond with the branch name.
 
 Here is my git diff:
-%{diff}`
+\`\`\`
+%{diff}
+\`\`\`
+`
 	}
 ];
 
@@ -83,6 +92,7 @@ Branch names should contain a maximum of 5 words.
 Only respond with the branch name.
 
 Here is my git diff:
+\`\`\`
 diff --git a/src/utils/typing.ts b/src/utils/typing.ts
 index 1cbfaa2..7aeebcf 100644
 --- a/src/utils/typing.ts
@@ -97,7 +107,9 @@ index 1cbfaa2..7aeebcf 100644
 +  check: (value: unknown) => value is T
 +): something is T[] {
 +  return Array.isArray(something) && something.every(check);
-+}`
++}
+\`\`\`
+`
 	},
 	{
 		role: MessageRole.Assistant,
