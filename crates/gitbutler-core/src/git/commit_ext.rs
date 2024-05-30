@@ -30,12 +30,12 @@ impl<'repo> CommitExt for git2::Commit<'repo> {
     }
 
     fn is_conflicted(&self) -> bool {
-        let cid = self.commit.header_field_bytes("conflicted").ok();
+        let cid = self.header_field_bytes("conflicted").ok();
         cid.is_some()
     }
 
     fn conflicted_files(&self) -> Option<u32> {
-        let cid = self.commit.header_field_bytes("conflicted").ok();
+        let cid = self.header_field_bytes("conflicted").ok();
         if let Some(cid) = cid {
             let cid = std::str::from_utf8(&cid).ok()?;
             let cid = cid.parse::<u32>().ok()?;

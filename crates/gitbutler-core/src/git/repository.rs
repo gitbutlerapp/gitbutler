@@ -1,5 +1,5 @@
 use super::{Branch, Config, Index, Oid, Reference, Refname, Remote, Result, Url};
-use git2::{BlameOptions, Submodule};
+use git2::{BlameOptions, Signature, Submodule};
 use git2_hooks::HookResult;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -133,7 +133,7 @@ impl Repository {
     // or the parent parent tree if it is in a conflicted state
     pub fn find_real_tree(
         &self,
-        commit: &Commit,
+        commit: &git2::Commit,
         side: Option<String>,
     ) -> Result<git2::Tree> {
         let tree = commit.tree()?;
@@ -144,9 +144,15 @@ impl Repository {
         let is_conflict = tree.get_name(&entry_name);
         if is_conflict.is_some() {
             let subtree_id = is_conflict.unwrap().id();
-            self.0.find_tree(subtree_id.into()).map_err(Into::into).map(git2::Tree::from)
+            self.0
+                .find_tree(subtree_id.into())
+                .map_err(Into::into)
+                .map(git2::Tree::from)
         } else {
-            self.0.find_tree(tree.id().into()).map_err(Into::into).map(git2::Tree::from)
+            self.0
+                .find_tree(tree.id().into())
+                .map_err(Into::into)
+                .map(git2::Tree::from)
         }
     }
 
@@ -246,7 +252,7 @@ impl Repository {
         match change_id {
             Some(change_id) => {
                 headers.push(("change-id".to_string(), change_id.to_string()));
-            },
+            }
             None => {
                 let change_id = format!("{}", uuid::Uuid::new_v4()).clone();
                 headers.push(("change-id".to_string(), change_id.clone()));

@@ -1,7 +1,6 @@
 use std::{path::Path, time};
 
 use anyhow::{Context, Result};
-use git2::Index;
 use serde::Serialize;
 
 use super::{
@@ -380,7 +379,6 @@ pub fn update_base_branch(
             .map(|(branch, _)| branch)
             .map(
                 |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
-
                     dbg!("UPDATING BRANCH");
                     dbg!(&branch);
 
@@ -404,26 +402,48 @@ pub fn update_base_branch(
 
                         // if there is uncommitted work, temp commit the wip
                         if branch_head_tree.id() != branch_tree.id() {
-                            let (author, committer) = project_repository.git_signatures(user)?;
-                            branch_head = repo.commit(None, &author, &committer, "wip", &branch_tree, &[&branch_head_commit], None)?;
+                            let (author, committer) = project_repository::signatures::signatures(
+                                project_repository,
+                                user,
+                            )
+                            .context("failed to get signatures")?;
+                            branch_head = repo.commit(
+                                None,
+                                &author,
+                                &committer,
+                                "wip",
+                                &branch_tree,
+                                &[&branch_head_commit],
+                                None,
+                            )?;
                         }
 
-                        let rebased_head_oid = cherry_rebase(project_repository, new_target_commit.id(), new_target_commit.id(), branch_head)?;
-                        let rebased_head = repo.find_commit(rebased_head_oid.unwrap()).context("failed to find rebased head")?;
+                        let rebased_head_oid = cherry_rebase(
+                            project_repository,
+                            new_target_commit.id().into(),
+                            new_target_commit.id().into(),
+                            branch_head.into(),
+                        )?;
+                        let rebased_head = repo
+                            .find_commit(rebased_head_oid.unwrap().into())
+                            .context("failed to find rebased head")?;
 
-                        branch.tree = find_real_tree(project_repository, (&rebased_head).into(), None)?.id().into();
-                        branch.head = rebased_head.id();
+                        branch.tree =
+                            find_real_tree(project_repository, (&rebased_head).into(), None)?
+                                .id()
+                                .into();
+                        branch.head = rebased_head.id().into();
 
                         dbg!(&branch);
 
                         // ok, it's rebased, now undo the wip commit but keep the tree
                         if branch_head_tree.id() != branch_tree.id() {
                             let parent = rebased_head.parent(0).context("failed to get parent")?;
-                            branch.head = parent.id();
+                            branch.head = parent.id().into();
                         }
 
                         vb_state.set_branch(branch.clone())?;
-                        return Ok(Some(branch))
+                        return Ok(Some(branch));
                     }
 
                     // back to the non-experimental code
@@ -550,7 +570,7 @@ pub fn update_base_branch(
                         project_repository,
                         new_target_commit.id().into(),
                         new_target_commit.id().into(),
-                        branch.head,
+                        branch.head.into(),
                     );
 
                     // rebase failed, just do the merge
@@ -560,7 +580,7 @@ pub fn update_base_branch(
 
                     if let Some(rebased_head_oid) = rebased_head_oid? {
                         // rebase worked out, rewrite the branch head
-                        branch.head = rebased_head_oid;
+                        branch.head = rebased_head_oid.into();
                         branch.tree = branch_merge_index_tree_oid;
                         vb_state.set_branch(branch.clone())?;
                         return Ok(Some(branch));
@@ -583,7 +603,7 @@ pub fn update_base_branch(
         .fold(new_target_commit.tree(), |final_tree, branch| {
             let repo: &git2::Repository = repo.into();
             let final_tree = final_tree?;
-            let branch_tree = repo.find_tree(branch.tree)?;
+            let branch_tree = repo.find_tree(branch.tree.into())?;
 
             // if we see a .conflict-side-0 entry, we know that the commit is conflicted
             // use that subtree for the merge instead
@@ -594,7 +614,8 @@ pub fn update_base_branch(
                 repo.find_tree(branch_tree.id().into())? // dumb, but sort of a clone()
             };
 
-            let mut merge_result = repo.merge_trees(&new_target_tree, &final_tree, &merge_tree, None)?;
+            let mut merge_result =
+                repo.merge_trees(&new_target_tree, &final_tree, &merge_tree, None)?;
             let final_tree_oid = merge_result.write_tree_to(repo)?;
             repo.find_tree(final_tree_oid)
         })

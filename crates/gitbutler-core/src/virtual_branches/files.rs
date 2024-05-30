@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 
 use super::errors;
-use crate::git::{self, diff};
+use crate::git::{self, diff, CommitExt};
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -6,7 +6,7 @@ use std::{
     collections::HashMap,
     hash::Hash,
     path::{Path, PathBuf},
-    time, vec
+    time, vec,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -26,9 +26,8 @@ use super::{
 };
 use crate::error::{self, AnyhowContextExt, Code};
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
-use crate::git::FileMode;
-use crate::project_repository::edit_mode;
 use crate::git::{CommitExt, RepositoryExt};
+use crate::project_repository::edit_mode;
 use crate::time::now_since_unix_epoch_ms;
 use crate::virtual_branches::branch::HunkHash;
 use crate::{
@@ -307,11 +306,7 @@ pub fn apply_branch(
                 .checkout()
                 .context("failed to checkout index")?;
 
-            conflicts::mark_from_index(
-                project_repository,
-                &merge_index,
-                Some(default_target.sha),
-            )?;
+            conflicts::mark_from_index(project_repository, &merge_index, Some(default_target.sha))?;
 
             return Ok(());
         }
@@ -2821,9 +2816,9 @@ pub fn move_commit_file(
         // rebase everything above the new "from" commit that has the moved changes removed
         let new_head = match cherry_rebase(
             project_repository,
-            new_from_commit_oid,
-            from_commit_oid,
-            target_branch.head,
+            new_from_commit_oid.into(),
+            from_commit_oid.into(),
+            target_branch.head.into(),
         ) {
             Ok(Some(new_head)) => new_head,
             _ => {
@@ -2840,7 +2835,7 @@ pub fn move_commit_file(
         )?;
 
         let new_upstream_commit_oids = project_repository.l(
-            new_head,
+            new_head.into(),
             project_repository::LogUntil::Commit(default_target.sha),
         )?;
 
@@ -2865,7 +2860,7 @@ pub fn move_commit_file(
 
         // reset the concept of what the upstream commits are to be the rebased ones
         upstream_commits = project_repository.l(
-            new_head,
+            new_head.into(),
             project_repository::LogUntil::Commit(amend_commit.id().into()),
         )?;
     }
@@ -2911,14 +2906,14 @@ pub fn move_commit_file(
     let last_commit = upstream_commits.first().cloned().unwrap();
     let new_head = cherry_rebase(
         project_repository,
-        commit_oid,
+        commit_oid.into(),
         amend_commit.id().into(),
-        last_commit,
+        last_commit.into(),
     )?;
 
     // if that rebase worked, update the branch head and the gitbutler integration
     if let Some(new_head) = new_head {
-        target_branch.head = new_head;
+        target_branch.head = new_head.into();
         vb_state.set_branch(target_branch.clone())?;
         super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
         Ok(commit_oid)
@@ -3091,13 +3086,13 @@ pub fn amend(
 
     let new_head = cherry_rebase(
         project_repository,
-        commit_oid,
+        commit_oid.into(),
         amend_commit.id().into(),
-        last_commit,
+        last_commit.into(),
     )?;
 
     if let Some(new_head) = new_head {
-        target_branch.head = new_head;
+        target_branch.head = new_head.into();
         vb_state.set_branch(target_branch.clone())?;
         super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
         Ok(commit_oid)
@@ -3117,20 +3112,31 @@ pub fn resolve_conflict_start(
 
     // redo the merge conflict and checkout the index into the working directory (hard)
     let repo = &project_repository.git_repository;
-    let commit = repo.find_commit(commit_oid).context("failed to find commit")?;
+    let commit = repo
+        .find_commit(commit_oid)
+        .context("failed to find commit")?;
     let tree = commit.tree().context("failed to find tree")?;
-    let side0 = tree.get_name(".conflict-side-0").context("failed to get side0")?;
-    let side1 = tree.get_name(".conflict-side-1").context("failed to get side1")?;
-    let base0  = tree.get_name(".conflict-base-0").context("failed to get base tree")?;
+    let side0 = tree
+        .get_name(".conflict-side-0")
+        .context("failed to get side0")?;
+    let side1 = tree
+        .get_name(".conflict-side-1")
+        .context("failed to get side1")?;
+    let base0 = tree
+        .get_name(".conflict-base-0")
+        .context("failed to get base tree")?;
 
-    let side0_tree =  repo.find_tree(side0.id().into())?;
-    let side1_tree =  repo.find_tree(side1.id().into())?;
-    let base0_tree =  repo.find_tree(base0.id().into())?;
+    let side0_tree = repo.find_tree(side0.id().into())?;
+    let side1_tree = repo.find_tree(side1.id().into())?;
+    let base0_tree = repo.find_tree(base0.id().into())?;
 
-    let mut merge_index = repo.merge_trees(&base0_tree, &side0_tree, &side1_tree).context("failed to merge trees")?;
+    let mut merge_index = repo
+        .merge_trees(&base0_tree, &side0_tree, &side1_tree)
+        .context("failed to merge trees")?;
 
     // put the repository in edit mode
-    edit_mode::set_edit_mode(project_repository, &commit_oid, restore_snapshot).context("failed to set edit mode")?;
+    edit_mode::set_edit_mode(project_repository, &commit_oid, restore_snapshot)
+        .context("failed to set edit mode")?;
 
     // checkout the conflicts
     repo.checkout_index(&mut merge_index)
@@ -3141,11 +3147,7 @@ pub fn resolve_conflict_start(
         .context("failed to checkout index")?;
 
     // mark the working directory as in a conflicted state
-    conflicts::mark_from_index(
-        project_repository,
-        &merge_index,
-        None
-    )?;
+    conflicts::mark_from_index(project_repository, &merge_index, None)?;
 
     // TODO: record conflict preimages
 
@@ -3185,7 +3187,7 @@ pub fn resolve_conflict_finish(
     // find all the commits upstream from the target "to" commit
     let upstream_commits = project_repository.l(
         target_branch.head,
-        project_repository::LogUntil::Commit(commit.id()),
+        project_repository::LogUntil::Commit(commit.id().into()),
     )?;
 
     // get the wd state
@@ -3193,22 +3195,18 @@ pub fn resolve_conflict_finish(
     dbg!(&wd_tree.id());
 
     // write a new commit with this new tree and rebase the branch
-    let parents = commit
-        .parents()
-        .context("failed to find head commit parents")?;
-    let change_id = commit.change_id();
-    let new_commit_oid = project_repository
-        .git_repository
-        .commit(
-            None,
-            &commit.author(),
-            &commit.committer(),
-            &commit.message().to_str_lossy(),
-            &wd_tree.clone().into(),
-            &parents.iter().collect::<Vec<_>>(),
-            change_id.as_deref(),
-        )?;
 
+    let parents: Vec<_> = commit.parents().collect();
+    let change_id = commit.change_id();
+    let new_commit_oid = project_repository.git_repository.commit(
+        None,
+        &commit.author(),
+        &commit.committer(),
+        &commit.message_bstr().to_str_lossy(),
+        &wd_tree.clone().into(),
+        &parents.iter().collect::<Vec<_>>(),
+        change_id.as_deref(),
+    )?;
 
     // TODO: record resolutions
 
@@ -3230,20 +3228,20 @@ pub fn resolve_conflict_finish(
     let last_commit = upstream_commits.first().cloned().unwrap();
     let new_head_oid = cherry_rebase(
         project_repository,
-        new_commit_oid,
-        commit_oid,
-        last_commit,
+        new_commit_oid.into(),
+        commit_oid.into(),
+        last_commit.into(),
     )?;
     let new_head_commit = project_repository
         .git_repository
-        .find_commit(new_head_oid.unwrap())
+        .find_commit(new_head_oid.unwrap().into())
         .context("failed to find new head commit")?;
 
     // TODO: if that last one was a wip, undo it
 
     // if that rebase worked, update the branch head and the gitbutler integration
     if let Some(new_head_oid) = new_head_oid {
-        target_branch.head = new_head_oid;
+        target_branch.head = new_head_oid.into();
         target_branch.tree = new_head_commit.tree()?.id().into();
         vb_state.set_branch(target_branch.clone())?;
         checkout_merged_applied_branches(project_repository)?;
@@ -3263,7 +3261,9 @@ pub fn resolve_conflict_abandon(
     dbg!(&commit_oid);
 
     // reset to previous state
-    if let Some(restore_sha) = edit_mode::clear_edit_mode(project_repository).context("failed to clear edit mode")? {
+    if let Some(restore_sha) =
+        edit_mode::clear_edit_mode(project_repository).context("failed to clear edit mode")?
+    {
         dbg!(&restore_sha);
         project_repository.project().restore_snapshot(restore_sha)?;
     }
@@ -3272,11 +3272,11 @@ pub fn resolve_conflict_abandon(
 }
 
 // this is a helper function that will take the "tree" entries of all applied
-// branches and merge them into a single tree and then check it out into the 
+// branches and merge them into a single tree and then check it out into the
 // working directory. it's sort of the gb equivalent of resetting to the index
 pub fn checkout_merged_applied_branches(
     project_repository: &project_repository::Repository,
-) -> Result<(), anyhow::Error> {
+) -> Result<()> {
     let vb_state = project_repository.project().virtual_branches();
     let repo = &project_repository.git_repository;
 
@@ -3286,12 +3286,14 @@ pub fn checkout_merged_applied_branches(
 
     dbg!("----------------- CHECKOUT MERGED APPLIED BRANCHES ------------------");
 
-    let final_tree = vb_state.list_branches()?
+    let final_tree = vb_state
+        .list_branches()?
         .iter()
         .filter(|branch| branch.applied)
         .fold(target_commit.tree(), |final_tree, branch| {
+            let repo: &git2::Repository = repo.into();
             let final_tree = final_tree?;
-            let branch_tree = repo.find_tree(branch.tree)?;
+            let branch_tree = repo.find_tree(branch.tree.into())?;
             dbg!(&branch.name);
             dbg!(branch_tree.id());
 
@@ -3302,9 +3304,10 @@ pub fn checkout_merged_applied_branches(
                 repo.find_tree(branch_tree.id().into())? // dumb, but sort of a clone()
             };
 
-            let mut merge_result = repo.merge_trees(&target_tree, &final_tree, &merge_tree)?;
+            let mut merge_result =
+                repo.merge_trees(&target_tree, &final_tree, &merge_tree, None)?;
             let final_tree_oid = merge_result.write_tree_to(repo)?;
-            repo.find_tree(final_tree_oid)
+            repo.find_tree(final_tree_oid.into())
         })
         .context("failed to calculate final tree")?;
 
@@ -3317,7 +3320,6 @@ pub fn checkout_merged_applied_branches(
 
     Ok(())
 }
-
 
 // move a given commit in a branch up one or down one
 // if the offset is positive, move the commit down one
@@ -3468,12 +3470,12 @@ pub fn insert_blank_commit(
         // rebase all commits above it onto the new commit
         match cherry_rebase(
             project_repository,
-            blank_commit_oid,
+            blank_commit_oid.into(),
             commit.id().into(),
-            branch.head,
+            branch.head.into(),
         ) {
             Ok(Some(new_head)) => {
-                branch.head = new_head;
+                branch.head = new_head.into();
                 vb_state
                     .set_branch(branch.clone())
                     .context("failed to write branch")?;
@@ -3527,8 +3529,8 @@ pub fn undo_commit(
         match cherry_rebase(
             project_repository,
             parent_commit_oid.into(),
-            commit_oid,
-            branch.head,
+            commit_oid.into(),
+            branch.head.into(),
         ) {
             Ok(Some(new_head)) => {
                 new_commit_oid = new_head.into();
@@ -3557,31 +3559,34 @@ pub fn undo_commit(
 // and then passes them to `cherry_rebase_group` to rebase them onto the target commit
 pub fn cherry_rebase(
     project_repository: &project_repository::Repository,
-    target_commit_oid: git::Oid,
-    start_commit_oid: git::Oid,
-    end_commit_oid: git::Oid,
-) -> Result<Option<git::Oid>, anyhow::Error> {
+    target_commit_oid: git2::Oid,
+    start_commit_oid: git2::Oid,
+    end_commit_oid: git2::Oid,
+) -> Result<Option<git2::Oid>, anyhow::Error> {
     // get a list of the commits to rebase
     let mut ids_to_rebase = project_repository.l(
-        end_commit_oid,
-        project_repository::LogUntil::Commit(start_commit_oid),
+        end_commit_oid.into(),
+        project_repository::LogUntil::Commit(start_commit_oid.into()),
     )?;
 
     if ids_to_rebase.is_empty() {
         return Ok(None);
     }
 
-    let new_head_id =
-        cherry_rebase_group(project_repository, target_commit_oid, &mut ids_to_rebase)?;
+    let new_head_id = cherry_rebase_group(
+        project_repository,
+        target_commit_oid.into(),
+        &mut ids_to_rebase,
+    )?;
 
-    Ok(Some(new_head_id))
+    Ok(Some(new_head_id.into()))
 }
 
 // cherry-pick, but understands GitButler conflicted states
 fn cherry_pick_gitbutler(
     project_repository: &project_repository::Repository,
-    head: &git::Commit,
-    to_rebase: &git::Commit,
+    head: &git2::Commit,
+    to_rebase: &git2::Commit,
 ) -> Result<git::Index, anyhow::Error> {
     // use that subtree for the merge instead
     let tree_0 = head.tree()?;
@@ -3598,7 +3603,11 @@ fn cherry_pick_gitbutler(
         // find the base, which is the parent of to_rebase
         let base_tree = find_real_tree(project_repository, (&base_commit).into(), None)?;
         let tree_0 = find_real_tree(project_repository, head.into(), None)?;
-        let tree_1 = find_real_tree(project_repository, to_rebase.into(), Some(".conflict-side-1".to_string()))?;
+        let tree_1 = find_real_tree(
+            project_repository,
+            to_rebase.into(),
+            Some(".conflict-side-1".to_string()),
+        )?;
 
         dbg!("REBASE PICK");
         dbg!(&base_tree.id(), &tree_0.id(), &tree_1.id());
@@ -3682,7 +3691,7 @@ fn cherry_rebase_group(
                     // store tree as the same as the parent
                     let merge_base_commit_oid = project_repository
                         .git_repository
-                        .merge_base(head.id(), to_rebase.id())
+                        .merge_base(head.id().into(), to_rebase.id().into())
                         .context("failed to find merge base")?;
                     let merge_base_commit = project_repository
                         .git_repository
@@ -3710,19 +3719,17 @@ fn cherry_rebase_group(
                     let conflicted_files_blob = project_repository.git_repository.blob(conflicted_files_string.as_bytes())?;
 
                     // create a treewriter
-                    let mut tree_writer = project_repository
-                        .git_repository
-                        .treebuilder(None);
+                    let mut tree_writer = project_repository.repo().treebuilder(None)?;
 
                     let side0 = find_real_tree(project_repository, (&head).into(), None)?;
                     let side1 = find_real_tree(project_repository, (&to_rebase).into(), Some(".conflict-side-1".to_string()))?;
 
                     // save the state of the conflict, so we can recreate it later
-                    tree_writer.upsert(".conflict-side-0", side0.id().into(), FileMode::Tree);
-                    tree_writer.upsert(".conflict-side-1", side1.id().into(), FileMode::Tree);
-                    tree_writer.upsert(".conflict-base-0", base_tree.id().into(), FileMode::Tree);
-                    tree_writer.upsert(".conflict-files", conflicted_files_blob, FileMode::Blob);
-                    tree_writer.upsert("README.txt", readme_blob, FileMode::Blob);
+                    tree_writer.insert(".conflict-side-0", side0.id().into(), 0o040000)?;
+                    tree_writer.insert(".conflict-side-1", side1.id().into(), 0o040000)?;
+                    tree_writer.insert(".conflict-base-0", base_tree.id().into(), 0o040000)?;
+                    tree_writer.insert(".conflict-files", conflicted_files_blob.into(), 0o100644)?;
+                    tree_writer.insert("README.txt", readme_blob.into(), 0o100644)?;
 
                     let tree_oid = tree_writer.write().context("failed to write tree")?;
                     let change_id = to_rebase.change_id();
@@ -3739,10 +3746,10 @@ fn cherry_rebase_group(
                             None,
                             &to_rebase.author(),
                             &to_rebase.committer(),
-                            &to_rebase.message().to_str_lossy(),
+                            &to_rebase.message_bstr().to_str_lossy(),
                             &project_repository
                                 .git_repository
-                                .find_tree(tree_oid)
+                                .find_tree(tree_oid.into())
                                 .context("failed to find tree")?,
                             &[&head],
                             Some(headers),
@@ -3761,7 +3768,7 @@ fn cherry_rebase_group(
 
                     let merge_tree = project_repository
                         .git_repository
-                        .find_tree(merge_tree_oid)
+                        .find_tree(merge_tree_oid.into())
                         .context("failed to find merge tree")?;
 
                     let change_id = to_rebase.change_id();
