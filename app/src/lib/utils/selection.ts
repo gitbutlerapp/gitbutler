@@ -35,22 +35,22 @@ export function updateFocus(
 	fileIdSelection: FileIdSelection,
 	commitId?: string
 ) {
-	if (fileIdSelection.length != 1) return;
 	const selected = fileIdSelection.only();
+	if (!selected) return;
 	if (selected.fileId == file.id && selected.commitId == commitId) elt.focus();
 }
 
 export function maybeMoveSelection(
 	key: string,
+	file: AnyFile,
 	files: AnyFile[],
-	selectedFileIds: FileIdSelection
+	fileIdSelection: FileIdSelection
 ) {
 	if (key != 'ArrowUp' && key != 'ArrowDown') return;
-	if (selectedFileIds.length == 0) return;
 
-	const newSelection = getFileByKey(key, selectedFileIds.only().fileId, files);
+	const newSelection = getFileByKey(key, file.id, files);
 	if (newSelection) {
-		selectedFileIds.clear();
-		selectedFileIds.add(newSelection.id);
+		fileIdSelection.clear();
+		fileIdSelection.add(newSelection.id);
 	}
 }

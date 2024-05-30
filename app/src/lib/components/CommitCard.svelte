@@ -15,8 +15,7 @@
 	import { getTimeAgo } from '$lib/utils/timeAgo';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { createCommitStore, getSelectedFiles } from '$lib/vbranches/contexts';
-	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
+	import { createCommitStore } from '$lib/vbranches/contexts';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 	import {
 		RemoteCommit,
@@ -41,8 +40,6 @@
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
-	const selectedFiles = getSelectedFiles();
-	const fileIdSelection = getContext(FileIdSelection);
 	const advancedCommitOperations = featureAdvancedCommitOperations();
 
 	const commitStore = createCommitStore(commit);
@@ -54,12 +51,6 @@
 
 	let files: RemoteFile[] = [];
 	let showDetails = false;
-
-	$: selectedFile =
-		$fileIdSelection.length == 1 &&
-		fileIdSelection.only().commitId == commit.id &&
-		files.find((f) => f.id == fileIdSelection.only().fileId);
-	$: if (selectedFile) selectedFiles.set([selectedFile]);
 
 	async function loadFiles() {
 		files = await listRemoteCommitFiles(project.id, commit.id);
@@ -320,7 +311,7 @@
 
 			{#if showDetails}
 				<div class="files-container">
-					<BranchFilesList title="Files" {files} {isUnapplied} />
+					<BranchFilesList title="Files" {files} {isUnapplied} readonly={type == 'upstream'} />
 				</div>
 			{/if}
 		</div>
