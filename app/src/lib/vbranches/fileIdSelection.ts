@@ -82,7 +82,7 @@ export class FileIdSelection {
 	}
 
 	only(): FileKey | undefined {
-		if (this.value.length != 1) return;
+		if (this.value.length == 0) return;
 		const fileKey = parseFileKey(this.value[0]);
 		return fileKey;
 	}

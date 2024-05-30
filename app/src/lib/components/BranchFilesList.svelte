@@ -82,7 +82,7 @@
 		}}
 		on:keydown={(e) => {
 			e.preventDefault();
-			maybeMoveSelection(e.key, sortedFiles, fileIdSelection);
+			maybeMoveSelection(e.key, file, sortedFiles, fileIdSelection);
 		}}
 	/>
 {/each}

@@ -42,14 +42,15 @@ export function updateFocus(
 
 export function maybeMoveSelection(
 	key: string,
+	file: AnyFile,
 	files: AnyFile[],
-	selectedFileIds: FileIdSelection
+	fileIdSelection: FileIdSelection
 ) {
 	if (key != 'ArrowUp' && key != 'ArrowDown') return;
 
-	// const newSelection = getFileByKey(key, selectedFileIds.only().fileId, files);
-	// if (newSelection) {
-	// 	selectedFileIds.clear();
-	// 	selectedFileIds.add(newSelection.id);
-	// }
+	const newSelection = getFileByKey(key, file.id, files);
+	if (newSelection) {
+		fileIdSelection.clear();
+		fileIdSelection.add(newSelection.id);
+	}
 }
