@@ -6,6 +6,7 @@
 	import BranchLane from '$lib/components/BranchLane.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { cloneWithRotation } from '$lib/dragging/draggable';
+	import { persisted } from '$lib/persisted/persisted';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch } from '$lib/vbranches/types';
@@ -18,6 +19,7 @@
 	const project = getContext(Project);
 	const activeBranchesError = vbranchService.activeBranchesError;
 	const activeBranches = vbranchService.activeBranches;
+	const showHistoryView = persisted(false, 'showHistoryView');
 
 	let dragged: any;
 	let dropZone: HTMLDivElement;
@@ -26,6 +28,9 @@
 
 	let dragHandle: any;
 	let clone: any;
+	$: if ($activeBranchesError) {
+		$showHistoryView = true;
+	}
 </script>
 
 {#if $activeBranchesError}
