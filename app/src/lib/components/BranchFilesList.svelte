@@ -1,6 +1,8 @@
 <script lang="ts">
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
+	import Button from './Button.svelte';
 	import FileListItem from './FileListItem.svelte';
+	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext } from '$lib/utils/context';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { maybeMoveSelection } from '$lib/utils/selection';
@@ -46,9 +48,28 @@
 		currentDisplayIndex += 1;
 		displayedFiles = [...displayedFiles, ...chunkedFiles[currentDisplayIndex]];
 	}
+	let mergeDiffCommand = 'git diff-tree --cc ';
 </script>
 
-<BranchFilesHeader {title} {files} {showCheckboxes} />
+{#if !$commit?.isMergeCommit()}
+	<BranchFilesHeader {title} {files} {showCheckboxes} />
+{:else}
+	<div
+		class="text-base-11"
+		style="padding-left: 1rem; padding-right: 1rem; color: var(--clr-scale-ntrl-50); "
+	>
+		<span style="font-style: italic;">Merge commit diff:</span>
+		<br />
+		<span style="font-family: monospace; user-select: text;"
+			>{mergeDiffCommand + $commit.id.slice(0, 7)}</span
+		>
+		<Button
+			size="tag"
+			icon="copy"
+			on:mousedown={() => copyToClipboard(mergeDiffCommand + $commit.id.slice(0, 7))}
+		></Button>
+	</div>
+{/if}
 {#each displayedFiles as file (file.id)}
 	<FileListItem
 		{file}

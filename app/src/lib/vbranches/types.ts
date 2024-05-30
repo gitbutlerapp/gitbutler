@@ -194,6 +194,10 @@ export class Commit {
 	isParentOf(possibleChild: Commit) {
 		return possibleChild.parentIds.includes(this.id);
 	}
+
+	isMergeCommit() {
+		return this.parentIds.length > 1;
+	}
 }
 
 export function isLocalCommit(obj: any): obj is Commit {
@@ -208,6 +212,7 @@ export class RemoteCommit {
 	createdAt!: Date;
 	changeId!: string;
 	isSigned!: boolean;
+	parentIds!: string[];
 
 	parent?: RemoteCommit;
 	children?: RemoteCommit[];
@@ -227,6 +232,10 @@ export class RemoteCommit {
 
 	get status(): CommitStatus {
 		return 'upstream';
+	}
+
+	isMergeCommit() {
+		return this.parentIds.length > 1;
 	}
 }
 
