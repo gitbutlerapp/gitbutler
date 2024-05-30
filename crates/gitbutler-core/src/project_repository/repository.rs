@@ -87,6 +87,22 @@ impl Repository {
         conflicts::is_resolving(self)
     }
 
+    pub fn assure_resolved(&self) -> Result<()> {
+        if self.is_resolving() {
+            Err(anyhow!("project has active conflicts")).context(Code::ProjectConflict)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn assure_unconflicted(&self) -> Result<()> {
+        if conflicts::is_conflicting(self, None)? {
+            Err(anyhow!("project has active conflicts")).context(Code::ProjectConflict)
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn path(&self) -> &path::Path {
         path::Path::new(&self.project.path)
     }

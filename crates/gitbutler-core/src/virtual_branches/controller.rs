@@ -455,7 +455,7 @@ impl ControllerInner {
                 user,
                 run_hooks,
             )
-            .map_err(Error::from_err);
+            .map_err(Into::into);
             let _ = snapshot_tree.and_then(|snapshot_tree| {
                 project_repository.project().snapshot_commit_creation(
                     snapshot_tree,
@@ -975,7 +975,7 @@ impl ControllerInner {
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::MoveCommit));
             super::move_commit(project_repository, target_branch_id, commit_oid, user)
-                .map_err(Error::from_err)
+                .map_err(Into::into)
         })
     }
 }

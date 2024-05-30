@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::{fs, path, str::FromStr};
 
+use gitbutler_core::error::Code;
 use gitbutler_core::{
     git,
     projects::{self, Project, ProjectId},
@@ -169,7 +170,7 @@ async fn resolve_conflict_flow() {
                 .await
                 .unwrap_err()
                 .downcast_ref(),
-            Some(errors::CommitError::Conflicted(_))
+            Some(Code::ProjectConflict)
         ));
     }
 

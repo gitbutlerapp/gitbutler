@@ -9,8 +9,6 @@ use crate::{
 // Generic error enum for use in the virtual branches module.
 #[derive(Debug, thiserror::Error)]
 pub enum VirtualBranchError {
-    #[error("project")]
-    Conflict(ProjectConflict),
     #[error("branch not found")]
     BranchNotFound(BranchNotFound),
     #[error("default target not set")]
@@ -64,8 +62,6 @@ pub enum ResetBranchError {
 #[derive(Debug, thiserror::Error)]
 pub enum ApplyBranchError {
     #[error("project")]
-    Conflict(ProjectConflict),
-    #[error("branch not found")]
     BranchNotFound(BranchNotFound),
     #[error("branch {0} is in a conflicting state")]
     BranchConflicts(BranchId),
@@ -75,48 +71,6 @@ pub enum ApplyBranchError {
     GitError(#[from] git::Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum UnapplyOwnershipError {
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
-    #[error("project is in conflict state")]
-    Conflict(ProjectConflict),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-impl ErrorWithContext for UnapplyOwnershipError {
-    fn context(&self) -> Option<Context> {
-        Some(match self {
-            UnapplyOwnershipError::DefaultTargetNotSet(error) => error.to_context(),
-            UnapplyOwnershipError::Conflict(error) => error.to_context(),
-            UnapplyOwnershipError::Other(error) => {
-                return error.custom_context_or_root_cause().into()
-            }
-        })
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum UnapplyBranchError {
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
-    #[error("branch not found")]
-    BranchNotFound(BranchNotFound),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-impl ErrorWithContext for UnapplyBranchError {
-    fn context(&self) -> Option<Context> {
-        Some(match self {
-            UnapplyBranchError::DefaultTargetNotSet(ctx) => ctx.to_context(),
-            UnapplyBranchError::BranchNotFound(ctx) => ctx.to_context(),
-            UnapplyBranchError::Other(error) => return error.custom_context_or_root_cause().into(),
-        })
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -151,22 +105,6 @@ impl ErrorWithContext for CreateVirtualBranchError {
             CreateVirtualBranchError::Other(error) => error.custom_context_or_root_cause().into(),
         }
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum CommitError {
-    #[error("branch not found")]
-    BranchNotFound(BranchNotFound),
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
-    #[error("will not commit conflicted files")]
-    Conflicted(ProjectConflict),
-    #[error("commit hook rejected: {0}")]
-    CommitHookRejected(String),
-    #[error("commit-msg hook rejected: {0}")]
-    CommitMsgHookRejected(String),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -244,8 +182,6 @@ pub enum CherryPickError {
     CommitNotFound(git::Oid),
     #[error("can not cherry pick not applied branch")]
     NotApplied,
-    #[error("project is in conflict state")]
-    Conflict(ProjectConflict),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -260,8 +196,6 @@ pub enum SquashError {
     CommitNotFound(git::Oid),
     #[error("branch not found")]
     BranchNotFound(BranchNotFound),
-    #[error("project is in conflict state")]
-    Conflict(ProjectConflict),
     #[error("can not squash root commit")]
     CantSquashRootCommit,
     #[error(transparent)]
@@ -300,46 +234,6 @@ pub enum UpdateCommitMessageError {
     CommitNotFound(git::Oid),
     #[error("branch not found")]
     BranchNotFound(BranchNotFound),
-    #[error("project is in conflict state")]
-    Conflict(ProjectConflict),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum UpdateBaseBranchError {
-    #[error("project is in conflicting state")]
-    Conflict(ProjectConflict),
-    #[error("no default target set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-impl ErrorWithContext for UpdateBaseBranchError {
-    fn context(&self) -> Option<Context> {
-        Some(match self {
-            UpdateBaseBranchError::Conflict(ctx) => ctx.to_context(),
-            UpdateBaseBranchError::DefaultTargetNotSet(ctx) => ctx.to_context(),
-            UpdateBaseBranchError::Other(error) => {
-                return error.custom_context_or_root_cause().into()
-            }
-        })
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum MoveCommitError {
-    #[error("source branch contains hunks locked to the target commit")]
-    SourceLocked,
-    #[error("project is in conflicted state")]
-    Conflicted(ProjectConflict),
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
-    #[error("branch not found")]
-    BranchNotFound(BranchNotFound),
-    #[error("commit {0} not found")]
-    CommitNotFound(git::Oid),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -356,21 +250,6 @@ pub enum CreateVirtualBranchFromBranchError {
     BranchNotFound(git::Refname),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-#[derive(Debug)]
-pub struct ProjectConflict {
-    pub project_id: ProjectId,
-}
-
-impl ProjectConflict {
-    fn to_context(&self) -> error::Context {
-        error::Context::new(format!(
-            "project {} is in a conflicted state",
-            self.project_id
-        ))
-        .with_code(Code::ProjectConflict)
-    }
 }
 
 #[derive(Debug)]

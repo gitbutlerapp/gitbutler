@@ -40,7 +40,6 @@ mod error {
 }
 
 mod go_back_to_integration {
-    use gitbutler_core::error::Code;
     use pretty_assertions::assert_eq;
 
     use super::*;

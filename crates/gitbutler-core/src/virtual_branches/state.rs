@@ -52,7 +52,7 @@ impl VirtualBranchesHandle {
         let virtual_branches = self.read_file();
         virtual_branches?
             .default_target
-            .ok_or(anyhow!("No default target"))
+            .ok_or(anyhow!("there is no default target"))
     }
 
     /// Sets the target for the given virtual branch.
@@ -88,13 +88,16 @@ impl VirtualBranchesHandle {
     /// Gets the state of the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn get_branch(&self, id: BranchId) -> Result<Branch, crate::reader::Error> {
+    pub fn get_branch(&self, id: BranchId) -> anyhow::Result<Branch> {
+        self.try_branch(id)?
+            .ok_or_else(|| anyhow!("branch with ID {id} not found"))
+    }
+
+    /// Gets the state of the given virtual branch returning `Some(branch)` or `None`
+    /// if that branch doesn't exist.
+    pub fn try_branch(&self, id: BranchId) -> anyhow::Result<Option<Branch>> {
         let virtual_branches = self.read_file()?;
-        virtual_branches
-            .branches
-            .get(&id)
-            .cloned()
-            .ok_or(crate::reader::Error::NotFound)
+        Ok(virtual_branches.branches.get(&id).cloned())
     }
 
     /// Lists all virtual branches.

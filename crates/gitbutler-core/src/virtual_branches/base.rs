@@ -5,7 +5,7 @@ use git2::Index;
 use serde::Serialize;
 
 use super::{
-    branch, errors,
+    branch,
     integration::{
         get_workspace_head, update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE,
     },
@@ -333,13 +333,7 @@ pub fn update_base_branch(
     project_repository: &project_repository::Repository,
     user: Option<&users::User>,
 ) -> anyhow::Result<Vec<branch::Branch>> {
-    if project_repository.is_resolving() {
-        anyhow::bail!(errors::UpdateBaseBranchError::Conflict(
-            errors::ProjectConflict {
-                project_id: project_repository.project().id,
-            },
-        ));
-    }
+    project_repository.assure_resolved()?;
 
     // look up the target and see if there is a new oid
     let target = default_target(&project_repository.project().gb_dir())?;
