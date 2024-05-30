@@ -1,9 +1,6 @@
 pub mod credentials;
 pub mod diff;
 
-mod blob;
-pub use blob::*;
-
 mod error;
 pub use error::*;
 
@@ -13,14 +10,8 @@ mod repository;
 
 pub use repository::*;
 
-mod commit;
-pub use commit::*;
-
 mod branch;
 pub use branch::*;
-
-mod tree;
-pub use tree::*;
 
 mod remote;
 pub use remote::*;
@@ -31,9 +22,6 @@ pub use index::*;
 mod oid;
 pub use oid::*;
 
-mod signature;
-pub use signature::*;
-
 mod config;
 pub use config::*;
 
@@ -41,7 +29,10 @@ mod url;
 pub use self::url::*;
 
 mod repository_ext;
-pub use repository_ext::*;
+pub use repository_ext::RepositoryExt;
 
 mod tree_ext;
 pub use tree_ext::*;
+
+mod commit_ext;
+pub use commit_ext::*;

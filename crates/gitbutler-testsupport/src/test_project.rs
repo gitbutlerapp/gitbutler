@@ -1,6 +1,7 @@
 use std::path;
+use std::path::PathBuf;
 
-use gitbutler_core::git;
+use gitbutler_core::git::{self};
 use tempfile::TempDir;
 
 use crate::{init_opts, VAR_NO_CLEANUP};
@@ -33,7 +34,7 @@ impl Default for TestProject {
         setup_config(&local_repository.config().unwrap()).unwrap();
         let mut index = local_repository.index().expect("failed to get index");
         let oid = index.write_tree().expect("failed to write tree");
-        let signature = git::Signature::now("test", "test@email.com").unwrap();
+        let signature = git2::Signature::now("test", "test@email.com").unwrap();
         local_repository
             .commit(
                 Some(&"refs/heads/master".parse().unwrap()),
@@ -85,6 +86,11 @@ impl Default for TestProject {
 }
 
 impl TestProject {
+    /// Consume this instance and keep the temp directory that held the local repository, returning it.
+    /// Best used inside a `dbg!(test_project.debug_local_repo())`
+    pub fn debug_local_repo(mut self) -> PathBuf {
+        self.local_tmp.take().unwrap().into_path()
+    }
     pub fn path(&self) -> &std::path::Path {
         self.local_repository.workdir().unwrap()
     }
@@ -155,8 +161,8 @@ impl TestProject {
         let mut rebase = self
             .remote_repository
             .rebase(
-                Some(branch_commit.id()),
-                Some(master_branch_commit.id()),
+                Some(branch_commit.id().into()),
+                Some(master_branch_commit.id().into()),
                 None,
                 Some(&mut rebase_options),
             )
@@ -172,8 +178,8 @@ impl TestProject {
                 break;
             }
 
-            if let Ok(commit_id) = rebase.commit(None, &commit.committer().into(), None) {
-                last_rebase_head = commit_id.into();
+            if let Ok(commit_id) = rebase.commit(None, &commit.committer(), None) {
+                last_rebase_head = commit_id;
             } else {
                 rebase_success = false;
                 break;
@@ -184,7 +190,7 @@ impl TestProject {
             self.remote_repository
                 .reference(
                     &"refs/heads/master".parse().unwrap(),
-                    last_rebase_head,
+                    last_rebase_head.into(),
                     true,
                     &format!("rebase: {}", branch_name),
                 )
@@ -215,7 +221,7 @@ impl TestProject {
         let merge_base = {
             let oid = self
                 .remote_repository
-                .merge_base(branch_commit.id(), master_branch_commit.id())
+                .merge_base(branch_commit.id().into(), master_branch_commit.id().into())
                 .unwrap();
             self.remote_repository.find_commit(oid).unwrap()
         };
@@ -245,7 +251,7 @@ impl TestProject {
             .unwrap();
     }
 
-    pub fn find_commit(&self, oid: git::Oid) -> Result<git::Commit<'_>, git::Error> {
+    pub fn find_commit(&self, oid: git::Oid) -> Result<git2::Commit<'_>, git::Error> {
         self.local_repository.find_commit(oid)
     }
 
@@ -263,23 +269,22 @@ impl TestProject {
 
     pub fn checkout(&self, branch: &git::LocalRefname) {
         let branch: git::Refname = branch.into();
+        let head_commit = self
+            .local_repository
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap();
         let tree = match self.local_repository.find_branch(&branch) {
-            Ok(branch) => branch.peel_to_tree(),
+            Ok(branch) => branch.peel_to_tree().unwrap(),
             Err(git::Error::NotFound(_)) => {
-                let head_commit = self
-                    .local_repository
-                    .head()
-                    .unwrap()
-                    .peel_to_commit()
-                    .unwrap();
                 self.local_repository
-                    .reference(&branch, head_commit.id(), false, "new branch")
+                    .reference(&branch, head_commit.id().into(), false, "new branch")
                     .unwrap();
-                head_commit.tree()
+                head_commit.tree().unwrap()
             }
-            Err(error) => Err(error),
-        }
-        .unwrap();
+            Err(error) => panic!("{:?}", error),
+        };
         self.local_repository.set_head(&branch).unwrap();
         self.local_repository
             .checkout_tree(&tree)
@@ -297,7 +302,7 @@ impl TestProject {
             .expect("failed to add all");
         index.write().expect("failed to write index");
         let oid = index.write_tree().expect("failed to write tree");
-        let signature = git::Signature::now("test", "test@email.com").unwrap();
+        let signature = git2::Signature::now("test", "test@email.com").unwrap();
         self.local_repository
             .commit(
                 head.name().as_ref(),

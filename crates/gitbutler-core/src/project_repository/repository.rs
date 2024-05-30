@@ -7,13 +7,16 @@ use std::{
 use anyhow::{Context, Result};
 
 use super::conflicts;
-use crate::error::{AnyhowContextExt, Code, ErrorWithContext};
 use crate::{
     askpass, error,
     git::{self, credentials::HelpError, Url},
     projects::{self, AuthKey},
     ssh, users,
     virtual_branches::{Branch, BranchId},
+};
+use crate::{
+    error::{AnyhowContextExt, Code, ErrorWithContext},
+    git::Oid,
 };
 
 pub struct Repository {
@@ -111,13 +114,6 @@ impl Repository {
         super::Config::from(&self.git_repository)
     }
 
-    pub fn git_signatures<'a>(
-        &self,
-        user: Option<&users::User>,
-    ) -> Result<(git::Signature<'a>, git::Signature<'a>)> {
-        super::signatures::signatures(self, user).context("failed to get signatures")
-    }
-
     pub fn project(&self) -> &projects::Project {
         &self.project
     }
@@ -168,7 +164,7 @@ impl Repository {
         let target_branch_refname =
             git::Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
         let branch = self.git_repository.find_branch(&target_branch_refname)?;
-        let commit_id = branch.peel_to_commit()?.id();
+        let commit_id: Oid = branch.peel_to_commit()?.id().into();
 
         let now = crate::time::now_ms();
         let branch_name = format!("test-push-{now}");
@@ -313,7 +309,7 @@ impl Repository {
         self.l(from, LogUntil::Commit(to))
     }
 
-    pub fn list_commits(&self, from: git::Oid, to: git::Oid) -> Result<Vec<git::Commit>> {
+    pub fn list_commits(&self, from: git::Oid, to: git::Oid) -> Result<Vec<git2::Commit>> {
         Ok(self
             .list(from, to)?
             .into_iter()
@@ -322,7 +318,7 @@ impl Repository {
     }
 
     // returns a list of commits from the first oid to the second oid
-    pub fn log(&self, from: git::Oid, to: LogUntil) -> Result<Vec<git::Commit>> {
+    pub fn log(&self, from: git::Oid, to: LogUntil) -> Result<Vec<git2::Commit>> {
         self.l(from, to)?
             .into_iter()
             .map(|oid| self.git_repository.find_commit(oid))
@@ -341,10 +337,11 @@ impl Repository {
         user: Option<&users::User>,
         message: &str,
         tree: &git2::Tree,
-        parents: &[&git::Commit],
+        parents: &[&git2::Commit],
         change_id: Option<&str>,
     ) -> Result<git::Oid> {
-        let (author, committer) = self.git_signatures(user)?;
+        let (author, committer) =
+            super::signatures::signatures(self, user).context("failed to get signatures")?;
         self.git_repository
             .commit(None, &author, &committer, message, tree, parents, change_id)
             .context("failed to commit")
@@ -612,8 +609,7 @@ impl Repository {
     }
 
     pub fn repo(&self) -> &git2::Repository {
-        let r = &self.git_repository;
-        r.into()
+        (&self.git_repository).into()
     }
 }
 
@@ -652,7 +648,7 @@ impl ErrorWithContext for RemoteError {
     }
 }
 
-type OidFilter = dyn Fn(&git::Commit) -> Result<bool>;
+type OidFilter = dyn Fn(&git2::Commit) -> Result<bool>;
 
 pub enum LogUntil {
     Commit(git::Oid),

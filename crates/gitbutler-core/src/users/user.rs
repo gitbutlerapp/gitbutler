@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::git;
-
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct User {
     pub id: u64,
@@ -18,18 +16,4 @@ pub struct User {
     pub github_access_token: Option<String>,
     #[serde(default)]
     pub github_username: Option<String>,
-}
-
-impl TryFrom<User> for git::Signature<'_> {
-    type Error = git::Error;
-
-    fn try_from(value: User) -> Result<Self, Self::Error> {
-        if let Some(name) = value.name {
-            git::Signature::now(&name, &value.email)
-        } else if let Some(name) = value.given_name {
-            git::Signature::now(&name, &value.email)
-        } else {
-            git::Signature::now(&value.email, &value.email)
-        }
-    }
 }

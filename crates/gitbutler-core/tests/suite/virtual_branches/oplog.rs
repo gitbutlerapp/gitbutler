@@ -1,58 +1,100 @@
 use super::*;
 use itertools::Itertools;
 use std::io::Write;
+use std::path::Path;
 use std::time::Duration;
 
 #[tokio::test]
 async fn workdir_vbranch_restore() -> anyhow::Result<()> {
+    let test = Test::default();
     let Test {
         repository,
         project_id,
         controller,
         project,
         ..
-    } = &Test::default();
+    } = &test;
 
     controller
         .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
-    let mut branch_ids = Vec::new();
-    let workdir = repository.path();
+    let worktree_dir = repository.path();
     for round in 0..3 {
-        let branch_id = controller
-            .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
-            .await?;
-        branch_ids.push(branch_id);
+        let line_count = round * 20;
         fs::write(
-            workdir.join(format!("file{round}.txt")),
-            &make_lines(round * 5),
+            worktree_dir.join(format!("file{round}.txt")),
+            &make_lines(line_count),
         )?;
+        let branch_id = controller
+            .create_virtual_branch(
+                *project_id,
+                &branch::BranchCreateRequest {
+                    name: Some(round.to_string()),
+                    ..Default::default()
+                },
+            )
+            .await?;
         controller
             .create_commit(
                 *project_id,
                 branch_id,
-                "first commit",
+                &format!("commit {round}"),
                 None,
                 false, /* run hook */
             )
             .await?;
+        assert_eq!(
+            wd_file_count(&worktree_dir)?,
+            round + 1,
+            "each round creates a new file, and it persists"
+        );
+        assert_eq!(
+            project.should_auto_snapshot(Duration::ZERO)?,
+            line_count > 20
+        );
     }
+    let _empty = controller
+        .create_virtual_branch(*project_id, &Default::default())
+        .await?;
+
+    let snapshots = project.list_snapshots(10, None)?;
+    assert_eq!(
+        snapshots.len(),
+        7,
+        "3 vbranches + 3 commits + one empty branch"
+    );
+
+    let previous_files_count = wd_file_count(&worktree_dir)?;
+    assert_eq!(previous_files_count, 3, "one file per round");
+    project
+        .restore_snapshot(snapshots[0].commit_id)
+        .expect("restoration succeeds");
 
     assert_eq!(
         project.list_snapshots(10, None)?.len(),
-        6,
-        "3 vbranches + 3 commits"
+        8,
+        "all the previous + 1 restore commit"
     );
 
-    // TODO(ST): continue here
-    // project.restore_snapshot()
-
+    let current_files = wd_file_count(&worktree_dir)?;
+    assert_eq!(
+        current_files, previous_files_count,
+        "we only removed an empty vbranch, no worktree change"
+    );
+    assert!(
+        !project.should_auto_snapshot(Duration::ZERO)?,
+        "not enough lines changed"
+    );
     Ok(())
 }
 
-fn make_lines(count: u8) -> Vec<u8> {
+fn wd_file_count(worktree_dir: &&Path) -> anyhow::Result<usize> {
+    Ok(glob::glob(&worktree_dir.join("file*").to_string_lossy())?.count())
+}
+
+fn make_lines(count: usize) -> Vec<u8> {
     (0..count).map(|n| n.to_string()).join("\n").into()
 }
 

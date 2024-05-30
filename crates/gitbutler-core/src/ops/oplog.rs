@@ -1,7 +1,7 @@
 use anyhow::{anyhow, bail, Context};
 use git2::FileMode;
-use itertools::Itertools;
 use std::collections::HashMap;
+use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
 use std::{fs, path::PathBuf};
@@ -14,7 +14,7 @@ use crate::virtual_branches::integration::{
     GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
 };
 use crate::virtual_branches::Branch;
-use crate::{git, git::diff::hunks_by_filepath, projects::Project};
+use crate::{git, git::diff::hunks_by_filepath, git::RepositoryExt, projects::Project};
 
 use super::{
     entry::{OperationKind, Snapshot, SnapshotDetails, Trailer},
@@ -103,8 +103,8 @@ impl Project {
 
                 let mut commit_tree_builder = repo.treebuilder(None)?;
                 let commit_data_blob_id = repo.blob(&serialize_commit(&commit))?;
-                commit_tree_builder.insert("tree", commit_tree.id(), FileMode::Tree.into())?;
                 commit_tree_builder.insert("commit", commit_data_blob_id, FileMode::Blob.into())?;
+                commit_tree_builder.insert("tree", commit_tree.id(), FileMode::Tree.into())?;
                 let commit_tree_id = commit_tree_builder.write()?;
 
                 commits_tree_builder.insert(
@@ -127,7 +127,7 @@ impl Project {
 
         // also add the gitbutler/integration commit to the branches tree
         let head = repo.head()?;
-        if head.is_branch() && head.name() == Some("refs/heads/gitbutler/integration") {
+        if head.name() == Some("refs/heads/gitbutler/integration") {
             let head_commit = head.peel_to_commit()?;
             let head_tree = head_commit.tree()?;
 
@@ -175,13 +175,12 @@ impl Project {
             let mut current_ours = base_tree.clone();
 
             // iterate through all head trees
-            // TODO: This needs a test. Right now only the last merged index is actually used.
             for head_tree_id in head_tree_ids {
                 let current_theirs = repo.find_tree(head_tree_id.into())?;
                 let mut workdir_temp_index =
                     repo.merge_trees(&base_tree, &current_ours, &current_theirs, None)?;
                 workdir_tree_id = workdir_temp_index.write_tree_to(&repo)?;
-                current_ours = current_theirs;
+                current_ours = repo.find_tree(workdir_tree_id)?;
             }
             tree_builder.insert("workdir", workdir_tree_id, FileMode::Tree.into())?;
         }
@@ -282,7 +281,7 @@ impl Project {
         let repo = git2::Repository::open(repo_path)?;
 
         let traversal_root_id = match oplog_commit_id {
-            Some(sha) => sha,
+            Some(id) => id,
             None => {
                 let oplog_state = OplogHandle::new(&self.gb_dir());
                 if let Some(id) = oplog_state.oplog_head()? {
@@ -316,7 +315,7 @@ impl Project {
                 repo.find_tree(wd_tree_entry.id())?
             } else {
                 // We reached a tree that is not a snapshot
-                tracing::warn!("Commit {commit_id} didin't seem to be an oplog commit - skipping");
+                tracing::warn!("Commit {commit_id} didn't seem to be an oplog commit - skipping");
                 continue;
             };
 
@@ -382,7 +381,7 @@ impl Project {
         let worktree_dir = self.path.as_path();
         let repo = git2::Repository::open(worktree_dir)?;
 
-        let snapshot_tree_id = self.prepare_snapshot();
+        let before_restore_snapshot_result = self.prepare_snapshot();
         let snapshot_commit = repo.find_commit(snapshot_commit_id.into())?;
 
         let snapshot_tree = snapshot_commit.tree()?;
@@ -426,59 +425,51 @@ impl Project {
                 .context("failed to convert commits tree entry to tree")?;
 
             // walk through all the commits in the branch
-            let commit_walker = commits_tree.iter();
-            for commit_entry in commit_walker {
+            for commit_entry in commits_tree.iter() {
                 // for each commit, recreate the commit from the commit data if it doesn't exist
                 if let Some(commit_id) = commit_entry.name() {
                     // check for the oid in the repo
                     let commit_oid = git::Oid::from_str(commit_id)?;
                     if repo.find_commit(commit_oid.into()).is_err() {
                         // commit is not in the repo, let's build it from our data
-                        // we get the data from the blob entry and create a commit object from it, which should match the oid of the entry
-                        let commit_tree = repo
-                            .find_tree(commit_entry.id())
-                            .context("failed to convert commit tree entry to tree")?;
-                        let commit_blob_entry = commit_tree
-                            .get_name("commit")
-                            .context("failed to get workdir tree entry")?;
-                        let commit_blob = repo
-                            .find_blob(commit_blob_entry.id())
-                            .context("failed to convert commit tree entry to blob")?;
-                        let new_commit_oid = repo
-                            .odb()?
-                            .write(git2::ObjectType::Commit, commit_blob.content())?;
+                        let new_commit_oid = deserialize_commit(&repo, &commit_entry)?;
                         if new_commit_oid != commit_oid.into() {
-                            bail!("commit oid mismatch");
+                            bail!("commit id mismatch: failed to recreate a commit from its parts");
                         }
                     }
 
                     // if branch_name is 'integration', we need to create or update the gitbutler/integration branch
-                    if let Some(branch_name) = branch_name {
-                        if branch_name == "integration" {
-                            let integration_commit = repo.find_commit(commit_oid.into())?;
-                            // reset the branch if it's there
-                            let branch =
-                                repo.find_branch("gitbutler/integration", git2::BranchType::Local);
-                            if let Ok(mut branch) = branch {
-                                // need to detatch the head for just a minuto
-                                repo.set_head_detached(commit_oid.into())?;
-                                branch.delete()?;
-                            }
-                            // ok, now we set the branch to what it was and update HEAD
-                            repo.branch("gitbutler/integration", &integration_commit, true)?;
-                            // make sure head is gitbutler/integration
-                            repo.set_head("refs/heads/gitbutler/integration")?;
-                        }
+                    if branch_name == Some("integration") {
+                        // TODO(ST): with `gitoxide`, just update the branch without this dance,
+                        //           similar to `git update-ref`.
+                        //           Then a missing integration branch also doesn't have to be
+                        //           fatal, but we wouldn't want to `set_head()` if we are
+                        //           not already on the integration branch.
+                        let mut integration_ref = repo.integration_ref_from_head()?;
+
+                        // reset the branch if it's there, otherwise bail as we don't meddle with other branches
+                        // need to detach the head for just a moment.
+                        repo.set_head_detached(commit_oid.into())?;
+                        integration_ref.delete()?;
+
+                        // ok, now we set the branch to what it was and update HEAD
+                        let integration_commit = repo.find_commit(commit_oid.into())?;
+                        repo.branch("gitbutler/integration", &integration_commit, true)?;
+                        // make sure head is gitbutler/integration
+                        repo.set_head("refs/heads/gitbutler/integration")?;
                     }
                 }
             }
         }
 
-        // workdir tree
-        let work_tree = repo.find_tree(wd_entry.id())?;
+        repo.integration_ref_from_head().context(
+            "We will not change a worktree which for some reason isn't on the integration branch",
+        )?;
+        let workdir_tree = repo.find_tree(wd_entry.id())?;
 
         // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
-        let files_to_exclude = get_exclude_list(&repo)?;
+        let files_to_exclude =
+            worktree_files_larger_than_limit_as_git2_ignore_rule(&repo, worktree_dir)?;
         // In-memory, libgit2 internal ignore rule
         repo.add_ignore_rule(&files_to_exclude)?;
 
@@ -487,7 +478,7 @@ impl Project {
         checkout_builder.remove_untracked(true);
         checkout_builder.force();
         // Checkout the tree
-        repo.checkout_tree(work_tree.as_object(), Some(&mut checkout_builder))?;
+        repo.checkout_tree(workdir_tree.as_object(), Some(&mut checkout_builder))?;
 
         // Update virtual_branches.toml with the state from the snapshot
         fs::write(
@@ -510,9 +501,10 @@ impl Project {
             .and_then(|msg| SnapshotDetails::from_str(msg).ok())
             .map(|d| d.operation.to_string())
             .unwrap_or_default();
-        let restored_date = snapshot_commit.time().seconds() * 1000;
 
         // create new snapshot
+        let before_restore_snapshot_tree_id = before_restore_snapshot_result?;
+        let restored_date_ms = snapshot_commit.time().seconds() * 1000;
         let details = SnapshotDetails {
             version: Default::default(),
             operation: OperationKind::RestoreFromSnapshot,
@@ -529,11 +521,11 @@ impl Project {
                 },
                 Trailer {
                     key: "restored_date".to_string(),
-                    value: restored_date.to_string(),
+                    value: restored_date_ms.to_string(),
                 },
             ],
         };
-        snapshot_tree_id.and_then(|snapshot_tree| self.commit_snapshot(snapshot_tree, details))
+        self.commit_snapshot(before_restore_snapshot_tree_id, details)
     }
 
     /// Determines if a new snapshot should be created due to file changes being created since the last snapshot.
@@ -546,6 +538,7 @@ impl Project {
     /// if this is 10s but the last snapshot was done 9s ago, no check if performed and the return value is `false`.
     ///
     /// This implementation returns `true` on the following conditions:
+    ///  - Head is pointing to the integration branch.
     ///  - If it's been more than 5 minutes since the last snapshot,
     ///    check the sum of added and removed lines since the last snapshot, otherwise return `false`.
     ///      * If the sum of added and removed lines is greater than a configured threshold, return `true`, otherwise return `false`.
@@ -553,22 +546,24 @@ impl Project {
         &self,
         check_if_last_snapshot_older_than: Duration,
     ) -> Result<bool> {
-        let oplog_state = OplogHandle::new(&self.gb_dir());
-        let last_snapshot_time = oplog_state.modified_at()?;
-        let can_snapshot = if last_snapshot_time.elapsed()? <= check_if_last_snapshot_older_than {
-            false
-        } else {
-            lines_since_snapshot(self)? > self.snapshot_lines_threshold()
-        };
-        Ok(can_snapshot)
+        let last_snapshot_time = OplogHandle::new(&self.gb_dir()).modified_at()?;
+        if last_snapshot_time.elapsed()? <= check_if_last_snapshot_older_than {
+            return Ok(false);
+        }
+
+        let repo = git2::Repository::open(&self.path)?;
+        if repo.integration_ref_from_head().is_err() {
+            return Ok(false);
+        }
+        Ok(lines_since_snapshot(self, &repo)? > self.snapshot_lines_threshold())
     }
 
     /// Returns the diff of the snapshot and it's parent. It only includes the workdir changes.
     ///
     /// This is useful to show what has changed in this particular snapshot
     pub fn snapshot_diff(&self, sha: git::Oid) -> Result<HashMap<PathBuf, FileDiff>> {
-        let repo_path = self.path.as_path();
-        let repo = git2::Repository::init(repo_path)?;
+        let worktree_dir = self.path.as_path();
+        let repo = git2::Repository::init(worktree_dir)?;
 
         let commit = repo.find_commit(sha.into())?;
         // Top tree
@@ -587,7 +582,8 @@ impl Project {
         let old_wd_tree = repo.find_tree(old_wd_tree_entry.id())?;
 
         // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
-        let files_to_exclude = get_exclude_list(&repo)?;
+        let files_to_exclude =
+            worktree_files_larger_than_limit_as_git2_ignore_rule(&repo, worktree_dir)?;
         // In-memory, libgit2 internal ignore rule
         repo.add_ignore_rule(&files_to_exclude)?;
 
@@ -613,8 +609,8 @@ impl Project {
     }
 }
 
-// Restore the state of .git/base_merge_parent and .git/conflicts from the snapshot
-// Will remove those files if they are not present in the snapshot
+/// Restore the state of .git/base_merge_parent and .git/conflicts from the snapshot
+/// Will remove those files if they are not present in the snapshot
 fn restore_conflicts_tree(snapshot_tree: &git2::Tree, repo: &git2::Repository) -> Result<()> {
     let conflicts_tree_entry = snapshot_tree
         .get_name("conflicts")
@@ -679,66 +675,61 @@ fn write_conflicts_tree(
     Ok(conflicts_tree.into())
 }
 
-fn get_exclude_list(repo: &git2::Repository) -> Result<String> {
-    let repo_path = repo
-        .path()
-        .parent()
-        .ok_or_else(|| anyhow!("failed to get repo path"))?;
+/// Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
+/// TODO(ST): refactor this to be path-safe and ' ' save - the returned list is space separated (!!)
+fn worktree_files_larger_than_limit_as_git2_ignore_rule(
+    repo: &git2::Repository,
+    worktree_dir: &Path,
+) -> Result<String> {
     let statuses = repo.statuses(None)?;
     let mut files_to_exclude = vec![];
     for entry in statuses.iter() {
-        if let Some(path) = entry.path() {
-            let path = repo_path.join(path);
-            if let Ok(metadata) = fs::metadata(&path) {
-                if metadata.is_file()
-                    && metadata.len() > SNAPSHOT_FILE_LIMIT_BYTES
-                    && entry.status().is_wt_new()
-                {
-                    files_to_exclude.push(path);
-                }
+        let Some(rela_path) = entry.path() else {
+            continue;
+        };
+        let full_path = worktree_dir.join(rela_path);
+        if let Ok(metadata) = fs::metadata(&full_path) {
+            if metadata.is_file()
+                && metadata.len() > SNAPSHOT_FILE_LIMIT_BYTES
+                && entry.status().is_wt_new()
+            {
+                files_to_exclude.push(rela_path.to_owned());
             }
         }
     }
-
-    // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
-    let files_to_exclude = files_to_exclude
-        .iter()
-        .filter_map(|f| f.strip_prefix(repo_path).ok())
-        .filter_map(|f| f.to_str())
-        .join(" ");
-    Ok(files_to_exclude)
+    Ok(files_to_exclude.join(" "))
 }
 
-/// Returns the number of lines of code (added + removed) since the last snapshot. Includes untracked files.
+/// Returns the number of lines of code (added + removed) since the last snapshot in `project`.
+/// Includes untracked files.
+/// `repo` is an already opened project repository.
 ///
 /// If there are no snapshots, 0 is returned.
-fn lines_since_snapshot(project: &Project) -> Result<usize> {
-    // This looks at the diff between the tree of the currenly selected as 'default' branch (where new changes go)
+fn lines_since_snapshot(project: &Project, repo: &git2::Repository) -> Result<usize> {
+    // This looks at the diff between the tree of the currently selected as 'default' branch (where new changes go)
     // and that same tree in the last snapshot. For some reason, comparing workdir to the workdir subree from
     // the snapshot simply does not give us what we need here, so instead using tree to tree comparison.
-
-    let repo = git2::Repository::open(project.path.as_path())?;
+    let worktree_dir = project.path.as_path();
 
     // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
-    let files_to_exclude = get_exclude_list(&repo)?;
+    let files_to_exclude =
+        worktree_files_larger_than_limit_as_git2_ignore_rule(repo, worktree_dir)?;
     // In-memory, libgit2 internal ignore rule
     repo.add_ignore_rule(&files_to_exclude)?;
 
     let oplog_state = OplogHandle::new(&project.gb_dir());
-    let Some(head_sha) = oplog_state.oplog_head()? else {
+    let Some(oplog_commit_id) = oplog_state.oplog_head()? else {
         return Ok(0);
     };
 
     let vbranches = project.virtual_branches().list_branches()?;
-    let dirty_branches: Vec<&Branch> = vbranches
+    let mut lines_changed = 0;
+    let dirty_branches = vbranches
         .iter()
         .filter(|b| b.applied)
-        .filter(|b| !b.ownership.claims.is_empty())
-        .collect();
-
-    let mut lines_changed = 0;
+        .filter(|b| !b.ownership.claims.is_empty());
     for branch in dirty_branches {
-        lines_changed += branch_lines_since_snapshot(branch, &repo, head_sha)?;
+        lines_changed += branch_lines_since_snapshot(branch, repo, oplog_commit_id)?;
     }
     Ok(lines_changed)
 }
@@ -782,4 +773,25 @@ fn serialize_commit(commit: &git2::Commit<'_>) -> Vec<u8> {
     let commit_header = commit.raw_header_bytes();
     let commit_message = commit.message_raw_bytes();
     [commit_header, b"\n", commit_message].concat()
+}
+
+/// we get the data from the blob entry and re-create a commit object from it,
+/// whose returned id should match the one we stored.
+fn deserialize_commit(
+    repo: &git2::Repository,
+    commit_entry: &git2::TreeEntry,
+) -> Result<git2::Oid> {
+    let commit_tree = repo
+        .find_tree(commit_entry.id())
+        .context("failed to convert commit tree entry to tree")?;
+    let commit_blob_entry = commit_tree
+        .get_name("commit")
+        .context("failed to get workdir tree entry")?;
+    let commit_blob = repo
+        .find_blob(commit_blob_entry.id())
+        .context("failed to convert commit tree entry to blob")?;
+    let new_commit_oid = repo
+        .odb()?
+        .write(git2::ObjectType::Commit, commit_blob.content())?;
+    Ok(new_commit_oid)
 }

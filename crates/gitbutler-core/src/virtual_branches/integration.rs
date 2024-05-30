@@ -6,7 +6,7 @@ use lazy_static::lazy_static;
 
 use super::{errors::VerifyError, find_real_tree, VirtualBranchesHandle};
 use crate::{
-    git::{self},
+    git::{self, CommitExt},
     project_repository::{self, LogUntil},
     virtual_branches::branch::BranchCreateRequest,
 };
@@ -20,8 +20,8 @@ const WORKSPACE_HEAD: &str = "Workspace Head";
 pub const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME: &str = "GitButler";
 pub const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
 
-fn get_committer<'a>() -> Result<git::Signature<'a>> {
-    Ok(git::Signature::now(
+fn get_committer<'a>() -> Result<git2::Signature<'a>> {
+    Ok(git2::Signature::now(
         GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
         GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
     )?)
@@ -85,8 +85,8 @@ pub fn get_workspace_head(
     // Create merge commit of branch heads.
     let workspace_head_id = repo.commit(
         None,
-        &committer.signature,
-        &committer.signature,
+        &committer,
+        &committer,
         WORKSPACE_HEAD,
         &workspace_tree,
         &branch_head_refs,
@@ -215,8 +215,8 @@ pub fn update_gitbutler_integration(
     // requires committing to the tip of the branch, and we're mostly replacing the tip.
     let final_commit = repo.commit(
         None,
-        &committer.signature,
-        &committer.signature,
+        &committer,
+        &committer,
         &message,
         &integration_commit.tree()?,
         &[&target_commit],
@@ -253,8 +253,8 @@ pub fn update_gitbutler_integration(
             message.push_str("anything else.\n\n");
             let branch_head_oid = repo.commit(
                 None,
-                &committer.signature,
-                &committer.signature,
+                &committer,
+                &committer,
                 &message,
                 &wip_tree,
                 &[&branch_head],
@@ -299,7 +299,10 @@ fn verify_head_is_clean(
         .context("failed to get default target")?;
 
     let mut extra_commits = project_repository
-        .log(head_commit.id(), LogUntil::Commit(default_target.sha))
+        .log(
+            head_commit.id().into(),
+            LogUntil::Commit(default_target.sha),
+        )
         .context("failed to get log")?;
 
     let integration_commit = extra_commits.pop();
@@ -328,7 +331,7 @@ fn verify_head_is_clean(
         &BranchCreateRequest {
             name: extra_commits
                 .last()
-                .map(|commit| commit.message().to_string()),
+                .map(|commit| commit.message_bstr().to_string()),
             ..Default::default()
         },
     )
@@ -350,7 +353,7 @@ fn verify_head_is_clean(
                 None,
                 &commit.author(),
                 &commit.committer(),
-                &commit.message().to_str_lossy(),
+                &commit.message_bstr().to_str_lossy(),
                 &commit.tree().unwrap(),
                 &[&new_branch_head],
                 None,
@@ -368,13 +371,13 @@ fn verify_head_is_clean(
                 rebased_commit_oid
             ))?;
 
-        new_branch.head = rebased_commit.id();
-        new_branch.tree = rebased_commit.tree_id();
+        new_branch.head = rebased_commit.id().into();
+        new_branch.tree = rebased_commit.tree_id().into();
         vb_state
             .set_branch(new_branch.clone())
             .context("failed to write branch")?;
 
-        head = rebased_commit.id();
+        head = rebased_commit.id().into();
     }
     Ok(())
 }

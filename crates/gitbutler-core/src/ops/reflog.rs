@@ -61,8 +61,11 @@ pub(super) fn set_reference_to_oplog(
         )?;
     }
 
-    let mut content = std::fs::read_to_string(&reflog_file_path)
-        .context("A reflog for gitbutler/target which is needed for undo snapshotting")?;
+    let mut content = match std::fs::read_to_string(&reflog_file_path) {
+        Ok(c) => c,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(err) => return Err(err.into()),
+    };
     content = set_target_ref(&content, &target_commit_id.to_string()).with_context(|| {
         format!(
             "Something was wrong with oplog reflog file at \"{}\"",
@@ -200,14 +203,31 @@ mod set_target_ref {
         let oplog = git::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
         set_reference_to_oplog(worktree_dir, commit_id.into(), oplog).expect("success");
 
-        let loose_ref_file = worktree_dir.join(".git/refs/heads/gitbutler/target");
-        std::fs::remove_file(&loose_ref_file)?;
+        let loose_ref_path = worktree_dir.join(".git/refs/heads/gitbutler/target");
+        std::fs::remove_file(&loose_ref_path)?;
 
         set_reference_to_oplog(worktree_dir, commit_id.into(), oplog).expect("success");
         assert!(
-            loose_ref_file.is_file(),
+            loose_ref_path.is_file(),
             "the file was recreated, just in case there is only a reflog and no branch"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn branch_present_but_reflog_is_missing() -> anyhow::Result<()> {
+        let (dir, commit_id) = setup_repo()?;
+        let worktree_dir = dir.path();
+
+        let oplog = git::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
+        set_reference_to_oplog(worktree_dir, commit_id.into(), oplog).expect("success");
+
+        let loose_ref_log_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
+        std::fs::remove_file(&loose_ref_log_path)?;
+
+        set_reference_to_oplog(worktree_dir, commit_id.into(), oplog)
+            .expect("missing reflog files are recreated");
+        assert!(loose_ref_log_path.is_file(), "the file was recreated");
         Ok(())
     }
 

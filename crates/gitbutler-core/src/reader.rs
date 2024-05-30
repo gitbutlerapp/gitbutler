@@ -8,8 +8,6 @@ use std::{
 use anyhow::Result;
 use serde::{ser::SerializeStruct, Serialize};
 
-use crate::git::{self};
-
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum Error {
     #[error("file not found")]
@@ -102,16 +100,6 @@ impl From<&str> for Content {
             Content::Large
         } else {
             Content::UTF8(text.to_string())
-        }
-    }
-}
-
-impl From<&git::Blob<'_>> for Content {
-    fn from(value: &git::Blob) -> Self {
-        if value.size() > Content::MAX_SIZE {
-            Content::Large
-        } else {
-            value.content().into()
         }
     }
 }
