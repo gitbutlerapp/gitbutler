@@ -20,6 +20,9 @@
 <div class="remote-column" class:has-root={root} class:base>
 	{#if base}
 		<div class="remote-line dashed" class:short={!line} />
+		{#if upstreamLine}
+			<div class="remote-line upstream" />
+		{/if}
 		{#if root}
 			<div class="root base" />
 		{/if}
