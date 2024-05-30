@@ -63,9 +63,15 @@
 				{/if}
 				{#await getRemoteBranchData(project.id, branch.name) then branchData}
 					{#if branchData.commits && branchData.commits.length > 0}
-						<div class="branch-preview__commits-list">
-							{#each branchData.commits as commit (commit.id)}
-								<CommitCard {commit} commitUrl={$baseBranch?.commitUrl(commit.id)} type="remote" />
+						<div>
+							{#each branchData.commits as commit, index (commit.id)}
+								<CommitCard
+									first={index == 0}
+									last={index == branchData.commits.length - 1}
+									{commit}
+									commitUrl={$baseBranch?.commitUrl(commit.id)}
+									type="remote"
+								/>
 							{/each}
 						</div>
 					{/if}
