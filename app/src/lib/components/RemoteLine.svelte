@@ -1,10 +1,12 @@
 <script lang="ts">
 	import Avatar from './Avatar.svelte';
 	import { getAvatarTooltip } from '$lib/utils/avatar';
+	import { tooltip } from '$lib/utils/tooltip';
 	import type { Commit, RemoteCommit } from '$lib/vbranches/types';
 
 	export let commit: Commit | undefined;
 	export let remoteCommit: RemoteCommit | undefined;
+	export let shadowCommit: RemoteCommit | undefined;
 	export let base: boolean;
 	export let first: boolean;
 	export let short: boolean;
@@ -12,7 +14,7 @@
 	export let root: boolean;
 	export let upstreamLine: boolean;
 
-	$: tooltipText = getAvatarTooltip(commit || remoteCommit);
+	$: tooltipText = getAvatarTooltip(commit || remoteCommit || shadowCommit);
 </script>
 
 <div class="remote-column" class:has-root={root} class:base>
@@ -60,6 +62,9 @@
 			<div class="avatar" class:first class:short>
 				<Avatar {author} status={remoteCommit.status} help={tooltipText} />
 			</div>
+		{/if}
+		{#if shadowCommit}
+			<div class="shadow-marker" class:first class:short use:tooltip={tooltipText}></div>
 		{/if}
 	{/if}
 </div>
@@ -155,6 +160,19 @@
 		& svg {
 			height: var(--size-16);
 			width: var(--size-16);
+		}
+	}
+
+	.shadow-marker {
+		position: absolute;
+		width: var(--size-10);
+		height: var(--size-10);
+		border-radius: 100%;
+		background-color: var(--clr-commit-upstream);
+		top: calc(var(--avatar-top) + var(--size-4));
+		left: calc(var(--size-6) + var(--size-1));
+		&.first {
+			top: calc(var(--avatar-first-top) + var(--size-2) + var(--size-1));
 		}
 	}
 </style>

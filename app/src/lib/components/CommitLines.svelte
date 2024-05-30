@@ -36,6 +36,11 @@
 		root={localRoot ||
 			(localCommit?.status == 'remote' && localCommit?.children?.[0]?.status == 'local')}
 		remoteCommit={!hasShadowColumn ? remoteCommit : undefined}
+		shadowCommit={!hasShadowColumn &&
+		localCommit?.relatedTo &&
+		localCommit.relatedTo.id != localCommit.id
+			? localCommit.relatedTo
+			: undefined}
 		upstreamLine={upstreamLine && !hasShadowColumn}
 		{first}
 		short={(!!localCommit && !localCommit?.children?.[0] && !upstreamLine) ||

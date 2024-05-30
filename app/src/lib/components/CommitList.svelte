@@ -17,7 +17,8 @@
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 
-	$: hasShadowColumn = $localCommits.some((c) => c.relatedTo && c.id != c.relatedTo.id);
+	$: hasShadowColumn =
+		$remoteCommits.length > 0 && $remoteCommits.at(0)?.relatedTo?.id != $remoteCommits.at(0)?.id;
 	$: hasLocalColumn = $localCommits.length > 0;
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
