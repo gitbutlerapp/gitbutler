@@ -60,14 +60,15 @@ export function parseGitHubDetailedPullRequest(
 
 export type ChecksStatus =
 	| {
-			startedAt?: Date;
-			completed?: boolean;
-			success?: boolean;
-			hasChecks?: boolean;
-			queued?: number;
-			totalCount?: number;
-			skipped?: number;
-			finished?: number;
+			startedAt: Date;
+			completed: boolean;
+			success: boolean;
+			hasChecks: boolean;
+			failed: number;
+			queued: number;
+			totalCount: number;
+			skipped: number;
+			finished: number;
 	  }
 	| null
 	| undefined;
