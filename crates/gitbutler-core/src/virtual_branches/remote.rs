@@ -190,10 +190,7 @@ pub fn branch_to_remote_branch_data(
 pub fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
     let parent_ids: Vec<git::Oid> = commit
         .parents()
-        .map(|c| {
-            let c: git::Oid = c.id().into();
-            c
-        })
+        .map(|c| git::Oid::from(c.id()))
         .collect::<Vec<_>>();
     RemoteCommit {
         id: commit.id().to_string(),
