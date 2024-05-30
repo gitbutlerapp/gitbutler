@@ -67,10 +67,8 @@ pub fn list_remote_branches(
         let branch = branch_to_remote_branch(&branch)?;
 
         if let Some(branch) = branch {
-            let upstream_remote = branch.upstream.as_ref().map(|u| u.remote());
-
             let branch_is_trunk = branch.name.branch() == Some(default_target.branch.branch())
-                && upstream_remote == Some(default_target.branch.remote());
+                && branch.name.remote() == Some(default_target.branch.remote());
 
             if !branch_is_trunk
                 && branch.name.branch() != Some("gitbutler/integration")
