@@ -1,10 +1,11 @@
 import { dzRegistry } from './dropzone';
 import type { DraggableCommit, DraggableFile, DraggableHunk } from './draggables';
 
+type Draggable = DraggableFile | DraggableHunk | DraggableCommit;
 export interface DraggableConfig {
 	readonly selector?: string;
 	readonly disabled?: boolean;
-	readonly data?: DraggableFile | DraggableHunk | DraggableCommit;
+	readonly data?: Draggable | Promise<Draggable>;
 	readonly viewportId?: string;
 }
 

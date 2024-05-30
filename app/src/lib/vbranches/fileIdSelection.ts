@@ -1,6 +1,7 @@
 import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 import { derived } from 'svelte/store';
 import type { AnyFile, LocalFile } from '$lib/vbranches/types';
+import { isDefined } from '$lib/utils/typeguards';
 
 export interface FileKey {
 	fileId: string;
@@ -31,9 +32,9 @@ export class FileIdSelection {
 	private value: string[];
 	private callbacks: CallBack[];
 
-	constructor() {
+	constructor(value: FileKey[] = []) {
 		this.callbacks = [];
-		this.value = [];
+		this.value = value.map((key) => stringifyFileKey(key.fileId, key.commitId));
 	}
 
 	subscribe(callback: (value: string[]) => void) {
@@ -91,6 +92,22 @@ export class FileIdSelection {
 			if (value.length != 1) return;
 			const fileKey = parseFileKey(value[0]);
 			return await findFileByKey(localFiles, branchId, fileKey);
+		});
+	}
+
+	fileKeys() {
+		return derived(this, (value) => value.map(parseFileKey));
+	}
+
+	files(localFiles: LocalFile[], branchId: string) {
+		return derived(this, async (value) => {
+			const files = await Promise.all(
+				value.map(async (fileKey) => {
+					return await findFileByKey(localFiles, branchId, parseFileKey(fileKey));
+				})
+			);
+
+			return files.filter(isDefined);
 		});
 	}
 
