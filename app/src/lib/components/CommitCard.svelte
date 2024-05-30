@@ -311,7 +311,7 @@
 
 			{#if showDetails}
 				<div class="files-container">
-					<BranchFilesList title="Files" {files} {isUnapplied} />
+					<BranchFilesList title="Files" {files} {isUnapplied} readonly={type == 'upstream'} />
 				</div>
 			{/if}
 		</div>
