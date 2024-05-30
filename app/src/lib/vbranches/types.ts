@@ -126,6 +126,8 @@ export class Branch {
 	updatedAt!: Date;
 	// Indicates that branch is default target for new changes
 	selectedForChanges!: boolean;
+	/// The merge base between the target branch and the virtual branch
+	mergeBase!: string;
 
 	get localCommits() {
 		return this.commits.filter((c) => c.status == 'local');

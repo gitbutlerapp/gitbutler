@@ -71,6 +71,8 @@ pub struct VirtualBranch {
     pub updated_at: u128,
     pub selected_for_changes: bool,
     pub head: git::Oid,
+    /// The merge base between the target branch and the virtual branch
+    pub merge_base: git::Oid,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -863,16 +865,12 @@ pub fn list_virtual_branches(
             })
             .collect::<Result<Vec<_>>>()?;
 
-        // if the branch is not applied, check to see if it's mergeable and up to date
+        let merge_base = repo
+            .merge_base(default_target.sha, branch.head)
+            .context("failed to find merge base")?;
         let mut base_current = true;
         if !branch.applied {
-            // determine if this branch is up to date with the target/base
-            let merge_base = repo
-                .merge_base(default_target.sha, branch.head)
-                .context("failed to find merge base")?;
-            if merge_base != default_target.sha {
-                base_current = false;
-            }
+            base_current = merge_base == default_target.sha;
         }
 
         let upstream = upstream_branch
@@ -918,6 +916,7 @@ pub fn list_virtual_branches(
             updated_at: branch.updated_timestamp_ms,
             selected_for_changes: branch.selected_for_changes == Some(max_selected_for_changes),
             head: branch.head,
+            merge_base,
         };
         branches.push(branch);
     }
