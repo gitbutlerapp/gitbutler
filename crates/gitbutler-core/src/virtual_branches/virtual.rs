@@ -3085,7 +3085,7 @@ pub fn amend(
             &amend_commit.message_bstr().to_str_lossy(),
             &new_tree,
             &parents.iter().collect::<Vec<_>>(),
-            None,
+            amend_commit.change_id().as_deref(),
         )
         .context("failed to create commit")?;
 
