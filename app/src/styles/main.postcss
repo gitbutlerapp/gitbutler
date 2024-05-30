@@ -59,6 +59,8 @@ body {
 	/* optimise font rendering */
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
+
+
 }
 
 a,
@@ -79,7 +81,7 @@ button {
 }
 
 /* custom scrollbar */
-.scrollbar {
+.scrollbar, pre {
 	&::-webkit-scrollbar {
 		background-color: transaparent;
 		width: var(--size-14);
@@ -94,7 +96,7 @@ button {
 		background-clip: padding-box;
 		border-radius: var(--size-12);
 		border: var(--size-4) solid rgba(0, 0, 0, 0);
-		opacity: 0.6;
+		opacity: 0.3;
 	}
 
 	&::-webkit-scrollbar-thumb:hover {

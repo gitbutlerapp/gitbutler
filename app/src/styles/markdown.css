@@ -1,19 +1,24 @@
 .markdown {
+
 	h1 {
 		font-size: 2em;
+        margin-bottom: 0.3em;
 	}
 	h2 {
 		font-size: 1.5em;
+        margin-bottom: 0.3em;
 	}
 	h3 {
 		font-size: 1.17em;
+        margin-bottom: 0.3em;
 	}
 	h4 {
 		font-size: 1em;
+        margin-bottom: 0.3em;
 	}
 
 	p {
-		margin: 1em 0;
+		margin-bottom: 1.2em;
 	}
 
 	ul {
@@ -44,6 +49,8 @@
 		padding: 1em;
 		background-color: var(--clr-scale-ntrl-90);
 		border: 1px solid var(--clr-scale-ntrl-70);
+        overflow: auto;
+        border-radius: var(--radius-m);
 	}
 
 	code {
@@ -61,6 +68,8 @@
 		box-sizing: content-box;
 		height: 0;
 		overflow: visible;
+        margin: 2em 0;
+        opacity: 0.2;
 	}
 
 	b,
