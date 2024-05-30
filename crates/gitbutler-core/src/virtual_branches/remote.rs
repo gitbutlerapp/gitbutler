@@ -1,4 +1,4 @@
-use std::{os::unix::process::parent_id, path::Path};
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use bstr::BString;
