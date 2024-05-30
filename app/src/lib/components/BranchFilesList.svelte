@@ -21,8 +21,6 @@
 	const fileIdSelection = getContext(FileIdSelection);
 	const commit = getCommitStore();
 
-	let sortedFiles: AnyFile[] = [];
-
 	function chunk<T>(arr: T[], size: number) {
 		return Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
 			arr.slice(i * size, i * size + size)
@@ -78,11 +76,11 @@
 		showCheckbox={showCheckboxes}
 		selected={$fileIdSelection.includes(stringifyFileKey(file.id, $commit?.id))}
 		on:click={(e) => {
-			selectFilesInList(e, file, fileIdSelection, sortedFiles, allowMultiple, $commit);
+			selectFilesInList(e, file, fileIdSelection, displayedFiles, allowMultiple, $commit);
 		}}
 		on:keydown={(e) => {
 			e.preventDefault();
-			maybeMoveSelection(e.key, file, sortedFiles, fileIdSelection);
+			maybeMoveSelection(e.key, file, displayedFiles, fileIdSelection);
 		}}
 	/>
 {/each}
