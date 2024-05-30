@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, vec};
 
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
@@ -85,14 +85,28 @@ pub fn get_workspace_head(
     // TODO(mg): Can we make this a constant?
     let committer = get_committer()?;
 
-    // Create merge commit of branch heads.
+    let mut heads: Vec<git2::Commit<'_>> = applied_branches
+        .iter()
+        .filter(|b| b.head != target.sha)
+        .map(|b| repo.find_commit(b.head.into()))
+        .filter_map(Result::ok)
+        .collect();
+
+    if heads.is_empty() {
+        heads = vec![target_commit]
+    }
+
+    // TODO: Why does commit only accept a slice of commits? Feels like we
+    // could make use of AsRef with the right traits.
+    let head_refs: Vec<&git2::Commit<'_>> = heads.iter().collect();
+
     let workspace_head_id = repo.commit(
         None,
         &committer,
         &committer,
         WORKSPACE_HEAD,
         &workspace_tree,
-        &branch_head_refs,
+        head_refs.as_slice(),
     )?;
     Ok(workspace_head_id.into())
 }
