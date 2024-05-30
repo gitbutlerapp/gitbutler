@@ -1,3 +1,4 @@
+use crate::error::Error;
 use std::vec;
 
 use crate::projects::Project;
@@ -41,19 +42,26 @@ impl Project {
     pub(crate) fn snapshot_commit_creation(
         &self,
         snapshot_tree: git::Oid,
+        error: Option<&Error>,
         commit_message: String,
         sha: Option<git::Oid>,
     ) -> anyhow::Result<()> {
-        let details = SnapshotDetails::new(OperationKind::CreateCommit).with_trailers(vec![
-            Trailer {
-                key: "message".to_string(),
-                value: commit_message,
-            },
-            Trailer {
-                key: "sha".to_string(),
-                value: sha.map(|sha| sha.to_string()).unwrap_or_default(),
-            },
-        ]);
+        let details = SnapshotDetails::new(OperationKind::CreateCommit).with_trailers(
+            [
+                vec![
+                    Trailer {
+                        key: "message".to_string(),
+                        value: commit_message,
+                    },
+                    Trailer {
+                        key: "sha".to_string(),
+                        value: sha.map(|sha| sha.to_string()).unwrap_or_default(),
+                    },
+                ],
+                error_trailer(error),
+            ]
+            .concat(),
+        );
         self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
@@ -145,4 +153,15 @@ impl Project {
         self.create_snapshot(details)?;
         Ok(())
     }
+}
+
+fn error_trailer(error: Option<&Error>) -> Vec<Trailer> {
+    error
+        .map(|e| {
+            vec![Trailer {
+                key: "error".to_string(),
+                value: e.to_string(),
+            }]
+        })
+        .unwrap_or_default()
 }

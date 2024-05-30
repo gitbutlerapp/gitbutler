@@ -459,6 +459,7 @@ impl ControllerInner {
             let _ = snapshot_tree.and_then(|snapshot_tree| {
                 project_repository.project().snapshot_commit_creation(
                     snapshot_tree,
+                    result.as_ref().err(),
                     message.to_owned(),
                     None,
                 )
