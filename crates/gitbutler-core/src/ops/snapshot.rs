@@ -12,13 +12,14 @@ use super::entry::Trailer;
 
 /// Snapshot functionality
 impl Project {
-    pub(crate) fn snapshot_branch_applied(&self, branch_name: String) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::ApplyBranch).with_trailers(vec![Trailer {
-                key: "name".to_string(),
-                value: branch_name,
-            }]);
-        self.create_snapshot(details)?;
+    pub(crate) fn snapshot_branch_applied(
+        &self,
+        snapshot_tree: git::Oid,
+        result: &Result<String, Error>,
+    ) -> anyhow::Result<()> {
+        let details = SnapshotDetails::new(OperationKind::ApplyBranch)
+            .with_trailers(result_trailer(result, "name".to_string()));
+        self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
     pub(crate) fn snapshot_branch_unapplied(&self, branch_name: String) -> anyhow::Result<()> {
@@ -152,6 +153,19 @@ impl Project {
         };
         self.create_snapshot(details)?;
         Ok(())
+    }
+}
+
+fn result_trailer(result: &Result<String, Error>, key: String) -> Vec<Trailer> {
+    match result {
+        Ok(v) => vec![Trailer {
+            key,
+            value: v.clone(),
+        }],
+        Err(error) => vec![Trailer {
+            key: "error".to_string(),
+            value: error.to_string(),
+        }],
     }
 }
 
