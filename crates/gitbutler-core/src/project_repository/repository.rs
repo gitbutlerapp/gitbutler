@@ -7,6 +7,7 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 
 use super::conflicts;
+use crate::virtual_branches::errors::Marker;
 use crate::{
     askpass, error,
     git::{self, credentials::HelpError, Url},
@@ -89,7 +90,7 @@ impl Repository {
 
     pub fn assure_resolved(&self) -> Result<()> {
         if self.is_resolving() {
-            Err(anyhow!("project has active conflicts")).context(Code::ProjectConflict)
+            Err(anyhow!("project has active conflicts")).context(Marker::ProjectConflict)
         } else {
             Ok(())
         }
@@ -97,7 +98,7 @@ impl Repository {
 
     pub fn assure_unconflicted(&self) -> Result<()> {
         if conflicts::is_conflicting(self, None)? {
-            Err(anyhow!("project has active conflicts")).context(Code::ProjectConflict)
+            Err(anyhow!("project has active conflicts")).context(Marker::ProjectConflict)
         } else {
             Ok(())
         }

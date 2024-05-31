@@ -1,6 +1,5 @@
-use super::BranchId;
 use crate::error::{AnyhowContextExt, Context, ErrorWithContext};
-use crate::{git, project_repository::RemoteError, projects::ProjectId};
+use crate::{project_repository::RemoteError, projects::ProjectId};
 
 /// A way to mark errors using `[anyhow::Context::context]` for later retrieval.
 ///
@@ -10,25 +9,19 @@ use crate::{git, project_repository::RemoteError, projects::ProjectId};
 pub enum Marker {
     /// Invalid state was detected, making the repository invalid for operation.
     VerificationFailure,
+    /// An indicator for a conflict in the project.
+    ///
+    /// See usages for details on what these conflicts can be.
+    ProjectConflict,
 }
 
 impl std::fmt::Display for Marker {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Marker::VerificationFailure => f.write_str("<verification-failed>"),
+            Marker::ProjectConflict => f.write_str("<project-conflict>"),
         }
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ApplyBranchError {
-    // TODO(ST): use local Marker to detect this case, apply the same to ProjectConflict
-    #[error("branch {0} is in a conflicting state")]
-    BranchConflicts(BranchId),
-    #[error(transparent)]
-    GitError(#[from] git::Error),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -46,11 +39,6 @@ impl ErrorWithContext for PushError {
             PushError::Other(error) => error.custom_context_or_root_cause().into(),
         }
     }
-}
-
-#[derive(Debug)]
-pub struct ForcePushNotAllowed {
-    pub project_id: ProjectId,
 }
 
 #[derive(Debug, thiserror::Error)]

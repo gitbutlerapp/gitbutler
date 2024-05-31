@@ -11,7 +11,7 @@ use super::{
     },
     target, BranchId, RemoteCommit, VirtualBranchHunk, VirtualBranchesHandle,
 };
-use crate::error::Code;
+use crate::virtual_branches::errors::Marker;
 use crate::{
     git::{self, diff},
     project_repository::{self, LogUntil},
@@ -57,7 +57,7 @@ fn go_back_to_integration(
         ))
         .context("failed to get status")?;
     if !statuses.is_empty() {
-        return Err(anyhow!("current HEAD is dirty")).context(Code::ProjectConflict);
+        return Err(anyhow!("current HEAD is dirty")).context(Marker::ProjectConflict);
     }
 
     let vb_state = project_repository.project().virtual_branches();

@@ -25,11 +25,12 @@ use super::{
     },
     branch_to_remote_branch, errors, target, RemoteBranch, VirtualBranchesHandle,
 };
-use crate::error::{self, AnyhowContextExt, Code};
+use crate::error::Code;
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
 use crate::git::{CommitExt, RepositoryExt};
 use crate::time::now_since_unix_epoch_ms;
 use crate::virtual_branches::branch::HunkHash;
+use crate::virtual_branches::errors::Marker;
 use crate::{
     dedup::{dedup, dedup_fmt},
     git::{
@@ -220,7 +221,7 @@ pub fn apply_branch(
     project_repository: &project_repository::Repository,
     branch_id: BranchId,
     user: Option<&users::User>,
-) -> Result<String, errors::ApplyBranchError> {
+) -> Result<String> {
     project_repository.assure_resolved()?;
     let repo = &project_repository.git_repository;
 
@@ -435,7 +436,8 @@ pub fn apply_branch(
         .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {
-        return Err(errors::ApplyBranchError::BranchConflicts(branch_id));
+        return Err(anyhow!("branch {branch_id} is in a conflicting state"))
+            .context(Marker::ProjectConflict);
     }
 
     // apply the branch
@@ -1190,19 +1192,20 @@ pub fn integrate_upstream_commits(
     // scenario we would need to "cherry rebase" new upstream commits onto the last rebased
     // local commit.
     if has_rebased_commits && !can_use_force {
-        let message = "Aborted because force push is disallowed and commits have been rebased.";
         return Err(anyhow!("Cannot merge rebased commits without force push")
-            .context(error::Context::new(message).with_code(Code::ProjectConflict)));
+            .context("Aborted because force push is disallowed and commits have been rebased")
+            .context(Marker::ProjectConflict));
     }
 
     let integration_result = match can_use_force {
         true => integrate_with_rebase(project_repository, &mut branch, &mut unknown_commits),
         false => {
             if has_rebased_commits {
-                let message =
-                    "Aborted because force push is disallowed and commits have been rebased.";
                 return Err(anyhow!("Cannot merge rebased commits without force push")
-                    .context(error::Context::new(message).with_code(Code::ProjectConflict)));
+                    .context(
+                        "Aborted because force push is disallowed and commits have been rebased",
+                    )
+                    .context(Marker::ProjectConflict));
             }
             integrate_with_merge(
                 project_repository,
@@ -1215,8 +1218,8 @@ pub fn integrate_upstream_commits(
     };
 
     if integration_result.as_ref().err().map_or(false, |err| {
-        err.custom_context()
-            .is_some_and(|c| c.code == Code::ProjectConflict)
+        err.downcast_ref()
+            .is_some_and(|marker: &Marker| *marker == Marker::ProjectConflict)
     }) {
         return Ok(());
     };
@@ -1295,10 +1298,7 @@ pub fn integrate_with_merge(
             .conflict_style_merge()
             .force()
             .checkout()?;
-        return Err(anyhow!("Merging")).context(error::Context::new_static(
-            Code::ProjectConflict,
-            "Merge problem",
-        ));
+        return Err(anyhow!("merge problem")).context(Marker::ProjectConflict);
     }
 
     let merge_tree_oid = merge_index.write_tree_to(repo)?;
@@ -3892,7 +3892,11 @@ pub fn create_virtual_branch_from_branch(
 
     match apply_branch(project_repository, branch.id, user) {
         Ok(_) => Ok(branch.id),
-        Err(errors::ApplyBranchError::BranchConflicts(_)) => {
+        Err(err)
+            if err
+                .downcast_ref()
+                .map_or(false, |marker: &Marker| *marker == Marker::ProjectConflict) =>
+        {
             // if branch conflicts with the workspace, it's ok. keep it unapplied
             Ok(branch.id)
         }
@@ -4023,7 +4027,7 @@ mod tests {
 // let conflicts = merge_index.conflicts()?;
 // let conflict_message = conflicts_to_string(conflicts)?;
 // return Err(anyhow!("Merge failed")
-//     .context(error::Context::new(Code::ProjectConflict, conflict_message))
+//     .context(error::Context::new(Marker::ProjectConflict, conflict_message))
 //     .);
 
 // fn conflicts_to_string(conflicts: IndexConflicts) -> Result<String> {

@@ -123,7 +123,7 @@ mod go_back_to_integration {
                 .await
                 .unwrap_err()
                 .downcast_ref(),
-            Some(Code::ProjectConflict)
+            Some(Marker::ProjectConflict)
         ));
     }
 
@@ -159,7 +159,7 @@ mod go_back_to_integration {
                 .await
                 .unwrap_err()
                 .downcast_ref(),
-            Some(Code::ProjectConflict)
+            Some(Marker::ProjectConflict)
         ));
     }
 

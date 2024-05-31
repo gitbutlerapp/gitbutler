@@ -138,10 +138,6 @@ pub enum Code {
     Unknown,
     Validation,
     ProjectGitAuth,
-    /// An indicator for a conflict in the project which is used for flow-control.
-    ///
-    /// See usages for details on what these conflicts can be.
-    ProjectConflict,
 }
 
 impl std::fmt::Display for Code {
@@ -150,7 +146,6 @@ impl std::fmt::Display for Code {
             Code::Unknown => "errors.unknown",
             Code::Validation => "errors.validation",
             Code::ProjectGitAuth => "errors.projects.git.auth",
-            Code::ProjectConflict => "errors.projects.conflict",
         };
         f.write_str(code)
     }
