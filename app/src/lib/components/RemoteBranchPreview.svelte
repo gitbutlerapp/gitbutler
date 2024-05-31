@@ -97,7 +97,6 @@
 					isUnapplied={false}
 					readonly={true}
 					on:close={() => {
-						console.log(selected);
 						fileIdSelection.clear();
 					}}
 				/>
