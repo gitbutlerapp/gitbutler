@@ -3,11 +3,11 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
-use crate::project_repository;
+use crate::{error, project_repository};
 use crate::{error::Error, projects::AuthKey};
 
 #[async_trait]
@@ -47,36 +47,37 @@ impl Controller {
         }
     }
 
-    pub fn add<P: AsRef<Path>>(&self, path: P) -> Result<Project, AddError> {
+    pub fn add<P: AsRef<Path>>(&self, path: P) -> Result<Project> {
         let path = path.as_ref();
         let all_projects = self
             .projects_storage
             .list()
             .context("failed to list projects from storage")?;
         if all_projects.iter().any(|project| project.path == path) {
-            return Err(AddError::AlreadyExists);
+            bail!("project already exists");
         }
         if !path.exists() {
-            return Err(AddError::PathNotFound);
+            bail!("path not found");
         }
         if !path.is_dir() {
-            return Err(AddError::NotADirectory);
+            bail!("not a directory");
         }
         match gix::open_opts(path, gix::open::Options::isolated()) {
             Ok(repo) if repo.is_bare() => {
-                return Err(AddError::BareUnsupported);
+                bail!("bare repositories are unsupported");
             }
             Ok(repo) if repo.worktree().map_or(false, |wt| !wt.is_main()) => {
                 if path.join(".git").is_file() {
-                    return Err(AddError::WorktreeNotSupported);
+                    bail!("can only work in main worktrees");
                 };
             }
             Ok(repo) if repo.submodules().map_or(false, |sm| sm.is_some()) => {
-                return Err(AddError::SubmodulesNotSupported);
+                bail!("repositories with git submodules are not supported");
             }
             Ok(_repo) => {}
             Err(err) => {
-                return Err(AddError::NotAGitRepository(Box::new(err)));
+                return Err(anyhow::Error::from(err))
+                    .context(error::Context::new("must be a Git repository"));
             }
         }
 
@@ -112,7 +113,7 @@ impl Controller {
         Ok(project)
     }
 
-    pub async fn update(&self, project: &UpdateRequest) -> Result<Project, UpdateError> {
+    pub async fn update(&self, project: &UpdateRequest) -> Result<Project> {
         #[cfg(not(windows))]
         if let Some(AuthKey::Local {
             private_key_path, ..
@@ -122,15 +123,17 @@ impl Controller {
             let private_key_path = private_key_path.resolve();
 
             if !private_key_path.exists() {
-                return Err(UpdateError::Validation(UpdateValidationError::KeyNotFound(
-                    private_key_path.to_path_buf(),
-                )));
+                bail!(
+                    "private key at \"{}\" not found",
+                    private_key_path.display()
+                );
             }
 
             if !private_key_path.is_file() {
-                return Err(UpdateError::Validation(UpdateValidationError::KeyNotFile(
-                    private_key_path.to_path_buf(),
-                )));
+                bail!(
+                    "private key at \"{}\" is not a file",
+                    private_key_path.display()
+                );
             }
         }
 
@@ -146,15 +149,7 @@ impl Controller {
         #[cfg(windows)]
         let project = &project_owned;
 
-        let updated = self
-            .projects_storage
-            .update(project)
-            .map_err(|error| match error {
-                super::storage::Error::NotFound => UpdateError::NotFound,
-                error => UpdateError::Other(error.into()),
-            })?;
-
-        Ok(updated)
+        Ok(self.projects_storage.update(project)?)
     }
 
     pub fn get(&self, id: ProjectId) -> Result<Project> {
@@ -222,92 +217,17 @@ impl Controller {
         Ok(())
     }
 
-    pub fn get_local_config(
-        &self,
-        id: ProjectId,
-        key: &str,
-    ) -> Result<Option<String>, ConfigError> {
-        let project = self.projects_storage.get(id).map_err(|error| match error {
-            super::storage::Error::NotFound => ConfigError::NotFound,
-            error => ConfigError::Other(error.into()),
-        })?;
+    pub fn get_local_config(&self, id: ProjectId, key: &str) -> Result<Option<String>> {
+        let project = self.projects_storage.get(id)?;
 
-        let repo = project_repository::Repository::open(&project).map_err(ConfigError::Other)?;
-        repo.config()
-            .get_local(key)
-            .map_err(|e| ConfigError::Other(e.into()))
+        let repo = project_repository::Repository::open(&project)?;
+        Ok(repo.config().get_local(key)?)
     }
 
-    pub fn set_local_config(
-        &self,
-        id: ProjectId,
-        key: &str,
-        value: &str,
-    ) -> Result<(), ConfigError> {
-        let project = self.projects_storage.get(id).map_err(|error| match error {
-            super::storage::Error::NotFound => ConfigError::NotFound,
-            error => ConfigError::Other(error.into()),
-        })?;
+    pub fn set_local_config(&self, id: ProjectId, key: &str, value: &str) -> Result<()> {
+        let project = self.projects_storage.get(id)?;
 
-        let repo = project_repository::Repository::open(&project).map_err(ConfigError::Other)?;
-        repo.config()
-            .set_local(key, value)
-            .map_err(|e| ConfigError::Other(e.into()))?;
-
-        Ok(())
+        let repo = project_repository::Repository::open(&project)?;
+        Ok(repo.config().set_local(key, value)?)
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ConfigError {
-    #[error("project not found")]
-    NotFound,
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum GetError {
-    #[error("project not found")]
-    NotFound,
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum UpdateError {
-    #[error("project not found")]
-    NotFound,
-    #[error(transparent)]
-    Validation(UpdateValidationError),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum UpdateValidationError {
-    #[error("{0} not found")]
-    KeyNotFound(PathBuf),
-    #[error("{0} is not a file")]
-    KeyNotFile(PathBuf),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum AddError {
-    #[error("not a directory")]
-    NotADirectory,
-    #[error("must be a Git repository")]
-    NotAGitRepository(#[from] Box<gix::open::Error>),
-    #[error("bare repositories are unsupported")]
-    BareUnsupported,
-    #[error("can only work in main worktrees")]
-    WorktreeNotSupported,
-    #[error("path not found")]
-    PathNotFound,
-    #[error("project already exists")]
-    AlreadyExists,
-    #[error("repositories with git submodules are not supported")]
-    SubmodulesNotSupported,
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
 }

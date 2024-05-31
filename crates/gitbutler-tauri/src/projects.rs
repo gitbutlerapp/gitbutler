@@ -15,11 +15,7 @@ pub mod commands {
         handle: tauri::AppHandle,
         project: projects::UpdateRequest,
     ) -> Result<projects::Project, Error> {
-        handle
-            .state::<Controller>()
-            .update(&project)
-            .await
-            .map_err(Error::from_error_without_context)
+        Ok(handle.state::<Controller>().update(&project).await?)
     }
 
     #[tauri::command(async)]
@@ -28,10 +24,7 @@ pub mod commands {
         handle: tauri::AppHandle,
         path: &path::Path,
     ) -> Result<projects::Project, Error> {
-        handle
-            .state::<Controller>()
-            .add(path)
-            .map_err(Error::from_error_without_context)
+        Ok(handle.state::<Controller>().add(path)?)
     }
 
     #[tauri::command(async)]
@@ -79,10 +72,7 @@ pub mod commands {
         id: ProjectId,
         key: &str,
     ) -> Result<Option<String>, Error> {
-        handle
-            .state::<Controller>()
-            .get_local_config(id, key)
-            .map_err(Error::from_error_without_context)
+        Ok(handle.state::<Controller>().get_local_config(id, key)?)
     }
 
     #[tauri::command(async)]
@@ -96,6 +86,6 @@ pub mod commands {
         handle
             .state::<Controller>()
             .set_local_config(id, key, value)
-            .map_err(Error::from_error_without_context)
+            .map_err(Into::into)
     }
 }
