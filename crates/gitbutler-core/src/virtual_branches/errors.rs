@@ -1,7 +1,7 @@
 use super::{branch::BranchOwnershipClaims, BranchId, GITBUTLER_INTEGRATION_REFERENCE};
-use crate::error::{AnyhowContextExt, Code, Context, ErrorWithContext};
+use crate::error::{AnyhowContextExt, Context, ErrorWithContext};
 use crate::{
-    error, git,
+    git,
     project_repository::{self, RemoteError},
     projects::ProjectId,
 };
@@ -9,8 +9,6 @@ use crate::{
 // Generic error enum for use in the virtual branches module.
 #[derive(Debug, thiserror::Error)]
 pub enum VirtualBranchError {
-    #[error("branch not found")]
-    BranchNotFound(BranchNotFound),
     #[error("target ownership not found")]
     TargetOwnerhshipNotFound(BranchOwnershipClaims),
     #[error("git object {0} not found")]
@@ -47,8 +45,6 @@ pub enum VerifyError {
 pub enum ResetBranchError {
     #[error("commit {0} not in the branch")]
     CommitNotFoundInBranch(git::Oid),
-    #[error("branch not found")]
-    BranchNotFound(BranchNotFound),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
     #[error(transparent)]
@@ -57,8 +53,6 @@ pub enum ResetBranchError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ApplyBranchError {
-    #[error("project")]
-    BranchNotFound(BranchNotFound),
     #[error("branch {0} is in a conflicting state")]
     BranchConflicts(BranchId),
     #[error(transparent)]
@@ -97,8 +91,6 @@ impl ErrorWithContext for CreateVirtualBranchError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum PushError {
-    #[error("branch not found")]
-    BranchNotFound(BranchNotFound),
     #[error(transparent)]
     Remote(#[from] project_repository::RemoteError),
     #[error(transparent)]
@@ -107,38 +99,24 @@ pub enum PushError {
 
 impl ErrorWithContext for PushError {
     fn context(&self) -> Option<Context> {
-        Some(match self {
-            PushError::BranchNotFound(ctx) => ctx.to_context(),
-            PushError::Remote(error) => return error.context(),
-            PushError::Other(error) => return error.custom_context_or_root_cause().into(),
-        })
+        match self {
+            PushError::Remote(error) => error.context(),
+            PushError::Other(error) => error.custom_context_or_root_cause().into(),
+        }
     }
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum IsRemoteBranchMergableError {
-    #[error("Remote branch {0} not found")]
-    BranchNotFound(git::RemoteRefname),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-#[derive(Debug, thiserror::Error)]
 pub enum IsVirtualBranchMergeable {
-    #[error("branch not found")]
-    BranchNotFound(BranchNotFound),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
 
 impl ErrorWithContext for IsVirtualBranchMergeable {
     fn context(&self) -> Option<Context> {
-        Some(match self {
-            IsVirtualBranchMergeable::BranchNotFound(ctx) => ctx.to_context(),
-            IsVirtualBranchMergeable::Other(error) => {
-                return error.custom_context_or_root_cause().into()
-            }
-        })
+        match self {
+            IsVirtualBranchMergeable::Other(error) => error.custom_context_or_root_cause().into(),
+        }
     }
 }
 
@@ -163,8 +141,6 @@ pub enum SquashError {
     ForcePushNotAllowed(ForcePushNotAllowed),
     #[error("commit {0} not in the branch")]
     CommitNotFound(git::Oid),
-    #[error("branch not found")]
-    BranchNotFound(BranchNotFound),
     #[error("can not squash root commit")]
     CantSquashRootCommit,
     #[error(transparent)]
@@ -196,8 +172,6 @@ pub enum UpdateCommitMessageError {
     EmptyMessage,
     #[error("commit {0} not in the branch")]
     CommitNotFound(git::Oid),
-    #[error("branch not found")]
-    BranchNotFound(BranchNotFound),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -212,35 +186,6 @@ pub enum CreateVirtualBranchFromBranchError {
     BranchNotFound(git::Refname),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-#[derive(Debug)]
-pub struct BranchNotFound {
-    pub project_id: ProjectId,
-    pub branch_id: BranchId,
-}
-
-impl BranchNotFound {
-    fn to_context(&self) -> error::Context {
-        error::Context::new(format!("branch {} not found", self.branch_id))
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum UpdateBranchError {
-    #[error("branch not found")]
-    BranchNotFound(BranchNotFound),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-impl ErrorWithContext for UpdateBranchError {
-    fn context(&self) -> Option<Context> {
-        Some(match self {
-            UpdateBranchError::BranchNotFound(ctx) => ctx.to_context(),
-            UpdateBranchError::Other(error) => return error.custom_context_or_root_cause().into(),
-        })
-    }
 }
 
 #[derive(Debug, thiserror::Error)]

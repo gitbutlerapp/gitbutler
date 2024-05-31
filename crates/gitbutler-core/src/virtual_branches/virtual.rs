@@ -2479,7 +2479,7 @@ fn is_commit_integrated(
 pub fn is_remote_branch_mergeable(
     project_repository: &project_repository::Repository,
     branch_name: &git::RemoteRefname,
-) -> Result<bool, errors::IsRemoteBranchMergableError> {
+) -> Result<bool> {
     let vb_state = project_repository.project().virtual_branches();
 
     let default_target = vb_state.get_default_target()?;
@@ -2488,16 +2488,15 @@ pub fn is_remote_branch_mergeable(
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
 
-    let branch = match project_repository
+    let branch = project_repository
         .git_repository
         .find_branch(&branch_name.into())
-    {
-        Ok(branch) => Ok(branch),
-        Err(git::Error::NotFound(_)) => Err(errors::IsRemoteBranchMergableError::BranchNotFound(
-            branch_name.clone(),
-        )),
-        Err(error) => Err(errors::IsRemoteBranchMergableError::Other(error.into())),
-    }?;
+        .map_err(|err| match err {
+            git::Error::NotFound(_) => {
+                anyhow!("Remote branch {} not found", branch_name.clone())
+            }
+            err => anyhow::Error::from(err),
+        })?;
     let branch_oid = branch.target().context("detatched head")?;
     let branch_commit = project_repository
         .git_repository
@@ -2843,7 +2842,7 @@ pub fn amend(
     branch_id: BranchId,
     commit_oid: git::Oid,
     target_ownership: &BranchOwnershipClaims,
-) -> Result<git::Oid, errors::VirtualBranchError> {
+) -> Result<git::Oid> {
     project_repository.assure_resolved()?;
     let vb_state = project_repository.project().virtual_branches();
 
@@ -2852,12 +2851,7 @@ pub fn amend(
         .context("failed to read virtual branches")?;
 
     if !all_branches.iter().any(|b| b.id == branch_id) {
-        return Err(errors::VirtualBranchError::BranchNotFound(
-            errors::BranchNotFound {
-                project_id: project_repository.project().id,
-                branch_id,
-            },
-        ));
+        bail!("could not find any branch with id {branch_id} to amend to");
     }
 
     let applied_branches = all_branches
@@ -2866,12 +2860,7 @@ pub fn amend(
         .collect::<Vec<_>>();
 
     if !applied_branches.iter().any(|b| b.id == branch_id) {
-        return Err(errors::VirtualBranchError::BranchNotFound(
-            errors::BranchNotFound {
-                project_id: project_repository.project().id,
-                branch_id,
-            },
-        ));
+        bail!("could not find applied branch with id {branch_id} to amend to");
     }
 
     let default_target = vb_state.get_default_target()?;
@@ -2889,20 +2878,11 @@ pub fn amend(
     let (ref mut target_branch, target_status) = applied_statuses
         .iter_mut()
         .find(|(b, _)| b.id == branch_id)
-        .ok_or_else(|| {
-            errors::VirtualBranchError::BranchNotFound(errors::BranchNotFound {
-                project_id: project_repository.project().id,
-                branch_id,
-            })
-        })?;
+        .ok_or_else(|| anyhow!("could not find branch {branch_id} in status list"))?;
 
     if target_branch.upstream.is_some() && !project_repository.project().ok_with_force_push {
         // amending to a pushed head commit will cause a force push that is not allowed
-        return Err(errors::VirtualBranchError::ForcePushNotAllowed(
-            errors::ForcePushNotAllowed {
-                project_id: project_repository.project().id,
-            },
-        ));
+        bail!("force-push is not allowed");
     }
 
     if project_repository
@@ -2912,7 +2892,7 @@ pub fn amend(
         )?
         .is_empty()
     {
-        return Err(errors::VirtualBranchError::BranchHasNoCommits);
+        bail!("branch has no commits - there is nothing to amend to");
     }
 
     // find commit oid
@@ -2949,9 +2929,7 @@ pub fn amend(
         .collect::<HashMap<_, _>>();
 
     if diffs_to_amend.is_empty() {
-        return Err(errors::VirtualBranchError::TargetOwnerhshipNotFound(
-            target_ownership.clone(),
-        ));
+        bail!("target ownership not found");
     }
 
     // apply diffs_to_amend to the commit tree
@@ -3003,7 +2981,7 @@ pub fn amend(
         super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
         Ok(commit_oid)
     } else {
-        Err(errors::VirtualBranchError::RebaseFailed)
+        Err(anyhow!("rebase failed"))
     }
 }
 

@@ -475,7 +475,7 @@ impl ControllerInner {
     ) -> Result<bool, Error> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        super::is_remote_branch_mergeable(&project_repository, branch_name).map_err(Error::from_err)
+        super::is_remote_branch_mergeable(&project_repository, branch_name).map_err(Into::into)
     }
 
     pub fn can_apply_virtual_branch(
@@ -684,8 +684,12 @@ impl ControllerInner {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::AmendCommit));
-            super::amend(project_repository, branch_id, commit_oid, ownership)
-                .map_err(Error::from_err)
+            Ok(super::amend(
+                project_repository,
+                branch_id,
+                commit_oid,
+                ownership,
+            )?)
         })
     }
 
@@ -725,7 +729,8 @@ impl ControllerInner {
         self.with_verify_branch(project_id, |project_repository, _| {
             let snapshot_tree = project_repository.project().prepare_snapshot();
             let result: Result<(), Error> =
-                super::undo_commit(project_repository, branch_id, commit_oid).map_err(Error::from_err);
+                super::undo_commit(project_repository, branch_id, commit_oid)
+                    .map_err(Error::from_err);
             let _ = snapshot_tree.and_then(|snapshot_tree| {
                 project_repository.project().snapshot_commit_undo(
                     snapshot_tree,
