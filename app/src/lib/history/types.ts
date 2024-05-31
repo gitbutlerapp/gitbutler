@@ -29,6 +29,9 @@ export type Operation =
 	| 'ReorderCommit'
 	| 'InsertBlankCommit'
 	| 'MoveCommitFile'
+	| 'ConflictStart'
+	| 'ConflictFinish'
+	| 'ConflictAbandon'
 	| 'FileChanges';
 
 export class Trailer {

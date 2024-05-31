@@ -118,6 +118,14 @@
 			case 'MoveCommitFile':
 				return { text: 'Move commit file', icon: 'move-commit-file-small' };
 
+			// CONFLICT OPERATIONS
+			case 'ConflictStart':
+				return { text: 'Start Conflict Resolution', icon: 'amend-commit' };
+			case 'ConflictFinish':
+				return { text: 'Finish Conflict Resolution', icon: 'amend-commit' };
+			case 'ConflictAbandon':
+				return { text: 'Abandon Conflict Resolution', icon: 'amend-commit' };
+
 			// FILE OPERATIONS
 			case 'MoveHunk':
 				return {
