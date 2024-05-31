@@ -10,8 +10,10 @@
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
+	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { getTimeAgo } from '$lib/utils/timeAgo';
+	import { tooltip } from '$lib/utils/tooltip';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore } from '$lib/vbranches/contexts';
@@ -25,7 +27,6 @@
 		type CommitStatus
 	} from '$lib/vbranches/types';
 	import { createEventDispatcher } from 'svelte';
-	import { tooltip } from '$lib/utils/tooltip';
 	// import { slide } from 'svelte/transition';
 
 	export let branch: Branch | undefined = undefined;
@@ -192,7 +193,14 @@
 						</h5>
 
 						<div class="text-base-11 commit__subtitle">
-							<span class="commit__id" use:tooltip={commit.id}>
+							<!-- svelte-ignore a11y-click-events-have-key-events -->
+							<span
+								class="commit__id"
+								use:tooltip={{ text: commit.id, noMaxWidth: true }}
+								on:click|stopPropagation={() => copyToClipboard(commit.id)}
+								role="button"
+								tabindex="0"
+							>
 								{commit.id.substring(0, 7)}
 
 								{#if commit.isSigned}
