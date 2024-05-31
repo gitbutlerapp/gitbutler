@@ -10,8 +10,3 @@ export function featureBaseBranchSwitching(): Persisted<boolean> {
 	const key = 'featureBaseBranchSwitching';
 	return persisted(false, key);
 }
-
-export function featureAdvancedCommitOperations(): Persisted<boolean> {
-	const key = 'featureAdvancedCommitOperations';
-	return persisted(false, key);
-}
