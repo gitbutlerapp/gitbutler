@@ -11,8 +11,6 @@ use crate::{
 pub enum VirtualBranchError {
     #[error("branch not found")]
     BranchNotFound(BranchNotFound),
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
     #[error("target ownership not found")]
     TargetOwnerhshipNotFound(BranchOwnershipClaims),
     #[error("git object {0} not found")]
@@ -51,8 +49,6 @@ pub enum ResetBranchError {
     CommitNotFoundInBranch(git::Oid),
     #[error("branch not found")]
     BranchNotFound(BranchNotFound),
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
     #[error(transparent)]
@@ -65,8 +61,6 @@ pub enum ApplyBranchError {
     BranchNotFound(BranchNotFound),
     #[error("branch {0} is in a conflicting state")]
     BranchConflicts(BranchId),
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
     #[error(transparent)]
     GitError(#[from] git::Error),
     #[error(transparent)]
@@ -75,8 +69,6 @@ pub enum ApplyBranchError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ListVirtualBranchesError {
-    #[error("project")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -84,7 +76,6 @@ pub enum ListVirtualBranchesError {
 impl ErrorWithContext for ListVirtualBranchesError {
     fn context(&self) -> Option<Context> {
         match self {
-            ListVirtualBranchesError::DefaultTargetNotSet(ctx) => ctx.to_context().into(),
             ListVirtualBranchesError::Other(error) => error.custom_context_or_root_cause().into(),
         }
     }
@@ -92,8 +83,6 @@ impl ErrorWithContext for ListVirtualBranchesError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum CreateVirtualBranchError {
-    #[error("project")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -101,7 +90,6 @@ pub enum CreateVirtualBranchError {
 impl ErrorWithContext for CreateVirtualBranchError {
     fn context(&self) -> Option<Context> {
         match self {
-            CreateVirtualBranchError::DefaultTargetNotSet(ctx) => ctx.to_context().into(),
             CreateVirtualBranchError::Other(error) => error.custom_context_or_root_cause().into(),
         }
     }
@@ -109,8 +97,6 @@ impl ErrorWithContext for CreateVirtualBranchError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum PushError {
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
     #[error("branch not found")]
     BranchNotFound(BranchNotFound),
     #[error(transparent)]
@@ -122,7 +108,6 @@ pub enum PushError {
 impl ErrorWithContext for PushError {
     fn context(&self) -> Option<Context> {
         Some(match self {
-            PushError::DefaultTargetNotSet(ctx) => ctx.to_context(),
             PushError::BranchNotFound(ctx) => ctx.to_context(),
             PushError::Remote(error) => return error.context(),
             PushError::Other(error) => return error.custom_context_or_root_cause().into(),
@@ -132,8 +117,6 @@ impl ErrorWithContext for PushError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum IsRemoteBranchMergableError {
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
     #[error("Remote branch {0} not found")]
     BranchNotFound(git::RemoteRefname),
     #[error(transparent)]
@@ -142,8 +125,6 @@ pub enum IsRemoteBranchMergableError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum IsVirtualBranchMergeable {
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
     #[error("branch not found")]
     BranchNotFound(BranchNotFound),
     #[error(transparent)]
@@ -154,7 +135,6 @@ impl ErrorWithContext for IsVirtualBranchMergeable {
     fn context(&self) -> Option<Context> {
         Some(match self {
             IsVirtualBranchMergeable::BranchNotFound(ctx) => ctx.to_context(),
-            IsVirtualBranchMergeable::DefaultTargetNotSet(ctx) => ctx.to_context(),
             IsVirtualBranchMergeable::Other(error) => {
                 return error.custom_context_or_root_cause().into()
             }
@@ -165,15 +145,6 @@ impl ErrorWithContext for IsVirtualBranchMergeable {
 #[derive(Debug)]
 pub struct ForcePushNotAllowed {
     pub project_id: ProjectId,
-}
-
-impl ForcePushNotAllowed {
-    fn to_context(&self) -> error::Context {
-        error::Context::new_static(
-            Code::Unknown,
-            "Action will lead to force pushing, which is not allowed for this",
-        )
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -190,8 +161,6 @@ pub enum CherryPickError {
 pub enum SquashError {
     #[error("force push not allowed")]
     ForcePushNotAllowed(ForcePushNotAllowed),
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
     #[error("commit {0} not in the branch")]
     CommitNotFound(git::Oid),
     #[error("branch not found")]
@@ -204,8 +173,6 @@ pub enum SquashError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum FetchFromTargetError {
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
     #[error("failed to fetch")]
     Remote(RemoteError),
     #[error(transparent)]
@@ -215,7 +182,6 @@ pub enum FetchFromTargetError {
 impl ErrorWithContext for FetchFromTargetError {
     fn context(&self) -> Option<Context> {
         match self {
-            FetchFromTargetError::DefaultTargetNotSet(ctx) => ctx.to_context().into(),
             FetchFromTargetError::Remote(error) => error.context(),
             FetchFromTargetError::Other(error) => error.custom_context_or_root_cause().into(),
         }
@@ -228,8 +194,6 @@ pub enum UpdateCommitMessageError {
     ForcePushNotAllowed(ForcePushNotAllowed),
     #[error("Commit message can not be empty")]
     EmptyMessage,
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
     #[error("commit {0} not in the branch")]
     CommitNotFound(git::Oid),
     #[error("branch not found")]
@@ -244,27 +208,10 @@ pub enum CreateVirtualBranchFromBranchError {
     ApplyBranch(ApplyBranchError),
     #[error("can not create a branch from default target")]
     CantMakeBranchFromDefaultTarget,
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
     #[error("branch {0} not found")]
     BranchNotFound(git::Refname),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-#[derive(Debug)]
-pub struct DefaultTargetNotSet {
-    pub project_id: ProjectId,
-}
-
-impl DefaultTargetNotSet {
-    fn to_context(&self) -> error::Context {
-        Context::new(format!(
-            "project {} does not have a default target set",
-            self.project_id
-        ))
-        .with_code(Code::ProjectConflict)
-    }
 }
 
 #[derive(Debug)]
@@ -281,8 +228,6 @@ impl BranchNotFound {
 
 #[derive(Debug, thiserror::Error)]
 pub enum UpdateBranchError {
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
     #[error("branch not found")]
     BranchNotFound(BranchNotFound),
     #[error(transparent)]
@@ -292,7 +237,6 @@ pub enum UpdateBranchError {
 impl ErrorWithContext for UpdateBranchError {
     fn context(&self) -> Option<Context> {
         Some(match self {
-            UpdateBranchError::DefaultTargetNotSet(ctx) => ctx.to_context(),
             UpdateBranchError::BranchNotFound(ctx) => ctx.to_context(),
             UpdateBranchError::Other(error) => return error.custom_context_or_root_cause().into(),
         })
@@ -309,8 +253,6 @@ pub enum ListRemoteCommitFilesError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ListRemoteBranchesError {
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -318,7 +260,6 @@ pub enum ListRemoteBranchesError {
 impl ErrorWithContext for ListRemoteBranchesError {
     fn context(&self) -> Option<Context> {
         match self {
-            ListRemoteBranchesError::DefaultTargetNotSet(ctx) => ctx.to_context().into(),
             ListRemoteBranchesError::Other(error) => error.custom_context_or_root_cause().into(),
         }
     }
@@ -326,8 +267,6 @@ impl ErrorWithContext for ListRemoteBranchesError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum GetRemoteBranchDataError {
-    #[error("default target not set")]
-    DefaultTargetNotSet(DefaultTargetNotSet),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -335,7 +274,6 @@ pub enum GetRemoteBranchDataError {
 impl ErrorWithContext for GetRemoteBranchDataError {
     fn context(&self) -> Option<Context> {
         match self {
-            GetRemoteBranchDataError::DefaultTargetNotSet(ctx) => ctx.to_context().into(),
             GetRemoteBranchDataError::Other(error) => error.custom_context_or_root_cause().into(),
         }
     }
