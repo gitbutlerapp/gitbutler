@@ -27,12 +27,13 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 // IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
+
 use std::ops::{Deref, DerefMut};
 
-#[cfg(feature = "mock_instant")]
+#[cfg(test)]
 use mock_instant::Instant;
 
-#[cfg(not(feature = "mock_instant"))]
+#[cfg(not(test))]
 use std::time::Instant;
 
 use notify::Event;
@@ -64,6 +65,15 @@ impl Deref for DebouncedEvent {
 impl DerefMut for DebouncedEvent {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.event
+    }
+}
+
+impl Default for DebouncedEvent {
+    fn default() -> Self {
+        Self {
+            event: Default::default(),
+            time: Instant::now(),
+        }
     }
 }
 
