@@ -722,7 +722,7 @@ mod tests {
         use testing::TestCase;
 
         let file_content =
-            fs::read_to_string(Path::new(&format!("./test_cases/{file_name}.hjson"))).unwrap();
+            fs::read_to_string(Path::new(&format!("./tests/fixtures/{file_name}.hjson"))).unwrap();
         let mut test_case = deser_hjson::from_str::<TestCase>(&file_content).unwrap();
 
         MockClock::set_time(Duration::default());
