@@ -4,6 +4,7 @@
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import Tag from './Tag.svelte';
+	import FileCard from './FileCard.svelte';
 
 	export let commit: string;
 	export let branch: Branch;
@@ -28,10 +29,8 @@
 </script>
 
 <div class="conflict-box">
-	<h1>You Are Now in Conflict Resolution Mode</h1>
-	<div>Conflict Commit : <code>{commit}</code></div>
-	<div>Branch: <code>{branch.id}</code></div>
-	<div class="title">Files:</div>
+	<h1>You Are in Conflict Resolution Mode</h1>
+	<div>Go to your editor and solve conflicts in the following files:</div>
 	{#each files as file}
 		<div>{file.path}</div>
 	{/each}
@@ -40,6 +39,9 @@
 		<Tag style="success" on:click={resolveConflictFinish}>Resolve</Tag>
 		<Tag style="error" on:click={resolveConflictAbandon}>Abandon</Tag>
 	</div>
+	<hr />
+	<div>Conflict Commit : <code>{commit}</code></div>
+	<div>Branch: <code>{branch.id}</code></div>
 </div>
 
 <style lang="postcss">

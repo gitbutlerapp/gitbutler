@@ -3162,7 +3162,7 @@ pub fn resolve_conflict_finish(
     dbg!(&commit_oid);
 
     if conflicts::is_conflicting::<&Path>(project_repository, None)? {
-        anyhow::bail!("conflict not resolved");
+        return Err(anyhow::anyhow!("Conflict is not yet resolved")).context("err");
     }
 
     // no longer conflicting, lets commit the changes and remove edit state
