@@ -31,8 +31,8 @@
 mod cache;
 mod event;
 
-//#[cfg(test)]
-//mod testing;
+#[cfg(test)]
+mod testing;
 
 use std::{
     collections::{HashMap, VecDeque},
@@ -664,7 +664,6 @@ pub fn new_debouncer<F: DebounceEventHandler>(
     )
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use std::{fs, path::Path};
@@ -674,7 +673,6 @@ mod tests {
     use mock_instant::MockClock;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
-    use testing::TestCase;
 
     #[rstest]
     fn state(
@@ -717,6 +715,8 @@ mod tests {
         )]
         file_name: &str,
     ) {
+        use testing::TestCase;
+
         let file_content =
             fs::read_to_string(Path::new(&format!("./test_cases/{file_name}.hjson"))).unwrap();
         let mut test_case = deser_hjson::from_str::<TestCase>(&file_content).unwrap();
@@ -796,11 +796,10 @@ mod tests {
                 .collect::<Vec<_>>();
 
             assert_eq!(
-                state.debounced_events(),
+                state.debounced_events(false),
                 events,
                 "debounced events after a `{delay}` delay"
             );
         }
     }
 }
- */
