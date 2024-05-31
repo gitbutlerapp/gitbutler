@@ -3219,6 +3219,7 @@ pub fn resolve_conflict_finish(
         target_branch.tree = wd_tree.id().into();
         vb_state.set_branch(target_branch.clone())?;
         checkout_merged_applied_branches(project_repository)?;
+        edit_mode::clear_edit_mode(project_repository).context("failed to clear edit mode")?;
         super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
         return Ok(new_commit_oid);
     }
@@ -3244,6 +3245,7 @@ pub fn resolve_conflict_finish(
         target_branch.tree = new_head_commit.tree()?.id().into();
         vb_state.set_branch(target_branch.clone())?;
         checkout_merged_applied_branches(project_repository)?;
+        edit_mode::clear_edit_mode(project_repository).context("failed to clear edit mode")?;
         super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
         Ok(new_commit_oid)
     } else {

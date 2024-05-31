@@ -19,7 +19,7 @@ use crate::git;
 pub fn mark_from_index(
     repository: &Repository,
     merge_index: &git::Index,
-    parent: Option<git::Oid>
+    parent: Option<git::Oid>,
 ) -> Result<()> {
     // mark conflicts
     let conflicts = merge_index

@@ -103,22 +103,6 @@
 		branchController.resolveConflictStart(branch.id, commit.id);
 	}
 
-	function resolveConflictFinish(commit: Commit | RemoteCommit) {
-		if (!branch || !$baseBranch) {
-			console.error('Unable to start conflict resolution - no branch');
-			return;
-		}
-		branchController.resolveConflictFinish(branch.id, commit.id);
-	}
-
-	function resolveConflictAbandon(commit: Commit | RemoteCommit) {
-		if (!branch || !$baseBranch) {
-			console.error('Unable to start conflict resolution - no branch');
-			return;
-		}
-		branchController.resolveConflictAbandon(branch.id, commit.id);
-	}
-
 	let isUndoable = !isConflicted;
 
 	$: if ($advancedCommitOperations) {
@@ -343,7 +327,12 @@
 
 			{#if showDetails}
 				<div class="files-container">
-					<BranchFilesList title="Files" {files} {isUnapplied} readonly={type == 'upstream'} />
+					<BranchFilesList
+						title="Files"
+						{files}
+						{isUnapplied}
+						readonly={type == 'upstream'}
+					/>
 				</div>
 			{/if}
 
@@ -356,29 +345,7 @@
 						on:click={(e) => {
 							e.stopPropagation();
 							resolveConflictStart(commit);
-						}}>Start</Tag
-					>
-				</div>
-				<div class="conflict-zone">
-					<Tag
-						style="ghost"
-						kind="solid"
-						clickable
-						on:click={(e) => {
-							e.stopPropagation();
-							resolveConflictFinish(commit);
-						}}>Finish</Tag
-					>
-				</div>
-				<div class="conflict-zone">
-					<Tag
-						style="ghost"
-						kind="solid"
-						clickable
-						on:click={(e) => {
-							e.stopPropagation();
-							resolveConflictAbandon(commit);
-						}}>Abandon</Tag
+						}}>Resolve Conflicts ({commit.conflictedFiles})</Tag
 					>
 				</div>
 			{/if}

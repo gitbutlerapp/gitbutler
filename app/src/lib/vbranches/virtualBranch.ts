@@ -148,12 +148,20 @@ export class VirtualBranchService {
 			)
 		);
 	}
+
+	async checkConflictState(projectId: string): Promise<string | undefined> {
+		return await invoke<any>('check_conflict_state', {id: projectId});
+	}
 }
 
 function subscribeToVirtualBranches(projectId: string, callback: (branches: Branch[]) => void) {
 	return listen<any>(`project://${projectId}/virtual-branches`, (event) =>
 		callback(plainToInstance(VirtualBranches, event.payload).branches)
 	);
+}
+
+export async function checkConflictState(params: { projectId: string }): Promise<string> {
+	return await invoke<any>('check_conflict_state', params);
 }
 
 export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {

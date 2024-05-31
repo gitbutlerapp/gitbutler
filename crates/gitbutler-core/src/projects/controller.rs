@@ -236,6 +236,25 @@ impl Controller {
         Ok(())
     }
 
+    pub async fn check_conflict_state(&self, id: ProjectId) -> Result<Option<String>, Error> {
+        let project = match self.projects_storage.get(id) {
+            Ok(project) => Ok(project),
+            Err(super::storage::Error::NotFound) => return Ok(None),
+            Err(error) => Err(Error::from_err(error)),
+        }?;
+
+        let repo = project_repository::Repository::open(&project)?;
+        let edit_mode = repo.in_edit_mode()?;
+
+        dbg!(&edit_mode);
+
+        if let Some(oid) = edit_mode {
+            Ok(Some(oid.to_string()))
+        } else {
+            Ok(None)
+        }
+    }
+
     pub fn get_local_config(
         &self,
         id: ProjectId,

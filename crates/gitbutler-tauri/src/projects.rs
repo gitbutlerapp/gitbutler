@@ -102,4 +102,17 @@ pub mod commands {
             .set_local_config(id, key, value)
             .context(Code::Projects)?)
     }
+
+    #[tauri::command(async)]
+    #[instrument(skip(handle), err(Debug))]
+    pub async fn check_conflict_state(
+        handle: tauri::AppHandle,
+        id: ProjectId,
+    ) -> Result<Option<String>, Error> {
+        handle
+            .state::<Controller>()
+            .check_conflict_state(id)
+            .await
+            .map_err(Into::into)
+    }
 }

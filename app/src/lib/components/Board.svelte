@@ -1,5 +1,6 @@
 <script lang="ts" async="true">
 	import FullviewLoading from './FullviewLoading.svelte';
+	import ConflictState from './ConflictState.svelte';
 	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import dzenSvg from '$lib/assets/dzen-pc.svg?raw';
 	import { Project } from '$lib/backend/projects';
@@ -9,7 +10,7 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranch } from '$lib/vbranches/types';
+	import { BaseBranch, Branch, Commit } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { open } from '@tauri-apps/api/shell';
 
@@ -20,6 +21,33 @@
 	const activeBranchesError = vbranchService.activeBranchesError;
 	const activeBranches = vbranchService.activeBranches;
 	const showHistoryView = persisted(false, 'showHistoryView');
+
+	let conflictState: string | undefined;
+	let branch: Branch | undefined;
+
+	async function checkConflictState() {
+		if ($activeBranches) {
+			conflictState = await vbranchService.checkConflictState(project.id);
+			if (conflictState) {
+				// find the conflict sha in the active branches
+				branch = $activeBranches.find((branch) => {
+					let hasConflictCommit = false;
+					branch.commits.forEach((commit: Commit) => {
+						if (commit.id == conflictState) {
+							hasConflictCommit = true;
+						}
+					});
+					return hasConflictCommit;
+				});
+				console.log(branch);
+				console.log($activeBranches);
+				console.log('Conflict state:', conflictState);
+			}
+		}
+	}
+	$: if ($activeBranches) {
+		checkConflictState();
+	}
 
 	let dragged: any;
 	let dropZone: HTMLDivElement;
@@ -37,6 +65,8 @@
 	<div class="p-4" data-tauri-drag-region>Something went wrong...</div>
 {:else if !$activeBranches}
 	<FullviewLoading />
+{:else if conflictState && branch}
+	<ConflictState {branch} commit={conflictState} />
 {:else}
 	<div
 		class="board"
@@ -149,9 +179,13 @@
 										role="button"
 										tabindex="0"
 										on:keypress={async () =>
-											await open(`vscode://file${project.vscodePath}/?windowId=_blank`)}
+											await open(
+												`vscode://file${project.vscodePath}/?windowId=_blank`
+											)}
 										on:click={async () =>
-											await open(`vscode://file${project.vscodePath}/?windowId=_blank`)}
+											await open(
+												`vscode://file${project.vscodePath}/?windowId=_blank`
+											)}
 									>
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="vscode" />
