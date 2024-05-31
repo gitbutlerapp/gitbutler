@@ -13,7 +13,6 @@
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { getTimeAgo } from '$lib/utils/timeAgo';
-	import { tooltip } from '$lib/utils/tooltip';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore } from '$lib/vbranches/contexts';
@@ -196,7 +195,6 @@
 							<!-- svelte-ignore a11y-click-events-have-key-events -->
 							<span
 								class="commit__id"
-								use:tooltip={{ text: commit.id, noMaxWidth: true }}
 								on:click|stopPropagation={() => copyToClipboard(commit.id)}
 								role="button"
 								tabindex="0"
@@ -437,6 +435,10 @@
 		display: flex;
 		align-items: center;
 		gap: var(--size-4);
+
+		&:hover {
+			color: var(--clr-text-1);
+		}
 	}
 
 	.commit__subtitle-divider {
