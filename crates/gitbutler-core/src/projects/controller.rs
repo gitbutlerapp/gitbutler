@@ -149,7 +149,7 @@ impl Controller {
         #[cfg(windows)]
         let project = &project_owned;
 
-        Ok(self.projects_storage.update(project)?)
+        self.projects_storage.update(project)
     }
 
     pub fn get(&self, id: ProjectId) -> Result<Project> {
@@ -182,11 +182,9 @@ impl Controller {
     }
 
     pub async fn delete(&self, id: ProjectId) -> Result<(), Error> {
-        let project = match self.projects_storage.get(id) {
-            Ok(project) => Ok(project),
-            Err(super::storage::Error::NotFound) => return Ok(()),
-            Err(error) => Err(Error::from_err(error)),
-        }?;
+        let Some(project) = self.projects_storage.try_get(id)? else {
+            return Ok(());
+        };
 
         if let Some(watchers) = &self.watchers {
             watchers.stop(id).await;

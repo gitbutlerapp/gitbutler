@@ -1,51 +1,7 @@
-use std::{
-    fs, io, num,
-    path::{Path, PathBuf},
-    str,
-    sync::Arc,
-};
+use std::{fs, io, path::Path, str};
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use serde::{ser::SerializeStruct, Serialize};
-
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum Error {
-    #[error("file not found")]
-    NotFound,
-    #[error("io error: {0}")]
-    Io(Arc<io::Error>),
-    #[error(transparent)]
-    From(FromError),
-    #[error("failed to parse {}", path.display())]
-    ParseError {
-        path: PathBuf,
-        source: toml::de::Error,
-    },
-}
-
-impl From<io::Error> for Error {
-    fn from(error: io::Error) -> Self {
-        Error::Io(Arc::new(error))
-    }
-}
-
-impl From<FromError> for Error {
-    fn from(error: FromError) -> Self {
-        Error::From(error)
-    }
-}
-
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum FromError {
-    #[error(transparent)]
-    ParseInt(#[from] num::ParseIntError),
-    #[error(transparent)]
-    ParseBool(#[from] str::ParseBoolError),
-    #[error("file is binary")]
-    Binary,
-    #[error("file too large")]
-    Large,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Content {
@@ -118,19 +74,19 @@ impl From<&[u8]> for Content {
 }
 
 impl TryFrom<&Content> for usize {
-    type Error = FromError;
+    type Error = anyhow::Error;
 
     fn try_from(content: &Content) -> Result<Self, Self::Error> {
         match content {
-            Content::UTF8(text) => text.parse().map_err(FromError::ParseInt),
-            Content::Binary => Err(FromError::Binary),
-            Content::Large => Err(FromError::Large),
+            Content::UTF8(text) => text.parse().map_err(Into::into),
+            Content::Binary => bail!("file is binary"),
+            Content::Large => bail!("file too large"),
         }
     }
 }
 
 impl TryFrom<Content> for usize {
-    type Error = FromError;
+    type Error = anyhow::Error;
 
     fn try_from(content: Content) -> Result<Self, Self::Error> {
         Self::try_from(&content)
@@ -138,19 +94,19 @@ impl TryFrom<Content> for usize {
 }
 
 impl TryFrom<&Content> for String {
-    type Error = FromError;
+    type Error = anyhow::Error;
 
     fn try_from(content: &Content) -> Result<Self, Self::Error> {
         match content {
             Content::UTF8(text) => Ok(text.clone()),
-            Content::Binary => Err(FromError::Binary),
-            Content::Large => Err(FromError::Large),
+            Content::Binary => bail!("file is binary"),
+            Content::Large => bail!("file too large"),
         }
     }
 }
 
 impl TryFrom<Content> for String {
-    type Error = FromError;
+    type Error = anyhow::Error;
 
     fn try_from(content: Content) -> Result<Self, Self::Error> {
         Self::try_from(&content)
@@ -158,7 +114,7 @@ impl TryFrom<Content> for String {
 }
 
 impl TryFrom<Content> for i64 {
-    type Error = FromError;
+    type Error = anyhow::Error;
 
     fn try_from(content: Content) -> Result<Self, Self::Error> {
         Self::try_from(&content)
@@ -166,16 +122,16 @@ impl TryFrom<Content> for i64 {
 }
 
 impl TryFrom<&Content> for i64 {
-    type Error = FromError;
+    type Error = anyhow::Error;
 
     fn try_from(content: &Content) -> Result<Self, Self::Error> {
         let text: String = content.try_into()?;
-        text.parse().map_err(FromError::ParseInt)
+        text.parse().map_err(Into::into)
     }
 }
 
 impl TryFrom<Content> for u64 {
-    type Error = FromError;
+    type Error = anyhow::Error;
 
     fn try_from(content: Content) -> Result<Self, Self::Error> {
         Self::try_from(&content)
@@ -183,16 +139,16 @@ impl TryFrom<Content> for u64 {
 }
 
 impl TryFrom<&Content> for u64 {
-    type Error = FromError;
+    type Error = anyhow::Error;
 
     fn try_from(content: &Content) -> Result<Self, Self::Error> {
         let text: String = content.try_into()?;
-        text.parse().map_err(FromError::ParseInt)
+        text.parse().map_err(Into::into)
     }
 }
 
 impl TryFrom<Content> for u128 {
-    type Error = FromError;
+    type Error = anyhow::Error;
 
     fn try_from(content: Content) -> Result<Self, Self::Error> {
         Self::try_from(&content)
@@ -200,16 +156,16 @@ impl TryFrom<Content> for u128 {
 }
 
 impl TryFrom<&Content> for u128 {
-    type Error = FromError;
+    type Error = anyhow::Error;
 
     fn try_from(content: &Content) -> Result<Self, Self::Error> {
         let text: String = content.try_into()?;
-        text.parse().map_err(FromError::ParseInt)
+        text.parse().map_err(Into::into)
     }
 }
 
 impl TryFrom<Content> for bool {
-    type Error = FromError;
+    type Error = anyhow::Error;
 
     fn try_from(content: Content) -> Result<Self, Self::Error> {
         Self::try_from(&content)
@@ -217,10 +173,10 @@ impl TryFrom<Content> for bool {
 }
 
 impl TryFrom<&Content> for bool {
-    type Error = FromError;
+    type Error = anyhow::Error;
 
     fn try_from(content: &Content) -> Result<Self, Self::Error> {
         let text: String = content.try_into()?;
-        text.parse().map_err(FromError::ParseBool)
+        text.parse().map_err(Into::into)
     }
 }

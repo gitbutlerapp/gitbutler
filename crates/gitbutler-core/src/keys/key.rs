@@ -7,12 +7,6 @@ use ssh_key::{HashAlg, LineEnding, SshSig};
 #[derive(Debug, Clone, Eq)]
 pub struct PrivateKey(ssh_key::PrivateKey);
 
-#[derive(Debug, thiserror::Error)]
-pub enum SignError {
-    #[error(transparent)]
-    Ssh(#[from] ssh_key::Error),
-}
-
 impl PrivateKey {
     pub fn generate() -> Self {
         Self::default()
@@ -22,7 +16,7 @@ impl PrivateKey {
         PublicKey::from(self)
     }
 
-    pub fn sign(&self, bytes: &[u8]) -> Result<String, SignError> {
+    pub fn sign(&self, bytes: &[u8]) -> anyhow::Result<String> {
         let sig = SshSig::sign(&self.0, "git", HashAlg::Sha512, bytes)?;
         sig.to_pem(LineEnding::default()).map_err(Into::into)
     }

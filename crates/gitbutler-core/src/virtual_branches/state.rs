@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::fs::read_toml_file_or_default;
-use anyhow::anyhow;
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
 use super::{target::Target, Branch};
@@ -38,7 +38,7 @@ impl VirtualBranchesHandle {
     /// Persists the default target for the given repository.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn set_default_target(&self, target: Target) -> anyhow::Result<()> {
+    pub fn set_default_target(&self, target: Target) -> Result<()> {
         let mut virtual_branches = self.read_file()?;
         virtual_branches.default_target = Some(target);
         self.write_file(&virtual_branches)?;
@@ -48,7 +48,7 @@ impl VirtualBranchesHandle {
     /// Gets the default target for the given repository.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn get_default_target(&self) -> anyhow::Result<Target> {
+    pub fn get_default_target(&self) -> Result<Target> {
         let virtual_branches = self.read_file();
         virtual_branches?
             .default_target
@@ -58,7 +58,7 @@ impl VirtualBranchesHandle {
     /// Sets the target for the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn set_branch_target(&self, id: BranchId, target: Target) -> anyhow::Result<()> {
+    pub fn set_branch_target(&self, id: BranchId, target: Target) -> Result<()> {
         let mut virtual_branches = self.read_file()?;
         virtual_branches.branch_targets.insert(id, target);
         self.write_file(&virtual_branches)?;
@@ -68,7 +68,7 @@ impl VirtualBranchesHandle {
     /// Sets the state of the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn set_branch(&self, branch: Branch) -> anyhow::Result<()> {
+    pub fn set_branch(&self, branch: Branch) -> Result<()> {
         let mut virtual_branches = self.read_file()?;
         virtual_branches.branches.insert(branch.id, branch);
         self.write_file(&virtual_branches)?;
@@ -78,7 +78,7 @@ impl VirtualBranchesHandle {
     /// Removes the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn remove_branch(&self, id: BranchId) -> anyhow::Result<()> {
+    pub fn remove_branch(&self, id: BranchId) -> Result<()> {
         let mut virtual_branches = self.read_file()?;
         virtual_branches.branches.remove(&id);
         self.write_file(&virtual_branches)?;
@@ -88,14 +88,14 @@ impl VirtualBranchesHandle {
     /// Gets the state of the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn get_branch(&self, id: BranchId) -> anyhow::Result<Branch> {
+    pub fn get_branch(&self, id: BranchId) -> Result<Branch> {
         self.try_branch(id)?
             .ok_or_else(|| anyhow!("branch with ID {id} not found"))
     }
 
     /// Gets the state of the given virtual branch returning `Some(branch)` or `None`
     /// if that branch doesn't exist.
-    pub fn try_branch(&self, id: BranchId) -> anyhow::Result<Option<Branch>> {
+    pub fn try_branch(&self, id: BranchId) -> Result<Option<Branch>> {
         let virtual_branches = self.read_file()?;
         Ok(virtual_branches.branches.get(&id).cloned())
     }
@@ -103,7 +103,7 @@ impl VirtualBranchesHandle {
     /// Lists all virtual branches.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn list_branches(&self) -> anyhow::Result<Vec<Branch>> {
+    pub fn list_branches(&self) -> Result<Vec<Branch>> {
         let virtual_branches = self.read_file()?;
         let branches: Vec<Branch> = virtual_branches.branches.values().cloned().collect();
         Ok(branches)
@@ -119,15 +119,15 @@ impl VirtualBranchesHandle {
     /// Reads and parses the state file.
     ///
     /// If the file does not exist, it will be created.
-    fn read_file(&self) -> Result<VirtualBranches, crate::reader::Error> {
+    fn read_file(&self) -> Result<VirtualBranches> {
         read_toml_file_or_default(&self.file_path)
     }
 
-    fn write_file(&self, virtual_branches: &VirtualBranches) -> anyhow::Result<()> {
+    fn write_file(&self, virtual_branches: &VirtualBranches) -> Result<()> {
         write(self.file_path.as_path(), virtual_branches)
     }
 }
 
-fn write<P: AsRef<Path>>(file_path: P, virtual_branches: &VirtualBranches) -> anyhow::Result<()> {
+fn write<P: AsRef<Path>>(file_path: P, virtual_branches: &VirtualBranches) -> Result<()> {
     crate::fs::write(file_path, toml::to_string(&virtual_branches)?)
 }
