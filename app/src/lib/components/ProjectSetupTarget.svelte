@@ -291,10 +291,6 @@
 		gap: var(--size-8);
 	}
 
-	.project-setup__toggle-label {
-		width: 100%;
-	}
-
 	.success-icon {
 		display: inline;
 		margin-top: calc(var(--size-2) * -1);

@@ -1,7 +1,8 @@
+@layer reset;
+
 @import 'inter-ui/inter.css';
 @import './fonts.css';
 @import './diff.postcss';
-@import './themes.postcss';
 @import './syntax-highlighting.css';
 @import './tokens.css';
 @import './text-classes.css';
@@ -9,10 +10,6 @@
 @import './tooltip.css';
 @import './text-input.css';
 @import './markdown.css';
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 /* CSS VARIABLES */
 :root {
@@ -42,30 +39,127 @@
 }
 
 /* BOILERPLATE CSS */
+/* reset all styles */
+@layer reset {
+	*,
+	*::before,
+	*::after {
+		box-sizing: border-box;
+		border-width: 0;
+		border-style: solid;
+		border-color: currentColor;
+		/* margin: 0;
+		padding: 0; */
+	}
 
-html {
-	overscroll-behavior: none;
-}
+	button,
+	input,
+	optgroup,
+	select,
+	textarea {
+		font-family: inherit;
+		font-feature-settings: inherit;
+		font-variation-settings: inherit;
+		font-size: 100%;
+		font-weight: inherit;
+		line-height: inherit;
+		letter-spacing: inherit;
+		color: inherit;
+		margin: 0;
+		padding: 0;
+	}
 
-body {
-	font-family: 'Inter', sans-serif;
-	height: 100vh;
-	width: 100vw;
-	overflow-y: hidden;
-	padding: 0;
-	color: var(--clr-text-1);
-	background-color: var(--clr-bg-2);
+	img,
+	svg,
+	video,
+	canvas,
+	audio,
+	iframe,
+	embed,
+	object {
+		display: block;
+		vertical-align: middle;
+	}
 
-	/* optimise font rendering */
-	-webkit-font-smoothing: antialiased;
-	text-rendering: optimizeLegibility;
-}
+	button,
+	input:where([type='button']),
+	input:where([type='reset']),
+	input:where([type='submit']) {
+		-webkit-appearance: button;
+		background-color: transparent;
+		background-image: none;
+	}
 
-a,
-button {
-	-webkit-user-select: none;
-	-webkit-user-drag: none;
-	-webkit-app-region: no-drag;
+	a {
+		color: inherit;
+		text-decoration: inherit;
+	}
+
+	a,
+	button {
+		-webkit-user-select: none;
+		-webkit-user-drag: none;
+		-webkit-app-region: no-drag;
+	}
+
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6,
+	hr,
+	figure,
+	p,
+	pre {
+		margin: 0;
+	}
+
+	ol,
+	ul,
+	menu {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	html {
+		overscroll-behavior: none;
+	}
+
+	body {
+		font-family: 'Inter', sans-serif;
+		font-size: 0.8125rem;
+		line-height: inherit;
+		height: 100vh;
+		width: 100vw;
+		overflow-y: hidden;
+		padding: 0;
+		margin: 0;
+
+		color: var(--clr-text-1);
+		background-color: var(--clr-bg-2);
+
+		/* optimise font rendering */
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
+	}
+
+	dialog {
+		padding: 0;
+	}
+
+	table {
+		border-collapse: collapse;
+		border-spacing: 0;
+	}
+
+	fieldset {
+		border: none;
+		padding: 0;
+		margin: 0;
+		min-width: 0;
+	}
 }
 
 /* scrollbar helpers */
@@ -76,6 +170,12 @@ button {
 	&::-webkit-scrollbar {
 		display: none;
 	}
+}
+
+.truncate {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 /**
