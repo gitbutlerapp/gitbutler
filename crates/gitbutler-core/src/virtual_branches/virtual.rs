@@ -106,7 +106,7 @@ pub struct VirtualBranchCommit {
     pub branch_id: BranchId,
     pub change_id: Option<String>,
     pub is_signed: bool,
-    pub conflicted_files: Option<u32>,
+    pub conflicted_files: Option<u32>, // if this is set, the commit is conflicted
 }
 
 // this struct is a mapping to the view `File` type in Typescript
@@ -3681,12 +3681,17 @@ fn cherry_rebase_group(
                 .context("failed to find new commit"),
             |head, to_rebase| {
                 let head = head?;
-
                 dbg!("REBASE", &head.id(), &to_rebase.id());
-                let mut cherrypick_index = cherry_pick_gitbutler(project_repository, &head, &to_rebase)?;
 
                 let patch_stack_branches = project_repository.project().patch_stack_branches;
                 let patch_stack_mode = patch_stack_branches.is_some_and(|x| x);
+
+                // skip merge commits in patch stack mode
+                if patch_stack_mode && to_rebase.is_merge() {
+                    return Ok(head);
+                }
+
+                let mut cherrypick_index = cherry_pick_gitbutler(project_repository, &head, &to_rebase)?;
 
                 if cherrypick_index.has_conflicts() {
                     if !patch_stack_mode {

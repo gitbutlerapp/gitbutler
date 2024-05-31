@@ -65,16 +65,18 @@ impl Project {
         // Create a tree out of the conflicts state if present
         let conflicts_tree_id = write_conflicts_tree(worktree_dir, &repo)?;
 
-        // write out the index as a tree to store
-        let mut index = repo.index()?;
-        let index_tree_oid = index.write_tree()?;
-
         // start building our snapshot tree
         let mut tree_builder = repo.treebuilder(None)?;
-        tree_builder.insert("index", index_tree_oid, FileMode::Tree.into())?;
         tree_builder.insert("target_tree", target_tree_id, FileMode::Tree.into())?;
         tree_builder.insert("conflicts", conflicts_tree_id.into(), FileMode::Tree.into())?;
         tree_builder.insert("virtual_branches.toml", vb_blob_id, FileMode::Blob.into())?;
+
+        // write out the index as a tree to store
+        let mut index = repo.index()?;
+        if !index.has_conflicts() {
+            let index_tree_oid = index.write_tree()?;
+            tree_builder.insert("index", index_tree_oid, FileMode::Tree.into())?;
+        }
 
         // go through all virtual branches and create a subtree for each with the tree and any commits encoded
         let mut branches_tree_builder = repo.treebuilder(None)?;
@@ -487,14 +489,14 @@ impl Project {
         )?;
 
         // reset the repo index to our index tree
-        let index_tree_entry = snapshot_tree
-            .get_name("index")
-            .context("failed to get virtual_branches.toml blob")?;
-        let index_tree = repo
-            .find_tree(index_tree_entry.id())
-            .context("failed to convert index tree entry to tree")?;
-        let mut index = repo.index()?;
-        index.read_tree(&index_tree)?;
+        let index_tree_entry = snapshot_tree.get_name("index");
+        if let Some(index_tree_entry) = index_tree_entry {
+            let index_tree = repo
+                .find_tree(index_tree_entry.id())
+                .context("failed to convert index tree entry to tree")?;
+            let mut index = repo.index()?;
+            index.read_tree(&index_tree)?;
+        }
 
         let restored_operation = snapshot_commit
             .message()

@@ -11,6 +11,7 @@ pub trait CommitExt {
     fn is_signed(&self) -> bool;
     fn is_conflicted(&self) -> bool;
     fn conflicted_files(&self) -> Option<u32>;
+    fn is_merge(&self) -> bool;
 }
 
 impl<'repo> CommitExt for git2::Commit<'repo> {
@@ -43,5 +44,9 @@ impl<'repo> CommitExt for git2::Commit<'repo> {
         } else {
             None
         }
+    }
+
+    fn is_merge(&self) -> bool {
+        self.parent_count() > 1
     }
 }
