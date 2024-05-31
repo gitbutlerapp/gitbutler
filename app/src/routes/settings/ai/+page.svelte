@@ -21,7 +21,6 @@
 	const aiService = getContext(AIService);
 	const userService = getContext(UserService);
 	const user = userService.user;
-
 	let initialized = false;
 
 	let modelKind: ModelKind | undefined;
@@ -329,8 +328,11 @@
 	<Section>
 		<svelte:fragment slot="title">Custom AI prompts</svelte:fragment>
 		<svelte:fragment slot="description">
-			GitButler's AI assistant creates commit messages and branch names. Use default prompts or make
-			your own. Prompts are shared across projects and can be assigned in project settings.
+			GitButler's AI assistant generates commit messages and branch names. Use default prompts or
+			create your own. Assign prompts in the <button
+				class="link"
+				on:click={() => console.log('got to project settings')}>project settings</button
+			>.
 		</svelte:fragment>
 
 		<div class="prompt-groups">
