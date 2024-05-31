@@ -8,7 +8,7 @@ import {
 	ModelKind,
 	OpenAIModelName,
 	type AIClient,
-	type PromptMessage
+	type Prompt
 } from '$lib/ai/types';
 import { HttpClient } from '$lib/backend/httpClient';
 import * as toasts from '$lib/utils/toasts';
@@ -51,7 +51,7 @@ class DummyAIClient implements AIClient {
 	defaultBranchTemplate = SHORT_DEFAULT_BRANCH_TEMPLATE;
 	constructor(private response = 'lorem ipsum') {}
 
-	async evaluate(_prompt: PromptMessage[]) {
+	async evaluate(_prompt: Prompt) {
 		return this.response;
 	}
 }

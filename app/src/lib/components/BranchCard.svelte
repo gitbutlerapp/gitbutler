@@ -9,6 +9,7 @@
 	import InfoMessage from './InfoMessage.svelte';
 	import PullRequestCard from './PullRequestCard.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
+	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
@@ -54,6 +55,7 @@
 	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
 
 	const aiService = getContext(AIService);
+	const promptService = getContext(PromptService);
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
@@ -75,9 +77,11 @@
 		const hunks = branch.files.flatMap((f) => f.hunks);
 
 		try {
+			const prompt = promptService.selectedBranchPrompt(project.id);
 			const message = await aiService.summarizeBranch({
 				hunks,
-				userToken: $user?.access_token
+				userToken: $user?.access_token,
+				branchTemplate: prompt
 			});
 
 			if (message && message !== branch.name) {

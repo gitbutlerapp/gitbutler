@@ -48,7 +48,7 @@
 			{style}
 			{kind}
 			{help}
-			icon={visible ? 'chevron-top' : 'chevron-down'}
+			icon={visible ? 'chevron-up' : 'chevron-down'}
 			{loading}
 			disabled={disabled || loading}
 			isDropdownChild
