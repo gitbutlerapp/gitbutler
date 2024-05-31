@@ -1,5 +1,10 @@
-import { LONG_DEFAULT_BRANCH_TEMPLATE, LONG_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
-import { MessageRole, type Prompt, type Prompts, type UserPrompt } from '$lib/ai/types';
+import {
+	LONG_DEFAULT_BRANCH_TEMPLATE,
+	SHORT_DEFAULT_BRANCH_TEMPLATE,
+	LONG_DEFAULT_COMMIT_TEMPLATE,
+	SHORT_DEFAULT_COMMIT_TEMPLATE
+} from '$lib/ai/prompts';
+import type { Prompt, Prompts, UserPrompt } from '$lib/ai/types';
 import { persisted, type Persisted } from '$lib/persisted/persisted';
 import { get } from 'svelte/store';
 
@@ -81,16 +86,11 @@ export class PromptService {
 		return false;
 	}
 
-	createEmptyUserPrompt(): UserPrompt {
+	createDefaultUserPrompt(type: 'commits' | 'branches'): UserPrompt {
 		return {
 			id: crypto.randomUUID(),
 			name: 'My Prompt',
-			prompt: [
-				{
-					role: MessageRole.User,
-					content: ''
-				}
-			]
+			prompt: type == 'branches' ? SHORT_DEFAULT_BRANCH_TEMPLATE : SHORT_DEFAULT_COMMIT_TEMPLATE
 		};
 	}
 }

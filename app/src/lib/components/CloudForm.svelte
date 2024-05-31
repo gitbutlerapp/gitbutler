@@ -107,11 +107,26 @@
 			</svelte:fragment>
 		</SectionCard>
 	</div>
-	<AiPromptSelect promptUse="commits" />
-	<AiPromptSelect promptUse="branches" />
-	<div>
-		<Button style="pop" on:click={async () => await goto('/settings/ai')}>Customize prompts</Button>
-	</div>
+
+	<SectionCard>
+		<svelte:fragment slot="title">Custom prompts</svelte:fragment>
+
+		<AiPromptSelect promptUse="commits" />
+		<AiPromptSelect promptUse="branches" />
+
+		<Spacer margin={8} />
+
+		<p class="text-base-body-12">
+			You can apply your own custom prompts to the project. By default, the project uses GitButler
+			prompts, but you can create your own prompts in the general settings.
+		</p>
+		<Button
+			style="ghost"
+			kind="solid"
+			icon="edit-text"
+			on:click={async () => await goto('/settings/ai')}>Customize prompts</Button
+		>
+	</SectionCard>
 </Section>
 
 {#if $user?.role === 'admin'}

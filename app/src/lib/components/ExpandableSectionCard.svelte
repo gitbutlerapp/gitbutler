@@ -4,12 +4,8 @@
 	export let roundedTop = true;
 	export let roundedBottom = true;
 	export let expanded = false;
-	export let displayActions = false;
-	export let disableClosing = false;
 
 	function maybeToggle() {
-		if (disableClosing && expanded) return;
-
 		expanded = !expanded;
 	}
 </script>
@@ -27,19 +23,11 @@
 </SectionCard>
 
 {#if expanded}
-	<SectionCard
-		hasTopRadius={false}
-		roundedTop={false}
-		roundedBottom={roundedBottom && !displayActions}
-		bottomBorder={!displayActions}
-		topDivider
-	>
+	<SectionCard hasTopRadius={false} roundedTop={false} {roundedBottom} topDivider>
 		<slot></slot>
 	</SectionCard>
 
-	{#if displayActions}
-		<SectionCard hasTopRadius={false} roundedTop={false} {roundedBottom} topDivider>
-			<slot name="actions"></slot>
-		</SectionCard>
-	{/if}
+	<SectionCard hasTopRadius={false} roundedTop={false} {roundedBottom} topDivider>
+		<slot name="actions"></slot>
+	</SectionCard>
 {/if}

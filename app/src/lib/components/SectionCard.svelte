@@ -132,6 +132,11 @@
 		display: flex;
 	}
 
+	.section-card__icon-side {
+		display: flex;
+		align-items: center;
+	}
+
 	/* MODIFIERS */
 
 	.rounded-top {
@@ -154,8 +159,7 @@
 			display: block;
 			width: 100%;
 			height: 1px;
-			background-color: var(--clr-border-2);
-			opacity: 0.5;
+			background-color: var(--clr-border-3);
 		}
 	}
 

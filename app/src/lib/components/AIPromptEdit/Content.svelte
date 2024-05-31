@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { MessageRole, type UserPrompt } from '$lib/ai/types';
+	import DialogBubble from '$lib/components/AIPromptEdit/DialogBubble.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import ExpandableSectionCard from '$lib/components/ExpandableSectionCard.svelte';
 	import Icon from '$lib/components/Icon.svelte';
@@ -9,13 +10,12 @@
 
 	export let displayMode: 'readOnly' | 'writable' = 'writable';
 	export let prompt: UserPrompt;
-	export let roundedTop: boolean;
-	export let roundedBottom: boolean;
 
 	let expanded = false;
 	let editing = false;
 	let promptMessages = structuredClone(prompt.prompt);
 	let promptName = structuredClone(prompt.name);
+	let initialName = promptName;
 
 	// Ensure the prompt messages have a default user prompt
 	if (promptMessages.length == 0) {
@@ -43,6 +43,7 @@
 	}
 
 	function removeLastExample() {
+		console.log(promptMessages);
 		promptMessages = promptMessages.slice(0, -2);
 	}
 
@@ -52,7 +53,19 @@
 		dispatcher('deletePrompt', { prompt });
 	}
 
+	let errorMessages = [] as number[];
+
 	function save() {
+		errorMessages = checkForEmptyMessages();
+
+		if (errorMessages.length > 0) {
+			return;
+		}
+
+		if (promptName.trim() == '') {
+			promptName = initialName;
+		}
+
 		prompt.prompt = promptMessages;
 		prompt.name = promptName;
 		editing = false;
@@ -63,152 +76,155 @@
 		promptName = structuredClone(prompt.name);
 		editing = false;
 	}
+
+	$: isInEditing = displayMode == 'writable' && editing;
+
+	function toggleExpand() {
+		if (isInEditing) return;
+
+		expanded = !expanded;
+	}
+
+	function checkForEmptyMessages() {
+		let errors = [] as number[];
+
+		promptMessages.forEach((message, index) => {
+			if (message.content.trim() == '') {
+				errors.push(index);
+			}
+		});
+
+		return errors;
+	}
 </script>
 
-<ExpandableSectionCard
-	{roundedTop}
-	{roundedBottom}
-	bind:expanded
-	displayActions={displayMode == 'writable'}
-	disableClosing={editing}
->
-	<svelte:fragment slot="header">
-		<div class="prompt-name">
-			{#if displayMode == 'readOnly' || !editing}
-				<p>{promptName}</p>
-			{:else}
-				<TextBox bind:value={promptName} wide on:click={(e) => e.stopPropagation()} />
-			{/if}
-			<Icon name={expanded ? 'chevron-up-small' : 'chevron-down-small'} />
-		</div>
-	</svelte:fragment>
-
-	<div class="cards">
-		{#each promptMessages as promptMessage, index}
-			<div
-				class="content-card {promptMessage.role == MessageRole.User
-					? 'role-user'
-					: 'role-assistant'}"
-				class:editing
-			>
-				<div class="actions">
-					{#if promptMessage.role == MessageRole.User}
-						<Icon name="pull-small" />
-						User
-					{:else}
-						<Icon name="push-small" />
-						Assistant
-					{/if}
-					{#if index + 1 == promptMessages.length && promptMessages.length > 1 && displayMode == 'writable' && editing}
-						<Button icon="bin" on:click={removeLastExample} />
-					{/if}
-				</div>
-
-				<div class="prompt-messages">
-					{#if displayMode == 'writable' && editing}
-						<TextArea rows={2} bind:value={promptMessage.content} />
-					{:else}
-						<pre>{promptMessage.content}</pre>
-					{/if}
-				</div>
+<div class="card">
+	<div
+		tabindex="0"
+		role="button"
+		class="header"
+		class:editing={isInEditing}
+		on:click={toggleExpand}
+		on:keydown={(e) => e.key === 'Enter' && toggleExpand()}
+	>
+		{#if !isInEditing}
+			<Icon name="doc" />
+			<h3 class="text-base-15 text-bold title">{promptName}</h3>
+			<div class="icon">
+				<Icon name={expanded ? 'chevron-up' : 'chevron-down'} />
 			</div>
-		{/each}
-
-		{#if displayMode == 'writable' && editing}
-			<!-- svelte-ignore a11y-click-events-have-key-events -->
-			<div class="content-card add-new" on:click={addExample} role="button" tabindex="0">
-				<div class="actions">
-					<Icon name="push-small" />
-					Assistant
-				</div>
-				<div>Add new example</div>
-			</div>
+		{:else}
+			<TextBox bind:value={promptName} wide on:click={(e) => e.stopPropagation()} />
 		{/if}
 	</div>
 
-	<svelte:fragment slot="actions">
-		<div class="edit-actions">
-			{#if editing}
-				<Button kind="solid" style="ghost" on:click={() => cancel()}>Cancel</Button>
-				<Button kind="solid" style="pop" on:click={() => save()}>Save Changes</Button>
-			{:else}
-				<Button
-					style="error"
-					on:click={(e) => {
-						e.stopPropagation();
-						deletePrompt();
+	{#if expanded}
+		<div class="content" class:default-mode={prompt.id == 'default'} class:editing={isInEditing}>
+			{#each promptMessages as promptMessage, index}
+				<DialogBubble
+					bind:promptMessage
+					editing={isInEditing}
+					isLast={index + 1 == promptMessages.length || promptMessages.length == 1}
+					autofocus={index + 1 == promptMessages.length - 1 || promptMessages.length == 1}
+					disableRemove={promptMessages.length == 1}
+					on:addExample={addExample}
+					on:removeLastExample={removeLastExample}
+					on:input={() => {
+						errorMessages = errorMessages.filter((errorIndex) => errorIndex != index);
 					}}
-					icon="bin">Delete</Button
-				>
-				<Button kind="solid" style="ghost" icon="edit-text" on:click={() => (editing = true)}
-					>Edit Prompt</Button
-				>
-			{/if}
+					isError={errorMessages.includes(index)}
+				/>
+
+				{#if index % 2 == 0}
+					<hr class="sections-divider" />
+				{/if}
+			{/each}
 		</div>
-	</svelte:fragment>
-</ExpandableSectionCard>
+
+		{#if displayMode == 'writable'}
+			<div class="actions">
+				{#if editing}
+					<Button kind="solid" style="ghost" on:click={() => cancel()}>Cancel</Button>
+					<Button
+						disabled={errorMessages.length > 0}
+						kind="solid"
+						style="pop"
+						on:click={() => save()}>Save Changes</Button
+					>
+				{:else}
+					<Button
+						style="error"
+						on:click={(e) => {
+							e.stopPropagation();
+							deletePrompt();
+						}}
+						icon="bin-small">Delete</Button
+					>
+					<Button kind="solid" style="ghost" icon="edit-text" on:click={() => (editing = true)}
+						>Edit Prompt</Button
+					>
+				{/if}
+			</div>
+		{/if}
+	{/if}
+</div>
 
 <style lang="postcss">
-	.cards {
-		display: grid;
-		grid-template-columns: 100%;
-		gap: var(--size-16);
-		width: 100%;
-	}
-
-	.content-card {
+	.header {
+		cursor: pointer;
 		display: flex;
-		flex-direction: column;
+		align-items: center;
+		gap: var(--size-16);
+		padding: var(--size-16);
 
-		background-color: #fafafa;
-		border-radius: var(--radius-m);
-		padding: var(--size-12);
-
-		&.role-user {
-			margin-left: 60px;
+		&.editing {
+			cursor: default;
 		}
 
-		&.role-assistant {
-			margin-right: 60px;
+		& .title {
+			flex: 1;
 		}
 
 		&.editing {
-			background-color: transparent;
-			gap: var(--size-8);
-			padding: 0;
-
-			&.role-user {
-				& .actions {
-					justify-content: flex-end;
-				}
-			}
+			cursor: default;
 		}
 
-		&.add-new {
-			background-color: var(--clr-theme-pop-bg);
-			gap: var(--size-8);
+		& .icon {
+			color: var(--clr-text-2);
+		}
+	}
+
+	.content {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-16);
+
+		padding: var(--size-16) 0;
+		border-top: 1px solid var(--clr-border-3);
+	}
+
+	.sections-divider {
+		user-select: none;
+		border-top: 1px solid var(--clr-border-3);
+
+		&.empty {
+			opacity: 0;
 		}
 	}
 
 	.actions {
 		display: flex;
-		align-items: center;
+		justify-content: flex-end;
 		gap: var(--size-8);
+		padding: 0 var(--size-16) var(--size-16);
 	}
 
-	.edit-actions {
-		margin-left: auto;
-	}
+	.default-mode {
+		padding: var(--size-16) 0;
+		border-top: 1px solid var(--clr-border-3);
 
-	pre {
-		text-wrap: wrap;
-		user-select: text;
-	}
-
-	.prompt-name {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--size-16);
+		& .sections-divider {
+			display: none;
+		}
 	}
 </style>

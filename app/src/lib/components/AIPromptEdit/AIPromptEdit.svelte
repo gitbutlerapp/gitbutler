@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { PromptService } from '$lib/ai/promptService';
+	import SectionCard from '$lib/components/SectionCard.svelte';
+	import Icon from '../Icon.svelte';
+	import Section from '$lib/components/settings/Section.svelte';
 	import Content from '$lib/components/AIPromptEdit/Content.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import { getContext } from '$lib/utils/context';
@@ -21,7 +24,10 @@
 	$: userPrompts = prompts.userPrompts;
 
 	function createNewPrompt() {
-		prompts.userPrompts.set([...get(prompts.userPrompts), promptService.createEmptyUserPrompt()]);
+		prompts.userPrompts.set([
+			...get(prompts.userPrompts),
+			promptService.createDefaultUserPrompt(promptUse)
+		]);
 	}
 
 	function deletePrompt(targetPrompt: UserPrompt) {
@@ -31,41 +37,46 @@
 </script>
 
 {#if prompts && $userPrompts}
-	<div class="container">
-		<h3 class="text-head-20 text-bold">
-			{promptUse == 'commits' ? 'Commit Message Prompts' : 'Branch Name Prompts'}
+	<div class="prompt-item__title">
+		<h3 class="text-base-15 text-bold">
+			{promptUse == 'commits' ? 'Commit Message' : 'Branch Name'}
 		</h3>
-		<div>
-			{#if prompts.defaultPrompt}
-				<Content
-					displayMode="readOnly"
-					prompt={{ prompt: prompts.defaultPrompt, name: 'Default Prompt', id: 'default' }}
-					roundedTop={true}
-					roundedBottom={$userPrompts.length == 0}
-				/>
-			{/if}
-			{#each $userPrompts as prompt, index}
-				<Content
-					bind:prompt
-					displayMode="writable"
-					roundedTop={false}
-					roundedBottom={index + 1 == $userPrompts.length}
-					on:deletePrompt={(e) => deletePrompt(e.detail.prompt)}
-				/>
-			{/each}
-		</div>
-
 		<Button kind="solid" style="ghost" icon="plus-small" on:click={createNewPrompt}
 			>New prompt</Button
 		>
 	</div>
+
+	<div class="content">
+		<Content
+			displayMode="readOnly"
+			prompt={{
+				prompt: prompts.defaultPrompt,
+				name: 'Default Prompt',
+				id: 'default'
+			}}
+		/>
+
+		{#each $userPrompts as prompt, index}
+			<Content
+				bind:prompt
+				displayMode="writable"
+				on:deletePrompt={(e) => deletePrompt(e.detail.prompt)}
+			/>
+		{/each}
+	</div>
 {/if}
 
 <style lang="postcss">
-	.container {
+	.prompt-item__title {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: var(--size-24);
+	}
+
+	.content {
 		display: flex;
 		flex-direction: column;
-
-		gap: var(--size-8);
+		gap: var(--size-6);
 	}
 </style>

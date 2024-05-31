@@ -3,8 +3,10 @@
 	import { Project } from '$lib/backend/projects';
 	import RadioButton from '$lib/components/RadioButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import Select from './Select.svelte';
+	import SelectItem from '$lib/components/SelectItem.svelte';
+	import type { Prompts, UserPrompt } from '$lib/ai/types';
 	import { getContext } from '$lib/utils/context';
-	import type { Prompts } from '$lib/ai/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 
 	export let promptUse: 'commits' | 'branches';
@@ -23,41 +25,66 @@
 		selectedPromptId = promptService.selectedBranchPromptId(project.id);
 	}
 
-	$: userPrompts = prompts.userPrompts;
+	let userPrompts = prompts.userPrompts;
+
+	let allPrompts: UserPrompt[] = [];
 
 	const defaultId = crypto.randomUUID();
 
-	let form: HTMLFormElement;
+	// let form: HTMLFormElement;
 
-	function onFormChange(form: HTMLFormElement) {
-		const formData = new FormData(form);
-		const promptId = formData.get('prompt') as string;
+	// function onFormChange(form: HTMLFormElement) {
+	// 	const formData = new FormData(form);
+	// 	const promptId = formData.get('prompt') as string;
 
-		if (promptId == defaultId) {
-			$selectedPromptId = undefined;
-		} else {
-			$selectedPromptId = promptId;
-		}
+	// 	if (promptId == defaultId) {
+	// 		$selectedPromptId = undefined;
+	// 	} else {
+	// 		$selectedPromptId = promptId;
+	// 	}
+	// }
+
+	// function initializeForm(form: HTMLFormElement) {
+	// 	// If the selectedPromptId is present and cooresponds to a valid prompt
+	// 	if ($selectedPromptId && promptService.findPrompt($userPrompts, $selectedPromptId)) {
+	// 		form.prompt.value = $selectedPromptId;
+	// 	} else {
+	// 		form.prompt.value = defaultId;
+	// 	}
+	// }
+
+	// $: if (form) initializeForm(form);
+
+	$: if ($userPrompts) {
+		allPrompts = [
+			{ name: 'Default Prompt', id: defaultId, prompt: prompts.defaultPrompt },
+			...$userPrompts
+		];
+		console.log(allPrompts);
 	}
 
-	function initializeForm(form: HTMLFormElement) {
-		// If the selectedPromptId is present and cooresponds to a valid prompt
-		if ($selectedPromptId && promptService.findPrompt($userPrompts, $selectedPromptId)) {
-			form.prompt.value = $selectedPromptId;
-		} else {
-			form.prompt.value = defaultId;
-		}
+	$: if ($selectedPromptId) {
+		console.log($selectedPromptId);
 	}
-
-	$: if (form) initializeForm(form);
 </script>
 
-<div>
-	<h3 class="text-base-15 text-bold">
-		{promptUse == 'commits' ? 'Commit Message Prompts' : 'Branch Name Prompts'}
-	</h3>
+{#if allPrompts.length > 0}
+	<Select
+		items={allPrompts}
+		bind:value={$selectedPromptId}
+		itemId="name"
+		labelId="name"
+		disabled={allPrompts.length == 1}
+		wide={true}
+		label={promptUse == 'commits' ? 'Commit Message' : 'Branch Name'}
+	>
+		<SelectItem slot="template" let:item let:selected {selected}>
+			{item.name}
+		</SelectItem>
+	</Select>
+{/if}
 
-	<form bind:this={form} on:change={(e) => onFormChange(e.currentTarget)}>
+<!-- <form bind:this={form} on:change={(e) => onFormChange(e.currentTarget)}>
 		<SectionCard roundedBottom={false} labelFor={defaultId} orientation="row">
 			<svelte:fragment slot="title">Default Prompt</svelte:fragment>
 			<svelte:fragment slot="actions">
@@ -77,7 +104,8 @@
 
 				<svelte:fragment slot="caption"
 					>{#if disabled}
-						This prompt contains blank messages, please update the prompt in order to select it.
+						This prompt contains blank messages, please update the prompt in order to
+						select it.
 					{/if}</svelte:fragment
 				>
 
@@ -86,11 +114,4 @@
 				</svelte:fragment>
 			</SectionCard>
 		{/each}
-	</form>
-</div>
-
-<style>
-	h3 {
-		margin-bottom: var(--size-8);
-	}
-</style>
+	</form> -->
