@@ -15,7 +15,6 @@
 
 		const unsubscribeOpenInVSCode = listen<string>('menu://project/open-in-vscode/clicked', () => {
 			const pathToProject = `vscode://file${project.path}`;
-			console.log('pathToProject', pathToProject);
 			open(pathToProject);
 		});
 
