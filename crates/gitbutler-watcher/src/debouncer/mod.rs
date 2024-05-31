@@ -185,7 +185,6 @@ impl<T: FileIdCache> DebounceDataInner<T> {
         for (path, mut queue) in self.queues.drain() {
             let mut kind_index = HashMap::new();
 
-            tracing::debug!("Checking path: {:?}", path);
             while let Some(event) = queue.events.pop_front() {
                 if now.saturating_duration_since(event.time) >= self.timeout {
                     // remove previous event of the same kind
@@ -203,7 +202,7 @@ impl<T: FileIdCache> DebounceDataInner<T> {
 
                     events_expired.push(event);
                 } else if flush_all {
-                    tracing::debug!("Flushing event! {:?}", event.event);
+                    tracing::trace!("Flushing event! {:?}", event.event);
                     events_expired.push(event);
                 } else {
                     queue.events.push_front(event);
@@ -229,7 +228,7 @@ impl<T: FileIdCache> DebounceDataInner<T> {
         });
 
         for event in &events_expired {
-            tracing::debug!("Dispatching event: {:?}", event.event);
+            tracing::trace!("Dispatching event: {:?}", event.event);
         }
 
         events_expired
@@ -249,8 +248,6 @@ impl<T: FileIdCache> DebounceDataInner<T> {
 
     /// Add new event to debouncer cache
     pub fn add_event(&mut self, event: Event) {
-        tracing::debug!("Received event: {:?}", event);
-
         if event.need_rescan() {
             self.cache.rescan();
             self.rescan_event = Some(event.into());
