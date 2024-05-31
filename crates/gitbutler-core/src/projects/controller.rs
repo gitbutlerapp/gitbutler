@@ -158,7 +158,8 @@ impl Controller {
     }
 
     pub fn get(&self, id: ProjectId) -> Result<Project> {
-        let project = self.projects_storage.get(id)?;
+        #[cfg_attr(not(windows), allow(unused_mut))]
+        let mut project = self.projects_storage.get(id)?;
         if !project.gb_dir().exists() {
             if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
                 tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project get", project.gb_dir().display());

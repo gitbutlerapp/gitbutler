@@ -26,12 +26,12 @@ pub struct Repository {
 
 impl Repository {
     pub fn open(project: &projects::Project) -> Result<Self> {
-        let repo = git::Repository::open(&project.path).or_else(|err| match err {
-            git::Error::NotFound(_) => Err(anyhow::Error::from(err)).context(format!(
+        let repo = git::Repository::open(&project.path).map_err(|err| match err {
+            git::Error::NotFound(_) => anyhow::Error::from(err).context(format!(
                 "repository not found at \"{}\"",
                 project.path.display()
             )),
-            other => Err(other.into()),
+            other => other.into(),
         })?;
 
         // XXX(qix-): This is a temporary measure to disable GC on the project repository.

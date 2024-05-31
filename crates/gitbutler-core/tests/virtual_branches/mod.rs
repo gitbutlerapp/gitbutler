@@ -2092,8 +2092,8 @@ fn verify_branch_not_integration() -> Result<()> {
     let verify_result = verify_branch(project_repository);
     assert!(verify_result.is_err());
     assert_eq!(
-        verify_result.unwrap_err().to_string(),
-        "project is on refs/heads/master. Please checkout gitbutler/integration to continue"
+        format!("{:#}", verify_result.unwrap_err()),
+        "<verification-failed>: project is on refs/heads/master. Please checkout gitbutler/integration to continue"
     );
 
     Ok(())

@@ -1,10 +1,11 @@
 use std::{path::PathBuf, vec};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 use lazy_static::lazy_static;
 
-use super::{errors::VerifyError, VirtualBranchesHandle};
+use super::VirtualBranchesHandle;
+use crate::virtual_branches::errors::Marker;
 use crate::{
     git::{self, CommitExt},
     project_repository::{self, conflicts, LogUntil},
@@ -291,142 +292,143 @@ pub fn update_gitbutler_integration(
     Ok(final_commit.into())
 }
 
-pub fn verify_branch(
-    project_repository: &project_repository::Repository,
-) -> Result<(), VerifyError> {
-    verify_current_branch_name(project_repository)?;
-    verify_head_is_set(project_repository)?;
-    verify_head_is_clean(project_repository)?;
+pub fn verify_branch(project_repository: &project_repository::Repository) -> Result<()> {
+    project_repository
+        .verify_current_branch_name()
+        .and_then(|me| me.verify_head_is_set())
+        .and_then(|me| me.verify_head_is_clean())
+        .context(Marker::VerificationFailure)?;
     Ok(())
 }
 
-fn verify_head_is_clean(
-    project_repository: &project_repository::Repository,
-) -> Result<(), VerifyError> {
-    let head_commit = project_repository
-        .git_repository
-        .head()
-        .context("failed to get head")?
-        .peel_to_commit()
-        .context("failed to peel to commit")?;
-
-    let vb_handle = VirtualBranchesHandle::new(project_repository.project().gb_dir());
-    let default_target = vb_handle
-        .get_default_target()
-        .context("failed to get default target")?;
-
-    let mut extra_commits = project_repository
-        .log(
-            head_commit.id().into(),
-            LogUntil::Commit(default_target.sha),
-        )
-        .context("failed to get log")?;
-
-    let integration_commit = extra_commits.pop();
-
-    if integration_commit.is_none() {
-        // no integration commit found
-        return Err(VerifyError::NoIntegrationCommit);
+impl project_repository::Repository {
+    fn verify_head_is_set(&self) -> Result<&Self> {
+        match self.get_head().context("failed to get head")?.name() {
+            Some(refname) if refname.to_string() == GITBUTLER_INTEGRATION_REFERENCE.to_string() => {
+                Ok(self)
+            }
+            Some(head_name) => Err(invalid_head_err(&head_name.to_string())),
+            None => Err(anyhow!(
+                "project in detached head state. Please checkout {} to continue",
+                GITBUTLER_INTEGRATION_REFERENCE.branch()
+            )),
+        }
     }
 
-    if extra_commits.is_empty() {
-        // no extra commits found, so we're good
-        return Ok(());
+    // Returns an error if repo head is not pointing to the integration branch.
+    fn verify_current_branch_name(&self) -> Result<&Self> {
+        match self.get_head()?.name() {
+            Some(head) => {
+                let head_name = head.to_string();
+                if head_name != GITBUTLER_INTEGRATION_REFERENCE.to_string() {
+                    return Err(invalid_head_err(&head_name));
+                }
+                Ok(self)
+            }
+            None => Err(anyhow!("Repo HEAD is unavailable")),
+        }
     }
 
-    project_repository
-        .git_repository
-        .reset(
-            integration_commit.as_ref().unwrap(),
-            git2::ResetType::Soft,
-            None,
-        )
-        .context("failed to reset to integration commit")?;
-
-    let mut new_branch = super::create_virtual_branch(
-        project_repository,
-        &BranchCreateRequest {
-            name: extra_commits
-                .last()
-                .map(|commit| commit.message_bstr().to_string()),
-            ..Default::default()
-        },
-    )
-    .context("failed to create virtual branch")?;
-
-    // rebasing the extra commits onto the new branch
-    let vb_state = project_repository.project().virtual_branches();
-    extra_commits.reverse();
-    let mut head = new_branch.head;
-    for commit in extra_commits {
-        let new_branch_head = project_repository
+    fn verify_head_is_clean(&self) -> Result<&Self> {
+        let head_commit = self
             .git_repository
-            .find_commit(head)
-            .context("failed to find new branch head")?;
+            .head()
+            .context("failed to get head")?
+            .peel_to_commit()
+            .context("failed to peel to commit")?;
 
-        let rebased_commit_oid = project_repository
-            .git_repository
-            .commit(
-                None,
-                &commit.author(),
-                &commit.committer(),
-                &commit.message_bstr().to_str_lossy(),
-                &commit.tree().unwrap(),
-                &[&new_branch_head],
+        let vb_handle = VirtualBranchesHandle::new(self.project().gb_dir());
+        let default_target = vb_handle
+            .get_default_target()
+            .context("failed to get default target")?;
+
+        let mut extra_commits = self
+            .log(
+                head_commit.id().into(),
+                LogUntil::Commit(default_target.sha),
+            )
+            .context("failed to get log")?;
+
+        let integration_commit = extra_commits.pop();
+
+        if integration_commit.is_none() {
+            // no integration commit found
+            bail!("gibButler's integration commit not found on head");
+        }
+
+        if extra_commits.is_empty() {
+            // no extra commits found, so we're good
+            return Ok(self);
+        }
+
+        self.git_repository
+            .reset(
+                integration_commit.as_ref().unwrap(),
+                git2::ResetType::Soft,
                 None,
             )
-            .context(format!(
-                "failed to rebase commit {} onto new branch",
-                commit.id()
-            ))?;
+            .context("failed to reset to integration commit")?;
 
-        let rebased_commit = project_repository
-            .git_repository
-            .find_commit(rebased_commit_oid)
-            .context(format!(
-                "failed to find rebased commit {}",
-                rebased_commit_oid
-            ))?;
+        let mut new_branch = super::create_virtual_branch(
+            self,
+            &BranchCreateRequest {
+                name: extra_commits
+                    .last()
+                    .map(|commit| commit.message_bstr().to_string()),
+                ..Default::default()
+            },
+        )
+        .context("failed to create virtual branch")?;
 
-        new_branch.head = rebased_commit.id().into();
-        new_branch.tree = rebased_commit.tree_id().into();
-        vb_state
-            .set_branch(new_branch.clone())
-            .context("failed to write branch")?;
+        // rebasing the extra commits onto the new branch
+        let vb_state = self.project().virtual_branches();
+        extra_commits.reverse();
+        let mut head = new_branch.head;
+        for commit in extra_commits {
+            let new_branch_head = self
+                .git_repository
+                .find_commit(head)
+                .context("failed to find new branch head")?;
 
-        head = rebased_commit.id().into();
+            let rebased_commit_oid = self
+                .git_repository
+                .commit(
+                    None,
+                    &commit.author(),
+                    &commit.committer(),
+                    &commit.message_bstr().to_str_lossy(),
+                    &commit.tree().unwrap(),
+                    &[&new_branch_head],
+                    None,
+                )
+                .context(format!(
+                    "failed to rebase commit {} onto new branch",
+                    commit.id()
+                ))?;
+
+            let rebased_commit = self
+                .git_repository
+                .find_commit(rebased_commit_oid)
+                .context(format!(
+                    "failed to find rebased commit {}",
+                    rebased_commit_oid
+                ))?;
+
+            new_branch.head = rebased_commit.id().into();
+            new_branch.tree = rebased_commit.tree_id().into();
+            vb_state
+                .set_branch(new_branch.clone())
+                .context("failed to write branch")?;
+
+            head = rebased_commit.id().into();
+        }
+        Ok(self)
     }
-    Ok(())
 }
 
-fn verify_head_is_set(
-    project_repository: &project_repository::Repository,
-) -> Result<(), VerifyError> {
-    match project_repository
-        .get_head()
-        .context("failed to get head")
-        .map_err(VerifyError::Other)?
-        .name()
-    {
-        Some(refname) if refname.to_string() == GITBUTLER_INTEGRATION_REFERENCE.to_string() => {
-            Ok(())
-        }
-        None => Err(VerifyError::DetachedHead),
-        Some(head_name) => Err(VerifyError::InvalidHead(head_name.to_string())),
-    }
-}
-
-// Returns an error if repo head is not pointing to the integration branch.
-pub fn verify_current_branch_name(
-    project_repository: &project_repository::Repository,
-) -> Result<bool, VerifyError> {
-    match project_repository.get_head()?.name() {
-        Some(head) => {
-            if head.to_string() != GITBUTLER_INTEGRATION_REFERENCE.to_string() {
-                return Err(VerifyError::InvalidHead(head.to_string()));
-            }
-            Ok(true)
-        }
-        None => Err(VerifyError::HeadNotFound),
-    }
+fn invalid_head_err(head_name: &str) -> anyhow::Error {
+    anyhow!(
+        "project is on {head_name}. Please checkout {} to continue",
+        GITBUTLER_INTEGRATION_REFERENCE.branch()
+    )
 }

@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use bstr::BString;
 use serde::Serialize;
 
-use super::{errors, target, Author, VirtualBranchesHandle};
+use super::{target, Author, VirtualBranchesHandle};
 use crate::{
     git::{self, CommitExt},
     project_repository::{self, LogUntil},
@@ -55,7 +55,7 @@ pub struct RemoteCommit {
 // a list of all the normal (non-gitbutler) git branches.
 pub fn list_remote_branches(
     project_repository: &project_repository::Repository,
-) -> Result<Vec<RemoteBranch>, errors::ListRemoteBranchesError> {
+) -> Result<Vec<RemoteBranch>> {
     let default_target = default_target(&project_repository.project().gb_dir())?;
 
     let mut remote_branches = vec![];
@@ -85,7 +85,7 @@ pub fn list_remote_branches(
 pub fn get_branch_data(
     project_repository: &project_repository::Repository,
     refname: &git::Refname,
-) -> Result<super::RemoteBranchData, errors::GetRemoteBranchDataError> {
+) -> Result<RemoteBranchData> {
     let default_target = default_target(&project_repository.project().gb_dir())?;
 
     let branch = project_repository
@@ -97,9 +97,7 @@ pub fn get_branch_data(
         .context("failed to get branch data")?;
 
     branch_data
-        .ok_or_else(|| {
-            errors::GetRemoteBranchDataError::Other(anyhow::anyhow!("no data found for branch"))
-        })
+        .context("no data found for branch")
         .map(|branch_data| RemoteBranchData {
             sha: branch_data.sha,
             name: branch_data.name,

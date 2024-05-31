@@ -293,7 +293,7 @@ async fn from_default_target() {
 
     // branch should be created unapplied, because of the conflict
 
-    assert!(matches!(
+    assert_eq!(
         controller
             .create_virtual_branch_from_branch(
                 *project_id,
@@ -301,9 +301,9 @@ async fn from_default_target() {
             )
             .await
             .unwrap_err()
-            .downcast_ref(),
-        Some(errors::CreateVirtualBranchFromBranchError::CantMakeBranchFromDefaultTarget)
-    ));
+            .to_string(),
+        "cannot create a branch from default target"
+    );
 }
 
 #[tokio::test]
@@ -321,7 +321,7 @@ async fn from_non_existent_branch() {
 
     // branch should be created unapplied, because of the conflict
 
-    assert!(matches!(
+    assert_eq!(
         controller
             .create_virtual_branch_from_branch(
                 *project_id,
@@ -329,11 +329,9 @@ async fn from_non_existent_branch() {
             )
             .await
             .unwrap_err()
-            .downcast_ref(),
-        Some(errors::CreateVirtualBranchFromBranchError::BranchNotFound(
-            _
-        ))
-    ));
+            .to_string(),
+        "branch refs/remotes/origin/branch was not found"
+    );
 }
 
 #[tokio::test]

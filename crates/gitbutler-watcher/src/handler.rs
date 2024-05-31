@@ -99,7 +99,14 @@ impl Handler {
                     },
                 })
             }
-            Err(err) if err.is::<virtual_branches::errors::VerifyError>() => Ok(()),
+            Err(err)
+                if matches!(
+                    err.downcast_ref::<virtual_branches::errors::Marker>(),
+                    Some(virtual_branches::errors::Marker::VerificationFailure)
+                ) =>
+            {
+                Ok(())
+            }
             Err(err) => Err(err.context("failed to list virtual branches").into()),
         }
     }

@@ -1,9 +1,8 @@
 use std::path;
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use serde::Serialize;
 
-use super::errors;
 use crate::git::{self, diff};
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -16,15 +15,12 @@ pub struct RemoteBranchFile {
 
 pub fn list_remote_commit_files(
     repository: &git::Repository,
-    commit_oid: git::Oid,
-) -> Result<Vec<RemoteBranchFile>, errors::ListRemoteCommitFilesError> {
-    let commit = match repository.find_commit(commit_oid) {
-        Ok(commit) => Ok(commit),
-        Err(git::Error::NotFound(_)) => Err(errors::ListRemoteCommitFilesError::CommitNotFound(
-            commit_oid,
-        )),
-        Err(error) => Err(errors::ListRemoteCommitFilesError::Other(error.into())),
-    }?;
+    commit_id: git::Oid,
+) -> Result<Vec<RemoteBranchFile>> {
+    let commit = repository.find_commit(commit_id).map_err(|err| match err {
+        git::Error::NotFound(_) => anyhow!("commit {commit_id} not found"),
+        err => err.into(),
+    })?;
 
     // If it's a merge commit, we list nothing. In the future we could to a fork exec of `git diff-tree --cc`
     if commit.parent_count() != 1 {
