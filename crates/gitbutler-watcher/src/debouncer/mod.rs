@@ -44,10 +44,14 @@ use std::{
     time::Duration,
 };
 
+#[allow(unused_imports)]
 pub use cache::{FileIdCache, FileIdMap, NoCache};
 pub use event::DebouncedEvent;
 
+#[allow(unused_imports)]
 pub use file_id;
+
+#[allow(unused_imports)]
 pub use notify;
 
 use file_id::FileId;
