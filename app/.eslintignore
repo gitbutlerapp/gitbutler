@@ -22,7 +22,6 @@ yarn.lock
 /.eslintrc.cjs
 /svelte.config.js
 /postcss.config.cjs
-/tailwind.config.cjs
 /playwright.config.ts
 
 # Written to disk when using `act`

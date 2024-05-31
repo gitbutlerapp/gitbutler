@@ -11,8 +11,6 @@
 @import './text-input.css';
 @import './markdown.css';
 
-/* @tailwind base; */
-
 /* CSS VARIABLES */
 :root {
 	--transition-fast: 0.06s ease-in-out;
@@ -92,6 +90,11 @@
 		background-image: none;
 	}
 
+	a {
+		color: inherit;
+		text-decoration: inherit;
+	}
+
 	a,
 	button {
 		-webkit-user-select: none;
@@ -99,6 +102,7 @@
 		-webkit-app-region: no-drag;
 	}
 
+	h1,
 	h2,
 	h3,
 	h4,
@@ -111,12 +115,21 @@
 		margin: 0;
 	}
 
+	ol,
+	ul,
+	menu {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
 	html {
 		overscroll-behavior: none;
 	}
 
 	body {
 		font-family: 'Inter', sans-serif;
+		font-size: 0.8125rem;
 		line-height: inherit;
 		height: 100vh;
 		width: 100vw;
@@ -139,6 +152,13 @@
 	table {
 		border-collapse: collapse;
 		border-spacing: 0;
+	}
+
+	fieldset {
+		border: none;
+		padding: 0;
+		margin: 0;
+		min-width: 0;
 	}
 }
 

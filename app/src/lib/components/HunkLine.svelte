@@ -38,12 +38,7 @@
 	$: isSelected = selectable && selected;
 </script>
 
-<div
-	class="code-line text-base-11"
-	role="group"
-	style="--tab-size: {tabSize}"
-	on:contextmenu|preventDefault
->
+<div class="code-line" role="group" style="--tab-size: {tabSize}" on:contextmenu|preventDefault>
 	<div class="code-line__numbers-line">
 		<button
 			on:click={() => selectable && dispatch('selected', !selected)}
@@ -86,6 +81,9 @@
 		background-color: var(--clr-bg-1);
 		white-space: pre;
 		tab-size: var(--tab-size);
+
+		font-size: 0.688rem;
+		line-height: 1.5;
 	}
 
 	.line {
