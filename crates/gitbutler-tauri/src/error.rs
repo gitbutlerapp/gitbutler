@@ -20,7 +20,7 @@
 pub(crate) use frontend::Error;
 
 mod frontend {
-    use gitbutler_core::error::{into_anyhow, AnyhowContextExt, ErrorWithContext};
+    use gitbutler_core::error::AnyhowContextExt;
     use serde::{ser::SerializeMap, Serialize};
     use std::borrow::Cow;
 
@@ -35,20 +35,7 @@ mod frontend {
         }
     }
 
-    impl From<gitbutler_core::error::Error> for Error {
-        fn from(value: gitbutler_core::error::Error) -> Self {
-            Self(value.into())
-        }
-    }
-
     impl Error {
-        /// Convert an error with context to our type.
-        ///
-        /// Note that this is only needed as trait specialization isn't working well enough yet.
-        pub fn from_error_with_context(err: impl ErrorWithContext + Send + Sync + 'static) -> Self {
-            Self(into_anyhow(err))
-        }
-
         /// Convert an error without context to our type.
         ///
         /// For now, we avoid using a conversion as it would be so general, we'd miss errors with context

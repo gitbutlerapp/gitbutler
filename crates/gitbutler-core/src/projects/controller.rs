@@ -7,8 +7,8 @@ use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
+use crate::projects::AuthKey;
 use crate::{error, project_repository};
-use crate::{error::Error, projects::AuthKey};
 
 #[async_trait]
 pub trait Watchers {
@@ -181,7 +181,7 @@ impl Controller {
         self.projects_storage.list().map_err(Into::into)
     }
 
-    pub async fn delete(&self, id: ProjectId) -> Result<(), Error> {
+    pub async fn delete(&self, id: ProjectId) -> Result<()> {
         let Some(project) = self.projects_storage.try_get(id)? else {
             return Ok(());
         };

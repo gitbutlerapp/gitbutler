@@ -1,7 +1,5 @@
 use std::str::Utf8Error;
 
-use crate::error::{Context, ErrorWithContext};
-
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("not found: {0}")]
@@ -46,12 +44,6 @@ impl From<git2::Error> for Error {
                 _ => Error::Other(err),
             },
         }
-    }
-}
-
-impl ErrorWithContext for Error {
-    fn context(&self) -> Option<Context> {
-        None
     }
 }
 

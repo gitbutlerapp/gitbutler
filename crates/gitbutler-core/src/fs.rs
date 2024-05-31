@@ -104,7 +104,6 @@ fn persist_tempfile(
 /// Reads and parses the state file.
 ///
 /// If the file does not exist, it will be created.
-// TODO(ST): make this anyhow.
 pub(crate) fn read_toml_file_or_default<T: DeserializeOwned + Default>(path: &Path) -> Result<T> {
     let mut file = match File::open(path) {
         Ok(f) => f,

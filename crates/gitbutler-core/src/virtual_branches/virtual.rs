@@ -26,6 +26,7 @@ use super::{
     branch_to_remote_branch, target, RemoteBranch, VirtualBranchesHandle,
 };
 use crate::error::Code;
+use crate::git::diff::GitHunk;
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
 use crate::git::{CommitExt, RepositoryExt};
 use crate::time::now_since_unix_epoch_ms;
@@ -41,7 +42,6 @@ use crate::{
     project_repository::{self, conflicts, LogUntil},
     users,
 };
-use crate::{error::Error, git::diff::GitHunk};
 
 type AppliedStatuses = Vec<(branch::Branch, BranchStatus)>;
 
@@ -1403,7 +1403,7 @@ pub fn update_branch(
 pub fn delete_branch(
     project_repository: &project_repository::Repository,
     branch_id: BranchId,
-) -> Result<(), Error> {
+) -> Result<()> {
     let vb_state = project_repository.project().virtual_branches();
     let Some(branch) = vb_state.try_branch(branch_id)? else {
         return Ok(());

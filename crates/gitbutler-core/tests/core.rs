@@ -3,7 +3,6 @@ mod suite {
     mod virtual_branches;
 }
 
-mod error;
 mod git;
 mod keys;
 mod lock;

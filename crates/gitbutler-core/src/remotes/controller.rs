@@ -1,5 +1,6 @@
+use anyhow::Result;
+
 use crate::{
-    error::Error,
     project_repository,
     projects::{self, ProjectId},
 };
@@ -14,22 +15,17 @@ impl Controller {
         Self { projects }
     }
 
-    pub async fn remotes(&self, project_id: ProjectId) -> Result<Vec<String>, Error> {
+    pub async fn remotes(&self, project_id: ProjectId) -> Result<Vec<String>> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
 
-        Ok(project_repository.remotes()?)
+        project_repository.remotes()
     }
 
-    pub async fn add_remote(
-        &self,
-        project_id: ProjectId,
-        name: &str,
-        url: &str,
-    ) -> Result<(), Error> {
+    pub async fn add_remote(&self, project_id: ProjectId, name: &str, url: &str) -> Result<()> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
 
-        Ok(project_repository.add_remote(name, url)?)
+        project_repository.add_remote(name, url)
     }
 }

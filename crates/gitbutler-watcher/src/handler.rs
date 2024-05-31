@@ -107,7 +107,7 @@ impl Handler {
             {
                 Ok(())
             }
-            Err(err) => Err(err.context("failed to list virtual branches").into()),
+            Err(err) => Err(err.context("failed to list virtual branches")),
         }
     }
 
