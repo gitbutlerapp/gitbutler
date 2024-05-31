@@ -1739,7 +1739,6 @@ fn compute_locks(
                 }
                 let hash = Hunk::hash_diff(&hunk.diff_lines);
                 let Some(branch_id) = commit_to_branch.get(&commit_id.into()) else {
-                    tracing::error!("Commit not found in branch map");
                     continue;
                 };
 
