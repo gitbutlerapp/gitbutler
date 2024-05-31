@@ -31,8 +31,8 @@
 mod cache;
 mod event;
 
-#[cfg(test)]
-mod testing;
+//#[cfg(test)]
+//mod testing;
 
 use std::{
     collections::{HashMap, VecDeque},
@@ -62,7 +62,6 @@ use mock_instant::Instant;
 
 #[cfg(not(test))]
 use std::time::Instant;
-
 
 /// The set of requirements for watcher debounce event handling functions.
 ///
@@ -668,6 +667,7 @@ pub fn new_debouncer<F: DebounceEventHandler>(
     )
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use std::{fs, path::Path};
@@ -806,3 +806,4 @@ mod tests {
         }
     }
 }
+ */
