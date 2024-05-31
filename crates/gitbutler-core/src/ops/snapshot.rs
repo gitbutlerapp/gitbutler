@@ -1,3 +1,4 @@
+use crate::error::Error;
 use std::vec;
 
 use crate::projects::Project;
@@ -11,49 +12,63 @@ use super::entry::Trailer;
 
 /// Snapshot functionality
 impl Project {
-    pub(crate) fn snapshot_branch_applied(&self, branch_name: String) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::ApplyBranch).with_trailers(vec![Trailer {
-                key: "name".to_string(),
-                value: branch_name,
-            }]);
-        self.create_snapshot(details)?;
+    pub(crate) fn snapshot_branch_applied(
+        &self,
+        snapshot_tree: git::Oid,
+        result: Result<&String, &Error>,
+    ) -> anyhow::Result<()> {
+        let result = result.map(|o| Some(o.clone()));
+        let details = SnapshotDetails::new(OperationKind::ApplyBranch)
+            .with_trailers(result_trailer(result, "name".to_string()));
+        self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
-    pub(crate) fn snapshot_branch_unapplied(&self, branch_name: String) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::UnapplyBranch).with_trailers(vec![Trailer {
-                key: "name".to_string(),
-                value: branch_name,
-            }]);
-        self.create_snapshot(details)?;
+    pub(crate) fn snapshot_branch_unapplied(
+        &self,
+        snapshot_tree: git::Oid,
+        result: Result<&Option<Branch>, &Error>,
+    ) -> anyhow::Result<()> {
+        let result = result.map(|o| o.clone().map(|b| b.name));
+        let details = SnapshotDetails::new(OperationKind::UnapplyBranch)
+            .with_trailers(result_trailer(result, "name".to_string()));
+        self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
-    pub(crate) fn snapshot_commit_undo(&self, commit_sha: git::Oid) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::UndoCommit).with_trailers(vec![Trailer {
-                key: "sha".to_string(),
-                value: commit_sha.to_string(),
-            }]);
-        self.create_snapshot(details)?;
+    pub(crate) fn snapshot_commit_undo(
+        &self,
+        snapshot_tree: git::Oid,
+        result: Result<&(), &Error>,
+        commit_sha: git::Oid,
+    ) -> anyhow::Result<()> {
+        let result = result.map(|_| Some(commit_sha.to_string()));
+        let details = SnapshotDetails::new(OperationKind::UndoCommit)
+            .with_trailers(result_trailer(result, "sha".to_string()));
+        self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
     pub(crate) fn snapshot_commit_creation(
         &self,
         snapshot_tree: git::Oid,
+        error: Option<&Error>,
         commit_message: String,
         sha: Option<git::Oid>,
     ) -> anyhow::Result<()> {
-        let details = SnapshotDetails::new(OperationKind::CreateCommit).with_trailers(vec![
-            Trailer {
-                key: "message".to_string(),
-                value: commit_message,
-            },
-            Trailer {
-                key: "sha".to_string(),
-                value: sha.map(|sha| sha.to_string()).unwrap_or_default(),
-            },
-        ]);
+        let details = SnapshotDetails::new(OperationKind::CreateCommit).with_trailers(
+            [
+                vec![
+                    Trailer {
+                        key: "message".to_string(),
+                        value: commit_message,
+                    },
+                    Trailer {
+                        key: "sha".to_string(),
+                        value: sha.map(|sha| sha.to_string()).unwrap_or_default(),
+                    },
+                ],
+                error_trailer(error),
+            ]
+            .concat(),
+        );
         self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
@@ -145,4 +160,34 @@ impl Project {
         self.create_snapshot(details)?;
         Ok(())
     }
+}
+
+fn result_trailer(result: Result<Option<String>, &Error>, key: String) -> Vec<Trailer> {
+    match result {
+        Ok(v) => {
+            if let Some(v) = v {
+                vec![Trailer {
+                    key,
+                    value: v.clone(),
+                }]
+            } else {
+                vec![]
+            }
+        }
+        Err(error) => vec![Trailer {
+            key: "error".to_string(),
+            value: error.to_string(),
+        }],
+    }
+}
+
+fn error_trailer(error: Option<&Error>) -> Vec<Trailer> {
+    error
+        .map(|e| {
+            vec![Trailer {
+                key: "error".to_string(),
+                value: e.to_string(),
+            }]
+        })
+        .unwrap_or_default()
 }

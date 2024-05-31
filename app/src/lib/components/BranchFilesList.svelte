@@ -1,11 +1,14 @@
 <script lang="ts">
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
+	import Button from './Button.svelte';
 	import FileListItem from './FileListItem.svelte';
+	import TextBox from '$lib/components/TextBox.svelte';
+	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext } from '$lib/utils/context';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { maybeMoveSelection } from '$lib/utils/selection';
 	import { getCommitStore } from '$lib/vbranches/contexts';
-	import { FileIdSelection, fileKey } from '$lib/vbranches/fileIdSelection';
+	import { FileIdSelection, stringifyFileKey } from '$lib/vbranches/fileIdSelection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import type { AnyFile } from '$lib/vbranches/types';
 
@@ -18,8 +21,6 @@
 
 	const fileIdSelection = getContext(FileIdSelection);
 	const commit = getCommitStore();
-
-	let sortedFiles: AnyFile[] = [];
 
 	function chunk<T>(arr: T[], size: number) {
 		return Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
@@ -46,22 +47,59 @@
 		currentDisplayIndex += 1;
 		displayedFiles = [...displayedFiles, ...chunkedFiles[currentDisplayIndex]];
 	}
+	let mergeDiffCommand = 'git diff-tree --cc ';
 </script>
 
-<BranchFilesHeader {title} {files} {showCheckboxes} />
+{#if !$commit?.isMergeCommit()}
+	<BranchFilesHeader {title} {files} {showCheckboxes} />
+{:else}
+	<div class="merge-commit-error">
+		<p class="info">
+			Displaying diffs for merge commits is currently not supported. Please view the merge commit in
+			GitHub, or run the following command in your project directory:
+		</p>
+		<div class="command">
+			<TextBox value={mergeDiffCommand + $commit.id.slice(0, 7)} wide readonly />
+			<Button
+				icon="copy"
+				style="ghost"
+				kind="solid"
+				on:mousedown={() => copyToClipboard(mergeDiffCommand + $commit.id.slice(0, 7))}
+			></Button>
+		</div>
+	</div>
+{/if}
 {#each displayedFiles as file (file.id)}
 	<FileListItem
 		{file}
 		{readonly}
 		{isUnapplied}
 		showCheckbox={showCheckboxes}
-		selected={$fileIdSelection.includes(fileKey(file.id, $commit?.id))}
+		selected={$fileIdSelection.includes(stringifyFileKey(file.id, $commit?.id))}
 		on:click={(e) => {
-			selectFilesInList(e, file, fileIdSelection, sortedFiles, allowMultiple, $commit);
+			selectFilesInList(e, file, fileIdSelection, displayedFiles, allowMultiple, $commit);
 		}}
 		on:keydown={(e) => {
 			e.preventDefault();
-			maybeMoveSelection(e.key, sortedFiles, fileIdSelection);
+			maybeMoveSelection(e.key, file, displayedFiles, fileIdSelection);
 		}}
 	/>
 {/each}
+
+<style lang="postcss">
+	.merge-commit-error {
+		padding: var(--size-14);
+
+		& .info {
+			margin-bottom: var(--size-8);
+			color: var(--clr-text-2);
+		}
+
+		& .command {
+			display: flex;
+			gap: var(--size-8);
+			align-items: center;
+			width: 100%;
+		}
+	}
+</style>

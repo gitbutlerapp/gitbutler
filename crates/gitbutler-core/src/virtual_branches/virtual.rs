@@ -72,6 +72,8 @@ pub struct VirtualBranch {
     pub updated_at: u128,
     pub selected_for_changes: bool,
     pub head: git::Oid,
+    /// The merge base between the target branch and the virtual branch
+    pub merge_base: git::Oid,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -220,7 +222,7 @@ pub fn apply_branch(
     project_repository: &project_repository::Repository,
     branch_id: BranchId,
     user: Option<&users::User>,
-) -> Result<(), errors::ApplyBranchError> {
+) -> Result<String, errors::ApplyBranchError> {
     if project_repository.is_resolving() {
         return Err(errors::ApplyBranchError::Conflict(
             errors::ProjectConflict {
@@ -244,12 +246,8 @@ pub fn apply_branch(
         Err(error) => Err(errors::ApplyBranchError::Other(error.into())),
     }?;
 
-    _ = project_repository
-        .project()
-        .snapshot_branch_applied(branch.name.clone());
-
     if branch.applied {
-        return Ok(());
+        return Ok(branch.name);
     }
 
     let target_commit = repo
@@ -297,7 +295,7 @@ pub fn apply_branch(
 
             // apply the branch
             branch.applied = true;
-            vb_state.set_branch(branch)?;
+            vb_state.set_branch(branch.clone())?;
 
             // checkout the conflicts
             repo.checkout_index(&mut merge_index)
@@ -309,7 +307,7 @@ pub fn apply_branch(
 
             conflicts::mark_from_index(project_repository, &merge_index, Some(default_target.sha))?;
 
-            return Ok(());
+            return Ok(branch.name);
         }
 
         let head_commit = repo
@@ -453,7 +451,7 @@ pub fn apply_branch(
         .context("failed to checkout index")?;
 
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-    Ok(())
+    Ok(branch.name)
 }
 
 pub fn unapply_ownership(
@@ -622,9 +620,6 @@ pub fn unapply_branch(
     if !target_branch.applied {
         return Ok(Some(target_branch));
     }
-    let _ = project_repository
-        .project()
-        .snapshot_branch_unapplied(target_branch.name.clone());
 
     let default_target = vb_state.get_default_target()?;
     let repo = &project_repository.git_repository;
@@ -848,16 +843,12 @@ pub fn list_virtual_branches(
             })
             .collect::<Result<Vec<_>>>()?;
 
-        // if the branch is not applied, check to see if it's mergeable and up to date
+        let merge_base = repo
+            .merge_base(default_target.sha, branch.head)
+            .context("failed to find merge base")?;
         let mut base_current = true;
         if !branch.applied {
-            // determine if this branch is up to date with the target/base
-            let merge_base = repo
-                .merge_base(default_target.sha, branch.head)
-                .context("failed to find merge base")?;
-            if merge_base != default_target.sha {
-                base_current = false;
-            }
+            base_current = merge_base == default_target.sha;
         }
 
         let upstream = upstream_branch
@@ -903,6 +894,7 @@ pub fn list_virtual_branches(
             updated_at: branch.updated_timestamp_ms,
             selected_for_changes: branch.selected_for_changes == Some(max_selected_for_changes),
             head: branch.head,
+            merge_base,
         };
         branches.push(branch);
     }
@@ -1677,20 +1669,21 @@ fn get_non_applied_status(
 
 fn compute_merge_base(
     project_repository: &project_repository::Repository,
-    integration_commit: &git::Oid,
     target_sha: &git::Oid,
+    virtual_branches: &Vec<branch::Branch>,
 ) -> Result<git::Oid> {
     let repo = &project_repository.git_repository;
-    let workspace_commit = repo.find_commit(*integration_commit)?;
     let mut merge_base = *target_sha;
-    for c in workspace_commit.parents() {
-        let mut non_merge_parent = c;
-        // Find the first non-merge commit since a merge with base means the
-        // merge base is equal to the base.
-        while non_merge_parent.parent_count() > 1 {
-            non_merge_parent = non_merge_parent.parent(0)?
+    for branch in virtual_branches {
+        if let Some(last) = project_repository
+            .l(branch.head, LogUntil::Commit(*target_sha))?
+            .last()
+            .map(|id| repo.find_commit(*id))
+        {
+            if let Ok(parent) = last?.parent(0) {
+                merge_base = repo.merge_base(parent.id().into(), merge_base)?;
+            }
         }
-        merge_base = repo.merge_base(merge_base, non_merge_parent.id().into())?;
     }
     Ok(merge_base)
 }
@@ -1702,7 +1695,7 @@ fn compute_locks(
     base_diffs: &BranchStatus,
     virtual_branches: &Vec<branch::Branch>,
 ) -> Result<HashMap<HunkHash, Vec<diff::HunkLock>>> {
-    let merge_base = compute_merge_base(project_repository, integration_commit, target_sha)?;
+    let merge_base = compute_merge_base(project_repository, target_sha, virtual_branches)?;
     let mut locked_hunk_map = HashMap::<HunkHash, Vec<diff::HunkLock>>::new();
 
     let mut commit_to_branch = HashMap::new();
@@ -1733,7 +1726,6 @@ fn compute_locks(
                 }
                 let hash = Hunk::hash_diff(&hunk.diff_lines);
                 let Some(branch_id) = commit_to_branch.get(&commit_id.into()) else {
-                    tracing::error!("Commit not found in branch map");
                     continue;
                 };
 
@@ -3072,7 +3064,7 @@ pub fn amend(
             &amend_commit.message_bstr().to_str_lossy(),
             &new_tree,
             &parents.iter().collect::<Vec<_>>(),
-            None,
+            amend_commit.change_id().as_deref(),
         )
         .context("failed to create commit")?;
 
@@ -4531,7 +4523,7 @@ pub fn create_virtual_branch_from_branch(
     project_repository.add_branch_reference(&branch)?;
 
     match apply_branch(project_repository, branch.id, user) {
-        Ok(()) => Ok(branch.id),
+        Ok(_) => Ok(branch.id),
         Err(errors::ApplyBranchError::BranchConflicts(_)) => {
             // if branch conflicts with the workspace, it's ok. keep it unapplied
             Ok(branch.id)

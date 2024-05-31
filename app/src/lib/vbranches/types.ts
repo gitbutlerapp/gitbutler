@@ -126,6 +126,8 @@ export class Branch {
 	updatedAt!: Date;
 	// Indicates that branch is default target for new changes
 	selectedForChanges!: boolean;
+	/// The merge base between the target branch and the virtual branch
+	mergeBase!: string;
 
 	get localCommits() {
 		return this.commits.filter((c) => c.status == 'local');
@@ -195,6 +197,10 @@ export class Commit {
 	isParentOf(possibleChild: Commit) {
 		return possibleChild.parentIds.includes(this.id);
 	}
+
+	isMergeCommit() {
+		return this.parentIds.length > 1;
+	}
 }
 
 export function isLocalCommit(obj: any): obj is Commit {
@@ -209,6 +215,7 @@ export class RemoteCommit {
 	createdAt!: Date;
 	changeId!: string;
 	isSigned!: boolean;
+	parentIds!: string[];
 
 	parent?: RemoteCommit;
 	children?: RemoteCommit[];
@@ -230,6 +237,10 @@ export class RemoteCommit {
 	get status(): CommitStatus {
 		return 'upstream';
 	}
+
+	isMergeCommit() {
+		return this.parentIds.length > 1;
+	}
 }
 
 export function isRemoteCommit(obj: any): obj is RemoteCommit {
@@ -246,11 +257,7 @@ export const UNKNOWN_COMMITS = Symbol('UnknownCommits');
 export function commitCompare(left: AnyCommit, right: AnyCommit): boolean {
 	if (left.id == right.id) return true;
 	if (left.changeId && right.changeId && left.changeId == right.changeId) return true;
-
-	if (left.description != right.description) return false;
-	if (left.author.name != right.author.name) return false;
-	if (left.author.email != right.author.email) return false;
-	return true;
+	return false;
 }
 
 export class RemoteHunk {

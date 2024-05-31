@@ -7,11 +7,9 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol, createContextStore } from '$lib/utils/context';
-	import { isDefined } from '$lib/utils/typeguards';
 	import {
 		createLocalContextStore,
 		createRemoteContextStore,
-		createSelectedFiles,
 		createUnknownCommitsStore,
 		createUpstreamContextStore
 	} from '$lib/vbranches/contexts';
@@ -46,22 +44,13 @@
 	const unknownCommits = createUnknownCommitsStore([]);
 	$: unknownCommits.set($upstreamCommits.filter((c) => !c.relatedTo));
 
+	const project = getContext(Project);
+
 	const fileIdSelection = new FileIdSelection();
 	setContext(FileIdSelection, fileIdSelection);
 
-	const selectedFiles = createSelectedFiles([]);
-	$: if ($fileIdSelection.length == 0) selectedFiles.set([]);
-	$: if ($fileIdSelection.length > 0 && fileIdSelection.only().commitId == 'undefined') {
-		selectedFiles.set(
-			$fileIdSelection
-				.map((fileId) => branch.files.find((f) => f.id + '|' + undefined == fileId))
-				.filter(isDefined)
-		);
-	}
+	$: selectedFile = fileIdSelection.selectedFile(branch.files, project.id);
 
-	$: displayedFile = $selectedFiles.length == 1 ? $selectedFiles[0] : undefined;
-
-	const project = getContext(Project);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 	let rsViewport: HTMLElement;
@@ -79,39 +68,41 @@
 	}
 </script>
 
-<div class="wrapper" data-tauri-drag-region class:file-selected={displayedFile}>
+<div class="wrapper" data-tauri-drag-region>
 	<BranchCard {isUnapplied} {commitBoxOpen} bind:isLaneCollapsed />
 
-	{#if displayedFile}
-		<div
-			class="file-preview resize-viewport"
-			bind:this={rsViewport}
-			in:slide={{ duration: 180, easing: quintOut, axis: 'x' }}
-			style:width={`${fileWidth || $defaultFileWidthRem}rem`}
-		>
-			<FileCard
-				conflicted={displayedFile.conflicted}
-				file={displayedFile}
-				{isUnapplied}
-				readonly={displayedFile instanceof RemoteFile}
-				selectable={$commitBoxOpen && !isUnapplied}
-				on:close={() => {
-					fileIdSelection.clear();
-				}}
-			/>
-			<Resizer
-				viewport={rsViewport}
-				direction="right"
-				minWidth={400}
-				defaultLineColor="var(--clr-border-2)"
-				on:width={(e) => {
-					fileWidth = e.detail / (16 * $userSettings.zoom);
-					lscache.set(fileWidthKey + branch.id, fileWidth, 7 * 1440); // 7 day ttl
-					$defaultFileWidthRem = fileWidth;
-				}}
-			/>
-		</div>
-	{/if}
+	{#await $selectedFile then selected}
+		{#if selected}
+			<div
+				class="file-preview resize-viewport"
+				bind:this={rsViewport}
+				in:slide={{ duration: 180, easing: quintOut, axis: 'x' }}
+				style:width={`${fileWidth || $defaultFileWidthRem}rem`}
+			>
+				<FileCard
+					conflicted={selected.conflicted}
+					file={selected}
+					{isUnapplied}
+					readonly={selected instanceof RemoteFile}
+					selectable={$commitBoxOpen && !isUnapplied}
+					on:close={() => {
+						fileIdSelection.clear();
+					}}
+				/>
+				<Resizer
+					viewport={rsViewport}
+					direction="right"
+					minWidth={400}
+					defaultLineColor="var(--clr-border-2)"
+					on:width={(e) => {
+						fileWidth = e.detail / (16 * $userSettings.zoom);
+						lscache.set(fileWidthKey + branch.id, fileWidth, 7 * 1440); // 7 day ttl
+						$defaultFileWidthRem = fileWidth;
+					}}
+				/>
+			</div>
+		{/if}
+	{/await}
 </div>
 
 <style lang="postcss">

@@ -8,7 +8,6 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
-	import { createSelectedFiles } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { BaseBranch, type RemoteBranch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
@@ -25,7 +24,7 @@
 	const fileIdSelection = new FileIdSelection();
 	setContext(FileIdSelection, fileIdSelection);
 
-	const selectedFiles = createSelectedFiles([]);
+	$: selectedFile = fileIdSelection.selectedFile([], project.id);
 
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'branchPreviewLaneWidth';
@@ -33,8 +32,6 @@
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
-
-	$: selected = $selectedFiles.length == 1 ? $selectedFiles[0] : undefined;
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
@@ -66,9 +63,15 @@
 				{/if}
 				{#await getRemoteBranchData(project.id, branch.name) then branchData}
 					{#if branchData.commits && branchData.commits.length > 0}
-						<div class="branch-preview__commits-list">
-							{#each branchData.commits as commit (commit.id)}
-								<CommitCard {commit} commitUrl={$baseBranch?.commitUrl(commit.id)} type="remote" />
+						<div>
+							{#each branchData.commits as commit, index (commit.id)}
+								<CommitCard
+									first={index == 0}
+									last={index == branchData.commits.length - 1}
+									{commit}
+									commitUrl={$baseBranch?.commitUrl(commit.id)}
+									type="remote"
+								/>
 							{/each}
 						</div>
 					{/if}
@@ -86,18 +89,20 @@
 		/>
 	</div>
 	<div class="base__right">
-		{#if selected}
-			<FileCard
-				conflicted={selected.conflicted}
-				file={selected}
-				isUnapplied={false}
-				readonly={true}
-				on:close={() => {
-					console.log(selected);
-					fileIdSelection.clear();
-				}}
-			/>
-		{/if}
+		{#await $selectedFile then selected}
+			{#if selected}
+				<FileCard
+					conflicted={selected.conflicted}
+					file={selected}
+					isUnapplied={false}
+					readonly={true}
+					on:close={() => {
+						console.log(selected);
+						fileIdSelection.clear();
+					}}
+				/>
+			{/if}
+		{/await}
 	</div>
 </div>
 
@@ -119,6 +124,7 @@
 		overflow-x: auto;
 		align-items: flex-start;
 		padding: var(--size-12) var(--size-12) var(--size-12) var(--size-6);
+		width: 50rem;
 	}
 
 	.branch-preview {

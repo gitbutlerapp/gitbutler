@@ -17,12 +17,15 @@
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 
-	$: hasShadowColumn = $localCommits.some((c) => c.relatedTo && c.id != c.relatedTo.id);
+	$: hasShadowColumn =
+		$remoteCommits.length == 0 &&
+		$localCommits.length > 0 &&
+		$localCommits.at(0)?.relatedTo &&
+		$localCommits.at(0)?.relatedTo?.id != $localCommits.at(0)?.id;
 	$: hasLocalColumn = $localCommits.length > 0;
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
 	$: hasUnknownCommits = $unknownCommits.length > 0;
-	$: baseCommit = $baseBranch.recentCommits.at($baseBranch.recentCommits.length - 1)?.id;
 
 	let baseIsUnfolded = false;
 </script>
@@ -135,6 +138,7 @@
 						shadowLine={hasShadowColumn}
 						{hasLocalColumn}
 						base
+						upstreamLine={hasUnknownCommits && $remoteCommits.length == 0}
 					/>
 				</div>
 				<div class="base-row__content">
@@ -143,7 +147,7 @@
 							class="base-row__commit-link"
 							on:click={async () => await goto(`/${project.id}/base`)}
 						>
-							{baseCommit ? baseCommit.slice(0, 7) : ''}
+							{$branch.mergeBase ? $branch.mergeBase.slice(0, 7) : ''}
 						</button>
 					</span>
 				</div>

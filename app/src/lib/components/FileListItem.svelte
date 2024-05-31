@@ -1,15 +1,15 @@
 <script lang="ts">
 	import FileContextMenu from './FileContextMenu.svelte';
 	import FileStatusIcons from './FileStatusIcons.svelte';
+	import { Project } from '$lib/backend/projects';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
 	import { updateFocus } from '$lib/utils/selection';
-	import { isDefined } from '$lib/utils/typeguards';
-	import { getCommitStore, getSelectedFiles } from '$lib/vbranches/contexts';
-	import { FileIdSelection, fileKey } from '$lib/vbranches/fileIdSelection';
+	import { getCommitStore } from '$lib/vbranches/contexts';
+	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type AnyFile } from '$lib/vbranches/types';
 	import { onDestroy } from 'svelte';
@@ -24,8 +24,10 @@
 	const branch = maybeGetContextStore(Branch);
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 	const fileIdSelection = getContext(FileIdSelection);
-	const selectedFiles = getSelectedFiles();
+	const project = getContext(Project);
 	const commit = getCommitStore();
+
+	$: selectedFiles = fileIdSelection.files($branch?.files || [], project.id);
 
 	let checked = false;
 	let indeterminate = false;
@@ -67,15 +69,17 @@
 	data-locked={file.locked}
 	on:click
 	on:keydown
-	on:dragstart={() => {
+	on:dragstart={async () => {
 		// Reset selection if the file being dragged is not in the selected list
 		if ($fileIdSelection.length > 0 && !fileIdSelection.has(file.id, $commit?.id)) {
 			fileIdSelection.clear();
 			fileIdSelection.add(file.id, $commit?.id);
 		}
 
-		if ($selectedFiles.length > 0) {
-			$selectedFiles.forEach((f) => {
+		const files = await $selectedFiles;
+
+		if (files.length > 0) {
+			files.forEach((f) => {
 				if (f.locked) {
 					const lockedElement = document.getElementById(`file-${f.id}`);
 
@@ -95,22 +99,22 @@
 			draggableElt.classList.remove('locked-file-animation');
 		}
 	}}
+	role="button"
+	tabindex="0"
 	use:draggable={{
-		data: new DraggableFile($branch?.id || '', file, $commit, selectedFiles),
+		data: $selectedFiles.then(
+			(files) => new DraggableFile($branch?.id || '', file, $commit, files)
+		),
 		disabled: readonly || isUnapplied,
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable'
 	}}
-	role="button"
-	tabindex="0"
-	on:contextmenu|preventDefault={(e) => {
-		const files = fileIdSelection.has(file.id, $commit?.id)
-			? $fileIdSelection
-					.map((key) => $selectedFiles?.find((f) => fileKey(f.id, $commit?.id) == key))
-					.filter(isDefined)
-			: [file];
-		if (files.length > 0) popupMenu.openByMouse(e, { files });
-		else console.error('No files selected');
+	on:contextmenu|preventDefault={async (e) => {
+		if (fileIdSelection.has(file.id, $commit?.id)) {
+			popupMenu.openByMouse(e, { files: await $selectedFiles });
+		} else {
+			popupMenu.openByMouse(e, { files: [file] });
+		}
 	}}
 >
 	{#if showCheckbox}
