@@ -74,7 +74,6 @@
 	}
 
 	.button__icon {
-		display: flex;
 		color: var(--clr-scale-ntrl-0);
 		opacity: 0.3;
 	}

@@ -35,15 +35,22 @@
 		return tokens;
 	}
 
-	$: isSelected = selectable && selected;
+	$: bgColor =
+		selectable && selected
+			? 'bg-blue-400 border-blue-500 text-white dark:border-blue-700 dark:bg-blue-800'
+			: 'bg-light-50 border-light-300 dark:bg-dark-700 dark:border-dark-400';
 </script>
 
-<div class="code-line" role="group" style="--tab-size: {tabSize}" on:contextmenu|preventDefault>
+<div
+	class="code-line text-sm"
+	role="group"
+	style="--tab-size: {tabSize}"
+	on:contextmenu|preventDefault
+>
 	<div class="code-line__numbers-line">
 		<button
 			on:click={() => selectable && dispatch('selected', !selected)}
-			class="numbers-line-count"
-			class:selected={isSelected}
+			class="text-color-4 border-color-4 shrink-0 select-none border-r px-0.5 text-right text-xs {bgColor}"
 			style:min-width={minWidth + 'rem'}
 			style:cursor={draggingDisabled ? 'default' : 'grab'}
 		>
@@ -51,8 +58,7 @@
 		</button>
 		<button
 			on:click={() => selectable && dispatch('selected', !selected)}
-			class="numbers-line-count"
-			class:selected={isSelected}
+			class="text-color-4 border-color-4 shrink-0 select-none border-r px-0.5 text-right text-xs {bgColor}"
 			style:min-width={minWidth + 'rem'}
 			style:cursor={draggingDisabled ? 'default' : 'grab'}
 		>
@@ -81,9 +87,6 @@
 		background-color: var(--clr-bg-1);
 		white-space: pre;
 		tab-size: var(--tab-size);
-
-		font-size: 0.688rem;
-		line-height: 1.5;
 	}
 
 	.line {
@@ -94,25 +97,6 @@
 		position: sticky;
 		left: 0;
 		display: flex;
-	}
-
-	.numbers-line-count {
-		color: var(--clr-text-3);
-		border-color: var(--clr-border-2);
-		background-color: var(--clr-bg-1-muted);
-		font-size: 0.625rem;
-		flex-shrink: 0;
-		user-select: none;
-		border-right-width: 1px;
-		padding-left: 0.125rem;
-		padding-right: 0.125rem;
-		text-align: right;
-
-		&.selected {
-			background-color: #60a5fa;
-			border-color: #2563eb;
-			color: white;
-		}
 	}
 
 	.selectable-wrapper {
