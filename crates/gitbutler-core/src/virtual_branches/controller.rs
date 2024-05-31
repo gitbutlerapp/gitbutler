@@ -9,8 +9,7 @@ use tokio::{sync::Semaphore, task::JoinHandle};
 
 use super::{
     branch::{BranchId, BranchOwnershipClaims},
-    errors, target, target_to_base_branch, BaseBranch, Branch, RemoteBranchFile,
-    VirtualBranchesHandle,
+    target, target_to_base_branch, BaseBranch, Branch, RemoteBranchFile, VirtualBranchesHandle,
 };
 use crate::{
     git, project_repository,
@@ -912,13 +911,9 @@ impl ControllerInner {
         let mut project_repository = project_repository::Repository::open(&project)?;
 
         let remotes = project_repository.remotes()?;
-        let fetch_results: Vec<Result<(), errors::FetchFromTargetError>> = remotes
+        let fetch_results: Vec<Result<(), _>> = remotes
             .iter()
-            .map(|remote| {
-                project_repository
-                    .fetch(remote, &self.helper, askpass.clone())
-                    .map_err(errors::FetchFromTargetError::Remote)
-            })
+            .map(|remote| project_repository.fetch(remote, &self.helper, askpass.clone()))
             .collect();
 
         let project_data_last_fetched = if fetch_results.iter().any(Result::is_err) {
@@ -943,9 +938,9 @@ impl ControllerInner {
 
         // if we have a push remote, let's fetch from this too
         if let Some(push_remote) = &default_target.push_remote_name {
-            let _ = project_repository
-                .fetch(push_remote, &self.helper, askpass.clone())
-                .map_err(errors::FetchFromTargetError::Remote);
+            if let Err(err) = project_repository.fetch(push_remote, &self.helper, askpass.clone()) {
+                tracing::warn!(?err, "fetch from push-remote failed");
+            }
         }
 
         let updated_project = self

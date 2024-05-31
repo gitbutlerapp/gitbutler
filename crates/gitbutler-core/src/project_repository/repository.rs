@@ -9,16 +9,13 @@ use anyhow::{anyhow, Context, Result};
 use super::conflicts;
 use crate::virtual_branches::errors::Marker;
 use crate::{
-    askpass, error,
-    git::{self, credentials::HelpError, Url},
+    askpass,
+    git::{self, Url},
     projects::{self, AuthKey},
     ssh, users,
     virtual_branches::{Branch, BranchId},
 };
-use crate::{
-    error::{AnyhowContextExt, Code, ErrorWithContext},
-    git::Oid,
-};
+use crate::{error::Code, git::Oid};
 
 pub struct Repository {
     pub git_repository: git::Repository,
@@ -349,18 +346,17 @@ impl Repository {
         &self,
         user: Option<&users::User>,
         ref_specs: &[&str],
-    ) -> Result<bool, RemoteError> {
+    ) -> Result<bool> {
         let url = self
             .project
             .api
             .as_ref()
-            .ok_or(RemoteError::Other(anyhow::anyhow!("api not set")))?
+            .context("api not set")?
             .code_git_url
             .as_ref()
-            .ok_or(RemoteError::Other(anyhow::anyhow!("code_git_url not set")))?
+            .context("code_git_url not set")?
             .as_str()
-            .parse::<Url>()
-            .map_err(|e| RemoteError::Other(e.into()))?;
+            .parse::<Url>()?;
 
         tracing::debug!(
             project_id = %self.project.id,
@@ -370,7 +366,8 @@ impl Repository {
 
         let access_token = user
             .map(|user| user.access_token.clone())
-            .ok_or(RemoteError::Auth)?;
+            .context("access token is missing")
+            .context(Code::ProjectGitAuth)?;
 
         let mut callbacks = git2::RemoteCallbacks::new();
         if self.project.omit_certificate_check.unwrap_or(false) {
@@ -393,23 +390,16 @@ impl Repository {
         let headers = &[auth_header.as_str()];
         push_options.custom_headers(headers);
 
-        let mut remote = self
-            .git_repository
-            .remote_anonymous(&url)
-            .map_err(|e| RemoteError::Other(e.into()))?;
+        let mut remote = self.git_repository.remote_anonymous(&url)?;
 
         remote
             .push(ref_specs, Some(&mut push_options))
-            .map_err(|error| match error {
-                git::Error::Network(error) => {
-                    tracing::warn!(project_id = %self.project.id, ?error, "git push failed",);
-                    RemoteError::Network
-                }
-                git::Error::Auth(error) => {
-                    tracing::warn!(project_id = %self.project.id, ?error, "git push failed",);
-                    RemoteError::Auth
-                }
-                error => RemoteError::Other(error.into()),
+            .map_err(|err| match err {
+                git::Error::Network(err) => anyhow!("network failed").context(err),
+                git::Error::Auth(err) => anyhow!("authentication failed")
+                    .context(Code::ProjectGitAuth)
+                    .context(err),
+                err => anyhow::Error::from(err),
             })?;
 
         let bytes_pushed = bytes_pushed.load(std::sync::atomic::Ordering::Relaxed);
@@ -434,7 +424,7 @@ impl Repository {
         credentials: &git::credentials::Helper,
         refspec: Option<String>,
         askpass_broker: Option<Option<BranchId>>,
-    ) -> Result<(), RemoteError> {
+    ) -> Result<()> {
         let refspec = refspec.unwrap_or_else(|| {
             if with_force {
                 format!("+{}:refs/heads/{}", head, branch.branch())
@@ -466,7 +456,7 @@ impl Repository {
             })
             .join()
             .unwrap()
-            .map_err(|e| RemoteError::Other(e.into()));
+            .map_err(Into::into);
         }
 
         let auth_flows = credentials.help(self, branch.remote())?;
@@ -505,25 +495,24 @@ impl Repository {
                         );
                         return Ok(());
                     }
-                    Err(git::Error::Auth(error) | git::Error::Http(error)) => {
-                        tracing::warn!(project_id = %self.project.id, ?error, "git push failed");
+                    Err(git::Error::Auth(err) | git::Error::Http(err)) => {
+                        tracing::warn!(project_id = %self.project.id, ?err, "git push failed");
                         continue;
                     }
-                    Err(git::Error::Network(error)) => {
-                        tracing::warn!(project_id = %self.project.id, ?error, "git push failed");
-                        return Err(RemoteError::Network);
+                    Err(git::Error::Network(err)) => {
+                        return Err(anyhow!("network failed")).context(err);
                     }
                     Err(err) => {
-                        if let Some(err) = update_refs_error.as_ref() {
-                            return Err(RemoteError::Other(anyhow!(err.to_string())));
+                        if let Some(update_refs_err) = update_refs_error {
+                            return Err(update_refs_err).context(err);
                         }
-                        return Err(RemoteError::Other(err.into()));
+                        return Err(err.into());
                     }
                 }
             }
         }
 
-        Err(RemoteError::Auth)
+        Err(anyhow!("authentication failed").context(Code::ProjectGitAuth))
     }
 
     pub fn fetch(
@@ -531,7 +520,7 @@ impl Repository {
         remote_name: &str,
         credentials: &git::credentials::Helper,
         askpass: Option<String>,
-    ) -> Result<(), RemoteError> {
+    ) -> Result<()> {
         let refspec = format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
 
         // NOTE(qix-): This is a nasty hack, however the codebase isn't structured
@@ -556,7 +545,7 @@ impl Repository {
             })
             .join()
             .unwrap()
-            .map_err(|e| RemoteError::Other(e.into()));
+            .map_err(Into::into);
         }
 
         let auth_flows = credentials.help(self, remote_name)?;
@@ -580,20 +569,20 @@ impl Repository {
                         tracing::info!(project_id = %self.project.id, %refspec, "git fetched");
                         return Ok(());
                     }
-                    Err(git::Error::Auth(error) | git::Error::Http(error)) => {
-                        tracing::warn!(project_id = %self.project.id, ?error, "fetch failed");
+                    Err(git::Error::Auth(err) | git::Error::Http(err)) => {
+                        tracing::warn!(project_id = %self.project.id, ?err, "fetch failed");
                         continue;
                     }
-                    Err(git::Error::Network(error)) => {
-                        tracing::warn!(project_id = %self.project.id, ?error, "fetch failed");
-                        return Err(RemoteError::Network);
+                    Err(git::Error::Network(err)) => {
+                        tracing::warn!(project_id = %self.project.id, ?err, "fetch failed");
+                        return Err(anyhow!("network failed")).context(err);
                     }
-                    Err(error) => return Err(RemoteError::Other(error.into())),
+                    Err(err) => return Err(err.into()),
                 }
             }
         }
 
-        Err(RemoteError::Auth)
+        Err(anyhow!("authentication failed")).context(Code::ProjectGitAuth)
     }
 
     pub fn remotes(&self) -> Result<Vec<String>> {
@@ -606,37 +595,6 @@ impl Repository {
 
     pub fn repo(&self) -> &git2::Repository {
         (&self.git_repository).into()
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum RemoteError {
-    #[error(transparent)]
-    Help(#[from] HelpError),
-    #[error("network failed")]
-    Network,
-    #[error("authentication failed")]
-    Auth,
-    #[error("Git failed")]
-    Git(#[from] git::Error),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-impl ErrorWithContext for RemoteError {
-    fn context(&self) -> Option<error::Context> {
-        Some(match self {
-            RemoteError::Help(_) | RemoteError::Network | RemoteError::Git(_) => {
-                error::Context::default()
-            }
-            RemoteError::Auth => error::Context::new_static(
-                Code::ProjectGitAuth,
-                "Project remote authentication error",
-            ),
-            RemoteError::Other(error) => {
-                return error.custom_context_or_root_cause().into();
-            }
-        })
     }
 }
 

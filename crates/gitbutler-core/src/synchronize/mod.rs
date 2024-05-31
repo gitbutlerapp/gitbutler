@@ -61,7 +61,7 @@ async fn push_target(
     project_id: Id<projects::Project>,
     user: &users::User,
     batch_size: usize,
-) -> Result<(), project_repository::RemoteError> {
+) -> Result<()> {
     let ids = batch_rev_walk(
         &project_repository.git_repository,
         batch_size,
@@ -147,7 +147,7 @@ fn push_all_refs(
     project_repository: &project_repository::Repository,
     user: &users::User,
     project_id: Id<projects::Project>,
-) -> Result<(), project_repository::RemoteError> {
+) -> Result<()> {
     let gb_references = collect_refs(project_repository)?;
     let all_refs: Vec<_> = gb_references
         .iter()
@@ -175,7 +175,7 @@ async fn update_project(
     projects: &projects::Controller,
     project_id: Id<projects::Project>,
     id: Oid,
-) -> Result<(), project_repository::RemoteError> {
+) -> Result<()> {
     projects
         .update(&projects::UpdateRequest {
             id: project_id,

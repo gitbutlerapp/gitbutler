@@ -23,7 +23,7 @@ use super::{
     branch::{
         self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
     },
-    branch_to_remote_branch, errors, target, RemoteBranch, VirtualBranchesHandle,
+    branch_to_remote_branch, target, RemoteBranch, VirtualBranchesHandle,
 };
 use crate::error::Code;
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
@@ -2343,7 +2343,7 @@ pub fn push(
     with_force: bool,
     credentials: &git::credentials::Helper,
     askpass: Option<Option<BranchId>>,
-) -> Result<(), errors::PushError> {
+) -> Result<()> {
     let vb_state = project_repository.project().virtual_branches();
 
     let mut vbranch = vb_state.get_branch(branch_id)?;
