@@ -15,6 +15,10 @@
 
 	opacity: 0;
 	animation: showup-tooltip-animation 0.1s ease-out forwards;
+
+	&.no-max-width {
+		max-width: unset;
+	}
 }
 
 @keyframes showup-tooltip-animation {
