@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { pxToRem } from '$lib/utils/pxToRem';
-	import { createEventDispatcher } from 'svelte';
 	import { useAutoHeight } from '$lib/utils/useAutoHeight';
 	import { useResize } from '$lib/utils/useResize';
+	import { createEventDispatcher } from 'svelte';
 
 	export let value: string | undefined;
 	export let placeholder: string | undefined = undefined;

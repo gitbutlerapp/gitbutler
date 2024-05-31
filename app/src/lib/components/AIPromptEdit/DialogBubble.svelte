@@ -1,14 +1,11 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { MessageRole } from '$lib/ai/types';
+	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import TextArea from '$lib/components/TextArea.svelte';
 	import { useAutoHeight } from '$lib/utils/useAutoHeight';
 	import { useResize } from '$lib/utils/useResize';
-
-	import Button from '$lib/components/Button.svelte';
-	import { createEventDispatcher } from 'svelte';
-	import { MessageRole } from '$lib/ai/types';
 	import { marked } from 'marked';
+	import { createEventDispatcher } from 'svelte';
 
 	export let disableRemove = false;
 	export let isError = false;
@@ -22,19 +19,22 @@
 		addExample: void;
 		input: string;
 	}>();
-	let textareaElement: HTMLTextAreaElement;
+	let textareaElement: HTMLTextAreaElement | undefined;
 
-	const focusTextareaOnMount = () => {
+	function focusTextareaOnMount(
+		textareaElement: HTMLTextAreaElement | undefined,
+		autofocus: boolean,
+		editing: boolean
+	) {
 		if (textareaElement && autofocus && editing) {
 			textareaElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
 			textareaElement.focus();
 		}
-	};
+	}
 
-	// $: if (editing && textareaElement) {
-	// 	useAutoHeight(textareaElement);
-	// 	focusTextareaOnMount();
-	// }
+	$: focusTextareaOnMount(textareaElement, autofocus, editing);
+
+	$: if (textareaElement) useAutoHeight(textareaElement);
 </script>
 
 <div
@@ -70,7 +70,7 @@
 					useAutoHeight(e.currentTarget);
 				}}
 				use:useResize={() => {
-					useAutoHeight(textareaElement);
+					if (textareaElement) useAutoHeight(textareaElement);
 				}}
 			/>
 		{:else}

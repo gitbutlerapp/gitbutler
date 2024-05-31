@@ -2,9 +2,7 @@
 	import { MessageRole, type UserPrompt } from '$lib/ai/types';
 	import DialogBubble from '$lib/components/AIPromptEdit/DialogBubble.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import ExpandableSectionCard from '$lib/components/ExpandableSectionCard.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import TextArea from '$lib/components/TextArea.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import { createEventDispatcher } from 'svelte';
 
@@ -125,7 +123,6 @@
 					bind:promptMessage
 					editing={isInEditing}
 					isLast={index + 1 == promptMessages.length || promptMessages.length == 1}
-					autofocus={index + 1 == promptMessages.length - 1 || promptMessages.length == 1}
 					disableRemove={promptMessages.length == 1}
 					on:addExample={addExample}
 					on:removeLastExample={removeLastExample}

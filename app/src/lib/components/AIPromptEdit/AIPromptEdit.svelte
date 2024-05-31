@@ -1,8 +1,5 @@
 <script lang="ts">
 	import { PromptService } from '$lib/ai/promptService';
-	import SectionCard from '$lib/components/SectionCard.svelte';
-	import Icon from '../Icon.svelte';
-	import Section from '$lib/components/settings/Section.svelte';
 	import Content from '$lib/components/AIPromptEdit/Content.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import { getContext } from '$lib/utils/context';
@@ -56,7 +53,7 @@
 			}}
 		/>
 
-		{#each $userPrompts as prompt, index}
+		{#each $userPrompts as prompt}
 			<Content
 				bind:prompt
 				displayMode="writable"

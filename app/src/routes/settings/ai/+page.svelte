@@ -5,7 +5,6 @@
 	import AiPromptEdit from '$lib/components/AIPromptEdit/AIPromptEdit.svelte';
 	import InfoMessage from '$lib/components/InfoMessage.svelte';
 	import RadioButton from '$lib/components/RadioButton.svelte';
-	import Section from '$lib/components/settings/Section.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import SelectItem from '$lib/components/SelectItem.svelte';
@@ -13,6 +12,7 @@
 	import TextBox from '$lib/components/TextBox.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
+	import Section from '$lib/components/settings/Section.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 	import { onMount, tick } from 'svelte';
