@@ -4,9 +4,9 @@ import {
 	LONG_DEFAULT_COMMIT_TEMPLATE,
 	SHORT_DEFAULT_COMMIT_TEMPLATE
 } from '$lib/ai/prompts';
-import type { Prompt, Prompts, UserPrompt } from '$lib/ai/types';
 import { persisted, type Persisted } from '$lib/persisted/persisted';
 import { get } from 'svelte/store';
+import type { Prompt, Prompts, UserPrompt } from '$lib/ai/types';
 
 enum PromptPersistedKey {
 	Branch = 'aiBranchPrompts',
