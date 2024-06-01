@@ -141,13 +141,10 @@ pub fn set_base_branch(
             "failed to find remote for branch {}",
             target_branch.get().name().unwrap()
         ))?;
-    let remote_url = remote
-        .url()
-        .context(format!(
-            "failed to get remote url for {}",
-            target_branch_ref.remote()
-        ))?
-        .unwrap();
+    let remote_url = remote.url().context(format!(
+        "failed to get remote url for {}",
+        target_branch_ref.remote()
+    ))?;
 
     let target_branch_head = target_branch.get().peel_to_commit().context(format!(
         "failed to peel branch {} to commit",
@@ -600,11 +597,8 @@ pub fn target_to_base_branch(
     let push_remote_url = match target.push_remote_name {
         Some(ref name) => match repo.find_remote(name) {
             Ok(remote) => match remote.url() {
-                Ok(url) => match url {
-                    Some(url) => url.to_string(),
-                    None => target.remote_url.clone(),
-                },
-                Err(_err) => target.remote_url.clone(),
+                Some(url) => url.to_string(),
+                None => target.remote_url.clone(),
             },
             Err(_err) => target.remote_url.clone(),
         },

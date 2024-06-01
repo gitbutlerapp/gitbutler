@@ -1,4 +1,4 @@
-use super::{Config, Index, Oid, Reference, Refname, Remote, Result, Url};
+use super::{Config, Index, Oid, Reference, Refname, Result, Url};
 use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
 #[cfg(unix)]
@@ -405,27 +405,6 @@ impl Repository {
         self.0.workdir()
     }
 
-    pub fn branch_upstream_name(&self, branch_name: &str) -> Result<String> {
-        self.0
-            .branch_upstream_name(branch_name)
-            .map(|s| s.as_str().unwrap().to_string())
-            .map_err(Into::into)
-    }
-
-    pub fn branch_remote_name(&self, refname: &str) -> Result<String> {
-        self.0
-            .branch_remote_name(refname)
-            .map(|s| s.as_str().unwrap().to_string())
-            .map_err(Into::into)
-    }
-
-    pub fn branch_upstream_remote(&self, branch_name: &str) -> Result<String> {
-        self.0
-            .branch_upstream_remote(branch_name)
-            .map(|s| s.as_str().unwrap().to_string())
-            .map_err(Into::into)
-    }
-
     pub fn statuses(
         &self,
         options: Option<&mut git2::StatusOptions>,
@@ -433,15 +412,14 @@ impl Repository {
         self.0.statuses(options).map_err(Into::into)
     }
 
-    pub fn remote_anonymous(&self, url: &super::Url) -> Result<Remote> {
+    pub fn remote_anonymous(&self, url: &super::Url) -> Result<git2::Remote> {
         self.0
             .remote_anonymous(&url.to_string())
-            .map(Into::into)
             .map_err(Into::into)
     }
 
-    pub fn find_remote(&self, name: &str) -> Result<Remote> {
-        self.0.find_remote(name).map(Into::into).map_err(Into::into)
+    pub fn find_remote(&self, name: &str) -> Result<git2::Remote> {
+        self.0.find_remote(name).map_err(Into::into)
     }
 
     pub fn find_branch(&self, name: &Refname) -> Result<git2::Branch> {
@@ -520,11 +498,8 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn remote(&self, name: &str, url: &Url) -> Result<Remote> {
-        self.0
-            .remote(name, &url.to_string())
-            .map(Into::into)
-            .map_err(Into::into)
+    pub fn remote(&self, name: &str, url: &Url) -> Result<git2::Remote> {
+        self.0.remote(name, &url.to_string()).map_err(Into::into)
     }
 
     pub fn references(&self) -> Result<impl Iterator<Item = Result<Reference>>> {

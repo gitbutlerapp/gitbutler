@@ -10,9 +10,6 @@ mod repository;
 
 pub use repository::*;
 
-mod remote;
-pub use remote::*;
-
 mod index;
 pub use index::*;
 

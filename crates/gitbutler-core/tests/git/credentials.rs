@@ -44,12 +44,7 @@ impl TestCase<'_> {
 
         let flow = helper.help(&project_repository, "origin").unwrap();
         flow.into_iter()
-            .map(|(remote, credentials)| {
-                (
-                    remote.url().unwrap().as_ref().unwrap().to_string(),
-                    credentials,
-                )
-            })
+            .map(|(remote, credentials)| (remote.url().as_ref().unwrap().to_string(), credentials))
             .collect::<Vec<_>>()
     }
 }
