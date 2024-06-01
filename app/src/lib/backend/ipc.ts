@@ -22,8 +22,15 @@ export class UserError extends Error {
 		const cause = error instanceof Error ? error : undefined;
 		const code = error.code ?? Code.Unknown;
 		const message = error.message ?? error;
-		return new UserError(message, code, cause);
+		return new UserError(capitalize(message), code, cause);
 	}
+}
+
+function capitalize(str: string): string {
+	if (str.length === 0) {
+		return str;
+	}
+	return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 export async function invoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {
