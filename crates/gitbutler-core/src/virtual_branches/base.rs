@@ -423,9 +423,11 @@ pub fn update_base_branch(
 
                     if branch_tree_merge_index.has_conflicts() {
                         // branch tree conflicts with new target, unapply branch for now. we'll handle it later, when user applies it back.
+                        if branch.applied {
+                            unapplied_branches.push(branch.clone());
+                        }
                         branch.applied = false;
                         vb_state.set_branch(branch.clone())?;
-                        unapplied_branches.push(branch.clone());
                         return Ok(Some(branch));
                     }
 
@@ -454,6 +456,9 @@ pub fn update_base_branch(
                     if branch_head_merge_index.has_conflicts() {
                         // branch commits conflict with new target, make sure the branch is
                         // unapplied. conflicts witll be dealt with when applying it back.
+                        if branch.applied {
+                            unapplied_branches.push(branch.clone());
+                        }
                         branch.applied = false;
                         vb_state.set_branch(branch.clone())?;
                         return Ok(Some(branch));
