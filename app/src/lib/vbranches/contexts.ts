@@ -9,6 +9,8 @@ export const [getRemoteCommits, createRemoteContextStore] =
 	buildContextStore<Commit[]>('remoteCommits');
 export const [getUpstreamCommits, createUpstreamContextStore] =
 	buildContextStore<RemoteCommit[]>('upstreamCommits');
+export const [getIntegratedCommits, createIntegratedContextStore] =
+	buildContextStore<Commit[]>('integratedCommits');
 export const [getUnknownCommits, createUnknownCommitsStore] =
 	buildContextStore<RemoteCommit[]>('unknownCommits');
 export const [getCommitStore, createCommitStore] = buildContextStore<AnyCommit | undefined>(
