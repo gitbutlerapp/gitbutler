@@ -26,6 +26,10 @@ export function showError(title: string, err: any) {
 	showToast({ title, errorMessage: errorMessage, style: 'error' });
 }
 
+export function showInfo(title: string, body: string) {
+	showToast({ title, message: body, errorMessage: '', style: 'neutral' });
+}
+
 export function dismissToast(messageId: string | undefined) {
 	if (!messageId) return;
 	toastStore.update((items) => items.filter((m) => m.id != messageId));

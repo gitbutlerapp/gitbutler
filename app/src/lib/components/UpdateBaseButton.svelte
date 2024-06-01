@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Tag from './Tag.svelte';
-	import { showError } from '$lib/notifications/toasts';
+	import { showInfo, showError } from '$lib/notifications/toasts';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 
@@ -17,7 +17,10 @@
 	on:click={async () => {
 		loading = true;
 		try {
-			await branchController.updateBaseBranch();
+			let infoText = await branchController.updateBaseBranch();
+			if (infoText) {
+				showInfo('Stashed conflicting branches', infoText);
+			}
 		} catch (err) {
 			showError('Failed update workspace', err);
 		} finally {
