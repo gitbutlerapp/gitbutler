@@ -141,7 +141,6 @@ impl Repository {
         self.git_repository
             .branches(Some(git2::BranchType::Remote))?
             .flatten()
-            .map(|(branch, _)| branch)
             .map(|branch| {
                 git::RemoteRefname::try_from(&branch)
                     .context("failed to convert branch to remote name")
@@ -159,7 +158,7 @@ impl Repository {
         let target_branch_refname =
             git::Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
         let branch = self.git_repository.find_branch(&target_branch_refname)?;
-        let commit_id: Oid = branch.peel_to_commit()?.id().into();
+        let commit_id: Oid = branch.get().peel_to_commit()?.id().into();
 
         let now = crate::time::now_ms();
         let branch_name = format!("test-push-{now}");

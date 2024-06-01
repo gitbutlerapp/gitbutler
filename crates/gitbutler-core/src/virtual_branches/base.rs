@@ -139,7 +139,7 @@ pub fn set_base_branch(
         .find_remote(target_branch_ref.remote())
         .context(format!(
             "failed to find remote for branch {}",
-            target_branch.name().unwrap()
+            target_branch.get().name().unwrap()
         ))?;
     let remote_url = remote
         .url()
@@ -149,9 +149,9 @@ pub fn set_base_branch(
         ))?
         .unwrap();
 
-    let target_branch_head = target_branch.peel_to_commit().context(format!(
+    let target_branch_head = target_branch.get().peel_to_commit().context(format!(
         "failed to peel branch {} to commit",
-        target_branch.name().unwrap()
+        target_branch.get().name().unwrap()
     ))?;
 
     let current_head = repo.head().context("Failed to get HEAD reference")?;
@@ -343,6 +343,7 @@ pub fn update_base_branch(
         .context(format!("failed to find branch {}", target.branch))?;
 
     let new_target_commit = target_branch
+        .get()
         .peel_to_commit()
         .context(format!("failed to peel branch {} to commit", target.branch))?;
 
@@ -576,7 +577,7 @@ pub fn target_to_base_branch(
 ) -> Result<super::BaseBranch> {
     let repo = &project_repository.git_repository;
     let branch = repo.find_branch(&target.branch.clone().into())?;
-    let commit = branch.peel_to_commit()?;
+    let commit = branch.get().peel_to_commit()?;
     let oid = commit.id();
 
     // gather a list of commits between oid and target.sha

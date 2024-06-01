@@ -59,7 +59,7 @@ pub fn list_remote_branches(
     let default_target = default_target(&project_repository.project().gb_dir())?;
 
     let mut remote_branches = vec![];
-    for (branch, _) in project_repository
+    for branch in project_repository
         .git_repository
         .branches(None)
         .context("failed to list remote branches")?
@@ -107,8 +107,8 @@ pub fn get_branch_data(
         })
 }
 
-pub fn branch_to_remote_branch(branch: &git::Branch) -> Result<Option<RemoteBranch>> {
-    let commit = match branch.peel_to_commit() {
+pub fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<RemoteBranch>> {
+    let commit = match branch.get().peel_to_commit() {
         Ok(c) => c,
         Err(err) => {
             tracing::warn!(
@@ -122,10 +122,11 @@ pub fn branch_to_remote_branch(branch: &git::Branch) -> Result<Option<RemoteBran
     let name = git::Refname::try_from(branch).context("could not get branch name");
     match name {
         Ok(name) => branch
+            .get()
             .target()
             .map(|sha| {
                 Ok(RemoteBranch {
-                    sha,
+                    sha: sha.into(),
                     upstream: if let git::Refname::Local(local_name) = &name {
                         local_name.remote().cloned()
                     } else {
@@ -151,24 +152,25 @@ pub fn branch_to_remote_branch(branch: &git::Branch) -> Result<Option<RemoteBran
 
 pub fn branch_to_remote_branch_data(
     project_repository: &project_repository::Repository,
-    branch: &git::Branch,
+    branch: &git2::Branch,
     base: git::Oid,
 ) -> Result<Option<RemoteBranchData>> {
     branch
+        .get()
         .target()
         .map(|sha| {
             let ahead = project_repository
-                .log(sha, LogUntil::Commit(base))
+                .log(sha.into(), LogUntil::Commit(base))
                 .context("failed to get ahead commits")?;
 
             let name = git::Refname::try_from(branch).context("could not get branch name")?;
 
             let count_behind = project_repository
-                .distance(base, sha)
+                .distance(base, sha.into())
                 .context("failed to get behind count")?;
 
             Ok(RemoteBranchData {
-                sha,
+                sha: sha.into(),
                 upstream: if let git::Refname::Local(local_name) = &name {
                     local_name.remote().cloned()
                 } else {

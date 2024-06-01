@@ -1,4 +1,4 @@
-use super::{Branch, Config, Index, Oid, Reference, Refname, Remote, Result, Url};
+use super::{Config, Index, Oid, Reference, Refname, Remote, Result, Url};
 use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
 #[cfg(unix)]
@@ -171,15 +171,11 @@ impl Repository {
     pub fn branches(
         &self,
         filter: Option<git2::BranchType>,
-    ) -> Result<impl Iterator<Item = Result<(Branch, git2::BranchType)>>> {
+    ) -> Result<impl Iterator<Item = Result<git2::Branch>>> {
         self.0
             .branches(filter)
             .map(|branches| {
-                branches.map(|branch| {
-                    branch
-                        .map(|(branch, branch_type)| (Branch::from(branch), branch_type))
-                        .map_err(Into::into)
-                })
+                branches.map(|branch| branch.map(|(branch, _)| branch).map_err(Into::into))
             })
             .map_err(Into::into)
     }
@@ -448,7 +444,7 @@ impl Repository {
         self.0.find_remote(name).map(Into::into).map_err(Into::into)
     }
 
-    pub fn find_branch(&self, name: &Refname) -> Result<Branch> {
+    pub fn find_branch(&self, name: &Refname) -> Result<git2::Branch> {
         self.0
             .find_branch(
                 &name.simple_name(),
@@ -459,7 +455,6 @@ impl Repository {
                     Refname::Remote(_) => git2::BranchType::Remote,
                 },
             )
-            .map(Into::into)
             .map_err(Into::into)
     }
 
@@ -509,13 +504,6 @@ impl Repository {
     pub fn set_head_detached(&self, commitish: Oid) -> Result<()> {
         self.0
             .set_head_detached(commitish.into())
-            .map_err(Into::into)
-    }
-
-    pub fn branch(&self, name: &Refname, target: &git2::Commit, force: bool) -> Result<Branch> {
-        self.0
-            .branch(&name.to_string(), target, force)
-            .map(Into::into)
             .map_err(Into::into)
     }
 
