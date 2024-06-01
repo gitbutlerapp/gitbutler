@@ -336,7 +336,7 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 pub fn update_base_branch(
     project_repository: &project_repository::Repository,
     user: Option<&users::User>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Vec<branch::Branch>> {
     if project_repository.is_resolving() {
         anyhow::bail!(errors::UpdateBaseBranchError::Conflict(
             errors::ProjectConflict {
@@ -356,8 +356,10 @@ pub fn update_base_branch(
         .peel_to_commit()
         .context(format!("failed to peel branch {} to commit", target.branch))?;
 
+    let mut unapplied_branches: Vec<branch::Branch> = Vec::new();
+
     if new_target_commit.id() == target.sha.into() {
-        return Ok(());
+        return Ok(unapplied_branches);
     }
 
     let new_target_tree = new_target_commit
@@ -433,6 +435,7 @@ pub fn update_base_branch(
                         // branch tree conflicts with new target, unapply branch for now. we'll handle it later, when user applies it back.
                         branch.applied = false;
                         vb_state.set_branch(branch.clone())?;
+                        unapplied_branches.push(branch.clone());
                         return Ok(Some(branch));
                     }
 
@@ -569,7 +572,7 @@ pub fn update_base_branch(
 
     // Rewriting the integration commit is necessary after changing target sha.
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-    Ok(())
+    Ok(unapplied_branches)
 }
 
 pub fn target_to_base_branch(

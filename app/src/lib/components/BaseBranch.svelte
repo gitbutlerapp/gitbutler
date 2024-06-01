@@ -5,6 +5,7 @@
 	import CommitCard from '$lib/components/CommitCard.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
+	import { showInfo } from '$lib/notifications/toasts';
 	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -22,6 +23,13 @@
 	let mergeUpstreamWarningDismissedCheckbox = false;
 
 	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length == 0 : false;
+
+	async function updateBaseBranch() {
+		let infoText = await branchController.updateBaseBranch();
+		if (infoText) {
+			showInfo('Stashed conflicting branches', infoText);
+		}
+	}
 </script>
 
 <div class="wrapper">
@@ -38,7 +46,7 @@
 			help={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
 			on:click={() => {
 				if ($mergeUpstreamWarningDismissed) {
-					branchController.updateBaseBranch();
+					updateBaseBranch();
 				} else {
 					updateTargetModal.show();
 				}
@@ -111,7 +119,7 @@
 			style="pop"
 			kind="solid"
 			on:click={() => {
-				branchController.updateBaseBranch();
+				updateBaseBranch();
 				if (mergeUpstreamWarningDismissedCheckbox) {
 					mergeUpstreamWarningDismissed.set(true);
 				}

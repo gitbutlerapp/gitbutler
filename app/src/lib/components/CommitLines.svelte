@@ -2,7 +2,7 @@
 	import LocalLine from './LocalLine.svelte';
 	import RemoteLine from './RemoteLine.svelte';
 	import ShadowLine from './ShadowLine.svelte';
-	import type { Commit, RemoteCommit } from '$lib/vbranches/types';
+	import type { Commit, CommitStatus, RemoteCommit } from '$lib/vbranches/types';
 
 	export let hasShadowColumn = false;
 	export let hasLocalColumn = false;
@@ -15,6 +15,16 @@
 	export let upstreamLine = false;
 	export let shadowLine = false;
 	export let base = false;
+	export let upstreamType: CommitStatus | undefined = undefined;
+
+	$: root =
+		localRoot ||
+		((localCommit?.status == 'remote' || localCommit?.status == 'integrated') &&
+			localCommit?.children?.[0]?.status == 'local');
+	$: short =
+		!upstreamType &&
+		((!!localCommit && !localCommit?.children?.[0]) ||
+			(!!remoteCommit && !remoteCommit?.children?.[0]));
 </script>
 
 <div class="lines">
@@ -24,17 +34,18 @@
 			dashed={base}
 			{upstreamLine}
 			{remoteCommit}
+			{upstreamType}
 			localCommit={localCommit?.relatedTo ? localCommit : undefined}
 			{first}
-			short={(!!localCommit && !localCommit?.children?.[0]?.relatedTo) ||
-				(!!remoteCommit && !remoteCommit?.children?.[0])}
+			{short}
 		/>
 	{/if}
 	<RemoteLine
-		commit={localCommit?.status == 'remote' ? localCommit : undefined}
-		line={localCommit?.status == 'remote' || remoteLine}
-		root={localRoot ||
-			(localCommit?.status == 'remote' && localCommit?.children?.[0]?.status == 'local')}
+		commit={localCommit?.status == 'remote' || localCommit?.status == 'integrated'
+			? localCommit
+			: undefined}
+		line={remoteLine}
+		{root}
 		remoteCommit={!hasShadowColumn ? remoteCommit : undefined}
 		shadowCommit={!hasShadowColumn &&
 		localCommit?.relatedTo &&
@@ -43,8 +54,8 @@
 			: undefined}
 		upstreamLine={upstreamLine && !hasShadowColumn}
 		{first}
-		short={(!!localCommit && !localCommit?.children?.[0] && !upstreamLine) ||
-			(!!remoteCommit && !remoteCommit?.children?.[0])}
+		short={root || short || (!!localCommit?.relatedTo && upstreamType == 'upstream')}
+		{upstreamType}
 		{base}
 	/>
 
