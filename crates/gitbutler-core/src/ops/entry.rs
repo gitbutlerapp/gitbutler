@@ -35,7 +35,7 @@ pub struct Snapshot {
 
 /// The payload of a snapshot commit
 ///
-/// This is persisted as a commit message in the title, body and trailers format (https://git-scm.com/docs/git-interpret-trailers)
+/// This is persisted as a commit message in the title, body and trailers format (<https://git-scm.com/docs/git-interpret-trailers>)
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotDetails {
@@ -196,7 +196,7 @@ impl FromStr for Version {
 }
 
 /// Represents a key value pair stored in a snapshot, like `key: value\n`
-/// Using the git trailer format (https://git-scm.com/docs/git-interpret-trailers)
+/// Using the git trailer format (<https://git-scm.com/docs/git-interpret-trailers>)
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Trailer {

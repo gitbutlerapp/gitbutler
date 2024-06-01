@@ -212,14 +212,14 @@ mod cleanly {
             .await
             .unwrap();
 
-        assert!(matches!(
+        assert_eq!(
             controller
                 .cherry_pick(*project_id, branch_id, commit_three_oid)
                 .await
                 .unwrap_err()
-                .downcast_ref(),
-            Some(errors::CherryPickError::NotApplied)
-        ));
+                .to_string(),
+            "can not cherry pick a branch that is not applied"
+        );
     }
 }
 
@@ -374,13 +374,13 @@ mod with_conflicts {
             .await
             .unwrap();
 
-        assert!(matches!(
+        assert_eq!(
             controller
                 .cherry_pick(*project_id, branch_id, commit_oid)
                 .await
                 .unwrap_err()
-                .downcast_ref(),
-            Some(errors::CherryPickError::NotApplied)
-        ));
+                .to_string(),
+            "can not cherry pick a branch that is not applied"
+        );
     }
 }

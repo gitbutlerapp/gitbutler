@@ -1,11 +1,12 @@
 use std::path::PathBuf;
 use std::{fs, path, str::FromStr};
 
+use gitbutler_core::virtual_branches::errors::Marker;
 use gitbutler_core::{
     git,
     projects::{self, Project, ProjectId},
     users,
-    virtual_branches::{branch, errors, Controller},
+    virtual_branches::{branch, Controller},
 };
 use tempfile::TempDir;
 
@@ -169,7 +170,7 @@ async fn resolve_conflict_flow() {
                 .await
                 .unwrap_err()
                 .downcast_ref(),
-            Some(errors::CommitError::Conflicted(_))
+            Some(Marker::ProjectConflict)
         ));
     }
 

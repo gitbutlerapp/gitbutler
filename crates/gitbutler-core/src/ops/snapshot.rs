@@ -1,4 +1,4 @@
-use crate::error::Error;
+use anyhow::Result;
 use std::vec;
 
 use crate::projects::Project;
@@ -15,7 +15,7 @@ impl Project {
     pub(crate) fn snapshot_branch_applied(
         &self,
         snapshot_tree: git::Oid,
-        result: Result<&String, &Error>,
+        result: Result<&String, &anyhow::Error>,
     ) -> anyhow::Result<()> {
         let result = result.map(|o| Some(o.clone()));
         let details = SnapshotDetails::new(OperationKind::ApplyBranch)
@@ -26,7 +26,7 @@ impl Project {
     pub(crate) fn snapshot_branch_unapplied(
         &self,
         snapshot_tree: git::Oid,
-        result: Result<&Option<Branch>, &Error>,
+        result: Result<&Option<Branch>, &anyhow::Error>,
     ) -> anyhow::Result<()> {
         let result = result.map(|o| o.clone().map(|b| b.name));
         let details = SnapshotDetails::new(OperationKind::UnapplyBranch)
@@ -37,7 +37,7 @@ impl Project {
     pub(crate) fn snapshot_commit_undo(
         &self,
         snapshot_tree: git::Oid,
-        result: Result<&(), &Error>,
+        result: Result<&(), &anyhow::Error>,
         commit_sha: git::Oid,
     ) -> anyhow::Result<()> {
         let result = result.map(|_| Some(commit_sha.to_string()));
@@ -49,7 +49,7 @@ impl Project {
     pub(crate) fn snapshot_commit_creation(
         &self,
         snapshot_tree: git::Oid,
-        error: Option<&Error>,
+        error: Option<&anyhow::Error>,
         commit_message: String,
         sha: Option<git::Oid>,
     ) -> anyhow::Result<()> {
@@ -162,7 +162,7 @@ impl Project {
     }
 }
 
-fn result_trailer(result: Result<Option<String>, &Error>, key: String) -> Vec<Trailer> {
+fn result_trailer(result: Result<Option<String>, &anyhow::Error>, key: String) -> Vec<Trailer> {
     match result {
         Ok(v) => {
             if let Some(v) = v {
@@ -181,7 +181,7 @@ fn result_trailer(result: Result<Option<String>, &Error>, key: String) -> Vec<Tr
     }
 }
 
-fn error_trailer(error: Option<&Error>) -> Vec<Trailer> {
+fn error_trailer(error: Option<&anyhow::Error>) -> Vec<Trailer> {
     error
         .map(|e| {
             vec![Trailer {

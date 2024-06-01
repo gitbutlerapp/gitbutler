@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
-use crate::error::{AnyhowContextExt, Code, Context, ErrorWithContext};
-use crate::{error, keys, project_repository, projects, users};
+use crate::{keys, project_repository, projects, users};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SshCredential {
@@ -85,19 +84,6 @@ pub enum HelpError {
     Git(#[from] super::Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl ErrorWithContext for HelpError {
-    fn context(&self) -> Option<Context> {
-        Some(match self {
-            HelpError::NoUrlSet => {
-                error::Context::new_static(Code::ProjectGitRemote, "no url set for remote")
-            }
-            HelpError::UrlConvertError(_) => Code::ProjectGitRemote.into(),
-            HelpError::Git(_) => return None,
-            HelpError::Other(error) => return error.custom_context_or_root_cause().into(),
-        })
-    }
 }
 
 impl Helper {

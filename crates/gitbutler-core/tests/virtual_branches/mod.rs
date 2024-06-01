@@ -19,9 +19,7 @@ use gitbutler_core::{
     virtual_branches::{
         self, apply_branch,
         branch::{BranchCreateRequest, BranchOwnershipClaims},
-        commit, create_virtual_branch,
-        errors::CommitError,
-        integrate_upstream_commits,
+        commit, create_virtual_branch, integrate_upstream_commits,
         integration::verify_branch,
         is_remote_branch_mergeable, is_virtual_branch_mergeable, list_remote_branches,
         unapply_ownership, update_branch,
@@ -2094,8 +2092,8 @@ fn verify_branch_not_integration() -> Result<()> {
     let verify_result = verify_branch(project_repository);
     assert!(verify_result.is_err());
     assert_eq!(
-        verify_result.unwrap_err().to_string(),
-        "head is refs/heads/master"
+        format!("{:#}", verify_result.unwrap_err()),
+        "<verification-failed>: project is on refs/heads/master. Please checkout gitbutler/integration to continue"
     );
 
     Ok(())
@@ -2144,15 +2142,8 @@ fn pre_commit_hook_rejection() -> Result<()> {
         true,
     );
 
-    let error = res.unwrap_err();
-
-    assert!(matches!(error, CommitError::CommitHookRejected(_)));
-
-    let CommitError::CommitHookRejected(output) = error else {
-        unreachable!()
-    };
-
-    assert_eq!(&output, "rejected\n");
+    let err = res.unwrap_err();
+    assert_eq!(err.to_string(), "commit hook rejected: rejected");
 
     Ok(())
 }
@@ -2256,15 +2247,8 @@ fn commit_msg_hook_rejection() -> Result<()> {
         true,
     );
 
-    let error = res.unwrap_err();
-
-    assert!(matches!(error, CommitError::CommitMsgHookRejected(_)));
-
-    let CommitError::CommitMsgHookRejected(output) = error else {
-        unreachable!()
-    };
-
-    assert_eq!(&output, "rejected\n");
+    let err = res.unwrap_err();
+    assert_eq!(err.to_string(), "commit-msg hook rejected: rejected");
 
     Ok(())
 }
@@ -2276,8 +2260,6 @@ where
     tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
         match callback(root, &entry.clone()) {
             TreeWalkResult::Continue => git2::TreeWalkResult::Ok,
-            // TreeWalkResult::Skip => git2::TreeWalkResult::Skip,
-            // TreeWalkResult::Stop => git2::TreeWalkResult::Abort,
         }
     })
     .map_err(Into::into)
@@ -2285,6 +2267,4 @@ where
 
 enum TreeWalkResult {
     Continue,
-    // Skip,
-    // Stop,
 }

@@ -118,14 +118,14 @@ async fn forcepush_forbidden() {
     {
         fs::write(repository.path().join("file2.txt"), "content2").unwrap();
         let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
-        assert!(matches!(
+        assert_eq!(
             controller
                 .amend(*project_id, branch_id, commit_oid, &to_amend)
                 .await
                 .unwrap_err()
-                .downcast_ref(),
-            Some(errors::VirtualBranchError::ForcePushNotAllowed(_))
-        ));
+                .to_string(),
+            "force-push is not allowed"
+        );
     }
 }
 
@@ -301,13 +301,13 @@ async fn non_existing_ownership() {
     {
         // amend non existing hunk
         let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
-        assert!(matches!(
+        assert_eq!(
             controller
                 .amend(*project_id, branch_id, commit_oid, &to_amend)
                 .await
                 .unwrap_err()
-                .downcast_ref(),
-            Some(errors::VirtualBranchError::TargetOwnerhshipNotFound(_))
-        ));
+                .to_string(),
+            "target ownership not found"
+        );
     }
 }

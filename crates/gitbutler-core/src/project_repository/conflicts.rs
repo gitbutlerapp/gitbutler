@@ -97,7 +97,7 @@ pub fn conflicting_files(repository: &Repository) -> Result<Vec<String>> {
 
 /// Check if `path` is conflicting in `repository`, or if `None`, check if there is any conflict.
 // TODO(ST): Should this not rather check the conflicting state in the index?
-pub fn is_conflicting<P: AsRef<Path>>(repository: &Repository, path: Option<P>) -> Result<bool> {
+pub fn is_conflicting(repository: &Repository, path: Option<&Path>) -> Result<bool> {
     let conflicts_path = repository.git_repository.path().join("conflicts");
     if !conflicts_path.exists() {
         return Ok(false);
@@ -105,11 +105,9 @@ pub fn is_conflicting<P: AsRef<Path>>(repository: &Repository, path: Option<P>) 
 
     let file = std::fs::File::open(conflicts_path)?;
     let reader = std::io::BufReader::new(file);
+    // TODO(ST): This shouldn't work on UTF8 strings.
     let mut files = reader.lines().map_ok(PathBuf::from);
     if let Some(pathname) = path {
-        // TODO(ST): This shouldn't work on UTF8 strings.
-        let pathname = pathname.as_ref();
-
         // check if pathname is one of the lines in conflicts_path file
         for line in files {
             let line = line?;

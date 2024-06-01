@@ -589,7 +589,7 @@ impl Repository {
 
     /// Returns a list of remotes
     ///
-    /// Returns Vec<String> instead of StringArray because StringArray cannot safly be sent between threads
+    /// Returns `Vec<String>` instead of StringArray because StringArray cannot safly be sent between threads
     pub fn remotes(&self) -> Result<Vec<String>> {
         self.0
             .remotes()

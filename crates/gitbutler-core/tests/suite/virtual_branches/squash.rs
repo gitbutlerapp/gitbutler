@@ -310,18 +310,18 @@ async fn forcepush_forbidden() {
             .unwrap()
     };
 
-    assert!(matches!(
+    assert_eq!(
         controller
             .squash(*project_id, branch_id, commit_two_oid)
             .await
             .unwrap_err()
-            .downcast_ref(),
-        Some(errors::SquashError::ForcePushNotAllowed(_))
-    ));
+            .to_string(),
+        "force push not allowed"
+    );
 }
 
 #[tokio::test]
-async fn root() {
+async fn root_forbidden() {
     let Test {
         repository,
         project_id,
@@ -347,12 +347,12 @@ async fn root() {
             .unwrap()
     };
 
-    assert!(matches!(
+    assert_eq!(
         controller
             .squash(*project_id, branch_id, commit_one_oid)
             .await
             .unwrap_err()
-            .downcast_ref(),
-        Some(errors::SquashError::CantSquashRootCommit)
-    ));
+            .to_string(),
+        "can not squash root commit"
+    );
 }

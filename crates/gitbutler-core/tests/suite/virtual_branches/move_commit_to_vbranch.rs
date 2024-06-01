@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use gitbutler_core::{
     git,
-    virtual_branches::{branch, errors, BranchId},
+    virtual_branches::{branch, BranchId},
 };
 
 use crate::suite::virtual_branches::Test;
@@ -238,14 +238,14 @@ async fn locked_hunks_on_source_branch() {
         .await
         .unwrap();
 
-    assert!(matches!(
+    assert_eq!(
         controller
             .move_commit(*project_id, target_branch_id, commit_oid)
             .await
             .unwrap_err()
-            .downcast_ref(),
-        Some(errors::MoveCommitError::SourceLocked)
-    ));
+            .to_string(),
+        "the source branch contains hunks locked to the target commit"
+    );
 }
 
 #[tokio::test]
@@ -279,18 +279,19 @@ async fn no_commit() {
         .await
         .unwrap();
 
-    assert!(matches!(
+    let commit_id_hex = "a99c95cca7a60f1a2180c2f86fb18af97333c192";
+    assert_eq!(
         controller
             .move_commit(
                 *project_id,
                 target_branch_id,
-                git::Oid::from_str("a99c95cca7a60f1a2180c2f86fb18af97333c192").unwrap()
+                git::Oid::from_str(commit_id_hex).unwrap()
             )
             .await
             .unwrap_err()
-            .downcast_ref(),
-        Some(errors::MoveCommitError::CommitNotFound(_))
-    ));
+            .to_string(),
+        format!("commit {commit_id_hex} to be moved could not be found")
+    );
 }
 
 #[tokio::test]
@@ -319,12 +320,13 @@ async fn no_branch() {
         .await
         .unwrap();
 
-    assert!(matches!(
+    let id = BranchId::generate();
+    assert_eq!(
         controller
-            .move_commit(*project_id, BranchId::generate(), commit_oid)
+            .move_commit(*project_id, id, commit_oid)
             .await
             .unwrap_err()
-            .downcast_ref(),
-        Some(errors::MoveCommitError::BranchNotFound(_))
-    ));
+            .to_string(),
+        format!("branch {id} is not among applied branches")
+    );
 }

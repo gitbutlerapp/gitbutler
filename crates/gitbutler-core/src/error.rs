@@ -2,170 +2,154 @@
 //!
 //! This is a primer on how to use the types provided here.
 //!
-//! Generally, if you do not care about attaching an error code for error-classification or
-//! and/or messages that may show up in the user interface, read no further. Just use `anyhow`
-//! or `thiserror` like before.
+//! **tl;dr** - use `anyhow::Result` by direct import so a typical function looks like this:
 //!
-//! ### Adding Context
-//!
-//! The [`Context`] type is the richest context we may attach to either `anyhow` errors or `thiserror`,
-//! albeit using a different mechanism. This context is maintained as the error propagates and the
-//! context higest up the error chain, the one most recently added, can be used by higher layers
-//! of the GitButler application. Currently, a [`Context::message`] is shown in the user-interface,
-//! whereas [`Context::code`] can be provided to help the user interface to make decisions, as it uses
-//! the code for classifying errors.
-//!
-//! #### With `anyhow`
-//!
-//! The basis is an error without context, just by using `anyhow` in any way.
-//!
-//!```rust
-//!# use anyhow::bail;
-//! fn f() -> anyhow::Result<()> {
-//!    bail!("internal information")
+//! ```rust
+//!# use anyhow::{Result, bail};
+//! fn f() -> Result<()> {
+//!    bail!("this went wrong")
 //! }
-//!```
+//! ```
 //!
-//! Adding context is as easy as using the `context()` method on any `Result` or [`anyhow::Error`].
-//! This can be a [`Code`], which automatically uses the message provided previously in the
-//! frontend (note, though, that this is an implementation detail, which may change).
-//! It serves as marker to make these messages show up, even if the code is [`Code::Unknown`].
+//! ### Providing Context
 //!
-//!```rust
-//!# use anyhow::{anyhow};
+//! To inform about what you were trying to do when it went wrong, assign some [`context`](anyhow::Context::context)
+//! directly to [results](Result), to [`options`](Option) or to `anyhow` errors.
+//!
+//! ```rust
+//!# use anyhow::{anyhow, Result, bail, Context};
+//! fn maybe() -> Option<()> {
+//!    None
+//! }
+//!
+//! fn a() -> Result<()> {
+//!    maybe().context("didn't get it at this time")
+//! }
+//!
+//! fn b() -> Result<()> {
+//!    a().context("an operation couldn't be performed")
+//! }
+//!
+//! fn c() -> Result<()> {
+//!     b().map_err(|err| err.context("sometimes useful"))
+//! }
+//!
+//! fn main() {
+//!    assert_eq!(format!("{:#}", c().unwrap_err()),
+//!               "sometimes useful: an operation couldn't be performed: didn't get it at this time");
+//! }
+//! ```
+//!
+//! ### Frontend Interactions
+//!
+//! We don't know anything about frontends here, but we also have to know something to be able to control
+//! which error messages show up. Sometimes the frontend needs to decide what to do based on a particular
+//! error that happened, hence it has to classify errors and it shouldn't do that by matching strings.
+//!
+//! #### Meet the `Code`
+//!
+//! The [`Code`] is a classifier for errors, and it can be attached as [`anyhow context`](anyhow::Context)
+//! to be visible to `tauri`, which looks at the error chain to obtain such metadata.
+//!
+//! By default, the frontend will show the stringified root error if a `tauri` command fails.
+//! However, **sometimes we want to cut that short and display a particular message**.
+//!
+//! ```rust
+//!# use anyhow::{Result, Context};
 //!# use gitbutler_core::error::Code;
-//! fn f() -> anyhow::Result<()> {
-//!    return Err(anyhow!("user information").context(Code::Unknown))
+//!
+//! fn do_io() -> std::io::Result<()> {
+//!     Err(std::io::Error::new(std::io::ErrorKind::Other, "this didn't work"))
 //! }
-//!```
 //!
-//! Finally, it's also possible to specify the user-message by using a [`Context`].
-//!
-//!```rust
-//!# use anyhow::{anyhow};
-//!# use gitbutler_core::error::{Code, Context};
-//! fn f() -> anyhow::Result<()> {
-//!    return Err(anyhow!("internal information").context(Context::new_static(Code::Unknown, "user information")))
+//! fn a() -> Result<()> {
+//!     do_io()
+//!         .context("whatever comes before a `Code` context shows in frontend, so THIS")
+//!         .context(Code::Unknown)
 //! }
-//!```
 //!
-//! #### Backtraces and `anyhow`
+//! fn main() {
+//!    assert_eq!(format!("{:#}", a().unwrap_err()),
+//!              "errors.unknown: whatever comes before a `Code` context shows in frontend, so THIS: this didn't work",
+//!              "however, that Code also shows up in the error chain in logs - context is just like an Error for anyhow");
+//! }
+//! ```
+//!
+//! #### Tuning error chains
+//!
+//! The style above was most convenient and can be used without hesitation, but if for some reason it's important
+//! for `Code` not to show up in the error chain, one can use the [`error::Context`](Context) directly.
+//!
+//! ```rust
+//!# use anyhow::{Result, Context};
+//!# use gitbutler_core::error;
+//!
+//! fn do_io() -> std::io::Result<()> {
+//!     Err(std::io::Error::new(std::io::ErrorKind::Other, "this didn't work"))
+//! }
+//!
+//! fn a() -> Result<()> {
+//!     do_io().context(error::Context::new("This message is shown and only this meessage")
+//!                         .with_code(error::Code::Validation))
+//! }
+//!
+//! fn main() {
+//!    assert_eq!(format!("{:#}", a().unwrap_err()),
+//!              "This message is shown and only this meessage: this didn't work",
+//!              "now the added context just looks like an error, even though it also contains a `Code` which can be queried");
+//! }
+//! ```
+//!
+//! ### Backtraces and `anyhow`
 //!
 //! Backtraces are automatically collected when `anyhow` errors are instantiated, as long as the
 //! `RUST_BACKTRACE` variable is set.
 //!
 //! #### With `thiserror`
 //!
-//! `thiserror` doesn't have a mechanism for generic context, which is why it has to be attached to
-//! each type that is generated by thiserror.
+//! `thiserror` doesn't have a mechanism for generic context, and if it's needed the error can be converted
+//! to `anyhow::Error`.
 //!
 //! By default, `thiserror` instances have no context.
-//!
-//!```rust
-//! # use gitbutler_core::error::{Code, Context, ErrorWithContext};
-//! #[derive(thiserror::Error, Debug)]
-//! #[error("user message")]
-//! struct Error;
-//!
-//! // But context can be added like this:
-//! impl ErrorWithContext for Error {fn context(&self) -> Option<Context> {
-//!         // attach a code to make it show up in higher layers.
-//!         Some(Context::from(Code::Unknown))
-//!     }
-//! }
-//! ```
-//!
-//! Note that it's up to the implementation of [`ErrorWithContext`] to collect all context of errors in variants.
-//!
-//!```rust
-//! # use gitbutler_core::error::{AnyhowContextExt, Code, Context, ErrorWithContext};
-//!
-//! #[derive(thiserror::Error, Debug)]
-//! #[error("user message")]
-//! struct TinyError;
-//!
-//! // But context can be added like this:
-//! impl ErrorWithContext for TinyError {
-//!     fn context(&self) -> Option<Context> {
-//!         Some(Context::new_static(Code::Unknown, "tiny message"))
-//!     }
-//! }
-//! #[derive(thiserror::Error, Debug)]
-//! enum Error {
-//!    #[error(transparent)]
-//!    Tiny(#[from] TinyError),
-//!    #[error(transparent)]
-//!    Other(#[from] anyhow::Error)
-//! };
-//!
-//! // But context can be added like this:
-//! impl ErrorWithContext for Error {
-//!     fn context(&self) -> Option<Context> {
-//!        match self {
-//!            Error::Tiny(err) => err.context(),
-//!            Error::Other(err) => err.custom_context()
-//!         }
-//!     }
-//! }
-//! ```
-//!
-//! ### Assuring Context
-//!
-//! Currently, the consumers of errors with context are quite primitive and thus rely on `anyhow`
-//! to collect and find context hidden in the error chain.
-//! To make that work, it's important that `thiserror` based errors never silently convert into
-//! `anyhow::Error`, as the context-consumers wouldn't find the context anymore.
-//!
-//! To prevent issues around this, make sure that relevant methods use the [`Error`] type provided
-//! here. It is made to only automatically convert from types that have context information.
-//! Those who have not will need to be converted by hand using [`Error::from_err()`].
 use std::borrow::Cow;
-use std::fmt::{self, Debug, Display};
+use std::fmt::Debug;
 
 /// A unique code that consumers of the API may rely on to identify errors.
+///
+/// ### Important
+///
+/// **Only add variants if a consumer, like the *frontend*, is actually using them**.
+/// Remove variants when no longer in use.
+///
+/// In practice, it should match its [frontend counterpart](https://github.com/gitbutlerapp/gitbutler/blob/fa973fd8f1ae8807621f47601803d98b8a9cf348/app/src/lib/backend/ipc.ts#L5).
 #[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq)]
 pub enum Code {
+    /// Much like a catch-all error code. It shouldn't be attached explicitly unless
+    /// a message is provided as well as part of a [`Context`].
     #[default]
     Unknown,
     Validation,
-    Projects,
-    Branches,
     ProjectGitAuth,
-    ProjectGitRemote,
-    /// The push operation failed, specifically because the remote rejected it.
-    ProjectGitPush,
-    ProjectConflict,
-    ProjectHead,
-    Menu,
-    PreCommitHook,
-    CommitMsgHook,
 }
 
 impl std::fmt::Display for Code {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let code = match self {
-            Code::Menu => "errors.menu",
             Code::Unknown => "errors.unknown",
             Code::Validation => "errors.validation",
-            Code::Projects => "errors.projects",
-            Code::Branches => "errors.branches",
             Code::ProjectGitAuth => "errors.projects.git.auth",
-            Code::ProjectGitRemote => "errors.projects.git.remote",
-            Code::ProjectGitPush => "errors.projects.git.push",
-            Code::ProjectHead => "errors.projects.head",
-            Code::ProjectConflict => "errors.projects.conflict",
-            //TODO: rename js side to be more precise what kind of hook error this is
-            Code::PreCommitHook => "errors.hook",
-            Code::CommitMsgHook => "errors.hooks.commit.msg",
         };
         f.write_str(code)
     }
 }
 
-/// A context to wrap around lower errors to allow its classification, along with a message for the user.
+/// A context for classifying errors.
+///
+/// It provides a [`Code`], which may be [unknown](Code::Unknown), and a `message` which explains
+/// more about the problem at hand.
 #[derive(Default, Debug, Clone)]
 pub struct Context {
-    /// The identifier of the error.
+    /// The classification of the error.
     pub code: Code,
     /// A description of what went wrong, if available.
     pub message: Option<Cow<'static, str>>,
@@ -188,9 +172,9 @@ impl From<Code> for Context {
 
 impl Context {
     /// Create a new instance with `code` and an owned `message`.
-    pub fn new(code: Code, message: impl Into<String>) -> Self {
+    pub fn new(message: impl Into<String>) -> Self {
         Context {
-            code,
+            code: Code::Unknown,
             message: Some(Cow::Owned(message.into())),
         }
     }
@@ -201,6 +185,12 @@ impl Context {
             code,
             message: Some(Cow::Borrowed(message)),
         }
+    }
+
+    /// Adjust the `code` of this instance to the given one.
+    pub fn with_code(mut self, code: Code) -> Self {
+        self.code = code;
+        self
     }
 }
 
@@ -235,94 +225,5 @@ impl AnyhowContextExt for anyhow::Error {
             code: Code::Unknown,
             message: Some(self.root_cause().to_string().into()),
         })
-    }
-}
-
-/// A trait that if implemented on `thiserror` instance, allows to extract context we provide
-/// in its variants.
-///
-/// Note that this is a workaround for the inability to control or implement the `provide()` method
-/// on the `std::error::Error` implementation of `thiserror`.
-pub trait ErrorWithContext: std::error::Error {
-    /// Obtain the [`Context`], if present.
-    fn context(&self) -> Option<Context>;
-}
-
-/// Convert `err` into an `anyhow` error, but also add provided `Code` or `Context` as anyhow context.
-/// This uses the new `provide()` API to attach arbitrary information to error implementations.
-pub fn into_anyhow(err: impl ErrorWithContext + Send + Sync + 'static) -> anyhow::Error {
-    let context = err.context();
-    let err = anyhow::Error::from(err);
-    if let Some(context) = context {
-        err.context(context)
-    } else {
-        err
-    }
-}
-
-/// A wrapper around an `anyhow` error which automatically extracts the context that might be attached
-/// to `thiserror` instances.
-///
-/// Whenever `thiserror` is involved, this error type should be used if the alternative would be to write
-/// a `thiserror` which just forwards its context (like `app::Error` previously).
-#[derive(Debug)]
-pub struct Error(anyhow::Error);
-
-impl From<anyhow::Error> for Error {
-    fn from(value: anyhow::Error) -> Self {
-        Self(value)
-    }
-}
-
-impl From<Error> for anyhow::Error {
-    fn from(value: Error) -> Self {
-        value.0
-    }
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
-
-impl<E> From<E> for Error
-where
-    E: ErrorWithContext + Send + Sync + 'static,
-{
-    fn from(value: E) -> Self {
-        Self(into_anyhow(value))
-    }
-}
-
-impl Error {
-    /// A manual, none-overlapping implementation of `From` (or else there are conflicts).
-    pub fn from_err(err: impl std::error::Error + Send + Sync + 'static) -> Self {
-        Self(err.into())
-    }
-
-    /// Associated more context to the contained anyhow error
-    pub fn context<C>(self, context: C) -> Self
-    where
-        C: Display + Send + Sync + 'static,
-    {
-        let err = self.0;
-        Self(err.context(context))
-    }
-
-    /// Returns `true` if `E` is contained in our error chain.
-    pub fn is<E>(&self) -> bool
-    where
-        E: Display + Debug + Send + Sync + 'static,
-    {
-        self.0.is::<E>()
-    }
-
-    /// Downcast our instance to the given type `E`, or `None` if it's not contained in our context or error chain.
-    pub fn downcast_ref<E>(&self) -> Option<&E>
-    where
-        E: Display + Debug + Send + Sync + 'static,
-    {
-        self.0.downcast_ref::<E>()
     }
 }

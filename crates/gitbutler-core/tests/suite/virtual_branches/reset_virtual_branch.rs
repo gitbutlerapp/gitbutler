@@ -1,6 +1,6 @@
 use std::fs;
 
-use gitbutler_core::virtual_branches::{branch, errors::ResetBranchError};
+use gitbutler_core::virtual_branches::branch;
 
 use crate::suite::virtual_branches::Test;
 
@@ -252,7 +252,7 @@ async fn to_non_existing() {
         oid
     };
 
-    assert!(matches!(
+    assert_eq!(
         controller
             .reset_virtual_branch(
                 *project_id,
@@ -261,7 +261,7 @@ async fn to_non_existing() {
             )
             .await
             .unwrap_err()
-            .downcast_ref(),
-        Some(ResetBranchError::CommitNotFoundInBranch(_))
-    ));
+            .to_string(),
+        "commit fe14df8c66b73c6276f7bb26102ad91da680afcb not in the branch"
+    );
 }

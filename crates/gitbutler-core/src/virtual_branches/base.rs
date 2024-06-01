@@ -1,16 +1,17 @@
 use std::{path::Path, time};
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use git2::Index;
 use serde::Serialize;
 
 use super::{
-    branch, errors,
+    branch,
     integration::{
         get_workspace_head, update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE,
     },
     target, BranchId, RemoteCommit, VirtualBranchHunk, VirtualBranchesHandle,
 };
+use crate::virtual_branches::errors::Marker;
 use crate::{
     git::{self, diff},
     project_repository::{self, LogUntil},
@@ -46,7 +47,7 @@ pub fn get_base_branch_data(
 fn go_back_to_integration(
     project_repository: &project_repository::Repository,
     default_target: &target::Target,
-) -> Result<super::BaseBranch, errors::SetBaseBranchError> {
+) -> Result<BaseBranch> {
     let statuses = project_repository
         .git_repository
         .statuses(Some(
@@ -56,7 +57,7 @@ fn go_back_to_integration(
         ))
         .context("failed to get status")?;
     if !statuses.is_empty() {
-        return Err(errors::SetBaseBranchError::DirtyWorkingDirectory);
+        return Err(anyhow!("current HEAD is dirty")).context(Marker::ProjectConflict);
     }
 
     let vb_state = project_repository.project().virtual_branches();
@@ -117,7 +118,7 @@ fn go_back_to_integration(
 pub fn set_base_branch(
     project_repository: &project_repository::Repository,
     target_branch_ref: &git::RemoteRefname,
-) -> Result<super::BaseBranch, errors::SetBaseBranchError> {
+) -> Result<BaseBranch> {
     let repo = &project_repository.git_repository;
 
     // if target exists, and it is the same as the requested branch, we should go back
@@ -129,12 +130,10 @@ pub fn set_base_branch(
 
     // lookup a branch by name
     let target_branch = match repo.find_branch(&target_branch_ref.clone().into()) {
-        Ok(branch) => Ok(branch),
-        Err(git::Error::NotFound(_)) => Err(errors::SetBaseBranchError::BranchNotFound(
-            target_branch_ref.clone(),
-        )),
-        Err(error) => Err(errors::SetBaseBranchError::Other(error.into())),
-    }?;
+        Ok(branch) => branch,
+        Err(git::Error::NotFound(_)) => bail!("remote branch '{}' not found", target_branch_ref),
+        Err(err) => return Err(err.into()),
+    };
 
     let remote = repo
         .find_remote(target_branch_ref.remote())
@@ -276,24 +275,21 @@ pub fn set_base_branch(
 pub fn set_target_push_remote(
     project_repository: &project_repository::Repository,
     push_remote_name: &str,
-) -> Result<(), errors::SetBaseBranchError> {
-    let repo = &project_repository.git_repository;
-
-    let remote = repo
+) -> Result<()> {
+    let remote = project_repository
+        .git_repository
         .find_remote(push_remote_name)
         .context(format!("failed to find remote {}", push_remote_name))?;
 
     // if target exists, and it is the same as the requested branch, we should go back
     let mut target = default_target(&project_repository.project().gb_dir())?;
-
-    target.push_remote_name = Some(
-        remote
-            .name()
-            .context("failed to get remote name")?
-            .to_string(),
-    );
+    target.push_remote_name = remote
+        .name()
+        .context("failed to get remote name")?
+        .to_string()
+        .into();
     let vb_state = project_repository.project().virtual_branches();
-    vb_state.set_default_target(target.clone())?;
+    vb_state.set_default_target(target)?;
 
     Ok(())
 }
@@ -337,13 +333,7 @@ pub fn update_base_branch(
     project_repository: &project_repository::Repository,
     user: Option<&users::User>,
 ) -> anyhow::Result<Vec<branch::Branch>> {
-    if project_repository.is_resolving() {
-        anyhow::bail!(errors::UpdateBaseBranchError::Conflict(
-            errors::ProjectConflict {
-                project_id: project_repository.project().id,
-            },
-        ));
-    }
+    project_repository.assure_resolved()?;
 
     // look up the target and see if there is a new oid
     let target = default_target(&project_repository.project().gb_dir())?;

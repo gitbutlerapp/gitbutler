@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use gitbutler_core::error::Error as CoreError;
 use gitbutler_core::{
     git,
     project_repository::{self, conflicts},
@@ -17,7 +16,7 @@ impl App {
         Self { projects }
     }
 
-    pub fn mark_resolved(&self, project_id: ProjectId, path: &str) -> Result<(), CoreError> {
+    pub fn mark_resolved(&self, project_id: ProjectId, path: &str) -> Result<()> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         // mark file as resolved
@@ -25,13 +24,10 @@ impl App {
         Ok(())
     }
 
-    pub fn git_remote_branches(
-        &self,
-        project_id: ProjectId,
-    ) -> Result<Vec<git::RemoteRefname>, CoreError> {
+    pub fn git_remote_branches(&self, project_id: ProjectId) -> Result<Vec<git::RemoteRefname>> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        Ok(project_repository.git_remote_branches()?)
+        project_repository.git_remote_branches()
     }
 
     pub fn git_test_push(
@@ -41,10 +37,10 @@ impl App {
         branch_name: &str,
         credentials: &git::credentials::Helper,
         askpass: Option<Option<BranchId>>,
-    ) -> Result<(), CoreError> {
+    ) -> Result<()> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        Ok(project_repository.git_test_push(credentials, remote_name, branch_name, askpass)?)
+        project_repository.git_test_push(credentials, remote_name, branch_name, askpass)
     }
 
     pub fn git_test_fetch(
@@ -53,13 +49,13 @@ impl App {
         remote_name: &str,
         credentials: &git::credentials::Helper,
         askpass: Option<String>,
-    ) -> Result<(), CoreError> {
+    ) -> Result<()> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        Ok(project_repository.fetch(remote_name, credentials, askpass)?)
+        project_repository.fetch(remote_name, credentials, askpass)
     }
 
-    pub fn git_index_size(&self, project_id: ProjectId) -> Result<usize, CoreError> {
+    pub fn git_index_size(&self, project_id: ProjectId) -> Result<usize> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         let size = project_repository
@@ -68,7 +64,7 @@ impl App {
         Ok(size)
     }
 
-    pub fn git_head(&self, project_id: ProjectId) -> Result<String, CoreError> {
+    pub fn git_head(&self, project_id: ProjectId) -> Result<String> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         let head = project_repository
@@ -98,7 +94,7 @@ impl App {
         }
     }
 
-    pub async fn delete_all_data(&self) -> Result<(), CoreError> {
+    pub async fn delete_all_data(&self) -> Result<()> {
         for project in self.projects.list().context("failed to list projects")? {
             self.projects
                 .delete(project.id)

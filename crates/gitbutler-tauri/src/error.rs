@@ -1,6 +1,12 @@
-//! ## How-To
+//! Utilities to control which errors show in the frontend.
 //!
-//! This is a primer on how to use the [`Error`] provided here.
+//! ## How to use this
+//!
+//! Just make sure this [`Error`] type is used for each provided `tauri` command. The rest happens automatically
+//! such that:
+//!
+//! * The frontend shows the root error as string by default…
+//! * …or it shows the provided [`Context`](gitbutler_core::error::Context) as controlled by the `core` crate.
 //!
 //! ### Interfacing with `tauri` using [`Error`]
 //!
@@ -10,17 +16,10 @@
 //!
 //! The values in these fields are controlled by attaching context, please [see the `core` docs](gitbutler_core::error))
 //! on how to do this.
-//!
-//! To assure context is picked up correctly to be made available to the UI if present, use
-//! [`Error`] in the `tauri` commands. Due to technical limitations, it will only auto-convert
-//! from `anyhow::Error`, or [core::Error](gitbutler_core::error::Error).
-//! Errors that are known to have context can be converted using [`Error::from_error_with_context`].
-//! If there is an error without context, one would have to convert to `anyhow::Error` as intermediate step,
-//! typically by adding `.context()`.
 pub(crate) use frontend::Error;
 
 mod frontend {
-    use gitbutler_core::error::{into_anyhow, AnyhowContextExt, ErrorWithContext};
+    use gitbutler_core::error::AnyhowContextExt;
     use serde::{ser::SerializeMap, Serialize};
     use std::borrow::Cow;
 
@@ -35,27 +34,12 @@ mod frontend {
         }
     }
 
-    impl From<gitbutler_core::error::Error> for Error {
-        fn from(value: gitbutler_core::error::Error) -> Self {
-            Self(value.into())
-        }
-    }
-
-    impl Error {
-        /// Convert an error with context to our type.
-        ///
-        /// Note that this is only needed as trait specialization isn't working well enough yet.
-        pub fn from_error_with_context(err: impl ErrorWithContext + Send + Sync + 'static) -> Self {
-            Self(into_anyhow(err))
-        }
-    }
-
     impl Serialize for Error {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: serde::Serializer,
         {
-            let ctx = self.0.custom_context().unwrap_or_default();
+            let ctx = self.0.custom_context_or_root_cause();
 
             let mut map = serializer.serialize_map(Some(2))?;
             map.serialize_entry("code", &ctx.code.to_string())?;
@@ -81,41 +65,76 @@ mod frontend {
         }
 
         #[test]
-        fn no_context_or_code() {
+        fn no_context_or_code_shows_root_error() {
             let err = anyhow!("err msg");
             assert_eq!(
+                format!("{:#}", err),
+                "err msg",
+                "just one error on display here"
+            );
+            assert_eq!(
                 json(err),
-                "{\"code\":\"errors.unknown\",\"message\":\"Something went wrong\"}",
-                "if there is no explicit error code or context, the original error message isn't shown"
+                "{\"code\":\"errors.unknown\",\"message\":\"err msg\"}",
+                "if there is no explicit error code or context, the original error message is shown"
             );
         }
 
         #[test]
         fn find_code() {
-            let err = anyhow!("err msg").context(Code::Projects);
+            let err = anyhow!("err msg").context(Code::Validation);
+            assert_eq!(
+                format!("{:#}", err),
+                "errors.validation: err msg",
+                "note how the context becomes an error, in front of the original one"
+            );
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.projects\",\"message\":\"err msg\"}",
+                "{\"code\":\"errors.validation\",\"message\":\"err msg\"}",
                 "the 'code' is available as string, but the message is taken from the source error"
             );
         }
 
         #[test]
-        fn find_context() {
-            let err = anyhow!("err msg").context(Context::new_static(Code::Projects, "ctx msg"));
+        fn find_code_after_cause() {
+            let original_err = std::io::Error::new(std::io::ErrorKind::Other, "actual cause");
+            let err = anyhow::Error::from(original_err)
+                .context("err msg")
+                .context(Code::Validation);
+
+            assert_eq!(
+                format!("{:#}", err),
+                "errors.validation: err msg: actual cause",
+                "an even longer chain, with the cause as root as one might expect"
+            );
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.projects\",\"message\":\"ctx msg\"}",
+                "{\"code\":\"errors.validation\",\"message\":\"err msg\"}",
+                "in order to attach a custom message to an original cause, our messaging (and Code) is the tail"
+            );
+        }
+
+        #[test]
+        fn find_context() {
+            let err = anyhow!("err msg").context(Context::new_static(Code::Validation, "ctx msg"));
+            assert_eq!(format!("{:#}", err), "ctx msg: err msg");
+            assert_eq!(
+                json(err),
+                "{\"code\":\"errors.validation\",\"message\":\"ctx msg\"}",
                 "Contexts often provide their own message, so the error message is ignored"
             );
         }
 
         #[test]
         fn find_context_without_message() {
-            let err = anyhow!("err msg").context(Context::from(Code::Projects));
+            let err = anyhow!("err msg").context(Context::from(Code::Validation));
+            assert_eq!(
+                format!("{:#}", err),
+                "Something went wrong: err msg",
+                "on display, `Context` does just insert a generic message"
+            );
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.projects\",\"message\":\"err msg\"}",
+                "{\"code\":\"errors.validation\",\"message\":\"err msg\"}",
                 "Contexts without a message show the error's message as well"
             );
         }
@@ -124,10 +143,15 @@ mod frontend {
         fn find_nested_code() {
             let err = anyhow!("bottom msg")
                 .context("top msg")
-                .context(Code::Projects);
+                .context(Code::Validation);
+            assert_eq!(
+                format!("{:#}", err),
+                "errors.validation: top msg: bottom msg",
+                "now it's clear why bottom is bottom"
+            );
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.projects\",\"message\":\"top msg\"}",
+                "{\"code\":\"errors.validation\",\"message\":\"top msg\"}",
                 "the 'code' gets the message of the error that it provides context to, and it finds it down the chain"
             );
         }
@@ -135,12 +159,17 @@ mod frontend {
         #[test]
         fn multiple_codes() {
             let err = anyhow!("bottom msg")
-                .context(Code::Menu)
+                .context(Code::ProjectGitAuth)
                 .context("top msg")
-                .context(Code::Projects);
+                .context(Code::Validation);
+            assert_eq!(
+                format!("{:#}", err),
+                "errors.validation: top msg: errors.projects.git.auth: bottom msg",
+                "each code is treated like its own error in the chain"
+            );
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.projects\",\"message\":\"top msg\"}",
+                "{\"code\":\"errors.validation\",\"message\":\"top msg\"}",
                 "it finds the most recent 'code' (and the same would be true for contexts, of course)"
             );
         }

@@ -10,14 +10,6 @@ pub struct Storage {
     inner: storage::Storage,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error(transparent)]
-    Storage(#[from] std::io::Error),
-    #[error(transparent)]
-    Json(#[from] serde_json::Error),
-}
-
 impl Storage {
     pub fn new(storage: storage::Storage) -> Storage {
         Storage { inner: storage }
@@ -27,21 +19,19 @@ impl Storage {
         Storage::new(storage::Storage::new(path))
     }
 
-    pub fn get(&self) -> Result<Option<user::User>, Error> {
+    pub fn get(&self) -> Result<Option<user::User>> {
         match self.inner.read(USER_FILE)? {
             Some(data) => Ok(Some(serde_json::from_str(&data)?)),
             None => Ok(None),
         }
     }
 
-    pub fn set(&self, user: &user::User) -> Result<(), Error> {
+    pub fn set(&self, user: &user::User) -> Result<()> {
         let data = serde_json::to_string(user)?;
-        self.inner.write(USER_FILE, &data)?;
-        Ok(())
+        Ok(self.inner.write(USER_FILE, &data)?)
     }
 
-    pub fn delete(&self) -> Result<(), Error> {
-        self.inner.delete(USER_FILE)?;
-        Ok(())
+    pub fn delete(&self) -> Result<()> {
+        Ok(self.inner.delete(USER_FILE)?)
     }
 }
