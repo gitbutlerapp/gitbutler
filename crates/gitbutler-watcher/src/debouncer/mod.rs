@@ -780,7 +780,7 @@ mod tests {
 
         for (delay, events) in expected_events {
             MockClock::set_time(backup_time);
-            state.queues = backup_queues.clone();
+            state.queues.clone_from(&backup_queues);
 
             match delay.as_str() {
                 "none" => {}

@@ -9,8 +9,8 @@ use tokio::{sync::Semaphore, task::JoinHandle};
 
 use super::{
     branch::{BranchId, BranchOwnershipClaims},
-    errors::{self},
-    target, target_to_base_branch, BaseBranch, RemoteBranchFile, VirtualBranchesHandle,
+    errors, target, target_to_base_branch, BaseBranch, Branch, RemoteBranchFile,
+    VirtualBranchesHandle,
 };
 use crate::{
     git, project_repository,
@@ -164,7 +164,7 @@ impl Controller {
             .await
     }
 
-    pub async fn update_base_branch(&self, project_id: ProjectId) -> Result<(), Error> {
+    pub async fn update_base_branch(&self, project_id: ProjectId) -> Result<Vec<Branch>, Error> {
         self.inner(project_id)
             .await
             .update_base_branch(project_id)
@@ -587,7 +587,7 @@ impl ControllerInner {
         })
     }
 
-    pub async fn update_base_branch(&self, project_id: ProjectId) -> Result<(), Error> {
+    pub async fn update_base_branch(&self, project_id: ProjectId) -> Result<Vec<Branch>, Error> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
