@@ -148,13 +148,13 @@ impl TestProject {
             _ => "INVALID".parse().unwrap(), // todo
         };
         let branch = self.remote_repository.find_branch(&branch_name).unwrap();
-        let branch_commit = branch.peel_to_commit().unwrap();
+        let branch_commit = branch.get().peel_to_commit().unwrap();
 
         let master_branch = {
             let name: git::Refname = "refs/heads/master".parse().unwrap();
             self.remote_repository.find_branch(&name).unwrap()
         };
-        let master_branch_commit = master_branch.peel_to_commit().unwrap();
+        let master_branch_commit = master_branch.get().peel_to_commit().unwrap();
 
         let mut rebase_options = git2::RebaseOptions::new();
         rebase_options.quiet(true);
@@ -212,13 +212,13 @@ impl TestProject {
             _ => "INVALID".parse().unwrap(), // todo
         };
         let branch = self.remote_repository.find_branch(&branch_name).unwrap();
-        let branch_commit = branch.peel_to_commit().unwrap();
+        let branch_commit = branch.get().peel_to_commit().unwrap();
 
         let master_branch = {
             let name: git::Refname = "refs/heads/master".parse().unwrap();
             self.remote_repository.find_branch(&name).unwrap()
         };
-        let master_branch_commit = master_branch.peel_to_commit().unwrap();
+        let master_branch_commit = master_branch.get().peel_to_commit().unwrap();
 
         let merge_base = {
             let oid = self
@@ -232,8 +232,8 @@ impl TestProject {
                 .remote_repository
                 .merge_trees(
                     &merge_base.tree().unwrap(),
-                    &master_branch.peel_to_tree().unwrap(),
-                    &branch.peel_to_tree().unwrap(),
+                    &master_branch.get().peel_to_tree().unwrap(),
+                    &branch.get().peel_to_tree().unwrap(),
                 )
                 .unwrap();
             let oid = merge_index.write_tree_to(&self.remote_repository).unwrap();
@@ -278,7 +278,7 @@ impl TestProject {
             .peel_to_commit()
             .unwrap();
         let tree = match self.local_repository.find_branch(&branch) {
-            Ok(branch) => branch.peel_to_tree().unwrap(),
+            Ok(branch) => branch.get().peel_to_tree().unwrap(),
             Err(git::Error::NotFound(_)) => {
                 self.local_repository
                     .reference(&branch, head_commit.id().into(), false, "new branch")

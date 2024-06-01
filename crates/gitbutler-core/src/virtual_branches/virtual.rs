@@ -765,7 +765,7 @@ pub fn list_virtual_branches(
 
         let upstram_branch_commit = upstream_branch
             .as_ref()
-            .map(git::Branch::peel_to_commit)
+            .map(|branch| branch.get().peel_to_commit())
             .transpose()
             .context(format!(
                 "failed to find upstream branch commit for {}",
@@ -2412,7 +2412,7 @@ fn is_commit_integrated(
     let remote_branch = project_repository
         .git_repository
         .find_branch(&target.branch.clone().into())?;
-    let remote_head = remote_branch.peel_to_commit()?;
+    let remote_head = remote_branch.get().peel_to_commit()?;
     let upstream_commits = project_repository.l(
         remote_head.id().into(),
         project_repository::LogUntil::Commit(target.sha),
@@ -2495,10 +2495,10 @@ pub fn is_remote_branch_mergeable(
             }
             err => err.into(),
         })?;
-    let branch_oid = branch.target().context("detatched head")?;
+    let branch_oid = branch.get().target().context("detatched head")?;
     let branch_commit = project_repository
         .git_repository
-        .find_commit(branch_oid)
+        .find_commit(branch_oid.into())
         .context("failed to find branch commit")?;
 
     let base_tree = find_base_tree(

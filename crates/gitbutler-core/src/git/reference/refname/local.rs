@@ -3,7 +3,6 @@ use std::{fmt, str::FromStr};
 use serde::{Deserialize, Serialize};
 
 use super::{error::Error, remote};
-use crate::git;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Refname {
@@ -68,12 +67,13 @@ impl FromStr for Refname {
     }
 }
 
-impl TryFrom<&git::Branch<'_>> for Refname {
+impl TryFrom<&git2::Branch<'_>> for Refname {
     type Error = Error;
 
-    fn try_from(value: &git::Branch<'_>) -> std::result::Result<Self, Self::Error> {
-        let branch_name = String::from_utf8(value.refname_bytes().to_vec()).map_err(Error::Utf8)?;
-        if value.is_remote() {
+    fn try_from(value: &git2::Branch<'_>) -> std::result::Result<Self, Self::Error> {
+        let branch_name =
+            String::from_utf8(value.get().name_bytes().to_vec()).map_err(Error::Utf8)?;
+        if value.get().is_remote() {
             Err(Error::NotLocal(branch_name))
         } else {
             let branch: Self = branch_name.parse()?;
@@ -82,11 +82,13 @@ impl TryFrom<&git::Branch<'_>> for Refname {
                     remote: Some(remote::Refname::try_from(&upstream)?),
                     ..branch
                 }),
-                Err(git::Error::NotFound(_)) => Ok(Self {
-                    remote: None,
-                    ..branch
-                }),
-                Err(error) => Err(error.into()),
+                Err(error) => match error.code() {
+                    git2::ErrorCode::NotFound => Ok(Self {
+                        remote: None,
+                        ..branch
+                    }),
+                    _ => Err(error.into()),
+                },
             }
         }
     }
