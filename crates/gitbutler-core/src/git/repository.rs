@@ -405,27 +405,6 @@ impl Repository {
         self.0.workdir()
     }
 
-    pub fn branch_upstream_name(&self, branch_name: &str) -> Result<String> {
-        self.0
-            .branch_upstream_name(branch_name)
-            .map(|s| s.as_str().unwrap().to_string())
-            .map_err(Into::into)
-    }
-
-    pub fn branch_remote_name(&self, refname: &str) -> Result<String> {
-        self.0
-            .branch_remote_name(refname)
-            .map(|s| s.as_str().unwrap().to_string())
-            .map_err(Into::into)
-    }
-
-    pub fn branch_upstream_remote(&self, branch_name: &str) -> Result<String> {
-        self.0
-            .branch_upstream_remote(branch_name)
-            .map(|s| s.as_str().unwrap().to_string())
-            .map_err(Into::into)
-    }
-
     pub fn statuses(
         &self,
         options: Option<&mut git2::StatusOptions>,
