@@ -1,5 +1,5 @@
 <script lang="ts">
-	import '../styles/main.postcss';
+	import '../styles/main.css';
 
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
