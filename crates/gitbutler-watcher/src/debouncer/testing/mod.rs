@@ -192,7 +192,7 @@ mod utils {
         fn add_path(&mut self, path: &Path) {
             for (p, file_id) in &self.file_system {
                 if p.starts_with(path) {
-                    self.paths.insert(p.clone(), file_id.clone());
+                    self.paths.insert(p.clone(), *file_id);
                 }
             }
         }
@@ -202,7 +202,7 @@ mod utils {
         }
 
         fn rescan(&mut self) {
-            self.add_path(&Path::new("/"));
+            self.add_path(Path::new("/"));
         }
     }
 }
