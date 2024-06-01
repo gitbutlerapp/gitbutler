@@ -28,7 +28,7 @@ walkdir = "2.2.2"
 crossbeam-channel = "0.5.13"
 itertools = "0.13"
 
-mock_instant = { version = "0.4.0", optional = true }
+mock_instant = { version = "0.3.2", optional = true }
 
 [dev-dependencies]
 gitbutler-watcher = { path = ".", features = ["mock_instant"] }
