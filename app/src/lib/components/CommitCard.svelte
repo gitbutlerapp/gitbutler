@@ -117,6 +117,7 @@
 
 		commitMessageModal.close();
 	}
+	$: console.log(commit.status);
 </script>
 
 <Modal bind:this={commitMessageModal}>
@@ -159,6 +160,7 @@
 				class:local={type == 'local'}
 				class:remote={type == 'remote'}
 				class:upstream={type == 'upstream'}
+				class:integrated={type == 'integrated'}
 			/>
 
 			<div class="commit__content">
@@ -172,12 +174,14 @@
 				>
 					{#if first}
 						<div class="commit__type text-semibold text-base-12">
-							{#if type == 'remote'}
-								Local and remote
+							{#if type == 'upstream'}
+								Remote upstream <Icon name="remote" />
 							{:else if type == 'local'}
 								Local <Icon name="local" />
-							{:else if type == 'upstream'}
-								Remote upstream <Icon name="remote" />
+							{:else if type == 'remote'}
+								Local and remote
+							{:else if type == 'integrated'}
+								Integrated
 							{/if}
 						</div>
 					{/if}
@@ -377,6 +381,9 @@
 		}
 		&.upstream {
 			background-color: var(--clr-commit-upstream);
+		}
+		&.integrated {
+			background-color: var(--clr-commit-shadow);
 		}
 	}
 

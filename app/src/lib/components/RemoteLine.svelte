@@ -1,8 +1,6 @@
 <script lang="ts">
 	import Avatar from './Avatar.svelte';
-	import { getAvatarTooltip } from '$lib/utils/avatar';
-	import { tooltip } from '$lib/utils/tooltip';
-	import type { Commit, RemoteCommit } from '$lib/vbranches/types';
+	import type { Commit, CommitStatus, RemoteCommit } from '$lib/vbranches/types';
 
 	export let commit: Commit | undefined;
 	export let remoteCommit: RemoteCommit | undefined;
@@ -13,15 +11,16 @@
 	export let line: boolean;
 	export let root: boolean;
 	export let upstreamLine: boolean;
+	export let upstreamType: CommitStatus | undefined;
 
-	$: tooltipText = getAvatarTooltip(commit || remoteCommit || shadowCommit);
+	$: integrated = commit?.isIntegrated;
 </script>
 
 <div class="remote-column" class:has-root={root} class:base>
 	{#if base}
-		<div class="remote-line dashed" class:short={!line} />
+		<div class="remote-line dashed" class:short />
 		{#if upstreamLine}
-			<div class="remote-line upstream" />
+			<div class="remote-line tip base" class:upstream={upstreamType == 'upstream'} />
 		{/if}
 		{#if root}
 			<div class="root base" />
@@ -45,29 +44,42 @@
 	{:else}
 		{#if line}
 			{#if upstreamLine}
-				<div class="remote-line tip" class:upstream={upstreamLine}></div>
+				<div
+					class="remote-line tip"
+					class:upstream={upstreamLine}
+					class:integrated
+					class:upstream-tip={upstreamType == 'upstream'}
+					class:remote-tip={upstreamType == 'remote'}
+				></div>
 			{/if}
-			<div class="remote-line" class:short class:first />
+			<div
+				class="remote-line"
+				class:short
+				class:first
+				class:integrated
+				class:dashed={upstreamLine && !commit?.parent}
+			/>
 		{:else if upstreamLine}
-			<div class="remote-line upstream" class:short class:first />
+			<div
+				class="remote-line upstream"
+				class:short
+				class:first
+				class:integrated
+				class:upstream-tip={upstreamType == 'upstream'}
+				class:remote-tip={upstreamType == 'remote'}
+			/>
 		{/if}
 		{#if root}
 			<div class="root" />
 		{/if}
 		{#if commit}
-			{@const author = commit.author}
-			<div class="avatar" class:first class:short>
-				<Avatar {author} status={commit.status} help={tooltipText} />
-			</div>
+			<Avatar remoteLane commit={commit || remoteCommit || shadowCommit} {first} />
 		{/if}
 		{#if remoteCommit}
-			{@const author = remoteCommit.author}
-			<div class="avatar" class:first class:short>
-				<Avatar {author} status={remoteCommit.status} help={tooltipText} />
-			</div>
+			<Avatar remoteLane commit={commit || remoteCommit || shadowCommit} {first} />
 		{/if}
 		{#if shadowCommit}
-			<div class="shadow-marker" class:first class:short use:tooltip={tooltipText}></div>
+			<Avatar shadow remoteLane commit={commit || remoteCommit || shadowCommit} {first} />
 		{/if}
 	{/if}
 </div>
@@ -90,17 +102,17 @@
 		left: calc(var(--size-10) + 0.063rem);
 		bottom: 0;
 		top: 0;
-		&.first {
-			top: calc(var(--size-40) + var(--size-2));
-		}
 		&.short {
-			top: var(--avatar-top);
+			top: calc(var(--avatar-top) + var(--size-4));
 			&.first {
-				top: var(--avatar-first-top);
+				top: calc(var(--avatar-first-top) + var(--size-4));
 			}
 		}
 		&.tip {
 			bottom: calc(100% - 2.625rem);
+			&.base {
+				bottom: calc(100% - 1.625rem);
+			}
 		}
 		&.dashed {
 			background: repeating-linear-gradient(
@@ -113,6 +125,8 @@
 		}
 		&.upstream {
 			background-color: var(--clr-commit-upstream);
+		}
+		&.upstream-tip {
 			top: 0;
 			&.short {
 				top: var(--avatar-top);
@@ -121,14 +135,24 @@
 				}
 			}
 		}
-	}
-
-	.avatar {
-		position: absolute;
-		top: var(--avatar-top);
-		left: var(--size-4);
-		&.first {
-			top: var(--avatar-first-top);
+		&.remote-tip {
+			background-color: var(--clr-commit-remote);
+			top: 0;
+			&.short {
+				top: var(--avatar-top);
+				&.first {
+					top: var(--avatar-first-top);
+				}
+			}
+		}
+		&.integrated:not(.tip) {
+			background: repeating-linear-gradient(
+				0,
+				transparent,
+				transparent 0.1875rem,
+				var(--clr-commit-shadow) 0.1875rem,
+				var(--clr-commit-shadow) 0.4375rem
+			);
 		}
 	}
 
@@ -137,7 +161,7 @@
 		width: var(--size-10);
 		top: 1.875rem;
 		border-radius: var(--radius-l) 0 0 0;
-		height: var(--size-16);
+		height: var(--size-20);
 		left: calc(var(--size-10) + 0.063rem);
 		border-color: var(--clr-commit-local);
 		border-width: var(--size-2) 0 0 var(--size-2);
@@ -163,19 +187,6 @@
 		& svg {
 			height: var(--size-16);
 			width: var(--size-16);
-		}
-	}
-
-	.shadow-marker {
-		position: absolute;
-		width: var(--size-10);
-		height: var(--size-10);
-		border-radius: 100%;
-		background-color: var(--clr-commit-upstream);
-		top: calc(var(--avatar-top) + var(--size-4));
-		left: calc(var(--size-6) + var(--size-1));
-		&.first {
-			top: calc(var(--avatar-first-top) + var(--size-2) + var(--size-1));
 		}
 	}
 </style>
