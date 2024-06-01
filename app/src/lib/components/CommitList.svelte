@@ -4,8 +4,13 @@
 	import { Project } from '$lib/backend/projects';
 	import { getContext } from '$lib/utils/context';
 	import { getContextStore } from '$lib/utils/context';
-	import { getLocalCommits, getRemoteCommits, getUnknownCommits } from '$lib/vbranches/contexts';
-	import { BaseBranch, Branch } from '$lib/vbranches/types';
+	import {
+		getIntegratedCommits,
+		getLocalCommits,
+		getRemoteCommits,
+		getUnknownCommits
+	} from '$lib/vbranches/contexts';
+	import { BaseBranch, Branch, Commit, type CommitStatus } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied: boolean;
@@ -14,10 +19,12 @@
 	const localCommits = getLocalCommits();
 	const remoteCommits = getRemoteCommits();
 	const unknownCommits = getUnknownCommits();
+	const integratedCommits = getIntegratedCommits();
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 
 	$: hasShadowColumn =
+		$integratedCommits.length == 0 &&
 		$remoteCommits.length == 0 &&
 		$localCommits.length > 0 &&
 		$localCommits.at(0)?.relatedTo &&
@@ -26,8 +33,18 @@
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
 	$: hasUnknownCommits = $unknownCommits.length > 0;
+	$: hasShadowedCommits = $localCommits.some((c) => c.relatedTo);
 
 	let baseIsUnfolded = false;
+
+	function getNextUpstreamType(commit: Commit): CommitStatus | undefined {
+		let child = commit.children?.[0];
+		while (child) {
+			if (child?.status == 'remote') return 'remote';
+			child = child?.children?.[0];
+		}
+		if (hasUnknownCommits) return 'upstream';
+	}
 </script>
 
 {#if hasCommits || hasUnknownCommits}
@@ -79,6 +96,8 @@
 							shadowLine={hasShadowColumn && !!commit.relatedTo}
 							first={idx == 0}
 							upstreamLine={hasUnknownCommits}
+							remoteLine={!hasShadowColumn && !!commit.relatedTo}
+							upstreamType={getNextUpstreamType(commit)}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -100,12 +119,42 @@
 				>
 					<svelte:fragment slot="lines">
 						<CommitLines
+							remoteLine
 							{hasLocalColumn}
 							{hasShadowColumn}
 							localCommit={commit}
 							localLine={idx == 0 && commit.parent?.status == 'local'}
 							first={idx == 0}
 							upstreamLine={hasUnknownCommits}
+							upstreamType={getNextUpstreamType(commit)}
+						/>
+					</svelte:fragment>
+				</CommitCard>
+			{/each}
+		{/if}
+		<!-- INTEGRATED COMMITS -->
+		{#if $integratedCommits.length > 0}
+			{#each $integratedCommits as commit, idx (commit.id)}
+				<CommitCard
+					branch={$branch}
+					{commit}
+					commitUrl={$baseBranch?.commitUrl(commit.id)}
+					isHeadCommit={commit.id === headCommit?.id}
+					{isUnapplied}
+					first={idx == 0}
+					last={idx == $integratedCommits.length - 1}
+					type="integrated"
+				>
+					<svelte:fragment slot="lines">
+						<CommitLines
+							remoteLine
+							{hasLocalColumn}
+							{hasShadowColumn}
+							localCommit={commit}
+							localLine={idx == 0 && commit.parent?.status == 'local'}
+							first={idx == 0}
+							upstreamLine={$unknownCommits.length > 0 || $remoteCommits.length > 0}
+							upstreamType={getNextUpstreamType(commit)}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -124,10 +173,13 @@
 					<CommitLines
 						{hasShadowColumn}
 						localLine={$remoteCommits.length == 0 && $localCommits.length > 0}
-						localRoot={$remoteCommits.length == 0 && $localCommits.length > 0}
-						remoteLine={$remoteCommits.length > 0}
+						localRoot={$remoteCommits.length == 0 &&
+							$integratedCommits.length == 0 &&
+							$localCommits.length > 0}
+						remoteLine={$remoteCommits.length > 0 || $integratedCommits.length > 0}
 						shadowLine={hasShadowColumn}
 						{hasLocalColumn}
+						upstreamType={hasShadowedCommits ? 'remote' : 'upstream'}
 						base
 						upstreamLine={hasUnknownCommits && $remoteCommits.length == 0}
 					/>

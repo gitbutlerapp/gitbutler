@@ -8,6 +8,7 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol, createContextStore } from '$lib/utils/context';
 	import {
+		createIntegratedContextStore,
 		createLocalContextStore,
 		createRemoteContextStore,
 		createUnknownCommitsStore,
@@ -43,6 +44,9 @@
 
 	const unknownCommits = createUnknownCommitsStore([]);
 	$: unknownCommits.set($upstreamCommits.filter((c) => !c.relatedTo));
+
+	const integratedCommits = createIntegratedContextStore([]);
+	$: integratedCommits.set(branch.integratedCommits);
 
 	const project = getContext(Project);
 
