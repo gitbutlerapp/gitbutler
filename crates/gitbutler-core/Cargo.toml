@@ -13,10 +13,10 @@ gitbutler-git = { workspace = true, features = ["test-askpass-path"] }
 glob = "0.3.1"
 
 [dependencies]
-toml = "0.8.12"
-anyhow = "1.0.82"
+toml = "0.8.13"
+anyhow = "1.0.86"
 async-trait = "0.1.80"
-backtrace = { version = "0.3.71", optional = true }
+backtrace = { version = "0.3.72", optional = true }
 bstr = "1.9.1"
 diffy = "0.3.0"
 dirs = "5.0.1"
@@ -26,7 +26,7 @@ futures = "0.3"
 git2.workspace = true
 git2-hooks = "0.3"
 gix = { workspace = true, features = ["dirwalk"] }
-itertools = "0.12"
+itertools = "0.13"
 lazy_static = "1.4.0"
 md5 = "0.7.0"
 hex = "0.4.3"
