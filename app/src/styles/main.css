@@ -1,7 +1,9 @@
+@layer reset;
+
+@import './reset.css';
 @import 'inter-ui/inter.css';
 @import './fonts.css';
-@import './diff.postcss';
-@import './themes.postcss';
+@import './diff.css';
 @import './syntax-highlighting.css';
 @import './tokens.css';
 @import './text-classes.css';
@@ -9,10 +11,6 @@
 @import './tooltip.css';
 @import './text-input.css';
 @import './markdown.css';
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 /* CSS VARIABLES */
 :root {
@@ -41,33 +39,6 @@
 	--active-state-ratio: calc(l + 0.1);
 }
 
-/* BOILERPLATE CSS */
-
-html {
-	overscroll-behavior: none;
-}
-
-body {
-	font-family: 'Inter', sans-serif;
-	height: 100vh;
-	width: 100vw;
-	overflow-y: hidden;
-	padding: 0;
-	color: var(--clr-text-1);
-	background-color: var(--clr-bg-2);
-
-	/* optimise font rendering */
-	-webkit-font-smoothing: antialiased;
-	text-rendering: optimizeLegibility;
-}
-
-a,
-button {
-	-webkit-user-select: none;
-	-webkit-user-drag: none;
-	-webkit-app-region: no-drag;
-}
-
 /* scrollbar helpers */
 .hide-native-scrollbar {
 	-ms-overflow-style: none;
@@ -76,6 +47,12 @@ button {
 	&::-webkit-scrollbar {
 		display: none;
 	}
+}
+
+.truncate {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 /* custom scrollbar */

@@ -114,7 +114,7 @@
 			Re-test credentials
 		{/if}
 	</Button>
-	<div class="disclaimer">
+	<div class="disclaimer text-base-body-12">
 		To test the push command, we create an empty branch and promptly remove it after the check. <Link
 			href="https://docs.gitbutler.com/troubleshooting/fetch-push">Read more</Link
 		> about authentication methods.
@@ -153,7 +153,6 @@
 		color: var(--clr-scale-ntrl-50);
 		background: var(--clr-bg-2);
 		border-radius: var(--radius-m);
-		background: var(--clr-bg-2);
 		padding: var(--size-10) var(--size-12);
 	}
 </style>

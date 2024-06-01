@@ -1,3 +1,13 @@
+:root {
+	--hunk-line-selected-bg: #60a5fa;
+	--hunk-line-selected-border: #2563eb;
+}
+
+:root.dark {
+	--hunk-line-selected-bg: #044289;
+	--hunk-line-selected-border: #005cc5;
+}
+
 .inner-diff {
 	border-radius: 2px;
 }

@@ -136,10 +136,4 @@
 	.card__content {
 		color: var(--clr-scale-ntrl-30);
 	}
-
-	.branch-preview__commits-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-8);
-	}
 </style>
