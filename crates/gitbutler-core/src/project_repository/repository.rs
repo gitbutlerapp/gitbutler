@@ -393,12 +393,14 @@ impl Repository {
 
         remote
             .push(ref_specs, Some(&mut push_options))
-            .map_err(|err| match err {
-                git::Error::Network(err) => anyhow!("network failed").context(err),
-                git::Error::Auth(err) => anyhow!("authentication failed")
-                    .context(Code::ProjectGitAuth)
-                    .context(err),
-                err => anyhow::Error::from(err),
+            .map_err(|err| match err.class() {
+                git2::ErrorClass::Net => anyhow!("network failed"),
+                _ => match err.code() {
+                    git2::ErrorCode::Auth => anyhow!("authentication failed")
+                        .context(Code::ProjectGitAuth)
+                        .context(err),
+                    _ => anyhow!("push failed"),
+                },
             })?;
 
         let bytes_pushed = bytes_pushed.load(std::sync::atomic::Ordering::Relaxed);
@@ -460,9 +462,10 @@ impl Repository {
 
         let auth_flows = credentials.help(self, branch.remote())?;
         for (mut remote, callbacks) in auth_flows {
-            if let Some(url) = remote.url().context("failed to get remote url")? {
+            if let Some(url) = remote.url() {
                 if !self.project.omit_certificate_check.unwrap_or(false) {
-                    ssh::check_known_host(&url).context("failed to check known host")?;
+                    let git_url = git::Url::from_str(url)?;
+                    ssh::check_known_host(&git_url).context("failed to check known host")?;
                 }
             }
             let mut update_refs_error: Option<git2::Error> = None;
@@ -494,19 +497,24 @@ impl Repository {
                         );
                         return Ok(());
                     }
-                    Err(git::Error::Auth(err) | git::Error::Http(err)) => {
-                        tracing::warn!(project_id = %self.project.id, ?err, "git push failed");
-                        continue;
-                    }
-                    Err(git::Error::Network(err)) => {
-                        return Err(anyhow!("network failed")).context(err);
-                    }
-                    Err(err) => {
-                        if let Some(update_refs_err) = update_refs_error {
-                            return Err(update_refs_err).context(err);
+                    Err(err) => match err.class() {
+                        git2::ErrorClass::Net | git2::ErrorClass::Http => {
+                            tracing::warn!(project_id = %self.project.id, ?err, "push failed due to network");
+                            continue;
                         }
-                        return Err(err.into());
-                    }
+                        _ => match err.code() {
+                            git2::ErrorCode::Auth => {
+                                tracing::warn!(project_id = %self.project.id, ?err, "push failed due to auth");
+                                continue;
+                            }
+                            _ => {
+                                if let Some(update_refs_err) = update_refs_error {
+                                    return Err(update_refs_err).context(err);
+                                }
+                                return Err(err.into());
+                            }
+                        },
+                    },
                 }
             }
         }
@@ -549,9 +557,10 @@ impl Repository {
 
         let auth_flows = credentials.help(self, remote_name)?;
         for (mut remote, callbacks) in auth_flows {
-            if let Some(url) = remote.url().context("failed to get remote url")? {
+            if let Some(url) = remote.url() {
                 if !self.project.omit_certificate_check.unwrap_or(false) {
-                    ssh::check_known_host(&url).context("failed to check known host")?;
+                    let git_url = git::Url::from_str(url)?;
+                    ssh::check_known_host(&git_url).context("failed to check known host")?;
                 }
             }
             for callback in callbacks {
@@ -563,20 +572,26 @@ impl Repository {
                 fetch_opts.remote_callbacks(cbs);
                 fetch_opts.prune(git2::FetchPrune::On);
 
-                match remote.fetch(&[&refspec], Some(&mut fetch_opts)) {
+                match remote.fetch(&[&refspec], Some(&mut fetch_opts), None) {
                     Ok(()) => {
                         tracing::info!(project_id = %self.project.id, %refspec, "git fetched");
                         return Ok(());
                     }
-                    Err(git::Error::Auth(err) | git::Error::Http(err)) => {
-                        tracing::warn!(project_id = %self.project.id, ?err, "fetch failed");
-                        continue;
-                    }
-                    Err(git::Error::Network(err)) => {
-                        tracing::warn!(project_id = %self.project.id, ?err, "fetch failed");
-                        return Err(anyhow!("network failed")).context(err);
-                    }
-                    Err(err) => return Err(err.into()),
+                    Err(err) => match err.class() {
+                        git2::ErrorClass::Net | git2::ErrorClass::Http => {
+                            tracing::warn!(project_id = %self.project.id, ?err, "fetch failed due to network");
+                            continue;
+                        }
+                        _ => match err.code() {
+                            git2::ErrorCode::Auth => {
+                                tracing::warn!(project_id = %self.project.id, ?err, "fetch failed due to auth");
+                                continue;
+                            }
+                            _ => {
+                                return Err(err.into());
+                            }
+                        },
+                    },
                 }
             }
         }

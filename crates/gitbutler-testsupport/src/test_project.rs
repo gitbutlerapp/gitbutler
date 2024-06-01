@@ -135,7 +135,7 @@ impl TestProject {
     pub fn fetch(&self) {
         let mut remote = self.local_repository.find_remote("origin").unwrap();
         remote
-            .fetch(&["+refs/heads/*:refs/remotes/origin/*"], None)
+            .fetch(&["+refs/heads/*:refs/remotes/origin/*"], None, None)
             .unwrap();
     }
 
