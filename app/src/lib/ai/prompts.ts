@@ -1,6 +1,6 @@
-import { type PromptMessage, MessageRole } from '$lib/ai/types';
+import { type Prompt, MessageRole } from '$lib/ai/types';
 
-export const SHORT_DEFAULT_COMMIT_TEMPLATE: PromptMessage[] = [
+export const SHORT_DEFAULT_COMMIT_TEMPLATE: Prompt = [
 	{
 		role: MessageRole.User,
 		content: `Please could you write a commit message for my changes.
@@ -16,11 +16,14 @@ Do not start any lines with the hash symbol.
 %{emoji_style}
 
 Here is my git diff:
-%{diff}`
+\`\`\`
+%{diff}
+\`\`\`
+`
 	}
 ];
 
-export const LONG_DEFAULT_COMMIT_TEMPLATE: PromptMessage[] = [
+export const LONG_DEFAULT_COMMIT_TEMPLATE: Prompt = [
 	{
 		role: MessageRole.User,
 		content: `Please could you write a commit message for my changes.
@@ -34,6 +37,7 @@ Do not start any lines with the hash symbol.
 Only respond with the commit message.
 
 Here is my git diff:
+\`\`\`
 diff --git a/src/utils/typing.ts b/src/utils/typing.ts
 index 1cbfaa2..7aeebcf 100644
 --- a/src/utils/typing.ts
@@ -48,7 +52,9 @@ index 1cbfaa2..7aeebcf 100644
 +  check: (value: unknown) => value is T
 +): something is T[] {
 +  return Array.isArray(something) && something.every(check);
-+}`
++}
+\`\`\`
+`
 	},
 	{
 		role: MessageRole.Assistant,
@@ -59,7 +65,7 @@ Added an utility function to check whether a given value is an array of a specif
 	...SHORT_DEFAULT_COMMIT_TEMPLATE
 ];
 
-export const SHORT_DEFAULT_BRANCH_TEMPLATE: PromptMessage[] = [
+export const SHORT_DEFAULT_BRANCH_TEMPLATE: Prompt = [
 	{
 		role: MessageRole.User,
 		content: `Please could you write a branch name for my changes.
@@ -69,11 +75,14 @@ Branch names should contain a maximum of 5 words.
 Only respond with the branch name.
 
 Here is my git diff:
-%{diff}`
+\`\`\`
+%{diff}
+\`\`\`
+`
 	}
 ];
 
-export const LONG_DEFAULT_BRANCH_TEMPLATE: PromptMessage[] = [
+export const LONG_DEFAULT_BRANCH_TEMPLATE: Prompt = [
 	{
 		role: MessageRole.User,
 		content: `Please could you write a branch name for my changes.
@@ -83,6 +92,7 @@ Branch names should contain a maximum of 5 words.
 Only respond with the branch name.
 
 Here is my git diff:
+\`\`\`
 diff --git a/src/utils/typing.ts b/src/utils/typing.ts
 index 1cbfaa2..7aeebcf 100644
 --- a/src/utils/typing.ts
@@ -97,7 +107,9 @@ index 1cbfaa2..7aeebcf 100644
 +  check: (value: unknown) => value is T
 +): something is T[] {
 +  return Array.isArray(something) && something.every(check);
-+}`
++}
+\`\`\`
+`
 	},
 	{
 		role: MessageRole.Assistant,

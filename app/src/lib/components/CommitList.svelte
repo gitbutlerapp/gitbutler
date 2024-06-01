@@ -44,9 +44,6 @@
 					last={idx == $unknownCommits.length - 1}
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 					isHeadCommit={commit.id === headCommit?.id}
-					on:toggle={() => {
-						console.log('toggle upstream');
-					}}
 				>
 					<svelte:fragment slot="lines">
 						<CommitLines
@@ -73,9 +70,6 @@
 					first={idx == 0}
 					last={idx == $localCommits.length - 1}
 					type="local"
-					on:toggle={() => {
-						console.log('toggle local');
-					}}
 				>
 					<svelte:fragment slot="lines">
 						<CommitLines
@@ -103,9 +97,6 @@
 					first={idx == 0}
 					last={idx == $remoteCommits.length - 1}
 					type="remote"
-					on:toggle={() => {
-						console.log('toggle remote');
-					}}
 				>
 					<svelte:fragment slot="lines">
 						<CommitLines

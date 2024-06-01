@@ -1,10 +1,12 @@
 export interface ToolTipOptions {
 	text: string;
+	noMaxWidth?: boolean;
 	delay?: number;
 }
 
 const defaultOptions: Partial<ToolTipOptions> = {
-	delay: 1200
+	delay: 1200,
+	noMaxWidth: false
 };
 
 export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string | undefined) {
@@ -15,7 +17,8 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 	let timeoutId: any;
 
 	// Options
-	let { text, delay } = defaultOptions;
+	// eslint-disable-next-line prefer-const
+	let { text, delay, noMaxWidth } = defaultOptions;
 
 	// Most use cases only involve passing a string, so we allow either opts of
 	// simple text.
@@ -23,7 +26,7 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 		if (typeof opts == 'string') {
 			text = opts;
 		} else if (opts) {
-			({ text, delay } = opts || {});
+			({ text, delay, noMaxWidth } = opts || {});
 		}
 		if (tooltip && text) tooltip.innerText = text;
 	}
@@ -52,6 +55,7 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 		tooltip = document.createElement('div') as HTMLDivElement;
 		// TODO: Can we co-locate tooltip.js & tooltip.postcss?
 		tooltip.classList.add('tooltip', 'text-base-11'); // see tooltip.postcss
+		if (noMaxWidth) tooltip.classList.add('no-max-width');
 		tooltip.innerText = text;
 		document.body.appendChild(tooltip);
 		adjustPosition();

@@ -52,6 +52,7 @@
 						project.description = description;
 						saveProject();
 					}}
+					maxHeight={300}
 				/>
 			</section>
 		</fieldset>

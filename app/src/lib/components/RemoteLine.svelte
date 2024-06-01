@@ -87,7 +87,7 @@
 		position: absolute;
 		width: var(--size-2);
 		background-color: var(--clr-commit-remote);
-		left: calc(var(--size-10) + var(--size-1));
+		left: calc(var(--size-10) + 0.063rem);
 		bottom: 0;
 		top: 0;
 		&.first {
@@ -138,7 +138,7 @@
 		top: 1.875rem;
 		border-radius: var(--radius-l) 0 0 0;
 		height: var(--size-16);
-		left: calc(var(--size-10) + var(--size-1));
+		left: calc(var(--size-10) + 0.063rem);
 		border-color: var(--clr-commit-local);
 		border-width: var(--size-2) 0 0 var(--size-2);
 		&.base {

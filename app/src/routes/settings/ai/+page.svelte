@@ -2,6 +2,7 @@
 	import { AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
+	import AiPromptEdit from '$lib/components/AIPromptEdit/AIPromptEdit.svelte';
 	import InfoMessage from '$lib/components/InfoMessage.svelte';
 	import RadioButton from '$lib/components/RadioButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
@@ -11,6 +12,7 @@
 	import TextBox from '$lib/components/TextBox.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
+	import Section from '$lib/components/settings/Section.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 	import { onMount, tick } from 'svelte';
@@ -19,7 +21,6 @@
 	const aiService = getContext(AIService);
 	const userService = getContext(UserService);
 	const user = userService.user;
-
 	let initialized = false;
 
 	let modelKind: ModelKind | undefined;
@@ -322,17 +323,43 @@
 		</svelte:fragment>
 	</SectionCard>
 
-	<style>
-		.ai-settings__text {
-			color: var(--clr-text-2);
-			margin-bottom: var(--size-12);
-		}
+	<Spacer />
 
-		.inputs-group {
-			display: flex;
-			flex-direction: column;
-			gap: var(--size-16);
-			width: 100%;
-		}
-	</style>
+	<Section>
+		<svelte:fragment slot="title">Custom AI prompts</svelte:fragment>
+		<svelte:fragment slot="description">
+			GitButler's AI assistant generates commit messages and branch names. Use default prompts or
+			create your own. Assign prompts in the <button
+				class="link"
+				on:click={() => console.log('got to project settings')}>project settings</button
+			>.
+		</svelte:fragment>
+
+		<div class="prompt-groups">
+			<AiPromptEdit promptUse="commits" />
+			<Spacer margin={12} />
+			<AiPromptEdit promptUse="branches" />
+		</div>
+	</Section>
 </ContentWrapper>
+
+<style>
+	.ai-settings__text {
+		color: var(--clr-text-2);
+		margin-bottom: var(--size-12);
+	}
+
+	.inputs-group {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-16);
+		width: 100%;
+	}
+
+	.prompt-groups {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-12);
+		margin-top: var(--size-16);
+	}
+</style>
