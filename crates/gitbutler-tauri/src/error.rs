@@ -1,6 +1,12 @@
-//! ## How-To
+//! Utilities to control which errors show in the frontend.
 //!
-//! This is a primer on how to use the [`Error`] provided here.
+//! ## How to use this
+//!
+//! Just make sure this [`Error`] type is used for each provided `tauri` command. The rest happens automatically
+//! such that:
+//!
+//! * The frontend shows the root error as string by default…
+//! * …or it shows the provided [`Context`](gitbutler_core::error::Context) as controlled by the `core` crate.
 //!
 //! ### Interfacing with `tauri` using [`Error`]
 //!
@@ -10,13 +16,6 @@
 //!
 //! The values in these fields are controlled by attaching context, please [see the `core` docs](gitbutler_core::error))
 //! on how to do this.
-//!
-//! To assure context is picked up correctly to be made available to the UI if present, use
-//! [`Error`] in the `tauri` commands. Due to technical limitations, it will only auto-convert
-//! from `anyhow::Error`, or [core::Error](gitbutler_core::error::Error).
-//! Errors that are known to have context can be converted using [`Error::from_error_with_context`].
-//! If there is an error without context, one would have to convert to `anyhow::Error` as intermediate step,
-//! typically by adding `.context()`.
 pub(crate) use frontend::Error;
 
 mod frontend {
@@ -35,25 +34,12 @@ mod frontend {
         }
     }
 
-    impl Error {
-        /// Convert an error without context to our type.
-        ///
-        /// For now, we avoid using a conversion as it would be so general, we'd miss errors with context
-        /// which need [`from_error_with_context`](Self::from_error_with_context) for the context to be
-        /// picked up.
-        pub fn from_error_without_context(
-            err: impl std::error::Error + Send + Sync + 'static,
-        ) -> Self {
-            Self(err.into())
-        }
-    }
-
     impl Serialize for Error {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: serde::Serializer,
         {
-            let ctx = self.0.custom_context().unwrap_or_default();
+            let ctx = self.0.custom_context_or_root_cause();
 
             let mut map = serializer.serialize_map(Some(2))?;
             map.serialize_entry("code", &ctx.code.to_string())?;
@@ -79,7 +65,7 @@ mod frontend {
         }
 
         #[test]
-        fn no_context_or_code() {
+        fn no_context_or_code_shows_root_error() {
             let err = anyhow!("err msg");
             assert_eq!(
                 format!("{:#}", err),
@@ -88,8 +74,8 @@ mod frontend {
             );
             assert_eq!(
                 json(err),
-                "{\"code\":\"errors.unknown\",\"message\":\"Something went wrong\"}",
-                "if there is no explicit error code or context, the original error message isn't shown"
+                "{\"code\":\"errors.unknown\",\"message\":\"err msg\"}",
+                "if there is no explicit error code or context, the original error message is shown"
             );
         }
 

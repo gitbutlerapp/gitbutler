@@ -107,8 +107,10 @@ impl TestProject {
             .unwrap();
     }
 
+    /// ```text
     /// git add -A
     /// git reset --hard <oid>
+    /// ```
     pub fn reset_hard(&self, oid: Option<git::Oid>) {
         let mut index = self.local_repository.index().expect("failed to get index");
         index
