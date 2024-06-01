@@ -109,8 +109,8 @@
 		text-align: right;
 
 		&.selected {
-			background-color: #60a5fa;
-			border-color: #2563eb;
+			background-color: var(--hunk-line-selected-bg);
+			border-color: var(--hunk-line-selected-border);
 			color: white;
 		}
 	}
