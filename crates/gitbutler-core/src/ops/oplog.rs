@@ -211,15 +211,6 @@ impl Project {
             .oplog_head()?
             .and_then(|head_id| repo.find_commit(head_id.into()).ok());
 
-        // Check if there is a difference between the tree and the parent tree, and if not, return so that we dont create noop snapshots
-        if let Some(head_commit) = &oplog_head_commit {
-            let parent_tree = head_commit.tree()?;
-            let diff = repo.diff_tree_to_tree(Some(&parent_tree), Some(&snapshot_tree), None)?;
-            if diff.deltas().count() == 0 {
-                return Ok(None);
-            }
-        }
-
         // Construct a new commit
         let signature = git2::Signature::now(
             GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
