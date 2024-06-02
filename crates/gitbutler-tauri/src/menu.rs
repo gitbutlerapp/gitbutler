@@ -1,3 +1,5 @@
+use std::{env, fs};
+
 use anyhow::Context;
 use gitbutler_core::error;
 use gitbutler_core::error::Code;
@@ -32,6 +34,30 @@ pub async fn menu_item_set_enabled(
     menu_item.set_enabled(enabled).context(Code::Unknown)?;
 
     Ok(())
+}
+
+#[tauri::command()]
+pub fn resolve_vscode_variant() -> &'static str {
+    let vscodium_installed = check_if_installed("codium");
+    if vscodium_installed {
+        "vscodium"
+    } else {
+        // Fallback to vscode, as it was the previous behavior
+        "vscode"
+    }
+}
+
+fn check_if_installed(executable_name: &str) -> bool {
+    let paths = match env::var_os("PATH") {
+        Some(path) => env::split_paths(&path).collect::<Vec<_>>(),
+        None => vec![],
+    };
+
+    paths.into_iter().any(|mut path| {
+        path.push(executable_name);
+        //println!("{}", path.to_string_lossy());
+        fs::metadata(path).is_ok()
+    })
 }
 
 pub fn build(_package_info: &PackageInfo) -> Menu {

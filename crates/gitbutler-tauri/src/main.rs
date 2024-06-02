@@ -210,6 +210,7 @@ fn main() {
                     undo::restore_snapshot,
                     undo::snapshot_diff,
                     menu::menu_item_set_enabled,
+                    menu::resolve_vscode_variant,
                     keys::commands::get_public_key,
                     github::commands::init_device_oauth,
                     github::commands::check_auth_status,
