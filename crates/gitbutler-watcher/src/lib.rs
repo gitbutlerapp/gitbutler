@@ -106,11 +106,13 @@ pub fn watch_in_background(
     };
 
     tokio::spawn(async move {
+        let _debounce = debounce;
         loop {
             tokio::select! {
                 Some(event) = events_in.recv() => handle_event(event)?,
                 Some(_signal_flush) = flush_rx.recv() => {
-                    debounce.flush_nonblocking();
+                    // TODO(ST): re-enable
+                    // debounce.flush_nonblocking();
                 }
                 () = cancellation_token.cancelled() => {
                     break;
