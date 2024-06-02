@@ -13,6 +13,7 @@
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { getTimeAgo } from '$lib/utils/timeAgo';
+	import { tooltip } from '$lib/utils/tooltip';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore } from '$lib/vbranches/contexts';
@@ -195,19 +196,17 @@
 						</h5>
 
 						<div class="text-base-11 commit__subtitle">
-							<!-- svelte-ignore a11y-click-events-have-key-events -->
-							<span
+							{#if commit.isSigned}
+								<div class="commit__signed" use:tooltip={{ text: 'Signed', delay: 500 }}>
+									<Icon name="success-outline-small" />
+								</div>
+							{/if}
+							<button
 								class="commit__id"
 								on:click|stopPropagation={() => copyToClipboard(commit.id)}
-								role="button"
-								tabindex="0"
 							>
 								{commit.id.substring(0, 7)}
-
-								{#if commit.isSigned}
-									<Icon name="locked-small" />
-								{/if}
-							</span>
+							</button>
 
 							<span class="commit__subtitle-divider">•</span>
 
@@ -435,6 +434,10 @@
 			overflow: hidden;
 			text-overflow: ellipsis;
 		}
+	}
+
+	.commit__signed {
+		display: flex;
 	}
 
 	.commit__id {
