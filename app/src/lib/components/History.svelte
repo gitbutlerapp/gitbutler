@@ -225,6 +225,7 @@
 	}
 
 	.sideview-content-wrap {
+		transform: translateX(100%);
 		display: flex;
 		/* Disabling temporarely because something is broken since the Tailwind removal */
 		/* transform: translateX(100%); */
