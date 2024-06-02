@@ -80,12 +80,6 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn is_descendant_of(&self, a: Oid, b: Oid) -> Result<bool> {
-        self.0
-            .graph_descendant_of(a.into(), b.into())
-            .map_err(Into::into)
-    }
-
     pub fn merge_base(&self, one: Oid, two: Oid) -> Result<Oid> {
         self.0
             .merge_base(one.into(), two.into())
