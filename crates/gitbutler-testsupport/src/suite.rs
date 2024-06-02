@@ -175,7 +175,9 @@ pub fn test_repository() -> (gitbutler_core::git::Repository, TempDir) {
             &signature,
             &signature,
             "Initial commit",
-            &repository.find_tree(oid).expect("failed to find tree"),
+            &repository
+                .find_tree(oid.into())
+                .expect("failed to find tree"),
             &[],
             None,
         )
@@ -198,7 +200,9 @@ pub fn commit_all(repository: &gitbutler_core::git::Repository) -> gitbutler_cor
             &signature,
             &signature,
             "some commit",
-            &repository.find_tree(oid).expect("failed to find tree"),
+            &repository
+                .find_tree(oid.into())
+                .expect("failed to find tree"),
             &[&repository
                 .find_commit(
                     repository

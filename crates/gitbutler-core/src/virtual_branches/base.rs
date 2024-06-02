@@ -95,11 +95,11 @@ fn go_back_to_integration(
             .merge_trees(&base_tree, &final_tree, &branch_tree)
             .context("failed to merge")?;
         let final_tree_oid = result
-            .write_tree_to(&project_repository.git_repository)
+            .write_tree_to(project_repository.repo())
             .context("failed to write tree")?;
         final_tree = project_repository
             .git_repository
-            .find_tree(final_tree_oid)
+            .find_tree(final_tree_oid.into())
             .context("failed to find written tree")?;
     }
 
@@ -430,16 +430,16 @@ pub fn update_base_branch(
                     }
 
                     let branch_merge_index_tree_oid =
-                        branch_tree_merge_index.write_tree_to(repo)?;
+                        branch_tree_merge_index.write_tree_to(project_repository.repo())?;
 
-                    if branch_merge_index_tree_oid == new_target_tree.id().into() {
+                    if branch_merge_index_tree_oid == new_target_tree.id() {
                         return result_integrated_detected(branch);
                     }
 
                     if branch.head == target.sha {
                         // there are no commits on the branch, so we can just update the head to the new target and calculate the new tree
                         branch.head = new_target_commit.id().into();
-                        branch.tree = branch_merge_index_tree_oid;
+                        branch.tree = branch_merge_index_tree_oid.into();
                         vb_state.set_branch(branch.clone())?;
                         return Ok(Some(branch));
                     }
@@ -464,7 +464,7 @@ pub fn update_base_branch(
 
                     // branch commits do not conflict with new target, so lets merge them
                     let branch_head_merge_tree_oid = branch_head_merge_index
-                        .write_tree_to(repo)
+                        .write_tree_to(project_repository.repo())
                         .context(format!(
                             "failed to write head merge index for {}",
                             branch.id
@@ -477,7 +477,7 @@ pub fn update_base_branch(
                             // branch was pushed to upstream, and user doesn't like force pushing.
                             // create a merge commit to avoid the need of force pushing then.
                             let branch_head_merge_tree = repo
-                                .find_tree(branch_head_merge_tree_oid)
+                                .find_tree(branch_head_merge_tree_oid.into())
                                 .context("failed to find tree")?;
 
                             let new_target_head = project_repository
@@ -497,7 +497,7 @@ pub fn update_base_branch(
                                 .context("failed to commit merge")?;
 
                             branch.head = new_target_head;
-                            branch.tree = branch_merge_index_tree_oid;
+                            branch.tree = branch_merge_index_tree_oid.into();
                             vb_state.set_branch(branch.clone())?;
                             Ok(Some(branch))
                         };
@@ -522,7 +522,7 @@ pub fn update_base_branch(
                     if let Some(rebased_head_oid) = rebased_head_oid? {
                         // rebase worked out, rewrite the branch head
                         branch.head = rebased_head_oid;
-                        branch.tree = branch_merge_index_tree_oid;
+                        branch.tree = branch_merge_index_tree_oid.into();
                         vb_state.set_branch(branch.clone())?;
                         return Ok(Some(branch));
                     }

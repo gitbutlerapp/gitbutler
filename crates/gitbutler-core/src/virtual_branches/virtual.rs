@@ -316,11 +316,11 @@ pub fn apply_branch(
             .context("failed to find head commit")?;
 
         let merged_branch_tree_oid = merge_index
-            .write_tree_to(repo)
+            .write_tree_to(project_repository.repo())
             .context("failed to write tree")?;
 
         let merged_branch_tree = repo
-            .find_tree(merged_branch_tree_oid)
+            .find_tree(merged_branch_tree_oid.into())
             .context("failed to find tree")?;
 
         let ok_with_force_push = project_repository.project().ok_with_force_push;
@@ -391,7 +391,7 @@ pub fn apply_branch(
 
                 // get tree from merge_tree_oid
                 let merge_tree = repo
-                    .find_tree(merged_branch_tree_oid)
+                    .find_tree(merged_branch_tree_oid.into())
                     .context("failed to find tree")?;
 
                 // commit the merge tree oid
@@ -534,8 +534,8 @@ pub fn unapply_ownership(
             let tree_oid = write_tree(project_repository, &integration_commit_id, status.1)?;
             let branch_tree = repo.find_tree(tree_oid)?;
             let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
-            let final_tree_oid = result.write_tree_to(repo)?;
-            repo.find_tree(final_tree_oid)
+            let final_tree_oid = result.write_tree_to(project_repository.repo())?;
+            repo.find_tree(final_tree_oid.into())
                 .context("failed to find tree")
         },
     )?;
@@ -677,8 +677,8 @@ pub fn unapply_branch(
                     let tree_oid = write_tree(project_repository, &branch.head, status.1)?;
                     let branch_tree = repo.find_tree(tree_oid)?;
                     let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
-                    let final_tree_oid = result.write_tree_to(repo)?;
-                    repo.find_tree(final_tree_oid)
+                    let final_tree_oid = result.write_tree_to(project_repository.repo())?;
+                    repo.find_tree(final_tree_oid.into())
                         .context("failed to find tree")
                 },
             )?;
@@ -1301,8 +1301,8 @@ pub fn integrate_with_merge(
         return Err(anyhow!("merge problem")).context(Marker::ProjectConflict);
     }
 
-    let merge_tree_oid = merge_index.write_tree_to(repo)?;
-    let merge_tree = repo.find_tree(merge_tree_oid)?;
+    let merge_tree_oid = merge_index.write_tree_to(project_repository.repo())?;
+    let merge_tree = repo.find_tree(merge_tree_oid.into())?;
     let head_commit = repo.find_commit(branch.head)?;
 
     project_repository.commit(
@@ -2466,12 +2466,12 @@ fn is_commit_integrated(
     }
 
     let merge_tree_oid = merge_index
-        .write_tree_to(&project_repository.git_repository)
+        .write_tree_to(project_repository.repo())
         .context("failed to write tree")?;
 
     // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
     // then the vbranch is fully merged
-    Ok(merge_tree_oid == upstream_tree.id().into())
+    Ok(merge_tree_oid == upstream_tree.id())
 }
 
 pub fn is_remote_branch_mergeable(
@@ -3238,12 +3238,12 @@ fn cherry_rebase_group(
                 }
 
                 let merge_tree_oid = cherrypick_index
-                    .write_tree_to(&project_repository.git_repository)
+                    .write_tree_to(project_repository.repo())
                     .context("failed to write merge tree")?;
 
                 let merge_tree = project_repository
                     .git_repository
-                    .find_tree(merge_tree_oid)
+                    .find_tree(merge_tree_oid.into())
                     .context("failed to find merge tree")?;
 
                 let change_id = to_rebase.change_id();
@@ -3399,11 +3399,11 @@ pub fn cherry_pick(
         None
     } else {
         let merge_tree_oid = cherrypick_index
-            .write_tree_to(&project_repository.git_repository)
+            .write_tree_to(project_repository.repo())
             .context("failed to write merge tree")?;
         let merge_tree = project_repository
             .git_repository
-            .find_tree(merge_tree_oid)
+            .find_tree(merge_tree_oid.into())
             .context("failed to find merge tree")?;
 
         let branch_head_commit = project_repository
