@@ -199,7 +199,8 @@
 
 	.sideview-content-wrap {
 		display: flex;
-		transform: translateX(100%);
+		/* Disabling temporarely because something is broken since the Tailwind removal */
+		/* transform: translateX(100%); */
 	}
 
 	.sideview {
