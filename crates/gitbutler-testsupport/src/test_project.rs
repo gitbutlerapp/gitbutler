@@ -124,7 +124,9 @@ impl TestProject {
         });
 
         let head_ref = head.name().unwrap();
-        self.local_repository.find_reference(&head_ref).unwrap();
+        self.local_repository
+            .find_reference(&head_ref.parse().expect("libgit2 provides valid refnames"))
+            .unwrap();
 
         self.local_repository
             .reset(&commit, git2::ResetType::Hard, None)
@@ -306,9 +308,10 @@ impl TestProject {
         index.write().expect("failed to write index");
         let oid = index.write_tree().expect("failed to write tree");
         let signature = git2::Signature::now("test", "test@email.com").unwrap();
+        let refname: git::Refname = head.name().unwrap().parse().unwrap();
         self.local_repository
             .commit(
-                head.name().as_ref(),
+                Some(&refname),
                 &signature,
                 &signature,
                 message,
@@ -329,7 +332,7 @@ impl TestProject {
             .expect("failed to commit")
     }
 
-    pub fn references(&self) -> Vec<git::Reference<'_>> {
+    pub fn references(&self) -> Vec<git2::Reference<'_>> {
         self.local_repository
             .references()
             .expect("failed to get references")

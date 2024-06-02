@@ -196,7 +196,7 @@ pub fn commit_all(repository: &gitbutler_core::git::Repository) -> gitbutler_cor
     let head = repository.head().expect("failed to get head");
     let commit_oid = repository
         .commit(
-            Some(&head.name().unwrap()),
+            Some(&head.name().map(|name| name.parse().unwrap()).unwrap()),
             &signature,
             &signature,
             "some commit",

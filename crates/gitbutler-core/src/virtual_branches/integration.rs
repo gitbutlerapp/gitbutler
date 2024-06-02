@@ -304,10 +304,8 @@ pub fn verify_branch(project_repository: &project_repository::Repository) -> Res
 impl project_repository::Repository {
     fn verify_head_is_set(&self) -> Result<&Self> {
         match self.get_head().context("failed to get head")?.name() {
-            Some(refname) if refname.to_string() == GITBUTLER_INTEGRATION_REFERENCE.to_string() => {
-                Ok(self)
-            }
-            Some(head_name) => Err(invalid_head_err(&head_name.to_string())),
+            Some(refname) if *refname == GITBUTLER_INTEGRATION_REFERENCE.to_string() => Ok(self),
+            Some(head_name) => Err(invalid_head_err(head_name)),
             None => Err(anyhow!(
                 "project in detached head state. Please checkout {} to continue",
                 GITBUTLER_INTEGRATION_REFERENCE.branch()
