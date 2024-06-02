@@ -1664,16 +1664,21 @@ fn compute_locks(
 
     for (path, hunks) in base_diffs.clone().into_iter() {
         for hunk in hunks {
-            let blame = match project_repository.git_repository.blame(
+            let blame = match project_repository.repo().blame(
                 &path,
                 hunk.old_start,
                 (hunk.old_start + hunk.old_lines).saturating_sub(1),
-                &merge_base,
-                integration_commit,
+                merge_base.into(),
+                (*integration_commit).into(),
             ) {
                 Ok(blame) => blame,
-                Err(git::Error::Blame(err)) if err.code() == ErrorCode::NotFound => continue,
-                Err(err) => return Err(err.into()),
+                Err(error) => {
+                    if error.code() == ErrorCode::NotFound {
+                        continue;
+                    } else {
+                        return Err(error.into());
+                    }
+                }
             };
 
             for blame_hunk in blame.iter() {

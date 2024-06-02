@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
-use git2::{Repository, Tree};
-use std::{process::Stdio, str};
+use git2::{BlameOptions, Repository, Tree};
+use std::{path::Path, process::Stdio, str};
 use tracing::instrument;
 
 use super::Refname;
@@ -35,6 +35,15 @@ pub trait RepositoryExt {
         parents: &[&git2::Commit<'_>],
         change_id: Option<&str>,
     ) -> Result<git2::Oid>;
+
+    fn blame(
+        &self,
+        path: &Path,
+        min_line: u32,
+        max_line: u32,
+        oldest_commit: git2::Oid,
+        newest_commit: git2::Oid,
+    ) -> Result<git2::Blame, git2::Error>;
 }
 
 impl RepositoryExt for Repository {
@@ -77,6 +86,23 @@ impl RepositoryExt for Repository {
             self.reference(&refname.to_string(), oid, true, message)?;
         }
         Ok(oid)
+    }
+
+    fn blame(
+        &self,
+        path: &Path,
+        min_line: u32,
+        max_line: u32,
+        oldest_commit: git2::Oid,
+        newest_commit: git2::Oid,
+    ) -> Result<git2::Blame, git2::Error> {
+        let mut opts = BlameOptions::new();
+        opts.min_line(min_line as usize)
+            .max_line(max_line as usize)
+            .newest_commit(newest_commit)
+            .oldest_commit(oldest_commit)
+            .first_parent(true);
+        self.blame_file(path, Some(&mut opts))
     }
 }
 
