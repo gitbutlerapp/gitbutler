@@ -1,4 +1,4 @@
-use super::{Index, Oid, Reference, Refname, Result, Url};
+use super::{Oid, Reference, Refname, Result, Url};
 use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
 #[cfg(unix)]
@@ -98,10 +98,9 @@ impl Repository {
         ancestor_tree: &git2::Tree<'_>,
         our_tree: &git2::Tree<'_>,
         their_tree: &git2::Tree<'_>,
-    ) -> Result<Index> {
+    ) -> Result<git2::Index> {
         self.0
             .merge_trees(ancestor_tree, our_tree, their_tree, None)
-            .map(Index::from)
             .map_err(Into::into)
     }
 
@@ -180,8 +179,8 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn index(&self) -> Result<Index> {
-        self.0.index().map(Into::into).map_err(Into::into)
+    pub fn index(&self) -> Result<git2::Index> {
+        self.0.index().map_err(Into::into)
     }
 
     pub fn index_size(&self) -> Result<usize> {
@@ -195,10 +194,9 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn cherry_pick(&self, base: &git2::Commit, target: &git2::Commit) -> Result<Index> {
+    pub fn cherry_pick(&self, base: &git2::Commit, target: &git2::Commit) -> Result<git2::Index> {
         self.0
             .cherrypick_commit(target, base, 0, None)
-            .map(Into::into)
             .map_err(Into::into)
     }
 
@@ -447,9 +445,9 @@ impl Repository {
         self.0.checkout_head(opts).map_err(Into::into)
     }
 
-    pub fn checkout_index<'a>(&'a self, index: &'a mut Index) -> CheckoutIndexBuilder {
+    pub fn checkout_index<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder {
         CheckoutIndexBuilder {
-            index: index.into(),
+            index,
             repo: &self.0,
             checkout_builder: git2::build::CheckoutBuilder::new(),
         }

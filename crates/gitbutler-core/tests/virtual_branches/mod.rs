@@ -720,7 +720,9 @@ fn commit_id_can_be_generated_or_specified() -> Result<()> {
             &signature,
             &signature,
             "some commit",
-            &repository.find_tree(oid).expect("failed to find tree"),
+            &repository
+                .find_tree(oid.into())
+                .expect("failed to find tree"),
             &[&repository
                 .find_commit(
                     repository

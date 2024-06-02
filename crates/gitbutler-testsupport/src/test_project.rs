@@ -42,7 +42,7 @@ impl Default for TestProject {
                 &signature,
                 "Initial commit",
                 &local_repository
-                    .find_tree(oid)
+                    .find_tree(oid.into())
                     .expect("failed to find tree"),
                 &[],
                 None,
@@ -236,8 +236,9 @@ impl TestProject {
                     &branch.get().peel_to_tree().unwrap(),
                 )
                 .unwrap();
-            let oid = merge_index.write_tree_to(&self.remote_repository).unwrap();
-            self.remote_repository.find_tree(oid).unwrap()
+            let repo: &git2::Repository = (&self.remote_repository).into();
+            let oid = merge_index.write_tree_to(repo).unwrap();
+            self.remote_repository.find_tree(oid.into()).unwrap()
         };
 
         self.remote_repository
@@ -313,7 +314,7 @@ impl TestProject {
                 message,
                 &self
                     .local_repository
-                    .find_tree(oid)
+                    .find_tree(oid.into())
                     .expect("failed to find tree"),
                 &[&self
                     .local_repository

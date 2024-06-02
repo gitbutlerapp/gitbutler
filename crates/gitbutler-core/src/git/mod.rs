@@ -10,9 +10,6 @@ mod repository;
 
 pub use repository::*;
 
-mod index;
-pub use index::*;
-
 mod oid;
 pub use oid::*;
 
