@@ -357,7 +357,9 @@ impl TestProject {
     }
 }
 
-fn setup_config(config: &git::Config) -> anyhow::Result<()> {
-    config.set_local("commit.gpgsign", "false")?;
-    Ok(())
+fn setup_config(config: &git2::Config) -> anyhow::Result<()> {
+    match config.open_level(git2::ConfigLevel::Local) {
+        Ok(mut local) => local.set_str("commit.gpgsign", "false").map_err(Into::into),
+        Err(err) => Err(err.into()),
+    }
 }

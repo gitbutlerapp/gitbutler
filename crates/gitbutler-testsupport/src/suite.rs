@@ -4,6 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use gitbutler_core::project_repository;
 use tempfile::{tempdir, TempDir};
 
 use crate::{init_opts, init_opts_bare, VAR_NO_CLEANUP};
@@ -162,9 +163,7 @@ pub fn test_repository() -> (gitbutler_core::git::Repository, TempDir) {
     let tmp = temp_dir();
     let repository = gitbutler_core::git::Repository::init_opts(&tmp, &init_opts())
         .expect("failed to init repository");
-    repository
-        .config()
-        .unwrap()
+    project_repository::Config::from(&repository)
         .set_local("commit.gpgsign", "false")
         .unwrap();
     let mut index = repository.index().expect("failed to get index");

@@ -1,2 +1,1 @@
-mod config;
 mod credentials;

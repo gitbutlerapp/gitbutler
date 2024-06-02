@@ -1,4 +1,4 @@
-use super::{Config, Index, Oid, Reference, Refname, Result, Url};
+use super::{Index, Oid, Reference, Refname, Result, Url};
 use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
 #[cfg(unix)]
@@ -393,8 +393,8 @@ impl Repository {
         Ok(new_buffer)
     }
 
-    pub fn config(&self) -> Result<Config> {
-        self.0.config().map(Into::into).map_err(Into::into)
+    pub fn config(&self) -> Result<git2::Config> {
+        self.0.config().map_err(Into::into)
     }
 
     pub fn path(&self) -> &Path {

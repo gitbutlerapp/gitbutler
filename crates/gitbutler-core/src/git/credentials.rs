@@ -336,7 +336,7 @@ impl Helper {
 
         let mut helper = git2::CredentialHelper::new(&remote_url.to_string());
         let config = project_repository.git_repository.config()?;
-        helper.config(&git2::Config::from(config));
+        helper.config(&config);
         if let Some((username, password)) = helper.execute() {
             flow.push(HttpsCredential::CredentialHelper { username, password });
         }
