@@ -329,8 +329,8 @@ impl Controller {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
-    ) -> Result<Option<git::Oid>> {
+        commit_oid: git2::Oid,
+    ) -> Result<Option<git2::Oid>> {
         self.inner(project_id)
             .await
             .cherry_pick(project_id, branch_id, commit_oid)
@@ -809,8 +809,8 @@ impl ControllerInner {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
-    ) -> Result<Option<git::Oid>> {
+        commit_oid: git2::Oid,
+    ) -> Result<Option<git2::Oid>> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {

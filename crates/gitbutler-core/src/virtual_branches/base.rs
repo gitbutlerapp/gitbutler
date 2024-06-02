@@ -497,7 +497,7 @@ pub fn update_base_branch(
                                 )
                                 .context("failed to commit merge")?;
 
-                            branch.head = new_target_head;
+                            branch.head = new_target_head.into();
                             branch.tree = branch_merge_index_tree_oid.into();
                             vb_state.set_branch(branch.clone())?;
                             Ok(Some(branch))

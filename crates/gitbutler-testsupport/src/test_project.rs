@@ -1,7 +1,7 @@
 use std::path;
 use std::path::PathBuf;
 
-use gitbutler_core::git::{self};
+use gitbutler_core::git::{self, RepositoryExt};
 use tempfile::TempDir;
 
 use crate::{init_opts, VAR_NO_CLEANUP};
@@ -35,19 +35,19 @@ impl Default for TestProject {
         let mut index = local_repository.index().expect("failed to get index");
         let oid = index.write_tree().expect("failed to write tree");
         let signature = git2::Signature::now("test", "test@email.com").unwrap();
-        local_repository
-            .commit(
-                Some(&"refs/heads/master".parse().unwrap()),
-                &signature,
-                &signature,
-                "Initial commit",
-                &local_repository
-                    .find_tree(oid.into())
-                    .expect("failed to find tree"),
-                &[],
-                None,
-            )
-            .expect("failed to commit");
+        let repo: &git2::Repository = (&local_repository).into();
+        repo.commit_with_signature(
+            Some(&"refs/heads/master".parse().unwrap()),
+            &signature,
+            &signature,
+            "Initial commit",
+            &local_repository
+                .find_tree(oid.into())
+                .expect("failed to find tree"),
+            &[],
+            None,
+        )
+        .expect("failed to commit");
 
         let remote_tmp = temp_dir();
         let remote_repository = git::Repository::init_opts(
@@ -243,17 +243,17 @@ impl TestProject {
             self.remote_repository.find_tree(oid.into()).unwrap()
         };
 
-        self.remote_repository
-            .commit(
-                Some(&"refs/heads/master".parse().unwrap()),
-                &branch_commit.author(),
-                &branch_commit.committer(),
-                &format!("Merge pull request from {}", branch_name),
-                &merge_tree,
-                &[&master_branch_commit, &branch_commit],
-                None,
-            )
-            .unwrap();
+        let repo: &git2::Repository = (&self.remote_repository).into();
+        repo.commit_with_signature(
+            Some(&"refs/heads/master".parse().unwrap()),
+            &branch_commit.author(),
+            &branch_commit.committer(),
+            &format!("Merge pull request from {}", branch_name),
+            &merge_tree,
+            &[&master_branch_commit, &branch_commit],
+            None,
+        )
+        .unwrap();
     }
 
     pub fn find_commit(&self, oid: git::Oid) -> Result<git2::Commit<'_>, git::Error> {
@@ -309,27 +309,28 @@ impl TestProject {
         let oid = index.write_tree().expect("failed to write tree");
         let signature = git2::Signature::now("test", "test@email.com").unwrap();
         let refname: git::Refname = head.name().unwrap().parse().unwrap();
-        self.local_repository
-            .commit(
-                Some(&refname),
-                &signature,
-                &signature,
-                message,
-                &self
-                    .local_repository
-                    .find_tree(oid.into())
-                    .expect("failed to find tree"),
-                &[&self
-                    .local_repository
-                    .find_commit(
-                        self.local_repository
-                            .refname_to_id("HEAD")
-                            .expect("failed to get head"),
-                    )
-                    .expect("failed to find commit")],
-                None,
-            )
-            .expect("failed to commit")
+        let repo: &git2::Repository = (&self.local_repository).into();
+        repo.commit_with_signature(
+            Some(&refname),
+            &signature,
+            &signature,
+            message,
+            &self
+                .local_repository
+                .find_tree(oid.into())
+                .expect("failed to find tree"),
+            &[&self
+                .local_repository
+                .find_commit(
+                    self.local_repository
+                        .refname_to_id("HEAD")
+                        .expect("failed to get head"),
+                )
+                .expect("failed to find commit")],
+            None,
+        )
+        .expect("failed to commit")
+        .into()
     }
 
     pub fn references(&self) -> Vec<git2::Reference<'_>> {
