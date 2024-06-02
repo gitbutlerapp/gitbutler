@@ -342,10 +342,10 @@ pub mod commands {
     ) -> Result<Option<git::Oid>, Error> {
         let oid = handle
             .state::<Controller>()
-            .cherry_pick(project_id, branch_id, target_commit_oid)
+            .cherry_pick(project_id, branch_id, target_commit_oid.into())
             .await?;
         emit_vbranches(&handle, project_id).await;
-        Ok(oid)
+        Ok(oid.map(Into::into))
     }
 
     #[tauri::command(async)]

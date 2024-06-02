@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use gitbutler_core::project_repository;
+use gitbutler_core::{git::RepositoryExt, project_repository};
 use tempfile::{tempdir, TempDir};
 
 use crate::{init_opts, init_opts_bare, VAR_NO_CLEANUP};
@@ -169,19 +169,19 @@ pub fn test_repository() -> (gitbutler_core::git::Repository, TempDir) {
     let mut index = repository.index().expect("failed to get index");
     let oid = index.write_tree().expect("failed to write tree");
     let signature = git2::Signature::now("test", "test@email.com").unwrap();
-    repository
-        .commit(
-            Some(&"refs/heads/master".parse().unwrap()),
-            &signature,
-            &signature,
-            "Initial commit",
-            &repository
-                .find_tree(oid.into())
-                .expect("failed to find tree"),
-            &[],
-            None,
-        )
-        .expect("failed to commit");
+    let repo: &git2::Repository = (&repository).into();
+    repo.commit_with_signature(
+        Some(&"refs/heads/master".parse().unwrap()),
+        &signature,
+        &signature,
+        "Initial commit",
+        &repository
+            .find_tree(oid.into())
+            .expect("failed to find tree"),
+        &[],
+        None,
+    )
+    .expect("failed to commit");
     (repository, tmp)
 }
 
@@ -194,8 +194,9 @@ pub fn commit_all(repository: &gitbutler_core::git::Repository) -> gitbutler_cor
     let oid = index.write_tree().expect("failed to write tree");
     let signature = git2::Signature::now("test", "test@email.com").unwrap();
     let head = repository.head().expect("failed to get head");
-    let commit_oid = repository
-        .commit(
+    let repo: &git2::Repository = repository.into();
+    let commit_oid = repo
+        .commit_with_signature(
             Some(&head.name().map(|name| name.parse().unwrap()).unwrap()),
             &signature,
             &signature,
@@ -213,5 +214,5 @@ pub fn commit_all(repository: &gitbutler_core::git::Repository) -> gitbutler_cor
             None,
         )
         .expect("failed to commit");
-    commit_oid
+    commit_oid.into()
 }

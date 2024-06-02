@@ -343,7 +343,7 @@ pub fn apply_branch(
             )?;
 
             // ok, update the virtual branch
-            branch.head = new_branch_head;
+            branch.head = new_branch_head.into();
         } else {
             // branch was not pushed to upstream yet. attempt a rebase,
             let (_, committer) =
@@ -411,7 +411,7 @@ pub fn apply_branch(
                     )
                     .context("failed to commit merge")?;
 
-                branch.head = new_branch_head;
+                branch.head = new_branch_head.into();
             }
         }
 
@@ -1214,6 +1214,7 @@ pub fn integrate_upstream_commits(
                 &upstream_commit,
                 merge_base,
             )
+            .map(Into::into)
         }
     };
 
@@ -1270,7 +1271,7 @@ pub fn integrate_with_merge(
     branch: &mut Branch,
     upstream_commit: &git2::Commit,
     merge_base: git::Oid,
-) -> Result<git::Oid> {
+) -> Result<git2::Oid> {
     let wd_tree = project_repository.repo().get_wd_tree()?;
     let repo = &project_repository.git_repository;
     let remote_tree = upstream_commit.tree().context("failed to get tree")?;
@@ -2326,7 +2327,7 @@ pub fn commit(
 
     let vb_state = project_repository.project().virtual_branches();
     branch.tree = tree_oid;
-    branch.head = commit_oid;
+    branch.head = commit_oid.into();
     vb_state
         .set_branch(branch.clone())
         .context("failed to write branch")?;
@@ -2334,7 +2335,7 @@ pub fn commit(
     super::integration::update_gitbutler_integration(&vb_state, project_repository)
         .context("failed to update gitbutler integration")?;
 
-    Ok(commit_oid)
+    Ok(commit_oid.into())
 }
 
 pub fn push(
@@ -2709,8 +2710,9 @@ pub fn move_commit_file(
             .find_tree(new_from_tree_id)
             .with_context(|| "tree {new_from_tree_oid} not found")?;
         let change_id = from_commit.change_id();
-        let new_from_commit_oid = repo
-            .commit(
+        let new_from_commit_oid = project_repository
+            .repo()
+            .commit_with_signature(
                 None,
                 &from_commit.author(),
                 &from_commit.committer(),
@@ -2724,7 +2726,7 @@ pub fn move_commit_file(
         // rebase everything above the new "from" commit that has the moved changes removed
         let new_head = match cherry_rebase(
             project_repository,
-            new_from_commit_oid,
+            new_from_commit_oid.into(),
             from_commit_id,
             target_branch.head,
         ) {
@@ -2785,8 +2787,8 @@ pub fn move_commit_file(
     let parents: Vec<_> = amend_commit.parents().collect();
     let change_id = amend_commit.change_id();
     let commit_oid = project_repository
-        .git_repository
-        .commit(
+        .repo()
+        .commit_with_signature(
             None,
             &amend_commit.author(),
             &amend_commit.committer(),
@@ -2801,17 +2803,17 @@ pub fn move_commit_file(
 
     // if there are no upstream commits (the "to" commit was the branch head), then we're done
     if upstream_commits.is_empty() {
-        target_branch.head = commit_oid;
+        target_branch.head = commit_oid.into();
         vb_state.set_branch(target_branch.clone())?;
         super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-        return Ok(commit_oid);
+        return Ok(commit_oid.into());
     }
 
     // otherwise, rebase the upstream commits onto the new commit
     let last_commit = upstream_commits.first().cloned().unwrap();
     let new_head = cherry_rebase(
         project_repository,
-        commit_oid,
+        commit_oid.into(),
         amend_commit.id().into(),
         last_commit,
     )?;
@@ -2821,7 +2823,7 @@ pub fn move_commit_file(
         target_branch.head = new_head;
         vb_state.set_branch(target_branch.clone())?;
         super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-        Ok(commit_oid)
+        Ok(commit_oid.into())
     } else {
         Err(anyhow!("rebase failed"))
     }
@@ -2934,8 +2936,8 @@ pub fn amend(
 
     let parents: Vec<_> = amend_commit.parents().collect();
     let commit_oid = project_repository
-        .git_repository
-        .commit(
+        .repo()
+        .commit_with_signature(
             None,
             &amend_commit.author(),
             &amend_commit.committer(),
@@ -2953,17 +2955,17 @@ pub fn amend(
     )?;
     // if there are no upstream commits, we're done
     if upstream_commits.is_empty() {
-        target_branch.head = commit_oid;
+        target_branch.head = commit_oid.into();
         vb_state.set_branch(target_branch.clone())?;
         super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-        return Ok(commit_oid);
+        return Ok(commit_oid.into());
     }
 
     let last_commit = upstream_commits.first().cloned().unwrap();
 
     let new_head = cherry_rebase(
         project_repository,
-        commit_oid,
+        commit_oid.into(),
         amend_commit.id().into(),
         last_commit,
     )?;
@@ -2972,7 +2974,7 @@ pub fn amend(
         target_branch.head = new_head;
         vb_state.set_branch(target_branch.clone())?;
         super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-        Ok(commit_oid)
+        Ok(commit_oid.into())
     } else {
         Err(anyhow!("rebase failed"))
     }
@@ -3102,7 +3104,7 @@ pub fn insert_blank_commit(
 
     if commit.id() == branch.head.into() && offset < 0 {
         // inserting before the first commit
-        branch.head = blank_commit_oid;
+        branch.head = blank_commit_oid.into();
         vb_state
             .set_branch(branch.clone())
             .context("failed to write branch")?;
@@ -3112,7 +3114,7 @@ pub fn insert_blank_commit(
         // rebase all commits above it onto the new commit
         match cherry_rebase(
             project_repository,
-            blank_commit_oid,
+            blank_commit_oid.into(),
             commit.id().into(),
             branch.head,
         ) {
@@ -3261,8 +3263,8 @@ fn cherry_rebase_group(
                 let change_id = to_rebase.change_id();
 
                 let commit_oid = project_repository
-                    .git_repository
-                    .commit(
+                    .repo()
+                    .commit_with_signature(
                         None,
                         &to_rebase.author(),
                         &to_rebase.committer(),
@@ -3275,7 +3277,7 @@ fn cherry_rebase_group(
 
                 project_repository
                     .git_repository
-                    .find_commit(commit_oid)
+                    .find_commit(commit_oid.into())
                     .context("failed to find commit")
             },
         )?
@@ -3287,8 +3289,8 @@ fn cherry_rebase_group(
 pub fn cherry_pick(
     project_repository: &project_repository::Repository,
     branch_id: BranchId,
-    target_commit_id: git::Oid,
-) -> Result<Option<git::Oid>> {
+    target_commit_id: git2::Oid,
+) -> Result<Option<git2::Oid>> {
     project_repository.assure_unconflicted()?;
 
     let vb_state = project_repository.project().virtual_branches();
@@ -3304,7 +3306,7 @@ pub fn cherry_pick(
 
     let target_commit = project_repository
         .git_repository
-        .find_commit(target_commit_id)
+        .find_commit(target_commit_id.into())
         .map_err(|error| match error {
             git::Error::NotFound(_) => anyhow!("commit {target_commit_id} not found "),
             err => err.into(),
@@ -3351,8 +3353,8 @@ pub fn cherry_pick(
         let signature = git2::Signature::now("GitButler", "gitbutler@gitbutler.com")
             .context("failed to make gb signature")?;
         let oid = project_repository
-            .git_repository
-            .commit(
+            .repo()
+            .commit_with_signature(
                 None,
                 &signature,
                 &signature,
@@ -3364,7 +3366,7 @@ pub fn cherry_pick(
             .context("failed to commit wip work")?;
         project_repository
             .git_repository
-            .find_commit(oid)
+            .find_commit(oid.into())
             .context("failed to find wip commit")?
     };
 
@@ -3425,8 +3427,8 @@ pub fn cherry_pick(
 
         let change_id = target_commit.change_id();
         let commit_oid = project_repository
-            .git_repository
-            .commit(
+            .repo()
+            .commit_with_signature(
                 None,
                 &target_commit.author(),
                 &target_commit.committer(),
@@ -3447,7 +3449,7 @@ pub fn cherry_pick(
             .context("failed to checkout final tree")?;
 
         // update branch status
-        branch.head = commit_oid;
+        branch.head = commit_oid.into();
         vb_state
             .set_branch(branch.clone())
             .context("failed to write branch")?;
@@ -3521,8 +3523,8 @@ pub fn squash(
     let change_id = commit_to_squash.change_id();
 
     let new_commit_oid = project_repository
-        .git_repository
-        .commit(
+        .repo()
+        .commit_with_signature(
             None,
             &commit_to_squash.author(),
             &commit_to_squash.committer(),
@@ -3546,7 +3548,11 @@ pub fn squash(
     .with_context(|| format!("commit {commit_id} not in the branch"))?;
     let mut ids_to_rebase = ids_to_rebase.to_vec();
 
-    match cherry_rebase_group(project_repository, new_commit_oid, &mut ids_to_rebase) {
+    match cherry_rebase_group(
+        project_repository,
+        new_commit_oid.into(),
+        &mut ids_to_rebase,
+    ) {
         Ok(new_head_id) => {
             // save new branch head
             branch.head = new_head_id;
@@ -3612,8 +3618,8 @@ pub fn update_commit_message(
     let change_id = target_commit.change_id();
 
     let new_commit_oid = project_repository
-        .git_repository
-        .commit(
+        .repo()
+        .commit_with_signature(
             None,
             &target_commit.author(),
             &target_commit.committer(),
@@ -3633,8 +3639,12 @@ pub fn update_commit_message(
     .with_context(|| format!("commit {commit_id} not in the branch"))?;
     let mut ids_to_rebase = ids_to_rebase.to_vec();
 
-    let new_head_id = cherry_rebase_group(project_repository, new_commit_oid, &mut ids_to_rebase)
-        .map_err(|err| err.context("rebase error"))?;
+    let new_head_id = cherry_rebase_group(
+        project_repository,
+        new_commit_oid.into(),
+        &mut ids_to_rebase,
+    )
+    .map_err(|err| err.context("rebase error"))?;
     // save new branch head
     branch.head = new_head_id;
     vb_state
@@ -3780,7 +3790,7 @@ pub fn move_commit(
             )
             .context("failed to commit")?;
 
-        destination_branch.head = new_destination_head_oid;
+        destination_branch.head = new_destination_head_oid.into();
         vb_state.set_branch(destination_branch.clone())?;
     }
 

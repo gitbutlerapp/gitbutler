@@ -7,7 +7,6 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 
 use super::conflicts;
-use crate::virtual_branches::errors::Marker;
 use crate::{
     askpass,
     git::{self, Url},
@@ -16,6 +15,7 @@ use crate::{
     virtual_branches::{Branch, BranchId},
 };
 use crate::{error::Code, git::Oid};
+use crate::{git::RepositoryExt, virtual_branches::errors::Marker};
 
 pub struct Repository {
     pub git_repository: git::Repository,
@@ -333,11 +333,11 @@ impl Repository {
         tree: &git2::Tree,
         parents: &[&git2::Commit],
         change_id: Option<&str>,
-    ) -> Result<git::Oid> {
+    ) -> Result<git2::Oid> {
         let (author, committer) =
             super::signatures::signatures(self, user).context("failed to get signatures")?;
-        self.git_repository
-            .commit(None, &author, &committer, message, tree, parents, change_id)
+        self.repo()
+            .commit_with_signature(None, &author, &committer, message, tree, parents, change_id)
             .context("failed to commit")
     }
 

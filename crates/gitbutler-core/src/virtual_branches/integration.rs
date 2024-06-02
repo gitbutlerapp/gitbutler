@@ -5,6 +5,7 @@ use bstr::ByteSlice;
 use lazy_static::lazy_static;
 
 use super::VirtualBranchesHandle;
+use crate::git::RepositoryExt;
 use crate::virtual_branches::errors::Marker;
 use crate::{
     git::{self, CommitExt},
@@ -389,8 +390,8 @@ impl project_repository::Repository {
                 .context("failed to find new branch head")?;
 
             let rebased_commit_oid = self
-                .git_repository
-                .commit(
+                .repo()
+                .commit_with_signature(
                     None,
                     &commit.author(),
                     &commit.committer(),
@@ -406,7 +407,7 @@ impl project_repository::Repository {
 
             let rebased_commit = self
                 .git_repository
-                .find_commit(rebased_commit_oid)
+                .find_commit(rebased_commit_oid.into())
                 .context(format!(
                     "failed to find rebased commit {}",
                     rebased_commit_oid

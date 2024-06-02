@@ -57,7 +57,7 @@ mod cleanly {
         );
 
         let cherry_picked_commit_oid = controller
-            .cherry_pick(*project_id, branch_id, commit_two)
+            .cherry_pick(*project_id, branch_id, commit_two.into())
             .await
             .unwrap();
         assert!(cherry_picked_commit_oid.is_some());
@@ -72,7 +72,10 @@ mod cleanly {
         assert_eq!(branches[0].id, branch_id);
         assert!(branches[0].active);
         assert_eq!(branches[0].commits.len(), 2);
-        assert_eq!(branches[0].commits[0].id, cherry_picked_commit_oid.unwrap());
+        assert_eq!(
+            branches[0].commits[0].id,
+            cherry_picked_commit_oid.unwrap().into()
+        );
         assert_eq!(branches[0].commits[1].id, commit_one);
     }
 
@@ -135,7 +138,7 @@ mod cleanly {
             .unwrap();
 
         let cherry_picked_commit_oid = controller
-            .cherry_pick(*project_id, branch_two_id, commit_two)
+            .cherry_pick(*project_id, branch_two_id, commit_two.into())
             .await
             .unwrap();
         assert!(cherry_picked_commit_oid.is_some());
@@ -156,7 +159,10 @@ mod cleanly {
         assert_eq!(branches[1].id, branch_two_id);
         assert!(branches[1].active);
         assert_eq!(branches[1].commits.len(), 1);
-        assert_eq!(branches[1].commits[0].id, cherry_picked_commit_oid.unwrap());
+        assert_eq!(
+            branches[1].commits[0].id,
+            cherry_picked_commit_oid.unwrap().into()
+        );
     }
 
     #[tokio::test]
@@ -214,7 +220,7 @@ mod cleanly {
 
         assert_eq!(
             controller
-                .cherry_pick(*project_id, branch_id, commit_three_oid)
+                .cherry_pick(*project_id, branch_id, commit_three_oid.into())
                 .await
                 .unwrap_err()
                 .to_string(),
@@ -294,7 +300,7 @@ mod with_conflicts {
         {
             // cherry picking leads to conflict
             let cherry_picked_commit_oid = controller
-                .cherry_pick(*project_id, branch_id, commit_three)
+                .cherry_pick(*project_id, branch_id, commit_three.into())
                 .await
                 .unwrap();
             assert!(cherry_picked_commit_oid.is_none());
@@ -376,7 +382,7 @@ mod with_conflicts {
 
         assert_eq!(
             controller
-                .cherry_pick(*project_id, branch_id, commit_oid)
+                .cherry_pick(*project_id, branch_id, commit_oid.into())
                 .await
                 .unwrap_err()
                 .to_string(),

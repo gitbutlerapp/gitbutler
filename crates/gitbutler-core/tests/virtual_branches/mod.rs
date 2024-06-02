@@ -15,7 +15,7 @@ use std::{
 use anyhow::{Context, Result};
 use git2::TreeEntry;
 use gitbutler_core::{
-    git::{self, CommitExt},
+    git::{self, CommitExt, RepositoryExt},
     virtual_branches::{
         self, apply_branch,
         branch::{BranchCreateRequest, BranchOwnershipClaims},
@@ -715,8 +715,9 @@ fn commit_id_can_be_generated_or_specified() -> Result<()> {
     let signature = git2::Signature::now("test", "test@email.com").unwrap();
     let head = repository.head().expect("failed to get head");
     let refname: git::Refname = head.name().unwrap().parse().unwrap();
-    repository
-        .commit(
+    project_repository
+        .repo()
+        .commit_with_signature(
             Some(&refname),
             &signature,
             &signature,
