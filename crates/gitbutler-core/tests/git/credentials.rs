@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use gitbutler_core::{
-    git::credentials::{Credential, Helper, HttpsCredential, SshCredential},
+    git::credentials::{Credential, Helper, SshCredential},
     keys, project_repository, projects, users,
 };
 
@@ -12,7 +12,6 @@ struct TestCase<'a> {
     remote_url: &'a str,
     github_access_token: Option<&'a str>,
     preferred_key: projects::AuthKey,
-    home_dir: Option<PathBuf>,
 }
 
 impl TestCase<'_> {
@@ -27,7 +26,7 @@ impl TestCase<'_> {
         users.set_user(&user).unwrap();
 
         let keys = keys::Controller::from_path(local_app_data.path());
-        let helper = Helper::new(keys, users, self.home_dir.clone());
+        let helper = Helper::new(keys);
 
         let (repo, _tmp) = test_repository();
         repo.remote(
@@ -63,7 +62,6 @@ mod not_github {
                 preferred_key: projects::AuthKey::Local {
                     private_key_path: PathBuf::from("/tmp/id_rsa"),
                 },
-                ..Default::default()
             };
             let flow = test_case.run();
             assert_eq!(flow.len(), 1);
@@ -88,7 +86,6 @@ mod not_github {
                 preferred_key: projects::AuthKey::Local {
                     private_key_path: PathBuf::from("/tmp/id_rsa"),
                 },
-                ..Default::default()
             };
             let flow = test_case.run();
             assert_eq!(flow.len(), 1);
@@ -105,153 +102,13 @@ mod not_github {
             );
         }
     }
-
-    mod with_github_token {
-        use super::*;
-
-        #[test]
-        fn https() {
-            let test_case = TestCase {
-                remote_url: "https://gitlab.com/test-gitbutler/test.git",
-                github_access_token: Some("token"),
-                ..Default::default()
-            };
-            let flow = test_case.run();
-
-            assert_eq!(flow.len(), 1);
-
-            assert_eq!(
-                flow[0].0,
-                "git@gitlab.com:test-gitbutler/test.git".to_string(),
-            );
-            assert_eq!(flow[0].1.len(), 1);
-            assert!(matches!(
-                flow[0].1[0],
-                Credential::Ssh(SshCredential::GitButlerKey(_))
-            ));
-        }
-
-        #[test]
-        fn ssh() {
-            let test_case = TestCase {
-                remote_url: "git@gitlab.com:test-gitbutler/test.git",
-                github_access_token: Some("token"),
-                ..Default::default()
-            };
-            let flow = test_case.run();
-
-            assert_eq!(flow.len(), 1);
-
-            assert_eq!(
-                flow[0].0,
-                "git@gitlab.com:test-gitbutler/test.git".to_string(),
-            );
-            assert_eq!(flow[0].1.len(), 1);
-            assert!(matches!(
-                flow[0].1[0],
-                Credential::Ssh(SshCredential::GitButlerKey(_))
-            ));
-        }
-    }
 }
 
 mod github {
     use super::*;
 
-    mod with_github_token {
-        use super::*;
-
-        #[test]
-        fn https() {
-            let test_case = TestCase {
-                remote_url: "https://github.com/gitbutlerapp/gitbutler.git",
-                github_access_token: Some("token"),
-                ..Default::default()
-            };
-            let flow = test_case.run();
-            assert_eq!(flow.len(), 1);
-            assert_eq!(
-                flow[0].0,
-                "https://github.com/gitbutlerapp/gitbutler.git".to_string(),
-            );
-            assert_eq!(
-                flow[0].1,
-                vec![Credential::Https(HttpsCredential::GitHubToken(
-                    "token".to_string()
-                ))]
-            );
-        }
-
-        #[test]
-        fn ssh() {
-            let test_case = TestCase {
-                remote_url: "git@github.com:gitbutlerapp/gitbutler.git",
-                github_access_token: Some("token"),
-                ..Default::default()
-            };
-            let flow = test_case.run();
-            assert_eq!(flow.len(), 1);
-            assert_eq!(
-                flow[0].0,
-                "https://github.com/gitbutlerapp/gitbutler.git".to_string(),
-            );
-            assert_eq!(
-                flow[0].1,
-                vec![Credential::Https(HttpsCredential::GitHubToken(
-                    "token".to_string()
-                ))]
-            );
-        }
-    }
-
     mod without_github_token {
         use super::*;
-
-        mod without_preferred_key {
-            use super::*;
-
-            #[test]
-            fn https() {
-                let test_case = TestCase {
-                    remote_url: "https://github.com/gitbutlerapp/gitbutler.git",
-                    ..Default::default()
-                };
-                let flow = test_case.run();
-
-                assert_eq!(flow.len(), 1);
-
-                assert_eq!(
-                    flow[0].0,
-                    "git@github.com:gitbutlerapp/gitbutler.git".to_string(),
-                );
-                assert_eq!(flow[0].1.len(), 1);
-                assert!(matches!(
-                    flow[0].1[0],
-                    Credential::Ssh(SshCredential::GitButlerKey(_))
-                ));
-            }
-
-            #[test]
-            fn ssh() {
-                let test_case = TestCase {
-                    remote_url: "git@github.com:gitbutlerapp/gitbutler.git",
-                    ..Default::default()
-                };
-                let flow = test_case.run();
-
-                assert_eq!(flow.len(), 1);
-
-                assert_eq!(
-                    flow[0].0,
-                    "git@github.com:gitbutlerapp/gitbutler.git".to_string(),
-                );
-                assert_eq!(flow[0].1.len(), 1);
-                assert!(matches!(
-                    flow[0].1[0],
-                    Credential::Ssh(SshCredential::GitButlerKey(_))
-                ));
-            }
-        }
 
         mod with_preferred_key {
             use super::*;
@@ -264,7 +121,6 @@ mod github {
                     preferred_key: projects::AuthKey::Local {
                         private_key_path: PathBuf::from("/tmp/id_rsa"),
                     },
-                    ..Default::default()
                 };
                 let flow = test_case.run();
                 assert_eq!(flow.len(), 1);
@@ -289,7 +145,6 @@ mod github {
                     preferred_key: projects::AuthKey::Local {
                         private_key_path: PathBuf::from("/tmp/id_rsa"),
                     },
-                    ..Default::default()
                 };
                 let flow = test_case.run();
                 assert_eq!(flow.len(), 1);
