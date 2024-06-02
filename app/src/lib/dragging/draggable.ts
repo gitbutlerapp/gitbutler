@@ -1,7 +1,6 @@
 import { dzRegistry } from './dropzone';
-import type { DraggableCommit, DraggableFile, DraggableHunk } from './draggables';
+import type { Draggable } from './draggables';
 
-export type Draggable = DraggableFile | DraggableHunk | DraggableCommit;
 export interface DraggableConfig {
 	readonly selector?: string;
 	readonly disabled?: boolean;
