@@ -29,19 +29,24 @@
 </script>
 
 <div class="conflict-box">
-	<h1>You Are in Conflict Resolution Mode</h1>
-	<div>Go to your editor and solve conflicts in the following files:</div>
-	{#each files as file}
-		<div>{file.path}</div>
-	{/each}
-	<div class="title">Actions:</div>
-	<div class="actions">
-		<Tag style="success" on:click={resolveConflictFinish}>Resolve</Tag>
-		<Tag style="error" on:click={resolveConflictAbandon}>Abandon</Tag>
+	<div class="conflict-box-inner">
+		<h1>You Are in Conflict Resolution Mode</h1>
+		<div>Go to your editor and solve conflicts in the following files:</div>
+		<ul>
+			{#each files as file}
+				<li>{file.path}</li>
+			{/each}
+		</ul>
+		<hr />
+		<div class="title">Actions:</div>
+		<div class="actions">
+			<Tag style="success" on:click={resolveConflictFinish}>Resolve</Tag>
+			<Tag style="error" on:click={resolveConflictAbandon}>Abandon</Tag>
+		</div>
+		<hr />
+		<div>Conflict Commit : <code>{commit}</code></div>
+		<div>Branch: <code>{branch.id}</code></div>
 	</div>
-	<hr />
-	<div>Conflict Commit : <code>{commit}</code></div>
-	<div>Branch: <code>{branch.id}</code></div>
 </div>
 
 <style lang="postcss">
@@ -54,15 +59,20 @@
 		font-size: 18px;
 		font-weight: 500;
 	}
-	.conflict-box {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-8);
-		padding: 100px;
-	}
 	.actions {
 		display: flex;
 		gap: var(--size-8);
+	}
+	.conflict-box-inner {
+		display: flex;
+		flex-direction: column;
+		background-color: bisque;
+		padding: 32px;
+		border-radius: 10px;
+		gap: 12px;
+	}
+	.conflict-box {
+		position: relative;
+		padding: 100px;
 	}
 </style>

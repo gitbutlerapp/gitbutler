@@ -7,6 +7,7 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getLocalCommits, getRemoteCommits, getUnknownCommits } from '$lib/vbranches/contexts';
 	import { Branch } from '$lib/vbranches/types';
+	import Tag from './Tag.svelte';
 
 	export let isUnapplied: boolean;
 
@@ -26,6 +27,8 @@
 	$: hasCommits =
 		$localCommits.length > 0 || $remoteCommits.length > 0 || $unknownCommits.length > 0;
 
+	$: localCommitsHaveConflicts = $localCommits.some((c) => c.conflictedFiles > 0);
+
 	let isLoading: boolean;
 	$: isPushed = $localCommits.length == 0 && $unknownCommits.length == 0;
 </script>
@@ -36,26 +39,33 @@
 			{#if $prompt}
 				<PassphraseBox prompt={$prompt} error={$promptError} />
 			{/if}
-			<PushButton
-				wide
-				branch={$branch}
-				{isLoading}
-				on:trigger={async (e) => {
-					try {
-						if (e.detail.action == BranchAction.Push) {
-							isLoading = true;
-							await branchController.pushBranch($branch.id, $branch.requiresForce);
-							isLoading = false;
-						} else if (e.detail.action == BranchAction.Rebase) {
-							isLoading = true;
-							await branchController.mergeUpstream($branch.id);
-							isLoading = false;
+			{#if localCommitsHaveConflicts}
+				<Tag disabled={true} style="error">Resolve conflicts before pushing</Tag>
+			{:else}
+				<PushButton
+					wide
+					branch={$branch}
+					{isLoading}
+					on:trigger={async (e) => {
+						try {
+							if (e.detail.action == BranchAction.Push) {
+								isLoading = true;
+								await branchController.pushBranch(
+									$branch.id,
+									$branch.requiresForce
+								);
+								isLoading = false;
+							} else if (e.detail.action == BranchAction.Rebase) {
+								isLoading = true;
+								await branchController.mergeUpstream($branch.id);
+								isLoading = false;
+							}
+						} catch (e) {
+							console.error(e);
 						}
-					} catch (e) {
-						console.error(e);
-					}
-				}}
-			/>
+					}}
+				/>
+			{/if}
 		{:else}
 			<div class="empty-state">
 				<span class="text-base-body-12 empty-state__text"
