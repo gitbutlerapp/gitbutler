@@ -1,5 +1,5 @@
 import { SHORT_DEFAULT_BRANCH_TEMPLATE, SHORT_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
-import type { OpenAIModelName, PromptMessage, AIClient } from '$lib/ai/types';
+import type { OpenAIModelName, Prompt, AIClient } from '$lib/ai/types';
 import type OpenAI from 'openai';
 
 export class OpenAIClient implements AIClient {
@@ -11,7 +11,7 @@ export class OpenAIClient implements AIClient {
 		private openAI: OpenAI
 	) {}
 
-	async evaluate(prompt: PromptMessage[]) {
+	async evaluate(prompt: Prompt) {
 		const response = await this.openAI.chat.completions.create({
 			messages: prompt,
 			model: this.modelName,

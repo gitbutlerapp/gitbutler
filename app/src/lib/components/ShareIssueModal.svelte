@@ -187,6 +187,7 @@
 			spellcheck
 			id="comments"
 			rows={6}
+			maxHeight={400}
 			bind:value={messageInputValue}
 		/>
 

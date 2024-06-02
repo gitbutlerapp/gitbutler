@@ -27,9 +27,7 @@ pub async fn menu_item_set_enabled(
     let menu_item = window
         .menu_handle()
         .try_get_item(menu_item_id)
-        .with_context(|| {
-            error::Context::new(Code::Menu, format!("menu item not found: {}", menu_item_id))
-        })?;
+        .with_context(|| error::Context::new(format!("menu item not found: {}", menu_item_id)))?;
 
     menu_item.set_enabled(enabled).context(Code::Unknown)?;
 

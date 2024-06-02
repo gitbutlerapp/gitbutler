@@ -1,5 +1,3 @@
-use crate::git;
-
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("branch name is invalid: {0}")]
@@ -11,7 +9,7 @@ pub enum Error {
     #[error("branch is not remote: {0}")]
     NotRemote(String),
     #[error(transparent)]
-    Git(#[from] git::Error),
+    Git(#[from] git2::Error),
     #[error(transparent)]
     Utf8(#[from] std::string::FromUtf8Error),
 }

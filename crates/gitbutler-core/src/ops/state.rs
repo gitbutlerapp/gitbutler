@@ -88,7 +88,7 @@ impl OplogHandle {
     ///
     /// If the file does not exist, it will be created.
     fn read_file(&self) -> Result<Oplog> {
-        Ok(read_toml_file_or_default(&self.file_path)?)
+        read_toml_file_or_default(&self.file_path)
     }
 
     fn write_file(&self, mut oplog: Oplog) -> Result<()> {

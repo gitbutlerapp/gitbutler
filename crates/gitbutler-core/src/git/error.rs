@@ -1,18 +1,11 @@
 use std::str::Utf8Error;
 
-use crate::{
-    error::{Context, ErrorWithContext},
-    keys,
-};
-
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("not found: {0}")]
     NotFound(git2::Error),
     #[error("authentication failed")]
     Auth(git2::Error),
-    #[error("sign error: {0}")]
-    Signing(keys::SignError),
     #[error("remote url error: {0}")]
     Url(super::url::ParseError),
     #[error("io error: {0}")]
@@ -51,18 +44,6 @@ impl From<git2::Error> for Error {
                 _ => Error::Other(err),
             },
         }
-    }
-}
-
-impl ErrorWithContext for Error {
-    fn context(&self) -> Option<Context> {
-        None
-    }
-}
-
-impl From<keys::SignError> for Error {
-    fn from(err: keys::SignError) -> Self {
-        Error::Signing(err)
     }
 }
 

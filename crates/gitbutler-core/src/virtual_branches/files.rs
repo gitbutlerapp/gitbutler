@@ -1,6 +1,6 @@
 use std::path;
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use serde::Serialize;
 
 use super::errors;
@@ -16,15 +16,12 @@ pub struct RemoteBranchFile {
 
 pub fn list_remote_commit_files(
     repository: &git::Repository,
-    commit_oid: git::Oid,
-) -> Result<Vec<RemoteBranchFile>, errors::ListRemoteCommitFilesError> {
-    let commit = match repository.find_commit(commit_oid) {
-        Ok(commit) => Ok(commit),
-        Err(git::Error::NotFound(_)) => Err(errors::ListRemoteCommitFilesError::CommitNotFound(
-            commit_oid,
-        )),
-        Err(error) => Err(errors::ListRemoteCommitFilesError::Other(error.into())),
-    }?;
+    commit_id: git::Oid,
+) -> Result<Vec<RemoteBranchFile>> {
+    let commit = repository.find_commit(commit_id).map_err(|err| match err {
+        git::Error::NotFound(_) => anyhow!("commit {commit_id} not found"),
+        err => err.into(),
+    })?;
 
     // If it's a merge commit, we list nothing. In the future we could to a fork exec of `git diff-tree --cc`
     if commit.parent_count() != 1 {
@@ -37,7 +34,9 @@ pub fn list_remote_commit_files(
     if commit.is_conflicted() {
         let conflict_files_list = commit_tree.get_name(".conflict-files").unwrap();
         let files_list = conflict_files_list.to_object(repository.into()).unwrap();
-        let list = files_list.as_blob().context("failed to get conflict files list")?;
+        let list = files_list
+            .as_blob()
+            .context("failed to get conflict files list")?;
         // split this list blob into lines and return a Vec of RemoteBranchFile
         let files = list
             .content()

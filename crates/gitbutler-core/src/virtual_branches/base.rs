@@ -1,15 +1,17 @@
 use std::{path::Path, time};
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
+use git2::Index;
 use serde::Serialize;
 
 use super::{
-    branch, errors,
+    branch,
     integration::{
         get_workspace_head, update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE,
     },
     target, BranchId, RemoteCommit, VirtualBranchHunk, VirtualBranchesHandle,
 };
+use crate::virtual_branches::errors::Marker;
 use crate::{
     git::{self, diff},
     project_repository::{self, LogUntil},
@@ -45,7 +47,7 @@ pub fn get_base_branch_data(
 fn go_back_to_integration(
     project_repository: &project_repository::Repository,
     default_target: &target::Target,
-) -> Result<super::BaseBranch, errors::SetBaseBranchError> {
+) -> Result<BaseBranch> {
     let statuses = project_repository
         .git_repository
         .statuses(Some(
@@ -55,7 +57,7 @@ fn go_back_to_integration(
         ))
         .context("failed to get status")?;
     if !statuses.is_empty() {
-        return Err(errors::SetBaseBranchError::DirtyWorkingDirectory);
+        return Err(anyhow!("current HEAD is dirty")).context(Marker::ProjectConflict);
     }
 
     let vb_state = project_repository.project().virtual_branches();
@@ -116,7 +118,7 @@ fn go_back_to_integration(
 pub fn set_base_branch(
     project_repository: &project_repository::Repository,
     target_branch_ref: &git::RemoteRefname,
-) -> Result<super::BaseBranch, errors::SetBaseBranchError> {
+) -> Result<BaseBranch> {
     let repo = &project_repository.git_repository;
 
     // if target exists, and it is the same as the requested branch, we should go back
@@ -128,30 +130,25 @@ pub fn set_base_branch(
 
     // lookup a branch by name
     let target_branch = match repo.find_branch(&target_branch_ref.clone().into()) {
-        Ok(branch) => Ok(branch),
-        Err(git::Error::NotFound(_)) => Err(errors::SetBaseBranchError::BranchNotFound(
-            target_branch_ref.clone(),
-        )),
-        Err(error) => Err(errors::SetBaseBranchError::Other(error.into())),
-    }?;
+        Ok(branch) => branch,
+        Err(git::Error::NotFound(_)) => bail!("remote branch '{}' not found", target_branch_ref),
+        Err(err) => return Err(err.into()),
+    };
 
     let remote = repo
         .find_remote(target_branch_ref.remote())
         .context(format!(
             "failed to find remote for branch {}",
-            target_branch.name().unwrap()
+            target_branch.get().name().unwrap()
         ))?;
-    let remote_url = remote
-        .url()
-        .context(format!(
-            "failed to get remote url for {}",
-            target_branch_ref.remote()
-        ))?
-        .unwrap();
+    let remote_url = remote.url().context(format!(
+        "failed to get remote url for {}",
+        target_branch_ref.remote()
+    ))?;
 
-    let target_branch_head = target_branch.peel_to_commit().context(format!(
+    let target_branch_head = target_branch.get().peel_to_commit().context(format!(
         "failed to peel branch {} to commit",
-        target_branch.name().unwrap()
+        target_branch.get().name().unwrap()
     ))?;
 
     let current_head = repo.head().context("Failed to get HEAD reference")?;
@@ -275,24 +272,21 @@ pub fn set_base_branch(
 pub fn set_target_push_remote(
     project_repository: &project_repository::Repository,
     push_remote_name: &str,
-) -> Result<(), errors::SetBaseBranchError> {
-    let repo = &project_repository.git_repository;
-
-    let remote = repo
+) -> Result<()> {
+    let remote = project_repository
+        .git_repository
         .find_remote(push_remote_name)
         .context(format!("failed to find remote {}", push_remote_name))?;
 
     // if target exists, and it is the same as the requested branch, we should go back
     let mut target = default_target(&project_repository.project().gb_dir())?;
-
-    target.push_remote_name = Some(
-        remote
-            .name()
-            .context("failed to get remote name")?
-            .to_string(),
-    );
+    target.push_remote_name = remote
+        .name()
+        .context("failed to get remote name")?
+        .to_string()
+        .into();
     let vb_state = project_repository.project().virtual_branches();
-    vb_state.set_default_target(target.clone())?;
+    vb_state.set_default_target(target)?;
 
     Ok(())
 }
@@ -335,14 +329,8 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 pub fn update_base_branch(
     project_repository: &project_repository::Repository,
     user: Option<&users::User>,
-) -> anyhow::Result<()> {
-    if project_repository.is_resolving() {
-        anyhow::bail!(errors::UpdateBaseBranchError::Conflict(
-            errors::ProjectConflict {
-                project_id: project_repository.project().id,
-            },
-        ));
-    }
+) -> anyhow::Result<Vec<branch::Branch>> {
+    project_repository.assure_resolved()?;
 
     // look up the target and see if there is a new oid
     let target = default_target(&project_repository.project().gb_dir())?;
@@ -352,11 +340,14 @@ pub fn update_base_branch(
         .context(format!("failed to find branch {}", target.branch))?;
 
     let new_target_commit = target_branch
+        .get()
         .peel_to_commit()
         .context(format!("failed to peel branch {} to commit", target.branch))?;
 
+    let mut unapplied_branches: Vec<branch::Branch> = Vec::new();
+
     if new_target_commit.id() == target.sha.into() {
-        return Ok(());
+        return Ok(unapplied_branches);
     }
 
     let new_target_tree = new_target_commit
@@ -491,6 +482,9 @@ pub fn update_base_branch(
 
                     if branch_tree_merge_index.has_conflicts() {
                         // branch tree conflicts with new target, unapply branch for now. we'll handle it later, when user applies it back.
+                        if branch.applied {
+                            unapplied_branches.push(branch.clone());
+                        }
                         branch.applied = false;
                         vb_state.set_branch(branch.clone())?;
                         return Ok(Some(branch));
@@ -521,6 +515,9 @@ pub fn update_base_branch(
                     if branch_head_merge_index.has_conflicts() {
                         // branch commits conflict with new target, make sure the branch is
                         // unapplied. conflicts witll be dealt with when applying it back.
+                        if branch.applied {
+                            unapplied_branches.push(branch.clone());
+                        }
                         branch.applied = false;
                         vb_state.set_branch(branch.clone())?;
                         return Ok(Some(branch));
@@ -637,7 +634,7 @@ pub fn update_base_branch(
 
     // Rewriting the integration commit is necessary after changing target sha.
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-    Ok(())
+    Ok(unapplied_branches)
 }
 
 pub fn target_to_base_branch(
@@ -646,7 +643,7 @@ pub fn target_to_base_branch(
 ) -> Result<super::BaseBranch> {
     let repo = &project_repository.git_repository;
     let branch = repo.find_branch(&target.branch.clone().into())?;
-    let commit = branch.peel_to_commit()?;
+    let commit = branch.get().peel_to_commit()?;
     let oid = commit.id();
 
     // gather a list of commits between oid and target.sha
@@ -669,11 +666,8 @@ pub fn target_to_base_branch(
     let push_remote_url = match target.push_remote_name {
         Some(ref name) => match repo.find_remote(name) {
             Ok(remote) => match remote.url() {
-                Ok(url) => match url {
-                    Some(url) => url.to_string(),
-                    None => target.remote_url.clone(),
-                },
-                Err(_err) => target.remote_url.clone(),
+                Some(url) => url.to_string(),
+                None => target.remote_url.clone(),
             },
             Err(_err) => target.remote_url.clone(),
         },

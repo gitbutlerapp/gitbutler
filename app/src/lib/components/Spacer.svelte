@@ -1,22 +1,27 @@
 <script lang="ts">
+	import { pxToRem } from '$lib/utils/pxToRem';
 	export let margin: number | undefined = 16;
+	export let noLine = false;
 
 	function getMargins() {
 		if (margin === undefined) {
 			return '';
 		}
 
-		return `margin-top: var(--size-${margin}); margin-bottom: var(--size-${margin});`;
+		return `margin-top: ${pxToRem(margin)}; margin-bottom: ${pxToRem(margin)};`;
 	}
 </script>
 
-<div class="divider" style={getMargins()} />
+<div class="divider" style={getMargins()} class:line={!noLine}></div>
 
 <style lang="post-css">
 	.divider {
 		height: 1px;
 		width: 100%;
-		border-bottom: 1px solid var(--clr-scale-ntrl-0);
 		opacity: 0.15;
+	}
+
+	.divider.line {
+		border-bottom: 1px solid var(--clr-scale-ntrl-0);
 	}
 </style>

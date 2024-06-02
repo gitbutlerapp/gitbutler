@@ -1,4 +1,4 @@
-use crate::error::Error;
+use anyhow::Result;
 use std::path;
 
 use super::Zipper;
@@ -28,12 +28,12 @@ impl Controller {
         }
     }
 
-    pub fn archive(&self, project_id: ProjectId) -> Result<path::PathBuf, Error> {
+    pub fn archive(&self, project_id: ProjectId) -> Result<path::PathBuf> {
         let project = self.projects_controller.get(project_id)?;
         self.zipper.zip(project.path).map_err(Into::into)
     }
 
-    pub fn data_archive(&self, project_id: ProjectId) -> Result<path::PathBuf, Error> {
+    pub fn data_archive(&self, project_id: ProjectId) -> Result<path::PathBuf> {
         let project = self.projects_controller.get(project_id)?;
         self.zipper
             .zip(
@@ -44,7 +44,7 @@ impl Controller {
             .map_err(Into::into)
     }
 
-    pub fn logs_archive(&self) -> anyhow::Result<path::PathBuf> {
+    pub fn logs_archive(&self) -> Result<path::PathBuf> {
         self.zipper.zip(&self.logs_dir).map_err(Into::into)
     }
 }

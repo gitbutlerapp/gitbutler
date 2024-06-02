@@ -3,7 +3,6 @@ use std::{fmt, str::FromStr};
 use serde::{Deserialize, Serialize};
 
 use super::error::Error;
-use crate::git;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Refname {
@@ -79,13 +78,13 @@ impl FromStr for Refname {
     }
 }
 
-impl TryFrom<&git::Branch<'_>> for Refname {
+impl TryFrom<&git2::Branch<'_>> for Refname {
     type Error = Error;
 
-    fn try_from(value: &git::Branch<'_>) -> std::result::Result<Self, Self::Error> {
-        let refname = String::from_utf8(value.refname_bytes().to_vec()).map_err(Error::Utf8)?;
+    fn try_from(value: &git2::Branch<'_>) -> std::result::Result<Self, Self::Error> {
+        let refname = String::from_utf8(value.get().name_bytes().to_vec()).map_err(Error::Utf8)?;
 
-        if !value.is_remote() {
+        if !value.get().is_remote() {
             return Err(Error::NotRemote(refname));
         }
 

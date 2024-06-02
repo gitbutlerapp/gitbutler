@@ -25,7 +25,7 @@ mod error {
             ..
         } = &Test::default();
 
-        assert!(matches!(
+        assert_eq!(
             controller
                 .set_base_branch(
                     *project_id,
@@ -33,9 +33,9 @@ mod error {
                 )
                 .await
                 .unwrap_err()
-                .downcast_ref(),
-            Some(errors::SetBaseBranchError::BranchNotFound(_))
-        ));
+                .to_string(),
+            "remote branch 'refs/remotes/origin/missing' not found"
+        );
     }
 }
 
@@ -123,7 +123,7 @@ mod go_back_to_integration {
                 .await
                 .unwrap_err()
                 .downcast_ref(),
-            Some(errors::SetBaseBranchError::DirtyWorkingDirectory)
+            Some(Marker::ProjectConflict)
         ));
     }
 
@@ -159,7 +159,7 @@ mod go_back_to_integration {
                 .await
                 .unwrap_err()
                 .downcast_ref(),
-            Some(errors::SetBaseBranchError::DirtyWorkingDirectory)
+            Some(Marker::ProjectConflict)
         ));
     }
 

@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use bstr::BString;
 use gix::{
     dir::walk::EmissionMode,
@@ -104,9 +104,7 @@ fn persist_tempfile(
 /// Reads and parses the state file.
 ///
 /// If the file does not exist, it will be created.
-pub(crate) fn read_toml_file_or_default<T: DeserializeOwned + Default>(
-    path: &Path,
-) -> Result<T, crate::reader::Error> {
+pub(crate) fn read_toml_file_or_default<T: DeserializeOwned + Default>(path: &Path) -> Result<T> {
     let mut file = match File::open(path) {
         Ok(f) => f,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(T::default()),
@@ -114,9 +112,7 @@ pub(crate) fn read_toml_file_or_default<T: DeserializeOwned + Default>(
     };
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    let value: T = toml::from_str(&contents).map_err(|err| crate::reader::Error::ParseError {
-        path: path.to_owned(),
-        source: err,
-    })?;
+    let value: T =
+        toml::from_str(&contents).with_context(|| format!("Failed to parse {}", path.display()))?;
     Ok(value)
 }

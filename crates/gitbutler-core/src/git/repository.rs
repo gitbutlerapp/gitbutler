@@ -198,15 +198,11 @@ impl Repository {
     pub fn branches(
         &self,
         filter: Option<git2::BranchType>,
-    ) -> Result<impl Iterator<Item = Result<(Branch, git2::BranchType)>>> {
+    ) -> Result<impl Iterator<Item = Result<git2::Branch>>> {
         self.0
             .branches(filter)
             .map(|branches| {
-                branches.map(|branch| {
-                    branch
-                        .map(|(branch, branch_type)| (Branch::from(branch), branch_type))
-                        .map_err(Into::into)
-                })
+                branches.map(|branch| branch.map(|(branch, _)| branch).map_err(Into::into))
             })
             .map_err(Into::into)
     }
@@ -473,27 +469,6 @@ impl Repository {
         self.0.workdir()
     }
 
-    pub fn branch_upstream_name(&self, branch_name: &str) -> Result<String> {
-        self.0
-            .branch_upstream_name(branch_name)
-            .map(|s| s.as_str().unwrap().to_string())
-            .map_err(Into::into)
-    }
-
-    pub fn branch_remote_name(&self, refname: &str) -> Result<String> {
-        self.0
-            .branch_remote_name(refname)
-            .map(|s| s.as_str().unwrap().to_string())
-            .map_err(Into::into)
-    }
-
-    pub fn branch_upstream_remote(&self, branch_name: &str) -> Result<String> {
-        self.0
-            .branch_upstream_remote(branch_name)
-            .map(|s| s.as_str().unwrap().to_string())
-            .map_err(Into::into)
-    }
-
     pub fn statuses(
         &self,
         options: Option<&mut git2::StatusOptions>,
@@ -501,18 +476,17 @@ impl Repository {
         self.0.statuses(options).map_err(Into::into)
     }
 
-    pub fn remote_anonymous(&self, url: &super::Url) -> Result<Remote> {
+    pub fn remote_anonymous(&self, url: &super::Url) -> Result<git2::Remote> {
         self.0
             .remote_anonymous(&url.to_string())
-            .map(Into::into)
             .map_err(Into::into)
     }
 
-    pub fn find_remote(&self, name: &str) -> Result<Remote> {
-        self.0.find_remote(name).map(Into::into).map_err(Into::into)
+    pub fn find_remote(&self, name: &str) -> Result<git2::Remote> {
+        self.0.find_remote(name).map_err(Into::into)
     }
 
-    pub fn find_branch(&self, name: &Refname) -> Result<Branch> {
+    pub fn find_branch(&self, name: &Refname) -> Result<git2::Branch> {
         self.0
             .find_branch(
                 &name.simple_name(),
@@ -523,7 +497,6 @@ impl Repository {
                     Refname::Remote(_) => git2::BranchType::Remote,
                 },
             )
-            .map(Into::into)
             .map_err(Into::into)
     }
 
@@ -576,13 +549,6 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn branch(&self, name: &Refname, target: &git2::Commit, force: bool) -> Result<Branch> {
-        self.0
-            .branch(&name.to_string(), target, force)
-            .map(Into::into)
-            .map_err(Into::into)
-    }
-
     pub fn reference(
         &self,
         name: &Refname,
@@ -596,11 +562,8 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn remote(&self, name: &str, url: &Url) -> Result<Remote> {
-        self.0
-            .remote(name, &url.to_string())
-            .map(Into::into)
-            .map_err(Into::into)
+    pub fn remote(&self, name: &str, url: &Url) -> Result<git2::Remote> {
+        self.0.remote(name, &url.to_string()).map_err(Into::into)
     }
 
     pub fn references(&self) -> Result<impl Iterator<Item = Result<Reference>>> {
@@ -653,7 +616,7 @@ impl Repository {
 
     /// Returns a list of remotes
     ///
-    /// Returns Vec<String> instead of StringArray because StringArray cannot safly be sent between threads
+    /// Returns `Vec<String>` instead of StringArray because StringArray cannot safly be sent between threads
     pub fn remotes(&self) -> Result<Vec<String>> {
         self.0
             .remotes()

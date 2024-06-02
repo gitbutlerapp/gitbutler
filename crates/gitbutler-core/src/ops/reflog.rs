@@ -174,6 +174,10 @@ mod set_target_ref {
 
         let contents = std::fs::read_to_string(&log_file_path)?;
         assert_eq!(reflog_lines(&contents).len(), 2);
+
+        let contents = std::fs::read_to_string(&log_file_path)?;
+        let lines = reflog_lines(&contents);
+        assert_signature(lines[0].signature);
         Ok(())
     }
 
@@ -222,12 +226,16 @@ mod set_target_ref {
         let oplog = git::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
         set_reference_to_oplog(worktree_dir, commit_id.into(), oplog).expect("success");
 
-        let loose_ref_log_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
-        std::fs::remove_file(&loose_ref_log_path)?;
+        let log_file_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
+        std::fs::remove_file(&log_file_path)?;
 
         set_reference_to_oplog(worktree_dir, commit_id.into(), oplog)
             .expect("missing reflog files are recreated");
-        assert!(loose_ref_log_path.is_file(), "the file was recreated");
+        assert!(log_file_path.is_file(), "the file was recreated");
+
+        let contents = std::fs::read_to_string(&log_file_path)?;
+        let lines = reflog_lines(&contents);
+        assert_signature(lines[0].signature);
         Ok(())
     }
 
@@ -346,6 +354,10 @@ mod set_target_ref {
     fn assert_signature(sig: gix::actor::SignatureRef<'_>) {
         assert_eq!(sig.name, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME);
         assert_eq!(sig.email, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL);
+        assert_ne!(
+            sig.time.seconds, 0,
+            "we don't accidentally use the default time as it would caues GC as well"
+        );
     }
 
     fn setup_repo() -> anyhow::Result<(tempfile::TempDir, git2::Oid)> {

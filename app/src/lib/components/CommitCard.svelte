@@ -8,9 +8,9 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Tag from '$lib/components/Tag.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
-	import { featureAdvancedCommitOperations } from '$lib/config/uiFeatureFlags';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
+	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { getTimeAgo } from '$lib/utils/timeAgo';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -40,7 +40,6 @@
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
-	const advancedCommitOperations = featureAdvancedCommitOperations();
 
 	const commitStore = createCommitStore(commit);
 	$: commitStore.set(commit);
@@ -104,12 +103,8 @@
 	}
 
 	let isUndoable = !isConflicted;
+	//let isUndoable = !!branch?.active && commit instanceof Commit;
 
-	$: if ($advancedCommitOperations) {
-		isUndoable = !!branch?.active && commit instanceof Commit;
-	} else {
-		isUndoable = isHeadCommit;
-	}
 	const hasCommitUrl = !commit.isLocal && commitUrl;
 
 	let commitMessageModal: Modal;
@@ -133,6 +128,7 @@
 
 		commitMessageModal.close();
 	}
+	$: console.log(commit.status);
 </script>
 
 <Modal bind:this={commitMessageModal}>
@@ -177,6 +173,7 @@
 				class:local={type == 'local'}
 				class:remote={type == 'remote'}
 				class:upstream={type == 'upstream'}
+				class:integrated={type == 'integrated'}
 			/>
 
 			<div class={isConflicted ? 'commit__content-conflicted' : 'commit__content'}>
@@ -190,12 +187,14 @@
 				>
 					{#if first}
 						<div class="commit__type text-semibold text-base-12">
-							{#if type == 'remote'}
-								Local and remote
+							{#if type == 'upstream'}
+								Remote upstream <Icon name="remote" />
 							{:else if type == 'local'}
 								Local <Icon name="local" />
-							{:else if type == 'upstream'}
-								Remote upstream <Icon name="remote" />
+							{:else if type == 'remote'}
+								Local and remote
+							{:else if type == 'integrated'}
+								Integrated
 							{/if}
 						</div>
 					{/if}
@@ -212,30 +211,30 @@
 							{commit.descriptionTitle}
 						</h5>
 
-						{#if $advancedCommitOperations}
-							<div class="text-base-11 commit__subtitle">
-								<span class="commit__id">
-									{#if commit.changeId}
-										{commit.changeId.split('-')[0]}
-									{:else}
-										{commit.id.substring(0, 6)}
-									{/if}
+						<div class="text-base-11 commit__subtitle">
+							<!-- svelte-ignore a11y-click-events-have-key-events -->
+							<span
+								class="commit__id"
+								on:click|stopPropagation={() => copyToClipboard(commit.id)}
+								role="button"
+								tabindex="0"
+							>
+								{commit.id.substring(0, 7)}
 
-									{#if commit.isSigned}
-										<Icon name="locked-small" />
-									{/if}
-								</span>
+								{#if commit.isSigned}
+									<Icon name="locked-small" />
+								{/if}
+							</span>
 
-								<span class="commit__subtitle-divider">•</span>
+							<span class="commit__subtitle-divider">•</span>
 
-								<span
-									>{getTimeAgo(commit.createdAt)}{type == 'remote' ||
-									type == 'upstream'
-										? ` by ${commit.author.name}`
-										: ''}</span
-								>
-							</div>
-						{/if}
+							<span
+								>{getTimeAgo(commit.createdAt)}{type == 'remote' ||
+								type == 'upstream'
+									? ` by ${commit.author.name}`
+									: ''}</span
+							>
+						</div>
 					{/if}
 				</div>
 
@@ -256,51 +255,49 @@
 											undoCommit(commit);
 										}}>Undo</Tag
 									>
-									{#if $advancedCommitOperations}
-										<Tag
-											style="ghost"
-											kind="solid"
-											icon="edit-text"
-											clickable
-											on:click={openCommitMessageModal}>Edit message</Tag
-										>
-										<Tag
-											style="ghost"
-											kind="solid"
-											clickable
-											on:click={(e) => {
-												e.stopPropagation();
-												reorderCommit(commit, -1);
-											}}>Move Up</Tag
-										>
-										<Tag
-											style="ghost"
-											kind="solid"
-											clickable
-											on:click={(e) => {
-												e.stopPropagation();
-												reorderCommit(commit, 1);
-											}}>Move Down</Tag
-										>
-										<Tag
-											style="ghost"
-											kind="solid"
-											clickable
-											on:click={(e) => {
-												e.stopPropagation();
-												insertBlankCommit(commit, -1);
-											}}>Add Before</Tag
-										>
-										<Tag
-											style="ghost"
-											kind="solid"
-											clickable
-											on:click={(e) => {
-												e.stopPropagation();
-												insertBlankCommit(commit, 1);
-											}}>Add After</Tag
-										>
-									{/if}
+									<Tag
+										style="ghost"
+										kind="solid"
+										icon="edit-text"
+										clickable
+										on:click={openCommitMessageModal}>Edit message</Tag
+									>
+									<Tag
+										style="ghost"
+										kind="solid"
+										clickable
+										on:click={(e) => {
+											e.stopPropagation();
+											reorderCommit(commit, -1);
+										}}>Move Up</Tag
+									>
+									<Tag
+										style="ghost"
+										kind="solid"
+										clickable
+										on:click={(e) => {
+											e.stopPropagation();
+											reorderCommit(commit, 1);
+										}}>Move Down</Tag
+									>
+									<Tag
+										style="ghost"
+										kind="solid"
+										clickable
+										on:click={(e) => {
+											e.stopPropagation();
+											insertBlankCommit(commit, -1);
+										}}>Add Before</Tag
+									>
+									<Tag
+										style="ghost"
+										kind="solid"
+										clickable
+										on:click={(e) => {
+											e.stopPropagation();
+											insertBlankCommit(commit, 1);
+										}}>Add After</Tag
+									>
 								{/if}
 								{#if hasCommitUrl}
 									<Tag
@@ -421,6 +418,9 @@
 		&.upstream {
 			background-color: var(--clr-commit-upstream);
 		}
+		&.integrated {
+			background-color: var(--clr-commit-shadow);
+		}
 	}
 
 	.commit__type {
@@ -486,6 +486,10 @@
 		display: flex;
 		align-items: center;
 		gap: var(--size-4);
+
+		&:hover {
+			color: var(--clr-text-1);
+		}
 	}
 
 	.commit__subtitle-divider {

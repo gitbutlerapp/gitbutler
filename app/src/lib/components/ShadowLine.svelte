@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { getAvatarTooltip } from '$lib/utils/avatar';
-	import { tooltip } from '$lib/utils/tooltip';
-	import type { Commit, RemoteCommit } from '$lib/vbranches/types';
+	import Avatar from './Avatar.svelte';
+	import type { Commit, CommitStatus, RemoteCommit } from '$lib/vbranches/types';
 
 	export let line: boolean;
 	export let first: boolean;
@@ -10,21 +9,20 @@
 	export let localCommit: Commit | undefined;
 	export let dashed: boolean;
 	export let upstreamLine: boolean;
-
-	$: tooltipText = getAvatarTooltip(localCommit || remoteCommit);
+	export let upstreamType: CommitStatus | undefined;
 </script>
 
 <div class="shadow-column">
 	{#if line}
 		{#if upstreamLine}
-			<div class="shadow-line tip" class:upstream={upstreamLine}></div>
+			<div class="shadow-line tip" class:upstream={upstreamType == 'upstream'}></div>
 		{/if}
 		<div class="shadow-line" class:dashed class:short class:first />
 	{:else if upstreamLine}
 		<div class="shadow-line upstream" class:short class:first />
 	{/if}
-	{#if localCommit}
-		<div class="shadow-marker" class:first class:short use:tooltip={tooltipText}></div>
+	{#if localCommit || remoteCommit}
+		<Avatar shadow={!!localCommit} shadowLane commit={localCommit || remoteCommit} {first} />
 	{/if}
 </div>
 
@@ -45,9 +43,9 @@
 		bottom: 0;
 		top: 0;
 		&.short {
-			top: calc(var(--avatar-top) + var(--size-2));
+			top: calc(var(--avatar-top) + var(--size-4));
 			&.first {
-				top: calc(var(--avatar-first-top) + var(--size-2));
+				top: calc(var(--avatar-first-top) + var(--size-4));
 			}
 		}
 		&.dashed {
@@ -60,23 +58,10 @@
 			);
 		}
 		&.tip {
-			bottom: calc(100% - 2.625rem);
+			bottom: calc(100% - 3.3rem);
 		}
 		&.upstream {
 			background-color: var(--clr-commit-upstream);
-		}
-	}
-
-	.shadow-marker {
-		position: absolute;
-		width: var(--size-10);
-		height: var(--size-10);
-		border-radius: 100%;
-		background-color: var(--clr-commit-shadow);
-		top: calc(var(--avatar-top) + var(--size-2));
-		left: 50%;
-		&.first {
-			top: calc(var(--avatar-first-top) + var(--size-2));
 		}
 	}
 </style>

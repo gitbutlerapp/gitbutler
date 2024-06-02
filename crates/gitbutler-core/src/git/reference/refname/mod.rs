@@ -11,8 +11,6 @@ pub use r#virtual::Refname as VirtualRefname;
 pub use remote::Refname as RemoteRefname;
 use serde::{Deserialize, Serialize};
 
-use crate::git;
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Refname {
     Other(String),
@@ -102,11 +100,11 @@ impl FromStr for Refname {
     }
 }
 
-impl TryFrom<&git::Branch<'_>> for Refname {
+impl TryFrom<&git2::Branch<'_>> for Refname {
     type Error = Error;
 
-    fn try_from(value: &git::Branch<'_>) -> std::result::Result<Self, Self::Error> {
-        if value.is_remote() {
+    fn try_from(value: &git2::Branch<'_>) -> std::result::Result<Self, Self::Error> {
+        if value.get().is_remote() {
             Ok(Self::Remote(RemoteRefname::try_from(value)?))
         } else {
             Ok(Self::Local(LocalRefname::try_from(value)?))

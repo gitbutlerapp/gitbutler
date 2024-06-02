@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Avatar from './Avatar.svelte';
-	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import type { Commit } from '$lib/vbranches/types';
 
 	export let dashed: boolean;
@@ -9,10 +8,14 @@
 	export let isEmpty: boolean = false;
 
 	$: hasRoot = isRoot(commit);
-	$: tooltipText = getAvatarTooltip(commit);
 
 	function isRoot(commit: Commit | undefined): boolean {
-		return !!commit && (commit.parent == undefined || commit.parent?.status == 'remote');
+		return (
+			!!commit &&
+			(commit.parent == undefined ||
+				commit.parent?.status == 'remote' ||
+				commit.parent?.status == 'integrated')
+		);
 	}
 </script>
 
@@ -26,14 +29,11 @@
 			{/if}
 			<div class="local-line" class:has-root={hasRoot} class:short={first} />
 		{/if}
-		{#if commit}
-			{@const author = commit.author}
-			<div class="avatar" class:first>
-				<Avatar {author} status={commit.status} help={tooltipText} />
-			</div>
-		{/if}
 		{#if hasRoot}
 			<div class="root" class:long-root={commit?.parent} />
+		{/if}
+		{#if commit}
+			<Avatar {commit} {first} />
 		{/if}
 	{/if}
 </div>
@@ -43,14 +43,6 @@
 		position: relative;
 		width: var(--size-14);
 		/* background-color: rgba(255, 228, 196, 0.46); */
-	}
-	.avatar {
-		position: absolute;
-		top: var(--avatar-top);
-		left: -0.188rem;
-		&.first {
-			top: var(--avatar-first-top);
-		}
 	}
 
 	.local-line {

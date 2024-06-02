@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import Checkbox from '$lib/components/Checkbox.svelte';
@@ -33,6 +34,7 @@
 	const aiService = getContext(AIService);
 	const branch = getContextStore(Branch);
 	const project = getContext(Project);
+	const promptService = getContext(PromptService);
 
 	const dispatch = createEventDispatcher<{
 		action: 'generate-branch-name';
@@ -81,11 +83,14 @@
 
 		aiLoading = true;
 		try {
+			const prompt = promptService.selectedCommitPrompt(project.id);
+			console.log(prompt);
 			const generatedMessage = await aiService.summarizeCommit({
 				hunks,
 				useEmojiStyle: $commitGenerationUseEmojis,
 				useBriefStyle: $commitGenerationExtraConcise,
-				userToken: $user?.access_token
+				userToken: $user?.access_token,
+				commitTemplate: prompt
 			});
 
 			if (generatedMessage) {

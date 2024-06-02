@@ -52,7 +52,7 @@ async fn deltect_conflict() {
                 .await
                 .unwrap_err()
                 .downcast_ref(),
-            Some(errors::ApplyBranchError::BranchConflicts(_))
+            Some(Marker::ProjectConflict)
         ));
     }
 }

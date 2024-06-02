@@ -23,40 +23,39 @@ mod add {
     }
 
     mod error {
-        use gitbutler_core::projects::AddError;
-
         use super::*;
 
         #[test]
         fn missing() {
             let (controller, _tmp) = new();
             let tmp = tempfile::tempdir().unwrap();
-            assert!(matches!(
-                controller.add(tmp.path().join("missing")),
-                Err(AddError::PathNotFound)
-            ));
+            assert_eq!(
+                controller
+                    .add(tmp.path().join("missing"))
+                    .unwrap_err()
+                    .to_string(),
+                "path not found"
+            );
         }
 
         #[test]
-        fn not_git() {
+        fn directory_without_git() {
             let (controller, _tmp) = new();
             let tmp = tempfile::tempdir().unwrap();
             let path = tmp.path();
             std::fs::write(path.join("file.txt"), "hello world").unwrap();
-            assert!(matches!(
-                controller.add(path),
-                Err(AddError::NotAGitRepository(_))
-            ));
+            assert_eq!(
+                controller.add(path).unwrap_err().to_string(),
+                "must be a Git repository"
+            );
         }
 
         #[test]
         fn empty() {
             let (controller, _tmp) = new();
             let tmp = tempfile::tempdir().unwrap();
-            assert!(matches!(
-                controller.add(tmp.path()),
-                Err(AddError::NotAGitRepository(_))
-            ));
+            let err = controller.add(tmp.path()).unwrap_err();
+            assert_eq!(err.to_string(), "must be a Git repository");
         }
 
         #[test]
@@ -65,7 +64,10 @@ mod add {
             let repository = gitbutler_testsupport::TestProject::default();
             let path = repository.path();
             controller.add(path).unwrap();
-            assert!(matches!(controller.add(path), Err(AddError::AlreadyExists)));
+            assert_eq!(
+                controller.add(path).unwrap_err().to_string(),
+                "project already exists"
+            );
         }
 
         #[test]
@@ -78,7 +80,7 @@ mod add {
             create_initial_commit(&repo);
 
             let err = controller.add(repo_dir).unwrap_err();
-            assert!(matches!(err, AddError::BareUnsupported));
+            assert_eq!(err.to_string(), "bare repositories are unsupported");
         }
 
         #[test]
@@ -93,7 +95,7 @@ mod add {
 
             let worktree = repo.worktree("feature", &worktree_dir, None).unwrap();
             let err = controller.add(worktree.path()).unwrap_err();
-            assert_eq!(err.to_string(), "worktrees unsupported");
+            assert_eq!(err.to_string(), "can only work in main worktrees");
         }
 
         fn create_initial_commit(repo: &git2::Repository) -> git2::Oid {

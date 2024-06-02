@@ -1,7 +1,11 @@
 use std::path::PathBuf;
+use std::str::FromStr;
 
-use crate::error::{AnyhowContextExt, Code, Context, ErrorWithContext};
-use crate::{error, keys, project_repository, projects, users};
+use anyhow::Context;
+
+use crate::{keys, project_repository, projects, users};
+
+use super::Url;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SshCredential {
@@ -82,22 +86,11 @@ pub enum HelpError {
     #[error("failed to convert url: {0}")]
     UrlConvertError(#[from] super::ConvertError),
     #[error(transparent)]
-    Git(#[from] super::Error),
+    Git(#[from] git2::Error),
+    #[error(transparent)]
+    GbGit(#[from] super::Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl ErrorWithContext for HelpError {
-    fn context(&self) -> Option<Context> {
-        Some(match self {
-            HelpError::NoUrlSet => {
-                error::Context::new_static(Code::ProjectGitRemote, "no url set for remote")
-            }
-            HelpError::UrlConvertError(_) => Code::ProjectGitRemote.into(),
-            HelpError::Git(_) => return None,
-            HelpError::Other(error) => return error.custom_context_or_root_cause().into(),
-        })
-    }
 }
 
 impl Helper {
@@ -124,9 +117,10 @@ impl Helper {
         &'a self,
         project_repository: &'a project_repository::Repository,
         remote_name: &str,
-    ) -> Result<Vec<(super::Remote, Vec<Credential>)>, HelpError> {
+    ) -> Result<Vec<(git2::Remote, Vec<Credential>)>, HelpError> {
         let remote = project_repository.git_repository.find_remote(remote_name)?;
-        let remote_url = remote.url()?.ok_or(HelpError::NoUrlSet)?;
+        let remote_url = Url::from_str(remote.url().ok_or(HelpError::NoUrlSet)?)
+            .context("failed to parse remote url")?;
 
         // if file, no auth needed.
         if remote_url.scheme == super::Scheme::File {
@@ -184,10 +178,11 @@ impl Helper {
 
     fn generated_flow<'a>(
         &'a self,
-        remote: super::Remote<'a>,
+        remote: git2::Remote<'a>,
         project_repository: &'a project_repository::Repository,
-    ) -> Result<Vec<(super::Remote, Vec<Credential>)>, HelpError> {
-        let remote_url = remote.url()?.ok_or(HelpError::NoUrlSet)?;
+    ) -> Result<Vec<(git2::Remote, Vec<Credential>)>, HelpError> {
+        let remote_url = Url::from_str(remote.url().ok_or(HelpError::NoUrlSet)?)
+            .context("failed to parse remote url")?;
 
         let ssh_remote = if remote_url.scheme == super::Scheme::Ssh {
             Ok(remote)
@@ -205,10 +200,11 @@ impl Helper {
 
     fn default_flow<'a>(
         &'a self,
-        remote: super::Remote<'a>,
+        remote: git2::Remote<'a>,
         project_repository: &'a project_repository::Repository,
-    ) -> Result<Vec<(super::Remote, Vec<Credential>)>, HelpError> {
-        let remote_url = remote.url()?.ok_or(HelpError::NoUrlSet)?;
+    ) -> Result<Vec<(git2::Remote, Vec<Credential>)>, HelpError> {
+        let remote_url = Url::from_str(remote.url().ok_or(HelpError::NoUrlSet)?)
+            .context("failed to parse remote url")?;
 
         // is github is authenticated, only try github.
         if remote_url.is_github() {

@@ -260,14 +260,14 @@ async fn forcepush_forbidden() {
         .await
         .unwrap();
 
-    assert!(matches!(
+    assert_eq!(
         controller
             .update_commit_message(*project_id, branch_id, commit_one_oid, "commit one updated",)
             .await
             .unwrap_err()
-            .downcast_ref(),
-        Some(errors::UpdateCommitMessageError::ForcePushNotAllowed(_))
-    ));
+            .to_string(),
+        "force push not allowed"
+    );
 }
 
 #[tokio::test]
@@ -365,12 +365,12 @@ async fn empty() {
             .unwrap()
     };
 
-    assert!(matches!(
+    assert_eq!(
         controller
             .update_commit_message(*project_id, branch_id, commit_one_oid, "",)
             .await
             .unwrap_err()
-            .downcast_ref(),
-        Some(errors::UpdateCommitMessageError::EmptyMessage)
-    ));
+            .to_string(),
+        "commit message can not be empty"
+    );
 }

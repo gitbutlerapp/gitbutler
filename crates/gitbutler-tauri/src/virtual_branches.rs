@@ -150,13 +150,16 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
-    pub async fn update_base_branch(handle: AppHandle, project_id: ProjectId) -> Result<(), Error> {
-        handle
+    pub async fn update_base_branch(
+        handle: AppHandle,
+        project_id: ProjectId,
+    ) -> Result<Vec<branch::Branch>, Error> {
+        let unapplied_branches = handle
             .state::<Controller>()
             .update_base_branch(project_id)
             .await?;
         emit_vbranches(&handle, project_id).await;
-        Ok(())
+        Ok(unapplied_branches)
     }
 
     #[tauri::command(async)]
