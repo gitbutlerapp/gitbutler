@@ -26,6 +26,28 @@
 
 	let currentFilePreview: RemoteFile | undefined = undefined;
 
+	function findRestorationRanges(snapshots: Snapshot[]) {
+		if (snapshots.length === 0) return [];
+
+		const idToIndexMap = new Map<string, number>();
+		snapshots.forEach((snapshot, index) => idToIndexMap.set(snapshot.id, index));
+
+		const ranges = snapshots.flatMap((snapshot, startIndex) => {
+			if (snapshot.details?.operation === 'RestoreFromSnapshot') {
+				const restoredId = snapshot.details?.trailers.find((t) => t.key === 'restored_from')?.value;
+				if (restoredId !== undefined) {
+					const endIndex = idToIndexMap.get(restoredId);
+					if (endIndex !== undefined && startIndex <= endIndex) {
+						return snapshots.slice(startIndex, endIndex + 1);
+					}
+				}
+			}
+			return []; // flatMap ignores empty arrays
+		});
+
+		return ranges.map((snapshot) => snapshot.id);
+	}
+
 	async function onLastInView() {
 		if (!$loading && !$isAllLoaded) await historyService.loadMore();
 	}
@@ -55,7 +77,7 @@
 
 <aside class="sideview-container show-view">
 	<div
-		class="sideview-content-wrap"
+		class="sideview-content-wrap show-sideview"
 		use:clickOutside={{
 			handler: () => dispatch('hide')
 		}}
@@ -79,7 +101,10 @@
 		<div class="sideview">
 			<div class="sideview__header" data-tauri-drag-region>
 				<i class="clock-icon">
-					<div class="clock-pointers" />
+					<div class="clock-pointers">
+						<div class="clock-pointer clock-pointer-minute" />
+						<div class="clock-pointer clock-pointer-hour" />
+					</div>
 				</i>
 				<h3 class="sideview__header-title text-base-15 text-bold">Project history</h3>
 				<Button
@@ -92,7 +117,7 @@
 			</div>
 
 			<!-- EMPTY STATE -->
-			{#if $snapshots.length == 0}
+			{#if $snapshots.length == 0 && !$loading}
 				<EmptyStatePlaceholder image={emptyFolderSvg}>
 					<svelte:fragment slot="title">No snapshots yet</svelte:fragment>
 					<svelte:fragment slot="caption">
@@ -113,6 +138,7 @@
 					<div class="container">
 						<!-- SNAPSHOTS FEED -->
 						{#each $snapshots as entry, idx (entry.id)}
+							{@const withinRestoreItems = findRestorationRanges($snapshots)}
 							{#if idx === 0 || createdOnDay(entry.createdAt) != createdOnDay($snapshots[idx - 1].createdAt)}
 								<div class="sideview__date-header">
 									<h4 class="text-base-13 text-semibold">
@@ -123,6 +149,7 @@
 
 							{#if entry.details}
 								<SnapshotCard
+									isWithinRestore={withinRestoreItems.includes(entry.id)}
 									{entry}
 									on:restoreClick={() => {
 										historyService.restoreSnapshot(project.id, entry.id);
@@ -247,29 +274,21 @@
 		width: 0.125rem;
 		height: 0.125rem;
 		background-color: #000;
+	}
 
-		&::before,
-		&::after {
-			content: '';
-			position: absolute;
-			bottom: -0.125rem;
-			left: 50%;
-			transform: translate(-50%, -50%);
-			transform-origin: bottom;
-			width: 0.125rem;
-			height: calc(var(--size-12) / 2);
-			background-color: #000;
-		}
+	.clock-pointer {
+		position: absolute;
+		bottom: -0.125rem;
+		left: 50%;
+		transform-origin: bottom;
+		width: 0.125rem;
+		height: calc(var(--size-12) / 2);
+		background-color: #000;
+	}
 
-		&::before {
-			transform: translate(-50%, -50%) rotate(120deg);
-			animation: minute-pointer 1s forwards;
-		}
-
-		&::after {
-			transform: translate(-50%, -50%) rotate(0deg);
-			animation: hour-pointer 1.5s forwards;
-		}
+	.clock-pointer-minute {
+		transform: translate(-50%, -50%) rotate(120deg);
+		animation: minute-pointer 1s forwards;
 	}
 
 	@keyframes minute-pointer {
@@ -279,6 +298,11 @@
 		100% {
 			transform: translate(-50%, -50%) rotate(360deg);
 		}
+	}
+
+	.clock-pointer-hour {
+		transform: translate(-50%, -50%) rotate(0deg);
+		animation: hour-pointer 1.5s forwards;
 	}
 
 	@keyframes hour-pointer {
@@ -348,11 +372,11 @@
 	/* MODIFIERS */
 	.show-view {
 		animation: view-fade-in 0.3s forwards;
+	}
 
-		& .sideview-content-wrap {
-			animation: view-slide-in 0.35s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-			animation-delay: 0.05s;
-		}
+	.show-sideview {
+		animation: view-slide-in 0.35s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+		animation-delay: 0.05s;
 	}
 
 	@keyframes view-fade-in {
