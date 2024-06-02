@@ -10,6 +10,7 @@
 	import type iconsJson from '$lib/icons/icons.json';
 
 	export let entry: Snapshot;
+	export let isWithinRestore: boolean = true;
 	export let selectedFile:
 		| {
 				entryId: string;
@@ -35,6 +36,10 @@
 		const lowerCaseStr = str.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
 		return lowerCaseStr.charAt(0).toUpperCase() + lowerCaseStr.slice(1);
 	}
+
+	// if (entry.details?.operation == 'RestoreFromSnapshot') {
+	// 	console.log(entry.details);
+	// }
 
 	function mapOperation(snapshotDetails: SnapshotDetails | undefined): {
 		text: string;
@@ -152,7 +157,10 @@
 	}
 </script>
 
-<div class="snapshot-card show-restore-on-hover" class:restored-snapshot={isRestoreSnapshot}>
+<div
+	class="snapshot-card show-restore-on-hover"
+	class:restored-snapshot={isRestoreSnapshot || isWithinRestore}
+>
 	<div class="snapshot-right-container">
 		<div class="restore-btn">
 			<Tag

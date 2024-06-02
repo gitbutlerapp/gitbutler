@@ -26,6 +26,28 @@
 
 	let currentFilePreview: RemoteFile | undefined = undefined;
 
+	function findRestorationRanges(snapshots: Snapshot[]) {
+		if (snapshots.length === 0) return [];
+
+		const idToIndexMap = new Map<string, number>();
+		snapshots.forEach((snapshot, index) => idToIndexMap.set(snapshot.id, index));
+
+		const ranges = snapshots.flatMap((snapshot, startIndex) => {
+			if (snapshot.details?.operation === 'RestoreFromSnapshot') {
+				const restoredId = snapshot.details?.trailers.find((t) => t.key === 'restored_from')?.value;
+				if (restoredId !== undefined) {
+					const endIndex = idToIndexMap.get(restoredId);
+					if (endIndex !== undefined && startIndex <= endIndex) {
+						return snapshots.slice(startIndex, endIndex + 1);
+					}
+				}
+			}
+			return []; // flatMap ignores empty arrays
+		});
+
+		return ranges.map((snapshot) => snapshot.id);
+	}
+
 	async function onLastInView() {
 		if (!$loading && !$isAllLoaded) await historyService.loadMore();
 	}
@@ -116,6 +138,7 @@
 					<div class="container">
 						<!-- SNAPSHOTS FEED -->
 						{#each $snapshots as entry, idx (entry.id)}
+							{@const withinRestoreItems = findRestorationRanges($snapshots)}
 							{#if idx === 0 || createdOnDay(entry.createdAt) != createdOnDay($snapshots[idx - 1].createdAt)}
 								<div class="sideview__date-header">
 									<h4 class="text-base-13 text-semibold">
@@ -126,6 +149,7 @@
 
 							{#if entry.details}
 								<SnapshotCard
+									isWithinRestore={withinRestoreItems.includes(entry.id)}
 									{entry}
 									on:restoreClick={() => {
 										historyService.restoreSnapshot(project.id, entry.id);
