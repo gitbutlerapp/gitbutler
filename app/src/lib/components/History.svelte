@@ -99,8 +99,8 @@
 				<EmptyStatePlaceholder image={emptyFolderSvg}>
 					<svelte:fragment slot="title">No snapshots yet</svelte:fragment>
 					<svelte:fragment slot="caption">
-						Gitbutler saves your work, including file changes, so your progress is
-						always secure. Adjust snapshot settings in project settings.
+						Gitbutler saves your work, including file changes, so your progress is always secure.
+						Adjust snapshot settings in project settings.
 					</svelte:fragment>
 				</EmptyStatePlaceholder>
 			{/if}
@@ -147,10 +147,7 @@
 										} else {
 											snapshotFilesTempStore = {
 												entryId: entry.id,
-												diffs: await historyService.getSnapshotDiff(
-													project.id,
-													entry.id
-												)
+												diffs: await historyService.getSnapshotDiff(project.id, entry.id)
 											};
 											updateFilePreview(entry, path);
 										}
@@ -175,9 +172,8 @@
 								<div class="welcome-point__content">
 									<p class="text-base-13 text-semibold">Welcome to history!</p>
 									<p class="welcome-point__caption text-base-body-12">
-										Gitbutler saves your work, including file changes, so your
-										progress is always secure. Adjust snapshot settings in
-										project settings.
+										Gitbutler saves your work, including file changes, so your progress is always
+										secure. Adjust snapshot settings in project settings.
 									</p>
 								</div>
 							</div>
