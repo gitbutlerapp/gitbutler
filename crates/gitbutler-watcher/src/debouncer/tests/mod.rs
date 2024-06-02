@@ -79,7 +79,7 @@ fn state(
     file_name: &str,
 ) {
     let file_content =
-        std::fs::read_to_string(Path::new(&format!("tests/fixtures/{file_name}.hjson"))).unwrap();
+        fs::read_to_string(Path::new(&format!("./test_cases/{file_name}.hjson"))).unwrap();
     let mut test_case = deser_hjson::from_str::<TestCase>(&file_content).unwrap();
 
     MockClock::set_time(Duration::default());
@@ -95,8 +95,8 @@ fn state(
     }
 
     for error in test_case.errors {
-        let error = error.into_notify_error();
-        state.add_error(error);
+        let e = error.into_notify_error();
+        state.add_error(e);
     }
 
     let expected_errors = std::mem::take(&mut test_case.expected.errors);
@@ -137,7 +137,7 @@ fn state(
 
     for (delay, events) in expected_events {
         MockClock::set_time(backup_time);
-        state.queues.clone_from(&backup_queues);
+        state.queues = backup_queues.clone();
 
         match delay.as_str() {
             "none" => {}
@@ -157,7 +157,7 @@ fn state(
             .collect::<Vec<_>>();
 
         assert_eq!(
-            state.debounced_events(false),
+            state.debounced_events(),
             events,
             "debounced events after a `{delay}` delay"
         );
