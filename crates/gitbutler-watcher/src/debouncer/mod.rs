@@ -59,7 +59,7 @@ use notify::{
     event::{ModifyKind, RemoveKind, RenameMode},
     Error, ErrorKind, Event, EventKind, RecommendedWatcher, Watcher,
 };
-use parking_lot::Mutex;
+use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
 
 #[cfg(test)]
 use mock_instant::Instant;
@@ -487,7 +487,6 @@ impl<T: FileIdCache> DebounceDataInner<T> {
 pub struct Debouncer<T: Watcher, C: FileIdCache> {
     watcher: T,
     debouncer_thread: Option<std::thread::JoinHandle<()>>,
-    #[allow(dead_code)]
     data: DebounceData<C>,
     stop: Arc<AtomicBool>,
     flush: Arc<AtomicBool>,
@@ -517,6 +516,11 @@ impl<T: Watcher, C: FileIdCache> Debouncer<T, C> {
     /// Indicates that on the next tick of the debouncer thread, all events should be emitted.
     pub fn flush_nonblocking(&self) {
         self.flush.store(true, Ordering::Relaxed);
+    }
+
+    /// Access to the internally used notify Watcher backend
+    pub fn cache(&mut self) -> MappedMutexGuard<'_, C> {
+        MutexGuard::map(self.data.lock(), |data| &mut data.cache)
     }
 
     /// Access to the internally used notify Watcher backend

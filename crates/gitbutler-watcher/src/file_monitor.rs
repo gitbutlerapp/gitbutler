@@ -92,11 +92,21 @@ pub fn spawn(
         debouncer
             .watcher()
             .watch(worktree_path, notify::RecursiveMode::Recursive)
+            .map(|_| {
+                debouncer
+                    .cache()
+                    .add_root(worktree_path, notify::RecursiveMode::Recursive)
+            })
             .and_then(|()| {
                 if let Some(git_dir) = extra_git_dir_to_watch {
                     debouncer
                         .watcher()
                         .watch(git_dir, notify::RecursiveMode::Recursive)
+                        .map(|_| {
+                            debouncer
+                                .cache()
+                                .add_root(git_dir, notify::RecursiveMode::Recursive)
+                        })
                 } else {
                     Ok(())
                 }
