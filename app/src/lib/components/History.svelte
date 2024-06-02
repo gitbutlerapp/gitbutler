@@ -55,7 +55,7 @@
 
 <aside class="sideview-container show-view">
 	<div
-		class="sideview-content-wrap"
+		class="sideview-content-wrap show-sideview"
 		use:clickOutside={{
 			handler: () => dispatch('hide')
 		}}
@@ -79,7 +79,10 @@
 		<div class="sideview">
 			<div class="sideview__header" data-tauri-drag-region>
 				<i class="clock-icon">
-					<div class="clock-pointers" />
+					<div class="clock-pointers">
+						<div class="clock-pointer clock-pointer-minute" />
+						<div class="clock-pointer clock-pointer-hour" />
+					</div>
 				</i>
 				<h3 class="sideview__header-title text-base-15 text-bold">Project history</h3>
 				<Button
@@ -246,29 +249,21 @@
 		width: 0.125rem;
 		height: 0.125rem;
 		background-color: #000;
+	}
 
-		&::before,
-		&::after {
-			content: '';
-			position: absolute;
-			bottom: -0.125rem;
-			left: 50%;
-			transform: translate(-50%, -50%);
-			transform-origin: bottom;
-			width: 0.125rem;
-			height: calc(var(--size-12) / 2);
-			background-color: #000;
-		}
+	.clock-pointer {
+		position: absolute;
+		bottom: -0.125rem;
+		left: 50%;
+		transform-origin: bottom;
+		width: 0.125rem;
+		height: calc(var(--size-12) / 2);
+		background-color: #000;
+	}
 
-		&::before {
-			transform: translate(-50%, -50%) rotate(120deg);
-			animation: minute-pointer 1s forwards;
-		}
-
-		&::after {
-			transform: translate(-50%, -50%) rotate(0deg);
-			animation: hour-pointer 1.5s forwards;
-		}
+	.clock-pointer-minute {
+		transform: translate(-50%, -50%) rotate(120deg);
+		animation: minute-pointer 1s forwards;
 	}
 
 	@keyframes minute-pointer {
@@ -278,6 +273,11 @@
 		100% {
 			transform: translate(-50%, -50%) rotate(360deg);
 		}
+	}
+
+	.clock-pointer-hour {
+		transform: translate(-50%, -50%) rotate(0deg);
+		animation: hour-pointer 1.5s forwards;
 	}
 
 	@keyframes hour-pointer {
@@ -347,11 +347,11 @@
 	/* MODIFIERS */
 	.show-view {
 		animation: view-fade-in 0.3s forwards;
+	}
 
-		& .sideview-content-wrap {
-			animation: view-slide-in 0.35s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-			animation-delay: 0.05s;
-		}
+	.show-sideview {
+		animation: view-slide-in 0.35s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+		animation-delay: 0.05s;
 	}
 
 	@keyframes view-fade-in {
