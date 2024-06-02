@@ -3014,9 +3014,11 @@ pub fn reorder_commit(
             branch.head,
             project_repository::LogUntil::Commit(commit.id().into()),
         )?;
-        let last_oid = ids_to_rebase.pop().context("failed to pop last oid")?;
-        ids_to_rebase.push(commit_oid);
-        ids_to_rebase.push(last_oid);
+
+        ids_to_rebase.insert(
+            ids_to_rebase.len() - offset.unsigned_abs() as usize,
+            commit_oid,
+        );
 
         let new_head =
             cherry_rebase_group(project_repository, parent_oid.into(), &mut ids_to_rebase)
@@ -3035,15 +3037,25 @@ pub fn reorder_commit(
             return Ok(());
         }
 
-        let target = parent.parent(0).context("failed to find target")?;
+        let mut target = parent.clone();
+
+        for _ in 0..offset {
+            target = target.parent(0).context("failed to find target")?;
+        }
+
         let target_oid = target.id();
 
         // get a list of the commits to rebase
-        let mut ids_to_rebase = project_repository.l(
-            branch.head,
-            project_repository::LogUntil::Commit(commit.id().into()),
-        )?;
-        ids_to_rebase.push(parent_oid.into());
+        let mut ids_to_rebase: Vec<git::Oid> = project_repository
+            .l(
+                branch.head,
+                project_repository::LogUntil::Commit(target_oid.into()),
+            )?
+            .iter()
+            .filter(|id| **id != commit_oid)
+            .cloned()
+            .collect();
+
         ids_to_rebase.push(commit_oid);
 
         let new_head =

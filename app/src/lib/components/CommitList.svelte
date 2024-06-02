@@ -2,6 +2,8 @@
 	import CommitCard from './CommitCard.svelte';
 	import CommitLines from './CommitLines.svelte';
 	import { Project } from '$lib/backend/projects';
+	import ReorderDropzone from '$lib/components/CommitList/ReorderDropzone.svelte';
+	import { ReorderDropzoneIndexer } from '$lib/dragging/reorderDropzoneIndexer';
 	import { getContext } from '$lib/utils/context';
 	import { getContextStore } from '$lib/utils/context';
 	import {
@@ -45,6 +47,8 @@
 		}
 		if (hasUnknownCommits) return 'upstream';
 	}
+
+	$: reorderDropzoneIndexer = new ReorderDropzoneIndexer([...$localCommits, ...$remoteCommits]);
 </script>
 
 {#if hasCommits || hasUnknownCommits}
@@ -75,6 +79,10 @@
 				</CommitCard>
 			{/each}
 		{/if}
+		<ReorderDropzone
+			index={reorderDropzoneIndexer.topDropzoneIndex}
+			indexer={reorderDropzoneIndexer}
+		/>
 		<!-- LOCAL COMMITS -->
 		{#if $localCommits.length > 0}
 			{#each $localCommits as commit, idx (commit.id)}
@@ -101,6 +109,10 @@
 						/>
 					</svelte:fragment>
 				</CommitCard>
+				<ReorderDropzone
+					index={reorderDropzoneIndexer.dropzoneIndexBelowCommit(commit.id)}
+					indexer={reorderDropzoneIndexer}
+				/>
 				<!-- </div> -->
 			{/each}
 		{/if}
@@ -130,6 +142,10 @@
 						/>
 					</svelte:fragment>
 				</CommitCard>
+				<ReorderDropzone
+					index={reorderDropzoneIndexer.dropzoneIndexBelowCommit(commit.id)}
+					indexer={reorderDropzoneIndexer}
+				/>
 			{/each}
 		{/if}
 		<!-- INTEGRATED COMMITS -->
