@@ -1,10 +1,7 @@
 <script lang="ts">
-	import Avatar from './Avatar.svelte';
-	import type { Commit, CommitStatus, RemoteCommit } from '$lib/vbranches/types';
+	import type { Commit, CommitStatus } from '$lib/vbranches/types';
 
 	export let commit: Commit | undefined;
-	export let remoteCommit: RemoteCommit | undefined;
-	export let shadowCommit: RemoteCommit | undefined;
 	export let base: boolean;
 	export let first: boolean;
 	export let short: boolean;
@@ -72,15 +69,7 @@
 		{#if root}
 			<div class="root" />
 		{/if}
-		{#if commit}
-			<Avatar remoteLane commit={commit || remoteCommit || shadowCommit} {first} />
-		{/if}
-		{#if remoteCommit}
-			<Avatar remoteLane commit={commit || remoteCommit || shadowCommit} {first} />
-		{/if}
-		{#if shadowCommit}
-			<Avatar shadow remoteLane commit={commit || remoteCommit || shadowCommit} {first} />
-		{/if}
+		<slot />
 	{/if}
 </div>
 

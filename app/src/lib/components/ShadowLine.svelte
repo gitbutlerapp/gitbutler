@@ -1,12 +1,9 @@
 <script lang="ts">
-	import Avatar from './Avatar.svelte';
-	import type { Commit, CommitStatus, RemoteCommit } from '$lib/vbranches/types';
+	import type { CommitStatus } from '$lib/vbranches/types';
 
 	export let line: boolean;
 	export let first: boolean;
 	export let short: boolean;
-	export let remoteCommit: RemoteCommit | undefined;
-	export let localCommit: Commit | undefined;
 	export let dashed: boolean;
 	export let upstreamLine: boolean;
 	export let upstreamType: CommitStatus | undefined;
@@ -21,9 +18,7 @@
 	{:else if upstreamLine}
 		<div class="shadow-line upstream" class:short class:first />
 	{/if}
-	{#if localCommit || remoteCommit}
-		<Avatar shadow={!!localCommit} shadowLane commit={localCommit || remoteCommit} {first} />
-	{/if}
+	<slot />
 </div>
 
 <style lang="postcss">

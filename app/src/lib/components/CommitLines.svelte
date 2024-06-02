@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Avatar from './Avatar.svelte';
 	import LocalLine from './LocalLine.svelte';
 	import RemoteLine from './RemoteLine.svelte';
 	import ShadowLine from './ShadowLine.svelte';
@@ -17,28 +18,21 @@
 	export let base = false;
 	export let upstreamType: CommitStatus | undefined = undefined;
 
-	$: root =
-		localRoot ||
-		((localCommit?.status == 'remote' || localCommit?.status == 'integrated') &&
-			localCommit?.children?.[0]?.status == 'local');
-	$: short =
-		!upstreamType &&
-		((!!localCommit && !localCommit?.children?.[0]) ||
-			(!!remoteCommit && !remoteCommit?.children?.[0]));
+	$: root = localRoot || (integratedOrRemote && nextCommitIsLocal);
+	$: nextCommitIsLocal = localCommit?.children?.[0]?.status == 'local';
+	$: integratedOrRemote = localCommit?.status == 'remote' || localCommit?.status == 'integrated';
+	$: lastLocalCommit = !!localCommit && !localCommit?.children?.[0];
+	$: lastRemoteCommit = !!remoteCommit && !remoteCommit?.children?.[0];
+
+	$: short = !upstreamType && (lastLocalCommit || lastRemoteCommit);
+	$: relatedToOther = localCommit?.relatedTo && localCommit.relatedTo.id != localCommit.id;
 </script>
 
 <div class="lines">
 	{#if hasShadowColumn}
-		<ShadowLine
-			line={shadowLine}
-			dashed={base}
-			{upstreamLine}
-			{remoteCommit}
-			{upstreamType}
-			localCommit={localCommit?.relatedTo ? localCommit : undefined}
-			{first}
-			{short}
-		/>
+		<ShadowLine line={shadowLine} dashed={base} {upstreamLine} {upstreamType} {first} {short}>
+			<Avatar shadow={!!localCommit} shadowLane commit={localCommit || remoteCommit} {first} />
+		</ShadowLine>
 	{/if}
 	<RemoteLine
 		commit={localCommit?.status == 'remote' || localCommit?.status == 'integrated'
@@ -46,18 +40,16 @@
 			: undefined}
 		line={remoteLine}
 		{root}
-		remoteCommit={!hasShadowColumn ? remoteCommit : undefined}
-		shadowCommit={!hasShadowColumn &&
-		localCommit?.relatedTo &&
-		localCommit.relatedTo.id != localCommit.id
-			? localCommit.relatedTo
-			: undefined}
 		upstreamLine={upstreamLine && !hasShadowColumn}
 		{first}
 		short={root || short || (!!localCommit?.relatedTo && upstreamType == 'upstream')}
 		{upstreamType}
 		{base}
-	/>
+	>
+		{#if relatedToOther || remoteCommit}
+			<Avatar remoteLane shadow={relatedToOther} commit={localCommit || remoteCommit} {first} />
+		{/if}
+	</RemoteLine>
 
 	{#if hasLocalColumn}
 		<LocalLine
@@ -65,7 +57,9 @@
 			commit={localCommit?.status == 'local' ? localCommit : undefined}
 			dashed={localLine}
 			{first}
-		/>
+		>
+			<Avatar commit={localCommit} {first} />
+		</LocalLine>
 	{/if}
 </div>
 

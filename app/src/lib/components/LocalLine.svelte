@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Avatar from './Avatar.svelte';
 	import type { Commit } from '$lib/vbranches/types';
 
 	export let dashed: boolean;
@@ -32,9 +31,7 @@
 		{#if hasRoot}
 			<div class="root" class:long-root={commit?.parent} />
 		{/if}
-		{#if commit}
-			<Avatar {commit} {first} />
-		{/if}
+		<slot />
 	{/if}
 </div>
 
