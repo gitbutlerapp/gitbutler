@@ -161,6 +161,10 @@
 		&:not(.selected-draggable):hover {
 			background-color: var(--clr-bg-1-muted);
 		}
+
+		&:last-child {
+			margin-bottom: -1px;
+		}
 	}
 
 	.info {
