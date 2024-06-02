@@ -18,9 +18,10 @@
 	export let shadowLine = false;
 	export let base = false;
 	export let upstreamType: CommitStatus | undefined = undefined;
+	export let nextCommitIsLocal = false;
 
-	$: root = localRoot || (integratedOrRemote && nextCommitIsLocal);
-	$: nextCommitIsLocal = localCommit?.children?.[0]?.status == 'local';
+	$: remoteRoot = (integratedOrRemote && nextCommitIsLocal) || (base && nextCommitIsLocal);
+	// $: nextCommitIsLocal = localCommit?.children?.[0]?.status == 'local';
 	$: integratedOrRemote = localCommit?.status == 'remote' || localCommit?.status == 'integrated';
 	$: lastLocalCommit = !!localCommit && !localCommit?.children?.[0];
 	$: lastRemoteCommit = !!remoteCommit && !remoteCommit?.children?.[0];
@@ -48,13 +49,13 @@
 		</ShadowLine>
 	{/if}
 	<RemoteLine
-		{root}
 		{base}
 		{first}
 		{upstreamType}
 		line={remoteLine}
+		root={remoteRoot}
 		commit={localCommit}
-		short={root || short || upstreamIsNext}
+		short={remoteRoot || short || upstreamIsNext}
 		upstreamLine={upstreamLine && !hasShadowColumn}
 	>
 		{#if relatedToOther || remoteCommit}
@@ -74,9 +75,13 @@
 			{first}
 			isEmpty={base}
 			dashed={localLine}
-			commit={localCommit?.status == 'local' ? localCommit : undefined}
+			root={localRoot}
+			longRoot={remoteRoot && !!localCommit?.parent}
+			nextType={upstreamType}
 		>
-			<Avatar {first} {author} help={tooltipText} status={commitStatus} />
+			{#if localCommit && !localCommit?.relatedTo}
+				<Avatar {first} {author} help={tooltipText} status={commitStatus} />
+			{/if}
 		</LocalLine>
 	{/if}
 </div>

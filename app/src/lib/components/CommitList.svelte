@@ -87,25 +87,25 @@
 		{#if $localCommits.length > 0}
 			{#each $localCommits as commit, idx (commit.id)}
 				<CommitCard
-					branch={$branch}
 					{commit}
+					{isUnapplied}
+					type="local"
+					first={idx == 0}
+					branch={$branch}
+					last={idx == $localCommits.length - 1}
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 					isHeadCommit={commit.id === headCommit?.id}
-					{isUnapplied}
-					first={idx == 0}
-					last={idx == $localCommits.length - 1}
-					type="local"
 				>
 					<svelte:fragment slot="lines">
 						<CommitLines
 							{hasLocalColumn}
 							{hasShadowColumn}
-							localCommit={commit}
-							shadowLine={hasShadowColumn && !!commit.relatedTo}
 							first={idx == 0}
+							localCommit={commit}
 							upstreamLine={hasUnknownCommits}
-							remoteLine={!hasShadowColumn && !!commit.relatedTo}
 							upstreamType={getNextUpstreamType(commit)}
+							shadowLine={hasShadowColumn && !!commit.relatedTo}
+							remoteLine={!hasShadowColumn && !!commit.relatedTo}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -120,25 +120,25 @@
 		{#if $remoteCommits.length > 0}
 			{#each $remoteCommits as commit, idx (commit.id)}
 				<CommitCard
-					branch={$branch}
 					{commit}
-					commitUrl={$baseBranch?.commitUrl(commit.id)}
-					isHeadCommit={commit.id === headCommit?.id}
 					{isUnapplied}
-					first={idx == 0}
-					last={idx == $remoteCommits.length - 1}
 					type="remote"
+					first={idx == 0}
+					branch={$branch}
+					last={idx == $remoteCommits.length - 1}
+					isHeadCommit={commit.id === headCommit?.id}
+					commitUrl={$baseBranch?.commitUrl(commit.id)}
 				>
 					<svelte:fragment slot="lines">
 						<CommitLines
 							remoteLine
 							{hasLocalColumn}
 							{hasShadowColumn}
-							localCommit={commit}
-							localLine={idx == 0 && commit.parent?.status == 'local'}
 							first={idx == 0}
+							localCommit={commit}
 							upstreamLine={hasUnknownCommits}
 							upstreamType={getNextUpstreamType(commit)}
+							localLine={idx == 0 && commit.parent?.status == 'local'}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -152,23 +152,23 @@
 		{#if $integratedCommits.length > 0}
 			{#each $integratedCommits as commit, idx (commit.id)}
 				<CommitCard
-					branch={$branch}
 					{commit}
-					commitUrl={$baseBranch?.commitUrl(commit.id)}
-					isHeadCommit={commit.id === headCommit?.id}
 					{isUnapplied}
-					first={idx == 0}
-					last={idx == $integratedCommits.length - 1}
 					type="integrated"
+					first={idx == 0}
+					branch={$branch}
+					isHeadCommit={commit.id === headCommit?.id}
+					last={idx == $integratedCommits.length - 1}
+					commitUrl={$baseBranch?.commitUrl(commit.id)}
 				>
 					<svelte:fragment slot="lines">
 						<CommitLines
-							remoteLine
 							{hasLocalColumn}
 							{hasShadowColumn}
-							localCommit={commit}
-							localLine={idx == 0 && commit.parent?.status == 'local'}
+							remoteLine
 							first={idx == 0}
+							localCommit={commit}
+							localRoot={idx == 0 && commit.children?.[0]?.status == 'local'}
 							upstreamLine={$unknownCommits.length > 0 || $remoteCommits.length > 0}
 							upstreamType={getNextUpstreamType(commit)}
 						/>
@@ -198,6 +198,9 @@
 						upstreamType={hasShadowedCommits ? 'remote' : 'upstream'}
 						base
 						upstreamLine={hasUnknownCommits && $remoteCommits.length == 0}
+						nextCommitIsLocal={$integratedCommits.length == 0 &&
+							$remoteCommits.length == 0 &&
+							$localCommits.length > 0}
 					/>
 				</div>
 				<div class="base-row__content">

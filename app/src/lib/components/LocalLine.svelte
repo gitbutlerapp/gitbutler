@@ -1,35 +1,22 @@
 <script lang="ts">
-	import type { Commit } from '$lib/vbranches/types';
+	import type { CommitStatus } from '$lib/vbranches/types';
 
 	export let dashed: boolean;
-	export let commit: Commit | undefined;
 	export let first: boolean;
 	export let isEmpty: boolean = false;
-
-	$: hasRoot = isRoot(commit);
-
-	function isRoot(commit: Commit | undefined): boolean {
-		return (
-			!!commit &&
-			(commit.parent == undefined ||
-				commit.parent?.status == 'remote' ||
-				commit.parent?.status == 'integrated')
-		);
-	}
+	export let root: boolean = false;
+	export let longRoot: boolean = false;
+	export let nextType: CommitStatus | undefined;
 </script>
 
 <div class="local-column">
 	{#if !isEmpty}
-		{#if !commit && dashed}
-			<div class="local-line dashed"></div>
-		{:else if commit}
-			{#if first}
-				<div class="local-line dashed tip" />
-			{/if}
-			<div class="local-line" class:has-root={hasRoot} class:short={first} />
+		{#if nextType}
+			<div class="local-line dashed tip" />
 		{/if}
-		{#if hasRoot}
-			<div class="root" class:long-root={commit?.parent} />
+		<div class="local-line" class:dashed class:first class:has-root={root} class:short={first} />
+		{#if root}
+			<div class="root" class:long-root={longRoot} />
 		{/if}
 		<slot />
 	{/if}
@@ -62,10 +49,10 @@
 			bottom: var(--size-8);
 		}
 		&.tip {
-			bottom: calc(100% - 2.625rem);
+			bottom: calc(100% - var(--avatar-first-top));
 		}
 		&.short {
-			top: 2.625rem;
+			top: var(--avatar-first-top);
 		}
 	}
 
