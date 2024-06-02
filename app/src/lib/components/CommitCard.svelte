@@ -175,7 +175,7 @@
 					{#if first}
 						<div class="commit__type text-semibold text-base-12">
 							{#if type == 'upstream'}
-								Remote upstream <Icon name="remote" />
+								Remote <Icon name="remote" />
 							{:else if type == 'local'}
 								Local <Icon name="local" />
 							{:else if type == 'remote'}
