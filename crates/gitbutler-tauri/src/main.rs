@@ -123,8 +123,6 @@ fn main() {
 
                     let git_credentials_controller = git::credentials::Helper::new(
                         keys_controller.clone(),
-                        users_controller.clone(),
-                        dirs::home_dir()
                     );
                     app_handle.manage(git_credentials_controller.clone());
 
