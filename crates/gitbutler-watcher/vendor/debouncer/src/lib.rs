@@ -569,58 +569,58 @@ pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + S
         })?,
     };
 
-    let data_c = data.clone();
-    let stop_c = stop.clone();
-    let flush_c = flush.clone();
-    let mut idle_count = 0;
-    let mut prev_queue_count = 0;
     let thread = std::thread::Builder::new()
         .name("notify-rs debouncer loop".to_string())
-        .spawn(move || loop {
-            if stop_c.load(Ordering::Acquire) {
-                break;
-            }
-
-            let mut should_flush = flush_c.load(Ordering::Acquire);
-
-            std::thread::sleep(tick);
-
-            let send_data;
-            let errors;
-            {
-                let mut lock = data_c.lock();
-
-                let queue_count = lock.queues.values().fold(0, |acc, x| acc + x.events.len());
-                if prev_queue_count == queue_count {
-                    idle_count += 1;
-                } else {
-                    prev_queue_count = queue_count
+        .spawn({
+            let data = data.clone();
+            let stop = stop.clone();
+            let flush = flush.clone();
+            let mut idle_count = 0;
+            let mut prev_queue_count = 0;
+            move || loop {
+                if stop.load(Ordering::Acquire) {
+                    break;
                 }
 
-                if let Some(threshold) = flush_after {
-                    if idle_count >= threshold {
+                let mut should_flush = flush.load(Ordering::Acquire);
+
+                std::thread::sleep(tick);
+
+                let send_data;
+                let errors;
+                {
+                    let mut lock = data.lock();
+
+                    let queue_count = lock.queues.values().fold(0, |acc, x| acc + x.events.len());
+                    if prev_queue_count == queue_count {
+                        idle_count += 1;
+                    } else {
+                        prev_queue_count = queue_count
+                    }
+
+                    if flush_after.map_or(false, |threshold| idle_count >= threshold) {
                         idle_count = 0;
                         prev_queue_count = 0;
                         should_flush = true;
                     }
-                }
 
-                send_data = lock.debounced_events(should_flush);
-                if should_flush {
-                    flush_c.store(false, Ordering::Release);
-                }
+                    send_data = lock.debounced_events(should_flush);
+                    if should_flush {
+                        flush.store(false, Ordering::Release);
+                    }
 
-                errors = lock.errors();
-            }
-            if !send_data.is_empty() {
-                if should_flush {
-                    tracing::debug!("Flushed {} events", send_data.len());
+                    errors = lock.errors();
                 }
+                if !send_data.is_empty() {
+                    if should_flush {
+                        tracing::debug!("Flushed {} events", send_data.len());
+                    }
 
-                event_handler.handle_event(Ok(send_data));
-            }
-            if !errors.is_empty() {
-                event_handler.handle_event(Err(errors));
+                    event_handler.handle_event(Ok(send_data));
+                }
+                if !errors.is_empty() {
+                    event_handler.handle_event(Err(errors));
+                }
             }
         })?;
 
@@ -638,15 +638,13 @@ pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + S
         config,
     )?;
 
-    let guard = Debouncer {
+    Ok(Debouncer {
         watcher,
         debouncer_thread: Some(thread),
         data,
         stop,
         flush,
-    };
-
-    Ok(guard)
+    })
 }
 
 /// Short function to create a new debounced watcher with the recommended debouncer and the built-in file ID cache.

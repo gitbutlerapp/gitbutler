@@ -95,8 +95,7 @@ fn state(
     }
 
     for error in test_case.errors {
-        let error = error.into_notify_error();
-        state.add_error(error);
+        state.add_error(error.into_notify_error());
     }
 
     let expected_errors = std::mem::take(&mut test_case.expected.errors);
