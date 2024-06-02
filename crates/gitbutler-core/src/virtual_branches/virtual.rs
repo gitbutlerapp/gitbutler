@@ -2429,49 +2429,10 @@ fn is_commit_integrated(
     }
 
     if upstream_commits.contains(&commit.id().into()) {
-        return Ok(true);
+        Ok(true)
+    } else {
+        Ok(false)
     }
-
-    let merge_base_id = project_repository
-        .git_repository
-        .merge_base(target.sha, commit.id().into())?;
-    if merge_base_id.eq(&commit.id().into()) {
-        // if merge branch is the same as branch head and there are upstream commits
-        // then it's integrated
-        return Ok(true);
-    }
-
-    let merge_base = project_repository
-        .git_repository
-        .find_commit(merge_base_id)?;
-    let merge_base_tree = merge_base.tree()?;
-    let upstream = project_repository
-        .git_repository
-        .find_commit(remote_head.id().into())?;
-    let upstream_tree = upstream.tree()?;
-
-    if merge_base_tree.id() == upstream_tree.id() {
-        // if merge base is the same as upstream tree, then it's integrated
-        return Ok(true);
-    }
-
-    // try to merge our tree into the upstream tree
-    let mut merge_index = project_repository
-        .git_repository
-        .merge_trees(&merge_base_tree, &commit.tree()?, &upstream_tree)
-        .context("failed to merge trees")?;
-
-    if merge_index.has_conflicts() {
-        return Ok(false);
-    }
-
-    let merge_tree_oid = merge_index
-        .write_tree_to(project_repository.repo())
-        .context("failed to write tree")?;
-
-    // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
-    // then the vbranch is fully merged
-    Ok(merge_tree_oid == upstream_tree.id())
 }
 
 pub fn is_remote_branch_mergeable(
