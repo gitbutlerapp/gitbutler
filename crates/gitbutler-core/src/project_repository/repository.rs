@@ -44,8 +44,8 @@ impl Repository {
         // XXX(qix-): can clean up later on. We're aware this isn't ideal.
         if let Ok(config) = repo.config().as_mut() {
             let should_set = match config.get_bool("gitbutler.didSetPrune") {
-                Ok(None | Some(false)) => true,
-                Ok(Some(true)) => false,
+                Ok(false) => true,
+                Ok(true) => false,
                 Err(err) => {
                     tracing::warn!(
                                 "failed to get gitbutler.didSetPrune for repository at {}; cannot disable gc: {}",
