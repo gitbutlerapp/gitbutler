@@ -122,7 +122,7 @@ impl Repository {
         Ok(head)
     }
 
-    pub fn get_head(&self) -> Result<git::Reference, git::Error> {
+    pub fn get_head(&self) -> Result<git2::Reference, git::Error> {
         let head = self.git_repository.head()?;
         Ok(head)
     }
@@ -191,7 +191,7 @@ impl Repository {
         let (should_write, with_force) =
             match self.git_repository.find_reference(&branch.refname().into()) {
                 Ok(reference) => match reference.target() {
-                    Some(head_oid) => Ok((head_oid != branch.head, true)),
+                    Some(head_oid) => Ok((head_oid != branch.head.into(), true)),
                     None => Ok((true, true)),
                 },
                 Err(git::Error::NotFound(_)) => Ok((true, false)),

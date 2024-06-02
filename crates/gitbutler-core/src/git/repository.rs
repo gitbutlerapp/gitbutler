@@ -1,4 +1,4 @@
-use super::{Oid, Reference, Refname, Result, Url};
+use super::{Oid, Refname, Result, Url};
 use git2::{BlameOptions, Submodule};
 use git2_hooks::HookResult;
 #[cfg(unix)]
@@ -140,15 +140,12 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn find_reference(&self, name: &Refname) -> Result<Reference> {
-        self.0
-            .find_reference(&name.to_string())
-            .map(Reference::from)
-            .map_err(Into::into)
+    pub fn find_reference(&self, name: &Refname) -> Result<git2::Reference> {
+        self.0.find_reference(&name.to_string()).map_err(Into::into)
     }
 
-    pub fn head(&self) -> Result<Reference> {
-        self.0.head().map(Reference::from).map_err(Into::into)
+    pub fn head(&self) -> Result<git2::Reference> {
+        self.0.head().map_err(Into::into)
     }
 
     pub fn find_tree(&self, id: Oid) -> Result<git2::Tree> {
@@ -489,7 +486,7 @@ impl Repository {
         id: Oid,
         force: bool,
         log_message: &str,
-    ) -> Result<Reference> {
+    ) -> Result<git2::Reference> {
         self.0
             .reference(&name.to_string(), id.into(), force, log_message)
             .map(Into::into)
@@ -500,14 +497,17 @@ impl Repository {
         self.0.remote(name, &url.to_string()).map_err(Into::into)
     }
 
-    pub fn references(&self) -> Result<impl Iterator<Item = Result<Reference>>> {
+    pub fn references(&self) -> Result<impl Iterator<Item = Result<git2::Reference>>> {
         self.0
             .references()
             .map(|iter| iter.map(|reference| reference.map(Into::into).map_err(Into::into)))
             .map_err(Into::into)
     }
 
-    pub fn references_glob(&self, glob: &str) -> Result<impl Iterator<Item = Result<Reference>>> {
+    pub fn references_glob(
+        &self,
+        glob: &str,
+    ) -> Result<impl Iterator<Item = Result<git2::Reference>>> {
         self.0
             .references_glob(glob)
             .map(|iter| iter.map(|reference| reference.map(Into::into).map_err(Into::into)))

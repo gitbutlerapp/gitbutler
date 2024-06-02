@@ -139,7 +139,10 @@ fn collect_refs(
         .git_repository
         .references_glob("refs/*")?
         .flatten()
-        .filter_map(|r| r.name())
+        .filter_map(|r| {
+            r.name()
+                .map(|name| name.parse().expect("libgit2 provides valid refnames"))
+        })
         .collect::<Vec<_>>())
 }
 

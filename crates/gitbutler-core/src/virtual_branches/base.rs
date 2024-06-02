@@ -181,6 +181,7 @@ pub fn set_base_branch(
     // TODO: make sure this is a real branch
     let head_name: git::Refname = current_head
         .name()
+        .map(|name| name.parse().expect("libgit2 provides valid refnames"))
         .context("Failed to get HEAD reference name")?;
     if !head_name
         .to_string()
