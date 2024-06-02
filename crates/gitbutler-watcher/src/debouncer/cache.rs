@@ -83,6 +83,7 @@ impl FileIdMap {
     /// If `recursive_mode` is `Recursive`, all children will be added to the cache as well
     /// and all paths will be kept up-to-date in case of changes like new files being added,
     /// files being removed or renamed.
+    #[allow(dead_code)]
     pub fn add_root(&mut self, path: impl Into<PathBuf>, recursive_mode: RecursiveMode) {
         let path = path.into();
 
@@ -94,6 +95,7 @@ impl FileIdMap {
     /// Remove a path form the cache.
     ///
     /// If the path was added with `Recursive` mode, all children will also be removed from the cache.
+    #[allow(dead_code)]
     pub fn remove_root(&mut self, path: impl AsRef<Path>) {
         self.roots.retain(|(root, _)| !root.starts_with(&path));
 

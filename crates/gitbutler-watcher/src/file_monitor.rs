@@ -17,8 +17,7 @@ use tracing::Level;
 /// maximum before releasing them. This duration will be hit if e.g. a build
 /// is constantly running and producing a lot of file changes, we will process
 /// them even if the build is still running.
-// TODO(ST): go back to 60s with new impl
-const DEBOUNCE_TIMEOUT: Duration = Duration::from_secs(1);
+const DEBOUNCE_TIMEOUT: Duration = Duration::from_secs(60);
 
 // The internal rate at which the debouncer will update its state.
 const TICK_RATE: Duration = Duration::from_millis(250);
@@ -62,8 +61,7 @@ pub fn spawn(
     let mut debouncer = new_debouncer(
         DEBOUNCE_TIMEOUT,
         Some(TICK_RATE),
-        // TODO(ST): re-enable
-        // Some(FLUSH_AFTER_EMPTY),
+        Some(FLUSH_AFTER_EMPTY),
         notify_tx,
     )
     .context("failed to create debouncer")?;
@@ -94,23 +92,11 @@ pub fn spawn(
         debouncer
             .watcher()
             .watch(worktree_path, notify::RecursiveMode::Recursive)
-            .and_then(|_| {
-                debouncer
-                    .cache()
-                    .add_root(worktree_path, notify::RecursiveMode::Recursive);
-                Ok(())
-            })
             .and_then(|()| {
                 if let Some(git_dir) = extra_git_dir_to_watch {
                     debouncer
                         .watcher()
                         .watch(git_dir, notify::RecursiveMode::Recursive)
-                        .and_then(|_| {
-                            debouncer
-                                .cache()
-                                .add_root(git_dir, notify::RecursiveMode::Recursive);
-                            Ok(())
-                        })
                 } else {
                     Ok(())
                 }
