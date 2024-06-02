@@ -3,6 +3,7 @@
 	import LocalLine from './LocalLine.svelte';
 	import RemoteLine from './RemoteLine.svelte';
 	import ShadowLine from './ShadowLine.svelte';
+	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import type { Commit, CommitStatus, RemoteCommit } from '$lib/vbranches/types';
 
 	export let hasShadowColumn = false;
@@ -26,39 +27,56 @@
 
 	$: short = !upstreamType && (lastLocalCommit || lastRemoteCommit);
 	$: relatedToOther = localCommit?.relatedTo && localCommit.relatedTo.id != localCommit.id;
+	$: upstreamIsNext = !!localCommit?.relatedTo && upstreamType == 'upstream';
+	$: tooltipText = getAvatarTooltip(localCommit || remoteCommit);
+
+	$: commitStatus = localCommit?.status || remoteCommit?.status;
+	$: author = localCommit?.author || remoteCommit?.author;
 </script>
 
 <div class="lines">
 	{#if hasShadowColumn}
 		<ShadowLine line={shadowLine} dashed={base} {upstreamLine} {upstreamType} {first} {short}>
-			<Avatar shadow={!!localCommit} shadowLane commit={localCommit || remoteCommit} {first} />
+			<Avatar
+				{first}
+				{author}
+				help={tooltipText}
+				status={commitStatus}
+				shadow={!!localCommit}
+				shadowLane
+			/>
 		</ShadowLine>
 	{/if}
 	<RemoteLine
-		commit={localCommit?.status == 'remote' || localCommit?.status == 'integrated'
-			? localCommit
-			: undefined}
-		line={remoteLine}
 		{root}
-		upstreamLine={upstreamLine && !hasShadowColumn}
-		{first}
-		short={root || short || (!!localCommit?.relatedTo && upstreamType == 'upstream')}
-		{upstreamType}
 		{base}
+		{first}
+		{upstreamType}
+		line={remoteLine}
+		commit={localCommit}
+		short={root || short || upstreamIsNext}
+		upstreamLine={upstreamLine && !hasShadowColumn}
 	>
 		{#if relatedToOther || remoteCommit}
-			<Avatar remoteLane shadow={relatedToOther} commit={localCommit || remoteCommit} {first} />
+			<Avatar
+				{first}
+				{author}
+				help={tooltipText}
+				status={commitStatus}
+				shadow={relatedToOther}
+				remoteLane
+			/>
 		{/if}
 	</RemoteLine>
 
 	{#if hasLocalColumn}
 		<LocalLine
-			isEmpty={base}
-			commit={localCommit?.status == 'local' ? localCommit : undefined}
-			dashed={localLine}
 			{first}
+			isEmpty={base}
+			dashed={localLine}
+			commit={localCommit?.status == 'local' ? localCommit : undefined}
 		>
-			<Avatar commit={localCommit} {first} />
+			<Avatar {first} {author} help={tooltipText} status={commitStatus} />
 		</LocalLine>
 	{/if}
 </div>

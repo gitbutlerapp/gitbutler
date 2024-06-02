@@ -1,41 +1,41 @@
 <script lang="ts">
-	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import { tooltip } from '$lib/utils/tooltip';
-	import type { Commit, RemoteCommit } from '$lib/vbranches/types';
+	import type { Author, CommitStatus } from '$lib/vbranches/types';
 
-	export let commit: Commit | RemoteCommit | undefined;
+	export let status: CommitStatus | undefined;
+	export let author: Author | undefined;
+	export let help: string | undefined = undefined;
+
+	export let first = false;
 	export let shadow: boolean = false;
 	export let remoteLane: boolean = false;
 	export let shadowLane: boolean = false;
-	export let first = false;
-
-	$: tooltipText = getAvatarTooltip(commit);
 </script>
 
 {#if shadow}
 	<div
 		class:first
 		class="shadow-marker"
-		class:upstream={commit?.status == 'upstream'}
-		class:integrated={commit?.status == 'integrated'}
+		class:upstream={status == 'upstream'}
+		class:integrated={status == 'integrated'}
 		class:shadow-lane={shadowLane}
-		use:tooltip={tooltipText}
+		use:tooltip={help}
 	></div>
 {:else}
 	<img
 		class="avatar"
-		alt="Gravatar for {commit?.author.email}"
-		srcset="{commit?.author.gravatarUrl} 2x"
+		alt="Gravatar for {author?.email}"
+		srcset="{author?.gravatarUrl} 2x"
 		width="100"
 		height="100"
 		class:first
-		class:local={commit?.status == 'local'}
-		class:remote={commit?.status == 'remote'}
-		class:upstream={commit?.status == 'upstream'}
-		class:integrated={commit?.status == 'integrated'}
+		class:local={status == 'local'}
+		class:remote={status == 'remote'}
+		class:upstream={status == 'upstream'}
+		class:integrated={status == 'integrated'}
 		class:remote-lane={remoteLane}
 		class:shadow-lane={shadowLane}
-		use:tooltip={tooltipText}
+		use:tooltip={help}
 		on:error
 	/>
 {/if}
