@@ -117,7 +117,6 @@
 
 		commitMessageModal.close();
 	}
-	$: console.log(commit.status);
 </script>
 
 <Modal bind:this={commitMessageModal}>
