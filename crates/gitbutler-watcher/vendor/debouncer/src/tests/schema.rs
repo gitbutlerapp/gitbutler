@@ -27,7 +27,7 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 // IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
-use crate::debouncer::{DebounceDataInner, DebouncedEvent};
+use crate::{DebounceDataInner, DebouncedEvent};
 use file_id::FileId;
 use mock_instant::Instant;
 use notify::event::{
@@ -241,7 +241,7 @@ impl State {
             .queues
             .into_iter()
             .map(|(path, queue)| {
-                let queue = crate::debouncer::Queue {
+                let queue = crate::Queue {
                     events: queue
                         .events
                         .into_iter()

@@ -166,7 +166,7 @@ fn state(
 
 mod schema;
 mod utils {
-    use crate::debouncer::FileIdCache;
+    use crate::FileIdCache;
 
     use file_id::FileId;
     use std::collections::HashMap;

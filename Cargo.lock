@@ -2178,6 +2178,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-notify-debouncer"
+version = "0.0.0"
+dependencies = [
+ "crossbeam-channel",
+ "deser-hjson",
+ "file-id",
+ "gitbutler-notify-debouncer",
+ "mock_instant",
+ "notify",
+ "parking_lot 0.12.3",
+ "pretty_assertions",
+ "rstest",
+ "serde",
+ "tracing",
+ "walkdir",
+]
+
+[[package]]
 name = "gitbutler-tauri"
 version = "0.0.0"
 dependencies = [
@@ -2232,26 +2250,15 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backoff",
- "crossbeam-channel",
- "deser-hjson",
- "file-id",
  "futures",
  "gitbutler-core",
- "gitbutler-watcher",
+ "gitbutler-notify-debouncer",
  "gix",
- "itertools 0.13.0",
- "mock_instant",
  "notify",
- "parking_lot 0.12.3",
- "pretty_assertions",
- "rand 0.8.5",
- "rstest",
- "serde",
  "thiserror",
  "tokio",
  "tokio-util",
  "tracing",
- "walkdir",
 ]
 
 [[package]]
