@@ -4,6 +4,7 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { getContext } from '$lib/utils/context';
+	import { editor } from '$lib/utils/systemEditor';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { open } from '@tauri-apps/api/shell';
 
@@ -36,7 +37,8 @@
 				<ContextMenuItem
 					label="Open in VS Code"
 					on:mousedown={() => {
-						projectPath && open(`vscode://file${projectPath}/${filePath}:${item.lineNumber}`);
+						projectPath &&
+							open(`${editor.get()}://file${projectPath}/${filePath}:${item.lineNumber}`);
 						dismiss();
 					}}
 				/>

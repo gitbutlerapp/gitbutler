@@ -13,6 +13,7 @@
 	import { LocalFile, type AnyFile } from '$lib/vbranches/types';
 	import { join } from '@tauri-apps/api/path';
 	import { open } from '@tauri-apps/api/shell';
+	import { editor } from '$lib/utils/systemEditor';
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
@@ -89,7 +90,7 @@
 							if (!project) return;
 							for (let file of item.files) {
 								const absPath = await join(project.path, file.path);
-								open(`vscode://file${absPath}`);
+								open(`${editor.get()}://file${absPath}`);
 							}
 							dismiss();
 						} catch {

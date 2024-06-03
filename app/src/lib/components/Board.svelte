@@ -12,6 +12,7 @@
 	import { BaseBranch } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { open } from '@tauri-apps/api/shell';
+	import { editor } from '$lib/utils/systemEditor';
 
 	const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);
@@ -149,9 +150,9 @@
 										role="button"
 										tabindex="0"
 										on:keypress={async () =>
-											await open(`vscode://file${project.vscodePath}/?windowId=_blank`)}
+											await open(`${editor.get()}://file${project.vscodePath}/?windowId=_blank`)}
 										on:click={async () =>
-											await open(`vscode://file${project.vscodePath}/?windowId=_blank`)}
+											await open(`${editor.get()}://file${project.vscodePath}/?windowId=_blank`)}
 									>
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="vscode" />
