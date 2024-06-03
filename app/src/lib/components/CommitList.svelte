@@ -16,13 +16,7 @@
 		getRemoteCommits,
 		getUnknownCommits
 	} from '$lib/vbranches/contexts';
-	import {
-		BaseBranch,
-		Branch,
-		Commit,
-		RemoteCommit,
-		type CommitStatus
-	} from '$lib/vbranches/types';
+	import { BaseBranch, Branch, Commit, type CommitStatus } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied: boolean;
@@ -54,25 +48,26 @@
 
 	let baseIsUnfolded = false;
 
-	function getRemoteOutType(commit: Commit | RemoteCommit): CommitStatus | undefined {
-		let child = commit.children?.[0];
-		while (child) {
-			if (child.status == 'remote' || child.relatedTo) return 'remote';
-			if (child.status == 'local') return 'remote';
-			if (child.status == 'integrated') return 'integrated';
-			child = child?.children?.[0];
+	function getRemoteOutType(commit: Commit): CommitStatus | undefined {
+		let parent = commit.parent;
+		let upstreamCommit = commit.relatedTo;
+
+		while (!upstreamCommit && parent) {
+			parent = parent.parent;
+			upstreamCommit = parent?.relatedTo;
 		}
+
+		if (!upstreamCommit) return hasUnknownCommits ? 'upstream' : undefined;
+
+		let nextUpstreamCommit = upstreamCommit.children?.[0];
+		if (nextUpstreamCommit) return nextUpstreamCommit.status;
 		if (hasUnknownCommits) return 'upstream';
 	}
 
-	function getRemoteInType(commit: Commit | RemoteCommit): CommitStatus | undefined {
-		if (commit.status == 'local' && commit.relatedTo) return 'remote';
-		if (commit.status == 'integrated') return 'integrated';
-		let parent = commit.parent;
-		if (parent?.status == 'remote') return 'remote';
-		if (parent) return getRemoteInType(parent);
-		if (hasUnknownCommits) return 'upstream';
-		return 'remote';
+	function getRemoteInType(commit: Commit): CommitStatus | undefined {
+		if (commit.parent) return getRemoteOutType(commit.parent || commit);
+		if (commit.relatedTo) return 'remote';
+		return commit.status;
 	}
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
@@ -113,8 +108,8 @@
 							help={getAvatarTooltip(commit)}
 							remoteIn={!hasShadowColumn ? 'upstream' : undefined}
 							remoteOut={!hasShadowColumn && idx != 0 ? 'upstream' : undefined}
-							shadowIn={hasShadowColumn ? getRemoteInType(commit) : undefined}
-							shadowOut={idx != 0 && hasShadowColumn ? getRemoteOutType(commit) : undefined}
+							shadowIn={hasShadowColumn ? 'upstream' : undefined}
+							shadowOut={idx != 0 && hasShadowColumn ? 'upstream' : undefined}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -159,6 +154,7 @@
 							sectionFirst={idx == 0}
 							commitStatus={commit.status}
 							help={getAvatarTooltip(commit)}
+							shadowHelp={getAvatarTooltip(commit.relatedTo)}
 							outDashed={hasLocalColumn && idx == 0}
 							sectionLast={idx == $localCommits.length - 1}
 							remoteIn={!hasShadowColumn ? getRemoteInType(commit) : undefined}
@@ -205,6 +201,7 @@
 							sectionFirst={idx == 0}
 							commitStatus={commit.status}
 							help={getAvatarTooltip(commit)}
+							shadowHelp={getAvatarTooltip(commit.relatedTo)}
 							integrated={commit.isIntegrated}
 							localRoot={idx == 0 && hasLocalCommits}
 							outDashed={idx == 0 && commit.parent?.status == 'local'}
@@ -269,7 +266,8 @@
 						{hasShadowColumn}
 						localRoot={!hasRemoteCommits && !hasIntegratedCommits && hasLocalCommits}
 						shadowOut={hasShadowedCommits ? 'remote' : 'upstream'}
-						remoteOut={!hasShadowColumn && (hasIntegratedCommits || hasRemoteCommits)
+						remoteOut={!hasShadowColumn &&
+						(hasIntegratedCommits || hasRemoteCommits || hasShadowedCommits)
 							? 'remote'
 							: !hasShadowColumn && hasUnknownCommits
 								? 'upstream'
