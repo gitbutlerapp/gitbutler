@@ -44,8 +44,10 @@
 
 	const commitStore = createCommitStore(commit);
 	$: commitStore.set(commit);
+	console.log(commit);
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
+	const isConflicted = commit instanceof Commit && commit.conflictedFiles;
 
 	const dispatch = createEventDispatcher<{ toggle: void }>();
 
@@ -85,7 +87,8 @@
 		branchController.insertBlankCommit(branch.id, commit.id, offset);
 	}
 
-	let isUndoable = !!branch?.active && commit instanceof Commit;
+	//let isUndoable = !!branch?.active && commit instanceof Commit;
+	let isUndoable = !isConflicted;
 
 	const hasCommitUrl = !commit.isLocal && commitUrl;
 
@@ -115,7 +118,9 @@
 <Modal bind:this={commitMessageModal}>
 	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
 	<svelte:fragment slot="controls">
-		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}>Cancel</Button>
+		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}
+			>Cancel</Button
+		>
 		<Button
 			style="pop"
 			kind="solid"
@@ -155,7 +160,7 @@
 				class:integrated={type == 'integrated'}
 			/>
 
-			<div class="commit__content">
+			<div class={isConflicted ? 'commit__content-conflicted' : 'commit__content'}>
 				<!-- GENERAL INFO -->
 				<div
 					class="commit__about"
@@ -183,13 +188,19 @@
 							>empty commit message</span
 						>
 					{:else}
-						<h5 class="text-base-body-13 text-semibold commit__title" class:truncate={!showDetails}>
+						<h5
+							class="text-base-body-13 text-semibold commit__title"
+							class:truncate={!showDetails}
+						>
 							{commit.descriptionTitle}
 						</h5>
 
 						<div class="text-base-11 commit__subtitle">
 							{#if commit.isSigned}
-								<div class="commit__signed" use:tooltip={{ text: 'Signed', delay: 500 }}>
+								<div
+									class="commit__signed"
+									use:tooltip={{ text: 'Signed', delay: 500 }}
+								>
 									<Icon name="success-outline-small" />
 								</div>
 							{/if}
@@ -203,7 +214,8 @@
 							<span class="commit__subtitle-divider">•</span>
 
 							<span
-								>{getTimeAgo(commit.createdAt)}{type == 'remote' || type == 'upstream'
+								>{getTimeAgo(commit.createdAt)}{type == 'remote' ||
+								type == 'upstream'
 									? ` by ${commit.author.name}`
 									: ''}</span
 							>
@@ -279,7 +291,26 @@
 
 			{#if showDetails}
 				<div class="files-container">
-					<BranchFilesList title="Files" {files} {isUnapplied} readonly={type == 'upstream'} />
+					<BranchFilesList
+						title="Files"
+						{files}
+						{isUnapplied}
+						readonly={type == 'upstream'}
+					/>
+				</div>
+			{/if}
+
+			{#if isConflicted}
+				<div class="conflict-zone">
+					<Tag
+						style="ghost"
+						kind="solid"
+						clickable
+						on:click={(e) => {
+							e.stopPropagation();
+							resolveConflictStart(commit);
+						}}>Resolve Conflicts ({commit.conflictedFiles})</Tag
+					>
 				</div>
 			{/if}
 		</div>
@@ -367,6 +398,14 @@
 	.commit__content {
 		display: flex;
 		flex-direction: column;
+	}
+
+	.commit__content-conflicted {
+		display: flex;
+		flex-direction: column;
+		cursor: pointer;
+		gap: var(--size-10);
+		background-color: rgba(255, 229, 230, 1);
 	}
 
 	.commit__about {

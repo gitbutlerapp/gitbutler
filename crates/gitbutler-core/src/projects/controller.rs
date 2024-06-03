@@ -215,6 +215,21 @@ impl Controller {
         Ok(())
     }
 
+    pub async fn check_conflict_state(&self, id: ProjectId) -> Result<Option<String>> {
+        let project = self.projects_storage.get(id)?;
+
+        let repo = project_repository::Repository::open(&project)?;
+        let edit_mode = repo.in_edit_mode()?;
+
+        dbg!(&edit_mode);
+
+        if let Some(oid) = edit_mode {
+            Ok(Some(oid.to_string()))
+        } else {
+            Ok(None)
+        }
+    }
+
     pub fn get_local_config(&self, id: ProjectId, key: &str) -> Result<Option<String>> {
         let project = self.projects_storage.get(id)?;
 

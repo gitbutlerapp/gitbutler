@@ -155,6 +155,9 @@ pub enum OperationKind {
     RestoreFromSnapshot,
     ReorderCommit,
     InsertBlankCommit,
+    ConflictStart,
+    ConflictFinish,
+    ConflictAbandon,
     MoveCommitFile,
     FileChanges,
     #[default]

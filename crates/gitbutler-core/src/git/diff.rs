@@ -134,6 +134,8 @@ pub fn workdir(repository: &Repository, commit_oid: &git::Oid) -> Result<DiffByP
         .find_commit(*commit_oid)
         .context("failed to find commit")?;
     let tree = commit.tree().context("failed to find tree")?;
+    dbg!("DIFF WORKDIR");
+    dbg!(&commit_oid);
 
     let mut diff_opts = git2::DiffOptions::new();
     diff_opts

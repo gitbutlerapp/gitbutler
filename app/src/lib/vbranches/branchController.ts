@@ -386,6 +386,44 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 		}
 	}
 
+	async resolveConflictStart(branchId: string, commitOid: string) {
+		try {
+			await invoke<void>('resolve_conflict_start', {
+				projectId: this.projectId,
+				branchId,
+				commitOid
+			});
+		} catch (err: any) {
+			showError('Failed to start commit conflict resolution', err);
+		}
+	}
+
+	async resolveConflictFinish(branchId: string, commitOid: string) {
+		try {
+			await invoke<void>('resolve_conflict_finish', {
+				projectId: this.projectId,
+				branchId,
+				commitOid
+			});
+		} catch (err: any) {
+			showError('Failed to finish commit conflict resolution', err);
+		}
+	}
+
+	async resolveConflictAbandon(branchId: string, commitOid: string) {
+		try {
+			await invoke<void>('resolve_conflict_abandon', {
+				projectId: this.projectId,
+				branchId,
+				commitOid
+			});
+		} catch (err: any) {
+			showError('Failed to finish commit conflict resolution', err);
+		}
+	}
+
+
+
 	async moveCommit(targetBranchId: string, commitOid: string) {
 		try {
 			await invoke<void>('move_commit', {

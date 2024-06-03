@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 
-use super::conflicts;
+use super::{conflicts, edit_mode};
 use crate::{
     askpass,
     git::{self, Url},
@@ -83,6 +83,10 @@ impl Repository {
 
     pub fn is_resolving(&self) -> bool {
         conflicts::is_resolving(self)
+    }
+
+    pub fn in_edit_mode(&self) -> Result<Option<git::Oid>> {
+        edit_mode::in_edit_mode(self)
     }
 
     pub fn assure_resolved(&self) -> Result<()> {

@@ -895,8 +895,7 @@ mod applied_branch {
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
-            assert!(!branches[0].active);
-            assert!(!branches[0].base_current);
+            assert!(branches[0].active); // still active, just with conflicted commit
             assert_eq!(branches[0].files.len(), 0);
             assert_eq!(branches[0].commits.len(), 1);
             assert!(!controller
@@ -1417,6 +1416,7 @@ mod applied_branch {
             assert!(branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].commits.len(), 1);
+            dbg!(&branches);
             assert_eq!(
                 std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                 "second"

@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 use lazy_static::lazy_static;
 
-use super::VirtualBranchesHandle;
+use super::{find_real_tree, VirtualBranchesHandle};
 use crate::git::RepositoryExt;
 use crate::virtual_branches::errors::Marker;
 use crate::{
@@ -50,25 +50,33 @@ pub fn get_workspace_head(
         .collect::<Vec<_>>();
 
     let target_commit = repo.find_commit(target.sha.into())?;
+    let target_tree = find_real_tree(project_repo, &target_commit, None)?;
     let mut workspace_tree = target_commit.tree()?;
 
-    if conflicts::is_conflicting(project_repo, None)? {
-        let merge_parent =
-            conflicts::merge_parent(project_repo)?.ok_or(anyhow!("No merge parent"))?;
-        let first_branch = applied_branches.first().ok_or(anyhow!("No branches"))?;
+    let merge_parent = conflicts::merge_parent(project_repo)?;
+    let is_conflicting = conflicts::is_conflicting(project_repo, None)?;
 
+    if is_conflicting && merge_parent.is_some() {
+        let merge_parent = merge_parent.unwrap();
+        let first_branch = applied_branches.first().ok_or(anyhow!("No branches"))?;
         let merge_base = repo.merge_base(first_branch.head.into(), merge_parent.into())?;
         workspace_tree = repo.find_commit(merge_base)?.tree()?;
     } else {
         for branch in &applied_branches {
-            let branch_tree = repo.find_commit(branch.head.into())?.tree()?;
-            let merge_tree = repo.find_commit(target.sha.into())?.tree()?;
-            let mut index = repo.merge_trees(&merge_tree, &workspace_tree, &branch_tree, None)?;
+            let branch_head = repo.find_commit(branch.head.into())?;
+            let branch_tree = find_real_tree(project_repo, &branch_head, None)?;
 
-            if !index.has_conflicts() {
-                workspace_tree = repo.find_tree(index.write_tree_to(repo)?)?;
+            if let Ok(mut result) =
+                repo.merge_trees(&target_tree.clone(), &workspace_tree, &branch_tree, None)
+            {
+                if !result.has_conflicts() {
+                    let final_tree_oid = result.write_tree_to(repo)?;
+                    workspace_tree = repo.find_tree(final_tree_oid)?;
+                } else {
+                    return Err(anyhow!("Merge conflict between base and {:?}", branch.name));
+                }
             } else {
-                return Err(anyhow!("Merge conflict between base and {:?}", branch.name));
+                return Err(anyhow!("Could not merge trees on {:?}", branch.name));
             }
         }
     }
@@ -95,7 +103,7 @@ pub fn get_workspace_head(
         .collect();
 
     if heads.is_empty() {
-        heads = vec![target_commit]
+        heads = vec![target_commit.clone()]
     }
 
     // TODO: Why does commit only accept a slice of commits? Feels like we

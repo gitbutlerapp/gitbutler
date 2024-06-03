@@ -175,6 +175,7 @@ export class Commit {
 	branchId!: string;
 	changeId!: string;
 	isSigned!: boolean;
+	conflictedFiles!: number;
 	relatedTo?: RemoteCommit;
 
 	parent?: Commit;
@@ -224,6 +225,7 @@ export class RemoteCommit {
 	parent?: RemoteCommit;
 	children?: RemoteCommit[];
 	relatedTo?: Commit;
+	conflictedFiles!: number;
 
 	get isLocal() {
 		return false;

@@ -1,7 +1,6 @@
 use std::{path::Path, time};
 
 use anyhow::{anyhow, bail, Context, Result};
-use git2::Index;
 use serde::Serialize;
 
 use super::{
@@ -17,7 +16,7 @@ use crate::{
     project_repository::{self, LogUntil},
     projects::FetchResult,
     users,
-    virtual_branches::{branch::BranchOwnershipClaims, cherry_rebase},
+    virtual_branches::{branch::BranchOwnershipClaims, cherry_rebase, find_real_tree},
 };
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
@@ -363,6 +362,10 @@ pub fn update_base_branch(
     let vb_state = project_repository.project().virtual_branches();
     let integration_commit = get_workspace_head(&vb_state, project_repository)?;
 
+    let ok_with_force_push = project_repository.project().ok_with_force_push;
+    let patch_stack_branches = project_repository.project().patch_stack_branches;
+    let patch_stack_branches = patch_stack_branches.is_some_and(|x| x);
+
     // try to update every branch
     let updated_vbranches =
         super::get_status_by_branch(project_repository, Some(&integration_commit))?
@@ -371,6 +374,9 @@ pub fn update_base_branch(
             .map(|(branch, _)| branch)
             .map(
                 |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
+                    dbg!("UPDATING BRANCH");
+                    dbg!(&branch);
+
                     let branch_tree = repo.find_tree(branch.tree)?;
 
                     let branch_head_commit = repo.find_commit(branch.head).context(format!(
@@ -381,6 +387,60 @@ pub fn update_base_branch(
                         "failed to find tree for commit {} for branch {}",
                         branch.head, branch.id
                     ))?;
+
+                    if patch_stack_branches {
+                        dbg!("patch stack mode, RUNNING EXPERIMENTAL ");
+                        // EXPERIMENTAL: just run the branch head through cherry_rebase_group
+                        let mut branch_head = branch.head;
+
+                        // if there is uncommitted work, temp commit the wip
+                        if branch_head_tree.id() != branch_tree.id() {
+                            let (author, committer) = project_repository::signatures::signatures(
+                                project_repository,
+                                user,
+                            )
+                            .context("failed to get signatures")?;
+                            branch_head = repo.commit(
+                                None,
+                                &author,
+                                &committer,
+                                "wip",
+                                &branch_tree,
+                                &[&branch_head_commit],
+                                None,
+                            )?;
+                        }
+
+                        let rebased_head_oid = cherry_rebase(
+                            project_repository,
+                            new_target_commit.id().into(),
+                            new_target_commit.id().into(),
+                            branch_head.into(),
+                        )?
+                        .unwrap(); // this should now always work, cleanup later
+
+                        let rebased_head = repo
+                            .find_commit(rebased_head_oid.into())
+                            .context("failed to find rebased head")?;
+
+                        branch.tree = find_real_tree(project_repository, &rebased_head, None)?
+                            .id()
+                            .into();
+                        branch.head = rebased_head.id().into();
+
+                        dbg!(&branch);
+
+                        // ok, it's rebased, now undo the wip commit but keep the tree
+                        if branch_head_tree.id() != branch_tree.id() {
+                            let parent = rebased_head.parent(0).context("failed to get parent")?;
+                            branch.head = parent.id().into();
+                        }
+
+                        vb_state.set_branch(branch.clone())?;
+                        return Ok(Some(branch));
+                    }
+
+                    // back to the non-experimental code
 
                     let result_integrated_detected =
                         |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
@@ -471,8 +531,6 @@ pub fn update_base_branch(
                             branch.id
                         ))?;
 
-                    let ok_with_force_push = project_repository.project().ok_with_force_push;
-
                     let result_merge =
                         |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
                             // branch was pushed to upstream, and user doesn't like force pushing.
@@ -512,7 +570,7 @@ pub fn update_base_branch(
                         project_repository,
                         new_target_commit.id().into(),
                         new_target_commit.id().into(),
-                        branch.head,
+                        branch.head.into(),
                     );
 
                     // rebase failed, just do the merge
@@ -546,8 +604,18 @@ pub fn update_base_branch(
             let repo: &git2::Repository = repo.into();
             let final_tree = final_tree?;
             let branch_tree = repo.find_tree(branch.tree.into())?;
-            let mut merge_result: Index =
-                repo.merge_trees(&new_target_tree, &final_tree, &branch_tree, None)?;
+
+            // if we see a .conflict-side-0 entry, we know that the commit is conflicted
+            // use that subtree for the merge instead
+            let conflict_side_0 = branch_tree.get_name(".conflict-side-0");
+            let merge_tree = if let Some(conflict_side_0) = conflict_side_0 {
+                repo.find_tree(conflict_side_0.id())?
+            } else {
+                repo.find_tree(branch_tree.id())? // dumb, but sort of a clone()
+            };
+
+            let mut merge_result =
+                repo.merge_trees(&new_target_tree, &final_tree, &merge_tree, None)?;
             let final_tree_oid = merge_result.write_tree_to(repo)?;
             repo.find_tree(final_tree_oid)
         })
