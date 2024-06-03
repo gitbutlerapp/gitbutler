@@ -3,66 +3,67 @@
 	import LocalLine from './LocalLine.svelte';
 	import RemoteLine from './RemoteLine.svelte';
 	import ShadowLine from './ShadowLine.svelte';
-	import { getAvatarTooltip } from '$lib/utils/avatar';
-	import type { Commit, CommitStatus, RemoteCommit } from '$lib/vbranches/types';
+	import type { Author, CommitStatus } from '$lib/vbranches/types';
 
-	export let hasShadowColumn = false;
 	export let hasLocalColumn = false;
-	export let localCommit: Commit | undefined = undefined;
-	export let remoteCommit: RemoteCommit | undefined = undefined;
-	export let first = false;
-	export let localLine = false;
-	export let localRoot = false;
-	export let remoteLine = false;
-	export let upstreamLine = false;
-	export let shadowLine = false;
+	export let hasShadowColumn = false;
+
+	export let sectionFirst = false;
+	export let sectionLast = false;
+
+	export let localIn: CommitStatus | undefined = undefined;
+	export let localOut: CommitStatus | undefined = undefined;
+
+	export let remoteIn: CommitStatus | undefined = undefined;
+	export let remoteOut: CommitStatus | undefined = undefined;
+
+	export let shadowIn: CommitStatus | undefined = undefined;
+	export let shadowOut: CommitStatus | undefined = undefined;
+
+	export let inDashed = false;
+	export let outDashed = false;
+
 	export let base = false;
-	export let upstreamType: CommitStatus | undefined = undefined;
-	export let nextCommitIsLocal = false;
+	export let last = false;
+	export let localRoot = false;
+	export let integrated = false;
+	export let relatedToOther = false;
 
-	$: remoteRoot = (integratedOrRemote && nextCommitIsLocal) || (base && nextCommitIsLocal);
-	// $: nextCommitIsLocal = localCommit?.children?.[0]?.status == 'local';
-	$: integratedOrRemote = localCommit?.status == 'remote' || localCommit?.status == 'integrated';
-	$: lastLocalCommit = !!localCommit && !localCommit?.children?.[0];
-	$: lastRemoteCommit = !!remoteCommit && !remoteCommit?.children?.[0];
-
-	$: short = !upstreamType && (lastLocalCommit || lastRemoteCommit);
-	$: relatedToOther = localCommit?.relatedTo && localCommit.relatedTo.id != localCommit.id;
-	$: upstreamIsNext = !!localCommit?.relatedTo && upstreamType == 'upstream';
-	$: tooltipText = getAvatarTooltip(localCommit || remoteCommit);
-
-	$: commitStatus = localCommit?.status || remoteCommit?.status;
-	$: author = localCommit?.author || remoteCommit?.author;
+	export let help: string | undefined = undefined;
+	export let author: Author | undefined = undefined;
+	export let commitStatus: CommitStatus | undefined = undefined;
 </script>
 
 <div class="lines">
 	{#if hasShadowColumn}
-		<ShadowLine line={shadowLine} dashed={base} {upstreamLine} {upstreamType} {first} {short}>
-			<Avatar
-				{first}
-				{author}
-				help={tooltipText}
-				status={commitStatus}
-				shadow={!!localCommit}
-				shadowLane
-			/>
+		<ShadowLine inType={shadowIn} outType={shadowOut} {sectionFirst}>
+			{#if author}
+				<Avatar
+					{help}
+					{author}
+					{sectionFirst}
+					status={commitStatus}
+					shadow={commitStatus && commitStatus != 'upstream'}
+					shadowLane
+				/>
+			{/if}
 		</ShadowLine>
 	{/if}
 	<RemoteLine
 		{base}
-		{first}
-		{upstreamType}
-		line={remoteLine}
-		root={remoteRoot}
-		commit={localCommit}
-		short={remoteRoot || short || upstreamIsNext}
-		upstreamLine={upstreamLine && !hasShadowColumn}
+		{sectionFirst}
+		root={localRoot}
+		inType={remoteIn}
+		outType={remoteOut}
+		outDashed={remoteOut == 'integrated'}
+		inDashed={remoteIn == 'integrated'}
+		{integrated}
 	>
-		{#if relatedToOther || remoteCommit}
+		{#if !hasShadowColumn && (relatedToOther || commitStatus == 'remote' || commitStatus == 'upstream')}
 			<Avatar
-				{first}
+				{help}
 				{author}
-				help={tooltipText}
+				{sectionFirst}
 				status={commitStatus}
 				shadow={relatedToOther}
 				remoteLane
@@ -72,15 +73,16 @@
 
 	{#if hasLocalColumn}
 		<LocalLine
-			{first}
-			isEmpty={base}
-			dashed={localLine}
-			root={localRoot}
-			longRoot={remoteRoot && !!localCommit?.parent}
-			nextType={upstreamType}
+			{inDashed}
+			{outDashed}
+			{sectionFirst}
+			inType={localIn}
+			outType={localOut}
+			root={sectionLast}
+			longRoot={sectionLast && !last}
 		>
-			{#if localCommit && !localCommit?.relatedTo}
-				<Avatar {first} {author} help={tooltipText} status={commitStatus} />
+			{#if commitStatus == 'local'}
+				<Avatar {help} {sectionFirst} {author} status={commitStatus} />
 			{/if}
 		</LocalLine>
 	{/if}

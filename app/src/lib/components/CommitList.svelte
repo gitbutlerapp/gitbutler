@@ -4,6 +4,7 @@
 	import { Project } from '$lib/backend/projects';
 	import ReorderDropzone from '$lib/components/CommitList/ReorderDropzone.svelte';
 	import { ReorderDropzoneIndexer } from '$lib/dragging/reorderDropzoneIndexer';
+	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import { getContext } from '$lib/utils/context';
 	import { getContextStore } from '$lib/utils/context';
 	import {
@@ -12,7 +13,13 @@
 		getRemoteCommits,
 		getUnknownCommits
 	} from '$lib/vbranches/contexts';
-	import { BaseBranch, Branch, Commit, type CommitStatus } from '$lib/vbranches/types';
+	import {
+		BaseBranch,
+		Branch,
+		Commit,
+		RemoteCommit,
+		type CommitStatus
+	} from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied: boolean;
@@ -34,21 +41,35 @@
 	$: hasLocalColumn = $localCommits.length > 0;
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
+	$: hasLocalCommits = $localCommits.length > 0;
 	$: hasUnknownCommits = $unknownCommits.length > 0;
+	$: hasIntegratedCommits = $integratedCommits.length > 0;
+	$: hasRemoteCommits = $remoteCommits.length > 0;
 	$: hasShadowedCommits = $localCommits.some((c) => c.relatedTo);
+	$: reorderDropzoneIndexer = new ReorderDropzoneIndexer([...$localCommits, ...$remoteCommits]);
 
 	let baseIsUnfolded = false;
 
-	function getNextUpstreamType(commit: Commit): CommitStatus | undefined {
+	function getRemoteOutType(commit: Commit | RemoteCommit): CommitStatus | undefined {
 		let child = commit.children?.[0];
 		while (child) {
-			if (child?.status == 'remote') return 'remote';
+			if (child.status == 'remote' || child.relatedTo) return 'remote';
+			if (child.status == 'local') return 'remote';
+			if (child.status == 'integrated') return 'integrated';
 			child = child?.children?.[0];
 		}
 		if (hasUnknownCommits) return 'upstream';
 	}
 
-	$: reorderDropzoneIndexer = new ReorderDropzoneIndexer([...$localCommits, ...$remoteCommits]);
+	function getRemoteInType(commit: Commit | RemoteCommit): CommitStatus | undefined {
+		if (commit.status == 'local' && commit.relatedTo) return 'remote';
+		if (commit.status == 'integrated') return 'integrated';
+		let parent = commit.parent;
+		if (parent?.status == 'remote') return 'remote';
+		if (parent) return getRemoteInType(parent);
+		if (hasUnknownCommits) return 'upstream';
+		return 'remote';
+	}
 </script>
 
 {#if hasCommits || hasUnknownCommits}
@@ -70,10 +91,18 @@
 						<CommitLines
 							{hasLocalColumn}
 							{hasShadowColumn}
-							upstreamLine
-							localLine={hasLocalColumn}
-							remoteCommit={commit}
-							first={idx == 0}
+							localIn={'local'}
+							localOut={'local'}
+							author={commit.author}
+							sectionFirst={idx == 0}
+							inDashed={hasLocalColumn}
+							outDashed={hasLocalColumn}
+							commitStatus={commit.status}
+							help={getAvatarTooltip(commit)}
+							remoteIn={!hasShadowColumn ? 'upstream' : undefined}
+							remoteOut={!hasShadowColumn && idx != 0 ? 'upstream' : undefined}
+							shadowIn={hasShadowColumn ? getRemoteInType(commit) : undefined}
+							shadowOut={idx != 0 && hasShadowColumn ? getRemoteOutType(commit) : undefined}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -100,12 +129,20 @@
 						<CommitLines
 							{hasLocalColumn}
 							{hasShadowColumn}
-							first={idx == 0}
-							localCommit={commit}
-							upstreamLine={hasUnknownCommits}
-							upstreamType={getNextUpstreamType(commit)}
-							shadowLine={hasShadowColumn && !!commit.relatedTo}
-							remoteLine={!hasShadowColumn && !!commit.relatedTo}
+							localIn={'local'}
+							localOut={'local'}
+							author={commit.author}
+							sectionFirst={idx == 0}
+							commitStatus={commit.status}
+							help={getAvatarTooltip(commit)}
+							outDashed={hasLocalColumn && idx == 0}
+							sectionLast={idx == $localCommits.length - 1}
+							remoteIn={!hasShadowColumn ? getRemoteInType(commit) : undefined}
+							remoteOut={!hasShadowColumn ? getRemoteOutType(commit) : undefined}
+							shadowIn={hasShadowColumn ? getRemoteInType(commit) : undefined}
+							shadowOut={hasShadowColumn ? getRemoteOutType(commit) : undefined}
+							relatedToOther={commit?.relatedTo && commit.relatedTo.id != commit.id}
+							last={idx == $localCommits.length - 1 && !hasRemoteCommits && !hasIntegratedCommits}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -113,7 +150,6 @@
 					index={reorderDropzoneIndexer.dropzoneIndexBelowCommit(commit.id)}
 					indexer={reorderDropzoneIndexer}
 				/>
-				<!-- </div> -->
 			{/each}
 		{/if}
 		<!-- REMOTE COMMITS -->
@@ -126,19 +162,24 @@
 					first={idx == 0}
 					branch={$branch}
 					last={idx == $remoteCommits.length - 1}
-					isHeadCommit={commit.id === headCommit?.id}
+					isHeadCommit={commit.id == headCommit?.id}
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 				>
 					<svelte:fragment slot="lines">
 						<CommitLines
-							remoteLine
 							{hasLocalColumn}
 							{hasShadowColumn}
-							first={idx == 0}
-							localCommit={commit}
-							upstreamLine={hasUnknownCommits}
-							upstreamType={getNextUpstreamType(commit)}
-							localLine={idx == 0 && commit.parent?.status == 'local'}
+							author={commit.author}
+							sectionFirst={idx == 0}
+							commitStatus={commit.status}
+							help={getAvatarTooltip(commit)}
+							integrated={commit.isIntegrated}
+							localRoot={idx == 0 && hasLocalCommits}
+							outDashed={idx == 0 && commit.parent?.status == 'local'}
+							remoteIn={!hasShadowColumn ? getRemoteInType(commit) : undefined}
+							remoteOut={!hasShadowColumn ? getRemoteOutType(commit) : undefined}
+							shadowIn={hasShadowColumn ? getRemoteInType(commit) : undefined}
+							shadowOut={hasShadowColumn ? getRemoteOutType(commit) : undefined}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -165,12 +206,12 @@
 						<CommitLines
 							{hasLocalColumn}
 							{hasShadowColumn}
-							remoteLine
-							first={idx == 0}
-							localCommit={commit}
-							localRoot={idx == 0 && commit.children?.[0]?.status == 'local'}
-							upstreamLine={$unknownCommits.length > 0 || $remoteCommits.length > 0}
-							upstreamType={getNextUpstreamType(commit)}
+							author={commit.author}
+							sectionFirst={idx == 0}
+							commitStatus={commit.status}
+							help={getAvatarTooltip(commit)}
+							remoteIn={!hasShadowColumn ? getRemoteInType(commit) : undefined}
+							remoteOut={!hasShadowColumn ? getRemoteOutType(commit) : undefined}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -187,20 +228,16 @@
 			>
 				<div class="base-row__lines">
 					<CommitLines
-						{hasShadowColumn}
-						localLine={$remoteCommits.length == 0 && $localCommits.length > 0}
-						localRoot={$remoteCommits.length == 0 &&
-							$integratedCommits.length == 0 &&
-							$localCommits.length > 0}
-						remoteLine={$remoteCommits.length > 0 || $integratedCommits.length > 0}
-						shadowLine={hasShadowColumn}
 						{hasLocalColumn}
-						upstreamType={hasShadowedCommits ? 'remote' : 'upstream'}
+						{hasShadowColumn}
+						localRoot={!hasRemoteCommits && !hasIntegratedCommits && hasLocalCommits}
+						shadowOut={hasShadowedCommits ? 'remote' : 'upstream'}
+						remoteOut={!hasShadowColumn && (hasIntegratedCommits || hasRemoteCommits)
+							? 'remote'
+							: !hasShadowColumn && hasUnknownCommits
+								? 'upstream'
+								: undefined}
 						base
-						upstreamLine={hasUnknownCommits && $remoteCommits.length == 0}
-						nextCommitIsLocal={$integratedCommits.length == 0 &&
-							$remoteCommits.length == 0 &&
-							$localCommits.length > 0}
 					/>
 				</div>
 				<div class="base-row__content">

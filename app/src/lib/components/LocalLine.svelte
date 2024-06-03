@@ -1,25 +1,33 @@
 <script lang="ts">
 	import type { CommitStatus } from '$lib/vbranches/types';
 
-	export let dashed: boolean;
-	export let first: boolean;
-	export let isEmpty: boolean = false;
 	export let root: boolean = false;
 	export let longRoot: boolean = false;
-	export let nextType: CommitStatus | undefined;
+	export let sectionFirst: boolean = false;
+
+	export let inType: CommitStatus | undefined;
+	export let outType: CommitStatus | undefined;
+
+	export let inDashed = false;
+	export let outDashed = false;
 </script>
 
 <div class="local-column">
-	{#if !isEmpty}
-		{#if nextType}
-			<div class="local-line dashed tip" />
-		{/if}
-		<div class="local-line" class:dashed class:first class:has-root={root} class:short={first} />
-		{#if root}
-			<div class="root" class:long-root={longRoot} />
-		{/if}
-		<slot />
+	{#if outType}
+		<div class="local-line tip" class:dashed={outDashed} />
 	{/if}
+	{#if inType}
+		<div
+			class="local-line short"
+			class:dashed={inDashed}
+			class:sectionFirst
+			class:has-root={root}
+		/>
+	{/if}
+	{#if root}
+		<div class="root" class:long-root={longRoot} />
+	{/if}
+	<slot />
 </div>
 
 <style lang="postcss">
