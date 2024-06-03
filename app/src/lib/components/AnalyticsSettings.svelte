@@ -12,16 +12,19 @@
 	const metricsEnabled = appMetricsEnabled();
 	const nonAnonMetricsEnabled = appNonAnonMetricsEnabled();
 
-	function toggleErrorReporting() {
+	function toggleErrorReporting(e: MouseEvent | CustomEvent<boolean>) {
 		$errorReportingEnabled = !$errorReportingEnabled;
+		e.preventDefault();
 	}
 
-	function toggleMetrics() {
+	function toggleMetrics(e: MouseEvent | CustomEvent<boolean>) {
 		$metricsEnabled = !$metricsEnabled;
+		e.preventDefault();
 	}
 
-	function toggleNonAnonMetrics() {
+	function toggleNonAnonMetrics(e: MouseEvent | CustomEvent<boolean>) {
 		$nonAnonMetricsEnabled = !$nonAnonMetricsEnabled;
+		e.preventDefault();
 	}
 </script>
 
@@ -72,7 +75,11 @@
 			</svelte:fragment>
 		</SectionCard>
 
-		<SectionCard labelFor="nonAnonMetricsEnabledToggle" on:click={toggleMetrics} orientation="row">
+		<SectionCard
+			labelFor="nonAnonMetricsEnabledToggle"
+			on:click={toggleNonAnonMetrics}
+			orientation="row"
+		>
 			<svelte:fragment slot="title">Non-anonymous usage metrics</svelte:fragment>
 			<svelte:fragment slot="caption"
 				>Toggle sharing of identifiable usage statistics.</svelte:fragment
