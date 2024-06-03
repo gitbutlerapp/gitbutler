@@ -346,6 +346,7 @@ export class RemoteBranchData {
 	@Type(() => RemoteCommit)
 	commits!: RemoteCommit[];
 	isMergeable!: boolean | undefined;
+	forkPoint?: string | undefined;
 
 	get ahead(): number {
 		return this.commits.length;
