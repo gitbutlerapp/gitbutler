@@ -180,9 +180,14 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn cherry_pick(&self, base: &git2::Commit, target: &git2::Commit) -> Result<git2::Index> {
+    pub fn cherry_pick(
+        &self,
+        base: &git2::Commit,
+        target: &git2::Commit,
+        mainline: u32,
+    ) -> Result<git2::Index> {
         self.0
-            .cherrypick_commit(target, base, 0, None)
+            .cherrypick_commit(target, base, mainline, None)
             .map_err(Into::into)
     }
 

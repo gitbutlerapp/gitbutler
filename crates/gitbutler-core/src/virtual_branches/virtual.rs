@@ -3235,9 +3235,10 @@ fn cherry_rebase_group(
             |head, to_rebase| {
                 let head = head?;
 
+                let mainline = if to_rebase.parent_count() > 1 { 2 } else { 0 };
                 let mut cherrypick_index = project_repository
                     .git_repository
-                    .cherry_pick(&head, &to_rebase)
+                    .cherry_pick(&head, &to_rebase, mainline)
                     .context("failed to cherry pick")?;
 
                 if cherrypick_index.has_conflicts() {
@@ -3255,6 +3256,13 @@ fn cherry_rebase_group(
 
                 let change_id = to_rebase.change_id();
 
+                let mut parents = vec![head];
+                if to_rebase.parent_count() > 1 {
+                    let other_parent = to_rebase.parent(0)?;
+                    parents.push(other_parent);
+                }
+                let parents: Vec<&git2::Commit> = parents.iter().collect();
+
                 let commit_oid = project_repository
                     .repo()
                     .commit_with_signature(
@@ -3263,7 +3271,7 @@ fn cherry_rebase_group(
                         &to_rebase.committer(),
                         &to_rebase.message_bstr().to_str_lossy(),
                         &merge_tree,
-                        &[&head],
+                        parents.as_slice(),
                         change_id.as_deref(),
                     )
                     .context("failed to create commit")?;
@@ -3365,7 +3373,7 @@ pub fn cherry_pick(
 
     let mut cherrypick_index = project_repository
         .git_repository
-        .cherry_pick(&wip_commit, &target_commit)
+        .cherry_pick(&wip_commit, &target_commit, 0) // TODO
         .context("failed to cherry pick")?;
 
     // unapply other branches
