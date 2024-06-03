@@ -33,6 +33,7 @@
 	$: hasLocalColumn = $localCommits.length > 0;
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
+	$: firstCommit = $branch.commits.at(-1);
 	$: hasLocalCommits = $localCommits.length > 0;
 	$: hasUnknownCommits = $unknownCommits.length > 0;
 	$: hasIntegratedCommits = $integratedCommits.length > 0;
@@ -40,8 +41,9 @@
 	$: hasShadowedCommits = $localCommits.some((c) => c.relatedTo);
 	$: reorderDropzoneIndexer = new ReorderDropzoneIndexer([...$localCommits, ...$remoteCommits]);
 
-	$: upstreamData = $branch.upstreamData;
-	$: isRebased = !!$branch.forkPoint && $branch.forkPoint != upstreamData?.forkPoint;
+	$: forkPoint = $branch.forkPoint;
+	$: upstreamForkPoint = $branch.upstreamData?.forkPoint;
+	$: isRebased = !!forkPoint && !!upstreamForkPoint && forkPoint != upstreamForkPoint;
 
 	let baseIsUnfolded = false;
 
@@ -159,12 +161,12 @@
 							help={getAvatarTooltip(commit)}
 							shadowHelp={getAvatarTooltip(commit.relatedTo)}
 							outDashed={hasLocalColumn && idx == 0}
-							sectionLast={idx == $localCommits.length - 1}
 							remoteIn={!isRebased ? getRemoteInType(commit) : undefined}
 							remoteOut={!isRebased ? getRemoteOutType(commit) : undefined}
 							shadowIn={isRebased ? getRemoteInType(commit) : undefined}
 							shadowOut={isRebased ? getRemoteOutType(commit) : undefined}
 							relatedToOther={commit?.relatedTo && commit.relatedTo.id != commit.id}
+							remoteRoot={idx == $localCommits.length - 1}
 							last={idx == $localCommits.length - 1 && !hasRemoteCommits && !hasIntegratedCommits}
 						/>
 					</svelte:fragment>
@@ -247,8 +249,12 @@
 							sectionFirst={idx == 0}
 							commitStatus={commit.status}
 							help={getAvatarTooltip(commit)}
+							shadowIn={isRebased ? getRemoteInType(commit) : undefined}
+							shadowOut={isRebased ? getRemoteOutType(commit) : undefined}
 							remoteIn={!isRebased ? getRemoteInType(commit) : undefined}
 							remoteOut={!isRebased ? getRemoteOutType(commit) : undefined}
+							integrated={true}
+							localRoot={idx == 0 && !hasRemoteCommits && hasLocalCommits}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -268,7 +274,7 @@
 						{hasLocalColumn}
 						{isRebased}
 						localRoot={!hasRemoteCommits && !hasIntegratedCommits && hasLocalCommits}
-						shadowOut={hasShadowedCommits ? 'remote' : 'upstream'}
+						shadowOut={isRebased && firstCommit ? getRemoteInType(firstCommit) : undefined}
 						remoteOut={!isRebased &&
 						(hasIntegratedCommits || hasRemoteCommits || hasShadowedCommits)
 							? 'remote'

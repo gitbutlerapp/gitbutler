@@ -46,6 +46,7 @@
 		{#if outType}
 			<div
 				class="remote-line tip"
+				class:integrated
 				class:upstream={outType == 'upstream'}
 				class:remote={outType == 'remote'}
 				class:dashed={outDashed}
@@ -115,7 +116,7 @@
 		&.remote {
 			background-color: var(--clr-commit-remote);
 		}
-		&.integrated:not(.tip) {
+		&.integrated {
 			background: repeating-linear-gradient(
 				0,
 				transparent,
