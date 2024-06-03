@@ -2,10 +2,12 @@
 	import SectionCard from './SectionCard.svelte';
 	import Spacer from './Spacer.svelte';
 	import TextBox from './TextBox.svelte';
+	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { getContext } from '$lib/utils/context';
+	import { onMount } from 'svelte';
 
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
@@ -14,6 +16,7 @@
 	let allowForcePushing = project?.ok_with_force_push;
 	let omitCertificateCheck = project?.omit_certificate_check;
 
+	const gitConfig = getContext(GitConfigService);
 	const runCommitHooks = projectRunCommitHooks(project.id);
 
 	async function setWithForcePush(value: boolean) {
@@ -30,6 +33,16 @@
 		project.snapshot_lines_threshold = value;
 		await projectService.updateProject(project);
 	}
+
+	let signCommits = false;
+	async function setSignCommits(value: boolean) {
+		signCommits = value;
+		await gitConfig.setSignCommitsConfig(project.id, value);
+	}
+
+	onMount(async () => {
+		signCommits = (await gitConfig.getSignCommitsConfig(project.id)) || false;
+	});
 </script>
 
 <section class="wrapper">
@@ -44,6 +57,20 @@
 				id="allowForcePush"
 				bind:checked={allowForcePushing}
 				on:change={async () => await setWithForcePush(allowForcePushing)}
+			/>
+		</svelte:fragment>
+	</SectionCard>
+
+	<SectionCard orientation="row" labelFor="allowForcePush">
+		<svelte:fragment slot="title">Sign commits</svelte:fragment>
+		<svelte:fragment slot="caption">
+			GitButler will sign commits as per your git configuration.
+		</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Toggle
+				id="signCommits"
+				bind:checked={signCommits}
+				on:change={async () => await setSignCommits(signCommits)}
 			/>
 		</svelte:fragment>
 	</SectionCard>

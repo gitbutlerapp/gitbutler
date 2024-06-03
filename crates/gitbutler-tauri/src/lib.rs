@@ -21,6 +21,7 @@ pub mod menu;
 pub mod watcher;
 
 pub mod askpass;
+pub mod config;
 pub mod error;
 pub mod github;
 pub mod keys;
