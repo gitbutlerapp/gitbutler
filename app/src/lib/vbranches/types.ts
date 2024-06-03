@@ -128,6 +128,8 @@ export class Branch {
 	selectedForChanges!: boolean;
 	/// The merge base between the target branch and the virtual branch
 	mergeBase!: string;
+	/// The fork point between the target branch and the virtual branch
+	forkPoint!: string;
 
 	get localCommits() {
 		return this.commits.filter((c) => c.status == 'local');
