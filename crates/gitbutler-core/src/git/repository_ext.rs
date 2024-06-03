@@ -239,7 +239,7 @@ fn inject_change_id(commit_buffer: &[u8], change_id: Option<&str>) -> Result<Str
         .unwrap_or_else(|| format!("{}", uuid::Uuid::new_v4()));
 
     let commit_ends_in_newline = commit_buffer.ends_with(b"\n");
-    let commit_buffer = str::from_utf8(commit_buffer).unwrap();
+    let commit_buffer = str::from_utf8(commit_buffer)?;
     let lines = commit_buffer.lines();
     let mut new_buffer = String::new();
     let mut found = false;
