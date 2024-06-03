@@ -75,12 +75,12 @@
 		return 'remote';
 	}
 
-	function insertBlankCommit(commit: Commit | RemoteCommit, location: 'above' | 'below' = 'below') {
+	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
 		if (!$branch || !$baseBranch) {
 			console.error('Unable to insert commit');
 			return;
 		}
-		branchController.insertBlankCommit($branch.id, commit.id, location == 'above' ? -1 : 1);
+		branchController.insertBlankCommit($branch.id, commitId, location == 'above' ? -1 : 1);
 	}
 </script>
 
@@ -120,19 +120,24 @@
 				</CommitCard>
 			{/each}
 		{/if}
+		<QuickActionMenu
+			offset={$localCommits.length == 0 &&
+			$remoteCommits.length == 0 &&
+			$integratedCommits.length == 0
+				? 0
+				: 0.75}
+			padding={1}
+		>
+			<Button style="ghost" size="tag" on:click={() => insertBlankCommit($branch.head, 'above')}
+				>Insert blank commit</Button
+			>
+		</QuickActionMenu>
 		<!-- LOCAL COMMITS -->
 		{#if $localCommits.length > 0}
 			<ReorderDropzone
 				index={reorderDropzoneIndexer.topDropzoneIndex}
 				indexer={reorderDropzoneIndexer}
 			/>
-			<QuickActionMenu offset={0.75} padding={1}>
-				<Button
-					style="ghost"
-					size="tag"
-					on:click={() => insertBlankCommit($localCommits[0], 'above')}>Insert blank commit</Button
-				>
-			</QuickActionMenu>
 			{#each $localCommits as commit, idx (commit.id)}
 				<CommitCard
 					{commit}
@@ -173,7 +178,7 @@
 					padding={1}
 					offset={$remoteCommits.length > 0 && idx + 1 == $localCommits.length ? 0.25 : 0}
 				>
-					<Button style="ghost" size="tag" on:click={() => insertBlankCommit(commit, 'below')}
+					<Button style="ghost" size="tag" on:click={() => insertBlankCommit(commit.id, 'below')}
 						>Insert blank commit</Button
 					>
 				</QuickActionMenu>
@@ -215,7 +220,7 @@
 					indexer={reorderDropzoneIndexer}
 				/>
 				<QuickActionMenu padding={1}>
-					<Button style="ghost" size="tag" on:click={() => insertBlankCommit(commit, 'below')}
+					<Button style="ghost" size="tag" on:click={() => insertBlankCommit(commit.id, 'below')}
 						>Insert blank commit</Button
 					>
 				</QuickActionMenu>
