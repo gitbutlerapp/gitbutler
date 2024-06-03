@@ -287,7 +287,7 @@
 							class="base-row__commit-link"
 							on:click={async () => await goto(`/${project.id}/base`)}
 						>
-							{$branch.mergeBase ? $branch.mergeBase.slice(0, 7) : ''}
+							{$branch.forkPoint ? $branch.forkPoint.slice(0, 7) : ''}
 						</button>
 					</span>
 				</div>

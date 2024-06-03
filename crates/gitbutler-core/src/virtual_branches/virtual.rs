@@ -74,6 +74,8 @@ pub struct VirtualBranch {
     pub head: git::Oid,
     /// The merge base between the target branch and the virtual branch
     pub merge_base: git::Oid,
+    /// The fork point between the target branch and the virtual branch
+    pub fork_point: Option<git::Oid>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -779,9 +781,8 @@ pub fn list_virtual_branches(
         let mut is_remote = false;
 
         // find all commits on head that are not on target.sha
-        let commits = project_repository
-            .log(branch.head, LogUntil::Commit(default_target.sha))
-            .context(format!("failed to get log for branch {}", branch.name))?
+        let commits = project_repository.log(branch.head, LogUntil::Commit(default_target.sha))?;
+        let vbranch_commits = commits
             .iter()
             .map(|commit| {
                 is_remote = if is_remote {
@@ -839,6 +840,11 @@ pub fn list_virtual_branches(
 
         let requires_force = is_requires_force(project_repository, &branch)?;
 
+        let fork_point = commits
+            .last()
+            .and_then(|c| c.parent(0).ok())
+            .map(|c| c.id().into());
+
         let branch = VirtualBranch {
             id: branch.id,
             name: branch.name,
@@ -846,7 +852,7 @@ pub fn list_virtual_branches(
             active: branch.applied,
             files,
             order: branch.order,
-            commits,
+            commits: vbranch_commits,
             requires_force,
             upstream,
             upstream_name: branch
@@ -859,6 +865,7 @@ pub fn list_virtual_branches(
             selected_for_changes: branch.selected_for_changes == Some(max_selected_for_changes),
             head: branch.head,
             merge_base,
+            fork_point,
         };
         branches.push(branch);
     }
