@@ -2,25 +2,25 @@
 	import { tooltip } from '$lib/utils/tooltip';
 	import type { Author, CommitStatus } from '$lib/vbranches/types';
 
-	export let status: CommitStatus | undefined;
 	export let author: Author | undefined;
+	export let status: CommitStatus | undefined;
 	export let help: string | undefined = undefined;
 
-	export let first = false;
-	export let shadow: boolean = false;
-	export let remoteLane: boolean = false;
-	export let shadowLane: boolean = false;
+	export let shadow = false;
+	export let remoteLane = false;
+	export let shadowLane = false;
+	export let sectionFirst = false;
 </script>
 
 {#if shadow}
 	<div
-		class:first
 		class="shadow-marker"
+		class:first={sectionFirst}
 		class:upstream={status == 'upstream'}
 		class:integrated={status == 'integrated'}
 		class:shadow-lane={shadowLane}
 		use:tooltip={help}
-	></div>
+	/>
 {:else}
 	<img
 		class="avatar"
@@ -28,7 +28,7 @@
 		srcset="{author?.gravatarUrl} 2x"
 		width="100"
 		height="100"
-		class:first
+		class:first={sectionFirst}
 		class:local={status == 'local'}
 		class:remote={status == 'remote'}
 		class:upstream={status == 'upstream'}
@@ -49,10 +49,10 @@
 		border-radius: var(--radius-l);
 		top: var(--avatar-top);
 		left: calc(-1 * (var(--size-2) + 0.063rem));
+
 		&.remote-lane {
 			left: var(--size-4);
 		}
-
 		&.remote {
 			border: var(--size-2) solid var(--clr-commit-remote);
 			left: var(--size-4);

@@ -1,23 +1,27 @@
 <script lang="ts">
-	import type { Commit, CommitStatus } from '$lib/vbranches/types';
+	import type { CommitStatus } from '$lib/vbranches/types';
 
-	export let commit: Commit | undefined;
-	export let base: boolean;
-	export let first: boolean;
-	export let short: boolean;
-	export let line: boolean;
-	export let root: boolean;
-	export let upstreamLine: boolean;
-	export let upstreamType: CommitStatus | undefined;
+	export let root = false;
+	export let base = false;
+	export let integrated = false;
+	export let sectionFirst = false;
 
-	$: integrated = commit?.isIntegrated;
+	export let inType: CommitStatus | undefined;
+	export let outType: CommitStatus | undefined;
+
+	export let inDashed = false;
+	export let outDashed = false;
 </script>
 
 <div class="remote-column" class:has-root={root} class:base>
 	{#if base}
-		<div class="remote-line dashed" class:short />
-		{#if upstreamLine}
-			<div class="remote-line tip base" class:upstream={upstreamType == 'upstream'} />
+		<div class="remote-line dashed short" />
+		{#if outType}
+			<div
+				class="remote-line base tip"
+				class:dashed={outDashed}
+				class:upstream={outType == 'upstream'}
+			/>
 		{/if}
 		{#if root}
 			<div class="root base" />
@@ -39,31 +43,23 @@
 			</svg>
 		</div>
 	{:else}
-		{#if line}
-			{#if upstreamLine}
-				<div
-					class="remote-line tip"
-					class:upstream={upstreamLine}
-					class:integrated
-					class:upstream-tip={upstreamType == 'upstream'}
-					class:remote-tip={upstreamType == 'remote'}
-				></div>
-			{/if}
+		{#if outType}
 			<div
-				class="remote-line"
-				class:short
-				class:first
-				class:integrated
-				class:dashed={upstreamLine && !commit?.parent}
+				class="remote-line tip"
+				class:upstream={outType == 'upstream'}
+				class:remote={outType == 'remote'}
+				class:dashed={outDashed}
+				class:first={sectionFirst}
 			/>
-		{:else if upstreamLine}
+		{/if}
+		{#if inType}
 			<div
-				class="remote-line upstream"
-				class:short
-				class:first
+				class="remote-line short"
 				class:integrated
-				class:upstream-tip={upstreamType == 'upstream'}
-				class:remote-tip={upstreamType == 'remote'}
+				class:first={sectionFirst}
+				class:upstream={inType == 'upstream'}
+				class:remote={inType == 'remote'}
+				class:dashed={inDashed}
 			/>
 		{/if}
 		{#if root}
@@ -77,11 +73,6 @@
 	.remote-column {
 		position: relative;
 		width: var(--size-24);
-		/* background-color: rgba(125, 138, 154, 0.307); */
-
-		/* &.base {
-			margin-top: calc(var(--size-8) * -1);
-		} */
 	}
 
 	.remote-line {
@@ -96,11 +87,17 @@
 			&.first {
 				top: calc(var(--avatar-first-top) + var(--size-4));
 			}
+			&.base {
+				top: calc(var(--avatar-top) + var(--size-8));
+			}
 		}
 		&.tip {
-			bottom: calc(100% - 3.25rem);
+			bottom: calc(100% - var(--avatar-top) - var(--size-4));
+			&.first {
+				bottom: calc(100% - var(--avatar-first-top) - var(--size-4));
+			}
 			&.base {
-				bottom: calc(100% - 1.625rem);
+				bottom: calc(100% - 1.5rem);
 			}
 		}
 		&.dashed {
@@ -115,24 +112,8 @@
 		&.upstream {
 			background-color: var(--clr-commit-upstream);
 		}
-		&.upstream-tip {
-			top: 0;
-			&.short {
-				top: var(--avatar-top);
-				&.first {
-					top: var(--avatar-first-top);
-				}
-			}
-		}
-		&.remote-tip {
+		&.remote {
 			background-color: var(--clr-commit-remote);
-			top: 0;
-			&.short {
-				top: var(--avatar-top);
-				&.first {
-					top: var(--avatar-first-top);
-				}
-			}
 		}
 		&.integrated:not(.tip) {
 			background: repeating-linear-gradient(
