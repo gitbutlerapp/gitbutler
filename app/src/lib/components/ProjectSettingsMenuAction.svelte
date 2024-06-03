@@ -2,8 +2,8 @@
 	import { listen } from '$lib/backend/ipc';
 	import { Project } from '$lib/backend/projects';
 	import { getContext } from '$lib/utils/context';
+	import { editor } from '$lib/utils/systemEditor';
 	import { open } from '@tauri-apps/api/shell';
-	import { invoke } from '@tauri-apps/api/tauri';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
@@ -17,8 +17,7 @@
 		const unsubscribeOpenInVSCode = listen<string>(
 			'menu://project/open-in-vscode/clicked',
 			async () => {
-				const editor = await invoke('resolve_vscode_variant');
-				const path = `${editor}://file${project.path}`;
+				const path = `${editor.get()}://file${project.path}`;
 				open(path);
 			}
 		);
