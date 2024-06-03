@@ -49,9 +49,15 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 	// 	throw userError;
 	// });
 
+	const id = Date.now() + Math.random();
+	console.log(id, 'START: ipc->', command, params);
+
 	try {
-		return await invokeTauri<T>(command, params);
+		const r = await invokeTauri<T>(command, params);
+		console.log(id, 'OK: ipc->', command, r);
+		return r;
 	} catch (reason) {
+		console.error(id, 'ERROR: ipc->', command, reason);
 		const userError = UserError.fromError(reason);
 		console.error(`ipc->${command}: ${JSON.stringify(params)}`, userError, reason);
 		throw userError;
@@ -59,6 +65,11 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 }
 
 export function listen<T>(event: EventName, handle: EventCallback<T>) {
-	const unlisten = listenTauri(event, handle);
+	const proxyHandle = (...args) => {
+		console.log('ipc->', event, args);
+		return handle(...args);
+	};
+
+	const unlisten = listenTauri(event, proxyHandle);
 	return async () => await unlisten.then((unlistenFn) => unlistenFn());
 }

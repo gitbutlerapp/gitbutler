@@ -184,7 +184,7 @@ impl Controller {
         project_id: &ProjectId,
         branch_update: super::branch::BranchSplitHunkUpdateRequest,
     ) -> Result<(), Error> {
-        self.inner(project_id)
+        self.inner(*project_id)
             .await
             .split_hunk_and_update_virtual_branch(project_id, branch_update)
             .await
@@ -613,7 +613,7 @@ impl ControllerInner {
     ) -> Result<(), Error> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository, _| {
+        self.with_verify_branch(*project_id, |project_repository, _| {
             let mut splits = project_repository.project().splits();
             splits.load()?;
             let split_entry = splits.get_mut_or_insert(branch_update.hunk_hash);

@@ -190,7 +190,7 @@ pub mod commands {
             .split_hunk_and_update_virtual_branch(&project_id, branch)
             .await?;
 
-        emit_vbranches(&handle, &project_id).await;
+        emit_vbranches(&handle, project_id).await;
         Ok(())
     }
 

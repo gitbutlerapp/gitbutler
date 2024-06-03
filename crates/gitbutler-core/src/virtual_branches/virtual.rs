@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::collections::HashSet;
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::PermissionsExt;
 use std::time::SystemTime;
@@ -1715,6 +1716,11 @@ fn get_applied_status(
     target_sha: &git::Oid,
     mut virtual_branches: Vec<branch::Branch>,
 ) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
+    let mut splits = project_repository.project().splits();
+    splits.load()?;
+
+    tracing::warn!("CALCULATING GET_APPLIED_STATUS");
+
     let base_file_diffs = diff::workdir(&project_repository.git_repository, integration_commit)
         .context("failed to diff workdir")?;
 
@@ -1752,12 +1758,15 @@ fn get_applied_status(
         &virtual_branches,
     )?;
 
+    let mut skipped_splits = HashMap::new();
+
     for branch in &mut virtual_branches {
         if !branch.applied {
             bail!("branch {} is not applied", branch.name);
         }
 
         let old_claims = branch.ownership.claims.clone();
+        tracing::warn!("old_claims for {branch:?}: {:#?}", old_claims);
         let new_claims = old_claims
             .iter()
             .filter_map(|claim| {
@@ -1778,14 +1787,28 @@ fn get_applied_status(
                             if locks.contains_key(&hash) {
                                 return None; // Defer allocation to unclaimed hunks processing
                             }
+
+                            // Does the hunk exist in our split database?
+                            tracing::warn!("evaluating split: {:?}", hash);
+                            let hunk_is_split = if splits.get(&hash).is_some() {
+                                skipped_splits
+                                    .insert(hash, (git_diff_hunk.clone(), claim.file_path.clone()));
+                                true
+                            } else {
+                                false
+                            };
+
                             if claimed_hunk.eq(&Hunk::from(git_diff_hunk)) {
                                 let timestamp = claimed_hunk.timestamp_ms().unwrap_or(mtime);
-                                diffs_by_branch
-                                    .entry(branch.id)
-                                    .or_default()
-                                    .entry(claim.file_path.clone())
-                                    .or_default()
-                                    .push(git_diff_hunk.clone());
+
+                                if !hunk_is_split {
+                                    diffs_by_branch
+                                        .entry(branch.id)
+                                        .or_default()
+                                        .entry(claim.file_path.clone())
+                                        .or_default()
+                                        .push(git_diff_hunk.clone());
+                                }
 
                                 git_diff_hunks.remove(i);
                                 return Some(
@@ -1795,12 +1818,14 @@ fn get_applied_status(
                                         .with_hash(hash),
                                 );
                             } else if claimed_hunk.intersects(git_diff_hunk) {
-                                diffs_by_branch
-                                    .entry(branch.id)
-                                    .or_default()
-                                    .entry(claim.file_path.clone())
-                                    .or_default()
-                                    .push(git_diff_hunk.clone());
+                                if !hunk_is_split {
+                                    diffs_by_branch
+                                        .entry(branch.id)
+                                        .or_default()
+                                        .entry(claim.file_path.clone())
+                                        .or_default()
+                                        .push(git_diff_hunk.clone());
+                                }
                                 let updated_hunk = Hunk {
                                     start: git_diff_hunk.new_start,
                                     end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
@@ -1881,12 +1906,62 @@ fn get_applied_status(
                 Some(locks) => hunk.with_locks(locks),
                 _ => hunk,
             };
+
+            // if the hunk has been marked as split, ignore it still;
+            // we process it later on.
+            if !skipped_splits.contains_key(&hash) {
+                diffs_by_branch
+                    .entry(virtual_branches[vbranch_pos].id)
+                    .or_default()
+                    .entry(filepath.clone())
+                    .or_default()
+                    .push(hunk);
+            }
+        }
+    }
+
+    // now process all split hunks, finding a set of each of the vbranches
+    // the splits are assigned to, and deriving new hunks from each branchs'
+    // respective splits.
+    for (hunk_hash, (hunk, filepath)) in skipped_splits {
+        let split = splits.get(&hunk_hash).unwrap();
+        let vbranches = split.ownership.iter().collect::<HashSet<_>>();
+        for vbranch in vbranches {
+            let vbranch_pos = virtual_branches
+                .iter()
+                .position(|vb| vb.id == *vbranch)
+                .unwrap_or(default_vbranch_pos);
+
+            let mut content = Vec::new();
+            let cloned = hunk.clone();
+
+            tracing::warn!("BEFORE: {:?}", cloned.diff_lines);
+
+            let mut iter = cloned.diff_lines.split_str(b"\n");
+            content.extend(iter.next().unwrap());
+            content.push(b'\n');
+            for (line, branch) in iter.zip(split.ownership.iter()) {
+                if branch == vbranch {
+                    content.extend(line.iter());
+                } else {
+                    content.push(b' ');
+                    content.extend((&line[1..]).iter());
+                }
+
+                content.push(b'\n');
+            }
+
+            let mut new_hunk = hunk.clone();
+            new_hunk.diff_lines = BString::from_iter(content.into_iter());
+
+            tracing::warn!("AFTER: {:?}", new_hunk.diff_lines);
+
             diffs_by_branch
                 .entry(virtual_branches[vbranch_pos].id)
                 .or_default()
                 .entry(filepath.clone())
                 .or_default()
-                .push(hunk);
+                .push(new_hunk);
         }
     }
 
