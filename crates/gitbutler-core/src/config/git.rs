@@ -2,7 +2,7 @@ use crate::projects::Project;
 use anyhow::Result;
 use git2::ConfigLevel;
 
-const CFG_SIGN_COMMITS: &str = "gitbutler.signCommits";
+use super::CFG_SIGN_COMMITS;
 
 impl Project {
     pub fn set_sign_commits(&self, val: bool) -> Result<()> {
