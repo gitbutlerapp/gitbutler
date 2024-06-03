@@ -30,19 +30,26 @@
 	export let relatedToOther = false;
 
 	export let help: string | undefined = undefined;
+	export let shadowHelp: string | undefined = undefined;
 	export let author: Author | undefined = undefined;
 	export let commitStatus: CommitStatus | undefined = undefined;
 </script>
 
 <div class="lines">
 	{#if hasShadowColumn}
-		<ShadowLine inType={shadowIn} outType={shadowOut} {sectionFirst}>
+		<ShadowLine
+			inType={shadowIn}
+			outType={shadowOut}
+			{sectionFirst}
+			outDashed={base}
+			inDashed={base}
+		>
 			{#if author}
 				<Avatar
-					{help}
 					{author}
 					{sectionFirst}
 					status={commitStatus}
+					help={shadowHelp || help}
 					shadow={commitStatus && commitStatus != 'upstream'}
 					shadowLane
 				/>
@@ -61,10 +68,10 @@
 	>
 		{#if !hasShadowColumn && (relatedToOther || commitStatus == 'remote' || commitStatus == 'upstream')}
 			<Avatar
-				{help}
 				{author}
 				{sectionFirst}
 				status={commitStatus}
+				help={shadowHelp || help}
 				shadow={relatedToOther}
 				remoteLane
 			/>

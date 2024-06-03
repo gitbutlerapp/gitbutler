@@ -91,6 +91,7 @@
 		}
 		&.shadow-lane {
 			left: var(--size-8);
+			background-color: var(--clr-commit-shadow);
 		}
 	}
 </style>
