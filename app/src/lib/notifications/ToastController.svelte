@@ -29,7 +29,7 @@
 				</svelte:fragment>
 
 				<svelte:fragment slot="error">
-					{toast.errorMessage}
+					{toast.error}
 				</svelte:fragment>
 			</InfoMessage>
 		</div>

@@ -72,7 +72,7 @@ You can disable commit signing in the project settings or review the signing set
 
 Please check our [documentation](https://docs.gitbutler.com/features/virtual-branches/verifying-commits) on setting up commit signing and verification.
 					`,
-					errorMessage: err.message,
+					error: err.message,
 					style: 'error'
 				});
 			} else {
@@ -220,7 +220,7 @@ Please check our [documentation](https://docs.gitbutler.com/features/virtual-bra
                         Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)
                         on fetching and pushing for ways to resolve the problem.
                     `,
-					errorMessage: err.message,
+					error: err.message,
 					style: 'error'
 				});
 			} else {
@@ -232,7 +232,7 @@ Please check our [documentation](https://docs.gitbutler.com/features/virtual-bra
                         Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)
                         on fetching and pushing for ways to resolve the problem.
                     `,
-					errorMessage: err.message,
+					error: err.message,
 					style: 'error'
 				});
 			}
