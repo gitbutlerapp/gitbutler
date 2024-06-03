@@ -8,12 +8,12 @@
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
+	import { editor } from '$lib/utils/systemEditor';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { LocalFile, type AnyFile } from '$lib/vbranches/types';
 	import { join } from '@tauri-apps/api/path';
 	import { open } from '@tauri-apps/api/shell';
-	import { editor } from '$lib/utils/systemEditor';
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
