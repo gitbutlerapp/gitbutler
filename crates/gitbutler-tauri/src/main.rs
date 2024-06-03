@@ -15,7 +15,7 @@
 
 use gitbutler_core::{assets, git, storage};
 use gitbutler_tauri::{
-    app, askpass, commands, github, keys, logs, menu, projects, remotes, undo, users,
+    app, askpass, commands, config, github, keys, logs, menu, projects, remotes, undo, users,
     virtual_branches, watcher, zip,
 };
 use tauri::{generate_context, Manager};
@@ -209,6 +209,8 @@ fn main() {
                     undo::list_snapshots,
                     undo::restore_snapshot,
                     undo::snapshot_diff,
+                    config::get_sign_commits_config,
+                    config::set_sign_commits_config,
                     menu::menu_item_set_enabled,
                     keys::commands::get_public_key,
                     github::commands::init_device_oauth,
