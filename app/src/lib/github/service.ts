@@ -327,7 +327,7 @@ export class GitHubService {
                                 You can also see our [documentation](https://docs.gitbutler.com/)
                                 for additional help.
                             `,
-							errorMessage: err.message,
+							error: err.message,
 							style: 'error'
 						});
 						console.error('Unable to create PR despite retrying', err);
@@ -610,7 +610,7 @@ function mapErrorToToast(err: any): Toast | undefined {
                 Please see our [documentation](https://docs.gitbutler.com/)
                 for additional help.
             `,
-			errorMessage: message,
+			error: message,
 			style: 'error'
 		};
 	}
@@ -624,7 +624,7 @@ function mapErrorToToast(err: any): Toast | undefined {
                 Please see our [documentation](https://docs.gitbutler.com/)
                 for additional help.
             `,
-			errorMessage: message,
+			error: message,
 			style: 'error'
 		};
 	}
@@ -648,7 +648,7 @@ function mapErrorToToast(err: any): Toast | undefined {
                 Please see our [documentation](https://docs.gitbutler.com/)
                 for additional help.
             `,
-			errorMessage: errorStrings,
+			error: errorStrings,
 			style: 'error'
 		};
 	}
