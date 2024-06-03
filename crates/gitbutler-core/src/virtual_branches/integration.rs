@@ -54,7 +54,7 @@ pub fn get_workspace_head(
     let mut workspace_tree = target_commit.tree()?;
 
     let merge_parent = conflicts::merge_parent(project_repo)?;
-    let is_conflicting = conflicts::is_conflicting::<String>(project_repo, None)?;
+    let is_conflicting = conflicts::is_conflicting(project_repo, None)?;
 
     if is_conflicting && merge_parent.is_some() {
         let merge_parent = merge_parent.unwrap();

@@ -3033,7 +3033,7 @@ pub fn resolve_conflict_finish(
     dbg!("-------- finish conflict resolve -----------");
     dbg!(&commit_oid);
 
-    if conflicts::is_conflicting::<&Path>(project_repository, None)? {
+    if conflicts::is_conflicting(project_repository, None)? {
         return Err(anyhow::anyhow!("Conflict is not yet resolved")).context("err");
     }
 
@@ -3048,12 +3048,9 @@ pub fn resolve_conflict_finish(
     // first get a list of the upstream commits
     let vb_state = project_repository.project().virtual_branches();
 
-    let mut target_branch = match vb_state.get_branch(*branch_id) {
-        Ok(branch) => Ok(branch),
-        Err(reader::Error::NotFound) => return Ok(commit_oid), // this is wrong
-        Err(error) => Err(error),
-    }
-    .context("failed to read branch")?;
+    let mut target_branch = vb_state
+        .get_branch(*branch_id)
+        .context("failed to read branch")?;
 
     // find all the commits upstream from the target "to" commit
     let upstream_commits = project_repository.l(
@@ -3437,7 +3434,7 @@ fn cherry_pick_gitbutler(
     project_repository: &project_repository::Repository,
     head: &git2::Commit,
     to_rebase: &git2::Commit,
-) -> Result<git::Index, anyhow::Error> {
+) -> Result<git2::Index, anyhow::Error> {
     // use that subtree for the merge instead
     let tree_0 = head.tree()?;
     let is_conflict_0 = tree_0.get_name(".conflict-side-0");

@@ -1,7 +1,7 @@
-use super::{Branch, Config, Index, Oid, Reference, Refname, Remote, Result, Url};
-use git2::{BlameOptions, Signature, Submodule};
+use super::{Oid, Refname, Result, Url};
+use git2::{Signature, Submodule};
 use git2_hooks::HookResult;
-use std::{path::Path, str};
+use std::{io::Write, os::unix::fs::PermissionsExt, path::Path, process::Stdio, str};
 
 // wrapper around git2::Repository to get control over how it's used.
 pub struct Repository(git2::Repository);

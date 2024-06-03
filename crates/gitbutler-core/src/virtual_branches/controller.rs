@@ -294,7 +294,7 @@ impl Controller {
         project_id: ProjectId,
         branch_id: BranchId,
         commit_oid: git::Oid,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         self.inner(project_id)
             .await
             .resolve_conflict_start(project_id, branch_id, commit_oid)
@@ -306,7 +306,7 @@ impl Controller {
         project_id: ProjectId,
         branch_id: BranchId,
         commit_oid: git::Oid,
-    ) -> Result<git::Oid, Error> {
+    ) -> Result<git::Oid> {
         self.inner(project_id)
             .await
             .resolve_conflict_finish(project_id, branch_id, commit_oid)
@@ -318,7 +318,7 @@ impl Controller {
         project_id: ProjectId,
         branch_id: BranchId,
         commit_oid: git::Oid,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         self.inner(project_id)
             .await
             .resolve_conflict_abandon(project_id, branch_id, commit_oid)
@@ -794,16 +794,21 @@ impl ControllerInner {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid
-    ) -> Result<(), Error> {
+        commit_oid: git::Oid,
+    ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
             let restore_snapshot = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::ConflictStart))?;
-            super::resolve_conflict_start(project_repository, &branch_id, commit_oid, restore_snapshot)
-                .map_err(Into::into)
+            super::resolve_conflict_start(
+                project_repository,
+                &branch_id,
+                commit_oid,
+                restore_snapshot,
+            )
+            .map_err(Into::into)
         })
     }
 
@@ -812,8 +817,8 @@ impl ControllerInner {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid
-    ) -> Result<git::Oid, Error> {
+        commit_oid: git::Oid,
+    ) -> Result<git::Oid> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
@@ -829,8 +834,8 @@ impl ControllerInner {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid
-    ) -> Result<(), Error> {
+        commit_oid: git::Oid,
+    ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {

@@ -1,7 +1,6 @@
 use std::{path::Path, time};
 
 use anyhow::{anyhow, bail, Context, Result};
-use git2::Index;
 use serde::Serialize;
 
 use super::{
@@ -414,8 +413,8 @@ pub fn update_base_branch(
 
                         let rebased_head_oid = cherry_rebase(
                             project_repository,
-                            new_target_commit.id(),
-                            new_target_commit.id(),
+                            new_target_commit.id().into(),
+                            new_target_commit.id().into(),
                             branch_head.into(),
                         )?
                         .unwrap(); // this should now always work, cleanup later
@@ -569,8 +568,8 @@ pub fn update_base_branch(
                     // branch was not pushed to upstream yet. attempt a rebase,
                     let rebased_head_oid = cherry_rebase(
                         project_repository,
-                        new_target_commit.id(),
-                        new_target_commit.id(),
+                        new_target_commit.id().into(),
+                        new_target_commit.id().into(),
                         branch.head.into(),
                     );
 
