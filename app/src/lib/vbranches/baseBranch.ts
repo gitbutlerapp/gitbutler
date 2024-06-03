@@ -73,7 +73,7 @@ export class BaseBranchService {
 				action: action || 'auto'
 			});
 		} catch (err: any) {
-			if (err.message?.includes('does not have a default target')) {
+			if (err.code == Code.DefaultTargetNotFound) {
 				// Swallow this error since user should be taken to project setup page
 				return;
 			} else if (err.code === Code.ProjectsGitAuth) {

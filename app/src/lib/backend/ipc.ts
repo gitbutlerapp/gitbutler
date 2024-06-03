@@ -5,7 +5,8 @@ import type { EventCallback, EventName } from '@tauri-apps/api/event';
 export enum Code {
 	Unknown = 'errors.unknown',
 	Validation = 'errors.validation',
-	ProjectsGitAuth = 'errors.projects.git.auth'
+	ProjectsGitAuth = 'errors.projects.git.auth',
+	DefaultTargetNotFound = 'errors.projects.default_target.not_found'
 }
 
 export class UserError extends Error {
