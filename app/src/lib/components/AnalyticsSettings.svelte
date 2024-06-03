@@ -12,17 +12,17 @@
 	const metricsEnabled = appMetricsEnabled();
 	const nonAnonMetricsEnabled = appNonAnonMetricsEnabled();
 
-	function toggleErrorReporting(e: MouseEvent | CustomEvent<boolean>) {
+	function toggleErrorReporting(e: MouseEvent) {
 		$errorReportingEnabled = !$errorReportingEnabled;
 		e.preventDefault();
 	}
 
-	function toggleMetrics(e: MouseEvent | CustomEvent<boolean>) {
+	function toggleMetrics(e: MouseEvent) {
 		$metricsEnabled = !$metricsEnabled;
 		e.preventDefault();
 	}
 
-	function toggleNonAnonMetrics(e: MouseEvent | CustomEvent<boolean>) {
+	function toggleNonAnonMetrics(e: MouseEvent) {
 		$nonAnonMetricsEnabled = !$nonAnonMetricsEnabled;
 		e.preventDefault();
 	}
@@ -53,7 +53,7 @@
 	</div>
 
 	<div class="analytics-settings__actions">
-		<SectionCard labelFor="errorReportngToggle" on:click={toggleErrorReporting} orientation="row">
+		<SectionCard labelFor="errorReportngToggle" orientation="row">
 			<svelte:fragment slot="title">Error reporting</svelte:fragment>
 			<svelte:fragment slot="caption">
 				Toggle reporting of application crashes and errors.
@@ -62,24 +62,20 @@
 				<Toggle
 					id="errorReportngToggle"
 					checked={$errorReportingEnabled}
-					on:change={toggleErrorReporting}
+					on:click={toggleErrorReporting}
 				/>
 			</svelte:fragment>
 		</SectionCard>
 
-		<SectionCard labelFor="metricsEnabledToggle" on:click={toggleMetrics} orientation="row">
+		<SectionCard labelFor="metricsEnabledToggle" orientation="row">
 			<svelte:fragment slot="title">Usage metrics</svelte:fragment>
 			<svelte:fragment slot="caption">Toggle sharing of usage statistics.</svelte:fragment>
 			<svelte:fragment slot="actions">
-				<Toggle id="metricsEnabledToggle" checked={$metricsEnabled} on:change={toggleMetrics} />
+				<Toggle id="metricsEnabledToggle" checked={$metricsEnabled} on:click={toggleMetrics} />
 			</svelte:fragment>
 		</SectionCard>
 
-		<SectionCard
-			labelFor="nonAnonMetricsEnabledToggle"
-			on:click={toggleNonAnonMetrics}
-			orientation="row"
-		>
+		<SectionCard labelFor="nonAnonMetricsEnabledToggle" orientation="row">
 			<svelte:fragment slot="title">Non-anonymous usage metrics</svelte:fragment>
 			<svelte:fragment slot="caption"
 				>Toggle sharing of identifiable usage statistics.</svelte:fragment
@@ -88,7 +84,7 @@
 				<Toggle
 					id="nonAnonMetricsEnabledToggle"
 					checked={$nonAnonMetricsEnabled}
-					on:change={toggleNonAnonMetrics}
+					on:click={toggleNonAnonMetrics}
 				/>
 			</svelte:fragment>
 		</SectionCard>

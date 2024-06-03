@@ -79,30 +79,25 @@
 	</svelte:fragment>
 
 	<div class="options">
-		<SectionCard labelFor="aiGenEnabled" on:click={aiGenToggle} orientation="row">
+		<SectionCard labelFor="aiGenEnabled" orientation="row">
 			<svelte:fragment slot="title">Enable branch and commit message generation</svelte:fragment>
 			<svelte:fragment slot="caption">
 				If enabled, diffs will sent to OpenAI or Anthropic's servers when pressing the "Generate
 				message" and "Generate branch name" button.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
-				<Toggle id="aiGenEnabled" checked={$aiGenEnabled} on:change={aiGenToggle} />
+				<Toggle id="aiGenEnabled" checked={$aiGenEnabled} on:click={aiGenToggle} />
 			</svelte:fragment>
 		</SectionCard>
 
-		<SectionCard
-			labelFor="branchNameGen"
-			disabled={!$aiGenEnabled}
-			on:click={aiGenBranchNamesToggle}
-			orientation="row"
-		>
+		<SectionCard labelFor="branchNameGen" disabled={!$aiGenEnabled} orientation="row">
 			<svelte:fragment slot="title">Automatically generate branch names</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<Toggle
 					id="branchNameGen"
 					disabled={!$aiGenEnabled}
 					checked={$aiGenAutoBranchNamingEnabled}
-					on:change={aiGenBranchNamesToggle}
+					on:click={aiGenBranchNamesToggle}
 				/>
 			</svelte:fragment>
 		</SectionCard>
@@ -133,11 +128,7 @@
 	<Section spacer>
 		<svelte:fragment slot="title">Full data synchronization</svelte:fragment>
 
-		<SectionCard
-			labelFor="historySync"
-			on:change={async (e) => await onSyncChange(e.detail)}
-			orientation="row"
-		>
+		<SectionCard labelFor="historySync" orientation="row">
 			<svelte:fragment slot="caption">
 				Sync my history, repository and branch data for backup, sharing and team features.
 			</svelte:fragment>
@@ -145,7 +136,7 @@
 				<Toggle
 					id="historySync"
 					checked={project.api?.sync || false}
-					on:change={async (e) => await onSyncChange(e.detail)}
+					on:click={async (e) => await onSyncChange(e.detail)}
 				/>
 			</svelte:fragment>
 		</SectionCard>
