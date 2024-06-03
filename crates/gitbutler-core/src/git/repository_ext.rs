@@ -199,7 +199,9 @@ fn sign_buffer(repo: &git2::Repository, buffer: &String) -> Result<String> {
             #[cfg(windows)]
             cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
 
-            let mut child = cmd.spawn()?;
+            let mut child = cmd
+                .spawn()
+                .context(anyhow::format_err!("failed to spawn {:?}", cmd))?;
             child
                 .stdin
                 .take()
