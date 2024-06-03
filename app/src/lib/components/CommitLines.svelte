@@ -66,7 +66,7 @@
 		inDashed={remoteIn == 'integrated'}
 		{integrated}
 	>
-		{#if !hasShadowColumn && (relatedToOther || commitStatus == 'remote' || commitStatus == 'upstream')}
+		{#if !hasShadowColumn && (relatedToOther || commitStatus != 'local')}
 			<Avatar
 				{author}
 				{sectionFirst}
