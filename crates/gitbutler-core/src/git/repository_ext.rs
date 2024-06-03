@@ -1,7 +1,9 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use git2::{BlameOptions, Repository, Tree};
 use std::{path::Path, process::Stdio, str};
 use tracing::instrument;
+
+use crate::{config::CFG_SIGN_COMMITS, error::Code};
 
 use super::Refname;
 use std::io::Write;
@@ -79,17 +81,12 @@ impl RepositoryExt for Repository {
 
         let commit_buffer = inject_change_id(&commit_buffer, change_id)?;
 
-        let should_sign = self.config()?.get_bool("commit.gpgSign").unwrap_or(false);
+        let should_sign = self.config()?.get_bool(CFG_SIGN_COMMITS).unwrap_or(false);
 
         let oid = if should_sign {
-            match sign_buffer(self, &commit_buffer) {
-                Ok(signature) => self.commit_signed(&commit_buffer, &signature, None)?,
-                Err(e) => {
-                    tracing::warn!("Failed to sign commit, committing unsigned: {}", e);
-                    self.odb()?
-                        .write(git2::ObjectType::Commit, commit_buffer.as_bytes())?
-                }
-            }
+            let signature = sign_buffer(self, &commit_buffer)
+                .map_err(|e| anyhow!(e).context(Code::CommitSigningFailed))?;
+            self.commit_signed(&commit_buffer, &signature, None)?
         } else {
             self.odb()?
                 .write(git2::ObjectType::Commit, commit_buffer.as_bytes())?
