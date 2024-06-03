@@ -66,8 +66,8 @@
 
 	function getRemoteInType(commit: Commit): CommitStatus | undefined {
 		if (commit.parent) return getRemoteOutType(commit.parent || commit);
-		if (commit.relatedTo) return 'remote';
-		return commit.status;
+		if (commit.status == 'remote' || commit.relatedTo) return 'remote';
+		if (commit.status == 'integrated') return 'integrated';
 	}
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
