@@ -6,7 +6,7 @@
 	import type { Author, CommitStatus } from '$lib/vbranches/types';
 
 	export let hasLocalColumn = false;
-	export let hasShadowColumn = false;
+	export let isRebased = false;
 
 	export let sectionFirst = false;
 	export let sectionLast = false;
@@ -36,7 +36,7 @@
 </script>
 
 <div class="lines">
-	{#if hasShadowColumn}
+	{#if isRebased}
 		<ShadowLine
 			inType={shadowIn}
 			outType={shadowOut}
@@ -48,7 +48,7 @@
 				<Avatar
 					{author}
 					{sectionFirst}
-					status={commitStatus}
+					status={shadowIn}
 					help={shadowHelp || help}
 					shadow={commitStatus && commitStatus != 'upstream'}
 					shadowLane
@@ -66,7 +66,7 @@
 		inDashed={remoteIn == 'integrated'}
 		{integrated}
 	>
-		{#if !hasShadowColumn && (relatedToOther || commitStatus != 'local')}
+		{#if !isRebased && (relatedToOther || commitStatus != 'local')}
 			<Avatar
 				{author}
 				{sectionFirst}

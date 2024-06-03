@@ -93,5 +93,8 @@
 			left: var(--size-8);
 			background-color: var(--clr-commit-shadow);
 		}
+		&.upstream {
+			background-color: var(--clr-commit-upstream);
+		}
 	}
 </style>
