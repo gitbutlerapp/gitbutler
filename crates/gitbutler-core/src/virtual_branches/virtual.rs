@@ -3234,26 +3234,36 @@ fn cherry_rebase_group(
                 .context("failed to find new commit"),
             |head, to_rebase| {
                 let head = head?;
-
-                let mut cherrypick_index = project_repository
-                    .git_repository
-                    .cherry_pick(&head, &to_rebase)
-                    .context("failed to cherry pick")?;
-
-                if cherrypick_index.has_conflicts() {
-                    return Err(anyhow!("failed to rebase")).context(Marker::BranchConflict);
-                }
-
-                let merge_tree_oid = cherrypick_index
-                    .write_tree_to(project_repository.repo())
-                    .context("failed to write merge tree")?;
-
-                let merge_tree = project_repository
-                    .git_repository
-                    .find_tree(merge_tree_oid.into())
-                    .context("failed to find merge tree")?;
-
                 let change_id = to_rebase.change_id();
+
+                let merge_tree = if to_rebase.parent_count() > 1 {
+                    to_rebase.tree()?
+                } else {
+                    let mut cherrypick_index = project_repository
+                        .git_repository
+                        .cherry_pick(&head, &to_rebase)
+                        .context("failed to cherry pick")?;
+
+                    if cherrypick_index.has_conflicts() {
+                        return Err(anyhow!("failed to rebase")).context(Marker::BranchConflict);
+                    }
+
+                    let merge_tree_oid = cherrypick_index
+                        .write_tree_to(project_repository.repo())
+                        .context("failed to write merge tree")?;
+
+                    project_repository
+                        .git_repository
+                        .find_tree(merge_tree_oid.into())
+                        .context("failed to find merge tree")?
+                };
+
+                let mut parents = vec![head];
+                if to_rebase.parent_count() > 1 {
+                    let other_parent = to_rebase.parent(0)?;
+                    parents.push(other_parent);
+                }
+                let parents: Vec<&git2::Commit> = parents.iter().collect();
 
                 let commit_oid = project_repository
                     .repo()
@@ -3263,7 +3273,7 @@ fn cherry_rebase_group(
                         &to_rebase.committer(),
                         &to_rebase.message_bstr().to_str_lossy(),
                         &merge_tree,
-                        &[&head],
+                        parents.as_slice(),
                         change_id.as_deref(),
                     )
                     .context("failed to create commit")?;
