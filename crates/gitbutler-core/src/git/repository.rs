@@ -1,12 +1,7 @@
 use super::{Branch, Config, Index, Oid, Reference, Refname, Remote, Result, Url};
 use git2::{BlameOptions, Signature, Submodule};
 use git2_hooks::HookResult;
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
-use std::process::Stdio;
-use std::{io::Write, path::Path, str};
+use std::{path::Path, str};
 
 // wrapper around git2::Repository to get control over how it's used.
 pub struct Repository(git2::Repository);
@@ -80,12 +75,6 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn is_descendant_of(&self, a: Oid, b: Oid) -> Result<bool> {
-        self.0
-            .graph_descendant_of(a.into(), b.into())
-            .map_err(Into::into)
-    }
-
     pub fn merge_base(&self, one: Oid, two: Oid) -> Result<Oid> {
         self.0
             .merge_base(one.into(), two.into())
@@ -98,10 +87,9 @@ impl Repository {
         ancestor_tree: &git2::Tree<'_>,
         our_tree: &git2::Tree<'_>,
         their_tree: &git2::Tree<'_>,
-    ) -> Result<Index> {
+    ) -> Result<git2::Index> {
         self.0
             .merge_trees(ancestor_tree, our_tree, their_tree, None)
-            .map(Index::from)
             .map_err(Into::into)
     }
 
@@ -168,15 +156,12 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn find_reference(&self, name: &Refname) -> Result<Reference> {
-        self.0
-            .find_reference(&name.to_string())
-            .map(Reference::from)
-            .map_err(Into::into)
+    pub fn find_reference(&self, name: &Refname) -> Result<git2::Reference> {
+        self.0.find_reference(&name.to_string()).map_err(Into::into)
     }
 
-    pub fn head(&self) -> Result<Reference> {
-        self.0.head().map(Reference::from).map_err(Into::into)
+    pub fn head(&self) -> Result<git2::Reference> {
+        self.0.head().map_err(Into::into)
     }
 
     pub fn find_tree(&self, id: Oid) -> Result<git2::Tree> {
@@ -207,8 +192,8 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn index(&self) -> Result<Index> {
-        self.0.index().map(Into::into).map_err(Into::into)
+    pub fn index(&self) -> Result<git2::Index> {
+        self.0.index().map_err(Into::into)
     }
 
     pub fn index_size(&self) -> Result<usize> {
@@ -222,10 +207,9 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn cherry_pick(&self, base: &git2::Commit, target: &git2::Commit) -> Result<Index> {
+    pub fn cherry_pick(&self, base: &git2::Commit, target: &git2::Commit) -> Result<git2::Index> {
         self.0
             .cherrypick_commit(target, base, 0, None)
-            .map(Into::into)
             .map_err(Into::into)
     }
 
@@ -457,8 +441,8 @@ impl Repository {
         Ok(new_buffer)
     }
 
-    pub fn config(&self) -> Result<Config> {
-        self.0.config().map(Into::into).map_err(Into::into)
+    pub fn config(&self) -> Result<git2::Config> {
+        self.0.config().map_err(Into::into)
     }
 
     pub fn path(&self) -> &Path {
@@ -511,9 +495,9 @@ impl Repository {
         self.0.checkout_head(opts).map_err(Into::into)
     }
 
-    pub fn checkout_index<'a>(&'a self, index: &'a mut Index) -> CheckoutIndexBuilder {
+    pub fn checkout_index<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder {
         CheckoutIndexBuilder {
-            index: index.into(),
+            index,
             repo: &self.0,
             checkout_builder: git2::build::CheckoutBuilder::new(),
         }
@@ -555,7 +539,7 @@ impl Repository {
         id: Oid,
         force: bool,
         log_message: &str,
-    ) -> Result<Reference> {
+    ) -> Result<git2::Reference> {
         self.0
             .reference(&name.to_string(), id.into(), force, log_message)
             .map(Into::into)
@@ -566,14 +550,17 @@ impl Repository {
         self.0.remote(name, &url.to_string()).map_err(Into::into)
     }
 
-    pub fn references(&self) -> Result<impl Iterator<Item = Result<Reference>>> {
+    pub fn references(&self) -> Result<impl Iterator<Item = Result<git2::Reference>>> {
         self.0
             .references()
             .map(|iter| iter.map(|reference| reference.map(Into::into).map_err(Into::into)))
             .map_err(Into::into)
     }
 
-    pub fn references_glob(&self, glob: &str) -> Result<impl Iterator<Item = Result<Reference>>> {
+    pub fn references_glob(
+        &self,
+        glob: &str,
+    ) -> Result<impl Iterator<Item = Result<git2::Reference>>> {
         self.0
             .references_glob(glob)
             .map(|iter| iter.map(|reference| reference.map(Into::into).map_err(Into::into)))
@@ -593,25 +580,6 @@ impl Repository {
     pub fn run_hook_post_commit(&self) -> Result<()> {
         git2_hooks::hooks_post_commit(&self.0, Some(&["../.husky"]))?;
         Ok(())
-    }
-
-    pub fn blame(
-        &self,
-        path: &Path,
-        min_line: u32,
-        max_line: u32,
-        oldest_commit: &Oid,
-        newest_commit: &Oid,
-    ) -> Result<git2::Blame> {
-        let mut opts = BlameOptions::new();
-        opts.min_line(min_line as usize)
-            .max_line(max_line as usize)
-            .newest_commit(git2::Oid::from(*newest_commit))
-            .oldest_commit(git2::Oid::from(*oldest_commit))
-            .first_parent(true);
-        self.0
-            .blame_file(path, Some(&mut opts))
-            .map_err(super::Error::Blame)
     }
 
     /// Returns a list of remotes

@@ -10,14 +10,8 @@ mod repository;
 
 pub use repository::*;
 
-mod index;
-pub use index::*;
-
 mod oid;
 pub use oid::*;
-
-mod config;
-pub use config::*;
 
 mod url;
 pub use self::url::*;

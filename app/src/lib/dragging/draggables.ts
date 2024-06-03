@@ -42,3 +42,5 @@ export class DraggableRemoteCommit {
 		public readonly remoteCommit: RemoteCommit
 	) {}
 }
+
+export type Draggable = DraggableFile | DraggableHunk | DraggableCommit;

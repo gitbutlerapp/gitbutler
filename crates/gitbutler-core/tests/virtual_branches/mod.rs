@@ -15,7 +15,7 @@ use std::{
 use anyhow::{Context, Result};
 use git2::TreeEntry;
 use gitbutler_core::{
-    git::{self, CommitExt},
+    git::{self, CommitExt, RepositoryExt},
     virtual_branches::{
         self, apply_branch,
         branch::{BranchCreateRequest, BranchOwnershipClaims},
@@ -691,7 +691,7 @@ fn commit_id_can_be_generated_or_specified() -> Result<()> {
         .unwrap();
     let target = project_repository
         .git_repository
-        .find_commit(target_oid)
+        .find_commit(target_oid.into())
         .unwrap();
     let change_id = target.change_id();
 
@@ -714,13 +714,17 @@ fn commit_id_can_be_generated_or_specified() -> Result<()> {
     let oid = index.write_tree().expect("failed to write tree");
     let signature = git2::Signature::now("test", "test@email.com").unwrap();
     let head = repository.head().expect("failed to get head");
-    repository
-        .commit(
-            Some(&head.name().unwrap()),
+    let refname: git::Refname = head.name().unwrap().parse().unwrap();
+    project_repository
+        .repo()
+        .commit_with_signature(
+            Some(&refname),
             &signature,
             &signature,
             "some commit",
-            &repository.find_tree(oid).expect("failed to find tree"),
+            &repository
+                .find_tree(oid.into())
+                .expect("failed to find tree"),
             &[&repository
                 .find_commit(
                     repository
@@ -740,7 +744,7 @@ fn commit_id_can_be_generated_or_specified() -> Result<()> {
         .unwrap();
     let target = project_repository
         .git_repository
-        .find_commit(target_oid)
+        .find_commit(target_oid.into())
         .unwrap();
     let change_id = target.change_id();
 
@@ -802,7 +806,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     //update repo ref refs/remotes/origin/master to up_target oid
     project_repository.git_repository.reference(
         &"refs/remotes/origin/master".parse().unwrap(),
-        coworker_work,
+        coworker_work.into(),
         true,
         "update target",
     )?;
@@ -818,7 +822,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     vb_state.set_default_target(virtual_branches::target::Target {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
-        sha: target_oid,
+        sha: target_oid.into(),
         push_remote_name: None,
     })?;
 
@@ -833,7 +837,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     let mut branch = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
-    branch.head = last_push;
+    branch.head = last_push.into();
     vb_state
         .set_branch(branch.clone())
         .context("failed to write target branch after push")?;
@@ -928,7 +932,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
     //update repo ref refs/remotes/origin/master to up_target oid
     project_repository.git_repository.reference(
         &"refs/remotes/origin/master".parse().unwrap(),
-        coworker_work,
+        coworker_work.into(),
         true,
         "update target",
     )?;
@@ -944,7 +948,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
     vb_state.set_default_target(virtual_branches::target::Target {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
-        sha: target_oid,
+        sha: target_oid.into(),
         push_remote_name: None,
     })?;
 
@@ -958,7 +962,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
     let mut branch = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
-    branch.head = last_push;
+    branch.head = last_push.into();
     vb_state
         .set_branch(branch.clone())
         .context("failed to write target branch after push")?;
@@ -1287,7 +1291,7 @@ fn detect_mergeable_branch() -> Result<()> {
         .unwrap();
     project_repository.git_repository.reference(
         &"refs/remotes/origin/remote_branch".parse().unwrap(),
-        up_target,
+        up_target.into(),
         true,
         "update target",
     )?;
@@ -1308,7 +1312,7 @@ fn detect_mergeable_branch() -> Result<()> {
         .unwrap();
     project_repository.git_repository.reference(
         &"refs/remotes/origin/remote_branch2".parse().unwrap(),
-        up_target,
+        up_target.into(),
         true,
         "update target",
     )?;
@@ -1426,7 +1430,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
         .unwrap();
     project_repository.git_repository.reference(
         &"refs/remotes/origin/master".parse().unwrap(),
-        upstream_commit,
+        upstream_commit.into(),
         true,
         "update target",
     )?;
@@ -1434,7 +1438,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
     vb_state.set_default_target(virtual_branches::target::Target {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "http://origin.com/project".to_string(),
-        sha: base_commit,
+        sha: base_commit.into(),
         push_remote_name: None,
     })?;
     project_repository
@@ -1808,7 +1812,7 @@ fn commit_partial_by_file() -> Result<()> {
         .unwrap();
     let commit1 = project_repository
         .git_repository
-        .find_commit(commit1_oid)
+        .find_commit(commit1_oid.into())
         .unwrap();
 
     set_test_target(project_repository)?;
@@ -1875,7 +1879,7 @@ fn commit_add_and_delete_files() -> Result<()> {
         .unwrap();
     let commit1 = project_repository
         .git_repository
-        .find_commit(commit1_oid)
+        .find_commit(commit1_oid.into())
         .unwrap();
 
     set_test_target(project_repository)?;

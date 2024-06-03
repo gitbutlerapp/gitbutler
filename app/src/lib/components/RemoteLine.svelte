@@ -109,7 +109,7 @@
 			}
 		}
 		&.tip {
-			bottom: calc(100% - 2.625rem);
+			bottom: calc(100% - 3.25rem);
 			&.base {
 				bottom: calc(100% - 1.625rem);
 			}
