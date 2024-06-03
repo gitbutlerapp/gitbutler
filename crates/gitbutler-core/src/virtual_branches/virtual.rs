@@ -148,6 +148,8 @@ pub struct VirtualBranchHunk {
     pub file_path: PathBuf,
     #[serde(serialize_with = "crate::serde::hash_to_hex")]
     pub hash: HunkHash,
+    #[serde(serialize_with = "crate::serde::hash_to_hex_opt")]
+    pub split_from: Option<HunkHash>,
     pub old_start: u32,
     pub start: u32,
     pub end: u32,
@@ -179,6 +181,7 @@ impl VirtualBranchHunk {
             end: hunk.new_start + hunk.new_lines,
             binary: hunk.binary,
             hash,
+            split_from: hunk.split_from,
             locked: hunk.locked_to.len() > 0,
             locked_to: Some(hunk.locked_to),
             change_type: hunk.change_type,
@@ -1953,8 +1956,9 @@ fn get_applied_status(
 
             let mut new_hunk = hunk.clone();
             new_hunk.diff_lines = BString::from_iter(content.into_iter());
+            new_hunk.split_from = Some(hunk_hash);
 
-            tracing::warn!("AFTER: {:?}", new_hunk.diff_lines);
+            tracing::warn!("AFTER: {:#?}", new_hunk);
 
             diffs_by_branch
                 .entry(virtual_branches[vbranch_pos].id)

@@ -58,6 +58,17 @@ pub mod serde {
         format!("{v:x}").serialize(s)
     }
 
+    pub fn hash_to_hex_opt<S>(v: &Option<HunkHash>, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if let Some(v) = v {
+            hash_to_hex(v, s)
+        } else {
+            s.serialize_none()
+        }
+    }
+
     pub fn as_time_seconds_from_unix_epoch<S>(v: &git2::Time, s: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

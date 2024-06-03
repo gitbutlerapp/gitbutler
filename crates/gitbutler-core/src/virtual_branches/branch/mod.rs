@@ -85,6 +85,7 @@ pub struct BranchUpdateRequest {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct BranchSplitHunkUpdateRequest {
     pub hunk_hash: HunkHash,
+    pub split_from: Option<HunkHash>,
     pub lines: Vec<Option<BranchId>>,
 }
 

@@ -22,6 +22,7 @@ export class Hunk {
 	modifiedAt!: Date;
 	filePath!: string;
 	hash?: string;
+	splitFrom?: string;
 	locked!: boolean;
 	@Type(() => HunkLock)
 	lockedTo!: HunkLock[];

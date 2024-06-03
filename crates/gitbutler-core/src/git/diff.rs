@@ -10,7 +10,7 @@ use tracing::instrument;
 use super::Repository;
 use crate::git;
 use crate::id::Id;
-use crate::virtual_branches::split::SplitEntry;
+use crate::virtual_branches::branch::HunkHash;
 use crate::virtual_branches::Branch;
 
 pub type DiffByPathMap = HashMap<PathBuf, FileDiff>;
@@ -54,8 +54,7 @@ pub struct GitHunk {
     /// The `+`, `-` or ` ` prefixed lines of the diff produced by `git2`, along with their line separator.
     #[serde(rename = "diff", serialize_with = "crate::serde::as_string_lossy")]
     pub diff_lines: BString,
-    #[serde(skip)]
-    pub split: Option<SplitEntry>,
+    pub split_from: Option<HunkHash>,
     pub binary: bool,
     pub locked_to: Box<[HunkLock]>,
     pub change_type: ChangeType,
@@ -72,7 +71,7 @@ impl GitHunk {
             new_start: 0,
             new_lines: 0,
             diff_lines: hex_id.into(),
-            split: None,
+            split_from: None,
             binary: true,
             change_type,
             locked_to: Box::new([]),
@@ -87,7 +86,7 @@ impl GitHunk {
             new_start: 0,
             new_lines: 0,
             diff_lines: Default::default(),
-            split: None,
+            split_from: None,
             binary: false,
             change_type: ChangeType::Modified,
             locked_to: Box::new([]),
@@ -323,7 +322,7 @@ pub fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result
                                         new_start,
                                         new_lines,
                                         diff_lines: line.into_owned(),
-                                        split: None,
+                                        split_from: None,
                                         binary: false,
                                         change_type,
                                         locked_to: Box::new([]),
@@ -431,7 +430,7 @@ pub fn reverse_hunk(hunk: &GitHunk) -> Option<GitHunk> {
             new_start: hunk.old_start,
             new_lines: hunk.old_lines,
             diff_lines: diff,
-            split: None,
+            split_from: hunk.split_from,
             binary: hunk.binary,
             change_type: hunk.change_type,
             locked_to: Box::new([]),

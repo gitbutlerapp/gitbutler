@@ -200,6 +200,7 @@ export class BranchController {
 				projectId: this.projectId,
 				branch: {
 					hunk_hash: hunk.hash,
+					split_from: hunk.splitFrom,
 					// Convert to an array of branch IDs (none == context line)
 					// such that each line corresponds to the branch that should own it.
 					lines: Array.from(claims).map((l) => (l === null ? null : l ? branchId : sourceBranchId))
