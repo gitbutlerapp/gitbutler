@@ -49,12 +49,18 @@
 	let baseIsUnfolded = false;
 
 	function getRemoteOutType(commit: Commit): CommitStatus | undefined {
-		let parent = commit.parent;
-		let upstreamCommit = commit.relatedTo;
+		if (!hasShadowedCommits) {
+			const childStatus = commit.children?.[0]?.status;
+			return childStatus != 'local' ? childStatus : undefined;
+		}
 
-		while (!upstreamCommit && parent) {
-			parent = parent.parent;
-			upstreamCommit = parent?.relatedTo;
+		// TODO: Consider introducing `relatedParent` and `relatedChildren`
+		let upstreamCommit = commit.relatedTo;
+		let pointer: Commit | undefined = commit;
+
+		while (!upstreamCommit && pointer) {
+			pointer = pointer.parent;
+			upstreamCommit = pointer?.relatedTo;
 		}
 
 		if (!upstreamCommit) return hasUnknownCommits ? 'upstream' : undefined;
