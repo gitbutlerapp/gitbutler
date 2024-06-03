@@ -48,16 +48,16 @@ pub fn resolve_vscode_variant() -> &'static str {
 }
 
 fn check_if_installed(executable_name: &str) -> bool {
-    let paths = match env::var_os("PATH") {
-        Some(path) => env::split_paths(&path).collect::<Vec<_>>(),
-        None => vec![],
-    };
-
-    paths.into_iter().any(|mut path| {
-        path.push(executable_name);
-        //println!("{}", path.to_string_lossy());
-        fs::metadata(path).is_ok()
-    })
+    match env::var_os("PATH") {
+        Some(env_path) => env::split_paths(&env_path)
+            .filter_map(|mut path| {
+                path.push(executable_name);
+                fs::metadata(path).ok()
+            })
+            .next()
+            .is_some(),
+        None => false,
+    }
 }
 
 pub fn build(_package_info: &PackageInfo) -> Menu {
