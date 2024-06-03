@@ -77,14 +77,6 @@
 		branchController.undoCommit(branch.id, commit.id);
 	}
 
-	function insertBlankCommit(commit: Commit | RemoteCommit, offset: number) {
-		if (!branch || !$baseBranch) {
-			console.error('Unable to insert commit');
-			return;
-		}
-		branchController.insertBlankCommit(branch.id, commit.id, offset);
-	}
-
 	let isUndoable = !!branch?.active && commit instanceof Commit;
 
 	const hasCommitUrl = !commit.isLocal && commitUrl;
@@ -234,24 +226,6 @@
 										icon="edit-text"
 										clickable
 										on:click={openCommitMessageModal}>Edit message</Tag
-									>
-									<Tag
-										style="ghost"
-										kind="solid"
-										clickable
-										on:click={(e) => {
-											e.stopPropagation();
-											insertBlankCommit(commit, -1);
-										}}>Add Before</Tag
-									>
-									<Tag
-										style="ghost"
-										kind="solid"
-										clickable
-										on:click={(e) => {
-											e.stopPropagation();
-											insertBlankCommit(commit, 1);
-										}}>Add After</Tag
 									>
 								{/if}
 								{#if hasCommitUrl}
