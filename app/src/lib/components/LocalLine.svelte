@@ -14,7 +14,11 @@
 
 <div class="local-column">
 	{#if outType}
-		<div class="local-line tip" class:dashed={outDashed} />
+		<div
+			class="local-line tip"
+			class:dashed={outDashed}
+			class:integrated={inType == 'integrated'}
+		/>
 	{/if}
 	{#if inType}
 		<div
@@ -22,6 +26,7 @@
 			class:dashed={inDashed}
 			class:sectionFirst
 			class:has-root={root}
+			class:integrated={inType == 'integrated'}
 		/>
 	{/if}
 	{#if root}
@@ -61,6 +66,9 @@
 		}
 		&.short {
 			top: var(--avatar-first-top);
+		}
+		&.integrated {
+			background-color: var(--clr-commit-shadow);
 		}
 	}
 

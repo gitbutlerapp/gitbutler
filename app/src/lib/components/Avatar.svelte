@@ -65,7 +65,6 @@
 		}
 		&.integrated {
 			border: var(--size-2) solid var(--clr-commit-shadow);
-			left: var(--size-4);
 		}
 		&.first {
 			top: var(--avatar-first-top);

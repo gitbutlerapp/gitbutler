@@ -9,7 +9,6 @@
 	export let isRebased = false;
 
 	export let sectionFirst = false;
-	export let sectionLast = false;
 
 	export let localIn: CommitStatus | undefined = undefined;
 	export let localOut: CommitStatus | undefined = undefined;
@@ -28,6 +27,7 @@
 	export let localRoot = false;
 	export let integrated = false;
 	export let relatedToOther = false;
+	export let remoteRoot = false;
 
 	export let help: string | undefined = undefined;
 	export let shadowHelp: string | undefined = undefined;
@@ -85,8 +85,8 @@
 			{sectionFirst}
 			inType={localIn}
 			outType={localOut}
-			root={sectionLast}
-			longRoot={sectionLast && !last}
+			root={remoteRoot}
+			longRoot={remoteRoot && !last}
 		>
 			{#if commitStatus == 'local'}
 				<Avatar {help} {sectionFirst} {author} status={commitStatus} />
