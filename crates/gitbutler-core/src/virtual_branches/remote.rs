@@ -37,6 +37,7 @@ pub struct RemoteBranchData {
     pub upstream: Option<git::RemoteRefname>,
     pub behind: u32,
     pub commits: Vec<RemoteCommit>,
+    pub fork_point: Option<git::Oid>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -93,18 +94,8 @@ pub fn get_branch_data(
         .find_branch(refname)
         .context(format!("failed to find branch with refname {refname}"))?;
 
-    let branch_data = branch_to_remote_branch_data(project_repository, &branch, default_target.sha)
-        .context("failed to get branch data")?;
-
-    branch_data
-        .context("no data found for branch")
-        .map(|branch_data| RemoteBranchData {
-            sha: branch_data.sha,
-            name: branch_data.name,
-            upstream: branch_data.upstream,
-            behind: branch_data.behind,
-            commits: branch_data.commits,
-        })
+    branch_to_remote_branch_data(project_repository, &branch, default_target.sha)?
+        .context("failed to get branch data")
 }
 
 pub fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<RemoteBranch>> {
@@ -169,6 +160,11 @@ pub fn branch_to_remote_branch_data(
                 .distance(base, sha.into())
                 .context("failed to get behind count")?;
 
+            let fork_point = ahead
+                .last()
+                .and_then(|c| c.parent(0).ok())
+                .map(|c| c.id().into());
+
             Ok(RemoteBranchData {
                 sha: sha.into(),
                 upstream: if let git::Refname::Local(local_name) = &name {
@@ -182,6 +178,7 @@ pub fn branch_to_remote_branch_data(
                     .into_iter()
                     .map(|commit| commit_to_remote_commit(&commit))
                     .collect::<Vec<_>>(),
+                fork_point,
             })
         })
         .transpose()
