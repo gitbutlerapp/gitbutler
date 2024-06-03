@@ -345,49 +345,37 @@ pub fn apply_branch(
             // ok, update the virtual branch
             branch.head = new_branch_head.into();
         } else {
-            // branch was not pushed to upstream yet. attempt a rebase,
-            let (_, committer) =
-                project_repository::signatures::signatures(project_repository, user)
-                    .context("failed to get signatures")?;
-            let mut rebase_options = git2::RebaseOptions::new();
-            rebase_options.quiet(true);
-            rebase_options.inmemory(true);
-            let mut rebase = repo
-                .rebase(
-                    Some(branch.head),
-                    Some(target_commit.id().into()),
-                    None,
-                    Some(&mut rebase_options),
-                )
-                .context("failed to rebase")?;
-
+            let rebase = cherry_rebase(
+                project_repository,
+                target_commit.id().into(),
+                target_commit.id().into(),
+                branch.head,
+            );
             let mut rebase_success = true;
-            // check to see if these commits have already been pushed
             let mut last_rebase_head = branch.head;
-            while rebase.next().is_some() {
-                let index = rebase
-                    .inmemory_index()
-                    .context("failed to get inmemory index")?;
-                if index.has_conflicts() {
-                    rebase_success = false;
-                    break;
+            match rebase {
+                Ok(rebase_oid) => {
+                    if let Some(oid) = rebase_oid {
+                        last_rebase_head = oid;
+                    }
                 }
-
-                if let Ok(commit_id) = rebase.commit(None, &committer.clone(), None) {
-                    last_rebase_head = commit_id.into();
-                } else {
+                Err(err)
+                    if err
+                        .downcast_ref()
+                        .map_or(false, |marker: &Marker| *marker == Marker::ProjectConflict) =>
+                {
                     rebase_success = false;
-                    break;
+                }
+                Err(err) => {
+                    return Err(err).context("failed to apply branch");
                 }
             }
 
             if rebase_success {
                 // rebase worked out, rewrite the branch head
-                rebase.finish(None).context("failed to finish rebase")?;
                 branch.head = last_rebase_head;
             } else {
                 // rebase failed, do a merge commit
-                rebase.abort().context("failed to abort rebase")?;
 
                 // get tree from merge_tree_oid
                 let merge_tree = repo
@@ -3253,7 +3241,7 @@ fn cherry_rebase_group(
                     .context("failed to cherry pick")?;
 
                 if cherrypick_index.has_conflicts() {
-                    bail!("failed to rebase");
+                    return Err(anyhow!("failed to rebase")).context(Marker::BranchConflict);
                 }
 
                 let merge_tree_oid = cherrypick_index
