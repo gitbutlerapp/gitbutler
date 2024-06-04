@@ -14,7 +14,7 @@ pub async fn get_sign_commits_config(
         .state::<projects::Controller>()
         .get(project_id)
         .context("failed to get project")?
-        .sign_commits()
+        .should_sign_commits()
         .map_err(Into::into)
 }
 
@@ -29,6 +29,6 @@ pub async fn set_sign_commits_config(
         .state::<projects::Controller>()
         .get(project_id)
         .context("failed to get project")?
-        .set_sign_commits(value)
+        .set_sign_commits_config(value)
         .map_err(Into::into)
 }
