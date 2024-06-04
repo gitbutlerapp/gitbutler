@@ -20,6 +20,7 @@
 	import lscache from 'lscache';
 	import { setContext } from 'svelte';
 	import { quintOut } from 'svelte/easing';
+	import { writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 
 	export let branch: Branch;
@@ -50,10 +51,12 @@
 
 	const project = getContext(Project);
 
-	const fileIdSelection = new FileIdSelection();
+	const branchFiles = writable(branch.files);
+	$: branchFiles.set(branch.files);
+	const fileIdSelection = new FileIdSelection(project.id, branchFiles);
 	setContext(FileIdSelection, fileIdSelection);
 
-	$: selectedFile = fileIdSelection.selectedFile(branch.files, project.id);
+	$: selectedFile = fileIdSelection.selectedFile;
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
