@@ -138,8 +138,7 @@
 		<div
 			class="header card"
 			class:header_target-branch={branch.selectedForChanges}
-			class:header_target-branch-animation={isTargetBranchAnimated &&
-				branch.selectedForChanges}
+			class:header_target-branch-animation={isTargetBranchAnimated && branch.selectedForChanges}
 		>
 			<div class="header__info-wrapper">
 				{#if !isUnapplied}
@@ -255,8 +254,7 @@
 						<div class="header__buttons">
 							{#if !hasPullRequest}
 								<PullRequestButton
-									on:click={async (e) =>
-										await createPr({ draft: e.detail.action == 'draft' })}
+									on:click={async (e) => await createPr({ draft: e.detail.action == 'draft' })}
 									loading={isLoading}
 								/>
 							{/if}
