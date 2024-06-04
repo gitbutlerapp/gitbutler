@@ -80,10 +80,10 @@
 			autocomplete={autocomplete ? 'on' : 'off'}
 			min={minVal}
 			max={maxVal}
-			{...type == 'password' && showPassword ? { type: 'text' } : { type }}
+			{...type === 'password' && showPassword ? { type: 'text' } : { type }}
 			class:show-count-actions={showCountActions}
 			class="text-input textbox__input text-base-13"
-			class:textbox__readonly={type != 'select' && readonly}
+			class:textbox__readonly={type !== 'select' && readonly}
 			class:select-none={noselect}
 			style:text-align={textAlign}
 			bind:value
@@ -99,7 +99,7 @@
 			on:keydown={(e) => dispatch('keydown', e)}
 		/>
 
-		{#if type == 'number' && showCountActions}
+		{#if type === 'number' && showCountActions}
 			<div class="textbox__count-actions">
 				<button
 					class="textbox__count-btn"
@@ -128,7 +128,7 @@
 			</div>
 		{/if}
 
-		{#if type == 'password'}
+		{#if type === 'password'}
 			<button
 				class="textbox__show-hide-icon"
 				on:click={() => {

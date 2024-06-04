@@ -189,7 +189,7 @@
 		checksStatus: ChecksStatus | null | undefined,
 		isFetchingChecks: boolean
 	): StatusInfo | undefined {
-		if (mergeableState == 'blocked' && !checksStatus && !isFetchingChecks) {
+		if (mergeableState === 'blocked' && !checksStatus && !isFetchingChecks) {
 			return {
 				icon: 'error',
 				messageStyle: 'error',
@@ -206,7 +206,7 @@
 				};
 			}
 
-			if (mergeableState == 'unstable') {
+			if (mergeableState === 'unstable') {
 				return {
 					icon: 'warning',
 					messageStyle: 'warning',
@@ -214,7 +214,7 @@
 				};
 			}
 
-			if (mergeableState == 'dirty') {
+			if (mergeableState === 'dirty') {
 				return {
 					icon: 'warning',
 					messageStyle: 'warning',
@@ -222,7 +222,7 @@
 				};
 			}
 
-			if (mergeableState == 'blocked' && !isFetchingChecks) {
+			if (mergeableState === 'blocked' && !isFetchingChecks) {
 				return {
 					icon: 'error',
 					messageStyle: 'error',
@@ -285,7 +285,7 @@
 					clickable={false}
 					icon={checksTagInfo.icon}
 					style={checksTagInfo.style}
-					kind={checksTagInfo.icon == 'success-small' ? 'solid' : 'soft'}
+					kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
 				>
 					{checksTagInfo.text}
 				</Button>
@@ -335,7 +335,7 @@
 					disabled={isFetchingChecks ||
 						isFetchingDetails ||
 						pr?.draft ||
-						(mergeableState != 'clean' && mergeableState != 'unstable')}
+						(mergeableState !== 'clean' && mergeableState !== 'unstable')}
 					loading={isMerging}
 					help="Merge pull request and refresh"
 					on:click={async (e) => {

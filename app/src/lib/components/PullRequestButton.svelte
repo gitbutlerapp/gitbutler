@@ -57,11 +57,11 @@
 		}}
 	>
 		<ContextMenuSection>
-			<ContextMenuItem id={Action.Create} label="Create PR" selected={$action == Action.Create} />
+			<ContextMenuItem id={Action.Create} label="Create PR" selected={$action === Action.Create} />
 			<ContextMenuItem
 				id={Action.Draft}
 				label="Create Draft PR"
-				selected={$action == Action.Draft}
+				selected={$action === Action.Draft}
 			/>
 		</ContextMenuSection>
 	</ContextMenu>

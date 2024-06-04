@@ -117,7 +117,7 @@
 			</div>
 
 			<!-- EMPTY STATE -->
-			{#if $snapshots.length == 0 && !$loading}
+			{#if $snapshots.length === 0 && !$loading}
 				<EmptyStatePlaceholder image={emptyFolderSvg}>
 					<svelte:fragment slot="title">No snapshots yet</svelte:fragment>
 					<svelte:fragment slot="caption">
@@ -128,7 +128,7 @@
 			{/if}
 
 			<!-- INITIAL LOADING -->
-			{#if $loading && $snapshots.length == 0}
+			{#if $loading && $snapshots.length === 0}
 				<FullviewLoading />
 			{/if}
 
@@ -139,7 +139,7 @@
 						<!-- SNAPSHOTS FEED -->
 						{#each $snapshots as entry, idx (entry.id)}
 							{@const withinRestoreItems = findRestorationRanges($snapshots)}
-							{#if idx === 0 || createdOnDay(entry.createdAt) != createdOnDay($snapshots[idx - 1].createdAt)}
+							{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1].createdAt)}
 								<div class="sideview__date-header">
 									<h4 class="text-base-13 text-semibold">
 										{createdOnDay(entry.createdAt)}
@@ -161,8 +161,8 @@
 									on:diffClick={async (filePath) => {
 										const path = filePath.detail;
 
-										if (snapshotFilesTempStore?.entryId == entry.id) {
-											if (selectedFile?.path == path) {
+										if (snapshotFilesTempStore?.entryId === entry.id) {
+											if (selectedFile?.path === path) {
 												currentFilePreview = undefined;
 												selectedFile = undefined;
 											} else {

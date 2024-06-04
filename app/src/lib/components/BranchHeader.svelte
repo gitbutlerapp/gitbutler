@@ -41,7 +41,7 @@
 	let isTargetBranchAnimated = false;
 
 	function handleBranchNameChange(title: string) {
-		if (title == '') return;
+		if (title === '') return;
 
 		branchController.updateBranchName(branch.id, title);
 	}
@@ -120,7 +120,7 @@
 							help="Uncommitted changes"
 						>
 							{uncommittedChanges}
-							{uncommittedChanges == 1 ? 'change' : 'changes'}
+							{uncommittedChanges === 1 ? 'change' : 'changes'}
 						</Button>
 					{/if}
 				</div>
@@ -264,7 +264,7 @@
 						<div class="header__buttons">
 							{#if !hasPullRequest}
 								<PullRequestButton
-									on:click={async (e) => await createPr({ draft: e.detail.action == 'draft' })}
+									on:click={async (e) => await createPr({ draft: e.detail.action === 'draft' })}
 									loading={isLoading}
 								/>
 							{/if}

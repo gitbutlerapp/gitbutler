@@ -12,12 +12,12 @@
 
 <div class="shadow-column">
 	{#if outType}
-		<div class="shadow-line tip" class:dashed={outDashed} class:upstream={outType == 'upstream'} />
+		<div class="shadow-line tip" class:dashed={outDashed} class:upstream={outType === 'upstream'} />
 	{/if}
 	{#if inType}
 		<div
 			class="shadow-line short"
-			class:upstream={inType == 'upstream'}
+			class:upstream={inType === 'upstream'}
 			class:first={sectionFirst}
 			class:dashed={inDashed}
 		/>

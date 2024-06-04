@@ -83,7 +83,7 @@
 	}
 
 	function filterByText(branches: CombinedBranch[], search: string | undefined) {
-		if (search == undefined) return branches;
+		if (search === undefined) return branches;
 
 		return branches.filter((b) => searchMatchesAnIdentifier(search, b.searchableIdentifiers));
 	}
@@ -128,7 +128,7 @@
 			bind:viewport
 			showBorderWhenScrolled
 			on:dragging={(e) => dispatch('scrollbarDragging', e.detail)}
-			fillViewport={$filteredBranches$.length == 0}
+			fillViewport={$filteredBranches$.length === 0}
 		>
 			<div class="scroll-container">
 				<TextBox icon="search" placeholder="Search" on:input={(e) => textFilter$.next(e.detail)} />

@@ -66,8 +66,8 @@
 						<div>
 							{#each branchData.commits as commit, index (commit.id)}
 								<CommitCard
-									first={index == 0}
-									last={index == branchData.commits.length - 1}
+									first={index === 0}
+									last={index === branchData.commits.length - 1}
 									{commit}
 									commitUrl={$baseBranch?.commitUrl(commit.id)}
 									type="remote"

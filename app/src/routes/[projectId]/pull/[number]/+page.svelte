@@ -14,7 +14,7 @@
 	const githubService = getContext(GitHubService);
 
 	$: pr$ = githubService.prs$?.pipe(
-		map((prs) => prs.find((b) => b.number.toString() == $page.params.number))
+		map((prs) => prs.find((b) => b.number.toString() === $page.params.number))
 	);
 </script>
 

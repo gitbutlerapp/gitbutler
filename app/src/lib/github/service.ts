@@ -210,7 +210,7 @@ export class GitHubService {
 				if (pr) this.prCache.set(branchSha, { value: pr, fetchedAt: new Date() });
 				return pr;
 			} catch (err: any) {
-				if (err.status != 422) throw err;
+				if (err.status !== 422) throw err;
 				await sleep(1000);
 			}
 		}
@@ -224,15 +224,15 @@ export class GitHubService {
 		if (!checkSuites) return true;
 
 		// Continue waiting if some check suites are in progress
-		if (checkSuites.some((suite) => suite.status != 'completed')) return true;
+		if (checkSuites.some((suite) => suite.status !== 'completed')) return true;
 	}
 
 	getListedPr(branchSha: string): PullRequest | undefined {
-		return this.prs?.find((pr) => pr.sha == branchSha);
+		return this.prs?.find((pr) => pr.sha === branchSha);
 	}
 
 	getPr$(branchSha: string): Observable<PullRequest | undefined> {
-		return this.prs$.pipe(map((prs) => prs.find((pr) => pr.sha == branchSha)));
+		return this.prs$.pipe(map((prs) => prs.find((pr) => pr.sha === branchSha)));
 	}
 
 	/* TODO: Figure out a way to cleanup old behavior subjects */
@@ -354,7 +354,7 @@ export class GitHubService {
 
 		// If there are no checks then there is no status to report
 		const checks = resp.data.check_runs;
-		if (checks.length == 0) return null;
+		if (checks.length === 0) return null;
 
 		// Establish when the first check started running, useful for showing
 		// how long something has been running.
@@ -363,16 +363,16 @@ export class GitHubService {
 			.filter((startedAt) => startedAt !== null) as string[];
 		const startTimes = starts.map((startedAt) => new Date(startedAt));
 
-		const queued = checks.filter((c) => c.status == 'queued').length;
-		const failed = checks.filter((c) => c.conclusion == 'failure').length;
-		const skipped = checks.filter((c) => c.conclusion == 'skipped').length;
-		const succeeded = checks.filter((c) => c.conclusion == 'success').length;
+		const queued = checks.filter((c) => c.status === 'queued').length;
+		const failed = checks.filter((c) => c.conclusion === 'failure').length;
+		const skipped = checks.filter((c) => c.conclusion === 'skipped').length;
+		const succeeded = checks.filter((c) => c.conclusion === 'success').length;
 
 		const firstStart = new Date(Math.min(...startTimes.map((date) => date.getTime())));
 		const completed = checks.every((check) => !!check.completed_at);
 		const totalCount = resp?.data.total_count;
 
-		const success = queued == 0 && failed == 0 && skipped + succeeded == totalCount;
+		const success = queued === 0 && failed === 0 && skipped + succeeded === totalCount;
 		const finished = checks.filter(
 			(c) => c.conclusion && ['failure', 'success'].includes(c.conclusion)
 		).length;
@@ -415,7 +415,7 @@ export class GitHubService {
 		let retried = 0;
 		let shouldWait: boolean | undefined = undefined;
 
-		while (resp.data.total_count == 0 && retried < retries) {
+		while (resp.data.total_count === 0 && retried < retries) {
 			if (shouldWait === undefined && retried > 0) {
 				shouldWait = await this.shouldWaitForChecks(ref);
 				if (!shouldWait) {
@@ -592,14 +592,14 @@ export class GitHubService {
  */
 function mapErrorToToast(err: any): Toast | undefined {
 	// We expect an object to be thrown by octokit.
-	if (typeof err != 'object') return;
+	if (typeof err !== 'object') return;
 
 	const { status, response } = err;
 	const { data } = response;
 	const { message, errors } = data;
 
 	// If this expectation isn't met we must be doing something wrong
-	if (status == undefined || message == undefined) return;
+	if (status === undefined || message === undefined) return;
 
 	if (message.includes('Draft pull requests are not supported')) {
 		return {

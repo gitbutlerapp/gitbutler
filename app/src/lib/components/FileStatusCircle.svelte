@@ -6,9 +6,9 @@
 
 <div
 	class="status"
-	class:added={status == 'A'}
-	class:modified={status == 'M'}
-	class:deleted={status == 'D'}
+	class:added={status === 'A'}
+	class:modified={status === 'M'}
+	class:deleted={status === 'D'}
 ></div>
 
 <style lang="postcss">

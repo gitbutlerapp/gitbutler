@@ -33,8 +33,8 @@
 <button
 	bind:this={ref}
 	class="segment-btn segment-{size}"
-	class:left={index == 0}
-	class:right={index == $length - 1}
+	class:left={index === 0}
+	class:right={index === $length - 1}
 	role="tab"
 	tabindex={isSelected ? -1 : 0}
 	aria-selected={isSelected}

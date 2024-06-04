@@ -31,6 +31,7 @@ module.exports = {
 		node: true
 	},
 	rules: {
+		eqeqeq: ['error', 'always'],
 		'import/no-cycle': 'error',
 		'import/order': [
 			'error',

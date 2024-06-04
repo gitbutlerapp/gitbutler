@@ -31,9 +31,9 @@
 
 <dialog
 	class="dialog-wrap"
-	class:s-default={width == 'default'}
-	class:s-small={width == 'small'}
-	class:s-large={width == 'large'}
+	class:s-default={width === 'default'}
+	class:s-small={width === 'small'}
+	class:s-large={width === 'large'}
 	bind:this={dialog}
 	on:close={close}
 >

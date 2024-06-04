@@ -20,7 +20,8 @@
 	export let size: 'tag' | 'button' | 'cta' = 'button';
 	export let wide = false;
 	export let grow = false;
-	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' = 'auto';
+	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' =
+		'auto';
 	export let isDropdownChild = false;
 	// Style props
 	export let style: ComponentColor = 'neutral';
@@ -56,8 +57,8 @@
 	{#if SLOTS}
 		<span
 			class="label text-semibold"
-			class:text-base-12={size == 'button' || size == 'cta'}
-			class:text-base-11={size == 'tag'}
+			class:text-base-12={size === 'button' || size === 'cta'}
+			class:text-base-11={size === 'tag'}
 		>
 			<slot />
 		</span>

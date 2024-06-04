@@ -108,7 +108,7 @@
 		<!-- condition prevents split second UI shift -->
 		{#if $platformName}
 			<div class="navigation-top">
-				{#if $platformName == 'darwin'}
+				{#if $platformName === 'darwin'}
 					<div class="drag-region" data-tauri-drag-region />
 				{/if}
 				<ProjectSelector isNavCollapsed={$isNavCollapsed} />

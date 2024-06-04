@@ -16,8 +16,8 @@
 	<div
 		class="shadow-marker"
 		class:first={sectionFirst}
-		class:upstream={status == 'upstream'}
-		class:integrated={status == 'integrated'}
+		class:upstream={status === 'upstream'}
+		class:integrated={status === 'integrated'}
 		class:shadow-lane={shadowLane}
 		use:tooltip={help}
 	/>
@@ -29,10 +29,10 @@
 		width="100"
 		height="100"
 		class:first={sectionFirst}
-		class:local={status == 'local'}
-		class:remote={status == 'remote'}
-		class:upstream={status == 'upstream'}
-		class:integrated={status == 'integrated'}
+		class:local={status === 'local'}
+		class:remote={status === 'remote'}
+		class:upstream={status === 'upstream'}
+		class:integrated={status === 'integrated'}
 		class:remote-lane={remoteLane}
 		class:shadow-lane={shadowLane}
 		use:tooltip={help}
