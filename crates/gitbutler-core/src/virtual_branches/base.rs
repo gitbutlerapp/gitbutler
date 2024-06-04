@@ -49,7 +49,7 @@ fn go_back_to_integration(
     default_target: &target::Target,
 ) -> Result<BaseBranch> {
     let statuses = project_repository
-        .git_repository
+        .repo()
         .statuses(Some(
             git2::StatusOptions::new()
                 .show(git2::StatusShow::IndexAndWorkdir)
@@ -71,7 +71,7 @@ fn go_back_to_integration(
         .collect::<Vec<_>>();
 
     let target_commit = project_repository
-        .git_repository
+        .repo()
         .find_commit(default_target.sha.into())
         .context("failed to find target commit")?;
 
@@ -84,27 +84,27 @@ fn go_back_to_integration(
     for branch in &applied_virtual_branches {
         // merge this branches tree with our tree
         let branch_head = project_repository
-            .git_repository
+            .repo()
             .find_commit(branch.head.into())
             .context("failed to find branch head")?;
         let branch_tree = branch_head
             .tree()
             .context("failed to get branch head tree")?;
         let mut result = project_repository
-            .git_repository
+            .repo()
             .merge_trees(&base_tree, &final_tree, &branch_tree, None)
             .context("failed to merge")?;
         let final_tree_oid = result
             .write_tree_to(project_repository.repo())
             .context("failed to write tree")?;
         final_tree = project_repository
-            .git_repository
+            .repo()
             .find_tree(final_tree_oid)
             .context("failed to find written tree")?;
     }
 
     project_repository
-        .git_repository
+        .repo()
         .checkout_tree_builder(&final_tree)
         .force()
         .checkout()
@@ -119,7 +119,7 @@ pub fn set_base_branch(
     project_repository: &project_repository::Repository,
     target_branch_ref: &git::RemoteRefname,
 ) -> Result<BaseBranch> {
-    let repo = &project_repository.git_repository;
+    let repo = project_repository.repo();
 
     // if target exists, and it is the same as the requested branch, we should go back
     if let Ok(target) = default_target(&project_repository.project().gb_dir()) {
@@ -274,7 +274,7 @@ pub fn set_target_push_remote(
     push_remote_name: &str,
 ) -> Result<()> {
     let remote = project_repository
-        .git_repository
+        .repo()
         .find_remote(push_remote_name)
         .context(format!("failed to find remote {}", push_remote_name))?;
 
@@ -292,7 +292,7 @@ pub fn set_target_push_remote(
 }
 
 fn set_exclude_decoration(project_repository: &project_repository::Repository) -> Result<()> {
-    let repo = &project_repository.git_repository;
+    let repo = project_repository.repo();
     let mut config = repo.config()?;
     config
         .set_multivar("log.excludeDecoration", "refs/gitbutler", "refs/gitbutler")
@@ -334,7 +334,7 @@ pub fn update_base_branch(
 
     // look up the target and see if there is a new oid
     let target = default_target(&project_repository.project().gb_dir())?;
-    let repo = &project_repository.git_repository;
+    let repo = project_repository.repo();
     let target_branch = repo
         .find_branch_by_refname(&target.branch.clone().into())
         .context(format!("failed to find branch {}", target.branch))?;
@@ -398,7 +398,7 @@ pub fn update_base_branch(
                             branch.upstream_head = None;
 
                             let non_commited_files = diff::trees(
-                                &project_repository.git_repository,
+                                project_repository.repo(),
                                 &branch_head_tree,
                                 &branch_tree,
                             )?;
@@ -576,7 +576,7 @@ pub fn target_to_base_branch(
     project_repository: &project_repository::Repository,
     target: &target::Target,
 ) -> Result<super::BaseBranch> {
-    let repo = &project_repository.git_repository;
+    let repo = project_repository.repo();
     let branch = repo.find_branch_by_refname(&target.branch.clone().into())?;
     let commit = branch.get().peel_to_commit()?;
     let oid = commit.id();

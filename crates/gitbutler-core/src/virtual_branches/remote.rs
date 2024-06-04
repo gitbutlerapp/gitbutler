@@ -61,7 +61,7 @@ pub fn list_remote_branches(
 
     let mut remote_branches = vec![];
     for (branch, _) in project_repository
-        .git_repository
+        .repo()
         .branches(None)
         .context("failed to list remote branches")?
         .flatten()
@@ -90,7 +90,7 @@ pub fn get_branch_data(
     let default_target = default_target(&project_repository.project().gb_dir())?;
 
     let branch = project_repository
-        .git_repository
+        .repo()
         .find_branch(
             &refname.simple_name(),
             match refname {

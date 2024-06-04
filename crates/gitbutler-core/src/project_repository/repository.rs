@@ -18,7 +18,7 @@ use crate::{error::Code, git::Oid};
 use crate::{git::RepositoryExt, virtual_branches::errors::Marker};
 
 pub struct Repository {
-    pub git_repository: git2::Repository,
+    git_repository: git2::Repository,
     project: projects::Project,
 }
 
