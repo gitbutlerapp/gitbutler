@@ -11,9 +11,9 @@ pub fn temp_dir() -> TempDir {
 }
 
 pub struct TestProject {
-    local_repository: git::Repository,
+    local_repository: git2::Repository,
     local_tmp: Option<TempDir>,
-    remote_repository: git::Repository,
+    remote_repository: git2::Repository,
     remote_tmp: Option<TempDir>,
 }
 
@@ -29,20 +29,20 @@ impl Drop for TestProject {
 impl Default for TestProject {
     fn default() -> Self {
         let local_tmp = temp_dir();
-        let local_repository = git::Repository::init_opts(local_tmp.path(), &init_opts())
+        let local_repository = git2::Repository::init_opts(local_tmp.path(), &init_opts())
             .expect("failed to init repository");
         setup_config(&local_repository.config().unwrap()).unwrap();
         let mut index = local_repository.index().expect("failed to get index");
         let oid = index.write_tree().expect("failed to write tree");
         let signature = git2::Signature::now("test", "test@email.com").unwrap();
-        let repo: &git2::Repository = (&local_repository).into();
+        let repo: &git2::Repository = &local_repository;
         repo.commit_with_signature(
             Some(&"refs/heads/master".parse().unwrap()),
             &signature,
             &signature,
             "Initial commit",
             &local_repository
-                .find_tree(oid.into())
+                .find_tree(oid)
                 .expect("failed to find tree"),
             &[],
             None,
@@ -50,7 +50,7 @@ impl Default for TestProject {
         .expect("failed to commit");
 
         let remote_tmp = temp_dir();
-        let remote_repository = git::Repository::init_opts(
+        let remote_repository = git2::Repository::init_opts(
             remote_tmp.path(),
             git2::RepositoryInitOptions::new()
                 .bare(true)
@@ -63,12 +63,10 @@ impl Default for TestProject {
             let mut remote = local_repository
                 .remote(
                     "origin",
-                    &remote_repository
+                    remote_repository
                         .path()
                         .to_str()
-                        .expect("failed to convert path to str")
-                        .parse()
-                        .unwrap(),
+                        .expect("failed to convert path to str"),
                 )
                 .expect("failed to add remote");
             remote
@@ -120,16 +118,14 @@ impl TestProject {
 
         let head = self.local_repository.head().unwrap();
         let commit = oid.map_or(head.peel_to_commit().unwrap(), |oid| {
-            self.local_repository.find_commit(oid).unwrap()
+            self.local_repository.find_commit(oid.into()).unwrap()
         });
 
         let head_ref = head.name().unwrap();
-        self.local_repository
-            .find_reference(&head_ref.parse().expect("libgit2 provides valid refnames"))
-            .unwrap();
+        self.local_repository.find_reference(head_ref).unwrap();
 
         self.local_repository
-            .reset(&commit, git2::ResetType::Hard, None)
+            .reset(commit.as_object(), git2::ResetType::Hard, None)
             .unwrap();
     }
 
@@ -149,12 +145,17 @@ impl TestProject {
             }
             _ => "INVALID".parse().unwrap(), // todo
         };
-        let branch = self.remote_repository.find_branch(&branch_name).unwrap();
+        let branch = self
+            .remote_repository
+            .find_branch_by_refname(&branch_name)
+            .unwrap();
         let branch_commit = branch.get().peel_to_commit().unwrap();
 
         let master_branch = {
             let name: git::Refname = "refs/heads/master".parse().unwrap();
-            self.remote_repository.find_branch(&name).unwrap()
+            self.remote_repository
+                .find_branch_by_refname(&name)
+                .unwrap()
         };
         let master_branch_commit = master_branch.get().peel_to_commit().unwrap();
 
@@ -165,8 +166,18 @@ impl TestProject {
         let mut rebase = self
             .remote_repository
             .rebase(
-                Some(branch_commit.id().into()),
-                Some(master_branch_commit.id().into()),
+                Some(
+                    &self
+                        .remote_repository
+                        .find_annotated_commit(branch_commit.id())
+                        .unwrap(),
+                ),
+                Some(
+                    &self
+                        .remote_repository
+                        .find_annotated_commit(master_branch_commit.id())
+                        .unwrap(),
+                ),
                 None,
                 Some(&mut rebase_options),
             )
@@ -175,7 +186,7 @@ impl TestProject {
         let mut rebase_success = true;
         let mut last_rebase_head = branch_commit.id();
         while let Some(Ok(op)) = rebase.next() {
-            let commit = self.remote_repository.find_commit(op.id().into()).unwrap();
+            let commit = self.remote_repository.find_commit(op.id()).unwrap();
             let index = rebase.inmemory_index().unwrap();
             if index.has_conflicts() {
                 rebase_success = false;
@@ -193,8 +204,8 @@ impl TestProject {
         if rebase_success {
             self.remote_repository
                 .reference(
-                    &"refs/heads/master".parse().unwrap(),
-                    last_rebase_head.into(),
+                    "refs/heads/master",
+                    last_rebase_head,
                     true,
                     &format!("rebase: {}", branch_name),
                 )
@@ -213,19 +224,24 @@ impl TestProject {
             }
             _ => "INVALID".parse().unwrap(), // todo
         };
-        let branch = self.remote_repository.find_branch(&branch_name).unwrap();
+        let branch = self
+            .remote_repository
+            .find_branch_by_refname(&branch_name)
+            .unwrap();
         let branch_commit = branch.get().peel_to_commit().unwrap();
 
         let master_branch = {
             let name: git::Refname = "refs/heads/master".parse().unwrap();
-            self.remote_repository.find_branch(&name).unwrap()
+            self.remote_repository
+                .find_branch_by_refname(&name)
+                .unwrap()
         };
         let master_branch_commit = master_branch.get().peel_to_commit().unwrap();
 
         let merge_base = {
             let oid = self
                 .remote_repository
-                .merge_base(branch_commit.id().into(), master_branch_commit.id().into())
+                .merge_base(branch_commit.id(), master_branch_commit.id())
                 .unwrap();
             self.remote_repository.find_commit(oid).unwrap()
         };
@@ -236,14 +252,15 @@ impl TestProject {
                     &merge_base.tree().unwrap(),
                     &master_branch.get().peel_to_tree().unwrap(),
                     &branch.get().peel_to_tree().unwrap(),
+                    None,
                 )
                 .unwrap();
-            let repo: &git2::Repository = (&self.remote_repository).into();
+            let repo: &git2::Repository = &self.remote_repository;
             let oid = merge_index.write_tree_to(repo).unwrap();
-            self.remote_repository.find_tree(oid.into()).unwrap()
+            self.remote_repository.find_tree(oid).unwrap()
         };
 
-        let repo: &git2::Repository = (&self.remote_repository).into();
+        let repo: &git2::Repository = &self.remote_repository;
         repo.commit_with_signature(
             Some(&"refs/heads/master".parse().unwrap()),
             &branch_commit.author(),
@@ -256,17 +273,22 @@ impl TestProject {
         .unwrap();
     }
 
-    pub fn find_commit(&self, oid: git::Oid) -> Result<git2::Commit<'_>, git::Error> {
-        self.local_repository.find_commit(oid)
+    pub fn find_commit(&self, oid: git::Oid) -> Result<git2::Commit<'_>, git2::Error> {
+        self.local_repository.find_commit(oid.into())
     }
 
     pub fn checkout_commit(&self, commit_oid: git::Oid) {
-        let commit = self.local_repository.find_commit(commit_oid).unwrap();
+        let commit = self
+            .local_repository
+            .find_commit(commit_oid.into())
+            .unwrap();
         let commit_tree = commit.tree().unwrap();
 
-        self.local_repository.set_head_detached(commit_oid).unwrap();
         self.local_repository
-            .checkout_tree(&commit_tree)
+            .set_head_detached(commit_oid.into())
+            .unwrap();
+        self.local_repository
+            .checkout_tree_builder(&commit_tree)
             .force()
             .checkout()
             .unwrap();
@@ -280,19 +302,19 @@ impl TestProject {
             .unwrap()
             .peel_to_commit()
             .unwrap();
-        let tree = match self.local_repository.find_branch(&branch) {
+        let tree = match self.local_repository.find_branch_by_refname(&branch) {
             Ok(branch) => branch.get().peel_to_tree().unwrap(),
-            Err(git::Error::NotFound(_)) => {
+            Err(err) if err.code() == git2::ErrorCode::NotFound => {
                 self.local_repository
-                    .reference(&branch, head_commit.id().into(), false, "new branch")
+                    .reference(&branch.to_string(), head_commit.id(), false, "new branch")
                     .unwrap();
                 head_commit.tree().unwrap()
             }
             Err(error) => panic!("{:?}", error),
         };
-        self.local_repository.set_head(&branch).unwrap();
+        self.local_repository.set_head(&branch.to_string()).unwrap();
         self.local_repository
-            .checkout_tree(&tree)
+            .checkout_tree_builder(&tree)
             .force()
             .checkout()
             .unwrap();
@@ -309,7 +331,7 @@ impl TestProject {
         let oid = index.write_tree().expect("failed to write tree");
         let signature = git2::Signature::now("test", "test@email.com").unwrap();
         let refname: git::Refname = head.name().unwrap().parse().unwrap();
-        let repo: &git2::Repository = (&self.local_repository).into();
+        let repo: &git2::Repository = &self.local_repository;
         repo.commit_with_signature(
             Some(&refname),
             &signature,
@@ -317,7 +339,7 @@ impl TestProject {
             message,
             &self
                 .local_repository
-                .find_tree(oid.into())
+                .find_tree(oid)
                 .expect("failed to find tree"),
             &[&self
                 .local_repository
@@ -342,7 +364,10 @@ impl TestProject {
     }
 
     pub fn add_submodule(&self, url: &git::Url, path: &path::Path) {
-        let mut submodule = self.local_repository.add_submodule(url, path).unwrap();
+        let mut submodule = self
+            .local_repository
+            .submodule(&url.to_string(), path.as_ref(), false)
+            .unwrap();
         let repo = submodule.open().unwrap();
 
         // checkout submodule's master head

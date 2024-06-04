@@ -178,12 +178,14 @@ impl Handler {
                         .context("failed to get head")?;
                     let head_ref_name = head_ref.name().context("failed to get head name")?;
                     if head_ref_name != "refs/heads/gitbutler/integration" {
-                        let mut integration_reference = project_repository
-                            .git_repository
-                            .find_reference(&git::Refname::from(git::LocalRefname::new(
-                                "gitbutler/integration",
-                                None,
-                            )))?;
+                        let mut integration_reference =
+                            project_repository.git_repository.find_reference(
+                                &git::Refname::from(git::LocalRefname::new(
+                                    "gitbutler/integration",
+                                    None,
+                                ))
+                                .to_string(),
+                            )?;
                         integration_reference.delete()?;
                     }
                     if let Some(head) = head_ref.name() {

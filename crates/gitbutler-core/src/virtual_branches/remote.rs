@@ -6,7 +6,7 @@ use serde::Serialize;
 
 use super::{target, Author, VirtualBranchesHandle};
 use crate::{
-    git::{self, CommitExt},
+    git::{self, CommitExt, Refname},
     project_repository::{self, LogUntil},
 };
 
@@ -60,7 +60,7 @@ pub fn list_remote_branches(
     let default_target = default_target(&project_repository.project().gb_dir())?;
 
     let mut remote_branches = vec![];
-    for branch in project_repository
+    for (branch, _) in project_repository
         .git_repository
         .branches(None)
         .context("failed to list remote branches")?
@@ -91,7 +91,15 @@ pub fn get_branch_data(
 
     let branch = project_repository
         .git_repository
-        .find_branch(refname)
+        .find_branch(
+            &refname.simple_name(),
+            match refname {
+                Refname::Virtual(_) | Refname::Local(_) | Refname::Other(_) => {
+                    git2::BranchType::Local
+                }
+                Refname::Remote(_) => git2::BranchType::Remote,
+            },
+        )
         .context(format!("failed to find branch with refname {refname}"))?;
 
     branch_to_remote_branch_data(project_repository, &branch, default_target.sha)?

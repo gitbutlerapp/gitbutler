@@ -168,7 +168,9 @@ fn track_binary_files() -> Result<()> {
     // status (no files)
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
-    let commit_obj = project_repository.git_repository.find_commit(*commit_id)?;
+    let commit_obj = project_repository
+        .git_repository
+        .find_commit(commit_id.to_owned().into())?;
     let tree = commit_obj.tree()?;
     let files = tree_to_entry_list(&project_repository.git_repository, &tree);
     assert_eq!(files[0].0, "image.bin");
@@ -199,7 +201,9 @@ fn track_binary_files() -> Result<()> {
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
     // get tree from commit_id
-    let commit_obj = project_repository.git_repository.find_commit(*commit_id)?;
+    let commit_obj = project_repository
+        .git_repository
+        .find_commit(commit_id.to_owned().into())?;
     let tree = commit_obj.tree()?;
     let files = tree_to_entry_list(&project_repository.git_repository, &tree);
 
@@ -691,7 +695,7 @@ fn commit_id_can_be_generated_or_specified() -> Result<()> {
         .unwrap();
     let target = project_repository
         .git_repository
-        .find_commit(target_oid.into())
+        .find_commit(target_oid)
         .unwrap();
     let change_id = target.change_id();
 
@@ -722,9 +726,7 @@ fn commit_id_can_be_generated_or_specified() -> Result<()> {
             &signature,
             &signature,
             "some commit",
-            &repository
-                .find_tree(oid.into())
-                .expect("failed to find tree"),
+            &repository.find_tree(oid).expect("failed to find tree"),
             &[&repository
                 .find_commit(
                     repository
@@ -744,7 +746,7 @@ fn commit_id_can_be_generated_or_specified() -> Result<()> {
         .unwrap();
     let target = project_repository
         .git_repository
-        .find_commit(target_oid.into())
+        .find_commit(target_oid)
         .unwrap();
     let change_id = target.change_id();
 
@@ -805,8 +807,8 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
 
     //update repo ref refs/remotes/origin/master to up_target oid
     project_repository.git_repository.reference(
-        &"refs/remotes/origin/master".parse().unwrap(),
-        coworker_work.into(),
+        "refs/remotes/origin/master",
+        coworker_work,
         true,
         "update target",
     )?;
@@ -929,8 +931,8 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
 
     //update repo ref refs/remotes/origin/master to up_target oid
     project_repository.git_repository.reference(
-        &"refs/remotes/origin/master".parse().unwrap(),
-        coworker_work.into(),
+        "refs/remotes/origin/master",
+        coworker_work,
         true,
         "update target",
     )?;
@@ -1014,7 +1016,9 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
 
     // make sure the last commit was a merge commit (2 parents)
     let last_id = &branch1.commits[0].id;
-    let last_commit = project_repository.git_repository.find_commit(*last_id)?;
+    let last_commit = project_repository
+        .git_repository
+        .find_commit(last_id.to_owned().into())?;
     assert_eq!(last_commit.parent_count(), 2);
 
     Ok(())
@@ -1268,7 +1272,7 @@ fn detect_mergeable_branch() -> Result<()> {
 
     project_repository
         .git_repository
-        .set_head(&"refs/heads/master".parse().unwrap())?;
+        .set_head("refs/heads/master")?;
     project_repository
         .git_repository
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -1286,8 +1290,8 @@ fn detect_mergeable_branch() -> Result<()> {
         .target()
         .unwrap();
     project_repository.git_repository.reference(
-        &"refs/remotes/origin/remote_branch".parse().unwrap(),
-        up_target.into(),
+        "refs/remotes/origin/remote_branch",
+        up_target,
         true,
         "update target",
     )?;
@@ -1307,8 +1311,8 @@ fn detect_mergeable_branch() -> Result<()> {
         .target()
         .unwrap();
     project_repository.git_repository.reference(
-        &"refs/remotes/origin/remote_branch2".parse().unwrap(),
-        up_target.into(),
+        "refs/remotes/origin/remote_branch2",
+        up_target,
         true,
         "update target",
     )?;
@@ -1317,7 +1321,7 @@ fn detect_mergeable_branch() -> Result<()> {
 
     project_repository
         .git_repository
-        .set_head(&"refs/heads/gitbutler/integration".parse().unwrap())?;
+        .set_head("refs/heads/gitbutler/integration")?;
     project_repository
         .git_repository
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
@@ -1425,8 +1429,8 @@ fn upstream_integrated_vbranch() -> Result<()> {
         .target()
         .unwrap();
     project_repository.git_repository.reference(
-        &"refs/remotes/origin/master".parse().unwrap(),
-        upstream_commit.into(),
+        "refs/remotes/origin/master",
+        upstream_commit,
         true,
         "update target",
     )?;
@@ -1439,7 +1443,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
     })?;
     project_repository
         .git_repository
-        .remote("origin", &"http://origin.com/project".parse().unwrap())?;
+        .remote("origin", "http://origin.com/project")?;
     virtual_branches::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     // create vbranches, one integrated, one not
@@ -1808,7 +1812,7 @@ fn commit_partial_by_file() -> Result<()> {
         .unwrap();
     let commit1 = project_repository
         .git_repository
-        .find_commit(commit1_oid.into())
+        .find_commit(commit1_oid)
         .unwrap();
 
     set_test_target(project_repository)?;
@@ -1840,7 +1844,7 @@ fn commit_partial_by_file() -> Result<()> {
     let commit2 = &branch1.commits[0].id;
     let commit2 = project_repository
         .git_repository
-        .find_commit(*commit2)
+        .find_commit(commit2.to_owned().into())
         .expect("failed to get commit object");
 
     let tree = commit1.tree().expect("failed to get tree");
@@ -1875,7 +1879,7 @@ fn commit_add_and_delete_files() -> Result<()> {
         .unwrap();
     let commit1 = project_repository
         .git_repository
-        .find_commit(commit1_oid.into())
+        .find_commit(commit1_oid)
         .unwrap();
 
     set_test_target(project_repository)?;
@@ -1907,7 +1911,7 @@ fn commit_add_and_delete_files() -> Result<()> {
     let commit2 = &branch1.commits[0].id;
     let commit2 = project_repository
         .git_repository
-        .find_commit(*commit2)
+        .find_commit(commit2.to_owned().into())
         .expect("failed to get commit object");
 
     let tree = commit1.tree().expect("failed to get tree");
@@ -1971,7 +1975,7 @@ fn commit_executable_and_symlinks() -> Result<()> {
     let commit = &branch1.commits[0].id;
     let commit = project_repository
         .git_repository
-        .find_commit(*commit)
+        .find_commit(commit.to_owned().into())
         .expect("failed to get commit object");
 
     let tree = commit.tree().expect("failed to get tree");
@@ -1990,12 +1994,12 @@ fn commit_executable_and_symlinks() -> Result<()> {
     Ok(())
 }
 
-fn tree_to_file_list(repository: &git::Repository, tree: &git2::Tree) -> Vec<String> {
+fn tree_to_file_list(repository: &git2::Repository, tree: &git2::Tree) -> Vec<String> {
     let mut file_list = Vec::new();
     walk(tree, |_, entry| {
         let path = entry.name().unwrap();
         let entry = tree.get_path(Path::new(path)).unwrap();
-        let object = entry.to_object(repository.into()).unwrap();
+        let object = entry.to_object(repository).unwrap();
         if object.kind() == Some(git2::ObjectType::Blob) {
             file_list.push(path.to_string());
         }
@@ -2006,14 +2010,14 @@ fn tree_to_file_list(repository: &git::Repository, tree: &git2::Tree) -> Vec<Str
 }
 
 fn tree_to_entry_list(
-    repository: &git::Repository,
+    repository: &git2::Repository,
     tree: &git2::Tree,
 ) -> Vec<(String, String, String, String)> {
     let mut file_list = Vec::new();
     walk(tree, |_root, entry| {
         let path = entry.name().unwrap();
         let entry = tree.get_path(Path::new(path)).unwrap();
-        let object = entry.to_object(repository.into()).unwrap();
+        let object = entry.to_object(repository).unwrap();
         let blob = object.as_blob().expect("failed to get blob");
         // convert content to string
         let octal_mode = format!("{:o}", entry.filemode());
@@ -2087,7 +2091,7 @@ fn verify_branch_not_integration() -> Result<()> {
 
     project_repository
         .git_repository
-        .set_head(&"refs/heads/master".parse().unwrap())?;
+        .set_head("refs/heads/master")?;
 
     let verify_result = verify_branch(project_repository);
     assert!(verify_result.is_err());
@@ -2128,7 +2132,7 @@ fn pre_commit_hook_rejection() -> Result<()> {
             ";
 
     git2_hooks::create_hook(
-        (&project_repository.git_repository).into(),
+        &project_repository.git_repository,
         git2_hooks::HOOK_PRE_COMMIT,
         hook,
     );
@@ -2176,7 +2180,7 @@ fn post_commit_hook() -> Result<()> {
             ";
 
     git2_hooks::create_hook(
-        (&project_repository.git_repository).into(),
+        &project_repository.git_repository,
         git2_hooks::HOOK_POST_COMMIT,
         hook,
     );
@@ -2233,7 +2237,7 @@ fn commit_msg_hook_rejection() -> Result<()> {
             ";
 
     git2_hooks::create_hook(
-        (&project_repository.git_repository).into(),
+        &project_repository.git_repository,
         git2_hooks::HOOK_COMMIT_MSG,
         hook,
     );

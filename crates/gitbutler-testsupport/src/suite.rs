@@ -150,34 +150,31 @@ pub fn temp_dir() -> TempDir {
     tempdir().unwrap()
 }
 
-pub fn empty_bare_repository() -> (gitbutler_core::git::Repository, TempDir) {
+pub fn empty_bare_repository() -> (git2::Repository, TempDir) {
     let tmp = temp_dir();
     (
-        gitbutler_core::git::Repository::init_opts(&tmp, &init_opts_bare())
-            .expect("failed to init repository"),
+        git2::Repository::init_opts(&tmp, &init_opts_bare()).expect("failed to init repository"),
         tmp,
     )
 }
 
-pub fn test_repository() -> (gitbutler_core::git::Repository, TempDir) {
+pub fn test_repository() -> (git2::Repository, TempDir) {
     let tmp = temp_dir();
-    let repository = gitbutler_core::git::Repository::init_opts(&tmp, &init_opts())
-        .expect("failed to init repository");
+    let repository =
+        git2::Repository::init_opts(&tmp, &init_opts()).expect("failed to init repository");
     project_repository::Config::from(&repository)
         .set_local("commit.gpgsign", "false")
         .unwrap();
     let mut index = repository.index().expect("failed to get index");
     let oid = index.write_tree().expect("failed to write tree");
     let signature = git2::Signature::now("test", "test@email.com").unwrap();
-    let repo: &git2::Repository = (&repository).into();
+    let repo: &git2::Repository = &repository;
     repo.commit_with_signature(
         Some(&"refs/heads/master".parse().unwrap()),
         &signature,
         &signature,
         "Initial commit",
-        &repository
-            .find_tree(oid.into())
-            .expect("failed to find tree"),
+        &repository.find_tree(oid).expect("failed to find tree"),
         &[],
         None,
     )
@@ -185,7 +182,7 @@ pub fn test_repository() -> (gitbutler_core::git::Repository, TempDir) {
     (repository, tmp)
 }
 
-pub fn commit_all(repository: &gitbutler_core::git::Repository) -> gitbutler_core::git::Oid {
+pub fn commit_all(repository: &git2::Repository) -> gitbutler_core::git::Oid {
     let mut index = repository.index().expect("failed to get index");
     index
         .add_all(["."], git2::IndexAddOption::DEFAULT, None)
@@ -194,16 +191,14 @@ pub fn commit_all(repository: &gitbutler_core::git::Repository) -> gitbutler_cor
     let oid = index.write_tree().expect("failed to write tree");
     let signature = git2::Signature::now("test", "test@email.com").unwrap();
     let head = repository.head().expect("failed to get head");
-    let repo: &git2::Repository = repository.into();
+    let repo: &git2::Repository = repository;
     let commit_oid = repo
         .commit_with_signature(
             Some(&head.name().map(|name| name.parse().unwrap()).unwrap()),
             &signature,
             &signature,
             "some commit",
-            &repository
-                .find_tree(oid.into())
-                .expect("failed to find tree"),
+            &repository.find_tree(oid).expect("failed to find tree"),
             &[&repository
                 .find_commit(
                     repository

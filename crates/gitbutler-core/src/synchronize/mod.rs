@@ -104,7 +104,7 @@ async fn push_target(
 }
 
 fn batch_rev_walk(
-    repo: &crate::git::Repository,
+    repo: &git2::Repository,
     batch_size: usize,
     from: Oid,
     until: Option<Oid>,

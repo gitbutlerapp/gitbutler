@@ -40,7 +40,7 @@ pub fn get_workspace_head(
     let target = vb_state
         .get_default_target()
         .context("failed to get target")?;
-    let repo: &git2::Repository = (&project_repo.git_repository).into();
+    let repo: &git2::Repository = &project_repo.git_repository;
     let vb_state = project_repo.project().virtual_branches();
 
     let all_virtual_branches = vb_state.list_branches()?;
@@ -149,7 +149,7 @@ pub fn update_gitbutler_integration(
         .get_default_target()
         .context("failed to get target")?;
 
-    let repo: &git2::Repository = (&project_repository.git_repository).into();
+    let repo: &git2::Repository = &project_repository.git_repository;
 
     // get commit object from target.sha
     let target_commit = repo.find_commit(target.sha.into())?;
@@ -362,7 +362,7 @@ impl project_repository::Repository {
 
         self.git_repository
             .reset(
-                integration_commit.as_ref().unwrap(),
+                integration_commit.as_ref().unwrap().as_object(),
                 git2::ResetType::Soft,
                 None,
             )
@@ -386,7 +386,7 @@ impl project_repository::Repository {
         for commit in extra_commits {
             let new_branch_head = self
                 .git_repository
-                .find_commit(head)
+                .find_commit(head.into())
                 .context("failed to find new branch head")?;
 
             let rebased_commit_oid = self
@@ -407,7 +407,7 @@ impl project_repository::Repository {
 
             let rebased_commit = self
                 .git_repository
-                .find_commit(rebased_commit_oid.into())
+                .find_commit(rebased_commit_oid)
                 .context(format!(
                     "failed to find rebased commit {}",
                     rebased_commit_oid

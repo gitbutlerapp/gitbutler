@@ -122,7 +122,9 @@ impl Helper {
                     Ok(remote)
                 } else {
                     let ssh_url = remote_url.as_ssh()?;
-                    project_repository.git_repository.remote_anonymous(&ssh_url)
+                    project_repository
+                        .git_repository
+                        .remote_anonymous(&ssh_url.to_string())
                 }?;
 
                 Ok(vec![(
@@ -138,7 +140,9 @@ impl Helper {
                     Ok(remote)
                 } else {
                     let url = remote_url.as_https()?;
-                    project_repository.git_repository.remote_anonymous(&url)
+                    project_repository
+                        .git_repository
+                        .remote_anonymous(&url.to_string())
                 }?;
                 let flow = Self::https_flow(project_repository, &remote_url)?
                     .into_iter()
@@ -170,7 +174,9 @@ impl Helper {
             Ok(remote)
         } else {
             let ssh_url = remote_url.as_ssh()?;
-            project_repository.git_repository.remote_anonymous(&ssh_url)
+            project_repository
+                .git_repository
+                .remote_anonymous(&ssh_url.to_string())
         }?;
 
         let key = self.keys.get_or_create()?;

@@ -29,10 +29,7 @@ pub mod virtual_branches {
         let (remote_repo, _tmp) = empty_bare_repository();
         let mut remote = project_repository
             .git_repository
-            .remote(
-                "origin",
-                &remote_repo.path().to_str().unwrap().parse().unwrap(),
-            )
+            .remote("origin", remote_repo.path().to_str().unwrap())
             .expect("failed to add remote");
         remote.push(&["refs/heads/master:refs/heads/master"], None)?;
 
