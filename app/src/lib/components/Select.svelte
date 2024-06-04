@@ -18,7 +18,7 @@
 	export let placeholder = '';
 	export let maxHeight: number | undefined = 260;
 
-	$: if (selectedItemId) value = items.find((item) => item[itemId] == selectedItemId);
+	$: if (selectedItemId) value = items.find((item) => item[itemId] === selectedItemId);
 
 	const SLOTS = $$props.$$slots;
 	const dispatch = createEventDispatcher<{ select: { value: any } }>();
@@ -88,13 +88,13 @@
 					{#each items as item}
 						<div
 							class="option"
-							class:selected={item == value}
+							class:selected={item === value}
 							tabindex="-1"
 							role="none"
 							on:mousedown={() => handleItemClick(item)}
 							on:keydown|preventDefault|stopPropagation
 						>
-							<slot name="template" {item} selected={item == value} />
+							<slot name="template" {item} selected={item === value} />
 						</div>
 					{/each}
 				</div>

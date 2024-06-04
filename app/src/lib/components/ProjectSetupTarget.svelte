@@ -241,7 +241,7 @@
 			icon="chevron-right-small"
 			id="set-base-branch"
 		>
-			{#if $platformName == 'win32'}
+			{#if $platformName === 'win32'}
 				Let's go
 			{:else}
 				Continue

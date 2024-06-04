@@ -22,7 +22,7 @@
 	let updateTargetModal: Modal;
 	let mergeUpstreamWarningDismissedCheckbox = false;
 
-	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length == 0 : false;
+	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false;
 
 	async function updateBaseBranch() {
 		let infoText = await branchController.updateBaseBranch();
@@ -58,8 +58,8 @@
 			{#each base.upstreamCommits as commit, index}
 				<CommitCard
 					{commit}
-					first={index == 0}
-					last={index == base.upstreamCommits.length - 1}
+					first={index === 0}
+					last={index === base.upstreamCommits.length - 1}
 					isUnapplied={true}
 					commitUrl={base.commitUrl(commit.id)}
 					type="upstream"
@@ -79,8 +79,8 @@
 		{#each base.recentCommits as commit, index}
 			<CommitCard
 				{commit}
-				first={index == 0}
-				last={index == base.recentCommits.length - 1}
+				first={index === 0}
+				last={index === base.recentCommits.length - 1}
 				isUnapplied={true}
 				commitUrl={base.commitUrl(commit.id)}
 				type="remote"

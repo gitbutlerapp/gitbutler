@@ -48,7 +48,7 @@
 		bind:this={viewport}
 		on:scroll={(e) => {
 			const target = e.currentTarget;
-			scrolled = target.scrollTop != 0;
+			scrolled = target.scrollTop !== 0;
 
 			if (target.scrollTop + target.clientHeight + bottomBuffer >= target.scrollHeight) {
 				dispatch('bottomReached', true);

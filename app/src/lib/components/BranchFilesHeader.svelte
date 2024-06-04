@@ -31,7 +31,7 @@
 		for (let i = 1; i < files.length; i++) {
 			file = files[i];
 			const contained = selectedOwnership.contains(file.id, ...file.hunkIds);
-			if (contained != prev) {
+			if (contained !== prev) {
 				return true;
 			}
 		}

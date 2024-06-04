@@ -15,7 +15,7 @@
 	let prompts: Prompts;
 	let selectedPromptId: Persisted<string | undefined>;
 
-	if (promptUse == 'commits') {
+	if (promptUse === 'commits') {
 		prompts = promptService.commitPrompts;
 		selectedPromptId = promptService.selectedCommitPromptId(project.id);
 	} else {
@@ -48,9 +48,9 @@
 	bind:selectedItemId={$selectedPromptId}
 	itemId="id"
 	labelId="name"
-	disabled={allPrompts.length == 1}
+	disabled={allPrompts.length === 1}
 	wide={true}
-	label={promptUse == 'commits' ? 'Commit Message' : 'Branch Name'}
+	label={promptUse === 'commits' ? 'Commit Message' : 'Branch Name'}
 >
 	<SelectItem slot="template" let:item let:selected {selected}>
 		{item.name}

@@ -157,11 +157,11 @@
 			}}
 			on:keydown={(e) => {
 				const value = e.currentTarget.value;
-				if (e.key == 'Backspace' && value.length == 0) {
+				if (e.key === 'Backspace' && value.length === 0) {
 					e.preventDefault();
 					titleTextArea.focus();
 					useAutoHeight(e.currentTarget);
-				} else if (e.key == 'a' && (e.metaKey || e.ctrlKey) && value.length == 0) {
+				} else if (e.key === 'a' && (e.metaKey || e.ctrlKey) && value.length === 0) {
 					// select previous textarea on cmd+a if this textarea is empty
 					e.preventDefault();
 					titleTextArea.select();

@@ -14,9 +14,9 @@ export interface TreeNode {
 }
 
 function createNode(acc: TreeNode, pathParts: string[]) {
-	if (pathParts.length == 0) return acc;
+	if (pathParts.length === 0) return acc;
 
-	const node = acc.children?.find((f) => f.name == pathParts[0]);
+	const node = acc.children?.find((f) => f.name === pathParts[0]);
 	if (node) return createNode(node, pathParts.slice(1));
 
 	const newDir = { name: pathParts[0], children: [], parent: acc };

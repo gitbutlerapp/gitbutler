@@ -51,7 +51,7 @@
 		style="pop"
 		kind="solid"
 		icon="chevron-right-small"
-		disabled={selectValue == project}
+		disabled={selectValue === project}
 		on:mousedown={() => {
 			if (selectValue) goto(`/${selectValue.id}/`);
 		}}

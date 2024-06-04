@@ -51,7 +51,7 @@
 				<li>
 					<button
 						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection == 'profile'}
+						class:item_selected={currentSection === 'profile'}
 						on:mousedown={() => onMenuClick('profile')}
 					>
 						<Icon name="profile" />
@@ -61,7 +61,7 @@
 				<li>
 					<button
 						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection == 'git'}
+						class:item_selected={currentSection === 'git'}
 						on:mousedown={() => onMenuClick('git')}
 					>
 						<Icon name="git" />
@@ -73,7 +73,7 @@
 					<li>
 						<button
 							class="profile-sidebar__menu-item"
-							class:item_selected={currentSection == 'integrations'}
+							class:item_selected={currentSection === 'integrations'}
 							on:mousedown={() => onMenuClick('integrations')}
 						>
 							<Icon name="integrations" />
@@ -84,7 +84,7 @@
 				<li>
 					<button
 						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection == 'ai'}
+						class:item_selected={currentSection === 'ai'}
 						on:mousedown={() => onMenuClick('ai')}
 					>
 						<Icon name="ai" />
@@ -94,7 +94,7 @@
 				<li>
 					<button
 						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection == 'telemetry'}
+						class:item_selected={currentSection === 'telemetry'}
 						on:mousedown={() => onMenuClick('telemetry')}
 					>
 						<Icon name="stat" />
@@ -104,7 +104,7 @@
 				<li>
 					<button
 						class="profile-sidebar__menu-item"
-						class:item_selected={currentSection == 'experimental'}
+						class:item_selected={currentSection === 'experimental'}
 						on:mousedown={() => onMenuClick('experimental')}
 					>
 						<Icon name="idea" />

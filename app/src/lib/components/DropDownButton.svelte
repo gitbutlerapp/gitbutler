@@ -64,8 +64,8 @@
 		}}
 		bind:this={contextMenuContainer}
 		style:display={visible ? 'block' : 'none'}
-		class:dropdown-top={dropdownPosition == 'top'}
-		class:dropdown-bottom={dropdownPosition == 'bottom'}
+		class:dropdown-top={dropdownPosition === 'top'}
+		class:dropdown-bottom={dropdownPosition === 'bottom'}
 	>
 		<slot name="context-menu" />
 	</div>

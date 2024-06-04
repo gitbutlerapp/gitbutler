@@ -108,14 +108,14 @@
 	});
 
 	function acceptMoveCommit(data: any) {
-		return data instanceof DraggableCommit && data.branchId != branch.id && data.isHeadCommit;
+		return data instanceof DraggableCommit && data.branchId !== branch.id && data.isHeadCommit;
 	}
 	function onCommitDrop(data: DraggableCommit) {
 		branchController.moveCommit(branch.id, data.commit.id);
 	}
 
 	function acceptCherrypick(data: any) {
-		return data instanceof DraggableRemoteCommit && data.branchId == branch.id;
+		return data instanceof DraggableRemoteCommit && data.branchId === branch.id;
 	}
 
 	function onCherrypicked(data: DraggableRemoteCommit) {
@@ -123,9 +123,9 @@
 	}
 
 	function acceptBranchDrop(data: any) {
-		if (data instanceof DraggableHunk && data.branchId != branch.id) {
+		if (data instanceof DraggableHunk && data.branchId !== branch.id) {
 			return !data.hunk.locked;
-		} else if (data instanceof DraggableFile && data.branchId && data.branchId != branch.id) {
+		} else if (data instanceof DraggableFile && data.branchId && data.branchId !== branch.id) {
 			return !data.files.some((f) => f.locked);
 		} else {
 			return false;
@@ -162,7 +162,7 @@
 			uncommittedChanges={branch.files.length}
 			bind:isLaneCollapsed
 			on:action={(e) => {
-				if (e.detail == 'generate-branch-name') {
+				if (e.detail === 'generate-branch-name') {
 					generateBranchName();
 				}
 			}}
@@ -193,10 +193,10 @@
 						{isUnapplied}
 						bind:isLaneCollapsed
 						on:action={(e) => {
-							if (e.detail == 'generate-branch-name') {
+							if (e.detail === 'generate-branch-name') {
 								generateBranchName();
 							}
-							if (e.detail == 'collapse') {
+							if (e.detail === 'collapse') {
 								$isLaneCollapsed = true;
 							}
 						}}
@@ -265,14 +265,14 @@
 											projectId={project.id}
 											expanded={commitBoxOpen}
 											on:action={(e) => {
-												if (e.detail == 'generate-branch-name') {
+												if (e.detail === 'generate-branch-name') {
 													generateBranchName();
 												}
 											}}
 										/>
 									{/if}
 								</div>
-							{:else if branch.commits.length == 0}
+							{:else if branch.commits.length === 0}
 								<div class="new-branch">
 									<EmptyStatePlaceholder image={laneNewSvg} width="11rem">
 										<svelte:fragment slot="title">This is a new branch</svelte:fragment>
@@ -303,7 +303,7 @@
 					direction="right"
 					minWidth={380}
 					sticky
-					defaultLineColor={$fileIdSelection.length == 1 ? 'transparent' : 'var(--clr-border-2)'}
+					defaultLineColor={$fileIdSelection.length === 1 ? 'transparent' : 'var(--clr-border-2)'}
 					on:width={(e) => {
 						laneWidth = e.detail / (16 * $userSettings.zoom);
 						lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl

@@ -16,14 +16,14 @@
 	let dismissed = false;
 </script>
 
-{#if $update$?.version && $update$.status != 'UPTODATE' && !dismissed}
-	<div class="update-banner" class:busy={$update$?.status == 'PENDING'}>
+{#if $update$?.version && $update$.status !== 'UPTODATE' && !dismissed}
+	<div class="update-banner" class:busy={$update$?.status === 'PENDING'}>
 		<div class="floating-button">
 			<Button icon="cross-small" style="ghost" on:click={() => (dismissed = true)} />
 		</div>
 		<div class="img">
 			<div class="circle-img">
-				{#if $update$?.status != 'DONE'}
+				{#if $update$?.status !== 'DONE'}
 					<svg
 						class="arrow-img"
 						width="12"
@@ -92,13 +92,13 @@
 		<h4 class="text-base-13 label">
 			{#if !$update$.status}
 				New version available
-			{:else if $update$.status == 'PENDING'}
+			{:else if $update$.status === 'PENDING'}
 				Downloading update...
-			{:else if $update$.status == 'DOWNLOADED'}
+			{:else if $update$.status === 'DOWNLOADED'}
 				Installing update...
-			{:else if $update$.status == 'DONE'}
+			{:else if $update$.status === 'DONE'}
 				Install complete
-			{:else if $update$.status == 'ERROR'}
+			{:else if $update$.status === 'ERROR'}
 				Error occurred...
 			{/if}
 		</h4>
@@ -136,7 +136,7 @@
 							Download {$update$.version}
 						</Button>
 					</div>
-				{:else if $update$.status == 'DONE'}
+				{:else if $update$.status === 'DONE'}
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
 						<Button style="pop" kind="solid" wide on:click={() => updaterService.relaunchApp()}
 							>Restart</Button

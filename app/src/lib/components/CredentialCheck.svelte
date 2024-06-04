@@ -108,7 +108,7 @@
 		disabled={loading}
 		on:click={checkCredentials}
 	>
-		{#if loading || checks.length == 0}
+		{#if loading || checks.length === 0}
 			Test credentials
 		{:else}
 			Re-test credentials

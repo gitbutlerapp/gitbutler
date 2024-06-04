@@ -35,7 +35,7 @@ export class ReorderDropzoneIndexer {
 	dropzoneIndexBelowCommit(commitId: string) {
 		const index = this.dropzoneIndexes.get(commitId);
 
-		if (index == undefined) {
+		if (index === undefined) {
 			throw new Error(`Commit ${commitId} not found in dropzoneIndexes`);
 		}
 
@@ -45,7 +45,7 @@ export class ReorderDropzoneIndexer {
 	commitIndex(commitId: string) {
 		const index = this.commitIndexes.get(commitId);
 
-		if (index == undefined) {
+		if (index === undefined) {
 			throw new Error(`Commit ${commitId} not found in commitIndexes`);
 		}
 
@@ -58,7 +58,7 @@ export class ReorderDropzoneIndexer {
 	dropzoneCommitOffset(dropzoneIndex: number, commitId: string) {
 		const commitIndex = this.commitIndexes.get(commitId);
 
-		if (commitIndex == undefined) {
+		if (commitIndex === undefined) {
 			throw new Error(`Commit ${commitId} not found in commitIndexes`);
 		}
 

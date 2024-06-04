@@ -50,7 +50,7 @@
 					{sectionFirst}
 					status={shadowIn}
 					help={shadowHelp || help}
-					shadow={commitStatus && commitStatus != 'upstream'}
+					shadow={commitStatus && commitStatus !== 'upstream'}
 					shadowLane
 				/>
 			{/if}
@@ -62,11 +62,11 @@
 		root={localRoot}
 		inType={remoteIn}
 		outType={remoteOut}
-		outDashed={remoteOut == 'integrated'}
-		inDashed={remoteIn == 'integrated'}
+		outDashed={remoteOut === 'integrated'}
+		inDashed={remoteIn === 'integrated'}
 		{integrated}
 	>
-		{#if !isRebased && (relatedToOther || commitStatus != 'local')}
+		{#if !isRebased && (relatedToOther || commitStatus !== 'local')}
 			<Avatar
 				{author}
 				{sectionFirst}
@@ -88,7 +88,7 @@
 			root={remoteRoot}
 			longRoot={remoteRoot && !last}
 		>
-			{#if commitStatus == 'local'}
+			{#if commitStatus === 'local'}
 				<Avatar {help} {sectionFirst} {author} status={commitStatus} />
 			{/if}
 		</LocalLine>

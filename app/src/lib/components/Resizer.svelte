@@ -42,10 +42,10 @@
 		document.addEventListener('mouseup', onMouseUp);
 		document.addEventListener('mousemove', onMouseMove);
 
-		if (direction == 'right') initial = e.clientX - viewport.clientWidth;
-		if (direction == 'left') initial = window.innerWidth - e.clientX - viewport.clientWidth;
-		if (direction == 'down') initial = e.clientY - viewport.clientHeight;
-		if (direction == 'up') initial = window.innerHeight - e.clientY - viewport.clientHeight;
+		if (direction === 'right') initial = e.clientX - viewport.clientWidth;
+		if (direction === 'left') initial = window.innerWidth - e.clientX - viewport.clientWidth;
+		if (direction === 'down') initial = e.clientY - viewport.clientHeight;
+		if (direction === 'up') initial = window.innerHeight - e.clientY - viewport.clientHeight;
 
 		dispatch('resizing', true);
 	}
@@ -58,25 +58,25 @@
 
 	function onMouseMove(e: MouseEvent) {
 		dragging = true;
-		if (direction == 'down') {
+		if (direction === 'down') {
 			let height = e.clientY - initial;
 			dispatch('height', Math.max(height, minHeight));
 
 			onOverflowValue(height, minHeight);
 		}
-		if (direction == 'up') {
+		if (direction === 'up') {
 			let height = document.body.scrollHeight - e.clientY - initial;
 			dispatch('height', Math.max(height, minHeight));
 
 			onOverflowValue(height, minHeight);
 		}
-		if (direction == 'right') {
+		if (direction === 'right') {
 			let width = e.clientX - initial + 2;
 			dispatch('width', Math.max(width, minWidth));
 
 			onOverflowValue(width, minWidth);
 		}
-		if (direction == 'left') {
+		if (direction === 'left') {
 			let width = document.body.scrollWidth - e.clientX - initial;
 			dispatch('width', Math.max(width, minWidth));
 
@@ -108,12 +108,12 @@
 	aria-valuenow={viewport?.clientHeight}
 	class="resizer"
 	class:dragging
-	class:vertical={orientation == 'vertical'}
-	class:horizontal={orientation == 'horizontal'}
-	class:up={direction == 'up'}
-	class:down={direction == 'down'}
-	class:left={direction == 'left'}
-	class:right={direction == 'right'}
+	class:vertical={orientation === 'vertical'}
+	class:horizontal={orientation === 'horizontal'}
+	class:up={direction === 'up'}
+	class:down={direction === 'down'}
+	class:left={direction === 'left'}
+	class:right={direction === 'right'}
 	class:sticky
 	style:z-index={zIndex}
 >

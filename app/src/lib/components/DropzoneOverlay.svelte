@@ -9,9 +9,9 @@
 
 <div
 	class="{className} dropzone"
-	class:small={radius == 's'}
-	class:medium={radius == 'm'}
-	class:large={radius == 'l'}
+	class:small={radius === 's'}
+	class:medium={radius === 'm'}
+	class:large={radius === 'l'}
 >
 	<div class=" dropzone-wrapper">
 		<div class="dropzone-content">

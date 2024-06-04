@@ -4,7 +4,7 @@ export type FileStatus = 'A' | 'M' | 'D';
 
 export function computeFileStatus(file: AnyFile): FileStatus {
 	if (file instanceof RemoteFile) {
-		if (file.hunks.length == 1) {
+		if (file.hunks.length === 1) {
 			const diff = file.hunks[0].diff;
 			if (/^@@ -1,1 /.test(diff)) return 'A';
 			if (/^@@ -0,0 /.test(diff)) return 'A';
@@ -14,11 +14,11 @@ export function computeFileStatus(file: AnyFile): FileStatus {
 		return 'M';
 	}
 
-	if (file.hunks.length == 1) {
+	if (file.hunks.length === 1) {
 		const changeType = file.hunks[0].changeType;
-		if (changeType == 'added') {
+		if (changeType === 'added') {
 			return 'A';
-		} else if (changeType == 'deleted') {
+		} else if (changeType === 'deleted') {
 			return 'D';
 		}
 	}

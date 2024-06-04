@@ -27,7 +27,7 @@
 		$localCommits.length > 0 || $remoteCommits.length > 0 || $unknownCommits.length > 0;
 
 	let isLoading: boolean;
-	$: isPushed = $localCommits.length == 0 && $unknownCommits.length == 0;
+	$: isPushed = $localCommits.length === 0 && $unknownCommits.length === 0;
 </script>
 
 {#if !isUnapplied && hasCommits}
@@ -42,11 +42,11 @@
 				{isLoading}
 				on:trigger={async (e) => {
 					try {
-						if (e.detail.action == BranchAction.Push) {
+						if (e.detail.action === BranchAction.Push) {
 							isLoading = true;
 							await branchController.pushBranch($branch.id, $branch.requiresForce);
 							isLoading = false;
-						} else if (e.detail.action == BranchAction.Rebase) {
+						} else if (e.detail.action === BranchAction.Rebase) {
 							isLoading = true;
 							await branchController.mergeUpstream($branch.id);
 							isLoading = false;

@@ -36,9 +36,9 @@
 	class:top-divider={topDivider}
 	class:bottom-border={bottomBorder}
 	class:no-border={noBorder}
-	class:loading={background == 'loading'}
-	class:success={background == 'success'}
-	class:error={background == 'error'}
+	class:loading={background === 'loading'}
+	class:success={background === 'success'}
+	class:error={background === 'error'}
 	class:clickable={labelFor !== '' || clickable}
 	class:disabled
 	on:click

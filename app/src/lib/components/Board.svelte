@@ -60,7 +60,7 @@
 				}
 			}
 			const idx = children.indexOf(dragged);
-			if (idx != dropPosition) {
+			if (idx !== dropPosition) {
 				idx >= dropPosition
 					? children[dropPosition].before(dragged)
 					: children[dropPosition].after(dragged);
@@ -70,7 +70,7 @@
 			if (!dragged) return;
 			if (!$activeBranches) return;
 			e.preventDefault();
-			if (priorPosition != dropPosition) {
+			if (priorPosition !== dropPosition) {
 				const el = $activeBranches.splice(priorPosition, 1);
 				$activeBranches.splice(dropPosition, 0, ...el);
 				$activeBranches.forEach((branch, i) => {
@@ -88,7 +88,7 @@
 				draggable="true"
 				on:mousedown={(e) => (dragHandle = e.target)}
 				on:dragstart={(e) => {
-					if (dragHandle.dataset.dragHandle == undefined) {
+					if (dragHandle.dataset.dragHandle === undefined) {
 						// We rely on elements with id `drag-handle` to initiate this drag
 						e.preventDefault();
 						e.stopPropagation();
@@ -112,11 +112,11 @@
 			</div>
 		{/each}
 
-		{#if $activeBranches.length == 0}
+		{#if $activeBranches.length === 0}
 			<div
 				data-tauri-drag-region
 				class="empty-board__wrapper"
-				class:transition-fly={$activeBranches.length == 0}
+				class:transition-fly={$activeBranches.length === 0}
 			>
 				<div class="empty-board">
 					<div class="empty-board__content">
