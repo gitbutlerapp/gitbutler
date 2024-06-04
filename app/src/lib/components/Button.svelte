@@ -48,6 +48,7 @@
 	disabled={disabled || loading}
 	on:click
 	on:mousedown
+	on:contextmenu
 	{type}
 	{id}
 	tabindex={clickable ? tabindex : -1}

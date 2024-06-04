@@ -281,6 +281,8 @@
 			</Button>
 			{#if !detailedPr?.closedAt && checksStatus !== null}
 				<Button
+					size="tag"
+					clickable={false}
 					icon={checksTagInfo.icon}
 					style={checksTagInfo.style}
 					kind={checksTagInfo.icon == 'success-small' ? 'solid' : 'soft'}
