@@ -40,12 +40,12 @@
 <div
 	class="bubble-wrap"
 	class:editing
-	class:bubble-wrap_user={promptMessage.role == MessageRole.User}
-	class:bubble-wrap_assistant={promptMessage.role == MessageRole.Assistant}
+	class:bubble-wrap_user={promptMessage.role === MessageRole.User}
+	class:bubble-wrap_assistant={promptMessage.role === MessageRole.Assistant}
 >
 	<div class="bubble">
 		<div class="bubble__header text-base-13 text-bold">
-			{#if promptMessage.role == MessageRole.User}
+			{#if promptMessage.role === MessageRole.User}
 				<Icon name="profile" />
 				<span>User</span>
 			{:else}

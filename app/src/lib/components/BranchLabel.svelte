@@ -36,13 +36,13 @@
 		inputEl.focus();
 	}}
 	on:blur={() => {
-		if (name == '') name = initialName;
+		if (name === '') name = initialName;
 	}}
 	on:focus={() => {
 		initialName = name;
 	}}
 	on:keydown={(e) => {
-		if (e.key == 'Enter' || e.key == 'Escape') {
+		if (e.key === 'Enter' || e.key === 'Escape') {
 			inputEl.blur();
 		}
 	}}

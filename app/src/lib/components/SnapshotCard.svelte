@@ -37,7 +37,7 @@
 		return lowerCaseStr.charAt(0).toUpperCase() + lowerCaseStr.slice(1);
 	}
 
-	// if (entry.details?.operation == 'RestoreFromSnapshot') {
+	// if (entry.details?.operation === 'RestoreFromSnapshot') {
 	// 	console.log(entry.details);
 	// }
 
@@ -52,42 +52,42 @@
 			// BRANCH OPERATIONS
 			case 'DeleteBranch':
 				return {
-					text: `Delete branch "${entry.details?.trailers.find((t) => t.key == 'name')?.value}"`,
+					text: `Delete branch "${entry.details?.trailers.find((t) => t.key === 'name')?.value}"`,
 					icon: 'item-cross'
 				};
 			case 'ApplyBranch':
 				return {
-					text: `Apply branch "${entry.details?.trailers.find((t) => t.key == 'name')?.value}"`,
+					text: `Apply branch "${entry.details?.trailers.find((t) => t.key === 'name')?.value}"`,
 					icon: 'item-tick'
 				};
 			case 'UnapplyBranch':
 				return {
-					text: `Unapply branch "${snapshotDetails.trailers.find((t) => t.key == 'name')?.value}"`,
+					text: `Unapply branch "${snapshotDetails.trailers.find((t) => t.key === 'name')?.value}"`,
 					icon: 'item-dashed'
 				};
 			case 'UpdateBranchName':
 				return {
-					text: `Renamed branch "${snapshotDetails.trailers.find((t) => t.key == 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
+					text: `Renamed branch "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`,
 					icon: 'item-slash'
 				};
 			case 'CreateBranch':
 				return {
-					text: `Create branch "${snapshotDetails.trailers.find((t) => t.key == 'name')?.value}"`,
+					text: `Create branch "${snapshotDetails.trailers.find((t) => t.key === 'name')?.value}"`,
 					icon: 'item-plus'
 				};
 			case 'ReorderBranches':
 				return {
-					text: `Reorder branches "${snapshotDetails.trailers.find((t) => t.key == 'before')?.value}" and "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
+					text: `Reorder branches "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" and "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`,
 					icon: 'item-link'
 				};
 			case 'SelectDefaultVirtualBranch':
 				return {
-					text: `Select default virtual branch "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
+					text: `Select default virtual branch "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`,
 					icon: 'item-dot'
 				};
 			case 'UpdateBranchRemoteName':
 				return {
-					text: `Update branch remote name "${snapshotDetails.trailers.find((t) => t.key == 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
+					text: `Update branch remote name "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`,
 					icon: 'item-slash'
 				};
 			case 'SetBaseBranch':
@@ -98,15 +98,15 @@
 			// COMMIT OPERATIONS
 			case 'CreateCommit':
 				return {
-					text: `Create commit ${getShortSha(entry.details?.trailers.find((t) => t.key == 'sha')?.value)}`,
+					text: `Create commit ${getShortSha(entry.details?.trailers.find((t) => t.key === 'sha')?.value)}`,
 					icon: 'new-commit',
-					commitMessage: entry.details?.trailers.find((t) => t.key == 'message')?.value
+					commitMessage: entry.details?.trailers.find((t) => t.key === 'message')?.value
 				};
 			case 'UndoCommit':
 				return {
-					text: `Undo commit ${getShortSha(entry.details?.trailers.find((t) => t.key == 'sha')?.value)}`,
+					text: `Undo commit ${getShortSha(entry.details?.trailers.find((t) => t.key === 'sha')?.value)}`,
 					icon: 'undo-commit',
-					commitMessage: entry.details?.trailers.find((t) => t.key == 'message')?.value
+					commitMessage: entry.details?.trailers.find((t) => t.key === 'message')?.value
 				};
 			case 'AmendCommit':
 				return { text: 'Amend commit', icon: 'amend-commit' };
@@ -126,7 +126,7 @@
 			// FILE OPERATIONS
 			case 'MoveHunk':
 				return {
-					text: `Move hunk to "${entry.details?.trailers.find((t) => t.key == 'name')?.value}"`,
+					text: `Move hunk to "${entry.details?.trailers.find((t) => t.key === 'name')?.value}"`,
 					icon: 'item-move'
 				};
 			case 'DiscardHunk':
@@ -148,7 +148,7 @@
 		}
 	}
 
-	const isRestoreSnapshot = entry.details?.operation == 'RestoreFromSnapshot';
+	const isRestoreSnapshot = entry.details?.operation === 'RestoreFromSnapshot';
 
 	const operation = mapOperation(entry.details);
 
@@ -210,8 +210,8 @@
 					{#each entry.filesChanged as filePath}
 						<button
 							class="files-attacment__file"
-							class:file-selected={selectedFile?.path == filePath &&
-								selectedFile?.entryId == entry.id}
+							class:file-selected={selectedFile?.path === filePath &&
+								selectedFile?.entryId === entry.id}
 							on:click={() => {
 								dispatch('diffClick', filePath);
 							}}
@@ -243,12 +243,15 @@
 					<div class="restored-attacment__content">
 						<h4 class="text-base-13 text-semibold">
 							{camelToTitleCase(
-								entry.details?.trailers.find((t) => t.key == 'restored_operation')?.value
+								entry.details?.trailers.find((t) => t.key === 'restored_operation')?.value
 							)}
 						</h4>
 						<span class="restored-attacment__details text-base-12">
-							{getShortSha(entry.details?.trailers.find((t) => t.key == 'restored_from')?.value)} • {createdOnDayAndTime(
-								parseInt(entry.details?.trailers.find((t) => t.key == 'restored_date')?.value || '')
+							{getShortSha(entry.details?.trailers.find((t) => t.key === 'restored_from')?.value)} •
+							{createdOnDayAndTime(
+								parseInt(
+									entry.details?.trailers.find((t) => t.key === 'restored_date')?.value || ''
+								)
 							)}
 						</span>
 					</div>

@@ -10,7 +10,7 @@ const defaultDropzoneOptions: Dropzone = {
 	disabled: false,
 	active: 'dropzone-active',
 	hover: 'dropzone-hover',
-	accepts: (data) => data == 'default',
+	accepts: (data) => data === 'default',
 	onDrop: () => {}
 };
 
@@ -48,6 +48,6 @@ function register(node: HTMLElement, dropzone: Dropzone) {
 }
 
 function unregister(dropzone: Dropzone) {
-	const index = dzRegistry.findIndex(([, dz]) => dz == dropzone);
+	const index = dzRegistry.findIndex(([, dz]) => dz === dropzone);
 	if (index >= 0) dzRegistry.splice(index, 1);
 }

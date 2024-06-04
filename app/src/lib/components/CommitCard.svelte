@@ -63,7 +63,7 @@
 	}
 
 	function onKeyup(e: KeyboardEvent) {
-		if (e.key == 'Enter' || e.key == ' ') {
+		if (e.key === 'Enter' || e.key === ' ') {
 			toggleFiles();
 		}
 	}
@@ -140,10 +140,10 @@
 				class="accent-border-line"
 				class:is-first={first}
 				class:is-last={last}
-				class:local={type == 'local'}
-				class:remote={type == 'remote'}
-				class:upstream={type == 'upstream'}
-				class:integrated={type == 'integrated'}
+				class:local={type === 'local'}
+				class:remote={type === 'remote'}
+				class:upstream={type === 'upstream'}
+				class:integrated={type === 'integrated'}
 			/>
 
 			<div class="commit__content">
@@ -157,13 +157,13 @@
 				>
 					{#if first}
 						<div class="commit__type text-semibold text-base-12">
-							{#if type == 'upstream'}
+							{#if type === 'upstream'}
 								Remote <Icon name="remote" />
-							{:else if type == 'local'}
+							{:else if type === 'local'}
 								Local <Icon name="local" />
-							{:else if type == 'remote'}
+							{:else if type === 'remote'}
 								Local and remote
-							{:else if type == 'integrated'}
+							{:else if type === 'integrated'}
 								Integrated
 							{/if}
 						</div>
@@ -194,7 +194,7 @@
 							<span class="commit__subtitle-divider">•</span>
 
 							<span
-								>{getTimeAgo(commit.createdAt)}{type == 'remote' || type == 'upstream'
+								>{getTimeAgo(commit.createdAt)}{type === 'remote' || type === 'upstream'
 									? ` by ${commit.author.name}`
 									: ''}</span
 							>
@@ -252,7 +252,7 @@
 
 			{#if showDetails}
 				<div class="files-container">
-					<BranchFilesList title="Files" {files} {isUnapplied} readonly={type == 'upstream'} />
+					<BranchFilesList title="Files" {files} {isUnapplied} readonly={type === 'upstream'} />
 				</div>
 			{/if}
 		</div>

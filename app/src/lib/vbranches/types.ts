@@ -46,8 +46,8 @@ export class LocalFile {
 	@Transform((obj) => new Date(obj.value))
 	modifiedAt!: Date;
 	// This indicates if a file has merge conflict markers generated and not yet resolved.
-	// This is true for files after a branch which does not apply cleanly (Branch.isMergeable == false) is applied.
-	// (therefore this field is applicable only for the workspace, i.e. active == true)
+	// This is true for files after a branch which does not apply cleanly (Branch.isMergeable === false) is applied.
+	// (therefore this field is applicable only for the workspace, i.e. active === true)
 	conflicted!: boolean;
 	content!: string;
 	binary!: boolean;
@@ -120,7 +120,7 @@ export class Branch {
 	// This should actually be named "canBeCleanlyApplied" - if it's false, applying this branch will generate conflict markers,
 	// but it's totatlly okay for a user to apply it.
 	// If the branch has been already applied, then it was either performed cleanly or we generated conflict markers in the diffs.
-	// (therefore this field is applicable for stashed/unapplied or remote branches, i.e. active == false)
+	// (therefore this field is applicable for stashed/unapplied or remote branches, i.e. active === false)
 	isMergeable!: Promise<boolean>;
 	@Transform((obj) => new Date(obj.value))
 	updatedAt!: Date;
@@ -132,15 +132,15 @@ export class Branch {
 	forkPoint!: string;
 
 	get localCommits() {
-		return this.commits.filter((c) => c.status == 'local');
+		return this.commits.filter((c) => c.status === 'local');
 	}
 
 	get remoteCommits() {
-		return this.commits.filter((c) => c.status == 'remote');
+		return this.commits.filter((c) => c.status === 'remote');
 	}
 
 	get integratedCommits() {
-		return this.commits.filter((c) => c.status == 'integrated');
+		return this.commits.filter((c) => c.status === 'integrated');
 	}
 
 	get displayName() {
@@ -188,7 +188,7 @@ export class Commit {
 
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
-		if (this.isRemote && (!this.relatedTo || this.id == this.relatedTo.id)) return 'remote';
+		if (this.isRemote && (!this.relatedTo || this.id === this.relatedTo.id)) return 'remote';
 		return 'local';
 	}
 
@@ -260,8 +260,8 @@ export const INTEGRATED_COMMITS = Symbol('IntegratedCommits');
 export const UNKNOWN_COMMITS = Symbol('UnknownCommits');
 
 export function commitCompare(left: AnyCommit, right: AnyCommit): boolean {
-	if (left.id == right.id) return true;
-	if (left.changeId && right.changeId && left.changeId == right.changeId) return true;
+	if (left.id === right.id) return true;
+	if (left.changeId && right.changeId && left.changeId === right.changeId) return true;
 	return false;
 }
 
@@ -363,7 +363,7 @@ export class RemoteBranchData {
 	get authors(): Author[] {
 		const allAuthors = this.commits.map((commit) => commit.author);
 		const uniqueAuthors = allAuthors.filter(
-			(author, index) => allAuthors.findIndex((a) => a.email == author.email) == index
+			(author, index) => allAuthors.findIndex((a) => a.email === author.email) === index
 		);
 		return uniqueAuthors;
 	}

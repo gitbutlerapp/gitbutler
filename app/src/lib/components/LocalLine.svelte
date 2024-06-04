@@ -17,7 +17,7 @@
 		<div
 			class="local-line tip"
 			class:dashed={outDashed}
-			class:integrated={inType == 'integrated'}
+			class:integrated={inType === 'integrated'}
 		/>
 	{/if}
 	{#if inType}
@@ -26,7 +26,7 @@
 			class:dashed={inDashed}
 			class:sectionFirst
 			class:has-root={root}
-			class:integrated={inType == 'integrated'}
+			class:integrated={inType === 'integrated'}
 		/>
 	{/if}
 	{#if root}

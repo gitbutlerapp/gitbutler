@@ -31,7 +31,7 @@
 	role="listbox"
 	tabindex="-1"
 	on:keydown={(e) => {
-		if (e.key == 'Escape') {
+		if (e.key === 'Escape') {
 			unselectAllFiles();
 		}
 	}}

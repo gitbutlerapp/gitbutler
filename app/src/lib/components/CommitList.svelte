@@ -43,14 +43,14 @@
 
 	$: forkPoint = $branch.forkPoint;
 	$: upstreamForkPoint = $branch.upstreamData?.forkPoint;
-	$: isRebased = !!forkPoint && !!upstreamForkPoint && forkPoint != upstreamForkPoint;
+	$: isRebased = !!forkPoint && !!upstreamForkPoint && forkPoint !== upstreamForkPoint;
 
 	let baseIsUnfolded = false;
 
 	function getRemoteOutType(commit: Commit): CommitStatus | undefined {
 		if (!hasShadowedCommits) {
 			const childStatus = commit.next?.status;
-			return childStatus != 'local' ? childStatus : undefined;
+			return childStatus !== 'local' ? childStatus : undefined;
 		}
 
 		// TODO: Consider introducing `relatedParent` and `relatedChildren`
@@ -71,8 +71,8 @@
 
 	function getRemoteInType(commit: Commit): CommitStatus | undefined {
 		if (commit.prev) return getRemoteOutType(commit.prev || commit);
-		if (commit.status == 'remote' || commit.relatedTo) return 'remote';
-		if (commit.status == 'integrated') return 'integrated';
+		if (commit.status === 'remote' || commit.relatedTo) return 'remote';
+		if (commit.status === 'integrated') return 'integrated';
 	}
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
@@ -80,7 +80,7 @@
 			console.error('Unable to insert commit');
 			return;
 		}
-		branchController.insertBlankCommit($branch.id, commitId, location == 'above' ? -1 : 1);
+		branchController.insertBlankCommit($branch.id, commitId, location === 'above' ? -1 : 1);
 	}
 </script>
 
@@ -94,8 +94,8 @@
 					branch={$branch}
 					{commit}
 					{isUnapplied}
-					first={idx == 0}
-					last={idx == $unknownCommits.length - 1}
+					first={idx === 0}
+					last={idx === $unknownCommits.length - 1}
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 					isHeadCommit={commit.id === headCommit?.id}
 				>
@@ -106,24 +106,24 @@
 							localIn={'local'}
 							localOut={'local'}
 							author={commit.author}
-							sectionFirst={idx == 0}
+							sectionFirst={idx === 0}
 							inDashed={hasLocalColumn}
 							outDashed={hasLocalColumn}
 							commitStatus={commit.status}
 							help={getAvatarTooltip(commit)}
 							remoteIn={!isRebased ? 'upstream' : undefined}
-							remoteOut={!isRebased && idx != 0 ? 'upstream' : undefined}
+							remoteOut={!isRebased && idx !== 0 ? 'upstream' : undefined}
 							shadowIn={isRebased ? 'upstream' : undefined}
-							shadowOut={idx != 0 && isRebased ? 'upstream' : undefined}
+							shadowOut={idx !== 0 && isRebased ? 'upstream' : undefined}
 						/>
 					</svelte:fragment>
 				</CommitCard>
 			{/each}
 		{/if}
 		<QuickActionMenu
-			offset={$localCommits.length == 0 &&
-			$remoteCommits.length == 0 &&
-			$integratedCommits.length == 0
+			offset={$localCommits.length === 0 &&
+			$remoteCommits.length === 0 &&
+			$integratedCommits.length === 0
 				? 0
 				: 0.75}
 			padding={1}
@@ -143,9 +143,9 @@
 					{commit}
 					{isUnapplied}
 					type="local"
-					first={idx == 0}
+					first={idx === 0}
 					branch={$branch}
-					last={idx == $localCommits.length - 1}
+					last={idx === $localCommits.length - 1}
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 					isHeadCommit={commit.id === headCommit?.id}
 				>
@@ -156,18 +156,18 @@
 							localIn={'local'}
 							localOut={'local'}
 							author={commit.author}
-							sectionFirst={idx == 0}
+							sectionFirst={idx === 0}
 							commitStatus={commit.status}
 							help={getAvatarTooltip(commit)}
 							shadowHelp={getAvatarTooltip(commit.relatedTo)}
-							outDashed={hasLocalColumn && idx == 0}
+							outDashed={hasLocalColumn && idx === 0}
 							remoteIn={!isRebased ? getRemoteInType(commit) : undefined}
 							remoteOut={!isRebased ? getRemoteOutType(commit) : undefined}
 							shadowIn={isRebased ? getRemoteInType(commit) : undefined}
 							shadowOut={isRebased ? getRemoteOutType(commit) : undefined}
-							relatedToOther={commit?.relatedTo && commit.relatedTo.id != commit.id}
-							remoteRoot={idx == $localCommits.length - 1}
-							last={idx == $localCommits.length - 1 && !hasRemoteCommits && !hasIntegratedCommits}
+							relatedToOther={commit?.relatedTo && commit.relatedTo.id !== commit.id}
+							remoteRoot={idx === $localCommits.length - 1}
+							last={idx === $localCommits.length - 1 && !hasRemoteCommits && !hasIntegratedCommits}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -177,7 +177,7 @@
 				/>
 				<QuickActionMenu
 					padding={1}
-					offset={$remoteCommits.length > 0 && idx + 1 == $localCommits.length ? 0.25 : 0}
+					offset={$remoteCommits.length > 0 && idx + 1 === $localCommits.length ? 0.25 : 0}
 				>
 					<Button style="ghost" size="tag" on:click={() => insertBlankCommit(commit.id, 'below')}
 						>Insert blank commit</Button
@@ -192,10 +192,10 @@
 					{commit}
 					{isUnapplied}
 					type="remote"
-					first={idx == 0}
+					first={idx === 0}
 					branch={$branch}
-					last={idx == $remoteCommits.length - 1}
-					isHeadCommit={commit.id == headCommit?.id}
+					last={idx === $remoteCommits.length - 1}
+					isHeadCommit={commit.id === headCommit?.id}
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 				>
 					<svelte:fragment slot="lines">
@@ -203,13 +203,13 @@
 							{hasLocalColumn}
 							{isRebased}
 							author={commit.author}
-							sectionFirst={idx == 0}
+							sectionFirst={idx === 0}
 							commitStatus={commit.status}
 							help={getAvatarTooltip(commit)}
 							shadowHelp={getAvatarTooltip(commit.relatedTo)}
 							integrated={commit.isIntegrated}
-							localRoot={idx == 0 && hasLocalCommits}
-							outDashed={idx == 0 && commit.prev?.status == 'local'}
+							localRoot={idx === 0 && hasLocalCommits}
+							outDashed={idx === 0 && commit.prev?.status === 'local'}
 							remoteIn={!isRebased ? getRemoteInType(commit) : undefined}
 							remoteOut={!isRebased ? getRemoteOutType(commit) : undefined}
 							shadowIn={isRebased ? getRemoteInType(commit) : undefined}
@@ -235,10 +235,10 @@
 					{commit}
 					{isUnapplied}
 					type="integrated"
-					first={idx == 0}
+					first={idx === 0}
 					branch={$branch}
 					isHeadCommit={commit.id === headCommit?.id}
-					last={idx == $integratedCommits.length - 1}
+					last={idx === $integratedCommits.length - 1}
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 				>
 					<svelte:fragment slot="lines">
@@ -246,7 +246,7 @@
 							{hasLocalColumn}
 							{isRebased}
 							author={commit.author}
-							sectionFirst={idx == 0}
+							sectionFirst={idx === 0}
 							commitStatus={commit.status}
 							help={getAvatarTooltip(commit)}
 							shadowIn={isRebased ? getRemoteInType(commit) : undefined}
@@ -254,7 +254,7 @@
 							remoteIn={!isRebased ? getRemoteInType(commit) : undefined}
 							remoteOut={!isRebased ? getRemoteOutType(commit) : undefined}
 							integrated={true}
-							localRoot={idx == 0 && !hasRemoteCommits && hasLocalCommits}
+							localRoot={idx === 0 && !hasRemoteCommits && hasLocalCommits}
 						/>
 					</svelte:fragment>
 				</CommitCard>

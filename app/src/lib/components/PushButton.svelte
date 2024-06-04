@@ -37,7 +37,7 @@
 	let contextMenu: ContextMenu;
 	let dropDown: DropDownButton;
 	let disabled = false;
-	let isPushed = $localCommits.length == 0 && !branch.requiresForce;
+	let isPushed = $localCommits.length === 0 && !branch.requiresForce;
 	$: canBeRebased = $unknownCommits.length > 0;
 	$: selection$ = contextMenu?.selection$;
 	$: action = selectAction(isPushed, $preferredAction);
@@ -92,7 +92,7 @@
 				<ContextMenuItem
 					id="push"
 					label={pushLabel}
-					selected={action == BranchAction.Push}
+					selected={action === BranchAction.Push}
 					disabled={isPushed}
 				/>
 			{/if}
@@ -100,8 +100,8 @@
 				<ContextMenuItem
 					id="rebase"
 					label="Rebase upstream"
-					selected={action == BranchAction.Rebase}
-					disabled={isPushed || $unknownCommits.length == 0}
+					selected={action === BranchAction.Rebase}
+					disabled={isPushed || $unknownCommits.length === 0}
 				/>
 			{/if}
 		</ContextMenuSection>

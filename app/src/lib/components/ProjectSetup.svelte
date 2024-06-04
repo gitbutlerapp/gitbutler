@@ -22,11 +22,11 @@
 	let loading = false;
 
 	async function setTarget() {
-		if (selectedBranch[0] == '') return;
+		if (selectedBranch[0] === '') return;
 		loading = true;
 		try {
 			// TODO: Refactor temporary solution to forcing Windows to use system executable
-			if ($platformName == 'win32') {
+			if ($platformName === 'win32') {
 				project.preferred_key = 'systemExecutable';
 				projectService.updateProject(project);
 			}
@@ -39,7 +39,7 @@
 </script>
 
 <DecorativeSplitView img={newProjectSvg}>
-	{#if selectedBranch[0] != '' && $platformName != 'win32'}
+	{#if selectedBranch[0] !== '' && $platformName !== 'win32'}
 		{@const [remoteName, branchName] = selectedBranch[0].split(/\/(.*)/s)}
 		<KeysForm {remoteName} {branchName} />
 		<div class="actions">
@@ -53,7 +53,7 @@
 			on:branchSelected={(e) => {
 				selectedBranch = e.detail;
 				// TODO: Temporary solution to forcing Windows to use system executable
-				if ($platformName == 'win32') {
+				if ($platformName === 'win32') {
 					setTarget();
 				}
 			}}

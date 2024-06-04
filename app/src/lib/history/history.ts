@@ -34,7 +34,7 @@ export class HistoryService {
 		// TODO: Update API so we don't have to .slice()
 		const more = (await this.fetch(this.cursor)).slice(1);
 
-		if (more.length == 0) {
+		if (more.length === 0) {
 			this.isAllLoaded.set(true);
 		} else {
 			this.snapshots.update((snapshots) => [...snapshots, ...more]);
@@ -78,5 +78,5 @@ export class HistoryService {
 
 export function createdOnDay(d: Date) {
 	const t = new Date();
-	return `${t.toDateString() == d.toDateString() ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' })}, ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+	return `${t.toDateString() === d.toDateString() ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' })}, ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 }

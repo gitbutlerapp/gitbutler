@@ -65,7 +65,7 @@
 			hotkeys.on('Meta+T', () => {
 				userSettings.update((s) => ({
 					...s,
-					theme: $userSettings.theme == 'light' ? 'dark' : 'light'
+					theme: $userSettings.theme === 'light' ? 'dark' : 'light'
 				}));
 			}),
 			hotkeys.on('Backspace', (e) => {

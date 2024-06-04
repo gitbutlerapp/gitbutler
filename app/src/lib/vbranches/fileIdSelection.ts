@@ -17,7 +17,7 @@ export function parseFileKey(fileKeyString: string): FileKey {
 
 	return {
 		fileId,
-		commitId: commitId == 'undefined' ? undefined : commitId
+		commitId: commitId === 'undefined' ? undefined : commitId
 	};
 }
 
@@ -57,7 +57,7 @@ export class FileIdSelection {
 	}
 
 	remove(fileId: string, commitId?: string) {
-		this.value = this.value.filter((key) => key != stringifyFileKey(fileId, commitId));
+		this.value = this.value.filter((key) => key !== stringifyFileKey(fileId, commitId));
 		this.emit();
 	}
 
@@ -82,14 +82,14 @@ export class FileIdSelection {
 	}
 
 	only(): FileKey | undefined {
-		if (this.value.length == 0) return;
+		if (this.value.length === 0) return;
 		const fileKey = parseFileKey(this.value[0]);
 		return fileKey;
 	}
 
 	selectedFile(localFiles: LocalFile[], branchId: string) {
 		return derived(this, async (value): Promise<AnyFile | undefined> => {
-			if (value.length != 1) return;
+			if (value.length !== 1) return;
 			const fileKey = parseFileKey(value[0]);
 			return await findFileByKey(localFiles, branchId, fileKey);
 		});
@@ -115,8 +115,8 @@ export class FileIdSelection {
 export async function findFileByKey(localFiles: LocalFile[], projectId: string, key: FileKey) {
 	if (key.commitId) {
 		const remoteFiles = await listRemoteCommitFiles(projectId, key.commitId);
-		return remoteFiles.find((file) => file.id == key.fileId);
+		return remoteFiles.find((file) => file.id === key.fileId);
 	} else {
-		return localFiles.find((file) => file.id == key.fileId);
+		return localFiles.find((file) => file.id === key.fileId);
 	}
 }

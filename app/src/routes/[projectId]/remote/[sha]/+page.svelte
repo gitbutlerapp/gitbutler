@@ -16,7 +16,7 @@
 
 	$: ({ error, branches } = data.remoteBranchService);
 
-	$: branch = $branches?.find((b) => b.sha == $page.params.sha);
+	$: branch = $branches?.find((b) => b.sha === $page.params.sha);
 	$: pr = branch && githubService.getListedPr(branch.sha);
 </script>
 

@@ -56,8 +56,8 @@
 	{#if SLOTS}
 		<span
 			class="label text-semibold"
-			class:text-base-12={size == 'button' || size == 'cta'}
-			class:text-base-11={size == 'tag'}
+			class:text-base-12={size === 'button' || size === 'cta'}
+			class:text-base-11={size === 'tag'}
 		>
 			<slot />
 		</span>
