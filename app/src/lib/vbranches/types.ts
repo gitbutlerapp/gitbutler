@@ -179,8 +179,8 @@ export class Commit {
 	isSigned!: boolean;
 	relatedTo?: RemoteCommit;
 
-	parent?: Commit;
-	children?: Commit[];
+	prev?: Commit;
+	next?: Commit;
 
 	get isLocal() {
 		return !this.isRemote && !this.isIntegrated;
@@ -223,8 +223,8 @@ export class RemoteCommit {
 	isSigned!: boolean;
 	parentIds!: string[];
 
-	parent?: RemoteCommit;
-	children?: RemoteCommit[];
+	prev?: RemoteCommit;
+	next?: RemoteCommit;
 	relatedTo?: Commit;
 
 	get isLocal() {
