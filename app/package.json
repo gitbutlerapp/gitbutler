@@ -75,6 +75,7 @@
 		"nanoid": "^5.0.7",
 		"postcss": "^8.4.38",
 		"postcss-load-config": "^5.1.0",
+		"postcss-pxtorem": "^6.1.0",
 		"posthog-js": "1.136.4",
 		"prettier": "^3.3.0",
 		"prettier-plugin-svelte": "^3.2.3",
