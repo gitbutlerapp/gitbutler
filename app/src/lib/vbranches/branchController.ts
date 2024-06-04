@@ -198,6 +198,32 @@ Please check our [documentation](https://docs.gitbutler.com/features/virtual-bra
 		}
 	}
 
+	async splitHunkAndUpdateBranchOwnership(
+		branchId: string,
+		sourceBranchId: string,
+		hunk: Hunk,
+		claims: (boolean | null)[]
+	) {
+		try {
+			if (!hunk.hash) {
+				throw new Error('Hunk hash is missing; cannot split');
+			}
+
+			await invoke<void>('split_hunk_and_update_virtual_branch', {
+				projectId: this.projectId,
+				branch: {
+					hunk_hash: hunk.hash,
+					split_from: hunk.splitFrom,
+					// Convert to an array of branch IDs (none == context line)
+					// such that each line corresponds to the branch that should own it.
+					lines: Array.from(claims).map((l) => (l === null ? null : l ? branchId : sourceBranchId))
+				}
+			});
+		} catch (err) {
+			showError('Failed to split hunk and update ownership', err);
+		}
+	}
+
 	async pushBranch(branchId: string, withForce: boolean): Promise<Branch | undefined> {
 		try {
 			await invoke<void>('push_virtual_branch', {

@@ -21,7 +21,8 @@
 		DraggableCommit,
 		DraggableFile,
 		DraggableHunk,
-		DraggableRemoteCommit
+		DraggableRemoteCommit,
+		DraggableSplitHunk
 	} from '$lib/dragging/draggables';
 	import { dropzone } from '$lib/dragging/dropzone';
 	import { showError } from '$lib/notifications/toasts';
@@ -125,6 +126,8 @@
 	function acceptBranchDrop(data: any) {
 		if (data instanceof DraggableHunk && data.branchId != branch.id) {
 			return !data.hunk.locked;
+		} else if (data instanceof DraggableSplitHunk && data.branchId != branch.id) {
+			return !data.hunk.locked;
 		} else if (data instanceof DraggableFile && data.branchId && data.branchId != branch.id) {
 			return !data.files.some((f) => f.locked);
 		} else {
@@ -132,7 +135,7 @@
 		}
 	}
 
-	function onBranchDrop(data: DraggableHunk | DraggableFile) {
+	function onBranchDrop(data: DraggableHunk | DraggableFile | DraggableSplitHunk) {
 		if (data instanceof DraggableHunk) {
 			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
 			branchController.updateBranchOwnership(
@@ -144,6 +147,13 @@
 			branchController.updateBranchOwnership(
 				branch.id,
 				(newOwnership + '\n' + branch.ownership).trim()
+			);
+		} else if (data instanceof DraggableSplitHunk) {
+			branchController.splitHunkAndUpdateBranchOwnership(
+				branch.id,
+				data.branchId,
+				data.hunk,
+				data.getClaims()
 			);
 		}
 	}

@@ -1,3 +1,4 @@
+import { get, type Readable } from 'svelte/store';
 import type { AnyCommit, AnyFile, Commit, Hunk, RemoteCommit } from '../vbranches/types';
 
 export function nonDraggable() {
@@ -5,6 +6,14 @@ export function nonDraggable() {
 		disabled: true,
 		data: undefined
 	};
+}
+
+export class DraggableSplitHunk {
+	constructor(
+		public readonly branchId: string,
+		public readonly hunk: Hunk,
+		public readonly getClaims: () => (boolean | null)[]
+	) {}
 }
 
 export class DraggableHunk {
@@ -43,4 +52,4 @@ export class DraggableRemoteCommit {
 	) {}
 }
 
-export type Draggable = DraggableFile | DraggableHunk | DraggableCommit;
+export type Draggable = DraggableFile | DraggableHunk | DraggableCommit | DraggableSplitHunk;

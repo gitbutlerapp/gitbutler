@@ -4,8 +4,8 @@ pub mod commands {
     use gitbutler_core::{
         assets,
         error::Code,
-        git, projects,
-        projects::ProjectId,
+        git,
+        projects::{self, ProjectId},
         virtual_branches::{
             branch::{self, BranchId, BranchOwnershipClaims},
             controller::Controller,
@@ -172,6 +172,22 @@ pub mod commands {
         handle
             .state::<Controller>()
             .update_virtual_branch(project_id, branch)
+            .await?;
+
+        emit_vbranches(&handle, project_id).await;
+        Ok(())
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(handle), err(Debug))]
+    pub async fn split_hunk_and_update_virtual_branch(
+        handle: AppHandle,
+        project_id: ProjectId,
+        branch: branch::BranchSplitHunkUpdateRequest,
+    ) -> Result<(), Error> {
+        handle
+            .state::<Controller>()
+            .split_hunk_and_update_virtual_branch(&project_id, branch)
             .await?;
 
         emit_vbranches(&handle, project_id).await;

@@ -5,14 +5,14 @@
 	import Scrollbar from './Scrollbar.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { draggable } from '$lib/dragging/draggable';
-	import { DraggableHunk } from '$lib/dragging/draggables';
+	import { DraggableHunk, DraggableSplitHunk } from '$lib/dragging/draggables';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol, maybeGetContextStore } from '$lib/utils/context';
+	import { SectionType, type HunkSection, type Line } from '$lib/utils/fileSections';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type Hunk } from '$lib/vbranches/types';
 	import { onDestroy } from 'svelte';
-	import type { HunkSection } from '$lib/utils/fileSections';
-	import type { Writable } from 'svelte/store';
+	import { writable, type Writable } from 'svelte/store';
 
 	export let viewport: HTMLDivElement | undefined = undefined;
 	export let contents: HTMLDivElement | undefined = undefined;
@@ -51,6 +51,9 @@
 
 	$: draggingDisabled = readonly || isUnapplied;
 
+	$: canSplit = !isUnapplied && !draggingDisabled && $branch?.id && section.hunk.hash;
+	$: isSplitting = false;
+
 	onDestroy(() => {
 		if (popupMenu) {
 			popupMenu.$destroy();
@@ -58,15 +61,55 @@
 	});
 
 	let alwaysShow = false;
+
+	const splitLines = new Set<Line>();
+	const lineStores = new Map<Line, Writable<boolean>>();
+	function getLineStore(line: Line): Writable<boolean> {
+		if (!lineStores.has(line)) {
+			const store = writable<boolean>(false);
+			lineStores.set(line, store);
+			store.subscribe((value) => (value ? splitLines.add(line) : splitLines.delete(line)));
+		}
+		const store = lineStores.get(line);
+		return <Writable<boolean>>store;
+	}
+
+	function computeOwnership(): (boolean | null)[] {
+		const ownership = [];
+
+		for (const subsection of section.subSections) {
+			if (subsection.sectionType === SectionType.Context) {
+				for (let i = 0; i < subsection.lines.length; i++) {
+					ownership.push(null);
+				}
+
+				continue;
+			}
+
+			for (const line of subsection.lines) {
+				ownership.push(splitLines.has(line));
+			}
+		}
+
+		return ownership;
+	}
 </script>
 
 <div class="scrollable">
+	{#if canSplit}
+		<div>
+			<input type="checkbox" name="split" bind:checked={isSplitting} />
+			<label for="split">Split</label>
+		</div>
+	{/if}
 	<div
 		bind:this={viewport}
 		tabindex="0"
 		role="cell"
 		use:draggable={{
-			data: new DraggableHunk($branch?.id || '', section.hunk),
+			data: isSplitting
+				? new DraggableSplitHunk($branch?.id || '', section.hunk, computeOwnership)
+				: new DraggableHunk($branch?.id || '', section.hunk),
 			disabled: draggingDisabled
 		}}
 		on:contextmenu|preventDefault
@@ -84,6 +127,7 @@
 			{:else}
 				{#each section.subSections as subsection}
 					{@const hunk = section.hunk}
+
 					{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
 						<HunkLine
 							{line}
@@ -92,6 +136,8 @@
 							{minWidth}
 							{selectable}
 							{draggingDisabled}
+							showSplitSelect={isSplitting && subsection.sectionType !== SectionType.Context}
+							selectedForSplit={getLineStore(line)}
 							tabSize={$userSettings.tabSize}
 							selected={$selectedOwnership?.contains(hunk.filePath, hunk.id)}
 							on:selected={(e) => onHunkSelected(hunk, e.detail)}

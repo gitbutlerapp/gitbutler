@@ -178,6 +178,18 @@ impl Controller {
             .update_virtual_branch(project_id, branch_update)
             .await
     }
+
+    pub async fn split_hunk_and_update_virtual_branch(
+        &self,
+        project_id: &ProjectId,
+        branch_update: super::branch::BranchSplitHunkUpdateRequest,
+    ) -> Result<()> {
+        self.inner(*project_id)
+            .await
+            .split_hunk_and_update_virtual_branch(project_id, branch_update)
+            .await
+    }
+
     pub async fn delete_virtual_branch(
         &self,
         project_id: ProjectId,
@@ -590,6 +602,39 @@ impl ControllerInner {
 
         self.with_verify_branch(project_id, |project_repository, _| {
             super::update_branch(project_repository, branch_update)?;
+            Ok(())
+        })
+    }
+
+    pub async fn split_hunk_and_update_virtual_branch(
+        &self,
+        project_id: &ProjectId,
+        branch_update: super::branch::BranchSplitHunkUpdateRequest,
+    ) -> Result<()> {
+        let _permit = self.semaphore.acquire().await;
+
+        tracing::warn!("split_hunk_and_update_virtual_branch: {:#?}", branch_update);
+
+        self.with_verify_branch(*project_id, |project_repository, _| {
+            let mut splits = project_repository.project().splits();
+            splits.load()?;
+
+            // Is this a patch?
+            if let Some(split_from) = branch_update.split_from {
+                let split_entry = splits.get_mut_or_insert(split_from);
+                split_entry.ownership = split_entry
+                    .ownership
+                    .iter()
+                    .zip(branch_update.lines.iter())
+                    .map(|(old, new)| new.clone().unwrap_or_else(|| old.clone()))
+                    .collect();
+                splits.save()?;
+            } else {
+                let split_entry = splits.get_mut_or_insert(branch_update.hunk_hash);
+                split_entry.ownership = branch_update.lines.iter().flatten().cloned().collect();
+                splits.save()?;
+            }
+
             Ok(())
         })
     }

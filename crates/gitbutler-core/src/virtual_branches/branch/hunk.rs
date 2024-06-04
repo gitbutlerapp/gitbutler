@@ -1,11 +1,10 @@
 use std::{fmt::Display, ops::RangeInclusive, str::FromStr};
 
+use super::HunkHash;
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
 
 use crate::git::diff;
-
-pub type HunkHash = md5::Digest;
 
 #[derive(Debug, Eq, Clone)]
 pub struct Hunk {
@@ -93,7 +92,7 @@ impl FromStr for Hunk {
             None
         };
 
-        Hunk::new(start, end, hash, timestamp_ms)
+        Hunk::new(start, end, hash.map(Into::into), timestamp_ms)
     }
 }
 
@@ -175,12 +174,12 @@ impl Hunk {
         diff.lines_with_terminator()
             .skip(1) // skip the first line which is the diff header.
             .for_each(|line| ctx.consume(line));
-        ctx.compute()
+        ctx.compute().into()
     }
 
     /// Produce a hash of `input` using the same function as [`Self::hash_diff()`], but without any assumptions.
     #[inline]
     pub fn hash<S: AsRef<[u8]>>(input: S) -> HunkHash {
-        md5::compute(input.as_ref())
+        md5::compute(input.as_ref()).into()
     }
 }

@@ -6,7 +6,10 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    git, id::Id, types::default_true::DefaultTrue, virtual_branches::VirtualBranchesHandle,
+    git,
+    id::Id,
+    types::default_true::DefaultTrue,
+    virtual_branches::{split::SplitDatabase, VirtualBranchesHandle},
 };
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -101,6 +104,13 @@ impl Project {
             .as_ref()
             .map(|api| api.code_git_url.is_some())
             .unwrap_or_default()
+    }
+
+    pub fn splits(&self) -> SplitDatabase {
+        // TODO(qix-): There's no great way to store this on the Project struct.
+        // TODO(qix-): Thus, we have to make the consumers load and store it.
+        // TODO(qix-): Sorry.
+        SplitDatabase::new(self.gb_dir().join("splits.json"))
     }
 
     /// Returns the path to the directory containing the `GitButler` state for this project.

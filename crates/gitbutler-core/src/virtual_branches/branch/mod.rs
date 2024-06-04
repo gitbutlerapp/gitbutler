@@ -1,10 +1,12 @@
 mod file_ownership;
 mod hunk;
+mod hunk_hash;
 mod ownership;
 
 use anyhow::Result;
 pub use file_ownership::OwnershipClaim;
-pub use hunk::{Hunk, HunkHash};
+pub use hunk::Hunk;
+pub use hunk_hash::HunkHash;
 pub use ownership::{reconcile_claims, BranchOwnershipClaims};
 use serde::{Deserialize, Serialize};
 
@@ -78,6 +80,13 @@ pub struct BranchUpdateRequest {
     pub order: Option<usize>,
     pub upstream: Option<String>, // just the branch name, so not refs/remotes/origin/branchA, just branchA
     pub selected_for_changes: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct BranchSplitHunkUpdateRequest {
+    pub hunk_hash: HunkHash,
+    pub split_from: Option<HunkHash>,
+    pub lines: Vec<Option<BranchId>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

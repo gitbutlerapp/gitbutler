@@ -2,6 +2,7 @@
 	import { create } from '$lib/components/Differ/CodeHighlighter';
 	import { SectionType } from '$lib/utils/fileSections';
 	import { createEventDispatcher } from 'svelte';
+	import { writable } from 'svelte/store';
 	import type { Line } from '$lib/utils/fileSections';
 
 	export let line: Line;
@@ -13,6 +14,8 @@
 	export let readonly: boolean = false;
 	export let draggingDisabled: boolean = false;
 	export let tabSize = 4;
+	export let showSplitSelect = false;
+	export let selectedForSplit = writable<boolean>(false);
 
 	const dispatch = createEventDispatcher<{ selected: boolean }>();
 
@@ -36,10 +39,17 @@
 	}
 
 	$: isSelected = selectable && selected;
+	$: splitSelected = false;
+	$: selectedForSplit.set(splitSelected);
 </script>
 
 <div class="code-line" role="group" style="--tab-size: {tabSize}" on:contextmenu|preventDefault>
 	<div class="code-line__numbers-line">
+		{#if showSplitSelect && !draggingDisabled && !readonly}
+			<div>
+				<input type="checkbox" name="select" bind:checked={splitSelected} />
+			</div>
+		{/if}
 		<button
 			on:click={() => selectable && dispatch('selected', !selected)}
 			class="numbers-line-count"
