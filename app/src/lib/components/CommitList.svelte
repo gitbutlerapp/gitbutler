@@ -49,7 +49,7 @@
 
 	function getRemoteOutType(commit: Commit): CommitStatus | undefined {
 		if (!hasShadowedCommits) {
-			const childStatus = commit.children?.[0]?.status;
+			const childStatus = commit.next?.status;
 			return childStatus != 'local' ? childStatus : undefined;
 		}
 
@@ -58,19 +58,19 @@
 		let upstreamCommit = commit.relatedTo;
 
 		while (!upstreamCommit && pointer) {
-			pointer = pointer.parent;
+			pointer = pointer.prev;
 			upstreamCommit = pointer?.relatedTo;
 		}
 
 		if (!upstreamCommit) return hasUnknownCommits ? 'upstream' : undefined;
 
-		let nextUpstreamCommit = upstreamCommit.children?.[0]?.relatedTo;
+		let nextUpstreamCommit = upstreamCommit.next?.relatedTo;
 		if (nextUpstreamCommit) return nextUpstreamCommit.status;
 		if (hasUnknownCommits) return 'upstream';
 	}
 
 	function getRemoteInType(commit: Commit): CommitStatus | undefined {
-		if (commit.parent) return getRemoteOutType(commit.parent || commit);
+		if (commit.prev) return getRemoteOutType(commit.prev || commit);
 		if (commit.status == 'remote' || commit.relatedTo) return 'remote';
 		if (commit.status == 'integrated') return 'integrated';
 	}
@@ -209,7 +209,7 @@
 							shadowHelp={getAvatarTooltip(commit.relatedTo)}
 							integrated={commit.isIntegrated}
 							localRoot={idx == 0 && hasLocalCommits}
-							outDashed={idx == 0 && commit.parent?.status == 'local'}
+							outDashed={idx == 0 && commit.prev?.status == 'local'}
 							remoteIn={!isRebased ? getRemoteInType(commit) : undefined}
 							remoteOut={!isRebased ? getRemoteOutType(commit) : undefined}
 							shadowIn={isRebased ? getRemoteInType(commit) : undefined}
