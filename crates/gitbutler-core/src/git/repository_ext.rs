@@ -3,7 +3,7 @@ use git2::{BlameOptions, Repository, Tree};
 use std::{path::Path, process::Stdio, str};
 use tracing::instrument;
 
-use crate::{config::CFG_SIGN_COMMITS, error::Code};
+use crate::{config::git::GitConfig, error::Code};
 
 use super::Refname;
 use std::io::Write;
@@ -81,9 +81,7 @@ impl RepositoryExt for Repository {
 
         let commit_buffer = inject_change_id(&commit_buffer, change_id)?;
 
-        let should_sign = self.config()?.get_bool(CFG_SIGN_COMMITS).unwrap_or(false);
-
-        let oid = if should_sign {
+        let oid = if self.gb_config()?.sign_commits.unwrap_or(false) {
             let signature = sign_buffer(self, &commit_buffer)
                 .map_err(|e| anyhow!(e).context(Code::CommitSigningFailed))?;
             self.commit_signed(&commit_buffer, &signature, None)?
