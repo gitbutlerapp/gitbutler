@@ -14,7 +14,6 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch, Branch } from '$lib/vbranches/types';
-	import toast from 'svelte-french-toast';
 	import type { PullRequest } from '$lib/github/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import { goto } from '$app/navigation';
@@ -66,12 +65,12 @@
 	async function createPr(createPrOpts: CreatePrOpts): Promise<PullRequest | undefined> {
 		const opts = { ...defaultPrOpts, ...createPrOpts };
 		if (!githubService.isEnabled) {
-			toast.error('Cannot create PR without GitHub credentials');
+			showError('Cannot create PR without GitHub credentials');
 			return;
 		}
 
 		if (!$baseBranch?.shortName) {
-			toast.error('Cannot create PR without base branch');
+			showError('Cannot create PR without base branch');
 			return;
 		}
 
@@ -139,7 +138,8 @@
 		<div
 			class="header card"
 			class:header_target-branch={branch.selectedForChanges}
-			class:header_target-branch-animation={isTargetBranchAnimated && branch.selectedForChanges}
+			class:header_target-branch-animation={isTargetBranchAnimated &&
+				branch.selectedForChanges}
 		>
 			<div class="header__info-wrapper">
 				{#if !isUnapplied}
@@ -255,7 +255,8 @@
 						<div class="header__buttons">
 							{#if !hasPullRequest}
 								<PullRequestButton
-									on:click={async (e) => await createPr({ draft: e.detail.action == 'draft' })}
+									on:click={async (e) =>
+										await createPr({ draft: e.detail.action == 'draft' })}
 									loading={isLoading}
 								/>
 							{/if}
