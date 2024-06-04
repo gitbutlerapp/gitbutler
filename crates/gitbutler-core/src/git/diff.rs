@@ -7,7 +7,6 @@ use bstr::{BStr, BString, ByteSlice, ByteVec};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use super::Repository;
 use crate::git;
 use crate::id::Id;
 use crate::virtual_branches::Branch;
@@ -129,7 +128,7 @@ pub struct FileDiff {
 }
 
 #[instrument(skip(repository))]
-pub fn workdir(repository: &Repository, commit_oid: &git::Oid) -> Result<DiffByPathMap> {
+pub fn workdir(repository: &git2::Repository, commit_oid: &git2::Oid) -> Result<DiffByPathMap> {
     let commit = repository
         .find_commit(*commit_oid)
         .context("failed to find commit")?;
@@ -159,7 +158,7 @@ pub fn workdir(repository: &Repository, commit_oid: &git::Oid) -> Result<DiffByP
 }
 
 pub fn trees(
-    repository: &Repository,
+    repository: &git2::Repository,
     old_tree: &git2::Tree,
     new_tree: &git2::Tree,
 ) -> Result<DiffByPathMap> {
@@ -218,7 +217,10 @@ pub fn without_large_files(
 /// `repository` should be `None` if there is no reason to access the workdir, which it will do to
 /// keep the binary data in the object database, which otherwise would be lost to the system
 /// (it's not reconstructable from the delta, or it's not attempted).
-pub fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result<DiffByPathMap> {
+pub fn hunks_by_filepath(
+    repo: Option<&git2::Repository>,
+    diff: &git2::Diff,
+) -> Result<DiffByPathMap> {
     enum LineOrHexHash<'a> {
         Line(Cow<'a, BStr>),
         HexHashOfBinaryBlob(String),
@@ -259,7 +261,7 @@ pub fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result
                     {
                         if !delta.new_file().id().is_zero() && full_path.exists() {
                             let oid = repo.blob_path(full_path.as_path()).unwrap();
-                            if delta.new_file().id() != oid.into() {
+                            if delta.new_file().id() != oid {
                                 err = Some(format!("we only store the file which is already known by the diff system, but it was different: {} != {}", delta.new_file().id(), oid));
                                 return false
                             }

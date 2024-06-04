@@ -63,7 +63,7 @@ async fn push_target(
     batch_size: usize,
 ) -> Result<()> {
     let ids = batch_rev_walk(
-        &project_repository.git_repository,
+        project_repository.repo(),
         batch_size,
         default_target.sha,
         gb_code_last_commit,
@@ -104,7 +104,7 @@ async fn push_target(
 }
 
 fn batch_rev_walk(
-    repo: &crate::git::Repository,
+    repo: &git2::Repository,
     batch_size: usize,
     from: Oid,
     until: Option<Oid>,
@@ -136,7 +136,7 @@ fn collect_refs(
     project_repository: &project_repository::Repository,
 ) -> anyhow::Result<Vec<git::Refname>> {
     Ok(project_repository
-        .git_repository
+        .repo()
         .references_glob("refs/*")?
         .flatten()
         .filter_map(|r| {
