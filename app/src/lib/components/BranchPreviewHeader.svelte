@@ -5,7 +5,6 @@
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
-	import { showError } from '$lib/notifications/toasts';
 	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { openExternalUrl } from '$lib/utils/url';
