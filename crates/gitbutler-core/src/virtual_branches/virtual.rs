@@ -1049,9 +1049,7 @@ pub fn create_virtual_branch(
         let new_order = if i < order { i } else { i + 1 };
         if branch.order != new_order {
             branch.order = new_order;
-            vb_state
-                .set_branch(branch.clone())
-                .context("failed to write branch")?;
+            vb_state.set_branch(branch.clone())?;
         }
     }
 
@@ -1077,10 +1075,7 @@ pub fn create_virtual_branch(
         set_ownership(&vb_state, &mut branch, ownership).context("failed to set ownership")?;
     }
 
-    vb_state
-        .set_branch(branch.clone())
-        .context("failed to write branch")?;
-
+    vb_state.set_branch(branch.clone())?;
     project_repository.add_branch_reference(&branch)?;
 
     Ok(branch)
@@ -1383,9 +1378,7 @@ pub fn update_branch(
         };
     };
 
-    vb_state
-        .set_branch(branch.clone())
-        .context("failed to write target branch")?;
+    vb_state.set_branch(branch.clone())?;
     Ok(branch)
 }
 
@@ -1962,9 +1955,8 @@ pub fn reset_branch(
     let old_head = get_workspace_head(&vb_state, project_repository)?;
 
     branch.head = target_commit_id;
-    vb_state
-        .set_branch(branch.clone())
-        .context("failed to write branch")?;
+    branch.updated_timestamp_ms = crate::time::now_ms();
+    vb_state.set_branch(branch.clone())?;
 
     let updated_head = get_workspace_head(&vb_state, project_repository)?;
     let repo = &project_repository.git_repository;
@@ -2321,9 +2313,8 @@ pub fn commit(
     let vb_state = project_repository.project().virtual_branches();
     branch.tree = tree_oid;
     branch.head = commit_oid.into();
-    vb_state
-        .set_branch(branch.clone())
-        .context("failed to write branch")?;
+    branch.updated_timestamp_ms = crate::time::now_ms();
+    vb_state.set_branch(branch.clone())?;
 
     super::integration::update_gitbutler_integration(&vb_state, project_repository)
         .context("failed to update gitbutler integration")?;
@@ -3019,9 +3010,8 @@ pub fn reorder_commit(
             cherry_rebase_group(project_repository, parent_oid.into(), &mut ids_to_rebase)
                 .context("rebase failed")?;
         branch.head = new_head;
-        vb_state
-            .set_branch(branch.clone())
-            .context("failed to write branch")?;
+        branch.updated_timestamp_ms = crate::time::now_ms();
+        vb_state.set_branch(branch.clone())?;
 
         super::integration::update_gitbutler_integration(&vb_state, project_repository)
             .context("failed to update gitbutler integration")?;
@@ -3058,9 +3048,8 @@ pub fn reorder_commit(
                 .context("rebase failed")?;
 
         branch.head = new_head;
-        vb_state
-            .set_branch(branch.clone())
-            .context("failed to write branch")?;
+        branch.updated_timestamp_ms = crate::time::now_ms();
+        vb_state.set_branch(branch.clone())?;
 
         super::integration::update_gitbutler_integration(&vb_state, project_repository)
             .context("failed to update gitbutler integration")?;
@@ -3098,9 +3087,6 @@ pub fn insert_blank_commit(
     if commit.id() == branch.head.into() && offset < 0 {
         // inserting before the first commit
         branch.head = blank_commit_oid.into();
-        vb_state
-            .set_branch(branch.clone())
-            .context("failed to write branch")?;
         super::integration::update_gitbutler_integration(&vb_state, project_repository)
             .context("failed to update gitbutler integration")?;
     } else {
@@ -3113,10 +3099,6 @@ pub fn insert_blank_commit(
         ) {
             Ok(Some(new_head)) => {
                 branch.head = new_head;
-                vb_state
-                    .set_branch(branch.clone())
-                    .context("failed to write branch")?;
-
                 super::integration::update_gitbutler_integration(&vb_state, project_repository)
                     .context("failed to update gitbutler integration")?;
             }
@@ -3126,6 +3108,8 @@ pub fn insert_blank_commit(
             }
         }
     }
+    branch.updated_timestamp_ms = crate::time::now_ms();
+    vb_state.set_branch(branch.clone())?;
 
     Ok(())
 }
@@ -3172,9 +3156,8 @@ pub fn undo_commit(
 
     if new_commit_oid != commit_oid.into() {
         branch.head = new_commit_oid.into();
-        vb_state
-            .set_branch(branch.clone())
-            .context("failed to write branch")?;
+        branch.updated_timestamp_ms = crate::time::now_ms();
+        vb_state.set_branch(branch.clone())?;
 
         super::integration::update_gitbutler_integration(&vb_state, project_repository)
             .context("failed to update gitbutler integration")?;
@@ -3443,9 +3426,8 @@ pub fn cherry_pick(
 
         // update branch status
         branch.head = commit_oid.into();
-        vb_state
-            .set_branch(branch.clone())
-            .context("failed to write branch")?;
+        branch.updated_timestamp_ms = crate::time::now_ms();
+        vb_state.set_branch(branch.clone())?;
 
         Some(commit_oid)
     };
@@ -3549,9 +3531,8 @@ pub fn squash(
         Ok(new_head_id) => {
             // save new branch head
             branch.head = new_head_id;
-            vb_state
-                .set_branch(branch.clone())
-                .context("failed to write branch")?;
+            branch.updated_timestamp_ms = crate::time::now_ms();
+            vb_state.set_branch(branch.clone())?;
 
             super::integration::update_gitbutler_integration(&vb_state, project_repository)
                 .context("failed to update gitbutler integration")?;
@@ -3640,9 +3621,8 @@ pub fn update_commit_message(
     .map_err(|err| err.context("rebase error"))?;
     // save new branch head
     branch.head = new_head_id;
-    vb_state
-        .set_branch(branch.clone())
-        .context("failed to write branch")?;
+    branch.updated_timestamp_ms = crate::time::now_ms();
+    vb_state.set_branch(branch.clone())?;
 
     super::integration::update_gitbutler_integration(&vb_state, project_repository)
         .context("failed to update gitbutler integration")?;
@@ -3899,10 +3879,7 @@ pub fn create_virtual_branch_from_branch(
         selected_for_changes,
     };
 
-    vb_state
-        .set_branch(branch.clone())
-        .context("failed to write branch")?;
-
+    vb_state.set_branch(branch.clone())?;
     project_repository.add_branch_reference(&branch)?;
 
     match apply_branch(project_repository, branch.id, user) {
