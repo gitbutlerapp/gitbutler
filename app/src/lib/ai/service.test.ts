@@ -15,7 +15,7 @@ import * as toasts from '$lib/utils/toasts';
 import { Hunk } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { expect, test, describe, vi } from 'vitest';
-import type { GitConfigService } from '$lib/backend/gitConfigService';
+import type { GbConfig, GitConfigService } from '$lib/backend/gitConfigService';
 
 const defaultGitConfig = Object.freeze({
 	[GitAIConfigKey.ModelProvider]: ModelKind.OpenAI,
@@ -29,13 +29,12 @@ const defaultGitConfig = Object.freeze({
 
 class DummyGitConfigService implements GitConfigService {
 	constructor(private config: { [index: string]: string | undefined }) {}
-	async getSignCommitsConfig(_projectId: string): Promise<boolean | undefined> {
+	async getGbConfig(_projectId: string): Promise<GbConfig> {
 		throw new Error('Method not implemented.');
 	}
-	async setSignCommitsConfig(_projectId: string, _value: boolean): Promise<unknown> {
+	async setGbConfig(_projectId: string, _config: GbConfig): Promise<unknown> {
 		throw new Error('Method not implemented.');
 	}
-
 	async get<T extends string>(key: string): Promise<T | undefined> {
 		return (this.config[key] || undefined) as T | undefined;
 	}
