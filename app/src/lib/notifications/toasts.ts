@@ -4,7 +4,7 @@ import type { MessageStyle } from '$lib/components/InfoMessage.svelte';
 export interface Toast {
 	id?: string;
 	message?: string;
-	error?: any;
+	error?: string | Error;
 	title?: string;
 	style?: MessageStyle;
 }
@@ -26,7 +26,7 @@ export function showError(title: string, error?: string | Error) {
 		// Silence GitHub octokit.js when disconnected
 		if (error?.message == 'Load failed') return;
 
-		error = error.message ?? error.toString();
+		error = error.message || error.toString();
 	}
 
 	showToast({ title, error, style: 'error' });
