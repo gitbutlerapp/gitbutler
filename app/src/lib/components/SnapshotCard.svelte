@@ -1,7 +1,7 @@
 <script lang="ts">
+	import Button from './Button.svelte';
 	import Icon from './Icon.svelte';
 	import SnapshotAttachment from './SnapshotAttachment.svelte';
-	import Tag from './Tag.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { createdOnDay } from '$lib/history/history';
 	import { toHumanReadableTime } from '$lib/utils/time';
@@ -163,14 +163,14 @@
 >
 	<div class="snapshot-right-container">
 		<div class="restore-btn">
-			<Tag
+			<Button
+				size="tag"
 				style="ghost"
 				kind="solid"
-				clickable
 				help="Restores GitButler and your files to the state before this operation. Revert actions can also be undone."
 				on:click={() => {
 					dispatch('restoreClick');
-				}}>Revert</Tag
+				}}>Revert</Button
 			>
 		</div>
 		<span class="snapshot-time text-base-11">

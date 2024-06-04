@@ -3,7 +3,6 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import PullRequestButton from './PullRequestButton.svelte';
-	import Tag from './Tag.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import { clickOutside } from '$lib/clickOutside';
@@ -113,10 +112,16 @@
 						{branch.name}
 					</h3>
 					{#if uncommittedChanges > 0}
-						<Tag style="warning" kind="soft" help="Uncommitted changes">
+						<Button
+							size="tag"
+							clickable={false}
+							style="warning"
+							kind="soft"
+							help="Uncommitted changes"
+						>
 							{uncommittedChanges}
 							{uncommittedChanges == 1 ? 'change' : 'changes'}
-						</Tag>
+						</Button>
 					{/if}
 				</div>
 
@@ -128,7 +133,9 @@
 						isLaneCollapsed={$isLaneCollapsed}
 					/>
 					{#if branch.selectedForChanges}
-						<Tag style="pop" kind="solid" icon="target">Default branch</Tag>
+						<Button size="tag" clickable={false} style="pop" kind="solid" icon="target"
+							>Default branch</Button
+						>
 					{/if}
 				</div>
 			</div>
@@ -164,13 +171,15 @@
 
 						{#await branch.isMergeable then isMergeable}
 							{#if !isMergeable}
-								<Tag
+								<Button
+									size="tag"
+									clickable={false}
 									icon="locked-small"
 									style="warning"
 									help="Applying this branch will add merge conflict markers that you will have to resolve"
 								>
 									Conflict
-								</Tag>
+								</Button>
 							{/if}
 						{/await}
 					</div>

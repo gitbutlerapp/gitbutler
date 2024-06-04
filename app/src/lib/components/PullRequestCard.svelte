@@ -2,7 +2,6 @@
 	import Button from './Button.svelte';
 	import InfoMessage from './InfoMessage.svelte';
 	import MergeButton from './MergeButton.svelte';
-	import Tag from './Tag.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
@@ -271,27 +270,31 @@
 			{pr.title}
 		</div>
 		<div class="pr-tags">
-			<Tag
+			<Button
+				size="tag"
+				clickable={false}
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.style}
 				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status' ? 'solid' : 'soft'}
 			>
 				{prStatusInfo.text}
-			</Tag>
+			</Button>
 			{#if !detailedPr?.closedAt && checksStatus !== null}
-				<Tag
+				<Button
+					size="tag"
+					clickable={false}
 					icon={checksTagInfo.icon}
 					style={checksTagInfo.style}
 					kind={checksTagInfo.icon == 'success-small' ? 'solid' : 'soft'}
 				>
 					{checksTagInfo.text}
-				</Tag>
+				</Button>
 			{/if}
-			<Tag
+			<Button
+				size="tag"
 				icon="open-link"
 				style="ghost"
 				kind="solid"
-				clickable
 				shrinkable
 				on:click={(e) => {
 					const url = pr?.htmlUrl;
@@ -305,7 +308,7 @@
 				}}
 			>
 				Open in browser
-			</Tag>
+			</Button>
 		</div>
 
 		<!--

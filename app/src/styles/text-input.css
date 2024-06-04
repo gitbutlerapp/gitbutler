@@ -7,16 +7,16 @@
 	transition: border-color var(--transition-fast);
 
 	&::placeholder {
-		color: oklch(from var(--clr-scale-ntrl-30) l c h / 0.5);
+		color: var(--clr-text-3);
 	}
 
 	&:hover {
-		border-color: oklch(from var(--clr-border-2) var(--hover-state-ratio) c h);
+		border-color: var(--clr-border-1);
 	}
 
 	&:focus,
 	&:focus-within {
-		border-color: oklch(from var(--clr-border-2) var(--active-state-ratio) c h);
+		border-color: var(--clr-border-1);
 		outline: none;
 	}
 

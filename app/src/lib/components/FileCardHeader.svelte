@@ -1,6 +1,5 @@
 <script lang="ts">
 	import FileStatusTag from './FileStatusTag.svelte';
-	import Tag from './Tag.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
@@ -40,24 +39,28 @@
 				{#if file.conflicted || isFileLocked}
 					<div class="header__tag-group">
 						{#if isFileLocked}
-							<Tag
+							<Button
+								size="tag"
+								clickable={false}
 								icon="locked-small"
 								style="warning"
 								help="File changes cannot be moved because part of this file was already committed into this branch"
-								>Locked</Tag
+								>Locked</Button
 							>
 						{/if}
 						{#if file.conflicted}
-							<Tag icon="warning-small" style="error">Has conflicts</Tag>
+							<Button size="tag" clickable={false} icon="warning-small" style="error"
+								>Has conflicts</Button
+							>
 						{/if}
 					</div>
 				{/if}
 				<div class="header__tag-group">
 					{#if fileStats.added}
-						<Tag style="success">+{fileStats.added}</Tag>
+						<Button size="tag" clickable={false} style="success">+{fileStats.added}</Button>
 					{/if}
 					{#if fileStats.removed}
-						<Tag style="error">-{fileStats.removed}</Tag>
+						<Button size="tag" clickable={false} style="error">-{fileStats.removed}</Button>
 					{/if}
 					{#if fileStatus}
 						<FileStatusTag status={fileStatus} />
