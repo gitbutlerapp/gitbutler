@@ -49,13 +49,10 @@ pub fn resolve_vscode_variant() -> &'static str {
 
 fn check_if_installed(executable_name: &str) -> bool {
     match env::var_os("PATH") {
-        Some(env_path) => env::split_paths(&env_path)
-            .filter_map(|mut path| {
-                path.push(executable_name);
-                fs::metadata(path).ok()
-            })
-            .next()
-            .is_some(),
+        Some(env_path) => env::split_paths(&env_path).any(|mut path| {
+            path.push(executable_name);
+            fs::metadata(path).is_ok()
+        }),
         None => false,
     }
 }
