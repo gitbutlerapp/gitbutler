@@ -281,6 +281,7 @@
 
 		& .label {
 			padding: 0 var(--size-4);
+			white-space: nowrap;
 		}
 	}
 
