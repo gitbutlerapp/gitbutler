@@ -81,11 +81,7 @@
 					</Button>
 				{/if}
 				{#if primary}
-					<Button
-						style={primaryButtonMap[style]}
-						kind="solid"
-						on:click={() => dispatch('primary')}
-					>
+					<Button style={primaryButtonMap[style]} kind="solid" on:click={() => dispatch('primary')}>
 						{primary}
 					</Button>
 				{/if}

@@ -96,8 +96,8 @@
 				</SelectItem>
 			</Select>
 			<p class="project-setup__description-text text-base-body-12">
-				This is the branch that you consider "production", normally something like
-				"origin/master" or "upstream/main".
+				This is the branch that you consider "production", normally something like "origin/master"
+				or "upstream/main".
 			</p>
 		</div>
 
@@ -109,9 +109,8 @@
 					</SelectItem>
 				</Select>
 				<p class="project-setup__description-text text-base-body-12">
-					You have branches from multiple remotes. If you want to specify a remote for
-					creating branches that is different from the remote that your target branch is
-					on, change it here.
+					You have branches from multiple remotes. If you want to specify a remote for creating
+					branches that is different from the remote that your target branch is on, change it here.
 				</p>
 			</div>
 		{/if}
@@ -157,8 +156,8 @@
 			<svelte:fragment slot="title">GitButler features</svelte:fragment>
 
 			<svelte:fragment slot="body">
-				Enable automatic creation of branches and automatic generation of commit messages
-				(using OpenAI's API).
+				Enable automatic creation of branches and automatic generation of commit messages (using
+				OpenAI's API).
 			</svelte:fragment>
 			<svelte:fragment slot="toggle">
 				{#if $user}

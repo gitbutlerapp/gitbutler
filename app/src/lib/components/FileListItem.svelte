@@ -163,7 +163,7 @@
 		}
 
 		&:last-child {
-			margin-bottom: -1px;
+			border-bottom: none;
 		}
 	}
 

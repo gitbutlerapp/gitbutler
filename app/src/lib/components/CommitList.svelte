@@ -128,10 +128,7 @@
 				: 0.75}
 			padding={1}
 		>
-			<Button
-				style="ghost"
-				size="tag"
-				on:click={() => insertBlankCommit($branch.head, 'above')}
+			<Button style="ghost" size="tag" on:click={() => insertBlankCommit($branch.head, 'above')}
 				>Insert blank commit</Button
 			>
 		</QuickActionMenu>
@@ -170,9 +167,7 @@
 							shadowOut={isRebased ? getRemoteOutType(commit) : undefined}
 							relatedToOther={commit?.relatedTo && commit.relatedTo.id != commit.id}
 							remoteRoot={idx == $localCommits.length - 1}
-							last={idx == $localCommits.length - 1 &&
-								!hasRemoteCommits &&
-								!hasIntegratedCommits}
+							last={idx == $localCommits.length - 1 && !hasRemoteCommits && !hasIntegratedCommits}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -184,10 +179,7 @@
 					padding={1}
 					offset={$remoteCommits.length > 0 && idx + 1 == $localCommits.length ? 0.25 : 0}
 				>
-					<Button
-						style="ghost"
-						size="tag"
-						on:click={() => insertBlankCommit(commit.id, 'below')}
+					<Button style="ghost" size="tag" on:click={() => insertBlankCommit(commit.id, 'below')}
 						>Insert blank commit</Button
 					>
 				</QuickActionMenu>
@@ -230,10 +222,7 @@
 					indexer={reorderDropzoneIndexer}
 				/>
 				<QuickActionMenu padding={1}>
-					<Button
-						style="ghost"
-						size="tag"
-						on:click={() => insertBlankCommit(commit.id, 'below')}
+					<Button style="ghost" size="tag" on:click={() => insertBlankCommit(commit.id, 'below')}
 						>Insert blank commit</Button
 					>
 				</QuickActionMenu>
@@ -285,9 +274,7 @@
 						{hasLocalColumn}
 						{isRebased}
 						localRoot={!hasRemoteCommits && !hasIntegratedCommits && hasLocalCommits}
-						shadowOut={isRebased && firstCommit
-							? getRemoteInType(firstCommit)
-							: undefined}
+						shadowOut={isRebased && firstCommit ? getRemoteInType(firstCommit) : undefined}
 						remoteOut={!isRebased &&
 						(hasIntegratedCommits || hasRemoteCommits || hasShadowedCommits)
 							? 'remote'

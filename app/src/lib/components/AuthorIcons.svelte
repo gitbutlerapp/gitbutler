@@ -12,10 +12,7 @@
 		{#if author.gravatarUrl && index < maximumAuthors}
 			<AuthorIcon {author} />
 		{:else if index === maximumAuthors}
-			<div
-				class="authors-left-counter"
-				title={authors.length - maximumAuthors + ' more authors'}
-			>
+			<div class="authors-left-counter" title={authors.length - maximumAuthors + ' more authors'}>
 				<span class="text-base-10 text-semibold">
 					+{authors.length - maximumAuthors}
 				</span>

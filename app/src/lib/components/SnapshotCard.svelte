@@ -243,18 +243,12 @@
 					<div class="restored-attacment__content">
 						<h4 class="text-base-13 text-semibold">
 							{camelToTitleCase(
-								entry.details?.trailers.find((t) => t.key == 'restored_operation')
-									?.value
+								entry.details?.trailers.find((t) => t.key == 'restored_operation')?.value
 							)}
 						</h4>
 						<span class="restored-attacment__details text-base-12">
-							{getShortSha(
-								entry.details?.trailers.find((t) => t.key == 'restored_from')?.value
-							)} • {createdOnDayAndTime(
-								parseInt(
-									entry.details?.trailers.find((t) => t.key == 'restored_date')
-										?.value || ''
-								)
+							{getShortSha(entry.details?.trailers.find((t) => t.key == 'restored_from')?.value)} • {createdOnDayAndTime(
+								parseInt(entry.details?.trailers.find((t) => t.key == 'restored_date')?.value || '')
 							)}
 						</span>
 					</div>

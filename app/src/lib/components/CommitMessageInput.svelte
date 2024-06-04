@@ -202,14 +202,9 @@
 				<ContextMenuSection>
 					<ContextMenuItem
 						label="Extra concise"
-						on:click={() =>
-							($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+						on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
 					>
-						<Checkbox
-							small
-							slot="control"
-							bind:checked={$commitGenerationExtraConcise}
-						/>
+						<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
 					</ContextMenuItem>
 
 					<ContextMenuItem

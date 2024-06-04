@@ -17,14 +17,10 @@
 	async function saveProject() {
 		const api =
 			$user && project.api
-				? await projectService.updateCloudProject(
-						$user?.access_token,
-						project.api.repository_id,
-						{
-							name: project.title,
-							description: project.description
-						}
-					)
+				? await projectService.updateCloudProject($user?.access_token, project.api.repository_id, {
+						name: project.title,
+						description: project.description
+					})
 				: undefined;
 		project.api = api ? { ...api, sync: true } : undefined;
 		projectService.updateProject(project);

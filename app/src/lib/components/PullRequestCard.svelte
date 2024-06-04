@@ -275,9 +275,7 @@
 				clickable={false}
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.style}
-				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status'
-					? 'solid'
-					: 'soft'}
+				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status' ? 'solid' : 'soft'}
 			>
 				{prStatusInfo.text}
 			</Button>
@@ -324,12 +322,7 @@
 		{#if pr}
 			<div class="pr-actions">
 				{#if infoProps}
-					<InfoMessage
-						icon={infoProps.icon}
-						filled
-						outlined={false}
-						style={infoProps.messageStyle}
-					>
+					<InfoMessage icon={infoProps.icon} filled outlined={false} style={infoProps.messageStyle}>
 						<svelte:fragment slot="content">
 							{infoProps.text}
 						</svelte:fragment>

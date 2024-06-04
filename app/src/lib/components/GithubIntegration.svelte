@@ -101,9 +101,7 @@
 				>Forget</Button
 			>
 		{:else}
-			<Button style="pop" kind="solid" {disabled} on:click={gitHubStartOauth}
-				>Authorize</Button
-			>
+			<Button style="pop" kind="solid" {disabled} on:click={gitHubStartOauth}>Authorize</Button>
 		{/if}
 	</SectionCard>
 {/if}

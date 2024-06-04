@@ -14,9 +14,7 @@
 
 	function selectAll(files: AnyFile[]) {
 		if (!selectedOwnership) return;
-		files.forEach((f) =>
-			selectedOwnership.update((ownership) => ownership.add(f.id, ...f.hunks))
-		);
+		files.forEach((f) => selectedOwnership.update((ownership) => ownership.add(f.id, ...f.hunks)));
 	}
 
 	function isAllChecked(selectedOwnership: Ownership | undefined): boolean {

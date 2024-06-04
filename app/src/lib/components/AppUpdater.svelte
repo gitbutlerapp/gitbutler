@@ -138,11 +138,8 @@
 					</div>
 				{:else if $update$.status == 'DONE'}
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
-						<Button
-							style="pop"
-							kind="solid"
-							wide
-							on:click={() => updaterService.relaunchApp()}>Restart</Button
+						<Button style="pop" kind="solid" wide on:click={() => updaterService.relaunchApp()}
+							>Restart</Button
 						>
 					</div>
 				{/if}

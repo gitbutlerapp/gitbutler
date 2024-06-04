@@ -34,9 +34,7 @@
 		typeof project.preferred_key == 'string' ? project.preferred_key : 'local';
 
 	let privateKeyPath =
-		typeof project.preferred_key == 'string'
-			? ''
-			: project.preferred_key.local.private_key_path;
+		typeof project.preferred_key == 'string' ? '' : project.preferred_key.local.private_key_path;
 
 	function setLocalKey() {
 		if (privateKeyPath.trim().length == 0) return;
@@ -158,8 +156,8 @@
 
 			<svelte:fragment slot="caption">
 				{#if selectedType == 'generated'}
-					GitButler will use a locally generated SSH key. For this to work you need to add
-					the following public key to your Git remote provider:
+					GitButler will use a locally generated SSH key. For this to work you need to add the
+					following public key to your Git remote provider:
 				{/if}
 			</svelte:fragment>
 		</SectionCard>
@@ -168,12 +166,7 @@
 			<SectionCard topDivider roundedTop={false} roundedBottom={false}>
 				<TextBox id="sshKey" readonly bind:value={sshKey} wide />
 				<div class="row-buttons">
-					<Button
-						style="pop"
-						kind="solid"
-						icon="copy"
-						on:mousedown={() => copyToClipboard(sshKey)}
-					>
+					<Button style="pop" kind="solid" icon="copy" on:mousedown={() => copyToClipboard(sshKey)}>
 						Copy to Clipboard
 					</Button>
 					<Button
@@ -201,22 +194,14 @@
 			<svelte:fragment slot="caption">
 				{#if selectedType == 'gitCredentialsHelper'}
 					GitButler will use the system's git credentials helper.
-					<Link
-						target="_blank"
-						rel="noreferrer"
-						href="https://git-scm.com/doc/credential-helpers"
-					>
+					<Link target="_blank" rel="noreferrer" href="https://git-scm.com/doc/credential-helpers">
 						Learn more
 					</Link>
 				{/if}
 			</svelte:fragment>
 
 			<svelte:fragment slot="actions">
-				<RadioButton
-					name="credentialType"
-					value="gitCredentialsHelper"
-					id="credential-helper"
-				/>
+				<RadioButton name="credentialType" value="gitCredentialsHelper" id="credential-helper" />
 			</svelte:fragment>
 		</SectionCard>
 

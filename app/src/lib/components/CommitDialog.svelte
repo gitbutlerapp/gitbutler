@@ -69,8 +69,7 @@
 			kind="solid"
 			grow
 			loading={isCommitting}
-			disabled={(isCommitting || !commitMessageValid || $selectedOwnership.isEmpty()) &&
-				$expanded}
+			disabled={(isCommitting || !commitMessageValid || $selectedOwnership.isEmpty()) && $expanded}
 			id="commit-to-branch"
 			on:click={() => {
 				if ($expanded) {

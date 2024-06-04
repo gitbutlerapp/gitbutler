@@ -42,10 +42,7 @@
 				<!-- TODO: Refactor so we can have types -->
 				{#if files[0] instanceof LocalFile}
 					{#if containsBinaryFiles(item)}
-						<ContextMenuItem
-							label="Discard changes (Binary files not yet supported)"
-							disabled
-						/>
+						<ContextMenuItem label="Discard changes (Binary files not yet supported)" disabled />
 					{:else}
 						<ContextMenuItem
 							label="Discard changes"

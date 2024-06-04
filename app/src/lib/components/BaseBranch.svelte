@@ -22,9 +22,7 @@
 	let updateTargetModal: Modal;
 	let mergeUpstreamWarningDismissedCheckbox = false;
 
-	$: multiple = base
-		? base.upstreamCommits.length > 1 || base.upstreamCommits.length == 0
-		: false;
+	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length == 0 : false;
 
 	async function updateBaseBranch() {
 		let infoText = await branchController.updateBaseBranch();
@@ -98,12 +96,12 @@
 	<div class="modal-content">
 		<h4 class="text-base-body-14 text-semibold">What will this do?</h4>
 		<p class="modal__small-text text-base-body-12">
-			We will try to merge the work that is upstream into each of your virtual branches, so
-			that they are all up to date.
+			We will try to merge the work that is upstream into each of your virtual branches, so that
+			they are all up to date.
 		</p>
 		<p class="modal__small-text text-base-body-12">
-			Any virtual branches that we can't merge cleanly, we will unapply and mark with a blue
-			dot. You can merge these manually later.
+			Any virtual branches that we can't merge cleanly, we will unapply and mark with a blue dot.
+			You can merge these manually later.
 		</p>
 		<p class="modal__small-text text-base-body-12">
 			Any virtual branches that are fully integrated upstream will be automatically removed.

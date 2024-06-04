@@ -117,11 +117,7 @@
 	</div>
 
 	{#if expanded}
-		<div
-			class="content"
-			class:default-mode={prompt.id == 'default'}
-			class:editing={isInEditing}
-		>
+		<div class="content" class:default-mode={prompt.id == 'default'} class:editing={isInEditing}>
 			{#each promptMessages as promptMessage, index}
 				<DialogBubble
 					bind:promptMessage
@@ -161,11 +157,8 @@
 						}}
 						icon="bin-small">Delete</Button
 					>
-					<Button
-						kind="solid"
-						style="ghost"
-						icon="edit-text"
-						on:click={() => (editing = true)}>Edit Prompt</Button
+					<Button kind="solid" style="ghost" icon="edit-text" on:click={() => (editing = true)}
+						>Edit Prompt</Button
 					>
 				{/if}
 			</div>

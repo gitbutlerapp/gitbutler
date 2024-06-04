@@ -55,8 +55,8 @@
 {:else}
 	<div class="merge-commit-error">
 		<p class="info">
-			Displaying diffs for merge commits is currently not supported. Please view the merge
-			commit in GitHub, or run the following command in your project directory:
+			Displaying diffs for merge commits is currently not supported. Please view the merge commit in
+			GitHub, or run the following command in your project directory:
 		</p>
 		<div class="command">
 			<TextBox value={mergeDiffCommand + $commit.id.slice(0, 7)} wide readonly />

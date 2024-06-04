@@ -166,9 +166,9 @@
 	<SectionCard labelFor="hoverScrollbarVisability" orientation="row">
 		<svelte:fragment slot="title">Dynamic scrollbar visibility on hover</svelte:fragment>
 		<svelte:fragment slot="caption">
-			When turned on, this feature shows the scrollbar automatically when you hover over the
-			scroll area, even if you're not actively scrolling. By default, the scrollbar stays
-			hidden until you start scrolling.
+			When turned on, this feature shows the scrollbar automatically when you hover over the scroll
+			area, even if you're not actively scrolling. By default, the scrollbar stays hidden until you
+			start scrolling.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Toggle

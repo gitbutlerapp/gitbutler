@@ -55,9 +55,7 @@
 				<BranchPreviewHeader base={$baseBranch} {branch} {pr} />
 				{#if pr?.body}
 					<div class="card">
-						<div class="card__header text-base-body-14 text-semibold">
-							PR Description
-						</div>
+						<div class="card__header text-base-body-14 text-semibold">PR Description</div>
 						<div class="markdown card__content text-base-body-13">
 							{@html marked.parse(pr.body, { renderer })}
 						</div>

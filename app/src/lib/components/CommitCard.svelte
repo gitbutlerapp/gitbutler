@@ -106,9 +106,7 @@
 <Modal bind:this={commitMessageModal}>
 	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
 	<svelte:fragment slot="controls">
-		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}
-			>Cancel</Button
-		>
+		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
@@ -176,19 +174,13 @@
 							>empty commit message</span
 						>
 					{:else}
-						<h5
-							class="text-base-body-13 text-semibold commit__title"
-							class:truncate={!showDetails}
-						>
+						<h5 class="text-base-body-13 text-semibold commit__title" class:truncate={!showDetails}>
 							{commit.descriptionTitle}
 						</h5>
 
 						<div class="text-base-11 commit__subtitle">
 							{#if commit.isSigned}
-								<div
-									class="commit__signed"
-									use:tooltip={{ text: 'Signed', delay: 500 }}
-								>
+								<div class="commit__signed" use:tooltip={{ text: 'Signed', delay: 500 }}>
 									<Icon name="success-outline-small" />
 								</div>
 							{/if}
@@ -202,8 +194,7 @@
 							<span class="commit__subtitle-divider">•</span>
 
 							<span
-								>{getTimeAgo(commit.createdAt)}{type == 'remote' ||
-								type == 'upstream'
+								>{getTimeAgo(commit.createdAt)}{type == 'remote' || type == 'upstream'
 									? ` by ${commit.author.name}`
 									: ''}</span
 							>
@@ -261,12 +252,7 @@
 
 			{#if showDetails}
 				<div class="files-container">
-					<BranchFilesList
-						title="Files"
-						{files}
-						{isUnapplied}
-						readonly={type == 'upstream'}
-					/>
+					<BranchFilesList title="Files" {files} {isUnapplied} readonly={type == 'upstream'} />
 				</div>
 			{/if}
 		</div>
