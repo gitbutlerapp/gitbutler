@@ -15,8 +15,6 @@ impl<'a> From<&'a git::Repository> for Config<'a> {
 impl Config<'_> {
     pub fn sign_commits(&self) -> Result<bool, git::Error> {
         let sign_commits = self
-            .git_repository
-            .config()?
             .get_bool("gitbutler.signCommits")
             .unwrap_or(Some(false))
             .unwrap_or(false);
@@ -25,8 +23,6 @@ impl Config<'_> {
 
     pub fn user_real_comitter(&self) -> Result<bool, git::Error> {
         let gb_comitter = self
-            .git_repository
-            .config()?
             .get_string("gitbutler.gitbutlerCommitter")
             .unwrap_or(Some("0".to_string()))
             .unwrap_or("0".to_string());
@@ -34,18 +30,52 @@ impl Config<'_> {
     }
 
     pub fn user_name(&self) -> Result<Option<String>, git::Error> {
-        self.git_repository.config()?.get_string("user.name")
+        self.get_string("user.name")
     }
 
     pub fn user_email(&self) -> Result<Option<String>, git::Error> {
-        self.git_repository.config()?.get_string("user.email")
+        self.get_string("user.email")
     }
 
     pub fn set_local(&self, key: &str, val: &str) -> Result<(), git::Error> {
-        self.git_repository.config()?.set_local(key, val)
+        let config = self.git_repository.config()?;
+        match config.open_level(git2::ConfigLevel::Local) {
+            Ok(mut local) => local.set_str(key, val).map_err(Into::into),
+            Err(err) => Err(err.into()),
+        }
     }
 
     pub fn get_local(&self, key: &str) -> Result<Option<String>, git::Error> {
-        self.git_repository.config()?.get_local(key)
+        let config = self.git_repository.config()?;
+        match config
+            .open_level(git2::ConfigLevel::Local)
+            .and_then(|local| local.get_string(key))
+        {
+            Ok(value) => Ok(Some(value)),
+            Err(e) if e.code() == git2::ErrorCode::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    fn get_bool(&self, key: &str) -> Result<Option<bool>, git::Error> {
+        let config = self.git_repository.config()?;
+        match config.get_bool(key) {
+            Ok(value) => Ok(Some(value)),
+            Err(err) => match err.code() {
+                git2::ErrorCode::NotFound => Ok(None),
+                _ => Err(err.into()),
+            },
+        }
+    }
+
+    fn get_string(&self, key: &str) -> Result<Option<String>, git::Error> {
+        let config = self.git_repository.config()?;
+        match config.get_string(key) {
+            Ok(value) => Ok(Some(value)),
+            Err(err) => match err.code() {
+                git2::ErrorCode::NotFound => Ok(None),
+                _ => Err(err.into()),
+            },
+        }
     }
 }

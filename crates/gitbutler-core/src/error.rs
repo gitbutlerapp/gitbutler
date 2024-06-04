@@ -130,6 +130,8 @@ pub enum Code {
     Unknown,
     Validation,
     ProjectGitAuth,
+    DefaultTargetNotFound,
+    CommitSigningFailed,
 }
 
 impl std::fmt::Display for Code {
@@ -138,6 +140,8 @@ impl std::fmt::Display for Code {
             Code::Unknown => "errors.unknown",
             Code::Validation => "errors.validation",
             Code::ProjectGitAuth => "errors.projects.git.auth",
+            Code::DefaultTargetNotFound => "errors.projects.default_target.not_found",
+            Code::CommitSigningFailed => "errors.commit.signing_failed",
         };
         f.write_str(code)
     }

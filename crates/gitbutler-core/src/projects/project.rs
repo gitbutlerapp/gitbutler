@@ -12,14 +12,15 @@ use crate::{
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum AuthKey {
-    Default,
     Generated,
-    #[default]
-    SystemExecutable,
     GitCredentialsHelper,
     Local {
         private_key_path: path::PathBuf,
     },
+    // There used to be more auth option variants that we are deprecating and replacing with this
+    #[serde(other)]
+    #[default]
+    SystemExecutable,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

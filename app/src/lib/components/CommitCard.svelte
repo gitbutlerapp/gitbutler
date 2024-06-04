@@ -13,6 +13,7 @@
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { getTimeAgo } from '$lib/utils/timeAgo';
+	import { tooltip } from '$lib/utils/tooltip';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore } from '$lib/vbranches/contexts';
@@ -76,22 +77,6 @@
 		branchController.undoCommit(branch.id, commit.id);
 	}
 
-	function insertBlankCommit(commit: Commit | RemoteCommit, offset: number) {
-		if (!branch || !$baseBranch) {
-			console.error('Unable to insert commit');
-			return;
-		}
-		branchController.insertBlankCommit(branch.id, commit.id, offset);
-	}
-
-	function reorderCommit(commit: Commit | RemoteCommit, offset: number) {
-		if (!branch || !$baseBranch) {
-			console.error('Unable to move commit');
-			return;
-		}
-		branchController.reorderCommit(branch.id, commit.id, offset);
-	}
-
 	let isUndoable = !!branch?.active && commit instanceof Commit;
 
 	const hasCommitUrl = !commit.isLocal && commitUrl;
@@ -117,7 +102,6 @@
 
 		commitMessageModal.close();
 	}
-	$: console.log(commit.status);
 </script>
 
 <Modal bind:this={commitMessageModal}>
@@ -175,7 +159,7 @@
 					{#if first}
 						<div class="commit__type text-semibold text-base-12">
 							{#if type == 'upstream'}
-								Remote upstream <Icon name="remote" />
+								Remote <Icon name="remote" />
 							{:else if type == 'local'}
 								Local <Icon name="local" />
 							{:else if type == 'remote'}
@@ -196,19 +180,17 @@
 						</h5>
 
 						<div class="text-base-11 commit__subtitle">
-							<!-- svelte-ignore a11y-click-events-have-key-events -->
-							<span
+							{#if commit.isSigned}
+								<div class="commit__signed" use:tooltip={{ text: 'Signed', delay: 500 }}>
+									<Icon name="success-outline-small" />
+								</div>
+							{/if}
+							<button
 								class="commit__id"
 								on:click|stopPropagation={() => copyToClipboard(commit.id)}
-								role="button"
-								tabindex="0"
 							>
 								{commit.id.substring(0, 7)}
-
-								{#if commit.isSigned}
-									<Icon name="locked-small" />
-								{/if}
-							</span>
+							</button>
 
 							<span class="commit__subtitle-divider">•</span>
 
@@ -244,42 +226,6 @@
 										icon="edit-text"
 										clickable
 										on:click={openCommitMessageModal}>Edit message</Tag
-									>
-									<Tag
-										style="ghost"
-										kind="solid"
-										clickable
-										on:click={(e) => {
-											e.stopPropagation();
-											reorderCommit(commit, -1);
-										}}>Move Up</Tag
-									>
-									<Tag
-										style="ghost"
-										kind="solid"
-										clickable
-										on:click={(e) => {
-											e.stopPropagation();
-											reorderCommit(commit, 1);
-										}}>Move Down</Tag
-									>
-									<Tag
-										style="ghost"
-										kind="solid"
-										clickable
-										on:click={(e) => {
-											e.stopPropagation();
-											insertBlankCommit(commit, -1);
-										}}>Add Before</Tag
-									>
-									<Tag
-										style="ghost"
-										kind="solid"
-										clickable
-										on:click={(e) => {
-											e.stopPropagation();
-											insertBlankCommit(commit, 1);
-										}}>Add After</Tag
 									>
 								{/if}
 								{#if hasCommitUrl}
@@ -436,6 +382,10 @@
 			overflow: hidden;
 			text-overflow: ellipsis;
 		}
+	}
+
+	.commit__signed {
+		display: flex;
 	}
 
 	.commit__id {

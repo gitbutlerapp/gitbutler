@@ -64,7 +64,20 @@ export class BranchController {
 			});
 			posthog.capture('Commit Successful');
 		} catch (err: any) {
-			showError('Failed to commit changes', err);
+			if (err.code === 'errors.commit.signing_failed') {
+				showToast({
+					title: 'Failed to commit due to signing error',
+					message: `
+You can disable commit signing in the project settings or review the signing setup within your git configuration.
+
+Please check our [documentation](https://docs.gitbutler.com/features/virtual-branches/verifying-commits) on setting up commit signing and verification.
+					`,
+					error: err.message,
+					style: 'error'
+				});
+			} else {
+				showError('Failed to commit changes', err);
+			}
 			posthog.capture('Commit Failed', err);
 			throw err;
 		}
@@ -207,7 +220,7 @@ export class BranchController {
                         Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)
                         on fetching and pushing for ways to resolve the problem.
                     `,
-					errorMessage: err.message,
+					error: err.message,
 					style: 'error'
 				});
 			} else {
@@ -219,7 +232,7 @@ export class BranchController {
                         Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)
                         on fetching and pushing for ways to resolve the problem.
                     `,
-					errorMessage: err.message,
+					error: err.message,
 					style: 'error'
 				});
 			}

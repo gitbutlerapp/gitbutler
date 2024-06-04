@@ -11,6 +11,8 @@ pub enum Marker {
     ///
     /// See usages for details on what these conflicts can be.
     ProjectConflict,
+    /// An indicator that a branch conflicted during applying to the workspace.
+    BranchConflict,
 }
 
 impl std::fmt::Display for Marker {
@@ -18,6 +20,7 @@ impl std::fmt::Display for Marker {
         match self {
             Marker::VerificationFailure => f.write_str("<verification-failed>"),
             Marker::ProjectConflict => f.write_str("<project-conflict>"),
+            Marker::BranchConflict => f.write_str("<branch-conflict>"),
         }
     }
 }

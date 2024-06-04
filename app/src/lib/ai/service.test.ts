@@ -29,6 +29,12 @@ const defaultGitConfig = Object.freeze({
 
 class DummyGitConfigService implements GitConfigService {
 	constructor(private config: { [index: string]: string | undefined }) {}
+	async getSignCommitsConfig(_projectId: string): Promise<boolean | undefined> {
+		throw new Error('Method not implemented.');
+	}
+	async setSignCommitsConfig(_projectId: string, _value: boolean): Promise<unknown> {
+		throw new Error('Method not implemented.');
+	}
 
 	async get<T extends string>(key: string): Promise<T | undefined> {
 		return (this.config[key] || undefined) as T | undefined;

@@ -1,12 +1,7 @@
-use super::{Config, Index, Oid, Reference, Refname, Result, Url};
-use git2::{BlameOptions, Submodule};
+use super::{Oid, Refname, Result, Url};
+use git2::Submodule;
 use git2_hooks::HookResult;
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
-use std::process::Stdio;
-use std::{io::Write, path::Path, str};
+use std::{path::Path, str};
 
 // wrapper around git2::Repository to get control over how it's used.
 pub struct Repository(git2::Repository);
@@ -80,12 +75,6 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn is_descendant_of(&self, a: Oid, b: Oid) -> Result<bool> {
-        self.0
-            .graph_descendant_of(a.into(), b.into())
-            .map_err(Into::into)
-    }
-
     pub fn merge_base(&self, one: Oid, two: Oid) -> Result<Oid> {
         self.0
             .merge_base(one.into(), two.into())
@@ -98,10 +87,9 @@ impl Repository {
         ancestor_tree: &git2::Tree<'_>,
         our_tree: &git2::Tree<'_>,
         their_tree: &git2::Tree<'_>,
-    ) -> Result<Index> {
+    ) -> Result<git2::Index> {
         self.0
             .merge_trees(ancestor_tree, our_tree, their_tree, None)
-            .map(Index::from)
             .map_err(Into::into)
     }
 
@@ -141,15 +129,12 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn find_reference(&self, name: &Refname) -> Result<Reference> {
-        self.0
-            .find_reference(&name.to_string())
-            .map(Reference::from)
-            .map_err(Into::into)
+    pub fn find_reference(&self, name: &Refname) -> Result<git2::Reference> {
+        self.0.find_reference(&name.to_string()).map_err(Into::into)
     }
 
-    pub fn head(&self) -> Result<Reference> {
-        self.0.head().map(Reference::from).map_err(Into::into)
+    pub fn head(&self) -> Result<git2::Reference> {
+        self.0.head().map_err(Into::into)
     }
 
     pub fn find_tree(&self, id: Oid) -> Result<git2::Tree> {
@@ -180,8 +165,8 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn index(&self) -> Result<Index> {
-        self.0.index().map(Into::into).map_err(Into::into)
+    pub fn index(&self) -> Result<git2::Index> {
+        self.0.index().map_err(Into::into)
     }
 
     pub fn index_size(&self) -> Result<usize> {
@@ -195,10 +180,9 @@ impl Repository {
             .map_err(Into::into)
     }
 
-    pub fn cherry_pick(&self, base: &git2::Commit, target: &git2::Commit) -> Result<Index> {
+    pub fn cherry_pick(&self, base: &git2::Commit, target: &git2::Commit) -> Result<git2::Index> {
         self.0
             .cherrypick_commit(target, base, 0, None)
-            .map(Into::into)
             .map_err(Into::into)
     }
 
@@ -206,195 +190,8 @@ impl Repository {
         self.0.blob(data).map(Into::into).map_err(Into::into)
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn commit(
-        &self,
-        update_ref: Option<&Refname>,
-        author: &git2::Signature<'_>,
-        committer: &git2::Signature<'_>,
-        message: &str,
-        tree: &git2::Tree<'_>,
-        parents: &[&git2::Commit<'_>],
-        change_id: Option<&str>,
-    ) -> Result<Oid> {
-        let commit_buffer = self
-            .0
-            .commit_create_buffer(author, committer, message, tree, parents)?;
-
-        let commit_buffer = Self::inject_change_id(&commit_buffer, change_id)?;
-
-        let oid = self.commit_buffer(commit_buffer)?;
-
-        // update reference
-        if let Some(refname) = update_ref {
-            self.0.reference(&refname.to_string(), oid, true, message)?;
-        }
-        Ok(oid.into())
-    }
-
-    /// takes raw commit data and commits it to the repository
-    /// - if the git config commit.gpgSign is set, it will sign the commit
-    /// returns an oid of the new commit object
-    pub fn commit_buffer(&self, buffer: String) -> Result<git2::Oid> {
-        // check git config for gpg.signingkey
-        let should_sign = self.0.config()?.get_bool("commit.gpgSign").unwrap_or(false);
-        if should_sign {
-            // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
-            let signing_key = self.0.config()?.get_string("user.signingkey");
-            if let Ok(signing_key) = signing_key {
-                let sign_format = self.0.config()?.get_string("gpg.format");
-                let is_ssh = if let Ok(sign_format) = sign_format {
-                    sign_format == "ssh"
-                } else {
-                    false
-                };
-
-                if is_ssh {
-                    // write commit data to a temp file so we can sign it
-                    let mut signature_storage = tempfile::NamedTempFile::new()?;
-                    signature_storage.write_all(buffer.as_ref())?;
-                    let buffer_file_to_sign_path = signature_storage.into_temp_path();
-
-                    let gpg_program = self.0.config()?.get_string("gpg.ssh.program");
-                    let mut cmd =
-                        std::process::Command::new(gpg_program.unwrap_or("ssh-keygen".to_string()));
-                    cmd.args(["-Y", "sign", "-n", "git", "-f"]);
-
-                    #[cfg(windows)]
-                    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-
-                    let output;
-                    // support literal ssh key
-                    if let (true, signing_key) = Self::is_literal_ssh_key(&signing_key) {
-                        // write the key to a temp file
-                        let mut key_storage = tempfile::NamedTempFile::new()?;
-                        key_storage.write_all(signing_key.as_bytes())?;
-
-                        // if on unix
-                        #[cfg(unix)]
-                        {
-                            // make sure the tempfile permissions are acceptable for a private ssh key
-                            let mut permissions = key_storage.as_file().metadata()?.permissions();
-                            permissions.set_mode(0o600);
-                            key_storage.as_file().set_permissions(permissions)?;
-                        }
-
-                        let key_file_path = key_storage.into_temp_path();
-
-                        cmd.arg(&key_file_path);
-                        cmd.arg("-U");
-                        cmd.arg(&buffer_file_to_sign_path);
-                        cmd.stdout(Stdio::piped());
-                        cmd.stdin(Stdio::null());
-
-                        let child = cmd.spawn()?;
-                        output = child.wait_with_output()?;
-                    } else {
-                        cmd.arg(signing_key);
-                        cmd.arg(&buffer_file_to_sign_path);
-                        cmd.stdout(Stdio::piped());
-                        cmd.stdin(Stdio::null());
-
-                        let child = cmd.spawn()?;
-                        output = child.wait_with_output()?;
-                    }
-
-                    if output.status.success() {
-                        // read signed_storage path plus .sig
-                        let signature_path = buffer_file_to_sign_path.with_extension("sig");
-                        let sig_data = std::fs::read(signature_path)?;
-                        let signature = String::from_utf8_lossy(&sig_data);
-                        let oid = self
-                            .0
-                            .commit_signed(&buffer, &signature, None)
-                            .map(Into::into)
-                            .map_err(Into::into);
-                        return oid;
-                    }
-                } else {
-                    // is gpg
-                    let gpg_program = self.0.config()?.get_string("gpg.program");
-                    let mut cmd =
-                        std::process::Command::new(gpg_program.unwrap_or("gpg".to_string()));
-                    cmd.args(["--status-fd=2", "-bsau", &signing_key])
-                        //.arg(&signed_storage)
-                        .arg("-")
-                        .stdout(Stdio::piped())
-                        .stdin(Stdio::piped());
-
-                    #[cfg(windows)]
-                    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-
-                    let mut child = cmd.spawn()?;
-                    child
-                        .stdin
-                        .take()
-                        .expect("configured")
-                        .write_all(buffer.to_string().as_ref())?;
-
-                    let output = child.wait_with_output()?;
-                    if output.status.success() {
-                        // read stdout
-                        let signature = String::from_utf8_lossy(&output.stdout);
-                        let oid = self
-                            .0
-                            .commit_signed(&buffer, &signature, None)
-                            .map(Into::into)
-                            .map_err(Into::into);
-                        return oid;
-                    }
-                }
-            }
-        }
-
-        let oid = self
-            .0
-            .odb()?
-            .write(git2::ObjectType::Commit, buffer.as_bytes())?;
-
-        Ok(oid)
-    }
-
-    fn is_literal_ssh_key(string: &str) -> (bool, &str) {
-        if let Some(key) = string.strip_prefix("key::") {
-            return (true, key);
-        }
-        if string.starts_with("ssh-") {
-            return (true, string);
-        }
-        (false, string)
-    }
-
-    // in commit_buffer, inject a line right before the first `\n\n` that we see:
-    // `change-id: <id>`
-    fn inject_change_id(commit_buffer: &[u8], change_id: Option<&str>) -> Result<String> {
-        // if no change id, generate one
-        let change_id = change_id
-            .map(|id| id.to_string())
-            .unwrap_or_else(|| format!("{}", uuid::Uuid::new_v4()));
-
-        let commit_ends_in_newline = commit_buffer.ends_with(b"\n");
-        let commit_buffer = str::from_utf8(commit_buffer).unwrap();
-        let lines = commit_buffer.lines();
-        let mut new_buffer = String::new();
-        let mut found = false;
-        for line in lines {
-            if line.is_empty() && !found {
-                new_buffer.push_str(&format!("change-id {}\n", change_id));
-                found = true;
-            }
-            new_buffer.push_str(line);
-            new_buffer.push('\n');
-        }
-        if !commit_ends_in_newline {
-            // strip last \n
-            new_buffer.pop();
-        }
-        Ok(new_buffer)
-    }
-
-    pub fn config(&self) -> Result<Config> {
-        self.0.config().map(Into::into).map_err(Into::into)
+    pub fn config(&self) -> Result<git2::Config> {
+        self.0.config().map_err(Into::into)
     }
 
     pub fn path(&self) -> &Path {
@@ -447,9 +244,9 @@ impl Repository {
         self.0.checkout_head(opts).map_err(Into::into)
     }
 
-    pub fn checkout_index<'a>(&'a self, index: &'a mut Index) -> CheckoutIndexBuilder {
+    pub fn checkout_index<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder {
         CheckoutIndexBuilder {
-            index: index.into(),
+            index,
             repo: &self.0,
             checkout_builder: git2::build::CheckoutBuilder::new(),
         }
@@ -491,7 +288,7 @@ impl Repository {
         id: Oid,
         force: bool,
         log_message: &str,
-    ) -> Result<Reference> {
+    ) -> Result<git2::Reference> {
         self.0
             .reference(&name.to_string(), id.into(), force, log_message)
             .map(Into::into)
@@ -502,14 +299,17 @@ impl Repository {
         self.0.remote(name, &url.to_string()).map_err(Into::into)
     }
 
-    pub fn references(&self) -> Result<impl Iterator<Item = Result<Reference>>> {
+    pub fn references(&self) -> Result<impl Iterator<Item = Result<git2::Reference>>> {
         self.0
             .references()
             .map(|iter| iter.map(|reference| reference.map(Into::into).map_err(Into::into)))
             .map_err(Into::into)
     }
 
-    pub fn references_glob(&self, glob: &str) -> Result<impl Iterator<Item = Result<Reference>>> {
+    pub fn references_glob(
+        &self,
+        glob: &str,
+    ) -> Result<impl Iterator<Item = Result<git2::Reference>>> {
         self.0
             .references_glob(glob)
             .map(|iter| iter.map(|reference| reference.map(Into::into).map_err(Into::into)))
@@ -529,25 +329,6 @@ impl Repository {
     pub fn run_hook_post_commit(&self) -> Result<()> {
         git2_hooks::hooks_post_commit(&self.0, Some(&["../.husky"]))?;
         Ok(())
-    }
-
-    pub fn blame(
-        &self,
-        path: &Path,
-        min_line: u32,
-        max_line: u32,
-        oldest_commit: &Oid,
-        newest_commit: &Oid,
-    ) -> Result<git2::Blame> {
-        let mut opts = BlameOptions::new();
-        opts.min_line(min_line as usize)
-            .max_line(max_line as usize)
-            .newest_commit(git2::Oid::from(*newest_commit))
-            .oldest_commit(git2::Oid::from(*oldest_commit))
-            .first_parent(true);
-        self.0
-            .blame_file(path, Some(&mut opts))
-            .map_err(super::Error::Blame)
     }
 
     /// Returns a list of remotes

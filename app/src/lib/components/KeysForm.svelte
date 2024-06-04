@@ -86,17 +86,20 @@
 	</svelte:fragment>
 
 	<form class="git-radio" bind:this={form} on:change={(e) => onFormChange(e.currentTarget)}>
-		<SectionCard roundedBottom={false} orientation="row" labelFor="credential-default">
-			<svelte:fragment slot="title">Auto detect</svelte:fragment>
-
-			<svelte:fragment slot="actions">
-				<RadioButton name="credentialType" id="credential-default" value="default" />
-			</svelte:fragment>
+		<SectionCard roundedBottom={false} orientation="row" labelFor="git-executable">
+			<svelte:fragment slot="title"
+				>Use a Git executable <span style="color: var(--clr-text-2)">(default)</span
+				></svelte:fragment
+			>
 
 			<svelte:fragment slot="caption">
-				{#if selectedType !== 'local'}
-					GitButler will attempt all available authentication flows automatically.
+				{#if selectedType == 'systemExecutable'}
+					Git executable must be present on your PATH
 				{/if}
+			</svelte:fragment>
+
+			<svelte:fragment slot="actions">
+				<RadioButton name="credentialType" value="systemExecutable" id="git-executable" />
 			</svelte:fragment>
 		</SectionCard>
 
@@ -179,25 +182,6 @@
 				</div>
 			</SectionCard>
 		{/if}
-
-		<SectionCard
-			roundedTop={false}
-			roundedBottom={false}
-			orientation="row"
-			labelFor="git-executable"
-		>
-			<svelte:fragment slot="title">Use a Git executable (default)</svelte:fragment>
-
-			<svelte:fragment slot="caption">
-				{#if selectedType == 'systemExecutable'}
-					Git executable must be present on your PATH
-				{/if}
-			</svelte:fragment>
-
-			<svelte:fragment slot="actions">
-				<RadioButton name="credentialType" value="systemExecutable" id="git-executable" />
-			</svelte:fragment>
-		</SectionCard>
 
 		<SectionCard
 			roundedTop={false}

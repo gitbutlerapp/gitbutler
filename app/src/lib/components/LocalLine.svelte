@@ -1,41 +1,38 @@
 <script lang="ts">
-	import Avatar from './Avatar.svelte';
-	import type { Commit } from '$lib/vbranches/types';
+	import type { CommitStatus } from '$lib/vbranches/types';
 
-	export let dashed: boolean;
-	export let commit: Commit | undefined;
-	export let first: boolean;
-	export let isEmpty: boolean = false;
+	export let root: boolean = false;
+	export let longRoot: boolean = false;
+	export let sectionFirst: boolean = false;
 
-	$: hasRoot = isRoot(commit);
+	export let inType: CommitStatus | undefined;
+	export let outType: CommitStatus | undefined;
 
-	function isRoot(commit: Commit | undefined): boolean {
-		return (
-			!!commit &&
-			(commit.parent == undefined ||
-				commit.parent?.status == 'remote' ||
-				commit.parent?.status == 'integrated')
-		);
-	}
+	export let inDashed = false;
+	export let outDashed = false;
 </script>
 
 <div class="local-column">
-	{#if !isEmpty}
-		{#if !commit && dashed}
-			<div class="local-line dashed"></div>
-		{:else if commit}
-			{#if first}
-				<div class="local-line dashed tip" />
-			{/if}
-			<div class="local-line" class:has-root={hasRoot} class:short={first} />
-		{/if}
-		{#if hasRoot}
-			<div class="root" class:long-root={commit?.parent} />
-		{/if}
-		{#if commit}
-			<Avatar {commit} {first} />
-		{/if}
+	{#if outType}
+		<div
+			class="local-line tip"
+			class:dashed={outDashed}
+			class:integrated={inType == 'integrated'}
+		/>
 	{/if}
+	{#if inType}
+		<div
+			class="local-line short"
+			class:dashed={inDashed}
+			class:sectionFirst
+			class:has-root={root}
+			class:integrated={inType == 'integrated'}
+		/>
+	{/if}
+	{#if root}
+		<div class="root" class:long-root={longRoot} />
+	{/if}
+	<slot />
 </div>
 
 <style lang="postcss">
@@ -65,10 +62,13 @@
 			bottom: var(--size-8);
 		}
 		&.tip {
-			bottom: calc(100% - 2.625rem);
+			bottom: calc(100% - var(--avatar-first-top));
 		}
 		&.short {
-			top: 2.625rem;
+			top: var(--avatar-first-top);
+		}
+		&.integrated {
+			background-color: var(--clr-commit-shadow);
 		}
 	}
 

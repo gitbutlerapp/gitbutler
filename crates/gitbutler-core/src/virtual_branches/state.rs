@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::fs::read_toml_file_or_default;
+use crate::{error::Code, fs::read_toml_file_or_default};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
@@ -52,7 +52,7 @@ impl VirtualBranchesHandle {
         let virtual_branches = self.read_file();
         virtual_branches?
             .default_target
-            .ok_or(anyhow!("there is no default target"))
+            .ok_or(anyhow!("there is no default target").context(Code::DefaultTargetNotFound))
     }
 
     /// Sets the target for the given virtual branch.

@@ -1,29 +1,28 @@
 <script lang="ts">
-	import Avatar from './Avatar.svelte';
-	import type { Commit, CommitStatus, RemoteCommit } from '$lib/vbranches/types';
+	import type { CommitStatus } from '$lib/vbranches/types';
 
-	export let line: boolean;
-	export let first: boolean;
-	export let short: boolean;
-	export let remoteCommit: RemoteCommit | undefined;
-	export let localCommit: Commit | undefined;
-	export let dashed: boolean;
-	export let upstreamLine: boolean;
-	export let upstreamType: CommitStatus | undefined;
+	export let sectionFirst = false;
+
+	export let inType: CommitStatus | undefined;
+	export let outType: CommitStatus | undefined;
+
+	export let inDashed = false;
+	export let outDashed = false;
 </script>
 
 <div class="shadow-column">
-	{#if line}
-		{#if upstreamLine}
-			<div class="shadow-line tip" class:upstream={upstreamType == 'upstream'}></div>
-		{/if}
-		<div class="shadow-line" class:dashed class:short class:first />
-	{:else if upstreamLine}
-		<div class="shadow-line upstream" class:short class:first />
+	{#if outType}
+		<div class="shadow-line tip" class:dashed={outDashed} class:upstream={outType == 'upstream'} />
 	{/if}
-	{#if localCommit || remoteCommit}
-		<Avatar shadow={!!localCommit} shadowLane commit={localCommit || remoteCommit} {first} />
+	{#if inType}
+		<div
+			class="shadow-line short"
+			class:upstream={inType == 'upstream'}
+			class:first={sectionFirst}
+			class:dashed={inDashed}
+		/>
 	{/if}
+	<slot />
 </div>
 
 <style lang="postcss">

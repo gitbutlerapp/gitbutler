@@ -1,71 +1,97 @@
 <script lang="ts">
+	import Avatar from './Avatar.svelte';
 	import LocalLine from './LocalLine.svelte';
 	import RemoteLine from './RemoteLine.svelte';
 	import ShadowLine from './ShadowLine.svelte';
-	import type { Commit, CommitStatus, RemoteCommit } from '$lib/vbranches/types';
+	import type { Author, CommitStatus } from '$lib/vbranches/types';
 
-	export let hasShadowColumn = false;
 	export let hasLocalColumn = false;
-	export let localCommit: Commit | undefined = undefined;
-	export let remoteCommit: RemoteCommit | undefined = undefined;
-	export let first = false;
-	export let localLine = false;
-	export let localRoot = false;
-	export let remoteLine = false;
-	export let upstreamLine = false;
-	export let shadowLine = false;
-	export let base = false;
-	export let upstreamType: CommitStatus | undefined = undefined;
+	export let isRebased = false;
 
-	$: root =
-		localRoot ||
-		((localCommit?.status == 'remote' || localCommit?.status == 'integrated') &&
-			localCommit?.children?.[0]?.status == 'local');
-	$: short =
-		!upstreamType &&
-		((!!localCommit && !localCommit?.children?.[0]) ||
-			(!!remoteCommit && !remoteCommit?.children?.[0]));
+	export let sectionFirst = false;
+
+	export let localIn: CommitStatus | undefined = undefined;
+	export let localOut: CommitStatus | undefined = undefined;
+
+	export let remoteIn: CommitStatus | undefined = undefined;
+	export let remoteOut: CommitStatus | undefined = undefined;
+
+	export let shadowIn: CommitStatus | undefined = undefined;
+	export let shadowOut: CommitStatus | undefined = undefined;
+
+	export let inDashed = false;
+	export let outDashed = false;
+
+	export let base = false;
+	export let last = false;
+	export let localRoot = false;
+	export let integrated = false;
+	export let relatedToOther = false;
+	export let remoteRoot = false;
+
+	export let help: string | undefined = undefined;
+	export let shadowHelp: string | undefined = undefined;
+	export let author: Author | undefined = undefined;
+	export let commitStatus: CommitStatus | undefined = undefined;
 </script>
 
 <div class="lines">
-	{#if hasShadowColumn}
+	{#if isRebased}
 		<ShadowLine
-			line={shadowLine}
-			dashed={base}
-			{upstreamLine}
-			{remoteCommit}
-			{upstreamType}
-			localCommit={localCommit?.relatedTo ? localCommit : undefined}
-			{first}
-			{short}
-		/>
+			inType={shadowIn}
+			outType={shadowOut}
+			{sectionFirst}
+			outDashed={base}
+			inDashed={base}
+		>
+			{#if author}
+				<Avatar
+					{author}
+					{sectionFirst}
+					status={shadowIn}
+					help={shadowHelp || help}
+					shadow={commitStatus && commitStatus != 'upstream'}
+					shadowLane
+				/>
+			{/if}
+		</ShadowLine>
 	{/if}
 	<RemoteLine
-		commit={localCommit?.status == 'remote' || localCommit?.status == 'integrated'
-			? localCommit
-			: undefined}
-		line={remoteLine}
-		{root}
-		remoteCommit={!hasShadowColumn ? remoteCommit : undefined}
-		shadowCommit={!hasShadowColumn &&
-		localCommit?.relatedTo &&
-		localCommit.relatedTo.id != localCommit.id
-			? localCommit.relatedTo
-			: undefined}
-		upstreamLine={upstreamLine && !hasShadowColumn}
-		{first}
-		short={root || short || (!!localCommit?.relatedTo && upstreamType == 'upstream')}
-		{upstreamType}
 		{base}
-	/>
+		{sectionFirst}
+		root={localRoot}
+		inType={remoteIn}
+		outType={remoteOut}
+		outDashed={remoteOut == 'integrated'}
+		inDashed={remoteIn == 'integrated'}
+		{integrated}
+	>
+		{#if !isRebased && (relatedToOther || commitStatus != 'local')}
+			<Avatar
+				{author}
+				{sectionFirst}
+				status={commitStatus}
+				help={shadowHelp || help}
+				shadow={relatedToOther}
+				remoteLane
+			/>
+		{/if}
+	</RemoteLine>
 
 	{#if hasLocalColumn}
 		<LocalLine
-			isEmpty={base}
-			commit={localCommit?.status == 'local' ? localCommit : undefined}
-			dashed={localLine}
-			{first}
-		/>
+			{inDashed}
+			{outDashed}
+			{sectionFirst}
+			inType={localIn}
+			outType={localOut}
+			root={remoteRoot}
+			longRoot={remoteRoot && !last}
+		>
+			{#if commitStatus == 'local'}
+				<Avatar {help} {sectionFirst} {author} status={commitStatus} />
+			{/if}
+		</LocalLine>
 	{/if}
 </div>
 

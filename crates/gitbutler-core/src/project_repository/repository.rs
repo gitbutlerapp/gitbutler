@@ -7,7 +7,6 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 
 use super::conflicts;
-use crate::virtual_branches::errors::Marker;
 use crate::{
     askpass,
     git::{self, Url},
@@ -16,6 +15,7 @@ use crate::{
     virtual_branches::{Branch, BranchId},
 };
 use crate::{error::Code, git::Oid};
+use crate::{git::RepositoryExt, virtual_branches::errors::Marker};
 
 pub struct Repository {
     pub git_repository: git::Repository,
@@ -44,8 +44,8 @@ impl Repository {
         // XXX(qix-): can clean up later on. We're aware this isn't ideal.
         if let Ok(config) = repo.config().as_mut() {
             let should_set = match config.get_bool("gitbutler.didSetPrune") {
-                Ok(None | Some(false)) => true,
-                Ok(Some(true)) => false,
+                Ok(false) => true,
+                Ok(true) => false,
                 Err(err) => {
                     tracing::warn!(
                                 "failed to get gitbutler.didSetPrune for repository at {}; cannot disable gc: {}",
@@ -122,7 +122,7 @@ impl Repository {
         Ok(head)
     }
 
-    pub fn get_head(&self) -> Result<git::Reference, git::Error> {
+    pub fn get_head(&self) -> Result<git2::Reference, git::Error> {
         let head = self.git_repository.head()?;
         Ok(head)
     }
@@ -191,7 +191,7 @@ impl Repository {
         let (should_write, with_force) =
             match self.git_repository.find_reference(&branch.refname().into()) {
                 Ok(reference) => match reference.target() {
-                    Some(head_oid) => Ok((head_oid != branch.head, true)),
+                    Some(head_oid) => Ok((head_oid != branch.head.into(), true)),
                     None => Ok((true, true)),
                 },
                 Err(git::Error::NotFound(_)) => Ok((true, false)),
@@ -333,11 +333,11 @@ impl Repository {
         tree: &git2::Tree,
         parents: &[&git2::Commit],
         change_id: Option<&str>,
-    ) -> Result<git::Oid> {
+    ) -> Result<git2::Oid> {
         let (author, committer) =
             super::signatures::signatures(self, user).context("failed to get signatures")?;
-        self.git_repository
-            .commit(None, &author, &committer, message, tree, parents, change_id)
+        self.repo()
+            .commit_with_signature(None, &author, &committer, message, tree, parents, change_id)
             .context("failed to commit")
     }
 
