@@ -8,6 +8,7 @@
 	import { cloneWithRotation } from '$lib/dragging/draggable';
 	import { persisted } from '$lib/persisted/persisted';
 	import { getContext, getContextStore } from '$lib/utils/context';
+	import { editor } from '$lib/utils/systemEditor';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
@@ -149,9 +150,9 @@
 										role="button"
 										tabindex="0"
 										on:keypress={async () =>
-											await open(`vscode://file${project.vscodePath}/?windowId=_blank`)}
+											await open(`${editor.get()}://file${project.vscodePath}/?windowId=_blank`)}
 										on:click={async () =>
-											await open(`vscode://file${project.vscodePath}/?windowId=_blank`)}
+											await open(`${editor.get()}://file${project.vscodePath}/?windowId=_blank`)}
 									>
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="vscode" />
