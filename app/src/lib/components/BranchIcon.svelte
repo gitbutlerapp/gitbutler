@@ -63,12 +63,12 @@
 <style lang="postcss">
 	.branch-icon {
 		flex-shrink: 0;
-		width: 1rem;
-		height: 1rem;
+		width: 16px;
+		height: 16px;
 		border-radius: var(--radius-s);
 		& svg {
-			width: 1rem;
-			height: 1rem;
+			width: 16px;
+			height: 16px;
 		}
 		& path {
 			fill: var(--clr-bg-1);

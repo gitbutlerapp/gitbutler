@@ -150,7 +150,7 @@
 		align-items: center;
 		padding: 6px 14px;
 		gap: 10px;
-		height: 2rem;
+		height: 32px;
 		overflow: hidden;
 		text-align: left;
 		user-select: none;

@@ -86,8 +86,8 @@
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		width: 5rem;
-		height: 5rem;
+		width: 80px;
+		height: 80px;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-illustration-bg);
 	}

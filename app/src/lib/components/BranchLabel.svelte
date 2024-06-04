@@ -55,7 +55,7 @@
 <style lang="postcss">
 	.branch-name-mesure-el,
 	.branch-name-input {
-		min-width: 2.8rem;
+		min-width: 44px;
 		height: 20px;
 		padding: 2px 4px;
 		border: 1px solid transparent;

@@ -96,7 +96,7 @@
 		overflow-x: auto;
 		align-items: flex-start;
 		padding: 12px 12px 12px 6px;
-		width: 50rem;
+		width: 800px;
 	}
 	.card {
 		margin: 12px 6px 12px 12px;

@@ -63,7 +63,7 @@
 		top: calc(var(--size-button) + 4px);
 		right: 0;
 		z-index: var(--z-floating);
-		min-width: 10rem;
+		min-width: 160px;
 	}
 	.branches-title {
 		display: flex;

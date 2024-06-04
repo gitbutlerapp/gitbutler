@@ -219,7 +219,7 @@
 		-moz-appearance: textfield;
 
 		&.show-count-actions {
-			padding-right: 4.25rem;
+			padding-right: 68px;
 		}
 	}
 
@@ -242,7 +242,7 @@
 		content: '';
 		position: absolute;
 		top: 50%;
-		left: -0.375rem;
+		left: -6px;
 		transform: translateY(-50%);
 		width: 1px;
 		height: 100%;

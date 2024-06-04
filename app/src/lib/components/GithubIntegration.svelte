@@ -269,10 +269,10 @@
 	}
 
 	.step-line-last {
-		height: 1.875rem;
+		height: 30px;
 
 		&::before {
-			top: 1.875rem;
+			top: 30px;
 		}
 	}
 

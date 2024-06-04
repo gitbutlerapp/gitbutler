@@ -78,6 +78,6 @@
 	}
 
 	.empty-state__image {
-		width: 7.5rem;
+		width: 120px;
 	}
 </style>

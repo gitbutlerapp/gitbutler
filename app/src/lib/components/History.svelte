@@ -240,7 +240,7 @@
 		overflow: hidden;
 		background-color: var(--clr-bg-1);
 		border-left: 1px solid var(--clr-border-2);
-		width: 28rem;
+		width: 448px;
 	}
 
 	/* SIDEVIEW HEADER */
@@ -272,17 +272,17 @@
 		left: 50%;
 		transform: translate(-50%, -50%);
 		border-radius: 100%;
-		width: 0.125rem;
-		height: 0.125rem;
+		width: 2px;
+		height: 2px;
 		background-color: #000;
 	}
 
 	.clock-pointer {
 		position: absolute;
-		bottom: -0.125rem;
+		bottom: -2px;
 		left: 50%;
 		transform-origin: bottom;
-		width: 0.125rem;
+		width: 2px;
 		height: 6px;
 		background-color: #000;
 	}
@@ -317,7 +317,7 @@
 
 	/* DATE HEADER */
 	.sideview__date-header {
-		padding: 20px 14px 14px 6.8rem;
+		padding: 20px 14px 14px 108px;
 		border-top: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 		margin-top: 12px;
@@ -338,7 +338,7 @@
 		z-index: var(--z-ground);
 		display: flex;
 		flex-direction: column;
-		width: 32rem;
+		width: 512px;
 		border-left: 1px solid var(--clr-border-2);
 	}
 
@@ -346,7 +346,7 @@
 	.welcome-point {
 		display: flex;
 		gap: 10px;
-		padding: 12px 16px 32px 5.3rem;
+		padding: 12px 16px 32px 84px;
 	}
 
 	.welcome-point__content {

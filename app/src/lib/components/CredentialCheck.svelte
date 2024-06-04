@@ -137,11 +137,11 @@
 
 	.check-icon {
 		display: flex;
-		margin-top: 0.063rem;
 	}
 
 	.check-result {
 		display: flex;
+		align-items: center;
 		gap: 6px;
 	}
 

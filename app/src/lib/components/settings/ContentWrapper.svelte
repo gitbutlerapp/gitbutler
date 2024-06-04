@@ -38,7 +38,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
-		max-width: 40rem;
+		max-width: 640px;
 		width: 100%;
 		margin: auto;
 	}

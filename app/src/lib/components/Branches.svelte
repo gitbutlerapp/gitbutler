@@ -201,12 +201,12 @@
 	}
 
 	.branch-list__empty-state__image {
-		width: 8.125rem;
+		width: 130px;
 	}
 
 	.branch-list__empty-state__caption {
 		color: var(--clr-scale-ntrl-60);
 		text-align: center;
-		max-width: 10rem;
+		max-width: 160px;
 	}
 </style>

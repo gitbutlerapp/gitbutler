@@ -8,7 +8,7 @@
 	padding: 6px;
 	z-index: var(--z-tooltip);
 
-	max-width: 11.25rem;
+	max-width: 180px;
 	position: absolute;
 	left: -9999px;
 	top: -9999px;

@@ -229,7 +229,7 @@
 	.content-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: 16px;
 	}
 
 	.content-wrapper__section {

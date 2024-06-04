@@ -89,7 +89,7 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		width: 22rem;
+		width: 352px;
 		border-radius: var(--radius-m);
 		border: 1px dashed var(--clr-border-2);
 		background-color: transparent;

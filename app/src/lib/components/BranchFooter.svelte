@@ -92,6 +92,5 @@
 	.empty-state__text {
 		color: var(--clr-text-3);
 		flex: 1;
-		/* max-width: 8rem; */
 	}
 </style>

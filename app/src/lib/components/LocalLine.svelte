@@ -82,7 +82,7 @@
 		border-color: var(--clr-commit-local);
 		border-width: 0 2px 2px 0;
 		&.long-root {
-			bottom: -2rem;
+			bottom: -32px;
 		}
 	}
 </style>

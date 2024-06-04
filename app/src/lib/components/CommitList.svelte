@@ -311,7 +311,7 @@
 		--base-icon-top: 16px;
 		--base-unfolded: 48px;
 
-		--avatar-first-top: 3.1rem;
+		--avatar-first-top: 50px;
 		--avatar-top: 16px;
 	}
 

@@ -123,7 +123,7 @@
 		overflow-x: auto;
 		align-items: flex-start;
 		padding: 12px 12px 12px 6px;
-		width: 50rem;
+		width: 800px;
 	}
 
 	.branch-preview {

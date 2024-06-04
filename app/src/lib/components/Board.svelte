@@ -263,7 +263,7 @@
 	.empty-board__image-frame {
 		flex-shrink: 0;
 		position: relative;
-		width: 11.2rem;
+		width: 180px;
 		height: auto;
 		border-radius: var(--radius-l);
 		background-color: var(--clr-illustration-bg);
@@ -274,8 +274,8 @@
 			position: absolute;
 			bottom: 12%;
 			left: 50%;
-			width: 6.5rem;
-			height: 1.5rem;
+			width: 104px;
+			height: 24px;
 			transform: translateX(-50%) scale(1.15);
 			border-radius: 100%;
 			background-color: var(--clr-illustration-outline);
@@ -290,7 +290,7 @@
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -70%) translateZ(0);
-		width: 13.3rem;
+		width: 212px;
 		animation: hovering 5.5s infinite ease-in-out;
 		animation-delay: 3s;
 	}
@@ -346,7 +346,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
-		min-width: 8rem;
+		min-width: 128px;
 	}
 
 	.empty-board__suggestions__block h3 {

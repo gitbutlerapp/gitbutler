@@ -53,7 +53,7 @@
 
 		width: fit-content;
 
-		height: 2rem;
+		height: 32px;
 
 		margin-left: auto;
 

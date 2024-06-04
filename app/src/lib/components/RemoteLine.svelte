@@ -130,7 +130,7 @@
 	.root {
 		position: absolute;
 		width: 10px;
-		top: 1.875rem;
+		top: 30px;
 		border-radius: var(--radius-l) 0 0 0;
 		height: 20px;
 		left: 11px;
@@ -151,8 +151,8 @@
 		left: 50%;
 		transform: translateX(-50%);
 		background: var(--clr-commit-remote);
-		height: 1.125rem;
-		width: 1.125rem;
+		height: 18px;
+		width: 18px;
 		transition: top var(--transition-medium);
 
 		& svg {

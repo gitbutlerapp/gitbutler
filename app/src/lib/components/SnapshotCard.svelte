@@ -287,7 +287,7 @@
 	.snapshot-right-container {
 		display: flex;
 		justify-content: flex-end;
-		width: 3.7rem;
+		width: 60px;
 	}
 
 	.restore-btn {
@@ -306,7 +306,7 @@
 		display: flex;
 		align-items: center;
 		flex-direction: column;
-		margin-top: 0.188rem;
+		margin-top: 3px;
 
 		&::after {
 			position: absolute;

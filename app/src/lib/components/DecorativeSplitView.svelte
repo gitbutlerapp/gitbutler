@@ -93,14 +93,14 @@
 		flex-direction: column;
 		margin: 0 auto;
 		width: 100%;
-		max-width: 32rem;
+		max-width: 512px;
 	}
 
 	/* RIGHT SIDE */
 
 	.right-side {
 		flex: 1;
-		min-width: 28rem;
+		min-width: 448px;
 		background-color: var(--clr-bg-1);
 		padding: 20px 20px 20px 0;
 	}
@@ -178,7 +178,7 @@
 		left: 50%;
 		transform: translate(-50%, -50%);
 		width: 100%;
-		max-width: 25rem;
+		max-width: 400px;
 		overflow: hidden;
 	}
 </style>

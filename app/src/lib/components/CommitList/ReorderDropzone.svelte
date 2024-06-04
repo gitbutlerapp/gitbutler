@@ -45,7 +45,7 @@
 
 	:global(.reorder-dz-active .reorder-dz-marker) {
 		display: flex !important;
-		height: 3rem;
+		height: 48px;
 		width: var(--dropzone-width);
 	}
 

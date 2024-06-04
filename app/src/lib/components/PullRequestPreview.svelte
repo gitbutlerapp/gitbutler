@@ -145,7 +145,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
-		max-width: 56rem;
+		max-width: 896px;
 	}
 	.card__content {
 		gap: 12px;

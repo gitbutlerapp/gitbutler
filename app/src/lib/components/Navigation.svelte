@@ -150,7 +150,7 @@
 	}
 
 	.navigation {
-		width: 17.5rem;
+		width: 280px;
 		display: flex;
 		flex-direction: column;
 		position: relative;
@@ -194,7 +194,7 @@
 		position: absolute;
 		right: -4px;
 		top: 50%;
-		width: 0.875rem;
+		width: 14px;
 		height: 36px;
 		background: var(--clr-bg-1);
 		border-radius: var(--radius-m);

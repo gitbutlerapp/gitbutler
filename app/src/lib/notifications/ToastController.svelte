@@ -47,7 +47,7 @@
 		right: 0;
 		padding: 12px 12px 12px 0;
 		gap: 8px;
-		max-width: 30rem;
+		max-width: 480px;
 		z-index: var(--z-blocker);
 		overflow-y: auto;
 		max-height: 100%;

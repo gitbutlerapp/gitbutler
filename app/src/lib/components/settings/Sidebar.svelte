@@ -150,7 +150,7 @@
 		border-right: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 		height: 100%;
-		width: 16rem;
+		width: 256px;
 	}
 
 	.profile-sidebar__header {
