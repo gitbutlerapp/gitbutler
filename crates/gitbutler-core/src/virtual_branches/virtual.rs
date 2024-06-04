@@ -361,15 +361,8 @@ pub fn apply_branch(
                         last_rebase_head = oid;
                     }
                 }
-                Err(err)
-                    if err
-                        .downcast_ref()
-                        .map_or(false, |marker: &Marker| *marker == Marker::ProjectConflict) =>
-                {
+                Err(_) => {
                     rebase_success = false;
-                }
-                Err(err) => {
-                    return Err(err).context("failed to apply branch");
                 }
             }
 
