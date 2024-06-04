@@ -136,7 +136,7 @@
 				<Toggle
 					id="historySync"
 					checked={project.api?.sync || false}
-					on:click={async (e) => await onSyncChange(e.detail)}
+					on:click={async (e) => await onSyncChange(!!e.detail)}
 				/>
 			</svelte:fragment>
 		</SectionCard>
