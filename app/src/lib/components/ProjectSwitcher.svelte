@@ -9,11 +9,26 @@
 	const projectService = getContext(ProjectService);
 	const project = maybeGetContext(Project);
 
-	const projects = projectService.projects;
+	type ProjectRecord = {
+		id: string;
+		title: string;
+	};
+
+	let mappedProjects: ProjectRecord[] = [];
+
+	projectService.projects.subscribe((projectList) => {
+		// Map the projectList to fit the ProjectRecord type
+		mappedProjects = projectList.map((project) => {
+			return {
+				id: project.id,
+				title: project.title
+			};
+		});
+	});
 
 	let loading = false;
-	let select: Select;
-	let selectValue = project;
+	let select: Select<ProjectRecord>;
+	let selectValue: ProjectRecord | undefined = project;
 </script>
 
 <div class="project-switcher">
@@ -22,7 +37,7 @@
 		label="Switch to another project"
 		itemId="id"
 		labelId="title"
-		items={$projects}
+		items={mappedProjects}
 		placeholder="Select a project..."
 		wide
 		bind:value={selectValue}
