@@ -14,6 +14,7 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch, Branch } from '$lib/vbranches/types';
+	import toast from 'svelte-french-toast';
 	import type { PullRequest } from '$lib/github/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import { goto } from '$app/navigation';
@@ -65,12 +66,12 @@
 	async function createPr(createPrOpts: CreatePrOpts): Promise<PullRequest | undefined> {
 		const opts = { ...defaultPrOpts, ...createPrOpts };
 		if (!githubService.isEnabled) {
-			showError('Cannot create PR without GitHub credentials');
+			toast.error('Cannot create PR without GitHub credentials');
 			return;
 		}
 
 		if (!$baseBranch?.shortName) {
-			showError('Cannot create PR without base branch');
+			toast.error('Cannot create PR without base branch');
 			return;
 		}
 
