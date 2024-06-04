@@ -1,8 +1,9 @@
 <script lang="ts" context="module">
-	export type ScrollbarPadding = { top?: string; right?: string; bottom?: string; left?: string };
+	export type ScrollbarPadding = { top?: number; right?: number; bottom?: number; left?: number };
 </script>
 
 <script lang="ts">
+	import { pxToRem } from '$lib/utils/pxToRem';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContextStoreBySymbol } from '$lib/utils/context';
 	import { onDestroy, createEventDispatcher } from 'svelte';
@@ -41,10 +42,10 @@
 	$: teardownTrack = setupTrack(track);
 	$: teardownContents = setupContents(contents);
 
-	$: paddingTop = padding.top ?? '0px';
-	$: paddingBottom = padding.bottom ?? '0px';
-	$: paddingRight = padding.right ?? '0px';
-	$: paddingLeft = padding.left ?? '0px';
+	$: paddingTop = pxToRem(padding.top) ?? '0';
+	$: paddingBottom = pxToRem(padding.bottom) ?? '0';
+	$: paddingRight = pxToRem(padding.right) ?? '0';
+	$: paddingLeft = pxToRem(padding.left) ?? '0';
 
 	$: wholeHeight = viewport?.scrollHeight ?? 0;
 	$: wholeWidth = viewport?.scrollWidth ?? 0;

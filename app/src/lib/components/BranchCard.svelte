@@ -178,8 +178,8 @@
 			<ScrollableContainer
 				wide
 				padding={{
-					top: `12px`,
-					bottom: `12px`
+					top: 12,
+					bottom: 12
 				}}
 				bottomBuffer={300}
 				on:bottomReached={onBottomReached}
