@@ -838,9 +838,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
         .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
     branch.head = last_push.into();
-    vb_state
-        .set_branch(branch.clone())
-        .context("failed to write target branch after push")?;
+    vb_state.set_branch(branch.clone())?;
 
     // create the branch
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
@@ -963,9 +961,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
         .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
     branch.head = last_push.into();
-    vb_state
-        .set_branch(branch.clone())
-        .context("failed to write target branch after push")?;
+    vb_state.set_branch(branch.clone())?;
 
     // create the branch
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
