@@ -11,6 +11,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { onDestroy } from 'svelte';
+	import toast from 'svelte-french-toast';
 	import type { PullRequest } from '$lib/github/types';
 	import type { BaseBranch, RemoteBranch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
@@ -99,8 +100,9 @@
 							await branchController.createvBranchFromBranch(branch.name);
 							goto(`/${project.id}/board`);
 						} catch (e) {
-							showError('Failed to apply branch', e);
-							console.error(e);
+							const msg = 'Failed to apply branch';
+							toast.error(msg);
+							console.error(msg, e);
 						} finally {
 							isApplying = false;
 						}
