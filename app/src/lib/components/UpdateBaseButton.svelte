@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Tag from './Tag.svelte';
+	import Button from './Button.svelte';
 	import { showInfo, showError } from '$lib/notifications/toasts';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -9,11 +9,11 @@
 	let loading = false;
 </script>
 
-<Tag
+<Button
+	size="tag"
 	style="error"
 	kind="solid"
 	help="Merge upstream commits into common base"
-	clickable
 	on:click={async () => {
 		loading = true;
 		try {
@@ -33,4 +33,4 @@
 	{:else}
 		Update
 	{/if}
-</Tag>
+</Button>

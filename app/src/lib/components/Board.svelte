@@ -8,6 +8,7 @@
 	import { cloneWithRotation } from '$lib/dragging/draggable';
 	import { persisted } from '$lib/persisted/persisted';
 	import { getContext, getContextStore } from '$lib/utils/context';
+	import { editor } from '$lib/utils/systemEditor';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
@@ -149,13 +150,9 @@
 										role="button"
 										tabindex="0"
 										on:keypress={async () =>
-											await open(
-												`vscode://file${project.vscodePath}/?windowId=_blank`
-											)}
+											await open(`${editor.get()}://file${project.vscodePath}/?windowId=_blank`)}
 										on:click={async () =>
-											await open(
-												`vscode://file${project.vscodePath}/?windowId=_blank`
-											)}
+											await open(`${editor.get()}://file${project.vscodePath}/?windowId=_blank`)}
 									>
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="vscode" />
@@ -240,7 +237,7 @@
 		align-items: center;
 		height: 100%;
 		width: 100%;
-		padding: 0 40px;
+		padding: 0 var(--size-40);
 	}
 
 	.empty-board {
@@ -249,10 +246,10 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-l);
 		width: 100%;
-		gap: 48px;
+		gap: var(--size-48);
 		max-width: 46rem;
 		min-height: 20rem;
-		padding: 32px;
+		padding: var(--size-32);
 	}
 
 	.empty-board__content {
@@ -260,7 +257,7 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		padding-left: 4px;
+		padding-left: var(--size-4);
 	}
 
 	.empty-board__image-frame {
@@ -328,7 +325,7 @@
 	.empty-board__about {
 		display: flex;
 		flex-direction: column;
-		margin-bottom: 32px;
+		margin-bottom: var(--size-32);
 	}
 
 	.empty-board__about h3 {
@@ -342,13 +339,13 @@
 	.empty-board__suggestions {
 		display: flex;
 		flex-direction: row;
-		gap: 40px;
+		gap: var(--size-40);
 	}
 
 	.empty-board__suggestions__block {
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
+		gap: var(--size-16);
 		min-width: 8rem;
 	}
 
@@ -359,8 +356,8 @@
 	.empty-board__suggestions__links {
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
-		margin-left: calc(4px * -1);
+		gap: var(--size-6);
+		margin-left: calc(var(--size-4) * -1);
 	}
 
 	.empty-board__suggestions__link {
@@ -368,9 +365,9 @@
 		display: flex;
 		width: fit-content;
 		max-width: 100%;
-		padding: 2px 6px 2px 4px;
+		padding: var(--size-2) var(--size-6) var(--size-2) var(--size-4);
 		border-radius: var(--radius-s);
-		gap: 10px;
+		gap: var(--size-10);
 		transition: background-color var(--transition-fast);
 		overflow: hidden;
 
@@ -380,7 +377,7 @@
 
 		& span {
 			color: var(--clr-scale-ntrl-40);
-			margin-top: calc(6px / 2);
+			margin-top: calc(var(--size-6) / 2);
 			white-space: nowrap;
 			text-overflow: ellipsis;
 			overflow: hidden;

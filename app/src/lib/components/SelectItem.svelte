@@ -38,9 +38,9 @@
 		border-radius: var(--radius-m);
 		width: 100%;
 		white-space: nowrap;
-		&:hover:enabled,
-		&:focus:enabled {
-			background-color: var(--clr-bg-2);
+		&:not(.selected):hover:enabled,
+		&:not(.selected):focus:enabled {
+			background-color: var(--clr-bg-1-muted);
 			& .icon {
 				color: var(--clr-scale-ntrl-40);
 			}

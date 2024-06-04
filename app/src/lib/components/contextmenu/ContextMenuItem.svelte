@@ -52,7 +52,7 @@
 		transition: background-color var(--transition-fast);
 		&:not(.disabled):hover {
 			transition: none;
-			background-color: var(--clr-bg-3);
+			background-color: var(--clr-bg-2-muted);
 		}
 	}
 	.label {

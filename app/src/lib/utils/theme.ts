@@ -29,6 +29,7 @@ export function updateDom() {
 		(selectedTheme == 'system' && systemTheme == 'dark') ||
 		(selectedTheme == undefined && systemTheme == 'dark')
 	) {
+		docEl.classList.remove('light');
 		docEl.classList.add('dark');
 		docEl.style.colorScheme = 'dark';
 	} else if (
@@ -37,6 +38,7 @@ export function updateDom() {
 		(selectedTheme == undefined && systemTheme == 'light')
 	) {
 		docEl.classList.remove('dark');
+		docEl.classList.add('light');
 		docEl.style.colorScheme = 'light';
 	}
 }
