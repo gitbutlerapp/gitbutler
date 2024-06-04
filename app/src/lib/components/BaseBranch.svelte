@@ -22,7 +22,9 @@
 	let updateTargetModal: Modal;
 	let mergeUpstreamWarningDismissedCheckbox = false;
 
-	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length == 0 : false;
+	$: multiple = base
+		? base.upstreamCommits.length > 1 || base.upstreamCommits.length == 0
+		: false;
 
 	async function updateBaseBranch() {
 		let infoText = await branchController.updateBaseBranch();
@@ -96,12 +98,12 @@
 	<div class="modal-content">
 		<h4 class="text-base-body-14 text-semibold">What will this do?</h4>
 		<p class="modal__small-text text-base-body-12">
-			We will try to merge the work that is upstream into each of your virtual branches, so that
-			they are all up to date.
+			We will try to merge the work that is upstream into each of your virtual branches, so
+			that they are all up to date.
 		</p>
 		<p class="modal__small-text text-base-body-12">
-			Any virtual branches that we can't merge cleanly, we will unapply and mark with a blue dot.
-			You can merge these manually later.
+			Any virtual branches that we can't merge cleanly, we will unapply and mark with a blue
+			dot. You can merge these manually later.
 		</p>
 		<p class="modal__small-text text-base-body-12">
 			Any virtual branches that are fully integrated upstream will be automatically removed.
@@ -135,7 +137,7 @@
 	.wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
+		gap: 16px;
 	}
 
 	.info-text {
@@ -145,8 +147,8 @@
 	.modal-content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-10);
-		margin-bottom: var(--size-20);
+		gap: 10px;
+		margin-bottom: 20px;
 
 		&:last-child {
 			margin-bottom: 0;
@@ -160,10 +162,10 @@
 	.modal__dont-show-again {
 		display: flex;
 		align-items: center;
-		gap: var(--size-8);
-		padding: var(--size-14);
+		gap: 8px;
+		padding: 14px;
 		background-color: var(--clr-bg-2);
 		border-radius: var(--radius-m);
-		margin-bottom: var(--size-6);
+		margin-bottom: 6px;
 	}
 </style>

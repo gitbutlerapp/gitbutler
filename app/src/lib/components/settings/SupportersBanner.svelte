@@ -1,6 +1,8 @@
 <a class="banner" href="https://docs.gitbutler.com/community/supporters" target="_blank">
 	<div class="benner-content">
-		<h4 class="benner-label text-base-14 text-bold">Thank you to all GitButler early supporters</h4>
+		<h4 class="benner-label text-base-14 text-bold">
+			Thank you to all GitButler early supporters
+		</h4>
 		<i class="benner-arrow-wrap">
 			<div class="benner-arrow-tail"></div>
 			<svg
@@ -24,7 +26,7 @@
 	.banner {
 		display: flex;
 		align-items: center;
-		padding: var(--size-16);
+		padding: 16px;
 		border-radius: var(--radius-m);
 		background-color: #d7f2f1;
 

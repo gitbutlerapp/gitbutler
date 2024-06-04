@@ -12,7 +12,11 @@
 
 <div class="shadow-column">
 	{#if outType}
-		<div class="shadow-line tip" class:dashed={outDashed} class:upstream={outType == 'upstream'} />
+		<div
+			class="shadow-line tip"
+			class:dashed={outDashed}
+			class:upstream={outType == 'upstream'}
+		/>
 	{/if}
 	{#if inType}
 		<div
@@ -31,20 +35,20 @@
 	}
 
 	.shadow-column {
-		width: var(--size-16);
+		width: 16px;
 	}
 
 	.shadow-line {
 		position: absolute;
-		width: var(--size-2);
+		width: 2px;
 		background-color: var(--clr-commit-shadow);
 		left: 75%;
 		bottom: 0;
 		top: 0;
 		&.short {
-			top: calc(var(--avatar-top) + var(--size-4));
+			top: calc(var(--avatar-top) + 4px);
 			&.first {
-				top: calc(var(--avatar-first-top) + var(--size-4));
+				top: calc(var(--avatar-first-top) + 4px);
 			}
 		}
 		&.dashed {

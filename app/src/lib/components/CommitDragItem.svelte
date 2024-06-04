@@ -55,7 +55,12 @@
 					// this is a file from a commit, rather than an uncommitted file
 					const newOwnership = filesToSimpleOwnership(data.files);
 					if (data.commit) {
-						branchController.moveCommitFile($branch.id, data.commit.id, commit.id, newOwnership);
+						branchController.moveCommitFile(
+							$branch.id,
+							data.commit.id,
+							commit.id,
+							newOwnership
+						);
 					}
 				}
 			}
@@ -131,7 +136,7 @@
 		display: flex;
 		position: relative;
 		padding: 0;
-		gap: var(--size-8);
+		gap: 8px;
 		flex-grow: 1;
 		overflow: hidden;
 		&:last-child {

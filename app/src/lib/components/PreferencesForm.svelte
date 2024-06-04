@@ -49,8 +49,8 @@
 	<SectionCard orientation="row" labelFor="allowForcePush">
 		<svelte:fragment slot="title">Allow force pushing</svelte:fragment>
 		<svelte:fragment slot="caption">
-			Force pushing allows GitButler to override branches even if they were pushed to remote. We
-			will never force push to the trunk.
+			Force pushing allows GitButler to override branches even if they were pushed to remote.
+			We will never force push to the trunk.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Toggle
@@ -129,6 +129,6 @@
 	.wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 </style>

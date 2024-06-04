@@ -69,7 +69,8 @@
 			kind="solid"
 			grow
 			loading={isCommitting}
-			disabled={(isCommitting || !commitMessageValid || $selectedOwnership.isEmpty()) && $expanded}
+			disabled={(isCommitting || !commitMessageValid || $selectedOwnership.isEmpty()) &&
+				$expanded}
 			id="commit-to-branch"
 			on:click={() => {
 				if ($expanded) {
@@ -88,7 +89,7 @@
 	.commit-box {
 		display: flex;
 		flex-direction: column;
-		padding: var(--size-14);
+		padding: 14px;
 		background: var(--clr-bg-1);
 		border-top: 1px solid var(--clr-border-2);
 		transition: background-color var(--transition-medium);
@@ -97,13 +98,13 @@
 	.commit-box__expander {
 		display: flex;
 		flex-direction: column;
-		margin-bottom: var(--size-12);
+		margin-bottom: 12px;
 	}
 
 	.actions {
 		display: flex;
 		justify-content: right;
-		gap: var(--size-6);
+		gap: 6px;
 	}
 
 	.commit-box__expanded {

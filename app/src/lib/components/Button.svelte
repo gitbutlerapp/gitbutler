@@ -19,7 +19,8 @@
 	export let size: 'tag' | 'button' | 'cta' = 'button';
 	export let wide = false;
 	export let grow = false;
-	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' = 'auto';
+	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' =
+		'auto';
 	export let isDropdownChild = false;
 	// Style props
 	export let style: ComponentColor = 'neutral';
@@ -86,10 +87,10 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		padding: var(--size-4) var(--size-6);
+		padding: 4px 6px;
 		border-radius: var(--radius-m);
 		flex-shrink: 0;
-		gap: var(--size-4);
+		gap: 4px;
 		border: 1px solid transparent;
 		transition:
 			background var(--transition-fast),
@@ -131,7 +132,7 @@
 		justify-content: center;
 		height: var(--size-icon);
 		min-width: var(--size-icon);
-		padding: 0 var(--size-4);
+		padding: 0 4px;
 		border-radius: var(--radius-s);
 		background: var(--btn-clr);
 	}
@@ -324,19 +325,19 @@
 	.btn.tag {
 		height: var(--size-tag);
 		min-width: var(--size-tag);
-		padding: var(--size-2) var(--size-4);
+		padding: 2px 4px;
 	}
 
 	.btn.button {
 		height: var(--size-button);
 		min-width: var(--size-button);
-		padding: var(--size-4) var(--size-8);
+		padding: 4px 8px;
 	}
 
 	.btn.cta {
 		height: var(--size-cta);
 		min-width: var(--size-cta);
-		padding: var(--size-6) var(--size-8);
+		padding: 6px 8px;
 	}
 
 	/* FIXED WIDTH */
@@ -344,17 +345,17 @@
 	.btn.fixed-width {
 		&.tag {
 			width: var(--size-tag);
-			padding: var(--size-2);
+			padding: 2px;
 		}
 
 		&.button {
 			width: var(--size-button);
-			padding: var(--size-4);
+			padding: 4px;
 		}
 
 		&.cta {
 			width: var(--size-cta);
-			padding: var(--size-6);
+			padding: 6px;
 		}
 	}
 

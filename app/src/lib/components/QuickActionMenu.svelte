@@ -59,9 +59,9 @@
 
 		align-items: center;
 
-		gap: var(--size-4);
+		gap: 4px;
 
-		padding: var(--size-4);
+		padding: 4px;
 		background-color: var(--clr-bg-1);
 		border-radius: var(--radius-l);
 		border: 1px var(--clr-border-3) solid;

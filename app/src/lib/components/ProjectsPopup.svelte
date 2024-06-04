@@ -69,7 +69,7 @@
 		top: 100%;
 		z-index: var(--z-floating);
 		width: 100%;
-		margin-top: var(--size-6);
+		margin-top: 6px;
 		border-radius: var(--m, 6px);
 		border: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
@@ -77,14 +77,14 @@
 		box-shadow: 0px 7px 14px 0px rgba(0, 0, 0, 0.1);
 	}
 	.popup__actions {
-		padding: var(--size-8);
+		padding: 8px;
 		border-top: 1px solid var(--clr-scale-ntrl-70);
 	}
 	.popup__projects {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-2);
-		padding: var(--size-8);
+		gap: 2px;
+		padding: 8px;
 	}
 
 	/* MODIFIERS */

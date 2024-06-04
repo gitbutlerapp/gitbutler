@@ -107,7 +107,9 @@
 <Modal bind:this={commitMessageModal}>
 	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
 	<svelte:fragment slot="controls">
-		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}>Cancel</Button>
+		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}
+			>Cancel</Button
+		>
 		<Button
 			style="pop"
 			kind="solid"
@@ -175,13 +177,19 @@
 							>empty commit message</span
 						>
 					{:else}
-						<h5 class="text-base-body-13 text-semibold commit__title" class:truncate={!showDetails}>
+						<h5
+							class="text-base-body-13 text-semibold commit__title"
+							class:truncate={!showDetails}
+						>
 							{commit.descriptionTitle}
 						</h5>
 
 						<div class="text-base-11 commit__subtitle">
 							{#if commit.isSigned}
-								<div class="commit__signed" use:tooltip={{ text: 'Signed', delay: 500 }}>
+								<div
+									class="commit__signed"
+									use:tooltip={{ text: 'Signed', delay: 500 }}
+								>
 									<Icon name="success-outline-small" />
 								</div>
 							{/if}
@@ -195,7 +203,8 @@
 							<span class="commit__subtitle-divider">•</span>
 
 							<span
-								>{getTimeAgo(commit.createdAt)}{type == 'remote' || type == 'upstream'
+								>{getTimeAgo(commit.createdAt)}{type == 'remote' ||
+								type == 'upstream'
 									? ` by ${commit.author.name}`
 									: ''}</span
 							>
@@ -253,7 +262,12 @@
 
 			{#if showDetails}
 				<div class="files-container">
-					<BranchFilesList title="Files" {files} {isUnapplied} readonly={type == 'upstream'} />
+					<BranchFilesList
+						title="Files"
+						{files}
+						{isUnapplied}
+						readonly={type == 'upstream'}
+					/>
 				</div>
 			{/if}
 		</div>
@@ -272,13 +286,13 @@
 	.commit-row {
 		position: relative;
 		display: flex;
-		gap: var(--size-8);
+		gap: 8px;
 		&.has-lines {
-			padding-right: var(--size-14);
+			padding-right: 14px;
 		}
 
 		/* border-top: 1px solid var(--clr-border-2); */
-		/* padding-left: var(--size-8); */
+		/* padding-left: 8px; */
 
 		&:not(.is-first) {
 			border-top: 1px solid var(--clr-border-3);
@@ -300,7 +314,7 @@
 		transition: background-color var(--transition-fast);
 
 		&.is-first {
-			margin-top: var(--size-12);
+			margin-top: 12px;
 			border-top: 1px solid var(--clr-border-2);
 			border-top-left-radius: var(--radius-m);
 			border-top-right-radius: var(--radius-m);
@@ -317,7 +331,7 @@
 
 	.accent-border-line {
 		position: absolute;
-		width: var(--size-4);
+		width: 4px;
 		height: 100%;
 		&.local {
 			background-color: var(--clr-commit-local);
@@ -346,8 +360,8 @@
 	.commit__about {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-6);
-		padding: var(--size-14);
+		gap: 6px;
+		padding: 14px;
 
 		&:hover {
 			background-color: var(--clr-bg-1-muted);
@@ -373,7 +387,7 @@
 		display: flex;
 		align-items: center;
 		flex-wrap: nowrap;
-		gap: var(--size-4);
+		gap: 4px;
 		color: var(--clr-text-2);
 		overflow: hidden;
 
@@ -391,7 +405,7 @@
 	.commit__id {
 		display: flex;
 		align-items: center;
-		gap: var(--size-4);
+		gap: 4px;
 
 		&:hover {
 			color: var(--clr-text-1);
@@ -407,17 +421,17 @@
 	.commit__details {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-12);
-		padding: var(--size-14);
+		gap: 12px;
+		padding: 14px;
 		border-top: 1px solid var(--clr-border-2);
 	}
 
 	.commit__actions {
 		display: flex;
-		gap: var(--size-4);
+		gap: 4px;
 		overflow-x: auto;
-		margin: 0 calc(var(--size-14) * -1);
-		padding: 0 var(--size-14);
+		margin: 0 calc(14px * -1);
+		padding: 0 14px;
 	}
 
 	/* FILES */
@@ -433,12 +447,12 @@
 
 		& .commit-card {
 			&:not(.is-first) {
-				margin-top: var(--size-8);
+				margin-top: 8px;
 				border-top: 1px solid var(--clr-border-2);
 			}
 
 			&:not(.is-last) {
-				margin-bottom: var(--size-8);
+				margin-bottom: 8px;
 				border-bottom: 1px solid var(--clr-border-2);
 			}
 		}

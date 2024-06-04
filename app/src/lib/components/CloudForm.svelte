@@ -74,16 +74,18 @@
 	<svelte:fragment slot="title">AI options</svelte:fragment>
 	<svelte:fragment slot="description">
 		GitButler supports the use of OpenAI and Anthropic to provide commit message and branch name
-		generation. This works either through GitButler's API or in a bring your own key configuration
-		and can be configured in the main preferences screen.
+		generation. This works either through GitButler's API or in a bring your own key
+		configuration and can be configured in the main preferences screen.
 	</svelte:fragment>
 
 	<div class="options">
 		<SectionCard labelFor="aiGenEnabled" on:click={aiGenToggle} orientation="row">
-			<svelte:fragment slot="title">Enable branch and commit message generation</svelte:fragment>
+			<svelte:fragment slot="title"
+				>Enable branch and commit message generation</svelte:fragment
+			>
 			<svelte:fragment slot="caption">
-				If enabled, diffs will sent to OpenAI or Anthropic's servers when pressing the "Generate
-				message" and "Generate branch name" button.
+				If enabled, diffs will sent to OpenAI or Anthropic's servers when pressing the
+				"Generate message" and "Generate branch name" button.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<Toggle id="aiGenEnabled" checked={$aiGenEnabled} on:change={aiGenToggle} />
@@ -117,8 +119,8 @@
 		<Spacer margin={8} />
 
 		<p class="text-base-body-12">
-			You can apply your own custom prompts to the project. By default, the project uses GitButler
-			prompts, but you can create your own prompts in the general settings.
+			You can apply your own custom prompts to the project. By default, the project uses
+			GitButler prompts, but you can create your own prompts in the general settings.
 		</p>
 		<Button
 			style="ghost"
@@ -167,7 +169,7 @@
 	.options {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 
 	.api-link {

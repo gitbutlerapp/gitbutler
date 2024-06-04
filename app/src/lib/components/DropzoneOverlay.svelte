@@ -55,7 +55,7 @@
 		.dropzone-content {
 			display: flex;
 			align-items: center;
-			gap: var(--size-6);
+			gap: 6px;
 			color: var(--clr-scale-pop-40);
 		}
 

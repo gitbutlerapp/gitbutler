@@ -91,12 +91,12 @@
 
 	.dropdown-top {
 		bottom: 100%;
-		padding-bottom: var(--size-4);
+		padding-bottom: 4px;
 	}
 
 	.dropdown-bottom {
 		top: 100%;
-		padding-top: var(--size-4);
+		padding-top: 4px;
 	}
 
 	.wide {

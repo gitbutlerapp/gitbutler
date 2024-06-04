@@ -81,7 +81,8 @@
 	<TextBox label="Choose a remote name" bind:value={remoteName}></TextBox>
 	<svelte:fragment slot="controls">
 		<Button style="ghost" kind="solid" on:click={closeModal}>Cancel</Button>
-		<Button style="pop" kind="solid" grow on:click={createRemoteAndBranch} {loading}>Confirm</Button
+		<Button style="pop" kind="solid" grow on:click={createRemoteAndBranch} {loading}
+			>Confirm</Button
 		>
 	</svelte:fragment>
 </Modal>
@@ -143,18 +144,18 @@
 	.wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
+		gap: 16px;
 		max-width: 56rem;
 	}
 	.card__content {
-		gap: var(--size-12);
+		gap: 12px;
 	}
 	.card__title-pr {
 		opacity: 0.4;
-		margin-left: var(--size-4);
+		margin-left: 4px;
 	}
 
 	.fork-notice {
-		margin-bottom: var(--size-8);
+		margin-bottom: 8px;
 	}
 </style>

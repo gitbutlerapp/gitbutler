@@ -178,8 +178,8 @@
 			<ScrollableContainer
 				wide
 				padding={{
-					top: `var(--size-12)`,
-					bottom: `var(--size-12)`
+					top: `12px`,
+					bottom: `12px`
 				}}
 				bottomBuffer={300}
 				on:bottomReached={onBottomReached}
@@ -247,13 +247,20 @@
 									/>
 									{#if branch.active && branch.conflicted}
 										<div class="card-notifications">
-											<InfoMessage noRadius filled outlined={false} style="error">
+											<InfoMessage
+												noRadius
+												filled
+												outlined={false}
+												style="error"
+											>
 												<svelte:fragment slot="title">
 													{#if branch.files.some((f) => f.conflicted)}
-														This virtual branch conflicts with upstream changes. Please resolve all
-														conflicts and commit before you can continue.
+														This virtual branch conflicts with upstream
+														changes. Please resolve all conflicts and
+														commit before you can continue.
 													{:else}
-														Please commit your resolved conflicts to continue.
+														Please commit your resolved conflicts to
+														continue.
 													{/if}
 												</svelte:fragment>
 											</InfoMessage>
@@ -275,7 +282,9 @@
 							{:else if branch.commits.length == 0}
 								<div class="new-branch">
 									<EmptyStatePlaceholder image={laneNewSvg} width="11rem">
-										<svelte:fragment slot="title">This is a new branch</svelte:fragment>
+										<svelte:fragment slot="title"
+											>This is a new branch</svelte:fragment
+										>
 										<svelte:fragment slot="caption">
 											You can drag and drop files or parts of files here.
 										</svelte:fragment>
@@ -283,7 +292,11 @@
 								</div>
 							{:else}
 								<div class="no-changes" data-dnd-ignore>
-									<EmptyStatePlaceholder image={noChangesSvg} width="11rem" hasBottomShift={false}>
+									<EmptyStatePlaceholder
+										image={noChangesSvg}
+										width="11rem"
+										hasBottomShift={false}
+									>
 										<svelte:fragment slot="caption"
 											>No uncommitted changes on this branch</svelte:fragment
 										>
@@ -303,7 +316,9 @@
 					direction="right"
 					minWidth={380}
 					sticky
-					defaultLineColor={$fileIdSelection.length == 1 ? 'transparent' : 'var(--clr-border-2)'}
+					defaultLineColor={$fileIdSelection.length == 1
+						? 'transparent'
+						: 'var(--clr-border-2)'}
 					on:width={(e) => {
 						laneWidth = e.detail / (16 * $userSettings.zoom);
 						lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
@@ -350,7 +365,7 @@
 		flex-direction: column;
 		flex: 1;
 		min-height: 100%;
-		padding: var(--size-12);
+		padding: 12px;
 	}
 
 	.card {
@@ -367,7 +382,7 @@
 	.card-notifications {
 		display: flex;
 		flex-direction: column;
-		padding: 0 var(--size-12) var(--size-12) var(--size-12);
+		padding: 0 12px 12px 12px;
 	}
 
 	.new-branch,
@@ -407,7 +422,7 @@
 	.collapsed-lane-container {
 		display: flex;
 		flex-direction: column;
-		padding: var(--size-12);
+		padding: 12px;
 		height: 100%;
 		border-right: 1px solid var(--clr-border-2);
 	}

@@ -202,9 +202,14 @@
 				<ContextMenuSection>
 					<ContextMenuItem
 						label="Extra concise"
-						on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+						on:click={() =>
+							($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
 					>
-						<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
+						<Checkbox
+							small
+							slot="control"
+							bind:checked={$commitGenerationExtraConcise}
+						/>
 					</ContextMenuItem>
 
 					<ContextMenuItem
@@ -223,9 +228,9 @@
 	.commit-box__textarea-wrapper {
 		display: flex;
 		position: relative;
-		padding: 0 0 var(--size-48);
+		padding: 0 0 48px;
 		flex-direction: column;
-		gap: var(--size-4);
+		gap: 4px;
 	}
 
 	.commit-box__textarea {
@@ -233,7 +238,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-end;
-		gap: var(--size-16);
+		gap: 16px;
 		background: none;
 		resize: none;
 		&:focus {
@@ -248,26 +253,26 @@
 	.commit-box__textarea-tooltip {
 		position: absolute;
 		display: flex;
-		bottom: var(--size-12);
-		left: var(--size-12);
-		padding: var(--size-2);
+		bottom: 12px;
+		left: 12px;
+		padding: 2px;
 		border-radius: 100%;
 		background: var(--clr-bg-2);
 		color: var(--clr-scale-ntrl-40);
 	}
 
 	.commit-box__textarea__title {
-		padding: var(--size-12) var(--size-12) 0 var(--size-12);
+		padding: 12px 12px 0 12px;
 	}
 
 	.commit-box__textarea__description {
-		padding: 0 var(--size-12) 0 var(--size-12);
+		padding: 0 12px 0 12px;
 	}
 
 	.commit-box__texarea-actions {
 		position: absolute;
 		display: flex;
-		right: var(--size-12);
-		bottom: var(--size-12);
+		right: 12px;
+		bottom: 12px;
 	}
 </style>

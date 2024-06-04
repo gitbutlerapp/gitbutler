@@ -14,7 +14,9 @@
 
 	function selectAll(files: AnyFile[]) {
 		if (!selectedOwnership) return;
-		files.forEach((f) => selectedOwnership.update((ownership) => ownership.add(f.id, ...f.hunks)));
+		files.forEach((f) =>
+			selectedOwnership.update((ownership) => ownership.add(f.id, ...f.hunks))
+		);
 	}
 
 	function isAllChecked(selectedOwnership: Ownership | undefined): boolean {
@@ -70,16 +72,16 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--size-14);
+		padding: 14px;
 	}
 	.header__title {
 		display: flex;
 		align-items: center;
-		gap: var(--size-4);
+		gap: 4px;
 		color: var(--clr-scale-ntrl-0);
 	}
 	.header__left {
 		display: flex;
-		gap: var(--size-10);
+		gap: 10px;
 	}
 </style>

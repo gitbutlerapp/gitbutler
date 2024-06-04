@@ -99,8 +99,8 @@
 	.lines {
 		display: flex;
 		align-items: stretch;
-		min-height: var(--size-12);
-		padding-left: var(--size-8);
+		min-height: 12px;
+		padding-left: 8px;
 		/* margin-top: -1px; */
 	}
 </style>

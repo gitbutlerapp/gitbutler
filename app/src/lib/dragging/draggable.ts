@@ -19,7 +19,7 @@ export function createContainerForMultiDrag(children: Element[]): HTMLDivElement
 	const inner = document.createElement('div');
 	inner.style.display = 'flex';
 	inner.style.flexDirection = 'column';
-	inner.style.gap = 'var(--size-2)';
+	inner.style.gap = '2px';
 
 	children.forEach((child) => {
 		inner.appendChild(cloneWithPreservedDimensions(child));

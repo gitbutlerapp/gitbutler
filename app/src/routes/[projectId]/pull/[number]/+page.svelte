@@ -39,6 +39,6 @@
 	}
 	.inner {
 		display: flex;
-		padding: var(--size-16);
+		padding: 16px;
 	}
 </style>

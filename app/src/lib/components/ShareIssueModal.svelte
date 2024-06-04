@@ -77,7 +77,9 @@
 
 		toasts.promise(
 			Promise.all([
-				sendLogs ? zip.logs().then(async (path) => await readZipFile(path, 'logs.zip')) : undefined,
+				sendLogs
+					? zip.logs().then(async (path) => await readZipFile(path, 'logs.zip'))
+					: undefined,
 				sendProjectData
 					? zip
 							.gitbutlerData({ projectId })
@@ -162,8 +164,8 @@
 >
 	<div class="content-wrapper">
 		<p class="content-wrapper__help-text text-base-body-13">
-			If you are having trouble, please share your project and logs with the GitButler team. We will
-			review it for you and help identify how we can help resolve the issue.
+			If you are having trouble, please share your project and logs with the GitButler team.
+			We will review it for you and help identify how we can help resolve the issue.
 		</p>
 
 		{#if !$user}
@@ -194,8 +196,8 @@
 		<div class="content-wrapper__section">
 			<span class="text-base-16 text-semibold"> Share logs </span>
 			<span class="content-wrapper__help-text text-base-body-13">
-				We personally ensure all information you share with us will be reviewed internally only and
-				discarded post-resolution
+				We personally ensure all information you share with us will be reviewed internally
+				only and discarded post-resolution
 			</span>
 		</div>
 
@@ -213,7 +215,9 @@
 
 				<div class="content-wrapper__checkbox">
 					<Checkbox name="project-repository" bind:checked={sendProjectRepository} />
-					<label class="text-base-13" for="project-repository">Share project repository</label>
+					<label class="text-base-13" for="project-repository"
+						>Share project repository</label
+					>
 				</div>
 			{/if}
 		</div>
@@ -235,7 +239,7 @@
 	.content-wrapper__section {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 
 	.content-wrapper__help-text {
@@ -245,12 +249,12 @@
 	.content-wrapper__checkbox-group {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-10);
+		gap: 10px;
 	}
 
 	.content-wrapper__checkbox {
 		display: flex;
 		align-items: center;
-		gap: var(--size-10);
+		gap: 10px;
 	}
 </style>

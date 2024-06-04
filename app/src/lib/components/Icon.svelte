@@ -43,7 +43,7 @@
 
 <style lang="postcss">
 	.icon-wrapper {
-		--spinner-stroke-width: calc(var(--size-2) / 1.4);
+		--spinner-stroke-width: calc(2px / 1.4);
 		flex-shrink: 0;
 		pointer-events: none;
 		display: inline-block;

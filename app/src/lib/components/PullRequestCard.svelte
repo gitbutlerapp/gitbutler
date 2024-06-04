@@ -274,7 +274,9 @@
 			<Tag
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.style}
-				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status' ? 'solid' : 'soft'}
+				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status'
+					? 'solid'
+					: 'soft'}
 			>
 				{prStatusInfo.text}
 			</Tag>
@@ -319,7 +321,12 @@
 		{#if pr}
 			<div class="pr-actions">
 				{#if infoProps}
-					<InfoMessage icon={infoProps.icon} filled outlined={false} style={infoProps.messageStyle}>
+					<InfoMessage
+						icon={infoProps.icon}
+						filled
+						outlined={false}
+						style={infoProps.messageStyle}
+					>
 						<svelte:fragment slot="content">
 							{infoProps.text}
 						</svelte:fragment>
@@ -360,33 +367,33 @@
 <style lang="postcss">
 	.pr-card {
 		position: relative;
-		padding: var(--size-14);
-		margin-bottom: var(--size-8);
+		padding: 14px;
+		margin-bottom: 8px;
 	}
 
 	.pr-title {
 		color: var(--clr-scale-ntrl-0);
-		margin-bottom: var(--size-12);
-		margin-right: var(--size-28);
+		margin-bottom: 12px;
+		margin-right: 28px;
 		user-select: text;
 		cursor: text;
 	}
 
 	.pr-tags {
 		display: flex;
-		gap: var(--size-4);
+		gap: 4px;
 	}
 
 	.pr-actions {
-		margin-top: var(--size-14);
+		margin-top: 14px;
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 
 	.floating-button {
 		position: absolute;
-		right: var(--size-6);
-		top: var(--size-6);
+		right: 6px;
+		top: 6px;
 	}
 </style>

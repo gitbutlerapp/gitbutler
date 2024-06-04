@@ -64,7 +64,7 @@
 	.project-switcher {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-10);
+		gap: 10px;
 		align-items: flex-end;
 	}
 </style>

@@ -12,7 +12,10 @@
 		{#if author.gravatarUrl && index < maximumAuthors}
 			<AuthorIcon {author} />
 		{:else if index === maximumAuthors}
-			<div class="authors-left-counter" title={authors.length - maximumAuthors + ' more authors'}>
+			<div
+				class="authors-left-counter"
+				title={authors.length - maximumAuthors + ' more authors'}
+			>
 				<span class="text-base-10 text-semibold">
 					+{authors.length - maximumAuthors}
 				</span>
@@ -31,11 +34,11 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		height: var(--size-16);
-		padding: 0 var(--size-4);
+		height: 16px;
+		padding: 0 4px;
 		background-color: var(--clr-bg-1);
-		border-radius: var(--size-16);
-		margin-left: calc(var(--size-4) * -1);
+		border-radius: 16px;
+		margin-left: calc(4px * -1);
 		border: 1px solid var(--clr-border-2);
 
 		& span {

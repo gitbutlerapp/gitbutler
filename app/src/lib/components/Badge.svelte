@@ -15,10 +15,10 @@
 		align-items: center;
 		justify-content: center;
 		text-align: center;
-		height: var(--size-14);
-		min-width: var(--size-14);
-		border-radius: var(--size-14);
-		padding: 0 var(--size-4);
+		height: 14px;
+		min-width: 14px;
+		border-radius: 14px;
+		padding: 0 4px;
 		color: var(--clr-scale-ntrl-100);
 		background-color: var(--clr-scale-ntrl-40);
 		line-height: 90%;

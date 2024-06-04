@@ -48,12 +48,14 @@
 			<ProjectNameLabel projectName={project?.title} />
 		</div>
 		<p class="switchrepo__title text-base-body-18 text-bold">
-			Looks like you've switched away from <span class="code-string"> gitbutler/integration </span>
+			Looks like you've switched away from <span class="code-string">
+				gitbutler/integration
+			</span>
 		</p>
 
 		<p class="switchrepo__message text-base-body-13">
-			Due to GitButler managing multiple virtual branches, you cannot switch back and forth between
-			git branches and virtual branches easily.
+			Due to GitButler managing multiple virtual branches, you cannot switch back and forth
+			between git branches and virtual branches easily.
 			<Link href="https://docs.gitbutler.com/features/virtual-branches/integration-branch">
 				Learn more
 			</Link>
@@ -91,31 +93,31 @@
 <style lang="postcss">
 	.project-name {
 		display: flex;
-		gap: var(--size-8);
+		gap: 8px;
 		align-items: center;
 		line-height: 120%;
 		color: var(--clr-scale-ntrl-30);
-		margin-bottom: var(--size-20);
+		margin-bottom: 20px;
 	}
 
 	.switchrepo__title {
 		color: var(--clr-scale-ntrl-30);
-		margin-bottom: var(--size-12);
+		margin-bottom: 12px;
 	}
 
 	.switchrepo__message {
 		color: var(--clr-scale-ntrl-50);
-		margin-bottom: var(--size-20);
+		margin-bottom: 20px;
 	}
 	.switchrepo__actions {
 		display: flex;
-		gap: var(--size-8);
-		padding-bottom: var(--size-24);
+		gap: 8px;
+		padding-bottom: 24px;
 		flex-wrap: wrap;
 	}
 
 	.switchrepo__project {
-		padding-top: var(--size-24);
+		padding-top: 24px;
 		border-top: 1px dashed var(--clr-scale-ntrl-60);
 	}
 </style>

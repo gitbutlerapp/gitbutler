@@ -34,7 +34,9 @@
 
 		const ranges = snapshots.flatMap((snapshot, startIndex) => {
 			if (snapshot.details?.operation === 'RestoreFromSnapshot') {
-				const restoredId = snapshot.details?.trailers.find((t) => t.key === 'restored_from')?.value;
+				const restoredId = snapshot.details?.trailers.find(
+					(t) => t.key === 'restored_from'
+				)?.value;
 				if (restoredId !== undefined) {
 					const endIndex = idToIndexMap.get(restoredId);
 					if (endIndex !== undefined && startIndex <= endIndex) {
@@ -121,8 +123,8 @@
 				<EmptyStatePlaceholder image={emptyFolderSvg}>
 					<svelte:fragment slot="title">No snapshots yet</svelte:fragment>
 					<svelte:fragment slot="caption">
-						Gitbutler saves your work, including file changes, so your progress is always secure.
-						Adjust snapshot settings in project settings.
+						Gitbutler saves your work, including file changes, so your progress is
+						always secure. Adjust snapshot settings in project settings.
 					</svelte:fragment>
 				</EmptyStatePlaceholder>
 			{/if}
@@ -171,7 +173,10 @@
 										} else {
 											snapshotFilesTempStore = {
 												entryId: entry.id,
-												diffs: await historyService.getSnapshotDiff(project.id, entry.id)
+												diffs: await historyService.getSnapshotDiff(
+													project.id,
+													entry.id
+												)
 											};
 											updateFilePreview(entry, path);
 										}
@@ -196,8 +201,9 @@
 								<div class="welcome-point__content">
 									<p class="text-base-13 text-semibold">Welcome to history!</p>
 									<p class="welcome-point__caption text-base-body-12">
-										Gitbutler saves your work, including file changes, so your progress is always
-										secure. Adjust snapshot settings in project settings.
+										Gitbutler saves your work, including file changes, so your
+										progress is always secure. Adjust snapshot settings in
+										project settings.
 									</p>
 								</div>
 							</div>
@@ -247,8 +253,8 @@
 	.sideview__header {
 		display: flex;
 		align-items: center;
-		gap: var(--size-12);
-		padding: var(--size-10) var(--size-10) var(--size-10) var(--size-12);
+		gap: 12px;
+		padding: 10px 10px 10px 12px;
 		border-bottom: 1px solid var(--clr-border-2);
 	}
 
@@ -260,8 +266,8 @@
 	.clock-icon {
 		pointer-events: none;
 		position: relative;
-		width: var(--size-20);
-		height: var(--size-20);
+		width: 20px;
+		height: 20px;
 		background-color: #ffcf88;
 		border-radius: var(--radius-s);
 	}
@@ -283,7 +289,7 @@
 		left: 50%;
 		transform-origin: bottom;
 		width: 0.125rem;
-		height: calc(var(--size-12) / 2);
+		height: calc(12px / 2);
 		background-color: #000;
 	}
 
@@ -317,10 +323,10 @@
 
 	/* DATE HEADER */
 	.sideview__date-header {
-		padding: var(--size-20) var(--size-14) var(--size-14) 6.8rem;
+		padding: 20px 14px 14px 6.8rem;
 		border-top: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
-		margin-top: var(--size-12);
+		margin-top: 12px;
 
 		& h4 {
 			color: var(--clr-text-3);
@@ -345,15 +351,15 @@
 	/* WELCOME POINT */
 	.welcome-point {
 		display: flex;
-		gap: var(--size-10);
-		padding: var(--size-12) var(--size-16) var(--size-32) 5.3rem;
+		gap: 10px;
+		padding: 12px 16px 32px 5.3rem;
 	}
 
 	.welcome-point__content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
-		margin-top: var(--size-4);
+		gap: 8px;
+		margin-top: 4px;
 	}
 
 	.welcome-point__caption {
@@ -363,7 +369,7 @@
 	.load-more {
 		display: flex;
 		justify-content: center;
-		padding: var(--size-24) var(--size-14);
+		padding: 24px 14px;
 	}
 
 	.load-more span {

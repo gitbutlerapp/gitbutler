@@ -12,7 +12,7 @@
 	let contentHeight: string;
 
 	function setHeight() {
-		contentHeight = `calc(${el.scrollHeight}px + var(--size-8)`;
+		contentHeight = `calc(${el.scrollHeight}px + 8px`;
 	}
 
 	onMount(() => {
@@ -79,7 +79,7 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: var(--size-8);
+		padding: 8px;
 		color: var(--clr-text-2);
 		background-color: var(--clr-bg-1);
 		border-top: 1px solid var(--clr-border-2);

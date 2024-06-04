@@ -55,7 +55,9 @@
 				<BranchPreviewHeader base={$baseBranch} {branch} {pr} />
 				{#if pr?.body}
 					<div class="card">
-						<div class="card__header text-base-body-14 text-semibold">PR Description</div>
+						<div class="card__header text-base-body-14 text-semibold">
+							PR Description
+						</div>
 						<div class="markdown card__content text-base-body-13">
 							{@html marked.parse(pr.body, { renderer })}
 						</div>
@@ -122,15 +124,15 @@
 		display: flex;
 		overflow-x: auto;
 		align-items: flex-start;
-		padding: var(--size-12) var(--size-12) var(--size-12) var(--size-6);
+		padding: 12px 12px 12px 6px;
 		width: 50rem;
 	}
 
 	.branch-preview {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
-		margin: var(--size-12) var(--size-6) var(--size-12) var(--size-12);
+		gap: 8px;
+		margin: 12px 6px 12px 12px;
 	}
 
 	.card__content {

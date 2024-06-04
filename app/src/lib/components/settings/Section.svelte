@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Spacer from '../Spacer.svelte';
 	export let spacer = false;
-	export let gap = 'var(--size-20)';
+	export let gap = '20px';
 
 	const SLOTS = $$props.$$slots;
 </script>
@@ -42,7 +42,7 @@
 	.description {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-10);
+		gap: 10px;
 	}
 
 	.description h2 {

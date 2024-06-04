@@ -20,8 +20,8 @@
 <style>
 	.large-diff-message {
 		display: flex;
-		padding: var(--size-12);
-		gap: var(--size-8);
+		padding: 12px;
+		gap: 8px;
 		flex-direction: column;
 		background-color: var(--clr-bg-1);
 	}

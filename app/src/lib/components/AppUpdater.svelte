@@ -138,8 +138,11 @@
 					</div>
 				{:else if $update$.status == 'DONE'}
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
-						<Button style="pop" kind="solid" wide on:click={() => updaterService.relaunchApp()}
-							>Restart</Button
+						<Button
+							style="pop"
+							kind="solid"
+							wide
+							on:click={() => updaterService.relaunchApp()}>Restart</Button
 						>
 					</div>
 				{/if}
@@ -155,16 +158,16 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: var(--size-16);
+		gap: 16px;
 
 		width: 100%;
 		max-width: 220px;
 
 		position: fixed;
 		z-index: var(--z-blocker);
-		bottom: var(--size-12);
-		left: var(--size-12);
-		padding: var(--size-24);
+		bottom: 12px;
+		left: 12px;
+		padding: 24px;
 		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
@@ -178,7 +181,7 @@
 		width: 100%;
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 
 	/* STATUS SECTION */
@@ -239,7 +242,7 @@
 
 	.busy {
 		& .status-section {
-			height: var(--size-4);
+			height: 4px;
 		}
 
 		& .sliding-gradient {
@@ -305,8 +308,8 @@
 
 	.floating-button {
 		position: absolute;
-		right: var(--size-10);
-		top: var(--size-10);
+		right: 10px;
+		top: 10px;
 	}
 
 	@keyframes moving-arrow {

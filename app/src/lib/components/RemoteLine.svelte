@@ -73,29 +73,29 @@
 <style lang="postcss">
 	.remote-column {
 		position: relative;
-		width: var(--size-24);
+		width: 24px;
 	}
 
 	.remote-line {
 		position: absolute;
-		width: var(--size-2);
+		width: 2px;
 		background-color: var(--clr-commit-remote);
-		left: calc(var(--size-10) + 0.063rem);
+		left: calc(10px + 0.063rem);
 		bottom: 0;
 		top: 0;
 		&.short {
-			top: calc(var(--avatar-top) + var(--size-4));
+			top: calc(var(--avatar-top) + 4px);
 			&.first {
-				top: calc(var(--avatar-first-top) + var(--size-4));
+				top: calc(var(--avatar-first-top) + 4px);
 			}
 			&.base {
-				top: calc(var(--avatar-top) + var(--size-8));
+				top: calc(var(--avatar-top) + 8px);
 			}
 		}
 		&.tip {
-			bottom: calc(100% - var(--avatar-top) - var(--size-4));
+			bottom: calc(100% - var(--avatar-top) - 4px);
 			&.first {
-				bottom: calc(100% - var(--avatar-first-top) - var(--size-4));
+				bottom: calc(100% - var(--avatar-first-top) - 4px);
 			}
 			&.base {
 				bottom: calc(100% - 1.5rem);
@@ -129,13 +129,13 @@
 
 	.root {
 		position: absolute;
-		width: var(--size-10);
+		width: 10px;
 		top: 1.875rem;
 		border-radius: var(--radius-l) 0 0 0;
-		height: var(--size-20);
-		left: calc(var(--size-10) + 0.063rem);
+		height: 20px;
+		left: calc(10px + 0.063rem);
 		border-color: var(--clr-commit-local);
-		border-width: var(--size-2) 0 0 var(--size-2);
+		border-width: 2px 0 0 2px;
 		&.base {
 			top: -1px;
 		}
@@ -156,8 +156,8 @@
 		transition: top var(--transition-medium);
 
 		& svg {
-			height: var(--size-16);
-			width: var(--size-16);
+			height: 16px;
+			width: 16px;
 		}
 	}
 </style>

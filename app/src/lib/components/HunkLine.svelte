@@ -118,7 +118,7 @@
 	.selectable-wrapper {
 		cursor: text;
 		display: inline-block;
-		text-indent: var(--size-4);
-		margin-right: var(--size-4);
+		text-indent: 4px;
+		margin-right: 4px;
 	}
 </style>

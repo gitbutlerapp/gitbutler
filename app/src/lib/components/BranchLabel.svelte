@@ -56,8 +56,8 @@
 	.branch-name-mesure-el,
 	.branch-name-input {
 		min-width: 2.8rem;
-		height: var(--size-20);
-		padding: var(--size-2) var(--size-4);
+		height: 20px;
+		padding: 2px 4px;
 		border: 1px solid transparent;
 	}
 	.branch-name-mesure-el {

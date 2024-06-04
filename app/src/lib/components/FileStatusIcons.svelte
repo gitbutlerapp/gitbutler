@@ -42,7 +42,7 @@
 	.file-status {
 		display: flex;
 		align-items: center;
-		gap: var(--size-4);
+		gap: 4px;
 	}
 	.file-status__icons {
 		display: flex;

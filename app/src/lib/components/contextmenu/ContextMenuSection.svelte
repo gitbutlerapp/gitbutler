@@ -9,8 +9,8 @@
 	.context-menu-section {
 		display: flex;
 		flex-direction: column;
-		padding: var(--size-8);
-		gap: var(--size-2);
+		padding: 8px;
+		gap: 2px;
 		&:not(:first-child) {
 			border-top: 1px solid var(--clr-border-2);
 		}

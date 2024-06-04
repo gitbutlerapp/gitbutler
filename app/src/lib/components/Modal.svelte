@@ -86,35 +86,35 @@
 	/* modifiers */
 
 	.s-large {
-		max-width: calc(var(--size-64) * 13);
+		max-width: calc(64px * 13);
 	}
 
 	.s-default {
-		max-width: calc(var(--size-64) * 9);
+		max-width: calc(64px * 9);
 	}
 
 	.s-small {
-		max-width: calc(var(--size-64) * 6);
+		max-width: calc(64px * 6);
 	}
 
 	.modal__header {
 		display: flex;
-		padding: var(--size-16);
-		gap: var(--size-8);
+		padding: 16px;
+		gap: 8px;
 		border-bottom: 1px solid var(--clr-border-2);
 	}
 
 	.modal__body {
 		overflow: auto;
-		padding: var(--size-16);
+		padding: 16px;
 	}
 
 	.modal__footer {
 		display: flex;
 		width: 100%;
 		justify-content: flex-end;
-		gap: var(--size-8);
-		padding: var(--size-16);
+		gap: 8px;
+		padding: 16px;
 		border-top: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 	}

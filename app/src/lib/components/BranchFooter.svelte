@@ -73,7 +73,7 @@
 <style lang="postcss">
 	.actions {
 		background: var(--clr-bg-1);
-		padding: var(--size-16);
+		padding: 16px;
 	}
 
 	/* EMPTY STATE */
@@ -82,7 +82,7 @@
 		display: flex;
 		/* justify-content: space-between; */
 		align-items: center;
-		gap: var(--size-20);
+		gap: 20px;
 	}
 
 	.empty-state__image {

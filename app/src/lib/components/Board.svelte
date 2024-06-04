@@ -149,9 +149,13 @@
 										role="button"
 										tabindex="0"
 										on:keypress={async () =>
-											await open(`vscode://file${project.vscodePath}/?windowId=_blank`)}
+											await open(
+												`vscode://file${project.vscodePath}/?windowId=_blank`
+											)}
 										on:click={async () =>
-											await open(`vscode://file${project.vscodePath}/?windowId=_blank`)}
+											await open(
+												`vscode://file${project.vscodePath}/?windowId=_blank`
+											)}
 									>
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="vscode" />
@@ -236,7 +240,7 @@
 		align-items: center;
 		height: 100%;
 		width: 100%;
-		padding: 0 var(--size-40);
+		padding: 0 40px;
 	}
 
 	.empty-board {
@@ -245,10 +249,10 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-l);
 		width: 100%;
-		gap: var(--size-48);
+		gap: 48px;
 		max-width: 46rem;
 		min-height: 20rem;
-		padding: var(--size-32);
+		padding: 32px;
 	}
 
 	.empty-board__content {
@@ -256,7 +260,7 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		padding-left: var(--size-4);
+		padding-left: 4px;
 	}
 
 	.empty-board__image-frame {
@@ -324,7 +328,7 @@
 	.empty-board__about {
 		display: flex;
 		flex-direction: column;
-		margin-bottom: var(--size-32);
+		margin-bottom: 32px;
 	}
 
 	.empty-board__about h3 {
@@ -338,13 +342,13 @@
 	.empty-board__suggestions {
 		display: flex;
 		flex-direction: row;
-		gap: var(--size-40);
+		gap: 40px;
 	}
 
 	.empty-board__suggestions__block {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
+		gap: 16px;
 		min-width: 8rem;
 	}
 
@@ -355,8 +359,8 @@
 	.empty-board__suggestions__links {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-6);
-		margin-left: calc(var(--size-4) * -1);
+		gap: 6px;
+		margin-left: calc(4px * -1);
 	}
 
 	.empty-board__suggestions__link {
@@ -364,9 +368,9 @@
 		display: flex;
 		width: fit-content;
 		max-width: 100%;
-		padding: var(--size-2) var(--size-6) var(--size-2) var(--size-4);
+		padding: 2px 6px 2px 4px;
 		border-radius: var(--radius-s);
-		gap: var(--size-10);
+		gap: 10px;
 		transition: background-color var(--transition-fast);
 		overflow: hidden;
 
@@ -376,7 +380,7 @@
 
 		& span {
 			color: var(--clr-scale-ntrl-40);
-			margin-top: calc(var(--size-6) / 2);
+			margin-top: calc(6px / 2);
 			white-space: nowrap;
 			text-overflow: ellipsis;
 			overflow: hidden;

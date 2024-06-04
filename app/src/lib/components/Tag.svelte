@@ -55,7 +55,7 @@
 		align-items: center;
 		justify-content: center;
 		height: var(--size-tag);
-		padding: var(--size-2) var(--size-4);
+		padding: 2px 4px;
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
 
@@ -69,7 +69,7 @@
 	.label {
 		white-space: nowrap;
 		display: inline-block;
-		padding: 0 var(--size-2);
+		padding: 0 2px;
 	}
 
 	/* STYLES */

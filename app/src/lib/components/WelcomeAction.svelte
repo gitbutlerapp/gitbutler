@@ -30,9 +30,9 @@
 		border: 1px solid var(--clr-border-2);
 		display: flex;
 		position: relative;
-		padding: var(--size-16);
+		padding: 16px;
 		flex-direction: row;
-		gap: var(--size-20);
+		gap: 20px;
 		align-items: center;
 		text-align: left;
 		transition:
@@ -60,14 +60,14 @@
 		z-index: 0;
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-10);
+		gap: 10px;
 		transition: opacity var(--transition-slow);
 	}
 
 	.action__spinner {
 		position: absolute;
-		top: var(--size-10);
-		right: var(--size-10);
+		top: 10px;
+		right: 10px;
 		display: flex;
 	}
 

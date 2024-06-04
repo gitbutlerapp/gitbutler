@@ -17,10 +17,14 @@
 	async function saveProject() {
 		const api =
 			$user && project.api
-				? await projectService.updateCloudProject($user?.access_token, project.api.repository_id, {
-						name: project.title,
-						description: project.description
-					})
+				? await projectService.updateCloudProject(
+						$user?.access_token,
+						project.api.repository_id,
+						{
+							name: project.title,
+							description: project.description
+						}
+					)
 				: undefined;
 		project.api = api ? { ...api, sync: true } : undefined;
 		projectService.updateProject(project);
@@ -64,12 +68,12 @@
 	.fields-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
+		gap: 16px;
 	}
 
 	.description-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 </style>

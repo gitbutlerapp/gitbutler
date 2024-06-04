@@ -96,8 +96,8 @@
 				</SelectItem>
 			</Select>
 			<p class="project-setup__description-text text-base-body-12">
-				This is the branch that you consider "production", normally something like "origin/master"
-				or "upstream/main".
+				This is the branch that you consider "production", normally something like
+				"origin/master" or "upstream/main".
 			</p>
 		</div>
 
@@ -109,8 +109,9 @@
 					</SelectItem>
 				</Select>
 				<p class="project-setup__description-text text-base-body-12">
-					You have branches from multiple remotes. If you want to specify a remote for creating
-					branches that is different from the remote that your target branch is on, change it here.
+					You have branches from multiple remotes. If you want to specify a remote for
+					creating branches that is different from the remote that your target branch is
+					on, change it here.
 				</p>
 			</div>
 		{/if}
@@ -156,8 +157,8 @@
 			<svelte:fragment slot="title">GitButler features</svelte:fragment>
 
 			<svelte:fragment slot="body">
-				Enable automatic creation of branches and automatic generation of commit messages (using
-				OpenAI's API).
+				Enable automatic creation of branches and automatic generation of commit messages
+				(using OpenAI's API).
 			</svelte:fragment>
 			<svelte:fragment slot="toggle">
 				{#if $user}
@@ -254,7 +255,7 @@
 	.project-setup {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-20);
+		gap: 20px;
 	}
 
 	.features-wrapper {
@@ -264,14 +265,14 @@
 	.project-setup__info {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-12);
+		gap: 12px;
 	}
 
 	.project-setup__fields {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
-		padding-bottom: var(--size-10);
+		gap: 16px;
+		padding-bottom: 10px;
 	}
 
 	.project-setup__description-text {
@@ -281,19 +282,19 @@
 	.project-setup__field-wrap {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-12);
+		gap: 12px;
 	}
 
 	.floating-buttons {
 		display: flex;
 		justify-content: flex-end;
 		width: 100%;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 
 	.success-icon {
 		display: inline;
-		margin-top: calc(var(--size-2) * -1);
-		margin-left: var(--size-2);
+		margin-top: calc(2px * -1);
+		margin-left: 2px;
 	}
 </style>
