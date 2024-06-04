@@ -6,7 +6,6 @@
 	import Button from '$lib/components/Button.svelte';
 	import CommitMessageInput from '$lib/components/CommitMessageInput.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import Tag from '$lib/components/Tag.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
@@ -209,34 +208,34 @@
 						{#if hasCommitUrl || isUndoable}
 							<div class="commit__actions hide-native-scrollbar">
 								{#if isUndoable}
-									<Tag
+									<Button
+										size="tag"
 										style="ghost"
 										kind="solid"
 										icon="undo-small"
-										clickable
 										on:click={(e) => {
 											currentCommitMessage.set(commit.description);
 											e.stopPropagation();
 											undoCommit(commit);
-										}}>Undo</Tag
+										}}>Undo</Button
 									>
-									<Tag
+									<Button
+										size="tag"
 										style="ghost"
 										kind="solid"
 										icon="edit-text"
-										clickable
-										on:click={openCommitMessageModal}>Edit message</Tag
+										on:click={openCommitMessageModal}>Edit message</Button
 									>
 								{/if}
 								{#if hasCommitUrl}
-									<Tag
+									<Button
+										size="tag"
 										style="ghost"
 										kind="solid"
 										icon="open-link"
-										clickable
 										on:click={() => {
 											if (commitUrl) openExternalUrl(commitUrl);
-										}}>Open</Tag
+										}}>Open</Button
 									>
 								{/if}
 							</div>

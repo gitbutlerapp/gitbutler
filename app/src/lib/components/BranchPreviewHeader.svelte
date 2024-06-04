@@ -1,6 +1,5 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
-	import Tag from './Tag.svelte';
 	import { Project } from '$lib/backend/projects';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
@@ -52,11 +51,11 @@
 				>
 					<Icon name="remote-branch-small" /> remote
 				</div>
-				<Tag
+				<Button
+					size="tag"
 					icon="open-link"
 					style="ghost"
 					kind="solid"
-					clickable
 					shrinkable
 					on:click={(e) => {
 						const url = base?.branchUrl(branch.name);
@@ -66,13 +65,14 @@
 					}}
 				>
 					{branch.displayName}
-				</Tag>
+				</Button>
 				{#if pr?.htmlUrl}
-					<Tag
+					<Button
+						size="tag"
+						clickable
 						icon="pr-small"
 						style="ghost"
 						kind="solid"
-						clickable
 						on:click={(e) => {
 							const url = pr?.htmlUrl;
 							if (url) openExternalUrl(url);
@@ -81,7 +81,7 @@
 						}}
 					>
 						View PR
-					</Tag>
+					</Button>
 				{/if}
 			</div>
 		</div>

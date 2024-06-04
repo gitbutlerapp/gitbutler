@@ -14,13 +14,13 @@
 	export let tabindex: number | undefined = undefined;
 	export let type: 'submit' | 'reset' | 'button' | undefined = undefined;
 	// Layout props
+	export let shrinkable = false;
 	export let reversedDirection: boolean = false;
 	export let width: number | undefined = undefined;
 	export let size: 'tag' | 'button' | 'cta' = 'button';
 	export let wide = false;
 	export let grow = false;
-	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' =
-		'auto';
+	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' = 'auto';
 	export let isDropdownChild = false;
 	// Style props
 	export let style: ComponentColor = 'neutral';
@@ -35,6 +35,7 @@
 <button
 	class="btn focus-state {style} {kind} {size}"
 	class:reversed-direction={reversedDirection}
+	class:shrinkable
 	class:wide
 	class:grow
 	class:not-clickable={!clickable}
@@ -70,12 +71,6 @@
 			{/if}
 		</div>
 	{/if}
-
-	<!-- {#if icon && !loading}
-		<Icon name={icon} />
-	{:else if loading}
-		<Icon name="spinner" />
-	{/if} -->
 </button>
 
 <style lang="postcss">
@@ -84,18 +79,15 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		padding: var(--size-4) var(--size-6);
 		border-radius: var(--radius-m);
-		flex-shrink: 0;
-		gap: var(--size-4);
 		border: 1px solid transparent;
+		cursor: pointer;
+		color: var(--btn-clr);
+		background: var(--btn-bg);
 		transition:
 			background var(--transition-fast),
 			opacity var(--transition-fast),
 			color var(--transition-fast);
-		cursor: pointer;
-		color: var(--btn-clr);
-		background: var(--btn-bg);
 
 		&:disabled {
 			cursor: default;
@@ -116,6 +108,16 @@
 			cursor: default;
 			pointer-events: none;
 		}
+		&.shrinkable {
+			overflow: hidden;
+			width: fit-content;
+
+			& .label {
+				display: inline-block;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+		}
 	}
 
 	.label {
@@ -123,6 +125,7 @@
 	}
 
 	.btn-icon {
+		flex-shrink: 0;
 		display: flex;
 		color: var(--btn-icon-clr, inherit);
 		transition: color var(--transition-fast);
@@ -273,20 +276,29 @@
 
 	.btn.tag {
 		height: var(--size-tag);
-		min-width: var(--size-tag);
 		padding: var(--size-2) var(--size-4);
+
+		& .label {
+			padding: 0 var(--size-4);
+		}
 	}
 
 	.btn.button {
 		height: var(--size-button);
-		min-width: var(--size-button);
-		padding: var(--size-4) var(--size-8);
+		padding: var(--size-4) var(--size-6);
+
+		& .label {
+			padding: 0 var(--size-4);
+		}
 	}
 
 	.btn.cta {
 		height: var(--size-cta);
-		min-width: var(--size-cta);
 		padding: var(--size-6) var(--size-8);
+
+		& .label {
+			padding: 0 var(--size-6);
+		}
 	}
 
 	/* FIXED WIDTH */
@@ -294,17 +306,14 @@
 	.btn.fixed-width {
 		&.tag {
 			width: var(--size-tag);
-			padding: var(--size-2);
 		}
 
 		&.button {
 			width: var(--size-button);
-			padding: var(--size-4);
 		}
 
 		&.cta {
 			width: var(--size-cta);
-			padding: var(--size-6);
 		}
 	}
 
