@@ -76,8 +76,8 @@
 		position: absolute;
 		width: 10px;
 		top: calc(100% - 14px);
-		left: calc(-1 * 4px);
-		bottom: calc(-1 * 2px);
+		left: -4px;
+		bottom: -2px;
 		border-radius: 0 0 var(--radius-l) 0;
 		border-color: var(--clr-commit-local);
 		border-width: 0 2px 2px 0;

@@ -355,7 +355,7 @@
 
 	.base-row__lines {
 		display: flex;
-		margin-top: calc(8px * -1);
+		margin-top: -8px;
 	}
 
 	.base-row__content {

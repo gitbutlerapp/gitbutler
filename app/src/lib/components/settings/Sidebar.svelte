@@ -146,7 +146,7 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: space-between;
-		padding: calc(36px + 4px) 14px 14px 14px;
+		padding: 40px 14px 14px 14px;
 		border-right: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 		height: 100%;

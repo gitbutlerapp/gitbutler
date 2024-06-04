@@ -80,7 +80,7 @@
 		position: absolute;
 		width: 2px;
 		background-color: var(--clr-commit-remote);
-		left: calc(10px + 0.063rem);
+		left: 11px;
 		bottom: 0;
 		top: 0;
 		&.short {
@@ -98,16 +98,16 @@
 				bottom: calc(100% - var(--avatar-first-top) - 4px);
 			}
 			&.base {
-				bottom: calc(100% - 1.5rem);
+				bottom: calc(100% - 24px);
 			}
 		}
 		&.dashed {
 			background: repeating-linear-gradient(
 				0,
 				transparent,
-				transparent 0.1875rem,
-				var(--clr-commit-remote) 0.1875rem,
-				var(--clr-commit-remote) 0.4375rem
+				transparent 3px,
+				var(--clr-commit-remote) 3px,
+				var(--clr-commit-remote) 7px
 			);
 		}
 		&.upstream {
@@ -133,7 +133,7 @@
 		top: 1.875rem;
 		border-radius: var(--radius-l) 0 0 0;
 		height: 20px;
-		left: calc(10px + 0.063rem);
+		left: 11px;
 		border-color: var(--clr-commit-local);
 		border-width: 2px 0 0 2px;
 		&.base {

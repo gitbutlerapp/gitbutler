@@ -115,6 +115,5 @@
 		flex-shrink: 0;
 		width: 14px;
 		height: 14px;
-		margin-top: calc(2px / 2);
 	}
 </style>

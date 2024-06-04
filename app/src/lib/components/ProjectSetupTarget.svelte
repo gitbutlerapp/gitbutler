@@ -293,7 +293,7 @@
 
 	.success-icon {
 		display: inline;
-		margin-top: calc(2px * -1);
+		margin-top: -2px;
 		margin-left: 2px;
 	}
 </style>

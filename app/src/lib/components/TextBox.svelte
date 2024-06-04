@@ -270,7 +270,7 @@
 
 	.textbox__left-orient {
 		& .textbox__input {
-			padding-left: calc(32px + 2px);
+			padding-left: 34px;
 		}
 		& .textbox__icon {
 			left: 10px;
@@ -279,7 +279,7 @@
 
 	.textbox__right-orient {
 		& .textbox__input {
-			padding-right: calc(32px + 2px);
+			padding-right: 34px;
 		}
 		& .textbox__icon {
 			right: 10px;

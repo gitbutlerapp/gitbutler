@@ -57,7 +57,7 @@
 			);
 		}
 		&.tip {
-			bottom: calc(100% - 3.3rem);
+			bottom: calc(100% - 52px);
 		}
 		&.upstream {
 			background-color: var(--clr-commit-upstream);

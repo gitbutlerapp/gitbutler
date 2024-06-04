@@ -415,7 +415,7 @@
 		display: flex;
 		gap: 4px;
 		overflow-x: auto;
-		margin: 0 calc(14px * -1);
+		margin: 0 -14px;
 		padding: 0 14px;
 	}
 

@@ -82,7 +82,7 @@
 	.left-side {
 		display: grid;
 		align-items: center;
-		padding: 40px calc(40px * 2);
+		padding: 40px 80px;
 		flex: 1.3;
 		background-color: var(--clr-bg-1);
 		overflow-y: auto;

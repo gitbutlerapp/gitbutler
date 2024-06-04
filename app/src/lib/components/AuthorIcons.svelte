@@ -35,7 +35,7 @@
 		padding: 0 4px;
 		background-color: var(--clr-bg-1);
 		border-radius: 16px;
-		margin-left: calc(4px * -1);
+		margin-left: -4px;
 		border: 1px solid var(--clr-border-2);
 
 		& span {

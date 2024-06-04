@@ -283,7 +283,7 @@
 		left: 50%;
 		transform-origin: bottom;
 		width: 0.125rem;
-		height: calc(12px / 2);
+		height: 6px;
 		background-color: #000;
 	}
 

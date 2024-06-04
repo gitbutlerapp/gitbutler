@@ -71,7 +71,7 @@
 	.dialog-wrap {
 		position: relative;
 		width: 100%;
-		max-height: calc(100vh - 5rem);
+		max-height: calc(100vh - 80px);
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
@@ -86,15 +86,15 @@
 	/* modifiers */
 
 	.s-large {
-		max-width: calc(64px * 13);
+		max-width: 840px;
 	}
 
 	.s-default {
-		max-width: calc(64px * 9);
+		max-width: 580px;
 	}
 
 	.s-small {
-		max-width: calc(64px * 6);
+		max-width: 380px;
 	}
 
 	.modal__header {

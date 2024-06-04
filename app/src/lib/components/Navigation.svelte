@@ -144,7 +144,7 @@
 			& .folding-button {
 				pointer-events: auto;
 				opacity: 1;
-				right: calc(6px * -1);
+				right: -6px;
 			}
 		}
 	}
@@ -192,7 +192,7 @@
 		align-items: center;
 		justify-content: center;
 		position: absolute;
-		right: calc(4px * -1);
+		right: -4px;
 		top: 50%;
 		width: 0.875rem;
 		height: 36px;

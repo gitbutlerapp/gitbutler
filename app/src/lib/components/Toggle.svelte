@@ -33,7 +33,7 @@
 	.toggle {
 		appearance: none;
 		cursor: pointer;
-		width: calc(24px + 2px);
+		width: 28px;
 		height: 16px;
 		border-radius: 16px;
 		background-color: var(--clr-border-2);

@@ -247,8 +247,8 @@
 		border-radius: var(--radius-l);
 		width: 100%;
 		gap: 48px;
-		max-width: 46rem;
-		min-height: 20rem;
+		max-width: 736px;
+		min-height: 320px;
 		padding: 32px;
 	}
 
@@ -357,7 +357,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
-		margin-left: calc(4px * -1);
+		margin-left: -4px;
 	}
 
 	.empty-board__suggestions__link {
@@ -377,7 +377,7 @@
 
 		& span {
 			color: var(--clr-scale-ntrl-40);
-			margin-top: calc(6px / 2);
+			margin-top: 3px;
 			white-space: nowrap;
 			text-overflow: ellipsis;
 			overflow: hidden;

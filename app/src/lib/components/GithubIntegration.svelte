@@ -287,8 +287,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		bottom: calc(4px * -1);
-		right: calc(4px * -1);
+		bottom: -4px;
+		right: -4px;
 		background-color: var(--clr-scale-ntrl-100);
 		border-radius: 50px;
 	}

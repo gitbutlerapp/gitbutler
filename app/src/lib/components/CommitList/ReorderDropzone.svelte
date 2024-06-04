@@ -50,7 +50,7 @@
 	}
 
 	:global(.reorder-dz-active) {
-		height: calc(3rem);
+		height: 48px;
 		width: var(--dropzone-width);
 	}
 </style>

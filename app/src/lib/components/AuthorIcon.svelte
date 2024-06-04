@@ -19,7 +19,7 @@
 		width: 16px;
 		height: 16px;
 		border-radius: 50%;
-		margin-left: calc(4px * -1);
+		margin-left: -4px;
 
 		&:first-child {
 			margin-left: 0;

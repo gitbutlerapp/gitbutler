@@ -130,7 +130,7 @@
 	.header__top-overlay {
 		z-index: var(--z-ground);
 		position: absolute;
-		top: calc(16px * -1);
+		top: -16px;
 		left: 0;
 		width: 100%;
 		height: 20px;

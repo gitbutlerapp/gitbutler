@@ -48,7 +48,7 @@
 		height: 16px;
 		border-radius: var(--radius-l);
 		top: var(--avatar-top);
-		left: calc(-1 * (2px + 0.063rem));
+		left: -3px;
 
 		&.remote-lane {
 			left: 4px;
@@ -70,7 +70,7 @@
 			top: var(--avatar-first-top);
 		}
 		&.shadow-lane {
-			left: calc(4px + 0.063rem);
+			left: 5px;
 		}
 	}
 
@@ -80,13 +80,13 @@
 		height: 10px;
 		border-radius: 100%;
 		top: calc(var(--avatar-top) + 4px);
-		left: calc(6px + 0.063rem);
+		left: 7px;
 		background-color: var(--clr-commit-remote);
 		&.integrated {
 			background-color: var(--clr-commit-shadow);
 		}
 		&.first {
-			top: calc(var(--avatar-first-top) + 2px + 0.063rem);
+			top: calc(var(--avatar-first-top) + 3px);
 		}
 		&.shadow-lane {
 			left: 8px;
