@@ -29,6 +29,9 @@
 	--z-tooltip: 4;
 	--z-blocker: 10;
 
+	--ghost-bg-muted-1: oklch(from var(--clr-core-ntrl-50) l c h / 0.1);
+	--ghost-bg-muted-2: oklch(from var(--clr-core-ntrl-50) l c h / 0.2);
+
 	/* TODO: add focus color */
 	--focus-color: var(--clr-scale-pop-50);
 	--resizer-color: var(--clr-scale-pop-50);

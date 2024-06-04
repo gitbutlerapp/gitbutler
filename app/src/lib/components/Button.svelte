@@ -19,7 +19,8 @@
 	export let size: 'tag' | 'button' | 'cta' = 'button';
 	export let wide = false;
 	export let grow = false;
-	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' = 'auto';
+	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' =
+		'auto';
 	export let isDropdownChild = false;
 	// Style props
 	export let style: ComponentColor = 'neutral';
@@ -27,8 +28,6 @@
 	// Additional elements
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let help = '';
-	export let badgeLabel: string | number | undefined = undefined;
-	export let badgeIcon: keyof typeof iconsJson | undefined = undefined;
 
 	const SLOTS = $$props.$$slots;
 </script>
@@ -62,22 +61,21 @@
 		</span>
 	{/if}
 
-	{#if badgeLabel}
-		<div class="badge">
-			<span class="text-base-11 text-semibold badge-label">
-				{badgeLabel}
-			</span>{#if badgeIcon}
-				<div class="badge-icon">
-					<Icon name={badgeIcon} />
-				</div>{/if}
+	{#if icon}
+		<div class="btn-icon">
+			{#if loading}
+				<Icon name="spinner" />
+			{:else}
+				<Icon name={icon} />
+			{/if}
 		</div>
 	{/if}
 
-	{#if icon && !loading}
+	<!-- {#if icon && !loading}
 		<Icon name={icon} />
 	{:else if loading}
 		<Icon name="spinner" />
-	{/if}
+	{/if} -->
 </button>
 
 <style lang="postcss">
@@ -124,97 +122,65 @@
 		display: inline-flex;
 	}
 
-	/* BADGE */
-	.badge {
+	.btn-icon {
 		display: flex;
-		align-items: center;
-		justify-content: center;
-		height: var(--size-icon);
-		min-width: var(--size-icon);
-		padding: 0 var(--size-4);
-		border-radius: var(--radius-s);
-		background: var(--btn-clr);
-	}
-
-	.badge-label {
-		transform: translateY(0.031rem);
-		color: var(--btn-bg);
-	}
-
-	.badge-icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: var(--size-icon);
-		height: var(--size-icon);
-		margin-right: -0.125rem;
-		color: white;
+		color: var(--btn-icon-clr, inherit);
+		transition: color var(--transition-fast);
 	}
 
 	/* STYLES */
 	.neutral {
 		/* kind */
 		&.soft {
-			--btn-clr: var(--clr-scale-ntrl-40);
-			--btn-bg: oklch(from var(--clr-core-ntrl-60) l c h / 0.15);
+			--btn-clr: var(--clr-text-1);
+			--btn-bg: var(--ghost-bg-muted-1);
+			--btn-icon-clr: oklch(from var(--clr-text-1) l c h / 0.6);
 
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-clr: var(--clr-scale-ntrl-20);
-				--btn-bg: oklch(from var(--clr-core-ntrl-50) l c h / 0.18);
-			}
-
-			& .badge {
-				--btn-bg: var(--clr-scale-ntrl-100);
+				--btn-bg: var(--ghost-bg-muted-2);
+				--btn-icon-clr: var(--clr-text-1);
 			}
 		}
 		&.solid {
 			--btn-clr: var(--clr-scale-ntrl-100);
 			--btn-bg: var(--clr-scale-ntrl-30);
+			--btn-icon-clr: var(--clr-scale-ntrl-80);
 
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: var(--clr-scale-ntrl-30);
+				--btn-bg: var(--clr-scale-ntrl-20);
+				--btn-icon-clr: var(--clr-scale-ntrl-90);
 			}
 		}
 	}
 
 	.ghost {
+		--btn-icon-clr: oklch(from var(--clr-text-1) l c h / 0.6);
+
+		&:not(.not-clickable, &:disabled):hover {
+			--btn-bg: var(--ghost-bg-muted-1);
+			--btn-icon-clr: var(--clr-text-1);
+		}
+
 		&.soft,
 		&.solid {
-			--btn-clr: var(--clr-scale-ntrl-40);
+			--btn-clr: var(--clr-text-1);
 			--btn-bg: transparent;
-
-			&:not(.not-clickable, &:disabled):hover {
-				--btn-clr: var(--clr-scale-ntrl-20);
-				--btn-bg: var(--clr-bg-2);
-			}
-
-			& .badge {
-				--btn-bg: var(--clr-scale-ntrl-100);
-			}
 		}
 
 		&.solid {
-			border: 1px solid oklch(from var(--clr-scale-ntrl-0) l c h / 0.2);
-
-			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: oklch(from var(--clr-core-ntrl-60) l c h / 0.1);
-			}
+			border: 1px solid var(--clr-border-2);
 		}
 	}
 
 	.pop {
 		&.soft {
 			--btn-clr: var(--clr-theme-pop-on-soft);
-			--btn-bg: var(--clr-scale-pop-80);
+			--btn-bg: var(--clr-theme-pop-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: oklch(from var(--clr-scale-pop-80) var(--hover-state-ratio) c h);
-			}
-
-			& .badge {
-				--btn-bg: var(--clr-scale-ntrl-100);
+				--btn-bg: oklch(from var(--clr-theme-pop-soft) var(--hover-state-ratio) c h);
 			}
 		}
 		&.solid {
@@ -230,14 +196,10 @@
 	.success {
 		&.soft {
 			--btn-clr: var(--clr-theme-succ-on-soft);
-			--btn-bg: var(--clr-scale-succ-80);
+			--btn-bg: var(--clr-theme-succ-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: oklch(from var(--clr-scale-succ-80) var(--hover-state-ratio) c h);
-			}
-
-			& .badge {
-				--btn-bg: var(--clr-scale-ntrl-100);
+				--btn-bg: oklch(from var(--clr-theme-succ-soft) var(--hover-state-ratio) c h);
 			}
 		}
 		&.solid {
@@ -253,14 +215,10 @@
 	.error {
 		&.soft {
 			--btn-clr: var(--clr-theme-err-on-soft);
-			--btn-bg: var(--clr-scale-err-80);
+			--btn-bg: var(--clr-theme-err-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: oklch(from var(--clr-scale-err-80) var(--hover-state-ratio) c h);
-			}
-
-			& .badge {
-				--btn-bg: var(--clr-scale-ntrl-100);
+				--btn-bg: oklch(from var(--clr-theme-err-soft) var(--hover-state-ratio) c h);
 			}
 		}
 		&.solid {
@@ -276,14 +234,10 @@
 	.warning {
 		&.soft {
 			--btn-clr: var(--clr-theme-warn-on-soft);
-			--btn-bg: var(--clr-scale-warn-80);
+			--btn-bg: var(--clr-theme-warn-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: oklch(from var(--clr-scale-warn-80) var(--hover-state-ratio) c h);
-			}
-
-			& .badge {
-				--btn-bg: var(--clr-scale-ntrl-100);
+				--btn-bg: oklch(from var(--clr-theme-warn-soft) var(--hover-state-ratio) c h);
 			}
 		}
 		&.solid {
@@ -299,14 +253,10 @@
 	.purple {
 		&.soft {
 			--btn-clr: var(--clr-theme-purp-on-soft);
-			--btn-bg: var(--clr-scale-purp-80);
+			--btn-bg: var(--clr-theme-purp-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: oklch(from var(--clr-scale-purp-80) var(--hover-state-ratio) c h);
-			}
-
-			& .badge {
-				--btn-bg: var(--clr-scale-ntrl-100);
+				--btn-bg: oklch(from var(--clr-theme-purp-soft) var(--hover-state-ratio) c h);
 			}
 		}
 		&.solid {

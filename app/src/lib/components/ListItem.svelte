@@ -39,7 +39,7 @@
 
 		&:hover:enabled,
 		&:focus:enabled {
-			background-color: var(--clr-bg-2);
+			background-color: var(--clr-bg-1-muted);
 			& .icon {
 				color: var(--clr-scale-ntrl-40);
 			}
