@@ -1612,6 +1612,7 @@ fn new_compute_locks(
 
     let branch_path_diffs = virtual_branches
         .iter()
+        .filter(|branch| branch.applied)
         .filter_map(|branch| {
             let commit = repository.find_commit(branch.head.into()).ok()?;
             let tree = commit.tree().ok()?;
