@@ -89,6 +89,13 @@ pub struct Project {
     pub omit_certificate_check: Option<bool>,
     // The number of changed lines that will trigger a snapshot
     pub snapshot_lines_threshold: Option<usize>,
+
+    #[serde(default = "default_false")]
+    pub use_new_locking: bool,
+}
+
+fn default_false() -> bool {
+    false
 }
 
 impl Project {

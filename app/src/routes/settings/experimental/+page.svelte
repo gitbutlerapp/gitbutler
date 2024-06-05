@@ -3,6 +3,7 @@
 	import Toggle from '$lib/components/Toggle.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
 	import { featureBaseBranchSwitching } from '$lib/config/uiFeatureFlags';
+
 	const baseBranchSwitching = featureBaseBranchSwitching();
 </script>
 

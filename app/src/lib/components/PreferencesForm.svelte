@@ -3,7 +3,6 @@
 	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
 	import SectionCard from './SectionCard.svelte';
-	import Spacer from './Spacer.svelte';
 	import TextBox from './TextBox.svelte';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { Project, ProjectService } from '$lib/backend/projects';
@@ -22,6 +21,7 @@
 	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
 	let allowForcePushing = project?.ok_with_force_push;
 	let omitCertificateCheck = project?.omit_certificate_check;
+	let useNewLocking = project?.use_new_locking || false;
 
 	const gitConfig = getContext(GitConfigService);
 	const runCommitHooks = projectRunCommitHooks(project.id);
@@ -96,6 +96,13 @@
 		await gitConfig.setGbConfig(project.id, signUpdate);
 	}
 
+	async function setUseNewLocking(value: boolean) {
+		project.use_new_locking = value;
+		await projectService.updateProject(project);
+	}
+
+	$: setUseNewLocking(useNewLocking);
+
 	onMount(async () => {
 		let gitConfigSettings = await gitConfig.getGbConfig(project.id);
 		signCommits = gitConfigSettings.signCommits || false;
@@ -109,7 +116,7 @@
 	});
 </script>
 
-<Section>
+<Section spacer>
 	<svelte:fragment slot="title">Commit Signing</svelte:fragment>
 	<svelte:fragment slot="description">
 		Use GPG or SSH to sign your commits so they can be verified as authentic.
@@ -194,8 +201,7 @@
 	{/if}
 </Section>
 
-<Spacer />
-<Section>
+<Section spacer>
 	<svelte:fragment slot="title">Preferences</svelte:fragment>
 	<svelte:fragment slot="description">
 		Other settings to customize your GitButler experience.
@@ -262,9 +268,18 @@
 			/>
 		</svelte:fragment>
 	</SectionCard>
-</Section>
 
-<Spacer />
+	<SectionCard labelFor="useNewLocking" orientation="row">
+		<svelte:fragment slot="title">Use new experimental hunk locking algorithm</svelte:fragment>
+		<svelte:fragment slot="caption">
+			This new hunk locking algorithm is still in the testing phase but should more accuratly catch
+			locks and subsiquently cause fewer errors.
+		</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Toggle id="useNewLocking" bind:checked={useNewLocking} />
+		</svelte:fragment>
+	</SectionCard>
+</Section>
 
 <style lang="post-css">
 	.disclaimer {

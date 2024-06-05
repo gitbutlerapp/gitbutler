@@ -1596,6 +1596,79 @@ fn get_non_applied_status(
         .collect::<Result<Vec<_>>>()
 }
 
+fn new_compute_locks(
+    repository: &git2::Repository,
+    unstaged_hunks_by_path: &HashMap<PathBuf, Vec<diff::GitHunk>>,
+    virtual_branches: &[branch::Branch],
+) -> Result<HashMap<HunkHash, Vec<diff::HunkLock>>> {
+    // If we cant find the integration commit and subsiquently the target commit, we can't find any locks
+    let target_tree = repository.target_commit()?.tree()?;
+
+    let mut diff_opts = git2::DiffOptions::new();
+    let opts = diff_opts
+        .show_binary(true)
+        .ignore_submodules(true)
+        .context_lines(3);
+
+    let branch_path_diffs = virtual_branches
+        .iter()
+        .filter_map(|branch| {
+            let commit = repository.find_commit(branch.head.into()).ok()?;
+            let tree = commit.tree().ok()?;
+            let diff = repository
+                .diff_tree_to_tree(Some(&tree), Some(&target_tree), Some(opts))
+                .ok()?;
+            let hunks_by_filepath = diff::hunks_by_filepath(Some(repository), &diff).ok()?;
+
+            Some((branch, hunks_by_filepath))
+        })
+        .collect::<Vec<_>>();
+
+    let mut integration_hunks_by_path =
+        HashMap::<PathBuf, Vec<(diff::GitHunk, &branch::Branch)>>::new();
+
+    for (branch, hunks_by_filepath) in branch_path_diffs {
+        for (path, hunks) in hunks_by_filepath {
+            integration_hunks_by_path.entry(path).or_default().extend(
+                hunks
+                    .hunks
+                    .iter()
+                    .map(|hunk| (hunk.clone(), branch))
+                    .collect::<Vec<_>>(),
+            );
+        }
+    }
+
+    let locked_hunks = unstaged_hunks_by_path
+        .iter()
+        .filter_map(|(path, hunks)| {
+            let integration_hunks = integration_hunks_by_path.get(path)?;
+
+            let (unapplied_hunk, branch) = hunks.iter().find_map(|unapplied_hunk| {
+                // Find the first intersecting hunk
+                for (integration_hunk, branch) in integration_hunks {
+                    if GitHunk::integration_intersects_unapplied(integration_hunk, unapplied_hunk) {
+                        return Some((unapplied_hunk, branch));
+                    };
+                }
+
+                None
+            })?;
+
+            let hash = Hunk::hash_diff(&unapplied_hunk.diff_lines);
+            let lock = diff::HunkLock {
+                branch_id: branch.id,
+                commit_id: branch.head,
+            };
+
+            // For now we're returning an array of locks to align with the original type, even though this implementation doesn't give multiple locks for the same hunk
+            Some((hash, vec![lock]))
+        })
+        .collect::<HashMap<_, _>>();
+
+    Ok(locked_hunks)
+}
+
 fn compute_merge_base(
     project_repository: &project_repository::Repository,
     target_sha: &git::Oid,
@@ -1719,13 +1792,17 @@ fn get_applied_status(
 
     let mut mtimes = MTimeCache::default();
 
-    let locks = compute_locks(
-        project_repository,
-        integration_commit,
-        target_sha,
-        &base_diffs,
-        &virtual_branches,
-    )?;
+    let locks = if project_repository.project().use_new_locking {
+        new_compute_locks(project_repository.repo(), &base_diffs, &virtual_branches)?
+    } else {
+        compute_locks(
+            project_repository,
+            integration_commit,
+            target_sha,
+            &base_diffs,
+            &virtual_branches,
+        )?
+    };
 
     for branch in &mut virtual_branches {
         if !branch.applied {
@@ -1824,10 +1901,9 @@ fn get_applied_status(
             let locked_to = locks.get(&hash);
 
             let vbranch_pos = if let Some(locks) = locked_to {
-                let first_lock = &locks[0];
                 let p = virtual_branches
                     .iter()
-                    .position(|vb| vb.id == first_lock.branch_id);
+                    .position(|vb| vb.id == locks[0].branch_id);
                 match p {
                     Some(p) => p,
                     _ => default_vbranch_pos,
