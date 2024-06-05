@@ -21,7 +21,7 @@
 			<Toggle
 				id="baseBranchSwitching"
 				checked={$baseBranchSwitching}
-				on:change={() => ($baseBranchSwitching = !$baseBranchSwitching)}
+				on:click={() => ($baseBranchSwitching = !$baseBranchSwitching)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
