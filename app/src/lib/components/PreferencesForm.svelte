@@ -1,20 +1,20 @@
 <script lang="ts">
-	import SectionCard from './SectionCard.svelte';
-	import Section from '$lib/components/settings/Section.svelte';
-	import Spacer from './Spacer.svelte';
-	import TextBox from './TextBox.svelte';
-	import { GitConfigService } from '$lib/backend/gitConfigService';
-	import { Project, ProjectService } from '$lib/backend/projects';
-	import Toggle from '$lib/components/Toggle.svelte';
-	import { projectRunCommitHooks } from '$lib/config/config';
-	import { getContext } from '$lib/utils/context';
-	import { onMount } from 'svelte';
-	import Select from '$lib/components/Select.svelte';
-	import SelectItem from '$lib/components/SelectItem.svelte';
 	import Button from './Button.svelte';
 	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
+	import SectionCard from './SectionCard.svelte';
+	import Spacer from './Spacer.svelte';
+	import TextBox from './TextBox.svelte';
 	import { invoke } from '@tauri-apps/api/tauri';
+	import { onMount } from 'svelte';
+	import { GitConfigService } from '$lib/backend/gitConfigService';
+	import { Project, ProjectService } from '$lib/backend/projects';
+	import Select from '$lib/components/Select.svelte';
+	import SelectItem from '$lib/components/SelectItem.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
+	import Section from '$lib/components/settings/Section.svelte';
+	import { projectRunCommitHooks } from '$lib/config/config';
+	import { getContext } from '$lib/utils/context';
 
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
@@ -184,8 +184,8 @@
 				{/if}
 			</Button>
 			<div class="disclaimer text-base-body-12">
-				Signing commits can allow other people to verify your commits if you publish the public
-				version of your signing key.
+				Signing commits can allow other people to verify your commits if you publish the
+				public version of your signing key.
 				<Link href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits"
 					>Read more</Link
 				> about commit signing and verification.
@@ -204,8 +204,8 @@
 	<SectionCard orientation="row" labelFor="allowForcePush">
 		<svelte:fragment slot="title">Allow force pushing</svelte:fragment>
 		<svelte:fragment slot="caption">
-			Force pushing allows GitButler to override branches even if they were pushed to remote. We
-			will never force push to the trunk.
+			Force pushing allows GitButler to override branches even if they were pushed to remote.
+			We will never force push to the trunk.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Toggle
