@@ -55,10 +55,7 @@ impl FetchResult {
 
 #[derive(Debug, Deserialize, Serialize, Copy, Clone)]
 pub struct CodePushState {
-    #[serde(
-        serialize_with = "crate::serde::oid::serialize",
-        deserialize_with = "crate::serde::oid::deserialize"
-    )]
+    #[serde(with = "crate::serde::oid")]
     pub id: git2::Oid,
     pub timestamp: time::SystemTime,
 }

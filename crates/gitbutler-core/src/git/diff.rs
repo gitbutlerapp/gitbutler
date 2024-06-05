@@ -123,10 +123,7 @@ impl GitHunk {
 #[serde(rename_all = "camelCase")]
 pub struct HunkLock {
     pub branch_id: Id<Branch>,
-    #[serde(
-        serialize_with = "crate::serde::oid::serialize",
-        deserialize_with = "crate::serde::oid::deserialize"
-    )]
+    #[serde(with = "crate::serde::oid")]
     pub commit_id: git2::Oid,
 }
 

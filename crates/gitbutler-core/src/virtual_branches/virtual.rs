@@ -71,22 +71,13 @@ pub struct VirtualBranch {
     pub ownership: BranchOwnershipClaims,
     pub updated_at: u128,
     pub selected_for_changes: bool,
-    #[serde(
-        serialize_with = "crate::serde::oid::serialize",
-        deserialize_with = "crate::serde::oid::deserialize"
-    )]
+    #[serde(with = "crate::serde::oid")]
     pub head: git2::Oid,
     /// The merge base between the target branch and the virtual branch
-    #[serde(
-        serialize_with = "crate::serde::oid::serialize",
-        deserialize_with = "crate::serde::oid::deserialize"
-    )]
+    #[serde(with = "crate::serde::oid")]
     pub merge_base: git2::Oid,
     /// The fork point between the target branch and the virtual branch
-    #[serde(
-        serialize_with = "crate::serde::oid_opt::serialize",
-        deserialize_with = "crate::serde::oid_opt::deserialize"
-    )]
+    #[serde(with = "crate::serde::oid_opt")]
     pub fork_point: Option<git2::Oid>,
 }
 
@@ -108,10 +99,7 @@ pub struct VirtualBranches {
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchCommit {
-    #[serde(
-        serialize_with = "crate::serde::oid::serialize",
-        deserialize_with = "crate::serde::oid::deserialize"
-    )]
+    #[serde(with = "crate::serde::oid")]
     pub id: git2::Oid,
     #[serde(serialize_with = "crate::serde::as_string_lossy")]
     pub description: BString,
@@ -120,10 +108,7 @@ pub struct VirtualBranchCommit {
     pub is_remote: bool,
     pub files: Vec<VirtualBranchFile>,
     pub is_integrated: bool,
-    #[serde(
-        serialize_with = "crate::serde::oid_vec::serialize",
-        deserialize_with = "crate::serde::oid_vec::deserialize"
-    )]
+    #[serde(with = "crate::serde::oid_vec")]
     pub parent_ids: Vec<git2::Oid>,
     pub branch_id: BranchId,
     pub change_id: Option<String>,

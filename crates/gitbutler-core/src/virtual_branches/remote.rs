@@ -22,10 +22,7 @@ use crate::{
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranch {
-    #[serde(
-        serialize_with = "crate::serde::oid::serialize",
-        deserialize_with = "crate::serde::oid::deserialize"
-    )]
+    #[serde(with = "crate::serde::oid")]
     pub sha: git2::Oid,
     pub name: git::Refname,
     pub upstream: Option<git::RemoteRefname>,
@@ -36,19 +33,13 @@ pub struct RemoteBranch {
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranchData {
-    #[serde(
-        serialize_with = "crate::serde::oid::serialize",
-        deserialize_with = "crate::serde::oid::deserialize"
-    )]
+    #[serde(with = "crate::serde::oid")]
     pub sha: git2::Oid,
     pub name: git::Refname,
     pub upstream: Option<git::RemoteRefname>,
     pub behind: u32,
     pub commits: Vec<RemoteCommit>,
-    #[serde(
-        serialize_with = "crate::serde::oid_opt::serialize",
-        deserialize_with = "crate::serde::oid_opt::deserialize"
-    )]
+    #[serde(with = "crate::serde::oid_opt")]
     pub fork_point: Option<git2::Oid>,
 }
 
@@ -61,10 +52,7 @@ pub struct RemoteCommit {
     pub created_at: u128,
     pub author: Author,
     pub change_id: Option<String>,
-    #[serde(
-        serialize_with = "crate::serde::oid_vec::serialize",
-        deserialize_with = "crate::serde::oid_vec::deserialize"
-    )]
+    #[serde(with = "crate::serde::oid_vec")]
     pub parent_ids: Vec<git2::Oid>,
 }
 

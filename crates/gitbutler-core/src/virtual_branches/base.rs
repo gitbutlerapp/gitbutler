@@ -28,15 +28,9 @@ pub struct BaseBranch {
     pub remote_url: String,
     pub push_remote_name: Option<String>,
     pub push_remote_url: String,
-    #[serde(
-        serialize_with = "crate::serde::oid::serialize",
-        deserialize_with = "crate::serde::oid::deserialize"
-    )]
+    #[serde(with = "crate::serde::oid")]
     pub base_sha: git2::Oid,
-    #[serde(
-        serialize_with = "crate::serde::oid::serialize",
-        deserialize_with = "crate::serde::oid::deserialize"
-    )]
+    #[serde(with = "crate::serde::oid")]
     pub current_sha: git2::Oid,
     pub behind: usize,
     pub upstream_commits: Vec<RemoteCommit>,
