@@ -134,16 +134,14 @@
 <ContentWrapper title="AI options">
 	<!-- <div class="ai-settings-wrap"> -->
 	<p class="text-base-body-13 ai-settings__text">
-		GitButler supports multiple providers for its AI powered features. We currently support
-		models from OpenAI and Anthropic either proxied through the GitButler API, or in a bring
-		your own key configuration.
+		GitButler supports multiple providers for its AI powered features. We currently support models
+		from OpenAI and Anthropic either proxied through the GitButler API, or in a bring your own key
+		configuration.
 	</p>
 
 	{#if !$user}
 		<InfoMessage>
-			<svelte:fragment slot="title"
-				>You must be logged in to use the GitButler API</svelte:fragment
-			>
+			<svelte:fragment slot="title">You must be logged in to use the GitButler API</svelte:fragment>
 		</InfoMessage>
 	{/if}
 
@@ -189,12 +187,7 @@
 					{/if}
 
 					{#if openAIKeyOption === KeyOption.BringYourOwn}
-						<TextBox
-							label="API Key"
-							bind:value={openAIKey}
-							required
-							placeholder="sk-..."
-						/>
+						<TextBox label="API Key" bind:value={openAIKey} required placeholder="sk-..." />
 
 						<Select
 							items={openAIModelOptions}
@@ -208,9 +201,7 @@
 							</SelectItem>
 						</Select>
 					{:else if !$user}
-						<WelcomeSigninAction
-							prompt="A user is required to make use of the GitButler API"
-						/>
+						<WelcomeSigninAction prompt="A user is required to make use of the GitButler API" />
 					{/if}
 				</div>
 			</SectionCard>
@@ -277,9 +268,7 @@
 							</SelectItem>
 						</Select>
 					{:else if !$user}
-						<WelcomeSigninAction
-							prompt="A user is required to make use of the GitButler API"
-						/>
+						<WelcomeSigninAction prompt="A user is required to make use of the GitButler API" />
 					{/if}
 				</div>
 			</SectionCard>
@@ -339,8 +328,8 @@
 	<Section>
 		<svelte:fragment slot="title">Custom AI prompts</svelte:fragment>
 		<svelte:fragment slot="description">
-			GitButler's AI assistant generates commit messages and branch names. Use default prompts
-			or create your own. Assign prompts in the <button
+			GitButler's AI assistant generates commit messages and branch names. Use default prompts or
+			create your own. Assign prompts in the <button
 				class="link"
 				on:click={() => console.log('got to project settings')}>project settings</button
 			>.
