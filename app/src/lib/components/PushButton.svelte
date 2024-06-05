@@ -62,7 +62,7 @@
 	bind:this={dropDown}
 	{wide}
 	{disabled}
-	dropdownPosition="top"
+	menuPosition="top"
 	on:click={() => {
 		dispatch('trigger', { action });
 	}}

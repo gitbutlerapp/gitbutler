@@ -195,7 +195,7 @@
 			icon="ai-small"
 			disabled={!($aiGenEnabled && aiConfigurationValid)}
 			loading={aiLoading}
-			dropdownPosition="top"
+			menuPosition="top"
 			on:click={async () => await generateCommitMessage($branch.files)}
 		>
 			Generate message
