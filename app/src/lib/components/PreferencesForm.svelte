@@ -61,7 +61,7 @@
 		</svelte:fragment>
 	</SectionCard>
 
-	<SectionCard orientation="row" labelFor="allowForcePush">
+	<SectionCard orientation="row" labelFor="signCommits">
 		<svelte:fragment slot="title">Sign commits</svelte:fragment>
 		<svelte:fragment slot="caption">
 			GitButler will sign commits as per your git configuration.
