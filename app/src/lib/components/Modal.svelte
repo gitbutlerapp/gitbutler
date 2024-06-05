@@ -4,7 +4,9 @@
 	import type iconsJson from '$lib/icons/icons.json';
 
 	let dialog: HTMLDialogElement;
+	let modalForm: HTMLFormElement;
 	let item: any;
+	let open = false;
 
 	export let width: 'default' | 'small' | 'large' = 'default';
 	export let title: string | undefined = undefined;
@@ -13,19 +15,21 @@
 	export function show(newItem?: any) {
 		item = newItem;
 		dialog.showModal();
+		open = true;
 	}
 
 	export function close() {
 		item = undefined;
 		dialog.close();
+		open = false;
 	}
 
-	//onMount(() => {
-	//	document.body.appendChild(dialog);
-	//});
+	onMount(() => {
+		document.body.appendChild(dialog);
+	});
 
 	function handleClickOutside(e: MouseEvent) {
-		if (dialog && !dialog.contains(e.target as Node)) {
+		if (!modalForm.contains(e.target as Node)) {
 			dialog.close();
 		}
 	}
@@ -34,15 +38,14 @@
 <svelte:window on:click={handleClickOutside} />
 
 <dialog
-	class="dialog-wrap"
 	class:s-default={width === 'default'}
 	class:s-small={width === 'small'}
 	class:s-large={width === 'large'}
 	bind:this={dialog}
 	on:close={close}
 >
-	<div class="dialog">
-		<form class="modal-content" on:submit>
+	{#if open}
+		<form class="modal-content" on:submit bind:this={modalForm}>
 			{#if title}
 				<div class="modal__header">
 					{#if icon}
@@ -64,13 +67,13 @@
 				</div>
 			{/if}
 		</form>
-	</div>
+	{/if}
 </dialog>
 
 <style lang="postcss">
-	.dialog-wrap {
-		position: relative;
-		width: 100%;
+	dialog {
+		display: flex;
+		flex-direction: column;
 		max-height: calc(100vh - 80px);
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);
@@ -78,23 +81,18 @@
 		box-shadow: var(--fx-shadow-l);
 	}
 
-	.dialog {
-		display: flex;
-		flex-direction: column;
-	}
-
 	/* modifiers */
 
 	.s-large {
-		max-width: 840px;
+		width: 840px;
 	}
 
 	.s-default {
-		max-width: 580px;
+		width: 580px;
 	}
 
 	.s-small {
-		max-width: 380px;
+		width: 380px;
 	}
 
 	.modal__header {
