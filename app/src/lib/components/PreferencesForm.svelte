@@ -5,8 +5,6 @@
 	import SectionCard from './SectionCard.svelte';
 	import Spacer from './Spacer.svelte';
 	import TextBox from './TextBox.svelte';
-	import { invoke } from '@tauri-apps/api/tauri';
-	import { onMount } from 'svelte';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import Select from '$lib/components/Select.svelte';
@@ -15,6 +13,8 @@
 	import Section from '$lib/components/settings/Section.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { getContext } from '$lib/utils/context';
+	import { invoke } from '@tauri-apps/api/tauri';
+	import { onMount } from 'svelte';
 
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
