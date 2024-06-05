@@ -13,6 +13,7 @@
 	import lscache from 'lscache';
 	import { marked } from 'marked';
 	import { onMount, setContext } from 'svelte';
+	import { writable } from 'svelte/store';
 	import type { PullRequest } from '$lib/github/types';
 
 	export let branch: RemoteBranch;
@@ -21,10 +22,10 @@
 	const project = getContext(Project);
 	const baseBranch = getContextStore(BaseBranch);
 
-	const fileIdSelection = new FileIdSelection();
+	const fileIdSelection = new FileIdSelection(project.id, writable([]));
 	setContext(FileIdSelection, fileIdSelection);
 
-	$: selectedFile = fileIdSelection.selectedFile([], project.id);
+	$: selectedFile = fileIdSelection.selectedFile;
 
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'branchPreviewLaneWidth';
@@ -66,8 +67,8 @@
 						<div>
 							{#each branchData.commits as commit, index (commit.id)}
 								<CommitCard
-									first={index == 0}
-									last={index == branchData.commits.length - 1}
+									first={index === 0}
+									last={index === branchData.commits.length - 1}
 									{commit}
 									commitUrl={$baseBranch?.commitUrl(commit.id)}
 									type="remote"
@@ -122,15 +123,15 @@
 		display: flex;
 		overflow-x: auto;
 		align-items: flex-start;
-		padding: var(--size-12) var(--size-12) var(--size-12) var(--size-6);
-		width: 50rem;
+		padding: 12px 12px 12px 6px;
+		width: 800px;
 	}
 
 	.branch-preview {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
-		margin: var(--size-12) var(--size-6) var(--size-12) var(--size-12);
+		gap: 8px;
+		margin: 12px 6px 12px 12px;
 	}
 
 	.card__content {

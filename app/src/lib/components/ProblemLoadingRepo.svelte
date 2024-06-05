@@ -65,37 +65,37 @@
 <style lang="postcss">
 	.problem__project {
 		display: flex;
-		gap: var(--size-8);
+		gap: 8px;
 		align-items: center;
 		line-height: 120%;
 		color: var(--clr-scale-ntrl-30);
-		margin-bottom: var(--size-20);
+		margin-bottom: 20px;
 	}
 
 	.problem__title {
 		color: var(--clr-scale-ntrl-30);
-		margin-bottom: var(--size-12);
+		margin-bottom: 12px;
 	}
 
 	.problem__switcher {
 		text-align: right;
-		margin-top: var(--size-24);
+		margin-top: 24px;
 	}
 
 	.problem__error {
 		display: flex;
 		color: var(--clr-scale-ntrl-0);
-		gap: var(--size-12);
-		padding: var(--size-20);
+		gap: 12px;
+		padding: 20px;
 		background-color: var(--clr-theme-err-bg);
 		border-radius: var(--radius-m);
-		margin-bottom: var(--size-12);
+		margin-bottom: 12px;
 	}
 
 	.remove-project-btn {
 		display: flex;
 		justify-content: flex-end;
-		padding-bottom: var(--size-24);
+		padding-bottom: 24px;
 		border-bottom: 1px dashed var(--clr-scale-ntrl-60);
 	}
 </style>

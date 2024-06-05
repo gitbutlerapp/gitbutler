@@ -83,7 +83,7 @@
 	}
 
 	function filterByText(branches: CombinedBranch[], search: string | undefined) {
-		if (search == undefined) return branches;
+		if (search === undefined) return branches;
 
 		return branches.filter((b) => searchMatchesAnIdentifier(search, b.searchableIdentifiers));
 	}
@@ -128,7 +128,7 @@
 			bind:viewport
 			showBorderWhenScrolled
 			on:dragging={(e) => dispatch('scrollbarDragging', e.detail)}
-			fillViewport={$filteredBranches$.length == 0}
+			fillViewport={$filteredBranches$.length === 0}
 		>
 			<div class="scroll-container">
 				<TextBox icon="search" placeholder="Search" on:input={(e) => textFilter$.next(e.detail)} />
@@ -167,12 +167,12 @@
 	.scroll-container {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-12);
+		gap: 12px;
 		width: 100%;
 		height: 100%;
-		padding-bottom: var(--size-16);
-		padding-left: var(--size-14);
-		padding-right: var(--size-14);
+		padding-bottom: 16px;
+		padding-left: 14px;
+		padding-right: 14px;
 	}
 	.branch-list {
 		flex: 1;
@@ -187,7 +187,7 @@
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-		gap: var(--size-2);
+		gap: 2px;
 	}
 
 	/* EMPTY STATE */
@@ -197,16 +197,16 @@
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-		gap: var(--size-10);
+		gap: 10px;
 	}
 
 	.branch-list__empty-state__image {
-		width: 8.125rem;
+		width: 130px;
 	}
 
 	.branch-list__empty-state__caption {
 		color: var(--clr-scale-ntrl-60);
 		text-align: center;
-		max-width: 10rem;
+		max-width: 160px;
 	}
 </style>

@@ -23,7 +23,7 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 	// Most use cases only involve passing a string, so we allow either opts of
 	// simple text.
 	function setOpts(opts: ToolTipOptions | string | undefined) {
-		if (typeof opts == 'string') {
+		if (typeof opts === 'string') {
 			text = opts;
 		} else if (opts) {
 			({ text, delay, noMaxWidth } = opts || {});

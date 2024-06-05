@@ -47,16 +47,16 @@
 <style lang="postcss">
 	.wrapper {
 		position: relative;
-		margin-top: var(--size-14);
-		margin-bottom: var(--size-16);
+		margin-top: 14px;
+		margin-bottom: 16px;
 		height: fit-content;
 	}
 
 	.button {
 		display: flex;
-		gap: var(--size-10);
+		gap: 10px;
 		width: 100%;
-		padding: var(--size-8);
+		padding: 8px;
 
 		align-items: center;
 		justify-content: space-between;

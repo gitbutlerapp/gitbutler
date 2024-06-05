@@ -195,13 +195,13 @@
 	.wrapper {
 		display: flex;
 		flex-direction: column;
-		margin-bottom: var(--size-8);
+		margin-bottom: 8px;
 	}
 
 	.step-section {
 		display: flex;
-		gap: var(--size-16);
-		margin-left: var(--size-8);
+		gap: 16px;
+		margin-left: 8px;
 
 		&:last-child {
 			& .step-section__content {
@@ -224,9 +224,9 @@
 		flex-direction: column;
 		align-items: flex-start;
 		width: 100%;
-		gap: var(--size-12);
-		margin-left: var(--size-8);
-		margin-bottom: var(--size-12);
+		gap: 12px;
+		margin-left: 8px;
+		margin-bottom: 12px;
 
 		&:before {
 			content: '';
@@ -234,8 +234,8 @@
 			width: 100%;
 			height: 1px;
 			background-color: var(--clr-scale-ntrl-60);
-			margin-top: var(--size-8);
-			margin-bottom: var(--size-6);
+			margin-top: 8px;
+			margin-bottom: 6px;
 			opacity: 0.4;
 		}
 	}
@@ -245,7 +245,7 @@
 	.step-line {
 		position: relative;
 		width: 1px;
-		margin-top: var(--size-4);
+		margin-top: 4px;
 		border-right: 1px dashed var(--clr-scale-ntrl-60);
 
 		&::before {
@@ -253,8 +253,8 @@
 			position: absolute;
 			left: 50%;
 			transform: translateX(-50%);
-			width: var(--size-10);
-			height: var(--size-10);
+			width: 10px;
+			height: 10px;
 			background-color: var(--clr-scale-ntrl-60);
 			border-radius: 100%;
 		}
@@ -264,15 +264,15 @@
 		border-right: 1px dashed var(--clr-scale-ntrl-60);
 
 		&::before {
-			top: var(--size-28);
+			top: 28px;
 		}
 	}
 
 	.step-line-last {
-		height: 1.875rem;
+		height: 30px;
 
 		&::before {
-			top: 1.875rem;
+			top: 30px;
 		}
 	}
 
@@ -287,18 +287,18 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		bottom: calc(var(--size-4) * -1);
-		right: calc(var(--size-4) * -1);
+		bottom: -4px;
+		right: -4px;
 		background-color: var(--clr-scale-ntrl-100);
 		border-radius: 50px;
 	}
 
 	.code-wrapper {
 		display: flex;
-		gap: var(--size-10);
+		gap: 10px;
 		align-items: center;
 		align-self: flex-start;
-		padding: var(--size-6) var(--size-6) var(--size-6) var(--size-8);
+		padding: 6px 6px 6px 8px;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg);
 		border: 1px solid var(--clr-border-2);

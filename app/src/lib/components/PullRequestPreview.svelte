@@ -4,7 +4,6 @@
 	import Button from '$lib/components/Button.svelte';
 	import Link from '$lib/components/Link.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import Tag from '$lib/components/Tag.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import { RemotesService } from '$lib/remotes/service';
 	import { getContext } from '$lib/utils/context';
@@ -98,9 +97,11 @@
 				</span>
 			</h2>
 			{#if pullrequest.draft}
-				<Tag style="neutral" icon="draft-pr-small">Draft</Tag>
+				<Button size="tag" clickable={false} style="neutral" icon="draft-pr-small">Draft</Button>
 			{:else}
-				<Tag style="success" kind="solid" icon="pr-small">Open</Tag>
+				<Button size="tag" clickable={false} style="success" kind="solid" icon="pr-small"
+					>Open</Button
+				>
 			{/if}
 		</div>
 
@@ -143,18 +144,18 @@
 	.wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
-		max-width: 56rem;
+		gap: 16px;
+		max-width: 896px;
 	}
 	.card__content {
-		gap: var(--size-12);
+		gap: 12px;
 	}
 	.card__title-pr {
 		opacity: 0.4;
-		margin-left: var(--size-4);
+		margin-left: 4px;
 	}
 
 	.fork-notice {
-		margin-bottom: var(--size-8);
+		margin-bottom: 8px;
 	}
 </style>

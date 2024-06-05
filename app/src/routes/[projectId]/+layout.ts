@@ -38,7 +38,7 @@ export async function load({ params, parent }) {
 
 	const fetches$ = getFetchNotifications(projectId);
 	const heads$ = getHeads(projectId);
-	const gbBranchActive$ = heads$.pipe(map((head) => head == 'gitbutler/integration'));
+	const gbBranchActive$ = heads$.pipe(map((head) => head === 'gitbutler/integration'));
 
 	const historyService = new HistoryService(projectId);
 	const baseBranchService = new BaseBranchService(projectId, remoteUrl$, fetches$, heads$);

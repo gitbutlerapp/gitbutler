@@ -225,7 +225,7 @@ pub fn apply_branch(
     user: Option<&users::User>,
 ) -> Result<String> {
     project_repository.assure_resolved()?;
-    let repo = &project_repository.git_repository;
+    let repo = project_repository.repo();
 
     let vb_state = project_repository.project().virtual_branches();
     let default_target = vb_state.get_default_target()?;
@@ -237,7 +237,7 @@ pub fn apply_branch(
     }
 
     let target_commit = repo
-        .find_commit(default_target.sha)
+        .find_commit(default_target.sha.into())
         .context("failed to find target commit")?;
     let target_tree = target_commit.tree().context("failed to get target tree")?;
 
@@ -245,12 +245,12 @@ pub fn apply_branch(
     // if not, we need to merge or rebase the branch to get it up to date
 
     let merge_base = repo
-        .merge_base(default_target.sha, branch.head)
+        .merge_base(default_target.sha.into(), branch.head.into())
         .context(format!(
             "failed to find merge base between {} and {}",
             default_target.sha, branch.head
         ))?;
-    if merge_base != default_target.sha {
+    if merge_base != default_target.sha.into() {
         // Branch is out of date, merge or rebase it
         let merge_base_tree = repo
             .find_commit(merge_base)
@@ -259,11 +259,11 @@ pub fn apply_branch(
             .context("failed to find merge base tree")?;
 
         let branch_tree = repo
-            .find_tree(branch.tree)
+            .find_tree(branch.tree.into())
             .context("failed to find branch tree")?;
 
         let mut merge_index = repo
-            .merge_trees(&merge_base_tree, &branch_tree, &target_tree)
+            .merge_trees(&merge_base_tree, &branch_tree, &target_tree, None)
             .context("failed to merge trees")?;
 
         if merge_index.has_conflicts() {
@@ -284,7 +284,7 @@ pub fn apply_branch(
             vb_state.set_branch(branch.clone())?;
 
             // checkout the conflicts
-            repo.checkout_index(&mut merge_index)
+            repo.checkout_index_builder(&mut merge_index)
                 .allow_conflicts()
                 .conflict_style_merge()
                 .force()
@@ -314,7 +314,7 @@ pub fn apply_branch(
         }
 
         let head_commit = repo
-            .find_commit(branch.head)
+            .find_commit(branch.head.into())
             .context("failed to find head commit")?;
 
         let merged_branch_tree_oid = merge_index
@@ -322,7 +322,7 @@ pub fn apply_branch(
             .context("failed to write tree")?;
 
         let merged_branch_tree = repo
-            .find_tree(merged_branch_tree_oid.into())
+            .find_tree(merged_branch_tree_oid)
             .context("failed to find tree")?;
 
         let ok_with_force_push = project_repository.project().ok_with_force_push;
@@ -374,7 +374,7 @@ pub fn apply_branch(
 
                 // get tree from merge_tree_oid
                 let merge_tree = repo
-                    .find_tree(merged_branch_tree_oid.into())
+                    .find_tree(merged_branch_tree_oid)
                     .context("failed to find tree")?;
 
                 // commit the merge tree oid
@@ -399,7 +399,7 @@ pub fn apply_branch(
         }
 
         branch.tree = repo
-            .find_commit(branch.head)?
+            .find_commit(branch.head.into())?
             .tree()
             .map_err(anyhow::Error::from)?
             .id()
@@ -410,12 +410,12 @@ pub fn apply_branch(
     let wd_tree = project_repository.repo().get_wd_tree()?;
 
     let branch_tree = repo
-        .find_tree(branch.tree)
+        .find_tree(branch.tree.into())
         .context("failed to find branch tree")?;
 
     // check index for conflicts
     let mut merge_index = repo
-        .merge_trees(&target_tree, &wd_tree, &branch_tree)
+        .merge_trees(&target_tree, &wd_tree, &branch_tree, None)
         .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {
@@ -430,7 +430,7 @@ pub fn apply_branch(
     ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
     // checkout the merge index
-    repo.checkout_index(&mut merge_index)
+    repo.checkout_index_builder(&mut merge_index)
         .force()
         .checkout()
         .context("failed to checkout index")?;
@@ -503,10 +503,10 @@ pub fn unapply_ownership(
         }
     }
 
-    let repo = &project_repository.git_repository;
+    let repo = project_repository.repo();
 
     let target_commit = repo
-        .find_commit(integration_commit_id)
+        .find_commit(integration_commit_id.into())
         .context("failed to find target commit")?;
 
     let base_tree = target_commit.tree().context("failed to get target tree")?;
@@ -515,20 +515,20 @@ pub fn unapply_ownership(
         |final_tree, status| {
             let final_tree = final_tree?;
             let tree_oid = write_tree(project_repository, &integration_commit_id, status.1)?;
-            let branch_tree = repo.find_tree(tree_oid)?;
-            let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
+            let branch_tree = repo.find_tree(tree_oid.into())?;
+            let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
             let final_tree_oid = result.write_tree_to(project_repository.repo())?;
-            repo.find_tree(final_tree_oid.into())
+            repo.find_tree(final_tree_oid)
                 .context("failed to find tree")
         },
     )?;
 
     let final_tree_oid = write_tree_onto_tree(project_repository, &final_tree, diff)?;
     let final_tree = repo
-        .find_tree(final_tree_oid)
+        .find_tree(final_tree_oid.into())
         .context("failed to find tree")?;
 
-    repo.checkout_tree(&final_tree)
+    repo.checkout_tree_builder(&final_tree)
         .force()
         .remove_untracked()
         .checkout()
@@ -548,12 +548,12 @@ pub fn reset_files(
 
     // for each tree, we need to checkout the entry from the index at that path
     // or if it doesn't exist, remove the file from the working directory
-    let repo = &project_repository.git_repository;
+    let repo = project_repository.repo();
     let index = repo.index().context("failed to get index")?;
     for file in files {
         let entry = index.get_path(Path::new(file), 0);
         if entry.is_some() {
-            repo.checkout_index_path(Path::new(file))
+            repo.checkout_index_path_builder(Path::new(file))
                 .context("failed to checkout index")?;
         } else {
             // find the project root
@@ -581,9 +581,9 @@ pub fn unapply_branch(
     }
 
     let default_target = vb_state.get_default_target()?;
-    let repo = &project_repository.git_repository;
+    let repo = project_repository.repo();
     let target_commit = repo
-        .find_commit(default_target.sha)
+        .find_commit(default_target.sha.into())
         .context("failed to find target commit")?;
 
     let final_tree = if conflicts::is_resolving(project_repository) {
@@ -641,7 +641,7 @@ pub fn unapply_branch(
         }
 
         let target_commit = repo
-            .find_commit(default_target.sha)
+            .find_commit(default_target.sha.into())
             .context("failed to find target commit")?;
 
         // ok, update the wd with the union of the rest of the branches
@@ -658,10 +658,11 @@ pub fn unapply_branch(
                     let final_tree = final_tree?;
                     let branch = status.0;
                     let tree_oid = write_tree(project_repository, &branch.head, status.1)?;
-                    let branch_tree = repo.find_tree(tree_oid)?;
-                    let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree)?;
+                    let branch_tree = repo.find_tree(tree_oid.into())?;
+                    let mut result =
+                        repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
                     let final_tree_oid = result.write_tree_to(project_repository.repo())?;
-                    repo.find_tree(final_tree_oid.into())
+                    repo.find_tree(final_tree_oid)
                         .context("failed to find tree")
                 },
             )?;
@@ -672,7 +673,7 @@ pub fn unapply_branch(
     };
 
     // checkout final_tree into the working directory
-    repo.checkout_tree(&final_tree)
+    repo.checkout_tree_builder(&final_tree)
         .force()
         .remove_untracked()
         .checkout()
@@ -684,13 +685,13 @@ pub fn unapply_branch(
 }
 
 fn find_base_tree<'a>(
-    repo: &'a git::Repository,
+    repo: &'a git2::Repository,
     branch_commit: &'a git2::Commit<'a>,
     target_commit: &'a git2::Commit<'a>,
 ) -> Result<git2::Tree<'a>> {
     // find merge base between target_commit and branch_commit
     let merge_base = repo
-        .merge_base(target_commit.id().into(), branch_commit.id().into())
+        .merge_base(target_commit.id(), branch_commit.id())
         .context("failed to find merge base")?;
     // turn oid into a commit
     let merge_base_commit = repo
@@ -715,8 +716,8 @@ pub fn list_virtual_branches(
     let integration_commit_id =
         super::integration::get_workspace_head(&vb_state, project_repository)?;
     let integration_commit = project_repository
-        .git_repository
-        .find_commit(integration_commit_id)
+        .repo()
+        .find_commit(integration_commit_id.into())
         .unwrap();
 
     let (statuses, skipped_files) =
@@ -728,18 +729,17 @@ pub fn list_virtual_branches(
         .unwrap_or(-1);
 
     for (branch, files) in statuses {
-        let repo = &project_repository.git_repository;
+        let repo = project_repository.repo();
         update_conflict_markers(project_repository, &files)?;
 
         let upstream_branch = match branch
             .upstream
             .as_ref()
-            .map(|name| repo.find_branch(&git::Refname::from(name)))
+            .map(|name| repo.find_branch_by_refname(&git::Refname::from(name)))
             .transpose()
         {
-            Err(git::Error::NotFound(_)) => Ok(None),
-            Err(error) => Err(error),
             Ok(branch) => Ok(branch),
+            Err(error) => Err(error),
         }
         .context(format!(
             "failed to find upstream branch for {}",
@@ -759,13 +759,15 @@ pub fn list_virtual_branches(
         let mut pushed_commits = HashMap::new();
         if let Some(upstream) = &upstram_branch_commit {
             let merge_base = repo
-                .merge_base(upstream.id().into(), default_target.sha)
+                .merge_base(upstream.id(), default_target.sha.into())
                 .context(format!(
                     "failed to find merge base between {} and {}",
                     upstream.id(),
                     default_target.sha
                 ))?;
-            for oid in project_repository.l(upstream.id().into(), LogUntil::Commit(merge_base))? {
+            for oid in
+                project_repository.l(upstream.id().into(), LogUntil::Commit(merge_base.into()))?
+            {
                 pushed_commits.insert(oid, true);
             }
         }
@@ -802,11 +804,11 @@ pub fn list_virtual_branches(
             .collect::<Result<Vec<_>>>()?;
 
         let merge_base = repo
-            .merge_base(default_target.sha, branch.head)
+            .merge_base(default_target.sha.into(), branch.head.into())
             .context("failed to find merge base")?;
         let mut base_current = true;
         if !branch.applied {
-            base_current = merge_base == default_target.sha;
+            base_current = merge_base == default_target.sha.into();
         }
 
         let upstream = upstream_branch
@@ -857,7 +859,7 @@ pub fn list_virtual_branches(
             updated_at: branch.updated_timestamp_ms,
             selected_for_changes: branch.selected_for_changes == Some(max_selected_for_changes),
             head: branch.head,
-            merge_base,
+            merge_base: merge_base.into(),
             fork_point,
         };
         branches.push(branch);
@@ -900,24 +902,24 @@ fn is_requires_force(
     };
 
     let reference = match project_repository
-        .git_repository
+        .repo()
         .refname_to_id(&upstream.to_string())
     {
         Ok(reference) => reference,
-        Err(git::Error::NotFound(_)) => return Ok(false),
+        Err(err) if err.code() == git2::ErrorCode::NotFound => return Ok(false),
         Err(other) => return Err(other).context("failed to find upstream reference"),
     };
 
     let upstream_commit = project_repository
-        .git_repository
+        .repo()
         .find_commit(reference)
         .context("failed to find upstream commit")?;
 
     let merge_base = project_repository
-        .git_repository
-        .merge_base(upstream_commit.id().into(), branch.head)?;
+        .repo()
+        .merge_base(upstream_commit.id(), branch.head.into())?;
 
-    Ok(merge_base != upstream_commit.id().into())
+    Ok(merge_base != upstream_commit.id())
 }
 
 fn list_virtual_commit_files(
@@ -930,11 +932,7 @@ fn list_virtual_commit_files(
     let parent = commit.parent(0).context("failed to get parent commit")?;
     let commit_tree = commit.tree().context("failed to get commit tree")?;
     let parent_tree = parent.tree().context("failed to get parent tree")?;
-    let diff = diff::trees(
-        &project_repository.git_repository,
-        &parent_tree,
-        &commit_tree,
-    )?;
+    let diff = diff::trees(project_repository.repo(), &parent_tree, &commit_tree)?;
     let hunks_by_filepath = virtual_hunks_by_file_diffs(&project_repository.project().path, diff);
     Ok(virtual_hunks_into_virtual_files(
         project_repository,
@@ -989,8 +987,8 @@ pub fn create_virtual_branch(
     let default_target = vb_state.get_default_target()?;
 
     let commit = project_repository
-        .git_repository
-        .find_commit(default_target.sha)
+        .repo()
+        .find_commit(default_target.sha.into())
         .context("failed to find default target commit")?;
 
     let tree = commit
@@ -1113,7 +1111,7 @@ pub fn integrate_upstream_commits(
 ) -> Result<()> {
     conflicts::is_conflicting(project_repository, None)?;
 
-    let repo = &project_repository.git_repository;
+    let repo = project_repository.repo();
     let project = project_repository.project();
     let vb_state = project.virtual_branches();
 
@@ -1164,7 +1162,7 @@ pub fn integrate_upstream_commits(
         return Ok(());
     };
 
-    let merge_base = repo.merge_base(default_target.sha, upstream_oid)?;
+    let merge_base = repo.merge_base(default_target.sha.into(), upstream_oid)?;
 
     // Booleans needed for a decision on how integrate upstream commits.
     // let is_same_base = default_target.sha == merge_base;
@@ -1195,7 +1193,7 @@ pub fn integrate_upstream_commits(
                 user,
                 &mut branch,
                 &upstream_commit,
-                merge_base,
+                merge_base.into(),
             )
             .map(Into::into)
         }
@@ -1209,18 +1207,18 @@ pub fn integrate_upstream_commits(
     };
 
     let new_head = integration_result?;
-    let new_head_tree = repo.find_commit(new_head)?.tree()?;
-    let head_commit = repo.find_commit(new_head)?;
+    let new_head_tree = repo.find_commit(new_head.into())?.tree()?;
+    let head_commit = repo.find_commit(new_head.into())?;
 
     let wd_tree = project_repository.repo().get_wd_tree()?;
     let integration_tree = repo
-        .find_commit(get_workspace_head(&vb_state, project_repository)?)?
+        .find_commit(get_workspace_head(&vb_state, project_repository)?.into())?
         .tree()?;
 
-    let mut merge_index = repo.merge_trees(&integration_tree, &new_head_tree, &wd_tree)?;
+    let mut merge_index = repo.merge_trees(&integration_tree, &new_head_tree, &wd_tree, None)?;
 
     if merge_index.has_conflicts() {
-        repo.checkout_index(&mut merge_index)
+        repo.checkout_index_builder(&mut merge_index)
             .allow_conflicts()
             .conflict_style_merge()
             .force()
@@ -1229,7 +1227,9 @@ pub fn integrate_upstream_commits(
         branch.head = new_head;
         branch.tree = head_commit.tree()?.id().into();
         vb_state.set_branch(branch.clone())?;
-        repo.checkout_index(&mut merge_index).force().checkout()?;
+        repo.checkout_index_builder(&mut merge_index)
+            .force()
+            .checkout()?;
     };
 
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
@@ -1256,14 +1256,14 @@ pub fn integrate_with_merge(
     merge_base: git::Oid,
 ) -> Result<git2::Oid> {
     let wd_tree = project_repository.repo().get_wd_tree()?;
-    let repo = &project_repository.git_repository;
+    let repo = project_repository.repo();
     let remote_tree = upstream_commit.tree().context("failed to get tree")?;
     let upstream_branch = branch.upstream.as_ref().context("upstream not found")?;
     // let merge_tree = repo.find_commit(merge_base).and_then(|c| c.tree())?;
-    let merge_tree = repo.find_commit(merge_base)?;
+    let merge_tree = repo.find_commit(merge_base.into())?;
     let merge_tree = merge_tree.tree()?;
 
-    let mut merge_index = repo.merge_trees(&merge_tree, &wd_tree, &remote_tree)?;
+    let mut merge_index = repo.merge_trees(&merge_tree, &wd_tree, &remote_tree, None)?;
 
     if merge_index.has_conflicts() {
         let conflicts = merge_index.conflicts()?;
@@ -1277,7 +1277,7 @@ pub fn integrate_with_merge(
             merge_conflicts,
             Some(upstream_commit.id().into()),
         )?;
-        repo.checkout_index(&mut merge_index)
+        repo.checkout_index_builder(&mut merge_index)
             .allow_conflicts()
             .conflict_style_merge()
             .force()
@@ -1286,8 +1286,8 @@ pub fn integrate_with_merge(
     }
 
     let merge_tree_oid = merge_index.write_tree_to(project_repository.repo())?;
-    let merge_tree = repo.find_tree(merge_tree_oid.into())?;
-    let head_commit = repo.find_commit(branch.head)?;
+    let merge_tree = repo.find_tree(merge_tree_oid)?;
+    let head_commit = repo.find_commit(branch.head.into())?;
 
     project_repository.commit(
         user,
@@ -1587,18 +1587,18 @@ fn get_non_applied_status(
                 bail!("branch {} is applied", branch.name);
             }
             let branch_tree = project_repository
-                .git_repository
-                .find_tree(branch.tree)
+                .repo()
+                .find_tree(branch.tree.into())
                 .context(format!("failed to find tree {}", branch.tree))?;
 
             let head_tree = project_repository
-                .git_repository
-                .find_commit(branch.head)
+                .repo()
+                .find_commit(branch.head.into())
                 .context("failed to find target commit")?
                 .tree()
                 .context("failed to find target tree")?;
 
-            let diff = diff::trees(&project_repository.git_repository, &head_tree, &branch_tree)?;
+            let diff = diff::trees(project_repository.repo(), &head_tree, &branch_tree)?;
 
             Ok((branch, diff::diff_files_into_hunks(diff).collect()))
         })
@@ -1610,16 +1610,16 @@ fn compute_merge_base(
     target_sha: &git::Oid,
     virtual_branches: &Vec<branch::Branch>,
 ) -> Result<git::Oid> {
-    let repo = &project_repository.git_repository;
+    let repo = project_repository.repo();
     let mut merge_base = *target_sha;
     for branch in virtual_branches {
         if let Some(last) = project_repository
             .l(branch.head, LogUntil::Commit(*target_sha))?
             .last()
-            .map(|id| repo.find_commit(*id))
+            .map(|id| repo.find_commit(id.to_owned().into()))
         {
             if let Ok(parent) = last?.parent(0) {
-                merge_base = repo.merge_base(parent.id().into(), merge_base)?;
+                merge_base = repo.merge_base(parent.id(), merge_base.into())?.into();
             }
         }
     }
@@ -1696,8 +1696,11 @@ fn get_applied_status(
     target_sha: &git::Oid,
     mut virtual_branches: Vec<branch::Branch>,
 ) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
-    let base_file_diffs = diff::workdir(&project_repository.git_repository, integration_commit)
-        .context("failed to diff workdir")?;
+    let base_file_diffs = diff::workdir(
+        project_repository.repo(),
+        &integration_commit.to_owned().into(),
+    )
+    .context("failed to diff workdir")?;
 
     let mut skipped_files: Vec<diff::FileDiff> = Vec::new();
     for file_diff in base_file_diffs.values() {
@@ -1959,15 +1962,15 @@ pub fn reset_branch(
     vb_state.set_branch(branch.clone())?;
 
     let updated_head = get_workspace_head(&vb_state, project_repository)?;
-    let repo = &project_repository.git_repository;
+    let repo = project_repository.repo();
     let diff = trees(
         repo,
         &repo
-            .find_commit(updated_head)?
+            .find_commit(updated_head.into())?
             .tree()
             .map_err(anyhow::Error::from)?,
         &repo
-            .find_commit(old_head)?
+            .find_commit(old_head.into())?
             .tree()
             .map_err(anyhow::Error::from)?,
     )?;
@@ -2023,9 +2026,9 @@ pub fn write_tree_onto_commit(
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
 ) -> Result<git::Oid> {
     // read the base sha into an index
-    let git_repository = &project_repository.git_repository;
+    let git_repository = project_repository.repo();
 
-    let head_commit = git_repository.find_commit(commit_oid)?;
+    let head_commit = git_repository.find_commit(commit_oid.into())?;
     let base_tree = head_commit.tree()?;
 
     write_tree_onto_tree(project_repository, &base_tree, files)
@@ -2036,7 +2039,7 @@ pub fn write_tree_onto_tree(
     base_tree: &git2::Tree,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
 ) -> Result<git::Oid> {
-    let git_repository = &project_repository.git_repository;
+    let git_repository = project_repository.repo();
     let mut builder = git2::build::TreeUpdateBuilder::new();
     // now update the index with content in the working directory for each file
     for (rel_path, hunks) in files {
@@ -2100,7 +2103,7 @@ pub fn write_tree_onto_tree(
                         })?
                         .as_bytes(),
                 )?;
-                builder.upsert(rel_path, blob_oid.into(), filemode);
+                builder.upsert(rel_path, blob_oid, filemode);
             } else if let Ok(tree_entry) = base_tree.get_path(rel_path) {
                 if hunks.len() == 1 && hunks[0].binary {
                     let new_blob_oid = &hunks[0].diff_lines;
@@ -2114,7 +2117,7 @@ pub fn write_tree_onto_tree(
                 } else {
                     // blob from tree_entry
                     let blob = tree_entry
-                        .to_object(git_repository.into())
+                        .to_object(git_repository)
                         .unwrap()
                         .peel_to_blob()
                         .context("failed to get blob")?;
@@ -2138,7 +2141,7 @@ pub fn write_tree_onto_tree(
                     // create a blob
                     let new_blob_oid = git_repository.blob(&blob_contents)?;
                     // upsert into the builder
-                    builder.upsert(rel_path, new_blob_oid.into(), filemode);
+                    builder.upsert(rel_path, new_blob_oid, filemode);
                 }
             } else if is_submodule {
                 let mut blob_contents = BString::default();
@@ -2154,13 +2157,13 @@ pub fn write_tree_onto_tree(
                 // create a blob
                 let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
                 // upsert into the builder
-                builder.upsert(rel_path, new_blob_oid.into(), filemode);
+                builder.upsert(rel_path, new_blob_oid, filemode);
             } else {
                 // create a git blob from a file on disk
                 let blob_oid = git_repository
                     .blob_path(&full_path)
                     .context(format!("failed to create blob from path {:?}", &full_path))?;
-                builder.upsert(rel_path, blob_oid.into(), filemode);
+                builder.upsert(rel_path, blob_oid, filemode);
             }
         } else if base_tree.get_path(rel_path).is_ok() {
             // remove file from index if it exists in the base tree
@@ -2210,19 +2213,20 @@ pub fn commit(
     let vb_state = project_repository.project().virtual_branches();
 
     if run_hooks {
-        let hook_result = project_repository
-            .git_repository
-            .run_hook_commit_msg(&mut message_buffer)
-            .context("failed to run hook")?;
+        let hook_result = git2_hooks::hooks_commit_msg(
+            project_repository.repo(),
+            Some(&["../.husky"]),
+            &mut message_buffer,
+        )
+        .context("failed to run hook")?;
 
         if let HookResult::RunNotSuccessful { stdout, .. } = hook_result {
             bail!("commit-msg hook rejected: {}", stdout.trim());
         }
 
-        let hook_result = project_repository
-            .git_repository
-            .run_hook_pre_commit()
-            .context("failed to run hook")?;
+        let hook_result =
+            git2_hooks::hooks_pre_commit(project_repository.repo(), Some(&["../.husky"]))
+                .context("failed to run hook")?;
 
         if let HookResult::RunNotSuccessful { stdout, .. } = hook_result {
             bail!("commit hook rejected: {}", stdout.trim());
@@ -2273,12 +2277,12 @@ pub fn commit(
         write_tree_onto_commit(project_repository, branch.head, files)?
     };
 
-    let git_repository = &project_repository.git_repository;
+    let git_repository = project_repository.repo();
     let parent_commit = git_repository
-        .find_commit(branch.head)
+        .find_commit(branch.head.into())
         .context(format!("failed to find commit {:?}", branch.head))?;
     let tree = git_repository
-        .find_tree(tree_oid)
+        .find_tree(tree_oid.into())
         .context(format!("failed to find tree {:?}", tree_oid))?;
 
     // now write a commit, using a merge parent if it exists
@@ -2288,7 +2292,7 @@ pub fn commit(
     let commit_oid = match extra_merge_parent {
         Some(merge_parent) => {
             let merge_parent = git_repository
-                .find_commit(merge_parent)
+                .find_commit(merge_parent.into())
                 .context(format!("failed to find merge parent {:?}", merge_parent))?;
             let commit_oid = project_repository.commit(
                 user,
@@ -2304,9 +2308,7 @@ pub fn commit(
     };
 
     if run_hooks {
-        project_repository
-            .git_repository
-            .run_hook_post_commit()
+        git2_hooks::hooks_post_commit(project_repository.repo(), Some(&["../.husky"]))
             .context("failed to run hook")?;
     }
 
@@ -2395,8 +2397,8 @@ fn is_commit_integrated(
     commit: &git2::Commit,
 ) -> Result<bool> {
     let remote_branch = project_repository
-        .git_repository
-        .find_branch(&target.branch.clone().into())?;
+        .repo()
+        .find_branch_by_refname(&target.branch.clone().into())?;
     let remote_head = remote_branch.get().peel_to_commit()?;
     let upstream_commits = project_repository.l(
         remote_head.id().into(),
@@ -2418,21 +2420,17 @@ fn is_commit_integrated(
     }
 
     let merge_base_id = project_repository
-        .git_repository
-        .merge_base(target.sha, commit.id().into())?;
-    if merge_base_id.eq(&commit.id().into()) {
+        .repo()
+        .merge_base(target.sha.into(), commit.id())?;
+    if merge_base_id.eq(&commit.id()) {
         // if merge branch is the same as branch head and there are upstream commits
         // then it's integrated
         return Ok(true);
     }
 
-    let merge_base = project_repository
-        .git_repository
-        .find_commit(merge_base_id)?;
+    let merge_base = project_repository.repo().find_commit(merge_base_id)?;
     let merge_base_tree = merge_base.tree()?;
-    let upstream = project_repository
-        .git_repository
-        .find_commit(remote_head.id().into())?;
+    let upstream = project_repository.repo().find_commit(remote_head.id())?;
     let upstream_tree = upstream.tree()?;
 
     if merge_base_tree.id() == upstream_tree.id() {
@@ -2442,8 +2440,8 @@ fn is_commit_integrated(
 
     // try to merge our tree into the upstream tree
     let mut merge_index = project_repository
-        .git_repository
-        .merge_trees(&merge_base_tree, &commit.tree()?, &upstream_tree)
+        .repo()
+        .merge_trees(&merge_base_tree, &commit.tree()?, &upstream_tree, None)
         .context("failed to merge trees")?;
 
     if merge_index.has_conflicts() {
@@ -2467,37 +2465,27 @@ pub fn is_remote_branch_mergeable(
 
     let default_target = vb_state.get_default_target()?;
     let target_commit = project_repository
-        .git_repository
-        .find_commit(default_target.sha)
+        .repo()
+        .find_commit(default_target.sha.into())
         .context("failed to find target commit")?;
 
     let branch = project_repository
-        .git_repository
-        .find_branch(&branch_name.into())
-        .map_err(|err| match err {
-            git::Error::NotFound(_) => {
-                anyhow!("Remote branch {} not found", branch_name.clone())
-            }
-            err => err.into(),
-        })?;
+        .repo()
+        .find_branch_by_refname(&branch_name.into())?;
     let branch_oid = branch.get().target().context("detatched head")?;
     let branch_commit = project_repository
-        .git_repository
-        .find_commit(branch_oid.into())
+        .repo()
+        .find_commit(branch_oid)
         .context("failed to find branch commit")?;
 
-    let base_tree = find_base_tree(
-        &project_repository.git_repository,
-        &branch_commit,
-        &target_commit,
-    )?;
+    let base_tree = find_base_tree(project_repository.repo(), &branch_commit, &target_commit)?;
 
     let wd_tree = project_repository.repo().get_wd_tree()?;
 
     let branch_tree = branch_commit.tree().context("failed to find branch tree")?;
     let mergeable = !project_repository
-        .git_repository
-        .merge_trees(&base_tree, &branch_tree, &wd_tree)
+        .repo()
+        .merge_trees(&base_tree, &branch_tree, &wd_tree, None)
         .context("failed to merge trees")?
         .has_conflicts();
 
@@ -2517,41 +2505,37 @@ pub fn is_virtual_branch_mergeable(
     let default_target = vb_state.get_default_target()?;
     // determine if this branch is up to date with the target/base
     let merge_base = project_repository
-        .git_repository
-        .merge_base(default_target.sha, branch.head)
+        .repo()
+        .merge_base(default_target.sha.into(), branch.head.into())
         .context("failed to find merge base")?;
 
-    if merge_base != default_target.sha {
+    if merge_base != default_target.sha.into() {
         return Ok(false);
     }
 
     let branch_commit = project_repository
-        .git_repository
-        .find_commit(branch.head)
+        .repo()
+        .find_commit(branch.head.into())
         .context("failed to find branch commit")?;
 
     let target_commit = project_repository
-        .git_repository
-        .find_commit(default_target.sha)
+        .repo()
+        .find_commit(default_target.sha.into())
         .context("failed to find target commit")?;
 
-    let base_tree = find_base_tree(
-        &project_repository.git_repository,
-        &branch_commit,
-        &target_commit,
-    )?;
+    let base_tree = find_base_tree(project_repository.repo(), &branch_commit, &target_commit)?;
 
     let wd_tree = project_repository.repo().get_wd_tree()?;
 
     // determine if this tree is mergeable
     let branch_tree = project_repository
-        .git_repository
-        .find_tree(branch.tree)
+        .repo()
+        .find_tree(branch.tree.into())
         .context("failed to find branch tree")?;
 
     let is_mergeable = !project_repository
-        .git_repository
-        .merge_trees(&base_tree, &branch_tree, &wd_tree)
+        .repo()
+        .merge_trees(&base_tree, &branch_tree, &wd_tree, None)
         .context("failed to merge trees")?
         .has_conflicts();
 
@@ -2582,8 +2566,8 @@ pub fn move_commit_file(
 
     let mut to_amend_oid = to_commit_id;
     let mut amend_commit = project_repository
-        .git_repository
-        .find_commit(to_amend_oid)
+        .repo()
+        .find_commit(to_amend_oid.into())
         .context("failed to find commit")?;
 
     // find all the commits upstream from the target "to" commit
@@ -2593,7 +2577,7 @@ pub fn move_commit_file(
     )?;
 
     // get a list of all the diffs across all the virtual branches
-    let base_file_diffs = diff::workdir(&project_repository.git_repository, &default_target.sha)
+    let base_file_diffs = diff::workdir(project_repository.repo(), &default_target.sha.into())
         .context("failed to diff workdir")?;
 
     // filter base_file_diffs to HashMap<filepath, Vec<GitHunk>> only for hunks in target_ownership
@@ -2640,8 +2624,8 @@ pub fn move_commit_file(
 
         // first, let's get the from commit data and it's parent data
         let from_commit = project_repository
-            .git_repository
-            .find_commit(from_commit_id)
+            .repo()
+            .find_commit(from_commit_id.into())
             .context("failed to find commit")?;
         let from_tree = from_commit.tree().context("failed to find tree")?;
         let from_parent = from_commit.parent(0).context("failed to find parent")?;
@@ -2651,12 +2635,9 @@ pub fn move_commit_file(
         // we need to remove the parts of this patch that are in target_ownership (the parts we're moving)
         // and then apply the rest to the parent tree of the "from" commit to
         // create the new "from" commit without the changes we're moving
-        let from_commit_diffs = diff::trees(
-            &project_repository.git_repository,
-            &from_parent_tree,
-            &from_tree,
-        )
-        .context("failed to diff trees")?;
+        let from_commit_diffs =
+            diff::trees(project_repository.repo(), &from_parent_tree, &from_tree)
+                .context("failed to diff trees")?;
 
         // filter from_commit_diffs to HashMap<filepath, Vec<GitHunk>> only for hunks NOT in target_ownership
         // this is the patch parts we're keeping
@@ -2685,13 +2666,13 @@ pub fn move_commit_file(
             })
             .collect::<HashMap<_, _>>();
 
-        let repo = &project_repository.git_repository;
+        let repo = project_repository.repo();
 
         // write our new tree and commit for the new "from" commit without the moved changes
         let new_from_tree_id =
             write_tree_onto_commit(project_repository, from_parent.id().into(), &diffs_to_keep)?;
         let new_from_tree = &repo
-            .find_tree(new_from_tree_id)
+            .find_tree(new_from_tree_id.into())
             .with_context(|| "tree {new_from_tree_oid} not found")?;
         let change_id = from_commit.change_id();
         let new_from_commit_oid = project_repository
@@ -2745,8 +2726,8 @@ pub fn move_commit_file(
 
         // reset the "to" commit variable for writing the changes back to
         amend_commit = project_repository
-            .git_repository
-            .find_commit(to_amend_oid)
+            .repo()
+            .find_commit(to_amend_oid.into())
             .context("failed to find commit")?;
 
         // reset the concept of what the upstream commits are to be the rebased ones
@@ -2765,8 +2746,8 @@ pub fn move_commit_file(
     // and write a new commit with the changes we're moving
     let new_tree_oid = write_tree_onto_commit(project_repository, to_amend_oid, &diffs_to_amend)?;
     let new_tree = project_repository
-        .git_repository
-        .find_tree(new_tree_oid)
+        .repo()
+        .find_tree(new_tree_oid.into())
         .context("failed to find new tree")?;
     let parents: Vec<_> = amend_commit.parents().collect();
     let change_id = amend_commit.change_id();
@@ -2876,8 +2857,8 @@ pub fn amend(
 
     // find commit oid
     let amend_commit = project_repository
-        .git_repository
-        .find_commit(commit_oid)
+        .repo()
+        .find_commit(commit_oid.into())
         .context("failed to find commit")?;
 
     let diffs_to_amend = target_ownership
@@ -2914,8 +2895,8 @@ pub fn amend(
     // apply diffs_to_amend to the commit tree
     let new_tree_oid = write_tree_onto_commit(project_repository, commit_oid, &diffs_to_amend)?;
     let new_tree = project_repository
-        .git_repository
-        .find_tree(new_tree_oid)
+        .repo()
+        .find_tree(new_tree_oid.into())
         .context("failed to find new tree")?;
 
     let parents: Vec<_> = amend_commit.parents().collect();
@@ -2981,8 +2962,8 @@ pub fn reorder_commit(
     let mut branch = vb_state.get_branch(branch_id)?;
     // find the commit to offset from
     let commit = project_repository
-        .git_repository
-        .find_commit(commit_oid)
+        .repo()
+        .find_commit(commit_oid.into())
         .context("failed to find commit")?;
 
     let parent = commit.parent(0).context("failed to find parent")?;
@@ -3073,8 +3054,8 @@ pub fn insert_blank_commit(
     let mut branch = vb_state.get_branch(branch_id)?;
     // find the commit to offset from
     let mut commit = project_repository
-        .git_repository
-        .find_commit(commit_oid)
+        .repo()
+        .find_commit(commit_oid.into())
         .context("failed to find commit")?;
 
     if offset > 0 {
@@ -3125,8 +3106,8 @@ pub fn undo_commit(
 
     let mut branch = vb_state.get_branch(branch_id)?;
     let commit = project_repository
-        .git_repository
-        .find_commit(commit_oid)
+        .repo()
+        .find_commit(commit_oid.into())
         .context("failed to find commit")?;
 
     let new_commit_oid;
@@ -3204,7 +3185,7 @@ fn cherry_rebase_group(
     // now, rebase unchanged commits onto the new commit
     let commits_to_rebase = ids_to_rebase
         .iter()
-        .map(|oid| project_repository.git_repository.find_commit(*oid))
+        .map(|oid| project_repository.repo().find_commit(oid.to_owned().into()))
         .collect::<Result<Vec<_>, _>>()
         .context("failed to read commits to rebase")?;
 
@@ -3212,15 +3193,15 @@ fn cherry_rebase_group(
         .into_iter()
         .fold(
             project_repository
-                .git_repository
-                .find_commit(target_commit_oid)
+                .repo()
+                .find_commit(target_commit_oid.into())
                 .context("failed to find new commit"),
             |head, to_rebase| {
                 let head = head?;
 
                 let mut cherrypick_index = project_repository
-                    .git_repository
-                    .cherry_pick(&head, &to_rebase)
+                    .repo()
+                    .cherrypick_commit(&to_rebase, &head, 0, None)
                     .context("failed to cherry pick")?;
 
                 if cherrypick_index.has_conflicts() {
@@ -3232,8 +3213,8 @@ fn cherry_rebase_group(
                     .context("failed to write merge tree")?;
 
                 let merge_tree = project_repository
-                    .git_repository
-                    .find_tree(merge_tree_oid.into())
+                    .repo()
+                    .find_tree(merge_tree_oid)
                     .context("failed to find merge tree")?;
 
                 let change_id = to_rebase.change_id();
@@ -3252,8 +3233,8 @@ fn cherry_rebase_group(
                     .context("failed to create commit")?;
 
                 project_repository
-                    .git_repository
-                    .find_commit(commit_oid.into())
+                    .repo()
+                    .find_commit(commit_oid)
                     .context("failed to find commit")
             },
         )?
@@ -3281,16 +3262,18 @@ pub fn cherry_pick(
     }
 
     let target_commit = project_repository
-        .git_repository
-        .find_commit(target_commit_id.into())
-        .map_err(|error| match error {
-            git::Error::NotFound(_) => anyhow!("commit {target_commit_id} not found "),
+        .repo()
+        .find_commit(target_commit_id)
+        .map_err(|err| match err {
+            err if err.code() == git2::ErrorCode::NotFound => {
+                anyhow!("commit {target_commit_id} not found ")
+            }
             err => err.into(),
         })?;
 
     let branch_head_commit = project_repository
-        .git_repository
-        .find_commit(branch.head)
+        .repo()
+        .find_commit(branch.head.into())
         .context("failed to find branch tree")?;
 
     let default_target = vb_state.get_default_target()?;
@@ -3322,8 +3305,8 @@ pub fn cherry_pick(
     let wip_commit = {
         let wip_tree_oid = write_tree(project_repository, &branch.head, branch_files)?;
         let wip_tree = project_repository
-            .git_repository
-            .find_tree(wip_tree_oid)
+            .repo()
+            .find_tree(wip_tree_oid.into())
             .context("failed to find tree")?;
 
         let signature = git2::Signature::now("GitButler", "gitbutler@gitbutler.com")
@@ -3341,14 +3324,14 @@ pub fn cherry_pick(
             )
             .context("failed to commit wip work")?;
         project_repository
-            .git_repository
-            .find_commit(oid.into())
+            .repo()
+            .find_commit(oid)
             .context("failed to find wip commit")?
     };
 
     let mut cherrypick_index = project_repository
-        .git_repository
-        .cherry_pick(&wip_commit, &target_commit)
+        .repo()
+        .cherrypick_commit(&target_commit, &wip_commit, 0, None)
         .context("failed to cherry pick")?;
 
     // unapply other branches
@@ -3363,8 +3346,8 @@ pub fn cherry_pick(
     let commit_oid = if cherrypick_index.has_conflicts() {
         // checkout the conflicts
         project_repository
-            .git_repository
-            .checkout_index(&mut cherrypick_index)
+            .repo()
+            .checkout_index_builder(&mut cherrypick_index)
             .allow_conflicts()
             .conflict_style_merge()
             .force()
@@ -3392,13 +3375,13 @@ pub fn cherry_pick(
             .write_tree_to(project_repository.repo())
             .context("failed to write merge tree")?;
         let merge_tree = project_repository
-            .git_repository
-            .find_tree(merge_tree_oid.into())
+            .repo()
+            .find_tree(merge_tree_oid)
             .context("failed to find merge tree")?;
 
         let branch_head_commit = project_repository
-            .git_repository
-            .find_commit(branch.head)
+            .repo()
+            .find_commit(branch.head.into())
             .context("failed to find branch head commit")?;
 
         let change_id = target_commit.change_id();
@@ -3417,8 +3400,8 @@ pub fn cherry_pick(
 
         // checkout final_tree into the working directory
         project_repository
-            .git_repository
-            .checkout_tree(&merge_tree)
+            .repo()
+            .checkout_tree_builder(&merge_tree)
             .force()
             .remove_untracked()
             .checkout()
@@ -3459,8 +3442,8 @@ pub fn squash(
     }
 
     let commit_to_squash = project_repository
-        .git_repository
-        .find_commit(commit_id)
+        .repo()
+        .find_commit(commit_id.into())
         .context("failed to find commit")?;
 
     let parent_commit = commit_to_squash
@@ -3583,8 +3566,8 @@ pub fn update_commit_message(
     }
 
     let target_commit = project_repository
-        .git_repository
-        .find_commit(commit_id)
+        .repo()
+        .find_commit(commit_id.into())
         .context("failed to find commit")?;
 
     let parents: Vec<_> = target_commit.parents().collect();
@@ -3670,8 +3653,8 @@ pub fn move_commit(
     let source_branch_non_comitted_files = source_status;
 
     let source_branch_head = project_repository
-        .git_repository
-        .find_commit(commit_id)
+        .repo()
+        .find_commit(commit_id.into())
         .context("failed to find commit")?;
     let source_branch_head_parent = source_branch_head
         .parent(0)
@@ -3683,7 +3666,7 @@ pub fn move_commit(
         .tree()
         .context("failed to get parent tree")?;
     let branch_head_diff = diff::trees(
-        &project_repository.git_repository,
+        project_repository.repo(),
         &source_branch_head_parent_tree,
         &source_branch_head_tree,
     )?;
@@ -3745,8 +3728,8 @@ pub fn move_commit(
         )
         .context("failed to write tree onto commit")?;
         let new_destination_tree = project_repository
-            .git_repository
-            .find_tree(new_destination_tree_oid)
+            .repo()
+            .find_tree(new_destination_tree_oid.into())
             .context("failed to find tree")?;
 
         let change_id = source_branch_head.change_id();
@@ -3756,8 +3739,8 @@ pub fn move_commit(
                 &source_branch_head.message_bstr().to_str_lossy(),
                 &new_destination_tree,
                 &[&project_repository
-                    .git_repository
-                    .find_commit(destination_branch.head)
+                    .repo()
+                    .find_commit(destination_branch.head.into())
                     .context("failed to get dst branch head commit")?],
                 change_id.as_deref(),
             )
@@ -3807,11 +3790,15 @@ pub fn create_virtual_branch_from_branch(
         }
     }
 
-    let repo = &project_repository.git_repository;
-    let head_reference = repo.find_reference(upstream).map_err(|err| match err {
-        git::Error::NotFound(_) => anyhow!("branch {upstream} was not found"),
-        err => err.into(),
-    })?;
+    let repo = project_repository.repo();
+    let head_reference = repo
+        .find_reference(&upstream.to_string())
+        .map_err(|err| match err {
+            err if err.code() == git2::ErrorCode::NotFound => {
+                anyhow!("branch {upstream} was not found")
+            }
+            err => err.into(),
+        })?;
     let head_commit = head_reference
         .peel_to_commit()
         .context("failed to peel to commit")?;
@@ -3833,13 +3820,13 @@ pub fn create_virtual_branch_from_branch(
     let now = crate::time::now_ms();
 
     // add file ownership based off the diff
-    let target_commit = repo.find_commit(default_target.sha)?;
-    let merge_base_oid = repo.merge_base(target_commit.id().into(), head_commit.id().into())?;
+    let target_commit = repo.find_commit(default_target.sha.into())?;
+    let merge_base_oid = repo.merge_base(target_commit.id(), head_commit.id())?;
     let merge_base_tree = repo.find_commit(merge_base_oid)?.tree()?;
 
     // do a diff between the head of this branch and the target base
     let diff = diff::trees(
-        &project_repository.git_repository,
+        project_repository.repo(),
         &merge_base_tree,
         &head_commit_tree,
     )?;

@@ -94,9 +94,9 @@
 	.info-message {
 		color: var(--clr-scale-ntrl-0);
 		display: flex;
-		padding: var(--size-14);
+		padding: 14px;
 		border-radius: var(--radius-m);
-		gap: var(--size-12);
+		gap: 12px;
 		background-color: var(--clr-bg-1);
 		transition:
 			background-color var(--transition-slow),
@@ -106,18 +106,18 @@
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
-		gap: var(--size-12);
+		gap: 12px;
 		overflow-x: hidden;
 	}
 	.info-message__content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 		user-select: text;
 	}
 	.info-message__actions {
 		display: flex;
-		gap: var(--size-6);
+		gap: 6px;
 		justify-content: flex-end;
 	}
 	.info-message__text {
@@ -177,12 +177,12 @@
 	/* ERROR BLOCK */
 	.info-message__error-block {
 		user-select: auto;
-		padding: var(--size-4) var(--size-8);
+		padding: 4px 8px;
 		overflow-x: auto;
 		background-color: var(--clr-scale-err-90);
 		color: var(--clr-scale-err-10);
 		border-radius: var(--radius-s);
-		font-size: var(--size-12);
+		font-size: 12px;
 
 		/* scrollbar */
 		&::-webkit-scrollbar {
@@ -207,10 +207,10 @@
 		word-break: break-all; /* allow long links to wrap */
 	}
 	:global(.info-message__text p:not(:last-child)) {
-		margin-bottom: var(--size-10);
+		margin-bottom: 10px;
 	}
 	:global(.info-message__text ul) {
 		list-style-type: circle;
-		padding: 0 0 0 var(--size-16);
+		padding: 0 0 0 16px;
 	}
 </style>

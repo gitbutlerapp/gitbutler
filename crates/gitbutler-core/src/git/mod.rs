@@ -6,9 +6,6 @@ pub use error::*;
 
 mod reference;
 pub use reference::*;
-mod repository;
-
-pub use repository::*;
 
 mod oid;
 pub use oid::*;

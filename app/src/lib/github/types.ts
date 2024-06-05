@@ -93,7 +93,7 @@ export function ghResponseToInstance(
 			? {
 					name: pr.user.login || undefined,
 					email: pr.user.email || undefined,
-					isBot: pr.user.type.toLowerCase() == 'bot',
+					isBot: pr.user.type.toLowerCase() === 'bot',
 					gravatarUrl: new URL(pr.user.avatar_url)
 				}
 			: null,

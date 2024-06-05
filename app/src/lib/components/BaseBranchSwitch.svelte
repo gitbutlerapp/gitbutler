@@ -100,7 +100,7 @@
 				{#if $activeBranches && targetChangeDisabled}
 					<InfoMessage filled outlined={false} icon="info">
 						<svelte:fragment slot="content">
-							You have {$activeBranches.length == 1
+							You have {$activeBranches.length === 1
 								? '1 active branch'
 								: `${$activeBranches.length} active branches`} in your workspace. Please clear the workspace
 							before switching the base branch.
@@ -114,8 +114,8 @@
 						on:click={onSetBaseBranchClick}
 						id="set-base-branch"
 						loading={isSwitching}
-						disabled={(selectedBranch.name == $baseBranch.branchName &&
-							selectedRemote.name == $baseBranch.actualPushRemoteName()) ||
+						disabled={(selectedBranch.name === $baseBranch.branchName &&
+							selectedRemote.name === $baseBranch.actualPushRemoteName()) ||
 							targetChangeDisabled}
 					>
 						{isSwitching ? 'Switching branches...' : 'Update configuration'}

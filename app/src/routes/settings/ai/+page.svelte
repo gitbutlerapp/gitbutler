@@ -152,14 +152,14 @@
 			roundedBottom={false}
 			orientation="row"
 			labelFor="open-ai"
-			bottomBorder={modelKind != ModelKind.OpenAI}
+			bottomBorder={modelKind !== ModelKind.OpenAI}
 		>
 			<svelte:fragment slot="title">Open AI</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<RadioButton name="modelKind" id="open-ai" value={ModelKind.OpenAI} />
 			</svelte:fragment>
 		</SectionCard>
-		{#if modelKind == ModelKind.OpenAI}
+		{#if modelKind === ModelKind.OpenAI}
 			<SectionCard
 				hasTopRadius={false}
 				roundedTop={false}
@@ -180,7 +180,7 @@
 						</SelectItem>
 					</Select>
 
-					{#if openAIKeyOption == KeyOption.ButlerAPI}
+					{#if openAIKeyOption === KeyOption.ButlerAPI}
 						<InfoMessage filled outlined={false} style="pop" icon="ai">
 							<svelte:fragment slot="title">
 								GitButler uses OpenAI API for commit messages and branch names
@@ -188,7 +188,7 @@
 						</InfoMessage>
 					{/if}
 
-					{#if openAIKeyOption == KeyOption.BringYourOwn}
+					{#if openAIKeyOption === KeyOption.BringYourOwn}
 						<TextBox
 							label="API Key"
 							bind:value={openAIKey}
@@ -221,14 +221,14 @@
 			roundedBottom={false}
 			orientation="row"
 			labelFor="anthropic"
-			bottomBorder={modelKind != ModelKind.Anthropic}
+			bottomBorder={modelKind !== ModelKind.Anthropic}
 		>
 			<svelte:fragment slot="title">Anthropic</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<RadioButton name="modelKind" id="anthropic" value={ModelKind.Anthropic} />
 			</svelte:fragment>
 		</SectionCard>
-		{#if modelKind == ModelKind.Anthropic}
+		{#if modelKind === ModelKind.Anthropic}
 			<SectionCard
 				hasTopRadius={false}
 				roundedTop={false}
@@ -249,7 +249,7 @@
 						</SelectItem>
 					</Select>
 
-					{#if anthropicKeyOption == KeyOption.ButlerAPI}
+					{#if anthropicKeyOption === KeyOption.ButlerAPI}
 						<InfoMessage filled outlined={false} style="pop" icon="ai">
 							<svelte:fragment slot="title">
 								GitButler uses Anthropic API for commit messages and branch names
@@ -257,7 +257,7 @@
 						</InfoMessage>
 					{/if}
 
-					{#if anthropicKeyOption == KeyOption.BringYourOwn}
+					{#if anthropicKeyOption === KeyOption.BringYourOwn}
 						<TextBox
 							label="API Key"
 							bind:value={anthropicKey}
@@ -287,17 +287,17 @@
 
 		<SectionCard
 			roundedTop={false}
-			roundedBottom={modelKind != ModelKind.Ollama}
+			roundedBottom={modelKind !== ModelKind.Ollama}
 			orientation="row"
 			labelFor="ollama"
-			bottomBorder={modelKind != ModelKind.Ollama}
+			bottomBorder={modelKind !== ModelKind.Ollama}
 		>
 			<svelte:fragment slot="title">Ollama 🦙</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<RadioButton name="modelKind" id="ollama" value={ModelKind.Ollama} />
 			</svelte:fragment>
 		</SectionCard>
-		{#if modelKind == ModelKind.Ollama}
+		{#if modelKind === ModelKind.Ollama}
 			<SectionCard hasTopRadius={false} roundedTop={false} orientation="row" topDivider>
 				<div class="inputs-group">
 					<TextBox
@@ -357,20 +357,20 @@
 <style>
 	.ai-settings__text {
 		color: var(--clr-text-2);
-		margin-bottom: var(--size-12);
+		margin-bottom: 12px;
 	}
 
 	.inputs-group {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
+		gap: 16px;
 		width: 100%;
 	}
 
 	.prompt-groups {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-12);
-		margin-top: var(--size-16);
+		gap: 12px;
+		margin-top: 16px;
 	}
 </style>

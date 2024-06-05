@@ -81,7 +81,7 @@
 		height: 100%;
 		user-select: none;
 		display: flex;
-		padding: var(--size-12);
+		padding: 12px;
 	}
 
 	.new-virtual-branch {
@@ -89,12 +89,12 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		width: 22rem;
+		width: 352px;
 		border-radius: var(--radius-m);
 		border: 1px dashed var(--clr-border-2);
 		background-color: transparent;
-		padding: var(--size-20);
-		gap: var(--size-8);
+		padding: 20px;
+		gap: 8px;
 
 		outline-color: transparent;
 		outline-style: dashed;
@@ -113,9 +113,9 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: var(--size-12);
+		gap: 12px;
 		transition: transform var(--transition-medium);
-		padding: var(--size-20) var(--size-24) var(--size-16) var(--size-24);
+		padding: 20px 24px 16px 24px;
 	}
 
 	/* ILLUSTRATION */

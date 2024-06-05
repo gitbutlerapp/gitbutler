@@ -15,7 +15,7 @@
 		align-self: flex-start;
 		display: flex;
 		align-items: center;
-		gap: var(--size-6);
+		gap: 6px;
 		border-radius: var(--radius-s);
 		color: var(--clr-scale-ntrl-50);
 	}

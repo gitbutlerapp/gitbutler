@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Tag from './Tag.svelte';
+	import Button from './Button.svelte';
 	import type { FileStatus } from '$lib/utils/fileStatus';
 	import type { ComponentColor } from '$lib/vbranches/types';
 
@@ -17,4 +17,4 @@
 	}
 </script>
 
-<Tag style={statusToColor(status)}>{status}</Tag>
+<Button size="tag" clickable={false} style={statusToColor(status)}>{status}</Button>

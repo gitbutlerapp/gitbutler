@@ -157,11 +157,11 @@
 			}}
 			on:keydown={(e) => {
 				const value = e.currentTarget.value;
-				if (e.key == 'Backspace' && value.length == 0) {
+				if (e.key === 'Backspace' && value.length === 0) {
 					e.preventDefault();
 					titleTextArea.focus();
 					useAutoHeight(e.currentTarget);
-				} else if (e.key == 'a' && (e.metaKey || e.ctrlKey) && value.length == 0) {
+				} else if (e.key === 'a' && (e.metaKey || e.ctrlKey) && value.length === 0) {
 					// select previous textarea on cmd+a if this textarea is empty
 					e.preventDefault();
 					titleTextArea.select();
@@ -195,6 +195,7 @@
 			icon="ai-small"
 			disabled={!($aiGenEnabled && aiConfigurationValid)}
 			loading={aiLoading}
+			menuPosition="top"
 			on:click={async () => await generateCommitMessage($branch.files)}
 		>
 			Generate message
@@ -223,9 +224,9 @@
 	.commit-box__textarea-wrapper {
 		display: flex;
 		position: relative;
-		padding: 0 0 var(--size-48);
+		padding: 0 0 48px;
 		flex-direction: column;
-		gap: var(--size-4);
+		gap: 4px;
 	}
 
 	.commit-box__textarea {
@@ -233,7 +234,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-end;
-		gap: var(--size-16);
+		gap: 16px;
 		background: none;
 		resize: none;
 		&:focus {
@@ -248,26 +249,26 @@
 	.commit-box__textarea-tooltip {
 		position: absolute;
 		display: flex;
-		bottom: var(--size-12);
-		left: var(--size-12);
-		padding: var(--size-2);
+		bottom: 12px;
+		left: 12px;
+		padding: 2px;
 		border-radius: 100%;
 		background: var(--clr-bg-2);
 		color: var(--clr-scale-ntrl-40);
 	}
 
 	.commit-box__textarea__title {
-		padding: var(--size-12) var(--size-12) 0 var(--size-12);
+		padding: 12px 12px 0 12px;
 	}
 
 	.commit-box__textarea__description {
-		padding: 0 var(--size-12) 0 var(--size-12);
+		padding: 0 12px 0 12px;
 	}
 
 	.commit-box__texarea-actions {
 		position: absolute;
 		display: flex;
-		right: var(--size-12);
-		bottom: var(--size-12);
+		right: 12px;
+		bottom: 12px;
 	}
 </style>

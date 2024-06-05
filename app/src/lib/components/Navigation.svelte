@@ -108,7 +108,7 @@
 		<!-- condition prevents split second UI shift -->
 		{#if $platformName}
 			<div class="navigation-top">
-				{#if $platformName == 'darwin'}
+				{#if $platformName === 'darwin'}
 					<div class="drag-region" data-tauri-drag-region />
 				{/if}
 				<ProjectSelector isNavCollapsed={$isNavCollapsed} />
@@ -144,13 +144,13 @@
 			& .folding-button {
 				pointer-events: auto;
 				opacity: 1;
-				right: calc(var(--size-6) * -1);
+				right: -6px;
 			}
 		}
 	}
 
 	.navigation {
-		width: 17.5rem;
+		width: 280px;
 		display: flex;
 		flex-direction: column;
 		position: relative;
@@ -161,19 +161,19 @@
 
 	.drag-region {
 		flex-shrink: 0;
-		height: var(--size-20);
+		height: 20px;
 	}
 	.navigation-top {
 		display: flex;
 		flex-direction: column;
-		padding-bottom: var(--size-24);
-		padding-left: var(--size-14);
-		padding-right: var(--size-14);
+		padding-bottom: 24px;
+		padding-left: 14px;
+		padding-right: 14px;
 	}
 	.domains {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-4);
+		gap: 4px;
 	}
 
 	.resizer-wrapper {
@@ -181,7 +181,7 @@
 		top: 0;
 		right: 0;
 		height: 100%;
-		width: var(--size-4);
+		width: 4px;
 	}
 
 	/* FOLDING BUTTON */
@@ -192,10 +192,10 @@
 		align-items: center;
 		justify-content: center;
 		position: absolute;
-		right: calc(var(--size-4) * -1);
+		right: -4px;
 		top: 50%;
-		width: 0.875rem;
-		height: var(--size-36);
+		width: 14px;
+		height: 36px;
 		background: var(--clr-bg-1);
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);
@@ -231,7 +231,7 @@
 	.navigation.collapsed {
 		width: auto;
 		justify-content: space-between;
-		padding-bottom: var(--size-16);
+		padding-bottom: 16px;
 	}
 
 	.resizer-hovered {

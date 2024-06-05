@@ -15,15 +15,15 @@
 
 	function accepts(data: any) {
 		if (!(data instanceof DraggableCommit)) return false;
-		if (data.branchId != $branch.id) return false;
-		if (indexer.dropzoneCommitOffset(index, data.commit.id) == 0) return false;
+		if (data.branchId !== $branch.id) return false;
+		if (indexer.dropzoneCommitOffset(index, data.commit.id) === 0) return false;
 
 		return true;
 	}
 
 	function onDrop(data: any) {
 		if (!(data instanceof DraggableCommit)) return;
-		if (data.branchId != $branch.id) return;
+		if (data.branchId !== $branch.id) return;
 
 		const offset = indexer.dropzoneCommitOffset(index, data.commit.id);
 		branchController.reorderCommit($branch.id, data.commit.id, offset);
@@ -45,12 +45,12 @@
 
 	:global(.reorder-dz-active .reorder-dz-marker) {
 		display: flex !important;
-		height: 3rem;
+		height: 48px;
 		width: var(--dropzone-width);
 	}
 
 	:global(.reorder-dz-active) {
-		height: calc(3rem);
+		height: 48px;
 		width: var(--dropzone-width);
 	}
 </style>

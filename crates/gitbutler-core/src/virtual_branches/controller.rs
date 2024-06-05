@@ -531,8 +531,7 @@ impl ControllerInner {
     ) -> Result<Vec<RemoteBranchFile>> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        super::list_remote_commit_files(&project_repository.git_repository, commit_oid)
-            .map_err(Into::into)
+        super::list_remote_commit_files(project_repository.repo(), commit_oid).map_err(Into::into)
     }
 
     pub fn set_base_branch(

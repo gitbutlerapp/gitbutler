@@ -29,6 +29,9 @@
 	--z-tooltip: 4;
 	--z-blocker: 10;
 
+	--ghost-bg-muted-1: oklch(from var(--clr-core-ntrl-50) l c h / 0.1);
+	--ghost-bg-muted-2: oklch(from var(--clr-core-ntrl-50) l c h / 0.2);
+
 	/* TODO: add focus color */
 	--focus-color: var(--clr-scale-pop-50);
 	--resizer-color: var(--clr-scale-pop-50);
@@ -60,7 +63,7 @@
 pre {
 	&::-webkit-scrollbar {
 		background-color: transaparent;
-		width: var(--size-14);
+		width: 14px;
 	}
 
 	&::-webkit-scrollbar-track {
@@ -70,8 +73,8 @@ pre {
 	&::-webkit-scrollbar-thumb {
 		background-color: var(--clr-border-1);
 		background-clip: padding-box;
-		border-radius: var(--size-12);
-		border: var(--size-4) solid rgba(0, 0, 0, 0);
+		border-radius: 12px;
+		border: 4px solid rgba(0, 0, 0, 0);
 		opacity: 0.3;
 	}
 
@@ -125,7 +128,7 @@ pre {
 	font-family: 'Spline Sans Mono', monospace;
 	border-radius: var(--radius-s);
 	background: oklch(from var(--clr-scale-ntrl-50) l c h / 0.2);
-	padding: var(--size-2) var(--size-4);
+	padding: 2px 4px;
 }
 
 /* DIALOG STYLES */
@@ -172,7 +175,7 @@ dialog[open]::backdrop {
 
 @keyframes transition-fly {
 	0% {
-		transform: translateY(var(--size-6));
+		transform: translateY(6px);
 		opacity: 0;
 	}
 	100% {

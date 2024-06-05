@@ -6,7 +6,6 @@
 	import Button from '$lib/components/Button.svelte';
 	import CommitMessageInput from '$lib/components/CommitMessageInput.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import Tag from '$lib/components/Tag.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
@@ -64,7 +63,7 @@
 	}
 
 	function onKeyup(e: KeyboardEvent) {
-		if (e.key == 'Enter' || e.key == ' ') {
+		if (e.key === 'Enter' || e.key === ' ') {
 			toggleFiles();
 		}
 	}
@@ -141,10 +140,10 @@
 				class="accent-border-line"
 				class:is-first={first}
 				class:is-last={last}
-				class:local={type == 'local'}
-				class:remote={type == 'remote'}
-				class:upstream={type == 'upstream'}
-				class:integrated={type == 'integrated'}
+				class:local={type === 'local'}
+				class:remote={type === 'remote'}
+				class:upstream={type === 'upstream'}
+				class:integrated={type === 'integrated'}
 			/>
 
 			<div class="commit__content">
@@ -158,13 +157,13 @@
 				>
 					{#if first}
 						<div class="commit__type text-semibold text-base-12">
-							{#if type == 'upstream'}
+							{#if type === 'upstream'}
 								Remote <Icon name="remote" />
-							{:else if type == 'local'}
+							{:else if type === 'local'}
 								Local <Icon name="local" />
-							{:else if type == 'remote'}
+							{:else if type === 'remote'}
 								Local and remote
-							{:else if type == 'integrated'}
+							{:else if type === 'integrated'}
 								Integrated
 							{/if}
 						</div>
@@ -195,7 +194,7 @@
 							<span class="commit__subtitle-divider">•</span>
 
 							<span
-								>{getTimeAgo(commit.createdAt)}{type == 'remote' || type == 'upstream'
+								>{getTimeAgo(commit.createdAt)}{type === 'remote' || type === 'upstream'
 									? ` by ${commit.author.name}`
 									: ''}</span
 							>
@@ -209,34 +208,34 @@
 						{#if hasCommitUrl || isUndoable}
 							<div class="commit__actions hide-native-scrollbar">
 								{#if isUndoable}
-									<Tag
+									<Button
+										size="tag"
 										style="ghost"
 										kind="solid"
 										icon="undo-small"
-										clickable
 										on:click={(e) => {
 											currentCommitMessage.set(commit.description);
 											e.stopPropagation();
 											undoCommit(commit);
-										}}>Undo</Tag
+										}}>Undo</Button
 									>
-									<Tag
+									<Button
+										size="tag"
 										style="ghost"
 										kind="solid"
 										icon="edit-text"
-										clickable
-										on:click={openCommitMessageModal}>Edit message</Tag
+										on:click={openCommitMessageModal}>Edit message</Button
 									>
 								{/if}
 								{#if hasCommitUrl}
-									<Tag
+									<Button
+										size="tag"
 										style="ghost"
 										kind="solid"
 										icon="open-link"
-										clickable
 										on:click={() => {
 											if (commitUrl) openExternalUrl(commitUrl);
-										}}>Open</Tag
+										}}>Open</Button
 									>
 								{/if}
 							</div>
@@ -253,7 +252,7 @@
 
 			{#if showDetails}
 				<div class="files-container">
-					<BranchFilesList title="Files" {files} {isUnapplied} readonly={type == 'upstream'} />
+					<BranchFilesList title="Files" {files} {isUnapplied} readonly={type === 'upstream'} />
 				</div>
 			{/if}
 		</div>
@@ -272,13 +271,13 @@
 	.commit-row {
 		position: relative;
 		display: flex;
-		gap: var(--size-8);
+		gap: 8px;
 		&.has-lines {
-			padding-right: var(--size-14);
+			padding-right: 14px;
 		}
 
 		/* border-top: 1px solid var(--clr-border-2); */
-		/* padding-left: var(--size-8); */
+		/* padding-left: 8px; */
 
 		&:not(.is-first) {
 			border-top: 1px solid var(--clr-border-3);
@@ -300,7 +299,7 @@
 		transition: background-color var(--transition-fast);
 
 		&.is-first {
-			margin-top: var(--size-12);
+			margin-top: 12px;
 			border-top: 1px solid var(--clr-border-2);
 			border-top-left-radius: var(--radius-m);
 			border-top-right-radius: var(--radius-m);
@@ -317,7 +316,7 @@
 
 	.accent-border-line {
 		position: absolute;
-		width: var(--size-4);
+		width: 4px;
 		height: 100%;
 		&.local {
 			background-color: var(--clr-commit-local);
@@ -346,8 +345,8 @@
 	.commit__about {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-6);
-		padding: var(--size-14);
+		gap: 6px;
+		padding: 14px;
 
 		&:hover {
 			background-color: var(--clr-bg-1-muted);
@@ -373,7 +372,7 @@
 		display: flex;
 		align-items: center;
 		flex-wrap: nowrap;
-		gap: var(--size-4);
+		gap: 4px;
 		color: var(--clr-text-2);
 		overflow: hidden;
 
@@ -391,7 +390,7 @@
 	.commit__id {
 		display: flex;
 		align-items: center;
-		gap: var(--size-4);
+		gap: 4px;
 
 		&:hover {
 			color: var(--clr-text-1);
@@ -407,17 +406,17 @@
 	.commit__details {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-12);
-		padding: var(--size-14);
+		gap: 12px;
+		padding: 14px;
 		border-top: 1px solid var(--clr-border-2);
 	}
 
 	.commit__actions {
 		display: flex;
-		gap: var(--size-4);
+		gap: 4px;
 		overflow-x: auto;
-		margin: 0 calc(var(--size-14) * -1);
-		padding: 0 var(--size-14);
+		margin: 0 -14px;
+		padding: 0 14px;
 	}
 
 	/* FILES */
@@ -433,12 +432,12 @@
 
 		& .commit-card {
 			&:not(.is-first) {
-				margin-top: var(--size-8);
+				margin-top: 8px;
 				border-top: 1px solid var(--clr-border-2);
 			}
 
 			&:not(.is-last) {
-				margin-bottom: var(--size-8);
+				margin-bottom: 8px;
 				border-bottom: 1px solid var(--clr-border-2);
 			}
 		}

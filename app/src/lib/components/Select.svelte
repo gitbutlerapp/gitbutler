@@ -18,7 +18,7 @@
 	export let placeholder = '';
 	export let maxHeight: number | undefined = 260;
 
-	$: if (selectedItemId) value = items.find((item) => item[itemId] == selectedItemId);
+	$: if (selectedItemId) value = items.find((item) => item[itemId] === selectedItemId);
 
 	const SLOTS = $$props.$$slots;
 	const dispatch = createEventDispatcher<{ select: { value: any } }>();
@@ -88,13 +88,13 @@
 					{#each items as item}
 						<div
 							class="option"
-							class:selected={item == value}
+							class:selected={item === value}
 							tabindex="-1"
 							role="none"
 							on:mousedown={() => handleItemClick(item)}
 							on:keydown|preventDefault|stopPropagation
 						>
-							<slot name="template" {item} selected={item == value} />
+							<slot name="template" {item} selected={item === value} />
 						</div>
 					{/each}
 				</div>
@@ -114,7 +114,7 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-6);
+		gap: 6px;
 	}
 
 	.select__label {
@@ -128,7 +128,7 @@
 		top: 100%;
 		width: 100%;
 		z-index: var(--z-floating);
-		margin-top: var(--size-4);
+		margin-top: 4px;
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
@@ -139,8 +139,8 @@
 	.options__group {
 		display: flex;
 		flex-direction: column;
-		padding: var(--size-6);
-		gap: var(--size-2);
+		padding: 6px;
+		gap: 2px;
 
 		&:not(&:first-child):last-child {
 			border-top: 1px solid var(--clr-border-2);

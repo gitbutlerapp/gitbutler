@@ -6,7 +6,7 @@ export function openExternalUrl(href: string) {
 	try {
 		open(href);
 	} catch (e) {
-		if (typeof e == 'string' || e instanceof String) {
+		if (typeof e === 'string' || e instanceof String) {
 			// TODO: Remove if/when we've resolved all external URL problems.
 			posthog.capture('Link Error', { href, message: e });
 

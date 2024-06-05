@@ -93,7 +93,7 @@ export function parseHunkSection(hunk: Hunk | RemoteHunk): HunkSection {
 		const line = lines.shift();
 		if (!line) break;
 		if (line.startsWith('-')) {
-			if (!currentSection || currentSection.sectionType != SectionType.RemovedLines) {
+			if (!currentSection || currentSection.sectionType !== SectionType.RemovedLines) {
 				if (currentSection) hunkSection.subSections.push(currentSection);
 				currentSection = plainToInstance(ContentSection, {
 					expanded: true,
@@ -108,7 +108,7 @@ export function parseHunkSection(hunk: Hunk | RemoteHunk): HunkSection {
 			});
 			currentBeforeLineNumber++;
 		} else if (line.startsWith('+')) {
-			if (!currentSection || currentSection.sectionType != SectionType.AddedLines) {
+			if (!currentSection || currentSection.sectionType !== SectionType.AddedLines) {
 				if (currentSection) hunkSection.subSections.push(currentSection);
 				currentSection = plainToInstance(ContentSection, {
 					expanded: true,
@@ -123,7 +123,7 @@ export function parseHunkSection(hunk: Hunk | RemoteHunk): HunkSection {
 			});
 			currentAfterLineNumber++;
 		} else {
-			if (!currentSection || currentSection.sectionType != SectionType.Context) {
+			if (!currentSection || currentSection.sectionType !== SectionType.Context) {
 				if (currentSection) hunkSection.subSections.push(currentSection);
 				currentSection = plainToInstance(ContentSection, {
 					expanded: true,

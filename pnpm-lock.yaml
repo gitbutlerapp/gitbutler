@@ -177,6 +177,9 @@ importers:
       postcss-load-config:
         specifier: ^5.1.0
         version: 5.1.0(postcss@8.4.38)
+      postcss-pxtorem:
+        specifier: ^6.1.0
+        version: 6.1.0(postcss@8.4.38)
       posthog-js:
         specifier: 1.136.4
         version: 1.136.4
@@ -3699,6 +3702,14 @@ packages:
       lilconfig: 3.1.1
       postcss: 8.4.38
       yaml: 2.4.2
+    dev: true
+
+  /postcss-pxtorem@6.1.0(postcss@8.4.38):
+    resolution: {integrity: sha512-ROODSNci9ADal3zUcPHOF/K83TiCgNSPXQFSbwyPHNV8ioHIE4SaC+FPOufd8jsr5jV2uIz29v1Uqy1c4ov42g==}
+    peerDependencies:
+      postcss: ^8.0.0
+    dependencies:
+      postcss: 8.4.38
     dev: true
 
   /postcss-safe-parser@6.0.0(postcss@8.4.38):

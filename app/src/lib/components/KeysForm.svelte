@@ -31,13 +31,13 @@
 	let credentialCheck: CredentialCheck;
 
 	let selectedType: KeyType =
-		typeof project.preferred_key == 'string' ? project.preferred_key : 'local';
+		typeof project.preferred_key === 'string' ? project.preferred_key : 'local';
 
 	let privateKeyPath =
-		typeof project.preferred_key == 'string' ? '' : project.preferred_key.local.private_key_path;
+		typeof project.preferred_key === 'string' ? '' : project.preferred_key.local.private_key_path;
 
 	function setLocalKey() {
-		if (privateKeyPath.trim().length == 0) return;
+		if (privateKeyPath.trim().length === 0) return;
 		updateKey({
 			preferred_key: {
 				local: {
@@ -62,7 +62,7 @@
 		credentialCheck.reset();
 		const formData = new FormData(form);
 		selectedType = formData.get('credentialType') as KeyType;
-		if (selectedType != 'local') {
+		if (selectedType !== 'local') {
 			updateKey({ preferred_key: selectedType });
 		} else {
 			setLocalKey();
@@ -93,7 +93,7 @@
 			>
 
 			<svelte:fragment slot="caption">
-				{#if selectedType == 'systemExecutable'}
+				{#if selectedType === 'systemExecutable'}
 					Git executable must be present on your PATH
 				{/if}
 			</svelte:fragment>
@@ -106,7 +106,7 @@
 		<SectionCard
 			roundedTop={false}
 			roundedBottom={false}
-			bottomBorder={selectedType != 'local'}
+			bottomBorder={selectedType !== 'local'}
 			orientation="row"
 			labelFor="credential-local"
 		>
@@ -117,13 +117,13 @@
 			</svelte:fragment>
 
 			<svelte:fragment slot="caption">
-				{#if selectedType == 'local'}
+				{#if selectedType === 'local'}
 					Add the path to an existing SSH key that GitButler can use.
 				{/if}
 			</svelte:fragment>
 		</SectionCard>
 
-		{#if selectedType == 'local'}
+		{#if selectedType === 'local'}
 			<SectionCard
 				topDivider
 				hasTopRadius={false}
@@ -144,7 +144,7 @@
 		<SectionCard
 			roundedTop={false}
 			roundedBottom={false}
-			bottomBorder={selectedType != 'generated'}
+			bottomBorder={selectedType !== 'generated'}
 			orientation="row"
 			labelFor="credential-generated"
 		>
@@ -155,14 +155,14 @@
 			</svelte:fragment>
 
 			<svelte:fragment slot="caption">
-				{#if selectedType == 'generated'}
+				{#if selectedType === 'generated'}
 					GitButler will use a locally generated SSH key. For this to work you need to add the
 					following public key to your Git remote provider:
 				{/if}
 			</svelte:fragment>
 		</SectionCard>
 
-		{#if selectedType == 'generated'}
+		{#if selectedType === 'generated'}
 			<SectionCard topDivider roundedTop={false} roundedBottom={false}>
 				<TextBox id="sshKey" readonly bind:value={sshKey} wide />
 				<div class="row-buttons">
@@ -192,7 +192,7 @@
 			<svelte:fragment slot="title">Use a Git credentials helper</svelte:fragment>
 
 			<svelte:fragment slot="caption">
-				{#if selectedType == 'gitCredentialsHelper'}
+				{#if selectedType === 'gitCredentialsHelper'}
 					GitButler will use the system's git credentials helper.
 					<Link target="_blank" rel="noreferrer" href="https://git-scm.com/doc/credential-helpers">
 						Learn more
@@ -220,14 +220,14 @@
 	.inputs-group {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
+		gap: 16px;
 		width: 100%;
 	}
 
 	.row-buttons {
 		display: flex;
 		justify-content: flex-end;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 
 	.git-radio {

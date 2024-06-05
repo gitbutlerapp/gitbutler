@@ -22,21 +22,21 @@ export function selectFilesInList(
 		}
 	} else if (e.shiftKey && allowMultiple) {
 		const initiallySelectedIndex = sortedFiles.findIndex(
-			(f) => f.id == fileIdSelection.only()?.fileId
+			(f) => f.id === fileIdSelection.only()?.fileId
 		);
 
 		// detect the direction of the selection
 		const selectionDirection =
-			initiallySelectedIndex < sortedFiles.findIndex((f) => f.id == file.id) ? 'down' : 'up';
+			initiallySelectedIndex < sortedFiles.findIndex((f) => f.id === file.id) ? 'down' : 'up';
 
 		const updatedSelection = sortedFiles.slice(
 			Math.min(
 				initiallySelectedIndex,
-				sortedFiles.findIndex((f) => f.id == file.id)
+				sortedFiles.findIndex((f) => f.id === file.id)
 			),
 			Math.max(
 				initiallySelectedIndex,
-				sortedFiles.findIndex((f) => f.id == file.id)
+				sortedFiles.findIndex((f) => f.id === file.id)
 			) + 1
 		);
 
@@ -48,7 +48,7 @@ export function selectFilesInList(
 		fileIdSelection.set(selectedFileIds);
 	} else {
 		// if only one file is selected and it is already selected, unselect it
-		if (selectedFileIds.length == 1 && isAlreadySelected) {
+		if (selectedFileIds.length === 1 && isAlreadySelected) {
 			fileIdSelection.clear();
 		} else {
 			fileIdSelection.set([stringifyFileKey(file.id, commit?.id)]);

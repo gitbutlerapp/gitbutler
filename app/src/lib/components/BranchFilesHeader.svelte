@@ -31,7 +31,7 @@
 		for (let i = 1; i < files.length; i++) {
 			file = files[i];
 			const contained = selectedOwnership.contains(file.id, ...file.hunkIds);
-			if (contained != prev) {
+			if (contained !== prev) {
 				return true;
 			}
 		}
@@ -70,16 +70,16 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--size-14);
+		padding: 14px;
 	}
 	.header__title {
 		display: flex;
 		align-items: center;
-		gap: var(--size-4);
+		gap: 4px;
 		color: var(--clr-scale-ntrl-0);
 	}
 	.header__left {
 		display: flex;
-		gap: var(--size-10);
+		gap: 10px;
 	}
 </style>

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import FileStatusTag from './FileStatusTag.svelte';
-	import Tag from './Tag.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
@@ -40,24 +39,28 @@
 				{#if file.conflicted || isFileLocked}
 					<div class="header__tag-group">
 						{#if isFileLocked}
-							<Tag
+							<Button
+								size="tag"
+								clickable={false}
 								icon="locked-small"
 								style="warning"
 								help="File changes cannot be moved because part of this file was already committed into this branch"
-								>Locked</Tag
+								>Locked</Button
 							>
 						{/if}
 						{#if file.conflicted}
-							<Tag icon="warning-small" style="error">Has conflicts</Tag>
+							<Button size="tag" clickable={false} icon="warning-small" style="error"
+								>Has conflicts</Button
+							>
 						{/if}
 					</div>
 				{/if}
 				<div class="header__tag-group">
 					{#if fileStats.added}
-						<Tag style="success">+{fileStats.added}</Tag>
+						<Button size="tag" clickable={false} style="success">+{fileStats.added}</Button>
 					{/if}
 					{#if fileStats.removed}
-						<Tag style="error">-{fileStats.removed}</Tag>
+						<Button size="tag" clickable={false} style="error">-{fileStats.removed}</Button>
 					{/if}
 					{#if fileStatus}
 						<FileStatusTag status={fileStatus} />
@@ -72,30 +75,30 @@
 <style lang="postcss">
 	.header {
 		display: flex;
-		padding: var(--size-10);
-		gap: var(--size-12);
+		padding: 10px;
+		gap: 12px;
 		border-bottom: 1px solid var(--clr-border-2);
 	}
 	.header__inner {
 		display: flex;
 		flex-grow: 1;
-		gap: var(--size-8);
-		padding: var(--size-4);
+		gap: 8px;
+		padding: 4px;
 		overflow: hidden;
 	}
 	.header__info {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 		width: 100%;
 	}
 	.header__tags {
 		display: flex;
-		gap: var(--size-6);
+		gap: 6px;
 	}
 	.header__tag-group {
 		display: flex;
-		gap: var(--size-2);
+		gap: 2px;
 	}
 	.header__filetitle {
 		width: 100%;
@@ -110,8 +113,7 @@
 	}
 	.icon {
 		flex-shrink: 0;
-		width: var(--size-14);
-		height: var(--size-14);
-		margin-top: calc(var(--size-2) / 2);
+		width: 14px;
+		height: 14px;
 	}
 </style>

@@ -82,7 +82,7 @@
 	.left-side {
 		display: grid;
 		align-items: center;
-		padding: var(--size-40) calc(var(--size-40) * 2);
+		padding: 40px 80px;
 		flex: 1.3;
 		background-color: var(--clr-bg-1);
 		overflow-y: auto;
@@ -93,16 +93,16 @@
 		flex-direction: column;
 		margin: 0 auto;
 		width: 100%;
-		max-width: 32rem;
+		max-width: 512px;
 	}
 
 	/* RIGHT SIDE */
 
 	.right-side {
 		flex: 1;
-		min-width: 28rem;
+		min-width: 448px;
 		background-color: var(--clr-bg-1);
-		padding: var(--size-20) var(--size-20) var(--size-20) 0;
+		padding: 20px 20px 20px 0;
 	}
 
 	.right-side-wrapper {
@@ -112,7 +112,7 @@
 		flex-direction: column;
 		height: 100%;
 		background-color: var(--clr-illustration-bg);
-		border-radius: var(--size-8);
+		border-radius: 8px;
 	}
 
 	.right-side__header {
@@ -123,7 +123,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: flex-end;
-		padding: var(--size-20);
+		padding: 20px;
 	}
 
 	.right-side__footer {
@@ -134,19 +134,19 @@
 		display: flex;
 		align-items: flex-end;
 		justify-content: space-between;
-		padding: var(--size-32);
+		padding: 32px;
 	}
 
 	.wordmark {
 		position: absolute;
 		color: var(--clr-scale-pop-30);
-		right: var(--size-32);
-		bottom: var(--size-32);
+		right: 32px;
+		bottom: 32px;
 	}
 
 	.account-button {
-		right: var(--size-32);
-		top: var(--size-32);
+		right: 32px;
+		top: 32px;
 	}
 
 	/* links */
@@ -156,14 +156,14 @@
 		display: flex;
 		align-items: flex-start;
 		flex-direction: column;
-		gap: var(--size-4);
+		gap: 4px;
 	}
 
 	.right-side__link {
 		display: flex;
 		align-items: center;
-		gap: var(--size-10);
-		padding: var(--size-6);
+		gap: 10px;
+		padding: 6px;
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
 
@@ -178,7 +178,7 @@
 		left: 50%;
 		transform: translate(-50%, -50%);
 		width: 100%;
-		max-width: 25rem;
+		max-width: 400px;
 		overflow: hidden;
 	}
 </style>

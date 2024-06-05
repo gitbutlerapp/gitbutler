@@ -51,7 +51,7 @@ export class CombinedBranch {
 	}
 
 	get author(): Author | undefined {
-		if (this.authors.length == 0) {
+		if (this.authors.length === 0) {
 			return undefined;
 		}
 		return this.authors[0];
@@ -65,7 +65,7 @@ export class CombinedBranch {
 	get color(): 'neutral' | 'success' | 'pop' | 'purple' | undefined {
 		if (this.pr?.mergedAt) return 'purple'; // merged PR
 		if (this.pr) return 'success'; // open PR
-		if (this.vbranch && this.vbranch.active == false) return 'pop'; // stashed virtual branches
+		if (this.vbranch && this.vbranch.active === false) return 'pop'; // stashed virtual branches
 		// if (this.remoteBranch?.isMergeable) return 'success'; // remote branches
 		return 'neutral';
 	}

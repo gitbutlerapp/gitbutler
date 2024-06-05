@@ -80,10 +80,10 @@
 			autocomplete={autocomplete ? 'on' : 'off'}
 			min={minVal}
 			max={maxVal}
-			{...type == 'password' && showPassword ? { type: 'text' } : { type }}
+			{...type === 'password' && showPassword ? { type: 'text' } : { type }}
 			class:show-count-actions={showCountActions}
 			class="text-input textbox__input text-base-13"
-			class:textbox__readonly={type != 'select' && readonly}
+			class:textbox__readonly={type !== 'select' && readonly}
 			class:select-none={noselect}
 			style:text-align={textAlign}
 			bind:value
@@ -99,7 +99,7 @@
 			on:keydown={(e) => dispatch('keydown', e)}
 		/>
 
-		{#if type == 'number' && showCountActions}
+		{#if type === 'number' && showCountActions}
 			<div class="textbox__count-actions">
 				<button
 					class="textbox__count-btn"
@@ -128,7 +128,7 @@
 			</div>
 		{/if}
 
-		{#if type == 'password'}
+		{#if type === 'password'}
 			<button
 				class="textbox__show-hide-icon"
 				on:click={() => {
@@ -147,7 +147,7 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-6);
+		gap: 6px;
 	}
 
 	.textbox__input-wrap {
@@ -191,11 +191,11 @@
 		z-index: var(--z-ground);
 		position: absolute;
 		top: 50%;
-		right: var(--size-6);
+		right: 6px;
 		color: var(--clr-scale-ntrl-50);
 		transform: translateY(-50%);
 		display: flex;
-		padding: var(--size-2) var(--size-4);
+		padding: 2px 4px;
 		border-radius: var(--radius-s);
 		transition: background-color var(--transition-fast);
 
@@ -219,7 +219,7 @@
 		-moz-appearance: textfield;
 
 		&.show-count-actions {
-			padding-right: 4.25rem;
+			padding-right: 68px;
 		}
 	}
 
@@ -233,7 +233,7 @@
 		z-index: var(--z-ground);
 		position: absolute;
 		top: 50%;
-		right: var(--size-6);
+		right: 6px;
 		transform: translateY(-50%);
 		display: flex;
 	}
@@ -242,7 +242,7 @@
 		content: '';
 		position: absolute;
 		top: 50%;
-		left: -0.375rem;
+		left: -6px;
 		transform: translateY(-50%);
 		width: 1px;
 		height: 100%;
@@ -253,7 +253,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: var(--size-2) var(--size-4);
+		padding: 2px 4px;
 		border-radius: var(--radius-s);
 		color: var(--clr-scale-ntrl-50);
 		transition: background-color var(--transition-fast);
@@ -270,19 +270,19 @@
 
 	.textbox__left-orient {
 		& .textbox__input {
-			padding-left: calc(var(--size-32) + var(--size-2));
+			padding-left: 34px;
 		}
 		& .textbox__icon {
-			left: var(--size-10);
+			left: 10px;
 		}
 	}
 
 	.textbox__right-orient {
 		& .textbox__input {
-			padding-right: calc(var(--size-32) + var(--size-2));
+			padding-right: 34px;
 		}
 		& .textbox__icon {
-			right: var(--size-10);
+			right: 10px;
 		}
 	}
 

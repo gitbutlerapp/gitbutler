@@ -16,6 +16,10 @@ use std::os::windows::process::CommandExt;
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
+    fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder;
+    fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()>;
+    fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler;
+    fn find_branch_by_refname(&self, name: &Refname) -> Result<git2::Branch, git2::Error>;
     /// Based on the index, add all data similar to `git add .` and create a tree from it, which is returned.
     fn get_wd_tree(&self) -> Result<Tree>;
 
@@ -51,6 +55,45 @@ pub trait RepositoryExt {
 }
 
 impl RepositoryExt for Repository {
+    fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder {
+        CheckoutIndexBuilder {
+            index,
+            repo: self,
+            checkout_builder: git2::build::CheckoutBuilder::new(),
+        }
+    }
+
+    fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        let mut builder = git2::build::CheckoutBuilder::new();
+        builder.path(path.as_ref());
+        builder.force();
+
+        let mut index = self.index()?;
+        self.checkout_index(Some(&mut index), Some(&mut builder))?;
+
+        Ok(())
+    }
+    fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler {
+        CheckoutTreeBuidler {
+            tree,
+            repo: self,
+            checkout_builder: git2::build::CheckoutBuilder::new(),
+        }
+    }
+
+    fn find_branch_by_refname(&self, name: &Refname) -> Result<git2::Branch, git2::Error> {
+        self.find_branch(
+            &name.simple_name(),
+            match name {
+                Refname::Virtual(_) | Refname::Local(_) | Refname::Other(_) => {
+                    git2::BranchType::Local
+                }
+                Refname::Remote(_) => git2::BranchType::Remote,
+            },
+        )
+        // .map_err(Into::into)
+    }
+
     #[instrument(level = tracing::Level::DEBUG, skip(self), err(Debug))]
     fn get_wd_tree(&self) -> Result<Tree> {
         let mut index = self.index()?;
@@ -284,4 +327,57 @@ fn inject_change_id(commit_buffer: &[u8], change_id: Option<&str>) -> Result<Str
         new_buffer.pop();
     }
     Ok(new_buffer)
+}
+
+pub struct CheckoutTreeBuidler<'a> {
+    repo: &'a git2::Repository,
+    tree: &'a git2::Tree<'a>,
+    checkout_builder: git2::build::CheckoutBuilder<'a>,
+}
+
+impl CheckoutTreeBuidler<'_> {
+    pub fn force(&mut self) -> &mut Self {
+        self.checkout_builder.force();
+        self
+    }
+
+    pub fn remove_untracked(&mut self) -> &mut Self {
+        self.checkout_builder.remove_untracked(true);
+        self
+    }
+
+    pub fn checkout(&mut self) -> Result<()> {
+        self.repo
+            .checkout_tree(self.tree.as_object(), Some(&mut self.checkout_builder))
+            .map_err(Into::into)
+    }
+}
+
+pub struct CheckoutIndexBuilder<'a> {
+    repo: &'a git2::Repository,
+    index: &'a mut git2::Index,
+    checkout_builder: git2::build::CheckoutBuilder<'a>,
+}
+
+impl CheckoutIndexBuilder<'_> {
+    pub fn force(&mut self) -> &mut Self {
+        self.checkout_builder.force();
+        self
+    }
+
+    pub fn allow_conflicts(&mut self) -> &mut Self {
+        self.checkout_builder.allow_conflicts(true);
+        self
+    }
+
+    pub fn conflict_style_merge(&mut self) -> &mut Self {
+        self.checkout_builder.conflict_style_merge(true);
+        self
+    }
+
+    pub fn checkout(&mut self) -> Result<()> {
+        self.repo
+            .checkout_index(Some(&mut self.index), Some(&mut self.checkout_builder))
+            .map_err(Into::into)
+    }
 }

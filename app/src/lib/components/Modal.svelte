@@ -31,9 +31,9 @@
 
 <dialog
 	class="dialog-wrap"
-	class:s-default={width == 'default'}
-	class:s-small={width == 'small'}
-	class:s-large={width == 'large'}
+	class:s-default={width === 'default'}
+	class:s-small={width === 'small'}
+	class:s-large={width === 'large'}
 	bind:this={dialog}
 	on:close={close}
 >
@@ -71,7 +71,7 @@
 	.dialog-wrap {
 		position: relative;
 		width: 100%;
-		max-height: calc(100vh - 5rem);
+		max-height: calc(100vh - 80px);
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
@@ -86,35 +86,35 @@
 	/* modifiers */
 
 	.s-large {
-		max-width: calc(var(--size-64) * 13);
+		max-width: 840px;
 	}
 
 	.s-default {
-		max-width: calc(var(--size-64) * 9);
+		max-width: 580px;
 	}
 
 	.s-small {
-		max-width: calc(var(--size-64) * 6);
+		max-width: 380px;
 	}
 
 	.modal__header {
 		display: flex;
-		padding: var(--size-16);
-		gap: var(--size-8);
+		padding: 16px;
+		gap: 8px;
 		border-bottom: 1px solid var(--clr-border-2);
 	}
 
 	.modal__body {
 		overflow: auto;
-		padding: var(--size-16);
+		padding: 16px;
 	}
 
 	.modal__footer {
 		display: flex;
 		width: 100%;
 		justify-content: flex-end;
-		gap: var(--size-8);
-		padding: var(--size-16);
+		gap: 8px;
+		padding: 16px;
 		border-top: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 	}

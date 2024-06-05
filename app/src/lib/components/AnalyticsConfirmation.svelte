@@ -31,7 +31,7 @@
 		width: 100%;
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-12);
+		gap: 12px;
 	}
 
 	.title {

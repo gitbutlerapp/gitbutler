@@ -61,12 +61,12 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-6);
+		gap: 6px;
 	}
 	.textarea {
 		width: 100%;
 		resize: none;
-		padding: var(--size-12);
+		padding: 12px;
 
 		&::-webkit-resizer {
 			background: transparent;

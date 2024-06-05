@@ -1,12 +1,14 @@
 <script lang="ts">
 	import Spacer from '../Spacer.svelte';
+	import { pxToRem } from '$lib/utils/pxToRem';
+
 	export let spacer = false;
-	export let gap = 'var(--size-20)';
+	export let gap = 20;
 
 	const SLOTS = $$props.$$slots;
 </script>
 
-<div class="settings-section" style="gap: {gap}">
+<div class="settings-section" style="gap: {pxToRem(gap)}">
 	{#if SLOTS.top}
 		<slot name="top" />
 	{/if}
@@ -42,7 +44,7 @@
 	.description {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-10);
+		gap: 10px;
 	}
 
 	.description h2 {

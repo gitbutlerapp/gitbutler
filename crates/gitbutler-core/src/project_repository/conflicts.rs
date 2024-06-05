@@ -25,7 +25,7 @@ pub fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
     if paths.is_empty() {
         return Ok(());
     }
-    let conflicts_path = repository.git_repository.path().join("conflicts");
+    let conflicts_path = repository.repo().path().join("conflicts");
     // write all the file paths to a file on disk
     let mut file = std::fs::File::create(conflicts_path)?;
     for path in paths {
@@ -34,7 +34,7 @@ pub fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
     }
 
     if let Some(parent) = parent {
-        let merge_path = repository.git_repository.path().join("base_merge_parent");
+        let merge_path = repository.repo().path().join("base_merge_parent");
         // write all the file paths to a file on disk
         let mut file = std::fs::File::create(merge_path)?;
         file.write_all(parent.to_string().as_bytes())?;
@@ -44,7 +44,7 @@ pub fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
 }
 
 pub fn merge_parent(repository: &Repository) -> Result<Option<git::Oid>> {
-    let merge_path = repository.git_repository.path().join("base_merge_parent");
+    let merge_path = repository.repo().path().join("base_merge_parent");
     if !merge_path.exists() {
         return Ok(None);
     }
@@ -63,7 +63,7 @@ pub fn merge_parent(repository: &Repository) -> Result<Option<git::Oid>> {
 
 pub fn resolve<P: AsRef<Path>>(repository: &Repository, path: P) -> Result<()> {
     let path = path.as_ref();
-    let conflicts_path = repository.git_repository.path().join("conflicts");
+    let conflicts_path = repository.repo().path().join("conflicts");
     let file = std::fs::File::open(conflicts_path.clone())?;
     let reader = std::io::BufReader::new(file);
     let mut remaining = Vec::new();
@@ -85,7 +85,7 @@ pub fn resolve<P: AsRef<Path>>(repository: &Repository, path: P) -> Result<()> {
 }
 
 pub fn conflicting_files(repository: &Repository) -> Result<Vec<String>> {
-    let conflicts_path = repository.git_repository.path().join("conflicts");
+    let conflicts_path = repository.repo().path().join("conflicts");
     if !conflicts_path.exists() {
         return Ok(vec![]);
     }
@@ -98,7 +98,7 @@ pub fn conflicting_files(repository: &Repository) -> Result<Vec<String>> {
 /// Check if `path` is conflicting in `repository`, or if `None`, check if there is any conflict.
 // TODO(ST): Should this not rather check the conflicting state in the index?
 pub fn is_conflicting(repository: &Repository, path: Option<&Path>) -> Result<bool> {
-    let conflicts_path = repository.git_repository.path().join("conflicts");
+    let conflicts_path = repository.repo().path().join("conflicts");
     if !conflicts_path.exists() {
         return Ok(false);
     }
@@ -125,15 +125,11 @@ pub fn is_conflicting(repository: &Repository, path: Option<&Path>) -> Result<bo
 // is this project still in a resolving conflict state?
 // - could be that there are no more conflicts, but the state is not committed
 pub fn is_resolving(repository: &Repository) -> bool {
-    repository
-        .git_repository
-        .path()
-        .join("base_merge_parent")
-        .exists()
+    repository.repo().path().join("base_merge_parent").exists()
 }
 
 pub fn clear(repository: &Repository) -> Result<()> {
-    let merge_path = repository.git_repository.path().join("base_merge_parent");
+    let merge_path = repository.repo().path().join("base_merge_parent");
     std::fs::remove_file(merge_path)?;
 
     for file in conflicting_files(repository)? {
