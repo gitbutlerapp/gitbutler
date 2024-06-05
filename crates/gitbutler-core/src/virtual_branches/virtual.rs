@@ -1669,46 +1669,40 @@ fn new_compute_locks(
     Ok(locked_hunks)
 }
 
+fn compute_merge_base(
+    project_repository: &project_repository::Repository,
+    target_sha: &git::Oid,
+    virtual_branches: &Vec<branch::Branch>,
+) -> Result<git::Oid> {
+    let repo = project_repository.repo();
+    let mut merge_base = *target_sha;
+    for branch in virtual_branches {
+        if let Some(last) = project_repository
+            .l(branch.head, LogUntil::Commit(*target_sha))?
+            .last()
+            .map(|id| repo.find_commit(id.to_owned().into()))
+        {
+            if let Ok(parent) = last?.parent(0) {
+                merge_base = repo.merge_base(parent.id(), merge_base.into())?.into();
+            }
+        }
+    }
+    Ok(merge_base)
+}
+
 fn compute_locks(
     project_repository: &project_repository::Repository,
+    integration_commit: &git::Oid,
+    target_sha: &git::Oid,
     base_diffs: &BranchStatus,
     virtual_branches: &Vec<branch::Branch>,
 ) -> Result<HashMap<HunkHash, Vec<diff::HunkLock>>> {
-    fn compute_merge_base(
-        project_repository: &project_repository::Repository,
-        target_sha: &git2::Oid,
-        virtual_branches: &Vec<branch::Branch>,
-    ) -> Result<git2::Oid> {
-        let repo = project_repository.repo();
-        let mut merge_base = *target_sha;
-        for branch in virtual_branches {
-            if let Some(last) = project_repository
-                .l(branch.head, LogUntil::Commit((*target_sha).into()))?
-                .last()
-                .map(|id| repo.find_commit(id.to_owned().into()))
-            {
-                if let Ok(parent) = last?.parent(0) {
-                    merge_base = repo.merge_base(parent.id(), merge_base)?;
-                }
-            }
-        }
-        Ok(merge_base)
-    }
-
-    let target_sha = project_repository.repo().target_commit()?.id();
-    // If the integration commit is not found, there can't be any locks
-    let integration_commit = project_repository
-        .repo()
-        .integration_ref_from_head()?
-        .peel_to_commit()?
-        .id();
-
-    let merge_base = compute_merge_base(project_repository, &target_sha, virtual_branches)?;
+    let merge_base = compute_merge_base(project_repository, target_sha, virtual_branches)?;
     let mut locked_hunk_map = HashMap::<HunkHash, Vec<diff::HunkLock>>::new();
 
     let mut commit_to_branch = HashMap::new();
     for branch in virtual_branches {
-        for commit in project_repository.log(branch.head, LogUntil::Commit((target_sha).into()))? {
+        for commit in project_repository.log(branch.head, LogUntil::Commit(*target_sha))? {
             commit_to_branch.insert(commit.id(), branch.id);
         }
     }
@@ -1719,8 +1713,8 @@ fn compute_locks(
                 &path,
                 hunk.old_start,
                 (hunk.old_start + hunk.old_lines).saturating_sub(1),
-                merge_base,
-                integration_commit,
+                merge_base.into(),
+                (*integration_commit).into(),
             ) {
                 Ok(blame) => blame,
                 Err(error) => {
@@ -1733,18 +1727,18 @@ fn compute_locks(
             };
 
             for blame_hunk in blame.iter() {
-                let commit_id = blame_hunk.orig_commit_id();
-                if commit_id == integration_commit || commit_id == target_sha {
+                let commit_id = git::Oid::from(blame_hunk.orig_commit_id());
+                if commit_id == *integration_commit || commit_id == *target_sha {
                     continue;
                 }
                 let hash = Hunk::hash_diff(&hunk.diff_lines);
-                let Some(branch_id) = commit_to_branch.get(&commit_id) else {
+                let Some(branch_id) = commit_to_branch.get(&commit_id.into()) else {
                     continue;
                 };
 
                 let hunk_lock = diff::HunkLock {
                     branch_id: *branch_id,
-                    commit_id: commit_id.into(),
+                    commit_id,
                 };
                 locked_hunk_map
                     .entry(hash)
@@ -1801,7 +1795,13 @@ fn get_applied_status(
     let locks = if project_repository.project().use_new_locking {
         new_compute_locks(project_repository.repo(), &base_diffs, &virtual_branches)?
     } else {
-        compute_locks(project_repository, &base_diffs, &virtual_branches)?
+        compute_locks(
+            project_repository,
+            integration_commit,
+            target_sha,
+            &base_diffs,
+            &virtual_branches,
+        )?
     };
 
     for branch in &mut virtual_branches {
