@@ -99,9 +99,9 @@
 							await branchController.createvBranchFromBranch(branch.name);
 							goto(`/${project.id}/board`);
 						} catch (e) {
-							const msg = 'Failed to apply branch';
-							error(msg);
-							console.error(msg, e);
+							const err = 'Failed to apply branch';
+							error(err);
+							console.error(err, e);
 						} finally {
 							isApplying = false;
 						}
