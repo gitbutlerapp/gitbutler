@@ -9,11 +9,8 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
-	import * as hotkeys from '$lib/utils/hotkeys';
-	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { platform } from '@tauri-apps/api/os';
 	import { from } from 'rxjs';
-	import { onMount } from 'svelte';
 
 	const platformName = from(platform());
 	const minResizerWidth = 280;
@@ -36,14 +33,18 @@
 		$isNavCollapsed = !$isNavCollapsed;
 	}
 
-	onMount(() =>
-		unsubscribe(
-			hotkeys.on('Meta+/', () => {
-				toggleNavCollapse();
-			})
-		)
-	);
+	function handleKeyDown(event: KeyboardEvent) {
+		const metaKey = event.metaKey || event.ctrlKey;
+		if (event.repeat || event.target instanceof HTMLInputElement) return;
+
+		if (metaKey && event.key === '/') {
+			event.preventDefault();
+			toggleNavCollapse();
+		}
+	}
 </script>
+
+<svelte:window on:keydown={handleKeyDown} />
 
 <aside class="navigation-wrapper" class:hide-fold-button={isScrollbarDragging}>
 	<div
