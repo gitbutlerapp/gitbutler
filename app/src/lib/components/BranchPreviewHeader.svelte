@@ -5,11 +5,11 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
 	import { getContext } from '$lib/utils/context';
+	import { error } from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { onDestroy } from 'svelte';
-	import toast from 'svelte-french-toast';
 	import type { PullRequest } from '$lib/github/types';
 	import type { BaseBranch, RemoteBranch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
@@ -100,7 +100,7 @@
 							goto(`/${project.id}/board`);
 						} catch (e) {
 							const err = 'Failed to apply branch';
-							toast.error(err);
+							error(err);
 							console.error(err, e);
 						} finally {
 							isApplying = false;
