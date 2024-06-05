@@ -88,4 +88,16 @@ pub mod commands {
             .set_local_config(id, key, value)
             .map_err(Into::into)
     }
+
+    #[tauri::command(async)]
+    #[instrument(skip(handle), err(Debug))]
+    pub async fn check_signing_settings(
+        handle: tauri::AppHandle,
+        id: ProjectId,
+    ) -> Result<bool, Error> {
+        handle
+            .state::<Controller>()
+            .check_signing_settings(id)
+            .map_err(Into::into)
+    }
 }

@@ -46,6 +46,8 @@ pub trait RepositoryExt {
         oldest_commit: git2::Oid,
         newest_commit: git2::Oid,
     ) -> Result<git2::Blame, git2::Error>;
+
+    fn sign_buffer(&self, buffer: &String) -> Result<String>;
 }
 
 impl RepositoryExt for Repository {
@@ -112,10 +114,14 @@ impl RepositoryExt for Repository {
             .first_parent(true);
         self.blame_file(path, Some(&mut opts))
     }
+
+    fn sign_buffer(&self, buffer: &String) -> Result<String> {
+        sign_buffer(self, buffer)
+    }
 }
 
 /// Signs the buffer with the configured gpg key, returning the signature.
-fn sign_buffer(repo: &git2::Repository, buffer: &String) -> Result<String> {
+pub fn sign_buffer(repo: &git2::Repository, buffer: &String) -> Result<String> {
     // check git config for gpg.signingkey
     // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
     let signing_key = repo.config()?.get_string("user.signingkey");
@@ -134,8 +140,13 @@ fn sign_buffer(repo: &git2::Repository, buffer: &String) -> Result<String> {
             let buffer_file_to_sign_path = signature_storage.into_temp_path();
 
             let gpg_program = repo.config()?.get_string("gpg.ssh.program");
-            let mut cmd =
-                std::process::Command::new(gpg_program.unwrap_or("ssh-keygen".to_string()));
+            let mut gpg_program = gpg_program.unwrap_or("ssh-keygen".to_string());
+            // if cmd is "", use gpg
+            if gpg_program.is_empty() {
+                gpg_program = "ssh-keygen".to_string();
+            }
+
+            let mut cmd = std::process::Command::new(gpg_program);
             cmd.args(["-Y", "sign", "-n", "git", "-f"]);
 
             #[cfg(windows)]
@@ -162,6 +173,7 @@ fn sign_buffer(repo: &git2::Repository, buffer: &String) -> Result<String> {
                 cmd.arg(&key_file_path);
                 cmd.arg("-U");
                 cmd.arg(&buffer_file_to_sign_path);
+                cmd.stderr(Stdio::piped());
                 cmd.stdout(Stdio::piped());
                 cmd.stdin(Stdio::null());
 
@@ -170,6 +182,7 @@ fn sign_buffer(repo: &git2::Repository, buffer: &String) -> Result<String> {
             } else {
                 cmd.arg(signing_key);
                 cmd.arg(&buffer_file_to_sign_path);
+                cmd.stderr(Stdio::piped());
                 cmd.stdout(Stdio::piped());
                 cmd.stdin(Stdio::null());
 
@@ -183,15 +196,28 @@ fn sign_buffer(repo: &git2::Repository, buffer: &String) -> Result<String> {
                 let sig_data = std::fs::read(signature_path)?;
                 let signature = String::from_utf8_lossy(&sig_data).into_owned();
                 return Ok(signature);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let std_both = format!("{} {}", stdout, stderr);
+                bail!("Failed to sign SSH: {}", std_both);
             }
         } else {
             // is gpg
             let gpg_program = repo.config()?.get_string("gpg.program");
-            let mut cmd = std::process::Command::new(gpg_program.unwrap_or("gpg".to_string()));
+            let mut gpg_program = gpg_program.unwrap_or("gpg".to_string());
+            // if cmd is "", use gpg
+            if gpg_program.is_empty() {
+                gpg_program = "gpg".to_string();
+            }
+
+            let mut cmd = std::process::Command::new(gpg_program);
+
             cmd.args(["--status-fd=2", "-bsau", &signing_key])
                 //.arg(&signed_storage)
                 .arg("-")
                 .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
                 .stdin(Stdio::piped());
 
             #[cfg(windows)]
@@ -211,10 +237,15 @@ fn sign_buffer(repo: &git2::Repository, buffer: &String) -> Result<String> {
                 // read stdout
                 let signature = String::from_utf8_lossy(&output.stdout).into_owned();
                 return Ok(signature);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let std_both = format!("{} {}", stdout, stderr);
+                bail!("Failed to sign GPG: {}", std_both);
             }
         }
     }
-    Err(anyhow::anyhow!("Unsupported commit signing method"))
+    Err(anyhow::anyhow!("No signing key found"))
 }
 
 fn is_literal_ssh_key(string: &str) -> (bool, &str) {
