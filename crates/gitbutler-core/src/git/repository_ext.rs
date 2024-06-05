@@ -30,6 +30,8 @@ pub trait RepositoryExt {
     /// This is for safety to assure the repository actually is in 'gitbutler mode'.
     fn integration_ref_from_head(&self) -> Result<git2::Reference<'_>>;
 
+    fn target_ref(&self) -> Result<git2::Reference<'_>>;
+
     #[allow(clippy::too_many_arguments)]
     fn commit_with_signature(
         &self,
@@ -107,6 +109,11 @@ impl RepositoryExt for Repository {
         } else {
             bail!("Unexpected state: cannot perform operation on non-integration branch")
         }
+    }
+
+    fn target_ref(&self) -> Result<git2::Reference<'_>> {
+        self.find_reference("refs/heads/gitbutler/target")
+            .context("BUG: gitbutler/target branch must exist")
     }
 
     #[allow(clippy::too_many_arguments)]

@@ -11,6 +11,8 @@ use crate::git;
 use crate::id::Id;
 use crate::virtual_branches::Branch;
 
+use super::RepositoryExt;
+
 pub type DiffByPathMap = HashMap<PathBuf, FileDiff>;
 
 /// The type of change
@@ -128,9 +130,14 @@ pub struct FileDiff {
 }
 
 #[instrument(skip(repository))]
-pub fn workdir(repository: &git2::Repository, commit_oid: &git2::Oid) -> Result<DiffByPathMap> {
+pub fn workdir(repository: &git2::Repository) -> Result<DiffByPathMap> {
     let commit = repository
-        .find_commit(*commit_oid)
+        .find_commit(
+            repository
+                .integration_ref_from_head()?
+                .target()
+                .ok_or(anyhow::anyhow!("no integration commit found"))?,
+        )
         .context("failed to find commit")?;
     let tree = commit.tree().context("failed to find tree")?;
 
