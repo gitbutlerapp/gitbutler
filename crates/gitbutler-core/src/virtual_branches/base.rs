@@ -1,6 +1,6 @@
 use std::{path::Path, time};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use git2::Index;
 use serde::Serialize;
 
@@ -131,11 +131,9 @@ pub fn set_base_branch(
     // lookup a branch by name
     let target_branch = match repo.find_branch_by_refname(&target_branch_ref.clone().into()) {
         Ok(branch) => branch,
-        Err(err) if err.code() == git2::ErrorCode::NotFound => {
-            bail!("remote branch '{}' not found", target_branch_ref)
-        }
-        Err(err) => return Err(err.into()),
-    };
+        Err(err) => return Err(err),
+    }
+    .ok_or(anyhow!("remote branch '{}' not found", target_branch_ref))?;
 
     let remote = repo
         .find_remote(target_branch_ref.remote())
@@ -340,6 +338,7 @@ pub fn update_base_branch(
         .context(format!("failed to find branch {}", target.branch))?;
 
     let new_target_commit = target_branch
+        .ok_or(anyhow!("failed to get branch"))?
         .get()
         .peel_to_commit()
         .context(format!("failed to peel branch {} to commit", target.branch))?;
@@ -577,7 +576,9 @@ pub fn target_to_base_branch(
     target: &target::Target,
 ) -> Result<super::BaseBranch> {
     let repo = project_repository.repo();
-    let branch = repo.find_branch_by_refname(&target.branch.clone().into())?;
+    let branch = repo
+        .find_branch_by_refname(&target.branch.clone().into())?
+        .ok_or(anyhow!("failed to get branch"))?;
     let commit = branch.get().peel_to_commit()?;
     let oid = commit.id();
 

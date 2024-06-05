@@ -19,7 +19,7 @@ pub trait RepositoryExt {
     fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder;
     fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()>;
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler;
-    fn find_branch_by_refname(&self, name: &Refname) -> Result<git2::Branch, git2::Error>;
+    fn find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>>;
     /// Based on the index, add all data similar to `git add .` and create a tree from it, which is returned.
     fn get_wd_tree(&self) -> Result<Tree>;
 
@@ -81,8 +81,8 @@ impl RepositoryExt for Repository {
         }
     }
 
-    fn find_branch_by_refname(&self, name: &Refname) -> Result<git2::Branch, git2::Error> {
-        self.find_branch(
+    fn find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>> {
+        let branch = self.find_branch(
             &name.simple_name(),
             match name {
                 Refname::Virtual(_) | Refname::Local(_) | Refname::Other(_) => {
@@ -90,8 +90,12 @@ impl RepositoryExt for Repository {
                 }
                 Refname::Remote(_) => git2::BranchType::Remote,
             },
-        )
-        // .map_err(Into::into)
+        );
+        match branch {
+            Ok(branch) => Ok(Some(branch)),
+            Err(e) if e.code() == git2::ErrorCode::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 
     #[instrument(level = tracing::Level::DEBUG, skip(self), err(Debug))]

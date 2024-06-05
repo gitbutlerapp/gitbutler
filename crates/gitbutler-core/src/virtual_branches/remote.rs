@@ -6,7 +6,7 @@ use serde::Serialize;
 
 use super::{target, Author, VirtualBranchesHandle};
 use crate::{
-    git::{self, CommitExt, Refname},
+    git::{self, CommitExt, RepositoryExt},
     project_repository::{self, LogUntil},
 };
 
@@ -91,16 +91,8 @@ pub fn get_branch_data(
 
     let branch = project_repository
         .repo()
-        .find_branch(
-            &refname.simple_name(),
-            match refname {
-                Refname::Virtual(_) | Refname::Local(_) | Refname::Other(_) => {
-                    git2::BranchType::Local
-                }
-                Refname::Remote(_) => git2::BranchType::Remote,
-            },
-        )
-        .context(format!("failed to find branch with refname {refname}"))?;
+        .find_branch_by_refname(refname)?
+        .ok_or(anyhow::anyhow!("failed to find branch {}", refname))?;
 
     branch_to_remote_branch_data(project_repository, &branch, default_target.sha)?
         .context("failed to get branch data")
