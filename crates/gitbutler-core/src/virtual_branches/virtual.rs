@@ -18,7 +18,7 @@ use hex::ToHex;
 use regex::Regex;
 use serde::Serialize;
 
-use super::integration::get_workspace_head;
+use super::integration::{self, get_workspace_head};
 use super::{
     branch::{
         self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
@@ -1596,87 +1596,76 @@ fn get_non_applied_status(
         .collect::<Result<Vec<_>>>()
 }
 
-fn compute_merge_base(
-    project_repository: &project_repository::Repository,
-    target_sha: &git::Oid,
-    virtual_branches: &Vec<branch::Branch>,
-) -> Result<git::Oid> {
-    let repo = project_repository.repo();
-    let mut merge_base = *target_sha;
-    for branch in virtual_branches {
-        if let Some(last) = project_repository
-            .l(branch.head, LogUntil::Commit(*target_sha))?
-            .last()
-            .map(|id| repo.find_commit(id.to_owned().into()))
-        {
-            if let Ok(parent) = last?.parent(0) {
-                merge_base = repo.merge_base(parent.id(), merge_base.into())?.into();
-            }
-        }
-    }
-    Ok(merge_base)
-}
-
 fn compute_locks(
-    project_repository: &project_repository::Repository,
-    integration_commit: &git::Oid,
-    target_sha: &git::Oid,
-    base_diffs: &BranchStatus,
-    virtual_branches: &Vec<branch::Branch>,
-) -> Result<HashMap<HunkHash, Vec<diff::HunkLock>>> {
-    let merge_base = compute_merge_base(project_repository, target_sha, virtual_branches)?;
-    let mut locked_hunk_map = HashMap::<HunkHash, Vec<diff::HunkLock>>::new();
+    repository: &git2::Repository,
+    unstaged_hunks_by_path: &HashMap<PathBuf, Vec<diff::GitHunk>>,
+    virtual_branches: &[branch::Branch],
+) -> Result<HashMap<HunkHash, diff::HunkLock>> {
+    // TODO: I can't rely on gitbutler/target as a reference because its from the reflog hack. IDK why we chose to call it gitbutler/target, probably tequila was involved...
+    let target_tree = repository.target_ref().map(|r| r.peel_to_tree())??;
 
-    let mut commit_to_branch = HashMap::new();
-    for branch in virtual_branches {
-        for commit in project_repository.log(branch.head, LogUntil::Commit(*target_sha))? {
-            commit_to_branch.insert(commit.id(), branch.id);
+    let mut diff_opts = git2::DiffOptions::new();
+    let opts = diff_opts
+        .show_binary(true)
+        .ignore_submodules(true)
+        .context_lines(3);
+
+    let branch_path_diffs = virtual_branches
+        .iter()
+        .filter_map(|branch| {
+            let commit = repository.find_commit(branch.head.into()).ok()?;
+            let tree = commit.tree().ok()?;
+            let diff = repository
+                .diff_tree_to_tree(Some(&tree), Some(&target_tree), Some(opts))
+                .ok()?;
+            let hunks_by_filepath = diff::hunks_by_filepath(Some(repository), &diff).ok()?;
+
+            Some((branch, hunks_by_filepath))
+        })
+        .collect::<Vec<_>>();
+
+    let mut integration_hunks_by_path =
+        HashMap::<PathBuf, Vec<(diff::GitHunk, &branch::Branch)>>::new();
+
+    for (branch, hunks_by_filepath) in branch_path_diffs {
+        for (path, hunks) in hunks_by_filepath {
+            integration_hunks_by_path.entry(path).or_default().extend(
+                hunks
+                    .hunks
+                    .iter()
+                    .map(|hunk| (hunk.clone(), branch))
+                    .collect::<Vec<_>>(),
+            );
         }
     }
 
-    for (path, hunks) in base_diffs.clone().into_iter() {
-        for hunk in hunks {
-            let blame = match project_repository.repo().blame(
-                &path,
-                hunk.old_start,
-                (hunk.old_start + hunk.old_lines).saturating_sub(1),
-                merge_base.into(),
-                (*integration_commit).into(),
-            ) {
-                Ok(blame) => blame,
-                Err(error) => {
-                    if error.code() == ErrorCode::NotFound {
-                        continue;
-                    } else {
-                        return Err(error.into());
-                    }
+    let locked_hunks = unstaged_hunks_by_path
+        .iter()
+        .filter_map(|(path, hunks)| {
+            let integration_hunks = integration_hunks_by_path.get(path)?;
+
+            let (unapplied_hunk, branch) = hunks.iter().find_map(|unapplied_hunk| {
+                // Find the first intersecting hunk
+                for (integration_hunk, branch) in integration_hunks {
+                    if GitHunk::integration_intersects_unapplied(integration_hunk, unapplied_hunk) {
+                        return Some((unapplied_hunk, branch));
+                    };
                 }
+
+                None
+            })?;
+
+            let hash = Hunk::hash_diff(&unapplied_hunk.diff_lines);
+            let lock = diff::HunkLock {
+                branch_id: branch.id,
+                commit_id: branch.head,
             };
 
-            for blame_hunk in blame.iter() {
-                let commit_id = git::Oid::from(blame_hunk.orig_commit_id());
-                if commit_id == *integration_commit || commit_id == *target_sha {
-                    continue;
-                }
-                let hash = Hunk::hash_diff(&hunk.diff_lines);
-                let Some(branch_id) = commit_to_branch.get(&commit_id.into()) else {
-                    continue;
-                };
+            Some((hash, lock))
+        })
+        .collect::<HashMap<_, _>>();
 
-                let hunk_lock = diff::HunkLock {
-                    branch_id: *branch_id,
-                    commit_id,
-                };
-                locked_hunk_map
-                    .entry(hash)
-                    .and_modify(|locks| {
-                        locks.push(hunk_lock);
-                    })
-                    .or_insert(vec![hunk_lock]);
-            }
-        }
-    }
-    Ok(locked_hunk_map)
+    Ok(locked_hunks)
 }
 
 // Returns branches and their associated file changes, in addition to a list
@@ -1719,13 +1708,7 @@ fn get_applied_status(
 
     let mut mtimes = MTimeCache::default();
 
-    let locks = compute_locks(
-        project_repository,
-        integration_commit,
-        target_sha,
-        &base_diffs,
-        &virtual_branches,
-    )?;
+    let locks = compute_locks(project_repository.repo(), &base_diffs, &virtual_branches)?;
 
     for branch in &mut virtual_branches {
         if !branch.applied {
@@ -1823,11 +1806,10 @@ fn get_applied_status(
             let hash = Hunk::hash_diff(&hunk.diff_lines);
             let locked_to = locks.get(&hash);
 
-            let vbranch_pos = if let Some(locks) = locked_to {
-                let first_lock = &locks[0];
+            let vbranch_pos = if let Some(lock) = locked_to {
                 let p = virtual_branches
                     .iter()
-                    .position(|vb| vb.id == first_lock.branch_id);
+                    .position(|vb| vb.id == lock.branch_id);
                 match p {
                     Some(p) => p,
                     _ => default_vbranch_pos,
@@ -1841,7 +1823,7 @@ fn get_applied_status(
                 .with_timestamp(mtimes.mtime_by_path(filepath.as_path()))
                 .with_hash(hash);
             new_hunk.locked_to = match locked_to {
-                Some(locked_to) => locked_to.clone(),
+                Some(locked_to) => vec![locked_to.clone()],
                 _ => vec![],
             };
 
@@ -1853,7 +1835,7 @@ fn get_applied_status(
             });
 
             let hunk = match locked_to {
-                Some(locks) => hunk.with_locks(locks),
+                Some(locks) => hunk.with_locks(&[*locks]),
                 _ => hunk,
             };
             diffs_by_branch
