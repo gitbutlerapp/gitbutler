@@ -3,9 +3,9 @@
 	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
 	import SectionCard from './SectionCard.svelte';
+	import SectionCardDisclaimer from './SectionCardDisclaimer.svelte';
 	import TextBox from './TextBox.svelte';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
-	import SectionCardDisclaimer from './SectionCardDisclaimer.svelte';
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import Select from '$lib/components/Select.svelte';
 	import SelectItem from '$lib/components/SelectItem.svelte';

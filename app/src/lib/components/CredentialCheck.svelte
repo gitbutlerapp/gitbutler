@@ -3,8 +3,8 @@
 	import Icon from './Icon.svelte';
 	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
-	import { AuthService } from '$lib/backend/auth';
 	import SectionCardDisclaimer from './SectionCardDisclaimer.svelte';
+	import { AuthService } from '$lib/backend/auth';
 	import { getContext } from '$lib/utils/context';
 	import { slide } from 'svelte/transition';
 
