@@ -23,7 +23,11 @@
 <div class="welcome">
 	<h1 class="welcome-title text-serif-40">Welcome to GitButler</h1>
 	<div class="welcome__actions">
-		<WelcomeAction title="Add new project" loading={newProjectLoading} on:mousedown={onNewProject}>
+		<WelcomeAction
+			title="Add new project"
+			loading={newProjectLoading}
+			on:mousedown={onNewProject}
+		>
 			<svelte:fragment slot="icon">
 				{@html newProjectSvg}
 			</svelte:fragment>
@@ -55,7 +59,9 @@
 			<div class="community-links">
 				<IconLink icon="discord" href="https://discord.gg/MmFkmaJ42D">Discord</IconLink>
 				<IconLink icon="x" href="https://twitter.com/gitbutler">X</IconLink>
-				<IconLink icon="instagram" href="https://www.instagram.com/gitbutler/">Instagram</IconLink>
+				<IconLink icon="instagram" href="https://www.instagram.com/gitbutler/"
+					>Instagram</IconLink
+				>
 			</div>
 		</div>
 	</div>
@@ -98,7 +104,7 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 6px;
-		margin-left: calc(6px * -1);
+		margin-left: -6px;
 	}
 
 	.community-links {
@@ -106,7 +112,7 @@
 		flex-wrap: wrap;
 		column-gap: 12px;
 		row-gap: 4px;
-		max-width: calc(64px * 3);
-		margin-left: calc(6px * -1);
+		max-width: 192px;
+		margin-left: -6px;
 	}
 </style>

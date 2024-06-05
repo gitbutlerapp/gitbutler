@@ -33,7 +33,7 @@
 	.toggle {
 		appearance: none;
 		cursor: pointer;
-		width: 28px;
+		width: 26px;
 		height: 16px;
 		border-radius: 16px;
 		background-color: var(--clr-border-2);
@@ -63,7 +63,9 @@
 			background-color: var(--clr-theme-pop-element);
 
 			&:hover {
-				background-color: oklch(from var(--clr-theme-pop-element) var(--hover-state-ratio) c h);
+				background-color: oklch(
+					from var(--clr-theme-pop-element) var(--hover-state-ratio) c h
+				);
 			}
 
 			&:disabled {
