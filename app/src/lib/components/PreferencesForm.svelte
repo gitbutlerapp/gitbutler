@@ -184,8 +184,8 @@
 				{/if}
 			</Button>
 			<div class="disclaimer text-base-body-12">
-				Signing commits can allow other people to verify your commits if you publish the
-				public version of your signing key.
+				Signing commits can allow other people to verify your commits if you publish the public
+				version of your signing key.
 				<Link href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits"
 					>Read more</Link
 				> about commit signing and verification.
@@ -204,8 +204,8 @@
 	<SectionCard orientation="row" labelFor="allowForcePush">
 		<svelte:fragment slot="title">Allow force pushing</svelte:fragment>
 		<svelte:fragment slot="caption">
-			Force pushing allows GitButler to override branches even if they were pushed to remote.
-			We will never force push to the trunk.
+			Force pushing allows GitButler to override branches even if they were pushed to remote. We
+			will never force push to the trunk.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Toggle
