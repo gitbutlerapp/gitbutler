@@ -732,19 +732,10 @@ pub fn list_virtual_branches(
         let repo = project_repository.repo();
         update_conflict_markers(project_repository, &files)?;
 
-        let upstream_branch = match branch
-            .upstream
-            .as_ref()
-            .map(|name| repo.find_branch_by_refname(&git::Refname::from(name)))
-            .transpose()
-        {
-            Ok(branch) => Ok(branch),
-            Err(error) => Err(error),
-        }
-        .context(format!(
-            "failed to find upstream branch for {}",
-            branch.name
-        ))?;
+        let upstream_branch = match branch.clone().upstream {
+            Some(upstream) => repo.find_branch_by_refname(&git::Refname::from(upstream))?,
+            None => None,
+        };
 
         let upstram_branch_commit = upstream_branch
             .as_ref()
@@ -2398,7 +2389,8 @@ fn is_commit_integrated(
 ) -> Result<bool> {
     let remote_branch = project_repository
         .repo()
-        .find_branch_by_refname(&target.branch.clone().into())?;
+        .find_branch_by_refname(&target.branch.clone().into())?
+        .ok_or(anyhow!("failed to get branch"))?;
     let remote_head = remote_branch.get().peel_to_commit()?;
     let upstream_commits = project_repository.l(
         remote_head.id().into(),
@@ -2471,7 +2463,8 @@ pub fn is_remote_branch_mergeable(
 
     let branch = project_repository
         .repo()
-        .find_branch_by_refname(&branch_name.into())?;
+        .find_branch_by_refname(&branch_name.into())?
+        .ok_or(anyhow!("branch not found"))?;
     let branch_oid = branch.get().target().context("detatched head")?;
     let branch_commit = project_repository
         .repo()
