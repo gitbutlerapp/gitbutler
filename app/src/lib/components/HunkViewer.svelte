@@ -1,8 +1,9 @@
 <script lang="ts">
-	import HunkContextMenu from './HunkContextMenu.svelte';
-	import HunkLine from './HunkLine.svelte';
+	//import HunkContextMenu from './HunkContextMenu.svelte';
+	// import HunkLine from './HunkLine.svelte';
+	import HunkSection from './HunkSection.svelte';
 	import LargeDiffMessage from './LargeDiffMessage.svelte';
-	import Scrollbar from './Scrollbar.svelte';
+	//import Scrollbar from './Scrollbar.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableHunk } from '$lib/dragging/draggables';
@@ -11,13 +12,13 @@
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type Hunk } from '$lib/vbranches/types';
 	import { onDestroy } from 'svelte';
-	import type { HunkSection } from '$lib/utils/fileSections';
+	import type { HunkSection as HunkSectionType } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
 
 	export let viewport: HTMLDivElement | undefined = undefined;
 	export let contents: HTMLDivElement | undefined = undefined;
 	export let filePath: string;
-	export let section: HunkSection;
+	export let section: HunkSectionType;
 	export let minWidth: number;
 	export let selectable = false;
 	export let isUnapplied: boolean;
@@ -41,23 +42,25 @@
 
 	function updateContextMenu(filePath: string) {
 		if (popupMenu) popupMenu.$destroy();
-		return new HunkContextMenu({
-			target: document.body,
-			props: { projectPath: project.vscodePath, filePath, readonly }
-		});
+		//return new HunkContextMenu({
+		//	target: document.body,
+		//	props: { projectPath: project.vscodePath, filePath, readonly }
+		//});
 	}
 
-	$: popupMenu = updateContextMenu(filePath);
+	//$: popupMenu = updateContextMenu(filePath);
 
 	$: draggingDisabled = readonly || isUnapplied;
 
-	onDestroy(() => {
-		if (popupMenu) {
-			popupMenu.$destroy();
-		}
-	});
+	//onDestroy(() => {
+	//	if (popupMenu) {
+	//		popupMenu.$destroy();
+	//	}
+	//});
 
 	let alwaysShow = false;
+
+	//console.log('Section', section);
 </script>
 
 <div class="scrollable">
@@ -75,7 +78,7 @@
 		class:opacity-60={section.hunk.locked && !isFileLocked}
 	>
 		<div bind:this={contents} class="hunk__bg-stretch">
-			{#if linesModified > 1000 && !alwaysShow}
+			{#if linesModified > 5000 && !alwaysShow}
 				<LargeDiffMessage
 					on:show={() => {
 						alwaysShow = true;
@@ -84,31 +87,29 @@
 			{:else}
 				{#each section.subSections as subsection}
 					{@const hunk = section.hunk}
-					{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
-						<HunkLine
-							{line}
-							{filePath}
-							{readonly}
-							{minWidth}
-							{selectable}
-							{draggingDisabled}
-							tabSize={$userSettings.tabSize}
-							selected={$selectedOwnership?.contains(hunk.filePath, hunk.id)}
-							on:selected={(e) => onHunkSelected(hunk, e.detail)}
-							sectionType={subsection.sectionType}
-							on:contextmenu={(e) =>
-								popupMenu.openByMouse(e, {
-									hunk,
-									section: subsection,
-									lineNumber: line.afterLineNumber ? line.afterLineNumber : line.beforeLineNumber
-								})}
-						/>
-					{/each}
+					<HunkSection
+						lines={subsection.lines}
+						{filePath}
+						{readonly}
+						{minWidth}
+						{selectable}
+						{draggingDisabled}
+						tabSize={$userSettings.tabSize}
+						selected={$selectedOwnership?.contains(hunk.filePath, hunk.id)}
+						on:selected={(e) => onHunkSelected(hunk, e.detail)}
+						sectionType={subsection.sectionType}
+						on:linenumber={(e) => {
+							//popupMenu.openByMouse(e.detail.event, {
+							//	hunk,
+							//	section: subsection,
+							//	lineNumber: e.detail.lineNumber
+							//});
+						}}
+					/>
 				{/each}
 			{/if}
 		</div>
 	</div>
-	<Scrollbar {viewport} {contents} horz />
 </div>
 
 <style lang="postcss">
