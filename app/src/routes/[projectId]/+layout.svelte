@@ -11,7 +11,6 @@
 	import { HistoryService } from '$lib/history/history';
 	import { persisted } from '$lib/persisted/persisted';
 	import * as events from '$lib/utils/events';
-	import * as hotkeys from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BaseBranchService, NoDefaultTarget } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -57,7 +56,10 @@
 		baseBranchService.fetchFromRemotes();
 		clearFetchInterval();
 		const intervalMs = 15 * 60 * 1000; // 15 minutes
-		intervalId = setInterval(async () => await baseBranchService.fetchFromRemotes(), intervalMs);
+		intervalId = setInterval(
+			async () => await baseBranchService.fetchFromRemotes(),
+			intervalMs
+		);
 	}
 
 	function clearFetchInterval() {
@@ -69,16 +71,20 @@
 			$showHistoryView = !$showHistoryView;
 		});
 
-		// TODO: Refactor somehow
-		const unsubscribeHotkeys = hotkeys.on('$mod+Shift+H', () => {
-			$showHistoryView = !$showHistoryView;
-		});
-
 		return async () => {
 			unsubscribe();
-			unsubscribeHotkeys();
 		};
 	});
+
+	function handleKeyDown(event: KeyboardEvent) {
+		const metaKey = event.metaKey || event.ctrlKey;
+		if (event.repeat || event.target instanceof HTMLInputElement) return;
+
+		if (metaKey && event.key === 'H') {
+			event.preventDefault();
+			$showHistoryView = !$showHistoryView;
+		}
+	}
 
 	onMount(() => {
 		return unsubscribe(
@@ -90,6 +96,8 @@
 
 	onDestroy(() => clearFetchInterval());
 </script>
+
+<svelte:window on:keydown={handleKeyDown} />
 
 <!-- forces components to be recreated when projectId changes -->
 {#key projectId}

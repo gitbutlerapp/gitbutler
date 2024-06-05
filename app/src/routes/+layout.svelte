@@ -18,7 +18,6 @@
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
 	import { User, UserService } from '$lib/stores/user';
 	import * as events from '$lib/utils/events';
-	import * as hotkeys from '$lib/utils/hotkeys';
 	import { initTheme } from '$lib/utils/theme';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { onMount, setContext } from 'svelte';
@@ -56,28 +55,48 @@
 	onMount(() => {
 		return unsubscribe(
 			events.on('goto', async (path: string) => await goto(path)),
-			events.on('openSendIssueModal', () => shareIssueModal?.show()),
-
-			// Zoom using cmd +, - and =
-			hotkeys.on('$mod+Equal', () => (zoom = Math.min(zoom + 0.0625, 3))),
-			hotkeys.on('$mod+Minus', () => (zoom = Math.max(zoom - 0.0625, 0.375))),
-			hotkeys.on('$mod+Digit0', () => (zoom = 1)),
-			hotkeys.on('Meta+T', () => {
-				userSettings.update((s) => ({
-					...s,
-					theme: $userSettings.theme === 'light' ? 'dark' : 'light'
-				}));
-			}),
-			hotkeys.on('Backspace', (e) => {
-				// This prevent backspace from navigating back
-				e.preventDefault();
-			}),
-			hotkeys.on('$mod+R', () => location.reload())
+			events.on('openSendIssueModal', () => shareIssueModal?.show())
 		);
 	});
+
+	function handleKeyDown(event: KeyboardEvent) {
+		const metaKey = event.metaKey || event.ctrlKey;
+		if (event.repeat || event.target instanceof HTMLInputElement) return;
+
+		if (metaKey && event.key === '+') {
+			event.preventDefault();
+			zoom = Math.min(zoom + 0.0625, 3);
+		}
+		if (metaKey && event.key === '-') {
+			event.preventDefault();
+			zoom = Math.max(zoom - 0.0625, 0.375);
+		}
+		if (metaKey && event.key === '0') {
+			event.preventDefault();
+			zoom = 1;
+		}
+		if (metaKey && event.key === 'T') {
+			event.preventDefault();
+			userSettings.update((s) => ({
+				...s,
+				theme: $userSettings.theme == 'light' ? 'dark' : 'light'
+			}));
+		}
+		if (event.key === 'Backspace') {
+			event.preventDefault();
+		}
+		if (metaKey && event.key === 'R') {
+			event.preventDefault();
+			location.reload();
+		}
+	}
 </script>
 
-<svelte:window on:drop={(e) => e.preventDefault()} on:dragover={(e) => e.preventDefault()} />
+<svelte:window
+	on:keydown={handleKeyDown}
+	on:drop={(e) => e.preventDefault()}
+	on:dragover={(e) => e.preventDefault()}
+/>
 
 <div
 	data-tauri-drag-region
