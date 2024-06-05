@@ -113,7 +113,9 @@ impl RepositoryExt for Repository {
         if head_ref.name_bytes() == b"refs/heads/gitbutler/integration" {
             Ok(head_ref)
         } else {
-            bail!("Unexpected state: cannot perform operation on non-integration branch")
+            Err(anyhow!(
+                "Unexpected state: cannot perform operation on non-integration branch"
+            ))
         }
     }
 

@@ -18,7 +18,7 @@ use hex::ToHex;
 use regex::Regex;
 use serde::Serialize;
 
-use super::integration::get_workspace_head;
+use super::integration::{self, get_workspace_head};
 use super::{
     branch::{
         self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
@@ -1601,8 +1601,8 @@ fn new_compute_locks(
     unstaged_hunks_by_path: &HashMap<PathBuf, Vec<diff::GitHunk>>,
     virtual_branches: &[branch::Branch],
 ) -> Result<HashMap<HunkHash, Vec<diff::HunkLock>>> {
-    let target_commit = repository.target_commit()?;
-    let target_tree = target_commit.tree()?;
+    // If we cant find the integration commit and subsiquently the target commit, we can't find any locks
+    let target_tree = repository.target_commit()?.tree()?;
 
     let mut diff_opts = git2::DiffOptions::new();
     let opts = diff_opts
@@ -1696,6 +1696,7 @@ fn compute_locks(
     }
 
     let target_sha = project_repository.repo().target_commit()?.id();
+    // If the integration commit is not found, there can't be any locks
     let integration_commit = project_repository
         .repo()
         .integration_ref_from_head()?
