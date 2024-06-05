@@ -45,7 +45,7 @@
 			</Link>
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<Toggle id="committerSigning" checked={annotateCommits} on:change={toggleCommitterSigning} />
+			<Toggle id="committerSigning" checked={annotateCommits} on:click={toggleCommitterSigning} />
 		</svelte:fragment>
 	</SectionCard>
 

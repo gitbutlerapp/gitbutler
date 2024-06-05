@@ -100,7 +100,7 @@
 	{#if $user}
 		<SectionCard>
 			<form on:submit={onSubmit} class="profile-form">
-				<label id="profile-picture" class="focus-state profile-pic-wrapper" for="picture">
+				<label id="profile-picture" class="profile-pic-wrapper focus-state" for="picture">
 					<input
 						on:change={onPictureChange}
 						type="file"
@@ -174,7 +174,7 @@
 			<Toggle
 				id="hoverScrollbarVisability"
 				checked={$userSettings.scrollbarVisabilityOnHover}
-				on:change={() =>
+				on:click={() =>
 					userSettings.update((s) => ({
 						...s,
 						scrollbarVisabilityOnHover: !s.scrollbarVisabilityOnHover

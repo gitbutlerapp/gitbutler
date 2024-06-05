@@ -200,6 +200,7 @@
 	<svelte:fragment slot="description">
 		Other settings to customize your GitButler experience.
 	</svelte:fragment>
+
 	<SectionCard orientation="row" labelFor="allowForcePush">
 		<svelte:fragment slot="title">Allow force pushing</svelte:fragment>
 		<svelte:fragment slot="caption">
@@ -210,7 +211,7 @@
 			<Toggle
 				id="allowForcePush"
 				bind:checked={allowForcePushing}
-				on:change={async () => await setWithForcePush(allowForcePushing)}
+				on:click={async () => await setWithForcePush(allowForcePushing)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
@@ -224,7 +225,7 @@
 			<Toggle
 				id="omitCertificateCheck"
 				bind:checked={omitCertificateCheck}
-				on:change={async () => await setOmitCertificateCheck(omitCertificateCheck)}
+				on:click={async () => await setOmitCertificateCheck(omitCertificateCheck)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
