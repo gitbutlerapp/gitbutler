@@ -4,6 +4,7 @@
 	import SelectItem from './SelectItem.svelte';
 	import { ProjectService, Project } from '$lib/backend/projects';
 	import { getContext, maybeGetContext } from '$lib/utils/context';
+	import { derived } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
 	const projectService = getContext(ProjectService);
@@ -14,17 +15,13 @@
 		title: string;
 	};
 
-	let mappedProjects: ProjectRecord[] = [];
-
-	projectService.projects.subscribe((projectList) => {
-		// Map the projectList to fit the ProjectRecord type
-		mappedProjects = projectList.map((project) => {
-			return {
-				id: project.id,
-				title: project.title
-			};
-		});
-	});
+	// Create a derived store that maps the projects to a simpler structure
+	const mappedProjects = derived(projectService.projects, ($projects) =>
+		$projects.map((project) => ({
+			id: project.id,
+			title: project.title
+		}))
+	);
 
 	let loading = false;
 	let select: Select<ProjectRecord>;
@@ -37,7 +34,7 @@
 		label="Switch to another project"
 		itemId="id"
 		labelId="title"
-		items={mappedProjects}
+		items={$mappedProjects}
 		placeholder="Select a project..."
 		wide
 		bind:value={selectValue}
