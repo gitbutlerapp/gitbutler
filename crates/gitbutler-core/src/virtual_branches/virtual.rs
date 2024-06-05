@@ -18,7 +18,7 @@ use hex::ToHex;
 use regex::Regex;
 use serde::Serialize;
 
-use super::integration::{get_workspace_head};
+use super::integration::get_workspace_head;
 use super::{
     branch::{
         self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
