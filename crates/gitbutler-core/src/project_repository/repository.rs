@@ -9,7 +9,7 @@ use anyhow::{anyhow, Context, Result};
 use super::conflicts;
 use crate::{
     askpass,
-    git::{self, Refname, Url},
+    git::{self, Url},
     projects::{self, AuthKey},
     ssh, users,
     virtual_branches::{Branch, BranchId},
@@ -151,15 +151,11 @@ impl Repository {
     ) -> Result<()> {
         let target_branch_refname =
             git::Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
-        let branch = self.git_repository.find_branch(
-            &target_branch_refname.simple_name(),
-            match target_branch_refname {
-                Refname::Virtual(_) | Refname::Local(_) | Refname::Other(_) => {
-                    git2::BranchType::Local
-                }
-                Refname::Remote(_) => git2::BranchType::Remote,
-            },
-        )?;
+        let branch = self
+            .git_repository
+            .find_branch_by_refname(&target_branch_refname)?
+            .ok_or(anyhow!("failed to find branch {}", target_branch_refname))?;
+
         let commit_id: Oid = branch.get().peel_to_commit()?.id().into();
 
         let now = crate::time::now_ms();
