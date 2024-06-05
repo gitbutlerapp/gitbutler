@@ -13,6 +13,7 @@
 	import lscache from 'lscache';
 	import { marked } from 'marked';
 	import { onMount, setContext } from 'svelte';
+	import { writable } from 'svelte/store';
 	import type { PullRequest } from '$lib/github/types';
 
 	export let branch: RemoteBranch;
@@ -21,10 +22,10 @@
 	const project = getContext(Project);
 	const baseBranch = getContextStore(BaseBranch);
 
-	const fileIdSelection = new FileIdSelection();
+	const fileIdSelection = new FileIdSelection(project.id, writable([]));
 	setContext(FileIdSelection, fileIdSelection);
 
-	$: selectedFile = fileIdSelection.selectedFile([], project.id);
+	$: selectedFile = fileIdSelection.selectedFile;
 
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'branchPreviewLaneWidth';

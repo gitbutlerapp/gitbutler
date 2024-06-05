@@ -1,6 +1,6 @@
 import { isDefined } from '$lib/utils/typeguards';
 import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
-import { derived } from 'svelte/store';
+import { derived, type Readable } from 'svelte/store';
 import type { AnyFile, LocalFile } from '$lib/vbranches/types';
 
 export interface FileKey {
@@ -32,7 +32,11 @@ export class FileIdSelection {
 	private value: string[];
 	private callbacks: CallBack[];
 
-	constructor(value: FileKey[] = []) {
+	constructor(
+		private projectId: string,
+		private localFiles: Readable<LocalFile[]>,
+		value: FileKey[] = []
+	) {
 		this.callbacks = [];
 		this.value = value.map((key) => stringifyFileKey(key.fileId, key.commitId));
 	}
@@ -87,24 +91,36 @@ export class FileIdSelection {
 		return fileKey;
 	}
 
-	selectedFile(localFiles: LocalFile[], branchId: string) {
-		return derived(this, async (value): Promise<AnyFile | undefined> => {
-			if (value.length !== 1) return;
-			const fileKey = parseFileKey(value[0]);
-			return await findFileByKey(localFiles, branchId, fileKey);
-		});
+	#selectedFile: Readable<Promise<AnyFile | undefined>> | undefined;
+	get selectedFile() {
+		this.#selectedFile ||= derived(
+			[this as Readable<string[]>, this.localFiles],
+			async ([selection, localFiles]): Promise<AnyFile | undefined> => {
+				if (selection.length !== 1) return;
+				const fileKey = parseFileKey(selection[0]);
+				return await findFileByKey(localFiles, this.projectId, fileKey);
+			}
+		);
+
+		return this.#selectedFile;
 	}
 
-	files(localFiles: LocalFile[], branchId: string) {
-		return derived(this, async (value) => {
-			const files = await Promise.all(
-				value.map(async (fileKey) => {
-					return await findFileByKey(localFiles, branchId, parseFileKey(fileKey));
-				})
-			);
+	#files: Readable<Promise<AnyFile[]>> | undefined;
+	get files() {
+		this.#files ||= derived(
+			[this as Readable<string[]>, this.localFiles],
+			async ([selection, localFiles]): Promise<AnyFile[]> => {
+				const files = await Promise.all(
+					selection.map(async (fileKey) => {
+						return await findFileByKey(localFiles, this.projectId, parseFileKey(fileKey));
+					})
+				);
 
-			return files.filter(isDefined);
-		});
+				return files.filter(isDefined);
+			}
+		);
+
+		return this.#files;
 	}
 
 	get length() {
@@ -112,7 +128,7 @@ export class FileIdSelection {
 	}
 }
 
-export async function findFileByKey(localFiles: LocalFile[], projectId: string, key: FileKey) {
+async function findFileByKey(localFiles: LocalFile[], projectId: string, key: FileKey) {
 	if (key.commitId) {
 		const remoteFiles = await listRemoteCommitFiles(projectId, key.commitId);
 		return remoteFiles.find((file) => file.id === key.fileId);

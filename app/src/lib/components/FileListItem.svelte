@@ -1,7 +1,6 @@
 <script lang="ts">
 	import FileContextMenu from './FileContextMenu.svelte';
 	import FileStatusIcons from './FileStatusIcons.svelte';
-	import { Project } from '$lib/backend/projects';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableFile } from '$lib/dragging/draggables';
@@ -24,10 +23,9 @@
 	const branch = maybeGetContextStore(Branch);
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 	const fileIdSelection = getContext(FileIdSelection);
-	const project = getContext(Project);
 	const commit = getCommitStore();
 
-	$: selectedFiles = fileIdSelection.files($branch?.files || [], project.id);
+	const selectedFiles = fileIdSelection.files;
 
 	let checked = false;
 	let indeterminate = false;
