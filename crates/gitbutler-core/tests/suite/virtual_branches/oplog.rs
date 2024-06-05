@@ -225,13 +225,13 @@ async fn basic_oplog() -> anyhow::Result<()> {
 
     // try to look up that object
     let repo = git2::Repository::open(&project.path)?;
-    let commit = repo.find_commit(commit2_id.into());
+    let commit = repo.find_commit(commit2_id);
     assert!(commit.is_err());
 
     project.restore_snapshot(snapshots[1].clone().commit_id)?;
 
     // test missing commits are recreated
-    let commit = repo.find_commit(commit2_id.into());
+    let commit = repo.find_commit(commit2_id);
     assert!(commit.is_ok());
 
     let file_path = repository.path().join("large.txt");

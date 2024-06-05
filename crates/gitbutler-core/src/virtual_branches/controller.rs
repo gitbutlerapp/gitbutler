@@ -55,7 +55,7 @@ impl Controller {
         message: &str,
         ownership: Option<&BranchOwnershipClaims>,
         run_hooks: bool,
-    ) -> Result<git::Oid> {
+    ) -> Result<git2::Oid> {
         self.inner(project_id)
             .await
             .create_commit(project_id, branch_id, message, ownership, run_hooks)
@@ -123,7 +123,7 @@ impl Controller {
     pub async fn list_remote_commit_files(
         &self,
         project_id: ProjectId,
-        commit_oid: git::Oid,
+        commit_oid: git2::Oid,
     ) -> Result<Vec<RemoteBranchFile>> {
         self.inner(project_id)
             .await
@@ -222,9 +222,9 @@ impl Controller {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: git2::Oid,
         ownership: &BranchOwnershipClaims,
-    ) -> Result<git::Oid> {
+    ) -> Result<git2::Oid> {
         self.inner(project_id)
             .await
             .amend(project_id, branch_id, commit_oid, ownership)
@@ -235,10 +235,10 @@ impl Controller {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        from_commit_oid: git::Oid,
-        to_commit_oid: git::Oid,
+        from_commit_oid: git2::Oid,
+        to_commit_oid: git2::Oid,
         ownership: &BranchOwnershipClaims,
-    ) -> Result<git::Oid> {
+    ) -> Result<git2::Oid> {
         self.inner(project_id)
             .await
             .move_commit_file(
@@ -255,7 +255,7 @@ impl Controller {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: git2::Oid,
     ) -> Result<()> {
         self.inner(project_id)
             .await
@@ -267,7 +267,7 @@ impl Controller {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: git2::Oid,
         offset: i32,
     ) -> Result<()> {
         self.inner(project_id)
@@ -280,7 +280,7 @@ impl Controller {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: git2::Oid,
         offset: i32,
     ) -> Result<()> {
         self.inner(project_id)
@@ -293,7 +293,7 @@ impl Controller {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        target_commit_oid: git::Oid,
+        target_commit_oid: git2::Oid,
     ) -> Result<()> {
         self.inner(project_id)
             .await
@@ -360,7 +360,7 @@ impl Controller {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: git2::Oid,
     ) -> Result<()> {
         self.inner(project_id)
             .await
@@ -372,7 +372,7 @@ impl Controller {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: git2::Oid,
         message: &str,
     ) -> Result<()> {
         self.inner(project_id)
@@ -396,7 +396,7 @@ impl Controller {
         &self,
         project_id: ProjectId,
         target_branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: git2::Oid,
     ) -> Result<()> {
         self.inner(project_id)
             .await
@@ -435,7 +435,7 @@ impl ControllerInner {
         message: &str,
         ownership: Option<&BranchOwnershipClaims>,
         run_hooks: bool,
-    ) -> Result<git::Oid> {
+    ) -> Result<git2::Oid> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
@@ -527,7 +527,7 @@ impl ControllerInner {
     pub fn list_remote_commit_files(
         &self,
         project_id: ProjectId,
-        commit_oid: git::Oid,
+        commit_oid: git2::Oid,
     ) -> Result<Vec<RemoteBranchFile>> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
@@ -656,9 +656,9 @@ impl ControllerInner {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: git2::Oid,
         ownership: &BranchOwnershipClaims,
-    ) -> Result<git::Oid> {
+    ) -> Result<git2::Oid> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
@@ -673,10 +673,10 @@ impl ControllerInner {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        from_commit_oid: git::Oid,
-        to_commit_oid: git::Oid,
+        from_commit_oid: git2::Oid,
+        to_commit_oid: git2::Oid,
         ownership: &BranchOwnershipClaims,
-    ) -> Result<git::Oid> {
+    ) -> Result<git2::Oid> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
@@ -698,7 +698,7 @@ impl ControllerInner {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: git2::Oid,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
@@ -721,7 +721,7 @@ impl ControllerInner {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: git2::Oid,
         offset: i32,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
@@ -739,7 +739,7 @@ impl ControllerInner {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: git2::Oid,
         offset: i32,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
@@ -757,7 +757,7 @@ impl ControllerInner {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        target_commit_oid: git::Oid,
+        target_commit_oid: git2::Oid,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
@@ -840,7 +840,7 @@ impl ControllerInner {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: git2::Oid,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
@@ -856,7 +856,7 @@ impl ControllerInner {
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: git2::Oid,
         message: &str,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
@@ -932,7 +932,7 @@ impl ControllerInner {
         &self,
         project_id: ProjectId,
         target_branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: git2::Oid,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 

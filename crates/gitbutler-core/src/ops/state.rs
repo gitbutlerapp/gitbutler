@@ -5,7 +5,6 @@ use std::{
 };
 
 use crate::fs::read_toml_file_or_default;
-use crate::git;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use super::OPLOG_FILE_NAME;
@@ -28,7 +27,7 @@ fn unix_epoch() -> SystemTime {
 pub struct Oplog {
     /// This is the sha of the last oplog commit
     #[serde(with = "crate::serde::oid_opt")]
-    pub head_sha: Option<git::Oid>,
+    pub head_sha: Option<git2::Oid>,
     /// The time when the last snapshot was created. Seconds since Epoch
     #[serde(
         deserialize_with = "unfailing_system_time_deserialize",
@@ -61,7 +60,7 @@ impl OplogHandle {
     /// Persists the oplog head for the given repository.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn set_oplog_head(&self, sha: git::Oid) -> Result<()> {
+    pub fn set_oplog_head(&self, sha: git2::Oid) -> Result<()> {
         let mut oplog = self.read_file()?;
         oplog.head_sha = Some(sha);
         self.write_file(oplog)?;
@@ -71,7 +70,7 @@ impl OplogHandle {
     /// Gets the oplog head sha for the given repository.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn oplog_head(&self) -> Result<Option<git::Oid>> {
+    pub fn oplog_head(&self) -> Result<Option<git2::Oid>> {
         let oplog = self.read_file()?;
         Ok(oplog.head_sha)
     }

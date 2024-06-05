@@ -16,7 +16,7 @@ pub type BranchId = Id<Branch>;
 // store. it is more or less equivalent to a git branch reference, but it is not
 // stored or accessible from the git repository itself. it is stored in our
 // session storage under the branches/ directory.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Branch {
     pub id: BranchId,
     pub name: String,
@@ -24,7 +24,11 @@ pub struct Branch {
     pub applied: bool,
     pub upstream: Option<git::RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
-    pub upstream_head: Option<git::Oid>,
+    #[serde(
+        serialize_with = "crate::serde::oid_opt::serialize",
+        deserialize_with = "crate::serde::oid_opt::deserialize"
+    )]
+    pub upstream_head: Option<git2::Oid>,
     #[serde(
         serialize_with = "serialize_u128",
         deserialize_with = "deserialize_u128"
@@ -36,9 +40,17 @@ pub struct Branch {
     )]
     pub updated_timestamp_ms: u128,
     /// tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
-    pub tree: git::Oid,
+    #[serde(
+        serialize_with = "crate::serde::oid::serialize",
+        deserialize_with = "crate::serde::oid::deserialize"
+    )]
+    pub tree: git2::Oid,
     /// head is id of the last "virtual" commit in this branch
-    pub head: git::Oid,
+    #[serde(
+        serialize_with = "crate::serde::oid::serialize",
+        deserialize_with = "crate::serde::oid::deserialize"
+    )]
+    pub head: git2::Oid,
     pub ownership: BranchOwnershipClaims,
     // order is the number by which UI should sort branches
     pub order: usize,
