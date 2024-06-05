@@ -1,12 +1,10 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
 	import { onMount } from 'svelte';
-	import OutClick from 'svelte-outclick';
 	import type iconsJson from '$lib/icons/icons.json';
 
 	let dialog: HTMLDialogElement;
 	let item: any;
-	let open = false;
 
 	export let width: 'default' | 'small' | 'large' = 'default';
 	export let title: string | undefined = undefined;
@@ -15,19 +13,25 @@
 	export function show(newItem?: any) {
 		item = newItem;
 		dialog.showModal();
-		open = true;
 	}
 
 	export function close() {
 		item = undefined;
 		dialog.close();
-		open = false;
 	}
 
-	onMount(() => {
-		document.body.appendChild(dialog);
-	});
+	//onMount(() => {
+	//	document.body.appendChild(dialog);
+	//});
+
+	function handleClickOutside(e: MouseEvent) {
+		if (dialog && !dialog.contains(e.target as Node)) {
+			dialog.close();
+		}
+	}
 </script>
+
+<svelte:window on:click={handleClickOutside} />
 
 <dialog
 	class="dialog-wrap"
@@ -37,34 +41,30 @@
 	bind:this={dialog}
 	on:close={close}
 >
-	{#if open}
-		<OutClick on:outclick={close}>
-			<div class="dialog">
-				<form class="modal-content" on:submit>
-					{#if title}
-						<div class="modal__header">
-							{#if icon}
-								<Icon name={icon} />
-							{/if}
-							<h2 class="text-base-14 text-semibold">
-								{title}
-							</h2>
-						</div>
+	<div class="dialog">
+		<form class="modal-content" on:submit>
+			{#if title}
+				<div class="modal__header">
+					{#if icon}
+						<Icon name={icon} />
 					{/if}
+					<h2 class="text-base-14 text-semibold">
+						{title}
+					</h2>
+				</div>
+			{/if}
 
-					<div class="modal__body custom-scrollbar">
-						<slot {item} {close} />
-					</div>
-
-					{#if $$slots.controls}
-						<div class="modal__footer">
-							<slot name="controls" {item} {close} />
-						</div>
-					{/if}
-				</form>
+			<div class="modal__body custom-scrollbar">
+				<slot {item} {close} />
 			</div>
-		</OutClick>
-	{/if}
+
+			{#if $$slots.controls}
+				<div class="modal__footer">
+					<slot name="controls" {item} {close} />
+				</div>
+			{/if}
+		</form>
+	</div>
 </dialog>
 
 <style lang="postcss">
