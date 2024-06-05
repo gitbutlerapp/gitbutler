@@ -89,6 +89,7 @@
 	}
 
 	function handleArrowUp() {
+		if (filteredItems.length === 0) return;
 		if (highlightIndex === undefined) {
 			highlightIndex = filteredItems.length - 1;
 		} else {
@@ -97,6 +98,7 @@
 	}
 
 	function handleArrowDown() {
+		if (filteredItems.length === 0) return;
 		if (highlightIndex === undefined) {
 			highlightIndex = 0;
 		} else {
