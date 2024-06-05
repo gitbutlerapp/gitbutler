@@ -25,18 +25,20 @@ export function initTheme(userSettings: Writable<Settings>) {
 export function updateDom() {
 	const docEl = document.documentElement;
 	if (
-		selectedTheme == 'dark' ||
-		(selectedTheme == 'system' && systemTheme == 'dark') ||
-		(selectedTheme == undefined && systemTheme == 'dark')
+		selectedTheme === 'dark' ||
+		(selectedTheme === 'system' && systemTheme === 'dark') ||
+		(selectedTheme === undefined && systemTheme === 'dark')
 	) {
+		docEl.classList.remove('light');
 		docEl.classList.add('dark');
 		docEl.style.colorScheme = 'dark';
 	} else if (
-		selectedTheme == 'light' ||
-		(selectedTheme == 'system' && systemTheme == 'light') ||
-		(selectedTheme == undefined && systemTheme == 'light')
+		selectedTheme === 'light' ||
+		(selectedTheme === 'system' && systemTheme === 'light') ||
+		(selectedTheme === undefined && systemTheme === 'light')
 	) {
 		docEl.classList.remove('dark');
+		docEl.classList.add('light');
 		docEl.style.colorScheme = 'light';
 	}
 }

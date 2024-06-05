@@ -6,16 +6,16 @@
 
 <div
 	class="status"
-	class:added={status == 'A'}
-	class:modified={status == 'M'}
-	class:deleted={status == 'D'}
+	class:added={status === 'A'}
+	class:modified={status === 'M'}
+	class:deleted={status === 'D'}
 ></div>
 
 <style lang="postcss">
 	.status {
 		border-radius: 100%;
-		width: var(--size-8);
-		height: var(--size-8);
+		width: 8px;
+		height: 8px;
 		border-radius: 100%;
 		flex-shrink: 0;
 	}

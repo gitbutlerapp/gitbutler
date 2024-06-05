@@ -45,14 +45,14 @@
 		text-align: left;
 		align-items: center;
 		color: var(--clr-scale-ntrl-0);
-		height: var(--size-24);
-		padding: var(--size-4) var(--size-6);
+		height: 24px;
+		padding: 4px 6px;
 		border-radius: var(--radius-s);
-		gap: var(--size-12);
+		gap: 12px;
 		transition: background-color var(--transition-fast);
 		&:not(.disabled):hover {
 			transition: none;
-			background-color: var(--clr-bg-3);
+			background-color: var(--clr-bg-2-muted);
 		}
 	}
 	.label {

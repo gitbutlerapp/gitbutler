@@ -29,11 +29,7 @@ impl TestCase<'_> {
         let helper = Helper::new(keys);
 
         let (repo, _tmp) = test_repository();
-        repo.remote(
-            "origin",
-            &self.remote_url.parse().expect("failed to parse remote url"),
-        )
-        .unwrap();
+        repo.remote("origin", self.remote_url).unwrap();
         let project = projects::Project {
             path: repo.workdir().unwrap().to_path_buf(),
             preferred_key: self.preferred_key.clone(),

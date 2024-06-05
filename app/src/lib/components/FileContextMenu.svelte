@@ -8,6 +8,7 @@
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
+	import { editor } from '$lib/utils/systemEditor';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { LocalFile, type AnyFile } from '$lib/vbranches/types';
@@ -89,7 +90,7 @@
 							if (!project) return;
 							for (let file of item.files) {
 								const absPath = await join(project.path, file.path);
-								open(`vscode://file${absPath}`);
+								open(`${editor.get()}://file${absPath}`);
 							}
 							dismiss();
 						} catch {
@@ -130,10 +131,10 @@
 <style lang="postcss">
 	.file-list {
 		list-style: disc;
-		padding-left: var(--size-20);
-		padding-top: var(--size-6);
+		padding-left: 20px;
+		padding-top: 6px;
 	}
 	.file-list li {
-		padding: var(--size-2);
+		padding: 2px;
 	}
 </style>

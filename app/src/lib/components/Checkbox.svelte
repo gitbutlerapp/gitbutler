@@ -35,8 +35,8 @@
 	.checkbox {
 		appearance: none;
 		cursor: pointer;
-		width: var(--size-16);
-		height: var(--size-16);
+		width: 16px;
+		height: 16px;
 		flex-shrink: 0;
 		border-radius: var(--radius-s);
 		background-color: var(--clr-bg-1);
@@ -127,8 +127,8 @@
 		/* modifiers */
 
 		&.small {
-			width: var(--size-14);
-			height: var(--size-14);
+			width: 14px;
+			height: 14px;
 		}
 	}
 </style>

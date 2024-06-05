@@ -16,7 +16,7 @@
 				"scope": ["$APPCACHE/archives/*", "$RESOURCE/_up_/scripts/*"]
 			},
 			"shell": {
-				"open": "^((https://)|(http://)|(mailto:)|(vscode://)).+"
+				"open": "^((https://)|(http://)|(mailto:)|(vscode://)|(vscodium://)).+"
 			},
 			"dialog": {
 				"open": true

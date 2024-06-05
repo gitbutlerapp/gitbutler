@@ -48,11 +48,6 @@ export class VirtualBranchService {
 						)
 					: of([])
 			),
-			// Make the commits on each branch aware of parents and children. There will only
-			// evern be one child per commit until we load upstream commits. For example, a commit
-			// will have two children if you have pushed a child commit to the remote, but you
-			// then amend it. We need to know of both of these child commits in order to draw the
-			// branch correctly.
 			tap((branches) => {
 				for (let i = 0; i < branches.length; i++) {
 					const branch = branches[i];
@@ -135,7 +130,7 @@ export class VirtualBranchService {
 		return await firstValueFrom(
 			this.branches$.pipe(
 				timeout(10000),
-				map((branches) => branches?.find((b) => b.id == branchId && b.upstream))
+				map((branches) => branches?.find((b) => b.id === branchId && b.upstream))
 			)
 		);
 	}
@@ -144,7 +139,7 @@ export class VirtualBranchService {
 		return await firstValueFrom(
 			this.branches$.pipe(
 				timeout(10000),
-				map((branches) => branches?.find((b) => b.upstream?.sha == upstreamSha))
+				map((branches) => branches?.find((b) => b.upstream?.sha === upstreamSha))
 			)
 		);
 	}
@@ -161,19 +156,18 @@ export async function listVirtualBranches(params: { projectId: string }): Promis
 		.branches;
 }
 
-// TODO(mg): I think we can make it a doubly linked list instead of a tree.
 function linkAsParentChildren(commits: Commit[] | RemoteCommit[]) {
 	for (let j = 0; j < commits.length; j++) {
 		const commit = commits[j];
-		if (j == 0) {
-			commit.children = [];
+		if (j === 0) {
+			commit.next = undefined;
 		} else {
 			const child = commits[j - 1];
-			if (child instanceof Commit) commit.children = [child];
-			if (child instanceof RemoteCommit) commit.children = [child];
+			if (child instanceof Commit) commit.next = child;
+			if (child instanceof RemoteCommit) commit.next = child;
 		}
-		if (j != commits.length - 1) {
-			commit.parent = commits[j + 1];
+		if (j !== commits.length - 1) {
+			commit.prev = commits[j + 1];
 		}
 	}
 }

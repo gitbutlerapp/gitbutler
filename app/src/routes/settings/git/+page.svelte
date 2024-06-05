@@ -26,7 +26,7 @@
 
 	onMount(async () => {
 		sshKey = await authService.getPublicKey();
-		annotateCommits = (await gitConfig.get('gitbutler.gitbutlerCommitter')) == '1';
+		annotateCommits = (await gitConfig.get('gitbutler.gitbutlerCommitter')) === '1';
 	});
 </script>
 

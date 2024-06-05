@@ -1,34 +1,34 @@
 use crate::error::Error;
-use anyhow::Context;
-use gitbutler_core::projects::{self, ProjectId};
+use gitbutler_core::{
+    config::git::GbConfig,
+    projects::{self, ProjectId},
+};
 use tauri::Manager;
 use tracing::instrument;
 
 #[tauri::command(async)]
 #[instrument(skip(handle), err(Debug))]
-pub async fn get_sign_commits_config(
+pub async fn get_gb_config(
     handle: tauri::AppHandle,
     project_id: ProjectId,
-) -> Result<Option<bool>, Error> {
+) -> Result<GbConfig, Error> {
     handle
         .state::<projects::Controller>()
-        .get(project_id)
-        .context("failed to get project")?
-        .sign_commits()
+        .get(project_id)?
+        .gb_config()
         .map_err(Into::into)
 }
 
 #[tauri::command(async)]
 #[instrument(skip(handle), err(Debug))]
-pub async fn set_sign_commits_config(
+pub async fn set_gb_config(
     handle: tauri::AppHandle,
     project_id: ProjectId,
-    value: bool,
+    config: GbConfig,
 ) -> Result<(), Error> {
     handle
         .state::<projects::Controller>()
-        .get(project_id)
-        .context("failed to get project")?
-        .set_sign_commits(value)
+        .get(project_id)?
+        .set_gb_config(config)
         .map_err(Into::into)
 }

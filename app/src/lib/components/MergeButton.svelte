@@ -67,17 +67,17 @@
 			<ContextMenuItem
 				id={MergeMethod.Merge}
 				label="Merge pull request"
-				selected={$action == MergeMethod.Merge}
+				selected={$action === MergeMethod.Merge}
 			/>
 			<ContextMenuItem
 				id={MergeMethod.Rebase}
 				label="Rebase and merge"
-				selected={$action == MergeMethod.Rebase}
+				selected={$action === MergeMethod.Rebase}
 			/>
 			<ContextMenuItem
 				id={MergeMethod.Squash}
 				label="Squash and merge"
-				selected={$action == MergeMethod.Squash}
+				selected={$action === MergeMethod.Squash}
 			/>
 		</ContextMenuSection>
 	</ContextMenu>

@@ -37,11 +37,11 @@
 	let signCommits = false;
 	async function setSignCommits(value: boolean) {
 		signCommits = value;
-		await gitConfig.setSignCommitsConfig(project.id, value);
+		await gitConfig.setGbConfig(project.id, { signCommits: value });
 	}
 
 	onMount(async () => {
-		signCommits = (await gitConfig.getSignCommitsConfig(project.id)) || false;
+		signCommits = (await gitConfig.getGbConfig(project.id)).signCommits || false;
 	});
 </script>
 
@@ -129,6 +129,6 @@
 	.wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 </style>

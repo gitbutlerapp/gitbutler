@@ -167,7 +167,7 @@
 	.options {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 
 	.api-link {

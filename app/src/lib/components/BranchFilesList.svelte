@@ -88,16 +88,16 @@
 
 <style lang="postcss">
 	.merge-commit-error {
-		padding: var(--size-14);
+		padding: 14px;
 
 		& .info {
-			margin-bottom: var(--size-8);
+			margin-bottom: 8px;
 			color: var(--clr-text-2);
 		}
 
 		& .command {
 			display: flex;
-			gap: var(--size-8);
+			gap: 8px;
 			align-items: center;
 			width: 100%;
 		}

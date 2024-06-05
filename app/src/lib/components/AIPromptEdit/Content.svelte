@@ -16,7 +16,7 @@
 	let initialName = promptName;
 
 	// Ensure the prompt messages have a default user prompt
-	if (promptMessages.length == 0) {
+	if (promptMessages.length === 0) {
 		promptMessages = [
 			...promptMessages,
 			{
@@ -60,7 +60,7 @@
 			return;
 		}
 
-		if (promptName.trim() == '') {
+		if (promptName.trim() === '') {
 			promptName = initialName;
 		}
 
@@ -75,7 +75,7 @@
 		editing = false;
 	}
 
-	$: isInEditing = displayMode == 'writable' && editing;
+	$: isInEditing = displayMode === 'writable' && editing;
 
 	function toggleExpand() {
 		if (isInEditing) return;
@@ -87,7 +87,7 @@
 		let errors = [] as number[];
 
 		promptMessages.forEach((message, index) => {
-			if (message.content.trim() == '') {
+			if (message.content.trim() === '') {
 				errors.push(index);
 			}
 		});
@@ -117,28 +117,28 @@
 	</div>
 
 	{#if expanded}
-		<div class="content" class:default-mode={prompt.id == 'default'} class:editing={isInEditing}>
+		<div class="content" class:default-mode={prompt.id === 'default'} class:editing={isInEditing}>
 			{#each promptMessages as promptMessage, index}
 				<DialogBubble
 					bind:promptMessage
 					editing={isInEditing}
-					isLast={index + 1 == promptMessages.length || promptMessages.length == 1}
-					disableRemove={promptMessages.length == 1}
+					isLast={index + 1 === promptMessages.length || promptMessages.length === 1}
+					disableRemove={promptMessages.length === 1}
 					on:addExample={addExample}
 					on:removeLastExample={removeLastExample}
 					on:input={() => {
-						errorMessages = errorMessages.filter((errorIndex) => errorIndex != index);
+						errorMessages = errorMessages.filter((errorIndex) => errorIndex !== index);
 					}}
 					isError={errorMessages.includes(index)}
 				/>
 
-				{#if index % 2 == 0}
+				{#if index % 2 === 0}
 					<hr class="sections-divider" />
 				{/if}
 			{/each}
 		</div>
 
-		{#if displayMode == 'writable'}
+		{#if displayMode === 'writable'}
 			<div class="actions">
 				{#if editing}
 					<Button kind="solid" style="ghost" on:click={() => cancel()}>Cancel</Button>
@@ -171,8 +171,8 @@
 		cursor: pointer;
 		display: flex;
 		align-items: center;
-		gap: var(--size-16);
-		padding: var(--size-16);
+		gap: 16px;
+		padding: 16px;
 
 		&.editing {
 			cursor: default;
@@ -194,9 +194,9 @@
 	.content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
+		gap: 16px;
 
-		padding: var(--size-16) 0;
+		padding: 16px 0;
 		border-top: 1px solid var(--clr-border-3);
 	}
 
@@ -212,12 +212,12 @@
 	.actions {
 		display: flex;
 		justify-content: flex-end;
-		gap: var(--size-8);
-		padding: 0 var(--size-16) var(--size-16);
+		gap: 8px;
+		padding: 0 16px 16px;
 	}
 
 	.default-mode {
-		padding: var(--size-16) 0;
+		padding: 16px 0;
 		border-top: 1px solid var(--clr-border-3);
 
 		& .sections-divider {

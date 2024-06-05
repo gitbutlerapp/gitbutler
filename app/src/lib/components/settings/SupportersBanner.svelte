@@ -24,13 +24,13 @@
 	.banner {
 		display: flex;
 		align-items: center;
-		padding: var(--size-16);
+		padding: 16px;
 		border-radius: var(--radius-m);
 		background-color: #d7f2f1;
 
 		&:hover {
 			& .benner-arrow-wrap {
-				width: 1rem;
+				width: 12px;
 			}
 
 			& .benner-arrow-tail {
@@ -49,7 +49,7 @@
 	}
 
 	.banner-img {
-		width: 3.25rem;
+		width: 52px;
 		height: auto;
 	}
 
@@ -58,9 +58,9 @@
 	.benner-arrow-wrap {
 		position: relative;
 		display: inline-flex;
-		transform: translateY(0.07rem);
-		width: 0.5rem;
-		height: 0.7rem;
+		transform: translateY(2px);
+		width: 8px;
+		height: 12px;
 		transition: width 0.2s;
 	}
 
@@ -70,7 +70,7 @@
 		transform: translateY(-50%);
 		left: 0;
 		width: 0%;
-		height: 0.094rem;
+		height: 1px;
 		background-color: currentColor;
 		transition: width 0.2s;
 	}
@@ -82,7 +82,7 @@
 		height: 100%;
 
 		& path {
-			stroke-width: 0.094rem;
+			stroke-width: 1.5px;
 		}
 	}
 </style>

@@ -41,7 +41,7 @@ export default defineConfig({
 	},
 	build: {
 		// Tauri supports es2021
-		target: process.env.TAURI_PLATFORM == 'windows' ? 'chrome105' : 'safari13',
+		target: process.env.TAURI_PLATFORM === 'windows' ? 'chrome105' : 'safari13',
 		// minify production builds
 		minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
 		// ship sourcemaps for better sentry error reports

@@ -67,8 +67,8 @@ function isOllamaChatResponse(response: unknown): response is OllamaChatResponse
 
 	return (
 		isNonEmptyObject(response.message) &&
-		typeof response.message.role == 'string' &&
-		typeof response.message.content == 'string'
+		typeof response.message.role === 'string' &&
+		typeof response.message.content === 'string'
 	);
 }
 
@@ -98,7 +98,7 @@ export class OllamaClient implements AIClient {
 	 */
 	private formatPrompt(prompt: Prompt) {
 		const withFormattedResponses = prompt.map((promptMessage) => {
-			if (promptMessage.role == MessageRole.Assistant) {
+			if (promptMessage.role === MessageRole.Assistant) {
 				return {
 					role: MessageRole.Assistant,
 					content: JSON.stringify({ result: promptMessage.content })

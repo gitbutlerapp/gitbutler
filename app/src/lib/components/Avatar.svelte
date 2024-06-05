@@ -16,8 +16,8 @@
 	<div
 		class="shadow-marker"
 		class:first={sectionFirst}
-		class:upstream={status == 'upstream'}
-		class:integrated={status == 'integrated'}
+		class:upstream={status === 'upstream'}
+		class:integrated={status === 'integrated'}
 		class:shadow-lane={shadowLane}
 		use:tooltip={help}
 	/>
@@ -29,10 +29,10 @@
 		width="100"
 		height="100"
 		class:first={sectionFirst}
-		class:local={status == 'local'}
-		class:remote={status == 'remote'}
-		class:upstream={status == 'upstream'}
-		class:integrated={status == 'integrated'}
+		class:local={status === 'local'}
+		class:remote={status === 'remote'}
+		class:upstream={status === 'upstream'}
+		class:integrated={status === 'integrated'}
 		class:remote-lane={remoteLane}
 		class:shadow-lane={shadowLane}
 		use:tooltip={help}
@@ -43,53 +43,53 @@
 <style lang="postcss">
 	.avatar {
 		position: absolute;
-		width: var(--size-16);
-		min-width: var(--size-16);
-		height: var(--size-16);
+		width: 16px;
+		min-width: 16px;
+		height: 16px;
 		border-radius: var(--radius-l);
 		top: var(--avatar-top);
-		left: calc(-1 * (var(--size-2) + 0.063rem));
+		left: -3px;
 
 		&.remote-lane {
-			left: var(--size-4);
+			left: 4px;
 		}
 		&.remote {
-			border: var(--size-2) solid var(--clr-commit-remote);
-			left: var(--size-4);
+			border: 2px solid var(--clr-commit-remote);
+			left: 4px;
 		}
 		&.local {
-			border: var(--size-2) solid var(--clr-commit-local);
+			border: 2px solid var(--clr-commit-local);
 		}
 		&.upstream {
-			border: var(--size-2) solid var(--clr-commit-upstream);
+			border: 2px solid var(--clr-commit-upstream);
 		}
 		&.integrated {
-			border: var(--size-2) solid var(--clr-commit-shadow);
+			border: 2px solid var(--clr-commit-shadow);
 		}
 		&.first {
 			top: var(--avatar-first-top);
 		}
 		&.shadow-lane {
-			left: calc(var(--size-4) + 0.063rem);
+			left: 5px;
 		}
 	}
 
 	.shadow-marker {
 		position: absolute;
-		width: var(--size-10);
-		height: var(--size-10);
+		width: 10px;
+		height: 10px;
 		border-radius: 100%;
-		top: calc(var(--avatar-top) + var(--size-4));
-		left: calc(var(--size-6) + 0.063rem);
+		top: calc(var(--avatar-top) + 4px);
+		left: 7px;
 		background-color: var(--clr-commit-remote);
 		&.integrated {
 			background-color: var(--clr-commit-shadow);
 		}
 		&.first {
-			top: calc(var(--avatar-first-top) + var(--size-2) + 0.063rem);
+			top: calc(var(--avatar-first-top) + 3px);
 		}
 		&.shadow-lane {
-			left: var(--size-8);
+			left: 8px;
 			background-color: var(--clr-commit-shadow);
 		}
 		&.upstream {

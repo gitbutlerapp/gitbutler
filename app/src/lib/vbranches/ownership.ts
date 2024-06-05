@@ -54,7 +54,7 @@ export class Ownership {
 		if (!claims) return this;
 		hunkIds.forEach((hunkId) => {
 			claims.get(fileId)?.delete(hunkId);
-			if (claims.get(fileId)?.size == 0) claims.delete(fileId);
+			if (claims.get(fileId)?.size === 0) claims.delete(fileId);
 		});
 		return this;
 	}
@@ -99,6 +99,6 @@ export class Ownership {
 	}
 
 	isEmpty() {
-		return this.claims.size == 0;
+		return this.claims.size === 0;
 	}
 }

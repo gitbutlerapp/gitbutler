@@ -92,13 +92,13 @@
 	.analytics-settings {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-28);
+		gap: 28px;
 	}
 
 	.analytics-settings__content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
+		gap: 16px;
 	}
 
 	.analytics-settings__text {
@@ -108,6 +108,6 @@
 	.analytics-settings__actions {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 </style>

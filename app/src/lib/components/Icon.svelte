@@ -24,8 +24,8 @@
 	style:height={pxToRem(size)}
 	style="--spinner-radius: {spinnerRadius}"
 >
-	{#if name == 'spinner'}
-		<g class:spinner={name == 'spinner'}>
+	{#if name === 'spinner'}
+		<g class:spinner={name === 'spinner'}>
 			<circle class="spinner-path" cx="8" cy="8" r={spinnerRadius} fill="none" />
 			<circle
 				class="spinner-back-path"
@@ -43,7 +43,7 @@
 
 <style lang="postcss">
 	.icon-wrapper {
-		--spinner-stroke-width: calc(var(--size-2) / 1.4);
+		--spinner-stroke-width: 1.5;
 		flex-shrink: 0;
 		pointer-events: none;
 		display: inline-block;

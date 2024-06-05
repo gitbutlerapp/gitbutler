@@ -5,10 +5,10 @@
 	border: 1px solid var(--clr-core-ntrl-30);
 	color: var(--clr-core-ntrl-60);
 	display: inline-block;
-	padding: var(--size-6);
+	padding: 6px;
 	z-index: var(--z-tooltip);
 
-	max-width: 11.25rem;
+	max-width: 180px;
 	position: absolute;
 	left: -9999px;
 	top: -9999px;

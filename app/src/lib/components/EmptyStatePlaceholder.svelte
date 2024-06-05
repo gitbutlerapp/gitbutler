@@ -10,7 +10,7 @@
 	<div
 		class="empty-state"
 		style:max-width={width}
-		style:margin-bottom={hasBottomShift ? 'var(--size-48)' : '0'}
+		style:margin-bottom={hasBottomShift ? '48px' : '0'}
 	>
 		<div class="empty-state__image">
 			{@html image}
@@ -50,9 +50,9 @@
 		color: var(--clr-scale-ntrl-60);
 		background: var(--clr-bg-1);
 		justify-content: center;
-		padding: var(--size-48) 0;
+		padding: 48px 0;
 		width: 100%;
-		gap: var(--size-16);
+		gap: 16px;
 		border-radius: var(--radius-m);
 		cursor: default; /* was defaulting to text cursor */
 	}
@@ -60,7 +60,7 @@
 	.empty-state__content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 
 	.empty-state__title {
@@ -78,6 +78,6 @@
 	}
 
 	.empty-state__image {
-		width: 7.5rem;
+		width: 120px;
 	}
 </style>

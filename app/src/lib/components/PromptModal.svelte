@@ -78,6 +78,6 @@
 
 <style lang="postcss">
 	.message {
-		padding-bottom: var(--size-12);
+		padding-bottom: 12px;
 	}
 </style>

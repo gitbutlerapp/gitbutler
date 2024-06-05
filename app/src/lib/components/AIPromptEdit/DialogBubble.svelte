@@ -40,12 +40,12 @@
 <div
 	class="bubble-wrap"
 	class:editing
-	class:bubble-wrap_user={promptMessage.role == MessageRole.User}
-	class:bubble-wrap_assistant={promptMessage.role == MessageRole.Assistant}
+	class:bubble-wrap_user={promptMessage.role === MessageRole.User}
+	class:bubble-wrap_assistant={promptMessage.role === MessageRole.Assistant}
 >
 	<div class="bubble">
 		<div class="bubble__header text-base-13 text-bold">
-			{#if promptMessage.role == MessageRole.User}
+			{#if promptMessage.role === MessageRole.User}
 				<Icon name="profile" />
 				<span>User</span>
 			{:else}
@@ -105,7 +105,7 @@
 		flex-direction: column;
 
 		width: 100%;
-		padding: 0 var(--size-16);
+		padding: 0 16px;
 
 		&.editing {
 			& .bubble__header {
@@ -142,8 +142,8 @@
 	.bubble__header {
 		display: flex;
 		align-items: center;
-		gap: var(--size-8);
-		padding: var(--size-12);
+		gap: 8px;
+		padding: 12px;
 		/* border: 1px solid var(--clr-border-2); */
 
 		border-bottom: none;
@@ -157,15 +157,15 @@
 		/* border: 1px solid var(--clr-border-2); */
 
 		border-radius: 0 0 var(--radius-l) var(--radius-l);
-		padding: var(--size-12);
+		padding: 12px;
 	}
 
 	.bubble-actions {
 		display: flex;
 		width: 90%;
-		margin-top: var(--size-12);
-		margin-bottom: var(--size-8);
-		gap: var(--size-8);
+		margin-top: 12px;
+		margin-bottom: 8px;
+		gap: 8px;
 	}
 
 	.textarea {
@@ -174,7 +174,7 @@
 		background: none;
 		border: none;
 		outline: none;
-		padding: var(--size-12);
+		padding: 12px;
 		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
 		border-radius: 0 0 var(--radius-l) var(--radius-l);

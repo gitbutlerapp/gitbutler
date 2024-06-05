@@ -17,7 +17,7 @@
 		<div
 			class="local-line tip"
 			class:dashed={outDashed}
-			class:integrated={inType == 'integrated'}
+			class:integrated={inType === 'integrated'}
 		/>
 	{/if}
 	{#if inType}
@@ -26,7 +26,7 @@
 			class:dashed={inDashed}
 			class:sectionFirst
 			class:has-root={root}
-			class:integrated={inType == 'integrated'}
+			class:integrated={inType === 'integrated'}
 		/>
 	{/if}
 	{#if root}
@@ -38,15 +38,15 @@
 <style lang="postcss">
 	.local-column {
 		position: relative;
-		width: var(--size-14);
+		width: 14px;
 		/* background-color: rgba(255, 228, 196, 0.46); */
 	}
 
 	.local-line {
 		position: absolute;
-		width: var(--size-2);
+		width: 2px;
 		background-color: var(--clr-commit-local);
-		left: var(--size-4);
+		left: 4px;
 		top: 0;
 		bottom: 0;
 		&.dashed {
@@ -59,7 +59,7 @@
 			);
 		}
 		&.has-root {
-			bottom: var(--size-8);
+			bottom: 8px;
 		}
 		&.tip {
 			bottom: calc(100% - var(--avatar-first-top));
@@ -74,15 +74,15 @@
 
 	.root {
 		position: absolute;
-		width: var(--size-10);
-		top: calc(100% - var(--size-14));
-		left: calc(-1 * var(--size-4));
-		bottom: calc(-1 * var(--size-2));
+		width: 10px;
+		top: calc(100% - 14px);
+		left: -4px;
+		bottom: -2px;
 		border-radius: 0 0 var(--radius-l) 0;
 		border-color: var(--clr-commit-local);
-		border-width: 0 var(--size-2) var(--size-2) 0;
+		border-width: 0 2px 2px 0;
 		&.long-root {
-			bottom: -2rem;
+			bottom: -32px;
 		}
 	}
 </style>

@@ -33,14 +33,14 @@
 		align-items: center;
 		color: var(--clr-scale-ntrl-10);
 		font-weight: 700;
-		padding: var(--size-8) var(--size-8);
+		padding: 8px 8px;
 		justify-content: space-between;
 		border-radius: var(--radius-m);
 		width: 100%;
 		white-space: nowrap;
-		&:hover:enabled,
-		&:focus:enabled {
-			background-color: var(--clr-bg-2);
+		&:not(.selected):hover:enabled,
+		&:not(.selected):focus:enabled {
+			background-color: var(--clr-bg-1-muted);
 			& .icon {
 				color: var(--clr-scale-ntrl-40);
 			}
@@ -54,7 +54,7 @@
 			color: var(--clr-scale-ntrl-50);
 		}
 		& .label {
-			height: var(--size-16);
+			height: 16px;
 			text-overflow: ellipsis;
 			overflow-x: hidden;
 		}

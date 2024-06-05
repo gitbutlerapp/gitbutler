@@ -1,11 +1,11 @@
 use crate::git;
 
 pub struct Config<'a> {
-    git_repository: &'a git::Repository,
+    git_repository: &'a git2::Repository,
 }
 
-impl<'a> From<&'a git::Repository> for Config<'a> {
-    fn from(value: &'a git::Repository) -> Self {
+impl<'a> From<&'a git2::Repository> for Config<'a> {
+    fn from(value: &'a git2::Repository) -> Self {
         Self {
             git_repository: value,
         }

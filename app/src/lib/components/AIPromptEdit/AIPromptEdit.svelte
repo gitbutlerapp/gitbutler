@@ -12,7 +12,7 @@
 
 	let prompts: Prompts;
 
-	if (promptUse == 'commits') {
+	if (promptUse === 'commits') {
 		prompts = promptService.commitPrompts;
 	} else {
 		prompts = promptService.branchPrompts;
@@ -28,7 +28,7 @@
 	}
 
 	function deletePrompt(targetPrompt: UserPrompt) {
-		const filteredPrompts = get(prompts.userPrompts).filter((prompt) => prompt != targetPrompt);
+		const filteredPrompts = get(prompts.userPrompts).filter((prompt) => prompt !== targetPrompt);
 		prompts.userPrompts.set(filteredPrompts);
 	}
 </script>
@@ -36,7 +36,7 @@
 {#if prompts && $userPrompts}
 	<div class="prompt-item__title">
 		<h3 class="text-base-15 text-bold">
-			{promptUse == 'commits' ? 'Commit Message' : 'Branch Name'}
+			{promptUse === 'commits' ? 'Commit Message' : 'Branch Name'}
 		</h3>
 		<Button kind="solid" style="ghost" icon="plus-small" on:click={createNewPrompt}
 			>New prompt</Button
@@ -68,12 +68,12 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		gap: var(--size-24);
+		gap: 24px;
 	}
 
 	.content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-6);
+		gap: 6px;
 	}
 </style>

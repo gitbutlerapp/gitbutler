@@ -27,7 +27,7 @@
 		addSegment: ({ id, index, disabled }) => {
 			segments = [...segments, { id, index, disabled }];
 			length.set(segments.length);
-			if (index == selectedIndex) selected = id;
+			if (index === selectedIndex) selected = id;
 		},
 		setSelected: (segmentIndex) => {
 			if (segmentIndex >= 0 && segmentIndex < segments.length) {
