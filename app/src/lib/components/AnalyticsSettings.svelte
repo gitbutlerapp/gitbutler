@@ -12,19 +12,16 @@
 	const metricsEnabled = appMetricsEnabled();
 	const nonAnonMetricsEnabled = appNonAnonMetricsEnabled();
 
-	function toggleErrorReporting(e: MouseEvent) {
+	function toggleErrorReporting() {
 		$errorReportingEnabled = !$errorReportingEnabled;
-		e.preventDefault();
 	}
 
-	function toggleMetrics(e: MouseEvent) {
+	function toggleMetrics() {
 		$metricsEnabled = !$metricsEnabled;
-		e.preventDefault();
 	}
 
-	function toggleNonAnonMetrics(e: MouseEvent) {
+	function toggleNonAnonMetrics() {
 		$nonAnonMetricsEnabled = !$nonAnonMetricsEnabled;
-		e.preventDefault();
 	}
 </script>
 
@@ -41,8 +38,8 @@
 			</Link>).
 		</p>
 		<p class="text-base-body-13 analytics-settings__text">
-			We kindly ask you to consider keeping these settings enabled as it helps us catch issues more
-			quickly. If you choose to disable them, please feel to share your feedback on our <Link
+			We kindly ask you to consider keeping these settings enabled as it helps us catch issues
+			more quickly. If you choose to disable them, please feel to share your feedback on our <Link
 				target="_blank"
 				rel="noreferrer"
 				href="https://discord.gg/MmFkmaJ42D"
@@ -53,14 +50,14 @@
 	</div>
 
 	<div class="analytics-settings__actions">
-		<SectionCard labelFor="errorReportngToggle" orientation="row">
+		<SectionCard labelFor="errorReportingToggle" orientation="row">
 			<svelte:fragment slot="title">Error reporting</svelte:fragment>
 			<svelte:fragment slot="caption">
 				Toggle reporting of application crashes and errors.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<Toggle
-					id="errorReportngToggle"
+					id="errorReportingToggle"
 					checked={$errorReportingEnabled}
 					on:click={toggleErrorReporting}
 				/>
@@ -71,7 +68,11 @@
 			<svelte:fragment slot="title">Usage metrics</svelte:fragment>
 			<svelte:fragment slot="caption">Toggle sharing of usage statistics.</svelte:fragment>
 			<svelte:fragment slot="actions">
-				<Toggle id="metricsEnabledToggle" checked={$metricsEnabled} on:click={toggleMetrics} />
+				<Toggle
+					id="metricsEnabledToggle"
+					checked={$metricsEnabled}
+					on:click={toggleMetrics}
+				/>
 			</svelte:fragment>
 		</SectionCard>
 
