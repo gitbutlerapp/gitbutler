@@ -367,7 +367,7 @@
 	.card-notifications {
 		display: flex;
 		flex-direction: column;
-		padding: 0 12px 12px 12px;
+		padding: 12px;
 	}
 
 	.new-branch,
