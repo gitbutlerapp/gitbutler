@@ -98,7 +98,7 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 6px;
-		margin-left: calc(6px * -1);
+		margin-left: -6px;
 	}
 
 	.community-links {
@@ -106,7 +106,7 @@
 		flex-wrap: wrap;
 		column-gap: 12px;
 		row-gap: 4px;
-		max-width: calc(64px * 3);
-		margin-left: calc(6px * -1);
+		max-width: 192px;
+		margin-left: -6px;
 	}
 </style>
