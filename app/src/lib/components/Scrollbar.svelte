@@ -3,9 +3,9 @@
 </script>
 
 <script lang="ts">
-	import { pxToRem } from '$lib/utils/pxToRem';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContextStoreBySymbol } from '$lib/utils/context';
+	import { pxToRem } from '$lib/utils/pxToRem';
 	import { onDestroy, createEventDispatcher } from 'svelte';
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
