@@ -51,7 +51,7 @@ pub trait RepositoryExt {
         newest_commit: git2::Oid,
     ) -> Result<git2::Blame, git2::Error>;
 
-    fn sign_buffer(&self, buffer: &String) -> Result<String>;
+    fn sign_buffer(&self, buffer: &str) -> Result<String>;
 }
 
 impl RepositoryExt for Repository {
@@ -158,8 +158,8 @@ impl RepositoryExt for Repository {
         self.blame_file(path, Some(&mut opts))
     }
 
-    fn sign_buffer(&self, buffer: &String) -> Result<String> {
-        sign_buffer(self, buffer)
+    fn sign_buffer(&self, buffer: &str) -> Result<String> {
+        sign_buffer(self, &buffer.to_string())
     }
 }
 

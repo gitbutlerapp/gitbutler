@@ -234,7 +234,7 @@ impl Controller {
         let project = self.projects_storage.get(id)?;
 
         let repo = project_repository::Repository::open(&project)?;
-        let signed = repo.repo().sign_buffer(&"test".to_string());
+        let signed = repo.repo().sign_buffer("test");
         match signed {
             Ok(_) => Ok(true),
             Err(e) => Err(e),
