@@ -38,8 +38,8 @@
 			</Link>).
 		</p>
 		<p class="text-base-body-13 analytics-settings__text">
-			We kindly ask you to consider keeping these settings enabled as it helps us catch issues
-			more quickly. If you choose to disable them, please feel to share your feedback on our <Link
+			We kindly ask you to consider keeping these settings enabled as it helps us catch issues more
+			quickly. If you choose to disable them, please feel to share your feedback on our <Link
 				target="_blank"
 				rel="noreferrer"
 				href="https://discord.gg/MmFkmaJ42D"
@@ -68,11 +68,7 @@
 			<svelte:fragment slot="title">Usage metrics</svelte:fragment>
 			<svelte:fragment slot="caption">Toggle sharing of usage statistics.</svelte:fragment>
 			<svelte:fragment slot="actions">
-				<Toggle
-					id="metricsEnabledToggle"
-					checked={$metricsEnabled}
-					on:click={toggleMetrics}
-				/>
+				<Toggle id="metricsEnabledToggle" checked={$metricsEnabled} on:click={toggleMetrics} />
 			</svelte:fragment>
 		</SectionCard>
 
