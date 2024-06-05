@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { pxToRem } from '$lib/utils/pxToRem';
 	import Spacer from '../Spacer.svelte';
+	import { pxToRem } from '$lib/utils/pxToRem';
+
 	export let spacer = false;
 	export let gap = 20;
 
