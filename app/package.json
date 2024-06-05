@@ -91,7 +91,6 @@
 		"tauri-plugin-context-menu": "^0.7.0",
 		"tauri-plugin-log-api": "github:tauri-apps/tauri-plugin-log#v1",
 		"tauri-plugin-store-api": "github:tauri-apps/tauri-plugin-store#v1",
-		"tinykeys": "^2.1.0",
 		"tslib": "^2.6.2",
 		"typescript": "^5.4.5",
 		"vite": "^4.5.3",
