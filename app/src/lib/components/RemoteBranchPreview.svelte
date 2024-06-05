@@ -122,15 +122,15 @@
 		display: flex;
 		overflow-x: auto;
 		align-items: flex-start;
-		padding: var(--size-12) var(--size-12) var(--size-12) var(--size-6);
-		width: 50rem;
+		padding: 12px 12px 12px 6px;
+		width: 800px;
 	}
 
 	.branch-preview {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
-		margin: var(--size-12) var(--size-6) var(--size-12) var(--size-12);
+		gap: 8px;
+		margin: 12px 6px 12px 12px;
 	}
 
 	.card__content {

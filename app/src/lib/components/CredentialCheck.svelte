@@ -125,34 +125,34 @@
 	.credential-check {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
+		gap: 16px;
 	}
 
 	.checks-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-4);
-		margin-top: var(--size-4);
+		gap: 4px;
+		margin-top: 4px;
 	}
 
 	.check-icon {
 		display: flex;
-		margin-top: 0.063rem;
 	}
 
 	.check-result {
 		display: flex;
-		gap: var(--size-6);
+		align-items: center;
+		gap: 6px;
 	}
 
 	.help-text {
-		margin-top: var(--size-6);
+		margin-top: 6px;
 	}
 
 	.disclaimer {
 		color: var(--clr-scale-ntrl-50);
 		background: var(--clr-bg-2);
 		border-radius: var(--radius-m);
-		padding: var(--size-10) var(--size-12);
+		padding: 10px 12px;
 	}
 </style>

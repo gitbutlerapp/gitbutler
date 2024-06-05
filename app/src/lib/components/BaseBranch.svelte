@@ -135,7 +135,7 @@
 	.wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
+		gap: 16px;
 	}
 
 	.info-text {
@@ -145,8 +145,8 @@
 	.modal-content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-10);
-		margin-bottom: var(--size-20);
+		gap: 10px;
+		margin-bottom: 20px;
 
 		&:last-child {
 			margin-bottom: 0;
@@ -160,10 +160,10 @@
 	.modal__dont-show-again {
 		display: flex;
 		align-items: center;
-		gap: var(--size-8);
-		padding: var(--size-14);
+		gap: 8px;
+		padding: 14px;
 		background-color: var(--clr-bg-2);
 		border-radius: var(--radius-m);
-		margin-bottom: var(--size-6);
+		margin-bottom: 6px;
 	}
 </style>

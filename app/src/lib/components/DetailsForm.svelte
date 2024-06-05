@@ -64,12 +64,12 @@
 	.fields-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
+		gap: 16px;
 	}
 
 	.description-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 </style>

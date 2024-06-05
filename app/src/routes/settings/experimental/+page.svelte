@@ -30,6 +30,6 @@
 <style>
 	.experimental-settings__text {
 		color: var(--clr-text-2);
-		margin-bottom: var(--size-12);
+		margin-bottom: 12px;
 	}
 </style>

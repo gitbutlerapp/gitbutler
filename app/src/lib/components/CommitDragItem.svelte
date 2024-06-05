@@ -131,7 +131,7 @@
 		display: flex;
 		position: relative;
 		padding: 0;
-		gap: var(--size-8);
+		gap: 8px;
 		flex-grow: 1;
 		overflow: hidden;
 		&:last-child {

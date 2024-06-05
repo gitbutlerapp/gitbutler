@@ -127,6 +127,6 @@
 		overflow: hidden;
 		align-items: self-start;
 
-		padding: var(--size-12) var(--size-12) var(--size-12) 0;
+		padding: 12px 12px 12px 0;
 	}
 </style>

@@ -16,10 +16,10 @@
 
 <style lang="postcss">
 	.gravatar-image {
-		width: var(--size-16);
-		height: var(--size-16);
+		width: 16px;
+		height: 16px;
 		border-radius: 50%;
-		margin-left: calc(var(--size-4) * -1);
+		margin-left: -4px;
 
 		&:first-child {
 			margin-left: 0;

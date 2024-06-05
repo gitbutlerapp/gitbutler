@@ -346,20 +346,20 @@
 <style>
 	.ai-settings__text {
 		color: var(--clr-text-2);
-		margin-bottom: var(--size-12);
+		margin-bottom: 12px;
 	}
 
 	.inputs-group {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
+		gap: 16px;
 		width: 100%;
 	}
 
 	.prompt-groups {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-12);
-		margin-top: var(--size-16);
+		gap: 12px;
+		margin-top: 16px;
 	}
 </style>

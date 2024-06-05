@@ -271,13 +271,13 @@
 	.commit-row {
 		position: relative;
 		display: flex;
-		gap: var(--size-8);
+		gap: 8px;
 		&.has-lines {
-			padding-right: var(--size-14);
+			padding-right: 14px;
 		}
 
 		/* border-top: 1px solid var(--clr-border-2); */
-		/* padding-left: var(--size-8); */
+		/* padding-left: 8px; */
 
 		&:not(.is-first) {
 			border-top: 1px solid var(--clr-border-3);
@@ -299,7 +299,7 @@
 		transition: background-color var(--transition-fast);
 
 		&.is-first {
-			margin-top: var(--size-12);
+			margin-top: 12px;
 			border-top: 1px solid var(--clr-border-2);
 			border-top-left-radius: var(--radius-m);
 			border-top-right-radius: var(--radius-m);
@@ -316,7 +316,7 @@
 
 	.accent-border-line {
 		position: absolute;
-		width: var(--size-4);
+		width: 4px;
 		height: 100%;
 		&.local {
 			background-color: var(--clr-commit-local);
@@ -345,8 +345,8 @@
 	.commit__about {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-6);
-		padding: var(--size-14);
+		gap: 6px;
+		padding: 14px;
 
 		&:hover {
 			background-color: var(--clr-bg-1-muted);
@@ -372,7 +372,7 @@
 		display: flex;
 		align-items: center;
 		flex-wrap: nowrap;
-		gap: var(--size-4);
+		gap: 4px;
 		color: var(--clr-text-2);
 		overflow: hidden;
 
@@ -390,7 +390,7 @@
 	.commit__id {
 		display: flex;
 		align-items: center;
-		gap: var(--size-4);
+		gap: 4px;
 
 		&:hover {
 			color: var(--clr-text-1);
@@ -406,17 +406,17 @@
 	.commit__details {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-12);
-		padding: var(--size-14);
+		gap: 12px;
+		padding: 14px;
 		border-top: 1px solid var(--clr-border-2);
 	}
 
 	.commit__actions {
 		display: flex;
-		gap: var(--size-4);
+		gap: 4px;
 		overflow-x: auto;
-		margin: 0 calc(var(--size-14) * -1);
-		padding: 0 var(--size-14);
+		margin: 0 -14px;
+		padding: 0 14px;
 	}
 
 	/* FILES */
@@ -432,12 +432,12 @@
 
 		& .commit-card {
 			&:not(.is-first) {
-				margin-top: var(--size-8);
+				margin-top: 8px;
 				border-top: 1px solid var(--clr-border-2);
 			}
 
 			&:not(.is-last) {
-				margin-bottom: var(--size-8);
+				margin-bottom: 8px;
 				border-bottom: 1px solid var(--clr-border-2);
 			}
 		}

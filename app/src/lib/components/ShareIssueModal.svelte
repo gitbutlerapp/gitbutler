@@ -229,13 +229,13 @@
 	.content-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: 16px;
 	}
 
 	.content-wrapper__section {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 
 	.content-wrapper__help-text {
@@ -245,12 +245,12 @@
 	.content-wrapper__checkbox-group {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-10);
+		gap: 10px;
 	}
 
 	.content-wrapper__checkbox {
 		display: flex;
 		align-items: center;
-		gap: var(--size-10);
+		gap: 10px;
 	}
 </style>

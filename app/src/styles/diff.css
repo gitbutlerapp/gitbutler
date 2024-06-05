@@ -42,6 +42,6 @@
 	color: rgb(229, 231, 235);
 	text-align: left;
 	background-color: rgba(24, 24, 27, 1);
-	padding-left: 0.5rem;
-	padding-right: 0.5rem;
+	padding-left: 8px;
+	padding-right: 8px;
 }

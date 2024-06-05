@@ -74,8 +74,8 @@
 	.base-branch-card {
 		position: relative;
 		display: flex;
-		gap: var(--size-10);
-		padding: var(--size-10);
+		gap: 10px;
+		padding: 10px;
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
 	}
@@ -88,14 +88,14 @@
 
 	.icon {
 		border-radius: var(--radius-s);
-		height: var(--size-20);
-		width: var(--size-20);
+		height: 20px;
+		width: 20px;
 		flex-shrink: 0;
 	}
 	.content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 		overflow: hidden;
 	}
 	.trunk-label {
@@ -103,14 +103,14 @@
 	}
 	.button-head {
 		display: flex;
-		gap: var(--size-6);
+		gap: 6px;
 		align-items: center;
 		color: var(--clr-scale-ntrl-10);
 	}
 	.base-branch-label {
 		display: flex;
 		align-items: center;
-		gap: var(--size-4);
+		gap: 4px;
 		color: var(--clr-scale-ntrl-40);
 		overflow: hidden;
 
@@ -128,8 +128,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: var(--size-2);
-		min-width: var(--size-14);
+		padding: 2px;
+		min-width: 14px;
 		background-color: var(--clr-theme-err-element);
 		color: var(--clr-scale-ntrl-100);
 		border-radius: var(--radius-m);

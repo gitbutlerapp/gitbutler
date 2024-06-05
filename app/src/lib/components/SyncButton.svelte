@@ -39,6 +39,6 @@
 
 <style lang="postcss">
 	.sync-btn__busy-label {
-		padding-left: var(--size-4);
+		padding-left: 4px;
 	}
 </style>

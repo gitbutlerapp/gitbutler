@@ -75,7 +75,7 @@
 		flex-basis: 0;
 		align-items: center;
 		justify-content: center;
-		gap: var(--size-4);
+		gap: 4px;
 
 		height: var(--size-button);
 
@@ -128,11 +128,11 @@
 	/* MODIFIERS */
 	.segment-small {
 		height: var(--size-tag);
-		padding: var(--size-2) var(--size-4);
+		padding: 2px 4px;
 	}
 
 	.segment-medium {
 		height: var(--size-button);
-		padding: var(--size-4) var(--size-8);
+		padding: 4px 8px;
 	}
 </style>

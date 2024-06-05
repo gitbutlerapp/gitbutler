@@ -74,39 +74,39 @@
 	.welcome__actions {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
-		margin-top: var(--size-32);
+		gap: 8px;
+		margin-top: 32px;
 	}
 
 	.links {
 		display: flex;
-		gap: var(--size-56);
-		padding: var(--size-28);
+		gap: 56px;
+		padding: 28px;
 		background: var(--clr-bg-2);
 		border-radius: var(--radius-m);
-		margin-top: var(--size-20);
+		margin-top: 20px;
 	}
 
 	.links__section {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-20);
+		gap: 20px;
 	}
 
 	.education-links {
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: var(--size-6);
-		margin-left: calc(var(--size-6) * -1);
+		gap: 6px;
+		margin-left: calc(6px * -1);
 	}
 
 	.community-links {
 		display: flex;
 		flex-wrap: wrap;
-		column-gap: var(--size-12);
-		row-gap: var(--size-4);
-		max-width: calc(var(--size-64) * 3);
-		margin-left: calc(var(--size-6) * -1);
+		column-gap: 12px;
+		row-gap: 4px;
+		max-width: calc(64px * 3);
+		margin-left: calc(6px * -1);
 	}
 </style>

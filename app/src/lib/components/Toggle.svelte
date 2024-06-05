@@ -33,9 +33,9 @@
 	.toggle {
 		appearance: none;
 		cursor: pointer;
-		width: calc(var(--size-24) + var(--size-2));
-		height: var(--size-16);
-		border-radius: var(--size-16);
+		width: 28px;
+		height: 16px;
+		border-radius: 16px;
 		background-color: var(--clr-border-2);
 		transition:
 			background-color var(--transition-fast),
@@ -73,7 +73,7 @@
 			}
 
 			&::after {
-				transform: translateX(var(--size-10));
+				transform: translateX(10px);
 			}
 		}
 
@@ -81,11 +81,11 @@
 		&::after {
 			content: '';
 			position: absolute;
-			top: var(--size-2);
-			left: var(--size-2);
-			width: var(--size-12);
-			height: var(--size-12);
-			border-radius: var(--size-12);
+			top: 2px;
+			left: 2px;
+			width: 12px;
+			height: 12px;
+			border-radius: 12px;
 			background-color: var(--clr-core-ntrl-100);
 			transition:
 				background-color var(--transition-fast),
@@ -95,12 +95,12 @@
 		/* modifiers */
 
 		&.small {
-			width: var(--size-24);
-			height: var(--size-14);
+			width: 24px;
+			height: 14px;
 
 			&:after {
-				width: var(--size-10);
-				height: var(--size-10);
+				width: 10px;
+				height: 10px;
 			}
 		}
 	}

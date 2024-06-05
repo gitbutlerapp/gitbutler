@@ -237,7 +237,7 @@
 		align-items: center;
 		height: 100%;
 		width: 100%;
-		padding: 0 var(--size-40);
+		padding: 0 40px;
 	}
 
 	.empty-board {
@@ -246,10 +246,10 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-l);
 		width: 100%;
-		gap: var(--size-48);
-		max-width: 46rem;
-		min-height: 20rem;
-		padding: var(--size-32);
+		gap: 48px;
+		max-width: 736px;
+		min-height: 320px;
+		padding: 32px;
 	}
 
 	.empty-board__content {
@@ -257,13 +257,13 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		padding-left: var(--size-4);
+		padding-left: 4px;
 	}
 
 	.empty-board__image-frame {
 		flex-shrink: 0;
 		position: relative;
-		width: 11.2rem;
+		width: 180px;
 		height: auto;
 		border-radius: var(--radius-l);
 		background-color: var(--clr-illustration-bg);
@@ -274,8 +274,8 @@
 			position: absolute;
 			bottom: 12%;
 			left: 50%;
-			width: 6.5rem;
-			height: 1.5rem;
+			width: 104px;
+			height: 24px;
 			transform: translateX(-50%) scale(1.15);
 			border-radius: 100%;
 			background-color: var(--clr-illustration-outline);
@@ -290,7 +290,7 @@
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -70%) translateZ(0);
-		width: 13.3rem;
+		width: 212px;
 		animation: hovering 5.5s infinite ease-in-out;
 		animation-delay: 3s;
 	}
@@ -325,7 +325,7 @@
 	.empty-board__about {
 		display: flex;
 		flex-direction: column;
-		margin-bottom: var(--size-32);
+		margin-bottom: 32px;
 	}
 
 	.empty-board__about h3 {
@@ -339,14 +339,14 @@
 	.empty-board__suggestions {
 		display: flex;
 		flex-direction: row;
-		gap: var(--size-40);
+		gap: 40px;
 	}
 
 	.empty-board__suggestions__block {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
-		min-width: 8rem;
+		gap: 16px;
+		min-width: 128px;
 	}
 
 	.empty-board__suggestions__block h3 {
@@ -356,8 +356,8 @@
 	.empty-board__suggestions__links {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-6);
-		margin-left: calc(var(--size-4) * -1);
+		gap: 6px;
+		margin-left: -4px;
 	}
 
 	.empty-board__suggestions__link {
@@ -365,9 +365,9 @@
 		display: flex;
 		width: fit-content;
 		max-width: 100%;
-		padding: var(--size-2) var(--size-6) var(--size-2) var(--size-4);
+		padding: 2px 6px 2px 4px;
 		border-radius: var(--radius-s);
-		gap: var(--size-10);
+		gap: 10px;
 		transition: background-color var(--transition-fast);
 		overflow: hidden;
 
@@ -377,7 +377,7 @@
 
 		& span {
 			color: var(--clr-scale-ntrl-40);
-			margin-top: calc(var(--size-6) / 2);
+			margin-top: 3px;
 			white-space: nowrap;
 			text-overflow: ellipsis;
 			overflow: hidden;

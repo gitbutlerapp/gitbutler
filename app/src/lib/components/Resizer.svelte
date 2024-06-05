@@ -127,9 +127,9 @@
 
 <style lang="postcss">
 	.resizer {
-		--resizer-frame-thickness: var(--size-4);
-		--resizer-default-line-thickness: var(--size-2);
-		--resizer-hover-line-thickness: var(--size-8);
+		--resizer-frame-thickness: 4px;
+		--resizer-default-line-thickness: 2px;
+		--resizer-hover-line-thickness: 8px;
 		--resizer-default-line-color: none;
 		position: absolute;
 
@@ -171,7 +171,7 @@
 	}
 
 	.horizontal {
-		width: var(--size-4);
+		width: 4px;
 		height: 100%;
 		cursor: col-resize;
 		top: 0;
@@ -181,7 +181,7 @@
 		}
 	}
 	.vertical {
-		height: var(--size-4);
+		height: 4px;
 		width: 100%;
 		cursor: row-resize;
 		left: 0;

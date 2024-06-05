@@ -144,18 +144,18 @@
 	.wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
-		max-width: 56rem;
+		gap: 16px;
+		max-width: 896px;
 	}
 	.card__content {
-		gap: var(--size-12);
+		gap: 12px;
 	}
 	.card__title-pr {
 		opacity: 0.4;
-		margin-left: var(--size-4);
+		margin-left: 4px;
 	}
 
 	.fork-notice {
-		margin-bottom: var(--size-8);
+		margin-bottom: 8px;
 	}
 </style>

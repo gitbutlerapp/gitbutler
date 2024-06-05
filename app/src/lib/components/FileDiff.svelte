@@ -89,18 +89,18 @@
 		position: relative;
 		max-height: 100%;
 		flex-shrink: 0;
-		padding: var(--size-14);
-		gap: var(--size-16);
+		padding: 14px;
+		gap: 16px;
 	}
 	.hunk-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-10);
+		gap: 10px;
 	}
 	.indicators {
 		display: flex;
 		align-items: center;
-		gap: var(--size-2);
+		gap: 2px;
 	}
 	.added {
 		color: #45b156;

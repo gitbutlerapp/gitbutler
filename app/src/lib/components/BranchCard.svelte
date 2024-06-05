@@ -178,8 +178,8 @@
 			<ScrollableContainer
 				wide
 				padding={{
-					top: `var(--size-12)`,
-					bottom: `var(--size-12)`
+					top: 12,
+					bottom: 12
 				}}
 				bottomBuffer={300}
 				on:bottomReached={onBottomReached}
@@ -350,7 +350,7 @@
 		flex-direction: column;
 		flex: 1;
 		min-height: 100%;
-		padding: var(--size-12);
+		padding: 12px;
 	}
 
 	.card {
@@ -367,7 +367,7 @@
 	.card-notifications {
 		display: flex;
 		flex-direction: column;
-		padding: 0 var(--size-12) var(--size-12) var(--size-12);
+		padding: 0 12px 12px 12px;
 	}
 
 	.new-branch,
@@ -407,7 +407,7 @@
 	.collapsed-lane-container {
 		display: flex;
 		flex-direction: column;
-		padding: var(--size-12);
+		padding: 12px;
 		height: 100%;
 		border-right: 1px solid var(--clr-border-2);
 	}

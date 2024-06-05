@@ -171,8 +171,8 @@
 		cursor: pointer;
 		display: flex;
 		align-items: center;
-		gap: var(--size-16);
-		padding: var(--size-16);
+		gap: 16px;
+		padding: 16px;
 
 		&.editing {
 			cursor: default;
@@ -194,9 +194,9 @@
 	.content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
+		gap: 16px;
 
-		padding: var(--size-16) 0;
+		padding: 16px 0;
 		border-top: 1px solid var(--clr-border-3);
 	}
 
@@ -212,12 +212,12 @@
 	.actions {
 		display: flex;
 		justify-content: flex-end;
-		gap: var(--size-8);
-		padding: 0 var(--size-16) var(--size-16);
+		gap: 8px;
+		padding: 0 16px 16px;
 	}
 
 	.default-mode {
-		padding: var(--size-16) 0;
+		padding: 16px 0;
 		border-top: 1px solid var(--clr-border-3);
 
 		& .sections-divider {

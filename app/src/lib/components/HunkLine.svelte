@@ -82,7 +82,7 @@
 		white-space: pre;
 		tab-size: var(--tab-size);
 
-		font-size: 0.688rem;
+		font-size: 11px;
 		line-height: 1.5;
 	}
 
@@ -100,12 +100,12 @@
 		color: var(--clr-text-3);
 		border-color: var(--clr-border-2);
 		background-color: var(--clr-bg-1-muted);
-		font-size: 0.625rem;
+		font-size: 10px;
 		flex-shrink: 0;
 		user-select: none;
 		border-right-width: 1px;
-		padding-left: 0.125rem;
-		padding-right: 0.125rem;
+		padding-left: 2px;
+		padding-right: 2px;
 		text-align: right;
 
 		&.selected {
@@ -118,7 +118,7 @@
 	.selectable-wrapper {
 		cursor: text;
 		display: inline-block;
-		text-indent: var(--size-4);
-		margin-right: var(--size-4);
+		text-indent: 4px;
+		margin-right: 4px;
 	}
 </style>

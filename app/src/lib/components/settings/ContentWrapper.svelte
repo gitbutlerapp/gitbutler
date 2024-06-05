@@ -34,11 +34,11 @@
 	}
 
 	.content {
-		padding: var(--size-48) var(--size-32);
+		padding: 48px 32px;
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
-		max-width: 40rem;
+		gap: 16px;
+		max-width: 640px;
 		width: 100%;
 		margin: auto;
 	}

@@ -64,8 +64,8 @@
 	.passbox {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
-		padding: var(--size-14);
+		gap: 8px;
+		padding: 14px;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-2);
 	}
@@ -76,6 +76,6 @@
 
 	.passbox__actions {
 		display: flex;
-		gap: var(--size-6);
+		gap: 6px;
 	}
 </style>

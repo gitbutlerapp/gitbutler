@@ -148,9 +148,9 @@
 		flex: 1;
 		display: flex;
 		align-items: center;
-		padding: var(--size-6) var(--size-14);
-		gap: var(--size-10);
-		height: 2rem;
+		padding: 6px 14px;
+		gap: 10px;
+		height: 32px;
 		overflow: hidden;
 		text-align: left;
 		user-select: none;
@@ -163,7 +163,7 @@
 		}
 
 		&:last-child {
-			margin-bottom: -1px;
+			border-bottom: none;
 		}
 	}
 
@@ -172,12 +172,12 @@
 		align-items: center;
 		flex-grow: 1;
 		flex-shrink: 1;
-		gap: var(--size-6);
+		gap: 6px;
 		overflow: hidden;
 	}
 
 	.file-icon {
-		width: var(--size-12);
+		width: 12px;
 	}
 
 	.name {

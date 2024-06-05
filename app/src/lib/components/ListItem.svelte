@@ -31,7 +31,7 @@
 		align-items: center;
 		color: var(--clr-scale-ntrl-10);
 		font-weight: 700;
-		padding: var(--size-10) var(--size-10);
+		padding: 10px 10px;
 		justify-content: space-between;
 		border-radius: var(--radius-m);
 		width: 100%;
@@ -53,7 +53,7 @@
 			color: var(--clr-scale-ntrl-50);
 		}
 		& .label {
-			height: var(--size-16);
+			height: 16px;
 			text-overflow: ellipsis;
 			overflow: hidden;
 		}

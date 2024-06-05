@@ -27,21 +27,21 @@
 <style lang="postcss">
 	.problem__title {
 		color: var(--clr-scale-ntrl-30);
-		margin-bottom: var(--size-12);
+		margin-bottom: 12px;
 	}
 
 	.problem__switcher {
 		text-align: right;
-		margin-top: var(--size-24);
+		margin-top: 24px;
 	}
 
 	.problem__error {
 		display: flex;
 		color: var(--clr-scale-ntrl-0);
-		gap: var(--size-12);
-		padding: var(--size-20);
+		gap: 12px;
+		padding: 20px;
 		background-color: var(--clr-theme-err-bg);
 		border-radius: var(--radius-m);
-		margin-bottom: var(--size-12);
+		margin-bottom: 12px;
 	}
 </style>

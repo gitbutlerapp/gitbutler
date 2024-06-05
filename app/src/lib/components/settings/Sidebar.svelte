@@ -146,17 +146,17 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: space-between;
-		padding: calc(var(--size-36) + var(--size-4)) var(--size-14) var(--size-14) var(--size-14);
+		padding: 40px 14px 14px 14px;
 		border-right: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 		height: 100%;
-		width: 16rem;
+		width: 256px;
 	}
 
 	.profile-sidebar__header {
 		display: flex;
 		align-items: center;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 
 	/* TOP */
@@ -164,7 +164,7 @@
 	.profile-sidebar__top {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-20);
+		gap: 20px;
 	}
 
 	.profile-sidebar__title {
@@ -176,20 +176,20 @@
 	.profile-sidebar__menu-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-20);
+		gap: 20px;
 	}
 
 	.profile-sidebar__menu {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-2);
+		gap: 2px;
 	}
 
 	.profile-sidebar__menu-item {
 		display: flex;
 		align-items: center;
-		gap: var(--size-10);
-		padding: var(--size-10) var(--size-8);
+		gap: 10px;
+		padding: 10px 8px;
 		border-radius: var(--radius-m);
 		width: 100%;
 		color: var(--clr-scale-ntrl-30);
@@ -216,21 +216,21 @@
 	.profile-sidebar__bottom {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-24);
+		gap: 24px;
 	}
 
 	/* BANNERS */
 	.social-banners {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-6);
+		gap: 6px;
 	}
 
 	.social-banner {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--size-16);
+		padding: 16px;
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);

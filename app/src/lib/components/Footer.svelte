@@ -42,22 +42,22 @@
 	.footer {
 		display: flex;
 		justify-content: space-between;
-		padding: var(--size-12);
-		gap: var(--size-6);
+		padding: 12px;
+		gap: 6px;
 		border-top: 1px solid var(--clr-border-2);
 		border-color: var(--clr-border-2);
 	}
 
 	.left-btns {
 		display: flex;
-		gap: var(--size-2);
+		gap: 2px;
 	}
 
 	.footer.collapsed {
 		flex-direction: column;
-		padding: 0 var(--size-14);
+		padding: 0 14px;
 		align-items: flex-start;
-		gap: var(--size-4);
+		gap: 4px;
 		border: none;
 
 		& .left-btns {

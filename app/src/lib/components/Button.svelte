@@ -123,6 +123,7 @@
 
 	.label {
 		display: inline-flex;
+		white-space: nowrap;
 	}
 
 	.btn-icon {
@@ -277,29 +278,28 @@
 
 	.btn.tag {
 		height: var(--size-tag);
-		padding: var(--size-2) var(--size-4);
+		padding: 2px 4px;
 
 		& .label {
-			padding: 0 var(--size-4);
-			white-space: nowrap;
+			padding: 0 4px;
 		}
 	}
 
 	.btn.button {
 		height: var(--size-button);
-		padding: var(--size-4) var(--size-6);
+		padding: 4px 6px;
 
 		& .label {
-			padding: 0 var(--size-4);
+			padding: 0 4px;
 		}
 	}
 
 	.btn.cta {
 		height: var(--size-cta);
-		padding: var(--size-6) var(--size-8);
+		padding: 6px 8px;
 
 		& .label {
-			padding: 0 var(--size-6);
+			padding: 0 6px;
 		}
 	}
 

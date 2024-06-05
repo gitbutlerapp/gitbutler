@@ -68,12 +68,12 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		gap: var(--size-24);
+		gap: 24px;
 	}
 
 	.content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-6);
+		gap: 6px;
 	}
 </style>

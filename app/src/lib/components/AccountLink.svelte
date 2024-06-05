@@ -39,10 +39,10 @@
 		display: flex;
 		align-items: center;
 		overflow-x: hidden;
-		gap: var(--size-8);
+		gap: 8px;
 
 		height: var(--size-cta);
-		padding: var(--size-6) var(--size-8);
+		padding: 6px 8px;
 		border-radius: var(--radius-m);
 
 		color: var(--clr-scale-ntrl-50);
@@ -76,14 +76,14 @@
 	.anon-icon,
 	.profile-picture {
 		border-radius: var(--radius-m);
-		width: var(--size-20);
-		height: var(--size-20);
+		width: 20px;
+		height: 20px;
 	}
 	.anon-icon {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: var(--size-2);
+		padding: 2px;
 		background: var(--clr-theme-pop-element);
 		color: var(--clr-theme-pop-on-element);
 	}
@@ -91,13 +91,13 @@
 	/* MODIFIERS */
 	.btn.collapsed {
 		overflow-x: initial;
-		padding: var(--size-8);
+		padding: 8px;
 		height: auto;
 
 		& .anon-icon,
 		.profile-picture {
-			width: var(--size-24);
-			height: var(--size-24);
+			width: 24px;
+			height: 24px;
 		}
 	}
 </style>

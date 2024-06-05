@@ -167,12 +167,12 @@
 	.scroll-container {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-12);
+		gap: 12px;
 		width: 100%;
 		height: 100%;
-		padding-bottom: var(--size-16);
-		padding-left: var(--size-14);
-		padding-right: var(--size-14);
+		padding-bottom: 16px;
+		padding-left: 14px;
+		padding-right: 14px;
 	}
 	.branch-list {
 		flex: 1;
@@ -187,7 +187,7 @@
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-		gap: var(--size-2);
+		gap: 2px;
 	}
 
 	/* EMPTY STATE */
@@ -197,16 +197,16 @@
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-		gap: var(--size-10);
+		gap: 10px;
 	}
 
 	.branch-list__empty-state__image {
-		width: 8.125rem;
+		width: 130px;
 	}
 
 	.branch-list__empty-state__caption {
 		color: var(--clr-scale-ntrl-60);
 		text-align: center;
-		max-width: 10rem;
+		max-width: 160px;
 	}
 </style>

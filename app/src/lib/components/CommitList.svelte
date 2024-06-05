@@ -307,17 +307,17 @@
 		border-top: 1px solid var(--clr-border-2);
 		border-bottom: 1px solid var(--clr-border-2);
 
-		--base-top-margin: var(--size-8);
-		--base-icon-top: var(--size-16);
-		--base-unfolded: var(--size-48);
+		--base-top-margin: 8px;
+		--base-icon-top: 16px;
+		--base-unfolded: 48px;
 
-		--avatar-first-top: 3.1rem;
-		--avatar-top: var(--size-16);
+		--avatar-first-top: 50px;
+		--avatar-top: 16px;
 	}
 
 	.commit-group {
-		/* padding-right: var(--size-14);
-		padding-left: var(--size-8); */
+		/* padding-right: 14px;
+		padding-left: 8px; */
 	}
 
 	/* BASE ROW */
@@ -325,7 +325,7 @@
 	.base-row-container {
 		display: flex;
 		flex-direction: column;
-		height: var(--size-20);
+		height: 20px;
 
 		overflow: hidden;
 		transition: height var(--transition-medium);
@@ -333,7 +333,7 @@
 
 	.base-row-container_unfolded {
 		height: var(--base-unfolded);
-		--base-icon-top: var(--size-20);
+		--base-icon-top: 20px;
 
 		& .base-row__text {
 			opacity: 1;
@@ -342,7 +342,7 @@
 
 	.base-row {
 		display: flex;
-		gap: var(--size-8);
+		gap: 8px;
 		border-top: 1px solid var(--clr-border-3);
 		min-height: calc(var(--base-unfolded) - var(--base-top-margin));
 		margin-top: var(--base-top-margin);
@@ -355,7 +355,7 @@
 
 	.base-row__lines {
 		display: flex;
-		margin-top: calc(var(--size-8) * -1);
+		margin-top: -8px;
 	}
 
 	.base-row__content {
@@ -366,7 +366,7 @@
 	.base-row__text {
 		color: var(--clr-text-2);
 		opacity: 0;
-		margin-top: var(--size-2);
+		margin-top: 2px;
 		transition: opacity var(--transition-medium);
 	}
 

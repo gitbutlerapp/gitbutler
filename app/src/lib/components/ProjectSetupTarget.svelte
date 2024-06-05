@@ -254,7 +254,7 @@
 	.project-setup {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-20);
+		gap: 20px;
 	}
 
 	.features-wrapper {
@@ -264,14 +264,14 @@
 	.project-setup__info {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-12);
+		gap: 12px;
 	}
 
 	.project-setup__fields {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
-		padding-bottom: var(--size-10);
+		gap: 16px;
+		padding-bottom: 10px;
 	}
 
 	.project-setup__description-text {
@@ -281,19 +281,19 @@
 	.project-setup__field-wrap {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-12);
+		gap: 12px;
 	}
 
 	.floating-buttons {
 		display: flex;
 		justify-content: flex-end;
 		width: 100%;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 
 	.success-icon {
 		display: inline;
-		margin-top: calc(var(--size-2) * -1);
-		margin-left: var(--size-2);
+		margin-top: -2px;
+		margin-left: 2px;
 	}
 </style>
