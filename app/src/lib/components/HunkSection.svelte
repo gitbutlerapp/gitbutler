@@ -4,7 +4,6 @@
 	import { create } from '$lib/components/Differ/CodeHighlighter';
 	import { getContext } from '$lib/utils/context';
 	import { SectionType } from '$lib/utils/fileSections';
-	import clsx from 'clsx';
 	import { onDestroy } from 'svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type { Line } from '$lib/utils/fileSections';
@@ -90,24 +89,24 @@
 			<div class="code-line__numbers-line">
 				<button
 					on:click={() => selectable && dispatch('selected', !selected)}
-					class={clsx('numbers-line-count', isSelected && 'selected')}
+					class="numbers-line-count"
+					class:selected={isSelected}
 				>
 					{line.beforeLineNumber || ''}
 				</button>
 				<button
 					on:click={() => selectable && dispatch('selected', !selected)}
-					class={clsx('numbers-line-count', isSelected && 'selected')}
+					class="numbers-line-count"
+					class:selected={isSelected}
 				>
 					{line.afterLineNumber || ''}
 				</button>
 			</div>
 			<div
-				class={clsx({
-					line: true,
-					readonly,
-					'diff-line-deletion': sectionType === SectionType.RemovedLines,
-					'diff-line-addition': sectionType === SectionType.AddedLines
-				})}
+				class="line"
+				class:readonly
+				class:diff-line-deletion={sectionType === SectionType.RemovedLines}
+				class:diff-line-addition={sectionType === SectionType.AddedLines}
 			>
 				<span class="selectable-wrapper" data-no-drag>
 					{@html toTokens(line.content).join('')}
