@@ -175,6 +175,7 @@ fn main() {
                     projects::commands::set_project_active,
                     projects::commands::git_get_local_config,
                     projects::commands::git_set_local_config,
+                    projects::commands::check_signing_settings,
                     virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,
                     virtual_branches::commands::commit_virtual_branch,

@@ -2,7 +2,7 @@ use std::time;
 
 use crate::id::Id;
 use crate::{
-    git::{self, Oid},
+    git::{self},
     project_repository,
     projects::{self, CodePushState},
     users,
@@ -57,7 +57,7 @@ async fn push_target(
     projects: &projects::Controller,
     project_repository: &project_repository::Repository,
     default_target: &crate::virtual_branches::target::Target,
-    gb_code_last_commit: Option<Oid>,
+    gb_code_last_commit: Option<git2::Oid>,
     project_id: Id<projects::Project>,
     user: &users::User,
     batch_size: usize,
@@ -106,27 +106,26 @@ async fn push_target(
 fn batch_rev_walk(
     repo: &git2::Repository,
     batch_size: usize,
-    from: Oid,
-    until: Option<Oid>,
-) -> Result<Vec<Oid>> {
+    from: git2::Oid,
+    until: Option<git2::Oid>,
+) -> Result<Vec<git2::Oid>> {
     let mut revwalk = repo.revwalk().context("failed to create revwalk")?;
     revwalk
-        .push(from.into())
+        .push(from)
         .context(format!("failed to push {}", from))?;
     if let Some(oid) = until {
         revwalk
-            .hide(oid.into())
+            .hide(oid)
             .context(format!("failed to hide {}", oid))?;
     }
     let mut oids = Vec::new();
     oids.push(from);
 
-    let from = from.into();
     for batch in &revwalk.chunks(batch_size) {
         let Some(oid) = batch.last() else { continue };
         let oid = oid.context("failed to get oid")?;
         if oid != from {
-            oids.push(oid.into());
+            oids.push(oid);
         }
     }
     Ok(oids)
@@ -177,7 +176,7 @@ fn push_all_refs(
 async fn update_project(
     projects: &projects::Controller,
     project_id: Id<projects::Project>,
-    id: Oid,
+    id: git2::Oid,
 ) -> Result<()> {
     projects
         .update(&projects::UpdateRequest {
