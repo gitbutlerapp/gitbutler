@@ -1,9 +1,10 @@
-use crate::{git, users};
+use crate::users;
+use anyhow::Result;
 
 pub fn signatures<'a>(
     project_repository: &super::Repository,
     user: Option<&users::User>,
-) -> Result<(git2::Signature<'a>, git2::Signature<'a>), git::Error> {
+) -> Result<(git2::Signature<'a>, git2::Signature<'a>)> {
     let config = project_repository.config();
 
     let author = match (user, config.user_name()?, config.user_email()?) {
@@ -21,7 +22,7 @@ pub fn signatures<'a>(
     Ok((author, comitter))
 }
 
-fn try_from(value: &users::User) -> Result<git2::Signature<'static>, git::Error> {
+fn try_from(value: &users::User) -> Result<git2::Signature<'static>> {
     let name = value
         .name
         .as_deref()

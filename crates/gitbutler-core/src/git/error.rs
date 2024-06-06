@@ -1,31 +1,17 @@
-use std::str::Utf8Error;
-
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("not found: {0}")]
     NotFound(git2::Error),
     #[error("authentication failed")]
     Auth(git2::Error),
-    #[error("remote url error: {0}")]
-    Url(super::url::ParseError),
-    #[error("io error: {0}")]
-    Io(#[from] std::io::Error),
     #[error("network error: {0}")]
     Network(git2::Error),
-    #[error("hook error: {0}")]
-    Hooks(#[from] git2_hooks::HooksError),
     #[error("http error: {0}")]
     Http(git2::Error),
-    #[error("blame error: {0}")]
-    Blame(git2::Error),
     #[error("checkout error: {0}")]
     Checkout(git2::Error),
     #[error(transparent)]
     Other(git2::Error),
-    #[error(transparent)]
-    Utf8(#[from] Utf8Error),
-    #[error(transparent)]
-    Remotes(git2::Error),
 }
 
 impl From<git2::Error> for Error {
@@ -44,12 +30,6 @@ impl From<git2::Error> for Error {
                 _ => Error::Other(err),
             },
         }
-    }
-}
-
-impl From<super::url::ParseError> for Error {
-    fn from(err: super::url::ParseError) -> Self {
-        Error::Url(err)
     }
 }
 
