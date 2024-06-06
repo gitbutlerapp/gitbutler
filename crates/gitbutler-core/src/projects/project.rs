@@ -5,9 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    git, id::Id, types::default_true::DefaultTrue, virtual_branches::VirtualBranchesHandle,
-};
+use crate::{id::Id, types::default_true::DefaultTrue, virtual_branches::VirtualBranchesHandle};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -57,7 +55,8 @@ impl FetchResult {
 
 #[derive(Debug, Deserialize, Serialize, Copy, Clone)]
 pub struct CodePushState {
-    pub id: git::Oid,
+    #[serde(with = "crate::serde::oid")]
+    pub id: git2::Oid,
     pub timestamp: time::SystemTime,
 }
 

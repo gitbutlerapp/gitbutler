@@ -3,7 +3,6 @@ use std::vec;
 
 use crate::projects::Project;
 use crate::{
-    git,
     ops::entry::{OperationKind, SnapshotDetails},
     virtual_branches::{branch::BranchUpdateRequest, Branch},
 };
@@ -14,7 +13,7 @@ use super::entry::Trailer;
 impl Project {
     pub(crate) fn snapshot_branch_applied(
         &self,
-        snapshot_tree: git::Oid,
+        snapshot_tree: git2::Oid,
         result: Result<&String, &anyhow::Error>,
     ) -> anyhow::Result<()> {
         let result = result.map(|o| Some(o.clone()));
@@ -25,7 +24,7 @@ impl Project {
     }
     pub(crate) fn snapshot_branch_unapplied(
         &self,
-        snapshot_tree: git::Oid,
+        snapshot_tree: git2::Oid,
         result: Result<&Option<Branch>, &anyhow::Error>,
     ) -> anyhow::Result<()> {
         let result = result.map(|o| o.clone().map(|b| b.name));
@@ -36,9 +35,9 @@ impl Project {
     }
     pub(crate) fn snapshot_commit_undo(
         &self,
-        snapshot_tree: git::Oid,
+        snapshot_tree: git2::Oid,
         result: Result<&(), &anyhow::Error>,
-        commit_sha: git::Oid,
+        commit_sha: git2::Oid,
     ) -> anyhow::Result<()> {
         let result = result.map(|_| Some(commit_sha.to_string()));
         let details = SnapshotDetails::new(OperationKind::UndoCommit)
@@ -48,10 +47,10 @@ impl Project {
     }
     pub(crate) fn snapshot_commit_creation(
         &self,
-        snapshot_tree: git::Oid,
+        snapshot_tree: git2::Oid,
         error: Option<&anyhow::Error>,
         commit_message: String,
-        sha: Option<git::Oid>,
+        sha: Option<git2::Oid>,
     ) -> anyhow::Result<()> {
         let details = SnapshotDetails::new(OperationKind::CreateCommit).with_trailers(
             [

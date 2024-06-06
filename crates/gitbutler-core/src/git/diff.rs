@@ -7,7 +7,6 @@ use bstr::{BStr, BString, ByteSlice, ByteVec};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use crate::git;
 use crate::id::Id;
 use crate::virtual_branches::Branch;
 
@@ -124,7 +123,8 @@ impl GitHunk {
 #[serde(rename_all = "camelCase")]
 pub struct HunkLock {
     pub branch_id: Id<Branch>,
-    pub commit_id: git::Oid,
+    #[serde(with = "crate::serde::oid")]
+    pub commit_id: git2::Oid,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Default)]

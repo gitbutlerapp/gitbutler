@@ -36,7 +36,7 @@ fn get_committer<'a>() -> Result<git2::Signature<'a>> {
 pub fn get_workspace_head(
     vb_state: &VirtualBranchesHandle,
     project_repo: &project_repository::Repository,
-) -> Result<git::Oid> {
+) -> Result<git2::Oid> {
     let target = vb_state
         .get_default_target()
         .context("failed to get target")?;
@@ -49,7 +49,7 @@ pub fn get_workspace_head(
         .filter(|branch| branch.applied)
         .collect::<Vec<_>>();
 
-    let target_commit = repo.find_commit(target.sha.into())?;
+    let target_commit = repo.find_commit(target.sha)?;
     let mut workspace_tree = target_commit.tree()?;
 
     if conflicts::is_conflicting(project_repo, None)? {
@@ -57,12 +57,12 @@ pub fn get_workspace_head(
             conflicts::merge_parent(project_repo)?.ok_or(anyhow!("No merge parent"))?;
         let first_branch = applied_branches.first().ok_or(anyhow!("No branches"))?;
 
-        let merge_base = repo.merge_base(first_branch.head.into(), merge_parent.into())?;
+        let merge_base = repo.merge_base(first_branch.head, merge_parent)?;
         workspace_tree = repo.find_commit(merge_base)?.tree()?;
     } else {
         for branch in &applied_branches {
-            let branch_tree = repo.find_commit(branch.head.into())?.tree()?;
-            let merge_tree = repo.find_commit(target.sha.into())?.tree()?;
+            let branch_tree = repo.find_commit(branch.head)?.tree()?;
+            let merge_tree = repo.find_commit(target.sha)?.tree()?;
             let mut index = repo.merge_trees(&merge_tree, &workspace_tree, &branch_tree, None)?;
 
             if !index.has_conflicts() {
@@ -75,13 +75,13 @@ pub fn get_workspace_head(
 
     let branch_heads = applied_branches
         .iter()
-        .map(|b| repo.find_commit(b.head.into()))
+        .map(|b| repo.find_commit(b.head))
         .collect::<Result<Vec<_>, _>>()?;
     let branch_head_refs = branch_heads.iter().collect::<Vec<_>>();
 
     // If no branches are applied then the workspace head is the target.
     if branch_head_refs.is_empty() {
-        return Ok(target_commit.id().into());
+        return Ok(target_commit.id());
     }
 
     // TODO(mg): Can we make this a constant?
@@ -90,7 +90,7 @@ pub fn get_workspace_head(
     let mut heads: Vec<git2::Commit<'_>> = applied_branches
         .iter()
         .filter(|b| b.head != target.sha)
-        .map(|b| repo.find_commit(b.head.into()))
+        .map(|b| repo.find_commit(b.head))
         .filter_map(Result::ok)
         .collect();
 
@@ -110,7 +110,7 @@ pub fn get_workspace_head(
         &workspace_tree,
         head_refs.as_slice(),
     )?;
-    Ok(workspace_head_id.into())
+    Ok(workspace_head_id)
 }
 
 // Before switching the user to our gitbutler integration branch we save
@@ -144,7 +144,7 @@ fn write_integration_file(head: &git2::Reference, path: PathBuf) -> Result<()> {
 pub fn update_gitbutler_integration(
     vb_state: &VirtualBranchesHandle,
     project_repository: &project_repository::Repository,
-) -> Result<git::Oid> {
+) -> Result<git2::Oid> {
     let target = vb_state
         .get_default_target()
         .context("failed to get target")?;
@@ -152,7 +152,7 @@ pub fn update_gitbutler_integration(
     let repo: &git2::Repository = project_repository.repo();
 
     // get commit object from target.sha
-    let target_commit = repo.find_commit(target.sha.into())?;
+    let target_commit = repo.find_commit(target.sha)?;
 
     // get current repo head for reference
     let head_ref = repo.head()?;
@@ -183,7 +183,7 @@ pub fn update_gitbutler_integration(
         .collect::<Vec<_>>();
 
     let integration_commit =
-        repo.find_commit(get_workspace_head(&vb_state, project_repository)?.into())?;
+        repo.find_commit(get_workspace_head(&vb_state, project_repository)?)?;
     let integration_tree = integration_commit.tree()?;
 
     // message that says how to get back to where they were
@@ -256,8 +256,8 @@ pub fn update_gitbutler_integration(
 
     // finally, update the refs/gitbutler/ heads to the states of the current virtual branches
     for branch in &all_virtual_branches {
-        let wip_tree = repo.find_tree(branch.tree.into())?;
-        let mut branch_head = repo.find_commit(branch.head.into())?;
+        let wip_tree = repo.find_tree(branch.tree)?;
+        let mut branch_head = repo.find_commit(branch.head)?;
         let head_tree = branch_head.tree()?;
 
         // create a wip commit if there is wip
@@ -290,7 +290,7 @@ pub fn update_gitbutler_integration(
         )?;
     }
 
-    Ok(final_commit.into())
+    Ok(final_commit)
 }
 
 pub fn verify_branch(project_repository: &project_repository::Repository) -> Result<()> {
@@ -342,10 +342,7 @@ impl project_repository::Repository {
             .context("failed to get default target")?;
 
         let mut extra_commits = self
-            .log(
-                head_commit.id().into(),
-                LogUntil::Commit(default_target.sha),
-            )
+            .log(head_commit.id(), LogUntil::Commit(default_target.sha))
             .context("failed to get log")?;
 
         let integration_commit = extra_commits.pop();
@@ -386,7 +383,7 @@ impl project_repository::Repository {
         for commit in extra_commits {
             let new_branch_head = self
                 .repo()
-                .find_commit(head.into())
+                .find_commit(head)
                 .context("failed to find new branch head")?;
 
             let rebased_commit_oid = self
@@ -413,13 +410,13 @@ impl project_repository::Repository {
                     rebased_commit_oid
                 ))?;
 
-            new_branch.head = rebased_commit.id().into();
-            new_branch.tree = rebased_commit.tree_id().into();
+            new_branch.head = rebased_commit.id();
+            new_branch.tree = rebased_commit.tree_id();
             vb_state
                 .set_branch(new_branch.clone())
                 .context("failed to write branch")?;
 
-            head = rebased_commit.id().into();
+            head = rebased_commit.id();
         }
         Ok(self)
     }

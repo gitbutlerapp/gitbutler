@@ -3,6 +3,7 @@
 	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
 	import SectionCard from './SectionCard.svelte';
+	import SectionCardDisclaimer from './SectionCardDisclaimer.svelte';
 	import TextBox from './TextBox.svelte';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { Project, ProjectService } from '$lib/backend/projects';
@@ -190,13 +191,13 @@
 					Re-test Signing
 				{/if}
 			</Button>
-			<div class="disclaimer text-base-body-12">
+			<SectionCardDisclaimer>
 				Signing commits can allow other people to verify your commits if you publish the public
 				version of your signing key.
 				<Link href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits"
 					>Read more</Link
 				> about commit signing and verification.
-			</div>
+			</SectionCardDisclaimer>
 		</SectionCard>
 	{/if}
 </Section>
@@ -280,12 +281,3 @@
 		</svelte:fragment>
 	</SectionCard>
 </Section>
-
-<style lang="post-css">
-	.disclaimer {
-		color: var(--clr-scale-ntrl-50);
-		background: var(--clr-bg-2);
-		border-radius: var(--radius-m);
-		padding: var(--size-10) var(--size-12);
-	}
-</style>

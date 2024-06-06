@@ -9,7 +9,6 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use strum::EnumString;
 
-use crate::git;
 use serde::Serialize;
 
 /// A snapshot of the repository and virtual branches state that GitButler can restore to.
@@ -19,7 +18,7 @@ use serde::Serialize;
 pub struct Snapshot {
     /// The id of the commit that represents the snapshot
     #[serde(rename = "id", with = "crate::serde::oid")]
-    pub commit_id: git::Oid,
+    pub commit_id: git2::Oid,
     /// Snapshot creation time in seconds from Unix epoch seconds, based on a commit as `commit_id`.
     #[serde(serialize_with = "crate::serde::as_time_seconds_from_unix_epoch")]
     pub created_at: git2::Time,
