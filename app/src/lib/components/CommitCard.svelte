@@ -9,7 +9,6 @@
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
-	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { getTimeAgo } from '$lib/utils/timeAgo';
 	import { tooltip } from '$lib/utils/tooltip';
@@ -183,15 +182,26 @@
 								<div class="commit__signed" use:tooltip={{ text: 'Signed', delay: 500 }}>
 									<Icon name="success-outline-small" />
 								</div>
-							{/if}
-							<button
-								class="commit__id"
-								on:click|stopPropagation={() => copyToClipboard(commit.id)}
-							>
-								{commit.id.substring(0, 7)}
-							</button>
 
-							<span class="commit__subtitle-divider">•</span>
+								<span class="commit__subtitle-divider">•</span>
+							{/if}
+
+							{#if hasCommitUrl}
+								<button
+									class="commit__id"
+									on:click|stopPropagation={() => {
+										if (commitUrl) openExternalUrl(commitUrl);
+									}}
+								>
+									<span>{commit.id.substring(0, 7)}</span>
+
+									<div class="commit__id-icon">
+										<Icon name="open-link" />
+									</div>
+								</button>
+
+								<span class="commit__subtitle-divider">•</span>
+							{/if}
 
 							<span
 								>{getTimeAgo(commit.createdAt)}{type === 'remote' || type === 'upstream'
@@ -201,11 +211,19 @@
 						</div>
 					{/if}
 				</div>
+			</div>
 
-				<!-- HIDDEN -->
-				{#if showDetails}
+			<!-- HIDDEN -->
+			{#if showDetails}
+				{#if commit.descriptionBody || isUndoable}
 					<div class="commit__details">
-						{#if hasCommitUrl || isUndoable}
+						{#if commit.descriptionBody}
+							<span class="commit__description text-base-body-12">
+								{commit.descriptionBody}
+							</span>
+						{/if}
+
+						{#if isUndoable}
 							<div class="commit__actions hide-native-scrollbar">
 								{#if isUndoable}
 									<Button
@@ -227,32 +245,13 @@
 										on:click={openCommitMessageModal}>Edit message</Button
 									>
 								{/if}
-								{#if hasCommitUrl}
-									<Button
-										size="tag"
-										style="ghost"
-										kind="solid"
-										icon="open-link"
-										on:click={() => {
-											if (commitUrl) openExternalUrl(commitUrl);
-										}}>Open</Button
-									>
-								{/if}
 							</div>
-						{/if}
-
-						{#if commit.descriptionBody}
-							<span class="commit__description text-base-body-12">
-								{commit.descriptionBody}
-							</span>
 						{/if}
 					</div>
 				{/if}
-			</div>
 
-			{#if showDetails}
 				<div class="files-container">
-					<BranchFilesList title="Files" {files} {isUnapplied} readonly={type === 'upstream'} />
+					<BranchFilesList {files} {isUnapplied} readonly={type === 'upstream'} />
 				</div>
 			{/if}
 		</div>
@@ -290,10 +289,6 @@
 		flex-direction: column;
 
 		background-color: var(--clr-bg-1);
-		/* border: 1px solid var(--clr-border-2);
-		border-top: none;
-		border-bottom: none;
-		border-left: none; */
 		border-right: 1px solid var(--clr-border-2);
 		overflow: hidden;
 		transition: background-color var(--transition-fast);
@@ -390,11 +385,31 @@
 	.commit__id {
 		display: flex;
 		align-items: center;
-		gap: 4px;
+		gap: 2px;
+		text-decoration: underline;
+		transition: color var(--transition-fast);
 
 		&:hover {
 			color: var(--clr-text-1);
+
+			& .commit__id-icon {
+				width: var(--size-icon);
+				opacity: 1;
+				transform: scale(1);
+			}
 		}
+	}
+
+	.commit__id-icon {
+		display: flex;
+		width: 0;
+		opacity: 0;
+		transform: scale(0.6);
+		transition:
+			width var(--transition-medium),
+			opacity var(--transition-fast),
+			color var(--transition-fast),
+			transform var(--transition-fast);
 	}
 
 	.commit__subtitle-divider {
@@ -431,6 +446,8 @@
 		}
 
 		& .commit-card {
+			border-radius: var(--radius-m);
+
 			&:not(.is-first) {
 				margin-top: 8px;
 				border-top: 1px solid var(--clr-border-2);
@@ -440,6 +457,12 @@
 				margin-bottom: 8px;
 				border-bottom: 1px solid var(--clr-border-2);
 			}
+		}
+
+		& .commit__id-icon {
+			width: var(--size-icon);
+			opacity: 1;
+			transform: scale(1);
 		}
 	}
 </style>

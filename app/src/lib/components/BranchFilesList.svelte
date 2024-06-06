@@ -12,7 +12,6 @@
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import type { AnyFile } from '$lib/vbranches/types';
 
-	export let title: string = 'Changes';
 	export let files: AnyFile[];
 	export let isUnapplied = false;
 	export let showCheckboxes = false;
@@ -51,7 +50,7 @@
 </script>
 
 {#if !$commit?.isMergeCommit()}
-	<BranchFilesHeader {title} {files} {showCheckboxes} />
+	<BranchFilesHeader title="Changed files" {files} {showCheckboxes} />
 {:else}
 	<div class="merge-commit-error">
 		<p class="info">

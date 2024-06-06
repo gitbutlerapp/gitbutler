@@ -348,6 +348,14 @@
 
 		overflow: hidden;
 		transition: height var(--transition-medium);
+
+		&:hover {
+			height: 22px;
+
+			& .base-row {
+				background-color: var(--clr-bg-2-muted);
+			}
+		}
 	}
 
 	.base-row-container_unfolded {
@@ -366,10 +374,6 @@
 		min-height: calc(var(--base-unfolded) - var(--base-top-margin));
 		margin-top: var(--base-top-margin);
 		transition: background-color var(--transition-fast);
-
-		&:hover {
-			background-color: var(--clr-bg-2-muted);
-		}
 	}
 
 	.base-row__lines {
