@@ -12,15 +12,8 @@ impl<'a> From<&'a git2::Repository> for Config<'a> {
     }
 }
 
+// TODO: Remove this in favor of gitbutler-core::config::git::GitConfig
 impl Config<'_> {
-    pub fn sign_commits(&self) -> Result<bool, git::Error> {
-        let sign_commits = self
-            .get_bool("gitbutler.signCommits")
-            .unwrap_or(Some(false))
-            .unwrap_or(false);
-        Ok(sign_commits)
-    }
-
     pub fn user_real_comitter(&self) -> Result<bool, git::Error> {
         let gb_comitter = self
             .get_string("gitbutler.gitbutlerCommitter")
@@ -54,17 +47,6 @@ impl Config<'_> {
             Ok(value) => Ok(Some(value)),
             Err(e) if e.code() == git2::ErrorCode::NotFound => Ok(None),
             Err(e) => Err(e.into()),
-        }
-    }
-
-    fn get_bool(&self, key: &str) -> Result<Option<bool>, git::Error> {
-        let config = self.git_repository.config()?;
-        match config.get_bool(key) {
-            Ok(value) => Ok(Some(value)),
-            Err(err) => match err.code() {
-                git2::ErrorCode::NotFound => Ok(None),
-                _ => Err(err.into()),
-            },
         }
     }
 
