@@ -1,17 +1,12 @@
 <script lang="ts">
-	//import HunkContextMenu from './HunkContextMenu.svelte';
-	// import HunkLine from './HunkLine.svelte';
 	import HunkSection from './HunkSection.svelte';
 	import LargeDiffMessage from './LargeDiffMessage.svelte';
-	//import Scrollbar from './Scrollbar.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableHunk } from '$lib/dragging/draggables';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getContext, getContextStoreBySymbol, maybeGetContextStore } from '$lib/utils/context';
+	import { getContextStoreBySymbol, maybeGetContextStore } from '$lib/utils/context';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type Hunk } from '$lib/vbranches/types';
-	import { onDestroy } from 'svelte';
 	import type { HunkSection as HunkSectionType } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
 
@@ -29,7 +24,6 @@
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const branch = maybeGetContextStore(Branch);
-	const project = getContext(Project);
 
 	function onHunkSelected(hunk: Hunk, isSelected: boolean) {
 		if (!selectedOwnership) return;
@@ -40,27 +34,9 @@
 		}
 	}
 
-	function updateContextMenu(filePath: string) {
-		if (popupMenu) popupMenu.$destroy();
-		//return new HunkContextMenu({
-		//	target: document.body,
-		//	props: { projectPath: project.vscodePath, filePath, readonly }
-		//});
-	}
-
-	//$: popupMenu = updateContextMenu(filePath);
-
 	$: draggingDisabled = readonly || isUnapplied;
 
-	//onDestroy(() => {
-	//	if (popupMenu) {
-	//		popupMenu.$destroy();
-	//	}
-	//});
-
 	let alwaysShow = false;
-
-	//console.log('Section', section);
 </script>
 
 <div class="scrollable">
@@ -94,17 +70,12 @@
 						{minWidth}
 						{selectable}
 						{draggingDisabled}
+						{hunk}
+						{subsection}
 						tabSize={$userSettings.tabSize}
 						selected={$selectedOwnership?.contains(hunk.filePath, hunk.id)}
 						on:selected={(e) => onHunkSelected(hunk, e.detail)}
 						sectionType={subsection.sectionType}
-						on:linenumber={(e) => {
-							//popupMenu.openByMouse(e.detail.event, {
-							//	hunk,
-							//	section: subsection,
-							//	lineNumber: e.detail.lineNumber
-							//});
-						}}
 					/>
 				{/each}
 			{/if}

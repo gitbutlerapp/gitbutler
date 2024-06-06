@@ -1,8 +1,15 @@
 <script lang="ts">
+	import HunkContextMenu from './HunkContextMenu.svelte';
+	import { Project } from '$lib/backend/projects';
 	import { create } from '$lib/components/Differ/CodeHighlighter';
+	import { getContext } from '$lib/utils/context';
 	import { SectionType } from '$lib/utils/fileSections';
+	import clsx from 'clsx';
+	import { onDestroy } from 'svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type { Line } from '$lib/utils/fileSections';
+	import type { ContentSection } from '$lib/utils/fileSections';
+	import type { Hunk } from '$lib/vbranches/types';
 
 	export let lines: Line[];
 	export let sectionType: SectionType;
@@ -13,13 +20,25 @@
 	export let readonly: boolean = false;
 	export let draggingDisabled: boolean = false;
 	export let tabSize = 4;
+	export let hunk: Hunk;
+	export let subsection: ContentSection;
 
-	//console.log('lines', lines);
+	$: isSelected = selectable && selected;
+	$: popupMenu = updateContextMenu(filePath);
+
+	const project = getContext(Project);
 
 	const dispatch = createEventDispatcher<{
 		selected: boolean;
-		linenumber: { event: MouseEvent; lineNumber: number | undefined };
 	}>();
+
+	function updateContextMenu(filePath: string) {
+		if (popupMenu) popupMenu.$destroy();
+		return new HunkContextMenu({
+			target: document.body,
+			props: { projectPath: project.vscodePath, filePath, readonly }
+		});
+	}
 
 	function toTokens(inputLine: string): string[] {
 		function sanitize(text: string) {
@@ -40,52 +59,63 @@
 		return tokens;
 	}
 
-	$: isSelected = selectable && selected;
+	onDestroy(() => {
+		if (popupMenu) {
+			popupMenu.$destroy();
+		}
+	});
 </script>
 
-{#each lines as line (`${line.afterLineNumber}_${line.content}`)}
-	<div
-		class="code-line"
-		role="group"
-		style="--tab-size: {tabSize}"
-		on:contextmenu={(e) => {
-			const lineNumber = line.afterLineNumber ? line.afterLineNumber : line.beforeLineNumber;
-			dispatch('linenumber', { event: e, lineNumber });
-		}}
-	>
-		<div class="code-line__numbers-line">
-			<button
-				on:click={() => selectable && dispatch('selected', !selected)}
-				class="numbers-line-count"
-				class:selected={isSelected}
-				style:min-width={minWidth + 'rem'}
-				style:cursor={draggingDisabled ? 'default' : 'grab'}
-			>
-				{line.beforeLineNumber || ''}
-			</button>
-			<button
-				on:click={() => selectable && dispatch('selected', !selected)}
-				class="numbers-line-count"
-				class:selected={isSelected}
-				style:min-width={minWidth + 'rem'}
-				style:cursor={draggingDisabled ? 'default' : 'grab'}
-			>
-				{line.afterLineNumber || ''}
-			</button>
-		</div>
+<div
+	class="line-wrapper"
+	style="--tab-size: {tabSize}; --minwidth: {minWidth}rem; --cursor: {draggingDisabled
+		? 'default'
+		: 'grab'}"
+>
+	{#each lines as line (`${line.afterLineNumber}_${line.content}`)}
 		<div
-			class="line"
-			class:readonly
-			class:diff-line-deletion={sectionType === SectionType.RemovedLines}
-			class:diff-line-addition={sectionType === SectionType.AddedLines}
-			style:cursor={draggingDisabled ? 'default' : 'grab'}
+			class="code-line"
+			role="group"
+			on:contextmenu={(e) => {
+				const lineNumber = line.afterLineNumber
+					? line.afterLineNumber
+					: line.beforeLineNumber;
+				popupMenu.openByMouse(e, {
+					hunk,
+					lineNumber,
+					section: subsection
+				});
+			}}
 		>
-			<span class="selectable-wrapper" data-no-drag>
-				{@html toTokens(line.content).join('')}
-			</span>
+			<div class="code-line__numbers-line">
+				<button
+					on:click={() => selectable && dispatch('selected', !selected)}
+					class={clsx('numbers-line-count', isSelected && 'selected')}
+				>
+					{line.beforeLineNumber || ''}
+				</button>
+				<button
+					on:click={() => selectable && dispatch('selected', !selected)}
+					class={clsx('numbers-line-count', isSelected && 'selected')}
+				>
+					{line.afterLineNumber || ''}
+				</button>
+			</div>
+			<div
+				class={clsx({
+					line: true,
+					readonly,
+					'diff-line-deletion': sectionType === SectionType.RemovedLines,
+					'diff-line-addition': sectionType === SectionType.AddedLines
+				})}
+			>
+				<span class="selectable-wrapper" data-no-drag>
+					{@html toTokens(line.content).join('')}
+				</span>
+			</div>
 		</div>
-	</div>
-{/each}
+	{/each}
+</div>
 
 <style lang="postcss">
 	.code-line {
@@ -103,6 +133,7 @@
 
 	.line {
 		flex-grow: 1;
+		cursor: var(--cursor);
 	}
 
 	.code-line__numbers-line {
@@ -122,6 +153,8 @@
 		padding-left: 0.125rem;
 		padding-right: 0.125rem;
 		text-align: right;
+		min-width: var(--minwidth);
+		cursor: var(--cursor);
 
 		&.selected {
 			background-color: var(--hunk-line-selected-bg);
