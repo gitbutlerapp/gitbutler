@@ -14,12 +14,11 @@ use anyhow::Result;
 use itertools::Itertools;
 
 use super::Repository;
-use crate::git;
 
 pub fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
     repository: &Repository,
     paths: A,
-    parent: Option<git::Oid>,
+    parent: Option<git2::Oid>,
 ) -> Result<()> {
     let paths = paths.as_ref();
     if paths.is_empty() {
@@ -43,7 +42,7 @@ pub fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
     Ok(())
 }
 
-pub fn merge_parent(repository: &Repository) -> Result<Option<git::Oid>> {
+pub fn merge_parent(repository: &Repository) -> Result<Option<git2::Oid>> {
     let merge_path = repository.repo().path().join("base_merge_parent");
     if !merge_path.exists() {
         return Ok(None);
@@ -54,7 +53,7 @@ pub fn merge_parent(repository: &Repository) -> Result<Option<git::Oid>> {
     let mut lines = reader.lines();
     if let Some(parent) = lines.next() {
         let parent = parent?;
-        let parent: git::Oid = parent.parse()?;
+        let parent: git2::Oid = parent.parse()?;
         Ok(Some(parent))
     } else {
         Ok(None)

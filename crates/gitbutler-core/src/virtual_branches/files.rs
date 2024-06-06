@@ -3,7 +3,7 @@ use std::path;
 use anyhow::{anyhow, Context, Result};
 use serde::Serialize;
 
-use crate::git::{self, diff};
+use crate::git::diff;
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -15,10 +15,10 @@ pub struct RemoteBranchFile {
 
 pub fn list_remote_commit_files(
     repository: &git2::Repository,
-    commit_id: git::Oid,
+    commit_id: git2::Oid,
 ) -> Result<Vec<RemoteBranchFile>> {
     let commit = repository
-        .find_commit(commit_id.into())
+        .find_commit(commit_id)
         .map_err(|err| match err.code() {
             git2::ErrorCode::NotFound => anyhow!("commit {commit_id} not found"),
             _ => err.into(),

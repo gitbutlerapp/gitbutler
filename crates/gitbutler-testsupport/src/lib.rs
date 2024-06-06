@@ -37,7 +37,7 @@ pub mod virtual_branches {
             .set_default_target(virtual_branches::target::Target {
                 branch: "refs/remotes/origin/master".parse().unwrap(),
                 remote_url: remote_repo.path().to_str().unwrap().parse().unwrap(),
-                sha: remote_repo.head().unwrap().target().unwrap().into(),
+                sha: remote_repo.head().unwrap().target().unwrap(),
                 push_remote_name: None,
             })
             .expect("failed to write target");
