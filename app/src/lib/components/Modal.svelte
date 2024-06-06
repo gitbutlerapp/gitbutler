@@ -29,7 +29,7 @@
 	});
 
 	function handleClickOutside(e: MouseEvent) {
-		if (!modalForm.contains(e.target as Node)) {
+		if (!modalForm?.contains(e.target as Node)) {
 			dialog.close();
 		}
 	}
