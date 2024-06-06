@@ -52,9 +52,7 @@
 			class="code-line"
 			role="group"
 			on:contextmenu={(event) => {
-				const lineNumber = line.afterLineNumber
-					? line.afterLineNumber
-					: line.beforeLineNumber;
+				const lineNumber = line.afterLineNumber ? line.afterLineNumber : line.beforeLineNumber;
 				dispatch('lineContextMenu', { event, lineNumber });
 			}}
 		>
