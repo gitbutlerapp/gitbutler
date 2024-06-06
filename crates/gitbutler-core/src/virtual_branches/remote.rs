@@ -22,7 +22,8 @@ use crate::{
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranch {
-    pub sha: git::Oid,
+    #[serde(with = "crate::serde::oid")]
+    pub sha: git2::Oid,
     pub name: git::Refname,
     pub upstream: Option<git::RemoteRefname>,
     pub last_commit_timestamp_ms: Option<u128>,
@@ -32,12 +33,14 @@ pub struct RemoteBranch {
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranchData {
-    pub sha: git::Oid,
+    #[serde(with = "crate::serde::oid")]
+    pub sha: git2::Oid,
     pub name: git::Refname,
     pub upstream: Option<git::RemoteRefname>,
     pub behind: u32,
     pub commits: Vec<RemoteCommit>,
-    pub fork_point: Option<git::Oid>,
+    #[serde(with = "crate::serde::oid_opt", default)]
+    pub fork_point: Option<git2::Oid>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -49,7 +52,8 @@ pub struct RemoteCommit {
     pub created_at: u128,
     pub author: Author,
     pub change_id: Option<String>,
-    pub parent_ids: Vec<git::Oid>,
+    #[serde(with = "crate::serde::oid_vec")]
+    pub parent_ids: Vec<git2::Oid>,
 }
 
 // for legacy purposes, this is still named "remote" branches, but it's actually
@@ -117,7 +121,7 @@ pub fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<RemoteBra
             .target()
             .map(|sha| {
                 Ok(RemoteBranch {
-                    sha: sha.into(),
+                    sha,
                     upstream: if let git::Refname::Local(local_name) = &name {
                         local_name.remote().cloned()
                     } else {
@@ -144,29 +148,26 @@ pub fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<RemoteBra
 pub fn branch_to_remote_branch_data(
     project_repository: &project_repository::Repository,
     branch: &git2::Branch,
-    base: git::Oid,
+    base: git2::Oid,
 ) -> Result<Option<RemoteBranchData>> {
     branch
         .get()
         .target()
         .map(|sha| {
             let ahead = project_repository
-                .log(sha.into(), LogUntil::Commit(base))
+                .log(sha, LogUntil::Commit(base))
                 .context("failed to get ahead commits")?;
 
             let name = git::Refname::try_from(branch).context("could not get branch name")?;
 
             let count_behind = project_repository
-                .distance(base, sha.into())
+                .distance(base, sha)
                 .context("failed to get behind count")?;
 
-            let fork_point = ahead
-                .last()
-                .and_then(|c| c.parent(0).ok())
-                .map(|c| c.id().into());
+            let fork_point = ahead.last().and_then(|c| c.parent(0).ok()).map(|c| c.id());
 
             Ok(RemoteBranchData {
-                sha: sha.into(),
+                sha,
                 upstream: if let git::Refname::Local(local_name) = &name {
                     local_name.remote().cloned()
                 } else {
@@ -185,10 +186,7 @@ pub fn branch_to_remote_branch_data(
 }
 
 pub fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
-    let parent_ids: Vec<git::Oid> = commit
-        .parents()
-        .map(|c| git::Oid::from(c.id()))
-        .collect::<Vec<_>>();
+    let parent_ids: Vec<git2::Oid> = commit.parents().map(|c| c.id()).collect::<Vec<_>>();
     RemoteCommit {
         id: commit.id().to_string(),
         description: commit.message_bstr().to_owned(),

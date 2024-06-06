@@ -30,6 +30,8 @@ pub trait RepositoryExt {
     /// This is for safety to assure the repository actually is in 'gitbutler mode'.
     fn integration_ref_from_head(&self) -> Result<git2::Reference<'_>>;
 
+    fn target_commit(&self) -> Result<git2::Commit<'_>>;
+
     #[allow(clippy::too_many_arguments)]
     fn commit_with_signature(
         &self,
@@ -111,8 +113,16 @@ impl RepositoryExt for Repository {
         if head_ref.name_bytes() == b"refs/heads/gitbutler/integration" {
             Ok(head_ref)
         } else {
-            bail!("Unexpected state: cannot perform operation on non-integration branch")
+            Err(anyhow!(
+                "Unexpected state: cannot perform operation on non-integration branch"
+            ))
         }
+    }
+
+    fn target_commit(&self) -> Result<git2::Commit<'_>> {
+        let integration_ref = self.integration_ref_from_head()?;
+        let integration_commit = integration_ref.peel_to_commit()?;
+        Ok(integration_commit.parent(0)?)
     }
 
     #[allow(clippy::too_many_arguments)]

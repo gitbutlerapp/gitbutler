@@ -109,7 +109,7 @@ impl TestProject {
     /// git add -A
     /// git reset --hard <oid>
     /// ```
-    pub fn reset_hard(&self, oid: Option<git::Oid>) {
+    pub fn reset_hard(&self, oid: Option<git2::Oid>) {
         let mut index = self.local_repository.index().expect("failed to get index");
         index
             .add_all(["."], git2::IndexAddOption::DEFAULT, None)
@@ -118,7 +118,7 @@ impl TestProject {
 
         let head = self.local_repository.head().unwrap();
         let commit = oid.map_or(head.peel_to_commit().unwrap(), |oid| {
-            self.local_repository.find_commit(oid.into()).unwrap()
+            self.local_repository.find_commit(oid).unwrap()
         });
 
         let head_ref = head.name().unwrap();
@@ -278,20 +278,15 @@ impl TestProject {
         .unwrap();
     }
 
-    pub fn find_commit(&self, oid: git::Oid) -> Result<git2::Commit<'_>, git2::Error> {
-        self.local_repository.find_commit(oid.into())
+    pub fn find_commit(&self, oid: git2::Oid) -> Result<git2::Commit<'_>, git2::Error> {
+        self.local_repository.find_commit(oid)
     }
 
-    pub fn checkout_commit(&self, commit_oid: git::Oid) {
-        let commit = self
-            .local_repository
-            .find_commit(commit_oid.into())
-            .unwrap();
+    pub fn checkout_commit(&self, commit_oid: git2::Oid) {
+        let commit = self.local_repository.find_commit(commit_oid).unwrap();
         let commit_tree = commit.tree().unwrap();
 
-        self.local_repository
-            .set_head_detached(commit_oid.into())
-            .unwrap();
+        self.local_repository.set_head_detached(commit_oid).unwrap();
         self.local_repository
             .checkout_tree_builder(&commit_tree)
             .force()
@@ -337,7 +332,7 @@ impl TestProject {
     }
 
     /// takes all changes in the working directory and commits them into local
-    pub fn commit_all(&self, message: &str) -> git::Oid {
+    pub fn commit_all(&self, message: &str) -> git2::Oid {
         let head = self.local_repository.head().unwrap();
         let mut index = self.local_repository.index().expect("failed to get index");
         index
@@ -368,7 +363,6 @@ impl TestProject {
             None,
         )
         .expect("failed to commit")
-        .into()
     }
 
     pub fn references(&self) -> Vec<git2::Reference<'_>> {

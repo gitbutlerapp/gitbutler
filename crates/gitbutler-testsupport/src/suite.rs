@@ -182,7 +182,7 @@ pub fn test_repository() -> (git2::Repository, TempDir) {
     (repository, tmp)
 }
 
-pub fn commit_all(repository: &git2::Repository) -> gitbutler_core::git::Oid {
+pub fn commit_all(repository: &git2::Repository) -> git2::Oid {
     let mut index = repository.index().expect("failed to get index");
     index
         .add_all(["."], git2::IndexAddOption::DEFAULT, None)
@@ -209,5 +209,5 @@ pub fn commit_all(repository: &git2::Repository) -> gitbutler_core::git::Oid {
             None,
         )
         .expect("failed to commit");
-    commit_oid.into()
+    commit_oid
 }

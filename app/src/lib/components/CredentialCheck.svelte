@@ -3,6 +3,7 @@
 	import Icon from './Icon.svelte';
 	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
+	import SectionCardDisclaimer from './SectionCardDisclaimer.svelte';
 	import { AuthService } from '$lib/backend/auth';
 	import { getContext } from '$lib/utils/context';
 	import { slide } from 'svelte/transition';
@@ -114,11 +115,11 @@
 			Re-test credentials
 		{/if}
 	</Button>
-	<div class="disclaimer text-base-body-12">
+	<SectionCardDisclaimer>
 		To test the push command, we create an empty branch and promptly remove it after the check. <Link
 			href="https://docs.gitbutler.com/troubleshooting/fetch-push">Read more</Link
 		> about authentication methods.
-	</div>
+	</SectionCardDisclaimer>
 </div>
 
 <style>
@@ -147,12 +148,5 @@
 
 	.help-text {
 		margin-top: 6px;
-	}
-
-	.disclaimer {
-		color: var(--clr-scale-ntrl-50);
-		background: var(--clr-bg-2);
-		border-radius: var(--radius-m);
-		padding: 10px 12px;
 	}
 </style>
