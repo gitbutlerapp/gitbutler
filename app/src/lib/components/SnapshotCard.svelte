@@ -1,7 +1,7 @@
 <script lang="ts">
+	import Button from './Button.svelte';
 	import Icon from './Icon.svelte';
 	import SnapshotAttachment from './SnapshotAttachment.svelte';
-	import Tag from './Tag.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { createdOnDay } from '$lib/history/history';
 	import { toHumanReadableTime } from '$lib/utils/time';
@@ -37,7 +37,7 @@
 		return lowerCaseStr.charAt(0).toUpperCase() + lowerCaseStr.slice(1);
 	}
 
-	// if (entry.details?.operation == 'RestoreFromSnapshot') {
+	// if (entry.details?.operation === 'RestoreFromSnapshot') {
 	// 	console.log(entry.details);
 	// }
 
@@ -52,42 +52,42 @@
 			// BRANCH OPERATIONS
 			case 'DeleteBranch':
 				return {
-					text: `Delete branch "${entry.details?.trailers.find((t) => t.key == 'name')?.value}"`,
+					text: `Delete branch "${entry.details?.trailers.find((t) => t.key === 'name')?.value}"`,
 					icon: 'item-cross'
 				};
 			case 'ApplyBranch':
 				return {
-					text: `Apply branch "${entry.details?.trailers.find((t) => t.key == 'name')?.value}"`,
+					text: `Apply branch "${entry.details?.trailers.find((t) => t.key === 'name')?.value}"`,
 					icon: 'item-tick'
 				};
 			case 'UnapplyBranch':
 				return {
-					text: `Unapply branch "${snapshotDetails.trailers.find((t) => t.key == 'name')?.value}"`,
+					text: `Unapply branch "${snapshotDetails.trailers.find((t) => t.key === 'name')?.value}"`,
 					icon: 'item-dashed'
 				};
 			case 'UpdateBranchName':
 				return {
-					text: `Renamed branch "${snapshotDetails.trailers.find((t) => t.key == 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
+					text: `Renamed branch "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`,
 					icon: 'item-slash'
 				};
 			case 'CreateBranch':
 				return {
-					text: `Create branch "${snapshotDetails.trailers.find((t) => t.key == 'name')?.value}"`,
+					text: `Create branch "${snapshotDetails.trailers.find((t) => t.key === 'name')?.value}"`,
 					icon: 'item-plus'
 				};
 			case 'ReorderBranches':
 				return {
-					text: `Reorder branches "${snapshotDetails.trailers.find((t) => t.key == 'before')?.value}" and "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
+					text: `Reorder branches "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" and "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`,
 					icon: 'item-link'
 				};
 			case 'SelectDefaultVirtualBranch':
 				return {
-					text: `Select default virtual branch "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
+					text: `Select default virtual branch "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`,
 					icon: 'item-dot'
 				};
 			case 'UpdateBranchRemoteName':
 				return {
-					text: `Update branch remote name "${snapshotDetails.trailers.find((t) => t.key == 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key == 'after')?.value}"`,
+					text: `Update branch remote name "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`,
 					icon: 'item-slash'
 				};
 			case 'SetBaseBranch':
@@ -98,15 +98,15 @@
 			// COMMIT OPERATIONS
 			case 'CreateCommit':
 				return {
-					text: `Create commit ${getShortSha(entry.details?.trailers.find((t) => t.key == 'sha')?.value)}`,
+					text: `Create commit ${getShortSha(entry.details?.trailers.find((t) => t.key === 'sha')?.value)}`,
 					icon: 'new-commit',
-					commitMessage: entry.details?.trailers.find((t) => t.key == 'message')?.value
+					commitMessage: entry.details?.trailers.find((t) => t.key === 'message')?.value
 				};
 			case 'UndoCommit':
 				return {
-					text: `Undo commit ${getShortSha(entry.details?.trailers.find((t) => t.key == 'sha')?.value)}`,
+					text: `Undo commit ${getShortSha(entry.details?.trailers.find((t) => t.key === 'sha')?.value)}`,
 					icon: 'undo-commit',
-					commitMessage: entry.details?.trailers.find((t) => t.key == 'message')?.value
+					commitMessage: entry.details?.trailers.find((t) => t.key === 'message')?.value
 				};
 			case 'AmendCommit':
 				return { text: 'Amend commit', icon: 'amend-commit' };
@@ -126,7 +126,7 @@
 			// FILE OPERATIONS
 			case 'MoveHunk':
 				return {
-					text: `Move hunk to "${entry.details?.trailers.find((t) => t.key == 'name')?.value}"`,
+					text: `Move hunk to "${entry.details?.trailers.find((t) => t.key === 'name')?.value}"`,
 					icon: 'item-move'
 				};
 			case 'DiscardHunk':
@@ -148,7 +148,7 @@
 		}
 	}
 
-	const isRestoreSnapshot = entry.details?.operation == 'RestoreFromSnapshot';
+	const isRestoreSnapshot = entry.details?.operation === 'RestoreFromSnapshot';
 
 	const operation = mapOperation(entry.details);
 
@@ -163,14 +163,14 @@
 >
 	<div class="snapshot-right-container">
 		<div class="restore-btn">
-			<Tag
+			<Button
+				size="tag"
 				style="ghost"
 				kind="solid"
-				clickable
 				help="Restores GitButler and your files to the state before this operation. Revert actions can also be undone."
 				on:click={() => {
 					dispatch('restoreClick');
-				}}>Revert</Tag
+				}}>Revert</Button
 			>
 		</div>
 		<span class="snapshot-time text-base-11">
@@ -210,8 +210,8 @@
 					{#each entry.filesChanged as filePath}
 						<button
 							class="files-attacment__file"
-							class:file-selected={selectedFile?.path == filePath &&
-								selectedFile?.entryId == entry.id}
+							class:file-selected={selectedFile?.path === filePath &&
+								selectedFile?.entryId === entry.id}
 							on:click={() => {
 								dispatch('diffClick', filePath);
 							}}
@@ -243,12 +243,15 @@
 					<div class="restored-attacment__content">
 						<h4 class="text-base-13 text-semibold">
 							{camelToTitleCase(
-								entry.details?.trailers.find((t) => t.key == 'restored_operation')?.value
+								entry.details?.trailers.find((t) => t.key === 'restored_operation')?.value
 							)}
 						</h4>
 						<span class="restored-attacment__details text-base-12">
-							{getShortSha(entry.details?.trailers.find((t) => t.key == 'restored_from')?.value)} • {createdOnDayAndTime(
-								parseInt(entry.details?.trailers.find((t) => t.key == 'restored_date')?.value || '')
+							{getShortSha(entry.details?.trailers.find((t) => t.key === 'restored_from')?.value)} •
+							{createdOnDayAndTime(
+								parseInt(
+									entry.details?.trailers.find((t) => t.key === 'restored_date')?.value || ''
+								)
 							)}
 						</span>
 					</div>
@@ -263,8 +266,8 @@
 	.snapshot-card {
 		position: relative;
 		display: flex;
-		gap: var(--size-12);
-		padding: var(--size-10) var(--size-14) var(--size-8) var(--size-14);
+		gap: 12px;
+		padding: 10px 14px 8px 14px;
 		overflow: hidden;
 		background-color: var(--clr-bg-1);
 		transition: padding 0.2s;
@@ -287,7 +290,7 @@
 	.snapshot-right-container {
 		display: flex;
 		justify-content: flex-end;
-		width: 3.7rem;
+		width: 60px;
 	}
 
 	.restore-btn {
@@ -298,7 +301,7 @@
 		color: var(--clr-text-2);
 		text-align: right;
 		line-height: 1.8;
-		margin-top: var(--size-2);
+		margin-top: 2px;
 	}
 
 	.snapshot-line {
@@ -306,14 +309,14 @@
 		display: flex;
 		align-items: center;
 		flex-direction: column;
-		margin-top: 0.188rem;
+		margin-top: 3px;
 
 		&::after {
 			position: absolute;
-			top: var(--size-24);
+			top: 24px;
 			content: '';
-			height: calc(100% - var(--size-14));
-			min-height: var(--size-8);
+			height: calc(100% - 14px);
+			min-height: 8px;
 			width: 1px;
 			background-color: var(--clr-border-2);
 		}
@@ -326,10 +329,10 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: var(--size-6);
+		gap: 6px;
 		min-height: var(--size-tag);
 		overflow: hidden;
-		/* padding-bottom: var(--size-4); */
+		/* padding-bottom: 4px; */
 	}
 
 	.snapshot-details {
@@ -337,9 +340,9 @@
 		width: 100%;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: var(--size-6);
-		margin-top: var(--size-2);
-		margin-bottom: var(--size-4);
+		gap: 6px;
+		margin-top: 2px;
+		margin-bottom: 4px;
 	}
 
 	.snapshot-title {
@@ -348,7 +351,7 @@
 
 	.snapshot-commit-message {
 		color: var(--clr-text-2);
-		margin-bottom: var(--size-2);
+		margin-bottom: 2px;
 
 		& span {
 			color: var(--clr-text-3);
@@ -370,8 +373,8 @@
 	.files-attacment__file {
 		display: flex;
 		align-items: center;
-		gap: var(--size-6);
-		padding: var(--size-8);
+		gap: 6px;
+		padding: 8px;
 		border-bottom: 1px solid var(--clr-border-3);
 
 		&:not(.file-selected):hover {
@@ -393,7 +396,7 @@
 
 	.files-attacment__file-path-and-name {
 		display: flex;
-		gap: var(--size-6);
+		gap: 6px;
 		overflow: hidden;
 	}
 
@@ -412,21 +415,21 @@
 	}
 
 	.files-attacment__file-icon {
-		width: var(--size-12);
+		width: 12px;
 	}
 
 	/* ATTACHMENT RESTORE */
 
 	.restored-attacment {
 		display: flex;
-		padding: var(--size-12);
-		gap: var(--size-8);
+		padding: 12px;
+		gap: 8px;
 	}
 
 	.restored-attacment__content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-6);
+		gap: 6px;
 	}
 
 	.restored-attacment__details {

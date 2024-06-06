@@ -76,8 +76,8 @@
 				on:click={async () => {
 					if (
 						branch.name.toLowerCase().includes('virtual branch') &&
-						commits.length == 0 &&
-						branch.files?.length == 0
+						commits.length === 0 &&
+						branch.files?.length === 0
 					) {
 						await branchController.deleteBranch(branch.id);
 					} else {
@@ -95,7 +95,7 @@
 				}}
 				disabled={isUnapplied ||
 					!($aiGenEnabled && aiConfigurationValid) ||
-					branch.files?.length == 0 ||
+					branch.files?.length === 0 ||
 					!branch.active}
 			/>
 		</ContextMenuSection>

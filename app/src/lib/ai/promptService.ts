@@ -53,7 +53,7 @@ export class PromptService {
 	}
 
 	findPrompt(prompts: UserPrompt[], promptId: string) {
-		const prompt = prompts.find((userPrompt) => userPrompt.id == promptId)?.prompt;
+		const prompt = prompts.find((userPrompt) => userPrompt.id === promptId)?.prompt;
 
 		if (!prompt) return;
 		if (this.promptMissingContent(prompt)) return;
@@ -62,14 +62,14 @@ export class PromptService {
 	}
 
 	promptEquals(prompt1: Prompt, prompt2: Prompt) {
-		if (prompt1.length != prompt2.length) return false;
+		if (prompt1.length !== prompt2.length) return false;
 
 		for (const indexPromptMessage of prompt1.entries()) {
 			const [index, promptMessage] = indexPromptMessage;
 
 			if (
-				promptMessage.role != prompt2[index].role ||
-				promptMessage.content != prompt2[index].content
+				promptMessage.role !== prompt2[index].role ||
+				promptMessage.content !== prompt2[index].content
 			) {
 				return false;
 			}
@@ -90,7 +90,7 @@ export class PromptService {
 		return {
 			id: crypto.randomUUID(),
 			name: 'My Prompt',
-			prompt: type == 'branches' ? SHORT_DEFAULT_BRANCH_TEMPLATE : SHORT_DEFAULT_COMMIT_TEMPLATE
+			prompt: type === 'branches' ? SHORT_DEFAULT_BRANCH_TEMPLATE : SHORT_DEFAULT_COMMIT_TEMPLATE
 		};
 	}
 }

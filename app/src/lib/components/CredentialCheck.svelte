@@ -3,6 +3,7 @@
 	import Icon from './Icon.svelte';
 	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
+	import SectionCardDisclaimer from './SectionCardDisclaimer.svelte';
 	import { AuthService } from '$lib/backend/auth';
 	import { getContext } from '$lib/utils/context';
 	import { slide } from 'svelte/transition';
@@ -108,51 +109,44 @@
 		disabled={loading}
 		on:click={checkCredentials}
 	>
-		{#if loading || checks.length == 0}
+		{#if loading || checks.length === 0}
 			Test credentials
 		{:else}
 			Re-test credentials
 		{/if}
 	</Button>
-	<div class="disclaimer text-base-body-12">
+	<SectionCardDisclaimer>
 		To test the push command, we create an empty branch and promptly remove it after the check. <Link
 			href="https://docs.gitbutler.com/troubleshooting/fetch-push">Read more</Link
 		> about authentication methods.
-	</div>
+	</SectionCardDisclaimer>
 </div>
 
 <style>
 	.credential-check {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
+		gap: 16px;
 	}
 
 	.checks-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-4);
-		margin-top: var(--size-4);
+		gap: 4px;
+		margin-top: 4px;
 	}
 
 	.check-icon {
 		display: flex;
-		margin-top: 0.063rem;
 	}
 
 	.check-result {
 		display: flex;
-		gap: var(--size-6);
+		align-items: center;
+		gap: 6px;
 	}
 
 	.help-text {
-		margin-top: var(--size-6);
-	}
-
-	.disclaimer {
-		color: var(--clr-scale-ntrl-50);
-		background: var(--clr-bg-2);
-		border-radius: var(--radius-m);
-		padding: var(--size-10) var(--size-12);
+		margin-top: 6px;
 	}
 </style>

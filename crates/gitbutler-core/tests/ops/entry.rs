@@ -88,7 +88,7 @@ mod snapshot_details {
 
     #[test]
     fn new() {
-        let commit_sha = git2::Oid::zero().into();
+        let commit_sha = git2::Oid::zero();
         let commit_message =
             "Create a new snapshot\n\nBody text 1\nBody text2\n\nBody text 3\n\nVersion: 1\nOperation: CreateCommit\nFoo: Bar\n".to_string();
         let timezone_offset_does_not_matter = 1234;

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
+	import { pxToRem } from '$lib/utils/pxToRem';
 	import { onMount } from 'svelte';
 
 	export let foldable: boolean = false;
@@ -12,7 +13,7 @@
 	let contentHeight: string;
 
 	function setHeight() {
-		contentHeight = `calc(${el.scrollHeight}px + var(--size-8)`;
+		contentHeight = `calc(${pxToRem(el.scrollHeight)} + ${pxToRem(8)})`;
 	}
 
 	onMount(() => {
@@ -79,7 +80,7 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: var(--size-8);
+		padding: 8px;
 		color: var(--clr-text-2);
 		background-color: var(--clr-bg-1);
 		border-top: 1px solid var(--clr-border-2);

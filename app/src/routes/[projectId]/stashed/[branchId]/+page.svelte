@@ -19,7 +19,7 @@
 	$: branches$ = vbranchService.branches$;
 	$: error = vbranchService.branchesError;
 
-	$: branch = $branches$?.find((b) => b.id == $page.params.branchId);
+	$: branch = $branches$?.find((b) => b.id === $page.params.branchId);
 </script>
 
 {#if $error}

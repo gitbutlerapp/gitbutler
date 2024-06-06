@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Tag from '$lib/components/Tag.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import { getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BaseBranch, Branch } from '$lib/vbranches/types';
@@ -15,51 +15,61 @@
 
 {#if !remoteExists}
 	{#if !$branch.active}
-		<Tag
+		<Button
+			clickable={false}
+			size="tag"
 			icon="virtual-branch-small"
 			style="neutral"
 			help="These changes are stashed away from your working directory."
-			reversedDirection>unapplied</Tag
+			reversedDirection>unapplied</Button
 		>
 	{:else if hasIntegratedCommits}
-		<Tag
+		<Button
+			clickable={false}
+			size="tag"
 			icon="pr-small"
 			style="success"
 			kind="solid"
 			help="These changes have been integrated upstream, update your workspace to make this lane disappear."
-			reversedDirection>Integrated</Tag
+			reversedDirection>Integrated</Button
 		>
 	{:else}
-		<Tag
+		<Button
+			clickable={false}
+			size="tag"
 			icon="virtual-branch-small"
 			style="neutral"
 			help="These changes are in your working directory."
-			reversedDirection>Virtual</Tag
+			reversedDirection>Virtual</Button
 		>
 	{/if}
 	{#if !isUnapplied && !isLaneCollapsed}
-		<Tag
+		<Button
+			clickable={false}
+			size="tag"
 			style="neutral"
 			shrinkable
 			disabled
 			help="Branch name that will be used when pushing. You can change it from the lane menu."
 		>
 			{isLaneCollapsed ? 'View branch' : $branch.displayName}
-		</Tag>
+		</Button>
 	{/if}
 {:else}
-	<Tag
+	<Button
+		clickable={false}
+		size="tag"
 		style="neutral"
 		kind="solid"
 		icon="remote-branch-small"
 		help="At least some of your changes have been pushed"
-		reversedDirection>Remote</Tag
+		reversedDirection>Remote</Button
 	>
-	<Tag
+	<Button
+		size="tag"
 		icon="open-link"
 		style="ghost"
 		kind="solid"
-		clickable
 		shrinkable
 		on:click={(e) => {
 			const url = $baseBranch?.branchUrl($branch.upstream?.name);
@@ -69,5 +79,5 @@
 		}}
 	>
 		{isLaneCollapsed ? 'View branch' : $branch.displayName}
-	</Tag>
+	</Button>
 {/if}

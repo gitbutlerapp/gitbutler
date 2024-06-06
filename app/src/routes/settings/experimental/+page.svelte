@@ -3,6 +3,7 @@
 	import Toggle from '$lib/components/Toggle.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
 	import { featureBaseBranchSwitching } from '$lib/config/uiFeatureFlags';
+
 	const baseBranchSwitching = featureBaseBranchSwitching();
 </script>
 
@@ -21,7 +22,7 @@
 			<Toggle
 				id="baseBranchSwitching"
 				checked={$baseBranchSwitching}
-				on:change={() => ($baseBranchSwitching = !$baseBranchSwitching)}
+				on:click={() => ($baseBranchSwitching = !$baseBranchSwitching)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
@@ -30,6 +31,6 @@
 <style>
 	.experimental-settings__text {
 		color: var(--clr-text-2);
-		margin-bottom: var(--size-12);
+		margin-bottom: 12px;
 	}
 </style>

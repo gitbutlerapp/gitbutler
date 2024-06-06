@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::git;
@@ -8,7 +6,7 @@ use crate::git;
 pub struct Target {
     pub branch: git::RemoteRefname,
     pub remote_url: String,
-    pub sha: git::Oid,
+    pub sha: git2::Oid,
     pub push_remote_name: Option<String>,
 }
 
@@ -41,7 +39,7 @@ impl<'de> serde::Deserialize<'de> for Target {
             sha: String,
         }
         let target_data: TargetData = serde::Deserialize::deserialize(d)?;
-        let sha = git::Oid::from_str(&target_data.sha)
+        let sha = git2::Oid::from_str(&target_data.sha)
             .map_err(|x| serde::de::Error::custom(x.message()))?;
 
         let target = Target {

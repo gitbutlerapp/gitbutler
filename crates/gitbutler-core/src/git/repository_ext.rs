@@ -3,7 +3,7 @@ use git2::{BlameOptions, Repository, Tree};
 use std::{path::Path, process::Stdio, str};
 use tracing::instrument;
 
-use crate::{config::CFG_SIGN_COMMITS, error::Code};
+use crate::{config::git::GitConfig, error::Code};
 
 use super::Refname;
 use std::io::Write;
@@ -16,6 +16,10 @@ use std::os::windows::process::CommandExt;
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
+    fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder;
+    fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()>;
+    fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler;
+    fn find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>>;
     /// Based on the index, add all data similar to `git add .` and create a tree from it, which is returned.
     fn get_wd_tree(&self) -> Result<Tree>;
 
@@ -25,6 +29,8 @@ pub trait RepositoryExt {
     ///
     /// This is for safety to assure the repository actually is in 'gitbutler mode'.
     fn integration_ref_from_head(&self) -> Result<git2::Reference<'_>>;
+
+    fn target_commit(&self) -> Result<git2::Commit<'_>>;
 
     #[allow(clippy::too_many_arguments)]
     fn commit_with_signature(
@@ -46,9 +52,54 @@ pub trait RepositoryExt {
         oldest_commit: git2::Oid,
         newest_commit: git2::Oid,
     ) -> Result<git2::Blame, git2::Error>;
+
+    fn sign_buffer(&self, buffer: &str) -> Result<String>;
 }
 
 impl RepositoryExt for Repository {
+    fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder {
+        CheckoutIndexBuilder {
+            index,
+            repo: self,
+            checkout_builder: git2::build::CheckoutBuilder::new(),
+        }
+    }
+
+    fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        let mut builder = git2::build::CheckoutBuilder::new();
+        builder.path(path.as_ref());
+        builder.force();
+
+        let mut index = self.index()?;
+        self.checkout_index(Some(&mut index), Some(&mut builder))?;
+
+        Ok(())
+    }
+    fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler {
+        CheckoutTreeBuidler {
+            tree,
+            repo: self,
+            checkout_builder: git2::build::CheckoutBuilder::new(),
+        }
+    }
+
+    fn find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>> {
+        let branch = self.find_branch(
+            &name.simple_name(),
+            match name {
+                Refname::Virtual(_) | Refname::Local(_) | Refname::Other(_) => {
+                    git2::BranchType::Local
+                }
+                Refname::Remote(_) => git2::BranchType::Remote,
+            },
+        );
+        match branch {
+            Ok(branch) => Ok(Some(branch)),
+            Err(e) if e.code() == git2::ErrorCode::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
     #[instrument(level = tracing::Level::DEBUG, skip(self), err(Debug))]
     fn get_wd_tree(&self) -> Result<Tree> {
         let mut index = self.index()?;
@@ -62,8 +113,16 @@ impl RepositoryExt for Repository {
         if head_ref.name_bytes() == b"refs/heads/gitbutler/integration" {
             Ok(head_ref)
         } else {
-            bail!("Unexpected state: cannot perform operation on non-integration branch")
+            Err(anyhow!(
+                "Unexpected state: cannot perform operation on non-integration branch"
+            ))
         }
+    }
+
+    fn target_commit(&self) -> Result<git2::Commit<'_>> {
+        let integration_ref = self.integration_ref_from_head()?;
+        let integration_commit = integration_ref.peel_to_commit()?;
+        Ok(integration_commit.parent(0)?)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -81,9 +140,7 @@ impl RepositoryExt for Repository {
 
         let commit_buffer = inject_change_id(&commit_buffer, change_id)?;
 
-        let should_sign = self.config()?.get_bool(CFG_SIGN_COMMITS).unwrap_or(false);
-
-        let oid = if should_sign {
+        let oid = if self.gb_config()?.sign_commits.unwrap_or(false) {
             let signature = sign_buffer(self, &commit_buffer)
                 .map_err(|e| anyhow!(e).context(Code::CommitSigningFailed))?;
             self.commit_signed(&commit_buffer, &signature, None)?
@@ -114,10 +171,14 @@ impl RepositoryExt for Repository {
             .first_parent(true);
         self.blame_file(path, Some(&mut opts))
     }
+
+    fn sign_buffer(&self, buffer: &str) -> Result<String> {
+        sign_buffer(self, &buffer.to_string())
+    }
 }
 
 /// Signs the buffer with the configured gpg key, returning the signature.
-fn sign_buffer(repo: &git2::Repository, buffer: &String) -> Result<String> {
+pub fn sign_buffer(repo: &git2::Repository, buffer: &String) -> Result<String> {
     // check git config for gpg.signingkey
     // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
     let signing_key = repo.config()?.get_string("user.signingkey");
@@ -136,8 +197,13 @@ fn sign_buffer(repo: &git2::Repository, buffer: &String) -> Result<String> {
             let buffer_file_to_sign_path = signature_storage.into_temp_path();
 
             let gpg_program = repo.config()?.get_string("gpg.ssh.program");
-            let mut cmd =
-                std::process::Command::new(gpg_program.unwrap_or("ssh-keygen".to_string()));
+            let mut gpg_program = gpg_program.unwrap_or("ssh-keygen".to_string());
+            // if cmd is "", use gpg
+            if gpg_program.is_empty() {
+                gpg_program = "ssh-keygen".to_string();
+            }
+
+            let mut cmd = std::process::Command::new(gpg_program);
             cmd.args(["-Y", "sign", "-n", "git", "-f"]);
 
             #[cfg(windows)]
@@ -164,6 +230,7 @@ fn sign_buffer(repo: &git2::Repository, buffer: &String) -> Result<String> {
                 cmd.arg(&key_file_path);
                 cmd.arg("-U");
                 cmd.arg(&buffer_file_to_sign_path);
+                cmd.stderr(Stdio::piped());
                 cmd.stdout(Stdio::piped());
                 cmd.stdin(Stdio::null());
 
@@ -172,6 +239,7 @@ fn sign_buffer(repo: &git2::Repository, buffer: &String) -> Result<String> {
             } else {
                 cmd.arg(signing_key);
                 cmd.arg(&buffer_file_to_sign_path);
+                cmd.stderr(Stdio::piped());
                 cmd.stdout(Stdio::piped());
                 cmd.stdin(Stdio::null());
 
@@ -185,15 +253,28 @@ fn sign_buffer(repo: &git2::Repository, buffer: &String) -> Result<String> {
                 let sig_data = std::fs::read(signature_path)?;
                 let signature = String::from_utf8_lossy(&sig_data).into_owned();
                 return Ok(signature);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let std_both = format!("{} {}", stdout, stderr);
+                bail!("Failed to sign SSH: {}", std_both);
             }
         } else {
             // is gpg
             let gpg_program = repo.config()?.get_string("gpg.program");
-            let mut cmd = std::process::Command::new(gpg_program.unwrap_or("gpg".to_string()));
+            let mut gpg_program = gpg_program.unwrap_or("gpg".to_string());
+            // if cmd is "", use gpg
+            if gpg_program.is_empty() {
+                gpg_program = "gpg".to_string();
+            }
+
+            let mut cmd = std::process::Command::new(gpg_program);
+
             cmd.args(["--status-fd=2", "-bsau", &signing_key])
                 //.arg(&signed_storage)
                 .arg("-")
                 .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
                 .stdin(Stdio::piped());
 
             #[cfg(windows)]
@@ -213,10 +294,15 @@ fn sign_buffer(repo: &git2::Repository, buffer: &String) -> Result<String> {
                 // read stdout
                 let signature = String::from_utf8_lossy(&output.stdout).into_owned();
                 return Ok(signature);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let std_both = format!("{} {}", stdout, stderr);
+                bail!("Failed to sign GPG: {}", std_both);
             }
         }
     }
-    Err(anyhow::anyhow!("Unsupported commit signing method"))
+    Err(anyhow::anyhow!("No signing key found"))
 }
 
 fn is_literal_ssh_key(string: &str) -> (bool, &str) {
@@ -255,4 +341,57 @@ fn inject_change_id(commit_buffer: &[u8], change_id: Option<&str>) -> Result<Str
         new_buffer.pop();
     }
     Ok(new_buffer)
+}
+
+pub struct CheckoutTreeBuidler<'a> {
+    repo: &'a git2::Repository,
+    tree: &'a git2::Tree<'a>,
+    checkout_builder: git2::build::CheckoutBuilder<'a>,
+}
+
+impl CheckoutTreeBuidler<'_> {
+    pub fn force(&mut self) -> &mut Self {
+        self.checkout_builder.force();
+        self
+    }
+
+    pub fn remove_untracked(&mut self) -> &mut Self {
+        self.checkout_builder.remove_untracked(true);
+        self
+    }
+
+    pub fn checkout(&mut self) -> Result<()> {
+        self.repo
+            .checkout_tree(self.tree.as_object(), Some(&mut self.checkout_builder))
+            .map_err(Into::into)
+    }
+}
+
+pub struct CheckoutIndexBuilder<'a> {
+    repo: &'a git2::Repository,
+    index: &'a mut git2::Index,
+    checkout_builder: git2::build::CheckoutBuilder<'a>,
+}
+
+impl CheckoutIndexBuilder<'_> {
+    pub fn force(&mut self) -> &mut Self {
+        self.checkout_builder.force();
+        self
+    }
+
+    pub fn allow_conflicts(&mut self) -> &mut Self {
+        self.checkout_builder.allow_conflicts(true);
+        self
+    }
+
+    pub fn conflict_style_merge(&mut self) -> &mut Self {
+        self.checkout_builder.conflict_style_merge(true);
+        self
+    }
+
+    pub fn checkout(&mut self) -> Result<()> {
+        self.repo
+            .checkout_index(Some(&mut self.index), Some(&mut self.checkout_builder))
+            .map_err(Into::into)
+    }
 }

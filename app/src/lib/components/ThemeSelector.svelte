@@ -54,7 +54,7 @@
 	.cards-group {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		gap: var(--size-16);
+		gap: 16px;
 	}
 
 	.theme-card {
@@ -62,7 +62,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 
 	.theme-card:hover {
@@ -87,7 +87,7 @@
 	}
 
 	.theme-card__label {
-		padding: var(--size-6);
+		padding: 6px;
 		text-align: center;
 		border-radius: var(--radius-m);
 	}
@@ -95,8 +95,8 @@
 	.theme-card__icon {
 		z-index: 1;
 		position: absolute;
-		bottom: var(--size-6);
-		right: var(--size-6);
+		bottom: 6px;
+		right: 6px;
 		opacity: 0;
 	}
 

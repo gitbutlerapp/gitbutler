@@ -27,7 +27,7 @@
 		$localCommits.length > 0 || $remoteCommits.length > 0 || $unknownCommits.length > 0;
 
 	let isLoading: boolean;
-	$: isPushed = $localCommits.length == 0 && $unknownCommits.length == 0;
+	$: isPushed = $localCommits.length === 0 && $unknownCommits.length === 0;
 </script>
 
 {#if !isUnapplied && hasCommits}
@@ -42,11 +42,11 @@
 				{isLoading}
 				on:trigger={async (e) => {
 					try {
-						if (e.detail.action == BranchAction.Push) {
+						if (e.detail.action === BranchAction.Push) {
 							isLoading = true;
 							await branchController.pushBranch($branch.id, $branch.requiresForce);
 							isLoading = false;
-						} else if (e.detail.action == BranchAction.Rebase) {
+						} else if (e.detail.action === BranchAction.Rebase) {
 							isLoading = true;
 							await branchController.mergeUpstream($branch.id);
 							isLoading = false;
@@ -73,7 +73,7 @@
 <style lang="postcss">
 	.actions {
 		background: var(--clr-bg-1);
-		padding: var(--size-16);
+		padding: 16px;
 	}
 
 	/* EMPTY STATE */
@@ -82,7 +82,7 @@
 		display: flex;
 		/* justify-content: space-between; */
 		align-items: center;
-		gap: var(--size-20);
+		gap: 20px;
 	}
 
 	.empty-state__image {
@@ -92,6 +92,5 @@
 	.empty-state__text {
 		color: var(--clr-text-3);
 		flex: 1;
-		/* max-width: 8rem; */
 	}
 </style>

@@ -100,7 +100,7 @@
 	{#if $user}
 		<SectionCard>
 			<form on:submit={onSubmit} class="profile-form">
-				<label id="profile-picture" class="focus-state profile-pic-wrapper" for="picture">
+				<label id="profile-picture" class="profile-pic-wrapper focus-state" for="picture">
 					<input
 						on:change={onPictureChange}
 						type="file"
@@ -174,7 +174,7 @@
 			<Toggle
 				id="hoverScrollbarVisability"
 				checked={$userSettings.scrollbarVisabilityOnHover}
-				on:change={() =>
+				on:click={() =>
 					userSettings.update((s) => ({
 						...s,
 						scrollbarVisabilityOnHover: !s.scrollbarVisabilityOnHover
@@ -224,7 +224,7 @@
 <style lang="postcss">
 	.profile-form {
 		display: flex;
-		gap: var(--size-24);
+		gap: 24px;
 	}
 
 	.hidden-input {
@@ -267,11 +267,11 @@
 
 	.profile-pic__edit-label {
 		position: absolute;
-		bottom: var(--size-8);
-		left: var(--size-8);
+		bottom: 8px;
+		left: 8px;
 		color: var(--clr-core-ntrl-100);
 		background-color: var(--clr-scale-ntrl-20);
-		padding: var(--size-4) var(--size-6);
+		padding: 4px 6px;
 		border-radius: var(--radius-m);
 		opacity: 0;
 		transition: opacity var(--transition-medium);
@@ -281,7 +281,7 @@
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-20);
+		gap: 20px;
 		align-items: flex-end;
 	}
 
@@ -289,6 +289,6 @@
 		width: 100%;
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-12);
+		gap: 12px;
 	}
 </style>

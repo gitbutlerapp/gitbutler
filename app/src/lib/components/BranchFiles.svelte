@@ -31,7 +31,7 @@
 	role="listbox"
 	tabindex="-1"
 	on:keydown={(e) => {
-		if (e.key == 'Escape') {
+		if (e.key === 'Escape') {
 			unselectAllFiles();
 		}
 	}}
@@ -53,6 +53,6 @@
 	.branch-files {
 		flex: 1;
 		background: var(--clr-bg-1);
-		/* padding: 0 var(--size-14) var(--size-14); */
+		/* padding: 0 14px 14px; */
 	}
 </style>

@@ -2,6 +2,7 @@
 	import { listen } from '$lib/backend/ipc';
 	import { Project } from '$lib/backend/projects';
 	import { getContext } from '$lib/utils/context';
+	import { editor } from '$lib/utils/systemEditor';
 	import { open } from '@tauri-apps/api/shell';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -13,10 +14,13 @@
 			goto(`/${project.id}/settings/`);
 		});
 
-		const unsubscribeOpenInVSCode = listen<string>('menu://project/open-in-vscode/clicked', () => {
-			const pathToProject = `vscode://file${project.path}`;
-			open(pathToProject);
-		});
+		const unsubscribeOpenInVSCode = listen<string>(
+			'menu://project/open-in-vscode/clicked',
+			async () => {
+				const path = `${editor.get()}://file${project.path}`;
+				open(path);
+			}
+		);
 
 		return () => {
 			unsubscribeSettings();

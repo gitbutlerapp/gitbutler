@@ -14,14 +14,22 @@ export class GitConfigService {
 		return await invoke<T | undefined>('git_set_global_config', { key, value });
 	}
 
-	// Gets the value of `gitbutler.signCommits`
-	// Determines if the app should attempt to sign commits using per the git configuration.
-	async getSignCommitsConfig(projectId: string): Promise<boolean | undefined> {
-		return await invoke<boolean | undefined>('get_sign_commits_config', { projectId });
+	async getGbConfig(projectId: string): Promise<GbConfig> {
+		return await invoke<GbConfig>('get_gb_config', { projectId });
 	}
 
-	// Sets the value of `gitbutler.signCommits`
-	async setSignCommitsConfig(projectId: string, value: boolean) {
-		return await invoke('set_sign_commits_config', { projectId, value });
+	async setGbConfig(projectId: string, config: GbConfig) {
+		return await invoke('set_gb_config', { projectId, config });
 	}
+}
+
+// These are git configuration values that are read and set by gitbutler.
+// Let's use this config type as a middle ground between setting string key/values from the frontend and having separate get/set methods for each key.
+// This way we can keep track on both frontend and rust-end what is being used and for what purpose.
+export class GbConfig {
+	signCommits?: boolean | undefined;
+	signingKey?: string | undefined;
+	signingFormat?: string | undefined;
+	gpgProgram?: string | undefined;
+	gpgSshProgram?: string | undefined;
 }

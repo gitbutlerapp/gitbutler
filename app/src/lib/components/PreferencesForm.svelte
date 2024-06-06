@@ -1,12 +1,19 @@
 <script lang="ts">
+	import Button from './Button.svelte';
+	import InfoMessage from './InfoMessage.svelte';
+	import Link from './Link.svelte';
 	import SectionCard from './SectionCard.svelte';
-	import Spacer from './Spacer.svelte';
+	import SectionCardDisclaimer from './SectionCardDisclaimer.svelte';
 	import TextBox from './TextBox.svelte';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { Project, ProjectService } from '$lib/backend/projects';
+	import Select from '$lib/components/Select.svelte';
+	import SelectItem from '$lib/components/SelectItem.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
+	import Section from '$lib/components/settings/Section.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { getContext } from '$lib/utils/context';
+	import { invoke } from '@tauri-apps/api/tauri';
 	import { onMount } from 'svelte';
 
 	const projectService = getContext(ProjectService);
@@ -15,6 +22,7 @@
 	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
 	let allowForcePushing = project?.ok_with_force_push;
 	let omitCertificateCheck = project?.omit_certificate_check;
+	let useNewLocking = project?.use_new_locking || false;
 
 	const gitConfig = getContext(GitConfigService);
 	const runCommitHooks = projectRunCommitHooks(project.id);
@@ -37,15 +45,169 @@
 	let signCommits = false;
 	async function setSignCommits(value: boolean) {
 		signCommits = value;
-		await gitConfig.setSignCommitsConfig(project.id, value);
+		await gitConfig.setGbConfig(project.id, { signCommits: value });
 	}
 
+	// gpg.format
+	let signingFormat = 'openpgp';
+	// user.signingkey
+	let signingKey = '';
+	// gpg.ssh.program / gpg.program
+	let signingProgram = '';
+
+	const signingFormatOptions = [
+		{
+			name: 'GPG',
+			value: 'openpgp'
+		},
+		{
+			name: 'SSH',
+			value: 'ssh'
+		}
+	];
+
+	let checked = false;
+	let loading = true;
+	let signCheckResult = false;
+	let errorMessage = '';
+
+	async function checkSigning() {
+		checked = true;
+		loading = true;
+		await invoke('check_signing_settings', { id: project.id })
+			.then((_) => {
+				signCheckResult = true;
+			})
+			.catch((err) => {
+				console.error('Error checking signing:', err);
+				console.log(err.message);
+				errorMessage = err.message;
+				signCheckResult = false;
+			});
+		loading = false;
+	}
+
+	async function updateSigningInfo() {
+		let signUpdate = {
+			signingFormat: signingFormat,
+			signingKey: signingKey,
+			gpgProgram: signingFormat === 'openpgp' ? signingProgram : '',
+			gpgSshProgram: signingFormat === 'ssh' ? signingProgram : ''
+		};
+		await gitConfig.setGbConfig(project.id, signUpdate);
+	}
+
+	async function setUseNewLocking(value: boolean) {
+		project.use_new_locking = value;
+		await projectService.updateProject(project);
+	}
+
+	$: setUseNewLocking(useNewLocking);
+
 	onMount(async () => {
-		signCommits = (await gitConfig.getSignCommitsConfig(project.id)) || false;
+		let gitConfigSettings = await gitConfig.getGbConfig(project.id);
+		signCommits = gitConfigSettings.signCommits || false;
+		signingFormat = gitConfigSettings.signingFormat || 'openpgp';
+		signingKey = gitConfigSettings.signingKey || '';
+		if (signingFormat === 'openpgp') {
+			signingProgram = gitConfigSettings.gpgProgram || '';
+		} else {
+			signingProgram = gitConfigSettings.gpgSshProgram || '';
+		}
 	});
 </script>
 
-<section class="wrapper">
+<Section spacer>
+	<svelte:fragment slot="title">Commit Signing</svelte:fragment>
+	<svelte:fragment slot="description">
+		Use GPG or SSH to sign your commits so they can be verified as authentic.
+	</svelte:fragment>
+	<SectionCard orientation="row" labelFor="signCommits">
+		<svelte:fragment slot="title">Sign commits</svelte:fragment>
+		<svelte:fragment slot="caption">
+			GitButler will sign commits as per your git configuration.
+		</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Toggle
+				id="signCommits"
+				bind:checked={signCommits}
+				on:change={async () => await setSignCommits(signCommits)}
+			/>
+		</svelte:fragment>
+	</SectionCard>
+	{#if signCommits}
+		<SectionCard orientation="column">
+			<Select
+				items={signingFormatOptions}
+				bind:selectedItemId={signingFormat}
+				itemId="value"
+				labelId="name"
+				on:select={updateSigningInfo}
+				label="Signing Format"
+			>
+				<SelectItem slot="template" let:item>
+					{item.name}
+				</SelectItem>
+			</Select>
+
+			<TextBox
+				label="Signing Key"
+				bind:value={signingKey}
+				required
+				on:change={updateSigningInfo}
+				placeholder="ex: /Users/bob/.ssh/id_rsa.pub"
+			/>
+
+			<TextBox
+				label="Signing Program (optional)"
+				bind:value={signingProgram}
+				on:change={updateSigningInfo}
+				placeholder="ex: /Applications/1Password.app/Contents/MacOS/op-ssh-sign"
+			/>
+
+			{#if checked}
+				<InfoMessage
+					style={loading ? 'neutral' : signCheckResult ? 'success' : 'error'}
+					filled
+					outlined={false}
+				>
+					<svelte:fragment slot="title">
+						{#if loading}
+							<p>Checking signing</p>
+						{:else if signCheckResult}
+							<p>Signing is working correctly</p>
+						{:else}
+							<p>Signing is not working correctly</p>
+							<pre>{errorMessage}</pre>
+						{/if}
+					</svelte:fragment>
+				</InfoMessage>
+			{/if}
+
+			<Button style="pop" kind="solid" wide icon="item-tick" on:click={checkSigning}>
+				{#if !checked}
+					Test Signing
+				{:else}
+					Re-test Signing
+				{/if}
+			</Button>
+			<SectionCardDisclaimer>
+				Signing commits can allow other people to verify your commits if you publish the public
+				version of your signing key.
+				<Link href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits"
+					>Read more</Link
+				> about commit signing and verification.
+			</SectionCardDisclaimer>
+		</SectionCard>
+	{/if}
+</Section>
+
+<Section spacer>
+	<svelte:fragment slot="title">Preferences</svelte:fragment>
+	<svelte:fragment slot="description">
+		Other settings to customize your GitButler experience.
+	</svelte:fragment>
+
 	<SectionCard orientation="row" labelFor="allowForcePush">
 		<svelte:fragment slot="title">Allow force pushing</svelte:fragment>
 		<svelte:fragment slot="caption">
@@ -56,21 +218,7 @@
 			<Toggle
 				id="allowForcePush"
 				bind:checked={allowForcePushing}
-				on:change={async () => await setWithForcePush(allowForcePushing)}
-			/>
-		</svelte:fragment>
-	</SectionCard>
-
-	<SectionCard orientation="row" labelFor="allowForcePush">
-		<svelte:fragment slot="title">Sign commits</svelte:fragment>
-		<svelte:fragment slot="caption">
-			GitButler will sign commits as per your git configuration.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle
-				id="signCommits"
-				bind:checked={signCommits}
-				on:change={async () => await setSignCommits(signCommits)}
+				on:click={async () => await setWithForcePush(allowForcePushing)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
@@ -84,7 +232,7 @@
 			<Toggle
 				id="omitCertificateCheck"
 				bind:checked={omitCertificateCheck}
-				on:change={async () => await setOmitCertificateCheck(omitCertificateCheck)}
+				on:click={async () => await setOmitCertificateCheck(omitCertificateCheck)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
@@ -121,14 +269,15 @@
 			/>
 		</svelte:fragment>
 	</SectionCard>
-</section>
 
-<Spacer />
-
-<style lang="post-css">
-	.wrapper {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-8);
-	}
-</style>
+	<SectionCard labelFor="useNewLocking" orientation="row">
+		<svelte:fragment slot="title">Use new experimental hunk locking algorithm</svelte:fragment>
+		<svelte:fragment slot="caption">
+			This new hunk locking algorithm is still in the testing phase but should more accuratly catch
+			locks and subsiquently cause fewer errors.
+		</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Toggle id="useNewLocking" bind:checked={useNewLocking} />
+		</svelte:fragment>
+	</SectionCard>
+</Section>

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import FileContextMenu from './FileContextMenu.svelte';
 	import FileStatusIcons from './FileStatusIcons.svelte';
-	import { Project } from '$lib/backend/projects';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableFile } from '$lib/dragging/draggables';
@@ -24,10 +23,9 @@
 	const branch = maybeGetContextStore(Branch);
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 	const fileIdSelection = getContext(FileIdSelection);
-	const project = getContext(Project);
 	const commit = getCommitStore();
 
-	$: selectedFiles = fileIdSelection.files($branch?.files || [], project.id);
+	const selectedFiles = fileIdSelection.files;
 
 	let checked = false;
 	let indeterminate = false;
@@ -148,9 +146,9 @@
 		flex: 1;
 		display: flex;
 		align-items: center;
-		padding: var(--size-6) var(--size-14);
-		gap: var(--size-10);
-		height: 2rem;
+		padding: 6px 14px;
+		gap: 10px;
+		height: 32px;
 		overflow: hidden;
 		text-align: left;
 		user-select: none;
@@ -163,7 +161,7 @@
 		}
 
 		&:last-child {
-			margin-bottom: -1px;
+			border-bottom: none;
 		}
 	}
 
@@ -172,12 +170,12 @@
 		align-items: center;
 		flex-grow: 1;
 		flex-shrink: 1;
-		gap: var(--size-6);
+		gap: 6px;
 		overflow: hidden;
 	}
 
 	.file-icon {
-		width: var(--size-12);
+		width: 12px;
 	}
 
 	.name {

@@ -7,8 +7,6 @@ use bstr::{BStr, BString, ByteSlice, ByteVec};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use super::Repository;
-use crate::git;
 use crate::id::Id;
 use crate::virtual_branches::Branch;
 
@@ -102,6 +100,22 @@ impl GitHunk {
     }
 }
 
+/// Comparison
+impl GitHunk {
+    /// integration_intersects_unapplied is used to determine if a hunk from a diff between integration and the trunk intersects with an unapplied hunk.
+    /// We want to use the new start/end for the integraiton hunk and the old start/end for the unapplied hunk.
+    pub fn integration_intersects_unapplied(
+        integration_hunk: &GitHunk,
+        unapplied_hunk: &GitHunk,
+    ) -> bool {
+        let unapplied_old_end = unapplied_hunk.old_start + unapplied_hunk.old_lines;
+        let integration_new_end = integration_hunk.new_start + integration_hunk.new_lines;
+
+        unapplied_hunk.old_start <= integration_new_end
+            && integration_hunk.new_start <= unapplied_old_end
+    }
+}
+
 // A hunk is locked when it depends on changes in commits that are in your
 // workspace. A hunk can be locked to more than one branch if it overlaps
 // with more than one committed hunk.
@@ -109,7 +123,8 @@ impl GitHunk {
 #[serde(rename_all = "camelCase")]
 pub struct HunkLock {
     pub branch_id: Id<Branch>,
-    pub commit_id: git::Oid,
+    #[serde(with = "crate::serde::oid")]
+    pub commit_id: git2::Oid,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Default)]
@@ -129,7 +144,7 @@ pub struct FileDiff {
 }
 
 #[instrument(skip(repository))]
-pub fn workdir(repository: &Repository, commit_oid: &git::Oid) -> Result<DiffByPathMap> {
+pub fn workdir(repository: &git2::Repository, commit_oid: &git2::Oid) -> Result<DiffByPathMap> {
     let commit = repository
         .find_commit(*commit_oid)
         .context("failed to find commit")?;
@@ -159,7 +174,7 @@ pub fn workdir(repository: &Repository, commit_oid: &git::Oid) -> Result<DiffByP
 }
 
 pub fn trees(
-    repository: &Repository,
+    repository: &git2::Repository,
     old_tree: &git2::Tree,
     new_tree: &git2::Tree,
 ) -> Result<DiffByPathMap> {
@@ -218,7 +233,10 @@ pub fn without_large_files(
 /// `repository` should be `None` if there is no reason to access the workdir, which it will do to
 /// keep the binary data in the object database, which otherwise would be lost to the system
 /// (it's not reconstructable from the delta, or it's not attempted).
-pub fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result<DiffByPathMap> {
+pub fn hunks_by_filepath(
+    repo: Option<&git2::Repository>,
+    diff: &git2::Diff,
+) -> Result<DiffByPathMap> {
     enum LineOrHexHash<'a> {
         Line(Cow<'a, BStr>),
         HexHashOfBinaryBlob(String),
@@ -259,7 +277,7 @@ pub fn hunks_by_filepath(repo: Option<&Repository>, diff: &git2::Diff) -> Result
                     {
                         if !delta.new_file().id().is_zero() && full_path.exists() {
                             let oid = repo.blob_path(full_path.as_path()).unwrap();
-                            if delta.new_file().id() != oid.into() {
+                            if delta.new_file().id() != oid {
                                 err = Some(format!("we only store the file which is already known by the diff system, but it was different: {} != {}", delta.new_file().id(), oid));
                                 return false
                             }

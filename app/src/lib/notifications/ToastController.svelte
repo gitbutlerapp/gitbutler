@@ -45,9 +45,9 @@
 
 		bottom: 0;
 		right: 0;
-		padding: var(--size-12) var(--size-12) var(--size-12) 0;
-		gap: var(--size-8);
-		max-width: 30rem;
+		padding: 12px 12px 12px 0;
+		gap: 8px;
+		max-width: 480px;
 		z-index: var(--z-blocker);
 		overflow-y: auto;
 		max-height: 100%;

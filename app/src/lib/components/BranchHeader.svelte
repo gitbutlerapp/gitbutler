@@ -3,7 +3,6 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import PullRequestButton from './PullRequestButton.svelte';
-	import Tag from './Tag.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import { clickOutside } from '$lib/clickOutside';
@@ -12,9 +11,9 @@
 	import { GitHubService } from '$lib/github/service';
 	import { showError } from '$lib/notifications/toasts';
 	import { getContext, getContextStore } from '$lib/utils/context';
+	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch, Branch } from '$lib/vbranches/types';
-	import toast from 'svelte-french-toast';
 	import type { PullRequest } from '$lib/github/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 	import { goto } from '$app/navigation';
@@ -42,7 +41,7 @@
 	let isTargetBranchAnimated = false;
 
 	function handleBranchNameChange(title: string) {
-		if (title == '') return;
+		if (title === '') return;
 
 		branchController.updateBranchName(branch.id, title);
 	}
@@ -66,12 +65,12 @@
 	async function createPr(createPrOpts: CreatePrOpts): Promise<PullRequest | undefined> {
 		const opts = { ...defaultPrOpts, ...createPrOpts };
 		if (!githubService.isEnabled) {
-			toast.error('Cannot create PR without GitHub credentials');
+			error('Cannot create PR without GitHub credentials');
 			return;
 		}
 
 		if (!$baseBranch?.shortName) {
-			toast.error('Cannot create PR without base branch');
+			error('Cannot create PR without base branch');
 			return;
 		}
 
@@ -113,10 +112,16 @@
 						{branch.name}
 					</h3>
 					{#if uncommittedChanges > 0}
-						<Tag style="warning" kind="soft" help="Uncommitted changes">
+						<Button
+							size="tag"
+							clickable={false}
+							style="warning"
+							kind="soft"
+							help="Uncommitted changes"
+						>
 							{uncommittedChanges}
-							{uncommittedChanges == 1 ? 'change' : 'changes'}
-						</Tag>
+							{uncommittedChanges === 1 ? 'change' : 'changes'}
+						</Button>
 					{/if}
 				</div>
 
@@ -128,7 +133,9 @@
 						isLaneCollapsed={$isLaneCollapsed}
 					/>
 					{#if branch.selectedForChanges}
-						<Tag style="pop" kind="solid" icon="target">Default branch</Tag>
+						<Button size="tag" clickable={false} style="pop" kind="solid" icon="target"
+							>Default branch</Button
+						>
 					{/if}
 				</div>
 			</div>
@@ -164,13 +171,15 @@
 
 						{#await branch.isMergeable then isMergeable}
 							{#if !isMergeable}
-								<Tag
+								<Button
+									size="tag"
+									clickable={false}
 									icon="locked-small"
 									style="warning"
 									help="Applying this branch will add merge conflict markers that you will have to resolve"
 								>
 									Conflict
-								</Tag>
+								</Button>
 							{/if}
 						{/await}
 					</div>
@@ -255,7 +264,7 @@
 						<div class="header__buttons">
 							{#if !hasPullRequest}
 								<PullRequestButton
-									on:click={async (e) => await createPr({ draft: e.detail.action == 'draft' })}
+									on:click={async (e) => await createPr({ draft: e.detail.action === 'draft' })}
 									loading={isLoading}
 								/>
 							{/if}
@@ -290,22 +299,22 @@
 	.header__wrapper {
 		z-index: var(--z-lifted);
 		position: sticky;
-		top: var(--size-12);
-		padding-bottom: var(--size-8);
+		top: 12px;
+		padding-bottom: 8px;
 	}
 	.header {
 		z-index: var(--z-lifted);
 		position: relative;
 		flex-direction: column;
-		gap: var(--size-2);
+		gap: 2px;
 		transition:
 			border-color 0.12s ease-in-out,
 			box-shadow 0.12s ease-in-out;
 	}
 	.header_target-branch {
 		border-color: var(--clr-theme-pop-element);
-		box-shadow: 0 var(--size-4) 0 var(--clr-theme-pop-element);
-		margin-bottom: var(--size-4);
+		box-shadow: 0 4px 0 var(--clr-theme-pop-element);
+		margin-bottom: 4px;
 	}
 	.header_target-branch-animation {
 		animation: setTargetAnimation 0.25s ease-in-out forwards;
@@ -318,45 +327,45 @@
 		}
 		50% {
 			border-color: var(--clr-theme-pop-element);
-			box-shadow: 0 var(--size-4) 0 var(--clr-theme-pop-element);
-			margin-bottom: var(--size-4);
+			box-shadow: 0 4px 0 var(--clr-theme-pop-element);
+			margin-bottom: 4px;
 		}
 		70%,
 		100% {
 			transform: scale(1);
 			border-color: var(--clr-theme-pop-element);
-			box-shadow: 0 var(--size-4) 0 var(--clr-theme-pop-element);
-			margin-bottom: var(--size-4);
+			box-shadow: 0 4px 0 var(--clr-theme-pop-element);
+			margin-bottom: 4px;
 		}
 	}
 
 	.header__top-overlay {
 		z-index: var(--z-ground);
 		position: absolute;
-		top: calc(var(--size-16) * -1);
+		top: -16px;
 		left: 0;
 		width: 100%;
-		height: var(--size-20);
+		height: 20px;
 		background: var(--clr-bg-2);
 	}
 	.header__info-wrapper {
 		display: flex;
-		gap: var(--size-2);
-		padding: var(--size-10);
+		gap: 2px;
+		padding: 10px;
 	}
 	.header__info {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		gap: var(--size-10);
+		gap: 10px;
 	}
 	.header__actions {
 		display: flex;
-		gap: var(--size-4);
+		gap: 4px;
 		background: var(--clr-bg-1);
 		border-top: 1px solid var(--clr-border-2);
-		padding: var(--size-14);
+		padding: 14px;
 		justify-content: space-between;
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 		user-select: none;
@@ -365,13 +374,13 @@
 	.header__buttons {
 		display: flex;
 		position: relative;
-		gap: var(--size-4);
+		gap: 4px;
 	}
 	.draggable {
 		display: flex;
 		height: fit-content;
 		cursor: grab;
-		padding: var(--size-2) var(--size-2) 0 0;
+		padding: 2px 2px 0 0;
 		color: var(--clr-scale-ntrl-50);
 		transition: color var(--transition-slow);
 
@@ -382,17 +391,17 @@
 
 	.branch-popup-menu {
 		position: absolute;
-		top: calc(100% + var(--size-4));
+		top: calc(100% + 4px);
 		right: 0;
 		z-index: var(--z-floating);
 	}
 
 	.header__remote-branch {
 		color: var(--clr-scale-ntrl-50);
-		padding-left: var(--size-2);
-		padding-right: var(--size-2);
+		padding-left: 2px;
+		padding-right: 2px;
 		display: flex;
-		gap: var(--size-4);
+		gap: 4px;
 		text-overflow: ellipsis;
 		overflow-x: hidden;
 		white-space: nowrap;
@@ -406,10 +415,10 @@
 		user-select: none;
 		align-items: center;
 		height: 100%;
-		width: var(--size-48);
+		width: 48px;
 		overflow: hidden;
-		gap: var(--size-8);
-		padding: var(--size-8) var(--size-8) var(--size-20);
+		gap: 8px;
+		padding: 8px 8px 20px;
 
 		&:focus-within {
 			outline: none;
@@ -424,13 +433,13 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: var(--size-2);
+		gap: 2px;
 	}
 
 	.collapsed-lane__draggable {
 		cursor: grab;
 		transform: rotate(90deg);
-		margin-bottom: var(--size-4);
+		margin-bottom: 4px;
 		opacity: 0.4;
 		transition: opacity var(--transition-fast);
 		color: var(--clr-scale-ntrl-0);
@@ -450,7 +459,7 @@
 	.collapsed-lane__info {
 		display: flex;
 		justify-content: space-between;
-		gap: var(--size-8);
+		gap: 8px;
 		transform: rotate(-90deg);
 		direction: ltr;
 	}
@@ -461,14 +470,14 @@
 		display: flex;
 		flex-direction: row-reverse;
 		align-items: center;
-		gap: var(--size-4);
+		gap: 4px;
 	}
 
 	.collapsed-lane__label-wrap {
 		overflow: hidden;
 		display: flex;
 		align-items: center;
-		gap: var(--size-12);
+		gap: 12px;
 	}
 
 	.collapsed-lane__label {

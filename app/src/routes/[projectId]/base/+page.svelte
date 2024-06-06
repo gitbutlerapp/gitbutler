@@ -11,6 +11,8 @@
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import lscache from 'lscache';
 	import { onMount, setContext } from 'svelte';
+	import { writable } from 'svelte/store';
+
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'historyLaneWidth';
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
@@ -19,10 +21,10 @@
 	const baseBranch = baseBranchService.base;
 	const project = getContext(Project);
 
-	const fileIdSelection = new FileIdSelection();
+	const fileIdSelection = new FileIdSelection(project.id, writable([]));
 	setContext(FileIdSelection, fileIdSelection);
 
-	$: selectedFile = fileIdSelection.selectedFile([], project.id);
+	$: selectedFile = fileIdSelection.selectedFile;
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
@@ -95,11 +97,11 @@
 		display: flex;
 		overflow-x: auto;
 		align-items: flex-start;
-		padding: var(--size-12) var(--size-12) var(--size-12) var(--size-6);
-		width: 50rem;
+		padding: 12px 12px 12px 6px;
+		width: 800px;
 	}
 	.card {
-		margin: var(--size-12) var(--size-6) var(--size-12) var(--size-12);
-		padding: var(--size-16);
+		margin: 12px 6px 12px 12px;
+		padding: 16px;
 	}
 </style>

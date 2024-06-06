@@ -2,7 +2,6 @@
 	import Button from './Button.svelte';
 	import InfoMessage from './InfoMessage.svelte';
 	import MergeButton from './MergeButton.svelte';
-	import Tag from './Tag.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
@@ -190,7 +189,7 @@
 		checksStatus: ChecksStatus | null | undefined,
 		isFetchingChecks: boolean
 	): StatusInfo | undefined {
-		if (mergeableState == 'blocked' && !checksStatus && !isFetchingChecks) {
+		if (mergeableState === 'blocked' && !checksStatus && !isFetchingChecks) {
 			return {
 				icon: 'error',
 				messageStyle: 'error',
@@ -207,7 +206,7 @@
 				};
 			}
 
-			if (mergeableState == 'unstable') {
+			if (mergeableState === 'unstable') {
 				return {
 					icon: 'warning',
 					messageStyle: 'warning',
@@ -215,7 +214,7 @@
 				};
 			}
 
-			if (mergeableState == 'dirty') {
+			if (mergeableState === 'dirty') {
 				return {
 					icon: 'warning',
 					messageStyle: 'warning',
@@ -223,7 +222,7 @@
 				};
 			}
 
-			if (mergeableState == 'blocked' && !isFetchingChecks) {
+			if (mergeableState === 'blocked' && !isFetchingChecks) {
 				return {
 					icon: 'error',
 					messageStyle: 'error',
@@ -271,27 +270,31 @@
 			{pr.title}
 		</div>
 		<div class="pr-tags">
-			<Tag
+			<Button
+				size="tag"
+				clickable={false}
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.style}
 				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status' ? 'solid' : 'soft'}
 			>
 				{prStatusInfo.text}
-			</Tag>
+			</Button>
 			{#if !detailedPr?.closedAt && checksStatus !== null}
-				<Tag
+				<Button
+					size="tag"
+					clickable={false}
 					icon={checksTagInfo.icon}
 					style={checksTagInfo.style}
-					kind={checksTagInfo.icon == 'success-small' ? 'solid' : 'soft'}
+					kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
 				>
 					{checksTagInfo.text}
-				</Tag>
+				</Button>
 			{/if}
-			<Tag
+			<Button
+				size="tag"
 				icon="open-link"
 				style="ghost"
 				kind="solid"
-				clickable
 				shrinkable
 				on:click={(e) => {
 					const url = pr?.htmlUrl;
@@ -305,7 +308,7 @@
 				}}
 			>
 				Open in browser
-			</Tag>
+			</Button>
 		</div>
 
 		<!--
@@ -332,7 +335,7 @@
 					disabled={isFetchingChecks ||
 						isFetchingDetails ||
 						pr?.draft ||
-						(mergeableState != 'clean' && mergeableState != 'unstable')}
+						(mergeableState !== 'clean' && mergeableState !== 'unstable')}
 					loading={isMerging}
 					help="Merge pull request and refresh"
 					on:click={async (e) => {
@@ -360,33 +363,33 @@
 <style lang="postcss">
 	.pr-card {
 		position: relative;
-		padding: var(--size-14);
-		margin-bottom: var(--size-8);
+		padding: 14px;
+		margin-bottom: 8px;
 	}
 
 	.pr-title {
 		color: var(--clr-scale-ntrl-0);
-		margin-bottom: var(--size-12);
-		margin-right: var(--size-28);
+		margin-bottom: 12px;
+		margin-right: 28px;
 		user-select: text;
 		cursor: text;
 	}
 
 	.pr-tags {
 		display: flex;
-		gap: var(--size-4);
+		gap: 4px;
 	}
 
 	.pr-actions {
-		margin-top: var(--size-14);
+		margin-top: 14px;
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 
 	.floating-button {
 		position: absolute;
-		right: var(--size-6);
-		top: var(--size-6);
+		right: 6px;
+		top: 6px;
 	}
 </style>

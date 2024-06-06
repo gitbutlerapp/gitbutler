@@ -13,7 +13,7 @@
 	<!--TODO: Add project id -->
 	<FullviewLoading />
 {:then remoteBranches}
-	{#if remoteBranches.length == 0}
+	{#if remoteBranches.length === 0}
 		<ProblemLoadingRepo
 			error="Currently, GitButler requires a remote branch to base its virtual branch work on. To
 						use virtual branches, please push your code to a remote branch to use as a base"

@@ -160,9 +160,9 @@ export class AIService {
 		const anthropicKeyOption = await this.getAnthropicKeyOption();
 
 		const openAIActiveAndUsingButlerAPI =
-			modelKind == ModelKind.OpenAI && openAIKeyOption == KeyOption.ButlerAPI;
+			modelKind === ModelKind.OpenAI && openAIKeyOption === KeyOption.ButlerAPI;
 		const anthropicActiveAndUsingButlerAPI =
-			modelKind == ModelKind.Anthropic && anthropicKeyOption == KeyOption.ButlerAPI;
+			modelKind === ModelKind.Anthropic && anthropicKeyOption === KeyOption.ButlerAPI;
 
 		return openAIActiveAndUsingButlerAPI || anthropicActiveAndUsingButlerAPI;
 	}
@@ -176,10 +176,10 @@ export class AIService {
 
 		if (await this.usingGitButlerAPI()) return !!userToken;
 
-		const openAIActiveAndKeyProvided = modelKind == ModelKind.OpenAI && !!openAIKey;
-		const anthropicActiveAndKeyProvided = modelKind == ModelKind.Anthropic && !!anthropicKey;
+		const openAIActiveAndKeyProvided = modelKind === ModelKind.OpenAI && !!openAIKey;
+		const anthropicActiveAndKeyProvided = modelKind === ModelKind.Anthropic && !!anthropicKey;
 		const ollamaActiveAndEndpointProvided =
-			modelKind == ModelKind.Ollama && !!ollamaEndpoint && !!ollamaModelName;
+			modelKind === ModelKind.Ollama && !!ollamaEndpoint && !!ollamaModelName;
 
 		return (
 			openAIActiveAndKeyProvided || anthropicActiveAndKeyProvided || ollamaActiveAndEndpointProvided
@@ -200,13 +200,13 @@ export class AIService {
 			return new ButlerAIClient(this.cloud, userToken, modelKind);
 		}
 
-		if (modelKind == ModelKind.Ollama) {
+		if (modelKind === ModelKind.Ollama) {
 			const ollamaEndpoint = await this.getOllamaEndpoint();
 			const ollamaModelName = await this.getOllamaModelName();
 			return new OllamaClient(ollamaEndpoint, ollamaModelName);
 		}
 
-		if (modelKind == ModelKind.OpenAI) {
+		if (modelKind === ModelKind.OpenAI) {
 			const openAIModelName = await this.getOpenAIModleName();
 			const openAIKey = await this.getOpenAIKey();
 
@@ -221,7 +221,7 @@ export class AIService {
 			return new OpenAIClient(openAIModelName, openAI);
 		}
 
-		if (modelKind == ModelKind.Anthropic) {
+		if (modelKind === ModelKind.Anthropic) {
 			const anthropicModelName = await this.getAnthropicModelName();
 			const anthropicKey = await this.getAnthropicKey();
 
@@ -250,7 +250,7 @@ export class AIService {
 		const defaultedCommitTemplate = commitTemplate || aiClient.defaultCommitTemplate;
 
 		const prompt = defaultedCommitTemplate.map((promptMessage) => {
-			if (promptMessage.role != MessageRole.User) {
+			if (promptMessage.role !== MessageRole.User) {
 				return promptMessage;
 			}
 
@@ -289,7 +289,7 @@ export class AIService {
 		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
 		const defaultedBranchTemplate = branchTemplate || aiClient.defaultBranchTemplate;
 		const prompt = defaultedBranchTemplate.map((promptMessage) => {
-			if (promptMessage.role != MessageRole.User) {
+			if (promptMessage.role !== MessageRole.User) {
 				return promptMessage;
 			}
 

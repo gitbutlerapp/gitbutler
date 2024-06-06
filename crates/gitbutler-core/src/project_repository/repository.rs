@@ -7,6 +7,7 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 
 use super::conflicts;
+use crate::error::Code;
 use crate::{
     askpass,
     git::{self, Url},
@@ -14,23 +15,16 @@ use crate::{
     ssh, users,
     virtual_branches::{Branch, BranchId},
 };
-use crate::{error::Code, git::Oid};
 use crate::{git::RepositoryExt, virtual_branches::errors::Marker};
 
 pub struct Repository {
-    pub git_repository: git::Repository,
+    git_repository: git2::Repository,
     project: projects::Project,
 }
 
 impl Repository {
     pub fn open(project: &projects::Project) -> Result<Self> {
-        let repo = git::Repository::open(&project.path).map_err(|err| match err {
-            git::Error::NotFound(_) => anyhow::Error::from(err).context(format!(
-                "repository not found at \"{}\"",
-                project.path.display()
-            )),
-            other => other.into(),
-        })?;
+        let repo = git2::Repository::open(&project.path)?;
 
         // XXX(qix-): This is a temporary measure to disable GC on the project repository.
         // XXX(qix-): We do this because the internal repository we use to store the "virtual"
@@ -118,7 +112,7 @@ impl Repository {
     }
 
     pub fn git_index_size(&self) -> Result<usize, git::Error> {
-        let head = self.git_repository.index_size()?;
+        let head = self.git_repository.index()?.len();
         Ok(head)
     }
 
@@ -141,7 +135,7 @@ impl Repository {
         self.git_repository
             .branches(Some(git2::BranchType::Remote))?
             .flatten()
-            .map(|branch| {
+            .map(|(branch, _)| {
                 git::RemoteRefname::try_from(&branch)
                     .context("failed to convert branch to remote name")
             })
@@ -157,8 +151,12 @@ impl Repository {
     ) -> Result<()> {
         let target_branch_refname =
             git::Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
-        let branch = self.git_repository.find_branch(&target_branch_refname)?;
-        let commit_id: Oid = branch.get().peel_to_commit()?.id().into();
+        let branch = self
+            .git_repository
+            .find_branch_by_refname(&target_branch_refname)?
+            .ok_or(anyhow!("failed to find branch {}", target_branch_refname))?;
+
+        let commit_id: git2::Oid = branch.get().peel_to_commit()?.id();
 
         let now = crate::time::now_ms();
         let branch_name = format!("test-push-{now}");
@@ -188,21 +186,25 @@ impl Repository {
     }
 
     pub fn add_branch_reference(&self, branch: &Branch) -> Result<()> {
-        let (should_write, with_force) =
-            match self.git_repository.find_reference(&branch.refname().into()) {
-                Ok(reference) => match reference.target() {
-                    Some(head_oid) => Ok((head_oid != branch.head.into(), true)),
-                    None => Ok((true, true)),
-                },
-                Err(git::Error::NotFound(_)) => Ok((true, false)),
-                Err(error) => Err(error),
-            }
-            .context("failed to lookup reference")?;
+        let (should_write, with_force) = match self
+            .git_repository
+            .find_reference(&branch.refname().to_string())
+        {
+            Ok(reference) => match reference.target() {
+                Some(head_oid) => Ok((head_oid != branch.head, true)),
+                None => Ok((true, true)),
+            },
+            Err(err) => match err.code() {
+                git2::ErrorCode::NotFound => Ok((true, false)),
+                _ => Err(err),
+            },
+        }
+        .context("failed to lookup reference")?;
 
         if should_write {
             self.git_repository
                 .reference(
-                    &branch.refname().into(),
+                    &branch.refname().to_string(),
                     branch.head,
                     with_force,
                     "new vbranch",
@@ -214,21 +216,26 @@ impl Repository {
     }
 
     pub fn delete_branch_reference(&self, branch: &Branch) -> Result<()> {
-        match self.git_repository.find_reference(&branch.refname().into()) {
+        match self
+            .git_repository
+            .find_reference(&branch.refname().to_string())
+        {
             Ok(mut reference) => {
                 reference
                     .delete()
                     .context("failed to delete branch reference")?;
                 Ok(())
             }
-            Err(git::Error::NotFound(_)) => Ok(()),
-            Err(error) => Err(error),
+            Err(err) => match err.code() {
+                git2::ErrorCode::NotFound => Ok(()),
+                _ => Err(err),
+            },
         }
         .context("failed to lookup reference")
     }
 
     // returns a list of commit oids from the first oid to the second oid
-    pub fn l(&self, from: git::Oid, to: LogUntil) -> Result<Vec<git::Oid>> {
+    pub fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>> {
         match to {
             LogUntil::Commit(oid) => {
                 let mut revwalk = self
@@ -236,10 +243,10 @@ impl Repository {
                     .revwalk()
                     .context("failed to create revwalk")?;
                 revwalk
-                    .push(from.into())
+                    .push(from)
                     .context(format!("failed to push {}", from))?;
                 revwalk
-                    .hide(oid.into())
+                    .hide(oid)
                     .context(format!("failed to hide {}", oid))?;
                 revwalk
                     .map(|oid| oid.map(Into::into))
@@ -251,7 +258,7 @@ impl Repository {
                     .revwalk()
                     .context("failed to create revwalk")?;
                 revwalk
-                    .push(from.into())
+                    .push(from)
                     .context(format!("failed to push {}", from))?;
                 revwalk
                     .take(n)
@@ -264,16 +271,16 @@ impl Repository {
                     .revwalk()
                     .context("failed to create revwalk")?;
                 revwalk
-                    .push(from.into())
+                    .push(from)
                     .context(format!("failed to push {}", from))?;
-                let mut oids: Vec<git::Oid> = vec![];
+                let mut oids: Vec<git2::Oid> = vec![];
                 for oid in revwalk {
                     let oid = oid.context("failed to get oid")?;
-                    oids.push(oid.into());
+                    oids.push(oid);
 
                     let commit = self
                         .git_repository
-                        .find_commit(oid.into())
+                        .find_commit(oid)
                         .context("failed to find commit")?;
 
                     if cond(&commit).context("failed to check condition")? {
@@ -288,7 +295,7 @@ impl Repository {
                     .revwalk()
                     .context("failed to create revwalk")?;
                 revwalk
-                    .push(from.into())
+                    .push(from)
                     .context(format!("failed to push {}", from))?;
                 revwalk
                     .map(|oid| oid.map(Into::into))
@@ -299,11 +306,11 @@ impl Repository {
     }
 
     // returns a list of oids from the first oid to the second oid
-    pub fn list(&self, from: git::Oid, to: git::Oid) -> Result<Vec<git::Oid>> {
+    pub fn list(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Oid>> {
         self.l(from, LogUntil::Commit(to))
     }
 
-    pub fn list_commits(&self, from: git::Oid, to: git::Oid) -> Result<Vec<git2::Commit>> {
+    pub fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>> {
         Ok(self
             .list(from, to)?
             .into_iter()
@@ -312,7 +319,7 @@ impl Repository {
     }
 
     // returns a list of commits from the first oid to the second oid
-    pub fn log(&self, from: git::Oid, to: LogUntil) -> Result<Vec<git2::Commit>> {
+    pub fn log(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Commit>> {
         self.l(from, to)?
             .into_iter()
             .map(|oid| self.git_repository.find_commit(oid))
@@ -321,7 +328,7 @@ impl Repository {
     }
 
     // returns the number of commits between the first oid to the second oid
-    pub fn distance(&self, from: git::Oid, to: git::Oid) -> Result<u32> {
+    pub fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32> {
         let oids = self.l(from, LogUntil::Commit(to))?;
         Ok(oids.len().try_into()?)
     }
@@ -389,7 +396,7 @@ impl Repository {
         let headers = &[auth_header.as_str()];
         push_options.custom_headers(headers);
 
-        let mut remote = self.git_repository.remote_anonymous(&url)?;
+        let mut remote = self.git_repository.remote_anonymous(&url.to_string())?;
 
         remote
             .push(ref_specs, Some(&mut push_options))
@@ -419,7 +426,7 @@ impl Repository {
 
     pub fn push(
         &self,
-        head: &git::Oid,
+        head: &git2::Oid,
         branch: &git::RemoteRefname,
         with_force: bool,
         credentials: &git::credentials::Helper,
@@ -600,22 +607,28 @@ impl Repository {
     }
 
     pub fn remotes(&self) -> Result<Vec<String>> {
-        Ok(self.git_repository.remotes()?)
+        Ok(self.git_repository.remotes().map(|string_array| {
+            string_array
+                .iter()
+                .filter_map(|s| s.map(String::from))
+                .collect()
+        })?)
     }
 
     pub fn add_remote(&self, name: &str, url: &str) -> Result<()> {
-        Ok(self.git_repository.add_remote(name, url)?)
+        self.git_repository.remote(name, url)?;
+        Ok(())
     }
 
     pub fn repo(&self) -> &git2::Repository {
-        (&self.git_repository).into()
+        &self.git_repository
     }
 }
 
 type OidFilter = dyn Fn(&git2::Commit) -> Result<bool>;
 
 pub enum LogUntil {
-    Commit(git::Oid),
+    Commit(git2::Oid),
     Take(usize),
     When(Box<OidFilter>),
     End,

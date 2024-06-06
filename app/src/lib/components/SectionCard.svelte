@@ -36,9 +36,9 @@
 	class:top-divider={topDivider}
 	class:bottom-border={bottomBorder}
 	class:no-border={noBorder}
-	class:loading={background == 'loading'}
-	class:success={background == 'success'}
-	class:error={background == 'error'}
+	class:loading={background === 'loading'}
+	class:success={background === 'success'}
+	class:error={background === 'error'}
 	class:clickable={labelFor !== '' || clickable}
 	class:disabled
 	on:click
@@ -79,8 +79,8 @@
 	.section-card {
 		position: relative;
 		display: flex;
-		gap: var(--size-16);
-		padding: var(--size-16);
+		gap: 16px;
+		padding: 16px;
 		border-left-width: 1px;
 		border-right-width: 1px;
 		border-color: var(--clr-border-2);
@@ -104,14 +104,14 @@
 		background: var(--clr-theme-warn-bg);
 	}
 	.extra-padding {
-		padding: var(--size-20);
+		padding: 20px;
 	}
 
 	.section-card__content {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 		user-select: text;
 	}
 

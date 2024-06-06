@@ -1,16 +1,15 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
-	import Tag from './Tag.svelte';
 	import { Project } from '$lib/backend/projects';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
 	import { getContext } from '$lib/utils/context';
+	import { error } from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { onDestroy } from 'svelte';
-	import toast from 'svelte-french-toast';
 	import type { PullRequest } from '$lib/github/types';
 	import type { BaseBranch, RemoteBranch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
@@ -52,11 +51,11 @@
 				>
 					<Icon name="remote-branch-small" /> remote
 				</div>
-				<Tag
+				<Button
+					size="tag"
 					icon="open-link"
 					style="ghost"
 					kind="solid"
-					clickable
 					shrinkable
 					on:click={(e) => {
 						const url = base?.branchUrl(branch.name);
@@ -66,13 +65,14 @@
 					}}
 				>
 					{branch.displayName}
-				</Tag>
+				</Button>
 				{#if pr?.htmlUrl}
-					<Tag
+					<Button
+						size="tag"
+						clickable
 						icon="pr-small"
 						style="ghost"
 						kind="solid"
-						clickable
 						on:click={(e) => {
 							const url = pr?.htmlUrl;
 							if (url) openExternalUrl(url);
@@ -81,7 +81,7 @@
 						}}
 					>
 						View PR
-					</Tag>
+					</Button>
 				{/if}
 			</div>
 		</div>
@@ -100,7 +100,7 @@
 							goto(`/${project.id}/board`);
 						} catch (e) {
 							const err = 'Failed to apply branch';
-							toast.error(err);
+							error(err);
 							console.error(err, e);
 						} finally {
 							isApplying = false;
@@ -119,36 +119,36 @@
 	.header__wrapper {
 		z-index: var(--z-lifted);
 		position: sticky;
-		top: var(--size-12);
+		top: 12px;
 	}
 	.header {
 		z-index: var(--z-lifted);
 		position: relative;
 		flex-direction: column;
-		gap: var(--size-2);
+		gap: 2px;
 	}
 	.header__top-overlay {
 		z-index: var(--z-ground);
 		position: absolute;
-		top: calc(var(--size-16) * -1);
+		top: -16px;
 		left: 0;
 		width: 100%;
-		height: var(--size-20);
+		height: 20px;
 		background: var(--clr-bg-2);
 	}
 	.header__info {
 		display: flex;
 		flex-direction: column;
 		transition: margin var(--transition-slow);
-		padding: var(--size-10);
-		gap: var(--size-10);
+		padding: 10px;
+		gap: 10px;
 		overflow: hidden;
 	}
 	.header__actions {
 		display: flex;
-		gap: var(--size-4);
+		gap: 4px;
 		background: var(--clr-bg-2);
-		padding: var(--size-14);
+		padding: 14px;
 		justify-content: flex-end;
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 		user-select: none;
@@ -156,15 +156,15 @@
 	.header__buttons {
 		display: flex;
 		position: relative;
-		gap: var(--size-4);
+		gap: 4px;
 	}
 
 	.header__remote-branch {
 		color: var(--clr-scale-ntrl-50);
-		padding-left: var(--size-2);
-		padding-right: var(--size-2);
+		padding-left: 2px;
+		padding-right: 2px;
 		display: flex;
-		gap: var(--size-4);
+		gap: 4px;
 		text-overflow: ellipsis;
 		overflow-x: hidden;
 		white-space: nowrap;
@@ -175,8 +175,8 @@
 		cursor: default;
 		display: flex;
 		align-items: center;
-		gap: var(--size-2);
-		padding: var(--size-2) var(--size-6) var(--size-2) var(--size-4);
+		gap: 2px;
+		padding: 2px 6px 2px 4px;
 		border-radius: var(--radius-m);
 	}
 

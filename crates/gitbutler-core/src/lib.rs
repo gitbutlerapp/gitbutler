@@ -67,17 +67,16 @@ pub mod serde {
     }
 
     pub mod oid_opt {
-        use crate::git;
         use serde::{Deserialize, Deserializer, Serialize};
 
-        pub fn serialize<S>(v: &Option<git::Oid>, s: S) -> Result<S::Ok, S::Error>
+        pub fn serialize<S>(v: &Option<git2::Oid>, s: S) -> Result<S::Ok, S::Error>
         where
             S: serde::Serializer,
         {
             v.as_ref().map(|v| v.to_string()).serialize(s)
         }
 
-        pub fn deserialize<'de, D>(d: D) -> Result<Option<git::Oid>, D::Error>
+        pub fn deserialize<'de, D>(d: D) -> Result<Option<git2::Oid>, D::Error>
         where
             D: Deserializer<'de>,
         {
@@ -90,18 +89,44 @@ pub mod serde {
         }
     }
 
-    pub mod oid {
-        use crate::git;
+    pub mod oid_vec {
         use serde::{Deserialize, Deserializer, Serialize};
 
-        pub fn serialize<S>(v: &git::Oid, s: S) -> Result<S::Ok, S::Error>
+        pub fn serialize<S>(v: &[git2::Oid], s: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            let vec: Vec<String> = v.iter().map(|v| v.to_string()).collect();
+            vec.serialize(s)
+        }
+
+        pub fn deserialize<'de, D>(d: D) -> Result<Vec<git2::Oid>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let hex = <Vec<String> as Deserialize>::deserialize(d)?;
+            let hex: Result<Vec<git2::Oid>, D::Error> = hex
+                .into_iter()
+                .map(|v| {
+                    git2::Oid::from_str(v.as_str())
+                        .map_err(|err: git2::Error| serde::de::Error::custom(err.to_string()))
+                })
+                .collect();
+            hex
+        }
+    }
+
+    pub mod oid {
+        use serde::{Deserialize, Deserializer, Serialize};
+
+        pub fn serialize<S>(v: &git2::Oid, s: S) -> Result<S::Ok, S::Error>
         where
             S: serde::Serializer,
         {
             v.to_string().serialize(s)
         }
 
-        pub fn deserialize<'de, D>(d: D) -> Result<git::Oid, D::Error>
+        pub fn deserialize<'de, D>(d: D) -> Result<git2::Oid, D::Error>
         where
             D: Deserializer<'de>,
         {

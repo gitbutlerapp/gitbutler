@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Tag from '$lib/components/Tag.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { getContext } from '$lib/utils/context';
@@ -12,7 +12,8 @@
 	$: baseServiceBusy$ = baseBranchService.busy$;
 </script>
 
-<Tag
+<Button
+	size="tag"
 	clickable
 	reversedDirection
 	style="ghost"
@@ -34,10 +35,10 @@
 	{:else if $baseBranch?.lastFetched}
 		<TimeAgo date={$baseBranch?.lastFetched} />
 	{/if}
-</Tag>
+</Button>
 
 <style lang="postcss">
 	.sync-btn__busy-label {
-		padding-left: var(--size-4);
+		padding-left: 4px;
 	}
 </style>

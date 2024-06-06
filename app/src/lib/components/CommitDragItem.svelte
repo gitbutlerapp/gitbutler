@@ -29,9 +29,9 @@
 				return false;
 			}
 
-			if (data instanceof DraggableHunk && data.branchId == $branch.id) {
+			if (data instanceof DraggableHunk && data.branchId === $branch.id) {
 				return true;
-			} else if (data instanceof DraggableFile && data.branchId == $branch.id) {
+			} else if (data instanceof DraggableFile && data.branchId === $branch.id) {
 				return true;
 			} else {
 				return false;
@@ -70,7 +70,7 @@
 		}
 		return (data: any) => {
 			if (!(data instanceof DraggableCommit)) return false;
-			if (data.branchId != $branch.id) return false;
+			if (data.branchId !== $branch.id) return false;
 
 			if (data.commit.isParentOf(commit)) {
 				if (data.commit.isIntegrated) return false;
@@ -131,7 +131,7 @@
 		display: flex;
 		position: relative;
 		padding: 0;
-		gap: var(--size-8);
+		gap: 8px;
 		flex-grow: 1;
 		overflow: hidden;
 		&:last-child {

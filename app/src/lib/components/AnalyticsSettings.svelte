@@ -50,29 +50,29 @@
 	</div>
 
 	<div class="analytics-settings__actions">
-		<SectionCard labelFor="errorReportngToggle" on:click={toggleErrorReporting} orientation="row">
+		<SectionCard labelFor="errorReportingToggle" orientation="row">
 			<svelte:fragment slot="title">Error reporting</svelte:fragment>
 			<svelte:fragment slot="caption">
 				Toggle reporting of application crashes and errors.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<Toggle
-					id="errorReportngToggle"
+					id="errorReportingToggle"
 					checked={$errorReportingEnabled}
-					on:change={toggleErrorReporting}
+					on:click={toggleErrorReporting}
 				/>
 			</svelte:fragment>
 		</SectionCard>
 
-		<SectionCard labelFor="metricsEnabledToggle" on:click={toggleMetrics} orientation="row">
+		<SectionCard labelFor="metricsEnabledToggle" orientation="row">
 			<svelte:fragment slot="title">Usage metrics</svelte:fragment>
 			<svelte:fragment slot="caption">Toggle sharing of usage statistics.</svelte:fragment>
 			<svelte:fragment slot="actions">
-				<Toggle id="metricsEnabledToggle" checked={$metricsEnabled} on:change={toggleMetrics} />
+				<Toggle id="metricsEnabledToggle" checked={$metricsEnabled} on:click={toggleMetrics} />
 			</svelte:fragment>
 		</SectionCard>
 
-		<SectionCard labelFor="nonAnonMetricsEnabledToggle" on:click={toggleMetrics} orientation="row">
+		<SectionCard labelFor="nonAnonMetricsEnabledToggle" orientation="row">
 			<svelte:fragment slot="title">Non-anonymous usage metrics</svelte:fragment>
 			<svelte:fragment slot="caption"
 				>Toggle sharing of identifiable usage statistics.</svelte:fragment
@@ -81,7 +81,7 @@
 				<Toggle
 					id="nonAnonMetricsEnabledToggle"
 					checked={$nonAnonMetricsEnabled}
-					on:change={toggleNonAnonMetrics}
+					on:click={toggleNonAnonMetrics}
 				/>
 			</svelte:fragment>
 		</SectionCard>
@@ -92,13 +92,13 @@
 	.analytics-settings {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-28);
+		gap: 28px;
 	}
 
 	.analytics-settings__content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-16);
+		gap: 16px;
 	}
 
 	.analytics-settings__text {
@@ -108,6 +108,6 @@
 	.analytics-settings__actions {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
+		gap: 8px;
 	}
 </style>

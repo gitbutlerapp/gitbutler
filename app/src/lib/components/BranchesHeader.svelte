@@ -49,8 +49,8 @@
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
-		padding: var(--size-14) var(--size-14) var(--size-12) var(--size-14);
-		gap: var(--size-8);
+		padding: 14px 14px 12px 14px;
+		gap: 8px;
 		border-bottom: 1px solid transparent;
 		transition: border-bottom var(--transition-fast);
 		position: relative;
@@ -60,14 +60,14 @@
 	}
 	.filter-popup-menu {
 		position: absolute;
-		top: calc(var(--size-button) + var(--size-4));
+		top: calc(var(--size-button) + 4px);
 		right: 0;
 		z-index: var(--z-floating);
-		min-width: 10rem;
+		min-width: 160px;
 	}
 	.branches-title {
 		display: flex;
 		align-items: center;
-		gap: var(--size-4);
+		gap: 4px;
 	}
 </style>

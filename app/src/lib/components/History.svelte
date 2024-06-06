@@ -117,7 +117,7 @@
 			</div>
 
 			<!-- EMPTY STATE -->
-			{#if $snapshots.length == 0 && !$loading}
+			{#if $snapshots.length === 0 && !$loading}
 				<EmptyStatePlaceholder image={emptyFolderSvg}>
 					<svelte:fragment slot="title">No snapshots yet</svelte:fragment>
 					<svelte:fragment slot="caption">
@@ -128,7 +128,7 @@
 			{/if}
 
 			<!-- INITIAL LOADING -->
-			{#if $loading && $snapshots.length == 0}
+			{#if $loading && $snapshots.length === 0}
 				<FullviewLoading />
 			{/if}
 
@@ -139,7 +139,7 @@
 						<!-- SNAPSHOTS FEED -->
 						{#each $snapshots as entry, idx (entry.id)}
 							{@const withinRestoreItems = findRestorationRanges($snapshots)}
-							{#if idx === 0 || createdOnDay(entry.createdAt) != createdOnDay($snapshots[idx - 1].createdAt)}
+							{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1].createdAt)}
 								<div class="sideview__date-header">
 									<h4 class="text-base-13 text-semibold">
 										{createdOnDay(entry.createdAt)}
@@ -161,8 +161,8 @@
 									on:diffClick={async (filePath) => {
 										const path = filePath.detail;
 
-										if (snapshotFilesTempStore?.entryId == entry.id) {
-											if (selectedFile?.path == path) {
+										if (snapshotFilesTempStore?.entryId === entry.id) {
+											if (selectedFile?.path === path) {
 												currentFilePreview = undefined;
 												selectedFile = undefined;
 											} else {
@@ -240,15 +240,15 @@
 		overflow: hidden;
 		background-color: var(--clr-bg-1);
 		border-left: 1px solid var(--clr-border-2);
-		width: 28rem;
+		width: 448px;
 	}
 
 	/* SIDEVIEW HEADER */
 	.sideview__header {
 		display: flex;
 		align-items: center;
-		gap: var(--size-12);
-		padding: var(--size-10) var(--size-10) var(--size-10) var(--size-12);
+		gap: 12px;
+		padding: 10px 10px 10px 12px;
 		border-bottom: 1px solid var(--clr-border-2);
 	}
 
@@ -260,8 +260,8 @@
 	.clock-icon {
 		pointer-events: none;
 		position: relative;
-		width: var(--size-20);
-		height: var(--size-20);
+		width: 20px;
+		height: 20px;
 		background-color: #ffcf88;
 		border-radius: var(--radius-s);
 	}
@@ -272,18 +272,18 @@
 		left: 50%;
 		transform: translate(-50%, -50%);
 		border-radius: 100%;
-		width: 0.125rem;
-		height: 0.125rem;
+		width: 2px;
+		height: 2px;
 		background-color: #000;
 	}
 
 	.clock-pointer {
 		position: absolute;
-		bottom: -0.125rem;
+		bottom: -2px;
 		left: 50%;
 		transform-origin: bottom;
-		width: 0.125rem;
-		height: calc(var(--size-12) / 2);
+		width: 2px;
+		height: 6px;
 		background-color: #000;
 	}
 
@@ -317,10 +317,10 @@
 
 	/* DATE HEADER */
 	.sideview__date-header {
-		padding: var(--size-20) var(--size-14) var(--size-14) 6.8rem;
+		padding: 20px 14px 14px 108px;
 		border-top: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
-		margin-top: var(--size-12);
+		margin-top: 12px;
 
 		& h4 {
 			color: var(--clr-text-3);
@@ -338,22 +338,22 @@
 		z-index: var(--z-ground);
 		display: flex;
 		flex-direction: column;
-		width: 32rem;
+		width: 512px;
 		border-left: 1px solid var(--clr-border-2);
 	}
 
 	/* WELCOME POINT */
 	.welcome-point {
 		display: flex;
-		gap: var(--size-10);
-		padding: var(--size-12) var(--size-16) var(--size-32) 5.3rem;
+		gap: 10px;
+		padding: 12px 16px 32px 84px;
 	}
 
 	.welcome-point__content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-8);
-		margin-top: var(--size-4);
+		gap: 8px;
+		margin-top: 4px;
 	}
 
 	.welcome-point__caption {
@@ -363,7 +363,7 @@
 	.load-more {
 		display: flex;
 		justify-content: center;
-		padding: var(--size-24) var(--size-14);
+		padding: 24px 14px;
 	}
 
 	.load-more span {

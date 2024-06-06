@@ -46,8 +46,8 @@
 <style lang="postcss">
 	.setup-feature {
 		display: flex;
-		gap: var(--size-16);
-		padding: var(--size-20);
+		gap: 16px;
+		padding: 20px;
 	}
 	.disabled.setup-feature {
 		background: var(--clr-bg-2);
@@ -61,11 +61,11 @@
 		display: flex;
 		flex-direction: column;
 		flex-grow: 1;
-		gap: var(--size-10);
+		gap: 10px;
 	}
 
 	.setup-feature__title {
-		gap: var(--size-6);
+		gap: 6px;
 		line-height: 120%;
 	}
 
@@ -73,7 +73,7 @@
 		display: flex;
 		align-items: center;
 		width: 100%;
-		gap: var(--size-10);
+		gap: 10px;
 	}
 
 	.disabled .setup-feature__icon {
@@ -88,7 +88,7 @@
 
 	.setup-feature__row {
 		display: flex;
-		gap: var(--size-10);
+		gap: 10px;
 		align-items: center;
 	}
 
