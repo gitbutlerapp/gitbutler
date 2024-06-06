@@ -158,7 +158,7 @@
 						icon="bin-small">Delete</Button
 					>
 					<Button kind="solid" style="ghost" icon="edit-text" on:click={() => (editing = true)}
-						>Edit Prompt</Button
+						>Edit prompt</Button
 					>
 				{/if}
 			</div>
