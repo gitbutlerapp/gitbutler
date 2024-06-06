@@ -43,9 +43,9 @@
 	}
 
 	let signCommits = false;
-	async function setSignCommits(value: boolean) {
-		signCommits = value;
-		await gitConfig.setGbConfig(project.id, { signCommits: value });
+	async function setSignCommits() {
+		signCommits = !signCommits;
+		await gitConfig.setGbConfig(project.id, { signCommits: signCommits });
 	}
 
 	// gpg.format
@@ -128,11 +128,7 @@
 			GitButler will sign commits as per your git configuration.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<Toggle
-				id="signCommits"
-				bind:checked={signCommits}
-				on:change={async () => await setSignCommits(signCommits)}
-			/>
+			<Toggle id="signCommits" bind:checked={signCommits} on:click={setSignCommits} />
 		</svelte:fragment>
 	</SectionCard>
 	{#if signCommits}
