@@ -14,8 +14,6 @@
 	export let draggingDisabled: boolean = false;
 	export let tabSize = 4;
 
-	$: isSelected = selectable && selected;
-
 	const dispatch = createEventDispatcher<{
 		lineContextMenu: { lineNumber: number | undefined; event: MouseEvent };
 		selected: boolean;
@@ -39,6 +37,8 @@
 		});
 		return tokens;
 	}
+
+	$: isSelected = selectable && selected;
 </script>
 
 <div
@@ -85,6 +85,7 @@
 		</div>
 	{/each}
 </div>
+}
 
 <style lang="postcss">
 	.code-line {
@@ -96,8 +97,7 @@
 		white-space: pre;
 		tab-size: var(--tab-size);
 
-		font-size: 0.688rem;
-		line-height: 1.5;
+		font-size: 11px		line-height: 1.5;
 	}
 
 	.line {
@@ -115,12 +115,11 @@
 		color: var(--clr-text-3);
 		border-color: var(--clr-border-2);
 		background-color: var(--clr-bg-1-muted);
-		font-size: 0.625rem;
-		flex-shrink: 0;
+		font-size: 10px		flex-shrink: 0;
 		user-select: none;
 		border-right-width: 1px;
-		padding-left: 0.125rem;
-		padding-right: 0.125rem;
+		padding-left: 2px25rem;
+		padding-right: 2px;
 		text-align: right;
 		min-width: var(--minwidth);
 		cursor: var(--cursor);
@@ -135,7 +134,9 @@
 	.selectable-wrapper {
 		cursor: text;
 		display: inline-block;
-		text-indent: var(--size-4);
-		margin-right: var(--size-4);
+		text-indent: 4px var(--size-4);
+		margin-right: 4pxize-4);
 	}
+</style>
+
 </style>

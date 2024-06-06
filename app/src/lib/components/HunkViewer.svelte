@@ -2,6 +2,7 @@
 	import HunkContextMenu from './HunkContextMenu.svelte';
 	import HunkLines from './HunkLines.svelte';
 	import LargeDiffMessage from './LargeDiffMessage.svelte';
+	import Scrollbar from './Scrollbar.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableHunk } from '$lib/dragging/draggables';
@@ -104,6 +105,7 @@
 			{/if}
 		</div>
 	</div>
+	<Scrollbar {viewport} {contents} horz />
 </div>
 
 <style lang="postcss">
@@ -131,4 +133,5 @@
 		width: 100%;
 		min-width: max-content;
 	}
+</style>
 </style>
