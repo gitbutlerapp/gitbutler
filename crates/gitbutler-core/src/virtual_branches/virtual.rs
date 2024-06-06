@@ -575,12 +575,12 @@ pub fn reset_files(
 pub fn unapply_branch(
     project_repository: &project_repository::Repository,
     branch_id: BranchId,
-) -> Result<Option<branch::Branch>> {
+) -> Result<branch::Branch> {
     let vb_state = project_repository.project().virtual_branches();
 
     let mut target_branch = vb_state.get_branch(branch_id)?;
     if !target_branch.applied {
-        return Ok(Some(target_branch));
+        return Ok(target_branch);
     }
 
     let default_target = vb_state.get_default_target()?;
@@ -622,20 +622,8 @@ pub fn unapply_branch(
             .find(|(s, _)| s.id == target_branch.id)
             .context("failed to find status for branch");
 
-        if let Ok((branch, files)) = status {
+        if let Ok((_, files)) = status {
             update_conflict_markers(project_repository, files)?;
-            if files.is_empty() && branch.head == default_target.sha {
-                // if there is nothing to unapply, remove the branch straight away
-                vb_state
-                    .remove_branch(target_branch.id)
-                    .context("Failed to remove branch")?;
-
-                ensure_selected_for_changes(&vb_state)
-                    .context("failed to ensure selected for changes")?;
-
-                project_repository.delete_branch_reference(&target_branch)?;
-                return Ok(None);
-            }
 
             target_branch.tree = write_tree(project_repository, &target_branch.head, files)?;
             target_branch.applied = false;
@@ -684,7 +672,7 @@ pub fn unapply_branch(
 
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
-    Ok(Some(target_branch))
+    Ok(target_branch)
 }
 
 fn find_base_tree<'a>(
@@ -1383,7 +1371,8 @@ pub fn delete_branch(
         .project()
         .snapshot_branch_deletion(branch.name.clone());
 
-    if branch.applied && unapply_branch(project_repository, branch_id)?.is_none() {
+    // TODO: This is likly not the desired condition
+    if branch.applied {
         return Ok(());
     }
 
