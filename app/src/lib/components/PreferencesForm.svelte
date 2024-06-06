@@ -43,9 +43,9 @@
 	}
 
 	let signCommits = false;
-	async function setSignCommits(value: boolean) {
-		signCommits = value;
-		await gitConfig.setGbConfig(project.id, { signCommits: value });
+	async function setSignCommits() {
+		signCommits = !signCommits;
+		await gitConfig.setGbConfig(project.id, { signCommits: signCommits });
 	}
 
 	// gpg.format
@@ -118,7 +118,7 @@
 </script>
 
 <Section spacer>
-	<svelte:fragment slot="title">Commit Signing</svelte:fragment>
+	<svelte:fragment slot="title">Commit signing</svelte:fragment>
 	<svelte:fragment slot="description">
 		Use GPG or SSH to sign your commits so they can be verified as authentic.
 	</svelte:fragment>
@@ -128,11 +128,7 @@
 			GitButler will sign commits as per your git configuration.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<Toggle
-				id="signCommits"
-				bind:checked={signCommits}
-				on:change={async () => await setSignCommits(signCommits)}
-			/>
+			<Toggle id="signCommits" bind:checked={signCommits} on:click={setSignCommits} />
 		</svelte:fragment>
 	</SectionCard>
 	{#if signCommits}
@@ -143,7 +139,7 @@
 				itemId="value"
 				labelId="name"
 				on:select={updateSigningInfo}
-				label="Signing Format"
+				label="Signing format"
 			>
 				<SelectItem slot="template" let:item>
 					{item.name}
@@ -151,7 +147,7 @@
 			</Select>
 
 			<TextBox
-				label="Signing Key"
+				label="Signing key"
 				bind:value={signingKey}
 				required
 				on:change={updateSigningInfo}
@@ -159,7 +155,7 @@
 			/>
 
 			<TextBox
-				label="Signing Program (optional)"
+				label="Signing program (optional)"
 				bind:value={signingProgram}
 				on:change={updateSigningInfo}
 				placeholder="ex: /Applications/1Password.app/Contents/MacOS/op-ssh-sign"
@@ -186,9 +182,9 @@
 
 			<Button style="pop" kind="solid" wide icon="item-tick" on:click={checkSigning}>
 				{#if !checked}
-					Test Signing
+					Test signing
 				{:else}
-					Re-test Signing
+					Re-test signing
 				{/if}
 			</Button>
 			<SectionCardDisclaimer>

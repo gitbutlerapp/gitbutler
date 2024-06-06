@@ -11,6 +11,7 @@
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import { platform } from '@tauri-apps/api/os';
 	import { from } from 'rxjs';
+	import { env } from '$env/dynamic/public';
 
 	const platformName = from(platform());
 	const minResizerWidth = 280;
@@ -107,7 +108,7 @@
 		tabindex="0"
 	>
 		<!-- condition prevents split second UI shift -->
-		{#if $platformName}
+		{#if $platformName || env.PUBLIC_TESTING}
 			<div class="navigation-top">
 				{#if $platformName === 'darwin'}
 					<div class="drag-region" data-tauri-drag-region />

@@ -44,7 +44,7 @@
 			outDashed={base}
 			inDashed={base}
 		>
-			{#if author}
+			{#if author && (commitStatus === 'upstream' || relatedToOther)}
 				<Avatar
 					{author}
 					{sectionFirst}

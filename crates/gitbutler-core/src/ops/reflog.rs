@@ -366,7 +366,7 @@ mod set_target_ref {
         let mut index = repo.index()?;
         index.add_path(&PathBuf::from("foo.txt"))?;
         let oid = index.write_tree()?;
-        let name = "Your Name";
+        let name = "Your name";
         let email = "your.email@example.com";
         let signature = git2::Signature::now(name, email)?;
         let commit_id = repo.commit(
