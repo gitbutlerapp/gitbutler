@@ -85,7 +85,6 @@
 		</div>
 	{/each}
 </div>
-}
 
 <style lang="postcss">
 	.code-line {
