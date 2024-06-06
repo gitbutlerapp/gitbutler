@@ -15,7 +15,6 @@
 		title: string;
 	};
 
-	// Create a derived store that maps the projects to a simpler structure
 	const mappedProjects = derived(projectService.projects, ($projects) =>
 		$projects.map((project) => ({
 			id: project.id,

@@ -1,30 +1,29 @@
 <script lang="ts" context="module">
-	export type SelectItemType<S extends string> = Record<S, unknown>;
+	export type Selectable<S extends string> = Record<S, unknown>;
 </script>
 
-<script lang="ts" generics="SelectItemType extends Record<string, unknown>">
+<script lang="ts" generics="Selectable extends Record<string, unknown>">
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import TextBox from './TextBox.svelte';
 	import { clickOutside } from '$lib/clickOutside';
-	import { filterStringByKey } from '$lib/utils/filters';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { throttle } from '$lib/utils/misc';
 	import { pxToRem } from '$lib/utils/pxToRem';
-	import { isChar } from '$lib/utils/string';
+	import { isChar, isStr } from '$lib/utils/string';
 	import { createEventDispatcher } from 'svelte';
 
 	const INPUT_THROTTLE_TIME = 100;
 
-	type SelectItemKeyType = keyof SelectItemType;
+	type SelectableKey = keyof Selectable;
 
 	export let id: undefined | string = undefined;
 	export let label = '';
 	export let disabled = false;
 	export let loading = false;
 	export let wide = false;
-	export let items: SelectItemType[];
-	export let labelId: SelectItemKeyType = 'label';
-	export let itemId: SelectItemKeyType = 'value';
+	export let items: Selectable[];
+	export let labelId: SelectableKey = 'label';
+	export let itemId: SelectableKey = 'value';
 	export let value: any = undefined;
 	export let selectedItemId: any = undefined;
 	export let placeholder = '';
@@ -40,20 +39,27 @@
 	let element: HTMLElement;
 	let options: HTMLDivElement;
 	let highlightIndex: number | undefined = undefined;
-	let highlightedItem: SelectItemType | undefined = undefined;
+	let highlightedItem: Selectable | undefined = undefined;
 	let filterText: string | undefined = undefined;
-	let filteredItems: SelectItemType[] = items;
+	let filteredItems: Selectable[] = items;
 
-	$: filterText === undefined
-		? (filteredItems = items)
-		: (filteredItems = filterStringByKey(items, labelId, filterText));
+	function filterItems(items: Selectable[], filterText: string | undefined) {
+		if (!filterText) {
+			return items;
+		}
 
-	// Set highlighted item based on index
-	$: highlightIndex !== undefined
-		? (highlightedItem = filteredItems[highlightIndex])
-		: (highlightedItem = undefined);
+		return items.filter((it) => {
+			const property = it[labelId];
+			if (!isStr(property)) return false;
+			return property.includes(filterText);
+		});
+	}
 
-	function handleItemClick(item: SelectItemType) {
+	$: filteredItems = filterItems(items, filterText);
+
+	$: highlightedItem = highlightIndex !== undefined ? filteredItems[highlightIndex] : undefined;
+
+	function handleItemClick(item: Selectable) {
 		if (item?.selectable === false) return;
 		if (value && value[itemId] === item[itemId]) return closeList();
 		selectedItemId = item[itemId];
@@ -123,14 +129,14 @@
 		filterText = filterText.slice(0, -1);
 	}, INPUT_THROTTLE_TIME);
 
-	function handleKeyDown(event: CustomEvent<KeyboardEvent>) {
+	function handleKeyDown(e: CustomEvent<KeyboardEvent>) {
 		if (!listOpen) {
 			return;
 		}
-		event.detail.stopPropagation();
-		event.detail.preventDefault();
+		e.detail.stopPropagation();
+		e.detail.preventDefault();
 
-		const { key } = event.detail;
+		const { key } = e.detail;
 		switch (key) {
 			case KeyName.Escape:
 				closeList();
