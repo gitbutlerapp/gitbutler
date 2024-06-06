@@ -89,7 +89,7 @@
 						try {
 							if (!project) return;
 							for (let file of item.files) {
-								const absPath = await join(project.path, file.path);
+								const absPath = await join(project.vscodePath, file.path);
 								open(`${editor.get()}://file${absPath}`);
 							}
 							dismiss();

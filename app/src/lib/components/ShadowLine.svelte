@@ -57,10 +57,19 @@
 			);
 		}
 		&.tip {
-			bottom: calc(100% - 52px);
+			bottom: calc(100% - 54px);
 		}
 		&.upstream {
 			background-color: var(--clr-commit-upstream);
+			&.dashed {
+				background: repeating-linear-gradient(
+					0,
+					transparent,
+					transparent 0.1875rem,
+					var(--clr-commit-upstream) 0.1875rem,
+					var(--clr-commit-upstream) 0.4375rem
+				);
+			}
 		}
 	}
 </style>
