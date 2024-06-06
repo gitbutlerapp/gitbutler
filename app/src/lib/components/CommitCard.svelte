@@ -102,7 +102,7 @@
 	}
 </script>
 
-<Modal bind:this={commitMessageModal}>
+<Modal bind:this={commitMessageModal} width="small">
 	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
 	<svelte:fragment slot="controls">
 		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}>Cancel</Button>
