@@ -50,7 +50,7 @@
 	labelId="name"
 	disabled={allPrompts.length === 1}
 	wide={true}
-	label={promptUse === 'commits' ? 'Commit Message' : 'Branch Name'}
+	label={promptUse === 'commits' ? 'Commit message' : 'Branch name'}
 >
 	<SelectItem slot="template" let:item let:selected {selected}>
 		{item.name}

@@ -220,14 +220,14 @@ impl Controller {
         let project = self.projects_storage.get(id)?;
 
         let repo = project_repository::Repository::open(&project)?;
-        Ok(repo.config().get_local(key)?)
+        repo.config().get_local(key)
     }
 
     pub fn set_local_config(&self, id: ProjectId, key: &str, value: &str) -> Result<()> {
         let project = self.projects_storage.get(id)?;
 
         let repo = project_repository::Repository::open(&project)?;
-        Ok(repo.config().set_local(key, value)?)
+        repo.config().set_local(key, value)
     }
 
     pub fn check_signing_settings(&self, id: ProjectId) -> Result<bool> {

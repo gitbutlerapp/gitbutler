@@ -47,13 +47,15 @@
 
 	let baseIsUnfolded = false;
 
-	function getRemoteOutType(commit: Commit): CommitStatus | undefined {
+	function getOutType(commit: Commit): CommitStatus | undefined {
 		if (!hasShadowedCommits) {
+			if (!commit.next) {
+				return $unknownCommits.length > 0 ? 'upstream' : undefined;
+			}
 			const childStatus = commit.next?.status;
 			return childStatus !== 'local' ? childStatus : undefined;
 		}
 
-		// TODO: Consider introducing `relatedParent` and `relatedChildren`
 		let pointer: Commit | undefined = commit;
 		let upstreamCommit = commit.relatedTo;
 
@@ -69,10 +71,23 @@
 		if (hasUnknownCommits) return 'upstream';
 	}
 
-	function getRemoteInType(commit: Commit): CommitStatus | undefined {
-		if (commit.prev) return getRemoteOutType(commit.prev || commit);
+	function getBaseShadowOutType(): CommitStatus | undefined {
+		if (!isRebased) return;
+		if (hasIntegratedCommits) return 'integrated';
+		if (hasShadowedCommits) return 'remote';
+		if (hasUnknownCommits) return 'upstream';
+	}
+
+	function getBaseRemoteOutType(): CommitStatus | undefined {
+		if (isRebased) return;
+		if (firstCommit && firstCommit.status !== 'local') return firstCommit.status;
+	}
+
+	function getInType(commit: Commit): CommitStatus | undefined {
+		if (commit.prev) return getOutType(commit.prev || commit);
 		if (commit.status === 'remote' || commit.relatedTo) return 'remote';
 		if (commit.status === 'integrated') return 'integrated';
+		if (commit) return getOutType(commit);
 	}
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
@@ -161,10 +176,10 @@
 							help={getAvatarTooltip(commit)}
 							shadowHelp={getAvatarTooltip(commit.relatedTo)}
 							outDashed={hasLocalColumn && idx === 0}
-							remoteIn={!isRebased ? getRemoteInType(commit) : undefined}
-							remoteOut={!isRebased ? getRemoteOutType(commit) : undefined}
-							shadowIn={isRebased ? getRemoteInType(commit) : undefined}
-							shadowOut={isRebased ? getRemoteOutType(commit) : undefined}
+							remoteIn={!isRebased ? getInType(commit) : undefined}
+							remoteOut={!isRebased ? getOutType(commit) : undefined}
+							shadowIn={isRebased ? getInType(commit) : undefined}
+							shadowOut={isRebased ? getOutType(commit) : undefined}
 							relatedToOther={commit?.relatedTo && commit.relatedTo.id !== commit.id}
 							remoteRoot={idx === $localCommits.length - 1}
 							last={idx === $localCommits.length - 1 && !hasRemoteCommits && !hasIntegratedCommits}
@@ -210,10 +225,10 @@
 							integrated={commit.isIntegrated}
 							localRoot={idx === 0 && hasLocalCommits}
 							outDashed={idx === 0 && commit.prev?.status === 'local'}
-							remoteIn={!isRebased ? getRemoteInType(commit) : undefined}
-							remoteOut={!isRebased ? getRemoteOutType(commit) : undefined}
-							shadowIn={isRebased ? getRemoteInType(commit) : undefined}
-							shadowOut={isRebased ? getRemoteOutType(commit) : undefined}
+							remoteIn={!isRebased ? getInType(commit) : undefined}
+							remoteOut={!isRebased ? getOutType(commit) : undefined}
+							shadowIn={isRebased ? getInType(commit) : undefined}
+							shadowOut={isRebased ? getOutType(commit) : undefined}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -249,10 +264,10 @@
 							sectionFirst={idx === 0}
 							commitStatus={commit.status}
 							help={getAvatarTooltip(commit)}
-							shadowIn={isRebased ? getRemoteInType(commit) : undefined}
-							shadowOut={isRebased ? getRemoteOutType(commit) : undefined}
-							remoteIn={!isRebased ? getRemoteInType(commit) : undefined}
-							remoteOut={!isRebased ? getRemoteOutType(commit) : undefined}
+							shadowIn={isRebased ? getInType(commit) : undefined}
+							shadowOut={isRebased ? getOutType(commit) : undefined}
+							remoteIn={!isRebased ? getInType(commit) : undefined}
+							remoteOut={!isRebased ? getOutType(commit) : undefined}
 							integrated={true}
 							localRoot={idx === 0 && !hasRemoteCommits && hasLocalCommits}
 						/>
@@ -274,13 +289,8 @@
 						{hasLocalColumn}
 						{isRebased}
 						localRoot={!hasRemoteCommits && !hasIntegratedCommits && hasLocalCommits}
-						shadowOut={isRebased && firstCommit ? getRemoteInType(firstCommit) : undefined}
-						remoteOut={!isRebased &&
-						(hasIntegratedCommits || hasRemoteCommits || hasShadowedCommits)
-							? 'remote'
-							: !isRebased && hasUnknownCommits
-								? 'upstream'
-								: undefined}
+						shadowOut={getBaseShadowOutType()}
+						remoteOut={getBaseRemoteOutType()}
 						base
 					/>
 				</div>
@@ -355,7 +365,7 @@
 
 	.base-row__lines {
 		display: flex;
-		margin-top: -8px;
+		margin-top: -9px;
 	}
 
 	.base-row__content {

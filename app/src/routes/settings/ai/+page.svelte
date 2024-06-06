@@ -187,14 +187,14 @@
 					{/if}
 
 					{#if openAIKeyOption === KeyOption.BringYourOwn}
-						<TextBox label="API Key" bind:value={openAIKey} required placeholder="sk-..." />
+						<TextBox label="API key" bind:value={openAIKey} required placeholder="sk-..." />
 
 						<Select
 							items={openAIModelOptions}
 							bind:selectedItemId={openAIModelName}
 							itemId="value"
 							labelId="name"
-							label="Model Version"
+							label="Model version"
 						>
 							<SelectItem slot="template" let:item>
 								{item.name}
@@ -250,7 +250,7 @@
 
 					{#if anthropicKeyOption === KeyOption.BringYourOwn}
 						<TextBox
-							label="API Key"
+							label="API key"
 							bind:value={anthropicKey}
 							required
 							placeholder="sk-ant-api03-..."
@@ -261,7 +261,7 @@
 							bind:selectedItemId={anthropicModelName}
 							itemId="value"
 							labelId="name"
-							label="Model Version"
+							label="Model version"
 						>
 							<SelectItem slot="template" let:item>
 								{item.name}

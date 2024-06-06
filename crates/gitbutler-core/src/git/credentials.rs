@@ -86,8 +86,6 @@ pub enum HelpError {
     #[error(transparent)]
     Git(#[from] git2::Error),
     #[error(transparent)]
-    GbGit(#[from] super::Error),
-    #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
 
