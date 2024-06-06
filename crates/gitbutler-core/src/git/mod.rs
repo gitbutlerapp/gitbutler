@@ -1,9 +1,6 @@
 pub mod credentials;
 pub mod diff;
 
-mod error;
-pub use error::*;
-
 mod reference;
 pub use reference::*;
 
