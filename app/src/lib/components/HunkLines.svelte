@@ -1,14 +1,8 @@
 <script lang="ts">
-	import HunkContextMenu from './HunkContextMenu.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { create } from '$lib/components/Differ/CodeHighlighter';
-	import { getContext } from '$lib/utils/context';
 	import { SectionType } from '$lib/utils/fileSections';
-	import { onDestroy } from 'svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type { Line } from '$lib/utils/fileSections';
-	import type { ContentSection } from '$lib/utils/fileSections';
-	import type { Hunk } from '$lib/vbranches/types';
 
 	export let lines: Line[];
 	export let sectionType: SectionType;
@@ -19,25 +13,13 @@
 	export let readonly: boolean = false;
 	export let draggingDisabled: boolean = false;
 	export let tabSize = 4;
-	export let hunk: Hunk;
-	export let subsection: ContentSection;
 
 	$: isSelected = selectable && selected;
-	$: popupMenu = updateContextMenu(filePath);
-
-	const project = getContext(Project);
 
 	const dispatch = createEventDispatcher<{
+		lineContextMenu: { lineNumber: number | undefined; event: MouseEvent };
 		selected: boolean;
 	}>();
-
-	function updateContextMenu(filePath: string) {
-		if (popupMenu) popupMenu.$destroy();
-		return new HunkContextMenu({
-			target: document.body,
-			props: { projectPath: project.vscodePath, filePath, readonly }
-		});
-	}
 
 	function toTokens(inputLine: string): string[] {
 		function sanitize(text: string) {
@@ -57,12 +39,6 @@
 		});
 		return tokens;
 	}
-
-	onDestroy(() => {
-		if (popupMenu) {
-			popupMenu.$destroy();
-		}
-	});
 </script>
 
 <div
@@ -75,15 +51,11 @@
 		<div
 			class="code-line"
 			role="group"
-			on:contextmenu={(e) => {
+			on:contextmenu={(event) => {
 				const lineNumber = line.afterLineNumber
 					? line.afterLineNumber
 					: line.beforeLineNumber;
-				popupMenu.openByMouse(e, {
-					hunk,
-					lineNumber,
-					section: subsection
-				});
+				dispatch('lineContextMenu', { event, lineNumber });
 			}}
 		>
 			<div class="code-line__numbers-line">
