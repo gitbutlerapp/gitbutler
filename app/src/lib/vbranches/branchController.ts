@@ -68,7 +68,7 @@ export class BranchController {
 				showToast({
 					title: 'Failed to commit due to signing error',
 					message: `
-You can disable commit signing in the project settings or review the signing setup within your git configuration.
+Signing is now disabled, so subsequent commits will not fail. You can configure commit signing in the project settings.
 
 Please check our [documentation](https://docs.gitbutler.com/features/virtual-branches/verifying-commits) on setting up commit signing and verification.
 					`,
