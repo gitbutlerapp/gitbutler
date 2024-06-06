@@ -118,7 +118,7 @@
 </script>
 
 <Section spacer>
-	<svelte:fragment slot="title">Commit Signing</svelte:fragment>
+	<svelte:fragment slot="title">Commit signing</svelte:fragment>
 	<svelte:fragment slot="description">
 		Use GPG or SSH to sign your commits so they can be verified as authentic.
 	</svelte:fragment>
@@ -143,7 +143,7 @@
 				itemId="value"
 				labelId="name"
 				on:select={updateSigningInfo}
-				label="Signing Format"
+				label="Signing format"
 			>
 				<SelectItem slot="template" let:item>
 					{item.name}
@@ -151,7 +151,7 @@
 			</Select>
 
 			<TextBox
-				label="Signing Key"
+				label="Signing key"
 				bind:value={signingKey}
 				required
 				on:change={updateSigningInfo}
@@ -159,7 +159,7 @@
 			/>
 
 			<TextBox
-				label="Signing Program (optional)"
+				label="Signing program (optional)"
 				bind:value={signingProgram}
 				on:change={updateSigningInfo}
 				placeholder="ex: /Applications/1Password.app/Contents/MacOS/op-ssh-sign"
@@ -186,9 +186,9 @@
 
 			<Button style="pop" kind="solid" wide icon="item-tick" on:click={checkSigning}>
 				{#if !checked}
-					Test Signing
+					Test signing
 				{:else}
-					Re-test Signing
+					Re-test signing
 				{/if}
 			</Button>
 			<SectionCardDisclaimer>

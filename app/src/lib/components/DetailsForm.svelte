@@ -33,7 +33,7 @@
 			<TextBox label="Path" readonly id="path" value={project?.path} />
 			<section class="description-wrapper">
 				<TextBox
-					label="Project Name"
+					label="Project name"
 					id="name"
 					placeholder="Project name can't be empty"
 					bind:value={title}
