@@ -206,7 +206,7 @@
 							<span
 								>{getTimeAgo(commit.createdAt)}{type === 'remote' || type === 'upstream'
 									? ` by ${commit.author.name}`
-									: ''}</span
+									: ' by you'}</span
 							>
 						</div>
 					{/if}
