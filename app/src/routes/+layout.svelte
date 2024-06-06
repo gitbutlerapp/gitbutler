@@ -79,7 +79,7 @@
 			event.preventDefault();
 			userSettings.update((s) => ({
 				...s,
-				theme: $userSettings.theme == 'light' ? 'dark' : 'light'
+				theme: $userSettings.theme === 'light' ? 'dark' : 'light'
 			}));
 		}
 		if (event.key === 'Backspace') {
