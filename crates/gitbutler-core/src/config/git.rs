@@ -4,7 +4,7 @@ use git2::ConfigLevel;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GbConfig {
     pub sign_commits: Option<bool>,
