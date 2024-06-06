@@ -253,7 +253,7 @@ jobs:
 
   check-rust-windows:
     needs: changes
-    runs-on: windows-latest
+    runs-on: windows-fast
     if: ${{ needs.changes.outputs.rust == 'true' }}
     steps:
       - uses: actions/checkout@v3
