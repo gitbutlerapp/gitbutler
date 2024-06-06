@@ -26,7 +26,7 @@ fn unix_epoch() -> SystemTime {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Oplog {
     /// This is the sha of the last oplog commit
-    #[serde(with = "crate::serde::oid_opt")]
+    #[serde(with = "crate::serde::oid_opt", default)]
     pub head_sha: Option<git2::Oid>,
     /// The time when the last snapshot was created. Seconds since Epoch
     #[serde(

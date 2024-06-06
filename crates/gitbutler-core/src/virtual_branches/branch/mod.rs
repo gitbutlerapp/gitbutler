@@ -24,7 +24,7 @@ pub struct Branch {
     pub applied: bool,
     pub upstream: Option<git::RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
-    #[serde(with = "crate::serde::oid_opt")]
+    #[serde(with = "crate::serde::oid_opt", default)]
     pub upstream_head: Option<git2::Oid>,
     #[serde(
         serialize_with = "serialize_u128",

@@ -39,7 +39,7 @@ pub struct RemoteBranchData {
     pub upstream: Option<git::RemoteRefname>,
     pub behind: u32,
     pub commits: Vec<RemoteCommit>,
-    #[serde(with = "crate::serde::oid_opt")]
+    #[serde(with = "crate::serde::oid_opt", default)]
     pub fork_point: Option<git2::Oid>,
 }
 

@@ -256,7 +256,7 @@ pub fn update_gitbutler_integration(
 
     // finally, update the refs/gitbutler/ heads to the states of the current virtual branches
     for branch in &all_virtual_branches {
-        let wip_tree = repo.find_tree(branch.head)?;
+        let wip_tree = repo.find_tree(branch.tree)?;
         let mut branch_head = repo.find_commit(branch.head)?;
         let head_tree = branch_head.tree()?;
 

@@ -77,7 +77,7 @@ pub struct VirtualBranch {
     #[serde(with = "crate::serde::oid")]
     pub merge_base: git2::Oid,
     /// The fork point between the target branch and the virtual branch
-    #[serde(with = "crate::serde::oid_opt")]
+    #[serde(with = "crate::serde::oid_opt", default)]
     pub fork_point: Option<git2::Oid>,
 }
 
@@ -264,7 +264,7 @@ pub fn apply_branch(
             .context("failed to find merge base tree")?;
 
         let branch_tree = repo
-            .find_tree(branch.head)
+            .find_tree(branch.tree)
             .context("failed to find branch tree")?;
 
         let mut merge_index = repo
@@ -413,7 +413,7 @@ pub fn apply_branch(
     let wd_tree = project_repository.repo().get_wd_tree()?;
 
     let branch_tree = repo
-        .find_tree(branch.head)
+        .find_tree(branch.tree)
         .context("failed to find branch tree")?;
 
     // check index for conflicts
@@ -1580,7 +1580,7 @@ fn get_non_applied_status(
             }
             let branch_tree = project_repository
                 .repo()
-                .find_tree(branch.head)
+                .find_tree(branch.tree)
                 .context(format!("failed to find tree {}", branch.tree))?;
 
             let head_tree = project_repository
@@ -2598,7 +2598,7 @@ pub fn is_virtual_branch_mergeable(
     // determine if this tree is mergeable
     let branch_tree = project_repository
         .repo()
-        .find_tree(branch.head)
+        .find_tree(branch.tree)
         .context("failed to find branch tree")?;
 
     let is_mergeable = !project_repository
