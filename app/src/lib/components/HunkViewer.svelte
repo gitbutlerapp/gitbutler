@@ -134,4 +134,3 @@
 		min-width: max-content;
 	}
 </style>
-</style>

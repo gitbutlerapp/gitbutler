@@ -52,7 +52,9 @@
 			class="code-line"
 			role="group"
 			on:contextmenu={(event) => {
-				const lineNumber = line.afterLineNumber ? line.afterLineNumber : line.beforeLineNumber;
+				const lineNumber = line.afterLineNumber
+					? line.afterLineNumber
+					: line.beforeLineNumber;
 				dispatch('lineContextMenu', { event, lineNumber });
 			}}
 		>
@@ -97,7 +99,8 @@
 		white-space: pre;
 		tab-size: var(--tab-size);
 
-		font-size: 11px		line-height: 1.5;
+		font-size: 11px;
+		line-height: 1.5;
 	}
 
 	.line {
@@ -115,10 +118,11 @@
 		color: var(--clr-text-3);
 		border-color: var(--clr-border-2);
 		background-color: var(--clr-bg-1-muted);
-		font-size: 10px		flex-shrink: 0;
+		font-size: 10px;
+		flex-shrink: 0;
 		user-select: none;
 		border-right-width: 1px;
-		padding-left: 2px25rem;
+		padding-left: 2px;
 		padding-right: 2px;
 		text-align: right;
 		min-width: var(--minwidth);
@@ -134,9 +138,7 @@
 	.selectable-wrapper {
 		cursor: text;
 		display: inline-block;
-		text-indent: 4px var(--size-4);
-		margin-right: 4pxize-4);
+		text-indent: 4px;
+		margin-right: 4px;
 	}
-</style>
-
 </style>
