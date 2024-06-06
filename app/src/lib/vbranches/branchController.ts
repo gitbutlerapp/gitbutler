@@ -65,16 +65,7 @@ export class BranchController {
 			posthog.capture('Commit Successful');
 		} catch (err: any) {
 			if (err.code === 'errors.commit.signing_failed') {
-				showToast({
-					title: 'Failed to commit due to signing error',
-					message: `
-Signing is now disabled, so subsequent commits will not fail. You can configure commit signing in the project settings.
-
-Please check our [documentation](https://docs.gitbutler.com/features/virtual-branches/verifying-commits) on setting up commit signing and verification.
-					`,
-					error: err.message,
-					style: 'error'
-				});
+				showSignError(err);
 			} else {
 				showError('Failed to commit changes', err);
 			}
@@ -290,7 +281,12 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 				targetCommitOid
 			});
 		} catch (err: any) {
-			showError('Failed to cherry-pick commit', err);
+			// TODO: Probably we wanna have error code checking in a more generic way
+			if (err.code === 'errors.commit.signing_failed') {
+				showSignError(err);
+			} else {
+				showError('Failed to cherry-pick commit', err);
+			}
 		} finally {
 			this.targetBranchService.reload();
 		}
@@ -312,7 +308,12 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 				targetCommitOid
 			});
 		} catch (err: any) {
-			showError('Failed to squash commit', err);
+			// TODO: Probably we wanna have error code checking in a more generic way
+			if (err.code === 'errors.commit.signing_failed') {
+				showSignError(err);
+			} else {
+				showError('Failed to squash commit', err);
+			}
 		}
 	}
 
@@ -369,7 +370,12 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 				message
 			});
 		} catch (err: any) {
-			showError('Failed to change commit message', err);
+			// TODO: Probably we wanna have error code checking in a more generic way
+			if (err.code === 'errors.commit.signing_failed') {
+				showSignError(err);
+			} else {
+				showError('Failed to change commit message', err);
+			}
 		}
 	}
 
@@ -382,7 +388,12 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 				offset
 			});
 		} catch (err: any) {
-			showError('Failed to insert blank commit', err);
+			// TODO: Probably we wanna have error code checking in a more generic way
+			if (err.code === 'errors.commit.signing_failed') {
+				showSignError(err);
+			} else {
+				showError('Failed to insert blank commit', err);
+			}
 		}
 	}
 
@@ -395,7 +406,12 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 				offset
 			});
 		} catch (err: any) {
-			showError('Failed to reorder blank commit', err);
+			// TODO: Probably we wanna have error code checking in a more generic way
+			if (err.code === 'errors.commit.signing_failed') {
+				showSignError(err);
+			} else {
+				showError('Failed to reorder blank commit', err);
+			}
 		}
 	}
 
@@ -407,7 +423,25 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 				commitOid
 			});
 		} catch (err: any) {
-			showError('Failed to move commit', err);
+			// TODO: Probably we wanna have error code checking in a more generic way
+			if (err.code === 'errors.commit.signing_failed') {
+				showSignError(err);
+			} else {
+				showError('Failed to move commit', err);
+			}
 		}
 	}
+}
+
+function showSignError(err: any) {
+	showToast({
+		title: 'Failed to commit due to signing error',
+		message: `
+Signing is now disabled, so subsequent commits will not fail. You can configure commit signing in the project settings.
+
+Please check our [documentation](https://docs.gitbutler.com/features/virtual-branches/verifying-commits) on setting up commit signing and verification.
+					`,
+		error: err.message,
+		style: 'error'
+	});
 }
