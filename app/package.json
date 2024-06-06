@@ -3,6 +3,9 @@
 	"private": true,
 	"version": "0.0.0",
 	"type": "module",
+	"engines": {
+		"node": "=20.14"
+	},
 	"scripts": {
 		"dev": "vite dev",
 		"test": "vitest run --mode development",
@@ -86,7 +89,6 @@
 		"svelte-floating-ui": "^1.5.8",
 		"svelte-french-toast": "^1.2.0",
 		"svelte-loadable-store": "^2.0.1",
-		"svelte-outclick": "^3.7.1",
 		"svelte-resize-observer": "^2.0.0",
 		"tauri-plugin-context-menu": "^0.7.0",
 		"tauri-plugin-log-api": "github:tauri-apps/tauri-plugin-log#v1",

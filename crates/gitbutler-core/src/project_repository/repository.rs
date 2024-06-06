@@ -111,12 +111,12 @@ impl Repository {
         self.project = project.clone();
     }
 
-    pub fn git_index_size(&self) -> Result<usize, git::Error> {
+    pub fn git_index_size(&self) -> Result<usize> {
         let head = self.git_repository.index()?.len();
         Ok(head)
     }
 
-    pub fn get_head(&self) -> Result<git2::Reference, git::Error> {
+    pub fn get_head(&self) -> Result<git2::Reference> {
         let head = self.git_repository.head()?;
         Ok(head)
     }
