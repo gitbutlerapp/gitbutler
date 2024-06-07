@@ -3,23 +3,19 @@ description: prepare runner for node related tasks
 runs:
   using: "composite"
   steps:
-    - uses: pnpm/action-setup@v2
+    - uses: pnpm/action-setup@v4
       name: Install pnpm
-      with:
-        version: 8.6
-        run_install: false
 
-    - uses: actions/setup-node@v3
+    - uses: actions/setup-node@v4
       name: Setup node
       with:
-        node-version: "18"
         cache: pnpm
 
     - name: Get pnpm store directory
       shell: bash
       run: echo 'STORE_PATH=$(pnpm store path --silent)' >> $GITHUB_ENV
 
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       if: runner.name != 'ScottsMacStudio' # internet in berlin is very slow
       name: Setup pnpm cache
       with:
