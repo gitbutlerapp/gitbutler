@@ -37,7 +37,7 @@
 		<div class="passbox__actions">
 			<Button
 				style="ghost"
-				kind="solid"
+				outline
 				disabled={isSubmitting}
 				on:click={async () => {
 					if (!prompt) return;

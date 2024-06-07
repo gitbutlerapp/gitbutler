@@ -106,7 +106,7 @@
 		<div class="buttons">
 			<Button
 				style="ghost"
-				kind="solid"
+				outline
 				on:mousedown={() => {
 					const notes = $update$?.body?.trim() || 'no release notes available';
 					showToast({

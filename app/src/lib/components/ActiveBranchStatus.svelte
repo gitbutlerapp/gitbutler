@@ -69,7 +69,7 @@
 		size="tag"
 		icon="open-link"
 		style="ghost"
-		kind="solid"
+		outline
 		shrinkable
 		on:click={(e) => {
 			const url = $baseBranch?.branchUrl($branch.upstream?.name);

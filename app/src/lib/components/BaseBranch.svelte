@@ -114,7 +114,7 @@
 	</label>
 
 	<svelte:fragment slot="controls" let:close>
-		<Button style="ghost" kind="solid" on:click={close}>Cancel</Button>
+		<Button style="ghost" outline on:click={close}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"

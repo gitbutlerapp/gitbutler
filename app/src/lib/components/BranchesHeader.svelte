@@ -27,7 +27,7 @@
 	<div class="header__filter-btn" bind:this={filterButton}>
 		<Button
 			style="ghost"
-			kind="solid"
+			outline
 			icon={filtersActive ? 'filter-applied-small' : 'filter-small'}
 			on:mousedown={onFilterClick}
 		>
