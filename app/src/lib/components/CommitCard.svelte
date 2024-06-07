@@ -125,16 +125,7 @@
 >
 	<slot name="lines" />
 	<CommitDragItem {commit}>
-		<div
-			use:draggable={commit instanceof Commit
-				? {
-						data: new DraggableCommit(commit.branchId, commit, isHeadCommit)
-					}
-				: nonDraggable()}
-			class="commit-card"
-			class:is-first={first}
-			class:is-last={last}
-		>
+		<div class="commit-card" class:is-first={first} class:is-last={last}>
 			<div
 				class="accent-border-line"
 				class:is-first={first}
@@ -145,87 +136,95 @@
 				class:integrated={type === 'integrated'}
 			/>
 
-			<div class="commit__content">
-				<!-- GENERAL INFO -->
-				<div
-					class="commit__about"
-					on:click={toggleFiles}
-					on:keyup={onKeyup}
-					role="button"
-					tabindex="0"
-				>
-					{#if first}
-						<div class="commit__type text-semibold text-base-12">
-							{#if type === 'upstream'}
-								Remote <Icon name="remote" />
-							{:else if type === 'local'}
-								Local <Icon name="local" />
-							{:else if type === 'remote'}
-								Local and remote
-							{:else if type === 'integrated'}
-								Integrated
-							{/if}
-						</div>
-					{/if}
+			<!-- GENERAL INFO -->
+			<div
+				class="commit__header"
+				on:click={toggleFiles}
+				on:keyup={onKeyup}
+				role="button"
+				tabindex="0"
+				use:draggable={commit instanceof Commit
+					? {
+							data: new DraggableCommit(commit.branchId, commit, isHeadCommit),
+							extendWtithClass: 'commit_draggable'
+						}
+					: nonDraggable()}
+			>
+				<div class="commit__drag-icon">
+					<Icon name="draggable-narrow" />
+				</div>
 
-					{#if isUndoable && !commit.descriptionTitle}
-						<span class="text-base-body-13 text-semibold commit__empty-title"
-							>empty commit message</span
-						>
-					{:else}
-						<h5 class="text-base-body-13 text-semibold commit__title" class:truncate={!showDetails}>
-							{commit.descriptionTitle}
-						</h5>
+				{#if first}
+					<div class="commit__type text-semibold text-base-12">
+						{#if type === 'upstream'}
+							Remote <Icon name="remote" />
+						{:else if type === 'local'}
+							Local <Icon name="local" />
+						{:else if type === 'remote'}
+							Local and remote
+						{:else if type === 'integrated'}
+							Integrated
+						{/if}
+					</div>
+				{/if}
 
-						<div class="text-base-11 commit__subtitle">
-							{#if commit.isSigned}
-								<div class="commit__signed" use:tooltip={{ text: 'Signed', delay: 500 }}>
-									<Icon name="success-outline-small" />
+				{#if isUndoable && !commit.descriptionTitle}
+					<span class="text-base-body-13 text-semibold commit__empty-title"
+						>empty commit message</span
+					>
+				{:else}
+					<h5 class="text-base-body-13 text-semibold commit__title" class:truncate={!showDetails}>
+						{commit.descriptionTitle}
+					</h5>
+
+					<div class="text-base-11 commit__subtitle">
+						{#if commit.isSigned}
+							<div class="commit__signed" use:tooltip={{ text: 'Signed', delay: 500 }}>
+								<Icon name="success-outline-small" />
+							</div>
+
+							<span class="commit__subtitle-divider">•</span>
+						{/if}
+
+						{#if hasCommitUrl}
+							<button
+								class="commit__subtitle-btn commit__subtitle-btn_dashed"
+								on:click|stopPropagation={() => copyToClipboard(commit.id)}
+							>
+								<span>{commit.id.substring(0, 7)}</span>
+
+								<div class="commit__subtitle-btn__icon">
+									<Icon name="copy-small" />
 								</div>
+							</button>
 
+							{#if showDetails}
 								<span class="commit__subtitle-divider">•</span>
-							{/if}
 
-							{#if hasCommitUrl}
 								<button
-									class="commit__subtitle-btn commit__subtitle-btn_dashed"
-									on:click|stopPropagation={() => copyToClipboard(commit.id)}
+									class="commit__subtitle-btn"
+									on:click|stopPropagation={() => {
+										if (commitUrl) openExternalUrl(commitUrl);
+									}}
 								>
-									<span>{commit.id.substring(0, 7)}</span>
+									<span>Open</span>
 
 									<div class="commit__subtitle-btn__icon">
-										<Icon name="copy-small" />
+										<Icon name="open-link" />
 									</div>
 								</button>
-
-								{#if showDetails}
-									<span class="commit__subtitle-divider">•</span>
-
-									<button
-										class="commit__subtitle-btn"
-										on:click|stopPropagation={() => {
-											if (commitUrl) openExternalUrl(commitUrl);
-										}}
-									>
-										<span>Open</span>
-
-										<div class="commit__subtitle-btn__icon">
-											<Icon name="open-link" />
-										</div>
-									</button>
-								{/if}
-
-								<span class="commit__subtitle-divider">•</span>
 							{/if}
 
-							<span
-								>{getTimeAgo(commit.createdAt)}{type === 'remote' || type === 'upstream'
-									? ` by ${commit.author.name}`
-									: ' by you'}</span
-							>
-						</div>
-					{/if}
-				</div>
+							<span class="commit__subtitle-divider">•</span>
+						{/if}
+
+						<span
+							>{getTimeAgo(commit.createdAt)}{type === 'remote' || type === 'upstream'
+								? ` by ${commit.author.name}`
+								: ' by you'}</span
+						>
+					</div>
+				{/if}
 			</div>
 
 			<!-- HIDDEN -->
@@ -292,6 +291,12 @@
 	:global(.amend-dz-hover .hover-text) {
 		visibility: visible;
 	}
+	:global(.commit_draggable) {
+		cursor: grab;
+		background-color: var(--clr-bg-1);
+		border-radius: var(--radius-m);
+		border: none;
+	}
 
 	.commit-row {
 		position: relative;
@@ -300,9 +305,6 @@
 		&.has-lines {
 			padding-right: 14px;
 		}
-
-		/* border-top: 1px solid var(--clr-border-2); */
-		/* padding-left: 8px; */
 
 		&:not(.is-first) {
 			border-top: 1px solid var(--clr-border-3);
@@ -358,12 +360,7 @@
 	}
 
 	/* HEADER */
-	.commit__content {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.commit__about {
+	.commit__header {
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
@@ -371,7 +368,24 @@
 
 		&:hover {
 			background-color: var(--clr-bg-1-muted);
+
+			& .commit__drag-icon {
+				opacity: 1;
+			}
 		}
+	}
+
+	.commit__drag-icon {
+		pointer-events: none;
+		position: absolute;
+		display: flex;
+		transform: rotate(90deg);
+		top: 4px;
+		right: 4px;
+		color: var(--clr-text-3);
+
+		opacity: 0;
+		transition: opacity var(--transition-medium);
 	}
 
 	.commit__title {
@@ -484,12 +498,12 @@
 			border-radius: var(--radius-m);
 
 			&:not(.is-first) {
-				margin-top: 8px;
+				margin-top: 12px;
 				border-top: 1px solid var(--clr-border-2);
 			}
 
 			&:not(.is-last) {
-				margin-bottom: 8px;
+				margin-bottom: 12px;
 				border-bottom: 1px solid var(--clr-border-2);
 			}
 		}
