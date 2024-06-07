@@ -11,7 +11,7 @@
 	import { HistoryService } from '$lib/history/history';
 	import { persisted } from '$lib/persisted/persisted';
 	import * as events from '$lib/utils/events';
-	import * as hotkeys from '$lib/utils/hotkeys';
+	import { createKeybind } from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BaseBranchService, NoDefaultTarget } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -69,15 +69,15 @@
 			$showHistoryView = !$showHistoryView;
 		});
 
-		// TODO: Refactor somehow
-		const unsubscribeHotkeys = hotkeys.on('$mod+Shift+H', () => {
-			$showHistoryView = !$showHistoryView;
-		});
-
 		return async () => {
 			unsubscribe();
-			unsubscribeHotkeys();
 		};
+	});
+
+	const handleKeyDown = createKeybind({
+		'$mod+Shift+H': () => {
+			$showHistoryView = !$showHistoryView;
+		}
 	});
 
 	onMount(() => {
@@ -90,6 +90,8 @@
 
 	onDestroy(() => clearFetchInterval());
 </script>
+
+<svelte:window on:keydown={handleKeyDown} />
 
 <!-- forces components to be recreated when projectId changes -->
 {#key projectId}
