@@ -13,7 +13,7 @@
 	class:medium={radius === 'm'}
 	class:large={radius === 'l'}
 >
-	<div class=" dropzone-wrapper">
+	<div class="dropzone-wrapper">
 		<div class="dropzone-content">
 			<Icon name="new-file-small-filled" />
 			<span class="text-base-13">{label}</span>

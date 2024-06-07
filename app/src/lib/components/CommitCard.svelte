@@ -146,7 +146,7 @@
 				use:draggable={commit instanceof Commit
 					? {
 							data: new DraggableCommit(commit.branchId, commit, isHeadCommit),
-							extendWtithClass: 'commit_draggable'
+							extendWithClass: 'commit_draggable'
 						}
 					: nonDraggable()}
 			>
