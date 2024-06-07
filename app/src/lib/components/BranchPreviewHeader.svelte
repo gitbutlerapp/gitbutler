@@ -55,7 +55,7 @@
 					size="tag"
 					icon="open-link"
 					style="ghost"
-					kind="solid"
+					outline
 					shrinkable
 					on:click={(e) => {
 						const url = base?.branchUrl(branch.name);
@@ -72,7 +72,7 @@
 						clickable
 						icon="pr-small"
 						style="ghost"
-						kind="solid"
+						outline
 						on:click={(e) => {
 							const url = pr?.htmlUrl;
 							if (url) openExternalUrl(url);
@@ -89,7 +89,7 @@
 			<div class="header__buttons">
 				<Button
 					style="ghost"
-					kind="solid"
+					outline
 					help="Restores these changes into your working directory"
 					icon="plus-small"
 					loading={isApplying}

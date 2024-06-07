@@ -79,7 +79,7 @@
 	</p>
 	<TextBox label="Choose a remote name" bind:value={remoteName}></TextBox>
 	<svelte:fragment slot="controls">
-		<Button style="ghost" kind="solid" on:click={closeModal}>Cancel</Button>
+		<Button style="ghost" outline on:click={closeModal}>Cancel</Button>
 		<Button style="pop" kind="solid" grow on:click={createRemoteAndBranch} {loading}>Confirm</Button
 		>
 	</svelte:fragment>
