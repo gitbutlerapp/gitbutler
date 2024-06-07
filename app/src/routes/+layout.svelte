@@ -18,6 +18,7 @@
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
 	import { User, UserService } from '$lib/stores/user';
 	import * as events from '$lib/utils/events';
+	import { createKeybind } from '$lib/utils/hotkeys';
 	import { initTheme } from '$lib/utils/theme';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { onMount, setContext } from 'svelte';
@@ -59,37 +60,29 @@
 		);
 	});
 
-	function handleKeyDown(event: KeyboardEvent) {
-		const metaKey = event.metaKey || event.ctrlKey;
-		if (event.repeat || event.target instanceof HTMLInputElement) return;
-
-		if (metaKey && event.key === '+') {
-			event.preventDefault();
+	const handleKeyDown = createKeybind({
+		'$mod+Equal': () => {
 			zoom = Math.min(zoom + 0.0625, 3);
-		}
-		if (metaKey && event.key === '-') {
-			event.preventDefault();
+		},
+		'$mod+Minus': () => {
 			zoom = Math.max(zoom - 0.0625, 0.375);
-		}
-		if (metaKey && event.key === '0') {
-			event.preventDefault();
+		},
+		'$mod+Digit0': () => {
 			zoom = 1;
-		}
-		if (metaKey && event.key === 'T') {
-			event.preventDefault();
+		},
+		'$mod+T': () => {
 			userSettings.update((s) => ({
 				...s,
 				theme: $userSettings.theme === 'light' ? 'dark' : 'light'
 			}));
-		}
-		if (event.key === 'Backspace') {
-			event.preventDefault();
-		}
-		if (metaKey && event.key === 'R') {
-			event.preventDefault();
+		},
+		//Backspace: (event: KeyboardEvent) => {
+		//	event.preventDefault();
+		//},
+		'$mod+R': () => {
 			location.reload();
 		}
-	}
+	});
 </script>
 
 <svelte:window

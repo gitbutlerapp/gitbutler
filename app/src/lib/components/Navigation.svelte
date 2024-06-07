@@ -11,6 +11,7 @@
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import { platform } from '@tauri-apps/api/os';
 	import { from } from 'rxjs';
+	import { createKeybind } from '$lib/utils/hotkeys';
 	import { env } from '$env/dynamic/public';
 
 	const platformName = from(platform());
@@ -34,15 +35,11 @@
 		$isNavCollapsed = !$isNavCollapsed;
 	}
 
-	function handleKeyDown(event: KeyboardEvent) {
-		const metaKey = event.metaKey || event.ctrlKey;
-		if (event.repeat || event.target instanceof HTMLInputElement) return;
-
-		if (metaKey && event.key === '/') {
-			event.preventDefault();
+	const handleKeyDown = createKeybind({
+		'$mod+/': () => {
 			toggleNavCollapse();
 		}
-	}
+	});
 </script>
 
 <svelte:window on:keydown={handleKeyDown} />
