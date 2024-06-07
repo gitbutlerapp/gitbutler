@@ -25,6 +25,9 @@
 	// Style props
 	export let style: ComponentColor = 'neutral';
 	export let kind: ComponentStyleKind = 'soft';
+	export let outline = false;
+	export let dashed = false;
+	export let solidBackground = false;
 	// Additional elements
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let help = '';
@@ -33,7 +36,10 @@
 </script>
 
 <button
-	class="btn focus-state {style} {kind} {size}"
+	class="btn focus-state {style} {kind} {size}-size"
+	class:outline
+	class:dashed
+	class:solidBackground
 	class:reversed-direction={reversedDirection}
 	class:shrinkable
 	class:wide
@@ -162,20 +168,24 @@
 
 	.ghost {
 		--btn-icon-clr: oklch(from var(--clr-text-1) l c h / 0.6);
+		--btn-clr: var(--clr-text-1);
+		--btn-bg: transparent;
 
 		&:not(.not-clickable, &:disabled):hover {
 			--btn-bg: var(--ghost-bg-muted-1);
 			--btn-icon-clr: var(--clr-text-1);
 		}
 
-		&.soft,
-		&.solid {
-			--btn-clr: var(--clr-text-1);
-			--btn-bg: transparent;
+		&.outline {
+			border: 1px solid var(--clr-border-2);
 		}
 
-		&.solid {
-			border: 1px solid var(--clr-border-2);
+		&.dashed {
+			border-style: dashed;
+		}
+
+		&.solidBackground {
+			background: var(--clr-bg-1);
 		}
 	}
 
@@ -276,7 +286,7 @@
 
 	/* SIZE MODIFIERS */
 
-	.btn.tag {
+	.btn.tag-size {
 		height: var(--size-tag);
 		padding: 2px 4px;
 
@@ -285,7 +295,7 @@
 		}
 	}
 
-	.btn.button {
+	.btn.button-size {
 		height: var(--size-button);
 		padding: 4px 6px;
 
@@ -294,7 +304,7 @@
 		}
 	}
 
-	.btn.cta {
+	.btn.cta-size {
 		height: var(--size-cta);
 		padding: 6px 8px;
 
@@ -306,15 +316,15 @@
 	/* FIXED WIDTH */
 
 	.btn.fixed-width {
-		&.tag {
+		&.tag-size {
 			width: var(--size-tag);
 		}
 
-		&.button {
+		&.button-size {
 			width: var(--size-button);
 		}
 
-		&.cta {
+		&.cta-size {
 			width: var(--size-cta);
 		}
 	}

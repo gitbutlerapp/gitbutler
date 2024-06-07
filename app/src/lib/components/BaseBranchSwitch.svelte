@@ -110,7 +110,7 @@
 					<Button
 						size="cta"
 						style="ghost"
-						kind="solid"
+						outline
 						on:click={onSetBaseBranchClick}
 						id="set-base-branch"
 						loading={isSwitching}

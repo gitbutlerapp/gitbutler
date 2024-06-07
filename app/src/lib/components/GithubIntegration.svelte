@@ -97,7 +97,7 @@
 			Allows you to view and create Pull Requests from GitButler.
 		</svelte:fragment>
 		{#if $user?.github_access_token}
-			<Button style="ghost" kind="solid" {disabled} icon="bin-small" on:click={forgetGitHub}
+			<Button style="ghost" outline {disabled} icon="bin-small" on:click={forgetGitHub}
 				>Forget</Button
 			>
 		{:else}
