@@ -5,7 +5,10 @@ interface KeybindDefinitions {
 }
 
 export function createKeybind(keybinds: KeybindDefinitions[]) {
-	const keys: KeybindDefinitions = {};
+	const keys: KeybindDefinitions = {
+		// Ignore backspace keydown events always
+		Backspace: () => {}
+	};
 
 	Object.entries(keybinds).forEach(([combo, callback]) => {
 		keys[combo] = (event: KeyboardEvent) => {

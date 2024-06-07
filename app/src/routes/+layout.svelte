@@ -76,9 +76,6 @@
 				theme: $userSettings.theme === 'light' ? 'dark' : 'light'
 			}));
 		},
-		//Backspace: (event: KeyboardEvent) => {
-		//	event.preventDefault();
-		//},
 		'$mod+R': () => {
 			location.reload();
 		}
