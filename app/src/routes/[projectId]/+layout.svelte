@@ -12,6 +12,7 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
+	import { createKeybind } from '$lib/utils/hotkeys';
 	import { BaseBranchService, NoDefaultTarget } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch } from '$lib/vbranches/types';
@@ -56,7 +57,10 @@
 		baseBranchService.fetchFromRemotes();
 		clearFetchInterval();
 		const intervalMs = 15 * 60 * 1000; // 15 minutes
-		intervalId = setInterval(async () => await baseBranchService.fetchFromRemotes(), intervalMs);
+		intervalId = setInterval(
+			async () => await baseBranchService.fetchFromRemotes(),
+			intervalMs
+		);
 	}
 
 	function clearFetchInterval() {
@@ -73,15 +77,11 @@
 		};
 	});
 
-	function handleKeyDown(event: KeyboardEvent) {
-		const metaKey = event.metaKey || event.ctrlKey;
-		if (event.repeat || event.target instanceof HTMLInputElement) return;
-
-		if (metaKey && event.key === 'H') {
-			event.preventDefault();
+	const handleKeyDown = createKeybind({
+		'$mod+Shift+H': () => {
 			$showHistoryView = !$showHistoryView;
 		}
-	}
+	});
 
 	onMount(() => {
 		return unsubscribe(
