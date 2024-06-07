@@ -12,13 +12,14 @@ use std::{
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice, ByteVec};
 use diffy::{apply_bytes as diffy_apply, Line, Patch};
+use git2::build::TreeUpdateBuilder;
 use git2::ErrorCode;
 use git2_hooks::HookResult;
 use hex::ToHex;
 use regex::Regex;
 use serde::Serialize;
 
-use super::integration::get_workspace_head;
+use super::integration::{get_integration_commiter, get_workspace_head};
 use super::{
     branch::{
         self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
@@ -28,7 +29,7 @@ use super::{
 use crate::error::Code;
 use crate::git::diff::GitHunk;
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
-use crate::git::{CommitExt, RepositoryExt};
+use crate::git::{CommitBuffer, CommitExt, RepositoryExt};
 use crate::time::now_since_unix_epoch_ms;
 use crate::virtual_branches::branch::HunkHash;
 use crate::virtual_branches::errors::Marker;
@@ -670,9 +671,72 @@ pub fn unapply_branch(
         .checkout()
         .context("failed to checkout tree")?;
 
+    convert_to_real_branch(project_repository, &target_branch)?;
+
+    delete_branch(project_repository, branch_id)?;
+
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     Ok(target_branch)
+}
+
+fn convert_to_real_branch<'l>(
+    project_repository: &'l project_repository::Repository,
+    vbranch: &branch::Branch,
+) -> Result<git2::Branch<'l>> {
+    let repo = project_repository.repo();
+    let target_commit = repo.find_commit(vbranch.head)?;
+    let branch_name = vbranch.name.clone();
+    let branch_name = normalize_branch_name(&branch_name);
+
+    let branch = repo.branch(&branch_name, &target_commit, true)?;
+
+    build_metadata_commit(project_repository, vbranch, &branch)?;
+
+    Ok(branch)
+}
+
+fn build_metadata_commit<'l>(
+    project_repository: &'l project_repository::Repository,
+    vbranch: &branch::Branch,
+    branch: &git2::Branch<'l>,
+) -> Result<git2::Oid> {
+    let repo = project_repository.repo();
+
+    // Build wip tree as either any uncommitted changes or an empty tree
+    let vbranch_wip_tree = repo.find_tree(vbranch.tree)?;
+    let vbranch_head_tree = repo.find_commit(vbranch.head)?.tree()?;
+
+    let tree = if vbranch_head_tree.id() != vbranch_wip_tree.id() {
+        vbranch_wip_tree
+    } else {
+        repo.find_tree(TreeUpdateBuilder::new().create_updated(repo, &vbranch_head_tree)?)?
+    };
+
+    // Build commit message
+    let mut message = "GitButler WIP Commit".to_string();
+    message.push_str("\n\n");
+
+    // Commit wip commit
+    let committer = get_integration_commiter()?;
+    let parent = branch.get().peel_to_commit()?;
+
+    let mut commit_buffer: CommitBuffer = repo
+        .commit_create_buffer(&committer, &committer, &message, &tree, &[&parent])?
+        .try_into()?;
+
+    commit_buffer.inject_header("gitbutler-vbranch", &vbranch.id.to_string());
+
+    let commit_oid = repo.commit_buffer(&commit_buffer)?;
+
+    // Update branch reference
+    let branch_name = branch
+        .get()
+        .name()
+        .ok_or(anyhow!("failed to get branch name"))?;
+    repo.reference(branch_name, commit_oid, true, message.as_str())?;
+
+    Ok(commit_oid)
 }
 
 fn find_base_tree<'a>(
