@@ -143,7 +143,7 @@
 	</svelte:fragment>
 
 	<svelte:fragment slot="controls" let:close>
-		<Button style="ghost" kind="solid" type="reset" on:click={close}>Cancel</Button>
+		<Button style="ghost" outline type="reset" on:click={close}>Cancel</Button>
 		<Button style="pop" kind="solid" type="submit">Rename</Button>
 	</svelte:fragment>
 </Modal>
@@ -153,7 +153,7 @@
 		Deleting <code class="code-string">{branch.name}</code> cannot be undone.
 	</svelte:fragment>
 	<svelte:fragment slot="controls" let:close let:item={branch}>
-		<Button style="ghost" kind="solid" on:click={close}>Cancel</Button>
+		<Button style="ghost" outline on:click={close}>Cancel</Button>
 		<Button
 			style="error"
 			kind="solid"

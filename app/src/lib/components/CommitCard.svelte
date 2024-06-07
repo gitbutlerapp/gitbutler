@@ -106,7 +106,7 @@
 <Modal bind:this={commitMessageModal}>
 	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
 	<svelte:fragment slot="controls">
-		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}>Cancel</Button>
+		<Button style="ghost" outline on:click={() => commitMessageModal.close()}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
@@ -211,7 +211,7 @@
 									<Button
 										size="tag"
 										style="ghost"
-										kind="solid"
+										outline
 										icon="undo-small"
 										on:click={(e) => {
 											currentCommitMessage.set(commit.description);
@@ -222,7 +222,7 @@
 									<Button
 										size="tag"
 										style="ghost"
-										kind="solid"
+										outline
 										icon="edit-text"
 										on:click={openCommitMessageModal}>Edit message</Button
 									>
@@ -231,7 +231,7 @@
 									<Button
 										size="tag"
 										style="ghost"
-										kind="solid"
+										outline
 										icon="open-link"
 										on:click={() => {
 											if (commitUrl) openExternalUrl(commitUrl);

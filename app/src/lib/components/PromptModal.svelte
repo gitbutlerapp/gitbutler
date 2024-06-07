@@ -67,9 +67,7 @@
 	<TextBox focus type="password" bind:value disabled={!!$error || loading} />
 
 	<svelte:fragment slot="controls">
-		<Button style="ghost" kind="solid" type="reset" disabled={loading} on:click={cancel}>
-			Cancel
-		</Button>
+		<Button style="ghost" outline type="reset" disabled={loading} on:click={cancel}>Cancel</Button>
 		<Button style="pop" kind="solid" type="submit" grow disabled={!!$error || loading} {loading}
 			>Submit</Button
 		>
