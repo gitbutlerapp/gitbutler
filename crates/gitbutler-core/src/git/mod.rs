@@ -15,3 +15,6 @@ pub use tree_ext::*;
 
 mod commit_ext;
 pub use commit_ext::*;
+
+mod commit_buffer;
+pub use commit_buffer::*;
