@@ -1,11 +1,9 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/clickOutside';
 	import Icon from '$lib/components/Icon.svelte';
-	import { onMount } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 
 	let dialog: HTMLDialogElement;
-	let modalForm: HTMLFormElement;
 	let item: any;
 	let open = false;
 
@@ -24,16 +22,6 @@
 		dialog.close();
 		open = false;
 	}
-
-	onMount(() => {
-		document.body.appendChild(dialog);
-	});
-
-	//function handleClickOutside(e: MouseEvent) {
-	//	if (!modalForm?.contains(e.target as Node)) {
-	//		dialog.close();
-	//	}
-	//}
 </script>
 
 <dialog
@@ -47,11 +35,9 @@
 		<form
 			class="modal-content"
 			on:submit
-			bind:this={modalForm}
 			use:clickOutside={{
 				trigger: dialog,
 				handler: () => dialog.close()
-				//enabled: open
 			}}
 		>
 			{#if title}
@@ -79,7 +65,7 @@
 </dialog>
 
 <style lang="postcss">
-	dialog {
+	dialog[open] {
 		display: flex;
 		flex-direction: column;
 		max-height: calc(100vh - 80px);
