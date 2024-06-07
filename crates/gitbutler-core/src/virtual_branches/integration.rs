@@ -22,7 +22,7 @@ const WORKSPACE_HEAD: &str = "Workspace Head";
 pub const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME: &str = "GitButler";
 pub const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
 
-fn get_committer<'a>() -> Result<git2::Signature<'a>> {
+pub fn get_integration_commiter<'a>() -> Result<git2::Signature<'a>> {
     Ok(git2::Signature::now(
         GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
         GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
@@ -85,7 +85,7 @@ pub fn get_workspace_head(
     }
 
     // TODO(mg): Can we make this a constant?
-    let committer = get_committer()?;
+    let committer = get_integration_commiter()?;
 
     let mut heads: Vec<git2::Commit<'_>> = applied_branches
         .iter()
@@ -228,7 +228,7 @@ pub fn update_gitbutler_integration(
     message.push_str("For more information about what we're doing here, check out our docs:\n");
     message.push_str("https://docs.gitbutler.com/features/virtual-branches/integration-branch\n");
 
-    let committer = get_committer()?;
+    let committer = get_integration_commiter()?;
 
     // It would be nice if we could pass an `update_ref` parameter to this function, but that
     // requires committing to the tip of the branch, and we're mostly replacing the tip.
