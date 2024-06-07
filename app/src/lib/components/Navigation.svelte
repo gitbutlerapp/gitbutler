@@ -9,9 +9,9 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
+	import { createKeybind } from '$lib/utils/hotkeys';
 	import { platform } from '@tauri-apps/api/os';
 	import { from } from 'rxjs';
-	import { createKeybind } from '$lib/utils/hotkeys';
 	import { env } from '$env/dynamic/public';
 
 	const platformName = from(platform());

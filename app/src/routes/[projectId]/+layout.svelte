@@ -11,8 +11,8 @@
 	import { HistoryService } from '$lib/history/history';
 	import { persisted } from '$lib/persisted/persisted';
 	import * as events from '$lib/utils/events';
-	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { createKeybind } from '$lib/utils/hotkeys';
+	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BaseBranchService, NoDefaultTarget } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch } from '$lib/vbranches/types';
