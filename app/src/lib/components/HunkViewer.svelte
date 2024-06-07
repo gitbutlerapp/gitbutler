@@ -73,7 +73,7 @@
 		class:opacity-60={section.hunk.locked && !isFileLocked}
 	>
 		<div bind:this={contents} class="hunk__bg-stretch">
-			{#if linesModified > 5000 && !alwaysShow}
+			{#if linesModified > 2500 && !alwaysShow}
 				<LargeDiffMessage
 					on:show={() => {
 						alwaysShow = true;
