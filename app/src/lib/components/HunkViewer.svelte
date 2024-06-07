@@ -1,6 +1,6 @@
 <script lang="ts">
 	import HunkContextMenu from './HunkContextMenu.svelte';
-	import HunkLine from './HunkLine.svelte';
+	import HunkLines from './HunkLines.svelte';
 	import LargeDiffMessage from './LargeDiffMessage.svelte';
 	import Scrollbar from './Scrollbar.svelte';
 	import { Project } from '$lib/backend/projects';
@@ -38,7 +38,6 @@
 			selectedOwnership.update((ownership) => ownership.remove(hunk.filePath, hunk.id));
 		}
 	}
-
 	function updateContextMenu(filePath: string) {
 		if (popupMenu) popupMenu.$destroy();
 		return new HunkContextMenu({
@@ -46,7 +45,6 @@
 			props: { projectPath: project.vscodePath, filePath, readonly }
 		});
 	}
-
 	$: popupMenu = updateContextMenu(filePath);
 
 	$: draggingDisabled = readonly || isUnapplied;
@@ -75,7 +73,7 @@
 		class:opacity-60={section.hunk.locked && !isFileLocked}
 	>
 		<div bind:this={contents} class="hunk__bg-stretch">
-			{#if linesModified > 1000 && !alwaysShow}
+			{#if linesModified > 2500 && !alwaysShow}
 				<LargeDiffMessage
 					on:show={() => {
 						alwaysShow = true;
@@ -84,26 +82,25 @@
 			{:else}
 				{#each section.subSections as subsection}
 					{@const hunk = section.hunk}
-					{#each subsection.lines.slice(0, subsection.expanded ? subsection.lines.length : 0) as line}
-						<HunkLine
-							{line}
-							{filePath}
-							{readonly}
-							{minWidth}
-							{selectable}
-							{draggingDisabled}
-							tabSize={$userSettings.tabSize}
-							selected={$selectedOwnership?.contains(hunk.filePath, hunk.id)}
-							on:selected={(e) => onHunkSelected(hunk, e.detail)}
-							sectionType={subsection.sectionType}
-							on:contextmenu={(e) =>
-								popupMenu.openByMouse(e, {
-									hunk,
-									section: subsection,
-									lineNumber: line.afterLineNumber ? line.afterLineNumber : line.beforeLineNumber
-								})}
-						/>
-					{/each}
+					<HunkLines
+						lines={subsection.lines}
+						{filePath}
+						{readonly}
+						{minWidth}
+						{selectable}
+						{draggingDisabled}
+						tabSize={$userSettings.tabSize}
+						selected={$selectedOwnership?.contains(hunk.filePath, hunk.id)}
+						on:selected={(e) => onHunkSelected(hunk, e.detail)}
+						sectionType={subsection.sectionType}
+						on:lineContextMenu={(e) => {
+							popupMenu.openByMouse(e.detail.event, {
+								hunk,
+								section: subsection,
+								lineNumber: e.detail.lineNumber
+							});
+						}}
+					/>
 				{/each}
 			{/if}
 		</div>
