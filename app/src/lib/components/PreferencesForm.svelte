@@ -270,7 +270,7 @@
 		<svelte:fragment slot="title">Use new experimental hunk locking algorithm</svelte:fragment>
 		<svelte:fragment slot="caption">
 			This new hunk locking algorithm is still in the testing phase but should more accuratly catch
-			locks and subsiquently cause fewer errors.
+			locks and subsequently cause fewer errors.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Toggle id="useNewLocking" bind:checked={useNewLocking} />

@@ -1602,7 +1602,7 @@ fn new_compute_locks(
     unstaged_hunks_by_path: &HashMap<PathBuf, Vec<diff::GitHunk>>,
     virtual_branches: &[branch::Branch],
 ) -> Result<HashMap<HunkHash, Vec<diff::HunkLock>>> {
-    // If we cant find the integration commit and subsiquently the target commit, we can't find any locks
+    // If we cant find the integration commit and subsequently the target commit, we can't find any locks
     let target_tree = repository.target_commit()?.tree()?;
 
     let mut diff_opts = git2::DiffOptions::new();
