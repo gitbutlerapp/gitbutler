@@ -2,9 +2,8 @@
 	import CommitCard from './CommitCard.svelte';
 	import CommitLines from './CommitLines.svelte';
 	import { Project } from '$lib/backend/projects';
-	import Button from '$lib/components/Button.svelte';
 	import ReorderDropzone from '$lib/components/CommitList/ReorderDropzone.svelte';
-	import QuickActionMenu from '$lib/components/QuickActionMenu.svelte';
+	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
 	import { ReorderDropzoneIndexer } from '$lib/dragging/reorderDropzoneIndexer';
 	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import { getContext } from '$lib/utils/context';
@@ -142,18 +141,15 @@
 				</CommitCard>
 			{/each}
 		{/if}
-		<QuickActionMenu
+		<InsertEmptyCommitAction
 			offset={$localCommits.length === 0 &&
 			$remoteCommits.length === 0 &&
 			$integratedCommits.length === 0
 				? 0
 				: 0.75}
 			padding={1}
-		>
-			<Button style="ghost" size="tag" on:click={() => insertBlankCommit($branch.head, 'above')}
-				>Insert blank commit</Button
-			>
-		</QuickActionMenu>
+			on:click={() => insertBlankCommit($branch.head, 'above')}
+		/>
 		<!-- LOCAL COMMITS -->
 		{#if $localCommits.length > 0}
 			<ReorderDropzone
@@ -189,7 +185,9 @@
 							shadowOut={isRebased ? getOutType(commit) : undefined}
 							relatedToOther={commit?.relatedTo && commit.relatedTo.id !== commit.id}
 							remoteRoot={idx === $localCommits.length - 1}
-							last={idx === $localCommits.length - 1 && !hasRemoteCommits && !hasIntegratedCommits}
+							last={idx === $localCommits.length - 1 &&
+								!hasRemoteCommits &&
+								!hasIntegratedCommits}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -197,14 +195,13 @@
 					index={reorderDropzoneIndexer.dropzoneIndexBelowCommit(commit.id)}
 					indexer={reorderDropzoneIndexer}
 				/>
-				<QuickActionMenu
+				<InsertEmptyCommitAction
 					padding={1}
-					offset={$remoteCommits.length > 0 && idx + 1 === $localCommits.length ? 0.25 : 0}
-				>
-					<Button style="ghost" size="tag" on:click={() => insertBlankCommit(commit.id, 'below')}
-						>Insert blank commit</Button
-					>
-				</QuickActionMenu>
+					offset={$remoteCommits.length > 0 && idx + 1 === $localCommits.length
+						? 0.25
+						: 0}
+					on:click={() => insertBlankCommit(commit.id, 'below')}
+				/>
 			{/each}
 		{/if}
 		<!-- REMOTE COMMITS -->
@@ -243,11 +240,10 @@
 					index={reorderDropzoneIndexer.dropzoneIndexBelowCommit(commit.id)}
 					indexer={reorderDropzoneIndexer}
 				/>
-				<QuickActionMenu padding={1}>
-					<Button style="ghost" size="tag" on:click={() => insertBlankCommit(commit.id, 'below')}
-						>Insert blank commit</Button
-					>
-				</QuickActionMenu>
+				<InsertEmptyCommitAction
+					padding={1}
+					on:click={() => insertBlankCommit(commit.id, 'below')}
+				/>
 			{/each}
 		{/if}
 		<!-- INTEGRATED COMMITS -->
@@ -296,7 +292,9 @@
 						<CommitLines
 							{hasLocalColumn}
 							{isRebased}
-							localRoot={!hasRemoteCommits && !hasIntegratedCommits && hasLocalCommits}
+							localRoot={!hasRemoteCommits &&
+								!hasIntegratedCommits &&
+								hasLocalCommits}
 							shadowOut={getBaseShadowOutType()}
 							remoteOut={getBaseRemoteOutType()}
 							base

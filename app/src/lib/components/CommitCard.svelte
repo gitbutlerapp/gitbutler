@@ -105,7 +105,7 @@
 <Modal bind:this={commitMessageModal} width="small">
 	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
 	<svelte:fragment slot="controls">
-		<Button style="ghost" kind="solid" on:click={() => commitMessageModal.close()}>Cancel</Button>
+		<Button style="ghost" outline on:click={() => commitMessageModal.close()}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
@@ -173,13 +173,19 @@
 							>empty commit message</span
 						>
 					{:else}
-						<h5 class="text-base-body-13 text-semibold commit__title" class:truncate={!showDetails}>
+						<h5
+							class="text-base-body-13 text-semibold commit__title"
+							class:truncate={!showDetails}
+						>
 							{commit.descriptionTitle}
 						</h5>
 
 						<div class="text-base-11 commit__subtitle">
 							{#if commit.isSigned}
-								<div class="commit__signed" use:tooltip={{ text: 'Signed', delay: 500 }}>
+								<div
+									class="commit__signed"
+									use:tooltip={{ text: 'Signed', delay: 500 }}
+								>
 									<Icon name="success-outline-small" />
 								</div>
 
@@ -219,7 +225,8 @@
 							{/if}
 
 							<span
-								>{getTimeAgo(commit.createdAt)}{type === 'remote' || type === 'upstream'
+								>{getTimeAgo(commit.createdAt)}{type === 'remote' ||
+								type === 'upstream'
 									? ` by ${commit.author.name}`
 									: ' by you'}</span
 							>
@@ -244,7 +251,7 @@
 									<Button
 										size="tag"
 										style="ghost"
-										kind="solid"
+										outline
 										icon="undo-small"
 										on:click={(e) => {
 											currentCommitMessage.set(commit.description);
@@ -254,10 +261,21 @@
 									>
 									<Button
 										size="tag"
-										style="ghost"
+										outline
 										kind="solid"
 										icon="edit-text"
 										on:click={openCommitMessageModal}>Edit message</Button
+									>
+								{/if}
+								{#if hasCommitUrl}
+									<Button
+										size="tag"
+										style="ghost"
+										outline
+										icon="open-link"
+										on:click={() => {
+											if (commitUrl) openExternalUrl(commitUrl);
+										}}>Open</Button
 									>
 								{/if}
 							</div>

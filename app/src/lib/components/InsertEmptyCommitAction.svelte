@@ -1,10 +1,16 @@
 <script lang="ts">
+	import Button from '$lib/components/Button.svelte';
+	import { createEventDispatcher } from 'svelte';
+
 	/// Hover target overlap size in rem
 	export let overlapSize: number = 0.5;
 	/// Hover target overlap size in rem
 	export let offset: number = 0;
 	/// Padding size in rem
 	export let padding: number = 0;
+
+	/// Custom event
+	const dispatch = createEventDispatcher<{ click: void }>();
 </script>
 
 <div class="container">
@@ -15,7 +21,7 @@
 		style:--padding={`${padding}rem`}
 	>
 		<div class="menu">
-			<slot></slot>
+			<Button style="ghost" icon="plus-small" size="tag" on:click={() => dispatch('click')} />
 		</div>
 	</div>
 </div>

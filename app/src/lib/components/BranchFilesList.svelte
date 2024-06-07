@@ -53,17 +53,16 @@
 	<BranchFilesHeader title="Changed files" {files} {showCheckboxes} />
 {:else}
 	<div class="merge-commit-error">
-		<p class="info text-base-body-11">
-			Displaying diffs for merge commits is currently not supported. Please view the merge commit in
-			GitHub, or run the following command in your project directory:
+		<p class="info">
+			Displaying diffs for merge commits is currently not supported. Please view the merge
+			commit in GitHub, or run the following command in your project directory:
 		</p>
 		<div class="command">
 			<TextBox value={mergeDiffCommand + $commit.id.slice(0, 7)} wide readonly />
 			<Button
 				icon="copy"
 				style="ghost"
-				kind="solid"
-				size="cta"
+				outline
 				on:mousedown={() => copyToClipboard(mergeDiffCommand + $commit.id.slice(0, 7))}
 			></Button>
 		</div>

@@ -7,6 +7,7 @@
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let style: ComponentColor = 'neutral';
 	export let kind: ComponentStyleKind = 'soft';
+	export let outline = false;
 	export let disabled = false;
 	export let loading = false;
 	export let wide = false;
@@ -38,6 +39,7 @@
 			{help}
 			{badgeLabel}
 			{badgeIcon}
+			{outline}
 			reversedDirection
 			disabled={disabled || loading}
 			isDropdownChild
@@ -48,6 +50,7 @@
 			{style}
 			{kind}
 			{help}
+			{outline}
 			icon={visible ? 'chevron-up' : 'chevron-down'}
 			{loading}
 			disabled={disabled || loading}

@@ -114,7 +114,7 @@
 		</ul>
 	</div>
 	<svelte:fragment slot="controls" let:close let:item>
-		<Button style="ghost" kind="solid" on:click={close}>Cancel</Button>
+		<Button style="ghost" outline on:click={close}>Cancel</Button>
 		<Button
 			style="error"
 			kind="solid"
