@@ -65,7 +65,7 @@
 			</Button>
 			<Button
 				style="ghost"
-				kind="solid"
+				outline
 				icon="open-link"
 				on:mousedown={() => {
 					openExternalUrl('https://github.com/settings/ssh/new');

@@ -96,13 +96,7 @@
 			<div class="collapsed-lane__draggable" data-drag-handle>
 				<Icon name="draggable" />
 			</div>
-			<Button
-				style="ghost"
-				kind="solid"
-				icon="unfold-lane"
-				help="Expand lane"
-				on:click={expandLane}
-			/>
+			<Button style="ghost" outline icon="unfold-lane" help="Expand lane" on:click={expandLane} />
 		</div>
 
 		<div class="collapsed-lane__info-wrap" bind:clientHeight={headerInfoHeight}>
@@ -201,7 +195,7 @@
 						{:else}
 							<Button
 								style="ghost"
-								kind="solid"
+								outline
 								help="When selected, new changes will land here"
 								icon="target"
 								disabled={isUnapplied}
@@ -220,7 +214,7 @@
 					{#if isUnapplied}
 						<Button
 							style="ghost"
-							kind="solid"
+							outline
 							help="Deletes the local virtual branch (only)"
 							icon="bin-small"
 							loading={isDeleting}
@@ -241,7 +235,7 @@
 						</Button>
 						<Button
 							style="ghost"
-							kind="solid"
+							outline
 							help="Restores these changes into your working directory"
 							icon="plus-small"
 							loading={isApplying}
@@ -271,7 +265,7 @@
 							<Button
 								element={meatballButton}
 								style="ghost"
-								kind="solid"
+								outline
 								icon="kebab"
 								on:mousedown={() => {
 									visible = !visible;
