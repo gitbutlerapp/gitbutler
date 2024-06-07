@@ -2,7 +2,7 @@
 	"name": "git-butler-tauri",
 	"private": true,
 	"engines": {
-		"node": ">=20"
+		"node": "=20.14"
 	},
 	"scripts": {
 		"dev": "pnpm --filter @gitbutler/ui run dev",
