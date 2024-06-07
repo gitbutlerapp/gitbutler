@@ -89,12 +89,12 @@ pub struct Project {
     // The number of changed lines that will trigger a snapshot
     pub snapshot_lines_threshold: Option<usize>,
 
-    #[serde(default = "default_false")]
+    #[serde(default = "default_true")]
     pub use_new_locking: bool,
 }
 
-fn default_false() -> bool {
-    false
+fn default_true() -> bool {
+    true
 }
 
 impl Project {

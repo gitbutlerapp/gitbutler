@@ -30,6 +30,13 @@
 	const project = getContext(Project);
 	const branchController = getContext(BranchController);
 
+	// Force the "base" commit lines to update when $branch updates.
+	let tsKey: number | undefined;
+	$: {
+		$branch;
+		tsKey = Date.now();
+	}
+
 	$: hasLocalColumn = $localCommits.length > 0;
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
@@ -49,11 +56,10 @@
 
 	function getOutType(commit: Commit): CommitStatus | undefined {
 		if (!hasShadowedCommits) {
-			if (!commit.next) {
+			if (!commit.next || commit.next.status === 'local') {
 				return $unknownCommits.length > 0 ? 'upstream' : undefined;
 			}
-			const childStatus = commit.next?.status;
-			return childStatus !== 'local' ? childStatus : undefined;
+			return commit.next?.status;
 		}
 
 		let pointer: Commit | undefined = commit;
@@ -81,6 +87,7 @@
 	function getBaseRemoteOutType(): CommitStatus | undefined {
 		if (isRebased) return;
 		if (firstCommit && firstCommit.status !== 'local') return firstCommit.status;
+		if (hasUnknownCommits) return 'upstream';
 	}
 
 	function getInType(commit: Commit): CommitStatus | undefined {
@@ -285,14 +292,16 @@
 				on:keydown={(e) => e.key === 'Enter' && (baseIsUnfolded = !baseIsUnfolded)}
 			>
 				<div class="base-row__lines">
-					<CommitLines
-						{hasLocalColumn}
-						{isRebased}
-						localRoot={!hasRemoteCommits && !hasIntegratedCommits && hasLocalCommits}
-						shadowOut={getBaseShadowOutType()}
-						remoteOut={getBaseRemoteOutType()}
-						base
-					/>
+					{#key tsKey}
+						<CommitLines
+							{hasLocalColumn}
+							{isRebased}
+							localRoot={!hasRemoteCommits && !hasIntegratedCommits && hasLocalCommits}
+							shadowOut={getBaseShadowOutType()}
+							remoteOut={getBaseRemoteOutType()}
+							base
+						/>
+					{/key}
 				</div>
 				<div class="base-row__content">
 					<span class="text-base-11 base-row__text"
