@@ -141,15 +141,7 @@
 				</CommitCard>
 			{/each}
 		{/if}
-		<InsertEmptyCommitAction
-			offset={$localCommits.length === 0 &&
-			$remoteCommits.length === 0 &&
-			$integratedCommits.length === 0
-				? 0
-				: 0.75}
-			padding={1}
-			on:click={() => insertBlankCommit($branch.head, 'above')}
-		/>
+		<InsertEmptyCommitAction isFirst on:click={() => insertBlankCommit($branch.head, 'above')} />
 		<!-- LOCAL COMMITS -->
 		{#if $localCommits.length > 0}
 			<ReorderDropzone
@@ -185,21 +177,18 @@
 							shadowOut={isRebased ? getOutType(commit) : undefined}
 							relatedToOther={commit?.relatedTo && commit.relatedTo.id !== commit.id}
 							remoteRoot={idx === $localCommits.length - 1}
-							last={idx === $localCommits.length - 1 &&
-								!hasRemoteCommits &&
-								!hasIntegratedCommits}
+							last={idx === $localCommits.length - 1 && !hasRemoteCommits && !hasIntegratedCommits}
 						/>
 					</svelte:fragment>
 				</CommitCard>
+
 				<ReorderDropzone
 					index={reorderDropzoneIndexer.dropzoneIndexBelowCommit(commit.id)}
 					indexer={reorderDropzoneIndexer}
 				/>
 				<InsertEmptyCommitAction
-					padding={1}
-					offset={$remoteCommits.length > 0 && idx + 1 === $localCommits.length
-						? 0.25
-						: 0}
+					isLast={$remoteCommits.length === 0 && idx + 1 === $localCommits.length}
+					isMiddle={$remoteCommits.length > 0 && idx + 1 === $localCommits.length}
 					on:click={() => insertBlankCommit(commit.id, 'below')}
 				/>
 			{/each}
@@ -241,7 +230,7 @@
 					indexer={reorderDropzoneIndexer}
 				/>
 				<InsertEmptyCommitAction
-					padding={1}
+					isLast={idx + 1 === $remoteCommits.length}
 					on:click={() => insertBlankCommit(commit.id, 'below')}
 				/>
 			{/each}
@@ -292,9 +281,7 @@
 						<CommitLines
 							{hasLocalColumn}
 							{isRebased}
-							localRoot={!hasRemoteCommits &&
-								!hasIntegratedCommits &&
-								hasLocalCommits}
+							localRoot={!hasRemoteCommits && !hasIntegratedCommits && hasLocalCommits}
 							shadowOut={getBaseShadowOutType()}
 							remoteOut={getBaseRemoteOutType()}
 							base

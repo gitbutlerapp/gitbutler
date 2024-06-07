@@ -173,19 +173,13 @@
 							>empty commit message</span
 						>
 					{:else}
-						<h5
-							class="text-base-body-13 text-semibold commit__title"
-							class:truncate={!showDetails}
-						>
+						<h5 class="text-base-body-13 text-semibold commit__title" class:truncate={!showDetails}>
 							{commit.descriptionTitle}
 						</h5>
 
 						<div class="text-base-11 commit__subtitle">
 							{#if commit.isSigned}
-								<div
-									class="commit__signed"
-									use:tooltip={{ text: 'Signed', delay: 500 }}
-								>
+								<div class="commit__signed" use:tooltip={{ text: 'Signed', delay: 500 }}>
 									<Icon name="success-outline-small" />
 								</div>
 
@@ -225,8 +219,7 @@
 							{/if}
 
 							<span
-								>{getTimeAgo(commit.createdAt)}{type === 'remote' ||
-								type === 'upstream'
+								>{getTimeAgo(commit.createdAt)}{type === 'remote' || type === 'upstream'
 									? ` by ${commit.author.name}`
 									: ' by you'}</span
 							>
