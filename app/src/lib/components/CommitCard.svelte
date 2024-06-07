@@ -9,6 +9,7 @@
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
+	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { getTimeAgo } from '$lib/utils/timeAgo';
 	import { tooltip } from '$lib/utils/tooltip';
@@ -25,7 +26,6 @@
 		type CommitStatus
 	} from '$lib/vbranches/types';
 	import { createEventDispatcher } from 'svelte';
-	// import { slide } from 'svelte/transition';
 
 	export let branch: Branch | undefined = undefined;
 	export let commit: Commit | RemoteCommit;
@@ -188,17 +188,32 @@
 
 							{#if hasCommitUrl}
 								<button
-									class="commit__id"
-									on:click|stopPropagation={() => {
-										if (commitUrl) openExternalUrl(commitUrl);
-									}}
+									class="commit__subtitle-btn commit__subtitle-btn_dashed"
+									on:click|stopPropagation={() => copyToClipboard(commit.id)}
 								>
 									<span>{commit.id.substring(0, 7)}</span>
 
-									<div class="commit__id-icon">
-										<Icon name="open-link" />
+									<div class="commit__subtitle-btn__icon">
+										<Icon name="copy-small" />
 									</div>
 								</button>
+
+								{#if showDetails}
+									<span class="commit__subtitle-divider">•</span>
+
+									<button
+										class="commit__subtitle-btn"
+										on:click|stopPropagation={() => {
+											if (commitUrl) openExternalUrl(commitUrl);
+										}}
+									>
+										<span>Open</span>
+
+										<div class="commit__subtitle-btn__icon">
+											<Icon name="open-link" />
+										</div>
+									</button>
+								{/if}
 
 								<span class="commit__subtitle-divider">•</span>
 							{/if}
@@ -382,26 +397,34 @@
 		display: flex;
 	}
 
-	.commit__id {
+	/* SUBTITLE LINK BUTTON */
+	.commit__subtitle-btn {
+		flex-shrink: 0;
 		display: flex;
 		align-items: center;
-		gap: 2px;
+
 		text-decoration: underline;
-		transition: color var(--transition-fast);
+		text-underline-offset: 2px;
 
 		&:hover {
 			color: var(--clr-text-1);
 
-			& .commit__id-icon {
+			& .commit__subtitle-btn__icon {
 				width: var(--size-icon);
 				opacity: 1;
 				transform: scale(1);
+				margin-left: 2px;
 			}
 		}
 	}
 
-	.commit__id-icon {
+	.commit__subtitle-btn_dashed {
+		text-decoration-style: dashed;
+	}
+
+	.commit__subtitle-btn__icon {
 		display: flex;
+		margin-left: 0;
 		width: 0;
 		opacity: 0;
 		transform: scale(0.6);
@@ -409,15 +432,16 @@
 			width var(--transition-medium),
 			opacity var(--transition-fast),
 			color var(--transition-fast),
-			transform var(--transition-fast);
+			transform var(--transition-medium),
+			margin-left var(--transition-fast);
 	}
 
+	/* DIVIDER - DOT SYMBOL */
 	.commit__subtitle-divider {
 		opacity: 0.4;
 	}
 
 	/* DETAILS */
-
 	.commit__details {
 		display: flex;
 		flex-direction: column;
@@ -459,10 +483,11 @@
 			}
 		}
 
-		& .commit__id-icon {
+		& .commit__subtitle-btn__icon {
 			width: var(--size-icon);
 			opacity: 1;
 			transform: scale(1);
+			margin-left: 2px;
 		}
 	}
 </style>
