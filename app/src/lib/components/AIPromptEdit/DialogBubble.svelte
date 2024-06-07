@@ -92,7 +92,7 @@
 					Remove example
 				</Button>
 			{/if}
-			<Button kind="solid" style="ghost" grow on:click={() => dispatcher('addExample')}
+			<Button style="ghost" outline grow on:click={() => dispatcher('addExample')}
 				>Add new example</Button
 			>
 		</div>

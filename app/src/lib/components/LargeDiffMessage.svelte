@@ -14,7 +14,7 @@
 <div class="large-diff-message" class:frame-box={showFrame}>
 	<p class="text-base-13">Change hidden as large diffs may slow down the UI</p>
 
-	<Button style="ghost" kind="solid" color="neutral" on:click={show}>Show anyways</Button>
+	<Button style="ghost" outline color="neutral" on:click={show}>Show anyways</Button>
 </div>
 
 <style>

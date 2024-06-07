@@ -191,7 +191,7 @@
 	>
 		<DropDownButton
 			style="ghost"
-			kind="solid"
+			outline
 			icon="ai-small"
 			disabled={!($aiGenEnabled && aiConfigurationValid)}
 			loading={aiLoading}

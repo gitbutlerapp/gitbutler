@@ -34,7 +34,6 @@
 					<Button
 						icon="chevron-left"
 						style="ghost"
-						kind="soft"
 						on:mousedown={() => {
 							if (history.length > 0) {
 								history.back();

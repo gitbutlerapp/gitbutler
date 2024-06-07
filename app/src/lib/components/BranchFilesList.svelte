@@ -63,7 +63,7 @@
 			<Button
 				icon="copy"
 				style="ghost"
-				kind="solid"
+				outline
 				on:mousedown={() => copyToClipboard(mergeDiffCommand + $commit.id.slice(0, 7))}
 			></Button>
 		</div>

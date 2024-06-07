@@ -257,7 +257,7 @@
 				icon="update-small"
 				size="tag"
 				style="ghost"
-				kind="soft"
+				outline
 				loading={isFetchingDetails || isFetchingChecks}
 				help={$lastDetailsFetch ? 'Updated ' + $lastDetailsFetch : ''}
 				on:click={async () => {
@@ -294,7 +294,7 @@
 				size="tag"
 				icon="open-link"
 				style="ghost"
-				kind="solid"
+				outline
 				shrinkable
 				on:click={(e) => {
 					const url = pr?.htmlUrl;

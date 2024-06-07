@@ -17,7 +17,7 @@
 	clickable
 	reversedDirection
 	style="ghost"
-	kind="solid"
+	outline
 	icon="update-small"
 	help="Last fetch from upstream"
 	loading={$baseServiceBusy$}

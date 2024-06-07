@@ -166,7 +166,7 @@
 			<Button
 				size="tag"
 				style="ghost"
-				kind="solid"
+				outline
 				help="Restores GitButler and your files to the state before this operation. Revert actions can also be undone."
 				on:click={() => {
 					dispatch('restoreClick');
