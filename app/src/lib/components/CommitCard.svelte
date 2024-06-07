@@ -261,8 +261,8 @@
 									>
 									<Button
 										size="tag"
+										style="ghost"
 										outline
-										kind="solid"
 										icon="edit-text"
 										on:click={openCommitMessageModal}>Edit message</Button
 									>
