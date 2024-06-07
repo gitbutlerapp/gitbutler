@@ -137,7 +137,7 @@
 		border-color: var(--clr-commit-local);
 		border-width: 2px 0 0 2px;
 		&.base {
-			top: -1px;
+			top: 0px;
 		}
 	}
 
