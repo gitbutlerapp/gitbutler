@@ -48,7 +48,7 @@ export function cloneWithPreservedDimensions(node: any, extendWithClass: string 
 	return clone;
 }
 
-export function cloneWithRotation(node: any, extendWithClass: string | undefined) {
+export function cloneWithRotation(node: any, extendWithClass: string | undefined = undefined) {
 	const container = document.createElement('div');
 	const clone = cloneWithPreservedDimensions(node, extendWithClass) as HTMLElement;
 	container.appendChild(clone);
