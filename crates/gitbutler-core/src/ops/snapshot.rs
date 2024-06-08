@@ -92,71 +92,103 @@ impl Project {
     }
     pub(crate) fn snapshot_branch_update(
         &self,
+        snapshot_tree: git2::Oid,
         old_branch: &Branch,
         update: &BranchUpdateRequest,
+        error: Option<&anyhow::Error>,
     ) -> anyhow::Result<()> {
         let details = if update.ownership.is_some() {
-            SnapshotDetails::new(OperationKind::MoveHunk).with_trailers(vec![Trailer {
-                key: "name".to_string(),
-                value: old_branch.name.to_string(),
-            }])
+            SnapshotDetails::new(OperationKind::MoveHunk).with_trailers(
+                [
+                    vec![Trailer {
+                        key: "name".to_string(),
+                        value: old_branch.name.to_string(),
+                    }],
+                    error_trailer(error),
+                ]
+                .concat(),
+            )
         } else if let Some(name) = update.name.as_deref() {
-            SnapshotDetails::new(OperationKind::UpdateBranchName).with_trailers(vec![
-                Trailer {
-                    key: "before".to_string(),
-                    value: old_branch.name.clone(),
-                },
-                Trailer {
-                    key: "after".to_string(),
-                    value: name.to_owned(),
-                },
-            ])
+            SnapshotDetails::new(OperationKind::UpdateBranchName).with_trailers(
+                [
+                    vec![
+                        Trailer {
+                            key: "before".to_string(),
+                            value: old_branch.name.clone(),
+                        },
+                        Trailer {
+                            key: "after".to_string(),
+                            value: name.to_owned(),
+                        },
+                    ],
+                    error_trailer(error),
+                ]
+                .concat(),
+            )
         } else if update.notes.is_some() {
             SnapshotDetails::new(OperationKind::UpdateBranchNotes)
         } else if let Some(order) = update.order {
-            SnapshotDetails::new(OperationKind::ReorderBranches).with_trailers(vec![
-                Trailer {
-                    key: "before".to_string(),
-                    value: old_branch.order.to_string(),
-                },
-                Trailer {
-                    key: "after".to_string(),
-                    value: order.to_string(),
-                },
-            ])
+            SnapshotDetails::new(OperationKind::ReorderBranches).with_trailers(
+                [
+                    vec![
+                        Trailer {
+                            key: "before".to_string(),
+                            value: old_branch.order.to_string(),
+                        },
+                        Trailer {
+                            key: "after".to_string(),
+                            value: order.to_string(),
+                        },
+                    ],
+                    error_trailer(error),
+                ]
+                .concat(),
+            )
         } else if let Some(_selected_for_changes) = update.selected_for_changes {
-            SnapshotDetails::new(OperationKind::SelectDefaultVirtualBranch).with_trailers(vec![
-                Trailer {
-                    key: "before".to_string(),
-                    value: old_branch
-                        .selected_for_changes
-                        .unwrap_or_default()
-                        .to_string(),
-                },
-                Trailer {
-                    key: "after".to_string(),
-                    value: old_branch.name.clone(),
-                },
-            ])
+            SnapshotDetails::new(OperationKind::SelectDefaultVirtualBranch).with_trailers(
+                [
+                    vec![
+                        Trailer {
+                            key: "before".to_string(),
+                            value: old_branch
+                                .selected_for_changes
+                                .unwrap_or_default()
+                                .to_string(),
+                        },
+                        Trailer {
+                            key: "after".to_string(),
+                            value: old_branch.name.clone(),
+                        },
+                    ],
+                    error_trailer(error),
+                ]
+                .concat(),
+            )
         } else if let Some(upstream) = update.upstream.as_deref() {
-            SnapshotDetails::new(OperationKind::UpdateBranchRemoteName).with_trailers(vec![
-                Trailer {
-                    key: "before".to_string(),
-                    value: old_branch
-                        .upstream
-                        .as_ref()
-                        .map(|r| r.to_string())
-                        .unwrap_or_default(),
-                },
-                Trailer {
-                    key: "after".to_string(),
-                    value: upstream.to_owned(),
-                },
-            ])
+            SnapshotDetails::new(OperationKind::UpdateBranchRemoteName).with_trailers(
+                [
+                    vec![
+                        Trailer {
+                            key: "before".to_string(),
+                            value: old_branch
+                                .upstream
+                                .as_ref()
+                                .map(|r| r.to_string())
+                                .unwrap_or_default(),
+                        },
+                        Trailer {
+                            key: "after".to_string(),
+                            value: upstream.to_owned(),
+                        },
+                    ],
+                    error_trailer(error),
+                ]
+                .concat(),
+            )
         } else {
             SnapshotDetails::new(OperationKind::GenericBranchUpdate)
         };
-        self.create_snapshot(details)?;
+        self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
 }

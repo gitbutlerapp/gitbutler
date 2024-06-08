@@ -1298,13 +1298,10 @@ pub fn integrate_with_merge(
 
 pub fn update_branch(
     project_repository: &project_repository::Repository,
-    branch_update: branch::BranchUpdateRequest,
+    branch_update: &branch::BranchUpdateRequest,
 ) -> Result<branch::Branch> {
     let vb_state = project_repository.project().virtual_branches();
     let mut branch = vb_state.get_branch(branch_update.id)?;
-    _ = project_repository
-        .project()
-        .snapshot_branch_update(&branch, &branch_update);
 
     if let Some(ownership) = &branch_update.ownership {
         set_ownership(&vb_state, &mut branch, ownership).context("failed to set ownership")?;

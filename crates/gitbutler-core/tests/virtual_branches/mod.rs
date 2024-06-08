@@ -353,7 +353,7 @@ fn hunk_expantion() -> Result<()> {
     // even though selected branch has changed
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch1_id,
             order: Some(1),
             ..Default::default()
@@ -361,7 +361,7 @@ fn hunk_expantion() -> Result<()> {
     )?;
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             order: Some(0),
             ..Default::default()
@@ -502,7 +502,7 @@ fn move_hunks_multiple_sources() -> Result<()> {
 
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch3_id,
             ownership: Some("test.txt:1-5,11-15".parse()?),
             ..Default::default()
@@ -579,7 +579,7 @@ fn move_hunks_partial_explicitly() -> Result<()> {
 
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test.txt:1-5".parse()?),
             ..Default::default()
@@ -1058,7 +1058,7 @@ fn unapply_branch() -> Result<()> {
 
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test2.txt:1-3".parse()?),
             ..Default::default()
@@ -1139,7 +1139,7 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
 
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test2.txt:0-0".parse()?),
             ..Default::default()
@@ -1147,7 +1147,7 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     )?;
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch3_id,
             ownership: Some("test3.txt:1-2".parse()?),
             ..Default::default()
@@ -1210,7 +1210,7 @@ fn detect_mergeable_branch() -> Result<()> {
 
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test4.txt:1-3".parse()?),
             ..Default::default()
@@ -1399,7 +1399,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
 
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch1_id,
             name: Some("integrated".to_string()),
             ownership: Some("test.txt:1-2".parse()?),
@@ -1409,7 +1409,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
 
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             name: Some("not integrated".to_string()),
             ownership: Some("test2.txt:1-2".parse()?),
@@ -1419,7 +1419,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
 
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch3_id,
             name: Some("not committed".to_string()),
             ownership: Some("test3.txt:1-2".parse()?),
