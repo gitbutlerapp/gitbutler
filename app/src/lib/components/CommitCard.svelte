@@ -385,7 +385,7 @@
 		color: var(--clr-text-3);
 
 		opacity: 0;
-		transition: opacity var(--transition-medium);
+		transition: opacity var(--transition-fast);
 	}
 
 	.commit__title {
