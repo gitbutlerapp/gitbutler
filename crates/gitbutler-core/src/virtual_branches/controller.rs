@@ -588,7 +588,22 @@ impl ControllerInner {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
-            super::update_branch(project_repository, branch_update)?;
+            let snapshot_tree = project_repository.project().prepare_snapshot();
+            let old_branch = project_repository
+                .project()
+                .virtual_branches()
+                .get_branch(branch_update.id)?;
+            let result = super::update_branch(project_repository, &branch_update);
+            let _ = snapshot_tree.and_then(|snapshot_tree| {
+                project_repository.project().snapshot_branch_update(
+                    snapshot_tree,
+                    &old_branch,
+                    &branch_update,
+                    result.as_ref().err(),
+                )
+            });
+            result?;
+
             Ok(())
         })
     }
