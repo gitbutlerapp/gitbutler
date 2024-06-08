@@ -173,13 +173,19 @@
 						>empty commit message</span
 					>
 				{:else}
-					<h5 class="text-base-body-13 text-semibold commit__title" class:truncate={!showDetails}>
+					<h5
+						class="text-base-body-13 text-semibold commit__title"
+						class:truncate={!showDetails}
+					>
 						{commit.descriptionTitle}
 					</h5>
 
 					<div class="text-base-11 commit__subtitle">
 						{#if commit.isSigned}
-							<div class="commit__signed" use:tooltip={{ text: 'Signed', delay: 500 }}>
+							<div
+								class="commit__signed"
+								use:tooltip={{ text: 'Signed', delay: 500 }}
+							>
 								<Icon name="success-outline-small" />
 							</div>
 
@@ -257,17 +263,6 @@
 										outline
 										icon="edit-text"
 										on:click={openCommitMessageModal}>Edit message</Button
-									>
-								{/if}
-								{#if hasCommitUrl}
-									<Button
-										size="tag"
-										style="ghost"
-										outline
-										icon="open-link"
-										on:click={() => {
-											if (commitUrl) openExternalUrl(commitUrl);
-										}}>Open</Button
 									>
 								{/if}
 							</div>
@@ -379,9 +374,8 @@
 		pointer-events: none;
 		position: absolute;
 		display: flex;
-		transform: rotate(90deg);
 		top: 4px;
-		right: 4px;
+		right: 2px;
 		color: var(--clr-text-3);
 
 		opacity: 0;
