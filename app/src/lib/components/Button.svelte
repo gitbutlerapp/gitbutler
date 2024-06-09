@@ -31,6 +31,7 @@
 	// Additional elements
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let help = '';
+	export let helpShowDelay = 1200;
 
 	const SLOTS = $$props.$$slots;
 </script>
@@ -49,7 +50,10 @@
 	class:is-dropdown={isDropdownChild}
 	style:align-self={align}
 	style:width={width ? pxToRem(width) : undefined}
-	use:tooltip={help}
+	use:tooltip={{
+		text: help,
+		delay: helpShowDelay
+	}}
 	bind:this={element}
 	disabled={disabled || loading}
 	on:click

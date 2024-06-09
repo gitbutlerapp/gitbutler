@@ -2,9 +2,8 @@
 	import CommitCard from './CommitCard.svelte';
 	import CommitLines from './CommitLines.svelte';
 	import { Project } from '$lib/backend/projects';
-	import Button from '$lib/components/Button.svelte';
 	import ReorderDropzone from '$lib/components/CommitList/ReorderDropzone.svelte';
-	import QuickActionMenu from '$lib/components/QuickActionMenu.svelte';
+	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
 	import { ReorderDropzoneIndexer } from '$lib/dragging/reorderDropzoneIndexer';
 	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import { getContext } from '$lib/utils/context';
@@ -142,18 +141,7 @@
 				</CommitCard>
 			{/each}
 		{/if}
-		<QuickActionMenu
-			offset={$localCommits.length === 0 &&
-			$remoteCommits.length === 0 &&
-			$integratedCommits.length === 0
-				? 0
-				: 0.75}
-			padding={1}
-		>
-			<Button style="ghost" size="tag" on:click={() => insertBlankCommit($branch.head, 'above')}
-				>Insert blank commit</Button
-			>
-		</QuickActionMenu>
+		<InsertEmptyCommitAction isFirst on:click={() => insertBlankCommit($branch.head, 'above')} />
 		<!-- LOCAL COMMITS -->
 		{#if $localCommits.length > 0}
 			<ReorderDropzone
@@ -193,18 +181,16 @@
 						/>
 					</svelte:fragment>
 				</CommitCard>
+
 				<ReorderDropzone
 					index={reorderDropzoneIndexer.dropzoneIndexBelowCommit(commit.id)}
 					indexer={reorderDropzoneIndexer}
 				/>
-				<QuickActionMenu
-					padding={1}
-					offset={$remoteCommits.length > 0 && idx + 1 === $localCommits.length ? 0.25 : 0}
-				>
-					<Button style="ghost" size="tag" on:click={() => insertBlankCommit(commit.id, 'below')}
-						>Insert blank commit</Button
-					>
-				</QuickActionMenu>
+				<InsertEmptyCommitAction
+					isLast={$remoteCommits.length === 0 && idx + 1 === $localCommits.length}
+					isMiddle={$remoteCommits.length > 0 && idx + 1 === $localCommits.length}
+					on:click={() => insertBlankCommit(commit.id, 'below')}
+				/>
 			{/each}
 		{/if}
 		<!-- REMOTE COMMITS -->
@@ -243,11 +229,10 @@
 					index={reorderDropzoneIndexer.dropzoneIndexBelowCommit(commit.id)}
 					indexer={reorderDropzoneIndexer}
 				/>
-				<QuickActionMenu padding={1}>
-					<Button style="ghost" size="tag" on:click={() => insertBlankCommit(commit.id, 'below')}
-						>Insert blank commit</Button
-					>
-				</QuickActionMenu>
+				<InsertEmptyCommitAction
+					isLast={idx + 1 === $remoteCommits.length}
+					on:click={() => insertBlankCommit(commit.id, 'below')}
+				/>
 			{/each}
 		{/if}
 		<!-- INTEGRATED COMMITS -->
@@ -348,6 +333,14 @@
 
 		overflow: hidden;
 		transition: height var(--transition-medium);
+
+		&:hover {
+			height: 22px;
+
+			& .base-row {
+				background-color: var(--clr-bg-2-muted);
+			}
+		}
 	}
 
 	.base-row-container_unfolded {
@@ -366,10 +359,6 @@
 		min-height: calc(var(--base-unfolded) - var(--base-top-margin));
 		margin-top: var(--base-top-margin);
 		transition: background-color var(--transition-fast);
-
-		&:hover {
-			background-color: var(--clr-bg-2-muted);
-		}
 	}
 
 	.base-row__lines {
