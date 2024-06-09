@@ -335,7 +335,9 @@
 		transition: height var(--transition-medium);
 
 		&:hover {
-			height: 22px;
+			&:not(.base-row-container_unfolded) {
+				height: 22px;
+			}
 
 			& .base-row {
 				background-color: var(--clr-bg-2-muted);
