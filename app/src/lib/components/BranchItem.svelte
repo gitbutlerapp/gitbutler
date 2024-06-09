@@ -88,9 +88,12 @@
 	}
 
 	.branch:not(.selected):hover,
-	.branch:not(.selected):focus,
+	.branch:not(.selected):focus {
+		background-color: var(--clr-bg-1-muted);
+		transition: none;
+	}
+
 	.selected {
 		background-color: var(--clr-bg-2);
-		transition: none;
 	}
 </style>
