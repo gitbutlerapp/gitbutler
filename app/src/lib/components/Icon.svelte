@@ -15,7 +15,11 @@
 </script>
 
 <svg
-	class="icon-wrapper {color}"
+	class="icon-wrapper"
+	class:success={color === 'success'}
+	class:error={color === 'error'}
+	class:pop={color === 'pop'}
+	class:warning={color === 'warning'}
 	viewBox="0 0 16 16"
 	fill-rule="evenodd"
 	class:default={!color}

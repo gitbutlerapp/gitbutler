@@ -26,7 +26,6 @@
 		type CommitStatus
 	} from '$lib/vbranches/types';
 	import { createEventDispatcher } from 'svelte';
-	// import { slide } from 'svelte/transition';
 
 	export let branch: Branch | undefined = undefined;
 	export let commit: Commit | RemoteCommit;
@@ -103,7 +102,7 @@
 	}
 </script>
 
-<Modal bind:this={commitMessageModal}>
+<Modal bind:this={commitMessageModal} width="small">
 	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
 	<svelte:fragment slot="controls">
 		<Button style="ghost" outline on:click={() => commitMessageModal.close()}>Cancel</Button>
@@ -126,16 +125,7 @@
 >
 	<slot name="lines" />
 	<CommitDragItem {commit}>
-		<div
-			use:draggable={commit instanceof Commit
-				? {
-						data: new DraggableCommit(commit.branchId, commit, isHeadCommit)
-					}
-				: nonDraggable()}
-			class="commit-card"
-			class:is-first={first}
-			class:is-last={last}
-		>
+		<div class="commit-card" class:is-first={first} class:is-last={last}>
 			<div
 				class="accent-border-line"
 				class:is-first={first}
@@ -146,66 +136,108 @@
 				class:integrated={type === 'integrated'}
 			/>
 
-			<div class="commit__content">
-				<!-- GENERAL INFO -->
-				<div
-					class="commit__about"
-					on:click={toggleFiles}
-					on:keyup={onKeyup}
-					role="button"
-					tabindex="0"
-				>
-					{#if first}
-						<div class="commit__type text-semibold text-base-12">
-							{#if type === 'upstream'}
-								Remote <Icon name="remote" />
-							{:else if type === 'local'}
-								Local <Icon name="local" />
-							{:else if type === 'remote'}
-								Local and remote
-							{:else if type === 'integrated'}
-								Integrated
-							{/if}
-						</div>
-					{/if}
-
-					{#if isUndoable && !commit.descriptionTitle}
-						<span class="text-base-body-13 text-semibold commit__empty-title"
-							>empty commit message</span
-						>
-					{:else}
-						<h5 class="text-base-body-13 text-semibold commit__title" class:truncate={!showDetails}>
-							{commit.descriptionTitle}
-						</h5>
-
-						<div class="text-base-11 commit__subtitle">
-							{#if commit.isSigned}
-								<div class="commit__signed" use:tooltip={{ text: 'Signed', delay: 500 }}>
-									<Icon name="success-outline-small" />
-								</div>
-							{/if}
-							<button
-								class="commit__id"
-								on:click|stopPropagation={() => copyToClipboard(commit.id)}
-							>
-								{commit.id.substring(0, 7)}
-							</button>
-
-							<span class="commit__subtitle-divider">•</span>
-
-							<span
-								>{getTimeAgo(commit.createdAt)}{type === 'remote' || type === 'upstream'
-									? ` by ${commit.author.name}`
-									: ''}</span
-							>
-						</div>
-					{/if}
+			<!-- GENERAL INFO -->
+			<div
+				class="commit__header"
+				on:click={toggleFiles}
+				on:keyup={onKeyup}
+				role="button"
+				tabindex="0"
+				use:draggable={commit instanceof Commit
+					? {
+							data: new DraggableCommit(commit.branchId, commit, isHeadCommit),
+							extendWithClass: 'commit_draggable'
+						}
+					: nonDraggable()}
+			>
+				<div class="commit__drag-icon">
+					<Icon name="draggable-narrow" />
 				</div>
 
-				<!-- HIDDEN -->
-				{#if showDetails}
+				{#if first}
+					<div class="commit__type text-semibold text-base-12">
+						{#if type === 'upstream'}
+							Remote <Icon name="remote" />
+						{:else if type === 'local'}
+							Local <Icon name="local" />
+						{:else if type === 'remote'}
+							Local and remote
+						{:else if type === 'integrated'}
+							Integrated
+						{/if}
+					</div>
+				{/if}
+
+				{#if isUndoable && !commit.descriptionTitle}
+					<span class="text-base-body-13 text-semibold commit__empty-title"
+						>empty commit message</span
+					>
+				{:else}
+					<h5 class="text-base-body-13 text-semibold commit__title" class:truncate={!showDetails}>
+						{commit.descriptionTitle}
+					</h5>
+
+					<div class="text-base-11 commit__subtitle">
+						{#if commit.isSigned}
+							<div class="commit__signed" use:tooltip={{ text: 'Signed', delay: 500 }}>
+								<Icon name="success-outline-small" />
+							</div>
+
+							<span class="commit__subtitle-divider">•</span>
+						{/if}
+
+						{#if hasCommitUrl}
+							<button
+								class="commit__subtitle-btn commit__subtitle-btn_dashed"
+								on:click|stopPropagation={() => copyToClipboard(commit.id)}
+							>
+								<span>{commit.id.substring(0, 7)}</span>
+
+								<div class="commit__subtitle-btn__icon">
+									<Icon name="copy-small" />
+								</div>
+							</button>
+
+							{#if showDetails}
+								<span class="commit__subtitle-divider">•</span>
+
+								<button
+									class="commit__subtitle-btn"
+									on:click|stopPropagation={() => {
+										if (commitUrl) openExternalUrl(commitUrl);
+									}}
+								>
+									<span>Open</span>
+
+									<div class="commit__subtitle-btn__icon">
+										<Icon name="open-link" />
+									</div>
+								</button>
+							{/if}
+
+							<span class="commit__subtitle-divider">•</span>
+						{/if}
+
+						<span
+							>{getTimeAgo(commit.createdAt)}{type === 'remote' || type === 'upstream'
+								? ` by ${commit.author.name}`
+								: ' by you'}</span
+						>
+					</div>
+				{/if}
+			</div>
+
+			<!-- HIDDEN -->
+			{#if showDetails}
+				{#if commit.descriptionBody || isUndoable}
 					<div class="commit__details">
-						{#if hasCommitUrl || isUndoable}
+						{#if commit.descriptionBody}
+							<span class="commit__description text-base-body-12">
+								{commit.descriptionBody}
+							</span>
+						{/if}
+
+						{#if isUndoable}
 							<div class="commit__actions hide-native-scrollbar">
 								{#if isUndoable}
 									<Button
@@ -227,32 +259,13 @@
 										on:click={openCommitMessageModal}>Edit message</Button
 									>
 								{/if}
-								{#if hasCommitUrl}
-									<Button
-										size="tag"
-										style="ghost"
-										outline
-										icon="open-link"
-										on:click={() => {
-											if (commitUrl) openExternalUrl(commitUrl);
-										}}>Open</Button
-									>
-								{/if}
 							</div>
-						{/if}
-
-						{#if commit.descriptionBody}
-							<span class="commit__description text-base-body-12">
-								{commit.descriptionBody}
-							</span>
 						{/if}
 					</div>
 				{/if}
-			</div>
 
-			{#if showDetails}
 				<div class="files-container">
-					<BranchFilesList title="Files" {files} {isUnapplied} readonly={type === 'upstream'} />
+					<BranchFilesList {files} {isUnapplied} readonly={type === 'upstream'} />
 				</div>
 			{/if}
 		</div>
@@ -267,6 +280,12 @@
 	:global(.amend-dz-hover .hover-text) {
 		visibility: visible;
 	}
+	:global(.commit_draggable) {
+		cursor: grab;
+		background-color: var(--clr-bg-1);
+		border-radius: var(--radius-m);
+		border: none;
+	}
 
 	.commit-row {
 		position: relative;
@@ -275,9 +294,6 @@
 		&.has-lines {
 			padding-right: 14px;
 		}
-
-		/* border-top: 1px solid var(--clr-border-2); */
-		/* padding-left: 8px; */
 
 		&:not(.is-first) {
 			border-top: 1px solid var(--clr-border-3);
@@ -290,10 +306,6 @@
 		flex-direction: column;
 
 		background-color: var(--clr-bg-1);
-		/* border: 1px solid var(--clr-border-2);
-		border-top: none;
-		border-bottom: none;
-		border-left: none; */
 		border-right: 1px solid var(--clr-border-2);
 		overflow: hidden;
 		transition: background-color var(--transition-fast);
@@ -337,12 +349,7 @@
 	}
 
 	/* HEADER */
-	.commit__content {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.commit__about {
+	.commit__header {
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
@@ -350,7 +357,23 @@
 
 		&:hover {
 			background-color: var(--clr-bg-1-muted);
+
+			& .commit__drag-icon {
+				opacity: 1;
+			}
 		}
+	}
+
+	.commit__drag-icon {
+		pointer-events: none;
+		position: absolute;
+		display: flex;
+		top: 4px;
+		right: 2px;
+		color: var(--clr-text-3);
+
+		opacity: 0;
+		transition: opacity var(--transition-fast);
 	}
 
 	.commit__title {
@@ -387,22 +410,51 @@
 		display: flex;
 	}
 
-	.commit__id {
+	/* SUBTITLE LINK BUTTON */
+	.commit__subtitle-btn {
+		flex-shrink: 0;
 		display: flex;
 		align-items: center;
-		gap: 4px;
+
+		text-decoration: underline;
+		text-underline-offset: 2px;
 
 		&:hover {
 			color: var(--clr-text-1);
+
+			& .commit__subtitle-btn__icon {
+				width: var(--size-icon);
+				opacity: 1;
+				transform: scale(1);
+				margin-left: 2px;
+			}
 		}
 	}
 
+	.commit__subtitle-btn_dashed {
+		text-decoration-style: dashed;
+	}
+
+	.commit__subtitle-btn__icon {
+		display: flex;
+		margin-left: 0;
+		width: 0;
+		opacity: 0;
+		transform: scale(0.6);
+		transition:
+			width var(--transition-medium),
+			opacity var(--transition-fast),
+			color var(--transition-fast),
+			transform var(--transition-medium),
+			margin-left var(--transition-fast);
+	}
+
+	/* DIVIDER - DOT SYMBOL */
 	.commit__subtitle-divider {
 		opacity: 0.4;
 	}
 
 	/* DETAILS */
-
 	.commit__details {
 		display: flex;
 		flex-direction: column;
@@ -431,15 +483,24 @@
 		}
 
 		& .commit-card {
+			border-radius: var(--radius-m);
+
 			&:not(.is-first) {
-				margin-top: 8px;
+				margin-top: 12px;
 				border-top: 1px solid var(--clr-border-2);
 			}
 
 			&:not(.is-last) {
-				margin-bottom: 8px;
+				margin-bottom: 12px;
 				border-bottom: 1px solid var(--clr-border-2);
 			}
+		}
+
+		& .commit__subtitle-btn__icon {
+			width: var(--size-icon);
+			opacity: 1;
+			transform: scale(1);
+			margin-left: 2px;
 		}
 	}
 </style>

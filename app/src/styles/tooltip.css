@@ -5,7 +5,7 @@
 	border: 1px solid var(--clr-core-ntrl-30);
 	color: var(--clr-core-ntrl-60);
 	display: inline-block;
-	padding: 6px;
+	padding: 6px 8px;
 	z-index: var(--z-tooltip);
 
 	max-width: 180px;
