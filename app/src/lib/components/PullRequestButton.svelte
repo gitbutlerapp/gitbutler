@@ -40,20 +40,15 @@
 	{labels[$action]}
 	<ContextMenu slot="context-menu">
 		<ContextMenuSection>
-			<ContextMenuItem
-				label={labels[Action.Create]}
-				on:click={() => {
-					$action = Action.Create;
-					dropDown.close();
-				}}
-			/>
-			<ContextMenuItem
-				label={labels[Action.Draft]}
-				on:click={() => {
-					$action = Action.Draft;
-					dropDown.close();
-				}}
-			/>
+			{#each Object.values(Action) as method}
+				<ContextMenuItem
+					label={labels[method]}
+					on:click={() => {
+						$action = method;
+						dropDown.close();
+					}}
+				/>
+			{/each}
 		</ContextMenuSection>
 	</ContextMenu>
 </DropDownButton>

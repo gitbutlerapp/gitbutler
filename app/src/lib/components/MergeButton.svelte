@@ -45,27 +45,15 @@
 	{labels[$action]}
 	<ContextMenu slot="context-menu">
 		<ContextMenuSection>
-			<ContextMenuItem
-				label={labels[MergeMethod.Merge]}
-				on:click={() => {
-					$action = MergeMethod.Merge;
-					dropDown.close();
-				}}
-			/>
-			<ContextMenuItem
-				label={labels[MergeMethod.Rebase]}
-				on:click={() => {
-					$action = MergeMethod.Rebase;
-					dropDown.close();
-				}}
-			/>
-			<ContextMenuItem
-				label={labels[MergeMethod.Squash]}
-				on:click={() => {
-					$action = MergeMethod.Squash;
-					dropDown.close();
-				}}
-			/>
+			{#each Object.values(MergeMethod) as method}
+				<ContextMenuItem
+					label={labels[method]}
+					on:click={() => {
+						$action = method;
+						dropDown.close();
+					}}
+				/>
+			{/each}
 		</ContextMenuSection>
 	</ContextMenu>
 </DropDownButton>
