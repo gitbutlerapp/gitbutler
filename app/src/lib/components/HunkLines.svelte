@@ -38,8 +38,6 @@
 		return tokens;
 	}
 
-	$: console.log(lines);
-
 	$: isSelected = selectable && selected;
 </script>
 
