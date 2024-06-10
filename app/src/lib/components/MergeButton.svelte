@@ -5,7 +5,6 @@
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { MergeMethod } from '$lib/github/types';
 	import { persisted, type Persisted } from '$lib/persisted/persisted';
-	import * as toasts from '$lib/utils/toasts';
 	import { createEventDispatcher } from 'svelte';
 
 	export let projectId: string;
@@ -22,10 +21,13 @@
 	const dispatch = createEventDispatcher<{ click: { method: MergeMethod } }>();
 	const action = persistedAction(projectId);
 
-	let contextMenu: ContextMenu;
 	let dropDown: DropDownButton;
 
-	$: selection$ = contextMenu?.selection$;
+	const labels = {
+		[MergeMethod.Merge]: 'Merge pull request',
+		[MergeMethod.Rebase]: 'Rebase and merge',
+		[MergeMethod.Squash]: 'Squash and merge'
+	};
 </script>
 
 <DropDownButton
@@ -40,45 +42,18 @@
 		dispatch('click', { method: $action });
 	}}
 >
-	{$selection$?.label}
-	<ContextMenu
-		type="select"
-		slot="context-menu"
-		bind:this={contextMenu}
-		on:select={(e) => {
-			// TODO: Refactor to use generics if/when that works with Svelte
-			switch (e.detail?.id) {
-				case MergeMethod.Merge:
-					$action = MergeMethod.Merge;
-					break;
-				case MergeMethod.Rebase:
-					$action = MergeMethod.Rebase;
-					break;
-				case MergeMethod.Squash:
-					$action = MergeMethod.Squash;
-					break;
-				default:
-					toasts.error('Unknown merge method');
-			}
-			dropDown.close();
-		}}
-	>
+	{labels[$action]}
+	<ContextMenu slot="context-menu">
 		<ContextMenuSection>
-			<ContextMenuItem
-				id={MergeMethod.Merge}
-				label="Merge pull request"
-				selected={$action === MergeMethod.Merge}
-			/>
-			<ContextMenuItem
-				id={MergeMethod.Rebase}
-				label="Rebase and merge"
-				selected={$action === MergeMethod.Rebase}
-			/>
-			<ContextMenuItem
-				id={MergeMethod.Squash}
-				label="Squash and merge"
-				selected={$action === MergeMethod.Squash}
-			/>
+			{#each Object.values(MergeMethod) as method}
+				<ContextMenuItem
+					label={labels[method]}
+					on:click={() => {
+						$action = method;
+						dropDown.close();
+					}}
+				/>
+			{/each}
 		</ContextMenuSection>
 	</ContextMenu>
 </DropDownButton>
