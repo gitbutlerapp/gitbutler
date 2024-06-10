@@ -794,7 +794,7 @@ impl ControllerInner {
 
         self.with_verify_branch(project_id, |project_repository, _| {
             let snapshot_tree = project_repository.project().prepare_snapshot();
-            let result = super::unapply_branch(project_repository, branch_id).map_err(Into::into);
+            let result = super::convert_to_real_branch(project_repository, branch_id).map_err(Into::into);
             let _ = snapshot_tree.and_then(|snapshot_tree| {
                 project_repository
                     .project()

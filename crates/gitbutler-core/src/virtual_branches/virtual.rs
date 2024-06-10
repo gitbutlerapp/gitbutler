@@ -280,7 +280,7 @@ pub fn apply_branch(
                 .map(|(branch, _)| branch)
                 .filter(|branch| branch.applied)
             {
-                unapply_branch(project_repository, branch.id)?;
+                convert_to_real_branch(project_repository, branch.id)?;
             }
 
             // apply the branch
@@ -582,10 +582,68 @@ pub fn reset_files(
 }
 
 // to unapply a branch, we need to write the current tree out, then remove those file changes from the wd
-pub fn unapply_branch(
+pub fn convert_to_real_branch(
     project_repository: &project_repository::Repository,
     branch_id: BranchId,
-) -> Result<branch::Branch> {
+) -> Result<git2::Branch<'_>> {
+    fn build_real_branch<'l>(
+        project_repository: &'l project_repository::Repository,
+        vbranch: &branch::Branch,
+    ) -> Result<git2::Branch<'l>> {
+        let repo = project_repository.repo();
+        let target_commit = repo.find_commit(vbranch.head)?;
+        let branch_name = vbranch.name.clone();
+        let branch_name = normalize_branch_name(&branch_name);
+
+        let branch = repo.branch(&branch_name, &target_commit, true)?;
+
+        build_metadata_commit(project_repository, vbranch, &branch)?;
+
+        Ok(branch)
+    }
+    fn build_metadata_commit<'l>(
+        project_repository: &'l project_repository::Repository,
+        vbranch: &branch::Branch,
+        branch: &git2::Branch<'l>,
+    ) -> Result<git2::Oid> {
+        let repo = project_repository.repo();
+
+        // Build wip tree as either any uncommitted changes or an empty tree
+        let vbranch_wip_tree = repo.find_tree(vbranch.tree)?;
+        let vbranch_head_tree = repo.find_commit(vbranch.head)?.tree()?;
+
+        let tree = if vbranch_head_tree.id() != vbranch_wip_tree.id() {
+            vbranch_wip_tree
+        } else {
+            repo.find_tree(TreeUpdateBuilder::new().create_updated(repo, &vbranch_head_tree)?)?
+        };
+
+        // Build commit message
+        let mut message = "GitButler WIP Commit".to_string();
+        message.push_str("\n\n");
+
+        // Commit wip commit
+        let committer = get_integration_commiter()?;
+        let parent = branch.get().peel_to_commit()?;
+
+        let mut commit_buffer: CommitBuffer = repo
+            .commit_create_buffer(&committer, &committer, &message, &tree, &[&parent])?
+            .try_into()?;
+
+        commit_buffer.inject_header("gitbutler-vbranch", &vbranch.id.to_string());
+
+        let commit_oid = repo.commit_buffer(&commit_buffer)?;
+
+        // Update branch reference
+        let branch_name = branch
+            .get()
+            .name()
+            .ok_or(anyhow!("failed to get branch name"))?;
+        repo.reference(branch_name, commit_oid, true, message.as_str())?;
+
+        Ok(commit_oid)
+    }
+
     let vb_state = project_repository.project().virtual_branches();
 
     let target_branch = vb_state.get_branch(branch_id)?;
@@ -640,7 +698,7 @@ pub fn unapply_branch(
     }
 
     // Convert the vbranch to a real branch
-    convert_to_real_branch(project_repository, &target_branch)?;
+    let real_branch = build_real_branch(project_repository, &target_branch)?;
 
     delete_branch(project_repository, branch_id)?;
 
@@ -650,66 +708,7 @@ pub fn unapply_branch(
     super::integration::update_gitbutler_integration(&vb_state, project_repository)
         .context("Failed to adfasdf")?;
 
-    Ok(target_branch)
-}
-
-fn convert_to_real_branch<'l>(
-    project_repository: &'l project_repository::Repository,
-    vbranch: &branch::Branch,
-) -> Result<git2::Branch<'l>> {
-    let repo = project_repository.repo();
-    let target_commit = repo.find_commit(vbranch.head)?;
-    let branch_name = vbranch.name.clone();
-    let branch_name = normalize_branch_name(&branch_name);
-
-    let branch = repo.branch(&branch_name, &target_commit, true)?;
-
-    build_metadata_commit(project_repository, vbranch, &branch)?;
-
-    Ok(branch)
-}
-
-fn build_metadata_commit<'l>(
-    project_repository: &'l project_repository::Repository,
-    vbranch: &branch::Branch,
-    branch: &git2::Branch<'l>,
-) -> Result<git2::Oid> {
-    let repo = project_repository.repo();
-
-    // Build wip tree as either any uncommitted changes or an empty tree
-    let vbranch_wip_tree = repo.find_tree(vbranch.tree)?;
-    let vbranch_head_tree = repo.find_commit(vbranch.head)?.tree()?;
-
-    let tree = if vbranch_head_tree.id() != vbranch_wip_tree.id() {
-        vbranch_wip_tree
-    } else {
-        repo.find_tree(TreeUpdateBuilder::new().create_updated(repo, &vbranch_head_tree)?)?
-    };
-
-    // Build commit message
-    let mut message = "GitButler WIP Commit".to_string();
-    message.push_str("\n\n");
-
-    // Commit wip commit
-    let committer = get_integration_commiter()?;
-    let parent = branch.get().peel_to_commit()?;
-
-    let mut commit_buffer: CommitBuffer = repo
-        .commit_create_buffer(&committer, &committer, &message, &tree, &[&parent])?
-        .try_into()?;
-
-    commit_buffer.inject_header("gitbutler-vbranch", &vbranch.id.to_string());
-
-    let commit_oid = repo.commit_buffer(&commit_buffer)?;
-
-    // Update branch reference
-    let branch_name = branch
-        .get()
-        .name()
-        .ok_or(anyhow!("failed to get branch name"))?;
-    repo.reference(branch_name, commit_oid, true, message.as_str())?;
-
-    Ok(commit_oid)
+    Ok(real_branch)
 }
 
 fn find_base_tree<'a>(
@@ -758,7 +757,7 @@ pub fn list_virtual_branches(
 
     for (branch, files) in statuses {
         if !branch.applied {
-            unapply_branch(project_repository, branch.id)?;
+            convert_to_real_branch(project_repository, branch.id)?;
         }
 
         let repo = project_repository.repo();
@@ -3435,7 +3434,8 @@ pub fn cherry_pick(
         .filter(|(b, _)| b.id != branch.id)
         .map(|(b, _)| b)
     {
-        unapply_branch(project_repository, other_branch.id).context("failed to unapply branch")?;
+        convert_to_real_branch(project_repository, other_branch.id)
+            .context("failed to unapply branch")?;
     }
 
     let commit_oid = if cherrypick_index.has_conflicts() {
