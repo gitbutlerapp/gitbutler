@@ -25,9 +25,9 @@ impl Project {
     pub(crate) fn snapshot_branch_unapplied(
         &self,
         snapshot_tree: git2::Oid,
-        result: Result<&Branch, &anyhow::Error>,
+        result: Result<&git2::Branch, &anyhow::Error>,
     ) -> anyhow::Result<()> {
-        let result = result.map(|o| Some(o.clone().name));
+        let result = result.map(|o| o.name().ok().flatten().map(|s| s.to_string()));
         let details = SnapshotDetails::new(OperationKind::UnapplyBranch)
             .with_trailers(result_trailer(result, "name".to_string()));
         self.commit_snapshot(snapshot_tree, details)?;
