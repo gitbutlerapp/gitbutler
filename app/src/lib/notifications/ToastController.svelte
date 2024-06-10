@@ -17,6 +17,7 @@
 			<InfoMessage
 				style={toast.style ?? 'neutral'}
 				secondary="Dismiss"
+				error={toast.error}
 				on:secondary={() => dismissToast(toast.id)}
 				shadow
 			>
@@ -26,10 +27,6 @@
 
 				<svelte:fragment slot="content">
 					{@html marked.parse(toast.message ?? '', { renderer })}
-				</svelte:fragment>
-
-				<svelte:fragment slot="error">
-					{toast.error}
 				</svelte:fragment>
 			</InfoMessage>
 		</div>
