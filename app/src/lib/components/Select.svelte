@@ -20,7 +20,6 @@
 
 	$: if (selectedItemId) value = items.find((item) => item[itemId] === selectedItemId);
 
-	const SLOTS = $$props.$$slots;
 	const dispatch = createEventDispatcher<{ select: { value: any } }>();
 	const maxPadding = 10;
 
@@ -99,7 +98,7 @@
 					{/each}
 				</div>
 			{/if}
-			{#if SLOTS?.append}
+			{#if $$slots?.append}
 				<div class="options__group">
 					<slot name="append" />
 				</div>

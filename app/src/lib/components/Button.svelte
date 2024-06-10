@@ -32,8 +32,6 @@
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let help = '';
 	export let helpShowDelay = 1200;
-
-	const SLOTS = $$props.$$slots;
 </script>
 
 <button
@@ -46,7 +44,7 @@
 	class:wide
 	class:grow
 	class:not-clickable={!clickable}
-	class:fixed-width={!SLOTS && !wide}
+	class:fixed-width={!$$slots.default && !wide}
 	class:is-dropdown={isDropdownChild}
 	style:align-self={align}
 	style:width={width ? pxToRem(width) : undefined}
@@ -63,7 +61,7 @@
 	{id}
 	tabindex={clickable ? tabindex : -1}
 >
-	{#if SLOTS}
+	{#if $$slots.default}
 		<span
 			class="label text-semibold"
 			class:text-base-12={size === 'button' || size === 'cta'}

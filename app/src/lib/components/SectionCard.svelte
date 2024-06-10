@@ -18,8 +18,6 @@
 	export let disabled = false;
 	export let clickable = false;
 
-	const SLOTS = $$props.$$slots;
-
 	const dispatch = createEventDispatcher<{ hover: boolean }>();
 </script>
 
@@ -45,20 +43,20 @@
 	on:mouseenter={() => dispatch('hover', true)}
 	on:mouseleave={() => dispatch('hover', false)}
 >
-	{#if SLOTS.iconSide}
+	{#if $$slots.iconSide}
 		<div class="section-card__icon-side">
 			<slot name="iconSide" />
 		</div>
 	{/if}
 
-	{#if SLOTS.title || SLOTS.caption}
+	{#if $$slots.title || $$slots.caption}
 		<div class="section-card__content">
-			{#if SLOTS.title}
+			{#if $$slots.title}
 				<h3 class="text-base-15 text-bold section-card__title">
 					<slot name="title" />
 				</h3>
 			{/if}
-			{#if SLOTS.caption}
+			{#if $$slots.caption}
 				<p class="text-base-body-12 section-card__text">
 					<slot name="caption" />
 				</p>
@@ -68,7 +66,7 @@
 
 	<slot />
 
-	{#if SLOTS.actions}
+	{#if $$slots.actions}
 		<div class="section-card__actions">
 			<slot name="actions" />
 		</div>

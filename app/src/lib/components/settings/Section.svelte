@@ -4,23 +4,21 @@
 
 	export let spacer = false;
 	export let gap = 20;
-
-	const SLOTS = $$props.$$slots;
 </script>
 
 <div class="settings-section" style="gap: {pxToRem(gap)}">
-	{#if SLOTS.top}
+	{#if $$slots.top}
 		<slot name="top" />
 	{/if}
 
-	{#if SLOTS.title || SLOTS.description}
+	{#if $$slots.title || $$slots.description}
 		<div class="description">
-			{#if SLOTS.title}
+			{#if $$slots.title}
 				<h2 class="text-base-15 text-bold">
 					<slot name="title" />
 				</h2>
 			{/if}
-			{#if SLOTS.description}
+			{#if $$slots.description}
 				<p class="text-base-body-12">
 					<slot name="description" />
 				</p>
