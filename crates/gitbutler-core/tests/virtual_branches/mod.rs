@@ -1078,7 +1078,7 @@ fn unapply_branch() -> Result<()> {
     assert_eq!(branch.files.len(), 1);
     assert!(branch.active);
 
-    virtual_branches::unapply_branch(project_repository, branch1_id)?;
+    let real_branch = virtual_branches::convert_to_real_branch(project_repository, branch1_id)?;
 
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!("line1\nline2\nline3\nline4\n", String::from_utf8(contents)?);
@@ -1086,11 +1086,13 @@ fn unapply_branch() -> Result<()> {
     assert_eq!("line5\nline6\n", String::from_utf8(contents)?);
 
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
-    let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
-    assert_eq!(branch.files.len(), 1);
-    assert!(!branch.active);
+    assert!(!branches.iter().any(|b| b.id == branch1_id));
 
-    apply_branch(project_repository, branch1_id, None)?;
+    let branch1_id = virtual_branches::create_virtual_branch_from_branch(
+        project_repository,
+        &git::Refname::try_from(&real_branch)?,
+        None,
+    )?;
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!(
         "line1\nline2\nline3\nline4\nbranch1\n",
@@ -1154,12 +1156,12 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
         },
     )?;
 
-    virtual_branches::unapply_branch(project_repository, branch2_id)?;
+    virtual_branches::convert_to_real_branch(project_repository, branch2_id)?;
     // check that file2 is back
     let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("file2\n", String::from_utf8(contents)?);
 
-    virtual_branches::unapply_branch(project_repository, branch3_id)?;
+    virtual_branches::convert_to_real_branch(project_repository, branch3_id)?;
     // check that file3 is gone
     assert!(!Path::new(&project.path).join(file_path3).exists());
 
@@ -1219,8 +1221,8 @@ fn detect_mergeable_branch() -> Result<()> {
     .expect("failed to update branch");
 
     // unapply both branches and create some conflicting ones
-    virtual_branches::unapply_branch(project_repository, branch1_id)?;
-    virtual_branches::unapply_branch(project_repository, branch2_id)?;
+    virtual_branches::convert_to_real_branch(project_repository, branch1_id)?;
+    virtual_branches::convert_to_real_branch(project_repository, branch2_id)?;
 
     project_repository.repo().set_head("refs/heads/master")?;
     project_repository
