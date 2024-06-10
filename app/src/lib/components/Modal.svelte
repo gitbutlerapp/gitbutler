@@ -1,3 +1,5 @@
+<svelte:options runes={true} />
+
 <script lang="ts">
 	import { clickOutside } from '$lib/clickOutside';
 	import Icon from '$lib/components/Icon.svelte';
@@ -8,17 +10,17 @@
 		width?: 'default' | 'small' | 'large';
 		title?: string | undefined;
 		icon?: keyof typeof iconsJson | undefined;
-    children: Snippet<[any, () => void]>;
-    controls?: Snippet<[any, () => void]>;
+		children: Snippet<[any, () => void]>;
+		controls?: Snippet<[any, () => void]>;
 	}
 
 	const {
-    width = 'default',
-    title = undefined,
-    icon = undefined,
-    children,
-    controls
-  }: Props = $props();
+		width = 'default',
+		title = undefined,
+		icon = undefined,
+		children,
+		controls
+	}: Props = $props();
 
 	let dialog = $state<HTMLDialogElement>();
 	let item = $state<any>();
@@ -36,8 +38,6 @@
 		open = false;
 	}
 </script>
-
-<svelte:options runes={true} />
 
 <dialog
 	class:s-default={width === 'default'}
@@ -66,12 +66,12 @@
 			{/if}
 
 			<div class="modal__body custom-scrollbar">
-        {@render children(item, close)}
+				{@render children(item, close)}
 			</div>
 
 			{#if controls}
 				<div class="modal__footer">
-          {@render controls(item, close)}
+					{@render controls(item, close)}
 				</div>
 			{/if}
 		</div>

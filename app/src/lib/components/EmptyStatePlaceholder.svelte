@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Snippet } from "svelte";
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		title?: Snippet;
@@ -25,12 +25,12 @@
 		<div class="empty-state__content">
 			{#if title}
 				<h2 class="empty-state__title text-base-body-15 text-semibold">
-          {@render title()}
+					{@render title()}
 				</h2>
 			{/if}
 			{#if caption}
 				<p class="empty-state__caption text-base-body-13">
-          {@render caption()}
+					{@render caption()}
 				</p>
 			{/if}
 		</div>

@@ -39,7 +39,7 @@
 	let disabled = false;
 	let isPushed = $localCommits.length === 0 && !branch.requiresForce;
 	$: canBeRebased = $unknownCommits.length > 0;
-	$: selection$ = contextMenu?.selection$;
+	$: selection = contextMenu?.selection;
 	$: action = selectAction(isPushed, $preferredAction);
 
 	function selectAction(isPushed: boolean, preferredAction: BranchAction) {
@@ -67,43 +67,44 @@
 		dispatch('trigger', { action });
 	}}
 >
-	{$selection$?.label}
-	<ContextMenu
-		type="select"
-		slot="context-menu"
-		bind:this={contextMenu}
-		on:select={(e) => {
-			// TODO: Refactor to use generics if/when that works with Svelte
-			switch (e.detail?.id) {
-				case BranchAction.Push:
-					$preferredAction = BranchAction.Push;
-					break;
-				case BranchAction.Rebase:
-					$preferredAction = BranchAction.Rebase;
-					break;
-				default:
-					toasts.error('Uknown branch action');
-			}
-			dropDown.close();
-		}}
-	>
-		<ContextMenuSection>
-			{#if !isPushed}
-				<ContextMenuItem
-					id="push"
-					label={pushLabel}
-					selected={action === BranchAction.Push}
-					disabled={isPushed}
-				/>
-			{/if}
-			{#if !branch.requiresForce || canBeRebased}
-				<ContextMenuItem
-					id="rebase"
-					label="Rebase upstream"
-					selected={action === BranchAction.Rebase}
-					disabled={isPushed || $unknownCommits.length === 0}
-				/>
-			{/if}
-		</ContextMenuSection>
-	</ContextMenu>
+	{$selection?.label}
+	{#snippet contextMenuSnippet()}
+		<ContextMenu
+			type="select"
+			bind:this={contextMenu}
+			on:select={(e) => {
+				// TODO: Refactor to use generics if/when that works with Svelte
+				switch (e.detail?.id) {
+					case BranchAction.Push:
+						$preferredAction = BranchAction.Push;
+						break;
+					case BranchAction.Rebase:
+						$preferredAction = BranchAction.Rebase;
+						break;
+					default:
+						toasts.error('Unknown branch action');
+				}
+				dropDown?.close();
+			}}
+		>
+			<ContextMenuSection>
+				{#if !isPushed}
+					<ContextMenuItem
+						id="push"
+						label={pushLabel}
+						selected={action === BranchAction.Push}
+						disabled={isPushed}
+					/>
+				{/if}
+				{#if !branch.requiresForce || canBeRebased}
+					<ContextMenuItem
+						id="rebase"
+						label="Rebase upstream"
+						selected={action === BranchAction.Rebase}
+						disabled={isPushed || $unknownCommits.length === 0}
+					/>
+				{/if}
+			</ContextMenuSection>
+		</ContextMenu>
+	{/snippet}
 </DropDownButton>

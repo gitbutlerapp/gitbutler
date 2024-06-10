@@ -25,7 +25,7 @@
 	let contextMenu: ContextMenu;
 	let dropDown: DropDownButton;
 
-	$: selection$ = contextMenu?.selection$;
+	$: selection = contextMenu?.selection;
 </script>
 
 <DropDownButton
@@ -40,45 +40,46 @@
 		dispatch('click', { method: $action });
 	}}
 >
-	{$selection$?.label}
-	<ContextMenu
-		type="select"
-		slot="context-menu"
-		bind:this={contextMenu}
-		on:select={(e) => {
-			// TODO: Refactor to use generics if/when that works with Svelte
-			switch (e.detail?.id) {
-				case MergeMethod.Merge:
-					$action = MergeMethod.Merge;
-					break;
-				case MergeMethod.Rebase:
-					$action = MergeMethod.Rebase;
-					break;
-				case MergeMethod.Squash:
-					$action = MergeMethod.Squash;
-					break;
-				default:
-					toasts.error('Unknown merge method');
-			}
-			dropDown.close();
-		}}
-	>
-		<ContextMenuSection>
-			<ContextMenuItem
-				id={MergeMethod.Merge}
-				label="Merge pull request"
-				selected={$action === MergeMethod.Merge}
-			/>
-			<ContextMenuItem
-				id={MergeMethod.Rebase}
-				label="Rebase and merge"
-				selected={$action === MergeMethod.Rebase}
-			/>
-			<ContextMenuItem
-				id={MergeMethod.Squash}
-				label="Squash and merge"
-				selected={$action === MergeMethod.Squash}
-			/>
-		</ContextMenuSection>
-	</ContextMenu>
+	{$selection?.label}
+	{#snippet contextMenuSnippet()}
+		<ContextMenu
+			type="select"
+			bind:this={contextMenu}
+			on:select={(e) => {
+				// TODO: Refactor to use generics if/when that works with Svelte
+				switch (e.detail?.id) {
+					case MergeMethod.Merge:
+						$action = MergeMethod.Merge;
+						break;
+					case MergeMethod.Rebase:
+						$action = MergeMethod.Rebase;
+						break;
+					case MergeMethod.Squash:
+						$action = MergeMethod.Squash;
+						break;
+					default:
+						toasts.error('Unknown merge method');
+				}
+				dropDown.close();
+			}}
+		>
+			<ContextMenuSection>
+				<ContextMenuItem
+					id={MergeMethod.Merge}
+					label="Merge pull request"
+					selected={$action === MergeMethod.Merge}
+				/>
+				<ContextMenuItem
+					id={MergeMethod.Rebase}
+					label="Rebase and merge"
+					selected={$action === MergeMethod.Rebase}
+				/>
+				<ContextMenuItem
+					id={MergeMethod.Squash}
+					label="Squash and merge"
+					selected={$action === MergeMethod.Squash}
+				/>
+			</ContextMenuSection>
+		</ContextMenu>
+	{/snippet}
 </DropDownButton>

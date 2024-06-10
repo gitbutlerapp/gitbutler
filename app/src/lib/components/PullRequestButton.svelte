@@ -19,7 +19,7 @@
 	let dropDown: DropDownButton;
 	let contextMenu: ContextMenu;
 
-	$: selection$ = contextMenu?.selection$;
+	$: selection = contextMenu?.selection;
 
 	function defaultAction(): Persisted<Action> {
 		const key = 'projectDefaultPrAction';
@@ -36,33 +36,38 @@
 		dispatch('click', { action: $action });
 	}}
 >
-	{$selection$?.label}
-	<ContextMenu
-		type="select"
-		slot="context-menu"
-		bind:this={contextMenu}
-		on:select={(e) => {
-			// TODO: Refactor to use generics if/when that works with Svelte
-			switch (e.detail?.id) {
-				case Action.Create:
-					$action = Action.Create;
-					break;
-				case Action.Draft:
-					$action = Action.Draft;
-					break;
-				default:
-					toasts.error('Unknown merge method');
-			}
-			dropDown.close();
-		}}
-	>
-		<ContextMenuSection>
-			<ContextMenuItem id={Action.Create} label="Create PR" selected={$action === Action.Create} />
-			<ContextMenuItem
-				id={Action.Draft}
-				label="Create Draft PR"
-				selected={$action === Action.Draft}
-			/>
-		</ContextMenuSection>
-	</ContextMenu>
+	{$selection?.label}
+	{#snippet contextMenuSnippet()}
+		<ContextMenu
+			type="select"
+			bind:this={contextMenu}
+			on:select={(e) => {
+				// TODO: Refactor to use generics if/when that works with Svelte
+				switch (e.detail?.id) {
+					case Action.Create:
+						$action = Action.Create;
+						break;
+					case Action.Draft:
+						$action = Action.Draft;
+						break;
+					default:
+						toasts.error('Unknown merge method');
+				}
+				dropDown?.close();
+			}}
+		>
+			<ContextMenuSection>
+				<ContextMenuItem
+					id={Action.Create}
+					label="Create PR"
+					selected={$action === Action.Create}
+				/>
+				<ContextMenuItem
+					id={Action.Draft}
+					label="Create Draft PR"
+					selected={$action === Action.Draft}
+				/>
+			</ContextMenuSection>
+		</ContextMenu>
+	{/snippet}
 </DropDownButton>
