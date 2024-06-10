@@ -1615,7 +1615,7 @@ fn new_compute_locks(
             let commit = repository.find_commit(branch.head).ok()?;
             let tree = commit.tree().ok()?;
             let diff = repository
-                .diff_tree_to_tree(Some(&tree), Some(&target_tree), Some(opts))
+                .diff_tree_to_tree(Some(&target_tree), Some(&tree), Some(opts))
                 .ok()?;
             let hunks_by_filepath = diff::hunks_by_filepath(Some(repository), &diff).ok()?;
 
