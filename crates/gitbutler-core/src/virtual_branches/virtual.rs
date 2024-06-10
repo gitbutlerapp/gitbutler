@@ -274,14 +274,13 @@ pub fn apply_branch(
 
         if merge_index.has_conflicts() {
             // currently we can only deal with the merge problem branch
-            for mut branch in get_status_by_branch(project_repository, Some(&target_commit.id()))?
+            for branch in get_status_by_branch(project_repository, Some(&target_commit.id()))?
                 .0
                 .into_iter()
                 .map(|(branch, _)| branch)
                 .filter(|branch| branch.applied)
             {
-                branch.applied = false;
-                vb_state.set_branch(branch)?;
+                unapply_branch(project_repository, branch.id)?;
             }
 
             // apply the branch
@@ -440,6 +439,16 @@ pub fn apply_branch(
         .context("failed to checkout index")?;
 
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+
+    let head_commit = repo.find_commit(branch.head)?;
+    if let Some(header) = dbg!(head_commit.raw_header()) {
+        if header
+            .lines()
+            .any(|line| line.starts_with("gitbutler-vbranch"))
+        {
+            undo_commit(project_repository, branch_id, branch.head)?;
+        }
+    }
     Ok(branch.name)
 }
 
@@ -579,90 +588,50 @@ pub fn unapply_branch(
 ) -> Result<branch::Branch> {
     let vb_state = project_repository.project().virtual_branches();
 
-    let mut target_branch = vb_state.get_branch(branch_id)?;
+    let target_branch = vb_state.get_branch(branch_id)?;
     if !target_branch.applied {
         return Ok(target_branch);
     }
 
-    let default_target = vb_state.get_default_target()?;
     let repo = project_repository.repo();
-    let target_commit = repo
-        .find_commit(default_target.sha)
-        .context("failed to find target commit")?;
 
-    let final_tree = if conflicts::is_resolving(project_repository) {
-        {
-            target_branch.applied = false;
-            target_branch.selected_for_changes = None;
-            vb_state.set_branch(target_branch.clone())?;
-        }
-        conflicts::clear(project_repository).context("failed to clear conflicts")?;
-        target_commit.tree().context("failed to get target tree")?
-    } else {
-        // if we are not resolving, we need to merge the rest of the applied branches
-        let applied_branches = vb_state
-            .list_branches()
-            .context("failed to read virtual branches")?
-            .into_iter()
-            .filter(|b| b.applied)
-            .collect::<Vec<_>>();
+    let integration_commit = repo.integration_commit()?;
+    let target_commit = repo.target_commit()?;
+    let base_tree = target_commit.tree().context("failed to get target tree")?;
 
-        let integration_commit =
-            super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+    let applied_branches = vb_state
+        .list_branches()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|b| b.applied)
+        .collect::<Vec<_>>();
 
-        let (applied_statuses, _) = get_applied_status(
-            project_repository,
-            &integration_commit,
-            &default_target.sha,
-            applied_branches,
-        )
-        .context("failed to get status by branch")?;
+    let (applied_statuses, _) = get_applied_status(
+        project_repository,
+        &integration_commit.id(),
+        &target_commit.id(),
+        applied_branches,
+    )
+    .context("failed to get status by branch")?;
 
-        let status = applied_statuses
-            .iter()
-            .find(|(s, _)| s.id == target_branch.id)
-            .context("failed to find status for branch");
-
-        if let Ok((_, files)) = status {
-            update_conflict_markers(project_repository, files)?;
-
-            target_branch.tree = write_tree(project_repository, &target_branch.head, files)?;
-            target_branch.applied = false;
-            target_branch.selected_for_changes = None;
-            vb_state.set_branch(target_branch.clone())?;
-        }
-
-        let target_commit = repo
-            .find_commit(default_target.sha)
-            .context("failed to find target commit")?;
-
-        // ok, update the wd with the union of the rest of the branches
-        let base_tree = target_commit.tree().context("failed to get target tree")?;
-
-        // go through the other applied branches and merge them into the final tree
-        // then check that out into the working directory
-        let final_tree = applied_statuses
-            .into_iter()
-            .filter(|(branch, _)| branch.id != branch_id)
-            .fold(
-                target_commit.tree().context("failed to get target tree"),
-                |final_tree, status| {
-                    let final_tree = final_tree?;
-                    let branch = status.0;
-                    let tree_oid = write_tree(project_repository, &branch.head, status.1)?;
-                    let branch_tree = repo.find_tree(tree_oid)?;
-                    let mut result =
-                        repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
-                    let final_tree_oid = result.write_tree_to(project_repository.repo())?;
-                    repo.find_tree(final_tree_oid)
-                        .context("failed to find tree")
-                },
-            )?;
-
-        ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
-
-        final_tree
-    };
+    // go through the other applied branches and merge them into the final tree
+    // then check that out into the working directory
+    let final_tree = applied_statuses
+        .into_iter()
+        .filter(|(branch, _)| branch.id != branch_id)
+        .fold(
+            target_commit.tree().context("failed to get target tree"),
+            |final_tree, status| {
+                let final_tree = final_tree?;
+                let branch = status.0;
+                let tree_oid = write_tree(project_repository, &branch.head, status.1)?;
+                let branch_tree = repo.find_tree(tree_oid)?;
+                let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
+                let final_tree_oid = result.write_tree_to(repo)?;
+                repo.find_tree(final_tree_oid)
+                    .context("failed to find tree")
+            },
+        )?;
 
     // checkout final_tree into the working directory
     repo.checkout_tree_builder(&final_tree)
@@ -671,11 +640,16 @@ pub fn unapply_branch(
         .checkout()
         .context("failed to checkout tree")?;
 
+    // Convert the vbranch to a real branch
     convert_to_real_branch(project_repository, &target_branch)?;
 
     delete_branch(project_repository, branch_id)?;
 
-    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+    // Ensure we still have a default target
+    ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
+
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)
+        .context("Failed to adfasdf")?;
 
     Ok(target_branch)
 }
@@ -1434,11 +1408,6 @@ pub fn delete_branch(
     _ = project_repository
         .project()
         .snapshot_branch_deletion(branch.name.clone());
-
-    // TODO: This is likly not the desired condition
-    if branch.applied {
-        return Ok(());
-    }
 
     vb_state
         .remove_branch(branch.id)

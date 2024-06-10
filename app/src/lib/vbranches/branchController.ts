@@ -173,6 +173,7 @@ export class BranchController {
 		try {
 			// TODO: make this optimistic again.
 			await invoke<void>('unapply_branch', { projectId: this.projectId, branch: branchId });
+			this.remoteBranchService.reload();
 		} catch (err) {
 			showError('Failed to unapply branch', err);
 		}
