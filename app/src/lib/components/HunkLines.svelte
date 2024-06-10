@@ -4,7 +4,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import type { Line } from '$lib/utils/fileSections';
 
-	export let line: Line;
+	export let lines: Line[];
 	export let sectionType: SectionType;
 	export let filePath: string;
 	export let minWidth = 1.75;
@@ -14,16 +14,19 @@
 	export let draggingDisabled: boolean = false;
 	export let tabSize = 4;
 
-	const dispatch = createEventDispatcher<{ selected: boolean }>();
+	const dispatch = createEventDispatcher<{
+		lineContextMenu: { lineNumber: number | undefined; event: MouseEvent };
+		selected: boolean;
+	}>();
 
-	function toTokens(codeString: string): string[] {
+	function toTokens(inputLine: string): string[] {
 		function sanitize(text: string) {
 			var element = document.createElement('div');
 			element.innerText = text;
 			return element.innerHTML;
 		}
 
-		let highlighter = create(codeString, filePath);
+		let highlighter = create(inputLine, filePath);
 		let tokens: string[] = [];
 		highlighter.highlight((text, classNames) => {
 			const token = classNames
@@ -38,38 +41,49 @@
 	$: isSelected = selectable && selected;
 </script>
 
-<div class="code-line" role="group" style="--tab-size: {tabSize}" on:contextmenu|preventDefault>
-	<div class="code-line__numbers-line">
-		<button
-			on:click={() => selectable && dispatch('selected', !selected)}
-			class="numbers-line-count"
-			class:selected={isSelected}
-			style:min-width={minWidth + 'rem'}
-			style:cursor={draggingDisabled ? 'default' : 'grab'}
+<div
+	class="line-wrapper"
+	style="--tab-size: {tabSize}; --minwidth: {minWidth}rem; --cursor: {draggingDisabled
+		? 'default'
+		: 'grab'}"
+>
+	{#each lines as line (`${line.afterLineNumber}_${line.content}`)}
+		<div
+			class="code-line"
+			role="group"
+			on:contextmenu={(event) => {
+				const lineNumber = line.afterLineNumber ? line.afterLineNumber : line.beforeLineNumber;
+				dispatch('lineContextMenu', { event, lineNumber });
+			}}
 		>
-			{line.beforeLineNumber || ''}
-		</button>
-		<button
-			on:click={() => selectable && dispatch('selected', !selected)}
-			class="numbers-line-count"
-			class:selected={isSelected}
-			style:min-width={minWidth + 'rem'}
-			style:cursor={draggingDisabled ? 'default' : 'grab'}
-		>
-			{line.afterLineNumber || ''}
-		</button>
-	</div>
-	<div
-		class="line"
-		class:readonly
-		class:diff-line-deletion={sectionType === SectionType.RemovedLines}
-		class:diff-line-addition={sectionType === SectionType.AddedLines}
-		style:cursor={draggingDisabled ? 'default' : 'grab'}
-	>
-		<span class="selectable-wrapper" data-no-drag>
-			{@html toTokens(line.content).join('')}
-		</span>
-	</div>
+			<div class="code-line__numbers-line">
+				<button
+					on:click={() => selectable && dispatch('selected', !selected)}
+					class="numbers-line-count"
+					class:selected={isSelected}
+				>
+					{line.beforeLineNumber || ''}
+				</button>
+				<button
+					on:click={() => selectable && dispatch('selected', !selected)}
+					class="numbers-line-count"
+					class:selected={isSelected}
+				>
+					{line.afterLineNumber || ''}
+				</button>
+			</div>
+			<div
+				class="line"
+				class:readonly
+				class:diff-line-deletion={sectionType === SectionType.RemovedLines}
+				class:diff-line-addition={sectionType === SectionType.AddedLines}
+			>
+				<span class="selectable-wrapper" data-no-drag>
+					{@html toTokens(line.content).join('')}
+				</span>
+			</div>
+		</div>
+	{/each}
 </div>
 
 <style lang="postcss">
@@ -88,6 +102,7 @@
 
 	.line {
 		flex-grow: 1;
+		cursor: var(--cursor);
 	}
 
 	.code-line__numbers-line {
@@ -107,6 +122,8 @@
 		padding-left: 2px;
 		padding-right: 2px;
 		text-align: right;
+		min-width: var(--minwidth);
+		cursor: var(--cursor);
 
 		&.selected {
 			background-color: var(--hunk-line-selected-bg);

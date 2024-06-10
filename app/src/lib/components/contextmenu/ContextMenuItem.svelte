@@ -45,14 +45,19 @@
 		text-align: left;
 		align-items: center;
 		color: var(--clr-scale-ntrl-0);
-		height: 24px;
-		padding: 4px 6px;
+		padding: 6px 8px;
 		border-radius: var(--radius-s);
 		gap: 12px;
 		transition: background-color var(--transition-fast);
 		&:not(.disabled):hover {
 			transition: none;
 			background-color: var(--clr-bg-2-muted);
+		}
+		&:first-child {
+			margin-top: 2px;
+		}
+		&:last-child {
+			margin-bottom: 2px;
 		}
 	}
 	.label {

@@ -1,7 +1,6 @@
 <script lang="ts">
+	import { clickOutside } from '$lib/clickOutside';
 	import Icon from '$lib/components/Icon.svelte';
-	import { onMount } from 'svelte';
-	import OutClick from 'svelte-outclick';
 	import type iconsJson from '$lib/icons/icons.json';
 
 	let dialog: HTMLDialogElement;
@@ -23,14 +22,9 @@
 		dialog.close();
 		open = false;
 	}
-
-	onMount(() => {
-		document.body.appendChild(dialog);
-	});
 </script>
 
 <dialog
-	class="dialog-wrap"
 	class:s-default={width === 'default'}
 	class:s-small={width === 'small'}
 	class:s-large={width === 'large'}
@@ -38,39 +32,42 @@
 	on:close={close}
 >
 	{#if open}
-		<OutClick on:outclick={close}>
-			<div class="dialog">
-				<form class="modal-content" on:submit>
-					{#if title}
-						<div class="modal__header">
-							{#if icon}
-								<Icon name={icon} />
-							{/if}
-							<h2 class="text-base-14 text-semibold">
-								{title}
-							</h2>
-						</div>
+		<form
+			class="modal-content"
+			on:submit
+			use:clickOutside={{
+				trigger: dialog,
+				handler: () => dialog.close()
+			}}
+		>
+			{#if title}
+				<div class="modal__header">
+					{#if icon}
+						<Icon name={icon} />
 					{/if}
+					<h2 class="text-base-14 text-semibold">
+						{title}
+					</h2>
+				</div>
+			{/if}
 
-					<div class="modal__body custom-scrollbar">
-						<slot {item} {close} />
-					</div>
-
-					{#if $$slots.controls}
-						<div class="modal__footer">
-							<slot name="controls" {item} {close} />
-						</div>
-					{/if}
-				</form>
+			<div class="modal__body custom-scrollbar">
+				<slot {item} {close} />
 			</div>
-		</OutClick>
+
+			{#if $$slots.controls}
+				<div class="modal__footer">
+					<slot name="controls" {item} {close} />
+				</div>
+			{/if}
+		</form>
 	{/if}
 </dialog>
 
 <style lang="postcss">
-	.dialog-wrap {
-		position: relative;
-		width: 100%;
+	dialog[open] {
+		display: flex;
+		flex-direction: column;
 		max-height: calc(100vh - 80px);
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);
@@ -78,23 +75,18 @@
 		box-shadow: var(--fx-shadow-l);
 	}
 
-	.dialog {
-		display: flex;
-		flex-direction: column;
-	}
-
 	/* modifiers */
 
 	.s-large {
-		max-width: 840px;
+		width: 840px;
 	}
 
 	.s-default {
-		max-width: 580px;
+		width: 580px;
 	}
 
 	.s-small {
-		max-width: 380px;
+		width: 380px;
 	}
 
 	.modal__header {

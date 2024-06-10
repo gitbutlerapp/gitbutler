@@ -5,7 +5,7 @@
 
 <Button
 	style="ghost"
-	kind="solid"
+	outline
 	on:mousedown={() => {
 		if (history.length > 0) {
 			history.back();

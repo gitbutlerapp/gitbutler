@@ -3,6 +3,7 @@
 	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
 	import SectionCard from './SectionCard.svelte';
+	import SectionCardDisclaimer from './SectionCardDisclaimer.svelte';
 	import TextBox from './TextBox.svelte';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { Project, ProjectService } from '$lib/backend/projects';
@@ -42,9 +43,9 @@
 	}
 
 	let signCommits = false;
-	async function setSignCommits(value: boolean) {
-		signCommits = value;
-		await gitConfig.setGbConfig(project.id, { signCommits: value });
+	async function setSignCommits() {
+		signCommits = !signCommits;
+		await gitConfig.setGbConfig(project.id, { signCommits: signCommits });
 	}
 
 	// gpg.format
@@ -117,7 +118,7 @@
 </script>
 
 <Section spacer>
-	<svelte:fragment slot="title">Commit Signing</svelte:fragment>
+	<svelte:fragment slot="title">Commit signing</svelte:fragment>
 	<svelte:fragment slot="description">
 		Use GPG or SSH to sign your commits so they can be verified as authentic.
 	</svelte:fragment>
@@ -127,11 +128,7 @@
 			GitButler will sign commits as per your git configuration.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<Toggle
-				id="signCommits"
-				bind:checked={signCommits}
-				on:change={async () => await setSignCommits(signCommits)}
-			/>
+			<Toggle id="signCommits" bind:checked={signCommits} on:click={setSignCommits} />
 		</svelte:fragment>
 	</SectionCard>
 	{#if signCommits}
@@ -142,7 +139,7 @@
 				itemId="value"
 				labelId="name"
 				on:select={updateSigningInfo}
-				label="Signing Format"
+				label="Signing format"
 			>
 				<SelectItem slot="template" let:item>
 					{item.name}
@@ -150,7 +147,7 @@
 			</Select>
 
 			<TextBox
-				label="Signing Key"
+				label="Signing key"
 				bind:value={signingKey}
 				required
 				on:change={updateSigningInfo}
@@ -158,7 +155,7 @@
 			/>
 
 			<TextBox
-				label="Signing Program (optional)"
+				label="Signing program (optional)"
 				bind:value={signingProgram}
 				on:change={updateSigningInfo}
 				placeholder="ex: /Applications/1Password.app/Contents/MacOS/op-ssh-sign"
@@ -185,18 +182,18 @@
 
 			<Button style="pop" kind="solid" wide icon="item-tick" on:click={checkSigning}>
 				{#if !checked}
-					Test Signing
+					Test signing
 				{:else}
-					Re-test Signing
+					Re-test signing
 				{/if}
 			</Button>
-			<div class="disclaimer text-base-body-12">
+			<SectionCardDisclaimer>
 				Signing commits can allow other people to verify your commits if you publish the public
 				version of your signing key.
 				<Link href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits"
 					>Read more</Link
 				> about commit signing and verification.
-			</div>
+			</SectionCardDisclaimer>
 		</SectionCard>
 	{/if}
 </Section>
@@ -272,20 +269,11 @@
 	<SectionCard labelFor="useNewLocking" orientation="row">
 		<svelte:fragment slot="title">Use new experimental hunk locking algorithm</svelte:fragment>
 		<svelte:fragment slot="caption">
-			This new hunk locking algorithm is still in the testing phase but should more accuratly catch
-			locks and subsiquently cause fewer errors.
+			This new hunk locking algorithm is still in the testing phase but should more accurately catch
+			locks and subsequently cause fewer errors.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Toggle id="useNewLocking" bind:checked={useNewLocking} />
 		</svelte:fragment>
 	</SectionCard>
 </Section>
-
-<style lang="post-css">
-	.disclaimer {
-		color: var(--clr-scale-ntrl-50);
-		background: var(--clr-bg-2);
-		border-radius: var(--radius-m);
-		padding: var(--size-10) var(--size-12);
-	}
-</style>

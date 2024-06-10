@@ -1,3 +1,4 @@
+import { pnpmLock } from './fileHunks';
 import type { User } from '$lib/stores/user';
 
 export type Constructor<T = any> = new (...args: any[]) => T;
@@ -94,6 +95,21 @@ export const remoteBranchData = {
 	isMergeable: true
 };
 
+export const fileHunk2 = {
+	binary: false,
+	changeType: 'added',
+	diff: pnpmLock,
+	end: 4696,
+	filePath: 'pnpm-lock.yaml',
+	hash: 'dc79c984a36b2f8a29007633bde4daf4',
+	id: '63-71',
+	locked: false,
+	lockedTo: null,
+	modifiedAt: 1714829527993,
+	oldStart: 0,
+	start: 0
+};
+
 export const fileHunk = {
 	binary: false,
 	changeType: 'modified',
@@ -129,12 +145,22 @@ export const file0 = {
 	path: 'package.json'
 };
 
+export const file1 = {
+	binary: false,
+	conflicted: false,
+	hunks: [fileHunk2],
+	id: 'pnpm-lock.yaml',
+	large: false,
+	modifiedAt: 1714829589111,
+	path: 'pnpm-lock.yaml'
+};
+
 export const virtualBranch = {
 	active: true,
 	baseCurrent: true,
 	commits: [],
 	conflicted: false,
-	files: [file0],
+	files: [file0, file1],
 	head: '90c225edcc74b31718a9cd8963c1bc89c17d8864',
 	id: '29cdc7a7-3462-4c14-a037-0a6cdad68da3',
 	name: 'Virtual branch',

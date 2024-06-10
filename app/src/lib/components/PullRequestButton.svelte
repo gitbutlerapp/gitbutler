@@ -29,7 +29,7 @@
 
 <DropDownButton
 	style="ghost"
-	kind="solid"
+	outline
 	{loading}
 	bind:this={dropDown}
 	on:click={() => {

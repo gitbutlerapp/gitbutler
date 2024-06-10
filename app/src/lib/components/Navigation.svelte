@@ -9,11 +9,10 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
-	import * as hotkeys from '$lib/utils/hotkeys';
-	import { unsubscribe } from '$lib/utils/unsubscribe';
+	import { createKeybind } from '$lib/utils/hotkeys';
 	import { platform } from '@tauri-apps/api/os';
 	import { from } from 'rxjs';
-	import { onMount } from 'svelte';
+	import { env } from '$env/dynamic/public';
 
 	const platformName = from(platform());
 	const minResizerWidth = 280;
@@ -36,14 +35,14 @@
 		$isNavCollapsed = !$isNavCollapsed;
 	}
 
-	onMount(() =>
-		unsubscribe(
-			hotkeys.on('Meta+/', () => {
-				toggleNavCollapse();
-			})
-		)
-	);
+	const handleKeyDown = createKeybind({
+		'$mod+/': () => {
+			toggleNavCollapse();
+		}
+	});
 </script>
+
+<svelte:window on:keydown={handleKeyDown} />
 
 <aside class="navigation-wrapper" class:hide-fold-button={isScrollbarDragging}>
 	<div
@@ -106,7 +105,7 @@
 		tabindex="0"
 	>
 		<!-- condition prevents split second UI shift -->
-		{#if $platformName}
+		{#if $platformName || env.PUBLIC_TESTING}
 			<div class="navigation-top">
 				{#if $platformName === 'darwin'}
 					<div class="drag-region" data-tauri-drag-region />

@@ -3,7 +3,10 @@ use git2::{BlameOptions, Repository, Tree};
 use std::{path::Path, process::Stdio, str};
 use tracing::instrument;
 
-use crate::{config::git::GitConfig, error::Code};
+use crate::{
+    config::git::{GbConfig, GitConfig},
+    error::Code,
+};
 
 use super::Refname;
 use std::io::Write;
@@ -141,13 +144,25 @@ impl RepositoryExt for Repository {
         let commit_buffer = inject_change_id(&commit_buffer, change_id)?;
 
         let oid = if self.gb_config()?.sign_commits.unwrap_or(false) {
-            let signature = sign_buffer(self, &commit_buffer)
-                .map_err(|e| anyhow!(e).context(Code::CommitSigningFailed))?;
-            self.commit_signed(&commit_buffer, &signature, None)?
+            let signature = sign_buffer(self, &commit_buffer);
+            match signature {
+                Ok(signature) => self
+                    .commit_signed(&commit_buffer, &signature, None)
+                    .map_err(Into::into),
+                Err(e) => {
+                    // If signing fails, set the "gitbutler.signCommits" config to false before erroring out
+                    self.set_gb_config(GbConfig {
+                        sign_commits: Some(false),
+                        ..GbConfig::default()
+                    })?;
+                    Err(anyhow!("Failed to sign commit: {}", e).context(Code::CommitSigningFailed))
+                }
+            }
         } else {
             self.odb()?
-                .write(git2::ObjectType::Commit, commit_buffer.as_bytes())?
-        };
+                .write(git2::ObjectType::Commit, commit_buffer.as_bytes())
+                .map_err(Into::into)
+        }?;
         // update reference
         if let Some(refname) = update_ref {
             self.reference(&refname.to_string(), oid, true, message)?;

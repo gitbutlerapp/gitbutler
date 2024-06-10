@@ -149,6 +149,7 @@
 	}
 
 	const isRestoreSnapshot = entry.details?.operation === 'RestoreFromSnapshot';
+	const error = entry.details?.trailers.find((t) => t.key === 'error')?.value;
 
 	const operation = mapOperation(entry.details);
 
@@ -166,7 +167,7 @@
 			<Button
 				size="tag"
 				style="ghost"
-				kind="solid"
+				outline
 				help="Restores GitButler and your files to the state before this operation. Revert actions can also be undone."
 				on:click={() => {
 					dispatch('restoreClick');
@@ -258,10 +259,16 @@
 				</div>
 			</SnapshotAttachment>
 		{/if}
+		{#if error}
+			<span class="error-text">Error: {error}</span>
+		{/if}
 	</div>
 </div>
 
 <style lang="postcss">
+	.error-text {
+		color: #e53e3e;
+	}
 	/* SNAPSHOT CARD */
 	.snapshot-card {
 		position: relative;

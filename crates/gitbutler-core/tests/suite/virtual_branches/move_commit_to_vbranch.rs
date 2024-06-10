@@ -1,9 +1,4 @@
-use std::str::FromStr;
-
-use gitbutler_core::{
-    git,
-    virtual_branches::{branch, BranchId},
-};
+use gitbutler_core::virtual_branches::{branch, BranchId};
 
 use crate::suite::virtual_branches::Test;
 
@@ -285,7 +280,7 @@ async fn no_commit() {
             .move_commit(
                 *project_id,
                 target_branch_id,
-                git::Oid::from_str(commit_id_hex).unwrap()
+                git2::Oid::from_str(commit_id_hex).unwrap()
             )
             .await
             .unwrap_err()

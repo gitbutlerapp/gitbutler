@@ -1,6 +1,6 @@
 pub mod commands {
     use crate::error::Error;
-    use anyhow::Context;
+    use anyhow::{anyhow, Context};
     use gitbutler_core::{
         assets,
         error::Code,
@@ -26,13 +26,13 @@ pub mod commands {
         message: &str,
         ownership: Option<BranchOwnershipClaims>,
         run_hooks: bool,
-    ) -> Result<git::Oid, Error> {
+    ) -> Result<String, Error> {
         let oid = handle
             .state::<Controller>()
             .create_commit(project_id, branch, message, ownership.as_ref(), run_hooks)
             .await?;
         emit_vbranches(&handle, project_id).await;
-        Ok(oid)
+        Ok(oid.to_string())
     }
 
     #[tauri::command(async)]
@@ -307,8 +307,9 @@ pub mod commands {
     pub async fn list_remote_commit_files(
         handle: AppHandle,
         project_id: ProjectId,
-        commit_oid: git::Oid,
+        commit_oid: String,
     ) -> Result<Vec<RemoteBranchFile>, Error> {
+        let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
         handle
             .state::<Controller>()
             .list_remote_commit_files(project_id, commit_oid)
@@ -322,8 +323,9 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch_id: BranchId,
-        target_commit_oid: git::Oid,
+        target_commit_oid: String,
     ) -> Result<(), Error> {
+        let target_commit_oid = git2::Oid::from_str(&target_commit_oid).map_err(|e| anyhow!(e))?;
         handle
             .state::<Controller>()
             .reset_virtual_branch(project_id, branch_id, target_commit_oid)
@@ -338,14 +340,15 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch_id: BranchId,
-        target_commit_oid: git::Oid,
-    ) -> Result<Option<git::Oid>, Error> {
+        target_commit_oid: String,
+    ) -> Result<Option<String>, Error> {
+        let target_commit_oid = git2::Oid::from_str(&target_commit_oid).map_err(|e| anyhow!(e))?;
         let oid = handle
             .state::<Controller>()
-            .cherry_pick(project_id, branch_id, target_commit_oid.into())
+            .cherry_pick(project_id, branch_id, target_commit_oid)
             .await?;
         emit_vbranches(&handle, project_id).await;
-        Ok(oid.map(Into::into))
+        Ok(oid.map(|o| o.to_string()))
     }
 
     #[tauri::command(async)]
@@ -354,15 +357,16 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: String,
         ownership: BranchOwnershipClaims,
-    ) -> Result<git::Oid, Error> {
+    ) -> Result<String, Error> {
+        let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
         let oid = handle
             .state::<Controller>()
             .amend(project_id, branch_id, commit_oid, &ownership)
             .await?;
         emit_vbranches(&handle, project_id).await;
-        Ok(oid)
+        Ok(oid.to_string())
     }
 
     #[tauri::command(async)]
@@ -371,10 +375,12 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch_id: BranchId,
-        from_commit_oid: git::Oid,
-        to_commit_oid: git::Oid,
+        from_commit_oid: String,
+        to_commit_oid: String,
         ownership: BranchOwnershipClaims,
-    ) -> Result<git::Oid, Error> {
+    ) -> Result<String, Error> {
+        let from_commit_oid = git2::Oid::from_str(&from_commit_oid).map_err(|e| anyhow!(e))?;
+        let to_commit_oid = git2::Oid::from_str(&to_commit_oid).map_err(|e| anyhow!(e))?;
         let oid = handle
             .state::<Controller>()
             .move_commit_file(
@@ -386,7 +392,7 @@ pub mod commands {
             )
             .await?;
         emit_vbranches(&handle, project_id).await;
-        Ok(oid)
+        Ok(oid.to_string())
     }
 
     #[tauri::command(async)]
@@ -395,8 +401,9 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: String,
     ) -> Result<(), Error> {
+        let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
         handle
             .state::<Controller>()
             .undo_commit(project_id, branch_id, commit_oid)
@@ -411,9 +418,10 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: String,
         offset: i32,
     ) -> Result<(), Error> {
+        let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
         handle
             .state::<Controller>()
             .insert_blank_commit(project_id, branch_id, commit_oid, offset)
@@ -428,9 +436,10 @@ pub mod commands {
         handle: AppHandle,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: String,
         offset: i32,
     ) -> Result<(), Error> {
+        let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
         handle
             .state::<Controller>()
             .reorder_commit(project_id, branch_id, commit_oid, offset)
@@ -476,8 +485,9 @@ pub mod commands {
         handle: tauri::AppHandle,
         project_id: ProjectId,
         branch_id: BranchId,
-        target_commit_oid: git::Oid,
+        target_commit_oid: String,
     ) -> Result<(), Error> {
+        let target_commit_oid = git2::Oid::from_str(&target_commit_oid).map_err(|e| anyhow!(e))?;
         handle
             .state::<Controller>()
             .squash(project_id, branch_id, target_commit_oid)
@@ -509,9 +519,10 @@ pub mod commands {
     pub async fn move_commit(
         handle: tauri::AppHandle,
         project_id: ProjectId,
-        commit_oid: git::Oid,
+        commit_oid: String,
         target_branch_id: BranchId,
     ) -> Result<(), Error> {
+        let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
         handle
             .state::<Controller>()
             .move_commit(project_id, target_branch_id, commit_oid)
@@ -526,9 +537,10 @@ pub mod commands {
         handle: tauri::AppHandle,
         project_id: ProjectId,
         branch_id: BranchId,
-        commit_oid: git::Oid,
+        commit_oid: String,
         message: &str,
     ) -> Result<(), Error> {
+        let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
         handle
             .state::<Controller>()
             .update_commit_message(project_id, branch_id, commit_oid, message)

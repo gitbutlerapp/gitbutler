@@ -2,9 +2,8 @@
 	import CommitCard from './CommitCard.svelte';
 	import CommitLines from './CommitLines.svelte';
 	import { Project } from '$lib/backend/projects';
-	import Button from '$lib/components/Button.svelte';
 	import ReorderDropzone from '$lib/components/CommitList/ReorderDropzone.svelte';
-	import QuickActionMenu from '$lib/components/QuickActionMenu.svelte';
+	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
 	import { ReorderDropzoneIndexer } from '$lib/dragging/reorderDropzoneIndexer';
 	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import { getContext } from '$lib/utils/context';
@@ -30,6 +29,13 @@
 	const project = getContext(Project);
 	const branchController = getContext(BranchController);
 
+	// Force the "base" commit lines to update when $branch updates.
+	let tsKey: number | undefined;
+	$: {
+		$branch;
+		tsKey = Date.now();
+	}
+
 	$: hasLocalColumn = $localCommits.length > 0;
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
@@ -47,13 +53,14 @@
 
 	let baseIsUnfolded = false;
 
-	function getRemoteOutType(commit: Commit): CommitStatus | undefined {
+	function getOutType(commit: Commit): CommitStatus | undefined {
 		if (!hasShadowedCommits) {
-			const childStatus = commit.next?.status;
-			return childStatus !== 'local' ? childStatus : undefined;
+			if (!commit.next || commit.next.status === 'local') {
+				return $unknownCommits.length > 0 ? 'upstream' : undefined;
+			}
+			return commit.next?.status;
 		}
 
-		// TODO: Consider introducing `relatedParent` and `relatedChildren`
 		let pointer: Commit | undefined = commit;
 		let upstreamCommit = commit.relatedTo;
 
@@ -69,10 +76,24 @@
 		if (hasUnknownCommits) return 'upstream';
 	}
 
-	function getRemoteInType(commit: Commit): CommitStatus | undefined {
-		if (commit.prev) return getRemoteOutType(commit.prev || commit);
+	function getBaseShadowOutType(): CommitStatus | undefined {
+		if (!isRebased) return;
+		if (hasIntegratedCommits) return 'integrated';
+		if (hasShadowedCommits) return 'remote';
+		if (hasUnknownCommits) return 'upstream';
+	}
+
+	function getBaseRemoteOutType(): CommitStatus | undefined {
+		if (isRebased) return;
+		if (firstCommit && firstCommit.status !== 'local') return firstCommit.status;
+		if (hasUnknownCommits) return 'upstream';
+	}
+
+	function getInType(commit: Commit): CommitStatus | undefined {
+		if (commit.prev) return getOutType(commit.prev || commit);
 		if (commit.status === 'remote' || commit.relatedTo) return 'remote';
 		if (commit.status === 'integrated') return 'integrated';
+		if (commit) return getOutType(commit);
 	}
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
@@ -120,18 +141,7 @@
 				</CommitCard>
 			{/each}
 		{/if}
-		<QuickActionMenu
-			offset={$localCommits.length === 0 &&
-			$remoteCommits.length === 0 &&
-			$integratedCommits.length === 0
-				? 0
-				: 0.75}
-			padding={1}
-		>
-			<Button style="ghost" size="tag" on:click={() => insertBlankCommit($branch.head, 'above')}
-				>Insert blank commit</Button
-			>
-		</QuickActionMenu>
+		<InsertEmptyCommitAction isFirst on:click={() => insertBlankCommit($branch.head, 'above')} />
 		<!-- LOCAL COMMITS -->
 		{#if $localCommits.length > 0}
 			<ReorderDropzone
@@ -161,28 +171,26 @@
 							help={getAvatarTooltip(commit)}
 							shadowHelp={getAvatarTooltip(commit.relatedTo)}
 							outDashed={hasLocalColumn && idx === 0}
-							remoteIn={!isRebased ? getRemoteInType(commit) : undefined}
-							remoteOut={!isRebased ? getRemoteOutType(commit) : undefined}
-							shadowIn={isRebased ? getRemoteInType(commit) : undefined}
-							shadowOut={isRebased ? getRemoteOutType(commit) : undefined}
+							remoteIn={!isRebased ? getInType(commit) : undefined}
+							remoteOut={!isRebased ? getOutType(commit) : undefined}
+							shadowIn={isRebased ? getInType(commit) : undefined}
+							shadowOut={isRebased ? getOutType(commit) : undefined}
 							relatedToOther={commit?.relatedTo && commit.relatedTo.id !== commit.id}
 							remoteRoot={idx === $localCommits.length - 1}
 							last={idx === $localCommits.length - 1 && !hasRemoteCommits && !hasIntegratedCommits}
 						/>
 					</svelte:fragment>
 				</CommitCard>
+
 				<ReorderDropzone
 					index={reorderDropzoneIndexer.dropzoneIndexBelowCommit(commit.id)}
 					indexer={reorderDropzoneIndexer}
 				/>
-				<QuickActionMenu
-					padding={1}
-					offset={$remoteCommits.length > 0 && idx + 1 === $localCommits.length ? 0.25 : 0}
-				>
-					<Button style="ghost" size="tag" on:click={() => insertBlankCommit(commit.id, 'below')}
-						>Insert blank commit</Button
-					>
-				</QuickActionMenu>
+				<InsertEmptyCommitAction
+					isLast={$remoteCommits.length === 0 && idx + 1 === $localCommits.length}
+					isMiddle={$remoteCommits.length > 0 && idx + 1 === $localCommits.length}
+					on:click={() => insertBlankCommit(commit.id, 'below')}
+				/>
 			{/each}
 		{/if}
 		<!-- REMOTE COMMITS -->
@@ -210,10 +218,10 @@
 							integrated={commit.isIntegrated}
 							localRoot={idx === 0 && hasLocalCommits}
 							outDashed={idx === 0 && commit.prev?.status === 'local'}
-							remoteIn={!isRebased ? getRemoteInType(commit) : undefined}
-							remoteOut={!isRebased ? getRemoteOutType(commit) : undefined}
-							shadowIn={isRebased ? getRemoteInType(commit) : undefined}
-							shadowOut={isRebased ? getRemoteOutType(commit) : undefined}
+							remoteIn={!isRebased ? getInType(commit) : undefined}
+							remoteOut={!isRebased ? getOutType(commit) : undefined}
+							shadowIn={isRebased ? getInType(commit) : undefined}
+							shadowOut={isRebased ? getOutType(commit) : undefined}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -221,11 +229,10 @@
 					index={reorderDropzoneIndexer.dropzoneIndexBelowCommit(commit.id)}
 					indexer={reorderDropzoneIndexer}
 				/>
-				<QuickActionMenu padding={1}>
-					<Button style="ghost" size="tag" on:click={() => insertBlankCommit(commit.id, 'below')}
-						>Insert blank commit</Button
-					>
-				</QuickActionMenu>
+				<InsertEmptyCommitAction
+					isLast={idx + 1 === $remoteCommits.length}
+					on:click={() => insertBlankCommit(commit.id, 'below')}
+				/>
 			{/each}
 		{/if}
 		<!-- INTEGRATED COMMITS -->
@@ -249,10 +256,10 @@
 							sectionFirst={idx === 0}
 							commitStatus={commit.status}
 							help={getAvatarTooltip(commit)}
-							shadowIn={isRebased ? getRemoteInType(commit) : undefined}
-							shadowOut={isRebased ? getRemoteOutType(commit) : undefined}
-							remoteIn={!isRebased ? getRemoteInType(commit) : undefined}
-							remoteOut={!isRebased ? getRemoteOutType(commit) : undefined}
+							shadowIn={isRebased ? getInType(commit) : undefined}
+							shadowOut={isRebased ? getOutType(commit) : undefined}
+							remoteIn={!isRebased ? getInType(commit) : undefined}
+							remoteOut={!isRebased ? getOutType(commit) : undefined}
 							integrated={true}
 							localRoot={idx === 0 && !hasRemoteCommits && hasLocalCommits}
 						/>
@@ -270,19 +277,16 @@
 				on:keydown={(e) => e.key === 'Enter' && (baseIsUnfolded = !baseIsUnfolded)}
 			>
 				<div class="base-row__lines">
-					<CommitLines
-						{hasLocalColumn}
-						{isRebased}
-						localRoot={!hasRemoteCommits && !hasIntegratedCommits && hasLocalCommits}
-						shadowOut={isRebased && firstCommit ? getRemoteInType(firstCommit) : undefined}
-						remoteOut={!isRebased &&
-						(hasIntegratedCommits || hasRemoteCommits || hasShadowedCommits)
-							? 'remote'
-							: !isRebased && hasUnknownCommits
-								? 'upstream'
-								: undefined}
-						base
-					/>
+					{#key tsKey}
+						<CommitLines
+							{hasLocalColumn}
+							{isRebased}
+							localRoot={!hasRemoteCommits && !hasIntegratedCommits && hasLocalCommits}
+							shadowOut={getBaseShadowOutType()}
+							remoteOut={getBaseRemoteOutType()}
+							base
+						/>
+					{/key}
 				</div>
 				<div class="base-row__content">
 					<span class="text-base-11 base-row__text"
@@ -329,6 +333,16 @@
 
 		overflow: hidden;
 		transition: height var(--transition-medium);
+
+		&:hover {
+			&:not(.base-row-container_unfolded) {
+				height: 22px;
+			}
+
+			& .base-row {
+				background-color: var(--clr-bg-2-muted);
+			}
+		}
 	}
 
 	.base-row-container_unfolded {
@@ -347,15 +361,11 @@
 		min-height: calc(var(--base-unfolded) - var(--base-top-margin));
 		margin-top: var(--base-top-margin);
 		transition: background-color var(--transition-fast);
-
-		&:hover {
-			background-color: var(--clr-bg-2-muted);
-		}
 	}
 
 	.base-row__lines {
 		display: flex;
-		margin-top: -8px;
+		margin-top: -9px;
 	}
 
 	.base-row__content {

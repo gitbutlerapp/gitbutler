@@ -5,9 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    git, id::Id, types::default_true::DefaultTrue, virtual_branches::VirtualBranchesHandle,
-};
+use crate::{id::Id, types::default_true::DefaultTrue, virtual_branches::VirtualBranchesHandle};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -57,7 +55,8 @@ impl FetchResult {
 
 #[derive(Debug, Deserialize, Serialize, Copy, Clone)]
 pub struct CodePushState {
-    pub id: git::Oid,
+    #[serde(with = "crate::serde::oid")]
+    pub id: git2::Oid,
     pub timestamp: time::SystemTime,
 }
 
@@ -90,12 +89,12 @@ pub struct Project {
     // The number of changed lines that will trigger a snapshot
     pub snapshot_lines_threshold: Option<usize>,
 
-    #[serde(default = "default_false")]
+    #[serde(default = "default_true")]
     pub use_new_locking: bool,
 }
 
-fn default_false() -> bool {
-    false
+fn default_true() -> bool {
+    true
 }
 
 impl Project {

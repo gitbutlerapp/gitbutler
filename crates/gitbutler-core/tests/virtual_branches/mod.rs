@@ -170,7 +170,7 @@ fn track_binary_files() -> Result<()> {
     let commit_id = &branches[0].commits[0].id;
     let commit_obj = project_repository
         .repo()
-        .find_commit(commit_id.to_owned().into())?;
+        .find_commit(commit_id.to_owned())?;
     let tree = commit_obj.tree()?;
     let files = tree_to_entry_list(project_repository.repo(), &tree);
     assert_eq!(files[0].0, "image.bin");
@@ -203,7 +203,7 @@ fn track_binary_files() -> Result<()> {
     // get tree from commit_id
     let commit_obj = project_repository
         .repo()
-        .find_commit(commit_id.to_owned().into())?;
+        .find_commit(commit_id.to_owned())?;
     let tree = commit_obj.tree()?;
     let files = tree_to_entry_list(project_repository.repo(), &tree);
 
@@ -353,7 +353,7 @@ fn hunk_expantion() -> Result<()> {
     // even though selected branch has changed
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch1_id,
             order: Some(1),
             ..Default::default()
@@ -361,7 +361,7 @@ fn hunk_expantion() -> Result<()> {
     )?;
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             order: Some(0),
             ..Default::default()
@@ -502,7 +502,7 @@ fn move_hunks_multiple_sources() -> Result<()> {
 
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch3_id,
             ownership: Some("test.txt:1-5,11-15".parse()?),
             ..Default::default()
@@ -579,7 +579,7 @@ fn move_hunks_partial_explicitly() -> Result<()> {
 
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test.txt:1-5".parse()?),
             ..Default::default()
@@ -793,7 +793,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     vb_state.set_default_target(virtual_branches::target::Target {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
-        sha: target_oid.into(),
+        sha: target_oid,
         push_remote_name: None,
     })?;
 
@@ -808,7 +808,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     let mut branch = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
-    branch.head = last_push.into();
+    branch.head = last_push;
     vb_state.set_branch(branch.clone())?;
 
     // create the branch
@@ -902,7 +902,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
     vb_state.set_default_target(virtual_branches::target::Target {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
-        sha: target_oid.into(),
+        sha: target_oid,
         push_remote_name: None,
     })?;
 
@@ -916,7 +916,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
     let mut branch = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
-    branch.head = last_push.into();
+    branch.head = last_push;
     vb_state.set_branch(branch.clone())?;
 
     // create the branch
@@ -970,9 +970,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
 
     // make sure the last commit was a merge commit (2 parents)
     let last_id = &branch1.commits[0].id;
-    let last_commit = project_repository
-        .repo()
-        .find_commit(last_id.to_owned().into())?;
+    let last_commit = project_repository.repo().find_commit(last_id.to_owned())?;
     assert_eq!(last_commit.parent_count(), 2);
 
     Ok(())
@@ -1060,7 +1058,7 @@ fn unapply_branch() -> Result<()> {
 
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test2.txt:1-3".parse()?),
             ..Default::default()
@@ -1141,7 +1139,7 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
 
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test2.txt:0-0".parse()?),
             ..Default::default()
@@ -1149,7 +1147,7 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     )?;
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch3_id,
             ownership: Some("test3.txt:1-2".parse()?),
             ..Default::default()
@@ -1212,7 +1210,7 @@ fn detect_mergeable_branch() -> Result<()> {
 
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test4.txt:1-3".parse()?),
             ..Default::default()
@@ -1370,7 +1368,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
     vb_state.set_default_target(virtual_branches::target::Target {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "http://origin.com/project".to_string(),
-        sha: base_commit.into(),
+        sha: base_commit,
         push_remote_name: None,
     })?;
     project_repository
@@ -1401,7 +1399,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
 
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch1_id,
             name: Some("integrated".to_string()),
             ownership: Some("test.txt:1-2".parse()?),
@@ -1411,7 +1409,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
 
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch2_id,
             name: Some("not integrated".to_string()),
             ownership: Some("test2.txt:1-2".parse()?),
@@ -1421,7 +1419,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
 
     update_branch(
         project_repository,
-        virtual_branches::branch::BranchUpdateRequest {
+        &virtual_branches::branch::BranchUpdateRequest {
             id: branch3_id,
             name: Some("not committed".to_string()),
             ownership: Some("test3.txt:1-2".parse()?),
@@ -1768,7 +1766,7 @@ fn commit_partial_by_file() -> Result<()> {
     let commit2 = &branch1.commits[0].id;
     let commit2 = project_repository
         .repo()
-        .find_commit(commit2.to_owned().into())
+        .find_commit(commit2.to_owned())
         .expect("failed to get commit object");
 
     let tree = commit1.tree().expect("failed to get tree");
@@ -1827,7 +1825,7 @@ fn commit_add_and_delete_files() -> Result<()> {
     let commit2 = &branch1.commits[0].id;
     let commit2 = project_repository
         .repo()
-        .find_commit(commit2.to_owned().into())
+        .find_commit(commit2.to_owned())
         .expect("failed to get commit object");
 
     let tree = commit1.tree().expect("failed to get tree");
@@ -1891,7 +1889,7 @@ fn commit_executable_and_symlinks() -> Result<()> {
     let commit = &branch1.commits[0].id;
     let commit = project_repository
         .repo()
-        .find_commit(commit.to_owned().into())
+        .find_commit(commit.to_owned())
         .expect("failed to get commit object");
 
     let tree = commit.tree().expect("failed to get tree");

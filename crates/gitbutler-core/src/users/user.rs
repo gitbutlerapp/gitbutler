@@ -1,3 +1,4 @@
+use crate::types::Sensitive;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -11,9 +12,9 @@ pub struct User {
     pub locale: Option<String>,
     pub created_at: String,
     pub updated_at: String,
-    pub access_token: String,
+    pub access_token: Sensitive<String>,
     pub role: Option<String>,
-    pub github_access_token: Option<String>,
+    pub github_access_token: Option<Sensitive<String>>,
     #[serde(default)]
     pub github_username: Option<String>,
 }

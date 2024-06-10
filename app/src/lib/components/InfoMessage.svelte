@@ -76,7 +76,7 @@
 		{#if primary || secondary}
 			<div class="info-message__actions">
 				{#if secondary}
-					<Button style="ghost" kind="solid" on:click={() => dispatch('secondary')}>
+					<Button style="ghost" outline on:click={() => dispatch('secondary')}>
 						{secondary}
 					</Button>
 				{/if}

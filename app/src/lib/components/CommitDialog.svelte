@@ -55,7 +55,7 @@
 		{#if $expanded && !isCommitting}
 			<Button
 				style="ghost"
-				kind="solid"
+				outline
 				id="commit-to-branch"
 				on:click={() => {
 					$expanded = false;

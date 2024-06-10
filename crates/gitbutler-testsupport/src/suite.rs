@@ -4,6 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use gitbutler_core::types::Sensitive;
 use gitbutler_core::{git::RepositoryExt, project_repository};
 use tempfile::{tempdir, TempDir};
 
@@ -50,7 +51,7 @@ impl Suite {
         let user = gitbutler_core::users::User {
             name: Some("test".to_string()),
             email: "test@email.com".to_string(),
-            access_token: "token".to_string(),
+            access_token: Sensitive("token".to_string()),
             ..Default::default()
         };
         self.users.set_user(&user).expect("failed to add user");
@@ -182,7 +183,7 @@ pub fn test_repository() -> (git2::Repository, TempDir) {
     (repository, tmp)
 }
 
-pub fn commit_all(repository: &git2::Repository) -> gitbutler_core::git::Oid {
+pub fn commit_all(repository: &git2::Repository) -> git2::Oid {
     let mut index = repository.index().expect("failed to get index");
     index
         .add_all(["."], git2::IndexAddOption::DEFAULT, None)
@@ -209,5 +210,5 @@ pub fn commit_all(repository: &git2::Repository) -> gitbutler_core::git::Oid {
             None,
         )
         .expect("failed to commit");
-    commit_oid.into()
+    commit_oid
 }

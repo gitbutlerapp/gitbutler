@@ -35,7 +35,7 @@
 <Modal width="small" title="Merge conflicts" bind:this={applyConflictedModal}>
 	<p>Applying this branch will introduce merge conflicts.</p>
 	<svelte:fragment slot="controls" let:item let:close>
-		<Button style="ghost" kind="solid" on:click={close}>Cancel</Button>
+		<Button style="ghost" outline on:click={close}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
@@ -55,7 +55,7 @@
 		Deleting <code class="code-string">{item.name}</code> cannot be undone.
 	</div>
 	<svelte:fragment slot="controls" let:close let:item>
-		<Button style="ghost" kind="solid" on:mousedown={close}>Cancel</Button>
+		<Button style="ghost" outline on:mousedown={close}>Cancel</Button>
 		<Button
 			style="error"
 			kind="solid"
