@@ -30,7 +30,7 @@ impl CommitBuffer {
             let mut output = String::new();
 
             output.push_str(heading);
-            output.push_str(format!("{} {}", key, value).as_str());
+            output.push_str(format!("\n{} {}", key, value).as_str());
             output.push_str("\n\n");
             output.push_str(body);
 

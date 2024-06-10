@@ -26,6 +26,7 @@ pub trait RepositoryExt {
     fn in_memory<T, F>(&self, f: F) -> Result<T>
     where
         F: FnOnce(&git2::Repository) -> Result<T>;
+    fn integration_commit(&self) -> Result<git2::Commit<'_>>;
     fn sign_buffer(&self, buffer: &CommitBuffer) -> Result<String>;
     fn commit_buffer(&self, commit_buffer: &CommitBuffer) -> Result<git2::Oid>;
 
@@ -142,10 +143,13 @@ impl RepositoryExt for Repository {
         }
     }
 
-    fn target_commit(&self) -> Result<git2::Commit<'_>> {
+    fn integration_commit(&self) -> Result<git2::Commit<'_>> {
         let integration_ref = self.integration_ref_from_head()?;
-        let integration_commit = integration_ref.peel_to_commit()?;
-        Ok(integration_commit.parent(0)?)
+        Ok(integration_ref.peel_to_commit()?)
+    }
+
+    fn target_commit(&self) -> Result<git2::Commit<'_>> {
+        Ok(self.integration_commit()?.parent(0)?)
     }
 
     #[allow(clippy::too_many_arguments)]
