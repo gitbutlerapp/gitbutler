@@ -25,7 +25,7 @@
 	let contextMenu: ContextMenu;
 	let dropDown: DropDownButton;
 
-	$: selection$ = contextMenu?.selection$;
+	$: selection = contextMenu?.selection;
 </script>
 
 <DropDownButton
@@ -40,7 +40,7 @@
 		dispatch('click', { method: $action });
 	}}
 >
-	{$selection$?.label}
+	{$selection?.label}
 	<ContextMenu
 		type="select"
 		slot="context-menu"

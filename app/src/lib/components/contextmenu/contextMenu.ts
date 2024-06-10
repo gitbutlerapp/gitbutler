@@ -1,4 +1,4 @@
-import type { BehaviorSubject } from 'rxjs';
+import type { Writable } from 'svelte/store';
 
 export type ContextMenuType = 'checklist' | 'select' | 'normal';
 
@@ -8,5 +8,5 @@ export interface ContextMenuItem {
 }
 export interface ContextMenuContext {
 	type: ContextMenuType;
-	selection$: BehaviorSubject<ContextMenuItem | undefined>;
+	selection: Writable<ContextMenuItem | undefined>;
 }

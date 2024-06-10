@@ -39,7 +39,7 @@
 	let disabled = false;
 	let isPushed = $localCommits.length === 0 && !branch.requiresForce;
 	$: canBeRebased = $unknownCommits.length > 0;
-	$: selection$ = contextMenu?.selection$;
+	$: selection = contextMenu?.selection;
 	$: action = selectAction(isPushed, $preferredAction);
 
 	function selectAction(isPushed: boolean, preferredAction: BranchAction) {
@@ -67,7 +67,7 @@
 		dispatch('trigger', { action });
 	}}
 >
-	{$selection$?.label}
+	{$selection?.label}
 	<ContextMenu
 		type="select"
 		slot="context-menu"

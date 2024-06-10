@@ -19,7 +19,7 @@
 	let dropDown: DropDownButton;
 	let contextMenu: ContextMenu;
 
-	$: selection$ = contextMenu?.selection$;
+	$: selection = contextMenu?.selection;
 
 	function defaultAction(): Persisted<Action> {
 		const key = 'projectDefaultPrAction';
@@ -36,7 +36,7 @@
 		dispatch('click', { action: $action });
 	}}
 >
-	{$selection$?.label}
+	{$selection?.label}
 	<ContextMenu
 		type="select"
 		slot="context-menu"
