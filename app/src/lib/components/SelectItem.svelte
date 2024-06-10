@@ -7,12 +7,19 @@
 	export let selected = false;
 	export let disabled = false;
 	export let loading = false;
+	export let highlighted = false;
 	export let value: string | undefined = undefined;
 
 	const dispatch = createEventDispatcher<{ click: string | undefined }>();
 </script>
 
-<button {disabled} class="button" class:selected on:click={() => dispatch('click', value)}>
+<button
+	{disabled}
+	class="button"
+	class:selected
+	class:highlighted
+	on:click={() => dispatch('click', value)}
+>
 	<div class="label text-base-13">
 		<slot />
 	</div>
@@ -66,5 +73,9 @@
 		& .label {
 			opacity: 0.5;
 		}
+	}
+
+	.highlighted {
+		background-color: var(--clr-bg-3);
 	}
 </style>

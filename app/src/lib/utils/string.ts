@@ -11,3 +11,11 @@ export function hashCode(s: string) {
 	}
 	return hash.toString();
 }
+
+export function isChar(char: string) {
+	return char.length === 1;
+}
+
+export function isStr(s: unknown): s is string {
+	return typeof s === 'string';
+}
