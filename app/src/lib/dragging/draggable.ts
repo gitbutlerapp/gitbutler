@@ -6,6 +6,7 @@ export interface DraggableConfig {
 	readonly disabled?: boolean;
 	readonly data?: Draggable | Promise<Draggable>;
 	readonly viewportId?: string;
+	readonly extendWithClass?: string;
 }
 
 export function applyContainerStyle(element: HTMLElement) {
@@ -15,14 +16,17 @@ export function applyContainerStyle(element: HTMLElement) {
 	element.style.padding = '30px'; // To prevent clipping of rotated element
 }
 
-export function createContainerForMultiDrag(children: Element[]): HTMLDivElement {
+export function createContainerForMultiDrag(
+	children: Element[],
+	extendWithClass: string | undefined
+): HTMLDivElement {
 	const inner = document.createElement('div');
 	inner.style.display = 'flex';
 	inner.style.flexDirection = 'column';
 	inner.style.gap = '0.125rem';
 
 	children.forEach((child) => {
-		inner.appendChild(cloneWithPreservedDimensions(child));
+		inner.appendChild(cloneWithPreservedDimensions(child, extendWithClass));
 	});
 	rotateElement(inner);
 
@@ -33,17 +37,20 @@ export function createContainerForMultiDrag(children: Element[]): HTMLDivElement
 	return container;
 }
 
-export function cloneWithPreservedDimensions(node: any) {
+export function cloneWithPreservedDimensions(node: any, extendWithClass: string | undefined) {
 	const clone = node.cloneNode(true) as HTMLElement;
 	clone.style.height = node.clientHeight + 'px';
 	clone.style.width = node.clientWidth + 'px';
 	clone.classList.remove('selected-draggable');
+
+	extendWithClass && clone.classList.add(extendWithClass);
+
 	return clone;
 }
 
-export function cloneWithRotation(node: any) {
+export function cloneWithRotation(node: any, extendWithClass: string | undefined = undefined) {
 	const container = document.createElement('div');
-	const clone = cloneWithPreservedDimensions(node) as HTMLElement;
+	const clone = cloneWithPreservedDimensions(node, extendWithClass) as HTMLElement;
 	container.appendChild(clone);
 
 	// exclude all ignored elements from the clone
@@ -103,7 +110,7 @@ export function draggable(node: HTMLElement, initialOpts: DraggableConfig) {
 				: [];
 
 			if (selectedElements.length > 0) {
-				clone = createContainerForMultiDrag(selectedElements);
+				clone = createContainerForMultiDrag(selectedElements, opts.extendWithClass);
 				// Dim the original element while dragging
 				selectedElements.forEach((element) => {
 					element.style.opacity = '0.5';
@@ -112,7 +119,7 @@ export function draggable(node: HTMLElement, initialOpts: DraggableConfig) {
 		}
 
 		if (!clone) {
-			clone = cloneWithRotation(node);
+			clone = cloneWithRotation(node, opts.extendWithClass);
 		}
 
 		document.body.appendChild(clone);

@@ -392,7 +392,7 @@ impl Repository {
 
         let mut push_options = git2::PushOptions::new();
         push_options.remote_callbacks(callbacks);
-        let auth_header = format!("Authorization: {}", access_token);
+        let auth_header = format!("Authorization: {}", access_token.0);
         let headers = &[auth_header.as_str()];
         push_options.custom_headers(headers);
 

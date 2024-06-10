@@ -1298,13 +1298,10 @@ pub fn integrate_with_merge(
 
 pub fn update_branch(
     project_repository: &project_repository::Repository,
-    branch_update: branch::BranchUpdateRequest,
+    branch_update: &branch::BranchUpdateRequest,
 ) -> Result<branch::Branch> {
     let vb_state = project_repository.project().virtual_branches();
     let mut branch = vb_state.get_branch(branch_update.id)?;
-    _ = project_repository
-        .project()
-        .snapshot_branch_update(&branch, &branch_update);
 
     if let Some(ownership) = &branch_update.ownership {
         set_ownership(&vb_state, &mut branch, ownership).context("failed to set ownership")?;
@@ -1602,7 +1599,7 @@ fn new_compute_locks(
     unstaged_hunks_by_path: &HashMap<PathBuf, Vec<diff::GitHunk>>,
     virtual_branches: &[branch::Branch],
 ) -> Result<HashMap<HunkHash, Vec<diff::HunkLock>>> {
-    // If we cant find the integration commit and subsiquently the target commit, we can't find any locks
+    // If we cant find the integration commit and subsequently the target commit, we can't find any locks
     let target_tree = repository.target_commit()?.tree()?;
 
     let mut diff_opts = git2::DiffOptions::new();

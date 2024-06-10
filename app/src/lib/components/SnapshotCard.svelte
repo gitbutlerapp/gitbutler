@@ -149,6 +149,7 @@
 	}
 
 	const isRestoreSnapshot = entry.details?.operation === 'RestoreFromSnapshot';
+	const error = entry.details?.trailers.find((t) => t.key === 'error')?.value;
 
 	const operation = mapOperation(entry.details);
 
@@ -258,10 +259,16 @@
 				</div>
 			</SnapshotAttachment>
 		{/if}
+		{#if error}
+			<span class="error-text">Error: {error}</span>
+		{/if}
 	</div>
 </div>
 
 <style lang="postcss">
+	.error-text {
+		color: #e53e3e;
+	}
 	/* SNAPSHOT CARD */
 	.snapshot-card {
 		position: relative;

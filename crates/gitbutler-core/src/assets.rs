@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path, sync};
+use std::{collections::HashMap, path, sync, time::Duration};
 
 use anyhow::Result;
 use futures::future::join_all;
@@ -168,7 +168,11 @@ impl Proxy {
 
         tracing::debug!(url = %src, "downloading image");
 
-        let resp = reqwest::get(src.clone()).await?;
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(2))
+            .build()?;
+
+        let resp = client.get(src.clone()).send().await?;
         if !resp.status().is_success() {
             tracing::error!(url = %src, status = %resp.status(), "failed to download image");
             return Err(anyhow::anyhow!(

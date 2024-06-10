@@ -2,6 +2,7 @@
 	import FileContextMenu from './FileContextMenu.svelte';
 	import FileStatusIcons from './FileStatusIcons.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
@@ -57,12 +58,15 @@
 			popupMenu.$destroy();
 		}
 	});
+
+	const isDraggable = !readonly && !isUnapplied;
 </script>
 
 <div
 	bind:this={draggableElt}
 	class="file-list-item"
 	class:selected-draggable={selected}
+	class:draggable={isDraggable}
 	id={`file-${file.id}`}
 	data-locked={file.locked}
 	on:click
@@ -103,7 +107,7 @@
 		data: $selectedFiles.then(
 			(files) => new DraggableFile($branch?.id || '', file, $commit, files)
 		),
-		disabled: readonly || isUnapplied,
+		disabled: !isDraggable,
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable'
 	}}
@@ -139,6 +143,11 @@
 		</span>
 	</div>
 	<FileStatusIcons {file} />
+	{#if isDraggable}
+		<div class="draggable-handle">
+			<Icon name="draggable-narrow" />
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -165,6 +174,35 @@
 		}
 	}
 
+	.draggable {
+		/* cursor: grab; */
+
+		&:hover {
+			& .draggable-handle {
+				/* width: 10px; */
+				/* width: 6px; */
+				opacity: 1;
+				/* transition-delay: 0.5s; */
+			}
+		}
+	}
+
+	.draggable-handle {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 4px;
+		color: var(--clr-text-3);
+		opacity: 0;
+		margin-left: -2px;
+		margin-right: -8px;
+		transition:
+			width var(--transition-fast),
+			opacity var(--transition-fast);
+		/* transition-delay: 0s; */
+		/* background-color: rgb(184, 150, 201); */
+	}
+
 	.info {
 		display: flex;
 		align-items: center;
@@ -184,7 +222,6 @@
 		flex-shrink: 0;
 		text-overflow: ellipsis;
 		overflow: hidden;
-		line-height: 120%;
 	}
 
 	.path {

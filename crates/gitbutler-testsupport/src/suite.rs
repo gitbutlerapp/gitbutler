@@ -4,6 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use gitbutler_core::types::Sensitive;
 use gitbutler_core::{git::RepositoryExt, project_repository};
 use tempfile::{tempdir, TempDir};
 
@@ -50,7 +51,7 @@ impl Suite {
         let user = gitbutler_core::users::User {
             name: Some("test".to_string()),
             email: "test@email.com".to_string(),
-            access_token: "token".to_string(),
+            access_token: Sensitive("token".to_string()),
             ..Default::default()
         };
         self.users.set_user(&user).expect("failed to add user");
