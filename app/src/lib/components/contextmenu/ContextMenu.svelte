@@ -1,19 +1,21 @@
 <script lang="ts">
-	import { BehaviorSubject } from 'rxjs';
-	import { createEventDispatcher, onDestroy, setContext } from 'svelte';
+	import { createEventDispatcher, onMount, setContext } from 'svelte';
+	import { writable } from 'svelte/store';
 	import type { ContextMenuContext, ContextMenuItem, ContextMenuType } from './contextMenu';
 
 	export let type: ContextMenuType = 'normal';
-	export const selection$ = new BehaviorSubject<ContextMenuItem | undefined>(undefined);
+	export const selection = writable<ContextMenuItem | undefined>(undefined);
 
-	const context: ContextMenuContext = { type, selection$ };
+	const context: ContextMenuContext = { type, selection };
 	setContext<ContextMenuContext>('ContextMenu', context);
 
 	const dispatch = createEventDispatcher<{ select: ContextMenuItem | undefined }>();
 
-	const subscription = selection$.subscribe((item) => dispatch('select', item));
-	onDestroy(() => {
-		subscription.unsubscribe();
+	onMount(() => {
+		const unsubscribe = selection.subscribe((value) => dispatch('select', value));
+		return () => {
+			unsubscribe();
+		};
 	});
 </script>
 
