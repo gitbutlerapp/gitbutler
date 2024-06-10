@@ -104,16 +104,16 @@
 
 <Modal bind:this={commitMessageModal} width="small">
 	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
-	<svelte:fragment slot="controls">
-		<Button style="ghost" outline on:click={() => commitMessageModal.close()}>Cancel</Button>
-		<Button
-			style="pop"
-			kind="solid"
-			grow
-			disabled={!commitMessageValid}
-			on:click={submitCommitMessageModal}>Submit</Button
-		>
-	</svelte:fragment>
+        {#snippet controls()}
+            <Button style="ghost" outline on:click={() => commitMessageModal.close()}>Cancel</Button>
+            <Button
+                style="pop"
+                kind="solid"
+                grow
+                disabled={!commitMessageValid}
+                on:click={submitCommitMessageModal}>Submit</Button
+            >
+        {/snippet}
 </Modal>
 
 <div
@@ -134,7 +134,7 @@
 				class:remote={type === 'remote'}
 				class:upstream={type === 'upstream'}
 				class:integrated={type === 'integrated'}
-			/>
+			></div>
 
 			<!-- GENERAL INFO -->
 			<div

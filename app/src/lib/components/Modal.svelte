@@ -2,42 +2,56 @@
 	import { clickOutside } from '$lib/clickOutside';
 	import Icon from '$lib/components/Icon.svelte';
 	import type iconsJson from '$lib/icons/icons.json';
+	import type { Snippet } from 'svelte';
 
-	let dialog: HTMLDialogElement;
-	let item: any;
-	let open = false;
+	interface Props {
+		width?: 'default' | 'small' | 'large';
+		title?: string | undefined;
+		icon?: keyof typeof iconsJson | undefined;
+    children: Snippet<[any, () => void]>;
+    controls?: Snippet<[any, () => void]>;
+	}
 
-	export let width: 'default' | 'small' | 'large' = 'default';
-	export let title: string | undefined = undefined;
-	export let icon: keyof typeof iconsJson | undefined = undefined;
+	const {
+    width = 'default',
+    title = undefined,
+    icon = undefined,
+    children,
+    controls
+  }: Props = $props();
+
+	let dialog = $state<HTMLDialogElement>();
+	let item = $state<any>();
+	let open = $state(false);
 
 	export function show(newItem?: any) {
 		item = newItem;
-		dialog.showModal();
+		dialog?.showModal();
 		open = true;
 	}
 
 	export function close() {
 		item = undefined;
-		dialog.close();
+		dialog?.close();
 		open = false;
 	}
 </script>
+
+<svelte:options runes={true} />
 
 <dialog
 	class:s-default={width === 'default'}
 	class:s-small={width === 'small'}
 	class:s-large={width === 'large'}
 	bind:this={dialog}
-	on:close={close}
+	onclose={close}
 >
 	{#if open}
-		<form
+		<div
 			class="modal-content"
-			on:submit
 			use:clickOutside={{
 				trigger: dialog,
-				handler: () => dialog.close()
+				handler: () => dialog?.close()
 			}}
 		>
 			{#if title}
@@ -52,15 +66,15 @@
 			{/if}
 
 			<div class="modal__body custom-scrollbar">
-				<slot {item} {close} />
+        {@render children(item, close)}
 			</div>
 
-			{#if $$slots.controls}
+			{#if controls}
 				<div class="modal__footer">
-					<slot name="controls" {item} {close} />
+          {@render controls(item, close)}
 				</div>
 			{/if}
-		</form>
+		</div>
 	{/if}
 </dialog>
 
