@@ -10,7 +10,7 @@
 	import { getContext, getContextStoreBySymbol, maybeGetContextStore } from '$lib/utils/context';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type Hunk } from '$lib/vbranches/types';
-	import { onDestroy } from 'svelte';
+	import { mount, onDestroy, unmount } from 'svelte';
 	import type { HunkSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
 
@@ -39,8 +39,8 @@
 		}
 	}
 	function updateContextMenu(filePath: string) {
-		if (popupMenu) popupMenu.$destroy();
-		return new HunkContextMenu({
+		if (popupMenu) unmount(popupMenu);
+		return mount(HunkContextMenu, {
 			target: document.body,
 			props: { projectPath: project.vscodePath, filePath, readonly }
 		});
@@ -51,7 +51,7 @@
 
 	onDestroy(() => {
 		if (popupMenu) {
-			popupMenu.$destroy();
+			unmount(popupMenu);
 		}
 	});
 

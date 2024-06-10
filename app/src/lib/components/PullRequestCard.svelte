@@ -13,7 +13,7 @@
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { Branch } from '$lib/vbranches/types';
 	import { distinctUntilChanged } from 'rxjs';
-	import { onDestroy } from 'svelte';
+	import { mount, onDestroy, unmount } from 'svelte';
 	import { derived, type Readable } from 'svelte/store';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
 	import type { ComponentColor } from '$lib/vbranches/types';
@@ -233,8 +233,8 @@
 	}
 
 	function updateContextMenu(copyablePrUrl: string) {
-		if (popupMenu) popupMenu.$destroy();
-		return new ViewPrContextMenu({
+		if (popupMenu) unmount(popupMenu);
+		return mount(ViewPrContextMenu, {
 			target: document.body,
 			props: { prUrl: copyablePrUrl }
 		});
@@ -244,7 +244,7 @@
 
 	onDestroy(() => {
 		if (popupMenu) {
-			popupMenu.$destroy();
+			unmount(popupMenu);
 		}
 	});
 </script>
