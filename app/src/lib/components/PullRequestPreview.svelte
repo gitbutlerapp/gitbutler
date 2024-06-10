@@ -28,9 +28,9 @@
 
 	let loading = false;
 
-	function closeModal() {
+	function closeModal(close: () => void) {
 		remoteName = structuredClone(pullrequest.repoName) || '';
-		createRemoteModal?.close();
+		close();
 	}
 
 	async function createRemoteAndBranch() {
@@ -78,11 +78,12 @@
 		In order to apply a branch from a fork, GitButler must first add a remote.
 	</p>
 	<TextBox label="Choose a remote name" bind:value={remoteName}></TextBox>
-	<svelte:fragment slot="controls">
-		<Button style="ghost" outline on:click={closeModal}>Cancel</Button>
-		<Button style="pop" kind="solid" grow on:click={createRemoteAndBranch} {loading}>Confirm</Button
-		>
-	</svelte:fragment>
+	{#snippet controls(close)}
+		<Button style="ghost" outline on:click={() => closeModal(close)}>Cancel</Button>
+		<Button style="pop" kind="solid" grow on:click={createRemoteAndBranch} {loading}>
+			Confirm
+		</Button>
+	{/snippet}
 </Modal>
 
 <div class="wrapper">

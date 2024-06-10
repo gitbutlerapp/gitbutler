@@ -113,19 +113,19 @@
 			{/each}
 		</ul>
 	</div>
-	<svelte:fragment slot="controls" let:close let:item>
-		<Button style="ghost" outline on:click={close}>Cancel</Button>
+	{#snippet controls(close, item)}
+		<Button style="ghost" outline on:click={() => close?.()}>Cancel</Button>
 		<Button
 			style="error"
 			kind="solid"
 			on:click={() => {
 				branchController.unapplyFiles(item.files);
-				confirmationModal.close();
+				close?.();
 			}}
 		>
 			Confirm
 		</Button>
-	</svelte:fragment>
+	{/snippet}
 </Modal>
 
 <style lang="postcss">

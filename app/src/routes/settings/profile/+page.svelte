@@ -211,12 +211,12 @@
 		<Modal bind:this={deleteConfirmationModal} width="small" title="Remove all projects">
 			<p>Are you sure you want to remove all GitButler projects?</p>
 
-			<svelte:fragment slot="controls" let:close>
-				<Button style="error" kind="solid" loading={isDeleting} on:click={onDeleteClicked}
-					>Remove</Button
-				>
-				<Button style="pop" kind="solid" on:click={close}>Cancel</Button>
-			</svelte:fragment>
+			{#snippet controls(close)}
+				<Button style="error" kind="solid" loading={isDeleting} on:click={onDeleteClicked}>
+					Remove
+				</Button>
+				<Button style="pop" kind="solid" on:click={() => close?.()}>Cancel</Button>
+			{/snippet}
 		</Modal>
 	</SectionCard>
 </ContentWrapper>

@@ -130,28 +130,28 @@
 	</ContextMenu>
 {/if}
 
-<Modal
-	width="small"
-	bind:this={renameRemoteModal}
->
+<Modal width="small" bind:this={renameRemoteModal}>
 	<svelte:fragment>
 		<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName} focus />
 	</svelte:fragment>
 
 	{#snippet controls(close)}
 		<Button style="ghost" outline type="reset" on:click={close}>Cancel</Button>
-		<Button style="pop" kind="solid" on:click={() => {
-        branchController.updateBranchRemoteName(branch.id, newRemoteName);
-        close();
-      }}
-    >
-      Rename
-    </Button>
-  {/snippet}
+		<Button
+			style="pop"
+			kind="solid"
+			on:click={() => {
+				branchController.updateBranchRemoteName(branch.id, newRemoteName);
+				close();
+			}}
+		>
+			Rename
+		</Button>
+	{/snippet}
 </Modal>
 
 <Modal width="small" title="Delete branch" bind:this={deleteBranchModal} let:item={branch}>
-  Deleting <code class="code-string">{branch.name}</code> cannot be undone.
+	Deleting <code class="code-string">{branch.name}</code> cannot be undone.
 	{#snippet controls(close, item = branch)}
 		<Button style="ghost" outline on:click={close}>Cancel</Button>
 		<Button
@@ -164,5 +164,5 @@
 		>
 			Delete
 		</Button>
-  {/snippet}
+	{/snippet}
 </Modal>

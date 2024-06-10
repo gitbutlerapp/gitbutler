@@ -51,21 +51,19 @@
 </Modal>
 
 <Modal width="small" title="Delete branch" bind:this={deleteBranchModal} let:item>
-	<div>
-		Deleting <code class="code-string">{item.name}</code> cannot be undone.
-	</div>
-	<svelte:fragment slot="controls" let:close let:item>
-		<Button style="ghost" outline on:mousedown={close}>Cancel</Button>
+	Deleting <code class="code-string">{item.name}</code> cannot be undone.
+	{#snippet controls(close, item)}
+		<Button style="ghost" outline on:mousedown={() => close?.()}>Cancel</Button>
 		<Button
 			style="error"
 			kind="solid"
 			on:click={() => {
 				branchController.deleteBranch(item.id);
-				close();
+				close?.();
 				goto(`/${projectId}/board`);
 			}}
 		>
 			Delete
 		</Button>
-	</svelte:fragment>
+	{/snippet}
 </Modal>

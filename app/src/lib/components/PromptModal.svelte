@@ -66,12 +66,12 @@
 	</div>
 	<TextBox focus type="password" bind:value disabled={!!$error || loading} />
 
-	<svelte:fragment slot="controls">
+	{#snippet controls()}
 		<Button style="ghost" outline type="reset" disabled={loading} on:click={cancel}>Cancel</Button>
-		<Button style="pop" kind="solid" type="submit" grow disabled={!!$error || loading} {loading}
-			>Submit</Button
-		>
-	</svelte:fragment>
+		<Button style="pop" kind="solid" type="submit" grow disabled={!!$error || loading} {loading}>
+			Submit
+		</Button>
+	{/snippet}
 </Modal>
 
 <style lang="postcss">

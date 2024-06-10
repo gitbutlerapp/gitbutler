@@ -219,10 +219,10 @@
 		</div>
 	</div>
 
-	<svelte:fragment slot="controls">
-		<Button style="ghost" outline type="reset" on:click={close}>Close</Button>
+	{#snippet controls(close)}
+		<Button style="ghost" outline type="reset" on:click={() => close?.()}>Close</Button>
 		<Button style="pop" kind="solid" type="submit">Share with GitButler</Button>
-	</svelte:fragment>
+	{/snippet}
 </Modal>
 
 <style>
