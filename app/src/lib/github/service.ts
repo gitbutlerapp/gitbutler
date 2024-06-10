@@ -69,7 +69,7 @@ export class GitHubService {
 		combineLatest([accessToken$, remoteUrl$])
 			.pipe(
 				tap(([accessToken, remoteUrl]) => {
-					if (!remoteUrl?.includes('github') || !accessToken) {
+					if (!accessToken) {
 						return of();
 					}
 					this._octokit = new Octokit({
@@ -77,9 +77,11 @@ export class GitHubService {
 						userAgent: 'GitButler Client',
 						baseUrl: 'https://api.github.com'
 					});
-					const [owner, repo] = remoteUrl.split('.git')[0].split(/\/|:/).slice(-2);
-					this._repo = repo;
-					this._owner = owner;
+					if (remoteUrl) {
+						const [owner, repo] = remoteUrl.split('.git')[0].split(/\/|:/).slice(-2);
+						this._repo = repo;
+						this._owner = owner;
+					}
 				}),
 				shareReplay(1)
 			)
@@ -88,8 +90,8 @@ export class GitHubService {
 		combineLatest([this.reload$, accessToken$, remoteUrl$])
 			.pipe(
 				tap(() => this.error$.next(undefined)),
-				switchMap(([reload]) => {
-					if (!this.isEnabled) return EMPTY;
+				switchMap(([reload, _token, remoteUrl]) => {
+					if (!this.isEnabled || !remoteUrl) return EMPTY;
 					const prs = this.fetchPrs(!!reload?.skipCache);
 					this.fresh$.next();
 					return prs;
