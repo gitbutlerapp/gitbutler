@@ -10,8 +10,8 @@
 		width?: 'default' | 'small' | 'large';
 		title?: string | undefined;
 		icon?: keyof typeof iconsJson | undefined;
-		children: Snippet<[any, () => void]>;
-		controls?: Snippet<[any, () => void]>;
+		children: Snippet;
+		controls?: Snippet<[ close?: () => void, item?: any ]>;
 	}
 
 	const {
@@ -66,12 +66,12 @@
 			{/if}
 
 			<div class="modal__body custom-scrollbar">
-				{@render children(item, close)}
+				{@render children()}
 			</div>
 
 			{#if controls}
 				<div class="modal__footer">
-					{@render controls(item, close)}
+					{@render controls(close, item)}
 				</div>
 			{/if}
 		</div>

@@ -104,8 +104,8 @@
 
 <Modal bind:this={commitMessageModal} width="small">
 	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
-	{#snippet controls()}
-		<Button style="ghost" outline on:click={() => commitMessageModal.close()}>Cancel</Button>
+	{#snippet controls(close)}
+		<Button style="ghost" outline on:click={() => close?.()}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
