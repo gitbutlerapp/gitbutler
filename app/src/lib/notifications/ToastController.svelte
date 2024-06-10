@@ -1,9 +1,11 @@
 <script lang="ts">
 	import InfoMessage from '$lib/components/InfoMessage.svelte';
-	import { dismissToast, toastStore } from '$lib/notifications/toasts';
+	// import { dismissToast, toastStore } from '$lib/notifications/toasts';
+	import { createToaster } from '$lib/notifications/toasts.svelte';
 	import { marked } from 'marked';
 	import { slide } from 'svelte/transition';
 
+	const toastStore = createToaster();
 	var renderer = new marked.Renderer();
 	renderer.link = function (href, title, text) {
 		if (!title) title = text;
@@ -12,12 +14,12 @@
 </script>
 
 <div class="toast-controller hide-native-scrollbar">
-	{#each $toastStore as toast (toast.id)}
+	{#each toastStore.toasts as toast (toast.id)}
 		<div transition:slide={{ duration: 170 }}>
 			<InfoMessage
 				style={toast.style ?? 'neutral'}
 				secondary="Dismiss"
-				on:secondary={() => dismissToast(toast.id)}
+				on:secondary={() => toastStore.dismissToast(toast.id)}
 				shadow
 			>
 				<svelte:fragment slot="title">
