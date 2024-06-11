@@ -40,7 +40,6 @@ const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
 /// │   └── [branch-id]
 /// │       ├── commit-message.txt
 /// │       └── tree (subtree)
-/// ├── workdir/…
 /// └── virtual_branches.toml
 /// ```
 impl Project {
@@ -159,31 +158,6 @@ impl Project {
 
         let branch_tree_id = branches_tree_builder.write()?;
         tree_builder.insert("virtual_branches", branch_tree_id, FileMode::Tree.into())?;
-
-        // merge all the branch trees together, this should be our worktree
-        // TODO: when we implement sub-hunk splitting, this merge logic will need to incorporate that
-        if head_tree_ids.is_empty() {
-            // if there are no applied branches, then it's just the target tree
-            tree_builder.insert("workdir", target_tree_id, FileMode::Tree.into())?;
-        } else if head_tree_ids.len() == 1 {
-            // if there is just one applied branch, then it's just that branch tree
-            tree_builder.insert("workdir", head_tree_ids[0], FileMode::Tree.into())?;
-        } else {
-            // otherwise merge one branch tree at a time with target_tree_oid as the base
-            let mut workdir_tree_id = target_tree_id;
-            let base_tree = repo.find_tree(target_tree_id)?;
-            let mut current_ours = base_tree.clone();
-
-            // iterate through all head trees
-            for head_tree_id in head_tree_ids {
-                let current_theirs = repo.find_tree(head_tree_id)?;
-                let mut workdir_temp_index =
-                    repo.merge_trees(&base_tree, &current_ours, &current_theirs, None)?;
-                workdir_tree_id = workdir_temp_index.write_tree_to(&repo)?;
-                current_ours = repo.find_tree(workdir_tree_id)?;
-            }
-            tree_builder.insert("workdir", workdir_tree_id, FileMode::Tree.into())?;
-        }
 
         let tree_id = tree_builder.write()?;
         Ok(tree_id)
