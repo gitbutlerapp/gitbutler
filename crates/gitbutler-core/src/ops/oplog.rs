@@ -2,7 +2,7 @@ use anyhow::{anyhow, bail, Context};
 use git2::FileMode;
 use std::collections::HashMap;
 use std::path::Path;
-use std::str::FromStr;
+use std::str::{from_utf8, FromStr};
 use std::time::Duration;
 use std::{fs, path::PathBuf};
 
@@ -361,9 +361,6 @@ impl Project {
         if let Err(err) = restore_conflicts_tree(&snapshot_tree, &repo) {
             tracing::warn!("failed to restore conflicts tree - ignoring: {err}")
         }
-        let wd_entry = snapshot_tree
-            .get_name("workdir")
-            .context("failed to get workdir tree entry")?;
 
         // make sure we reconstitute any commits that were in the snapshot that are not here for some reason
         // for every entry in the virtual_branches subtree, reconsitute the commits
@@ -430,7 +427,9 @@ impl Project {
         repo.integration_ref_from_head().context(
             "We will not change a worktree which for some reason isn't on the integration branch",
         )?;
-        let workdir_tree = repo.find_tree(wd_entry.id())?;
+
+        let workdir_tree_id = tree_from_applied_vbranches(&repo, snapshot_commit_id)?;
+        let workdir_tree = repo.find_tree(workdir_tree_id)?;
 
         // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
         let files_to_exclude =
@@ -759,4 +758,51 @@ fn deserialize_commit(
         .odb()?
         .write(git2::ObjectType::Commit, commit_blob.content())?;
     Ok(new_commit_oid)
+}
+
+/// Creates a tree that is the merge of all applied branches from a given snapshot and returns the tree id.
+fn tree_from_applied_vbranches(
+    repo: &git2::Repository,
+    snapshot_commit_id: git2::Oid,
+) -> Result<git2::Oid> {
+    let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
+    let snapshot_tree = snapshot_commit.tree()?;
+
+    let target_tree_entry = snapshot_tree
+        .get_name("target_tree")
+        .context("failed to get target tree entry")?;
+    let target_tree = repo
+        .find_tree(target_tree_entry.id())
+        .context("failed to convert target tree entry to tree")?;
+
+    let vb_toml_entry = snapshot_tree
+        .get_name("virtual_branches.toml")
+        .context("failed to get virtual_branches.toml blob")?;
+    // virtual_branches.toml blob
+    let vb_toml_blob = repo
+        .find_blob(vb_toml_entry.id())
+        .context("failed to convert virtual_branches tree entry to blob")?;
+
+    let vbs_from_toml: crate::virtual_branches::VirtualBranchesState =
+        toml::from_str(from_utf8(vb_toml_blob.content())?)?;
+    let applied_branch_trees: Vec<git2::Oid> = vbs_from_toml
+        .branches
+        .values()
+        .filter(|b| b.applied)
+        .map(|b| b.tree)
+        .collect();
+
+    let mut workdir_tree_id = target_tree.id();
+    let base_tree = target_tree;
+    let mut current_ours = base_tree.clone();
+
+    for branch in applied_branch_trees {
+        let branch_tree = repo.find_tree(branch)?;
+        let mut workdir_temp_index =
+            repo.merge_trees(&base_tree, &current_ours, &branch_tree, None)?;
+        workdir_tree_id = workdir_temp_index.write_tree_to(repo)?;
+        current_ours = repo.find_tree(workdir_tree_id)?;
+    }
+
+    Ok(workdir_tree_id)
 }
