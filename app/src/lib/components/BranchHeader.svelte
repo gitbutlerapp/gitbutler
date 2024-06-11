@@ -260,7 +260,7 @@
 						<div class="header__buttons">
 							{#if !hasPullRequest}
 								<PullRequestButton
-									click={async (action: string) => await createPr({ draft: action === 'draft' })}
+									on:click={async (action: string) => await createPr({ draft: action === 'draft' })}
 									loading={isLoading}
 								/>
 							{/if}
