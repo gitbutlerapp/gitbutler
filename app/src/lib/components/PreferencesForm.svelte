@@ -43,8 +43,9 @@
 		await projectService.updateProject(project);
 	}
 
-	async function setSignCommits(signCommits: boolean) {
-		await gitConfig.setGbConfig(project.id, { signCommits });
+	async function setSignCommits(targetState: boolean) {
+		signCommits = targetState;
+		await gitConfig.setGbConfig(project.id, { signCommits: targetState });
 	}
 
 	// gpg.format
@@ -130,7 +131,7 @@
 			<Toggle
 				id="signCommits"
 				checked={signCommits}
-				on:click={(e) => setSignCommits(e.target?.checked)}
+				on:click={async (e) => await setSignCommits(e.target?.checked)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
