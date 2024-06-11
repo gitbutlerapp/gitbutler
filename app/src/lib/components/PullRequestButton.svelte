@@ -34,7 +34,7 @@
 	{loading}
 	bind:this={dropDown}
 	on:click={() => {
-		dispatch('click', { action: $action });
+		dispatch('exec', { action: $action });
 	}}
 >
 	{labels[$action]}

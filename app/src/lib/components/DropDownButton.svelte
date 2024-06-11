@@ -12,8 +12,6 @@
 	export let loading = false;
 	export let wide = false;
 	export let help = '';
-	export let badgeLabel: string | number | undefined = undefined;
-	export let badgeIcon: keyof typeof iconsJson | undefined = undefined;
 	export let menuPosition: 'top' | 'bottom' = 'bottom';
 	let visible = false;
 
@@ -37,14 +35,14 @@
 			{icon}
 			{kind}
 			{help}
-			{badgeLabel}
-			{badgeIcon}
 			{outline}
 			reversedDirection
 			disabled={disabled || loading}
 			isDropdownChild
-			on:click><slot /></Button
+			on:click
 		>
+			<slot />
+		</Button>
 		<Button
 			bind:element={iconElt}
 			{style}
