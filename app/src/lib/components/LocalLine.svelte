@@ -16,6 +16,7 @@
 	{#if outType}
 		<div
 			class="local-line tip"
+			class:first={sectionFirst}
 			class:dashed={outDashed}
 			class:integrated={inType === 'integrated'}
 		/>
@@ -24,7 +25,7 @@
 		<div
 			class="local-line short"
 			class:dashed={inDashed}
-			class:sectionFirst
+			class:first={sectionFirst}
 			class:has-root={root}
 			class:integrated={inType === 'integrated'}
 		/>
@@ -62,10 +63,16 @@
 			bottom: 8px;
 		}
 		&.tip {
-			bottom: calc(100% - var(--avatar-first-top));
+			bottom: calc(100% - var(--avatar-top) - 4px);
+			&.first {
+				bottom: calc(100% - var(--avatar-first-top) - 4px);
+			}
 		}
 		&.short {
-			top: var(--avatar-first-top);
+			top: calc(var(--avatar-top) + 4px);
+			&.first {
+				top: calc(var(--avatar-first-top) + 4px);
+			}
 		}
 		&.integrated {
 			background-color: var(--clr-commit-shadow);
@@ -75,7 +82,7 @@
 	.root {
 		position: absolute;
 		width: 10px;
-		top: calc(100% - 14px);
+		top: calc(var(--avatar-top) + 4px);
 		left: -4px;
 		bottom: -2px;
 		border-radius: 0 0 var(--radius-l) 0;
