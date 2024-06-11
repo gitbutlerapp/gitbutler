@@ -1,5 +1,3 @@
-<svelte:options runes={true} />
-
 <script lang="ts">
 	import { clickOutside } from '$lib/clickOutside';
 	import Icon from '$lib/components/Icon.svelte';
