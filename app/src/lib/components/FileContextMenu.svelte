@@ -15,6 +15,8 @@
 	import { join } from '@tauri-apps/api/path';
 	import { open } from '@tauri-apps/api/shell';
 
+	export let isUnapplied;
+
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 
@@ -40,7 +42,7 @@
 			{#if item.files && item.files.length > 0}
 				{@const files = item.files}
 				<!-- TODO: Refactor so we can have types -->
-				{#if files[0] instanceof LocalFile}
+				{#if files[0] instanceof LocalFile && !isUnapplied}
 					{#if containsBinaryFiles(item)}
 						<ContextMenuItem label="Discard changes (Binary files not yet supported)" disabled />
 					{:else}

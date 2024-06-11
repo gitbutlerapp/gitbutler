@@ -44,7 +44,8 @@
 	function updateContextMenu() {
 		if (popupMenu) popupMenu.$destroy();
 		return new FileContextMenu({
-			target: document.body
+			target: document.body,
+			props: { isUnapplied }
 		});
 	}
 
