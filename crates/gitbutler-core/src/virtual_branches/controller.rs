@@ -73,16 +73,6 @@ impl Controller {
             .can_apply_remote_branch(project_id, branch_name)
     }
 
-    pub async fn can_apply_virtual_branch(
-        &self,
-        project_id: ProjectId,
-        branch_id: BranchId,
-    ) -> Result<bool> {
-        self.inner(project_id)
-            .await
-            .can_apply_virtual_branch(project_id, branch_id)
-    }
-
     pub async fn list_virtual_branches(
         &self,
         project_id: ProjectId,
@@ -471,16 +461,6 @@ impl ControllerInner {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
         super::is_remote_branch_mergeable(&project_repository, branch_name).map_err(Into::into)
-    }
-
-    pub fn can_apply_virtual_branch(
-        &self,
-        project_id: ProjectId,
-        branch_id: BranchId,
-    ) -> Result<bool> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
-        super::is_virtual_branch_mergeable(&project_repository, branch_id).map_err(Into::into)
     }
 
     pub async fn list_virtual_branches(

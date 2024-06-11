@@ -53,10 +53,6 @@ mod applied_branch {
             assert!(!branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].commits.len(), 0);
-            assert!(!controller
-                .can_apply_virtual_branch(*project_id, branch_id)
-                .await
-                .unwrap());
         }
 
         {
@@ -134,10 +130,6 @@ mod applied_branch {
             assert!(!branches[0].base_current);
             assert_eq!(branches[0].files.len(), 0);
             assert_eq!(branches[0].commits.len(), 1);
-            assert!(!controller
-                .can_apply_virtual_branch(*project_id, branch_id)
-                .await
-                .unwrap());
         }
 
         {
@@ -220,10 +212,6 @@ mod applied_branch {
             assert!(!branches[0].base_current);
             assert_eq!(branches[0].files.len(), 0);
             assert_eq!(branches[0].commits.len(), 1);
-            assert!(!controller
-                .can_apply_virtual_branch(*project_id, branch_id)
-                .await
-                .unwrap());
         }
 
         {
@@ -303,10 +291,6 @@ mod applied_branch {
             assert!(!branches[0].base_current); // TODO: should be true
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].commits.len(), 1);
-            assert!(!controller
-                .can_apply_virtual_branch(*project_id, branch_id)
-                .await
-                .unwrap()); // TODO: should be true
         }
 
         {
@@ -386,10 +370,6 @@ mod applied_branch {
             assert!(!branches[0].base_current); // TODO: should be true
             assert_eq!(branches[0].commits.len(), 1); // TODO: should be 2
             assert_eq!(branches[0].files.len(), 1);
-            assert!(!controller
-                .can_apply_virtual_branch(*project_id, branch_id)
-                .await
-                .unwrap()); // TODO: should be true
         }
 
         {
@@ -489,10 +469,6 @@ mod applied_branch {
                 assert_eq!(branches[0].commits.len(), 1);
                 assert!(!branches[0].commits[0].is_remote);
                 assert!(!branches[0].commits[0].is_integrated);
-                assert!(controller
-                    .can_apply_virtual_branch(*project_id, branch_id)
-                    .await
-                    .unwrap());
             }
         }
 
@@ -570,10 +546,6 @@ mod applied_branch {
                 assert!(!branches[0].commits[0].is_integrated);
                 assert!(branches[0].commits[1].is_remote);
                 assert!(!branches[0].commits[1].is_integrated);
-                assert!(controller
-                    .can_apply_virtual_branch(*project_id, branch_id)
-                    .await
-                    .unwrap());
             }
         }
     }
@@ -633,10 +605,6 @@ mod applied_branch {
             assert!(branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].commits.len(), 1);
-            assert!(controller
-                .can_apply_virtual_branch(*project_id, branch_id)
-                .await
-                .unwrap());
         }
 
         {
@@ -734,10 +702,6 @@ mod applied_branch {
             assert!(branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].commits.len(), 0);
-            assert!(controller
-                .can_apply_virtual_branch(*project_id, branch_id)
-                .await
-                .unwrap());
         }
 
         {

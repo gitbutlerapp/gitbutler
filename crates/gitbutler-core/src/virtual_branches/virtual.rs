@@ -2648,56 +2648,6 @@ pub fn is_remote_branch_mergeable(
     Ok(mergeable)
 }
 
-pub fn is_virtual_branch_mergeable(
-    project_repository: &project_repository::Repository,
-    branch_id: BranchId,
-) -> Result<bool> {
-    let vb_state = project_repository.project().virtual_branches();
-    let branch = vb_state.get_branch(branch_id)?;
-    if branch.applied {
-        return Ok(true);
-    }
-
-    let default_target = vb_state.get_default_target()?;
-    // determine if this branch is up to date with the target/base
-    let merge_base = project_repository
-        .repo()
-        .merge_base(default_target.sha, branch.head)
-        .context("failed to find merge base")?;
-
-    if merge_base != default_target.sha {
-        return Ok(false);
-    }
-
-    let branch_commit = project_repository
-        .repo()
-        .find_commit(branch.head)
-        .context("failed to find branch commit")?;
-
-    let target_commit = project_repository
-        .repo()
-        .find_commit(default_target.sha)
-        .context("failed to find target commit")?;
-
-    let base_tree = find_base_tree(project_repository.repo(), &branch_commit, &target_commit)?;
-
-    let wd_tree = project_repository.repo().get_wd_tree()?;
-
-    // determine if this tree is mergeable
-    let branch_tree = project_repository
-        .repo()
-        .find_tree(branch.tree)
-        .context("failed to find branch tree")?;
-
-    let is_mergeable = !project_repository
-        .repo()
-        .merge_trees(&base_tree, &branch_tree, &wd_tree, None)
-        .context("failed to merge trees")?
-        .has_conflicts();
-
-    Ok(is_mergeable)
-}
-
 // this function takes a list of file ownership from a "from" commit and "moves"
 // those changes to a "to" commit in a branch. This allows users to drag changes
 // from one commit to another.

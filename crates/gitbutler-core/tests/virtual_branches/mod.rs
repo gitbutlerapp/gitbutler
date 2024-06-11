@@ -21,8 +21,7 @@ use gitbutler_core::{
         branch::{BranchCreateRequest, BranchOwnershipClaims},
         commit, create_virtual_branch, integrate_upstream_commits,
         integration::verify_branch,
-        is_remote_branch_mergeable, is_virtual_branch_mergeable, list_remote_branches,
-        unapply_ownership, update_branch,
+        is_remote_branch_mergeable, list_remote_branches, unapply_ownership, update_branch,
     },
 };
 use pretty_assertions::assert_eq;
@@ -1181,6 +1180,7 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     Ok(())
 }
 
+// Verifies that we are able to detect when a remote branch is conflicting with the current applied branches.
 #[test]
 fn detect_mergeable_branch() -> Result<()> {
     let suite = Suite::default();
@@ -1299,17 +1299,6 @@ fn detect_mergeable_branch() -> Result<()> {
         claims: vec!["test2.txt:1-6".parse()?],
     };
     vb_state.set_branch(branch4.clone())?;
-
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
-    assert_eq!(branches.len(), 4);
-
-    let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
-    assert!(!branch1.active);
-    assert!(!is_virtual_branch_mergeable(project_repository, branch1.id).unwrap());
-
-    let branch2 = &branches.iter().find(|b| b.id == branch2_id).unwrap();
-    assert!(!branch2.active);
-    assert!(is_virtual_branch_mergeable(project_repository, branch2.id).unwrap());
 
     let remotes = list_remote_branches(project_repository).expect("failed to list remotes");
     let _remote1 = &remotes

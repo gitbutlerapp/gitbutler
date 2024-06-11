@@ -40,12 +40,6 @@ async fn deltect_conflict() {
     }
 
     {
-        // it should not be possible to apply the first branch
-        assert!(!controller
-            .can_apply_virtual_branch(*project_id, branch1_id)
-            .await
-            .unwrap());
-
         assert!(matches!(
             controller
                 .apply_virtual_branch(*project_id, branch1_id)
