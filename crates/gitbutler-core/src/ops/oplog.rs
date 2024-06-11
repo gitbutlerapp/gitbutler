@@ -2,7 +2,7 @@ use anyhow::{anyhow, bail, Context};
 use git2::FileMode;
 use std::collections::HashMap;
 use std::path::Path;
-use std::str::FromStr;
+use std::str::{from_utf8, FromStr};
 use std::time::Duration;
 use std::{fs, path::PathBuf};
 
@@ -40,7 +40,6 @@ const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
 /// │   └── [branch-id]
 /// │       ├── commit-message.txt
 /// │       └── tree (subtree)
-/// ├── workdir/…
 /// └── virtual_branches.toml
 /// ```
 impl Project {
@@ -160,31 +159,6 @@ impl Project {
         let branch_tree_id = branches_tree_builder.write()?;
         tree_builder.insert("virtual_branches", branch_tree_id, FileMode::Tree.into())?;
 
-        // merge all the branch trees together, this should be our worktree
-        // TODO: when we implement sub-hunk splitting, this merge logic will need to incorporate that
-        if head_tree_ids.is_empty() {
-            // if there are no applied branches, then it's just the target tree
-            tree_builder.insert("workdir", target_tree_id, FileMode::Tree.into())?;
-        } else if head_tree_ids.len() == 1 {
-            // if there is just one applied branch, then it's just that branch tree
-            tree_builder.insert("workdir", head_tree_ids[0], FileMode::Tree.into())?;
-        } else {
-            // otherwise merge one branch tree at a time with target_tree_oid as the base
-            let mut workdir_tree_id = target_tree_id;
-            let base_tree = repo.find_tree(target_tree_id)?;
-            let mut current_ours = base_tree.clone();
-
-            // iterate through all head trees
-            for head_tree_id in head_tree_ids {
-                let current_theirs = repo.find_tree(head_tree_id)?;
-                let mut workdir_temp_index =
-                    repo.merge_trees(&base_tree, &current_ours, &current_theirs, None)?;
-                workdir_tree_id = workdir_temp_index.write_tree_to(&repo)?;
-                current_ours = repo.find_tree(workdir_tree_id)?;
-            }
-            tree_builder.insert("workdir", workdir_tree_id, FileMode::Tree.into())?;
-        }
-
         let tree_id = tree_builder.write()?;
         Ok(tree_id)
     }
@@ -290,6 +264,8 @@ impl Project {
 
         let mut snapshots = Vec::new();
 
+        let mut wd_trees_cache: HashMap<git2::Oid, git2::Oid> = HashMap::new();
+
         for commit_id in revwalk {
             if snapshots.len() == limit {
                 break;
@@ -302,26 +278,30 @@ impl Project {
             }
 
             let tree = commit.tree()?;
-            let wd_tree = if let Some(wd_tree_entry) = tree.get_name("workdir") {
-                repo.find_tree(wd_tree_entry.id())?
-            } else {
+            if tree.get_name("virtual_branches.toml").is_none() {
                 // We reached a tree that is not a snapshot
                 tracing::warn!("Commit {commit_id} didn't seem to be an oplog commit - skipping");
                 continue;
-            };
+            }
+
+            // Get tree id from cache or calculate it
+            let wd_tree_id = wd_trees_cache
+                .entry(commit_id)
+                .or_insert_with(|| tree_from_applied_vbranches(&repo, commit_id).unwrap());
+            let wd_tree = repo.find_tree(wd_tree_id.to_owned())?;
 
             let details = commit
                 .message()
                 .and_then(|msg| SnapshotDetails::from_str(msg).ok());
 
             if let Ok(parent) = commit.parent(0) {
-                let parent_tree = parent
-                    .tree()?
-                    .get_name("workdir")
-                    .map(|entry| repo.find_tree(entry.id()))
-                    .transpose()?;
+                // Get tree id from cache or calculate it
+                let parent_wd_tree_id = wd_trees_cache
+                    .entry(parent.id())
+                    .or_insert_with(|| tree_from_applied_vbranches(&repo, parent.id()).unwrap());
+                let parent_tree = repo.find_tree(parent_wd_tree_id.to_owned())?;
 
-                let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&wd_tree), None)?;
+                let diff = repo.diff_tree_to_tree(Some(&parent_tree), Some(&wd_tree), None)?;
 
                 let mut files_changed = Vec::new();
                 diff.print(git2::DiffFormat::NameOnly, |delta, _, _| {
@@ -387,9 +367,6 @@ impl Project {
         if let Err(err) = restore_conflicts_tree(&snapshot_tree, &repo) {
             tracing::warn!("failed to restore conflicts tree - ignoring: {err}")
         }
-        let wd_entry = snapshot_tree
-            .get_name("workdir")
-            .context("failed to get workdir tree entry")?;
 
         // make sure we reconstitute any commits that were in the snapshot that are not here for some reason
         // for every entry in the virtual_branches subtree, reconsitute the commits
@@ -456,7 +433,9 @@ impl Project {
         repo.integration_ref_from_head().context(
             "We will not change a worktree which for some reason isn't on the integration branch",
         )?;
-        let workdir_tree = repo.find_tree(wd_entry.id())?;
+
+        let workdir_tree_id = tree_from_applied_vbranches(&repo, snapshot_commit_id)?;
+        let workdir_tree = repo.find_tree(workdir_tree_id)?;
 
         // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
         let files_to_exclude =
@@ -557,20 +536,11 @@ impl Project {
         let repo = git2::Repository::init(worktree_dir)?;
 
         let commit = repo.find_commit(sha)?;
-        // Top tree
-        let tree = commit.tree()?;
-        let old_tree = commit.parent(0)?.tree()?;
 
-        let wd_tree_entry = tree
-            .get_name("workdir")
-            .context("failed to get workdir tree entry")?;
-        let old_wd_tree_entry = old_tree
-            .get_name("workdir")
-            .context("failed to get old workdir tree entry")?;
-
-        // workdir tree
-        let wd_tree = repo.find_tree(wd_tree_entry.id())?;
-        let old_wd_tree = repo.find_tree(old_wd_tree_entry.id())?;
+        let wd_tree_id = tree_from_applied_vbranches(&repo, commit.id())?;
+        let wd_tree = repo.find_tree(wd_tree_id)?;
+        let old_wd_tree_id = tree_from_applied_vbranches(&repo, commit.parent(0)?.id())?;
+        let old_wd_tree = repo.find_tree(old_wd_tree_id)?;
 
         // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
         let files_to_exclude =
@@ -785,4 +755,51 @@ fn deserialize_commit(
         .odb()?
         .write(git2::ObjectType::Commit, commit_blob.content())?;
     Ok(new_commit_oid)
+}
+
+/// Creates a tree that is the merge of all applied branches from a given snapshot and returns the tree id.
+fn tree_from_applied_vbranches(
+    repo: &git2::Repository,
+    snapshot_commit_id: git2::Oid,
+) -> Result<git2::Oid> {
+    let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
+    let snapshot_tree = snapshot_commit.tree()?;
+
+    let target_tree_entry = snapshot_tree
+        .get_name("target_tree")
+        .context("failed to get target tree entry")?;
+    let target_tree = repo
+        .find_tree(target_tree_entry.id())
+        .context("failed to convert target tree entry to tree")?;
+
+    let vb_toml_entry = snapshot_tree
+        .get_name("virtual_branches.toml")
+        .context("failed to get virtual_branches.toml blob")?;
+    // virtual_branches.toml blob
+    let vb_toml_blob = repo
+        .find_blob(vb_toml_entry.id())
+        .context("failed to convert virtual_branches tree entry to blob")?;
+
+    let vbs_from_toml: crate::virtual_branches::VirtualBranchesState =
+        toml::from_str(from_utf8(vb_toml_blob.content())?)?;
+    let applied_branch_trees: Vec<git2::Oid> = vbs_from_toml
+        .branches
+        .values()
+        .filter(|b| b.applied)
+        .map(|b| b.tree)
+        .collect();
+
+    let mut workdir_tree_id = target_tree.id();
+    let base_tree = target_tree;
+    let mut current_ours = base_tree.clone();
+
+    for branch in applied_branch_trees {
+        let branch_tree = repo.find_tree(branch)?;
+        let mut workdir_temp_index =
+            repo.merge_trees(&base_tree, &current_ours, &branch_tree, None)?;
+        workdir_tree_id = workdir_temp_index.write_tree_to(repo)?;
+        current_ours = repo.find_tree(workdir_tree_id)?;
+    }
+
+    Ok(workdir_tree_id)
 }
