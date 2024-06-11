@@ -459,16 +459,17 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
-		padding: 14px;
+		padding: 10px 14px;
 		border-top: 1px solid var(--clr-border-2);
 	}
 
 	.commit__actions {
+    overflow: visible;
 		display: flex;
 		gap: 4px;
 		overflow-x: auto;
 		margin: 0 -14px;
-		padding: 0 14px;
+		padding: 4px 14px;
 	}
 
 	/* FILES */
