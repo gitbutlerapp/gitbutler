@@ -264,6 +264,8 @@ impl Project {
 
         let mut snapshots = Vec::new();
 
+        let mut wd_trees_cache: HashMap<git2::Oid, git2::Oid> = HashMap::new();
+
         for commit_id in revwalk {
             if snapshots.len() == limit {
                 break;
@@ -282,16 +284,22 @@ impl Project {
                 continue;
             }
 
-            let wd_tree_id = tree_from_applied_vbranches(&repo, commit_id)?;
-            let wd_tree = repo.find_tree(wd_tree_id)?;
+            // Get tree id from cache or calculate it
+            let wd_tree_id = wd_trees_cache
+                .entry(commit_id)
+                .or_insert_with(|| tree_from_applied_vbranches(&repo, commit_id).unwrap());
+            let wd_tree = repo.find_tree(wd_tree_id.to_owned())?;
 
             let details = commit
                 .message()
                 .and_then(|msg| SnapshotDetails::from_str(msg).ok());
 
             if let Ok(parent) = commit.parent(0) {
-                let parent_wd_tree_id = tree_from_applied_vbranches(&repo, parent.id())?;
-                let parent_tree = repo.find_tree(parent_wd_tree_id)?;
+                // Get tree id from cache or calculate it
+                let parent_wd_tree_id = wd_trees_cache
+                    .entry(parent.id())
+                    .or_insert_with(|| tree_from_applied_vbranches(&repo, parent.id()).unwrap());
+                let parent_tree = repo.find_tree(parent_wd_tree_id.to_owned())?;
 
                 let diff = repo.diff_tree_to_tree(Some(&parent_tree), Some(&wd_tree), None)?;
 
