@@ -464,7 +464,7 @@
 	}
 
 	.commit__actions {
-    overflow: visible;
+		overflow: visible;
 		display: flex;
 		gap: 4px;
 		overflow-x: auto;

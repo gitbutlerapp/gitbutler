@@ -247,7 +247,7 @@
 									/>
 									{#if branch.active && branch.conflicted}
 										<div class="card-notifications">
-											<InfoMessage noRadius filled outlined={false} style="error">
+											<InfoMessage filled outlined={false} style="error">
 												<svelte:fragment slot="title">
 													{#if branch.files.some((f) => f.conflicted)}
 														This virtual branch conflicts with upstream changes. Please resolve all

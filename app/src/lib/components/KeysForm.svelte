@@ -124,13 +124,7 @@
 		</SectionCard>
 
 		{#if selectedType === 'local'}
-			<SectionCard
-				topDivider
-				hasTopRadius={false}
-				roundedTop={false}
-				roundedBottom={false}
-				orientation="row"
-			>
+			<SectionCard topDivider roundedTop={false} roundedBottom={false} orientation="row">
 				<div class="inputs-group">
 					<TextBox
 						label="Path to private key"

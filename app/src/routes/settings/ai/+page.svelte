@@ -158,13 +158,7 @@
 			</svelte:fragment>
 		</SectionCard>
 		{#if modelKind === ModelKind.OpenAI}
-			<SectionCard
-				hasTopRadius={false}
-				roundedTop={false}
-				roundedBottom={false}
-				orientation="row"
-				topDivider
-			>
+			<SectionCard roundedTop={false} roundedBottom={false} orientation="row" topDivider>
 				<div class="inputs-group">
 					<Select
 						items={keyOptions}
@@ -220,13 +214,7 @@
 			</svelte:fragment>
 		</SectionCard>
 		{#if modelKind === ModelKind.Anthropic}
-			<SectionCard
-				hasTopRadius={false}
-				roundedTop={false}
-				roundedBottom={false}
-				orientation="row"
-				topDivider
-			>
+			<SectionCard roundedTop={false} roundedBottom={false} orientation="row" topDivider>
 				<div class="inputs-group">
 					<Select
 						items={keyOptions}
@@ -287,7 +275,7 @@
 			</svelte:fragment>
 		</SectionCard>
 		{#if modelKind === ModelKind.Ollama}
-			<SectionCard hasTopRadius={false} roundedTop={false} orientation="row" topDivider>
+			<SectionCard roundedTop={false} orientation="row" topDivider>
 				<div class="inputs-group">
 					<TextBox
 						label="Endpoint"
