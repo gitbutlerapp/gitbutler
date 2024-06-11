@@ -279,20 +279,6 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
-    pub async fn can_apply_virtual_branch(
-        handle: AppHandle,
-        project_id: ProjectId,
-        branch_id: BranchId,
-    ) -> Result<bool, Error> {
-        handle
-            .state::<Controller>()
-            .can_apply_virtual_branch(project_id, branch_id)
-            .await
-            .map_err(Into::into)
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
     pub async fn can_apply_remote_branch(
         handle: AppHandle,
         project_id: ProjectId,
