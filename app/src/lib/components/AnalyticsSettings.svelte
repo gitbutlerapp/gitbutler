@@ -11,18 +11,6 @@
 	const errorReportingEnabled = appErrorReportingEnabled();
 	const metricsEnabled = appMetricsEnabled();
 	const nonAnonMetricsEnabled = appNonAnonMetricsEnabled();
-
-	function toggleErrorReporting() {
-		$errorReportingEnabled = !$errorReportingEnabled;
-	}
-
-	function toggleMetrics() {
-		$metricsEnabled = !$metricsEnabled;
-	}
-
-	function toggleNonAnonMetrics() {
-		$nonAnonMetricsEnabled = !$nonAnonMetricsEnabled;
-	}
 </script>
 
 <section class="analytics-settings">
@@ -59,7 +47,7 @@
 				<Toggle
 					id="errorReportingToggle"
 					checked={$errorReportingEnabled}
-					on:click={toggleErrorReporting}
+					on:click={() => ($errorReportingEnabled = !$errorReportingEnabled)}
 				/>
 			</svelte:fragment>
 		</SectionCard>
@@ -68,20 +56,24 @@
 			<svelte:fragment slot="title">Usage metrics</svelte:fragment>
 			<svelte:fragment slot="caption">Toggle sharing of usage statistics.</svelte:fragment>
 			<svelte:fragment slot="actions">
-				<Toggle id="metricsEnabledToggle" checked={$metricsEnabled} on:click={toggleMetrics} />
+				<Toggle
+					id="metricsEnabledToggle"
+					checked={$metricsEnabled}
+					on:click={() => ($metricsEnabled = !$metricsEnabled)}
+				/>
 			</svelte:fragment>
 		</SectionCard>
 
 		<SectionCard labelFor="nonAnonMetricsEnabledToggle" orientation="row">
 			<svelte:fragment slot="title">Non-anonymous usage metrics</svelte:fragment>
-			<svelte:fragment slot="caption"
-				>Toggle sharing of identifiable usage statistics.</svelte:fragment
-			>
+			<svelte:fragment slot="caption">
+				Toggle sharing of identifiable usage statistics.
+			</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<Toggle
 					id="nonAnonMetricsEnabledToggle"
 					checked={$nonAnonMetricsEnabled}
-					on:click={toggleNonAnonMetrics}
+					on:click={() => ($nonAnonMetricsEnabled = !$nonAnonMetricsEnabled)}
 				/>
 			</svelte:fragment>
 		</SectionCard>
