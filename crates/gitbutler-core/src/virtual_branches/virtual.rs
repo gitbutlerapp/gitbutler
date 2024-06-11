@@ -1615,7 +1615,7 @@ fn new_compute_locks(
             let commit = repository.find_commit(branch.head).ok()?;
             let tree = commit.tree().ok()?;
             let diff = repository
-                .diff_tree_to_tree(Some(&tree), Some(&target_tree), Some(opts))
+                .diff_tree_to_tree(Some(&target_tree), Some(&tree), Some(opts))
                 .ok()?;
             let hunks_by_filepath = diff::hunks_by_filepath(Some(repository), &diff).ok()?;
 
@@ -2211,11 +2211,13 @@ pub fn write_tree_onto_tree(
 
                 let mut hunks = hunks.iter().collect::<Vec<_>>();
                 hunks.sort_by_key(|hunk| hunk.new_start);
+                let mut all_diffs = BString::default();
                 for hunk in hunks {
-                    let patch = Patch::from_bytes(&hunk.diff_lines)?;
-                    blob_contents = apply(&blob_contents, &patch)
-                        .context(format!("failed to apply {}", &hunk.diff_lines))?;
+                    all_diffs.push_str(&hunk.diff_lines);
                 }
+                let patch = Patch::from_bytes(&all_diffs)?;
+                blob_contents = apply(&blob_contents, &patch)
+                    .context(format!("failed to apply {}", all_diffs))?;
 
                 // create a blob
                 let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;

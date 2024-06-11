@@ -47,7 +47,7 @@
 		? 'default'
 		: 'grab'}"
 >
-	{#each lines as line (`${line.afterLineNumber}_${line.content}`)}
+	{#each lines as line}
 		<div
 			class="code-line"
 			role="group"

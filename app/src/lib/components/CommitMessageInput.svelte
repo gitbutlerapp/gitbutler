@@ -199,7 +199,7 @@
 			on:click={async () => await generateCommitMessage($branch.files)}
 		>
 			Generate message
-			<ContextMenu type="checklist" slot="context-menu" bind:this={contextMenu}>
+			<ContextMenu slot="context-menu" bind:this={contextMenu}>
 				<ContextMenuSection>
 					<ContextMenuItem
 						label="Extra concise"

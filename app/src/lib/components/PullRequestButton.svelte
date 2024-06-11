@@ -4,7 +4,6 @@
 	import ContextMenuItem from './contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from './contextmenu/ContextMenuSection.svelte';
 	import { persisted, type Persisted } from '$lib/persisted/persisted';
-	import * as toasts from '$lib/utils/toasts';
 	import { createEventDispatcher } from 'svelte';
 
 	enum Action {
@@ -17,9 +16,11 @@
 
 	export let loading = false;
 	let dropDown: DropDownButton;
-	let contextMenu: ContextMenu;
 
-	$: selection = contextMenu?.selection;
+	const labels = {
+		[Action.Create]: 'Create PR',
+		[Action.Draft]: 'Create Draft PR'
+	};
 
 	function defaultAction(): Persisted<Action> {
 		const key = 'projectDefaultPrAction';
@@ -36,38 +37,18 @@
 		dispatch('click', { action: $action });
 	}}
 >
-	{$selection?.label}
-	{#snippet contextMenuSnippet()}
-		<ContextMenu
-			type="select"
-			bind:this={contextMenu}
-			on:select={(e) => {
-				// TODO: Refactor to use generics if/when that works with Svelte
-				switch (e.detail?.id) {
-					case Action.Create:
-						$action = Action.Create;
-						break;
-					case Action.Draft:
-						$action = Action.Draft;
-						break;
-					default:
-						toasts.error('Unknown merge method');
-				}
-				dropDown?.close();
-			}}
-		>
-			<ContextMenuSection>
+	{labels[$action]}
+	<ContextMenu slot="context-menu">
+		<ContextMenuSection>
+			{#each Object.values(Action) as method}
 				<ContextMenuItem
-					id={Action.Create}
-					label="Create PR"
-					selected={$action === Action.Create}
+					label={labels[method]}
+					on:click={() => {
+						$action = method;
+						dropDown.close();
+					}}
 				/>
-				<ContextMenuItem
-					id={Action.Draft}
-					label="Create Draft PR"
-					selected={$action === Action.Draft}
-				/>
-			</ContextMenuSection>
-		</ContextMenu>
-	{/snippet}
+			{/each}
+		</ContextMenuSection>
+	</ContextMenu>
 </DropDownButton>

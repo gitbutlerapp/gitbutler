@@ -16,6 +16,7 @@
 	export let primary: string | undefined = undefined;
 	export let secondary: string | undefined = undefined;
 	export let shadow = false;
+	export let error: string | undefined = undefined;
 
 	const dispatch = createEventDispatcher<{ primary: void; secondary: void }>();
 
@@ -66,9 +67,9 @@
 			{/if}
 		</div>
 
-		{#if $$slots.error}
+		{#if error}
 			<code class="info-message__error-block">
-				<slot name="error" />
+				{error}
 			</code>
 		{/if}
 

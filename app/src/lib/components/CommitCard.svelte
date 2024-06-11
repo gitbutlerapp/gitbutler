@@ -186,37 +186,35 @@
 							<span class="commit__subtitle-divider">•</span>
 						{/if}
 
-						{#if hasCommitUrl}
+						<button
+							class="commit__subtitle-btn commit__subtitle-btn_dashed"
+							on:click|stopPropagation={() => copyToClipboard(commit.id)}
+						>
+							<span>{commit.id.substring(0, 7)}</span>
+
+							<div class="commit__subtitle-btn__icon">
+								<Icon name="copy-small" />
+							</div>
+						</button>
+
+						{#if showDetails && hasCommitUrl}
+							<span class="commit__subtitle-divider">•</span>
+
 							<button
-								class="commit__subtitle-btn commit__subtitle-btn_dashed"
-								on:click|stopPropagation={() => copyToClipboard(commit.id)}
+								class="commit__subtitle-btn"
+								on:click|stopPropagation={() => {
+									if (commitUrl) openExternalUrl(commitUrl);
+								}}
 							>
-								<span>{commit.id.substring(0, 7)}</span>
+								<span>Open</span>
 
 								<div class="commit__subtitle-btn__icon">
-									<Icon name="copy-small" />
+									<Icon name="open-link" />
 								</div>
 							</button>
-
-							{#if showDetails}
-								<span class="commit__subtitle-divider">•</span>
-
-								<button
-									class="commit__subtitle-btn"
-									on:click|stopPropagation={() => {
-										if (commitUrl) openExternalUrl(commitUrl);
-									}}
-								>
-									<span>Open</span>
-
-									<div class="commit__subtitle-btn__icon">
-										<Icon name="open-link" />
-									</div>
-								</button>
-							{/if}
-
-							<span class="commit__subtitle-divider">•</span>
 						{/if}
+
+						<span class="commit__subtitle-divider">•</span>
 
 						<span
 							>{getTimeAgo(commit.createdAt)}{type === 'remote' || type === 'upstream'

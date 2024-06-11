@@ -1,33 +1,13 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
-	import { getContext } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';
-	import type { ContextMenuContext } from './contextMenu';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let id: string | undefined = undefined;
 	export let label: string;
-	export let selected = false;
 	export let disabled = false;
-
-	const context = getContext<ContextMenuContext>('ContextMenu');
-	const selection = context.selection;
-
-	$: if (selected && id) selection.set({ id, label });
 </script>
 
-<button
-	class="menu-item"
-	class:disabled
-	{disabled}
-	{id}
-	on:mousedown
-	on:click
-	on:click={(e) => {
-		e.stopPropagation();
-		if (id && !disabled) selection.set({ id, label });
-	}}
->
+<button class="menu-item" class:disabled {disabled} on:mousedown on:click>
 	{#if icon}
 		<Icon name={icon} />
 	{/if}

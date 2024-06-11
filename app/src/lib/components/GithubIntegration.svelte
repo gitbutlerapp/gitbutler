@@ -44,7 +44,7 @@
 			const accessToken = await checkAuthStatus({ deviceCode });
 			$user.github_access_token = accessToken;
 			// TODO: Refactor so we don't have to call this twice
-			userService.setUser($user);
+			await userService.setUser($user);
 			$user.github_username = await githubService.fetchGitHubLogin();
 			userService.setUser($user);
 			toasts.success('GitHub authenticated');

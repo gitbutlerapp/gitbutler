@@ -4,16 +4,27 @@
 	import SelectItem from './SelectItem.svelte';
 	import { ProjectService, Project } from '$lib/backend/projects';
 	import { getContext, maybeGetContext } from '$lib/utils/context';
+	import { derived } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
 	const projectService = getContext(ProjectService);
 	const project = maybeGetContext(Project);
 
-	const projects = projectService.projects;
+	type ProjectRecord = {
+		id: string;
+		title: string;
+	};
+
+	const mappedProjects = derived(projectService.projects, ($projects) =>
+		$projects.map((project) => ({
+			id: project.id,
+			title: project.title
+		}))
+	);
 
 	let loading = false;
-	let select: Select;
-	let selectValue = project;
+	let select: Select<ProjectRecord>;
+	let selectValue: ProjectRecord | undefined = project;
 </script>
 
 <div class="project-switcher">
@@ -22,7 +33,7 @@
 		label="Switch to another project"
 		itemId="id"
 		labelId="title"
-		items={$projects}
+		items={$mappedProjects}
 		placeholder="Select a project..."
 		wide
 		bind:value={selectValue}

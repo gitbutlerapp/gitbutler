@@ -39,11 +39,11 @@ export interface AIClient {
 	defaultCommitTemplate: Prompt;
 }
 
-export interface UserPrompt {
+export type UserPrompt = {
 	id: string;
 	name: string;
 	prompt: Prompt;
-}
+};
 
 export interface Prompts {
 	defaultPrompt: Prompt;
