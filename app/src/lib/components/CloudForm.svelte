@@ -149,7 +149,7 @@
 	</Section>
 {/if}
 
-<style lang="post-css">
+<style lang="postcss">
 	.options {
 		display: flex;
 		flex-direction: column;

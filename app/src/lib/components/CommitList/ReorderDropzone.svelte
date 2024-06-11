@@ -37,7 +37,7 @@
 	<DropzoneOverlay class="reorder-dz-marker" label="Reorder" />
 </div>
 
-<style lang="post-css">
+<style lang="postcss">
 	:root {
 		/* There is something that is increasing the width by 26 pixels and I'm not quite sure what it is */
 		--dropzone-width: calc(100% - 26px);

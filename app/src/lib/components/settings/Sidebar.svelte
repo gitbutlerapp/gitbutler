@@ -139,7 +139,7 @@
 	</section>
 </aside>
 
-<style lang="post-css">
+<style lang="postcss">
 	.profile-sidebar {
 		user-select: none;
 		display: flex;

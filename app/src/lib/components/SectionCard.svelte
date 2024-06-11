@@ -73,7 +73,7 @@
 	{/if}
 </label>
 
-<style lang="post-css">
+<style lang="postcss">
 	.section-card {
 		position: relative;
 		display: flex;
