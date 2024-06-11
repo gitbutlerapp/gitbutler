@@ -7,7 +7,8 @@ use tokio::{sync::Semaphore, task::JoinHandle};
 
 use super::{
     branch::{BranchId, BranchOwnershipClaims},
-    target, target_to_base_branch, BaseBranch, Branch, RemoteBranchFile, VirtualBranchesHandle,
+    target, target_to_base_branch, BaseBranch, Branch, NameConflitResolution, RemoteBranchFile,
+    VirtualBranchesHandle,
 };
 use crate::{
     git, project_repository,
@@ -301,14 +302,15 @@ impl Controller {
             .await
     }
 
-    pub async fn unapply_virtual_branch(
+    pub async fn convert_to_real_branch(
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
+        name_conflict_resolution: NameConflitResolution,
     ) -> Result<()> {
         self.inner(project_id)
             .await
-            .unapply_virtual_branch(project_id, branch_id)
+            .convert_to_real_branch(project_id, branch_id, name_conflict_resolution)
             .await
     }
 
@@ -785,16 +787,22 @@ impl ControllerInner {
         })
     }
 
-    pub async fn unapply_virtual_branch(
+    pub async fn convert_to_real_branch(
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
+        name_conflict_resolution: NameConflitResolution,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
             let snapshot_tree = project_repository.project().prepare_snapshot();
-            let result = super::convert_to_real_branch(project_repository, branch_id).map_err(Into::into);
+            let result = super::convert_to_real_branch(
+                project_repository,
+                branch_id,
+                name_conflict_resolution,
+            )
+            .map_err(Into::into);
             let _ = snapshot_tree.and_then(|snapshot_tree| {
                 project_repository
                     .project()

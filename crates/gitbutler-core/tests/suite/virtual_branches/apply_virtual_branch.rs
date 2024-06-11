@@ -26,7 +26,7 @@ async fn deltect_conflict() {
 
     // unapply first vbranch
     controller
-        .unapply_virtual_branch(*project_id, branch1_id)
+        .convert_to_real_branch(*project_id, branch1_id, Default::default())
         .await
         .unwrap();
 
@@ -108,7 +108,7 @@ async fn rebase_commit() {
     {
         // unapply first vbranch
         controller
-            .unapply_virtual_branch(*project_id, branch1_id)
+            .convert_to_real_branch(*project_id, branch1_id, Default::default())
             .await
             .unwrap();
 
@@ -224,7 +224,7 @@ async fn rebase_work() {
     {
         // unapply first vbranch
         controller
-            .unapply_virtual_branch(*project_id, branch1_id)
+            .convert_to_real_branch(*project_id, branch1_id, Default::default())
             .await
             .unwrap();
 

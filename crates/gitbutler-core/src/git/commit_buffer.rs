@@ -1,49 +1,70 @@
 use anyhow::Result;
 use core::str;
-use std::ops::Deref;
 
-pub struct CommitBuffer(String);
+pub struct CommitBuffer {
+    heading: Vec<(String, String)>,
+    message: String,
+}
 
 impl CommitBuffer {
-    pub fn new(git2_buffer: &git2::Buf) -> Result<Self> {
-        let commit_ends_in_newline = git2_buffer.ends_with(b"\n");
-        let git2_buffer = str::from_utf8(git2_buffer)?;
-        let lines = git2_buffer.lines();
+    pub fn new(buffer: &[u8]) -> Result<Self> {
+        let buffer = str::from_utf8(buffer)?;
 
-        let mut new_buffer = String::new();
+        dbg!(&buffer);
 
-        for line in lines {
-            new_buffer.push_str(line);
-            new_buffer.push('\n');
-        }
+        if let Some((heading, message)) = buffer.split_once("\n\n") {
+            let heading = heading
+                .lines()
+                .filter_map(|line| line.split_once(' '))
+                .map(|(key, value)| (key.to_string(), value.to_string()))
+                .collect();
 
-        if !commit_ends_in_newline {
-            // strip last \n
-            new_buffer.pop();
-        }
-
-        Ok(Self(new_buffer))
-    }
-
-    pub fn inject_header(&mut self, key: &str, value: &str) {
-        if let Some((heading, body)) = self.split_once("\n\n") {
-            let mut output = String::new();
-
-            output.push_str(heading);
-            output.push_str(format!("\n{} {}", key, value).as_str());
-            output.push_str("\n\n");
-            output.push_str(body);
-
-            self.0 = output;
+            Ok(Self {
+                heading,
+                message: message.to_string(),
+            })
+        } else {
+            Ok(Self {
+                heading: vec![],
+                message: buffer.to_string(),
+            })
         }
     }
 
-    pub fn inject_change_id(&mut self, change_id: Option<&str>) {
+    pub fn set_header(&mut self, key: &str, value: &str) {
+        let mut set_heading = false;
+        self.heading.iter_mut().for_each(|(k, v)| {
+            if k == key {
+                *v = value.to_string();
+                set_heading = true;
+            }
+        });
+
+        if !set_heading {
+            self.heading.push((key.to_string(), value.to_string()));
+        }
+    }
+
+    pub fn set_change_id(&mut self, change_id: Option<&str>) {
         let change_id = change_id
             .map(|id| id.to_string())
             .unwrap_or_else(|| format!("{}", uuid::Uuid::new_v4()));
 
-        self.inject_header("change-id", change_id.as_str());
+        self.set_header("change-id", change_id.as_str());
+    }
+
+    pub fn as_string(&self) -> String {
+        let mut output = String::new();
+
+        for (key, value) in &self.heading {
+            output.push_str(&format!("{} {}\n", key, value));
+        }
+
+        output.push('\n');
+
+        output.push_str(&self.message);
+
+        output
     }
 }
 
@@ -55,16 +76,16 @@ impl TryFrom<git2::Buf> for CommitBuffer {
     }
 }
 
-impl From<String> for CommitBuffer {
-    fn from(s: String) -> Self {
-        Self(s)
+impl TryFrom<String> for CommitBuffer {
+    type Error = anyhow::Error;
+
+    fn try_from(s: String) -> Result<Self> {
+        Self::new(s.as_bytes())
     }
 }
 
-impl Deref for CommitBuffer {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+impl From<CommitBuffer> for String {
+    fn from(buffer: CommitBuffer) -> String {
+        buffer.as_string()
     }
 }
