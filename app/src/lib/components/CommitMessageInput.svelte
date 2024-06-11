@@ -242,6 +242,7 @@
 	}
 
 	.commit-box__textarea__title {
+		min-height: 31px;
 		padding: 12px 12px 0 12px;
 	}
 
