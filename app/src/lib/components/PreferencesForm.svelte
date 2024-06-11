@@ -23,6 +23,7 @@
 	let allowForcePushing = project?.ok_with_force_push;
 	let omitCertificateCheck = project?.omit_certificate_check;
 	let useNewLocking = project?.use_new_locking || false;
+	let signCommits = false;
 
 	const gitConfig = getContext(GitConfigService);
 	const runCommitHooks = projectRunCommitHooks(project.id);
@@ -42,10 +43,8 @@
 		await projectService.updateProject(project);
 	}
 
-	let signCommits = false;
-	async function setSignCommits() {
-		signCommits = !signCommits;
-		await gitConfig.setGbConfig(project.id, { signCommits: signCommits });
+	async function setSignCommits(signCommits: boolean) {
+		await gitConfig.setGbConfig(project.id, { signCommits });
 	}
 
 	// gpg.format
@@ -128,7 +127,11 @@
 			GitButler will sign commits as per your git configuration.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<Toggle id="signCommits" bind:checked={signCommits} on:click={setSignCommits} />
+			<Toggle
+				id="signCommits"
+				checked={signCommits}
+				on:click={(e) => setSignCommits(e.target?.checked)}
+			/>
 		</svelte:fragment>
 	</SectionCard>
 	{#if signCommits}
@@ -213,8 +216,8 @@
 		<svelte:fragment slot="actions">
 			<Toggle
 				id="allowForcePush"
-				bind:checked={allowForcePushing}
-				on:click={async () => await setWithForcePush(allowForcePushing)}
+				checked={allowForcePushing}
+				on:click={async (e) => await setWithForcePush(e.target?.checked)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
@@ -227,8 +230,8 @@
 		<svelte:fragment slot="actions">
 			<Toggle
 				id="omitCertificateCheck"
-				bind:checked={omitCertificateCheck}
-				on:click={async () => await setOmitCertificateCheck(omitCertificateCheck)}
+				checked={omitCertificateCheck}
+				on:click={async (e) => await setOmitCertificateCheck(e.target?.checked)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
