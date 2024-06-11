@@ -18,8 +18,8 @@
 		"build": "vite build",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "pnpm check --watch",
-		"lint": "prettier --no-editorconfig --check . && eslint .",
-		"format": "prettier --no-editorconfig --write .",
+		"lint": "prettier --check . && eslint .",
+		"format": "prettier --write .",
 		"fix": "eslint --fix .",
 		"tauri": "tauri",
 		"prepare": "svelte-kit sync"
