@@ -20,6 +20,13 @@ export function projectCommitGenerationUseEmojis(projectId: string): Persisted<b
 	return persisted(false, key + projectId);
 }
 
+export function projectCommitGenerationImproveExistingMessage(
+	projectId: string
+): Persisted<boolean> {
+	const key = 'projectCommitGenerationImproveExistingMessage_';
+	return persisted(false, key + projectId);
+}
+
 export enum ListPRsFilter {
 	All = 'ALL',
 	ExcludeBots = 'EXCLUDE_BOTS',

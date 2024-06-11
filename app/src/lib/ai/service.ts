@@ -1,3 +1,8 @@
+import {
+	embedExistingCommitMessage,
+	embedPromptParameter,
+	filterInternalPromptMessages
+} from './prompts';
 import { AnthropicAIClient } from '$lib/ai/anthropicClient';
 import { ButlerAIClient } from '$lib/ai/butlerClient';
 import {
@@ -12,7 +17,12 @@ import {
 	AnthropicModelName,
 	ModelKind,
 	MessageRole,
-	type Prompt
+	type Prompt,
+	PromptTemplateParam,
+	PromptDirective,
+	type CustomPromptDirective,
+	type InternalPrompt,
+	isInternalPromptMessageExample
 } from '$lib/ai/types';
 import { splitMessage } from '$lib/utils/commitMessage';
 import * as toasts from '$lib/utils/toasts';
@@ -45,6 +55,8 @@ type SummarizeCommitOpts = {
 	hunks: Hunk[];
 	useEmojiStyle?: boolean;
 	useBriefStyle?: boolean;
+	useImproveExistingMessage?: boolean;
+	existingMessage?: string;
 	commitTemplate?: Prompt;
 	userToken?: string;
 };
@@ -56,10 +68,10 @@ type SummarizeBranchOpts = {
 };
 
 // Exported for testing only
-export function buildDiff(hunks: Hunk[], limit: number) {
+export function buildDiff(hunks: Hunk[], limit: number): CustomPromptDirective {
 	return shuffle(hunks.map((h) => `${h.filePath} - ${h.diff}`))
 		.join('\n')
-		.slice(0, limit);
+		.slice(0, limit) as CustomPromptDirective;
 }
 
 function shuffle<T>(items: T[]): T[] {
@@ -240,6 +252,8 @@ export class AIService {
 		hunks,
 		useEmojiStyle = false,
 		useBriefStyle = false,
+		useImproveExistingMessage = false,
+		existingMessage,
 		commitTemplate,
 		userToken
 	}: SummarizeCommitOpts) {
@@ -247,24 +261,56 @@ export class AIService {
 		if (!aiClient) return;
 
 		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
-		const defaultedCommitTemplate = commitTemplate || aiClient.defaultCommitTemplate;
 
-		const prompt = defaultedCommitTemplate.map((promptMessage) => {
+		const briefPart = useBriefStyle ? PromptDirective.CommitMessageBrevity : undefined;
+
+		const emojiPart = useEmojiStyle
+			? PromptDirective.CommitMessageUseEmoji
+			: PromptDirective.CommitMessageDontUseEmoji;
+
+		const commitMessageRequest =
+			useImproveExistingMessage && existingMessage
+				? PromptDirective.ImproveCommitMessage
+				: PromptDirective.WriteCommitMessage;
+
+		const existingMessagePart =
+			useImproveExistingMessage && existingMessage
+				? embedExistingCommitMessage(existingMessage)
+				: undefined;
+
+		const defaultedCommitTemplate: Prompt | InternalPrompt =
+			commitTemplate ||
+			filterInternalPromptMessages(aiClient.defaultCommitTemplate, commitMessageRequest);
+
+		const prompt: Prompt = defaultedCommitTemplate.map((promptMessage) => {
+			if (isInternalPromptMessageExample(promptMessage)) {
+				return {
+					role: promptMessage.role,
+					content: promptMessage.content
+				};
+			}
+
 			if (promptMessage.role !== MessageRole.User) {
 				return promptMessage;
 			}
 
-			let content = promptMessage.content.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit));
-
-			const briefPart = useBriefStyle
-				? 'The commit message must be only one sentence and as short as possible.'
-				: '';
-			content = content.replaceAll('%{brief_style}', briefPart);
-
-			const emojiPart = useEmojiStyle
-				? 'Make use of GitMoji in the title prefix.'
-				: "Don't use any emoji.";
-			content = content.replaceAll('%{emoji_style}', emojiPart);
+			let content = embedPromptParameter(
+				promptMessage.content,
+				PromptTemplateParam.Diff,
+				buildDiff(hunks, diffLengthLimit)
+			);
+			content = embedPromptParameter(content, PromptTemplateParam.BriefStyle, briefPart);
+			content = embedPromptParameter(content, PromptTemplateParam.EmojiStyle, emojiPart);
+			content = embedPromptParameter(
+				content,
+				PromptTemplateParam.CreateOrRewriteMessage,
+				commitMessageRequest
+			);
+			content = embedPromptParameter(
+				content,
+				PromptTemplateParam.ExistingMessage,
+				existingMessagePart
+			);
 
 			return {
 				role: MessageRole.User,
@@ -295,7 +341,11 @@ export class AIService {
 
 			return {
 				role: MessageRole.User,
-				content: promptMessage.content.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit))
+				content: embedPromptParameter(
+					promptMessage.content,
+					PromptTemplateParam.Diff,
+					buildDiff(hunks, diffLengthLimit)
+				)
 			};
 		});
 

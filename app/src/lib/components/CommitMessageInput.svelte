@@ -11,6 +11,7 @@
 	import {
 		projectAiGenEnabled,
 		projectCommitGenerationExtraConcise,
+		projectCommitGenerationImproveExistingMessage,
 		projectCommitGenerationUseEmojis
 	} from '$lib/config/config';
 	import { showError } from '$lib/notifications/toasts';
@@ -43,15 +44,20 @@
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(project.id);
 	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(project.id);
+	const commitGenerationImproveExistingMessage = projectCommitGenerationImproveExistingMessage(
+		project.id
+	);
 
 	let aiLoading = false;
 	let aiConfigurationValid = false;
 
 	let contextMenu: ContextMenu;
 
+	let userInput: string = '';
 	let titleTextArea: HTMLTextAreaElement;
 	let descriptionTextArea: HTMLTextAreaElement;
 
+	$: commitMessage = userInput;
 	$: ({ title, description } = splitMessage(commitMessage));
 	$: if (commitMessage) updateHeights();
 	$: valid = !!title;
@@ -84,11 +90,12 @@
 		aiLoading = true;
 		try {
 			const prompt = promptService.selectedCommitPrompt(project.id);
-			console.log(prompt);
 			const generatedMessage = await aiService.summarizeCommit({
 				hunks,
 				useEmojiStyle: $commitGenerationUseEmojis,
 				useBriefStyle: $commitGenerationExtraConcise,
+				useImproveExistingMessage: $commitGenerationImproveExistingMessage,
+				existingMessage: userInput,
 				userToken: $user?.access_token,
 				commitTemplate: prompt
 			});
@@ -130,7 +137,7 @@
 		}}
 		on:focus={(e) => useAutoHeight(e.currentTarget)}
 		on:input={(e) => {
-			commitMessage = concatMessage(e.currentTarget.value, description);
+			userInput = concatMessage(e.currentTarget.value, description);
 		}}
 		on:keydown={(e) => {
 			if (commit && (e.ctrlKey || e.metaKey) && e.key === 'Enter') commit();
@@ -153,7 +160,7 @@
 			use:useResize={() => useAutoHeight(descriptionTextArea)}
 			on:focus={(e) => useAutoHeight(e.currentTarget)}
 			on:input={(e) => {
-				commitMessage = concatMessage(title, e.currentTarget.value);
+				userInput = concatMessage(title, e.currentTarget.value);
 			}}
 			on:keydown={(e) => {
 				const value = e.currentTarget.value;
@@ -213,6 +220,14 @@
 						on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
 					>
 						<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
+					</ContextMenuItem>
+
+					<ContextMenuItem
+						label="Improve existing message"
+						on:click={() =>
+							($commitGenerationImproveExistingMessage = !$commitGenerationImproveExistingMessage)}
+					>
+						<Checkbox small slot="control" bind:checked={$commitGenerationImproveExistingMessage} />
 					</ContextMenuItem>
 				</ContextMenuSection>
 			</ContextMenu>
