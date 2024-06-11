@@ -91,7 +91,7 @@
 	<div class="project-setup__fields">
 		<div class="project-setup__field-wrap">
 			<Select items={remoteBranches} bind:value={selectedBranch} itemId="name" labelId="name">
-				<SelectItem slot="template" let:item let:selected {selected}>
+				<SelectItem slot="template" let:item let:selected {selected} let:highlighted {highlighted}>
 					{item.name}
 				</SelectItem>
 			</Select>
@@ -104,7 +104,14 @@
 		{#if remotes.length > 1}
 			<div class="project-setup__field-wrap">
 				<Select items={remotes} bind:value={selectedRemote} itemId="name" labelId="name">
-					<SelectItem slot="template" let:item let:selected {selected}>
+					<SelectItem
+						slot="template"
+						let:item
+						let:selected
+						{selected}
+						let:highlighted
+						{highlighted}
+					>
 						{item.name}
 					</SelectItem>
 				</Select>
