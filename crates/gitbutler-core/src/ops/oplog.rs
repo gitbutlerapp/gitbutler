@@ -528,20 +528,11 @@ impl Project {
         let repo = git2::Repository::init(worktree_dir)?;
 
         let commit = repo.find_commit(sha)?;
-        // Top tree
-        let tree = commit.tree()?;
-        let old_tree = commit.parent(0)?.tree()?;
 
-        let wd_tree_entry = tree
-            .get_name("workdir")
-            .context("failed to get workdir tree entry")?;
-        let old_wd_tree_entry = old_tree
-            .get_name("workdir")
-            .context("failed to get old workdir tree entry")?;
-
-        // workdir tree
-        let wd_tree = repo.find_tree(wd_tree_entry.id())?;
-        let old_wd_tree = repo.find_tree(old_wd_tree_entry.id())?;
+        let wd_tree_id = tree_from_applied_vbranches(&repo, commit.id())?;
+        let wd_tree = repo.find_tree(wd_tree_id)?;
+        let old_wd_tree_id = tree_from_applied_vbranches(&repo, commit.parent(0)?.id())?;
+        let old_wd_tree = repo.find_tree(old_wd_tree_id)?;
 
         // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
         let files_to_exclude =
