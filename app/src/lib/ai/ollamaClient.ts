@@ -1,7 +1,16 @@
 import { LONG_DEFAULT_BRANCH_TEMPLATE, LONG_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
 import { MessageRole, type PromptMessage, type AIClient, type Prompt } from '$lib/ai/types';
+import { isStr } from '$lib/utils/string';
 import { isNonEmptyObject } from '$lib/utils/typeguards';
 import { fetch, Body, Response } from '@tauri-apps/api/http';
+
+const NETWORK_ERROR_MESSAGE =
+	'Failed to connect to the LLM. Please make sure it is running and the endpoint is configured correctly.';
+const NET_ERR_MSG_PREFIX = 'Network Error:';
+
+function isNetworkError(error: unknown): error is string {
+	return isStr(error) && error.startsWith(NET_ERR_MSG_PREFIX);
+}
 
 export const DEFAULT_OLLAMA_ENDPOINT = 'http://127.0.0.1:11434';
 export const DEFAULT_OLLAMA_MODEL_NAME = 'llama3';
@@ -127,14 +136,22 @@ ${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 	private async fetchChat(request: OllamaChatRequest): Promise<Response<any>> {
 		const url = new URL(OllamaAPEndpoint.Chat, this.endpoint);
 		const body = Body.json(request);
-		const result = await fetch(url.toString(), {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body
-		});
-		return result;
+
+		try {
+			const result = await fetch(url.toString(), {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body
+			});
+			return result;
+		} catch (error) {
+			if (isNetworkError(error)) {
+				throw new Error(NETWORK_ERROR_MESSAGE);
+			}
+			throw error;
+		}
 	}
 
 	/**
