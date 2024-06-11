@@ -3,6 +3,7 @@
 	import PushButton, { BranchAction } from './PushButton.svelte';
 	import emptyStateImg from '$lib/assets/empty-state/commits-up-to-date.svg?raw';
 	import { PromptService } from '$lib/backend/prompt';
+	import { project } from '$lib/testing/fixtures';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getLocalCommits, getRemoteCommits, getUnknownCommits } from '$lib/vbranches/contexts';
@@ -23,36 +24,38 @@
 	const remoteCommits = getRemoteCommits();
 	const unknownCommits = getUnknownCommits();
 
+	let isLoading: boolean;
+
+	$: canBePushed = $localCommits.length !== 0 || $unknownCommits.length !== 0;
+	$: hasUnknownCommits = $unknownCommits.length > 0;
 	$: hasCommits =
 		$localCommits.length > 0 || $remoteCommits.length > 0 || $unknownCommits.length > 0;
-
-	let isLoading: boolean;
-	$: isPushed = $localCommits.length === 0 && $unknownCommits.length === 0;
 </script>
 
 {#if !isUnapplied && hasCommits}
 	<div class="actions">
-		{#if !isPushed}
+		{#if canBePushed}
 			{#if $prompt}
 				<PassphraseBox prompt={$prompt} error={$promptError} />
 			{/if}
 			<PushButton
 				wide
-				branch={$branch}
+				projectId={project.id}
+				requiresForce={$branch.requiresForce}
+				integrate={hasUnknownCommits}
 				{isLoading}
 				on:trigger={async (e) => {
+					isLoading = true;
 					try {
 						if (e.detail.action === BranchAction.Push) {
-							isLoading = true;
 							await branchController.pushBranch($branch.id, $branch.requiresForce);
-							isLoading = false;
-						} else if (e.detail.action === BranchAction.Rebase) {
-							isLoading = true;
+						} else if (e.detail.action === BranchAction.Integrate) {
 							await branchController.mergeUpstream($branch.id);
-							isLoading = false;
 						}
 					} catch (e) {
 						console.error(e);
+					} finally {
+						isLoading = false;
 					}
 				}}
 			/>
