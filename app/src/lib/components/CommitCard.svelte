@@ -111,8 +111,10 @@
 			kind="solid"
 			grow
 			disabled={!commitMessageValid}
-			on:click={submitCommitMessageModal}>Submit</Button
+			on:click={submitCommitMessageModal}
 		>
+			Submit
+		</Button>
 	{/snippet}
 </Modal>
 

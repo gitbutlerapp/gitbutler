@@ -69,10 +69,7 @@
 				on:change={(e) => {
 					useAutoHeight(e.currentTarget);
 				}}
-				use:useResize={() => {
-					if (textareaElement) useAutoHeight(textareaElement);
-				}}
-			/>
+			></textarea>
 		{:else}
 			<div class="markdown bubble-message scrollbar text-base-body-13">
 				{@html marked.parse(promptMessage.content)}
@@ -92,14 +89,14 @@
 					Remove example
 				</Button>
 			{/if}
-			<Button style="ghost" outline grow on:click={() => dispatcher('addExample')}
-				>Add new example</Button
-			>
+			<Button style="ghost" outline grow on:click={() => dispatcher('addExample')}>
+				Add new example
+			</Button>
 		</div>
 	{/if}
 </div>
 
-<style lang="post-css">
+<style lang="postcss">
 	.bubble-wrap {
 		display: flex;
 		flex-direction: column;
