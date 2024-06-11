@@ -43,8 +43,9 @@
 		await projectService.updateProject(project);
 	}
 
-	async function setSignCommits(signCommits: boolean) {
-		await gitConfig.setGbConfig(project.id, { signCommits });
+	async function setSignCommits(targetState: boolean) {
+		signCommits = targetState;
+		await gitConfig.setGbConfig(project.id, { signCommits: targetState });
 	}
 
 	// gpg.format
