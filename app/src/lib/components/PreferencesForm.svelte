@@ -23,6 +23,7 @@
 	let allowForcePushing = project?.ok_with_force_push;
 	let omitCertificateCheck = project?.omit_certificate_check;
 	let useNewLocking = project?.use_new_locking || false;
+	let signCommits = false;
 
 	const gitConfig = getContext(GitConfigService);
 	const runCommitHooks = projectRunCommitHooks(project.id);
@@ -42,10 +43,9 @@
 		await projectService.updateProject(project);
 	}
 
-	let signCommits = false;
-	async function setSignCommits() {
-		signCommits = !signCommits;
-		await gitConfig.setGbConfig(project.id, { signCommits: signCommits });
+	async function setSignCommits(targetState: boolean) {
+		signCommits = targetState;
+		await gitConfig.setGbConfig(project.id, { signCommits: targetState });
 	}
 
 	// gpg.format
@@ -115,6 +115,18 @@
 			signingProgram = gitConfigSettings.gpgSshProgram || '';
 		}
 	});
+
+	async function handleSignCommitsClick(event: MouseEvent) {
+		await setSignCommits((event.target as HTMLInputElement)?.checked);
+	}
+
+	async function handleAllowForcePushClick(event: MouseEvent) {
+		await setWithForcePush((event.target as HTMLInputElement)?.checked);
+	}
+
+	async function handleOmitCertificateCheckClick(event: MouseEvent) {
+		await setOmitCertificateCheck((event.target as HTMLInputElement)?.checked);
+	}
 </script>
 
 <Section spacer>
@@ -128,7 +140,7 @@
 			GitButler will sign commits as per your git configuration.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<Toggle id="signCommits" bind:checked={signCommits} on:click={setSignCommits} />
+			<Toggle id="signCommits" checked={signCommits} on:click={handleSignCommitsClick} />
 		</svelte:fragment>
 	</SectionCard>
 	{#if signCommits}
@@ -213,8 +225,8 @@
 		<svelte:fragment slot="actions">
 			<Toggle
 				id="allowForcePush"
-				bind:checked={allowForcePushing}
-				on:click={async () => await setWithForcePush(allowForcePushing)}
+				checked={allowForcePushing}
+				on:click={handleAllowForcePushClick}
 			/>
 		</svelte:fragment>
 	</SectionCard>
@@ -227,8 +239,8 @@
 		<svelte:fragment slot="actions">
 			<Toggle
 				id="omitCertificateCheck"
-				bind:checked={omitCertificateCheck}
-				on:click={async () => await setOmitCertificateCheck(omitCertificateCheck)}
+				checked={omitCertificateCheck}
+				on:click={handleOmitCertificateCheckClick}
 			/>
 		</svelte:fragment>
 	</SectionCard>

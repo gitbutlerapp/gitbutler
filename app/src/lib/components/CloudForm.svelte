@@ -54,15 +54,6 @@
 			toasts.error('Failed to update project sync status');
 		}
 	}
-
-	function aiGenToggle() {
-		$aiGenEnabled = !$aiGenEnabled;
-		$aiGenAutoBranchNamingEnabled = $aiGenEnabled;
-	}
-
-	function aiGenBranchNamesToggle() {
-		$aiGenAutoBranchNamingEnabled = !$aiGenAutoBranchNamingEnabled;
-	}
 </script>
 
 {#if !$user}
@@ -86,7 +77,14 @@
 				message" and "Generate branch name" button.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
-				<Toggle id="aiGenEnabled" checked={$aiGenEnabled} on:click={aiGenToggle} />
+				<Toggle
+					id="aiGenEnabled"
+					checked={$aiGenEnabled}
+					on:click={() => {
+						$aiGenEnabled = !$aiGenEnabled;
+						$aiGenAutoBranchNamingEnabled = $aiGenEnabled;
+					}}
+				/>
 			</svelte:fragment>
 		</SectionCard>
 
@@ -97,7 +95,7 @@
 					id="branchNameGen"
 					disabled={!$aiGenEnabled}
 					checked={$aiGenAutoBranchNamingEnabled}
-					on:click={aiGenBranchNamesToggle}
+					on:click={() => ($aiGenAutoBranchNamingEnabled = !$aiGenAutoBranchNamingEnabled)}
 				/>
 			</svelte:fragment>
 		</SectionCard>
