@@ -3,6 +3,8 @@
 	import { Project } from '$lib/backend/projects';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import Select from '$lib/components/Select.svelte';
+	import SelectItem from '$lib/components/SelectItem.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
@@ -12,7 +14,7 @@
 	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { Branch } from '$lib/vbranches/types';
+	import { Branch, type NameConflictResolution } from '$lib/vbranches/types';
 	import { createEventDispatcher } from 'svelte';
 
 	export let visible: boolean;
@@ -45,7 +47,95 @@
 	function close() {
 		visible = false;
 	}
+
+	let unapplyBranchModal: Modal;
+
+	type ResolutionVariants = NameConflictResolution['type'];
+
+	const resolutions: { value: ResolutionVariants; label: string }[] = [
+		{
+			value: 'overwrite',
+			label: 'Overwrite the existing branch'
+		},
+		{
+			value: 'suffix',
+			label: 'Suffix the branch name'
+		},
+		{
+			value: 'rename',
+			label: 'Use a new name'
+		}
+	];
+
+	let selectedResolution: ResolutionVariants = resolutions[0].value;
+	let newBranchName = '';
+
+	function unapplyBranchWithSelectedResolution() {
+		let resolution: NameConflictResolution | undefined;
+		if (selectedResolution === 'rename') {
+			resolution = {
+				type: selectedResolution,
+				value: newBranchName
+			};
+		} else {
+			resolution = {
+				type: selectedResolution,
+				value: undefined
+			};
+		}
+
+		branchController.convertToRealBranch(branch.id, resolution);
+
+		unapplyBranchModal.close();
+	}
+
+	const remoteBranches = branchController.remoteBranchService.branches$;
+
+	function tryUnapplyBranch() {
+		if ($remoteBranches.find((b) => b.name.endsWith(normalizeBranchName(branch.name)))) {
+			unapplyBranchModal.show();
+		} else {
+			// No resolution required
+			branchController.convertToRealBranch(branch.id);
+		}
+	}
 </script>
+
+<Modal bind:this={unapplyBranchModal}>
+	<div class="flow">
+		<div class="modal-copy">
+			<p class="text-base-15">There is already branch with the name</p>
+			<Button size="tag" clickable={false}>{normalizeBranchName(branch.name)}</Button>
+			<p class="text-base-15">.</p>
+			<p class="text-base-15">Please choose how you want to resolve this:</p>
+		</div>
+
+		<Select
+			items={resolutions}
+			itemId={'value'}
+			labelId={'label'}
+			bind:selectedItemId={selectedResolution}
+		>
+			<SelectItem slot="template" let:item let:selected {selected}>
+				{item.label}
+			</SelectItem>
+		</Select>
+		{#if selectedResolution === 'rename'}
+			<TextBox
+				label="New branch name"
+				id="newBranchName"
+				bind:value={newBranchName}
+				placeholder="Enter new branch name"
+			/>
+		{/if}
+	</div>
+	<svelte:fragment slot="controls">
+		<Button style="ghost" outline on:click={() => unapplyBranchModal.close()}>Cancel</Button>
+		<Button style="pop" kind="solid" grow on:click={unapplyBranchWithSelectedResolution}
+			>Submit</Button
+		>
+	</svelte:fragment>
+</Modal>
 
 {#if visible}
 	<ContextMenu>
@@ -65,7 +155,7 @@
 				<ContextMenuItem
 					label="Unapply"
 					on:click={() => {
-						if (branch.id) branchController.unapplyBranch(branch.id);
+						tryUnapplyBranch();
 						close();
 					}}
 				/>
@@ -166,3 +256,16 @@
 		</Button>
 	</svelte:fragment>
 </Modal>
+
+<style lang="postcss">
+	.flow {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+	.modal-copy {
+		& > * {
+			display: inline;
+		}
+	}
+</style>

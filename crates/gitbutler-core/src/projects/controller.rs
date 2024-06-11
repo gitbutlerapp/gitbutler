@@ -7,7 +7,7 @@ use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
-use crate::git::{RepositoryExt};
+use crate::git::RepositoryExt;
 use crate::projects::AuthKey;
 use crate::{error, project_repository};
 
@@ -234,7 +234,9 @@ impl Controller {
         let project = self.projects_storage.get(id)?;
 
         let repo = project_repository::Repository::open(&project)?;
-        let signed = repo.repo().sign_buffer(&"test".to_string().into());
+        let signed = repo
+            .repo()
+            .sign_buffer(&"test".to_string().try_into().unwrap());
         match signed {
             Ok(_) => Ok(true),
             Err(e) => Err(e),

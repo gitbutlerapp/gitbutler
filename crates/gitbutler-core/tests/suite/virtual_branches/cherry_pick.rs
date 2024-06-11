@@ -208,7 +208,7 @@ mod cleanly {
             .unwrap();
 
         controller
-            .unapply_virtual_branch(*project_id, branch_id)
+            .convert_to_real_branch(*project_id, branch_id, Default::default())
             .await
             .unwrap();
 
@@ -370,7 +370,7 @@ mod with_conflicts {
         fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
         controller
-            .unapply_virtual_branch(*project_id, branch_id)
+            .convert_to_real_branch(*project_id, branch_id, Default::default())
             .await
             .unwrap();
 

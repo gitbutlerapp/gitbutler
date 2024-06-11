@@ -20,7 +20,7 @@ async fn unapply_with_data() {
     assert_eq!(branches.len(), 1);
 
     controller
-        .unapply_virtual_branch(*project_id, branches[0].id)
+        .convert_to_real_branch(*project_id, branches[0].id, Default::default())
         .await
         .unwrap();
 
@@ -70,7 +70,7 @@ async fn conflicting() {
         );
 
         controller
-            .unapply_virtual_branch(*project_id, branches[0].id)
+            .convert_to_real_branch(*project_id, branches[0].id, Default::default())
             .await
             .unwrap();
 
@@ -125,7 +125,7 @@ async fn conflicting() {
 
     {
         controller
-            .unapply_virtual_branch(*project_id, branch_id)
+            .convert_to_real_branch(*project_id, branch_id, Default::default())
             .await
             .unwrap();
 
@@ -174,7 +174,7 @@ async fn delete_if_empty() {
     assert_eq!(branches.len(), 1);
 
     controller
-        .unapply_virtual_branch(*project_id, branches[0].id)
+        .convert_to_real_branch(*project_id, branches[0].id, Default::default())
         .await
         .unwrap();
 

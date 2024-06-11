@@ -17,7 +17,7 @@ use git2::ErrorCode;
 use git2_hooks::HookResult;
 use hex::ToHex;
 use regex::Regex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::integration::{get_integration_commiter, get_workspace_head};
 use super::{
@@ -220,6 +220,15 @@ impl From<git2::Signature<'_>> for Author {
     }
 }
 
+#[derive(Default, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "type", content = "value")]
+pub enum NameConflitResolution {
+    #[default]
+    Suffix,
+    Rename(String),
+    Overwrite,
+}
+
 pub fn normalize_branch_name(name: &str) -> String {
     let pattern = Regex::new("[^A-Za-z0-9_/.#]+").unwrap();
     pattern.replace_all(name, "-").to_string()
@@ -280,7 +289,7 @@ pub fn apply_branch(
                 .map(|(branch, _)| branch)
                 .filter(|branch| branch.applied)
             {
-                convert_to_real_branch(project_repository, branch.id)?;
+                convert_to_real_branch(project_repository, branch.id, Default::default())?;
             }
 
             // apply the branch
@@ -440,13 +449,26 @@ pub fn apply_branch(
 
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
-    let head_commit = repo.find_commit(branch.head)?;
-    if let Some(header) = dbg!(head_commit.raw_header()) {
-        if header
-            .lines()
-            .any(|line| line.starts_with("gitbutler-vbranch"))
-        {
-            undo_commit(project_repository, branch_id, branch.head)?;
+    // Look for and handle the vbranch indicator commit
+    {
+        let head_commit = repo.find_commit(branch.head)?;
+        if let Some(header) = dbg!(head_commit.raw_header()) {
+            if header
+                .lines()
+                .any(|line| line.starts_with("gitbutler-vbranch"))
+            {
+                if let Some(branch_name) = header
+                    .lines()
+                    .find(|line| line.starts_with("gitbutler-vbranch-name"))
+                    .and_then(|line| line.split_once(' '))
+                    .map(|(_, name)| name.to_string())
+                {
+                    branch.name = branch_name;
+                    vb_state.set_branch(branch.clone())?;
+                }
+
+                undo_commit(project_repository, branch_id, branch.head)?;
+            }
         }
     }
     Ok(branch.name)
@@ -585,15 +607,52 @@ pub fn reset_files(
 pub fn convert_to_real_branch(
     project_repository: &project_repository::Repository,
     branch_id: BranchId,
+    name_conflict_resolution: NameConflitResolution,
 ) -> Result<git2::Branch<'_>> {
     fn build_real_branch<'l>(
         project_repository: &'l project_repository::Repository,
         vbranch: &branch::Branch,
+        name_conflict_resolution: NameConflitResolution,
     ) -> Result<git2::Branch<'l>> {
         let repo = project_repository.repo();
         let target_commit = repo.find_commit(vbranch.head)?;
         let branch_name = vbranch.name.clone();
         let branch_name = normalize_branch_name(&branch_name);
+
+        // Is there a name conflict?
+        let branch_name = if repo
+            .find_branch(branch_name.as_str(), git2::BranchType::Local)
+            .is_ok()
+        {
+            match name_conflict_resolution {
+                NameConflitResolution::Suffix => {
+                    let mut suffix = 1;
+                    loop {
+                        let new_branch_name = format!("{}-{}", branch_name, suffix);
+                        if repo
+                            .find_branch(new_branch_name.as_str(), git2::BranchType::Local)
+                            .is_err()
+                        {
+                            break new_branch_name;
+                        }
+                        suffix += 1;
+                    }
+                }
+                NameConflitResolution::Rename(new_name) => {
+                    if repo
+                        .find_branch(new_name.as_str(), git2::BranchType::Local)
+                        .is_ok()
+                    {
+                        Err(anyhow!("Branch with name {} already exists", new_name))?
+                    } else {
+                        new_name
+                    }
+                }
+                NameConflitResolution::Overwrite => branch_name,
+            }
+        } else {
+            branch_name
+        };
 
         let branch = repo.branch(&branch_name, &target_commit, true)?;
 
@@ -630,7 +689,8 @@ pub fn convert_to_real_branch(
             .commit_create_buffer(&committer, &committer, &message, &tree, &[&parent])?
             .try_into()?;
 
-        commit_buffer.inject_header("gitbutler-vbranch", &vbranch.id.to_string());
+        commit_buffer.set_header("gitbutler-vbranch", &vbranch.id.to_string());
+        commit_buffer.set_header("gitbutler-vbranch-name", &vbranch.name.to_string());
 
         let commit_oid = repo.commit_buffer(&commit_buffer)?;
 
@@ -643,7 +703,6 @@ pub fn convert_to_real_branch(
 
         Ok(commit_oid)
     }
-
     let vb_state = project_repository.project().virtual_branches();
 
     let target_branch = vb_state.get_branch(branch_id)?;
@@ -698,7 +757,8 @@ pub fn convert_to_real_branch(
     }
 
     // Convert the vbranch to a real branch
-    let real_branch = build_real_branch(project_repository, &target_branch)?;
+    let real_branch =
+        build_real_branch(project_repository, &target_branch, name_conflict_resolution)?;
 
     delete_branch(project_repository, branch_id)?;
 
@@ -757,7 +817,7 @@ pub fn list_virtual_branches(
 
     for (branch, files) in statuses {
         if !branch.applied {
-            convert_to_real_branch(project_repository, branch.id)?;
+            convert_to_real_branch(project_repository, branch.id, Default::default())?;
         }
 
         let repo = project_repository.repo();
@@ -3434,7 +3494,7 @@ pub fn cherry_pick(
         .filter(|(b, _)| b.id != branch.id)
         .map(|(b, _)| b)
     {
-        convert_to_real_branch(project_repository, other_branch.id)
+        convert_to_real_branch(project_repository, other_branch.id, Default::default())
             .context("failed to unapply branch")?;
     }
 

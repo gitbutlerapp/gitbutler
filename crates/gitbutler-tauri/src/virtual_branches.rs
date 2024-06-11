@@ -4,12 +4,13 @@ pub mod commands {
     use gitbutler_core::{
         assets,
         error::Code,
-        git, projects,
-        projects::ProjectId,
+        git,
+        projects::{self, ProjectId},
         virtual_branches::{
             branch::{self, BranchId, BranchOwnershipClaims},
             controller::Controller,
-            BaseBranch, RemoteBranch, RemoteBranchData, RemoteBranchFile, VirtualBranches,
+            BaseBranch, NameConflitResolution, RemoteBranch, RemoteBranchData, RemoteBranchFile,
+            VirtualBranches,
         },
     };
     use tauri::{AppHandle, Manager};
@@ -210,14 +211,15 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
-    pub async fn unapply_branch(
+    pub async fn convert_to_real_branch(
         handle: AppHandle,
         project_id: ProjectId,
         branch: BranchId,
+        name_conflict_resolution: NameConflitResolution,
     ) -> Result<(), Error> {
         handle
             .state::<Controller>()
-            .unapply_virtual_branch(project_id, branch)
+            .convert_to_real_branch(project_id, branch, name_conflict_resolution)
             .await?;
         emit_vbranches(&handle, project_id).await;
         Ok(())

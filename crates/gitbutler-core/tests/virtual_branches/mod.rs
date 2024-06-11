@@ -1078,7 +1078,11 @@ fn unapply_branch() -> Result<()> {
     assert_eq!(branch.files.len(), 1);
     assert!(branch.active);
 
-    let real_branch = virtual_branches::convert_to_real_branch(project_repository, branch1_id)?;
+    let real_branch = virtual_branches::convert_to_real_branch(
+        project_repository,
+        branch1_id,
+        Default::default(),
+    )?;
 
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!("line1\nline2\nline3\nline4\n", String::from_utf8(contents)?);
@@ -1156,12 +1160,12 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
         },
     )?;
 
-    virtual_branches::convert_to_real_branch(project_repository, branch2_id)?;
+    virtual_branches::convert_to_real_branch(project_repository, branch2_id, Default::default())?;
     // check that file2 is back
     let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("file2\n", String::from_utf8(contents)?);
 
-    virtual_branches::convert_to_real_branch(project_repository, branch3_id)?;
+    virtual_branches::convert_to_real_branch(project_repository, branch3_id, Default::default())?;
     // check that file3 is gone
     assert!(!Path::new(&project.path).join(file_path3).exists());
 
@@ -1221,8 +1225,8 @@ fn detect_mergeable_branch() -> Result<()> {
     .expect("failed to update branch");
 
     // unapply both branches and create some conflicting ones
-    virtual_branches::convert_to_real_branch(project_repository, branch1_id)?;
-    virtual_branches::convert_to_real_branch(project_repository, branch2_id)?;
+    virtual_branches::convert_to_real_branch(project_repository, branch1_id, Default::default())?;
+    virtual_branches::convert_to_real_branch(project_repository, branch2_id, Default::default())?;
 
     project_repository.repo().set_head("refs/heads/master")?;
     project_repository
