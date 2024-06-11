@@ -276,26 +276,24 @@ impl Project {
             }
 
             let tree = commit.tree()?;
-            let wd_tree = if let Some(wd_tree_entry) = tree.get_name("workdir") {
-                repo.find_tree(wd_tree_entry.id())?
-            } else {
+            if tree.get_name("virtual_branches.toml").is_none() {
                 // We reached a tree that is not a snapshot
                 tracing::warn!("Commit {commit_id} didn't seem to be an oplog commit - skipping");
                 continue;
-            };
+            }
+
+            let wd_tree_id = tree_from_applied_vbranches(&repo, commit_id)?;
+            let wd_tree = repo.find_tree(wd_tree_id)?;
 
             let details = commit
                 .message()
                 .and_then(|msg| SnapshotDetails::from_str(msg).ok());
 
             if let Ok(parent) = commit.parent(0) {
-                let parent_tree = parent
-                    .tree()?
-                    .get_name("workdir")
-                    .map(|entry| repo.find_tree(entry.id()))
-                    .transpose()?;
+                let parent_wd_tree_id = tree_from_applied_vbranches(&repo, parent.id())?;
+                let parent_tree = repo.find_tree(parent_wd_tree_id)?;
 
-                let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&wd_tree), None)?;
+                let diff = repo.diff_tree_to_tree(Some(&parent_tree), Some(&wd_tree), None)?;
 
                 let mut files_changed = Vec::new();
                 diff.print(git2::DiffFormat::NameOnly, |delta, _, _| {
