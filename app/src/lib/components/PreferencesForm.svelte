@@ -115,6 +115,18 @@
 			signingProgram = gitConfigSettings.gpgSshProgram || '';
 		}
 	});
+
+	async function handleSignCommitsClick(event: MouseEvent) {
+		await setSignCommits((event.target as HTMLInputElement)?.checked);
+	}
+
+	async function handleAllowForcePushClick(event: MouseEvent) {
+		await setWithForcePush((event.target as HTMLInputElement)?.checked);
+	}
+
+	async function handleOmitCertificateCheckClick(event: MouseEvent) {
+		await setOmitCertificateCheck((event.target as HTMLInputElement)?.checked);
+	}
 </script>
 
 <Section spacer>
@@ -128,11 +140,7 @@
 			GitButler will sign commits as per your git configuration.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<Toggle
-				id="signCommits"
-				checked={signCommits}
-				on:click={async (e) => await setSignCommits(e.target?.checked)}
-			/>
+			<Toggle id="signCommits" checked={signCommits} on:click={handleSignCommitsClick} />
 		</svelte:fragment>
 	</SectionCard>
 	{#if signCommits}
@@ -218,7 +226,7 @@
 			<Toggle
 				id="allowForcePush"
 				checked={allowForcePushing}
-				on:click={async (e) => await setWithForcePush(e.target?.checked)}
+				on:click={handleAllowForcePushClick}
 			/>
 		</svelte:fragment>
 	</SectionCard>
@@ -232,7 +240,7 @@
 			<Toggle
 				id="omitCertificateCheck"
 				checked={omitCertificateCheck}
-				on:click={async (e) => await setOmitCertificateCheck(e.target?.checked)}
+				on:click={handleOmitCertificateCheckClick}
 			/>
 		</svelte:fragment>
 	</SectionCard>
