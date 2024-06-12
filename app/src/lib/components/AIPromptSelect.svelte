@@ -52,7 +52,8 @@
 	wide={true}
 	label={promptUse === 'commits' ? 'Commit message' : 'Branch name'}
 >
-	<SelectItem slot="template" let:item let:selected {selected}>
+	<SelectItem slot="template" let:item let:selected {selected} let:highlighted {highlighted}>
 		{item.name}
+		{highlighted}
 	</SelectItem>
 </Select>

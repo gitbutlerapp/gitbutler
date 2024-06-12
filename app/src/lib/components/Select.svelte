@@ -1,18 +1,29 @@
-<script lang="ts">
+<script lang="ts" context="module">
+	export type Selectable<S extends string> = Record<S, unknown>;
+</script>
+
+<script lang="ts" generics="Selectable extends Record<string, unknown>">
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import TextBox from './TextBox.svelte';
 	import { clickOutside } from '$lib/clickOutside';
+	import { KeyName } from '$lib/utils/hotkeys';
+	import { throttle } from '$lib/utils/misc';
 	import { pxToRem } from '$lib/utils/pxToRem';
+	import { isChar, isStr } from '$lib/utils/string';
 	import { createEventDispatcher } from 'svelte';
+
+	const INPUT_THROTTLE_TIME = 100;
+
+	type SelectableKey = keyof Selectable;
 
 	export let id: undefined | string = undefined;
 	export let label = '';
 	export let disabled = false;
 	export let loading = false;
 	export let wide = false;
-	export let items: any[];
-	export let labelId = 'label';
-	export let itemId = 'value';
+	export let items: Selectable[];
+	export let labelId: SelectableKey = 'label';
+	export let itemId: SelectableKey = 'value';
 	export let value: any = undefined;
 	export let selectedItemId: any = undefined;
 	export let placeholder = '';
@@ -27,8 +38,28 @@
 	let listOpen = false;
 	let element: HTMLElement;
 	let options: HTMLDivElement;
+	let highlightIndex: number | undefined = undefined;
+	let highlightedItem: Selectable | undefined = undefined;
+	let filterText: string | undefined = undefined;
+	let filteredItems: Selectable[] = items;
 
-	function handleItemClick(item: any) {
+	function filterItems(items: Selectable[], filterText: string | undefined) {
+		if (!filterText) {
+			return items;
+		}
+
+		return items.filter((it) => {
+			const property = it[labelId];
+			if (!isStr(property)) return false;
+			return property.includes(filterText);
+		});
+	}
+
+	$: filteredItems = filterItems(items, filterText);
+
+	$: highlightedItem = highlightIndex !== undefined ? filteredItems[highlightIndex] : undefined;
+
+	function handleItemClick(item: Selectable) {
 		if (item?.selectable === false) return;
 		if (value && value[itemId] === item[itemId]) return closeList();
 		selectedItemId = item[itemId];
@@ -52,6 +83,80 @@
 
 	function closeList() {
 		listOpen = false;
+		highlightIndex = undefined;
+		filterText = undefined;
+	}
+
+	function handleEnter() {
+		if (highlightIndex !== undefined) {
+			handleItemClick(filteredItems[highlightIndex]);
+		}
+		closeList();
+	}
+
+	function handleArrowUp() {
+		if (filteredItems.length === 0) return;
+		if (highlightIndex === undefined) {
+			highlightIndex = filteredItems.length - 1;
+		} else {
+			highlightIndex = highlightIndex === 0 ? filteredItems.length - 1 : highlightIndex - 1;
+		}
+	}
+
+	function handleArrowDown() {
+		if (filteredItems.length === 0) return;
+		if (highlightIndex === undefined) {
+			highlightIndex = 0;
+		} else {
+			highlightIndex = highlightIndex === filteredItems.length - 1 ? 0 : highlightIndex + 1;
+		}
+	}
+
+	const handleChar = throttle((char: string) => {
+		highlightIndex = undefined;
+		filterText ??= '';
+		filterText += char;
+	}, INPUT_THROTTLE_TIME);
+
+	const handleDelete = throttle(() => {
+		if (filterText === undefined) return;
+
+		if (filterText.length === 1) {
+			filterText = undefined;
+			return;
+		}
+
+		filterText = filterText.slice(0, -1);
+	}, INPUT_THROTTLE_TIME);
+
+	function handleKeyDown(e: CustomEvent<KeyboardEvent>) {
+		if (!listOpen) {
+			return;
+		}
+		e.detail.stopPropagation();
+		e.detail.preventDefault();
+
+		const { key } = e.detail;
+		switch (key) {
+			case KeyName.Escape:
+				closeList();
+				break;
+			case KeyName.Up:
+				handleArrowUp();
+				break;
+			case KeyName.Down:
+				handleArrowDown();
+				break;
+			case KeyName.Enter:
+				handleEnter();
+				break;
+			case KeyName.Delete:
+				handleDelete();
+				break;
+			default:
+				if (isChar(key)) handleChar(key);
+				break;
+		}
 	}
 </script>
 
@@ -67,9 +172,10 @@
 		type="select"
 		reversedDirection
 		icon="select-chevron"
-		value={value?.[labelId]}
+		value={filterText ?? value?.[labelId]}
 		disabled={disabled || loading}
 		on:mousedown={() => toggleList()}
+		on:keydown={(ev) => handleKeyDown(ev)}
 	/>
 	<div
 		class="options card"
@@ -78,14 +184,14 @@
 		style:max-height={maxHeight && pxToRem(maxHeight)}
 		use:clickOutside={{
 			trigger: element,
-			handler: () => (listOpen = !listOpen),
+			handler: closeList,
 			enabled: listOpen
 		}}
 	>
 		<ScrollableContainer initiallyVisible>
-			{#if items}
+			{#if filteredItems}
 				<div class="options__group">
-					{#each items as item}
+					{#each filteredItems as item}
 						<div
 							class="option"
 							class:selected={item === value}
@@ -94,7 +200,12 @@
 							on:mousedown={() => handleItemClick(item)}
 							on:keydown|preventDefault|stopPropagation
 						>
-							<slot name="template" {item} selected={item === value} />
+							<slot
+								name="template"
+								{item}
+								selected={item === value}
+								highlighted={item === highlightedItem}
+							/>
 						</div>
 					{/each}
 				</div>

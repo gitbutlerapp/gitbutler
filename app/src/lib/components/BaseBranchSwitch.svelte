@@ -76,7 +76,14 @@
 					wide={true}
 					label="Current target branch"
 				>
-					<SelectItem slot="template" let:item let:selected {selected}>
+					<SelectItem
+						slot="template"
+						let:item
+						let:selected
+						{selected}
+						let:highlighted
+						{highlighted}
+					>
 						{item.name}
 					</SelectItem>
 				</Select>
@@ -91,7 +98,14 @@
 						disabled={targetChangeDisabled}
 						label="Create branches on remote"
 					>
-						<SelectItem slot="template" let:item let:selected {selected}>
+						<SelectItem
+							slot="template"
+							let:item
+							let:selected
+							{selected}
+							let:highlighted
+							{highlighted}
+						>
 							{item.name}
 						</SelectItem>
 					</Select>

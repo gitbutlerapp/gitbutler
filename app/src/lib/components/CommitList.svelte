@@ -39,7 +39,6 @@
 	$: hasLocalColumn = $localCommits.length > 0;
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
-	$: firstCommit = $branch.commits.at(-1);
 	$: hasLocalCommits = $localCommits.length > 0;
 	$: hasUnknownCommits = $unknownCommits.length > 0;
 	$: hasIntegratedCommits = $integratedCommits.length > 0;
@@ -61,19 +60,13 @@
 			return commit.next?.status;
 		}
 
-		let pointer: Commit | undefined = commit;
-		let upstreamCommit = commit.relatedTo;
+		let pointer: Commit | undefined = commit.next;
 
-		while (!upstreamCommit && pointer) {
-			pointer = pointer.prev;
-			upstreamCommit = pointer?.relatedTo;
+		while (pointer && !pointer.relatedTo) {
+			pointer = pointer.next;
 		}
-
-		if (!upstreamCommit) return hasUnknownCommits ? 'upstream' : undefined;
-
-		let nextUpstreamCommit = upstreamCommit.next?.relatedTo;
-		if (nextUpstreamCommit) return nextUpstreamCommit.status;
-		if (hasUnknownCommits) return 'upstream';
+		if (pointer) return pointer.status;
+		return hasUnknownCommits ? 'upstream' : undefined;
 	}
 
 	function getBaseShadowOutType(): CommitStatus | undefined {
@@ -85,7 +78,8 @@
 
 	function getBaseRemoteOutType(): CommitStatus | undefined {
 		if (isRebased) return;
-		if (firstCommit && firstCommit.status !== 'local') return firstCommit.status;
+		if (hasIntegratedCommits) return 'integrated';
+		if (hasShadowedCommits || hasRemoteCommits) return 'remote';
 		if (hasUnknownCommits) return 'upstream';
 	}
 
@@ -163,7 +157,7 @@
 						<CommitLines
 							{isRebased}
 							{hasLocalColumn}
-							localIn={'local'}
+							localIn={idx !== $localCommits.length - 1 ? 'local' : undefined}
 							localOut={'local'}
 							author={commit.author}
 							sectionFirst={idx === 0}

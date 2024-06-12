@@ -33,10 +33,18 @@ mod version {
 
     #[test]
     fn from_trailer() {
-        let s = "Version: 1";
+        let s = "Version: 2";
         let trailer = Trailer::from_str(s).unwrap();
         let version = Version::from_str(&trailer.value).unwrap();
         assert_eq!(version, Version::default());
+    }
+
+    #[test]
+    fn non_default() {
+        let s = "Version: 1";
+        let trailer = Trailer::from_str(s).unwrap();
+        let version = Version::from_str(&trailer.value).unwrap();
+        assert_eq!(version, Version::from_str("1").unwrap());
     }
 
     #[test]
@@ -62,7 +70,7 @@ mod operation_kind {
 
     #[test]
     fn unknown() {
-        let commit_message = "Create a new snapshot\n\nBody text 1\nBody text2\n\nBody text 3\n\nVersion: 1\nOperation: Asdf\nFoo: Bar\n";
+        let commit_message = "Create a new snapshot\n\nBody text 1\nBody text2\n\nBody text 3\n\nVersion: 2\nOperation: Asdf\nFoo: Bar\n";
         let details = SnapshotDetails::from_str(commit_message).unwrap();
         assert_eq!(details.version, Version::default());
         assert_eq!(details.operation, OperationKind::Unknown);
@@ -90,7 +98,7 @@ mod snapshot_details {
     fn new() {
         let commit_sha = git2::Oid::zero();
         let commit_message =
-            "Create a new snapshot\n\nBody text 1\nBody text2\n\nBody text 3\n\nVersion: 1\nOperation: CreateCommit\nFoo: Bar\n".to_string();
+            "Create a new snapshot\n\nBody text 1\nBody text2\n\nBody text 3\n\nVersion: 2\nOperation: CreateCommit\nFoo: Bar\n".to_string();
         let timezone_offset_does_not_matter = 1234;
         let created_at = git2::Time::new(1234567890, timezone_offset_does_not_matter);
         let details = SnapshotDetails::from_str(&commit_message.clone()).unwrap();
