@@ -197,7 +197,7 @@
 	}
 
 	.pop {
-		--icon-opacity: 0.7;
+		--icon-opacity: 0.8;
 
 		&.soft {
 			--btn-text-clr: var(--clr-theme-pop-on-soft);
@@ -220,7 +220,7 @@
 	}
 
 	.success {
-		--icon-opacity: 0.7;
+		--icon-opacity: 0.8;
 
 		&.soft {
 			--btn-text-clr: var(--clr-theme-succ-on-soft);
@@ -243,7 +243,7 @@
 	}
 
 	.error {
-		--icon-opacity: 0.7;
+		--icon-opacity: 0.8;
 
 		&.soft {
 			--btn-text-clr: var(--clr-theme-err-on-soft);
@@ -266,7 +266,7 @@
 	}
 
 	.warning {
-		--icon-opacity: 0.7;
+		--icon-opacity: 0.8;
 
 		&.soft {
 			--btn-text-clr: var(--clr-theme-warn-on-soft);
@@ -289,7 +289,7 @@
 	}
 
 	.purple {
-		--icon-opacity: 0.7;
+		--icon-opacity: 0.8;
 
 		&.soft {
 			--btn-text-clr: var(--clr-theme-purp-on-soft);
