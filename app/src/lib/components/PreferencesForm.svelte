@@ -153,7 +153,7 @@
 				on:select={updateSigningInfo}
 				label="Signing format"
 			>
-				<SelectItem slot="template" let:item>
+				<SelectItem slot="template" let:item let:selected {selected} let:highlighted {highlighted}>
 					{item.name}
 				</SelectItem>
 			</Select>

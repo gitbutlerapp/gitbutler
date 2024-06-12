@@ -176,7 +176,7 @@ impl fmt::Display for OperationKind {
 pub struct Version(u32);
 impl Default for Version {
     fn default() -> Self {
-        Version(1)
+        Version(2)
     }
 }
 

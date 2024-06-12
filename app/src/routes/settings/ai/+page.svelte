@@ -167,7 +167,14 @@
 						labelId="name"
 						label="Do you want to provide your own key?"
 					>
-						<SelectItem slot="template" let:item>
+						<SelectItem
+							slot="template"
+							let:item
+							let:selected
+							{selected}
+							let:highlighted
+							{highlighted}
+						>
 							{item.name}
 						</SelectItem>
 					</Select>
@@ -190,7 +197,14 @@
 							labelId="name"
 							label="Model version"
 						>
-							<SelectItem slot="template" let:item>
+							<SelectItem
+								slot="template"
+								let:item
+								let:selected
+								{selected}
+								let:highlighted
+								{highlighted}
+							>
 								{item.name}
 							</SelectItem>
 						</Select>
@@ -223,7 +237,14 @@
 						labelId="name"
 						label="Do you want to provide your own key?"
 					>
-						<SelectItem slot="template" let:item>
+						<SelectItem
+							slot="template"
+							let:item
+							let:selected
+							{selected}
+							let:highlighted
+							{highlighted}
+						>
 							{item.name}
 						</SelectItem>
 					</Select>
@@ -251,7 +272,14 @@
 							labelId="name"
 							label="Model version"
 						>
-							<SelectItem slot="template" let:item>
+							<SelectItem
+								slot="template"
+								let:item
+								let:selected
+								{selected}
+								let:highlighted
+								{highlighted}
+							>
 								{item.name}
 							</SelectItem>
 						</Select>

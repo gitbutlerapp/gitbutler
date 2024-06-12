@@ -1,61 +1,46 @@
 <script lang="ts" context="module">
 	export enum BranchAction {
 		Push = 'push',
-		Rebase = 'rebase'
+		Integrate = 'integrate'
 	}
 </script>
 
 <script lang="ts">
-	import { Project } from '$lib/backend/projects';
 	import DropDownButton from '$lib/components/DropDownButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
-	import { persisted, type Persisted } from '$lib/persisted/persisted';
-	import { getContext } from '$lib/utils/context';
-	import { getLocalCommits, getUnknownCommits } from '$lib/vbranches/contexts';
+	import { persisted } from '$lib/persisted/persisted';
 	import { createEventDispatcher } from 'svelte';
-	import type { Branch } from '$lib/vbranches/types';
+
+	export let integrate: boolean; // Integrate upstream option enabled
+	export let projectId: string;
 
 	export let isLoading = false;
 	export let wide = false;
-	export let branch: Branch;
-
-	const project = getContext(Project);
-	const localCommits = getLocalCommits();
-	const unknownCommits = getUnknownCommits();
-
-	function defaultAction(): Persisted<BranchAction> {
-		const key = 'projectDefaultAction_';
-		return persisted<BranchAction>(BranchAction.Push, key + project.id);
-	}
+	export let requiresForce: boolean;
 
 	const dispatch = createEventDispatcher<{ trigger: { action: BranchAction } }>();
-	const preferredAction = defaultAction();
+	const preferredAction = persisted<BranchAction>(
+		BranchAction.Push,
+		'projectDefaultAction_' + projectId
+	);
 
 	let contextMenu: ContextMenu;
 	let dropDown: DropDownButton;
 	let disabled = false;
-	let isPushed = $localCommits.length === 0 && !branch.requiresForce;
-	$: canBeRebased = $unknownCommits.length > 0;
-	$: action = selectAction(isPushed, $preferredAction);
 
-	function selectAction(isPushed: boolean, preferredAction: BranchAction) {
-		// TODO: Refactor such that this is not necessary
-		if (isPushed) {
-			return BranchAction.Rebase;
-		} else if (!branch.requiresForce) {
-			return BranchAction.Push;
-		}
-		return preferredAction;
-	}
-
-	$: pushLabel = branch.requiresForce ? 'Force push' : 'Push';
-
+	$: action = selectAction($preferredAction);
+	$: pushLabel = requiresForce ? 'Force push' : 'Push';
 	$: labels = {
 		[BranchAction.Push]: pushLabel,
-		[BranchAction.Rebase]: 'Rebase branch'
+		[BranchAction.Integrate]: 'Integrate upstream'
 	};
+
+	function selectAction(preferredAction: BranchAction) {
+		if (preferredAction === BranchAction.Integrate && integrate) return BranchAction.Integrate;
+		return BranchAction.Push;
+	}
 </script>
 
 <DropDownButton
@@ -73,26 +58,21 @@
 	{labels[$preferredAction]}
 	<ContextMenu slot="context-menu" bind:this={contextMenu}>
 		<ContextMenuSection>
-			{#if !isPushed}
-				<ContextMenuItem
-					label={labels[BranchAction.Push]}
-					disabled={isPushed}
-					on:click={() => {
-						$preferredAction = BranchAction.Push;
-						dropDown.close();
-					}}
-				/>
-			{/if}
-			{#if !branch.requiresForce || canBeRebased}
-				<ContextMenuItem
-					label={labels[BranchAction.Rebase]}
-					disabled={isPushed || $unknownCommits.length === 0}
-					on:click={() => {
-						$preferredAction = BranchAction.Rebase;
-						dropDown.close();
-					}}
-				/>
-			{/if}
+			<ContextMenuItem
+				label={labels[BranchAction.Push]}
+				on:click={() => {
+					$preferredAction = BranchAction.Push;
+					dropDown.close();
+				}}
+			/>
+			<ContextMenuItem
+				label={labels[BranchAction.Integrate]}
+				disabled={!integrate}
+				on:click={() => {
+					$preferredAction = BranchAction.Integrate;
+					dropDown.close();
+				}}
+			/>
 		</ContextMenuSection>
 	</ContextMenu>
 </DropDownButton>

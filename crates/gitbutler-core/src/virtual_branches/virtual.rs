@@ -2504,6 +2504,11 @@ fn is_commit_integrated(
         return Ok(true);
     }
 
+    // if it's an empty commit we can't base integration status on merge trees.
+    if commit.parent_count() == 1 && commit.parent(0)?.tree_id() == commit.tree_id() {
+        return Ok(false);
+    }
+
     // try to merge our tree into the upstream tree
     let mut merge_index = project_repository
         .repo()
