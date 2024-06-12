@@ -21,10 +21,10 @@
 	const dispatch = createEventDispatcher<{ hover: boolean }>();
 </script>
 
-<!-- eslint-disable-next-line svelte/valid-compile -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <label
 	for={labelFor}
-	role="listbox"
 	class="section-card"
 	style:flex-direction={orientation}
 	class:center-align={centerAlign && orientation === 'row'}

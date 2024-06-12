@@ -3,6 +3,8 @@
 // and what to do when importing types
 declare namespace App {}
 
+declare module 'tinykeys';
+
 interface HTMLElement {
 	scrollIntoViewIfNeeded: (centerIfNeeded?: boolean) => void;
 }
