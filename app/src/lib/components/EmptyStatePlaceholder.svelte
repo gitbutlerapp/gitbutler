@@ -1,15 +1,7 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
-
-	interface Props {
-		title?: Snippet;
-		caption?: Snippet;
-		image: string;
-		width?: string;
-		hasBottomShift?: boolean;
-	}
-
-	const { image, width = '18rem', hasBottomShift = true, title, caption }: Props = $props();
+	export let image: string;
+	export let width: string = '18rem';
+	export let hasBottomShift: boolean = true;
 </script>
 
 <div class="empty-state-container">
@@ -23,14 +15,14 @@
 		</div>
 
 		<div class="empty-state__content">
-			{#if title}
+			{#if $$slots.title}
 				<h2 class="empty-state__title text-base-body-15 text-semibold">
-					{@render title()}
+					<slot name="title" />
 				</h2>
 			{/if}
-			{#if caption}
+			{#if $$slots.caption}
 				<p class="empty-state__caption text-base-body-13">
-					{@render caption()}
+					<slot name="caption" />
 				</p>
 			{/if}
 		</div>
