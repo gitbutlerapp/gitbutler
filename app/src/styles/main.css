@@ -18,10 +18,6 @@
 	--transition-medium: 0.15s ease-in-out;
 	--transition-slow: 0.2s ease-in-out;
 
-	/* Hover ratio for oklch */
-	--hover-state-ratio: calc(l - 0.03);
-	--active-state-ratio: calc(l - 0.1);
-
 	/* Z-index */
 	--z-ground: 1;
 	--z-lifted: 2;
@@ -29,17 +25,9 @@
 	--z-tooltip: 4;
 	--z-blocker: 10;
 
-	--ghost-bg-muted-1: oklch(from var(--clr-core-ntrl-60) l c h / 0.1);
-	--ghost-bg-muted-2: oklch(from var(--clr-core-ntrl-60) l c h / 0.2);
-
 	/* TODO: add focus color */
 	--focus-color: var(--clr-scale-pop-50);
 	--resizer-color: var(--clr-scale-pop-50);
-}
-
-:root.dark {
-	--hover-state-ratio: calc(l + 0.03);
-	--active-state-ratio: calc(l + 0.1);
 }
 
 /* scrollbar helpers */

@@ -93,12 +93,14 @@
 		border-radius: var(--radius-m);
 		border: 1px solid transparent;
 		cursor: pointer;
-		color: var(--btn-clr);
+		color: var(--btn-text-clr);
 		background: var(--btn-bg);
 		transition:
 			background var(--transition-fast),
 			opacity var(--transition-fast),
 			color var(--transition-fast);
+		-webkit-transform-style: preserve-3d;
+		-webkit-backface-visibility: hidden;
 
 		&:disabled {
 			cursor: default;
@@ -139,45 +141,46 @@
 	.btn-icon {
 		flex-shrink: 0;
 		display: flex;
-		color: var(--btn-icon-clr, inherit);
-		transition: color var(--transition-fast);
+		opacity: var(--icon-opacity);
+		transition: opacity var(--transition-fast);
+		/* in order to fix the transition flickering bug in Safari */
+		-webkit-transform: translateZ(0);
 	}
 
 	/* STYLES */
 	.neutral {
+		--icon-opacity: 0.6;
 		/* kind */
 		&.soft {
-			--btn-clr: var(--clr-text-1);
-			--btn-bg: var(--ghost-bg-muted-1);
-			--btn-icon-clr: oklch(from var(--clr-text-1) l c h / 0.6);
+			--btn-text-clr: var(--clr-theme-ntrl-on-soft);
+			--btn-bg: var(--clr-theme-ntrl-soft);
 
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: var(--ghost-bg-muted-2);
-				--btn-icon-clr: var(--clr-text-1);
+				--icon-opacity: 1;
+				--btn-bg: var(--clr-theme-ntrl-soft-hover);
 			}
 		}
 		&.solid {
-			--btn-clr: var(--clr-scale-ntrl-100);
-			--btn-bg: var(--clr-scale-ntrl-30);
-			--btn-icon-clr: var(--clr-scale-ntrl-80);
+			--btn-text-clr: var(--clr-theme-ntrl-on-element);
+			--btn-bg: var(--clr-theme-ntrl-element);
 
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: var(--clr-scale-ntrl-20);
-				--btn-icon-clr: var(--clr-scale-ntrl-90);
+				--icon-opacity: 1;
+				--btn-bg: var(--clr-theme-ntrl-element-hover);
 			}
 		}
 	}
 
 	.ghost {
-		--btn-icon-clr: oklch(from var(--clr-text-1) l c h / 0.6);
-		--btn-clr: var(--clr-text-1);
+		--icon-opacity: 0.6;
+		--btn-text-clr: var(--clr-theme-ntrl-on-soft);
 		--btn-bg: transparent;
 
 		&:not(.not-clickable, &:disabled):hover {
-			--btn-bg: var(--ghost-bg-muted-1);
-			--btn-icon-clr: var(--clr-text-1);
+			--icon-opacity: 1;
+			--btn-bg: var(--clr-bg-1-muted);
 		}
 
 		&.outline {
@@ -194,96 +197,116 @@
 	}
 
 	.pop {
+		--icon-opacity: 0.8;
+
 		&.soft {
-			--btn-clr: var(--clr-theme-pop-on-soft);
+			--btn-text-clr: var(--clr-theme-pop-on-soft);
 			--btn-bg: var(--clr-theme-pop-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: oklch(from var(--clr-theme-pop-soft) var(--hover-state-ratio) c h);
+				--icon-opacity: 1;
+				--btn-bg: var(--clr-theme-pop-soft-hover);
 			}
 		}
 		&.solid {
-			--btn-clr: var(--clr-theme-pop-on-element);
+			--btn-text-clr: var(--clr-theme-pop-on-element);
 			--btn-bg: var(--clr-theme-pop-element);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: oklch(from var(--clr-theme-pop-element) var(--hover-state-ratio) c h);
+				--icon-opacity: 1;
+				--btn-bg: var(--clr-theme-pop-element-hover);
 			}
 		}
 	}
 
 	.success {
+		--icon-opacity: 0.8;
+
 		&.soft {
-			--btn-clr: var(--clr-theme-succ-on-soft);
+			--btn-text-clr: var(--clr-theme-succ-on-soft);
 			--btn-bg: var(--clr-theme-succ-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: oklch(from var(--clr-theme-succ-soft) var(--hover-state-ratio) c h);
+				--icon-opacity: 1;
+				--btn-bg: var(--clr-theme-succ-soft-hover);
 			}
 		}
 		&.solid {
-			--btn-clr: var(--clr-theme-succ-on-element);
+			--btn-text-clr: var(--clr-theme-succ-on-element);
 			--btn-bg: var(--clr-theme-succ-element);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: oklch(from var(--clr-theme-succ-element) var(--hover-state-ratio) c h);
+				--icon-opacity: 1;
+				--btn-bg: var(--clr-theme-succ-element-hover);
 			}
 		}
 	}
 
 	.error {
+		--icon-opacity: 0.8;
+
 		&.soft {
-			--btn-clr: var(--clr-theme-err-on-soft);
+			--btn-text-clr: var(--clr-theme-err-on-soft);
 			--btn-bg: var(--clr-theme-err-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: oklch(from var(--clr-theme-err-soft) var(--hover-state-ratio) c h);
+				--icon-opacity: 1;
+				--btn-bg: var(--clr-theme-err-soft-hover);
 			}
 		}
 		&.solid {
-			--btn-clr: var(--clr-theme-err-on-element);
+			--btn-text-clr: var(--clr-theme-err-on-element);
 			--btn-bg: var(--clr-theme-err-element);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: oklch(from var(--clr-theme-err-element) var(--hover-state-ratio) c h);
+				--icon-opacity: 1;
+				--btn-bg: var(--clr-theme-err-element-hover);
 			}
 		}
 	}
 
 	.warning {
+		--icon-opacity: 0.8;
+
 		&.soft {
-			--btn-clr: var(--clr-theme-warn-on-soft);
+			--btn-text-clr: var(--clr-theme-warn-on-soft);
 			--btn-bg: var(--clr-theme-warn-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: oklch(from var(--clr-theme-warn-soft) var(--hover-state-ratio) c h);
+				--icon-opacity: 1;
+				--btn-bg: var(--clr-theme-warn-soft-hover);
 			}
 		}
 		&.solid {
-			--btn-clr: var(--clr-theme-warn-on-element);
+			--btn-text-clr: var(--clr-theme-warn-on-element);
 			--btn-bg: var(--clr-theme-warn-element);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: oklch(from var(--clr-theme-warn-element) var(--hover-state-ratio) c h);
+				--icon-opacity: 1;
+				--btn-bg: var(--clr-theme-warn-element-hover);
 			}
 		}
 	}
 
 	.purple {
+		--icon-opacity: 0.8;
+
 		&.soft {
-			--btn-clr: var(--clr-theme-purp-on-soft);
+			--btn-text-clr: var(--clr-theme-purp-on-soft);
 			--btn-bg: var(--clr-theme-purp-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: oklch(from var(--clr-theme-purp-soft) var(--hover-state-ratio) c h);
+				--icon-opacity: 1;
+				--btn-bg: var(--clr-theme-purp-soft-hover);
 			}
 		}
 		&.solid {
-			--btn-clr: var(--clr-theme-purp-on-element);
+			--btn-text-clr: var(--clr-theme-purp-on-element);
 			--btn-bg: var(--clr-theme-purp-element);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--btn-bg: oklch(from var(--clr-theme-purp-element) var(--hover-state-ratio) c h);
+				--icon-opacity: 1;
+				--btn-bg: var(--clr-theme-purp-element-hover);
 			}
 		}
 	}

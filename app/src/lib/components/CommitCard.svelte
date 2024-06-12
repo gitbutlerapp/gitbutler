@@ -289,12 +289,13 @@
 		position: relative;
 		display: flex;
 		gap: 8px;
+
 		&.has-lines {
 			padding-right: 14px;
 		}
 
 		&:not(.is-first) {
-			border-top: 1px solid var(--clr-border-3);
+			border-top: 1px dotted var(--clr-border-2);
 		}
 	}
 

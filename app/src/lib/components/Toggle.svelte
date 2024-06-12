@@ -39,7 +39,7 @@
 		/* not checked */
 		&:hover,
 		&:focus {
-			background-color: oklch(from var(--clr-border-2) var(--hover-state-ratio) c h);
+			background-color: var(--clr-border-1);
 		}
 
 		&:disabled {
@@ -55,7 +55,7 @@
 			background-color: var(--clr-theme-pop-element);
 
 			&:hover {
-				background-color: oklch(from var(--clr-theme-pop-element) var(--hover-state-ratio) c h);
+				background-color: var(--clr-theme-pop-element-hover);
 			}
 
 			&:disabled {

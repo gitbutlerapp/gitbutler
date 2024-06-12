@@ -81,7 +81,10 @@
 	}
 
 	.base-branch-card:not(.selected):hover,
-	.base-branch-card:not(.selected):focus,
+	.base-branch-card:not(.selected):focus {
+		background-color: var(--clr-bg-1-muted);
+	}
+
 	.selected {
 		background-color: var(--clr-bg-2);
 	}
