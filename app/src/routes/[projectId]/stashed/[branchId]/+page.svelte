@@ -51,8 +51,10 @@
 	{/snippet}
 </Modal>
 
-<Modal width="small" title="Delete branch" bind:this={deleteBranchModal} let:item>
-	Deleting <code class="code-string">{item.name}</code> cannot be undone.
+<Modal width="small" title="Delete branch" bind:this={deleteBranchModal}>
+	{#snippet children(item)}
+		Deleting <code class="code-string">{item.name}</code> cannot be undone.
+	{/snippet}
 	{#snippet controls(close, item)}
 		<Button style="ghost" outline on:mousedown={() => close?.()}>Cancel</Button>
 		<Button
