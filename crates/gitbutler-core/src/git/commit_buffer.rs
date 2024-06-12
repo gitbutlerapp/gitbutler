@@ -10,8 +10,6 @@ impl CommitBuffer {
     pub fn new(buffer: &[u8]) -> Result<Self> {
         let buffer = str::from_utf8(buffer)?;
 
-        dbg!(&buffer);
-
         if let Some((heading, message)) = buffer.split_once("\n\n") {
             let heading = heading
                 .lines()

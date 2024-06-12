@@ -15,13 +15,15 @@ use std::{
 use anyhow::{Context, Result};
 use git2::TreeEntry;
 use gitbutler_core::{
-    git::{self, CommitExt, RepositoryExt},
+    git::{self, diff, CommitExt, RepositoryExt},
     virtual_branches::{
-        self, apply_branch,
+        self,
         branch::{BranchCreateRequest, BranchOwnershipClaims},
-        commit, create_virtual_branch, integrate_upstream_commits,
-        integration::verify_branch,
-        is_remote_branch_mergeable, list_remote_branches, unapply_ownership, update_branch,
+        commit, create_virtual_branch, create_virtual_branch_from_branch,
+        integrate_upstream_commits,
+        integration::{update_gitbutler_integration, verify_branch},
+        is_remote_branch_mergeable, list_remote_branches, list_virtual_branches, unapply_ownership,
+        update_branch,
     },
 };
 use pretty_assertions::assert_eq;
@@ -1159,20 +1161,43 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
         },
     )?;
 
-    virtual_branches::convert_to_real_branch(project_repository, branch2_id, Default::default())?;
+    list_virtual_branches(project_repository).unwrap();
+
+    let real_branch_2 = virtual_branches::convert_to_real_branch(
+        project_repository,
+        branch2_id,
+        Default::default(),
+    )?;
+
     // check that file2 is back
     let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("file2\n", String::from_utf8(contents)?);
 
-    virtual_branches::convert_to_real_branch(project_repository, branch3_id, Default::default())?;
+    let real_branch_3 = virtual_branches::convert_to_real_branch(
+        project_repository,
+        branch3_id,
+        Default::default(),
+    )?;
     // check that file3 is gone
     assert!(!Path::new(&project.path).join(file_path3).exists());
 
-    apply_branch(project_repository, branch2_id, None)?;
+    create_virtual_branch_from_branch(
+        project_repository,
+        &git::Refname::try_from(&real_branch_2).unwrap(),
+        None,
+    )
+    .unwrap();
+
     // check that file2 is gone
     assert!(!Path::new(&project.path).join(file_path2).exists());
 
-    apply_branch(project_repository, branch3_id, None)?;
+    create_virtual_branch_from_branch(
+        project_repository,
+        &git::Refname::try_from(&real_branch_3).unwrap(),
+        None,
+    )
+    .unwrap();
+
     // check that file3 is back
     let contents = std::fs::read(Path::new(&project.path).join(file_path3))?;
     assert_eq!("file3\n", String::from_utf8(contents)?);

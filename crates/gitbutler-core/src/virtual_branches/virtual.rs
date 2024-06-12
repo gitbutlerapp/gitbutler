@@ -440,19 +440,17 @@ pub fn apply_branch(
     vb_state.set_branch(branch.clone())?;
 
     ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
-
     // checkout the merge index
     repo.checkout_index_builder(&mut merge_index)
         .force()
         .checkout()
         .context("failed to checkout index")?;
 
-    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-
     // Look for and handle the vbranch indicator commit
     {
         let head_commit = repo.find_commit(branch.head)?;
-        if let Some(header) = dbg!(head_commit.raw_header()) {
+
+        if let Some(header) = head_commit.raw_header() {
             if header
                 .lines()
                 .any(|line| line.starts_with("gitbutler-vbranch"))
@@ -471,6 +469,9 @@ pub fn apply_branch(
             }
         }
     }
+
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+
     Ok(branch.name)
 }
 
@@ -2586,11 +2587,6 @@ fn is_commit_integrated(
     if merge_base_tree.id() == upstream_tree.id() {
         // if merge base is the same as upstream tree, then it's integrated
         return Ok(true);
-    }
-
-    // if it's an empty commit we can't base integration status on merge trees.
-    if commit.parent_count() == 1 && commit.parent(0)?.tree_id() == commit.tree_id() {
-        return Ok(false);
     }
 
     // try to merge our tree into the upstream tree
