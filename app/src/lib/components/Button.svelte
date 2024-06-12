@@ -175,7 +175,7 @@
 
 	.ghost {
 		--icon-opacity: 0.6;
-		--btn-text-clr: var(--clr-text-1);
+		--btn-text-clr: var(--clr-theme-ntrl-on-soft);
 		--btn-bg: transparent;
 
 		&:not(.not-clickable, &:disabled):hover {
