@@ -36,13 +36,13 @@
 <Modal width="small" title="Merge conflicts" bind:this={applyConflictedModal}>
 	<p>Applying this branch will introduce merge conflicts.</p>
 	{#snippet controls(close, item)}
-		<Button style="ghost" outline on:click={() => close?.()}>Cancel</Button>
+		<Button style="ghost" outline on:click={close}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
 			on:click={() => {
 				branchController.applyBranch(item.id);
-				close?.();
+				close();
 				goto(`/${projectId}/board`);
 			}}
 		>
@@ -56,13 +56,13 @@
 		Deleting <code class="code-string">{item.name}</code> cannot be undone.
 	{/snippet}
 	{#snippet controls(close, item)}
-		<Button style="ghost" outline on:mousedown={() => close?.()}>Cancel</Button>
+		<Button style="ghost" outline on:mousedown={close}>Cancel</Button>
 		<Button
 			style="error"
 			kind="solid"
 			on:click={() => {
 				branchController.deleteBranch(item.id);
-				close?.();
+				close();
 				goto(`/${projectId}/board`);
 			}}
 		>

@@ -54,7 +54,7 @@
 		>
 			Remove
 		</Button>
-		<Button style="pop" kind="solid" on:click={() => close?.()}>Cancel</Button>
+		<Button style="pop" kind="solid" on:click={close}>Cancel</Button>
 	{/snippet}
 </Modal>
 

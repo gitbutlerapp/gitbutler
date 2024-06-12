@@ -110,7 +110,7 @@
 	bind:this={gitHubOauthModal}
 	width="small"
 	title="Authorize with GitHub"
-	on:close={() => {
+	onclose={() => {
 		codeCopied = false;
 		GhActivationLinkPressed = false;
 		GhActivationPageOpened = false;

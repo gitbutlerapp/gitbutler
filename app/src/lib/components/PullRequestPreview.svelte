@@ -28,9 +28,9 @@
 
 	let loading = false;
 
-	function closeModal(close: (() => void) | undefined) {
+	function closeModal(close: () => void) {
 		remoteName = structuredClone(pullrequest.repoName) || '';
-		close?.();
+		close();
 	}
 
 	async function createRemoteAndBranch() {

@@ -215,7 +215,7 @@
 				<Button style="error" kind="solid" loading={isDeleting} on:click={onDeleteClicked}>
 					Remove
 				</Button>
-				<Button style="pop" kind="solid" on:click={() => close?.()}>Cancel</Button>
+				<Button style="pop" kind="solid" on:click={close}>Cancel</Button>
 			{/snippet}
 		</Modal>
 	</SectionCard>

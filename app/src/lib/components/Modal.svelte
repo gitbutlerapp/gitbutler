@@ -8,14 +8,16 @@
 		width?: 'default' | 'small' | 'large';
 		title?: string | undefined;
 		icon?: keyof typeof iconsJson | undefined;
+		onclose?: () => void;
 		children: Snippet<[item?: any]>;
-		controls?: Snippet<[close?: () => void, item?: any]>;
+		controls?: Snippet<[close: () => void, item: any]>;
 	}
 
 	const {
 		width = 'default',
 		title = undefined,
 		icon = undefined,
+		onclose,
 		children,
 		controls
 	}: Props = $props();
@@ -34,6 +36,7 @@
 		item = undefined;
 		dialog?.close();
 		open = false;
+		onclose?.();
 	}
 </script>
 

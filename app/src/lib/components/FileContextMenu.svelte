@@ -118,13 +118,13 @@
 		</div>
 	{/snippet}
 	{#snippet controls(close, item)}
-		<Button style="ghost" outline on:click={() => close?.()}>Cancel</Button>
+		<Button style="ghost" outline on:click={close}>Cancel</Button>
 		<Button
 			style="error"
 			kind="solid"
 			on:click={() => {
 				branchController.unapplyFiles(item.files);
-				close?.();
+				close();
 			}}
 		>
 			Confirm

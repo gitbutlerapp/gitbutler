@@ -54,8 +54,7 @@
 	bind:this={modal}
 	width="small"
 	title="Git fetch requires input"
-	on:submit={async () => await submit()}
-	on:close={async () => await cancel()}
+	onclose={async () => await cancel()}
 >
 	<div class="message">
 		{#if $error}
@@ -68,7 +67,14 @@
 
 	{#snippet controls()}
 		<Button style="ghost" outline type="reset" disabled={loading} on:click={cancel}>Cancel</Button>
-		<Button style="pop" kind="solid" type="submit" grow disabled={!!$error || loading} {loading}>
+		<Button
+			style="pop"
+			kind="solid"
+			grow
+			disabled={!!$error || loading}
+			{loading}
+			on:click={async () => await submit()}
+		>
 			Submit
 		</Button>
 	{/snippet}

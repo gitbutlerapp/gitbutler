@@ -114,7 +114,7 @@
 	</label>
 
 	{#snippet controls(close)}
-		<Button style="ghost" outline on:click={() => close?.()}>Cancel</Button>
+		<Button style="ghost" outline on:click={close}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
@@ -123,7 +123,7 @@
 				if (mergeUpstreamWarningDismissedCheckbox) {
 					mergeUpstreamWarningDismissed.set(true);
 				}
-				close?.();
+				close();
 			}}
 		>
 			Merge Upstream
