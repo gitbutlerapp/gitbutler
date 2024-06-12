@@ -203,10 +203,6 @@
 	.sections-divider {
 		user-select: none;
 		border-top: 1px solid var(--clr-border-3);
-
-		&.empty {
-			opacity: 0;
-		}
 	}
 
 	.actions {

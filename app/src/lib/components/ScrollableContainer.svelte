@@ -2,9 +2,9 @@
 	import Scrollbar, { type ScrollbarPadding } from '$lib/components/Scrollbar.svelte';
 	import { onDestroy, onMount, createEventDispatcher } from 'svelte';
 
+	export const height: string | undefined = undefined;
 	export let viewport: HTMLDivElement | undefined = undefined;
 	export let contents: HTMLDivElement | undefined = undefined;
-	export let height: string | undefined = undefined;
 	export let fillViewport: boolean = false;
 	export let maxHeight: string | undefined = undefined;
 	export let scrollable: boolean | undefined = undefined;

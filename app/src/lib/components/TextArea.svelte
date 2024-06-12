@@ -53,7 +53,7 @@
 		}}
 		on:focus={(e) => useAutoHeight(e.currentTarget)}
 		style:max-height={maxHeight ? pxToRem(maxHeight) : undefined}
-	/>
+	></textarea>
 </div>
 
 <style lang="postcss">

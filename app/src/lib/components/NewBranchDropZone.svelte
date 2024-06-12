@@ -57,7 +57,7 @@
 				</div>
 
 				<div class="stimg__branch">
-					<div class="stimg__branch-plus" />
+					<div class="stimg__branch-plus"></div>
 				</div>
 			</div>
 

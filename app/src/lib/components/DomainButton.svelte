@@ -14,6 +14,7 @@
 
 	const baseBranch = getContextStore(BaseBranch);
 
+	// eslint-disable-next-line svelte/valid-compile
 	$: selected = $page.url.href.includes(href);
 </script>
 

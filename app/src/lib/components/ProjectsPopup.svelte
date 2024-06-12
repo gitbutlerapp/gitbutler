@@ -30,6 +30,7 @@
 			<ScrollableContainer maxHeight="20rem">
 				<div class="popup__projects">
 					{#each $projects as project}
+						<!-- eslint-disable-next-line svelte/valid-compile -->
 						{@const selected = project.id === $page.params.projectId}
 						<ListItem
 							{selected}

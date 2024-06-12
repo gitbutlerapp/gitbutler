@@ -3,7 +3,6 @@
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { useAutoHeight } from '$lib/utils/useAutoHeight';
-	import { useResize } from '$lib/utils/useResize';
 	import { marked } from 'marked';
 	import { createEventDispatcher } from 'svelte';
 

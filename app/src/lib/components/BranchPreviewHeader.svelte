@@ -112,7 +112,7 @@
 			</div>
 		</div>
 	</div>
-	<div class="header__top-overlay" data-tauri-drag-region />
+	<div class="header__top-overlay" data-tauri-drag-region></div>
 </div>
 
 <style lang="postcss">

@@ -12,7 +12,11 @@
 
 <div class="shadow-column">
 	{#if outType}
-		<div class="shadow-line tip" class:dashed={outDashed} class:upstream={outType === 'upstream'} />
+		<div
+			class="shadow-line tip"
+			class:dashed={outDashed}
+			class:upstream={outType === 'upstream'}
+		></div>
 	{/if}
 	{#if inType}
 		<div
@@ -20,7 +24,7 @@
 			class:upstream={inType === 'upstream'}
 			class:first={sectionFirst}
 			class:dashed={inDashed}
-		/>
+		></div>
 	{/if}
 	<slot />
 </div>

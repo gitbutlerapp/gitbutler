@@ -122,7 +122,7 @@
 		style="--resizer-default-line-color: {defaultLineColor}; --resizer-default-line-thickness: {pxToRem(
 			defaultLineThickness
 		)}; --resizer-hover-line-thickness: {pxToRem(hoverLineThickness)}"
-	/>
+	></div>
 </div>
 
 <style lang="postcss">

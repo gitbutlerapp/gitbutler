@@ -42,16 +42,10 @@
 	}
 
 	function updateContextMenu() {
-<<<<<<< ndom91/svelte-5 -- Incoming Change
 		if (popupMenu) unmount(popupMenu);
 		return mount(FileContextMenu, {
-			target: document.body
-=======
-		if (popupMenu) popupMenu.$destroy();
-		return new FileContextMenu({
 			target: document.body,
 			props: { isUnapplied }
->>>>>>> master -- Current Change
 		});
 	}
 

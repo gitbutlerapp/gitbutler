@@ -12,6 +12,7 @@
 </script>
 
 <div class="toast-controller hide-native-scrollbar">
+	<!-- eslint-disable-next-line svelte/valid-compile -->
 	{#each $toastStore as toast (toast.id)}
 		<div transition:slide={{ duration: 170 }}>
 			<InfoMessage

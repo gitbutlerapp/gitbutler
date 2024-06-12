@@ -82,9 +82,10 @@
 		}}
 	>
 		{#each $activeBranches.sort((a, b) => a.order - b.order) as branch (branch.id)}
-			<!-- svelte-ignore a11y-no-static-element-interactions -->
 			<div
 				class="branch draggable-branch"
+				role="tabpanel"
+				tabindex="-1"
 				draggable="true"
 				on:mousedown={(e) => (dragHandle = e.target)}
 				on:dragstart={(e) => {

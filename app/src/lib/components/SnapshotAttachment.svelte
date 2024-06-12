@@ -28,8 +28,7 @@
 </script>
 
 <div class="snapshot-attachment">
-	<!-- svelte-ignore a11y-no-static-element-interactions -->
-	<!-- svelte-ignore a11y-click-events-have-key-events -->
+	<!-- eslint-disable-next-line svelte/valid-compile -->
 	<div
 		bind:this={el}
 		on:click={() => {

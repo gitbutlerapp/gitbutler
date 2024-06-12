@@ -19,7 +19,7 @@
 			class:first={sectionFirst}
 			class:dashed={outDashed}
 			class:integrated={inType === 'integrated'}
-		/>
+		></div>
 	{/if}
 	{#if inType}
 		<div
@@ -28,10 +28,10 @@
 			class:first={sectionFirst}
 			class:has-root={root}
 			class:integrated={inType === 'integrated'}
-		/>
+		></div>
 	{/if}
 	{#if root}
-		<div class="root" class:long-root={longRoot} />
+		<div class="root" class:long-root={longRoot}></div>
 	{/if}
 	<slot />
 </div>

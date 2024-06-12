@@ -479,10 +479,6 @@
 
 	/* MODIFIERS */
 	.is-commit-open {
-		& .commit__about {
-			background-color: var(--clr-bg-1-muted);
-		}
-
 		& .commit-card {
 			border-radius: var(--radius-m);
 

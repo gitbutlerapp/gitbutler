@@ -15,16 +15,16 @@
 
 <div class="remote-column" class:has-root={root} class:base>
 	{#if base}
-		<div class="remote-line dashed short" />
+		<div class="remote-line dashed short"></div>
 		{#if outType}
 			<div
 				class="remote-line base tip"
 				class:dashed={outDashed}
 				class:upstream={outType === 'upstream'}
-			/>
+			></div>
 		{/if}
 		{#if root}
-			<div class="root base" />
+			<div class="root base"></div>
 		{/if}
 		<div class="base-icon">
 			<svg
@@ -51,7 +51,7 @@
 				class:remote={outType === 'remote'}
 				class:dashed={outDashed}
 				class:first={sectionFirst}
-			/>
+			></div>
 		{/if}
 		{#if inType}
 			<div
@@ -61,10 +61,10 @@
 				class:upstream={inType === 'upstream'}
 				class:remote={inType === 'remote'}
 				class:dashed={inDashed}
-			/>
+			></div>
 		{/if}
 		{#if root}
-			<div class="root" />
+			<div class="root"></div>
 		{/if}
 		<slot />
 	{/if}
@@ -87,9 +87,6 @@
 			top: calc(var(--avatar-top) + 4px);
 			&.first {
 				top: calc(var(--avatar-first-top) + 4px);
-			}
-			&.base {
-				top: calc(var(--avatar-top) + 8px);
 			}
 		}
 		&.tip {
