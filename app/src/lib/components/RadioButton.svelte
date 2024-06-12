@@ -40,6 +40,7 @@
 		&:hover,
 		&:focus {
 			outline: none;
+			box-shadow: inset 0 0 0 1px var(--clr-border-1);
 
 			&::after {
 				opacity: 0.2;

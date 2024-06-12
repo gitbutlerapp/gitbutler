@@ -59,7 +59,7 @@
 
 			&:hover {
 				color: var(--clr-scale-pop-10);
-				background: oklch(from var(--clr-scale-pop-70) var(--hover-state-ratio) c h);
+				background: oklch(from var(--clr-scale-pop-70) calc(l - 0.03) c h);
 			}
 		}
 
