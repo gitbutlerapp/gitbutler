@@ -60,7 +60,7 @@ pub fn get_workspace_head(
         let merge_base = repo.merge_base(first_branch.head, merge_parent)?;
         workspace_tree = repo.find_commit(merge_base)?.tree()?;
     } else {
-        for branch in dbg!(&applied_branches) {
+        for branch in &applied_branches {
             let branch_tree = repo.find_commit(branch.head)?.tree()?;
             let merge_tree = repo.find_commit(target.sha)?.tree()?;
             let mut index = repo.merge_trees(&merge_tree, &workspace_tree, &branch_tree, None)?;
