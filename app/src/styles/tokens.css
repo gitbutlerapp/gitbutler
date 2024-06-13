@@ -32,7 +32,7 @@
 	--clr-core-ntrl-0: #0a0a0a;
 	--clr-core-ntrl-5: #181412;
 	--clr-core-ntrl-10: #25211f;
-	--clr-core-ntrl-20: #353130;
+	--clr-core-ntrl-20: #302c2b;
 	--clr-core-ntrl-30: #4f4b48;
 	--clr-core-ntrl-40: #67635e;
 	--clr-core-ntrl-50: #867e79;
@@ -168,8 +168,8 @@
 	--clr-theme-err-on-soft: var(--clr-core-err-20);
 	--clr-theme-err-soft: var(--clr-core-err-80);
 	--clr-theme-err-soft-hover: var(--clr-core-err-70);
-	--clr-theme-ntrl-element: var(--clr-core-ntrl-40);
-	--clr-theme-ntrl-element-hover: var(--clr-core-ntrl-30);
+	--clr-theme-ntrl-element: var(--clr-core-ntrl-30);
+	--clr-theme-ntrl-element-hover: var(--clr-core-ntrl-20);
 	--clr-theme-ntrl-on-element: var(--clr-core-ntrl-100);
 	--clr-theme-ntrl-on-soft: var(--clr-scale-ntrl-0);
 	--clr-theme-ntrl-soft: var(--clr-core-ntrl-90);
@@ -331,8 +331,8 @@
 	--clr-theme-err-on-soft: var(--clr-core-err-95);
 	--clr-theme-err-soft: var(--clr-core-err-20);
 	--clr-theme-err-soft-hover: var(--clr-core-err-30);
-	--clr-theme-ntrl-element: var(--clr-core-ntrl-70);
-	--clr-theme-ntrl-element-hover: var(--clr-core-ntrl-80);
+	--clr-theme-ntrl-element: var(--clr-core-ntrl-80);
+	--clr-theme-ntrl-element-hover: var(--clr-core-ntrl-95);
 	--clr-theme-ntrl-on-element: var(--clr-core-ntrl-0);
 	--clr-theme-ntrl-on-soft: var(--clr-core-ntrl-90);
 	--clr-theme-ntrl-soft: var(--clr-core-ntrl-20);
