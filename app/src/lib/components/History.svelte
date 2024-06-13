@@ -75,6 +75,12 @@
 	let selectedFile: { entryId: string; path: string } | undefined = undefined;
 </script>
 
+<svelte:window
+	on:keydown={(e) => {
+		e.key === 'Escape' && dispatch('hide');
+	}}
+/>
+
 <aside class="sideview-container show-view">
 	<div
 		class="sideview-content-wrap show-sideview"
