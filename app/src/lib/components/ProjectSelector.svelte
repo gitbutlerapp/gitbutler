@@ -50,6 +50,12 @@
 		margin-top: 14px;
 		margin-bottom: 16px;
 		height: fit-content;
+
+		&:hover {
+			& .button__icon {
+				color: var(--clr-scale-ntrl-40);
+			}
+		}
 	}
 
 	.button {
@@ -75,7 +81,6 @@
 
 	.button__icon {
 		display: flex;
-		color: var(--clr-scale-ntrl-0);
-		opacity: 0.3;
+		color: var(--clr-scale-ntrl-50);
 	}
 </style>
