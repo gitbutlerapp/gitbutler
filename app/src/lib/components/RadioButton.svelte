@@ -5,7 +5,7 @@
 	export let disabled = false;
 	export let value = '';
 	export let id = '';
-    export let checked = false;
+	export let checked = false;
 </script>
 
 <input
@@ -19,7 +19,7 @@
 	{value}
 	{name}
 	{disabled}
-    {checked}
+	{checked}
 />
 
 <style lang="postcss">

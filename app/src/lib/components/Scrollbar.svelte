@@ -58,15 +58,15 @@
 	$: thumbTop = wholeHeight > 0 ? (scrollTop / wholeHeight) * trackHeight : 0;
 	$: thumbLeft = wholeHeight > 0 ? (scrollLeft / wholeWidth) * trackWidth : 0;
 
-	$: alwaysVisible = $userSettings.scrollbarVisibilityState === "always";
-	$: hoverVisible = $userSettings.scrollbarVisibilityState === "hover";
+	$: alwaysVisible = $userSettings.scrollbarVisibilityState === 'always';
+	$: hoverVisible = $userSettings.scrollbarVisibilityState === 'hover';
 
 	$: scrollableY = wholeHeight > trackHeight;
 	$: scrollableX = wholeWidth > trackWidth;
 	$: visible =
 		((scrollableY || scrollableX) && initiallyVisible) ||
 		(hoverVisible && isViewportHovered && (scrollableY || scrollableX)) ||
-        alwaysVisible;
+		alwaysVisible;
 
 	const dispatch = createEventDispatcher<{
 		dragging: boolean;

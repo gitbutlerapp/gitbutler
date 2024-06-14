@@ -12,7 +12,11 @@
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
 	import { showError } from '$lib/notifications/toasts';
-	import { SETTINGS, type Settings, type ScrollbarVisilitySettings } from '$lib/settings/userSettings';
+	import {
+		SETTINGS,
+		type Settings,
+		type ScrollbarVisilitySettings
+	} from '$lib/settings/userSettings';
 	import { UserService } from '$lib/stores/user';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
@@ -97,16 +101,17 @@
 		}
 	}
 
-    function onScrollbarFormChange(form: HTMLFormElement) {
+	function onScrollbarFormChange(form: HTMLFormElement) {
 		const formData = new FormData(form);
-		const selectedScrollbarVisibility = formData.get('scrollBarVisibilityType') as ScrollbarVisilitySettings ;
+		const selectedScrollbarVisibility = formData.get(
+			'scrollBarVisibilityType'
+		) as ScrollbarVisilitySettings;
 
-        userSettings.update((s) => ({
-            ...s,
-            scrollbarVisibilityState: selectedScrollbarVisibility
-        }));
-    }
-
+		userSettings.update((s) => ({
+			...s,
+			scrollbarVisibilityState: selectedScrollbarVisibility
+		}));
+	}
 </script>
 
 <ContentWrapper title="Profile">
@@ -178,47 +183,54 @@
 
 	<Spacer />
 
-    <form on:change={(e) => onScrollbarFormChange(e.currentTarget)}>
-		<SectionCard
-            roundedBottom={false}
-            orientation="row"
-            labelFor="scrollbar-on-scroll"
-        >
-            <svelte:fragment slot="title">Scrollbar-On-Scroll</svelte:fragment>
-            <svelte:fragment slot="caption">
-                Only show the scrollbar when you are scrolling.
-            </svelte:fragment>
+	<form on:change={(e) => onScrollbarFormChange(e.currentTarget)}>
+		<SectionCard roundedBottom={false} orientation="row" labelFor="scrollbar-on-scroll">
+			<svelte:fragment slot="title">Scrollbar-On-Scroll</svelte:fragment>
+			<svelte:fragment slot="caption">
+				Only show the scrollbar when you are scrolling.
+			</svelte:fragment>
 			<svelte:fragment slot="actions">
-				<RadioButton name="scrollBarVisibilityType" value="scroll" id="scrollbar-on-scroll" checked={$userSettings.scrollbarVisibilityState === "scroll"} />
+				<RadioButton
+					name="scrollBarVisibilityType"
+					value="scroll"
+					id="scrollbar-on-scroll"
+					checked={$userSettings.scrollbarVisibilityState === 'scroll'}
+				/>
 			</svelte:fragment>
 		</SectionCard>
 
 		<SectionCard
 			roundedTop={false}
-            roundedBottom={false}
-            orientation="row"
-            labelFor="scrollbar-on-hover"
-        >
-            <svelte:fragment slot="title">Scrollbar-On-Hover</svelte:fragment>
-            <svelte:fragment slot="caption">
-                Show the scrollbar only when you hover over the scrollable area.
-            </svelte:fragment>
+			roundedBottom={false}
+			orientation="row"
+			labelFor="scrollbar-on-hover"
+		>
+			<svelte:fragment slot="title">Scrollbar-On-Hover</svelte:fragment>
+			<svelte:fragment slot="caption">
+				Show the scrollbar only when you hover over the scrollable area.
+			</svelte:fragment>
 			<svelte:fragment slot="actions">
-				<RadioButton name="scrollBarVisibilityType" value="hover" id="scrollbar-on-hover" checked={$userSettings.scrollbarVisibilityState === "hover"} />
+				<RadioButton
+					name="scrollBarVisibilityType"
+					value="hover"
+					id="scrollbar-on-hover"
+					checked={$userSettings.scrollbarVisibilityState === 'hover'}
+				/>
 			</svelte:fragment>
 		</SectionCard>
 
-		<SectionCard
-			roundedTop={false}
-            orientation="row"
-            labelFor="scrollbar-always"
-        >
-            <svelte:fragment slot="title">Always show scrollbar</svelte:fragment>
+		<SectionCard roundedTop={false} orientation="row" labelFor="scrollbar-always">
+			<svelte:fragment slot="title">Always show scrollbar</svelte:fragment>
 			<svelte:fragment slot="actions">
-				<RadioButton name="scrollBarVisibilityType" value="always" id="scrollbar-always" checked={$userSettings.scrollbarVisibilityState === "always"} />
+				<RadioButton
+					name="scrollBarVisibilityType"
+					value="always"
+					id="scrollbar-always"
+					checked={$userSettings.scrollbarVisibilityState === 'always'}
+				/>
 			</svelte:fragment>
 		</SectionCard>
-    </form>
+	</form>
 
 	<Spacer />
 
