@@ -8,7 +8,6 @@
 	import Spacer from '$lib/components/Spacer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import ThemeSelector from '$lib/components/ThemeSelector.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
 	import { showError } from '$lib/notifications/toasts';
@@ -22,7 +21,6 @@
 	import * as toasts from '$lib/utils/toasts';
 	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
 
 	const userService = getContext(UserService);
 	const user = userService.user;
