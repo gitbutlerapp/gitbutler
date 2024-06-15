@@ -19,6 +19,13 @@ use std::os::windows::process::CommandExt;
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
+    /// Open a new in-memory repository and executes the provided closure using it.
+    /// This is useful when temporary objects are created for the purpose of comparing or getting a diff.
+    /// Note that it's the odb that is in-memory, not the working directory.
+    /// Data is never persisted to disk, therefore any Oid that are obtained from this closure are not valid outside of it.
+    fn in_memory<T, F>(&self, f: F) -> Result<T>
+    where
+        F: FnOnce(&git2::Repository) -> Result<T>;
     fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder;
     fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()>;
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler;
@@ -60,6 +67,18 @@ pub trait RepositoryExt {
 }
 
 impl RepositoryExt for Repository {
+    fn in_memory<T, F>(&self, f: F) -> Result<T>
+    where
+        F: FnOnce(&git2::Repository) -> Result<T>,
+    {
+        let path = self
+            .workdir()
+            .ok_or(anyhow::anyhow!("Repository is bare"))?;
+        let repo = git2::Repository::open(path)?;
+        repo.odb()?.add_new_mempack_backend(999)?;
+        f(&repo)
+    }
+
     fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder {
         CheckoutIndexBuilder {
             index,
