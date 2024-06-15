@@ -41,9 +41,11 @@
 <DecorativeSplitView img={newProjectSvg}>
 	{#if selectedBranch[0] !== '' && $platformName !== 'win32'}
 		{@const [remoteName, branchName] = selectedBranch[0].split(/\/(.*)/s)}
-		<KeysForm {remoteName} {branchName} />
+		<KeysForm {remoteName} {branchName} disabled={loading} />
 		<div class="actions">
-			<Button style="ghost" outline on:mousedown={() => (selectedBranch[0] = '')}>Back</Button>
+			<Button style="ghost" outline disabled={loading} on:mousedown={() => (selectedBranch[0] = '')}
+				>Back</Button
+			>
 			<Button style="pop" kind="solid" {loading} on:click={setTarget}>Let's go!</Button>
 		</div>
 	{:else}

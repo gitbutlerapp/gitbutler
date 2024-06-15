@@ -26,6 +26,7 @@
 	export let remoteName = '';
 	export let branchName = '';
 	export let showProjectName = false;
+	export let disabled = false;
 
 	let sshKey = '';
 	let credentialCheck: CredentialCheck;
@@ -85,7 +86,12 @@
 		provider.
 	</svelte:fragment>
 
-	<form class="git-radio" bind:this={form} on:change={(e) => onFormChange(e.currentTarget)}>
+	<form
+		class="git-radio"
+		class:disabled
+		bind:this={form}
+		on:change={(e) => onFormChange(e.currentTarget)}
+	>
 		<SectionCard roundedBottom={false} orientation="row" labelFor="git-executable">
 			<svelte:fragment slot="title"
 				>Use a Git executable <span style="color: var(--clr-text-2)">(default)</span
@@ -233,5 +239,10 @@
 	.git-radio {
 		display: flex;
 		flex-direction: column;
+
+		&.disabled {
+			pointer-events: none;
+			opacity: 0.5;
+		}
 	}
 </style>
