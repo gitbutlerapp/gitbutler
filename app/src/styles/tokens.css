@@ -19,7 +19,7 @@
 	--clr-commit-shadow: var(--clr-core-ntrl-60);
 	--clr-commit-upstream: var(--clr-core-warn-50);
 	--clr-core-err-5: #260d0f;
-	--clr-core-err-10: #581d24;
+	--clr-core-err-10: #4c1a1f;
 	--clr-core-err-20: #6b242b;
 	--clr-core-err-30: #95323c;
 	--clr-core-err-40: #bd4852;
@@ -43,7 +43,7 @@
 	--clr-core-ntrl-95: #f7f7f6;
 	--clr-core-ntrl-100: #ffffff;
 	--clr-core-pop-5: #0e2a29;
-	--clr-core-pop-10: #174543;
+	--clr-core-pop-10: #133937;
 	--clr-core-pop-20: #1c5451;
 	--clr-core-pop-30: #256f6b;
 	--clr-core-pop-40: #2a928d;
@@ -51,7 +51,7 @@
 	--clr-core-pop-60: #97cecb;
 	--clr-core-pop-70: #c6e7e5;
 	--clr-core-pop-80: #daf1f0;
-	--clr-core-pop-90: #daf1f0;
+	--clr-core-pop-90: #e9f7f6;
 	--clr-core-pop-95: #f4fbfa;
 	--clr-core-purp-5: #281d44;
 	--clr-core-purp-10: #322352;
@@ -65,7 +65,7 @@
 	--clr-core-purp-90: #f2edfc;
 	--clr-core-purp-95: #f9f6fd;
 	--clr-core-succ-5: #0d261a;
-	--clr-core-succ-10: #1c402f;
+	--clr-core-succ-10: #18392a;
 	--clr-core-succ-20: #22533c;
 	--clr-core-succ-30: #2a7e57;
 	--clr-core-succ-40: #469b73;
@@ -73,7 +73,7 @@
 	--clr-core-succ-60: #a1ceb9;
 	--clr-core-succ-70: #cae8da;
 	--clr-core-succ-80: #d6f0e4;
-	--clr-core-succ-90: #d9f2e6;
+	--clr-core-succ-90: #e8f7f0;
 	--clr-core-succ-95: #f6fcfb;
 	--clr-core-warn-5: #261c0d;
 	--clr-core-warn-10: #432d0f;
