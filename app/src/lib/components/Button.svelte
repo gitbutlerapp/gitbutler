@@ -73,11 +73,11 @@
 		</span>
 	{/if}
 
-	{#if icon}
+	{#if icon || loading}
 		<div class="btn-icon">
 			{#if loading}
-				<Icon name="spinner" />
-			{:else}
+				<Icon name="spinner" spinnerRadius={4.5} />
+			{:else if icon}
 				<Icon name={icon} />
 			{/if}
 		</div>
