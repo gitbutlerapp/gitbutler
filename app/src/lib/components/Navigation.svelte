@@ -201,7 +201,7 @@
 		right: -4px;
 		top: 50%;
 		width: 14px;
-		height: 24px;
+		height: 28px;
 		background: var(--clr-bg-1);
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);
@@ -228,7 +228,7 @@
 
 	.folding-button_folded {
 		& svg {
-			transform: rotate(180deg) translateX(-0.0625rem);
+			transform: rotate(180deg);
 		}
 	}
 
