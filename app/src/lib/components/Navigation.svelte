@@ -57,8 +57,7 @@
 			minWidth={minResizerWidth}
 			defaultLineColor="var(--clr-border-2)"
 			zIndex="var(--z-floating)"
-			on:click={() => $isNavCollapsed && toggleNavCollapse()}
-			on:dblclick={() => !$isNavCollapsed && toggleNavCollapse()}
+			on:dblclick={toggleNavCollapse}
 			on:width={(e) => {
 				$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
 			}}
@@ -86,9 +85,17 @@
 			class:resizer-hovered={isResizerHovered || isResizerDragging}
 			on:mousedown={toggleNavCollapse}
 		>
-			<svg viewBox="0 0 7 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<!-- <svg viewBox="0 0 7 23" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<path
 					d="M6 1L1.81892 9.78026C1.30084 10.8682 1.30084 12.1318 1.81892 13.2197L6 22"
+					stroke-width="1.5"
+					vector-effect="non-scaling-stroke"
+				/>
+			</svg> -->
+
+			<svg viewBox="0 0 6 11" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<path
+					d="M5 1.25L1.59055 5.08564C1.25376 5.46452 1.25376 6.03548 1.59055 6.41436L5 10.25"
 					stroke-width="1.5"
 					vector-effect="non-scaling-stroke"
 				/>
@@ -194,7 +201,7 @@
 		right: -4px;
 		top: 50%;
 		width: 14px;
-		height: 36px;
+		height: 24px;
 		background: var(--clr-bg-1);
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);

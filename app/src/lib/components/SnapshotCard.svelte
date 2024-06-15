@@ -140,7 +140,7 @@
 			case 'MergeUpstream':
 				return { text: 'Merge upstream', icon: 'merged-pr-small' };
 			case 'UpdateWorkspaceBase':
-				return { text: 'Update workspace base', icon: 'rebase-small' };
+				return { text: 'Update workspace base', icon: 'rebase' };
 			case 'RestoreFromSnapshot':
 				return { text: 'Revert snapshot', icon: 'empty' };
 			default:
@@ -260,15 +260,14 @@
 			</SnapshotAttachment>
 		{/if}
 		{#if error}
-			<span class="error-text">Error: {error}</span>
+			<div class="error-text text-base-body-12">
+				{error}
+			</div>
 		{/if}
 	</div>
 </div>
 
 <style lang="postcss">
-	.error-text {
-		color: #e53e3e;
-	}
 	/* SNAPSHOT CARD */
 	.snapshot-card {
 		position: relative;
@@ -446,5 +445,15 @@
 	/* RESTORED  */
 	.restored-snapshot {
 		background-color: var(--clr-bg-2);
+	}
+
+	/* --- */
+	.error-text {
+		display: flex;
+		padding: 6px 10px;
+		background-color: var(--clr-theme-err-bg);
+		border-radius: var(--radius-m);
+		width: 100%;
+		color: var(--clr-scale-err-40);
 	}
 </style>

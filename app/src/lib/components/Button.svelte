@@ -157,7 +157,7 @@
 
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 1;
+				--icon-opacity: 0.8;
 				--btn-bg: var(--clr-theme-ntrl-soft-hover);
 			}
 		}
@@ -167,7 +167,7 @@
 
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 1;
+				--icon-opacity: 0.8;
 				--btn-bg: var(--clr-theme-ntrl-element-hover);
 			}
 		}
@@ -179,7 +179,7 @@
 		--btn-bg: transparent;
 
 		&:not(.not-clickable, &:disabled):hover {
-			--icon-opacity: 1;
+			--icon-opacity: 0.8;
 			--btn-bg: var(--clr-bg-1-muted);
 		}
 
@@ -204,7 +204,7 @@
 			--btn-bg: var(--clr-theme-pop-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 1;
+				--icon-opacity: 0.9;
 				--btn-bg: var(--clr-theme-pop-soft-hover);
 			}
 		}
@@ -213,7 +213,7 @@
 			--btn-bg: var(--clr-theme-pop-element);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 1;
+				--icon-opacity: 0.9;
 				--btn-bg: var(--clr-theme-pop-element-hover);
 			}
 		}
@@ -227,7 +227,7 @@
 			--btn-bg: var(--clr-theme-succ-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 1;
+				--icon-opacity: 0.9;
 				--btn-bg: var(--clr-theme-succ-soft-hover);
 			}
 		}
@@ -236,7 +236,7 @@
 			--btn-bg: var(--clr-theme-succ-element);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 1;
+				--icon-opacity: 0.9;
 				--btn-bg: var(--clr-theme-succ-element-hover);
 			}
 		}
@@ -250,7 +250,7 @@
 			--btn-bg: var(--clr-theme-err-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 1;
+				--icon-opacity: 0.9;
 				--btn-bg: var(--clr-theme-err-soft-hover);
 			}
 		}
@@ -259,7 +259,7 @@
 			--btn-bg: var(--clr-theme-err-element);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 1;
+				--icon-opacity: 0.9;
 				--btn-bg: var(--clr-theme-err-element-hover);
 			}
 		}
@@ -273,7 +273,7 @@
 			--btn-bg: var(--clr-theme-warn-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 1;
+				--icon-opacity: 0.9;
 				--btn-bg: var(--clr-theme-warn-soft-hover);
 			}
 		}
@@ -282,7 +282,7 @@
 			--btn-bg: var(--clr-theme-warn-element);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 1;
+				--icon-opacity: 0.9;
 				--btn-bg: var(--clr-theme-warn-element-hover);
 			}
 		}
@@ -296,7 +296,7 @@
 			--btn-bg: var(--clr-theme-purp-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 1;
+				--icon-opacity: 0.9;
 				--btn-bg: var(--clr-theme-purp-soft-hover);
 			}
 		}
@@ -305,7 +305,7 @@
 			--btn-bg: var(--clr-theme-purp-element);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 1;
+				--icon-opacity: 0.9;
 				--btn-bg: var(--clr-theme-purp-element-hover);
 			}
 		}
