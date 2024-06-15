@@ -140,7 +140,7 @@
 			case 'MergeUpstream':
 				return { text: 'Merge upstream', icon: 'merged-pr-small' };
 			case 'UpdateWorkspaceBase':
-				return { text: 'Update workspace base', icon: 'rebase-small' };
+				return { text: 'Update workspace base', icon: 'rebase' };
 			case 'RestoreFromSnapshot':
 				return { text: 'Revert snapshot', icon: 'empty' };
 			default:
