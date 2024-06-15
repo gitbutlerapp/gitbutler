@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{collections::HashMap, str};
 
 use anyhow::{Context, Result};
@@ -143,12 +143,40 @@ pub struct FileDiff {
     pub new_size_bytes: u64,
 }
 
-#[instrument(skip(repository))]
-pub fn workdir(repository: &git2::Repository, commit_oid: &git2::Oid) -> Result<DiffByPathMap> {
-    let commit = repository
+#[instrument(skip(repo))]
+pub fn workdir(repo: &git2::Repository, commit_oid: &git2::Oid) -> Result<DiffByPathMap> {
+    let commit = repo
         .find_commit(*commit_oid)
         .context("failed to find commit")?;
-    let tree = commit.tree().context("failed to find tree")?;
+    let old_tree = commit.tree().context("failed to find tree")?;
+
+    let mut workdir_index = repo.index()?;
+
+    let mut skipped_files = HashMap::new();
+    let cb = &mut |path: &Path, _matched_spec: &[u8]| -> i32 {
+        let file_size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+        if file_size > 50_000_000 {
+            skipped_files.insert(
+                path.to_path_buf(),
+                FileDiff {
+                    old_path: None,
+                    new_path: None,
+                    hunks: Vec::new(),
+                    skipped: true,
+                    binary: true,
+                    old_size_bytes: 0,
+                    new_size_bytes: 0,
+                },
+            );
+            1 //skips the entry
+        } else {
+            0
+        }
+    };
+    workdir_index.add_all(["."], git2::IndexAddOption::DEFAULT, Some(cb))?;
+    let workdir_tree_id = workdir_index.write_tree()?;
+
+    let new_tree = repo.find_tree(workdir_tree_id)?;
 
     let mut diff_opts = git2::DiffOptions::new();
     diff_opts
@@ -159,12 +187,8 @@ pub fn workdir(repository: &git2::Repository, commit_oid: &git2::Oid) -> Result<
         .ignore_submodules(true)
         .context_lines(3);
 
-    let mut diff = repository.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
-    let (mut diff_opts, skipped_files) = without_large_files(50_000_000, &diff, diff_opts);
-    if !skipped_files.is_empty() {
-        diff = repository.diff_tree_to_workdir(Some(&tree), Some(&mut diff_opts))?;
-    }
-    let diff_files = hunks_by_filepath(Some(repository), &diff);
+    let diff = repo.diff_tree_to_tree(Some(&old_tree), Some(&new_tree), Some(&mut diff_opts))?;
+    let diff_files = hunks_by_filepath(Some(repo), &diff);
     diff_files.map(|mut df| {
         for (key, value) in skipped_files {
             df.insert(key, value);
@@ -191,39 +215,6 @@ pub fn trees(
         repository.diff_tree_to_tree(Some(old_tree), Some(new_tree), Some(&mut diff_opts))?;
 
     hunks_by_filepath(None, &diff)
-}
-
-pub fn without_large_files(
-    size_limit_bytes: u64,
-    diff: &git2::Diff,
-    mut diff_opts: git2::DiffOptions,
-) -> (git2::DiffOptions, DiffByPathMap) {
-    let mut skipped_files = HashMap::new();
-    for delta in diff.deltas() {
-        if delta.new_file().size() > size_limit_bytes {
-            if let Some(path) = delta.new_file().path() {
-                skipped_files.insert(
-                    path.to_path_buf(),
-                    FileDiff {
-                        old_path: delta.old_file().path().map(ToOwned::to_owned),
-                        new_path: delta.new_file().path().map(ToOwned::to_owned),
-                        hunks: Vec::new(),
-                        skipped: true,
-                        binary: true,
-                        old_size_bytes: delta.old_file().size(),
-                        new_size_bytes: delta.new_file().size(),
-                    },
-                );
-            }
-        } else if let Some(path) = delta.new_file().path() {
-            if let Some(path) = path.to_str() {
-                // TODO(ST): use negative pathspecs instead, but with `gitoxide` this might not even be necessary.
-                //           Currently, performance could be bad if there are thousands of pathspecs.
-                diff_opts.pathspec(path);
-            }
-        }
-    }
-    (diff_opts, skipped_files)
 }
 
 /// Transform `diff` into a mapping of `worktree-relative path -> FileDiff`, where `FileDiff` is
