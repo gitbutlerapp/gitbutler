@@ -4064,26 +4064,3 @@ mod tests {
         assert_eq!(normalize_branch_name("foo!branch"), "foo-branch");
     }
 }
-
-// let conflicts = merge_index.conflicts()?;
-// let conflict_message = conflicts_to_string(conflicts)?;
-// return Err(anyhow!("Merge failed")
-//     .context(error::Context::new(Marker::ProjectConflict, conflict_message))
-//     .);
-
-// fn conflicts_to_string(conflicts: IndexConflicts) -> Result<String> {
-//     // mark conflicts
-//     let mut merge_conflicts = Vec::new();
-//     for path in conflicts.flatten() {
-//         if let Some(ours) = path.our {
-//             let path = std::str::from_utf8(&ours.path)
-//                 .context("failed to convert path to utf8")?
-//                 .to_string();
-//             merge_conflicts.push(path);
-//         }
-//     }
-//     Ok(format!(
-//         "Aborted due to conflicts with:\n{}",
-//         merge_conflicts.join("\n")
-//     ))
-// }
