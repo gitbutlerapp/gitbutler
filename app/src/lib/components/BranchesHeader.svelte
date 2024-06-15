@@ -28,6 +28,7 @@
 		<Button
 			style="ghost"
 			outline
+			dashed={!filtersActive}
 			icon={filtersActive ? 'filter-applied-small' : 'filter-small'}
 			on:mousedown={onFilterClick}
 		>
