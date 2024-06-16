@@ -6,7 +6,7 @@ use crate::events::InternalEvent;
 use anyhow::{anyhow, Context, Result};
 use gitbutler_core::ops::OPLOG_FILE_NAME;
 use gitbutler_core::projects::ProjectId;
-use gitbutler_notify_debouncer::{new_debouncer, Debouncer, FileIdMap};
+use gitbutler_notify_debouncer::{new_debouncer, Debouncer, NoCache};
 use notify::RecommendedWatcher;
 use notify::Watcher;
 use tokio::task;
@@ -55,7 +55,7 @@ pub fn spawn(
     project_id: ProjectId,
     worktree_path: &std::path::Path,
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
-) -> Result<Debouncer<RecommendedWatcher, FileIdMap>> {
+) -> Result<Debouncer<RecommendedWatcher, NoCache>> {
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
     let mut debouncer = new_debouncer(
         DEBOUNCE_TIMEOUT,
@@ -91,21 +91,11 @@ pub fn spawn(
         debouncer
             .watcher()
             .watch(worktree_path, notify::RecursiveMode::Recursive)
-            .map(|_| {
-                debouncer
-                    .cache()
-                    .add_root(worktree_path, notify::RecursiveMode::Recursive)
-            })
             .and_then(|()| {
                 if let Some(git_dir) = extra_git_dir_to_watch {
                     debouncer
                         .watcher()
                         .watch(git_dir, notify::RecursiveMode::Recursive)
-                        .map(|_| {
-                            debouncer
-                                .cache()
-                                .add_root(git_dir, notify::RecursiveMode::Recursive)
-                        })
                 } else {
                     Ok(())
                 }

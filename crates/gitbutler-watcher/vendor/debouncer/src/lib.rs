@@ -44,14 +44,11 @@ use std::{
     time::Duration,
 };
 
-#[allow(unused_imports)]
 pub use cache::{FileIdCache, FileIdMap, NoCache};
 pub use event::DebouncedEvent;
 
-#[allow(unused_imports)]
 pub use file_id;
 
-#[allow(unused_imports)]
 pub use notify;
 
 use file_id::FileId;
@@ -647,7 +644,7 @@ pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + S
     })
 }
 
-/// Short function to create a new debounced watcher with the recommended debouncer and the built-in file ID cache.
+/// Short function to create a new debounced watcher with the recommended debouncer, without FileID cache for performance.
 ///
 /// Timeout is the amount of time after which a debounced event is emitted.
 ///
@@ -657,13 +654,13 @@ pub fn new_debouncer<F: DebounceEventHandler>(
     tick_rate: Option<Duration>,
     flush_after: Option<u32>,
     event_handler: F,
-) -> Result<Debouncer<RecommendedWatcher, FileIdMap>, Error> {
-    new_debouncer_opt::<F, RecommendedWatcher, FileIdMap>(
+) -> Result<Debouncer<RecommendedWatcher, NoCache>, Error> {
+    new_debouncer_opt::<F, RecommendedWatcher, NoCache>(
         timeout,
         tick_rate,
         flush_after,
         event_handler,
-        FileIdMap::new(),
+        NoCache,
         notify::Config::default(),
     )
 }
