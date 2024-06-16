@@ -8,10 +8,12 @@
 	import { RemotesService } from '$lib/remotes/service';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
+	import { remoteUrlIsHttp } from '$lib/utils/url';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { marked } from 'marked';
+	import { get } from 'svelte/store';
 	import type { PullRequest } from '$lib/github/types';
 	import { goto } from '$app/navigation';
 
@@ -33,8 +35,25 @@
 		createRemoteModal?.close();
 	}
 
+	function getRemoteUrl() {
+		const baseRemoteUrl = get(baseBranchService.base)?.remoteUrl;
+
+		if (!baseRemoteUrl) return;
+
+		if (remoteUrlIsHttp(baseRemoteUrl)) {
+			return pullrequest.repositoryHttpsUrl;
+		} else {
+			return pullrequest.repositorySshUrl;
+		}
+	}
+
 	async function createRemoteAndBranch() {
-		if (!pullrequest.sshUrl) return;
+		const remoteUrl = getRemoteUrl();
+
+		if (!remoteUrl) {
+			toasts.error('Failed to get the remote URL');
+			return;
+		}
 
 		const remotes = await remotesService.remotes(project.id);
 		if (remotes.includes(remoteName)) {
@@ -45,7 +64,7 @@
 		loading = true;
 
 		try {
-			await remotesService.addRemote(project.id, remoteName, pullrequest.sshUrl);
+			await remotesService.addRemote(project.id, remoteName, remoteUrl);
 			await baseBranchService.fetchFromRemotes();
 			await branchController.createvBranchFromBranch(
 				`refs/remotes/${remoteName}/${pullrequest.targetBranch}`
@@ -126,16 +145,12 @@
 			{/if}
 		</div>
 		<div class="card__footer">
-			{#if !pullrequest.repoName && !pullrequest.sshUrl}
-				<p>Cannot apply pull request due to insufficient information</p>
-			{:else}
-				<Button
-					style="pop"
-					kind="solid"
-					help="Does not create a commit. Can be toggled."
-					on:click={async () => createRemoteModal?.show()}>Apply from fork</Button
-				>
-			{/if}
+			<Button
+				style="pop"
+				kind="solid"
+				help="Does not create a commit. Can be toggled."
+				on:click={async () => createRemoteModal?.show()}>Apply from fork</Button
+			>
 		</div>
 	</div>
 </div>
