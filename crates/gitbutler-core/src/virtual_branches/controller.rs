@@ -1,4 +1,8 @@
-use crate::ops::entry::{OperationKind, SnapshotDetails};
+use crate::{
+    git::BranchExt,
+    ops::entry::{OperationKind, SnapshotDetails},
+    types::ReferenceName,
+};
 use anyhow::Result;
 use std::{collections::HashMap, path::Path, sync::Arc};
 
@@ -7,7 +11,7 @@ use tokio::{sync::Semaphore, task::JoinHandle};
 
 use super::{
     branch::{BranchId, BranchOwnershipClaims},
-    target, target_to_base_branch, BaseBranch, Branch, NameConflitResolution, RemoteBranchFile,
+    target, target_to_base_branch, BaseBranch, NameConflitResolution, RemoteBranchFile,
     VirtualBranchesHandle,
 };
 use crate::{
@@ -152,7 +156,7 @@ impl Controller {
             .await
     }
 
-    pub async fn update_base_branch(&self, project_id: ProjectId) -> Result<Vec<Branch>> {
+    pub async fn update_base_branch(&self, project_id: ProjectId) -> Result<Vec<ReferenceName>> {
         self.inner(project_id)
             .await
             .update_base_branch(project_id)
@@ -551,14 +555,21 @@ impl ControllerInner {
         })
     }
 
-    pub async fn update_base_branch(&self, project_id: ProjectId) -> Result<Vec<Branch>> {
+    pub async fn update_base_branch(&self, project_id: ProjectId) -> Result<Vec<ReferenceName>> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::UpdateWorkspaceBase));
-            super::update_base_branch(project_repository, user).map_err(Into::into)
+            super::update_base_branch(project_repository, user)
+                .map(|unapplied_branches| {
+                    unapplied_branches
+                        .iter()
+                        .filter_map(|unapplied_branch| unapplied_branch.reference_name().ok())
+                        .collect()
+                })
+                .map_err(Into::into)
         })
     }
 

@@ -6,6 +6,7 @@ pub mod commands {
         error::Code,
         git,
         projects::{self, ProjectId},
+        types::ReferenceName,
         virtual_branches::{
             branch::{self, BranchId, BranchOwnershipClaims},
             controller::Controller,
@@ -154,7 +155,7 @@ pub mod commands {
     pub async fn update_base_branch(
         handle: AppHandle,
         project_id: ProjectId,
-    ) -> Result<Vec<branch::Branch>, Error> {
+    ) -> Result<Vec<ReferenceName>, Error> {
         let unapplied_branches = handle
             .state::<Controller>()
             .update_base_branch(project_id)

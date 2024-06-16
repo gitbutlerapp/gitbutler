@@ -18,3 +18,6 @@ pub use commit_ext::*;
 
 mod commit_buffer;
 pub use commit_buffer::*;
+
+mod branch_ext;
+pub use branch_ext::*;
