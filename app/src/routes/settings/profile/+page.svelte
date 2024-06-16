@@ -3,15 +3,19 @@
 	import Button from '$lib/components/Button.svelte';
 	import Login from '$lib/components/Login.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import RadioButton from '$lib/components/RadioButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import ThemeSelector from '$lib/components/ThemeSelector.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
 	import { showError } from '$lib/notifications/toasts';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import {
+		SETTINGS,
+		type Settings,
+		type ScrollbarVisilitySettings
+	} from '$lib/settings/userSettings';
 	import { UserService } from '$lib/stores/user';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
@@ -94,6 +98,18 @@
 			isDeleting = false;
 		}
 	}
+
+	function onScrollbarFormChange(form: HTMLFormElement) {
+		const formData = new FormData(form);
+		const selectedScrollbarVisibility = formData.get(
+			'scrollBarVisibilityType'
+		) as ScrollbarVisilitySettings;
+
+		userSettings.update((s) => ({
+			...s,
+			scrollbarVisibilityState: selectedScrollbarVisibility
+		}));
+	}
 </script>
 
 <ContentWrapper title="Profile">
@@ -163,25 +179,56 @@
 		</svelte:fragment>
 	</SectionCard>
 
-	<SectionCard labelFor="hoverScrollbarVisability" orientation="row">
-		<svelte:fragment slot="title">Dynamic scrollbar visibility on hover</svelte:fragment>
-		<svelte:fragment slot="caption">
-			When turned on, this feature shows the scrollbar automatically when you hover over the scroll
-			area, even if you're not actively scrolling. By default, the scrollbar stays hidden until you
-			start scrolling.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle
-				id="hoverScrollbarVisability"
-				checked={$userSettings.scrollbarVisabilityOnHover}
-				on:click={() =>
-					userSettings.update((s) => ({
-						...s,
-						scrollbarVisabilityOnHover: !s.scrollbarVisabilityOnHover
-					}))}
-			/>
-		</svelte:fragment>
-	</SectionCard>
+	<Spacer />
+
+	<form on:change={(e) => onScrollbarFormChange(e.currentTarget)}>
+		<SectionCard roundedBottom={false} orientation="row" labelFor="scrollbar-on-scroll">
+			<svelte:fragment slot="title">Scrollbar-On-Scroll</svelte:fragment>
+			<svelte:fragment slot="caption">
+				Only show the scrollbar when you are scrolling.
+			</svelte:fragment>
+			<svelte:fragment slot="actions">
+				<RadioButton
+					name="scrollBarVisibilityType"
+					value="scroll"
+					id="scrollbar-on-scroll"
+					checked={$userSettings.scrollbarVisibilityState === 'scroll'}
+				/>
+			</svelte:fragment>
+		</SectionCard>
+
+		<SectionCard
+			roundedTop={false}
+			roundedBottom={false}
+			orientation="row"
+			labelFor="scrollbar-on-hover"
+		>
+			<svelte:fragment slot="title">Scrollbar-On-Hover</svelte:fragment>
+			<svelte:fragment slot="caption">
+				Show the scrollbar only when you hover over the scrollable area.
+			</svelte:fragment>
+			<svelte:fragment slot="actions">
+				<RadioButton
+					name="scrollBarVisibilityType"
+					value="hover"
+					id="scrollbar-on-hover"
+					checked={$userSettings.scrollbarVisibilityState === 'hover'}
+				/>
+			</svelte:fragment>
+		</SectionCard>
+
+		<SectionCard roundedTop={false} orientation="row" labelFor="scrollbar-always">
+			<svelte:fragment slot="title">Always show scrollbar</svelte:fragment>
+			<svelte:fragment slot="actions">
+				<RadioButton
+					name="scrollBarVisibilityType"
+					value="always"
+					id="scrollbar-always"
+					checked={$userSettings.scrollbarVisibilityState === 'always'}
+				/>
+			</svelte:fragment>
+		</SectionCard>
+	</form>
 
 	<Spacer />
 
