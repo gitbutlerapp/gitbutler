@@ -134,7 +134,6 @@ pub fn reconcile_claims(
 ) -> Result<Vec<ClaimOutcome>> {
     let mut other_branches = all_branches
         .into_iter()
-        .filter(|branch| branch.applied)
         .filter(|branch| branch.id != claiming_branch.id)
         .collect::<Vec<_>>();
 

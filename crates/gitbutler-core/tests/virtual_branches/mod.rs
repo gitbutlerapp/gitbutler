@@ -310,7 +310,6 @@ fn create_branch_no_arguments() -> Result<()> {
     let branches = vb_state.list_branches().expect("failed to read branches");
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].name, "Virtual branch");
-    assert!(branches[0].applied);
     assert_eq!(branches[0].ownership, BranchOwnershipClaims::default());
     assert_eq!(branches[0].order, 0);
 

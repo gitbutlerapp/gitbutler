@@ -44,10 +44,7 @@ pub fn get_workspace_head(
     let vb_state = project_repo.project().virtual_branches();
 
     let all_virtual_branches = vb_state.list_branches()?;
-    let applied_branches = all_virtual_branches
-        .iter()
-        .filter(|branch| branch.applied)
-        .collect::<Vec<_>>();
+    let branches = all_virtual_branches.iter().collect::<Vec<_>>();
 
     let target_commit = repo.find_commit(target.sha)?;
     let mut workspace_tree = target_commit.tree()?;
@@ -55,12 +52,12 @@ pub fn get_workspace_head(
     if conflicts::is_conflicting(project_repo, None)? {
         let merge_parent =
             conflicts::merge_parent(project_repo)?.ok_or(anyhow!("No merge parent"))?;
-        let first_branch = applied_branches.first().ok_or(anyhow!("No branches"))?;
+        let first_branch = branches.first().ok_or(anyhow!("No branches"))?;
 
         let merge_base = repo.merge_base(first_branch.head, merge_parent)?;
         workspace_tree = repo.find_commit(merge_base)?.tree()?;
     } else {
-        for branch in &applied_branches {
+        for branch in &branches {
             let branch_tree = repo.find_commit(branch.head)?.tree()?;
             let merge_tree = repo.find_commit(target.sha)?.tree()?;
             let mut index = repo.merge_trees(&merge_tree, &workspace_tree, &branch_tree, None)?;
@@ -73,7 +70,7 @@ pub fn get_workspace_head(
         }
     }
 
-    let branch_heads = applied_branches
+    let branch_heads = branches
         .iter()
         .map(|b| repo.find_commit(b.head))
         .collect::<Result<Vec<_>, _>>()?;
@@ -87,7 +84,7 @@ pub fn get_workspace_head(
     // TODO(mg): Can we make this a constant?
     let committer = get_integration_commiter()?;
 
-    let mut heads: Vec<git2::Commit<'_>> = applied_branches
+    let mut heads: Vec<git2::Commit<'_>> = branches
         .iter()
         .filter(|b| b.head != target.sha)
         .map(|b| repo.find_commit(b.head))
@@ -177,11 +174,6 @@ pub fn update_gitbutler_integration(
         .list_branches()
         .context("failed to list virtual branches")?;
 
-    let applied_virtual_branches = all_virtual_branches
-        .iter()
-        .filter(|branch| branch.applied)
-        .collect::<Vec<_>>();
-
     let integration_commit =
         repo.find_commit(get_workspace_head(&vb_state, project_repository)?)?;
     let integration_tree = integration_commit.tree()?;
@@ -200,7 +192,7 @@ pub fn update_gitbutler_integration(
     message.push_str("If you switch to another branch, GitButler will need to be reinitialized.\n");
     message.push_str("If you commit on this branch, GitButler will throw it away.\n\n");
     message.push_str("Here are the branches that are currently applied:\n");
-    for branch in &applied_virtual_branches {
+    for branch in &all_virtual_branches {
         message.push_str(" - ");
         message.push_str(branch.name.as_str());
         message.push_str(format!(" ({})", &branch.refname()).as_str());

@@ -21,7 +21,9 @@ pub struct Branch {
     pub id: BranchId,
     pub name: String,
     pub notes: String,
-    pub applied: bool,
+    /// Previously used to determine if the branch should be shown on the board. If a branch is not shown on the board, it is converted to a real git branch.
+    #[serde(rename = "applied")]
+    pub old_applied: bool,
     pub upstream: Option<git::RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
     #[serde(with = "crate::serde::oid_opt", default)]

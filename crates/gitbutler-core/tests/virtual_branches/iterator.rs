@@ -15,7 +15,7 @@ fn new_test_branch() -> virtual_branches::branch::Branch {
         id: virtual_branches::BranchId::generate(),
         name: format!("branch_name_{}", TEST_INDEX.load(Ordering::Relaxed)),
         notes: String::new(),
-        applied: true,
+        old_applied: true,
         upstream: Some(
             format!(
                 "refs/remotes/origin/upstream_{}",

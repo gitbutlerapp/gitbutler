@@ -80,9 +80,7 @@ impl Project {
         let mut head_tree_ids = Vec::new();
 
         for branch in vb_state.list_branches()? {
-            if branch.applied {
-                head_tree_ids.push(branch.tree);
-            }
+            head_tree_ids.push(branch.tree);
 
             // commits in virtual branches (tree and commit data)
             // calculate all the commits between branch.head and the target and codify them
@@ -685,10 +683,7 @@ fn lines_since_snapshot(project: &Project, repo: &git2::Repository) -> Result<us
 
     let vbranches = project.virtual_branches().list_branches()?;
     let mut lines_changed = 0;
-    let dirty_branches = vbranches
-        .iter()
-        .filter(|b| b.applied)
-        .filter(|b| !b.ownership.claims.is_empty());
+    let dirty_branches = vbranches.iter().filter(|b| !b.ownership.claims.is_empty());
     for branch in dirty_branches {
         lines_changed += branch_lines_since_snapshot(branch, repo, oplog_commit_id)?;
     }
@@ -782,12 +777,8 @@ fn tree_from_applied_vbranches(
 
     let vbs_from_toml: crate::virtual_branches::VirtualBranchesState =
         toml::from_str(from_utf8(vb_toml_blob.content())?)?;
-    let applied_branch_trees: Vec<git2::Oid> = vbs_from_toml
-        .branches
-        .values()
-        .filter(|b| b.applied)
-        .map(|b| b.tree)
-        .collect();
+    let applied_branch_trees: Vec<git2::Oid> =
+        vbs_from_toml.branches.values().map(|b| b.tree).collect();
 
     let mut workdir_tree_id = target_tree.id();
     let base_tree = target_tree;
