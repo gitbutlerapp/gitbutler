@@ -795,6 +795,15 @@ mod applied_branch {
         )
         .unwrap();
 
+        let branch_count = controller
+            .list_virtual_branches(*project_id)
+            .await
+            .unwrap()
+            .0
+            .len();
+
+        println!("branch count: {}", branch_count);
+
         {
             // merge branch remotely
             let branch = controller
@@ -809,7 +818,7 @@ mod applied_branch {
         repository.fetch();
 
         {
-            controller.update_base_branch(*project_id).await.unwrap();
+            dbg!(controller.update_base_branch(*project_id).await.unwrap());
 
             // removes integrated commit, leaves non commited work as is
 

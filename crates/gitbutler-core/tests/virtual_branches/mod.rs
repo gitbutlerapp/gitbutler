@@ -15,13 +15,13 @@ use std::{
 use anyhow::{Context, Result};
 use git2::TreeEntry;
 use gitbutler_core::{
-    git::{self, diff, CommitExt, RepositoryExt},
+    git::{self, CommitExt, RepositoryExt},
     virtual_branches::{
         self,
         branch::{BranchCreateRequest, BranchOwnershipClaims},
         commit, create_virtual_branch, create_virtual_branch_from_branch,
         integrate_upstream_commits,
-        integration::{update_gitbutler_integration, verify_branch},
+        integration::verify_branch,
         is_remote_branch_mergeable, list_remote_branches, list_virtual_branches, unapply_ownership,
         update_branch,
     },
