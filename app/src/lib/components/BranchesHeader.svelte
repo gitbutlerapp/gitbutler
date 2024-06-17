@@ -24,22 +24,24 @@
 			<Badge {count} />
 		{/if}
 	</div>
-	<div class="header__filter-btn" bind:this={filterButton}>
-		<Button
-			style="ghost"
-			outline
-			icon={filtersActive ? 'filter-applied-small' : 'filter-small'}
-			on:mousedown={onFilterClick}
-		>
-			Filter
-		</Button>
-		<div
-			class="filter-popup-menu"
-			use:clickOutside={{ trigger: filterButton, handler: () => (visible = false) }}
-		>
-			<slot name="context-menu" {visible} />
+	{#if count && count > 0}
+		<div class="header__filter-btn" bind:this={filterButton}>
+			<Button
+				style="ghost"
+				outline
+				icon={filtersActive ? 'filter-applied-small' : 'filter-small'}
+				on:mousedown={onFilterClick}
+			>
+				Filter
+			</Button>
+			<div
+				class="filter-popup-menu"
+				use:clickOutside={{ trigger: filterButton, handler: () => (visible = false) }}
+			>
+				<slot name="context-menu" {visible} />
+			</div>
 		</div>
-	</div>
+	{/if}
 </div>
 
 <style lang="postcss">

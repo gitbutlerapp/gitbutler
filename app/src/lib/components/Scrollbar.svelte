@@ -12,18 +12,12 @@
 
 	export let viewport: Element;
 	export let contents: Element;
-	export let hideAfter = 1000;
 	export let initiallyVisible = false;
 	export let thickness = '0.563rem';
 	export let padding: ScrollbarPadding = {};
 	export let shift = '0';
-
 	export let horz = false;
-
-	// Custom z-index in case of overlapping with other elements
 	export let zIndex = 'var(--z-lifted)';
-
-	$: vert = !horz;
 
 	let thumb: Element;
 	let track: Element;
@@ -31,16 +25,14 @@
 	let startLeft = 0;
 	let startY = 0;
 	let startX = 0;
-	let timer = 0;
-	let interacted = false;
-
-	let isViewportHovered = false;
 	let isDragging = false;
 
 	$: teardownViewport = setupViewport(viewport);
 	$: teardownThumb = setupThumb(thumb);
 	$: teardownTrack = setupTrack(track);
 	$: teardownContents = setupContents(contents);
+
+	$: vert = !horz;
 
 	$: paddingTop = pxToRem(padding.top) ?? '0px';
 	$: paddingBottom = pxToRem(padding.bottom) ?? '0px';
@@ -58,17 +50,52 @@
 	$: thumbTop = wholeHeight > 0 ? (scrollTop / wholeHeight) * trackHeight : 0;
 	$: thumbLeft = wholeHeight > 0 ? (scrollLeft / wholeWidth) * trackWidth : 0;
 
-	$: alwaysVisible = $userSettings.scrollbarVisabilityOnHover;
-
 	$: scrollableY = wholeHeight > trackHeight;
 	$: scrollableX = wholeWidth > trackWidth;
-	$: visible =
-		((scrollableY || scrollableX) && initiallyVisible) ||
-		(alwaysVisible && isViewportHovered && (scrollableY || scrollableX));
+	$: isScrollable = scrollableY || scrollableX;
+	$: shouldShowInitially = initiallyVisible && isScrollable;
+	$: shouldShowOnHover = $userSettings.scrollbarVisibilityState === 'hover' && isScrollable;
+	$: shouldAlwaysShow = $userSettings.scrollbarVisibilityState === 'always' && isScrollable;
+
+	$: visible = shouldShowInitially || (shouldShowOnHover && initiallyVisible) || shouldAlwaysShow;
 
 	const dispatch = createEventDispatcher<{
 		dragging: boolean;
 	}>();
+
+	/////////////////////
+	// TIMER FUNCTIONS //
+	/////////////////////
+	let timer = 0;
+
+	function setupTimer() {
+		if (shouldShowOnHover || shouldAlwaysShow) return;
+
+		timer = window.setTimeout(() => {
+			visible = false;
+			return;
+		}, 1000);
+	}
+
+	function clearTimer() {
+		if (timer) {
+			window.clearTimeout(timer);
+			timer = 0;
+		}
+	}
+
+	/////////////////////
+	// VIEWPORT EVENTS //
+	/////////////////////
+	function onViewportMouseEnter() {
+		if (!shouldShowOnHover) return;
+		visible = true;
+	}
+
+	function onViewportMouseLeave() {
+		if (!shouldShowOnHover) return;
+		visible = false;
+	}
 
 	function setupViewport(viewport: Element) {
 		if (!viewport) return;
@@ -88,26 +115,31 @@
 		});
 
 		observer.observe(viewport);
-
 		viewport.addEventListener('scroll', onScroll, { passive: true });
-
-		if (alwaysVisible) {
-			viewport.addEventListener('mouseenter', onViewportMouseEnter);
-			viewport.addEventListener('mouseleave', onViewportMouseLeave);
-		}
+		viewport.addEventListener('mouseenter', onViewportMouseEnter);
+		viewport.addEventListener('mouseleave', onViewportMouseLeave);
 
 		return () => {
 			observer.disconnect();
 			viewport.removeEventListener('scroll', onScroll);
+			viewport.removeEventListener('mouseenter', onViewportMouseEnter);
+			viewport.removeEventListener('mouseleave', onViewportMouseLeave);
 		};
 	}
 
-	function onViewportMouseEnter() {
-		isViewportHovered = true;
+	//////////////////
+	// TRACK EVENTS //
+	//////////////////
+	function onTrackEnter() {
+		if (shouldShowOnHover || shouldAlwaysShow) return;
+		clearTimer();
 	}
 
-	function onViewportMouseLeave() {
-		isViewportHovered = false;
+	function onTrackLeave() {
+		if (shouldShowOnHover || shouldAlwaysShow) return;
+
+		clearTimer();
+		setupTimer();
 	}
 
 	function setupTrack(track: Element) {
@@ -117,6 +149,7 @@
 		track.addEventListener('mousedown', onThumbClick, { passive: true });
 		track.addEventListener('mouseenter', onTrackEnter);
 		track.addEventListener('mouseleave', onTrackLeave);
+
 		return () => {
 			track.removeEventListener('mousedown', onTrackClick);
 			track.removeEventListener('mouseenter', onTrackEnter);
@@ -124,6 +157,9 @@
 		};
 	}
 
+	//////////////////
+	// THUMB EVENTS //
+	//////////////////
 	function setupThumb(thumb: Element) {
 		if (!thumb) return;
 		teardownThumb?.();
@@ -154,41 +190,39 @@
 		};
 	}
 
-	function setupTimer() {
-		timer = window.setTimeout(() => {
-			visible =
-				((scrollableY || scrollableX) && initiallyVisible && !interacted) ||
-				(isViewportHovered && alwaysVisible) ||
-				false;
-		}, hideAfter);
-	}
-
-	function clearTimer() {
-		if (timer) {
-			window.clearTimeout(timer);
-			timer = 0;
-		}
-	}
-
 	function onScroll() {
-		if (!scrollableY && !scrollableX) return;
+		if (!isScrollable) return;
 
 		clearTimer();
 		setupTimer();
 
-		visible = alwaysVisible || (initiallyVisible && !interacted) || true;
+		visible = true;
 		scrollTop = viewport?.scrollTop ?? 0;
 		scrollLeft = viewport?.scrollLeft ?? 0;
-		interacted = true;
 	}
 
-	function onTrackEnter() {
-		clearTimer();
+	function onMouseMove(event: MouseEvent) {
+		event.stopPropagation();
+		event.preventDefault();
+
+		viewport.scrollTop = startTop + (wholeHeight / trackHeight) * (event.clientY - startY);
+		viewport.scrollLeft = startLeft + (wholeWidth / trackWidth) * (event.clientX - startX);
 	}
 
-	function onTrackLeave() {
-		clearTimer();
-		setupTimer();
+	function onMouseUp(event: MouseEvent) {
+		event.stopPropagation();
+		event.preventDefault();
+
+		startTop = 0;
+		startY = 0;
+
+		startLeft = 0;
+		startX = 0;
+
+		isDragging = false;
+
+		document.removeEventListener('mousemove', onMouseMove);
+		document.removeEventListener('mouseup', onMouseUp);
 	}
 
 	function onTrackClick(event: Event | MouseEvent) {
@@ -227,30 +261,6 @@
 
 		document.addEventListener('mousemove', onMouseMove);
 		document.addEventListener('mouseup', onMouseUp);
-	}
-
-	function onMouseMove(event: MouseEvent) {
-		event.stopPropagation();
-		event.preventDefault();
-
-		viewport.scrollTop = startTop + (wholeHeight / trackHeight) * (event.clientY - startY);
-		viewport.scrollLeft = startLeft + (wholeWidth / trackWidth) * (event.clientX - startX);
-	}
-
-	function onMouseUp(event: MouseEvent) {
-		event.stopPropagation();
-		event.preventDefault();
-
-		startTop = 0;
-		startY = 0;
-
-		startLeft = 0;
-		startX = 0;
-
-		isDragging = false;
-
-		document.removeEventListener('mousemove', onMouseMove);
-		document.removeEventListener('mouseup', onMouseUp);
 	}
 
 	onDestroy(() => {

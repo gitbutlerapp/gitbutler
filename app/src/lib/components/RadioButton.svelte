@@ -5,6 +5,7 @@
 	export let disabled = false;
 	export let value = '';
 	export let id = '';
+	export let checked = false;
 </script>
 
 <input
@@ -18,6 +19,7 @@
 	{value}
 	{name}
 	{disabled}
+	{checked}
 />
 
 <style lang="postcss">
@@ -40,6 +42,7 @@
 		&:hover,
 		&:focus {
 			outline: none;
+			box-shadow: inset 0 0 0 1px var(--clr-border-1);
 
 			&::after {
 				opacity: 0.2;

@@ -57,7 +57,10 @@
 	}
 
 	.domain-button:not(.selected):hover,
-	.domain-button:not(.selected):focus,
+	.domain-button:not(.selected):focus {
+		background-color: var(--clr-bg-1-muted);
+	}
+
 	.selected {
 		background-color: var(--clr-bg-2);
 	}
