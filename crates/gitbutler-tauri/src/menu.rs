@@ -154,9 +154,8 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
     ));
 
     project_menu = project_menu.add_native_item(MenuItem::Separator);
-    project_menu = project_menu.add_item(
-        CustomMenuItem::new("project/settings", "Project Settings").accelerator("CmdOrCtrl+,"),
-    );
+    project_menu =
+        project_menu.add_item(CustomMenuItem::new("project/settings", "Project Settings"));
     menu = menu.add_submenu(Submenu::new("Project", project_menu));
 
     #[cfg(target_os = "macos")]
