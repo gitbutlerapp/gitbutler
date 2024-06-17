@@ -50,7 +50,7 @@
 	{/each}
 </fieldset>
 
-<style lang="post-css">
+<style lang="postcss">
 	.cards-group {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);

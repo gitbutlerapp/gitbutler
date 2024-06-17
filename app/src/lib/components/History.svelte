@@ -108,8 +108,8 @@
 			<div class="sideview__header" data-tauri-drag-region>
 				<i class="clock-icon">
 					<div class="clock-pointers">
-						<div class="clock-pointer clock-pointer-minute" />
-						<div class="clock-pointer clock-pointer-hour" />
+						<div class="clock-pointer clock-pointer-minute"></div>
+						<div class="clock-pointer clock-pointer-hour"></div>
 					</div>
 				</i>
 				<h3 class="sideview__header-title text-base-15 text-bold">Project history</h3>

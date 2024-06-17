@@ -54,8 +54,7 @@
 	bind:this={modal}
 	width="small"
 	title="Git fetch requires input"
-	on:submit={async () => await submit()}
-	on:close={async () => await cancel()}
+	onclose={async () => await cancel()}
 >
 	<div class="message">
 		{#if $error}
@@ -66,12 +65,19 @@
 	</div>
 	<TextBox focus type="password" bind:value disabled={!!$error || loading} />
 
-	<svelte:fragment slot="controls">
+	{#snippet controls()}
 		<Button style="ghost" outline type="reset" disabled={loading} on:click={cancel}>Cancel</Button>
-		<Button style="pop" kind="solid" type="submit" grow disabled={!!$error || loading} {loading}
-			>Submit</Button
+		<Button
+			style="pop"
+			kind="solid"
+			grow
+			disabled={!!$error || loading}
+			{loading}
+			on:click={async () => await submit()}
 		>
-	</svelte:fragment>
+			Submit
+		</Button>
+	{/snippet}
 </Modal>
 
 <style lang="postcss">

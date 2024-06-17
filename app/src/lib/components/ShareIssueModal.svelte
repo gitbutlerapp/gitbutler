@@ -44,6 +44,7 @@
 	let sendProjectData = false;
 	let sendProjectRepository = false;
 
+	// eslint-disable-next-line svelte/valid-compile
 	$: projectId = $page.params.projectId;
 
 	function reset() {
@@ -154,12 +155,7 @@
 	});
 </script>
 
-<Modal
-	bind:this={modal}
-	on:close={() => close()}
-	on:submit={async () => await submit()}
-	title="Share debug data with GitButler team for review"
->
+<Modal bind:this={modal} onclose={close} title="Share debug data with GitButler team for review">
 	<div class="content-wrapper">
 		<p class="content-wrapper__help-text text-base-body-13">
 			If you are having trouble, please share your project and logs with the GitButler team. We will
@@ -219,10 +215,12 @@
 		</div>
 	</div>
 
-	<svelte:fragment slot="controls">
+	{#snippet controls(close)}
 		<Button style="ghost" outline type="reset" on:click={close}>Close</Button>
-		<Button style="pop" kind="solid" type="submit">Share with GitButler</Button>
-	</svelte:fragment>
+		<Button style="pop" kind="solid" type="submit" on:click={async () => await submit()}>
+			Share with GitButler
+		</Button>
+	{/snippet}
 </Modal>
 
 <style>

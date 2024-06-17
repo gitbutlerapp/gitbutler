@@ -16,6 +16,7 @@
 
 	$: ({ error, branches } = data.remoteBranchService);
 
+	// eslint-disable-next-line svelte/valid-compile
 	$: branch = $branches?.find((b) => b.sha === $page.params.sha);
 	$: pr = branch && githubService.getListedPr(branch.sha);
 </script>

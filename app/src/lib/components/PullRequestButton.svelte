@@ -6,12 +6,14 @@
 	import { persisted, type Persisted } from '$lib/persisted/persisted';
 	import { createEventDispatcher } from 'svelte';
 
-	enum Action {
-		Create = 'create',
-		Draft = 'draft'
-	}
+	const Action = {
+		Create: 'create',
+		Draft: 'draft'
+	} as const;
 
-	const dispatch = createEventDispatcher<{ click: { action: Action } }>();
+	type Action = (typeof Action)[keyof typeof Action];
+
+	const dispatch = createEventDispatcher<{ exec: { action: Action } }>();
 	const action = defaultAction();
 
 	export let loading = false;
@@ -34,7 +36,7 @@
 	{loading}
 	bind:this={dropDown}
 	on:click={() => {
-		dispatch('click', { action: $action });
+		dispatch('exec', { action: $action });
 	}}
 >
 	{labels[$action]}

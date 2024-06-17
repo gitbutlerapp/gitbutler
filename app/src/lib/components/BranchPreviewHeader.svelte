@@ -9,7 +9,7 @@
 	import { tooltip } from '$lib/utils/tooltip';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { onDestroy } from 'svelte';
+	import { mount, onDestroy, unmount } from 'svelte';
 	import type { PullRequest } from '$lib/github/types';
 	import type { BaseBranch, RemoteBranch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
@@ -24,8 +24,8 @@
 	let isApplying = false;
 
 	function updateContextMenu(copyablePrUrl: string) {
-		if (popupMenu) popupMenu.$destroy();
-		return new ViewPrContextMenu({
+		if (popupMenu) unmount(popupMenu);
+		return mount(ViewPrContextMenu, {
 			target: document.body,
 			props: { prUrl: copyablePrUrl }
 		});
@@ -35,7 +35,7 @@
 
 	onDestroy(() => {
 		if (popupMenu) {
-			popupMenu.$destroy();
+			unmount(popupMenu);
 		}
 	});
 </script>
@@ -112,7 +112,7 @@
 			</div>
 		</div>
 	</div>
-	<div class="header__top-overlay" data-tauri-drag-region />
+	<div class="header__top-overlay" data-tauri-drag-region></div>
 </div>
 
 <style lang="postcss">

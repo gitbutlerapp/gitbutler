@@ -12,8 +12,6 @@
 	export let loading = false;
 	export let wide = false;
 	export let help = '';
-	export let badgeLabel: string | number | undefined = undefined;
-	export let badgeIcon: keyof typeof iconsJson | undefined = undefined;
 	export let menuPosition: 'top' | 'bottom' = 'bottom';
 	let visible = false;
 
@@ -27,7 +25,7 @@
 
 	let container: HTMLDivElement;
 	let contextMenuContainer: HTMLDivElement;
-	let iconElt: HTMLElement;
+	let iconEl: HTMLElement;
 </script>
 
 <div class="dropdown-wrapper" class:wide>
@@ -37,16 +35,16 @@
 			{icon}
 			{kind}
 			{help}
-			{badgeLabel}
-			{badgeIcon}
 			{outline}
 			reversedDirection
 			disabled={disabled || loading}
 			isDropdownChild
-			on:click><slot /></Button
+			on:click
 		>
+			<slot />
+		</Button>
 		<Button
-			bind:element={iconElt}
+			bind:element={iconEl}
 			{style}
 			{kind}
 			{help}
@@ -55,14 +53,16 @@
 			{loading}
 			disabled={disabled || loading}
 			isDropdownChild
-			on:mousedown={() => (visible = !visible)}
+			on:click={() => {
+				visible = !visible;
+			}}
 		/>
 	</div>
 	<div
 		class="context-menu-container"
 		use:clickOutside={{
-			trigger: iconElt,
-			handler: () => (visible = !visible),
+			trigger: iconEl,
+			handler: () => (visible = false),
 			enabled: visible
 		}}
 		bind:this={contextMenuContainer}

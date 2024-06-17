@@ -82,7 +82,7 @@
 		}}
 	>
 		{#each $activeBranches.sort((a, b) => a.order - b.order) as branch (branch.id)}
-			<!-- svelte-ignore a11y-no-static-element-interactions -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div
 				class="branch draggable-branch"
 				draggable="true"

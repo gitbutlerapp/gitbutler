@@ -19,6 +19,7 @@
 	$: branches$ = vbranchService.branches$;
 	$: error = vbranchService.branchesError;
 
+	// eslint-disable-next-line svelte/valid-compile
 	$: branch = $branches$?.find((b) => b.id === $page.params.branchId);
 </script>
 
@@ -34,7 +35,7 @@
 
 <Modal width="small" title="Merge conflicts" bind:this={applyConflictedModal}>
 	<p>Applying this branch will introduce merge conflicts.</p>
-	<svelte:fragment slot="controls" let:item let:close>
+	{#snippet controls(close, item)}
 		<Button style="ghost" outline on:click={close}>Cancel</Button>
 		<Button
 			style="pop"
@@ -47,14 +48,14 @@
 		>
 			Update
 		</Button>
-	</svelte:fragment>
+	{/snippet}
 </Modal>
 
-<Modal width="small" title="Delete branch" bind:this={deleteBranchModal} let:item>
-	<div>
+<Modal width="small" title="Delete branch" bind:this={deleteBranchModal}>
+	{#snippet children(item)}
 		Deleting <code class="code-string">{item.name}</code> cannot be undone.
-	</div>
-	<svelte:fragment slot="controls" let:close let:item>
+	{/snippet}
+	{#snippet controls(close, item)}
 		<Button style="ghost" outline on:mousedown={close}>Cancel</Button>
 		<Button
 			style="error"
@@ -67,5 +68,5 @@
 		>
 			Delete
 		</Button>
-	</svelte:fragment>
+	{/snippet}
 </Modal>

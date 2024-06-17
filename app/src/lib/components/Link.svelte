@@ -47,7 +47,7 @@
 	</a>
 {/if}
 
-<style lang="post-css">
+<style lang="postcss">
 	.link {
 		cursor: pointer;
 		display: inline-flex;

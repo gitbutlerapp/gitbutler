@@ -104,16 +104,18 @@
 
 <Modal bind:this={commitMessageModal} width="small">
 	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
-	<svelte:fragment slot="controls">
-		<Button style="ghost" outline on:click={() => commitMessageModal.close()}>Cancel</Button>
+	{#snippet controls(close)}
+		<Button style="ghost" outline on:click={close}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
 			grow
 			disabled={!commitMessageValid}
-			on:click={submitCommitMessageModal}>Submit</Button
+			on:click={submitCommitMessageModal}
 		>
-	</svelte:fragment>
+			Submit
+		</Button>
+	{/snippet}
 </Modal>
 
 <div
@@ -134,7 +136,7 @@
 				class:remote={type === 'remote'}
 				class:upstream={type === 'upstream'}
 				class:integrated={type === 'integrated'}
-			/>
+			></div>
 
 			<!-- GENERAL INFO -->
 			<div
@@ -458,16 +460,17 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
-		padding: 14px;
+		padding: 10px 14px;
 		border-top: 1px solid var(--clr-border-2);
 	}
 
 	.commit__actions {
+		overflow: visible;
 		display: flex;
 		gap: 4px;
 		overflow-x: auto;
 		margin: 0 -14px;
-		padding: 0 14px;
+		padding: 4px 14px;
 	}
 
 	/* FILES */
@@ -477,10 +480,6 @@
 
 	/* MODIFIERS */
 	.is-commit-open {
-		& .commit__about {
-			background-color: var(--clr-bg-1-muted);
-		}
-
 		& .commit-card {
 			border-radius: var(--radius-m);
 

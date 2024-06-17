@@ -12,7 +12,7 @@
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type AnyFile } from '$lib/vbranches/types';
-	import { onDestroy } from 'svelte';
+	import { mount, onDestroy, unmount } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
 	export let file: AnyFile;
@@ -42,8 +42,8 @@
 	}
 
 	function updateContextMenu() {
-		if (popupMenu) popupMenu.$destroy();
-		return new FileContextMenu({
+		if (popupMenu) unmount(popupMenu);
+		return mount(FileContextMenu, {
 			target: document.body,
 			props: { isUnapplied }
 		});
@@ -56,7 +56,7 @@
 
 	onDestroy(() => {
 		if (popupMenu) {
-			popupMenu.$destroy();
+			unmount(popupMenu);
 		}
 	});
 

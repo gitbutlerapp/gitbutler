@@ -4,8 +4,6 @@
 	export let topBorder = false;
 
 	export let labelFor = '';
-
-	const SLOTS = $$props.$$slots;
 </script>
 
 <label
@@ -14,7 +12,7 @@
 	class:success
 	class:disabled
 	class:top-border={topBorder}
-	class:clickable={labelFor !== '' && !SLOTS.actions}
+	class:clickable={labelFor !== '' && !$$slots.actions}
 >
 	<div class="setup-feature__icon">
 		<slot name="icon" />
@@ -28,14 +26,14 @@
 			<div class="setup-feature__body text-base-body-12">
 				<slot name="body" />
 			</div>
-			{#if SLOTS.actions}
+			{#if $$slots.actions}
 				<div class="setup-feature__toggle">
 					<slot name="toggle" />
 				</div>
 			{/if}
 		</div>
 
-		{#if SLOTS.actions}
+		{#if $$slots.actions}
 			<div class="setup-feature__actions">
 				<slot name="actions" />
 			</div>

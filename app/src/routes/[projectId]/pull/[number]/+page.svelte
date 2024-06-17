@@ -14,6 +14,7 @@
 	const githubService = getContext(GitHubService);
 
 	$: pr$ = githubService.prs$?.pipe(
+		// eslint-disable-next-line svelte/valid-compile
 		map((prs) => prs.find((b) => b.number.toString() === $page.params.number))
 	);
 </script>

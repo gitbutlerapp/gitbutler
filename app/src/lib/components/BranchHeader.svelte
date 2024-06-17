@@ -190,8 +190,10 @@
 								help="New changes will land here"
 								icon="target"
 								clickable={false}
-								disabled={isUnapplied}>Default branch</Button
+								disabled={isUnapplied}
 							>
+								Default branch
+							</Button>
 						{:else}
 							<Button
 								style="ghost"
@@ -258,7 +260,7 @@
 						<div class="header__buttons">
 							{#if !hasPullRequest}
 								<PullRequestButton
-									on:click={async (e) => await createPr({ draft: e.detail.action === 'draft' })}
+									on:exec={async (e) => await createPr({ draft: e.detail.action === 'draft' })}
 									loading={isLoading}
 								/>
 							{/if}
@@ -285,7 +287,7 @@
 				</div>
 			</div>
 		</div>
-		<div class="header__top-overlay" data-remove-from-draggable data-tauri-drag-region />
+		<div class="header__top-overlay" data-remove-from-draggable data-tauri-drag-region></div>
 	</div>
 {/if}
 

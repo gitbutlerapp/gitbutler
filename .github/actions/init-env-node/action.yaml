@@ -10,6 +10,7 @@ runs:
       name: Setup node
       with:
         cache: pnpm
+        node-version-file: '.nvmrc'
 
     - name: Get pnpm store directory
       shell: bash

@@ -20,7 +20,7 @@
 		class:integrated={status === 'integrated'}
 		class:shadow-lane={shadowLane}
 		use:tooltip={help}
-	/>
+	></div>
 {:else}
 	<img
 		class="avatar"

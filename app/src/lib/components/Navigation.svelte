@@ -115,7 +115,7 @@
 		{#if $platformName || env.PUBLIC_TESTING}
 			<div class="navigation-top">
 				{#if $platformName === 'darwin'}
-					<div class="drag-region" data-tauri-drag-region />
+					<div class="drag-region" data-tauri-drag-region></div>
 				{/if}
 				<ProjectSelector isNavCollapsed={$isNavCollapsed} />
 				<div class="domains">

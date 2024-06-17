@@ -121,7 +121,7 @@
 				Release notes
 			</Button>
 			<div class="status-section">
-				<div class="sliding-gradient" />
+				<div class="sliding-gradient"></div>
 
 				{#if !$update$.status}
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>

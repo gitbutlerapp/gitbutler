@@ -23,11 +23,11 @@
 </SectionCard>
 
 {#if expanded}
-	<SectionCard hasTopRadius={false} roundedTop={false} {roundedBottom} topDivider>
+	<SectionCard roundedTop={false} {roundedBottom} topDivider>
 		<slot></slot>
 	</SectionCard>
 
-	<SectionCard hasTopRadius={false} roundedTop={false} {roundedBottom} topDivider>
+	<SectionCard roundedTop={false} {roundedBottom} topDivider>
 		<slot name="actions"></slot>
 	</SectionCard>
 {/if}

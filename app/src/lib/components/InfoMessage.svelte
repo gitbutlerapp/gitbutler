@@ -18,7 +18,6 @@
 	export let shadow = false;
 	export let error: string | undefined = undefined;
 
-	const SLOTS = $$props.$$slots;
 	const dispatch = createEventDispatcher<{ primary: void; secondary: void }>();
 
 	const iconMap: { [Key in MessageStyle]: keyof typeof iconsJson } = {
@@ -55,13 +54,13 @@
 	<Icon name={icon ? icon : iconMap[style]} color={iconColorMap[style]} />
 	<div class="info-message__inner">
 		<div class="info-message__content">
-			{#if SLOTS.title}
+			{#if $$slots.title}
 				<div class="info-message__title text-base-body-13 text-semibold">
 					<slot name="title" />
 				</div>
 			{/if}
 
-			{#if SLOTS.content}
+			{#if $$slots.content}
 				<div class="info-message__text text-base-body-12">
 					<slot name="content" />
 				</div>

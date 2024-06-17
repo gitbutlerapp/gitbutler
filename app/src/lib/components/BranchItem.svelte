@@ -18,6 +18,7 @@
 	}
 
 	$: href = getBranchLink(branch);
+	// eslint-disable-next-line svelte/valid-compile
 	$: selected = href ? $page.url.href.endsWith(href) : false;
 </script>
 

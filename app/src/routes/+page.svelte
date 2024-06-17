@@ -16,6 +16,7 @@
 
 	const projects = projectService.projects;
 
+	// eslint-disable-next-line svelte/valid-compile
 	$: debug = $page.url.searchParams.get('debug');
 
 	const analyticsConfirmed = appAnalyticsConfirmed();

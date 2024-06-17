@@ -7,19 +7,24 @@ export default defineConfig({
 		sentrySvelteKit({
 			autoInstrument: false,
 			sourceMapsUploadOptions: {
-				dryRun: process.env.SENTRY_RELEASE === undefined,
 				org: 'gitbutler',
 				project: 'app-js',
 				authToken: process.env.SENTRY_AUTH_TOKEN,
-				include: ['build'],
-				cleanArtifacts: true,
-				setCommits: {
-					auto: true,
-					ignoreMissing: true,
-					ignoreEmpty: true
+				sourcemaps: {
+					assets: ['build']
 				},
-				telemetry: false,
-				uploadSourceMaps: process.env.SENTRY_RELEASE !== undefined
+				unstable_sentryVitePluginOptions: {
+					disable: !process.env.SENTRY_RELEASE,
+					release: {
+						cleanArtifacts: true,
+						setCommits: {
+							auto: true,
+							ignoreMissing: true,
+							ignoreEmpty: true
+						}
+					},
+					telemetry: false
+				}
 			}
 		}),
 		sveltekit()

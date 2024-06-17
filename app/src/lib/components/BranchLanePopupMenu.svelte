@@ -130,29 +130,29 @@
 	</ContextMenu>
 {/if}
 
-<Modal
-	width="small"
-	bind:this={renameRemoteModal}
-	on:submit={() => {
-		branchController.updateBranchRemoteName(branch.id, newRemoteName);
-		renameRemoteModal.close();
-	}}
->
-	<svelte:fragment>
-		<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName} focus />
-	</svelte:fragment>
+<Modal width="small" bind:this={renameRemoteModal}>
+	<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName} focus />
 
-	<svelte:fragment slot="controls" let:close>
+	{#snippet controls(close)}
 		<Button style="ghost" outline type="reset" on:click={close}>Cancel</Button>
-		<Button style="pop" kind="solid" type="submit">Rename</Button>
-	</svelte:fragment>
+		<Button
+			style="pop"
+			kind="solid"
+			on:click={() => {
+				branchController.updateBranchRemoteName(branch.id, newRemoteName);
+				close();
+			}}
+		>
+			Rename
+		</Button>
+	{/snippet}
 </Modal>
 
-<Modal width="small" title="Delete branch" bind:this={deleteBranchModal} let:item={branch}>
-	<svelte:fragment>
+<Modal width="small" title="Delete branch" bind:this={deleteBranchModal}>
+	{#snippet children(branch)}
 		Deleting <code class="code-string">{branch.name}</code> cannot be undone.
-	</svelte:fragment>
-	<svelte:fragment slot="controls" let:close let:item={branch}>
+	{/snippet}
+	{#snippet controls(close)}
 		<Button style="ghost" outline on:click={close}>Cancel</Button>
 		<Button
 			style="error"
@@ -164,5 +164,5 @@
 		>
 			Delete
 		</Button>
-	</svelte:fragment>
+	{/snippet}
 </Modal>

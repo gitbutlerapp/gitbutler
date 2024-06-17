@@ -110,7 +110,7 @@
 	bind:this={gitHubOauthModal}
 	width="small"
 	title="Authorize with GitHub"
-	on:close={() => {
+	onclose={() => {
 		codeCopied = false;
 		GhActivationLinkPressed = false;
 		GhActivationPageOpened = false;
@@ -118,7 +118,7 @@
 >
 	<div class="wrapper">
 		<div class="step-section">
-			<div class="step-line" />
+			<div class="step-line"></div>
 			<div class="step-section__content">
 				<p class="text-base-body-13">Copy the following verification code:</p>
 
@@ -144,7 +144,7 @@
 
 		{#if codeCopied}
 			<div class="step-section" transition:fade>
-				<div class="step-line step-line-default" />
+				<div class="step-line step-line-default"></div>
 				<div class="step-section__content">
 					<p class="text-base-body-13">
 						Navigate to the GitHub activation page and paste the code you copied.
@@ -172,7 +172,7 @@
 
 		{#if GhActivationPageOpened}
 			<div class="step-section" transition:fade>
-				<div class="step-line step-line-last" />
+				<div class="step-line step-line-last"></div>
 				<div class="step-section__content">
 					<Button
 						style="pop"

@@ -19,7 +19,7 @@
 	</ScrollableContainer>
 </section>
 
-<style lang="post-css">
+<style lang="postcss">
 	.content-wrapper {
 		user-select: none;
 		width: 100%;

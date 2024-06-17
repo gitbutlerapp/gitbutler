@@ -113,7 +113,7 @@
 		<span class="text-base-12">Don't show this again</span>
 	</label>
 
-	<svelte:fragment slot="controls" let:close>
+	{#snippet controls(close)}
 		<Button style="ghost" outline on:click={close}>Cancel</Button>
 		<Button
 			style="pop"
@@ -128,7 +128,7 @@
 		>
 			Merge Upstream
 		</Button>
-	</svelte:fragment>
+	{/snippet}
 </Modal>
 
 <style>

@@ -41,7 +41,7 @@
 		</p>
 	</div>
 
-	<svelte:fragment slot="controls" let:close>
+	{#snippet controls(close)}
 		<Button
 			style="error"
 			kind="solid"
@@ -50,10 +50,12 @@
 			icon="bin-small"
 			on:click={() => {
 				onDeleteClicked().then(close);
-			}}>Remove</Button
+			}}
 		>
+			Remove
+		</Button>
 		<Button style="pop" kind="solid" on:click={close}>Cancel</Button>
-	</svelte:fragment>
+	{/snippet}
 </Modal>
 
 <style lang="postcss">

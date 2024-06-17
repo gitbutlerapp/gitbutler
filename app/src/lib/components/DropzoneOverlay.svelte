@@ -21,7 +21,7 @@
 	</div>
 </div>
 
-<style lang="post-css">
+<style lang="postcss">
 	@layer dropzone {
 		.dropzone {
 			user-select: none;

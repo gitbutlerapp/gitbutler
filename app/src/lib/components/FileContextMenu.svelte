@@ -106,28 +106,30 @@
 	</ContextMenu>
 </PopupMenu>
 
-<Modal width="small" title="Discard changes" bind:this={confirmationModal} let:item>
-	<div>
-		Discarding changes to the following files:
-		<ul class="file-list">
-			{#each item.files as file}
-				<li><code class="code-string">{file.path}</code></li>
-			{/each}
-		</ul>
-	</div>
-	<svelte:fragment slot="controls" let:close let:item>
+<Modal width="small" title="Discard changes" bind:this={confirmationModal}>
+	{#snippet children(item)}
+		<div>
+			Discarding changes to the following files:
+			<ul class="file-list">
+				{#each item.files as file}
+					<li><code class="code-string">{file.path}</code></li>
+				{/each}
+			</ul>
+		</div>
+	{/snippet}
+	{#snippet controls(close, item)}
 		<Button style="ghost" outline on:click={close}>Cancel</Button>
 		<Button
 			style="error"
 			kind="solid"
 			on:click={() => {
 				branchController.unapplyFiles(item.files);
-				confirmationModal.close();
+				close();
 			}}
 		>
 			Confirm
 		</Button>
-	</svelte:fragment>
+	{/snippet}
 </Modal>
 
 <style lang="postcss">

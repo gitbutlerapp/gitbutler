@@ -14,7 +14,7 @@
 
 <div class="divider" style={getMargins()} class:line={!noLine}></div>
 
-<style lang="post-css">
+<style lang="postcss">
 	.divider {
 		height: 1px;
 		width: 100%;

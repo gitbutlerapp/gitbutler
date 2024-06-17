@@ -19,7 +19,6 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { useAutoHeight } from '$lib/utils/useAutoHeight';
-	import { useResize } from '$lib/utils/useResize';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, LocalFile } from '$lib/vbranches/types';
 	import { createEventDispatcher, onMount } from 'svelte';
@@ -47,25 +46,17 @@
 	let aiLoading = false;
 	let aiConfigurationValid = false;
 
-	let contextMenu: ContextMenu;
-
 	let titleTextArea: HTMLTextAreaElement;
 	let descriptionTextArea: HTMLTextAreaElement;
 
 	$: ({ title, description } = splitMessage(commitMessage));
-	$: if (commitMessage) updateHeights();
 	$: valid = !!title;
 
 	function concatMessage(title: string, description: string) {
 		return `${title}\n\n${description}`;
 	}
 
-	function updateHeights() {
-		useAutoHeight(titleTextArea);
-		useAutoHeight(descriptionTextArea);
-	}
-
-	function focusTextareaOnMount(el: HTMLTextAreaElement) {
+	function focusTextAreaOnMount(el: HTMLTextAreaElement) {
 		el.focus();
 	}
 
@@ -103,11 +94,6 @@
 		} finally {
 			aiLoading = false;
 		}
-
-		setTimeout(() => {
-			updateHeights();
-			descriptionTextArea.focus();
-		}, 0);
 	}
 
 	onMount(async () => {
@@ -124,22 +110,20 @@
 		spellcheck="false"
 		rows="1"
 		bind:this={titleTextArea}
-		use:focusTextareaOnMount
-		use:useResize={() => {
-			useAutoHeight(titleTextArea);
-		}}
+		use:focusTextAreaOnMount
 		on:focus={(e) => useAutoHeight(e.currentTarget)}
 		on:input={(e) => {
 			commitMessage = concatMessage(e.currentTarget.value, description);
+			useAutoHeight(e.currentTarget);
 		}}
 		on:keydown={(e) => {
 			if (commit && (e.ctrlKey || e.metaKey) && e.key === 'Enter') commit();
-			if (e.key === 'Tab' || e.key === 'Enter') {
+			if (e.key === 'Enter') {
 				e.preventDefault();
 				descriptionTextArea.focus();
 			}
 		}}
-	/>
+	></textarea>
 
 	{#if title.length > 0 || description}
 		<textarea
@@ -150,10 +134,10 @@
 			spellcheck="false"
 			rows="1"
 			bind:this={descriptionTextArea}
-			use:useResize={() => useAutoHeight(descriptionTextArea)}
 			on:focus={(e) => useAutoHeight(e.currentTarget)}
 			on:input={(e) => {
 				commitMessage = concatMessage(title, e.currentTarget.value);
+				useAutoHeight(e.currentTarget);
 			}}
 			on:keydown={(e) => {
 				const value = e.currentTarget.value;
@@ -167,7 +151,7 @@
 					titleTextArea.select();
 				}
 			}}
-		/>
+		></textarea>
 	{/if}
 
 	{#if title.length > 50}
@@ -199,7 +183,7 @@
 			on:click={async () => await generateCommitMessage($branch.files)}
 		>
 			Generate message
-			<ContextMenu slot="context-menu" bind:this={contextMenu}>
+			<ContextMenu slot="context-menu">
 				<ContextMenuSection>
 					<ContextMenuItem
 						label="Extra concise"
@@ -258,6 +242,7 @@
 	}
 
 	.commit-box__textarea__title {
+		min-height: 31px;
 		padding: 12px 12px 0 12px;
 	}
 

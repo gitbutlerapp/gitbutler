@@ -302,7 +302,7 @@
           --thumb-top: {vert ? `calc(${thumbTop.toFixed(0)}px + ${paddingTop})` : 'auto'};
           --thumb-left: {vert ? 'auto' : `calc(${thumbLeft.toFixed(0)}px + ${paddingLeft})`};
         "
-	/>
+	></div>
 </div>
 
 <style>

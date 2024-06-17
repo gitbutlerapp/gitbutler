@@ -11,6 +11,7 @@
 	const user = userService.user;
 
 	let currentSection: string | undefined;
+	// eslint-disable-next-line svelte/valid-compile
 	$: currentSection = getPageName($page.url.pathname);
 
 	const settingsPageRegExp = /\/settings\/(.*?)(?:$|\/)/;
@@ -139,7 +140,7 @@
 	</section>
 </aside>
 
-<style lang="post-css">
+<style lang="postcss">
 	.profile-sidebar {
 		user-select: none;
 		display: flex;
