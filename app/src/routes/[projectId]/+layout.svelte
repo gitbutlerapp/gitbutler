@@ -19,6 +19,7 @@
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { onDestroy, onMount, setContext } from 'svelte';
 	import type { LayoutData } from './$types';
+	import { goto } from '$app/navigation';
 
 	export let data: LayoutData;
 
@@ -77,6 +78,9 @@
 	const handleKeyDown = createKeybind({
 		'$mod+Shift+H': () => {
 			$showHistoryView = !$showHistoryView;
+		},
+		'$mod+,': () => {
+			goto(`/${projectId}/settings`);
 		}
 	});
 
