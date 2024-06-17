@@ -10,6 +10,7 @@
 	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
 	import AppUpdater from '$lib/components/AppUpdater.svelte';
+	import GlobalSettingsMenuAction from '$lib/components/GlobalSettingsMenuAction.svelte';
 	import PromptModal from '$lib/components/PromptModal.svelte';
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
 	import { GitHubService } from '$lib/github/service';
@@ -101,6 +102,7 @@
 <ToastController />
 <AppUpdater />
 <PromptModal />
+<GlobalSettingsMenuAction />
 
 <style lang="postcss">
 	.app-root {
