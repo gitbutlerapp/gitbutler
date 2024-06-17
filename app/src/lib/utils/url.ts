@@ -38,3 +38,7 @@ export function convertRemoteToWebUrl(url: string): string {
 		return url.replace(':', '/').replace('git@', 'https://').replace('.git', '').trim();
 	}
 }
+
+export function remoteUrlIsHttp(url: string): boolean {
+	return url.startsWith('http');
+}
