@@ -45,7 +45,7 @@
 
 <DropDownButton
 	style="pop"
-	kind="soft"
+	kind="solid"
 	loading={isLoading}
 	bind:this={dropDown}
 	{wide}

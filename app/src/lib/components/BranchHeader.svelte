@@ -127,7 +127,7 @@
 						isLaneCollapsed={$isLaneCollapsed}
 					/>
 					{#if branch.selectedForChanges}
-						<Button size="tag" clickable={false} style="pop" kind="solid" icon="target"
+						<Button style="pop" kind="soft" size="tag" clickable={false} icon="target"
 							>Default branch</Button
 						>
 					{/if}
@@ -186,7 +186,7 @@
 						{#if branch.selectedForChanges}
 							<Button
 								style="pop"
-								kind="solid"
+								kind="soft"
 								help="New changes will land here"
 								icon="target"
 								clickable={false}

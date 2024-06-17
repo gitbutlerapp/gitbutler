@@ -65,8 +65,9 @@
 			</Button>
 		{/if}
 		<Button
-			style="neutral"
+			style={$expanded ? 'neutral' : 'ghost'}
 			kind="solid"
+			outline={!$expanded}
 			grow
 			loading={isCommitting}
 			disabled={(isCommitting || !commitMessageValid || $selectedOwnership.isEmpty()) && $expanded}
