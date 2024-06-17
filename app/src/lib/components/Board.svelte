@@ -280,7 +280,6 @@
 			border-radius: 100%;
 			background-color: var(--clr-illustration-outline);
 			opacity: 0.08;
-			animation: shadow-scale 5.5s infinite ease-in-out;
 			animation-delay: 3s;
 		}
 	}
@@ -291,35 +290,6 @@
 		left: 50%;
 		transform: translate(-50%, -70%) translateZ(0);
 		width: 212px;
-		animation: hovering 5.5s infinite ease-in-out;
-		animation-delay: 3s;
-	}
-
-	@keyframes hovering {
-		0% {
-			transform: translate(-50%, -70%) translateZ(0);
-		}
-		50% {
-			transform: translate(-50%, -65%) translateZ(0);
-		}
-		100% {
-			transform: translate(-50%, -70%) translateZ(0);
-		}
-	}
-
-	@keyframes shadow-scale {
-		0% {
-			opacity: 0.08;
-			transform: translateX(-50%) scale(1.15);
-		}
-		50% {
-			opacity: 0.12;
-			transform: translateX(-50%) scale(1);
-		}
-		100% {
-			opacity: 0.08;
-			transform: translateX(-50%) scale(1.15);
-		}
 	}
 
 	.empty-board__about {

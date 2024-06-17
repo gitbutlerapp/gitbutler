@@ -311,13 +311,13 @@
 		margin-bottom: 4px;
 	}
 	.header_target-branch-animation {
-		animation: setTargetAnimation 0.25s ease-in-out forwards;
+		animation: setTargetAnimation 0.3s ease-in-out forwards;
 	}
 	@keyframes setTargetAnimation {
 		0% {
 		}
 		40% {
-			transform: scale(1.015) rotate(0.5deg);
+			transform: scale(1.017) rotate(1deg);
 		}
 		50% {
 			border-color: var(--clr-theme-pop-element);
