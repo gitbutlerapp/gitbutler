@@ -72,6 +72,8 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
                     AboutMetadata::default(),
                 ))
                 .add_native_item(MenuItem::Separator)
+                .add_item(CustomMenuItem::new("global/settings", "Settings").accelerator("Cmd+,"))
+                .add_native_item(MenuItem::Separator)
                 .add_native_item(MenuItem::Services)
                 .add_native_item(MenuItem::Separator)
                 .add_native_item(MenuItem::Hide)
@@ -224,6 +226,11 @@ pub fn handle_event<R: Runtime>(event: &WindowMenuEvent<R>) {
 
     if event.menu_item_id() == "project/settings" {
         emit(event.window(), "menu://project/settings/clicked");
+        return;
+    }
+
+    if event.menu_item_id() == "global/settings" {
+        emit(event.window(), "menu://global/settings/clicked");
         return;
     }
 
