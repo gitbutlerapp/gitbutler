@@ -1,18 +1,23 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 
 	interface Props {
 		children: any;
-		ontrigger: (lastChild: HTMLElement) => void;
+		minTriggerCount?: number;
+		ontrigger: (lastChild: Element) => void;
 	}
 
-	let { children, ontrigger }: Props = $props();
+	let { children, minTriggerCount = 40, ontrigger }: Props = $props();
 
-	let lazeContainerEl: HTMLDivElement;
+	let lazyContainerEl: HTMLDivElement;
 
-	$effect(() => {
-		const containerChildren = lazeContainerEl.children;
-		const lastChild = containerChildren[containerChildren.length - 1] as HTMLElement;
+	onMount(() => {
+		const containerChildren = lazyContainerEl.children;
+
+		if (containerChildren.length > minTriggerCount) return;
+
+		const lastChild = containerChildren[containerChildren.length - 1];
 
 		intersectionObserver(lastChild, {
 			isDisabled: false,
@@ -26,7 +31,7 @@
 	});
 </script>
 
-<div class="lazy-container" bind:this={lazeContainerEl}>
+<div class="lazy-container" bind:this={lazyContainerEl}>
 	{@render children()}
 </div>
 

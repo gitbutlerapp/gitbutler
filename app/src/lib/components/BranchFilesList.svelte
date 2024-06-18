@@ -70,32 +70,34 @@
 	</div>
 {/if}
 
-<LazyloadContainer
-	ontrigger={() => {
-		console.log('triggered');
-	}}
->
-	{#each displayedFiles as file, idx (file.id)}
-		<FileListItem
-			{file}
-			{readonly}
-			{isUnapplied}
-			showCheckbox={showCheckboxes}
-			selected={$fileIdSelection.includes(stringifyFileKey(file.id, $commit?.id))}
-			on:click={(e) => {
-				selectFilesInList(e, file, fileIdSelection, displayedFiles, allowMultiple, $commit);
-			}}
-			on:keydown={(e) => {
-				e.preventDefault();
-				maybeMoveSelection(e.key, file, displayedFiles, fileIdSelection);
-			}}
-			on:visible={() => {
-				loadMore();
-				console.log('load more files…');
-			}}
-		/>
-	{/each}
-</LazyloadContainer>
+{#if displayedFiles.length > 0}
+	<LazyloadContainer
+		ontrigger={() => {
+			console.log('triggered');
+		}}
+	>
+		{#each displayedFiles as file (file.id)}
+			<FileListItem
+				{file}
+				{readonly}
+				{isUnapplied}
+				showCheckbox={showCheckboxes}
+				selected={$fileIdSelection.includes(stringifyFileKey(file.id, $commit?.id))}
+				on:click={(e) => {
+					selectFilesInList(e, file, fileIdSelection, displayedFiles, allowMultiple, $commit);
+				}}
+				on:keydown={(e) => {
+					e.preventDefault();
+					maybeMoveSelection(e.key, file, displayedFiles, fileIdSelection);
+				}}
+				on:visible={() => {
+					loadMore();
+					console.log('load more files…');
+				}}
+			/>
+		{/each}
+	</LazyloadContainer>
+{/if}
 
 <style lang="postcss">
 	.merge-commit-error {

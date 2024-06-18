@@ -1,5 +1,5 @@
 export function intersectionObserver(
-	node: HTMLElement,
+	node: Element,
 	{
 		isDisabled,
 		callback,
