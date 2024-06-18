@@ -279,7 +279,7 @@
 			transform: translateX(-50%) scale(1.15);
 			border-radius: 100%;
 			background-color: var(--clr-illustration-outline);
-			opacity: 0.08;
+			opacity: 0.1;
 			animation-delay: 3s;
 		}
 	}
@@ -288,7 +288,7 @@
 		position: absolute;
 		top: 50%;
 		left: 50%;
-		transform: translate(-50%, -70%) translateZ(0);
+		transform: translate(-50%, -66%) translateZ(0);
 		width: 212px;
 	}
 
