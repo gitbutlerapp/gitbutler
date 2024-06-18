@@ -51,7 +51,7 @@ gitbutler-watcher.workspace = true
 open = "5"
 
 [dependencies.tauri]
-version = "1.6.2"
+version = "1.6.7"
 features = [
     "http-all", "os-all", "dialog-open", "fs-read-file",
     "path-all", "process-relaunch", "protocol-asset",
