@@ -7,7 +7,6 @@
 	import { DraggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
-	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { updateFocus } from '$lib/utils/selection';
 	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
@@ -22,7 +21,6 @@
 	export let selected: boolean;
 	export let showCheckbox: boolean = false;
 	export let readonly = false;
-	export let trackVisibility: boolean = false;
 
 	const branch = maybeGetContextStore(Branch);
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
@@ -64,8 +62,6 @@
 	});
 
 	const isDraggable = !readonly && !isUnapplied;
-
-	const dispatch = createEventDispatcher<{ visible: void }>();
 </script>
 
 <div
@@ -123,15 +119,6 @@
 		disabled: !isDraggable,
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable'
-	}}
-	use:intersectionObserver={{
-		isDisabled: !trackVisibility,
-		callback: (entry) => {
-			if (entry.isIntersecting) {
-				dispatch('visible');
-			}
-		},
-		options: { threshold: 0 }
 	}}
 >
 	{#if showCheckbox}

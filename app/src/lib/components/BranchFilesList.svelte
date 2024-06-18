@@ -11,6 +11,7 @@
 	import { FileIdSelection, stringifyFileKey } from '$lib/vbranches/fileIdSelection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import type { AnyFile } from '$lib/vbranches/types';
+	import LazyloadContainer from './LazyloadContainer.svelte';
 
 	export let files: AnyFile[];
 	export let isUnapplied = false;
@@ -69,27 +70,32 @@
 	</div>
 {/if}
 
-{#each displayedFiles as file, idx (file.id)}
-	<FileListItem
-		{file}
-		{readonly}
-		{isUnapplied}
-		showCheckbox={showCheckboxes}
-		selected={$fileIdSelection.includes(stringifyFileKey(file.id, $commit?.id))}
-		on:click={(e) => {
-			selectFilesInList(e, file, fileIdSelection, displayedFiles, allowMultiple, $commit);
-		}}
-		on:keydown={(e) => {
-			e.preventDefault();
-			maybeMoveSelection(e.key, file, displayedFiles, fileIdSelection);
-		}}
-		trackVisibility={idx === displayedFiles.length - 1}
-		on:visible={() => {
-			loadMore();
-			console.log('load more files…');
-		}}
-	/>
-{/each}
+<LazyloadContainer
+	ontrigger={() => {
+		console.log('triggered');
+	}}
+>
+	{#each displayedFiles as file, idx (file.id)}
+		<FileListItem
+			{file}
+			{readonly}
+			{isUnapplied}
+			showCheckbox={showCheckboxes}
+			selected={$fileIdSelection.includes(stringifyFileKey(file.id, $commit?.id))}
+			on:click={(e) => {
+				selectFilesInList(e, file, fileIdSelection, displayedFiles, allowMultiple, $commit);
+			}}
+			on:keydown={(e) => {
+				e.preventDefault();
+				maybeMoveSelection(e.key, file, displayedFiles, fileIdSelection);
+			}}
+			on:visible={() => {
+				loadMore();
+				console.log('load more files…');
+			}}
+		/>
+	{/each}
+</LazyloadContainer>
 
 <style lang="postcss">
 	.merge-commit-error {
