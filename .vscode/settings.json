@@ -1,7 +1,7 @@
 {
 	"eslint.validate": ["svelte"],
 	"eslint.workingDirectories": ["app"],
-	"prettier.configPath": "app/.prettierrc",
+	"prettier.configPath": "app/.prettierrc.js",
 	"svelte.enable-ts-plugin": true,
 	"editor.defaultFormatter": "esbenp.prettier-vscode",
 	"[rust]": {
