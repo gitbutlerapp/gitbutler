@@ -4,6 +4,7 @@
 	"engines": {
 		"node": ">=20.11"
 	},
+	"packageManager": "pnpm@9.2.0",
 	"scripts": {
 		"dev": "pnpm --filter @gitbutler/ui run dev",
 		"test": "pnpm --filter @gitbutler/ui run test",
@@ -20,6 +21,5 @@
 	},
 	"devDependencies": {
 		"@tauri-apps/cli": "^1.5.13"
-	},
-	"packageManager": "pnpm@9.2.0"
+	}
 }

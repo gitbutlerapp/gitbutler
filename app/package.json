@@ -6,6 +6,7 @@
 	"engines": {
 		"node": ">=20.11"
 	},
+	"packageManager": "pnpm@9.2.0",
 	"scripts": {
 		"dev": "vite dev",
 		"test": "vitest run --mode development",
@@ -102,6 +103,5 @@
 	},
 	"dependencies": {
 		"openai": "^4.47.3"
-	},
-	"packageManager": "pnpm@9.2.0"
+	}
 }
