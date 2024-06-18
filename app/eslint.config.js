@@ -17,9 +17,15 @@ export default tsEslint.config(
 	{
 		files: ['**/*.svelte'],
 		languageOptions: {
-			ecmaVersion: 2022,
+			ecmaVersion: 2021,
 			sourceType: 'module',
-			globals: { ...globals.node, ...globals.browser },
+			globals: {
+				...globals.node,
+				...globals.browser,
+				$state: 'readonly',
+				$derived: 'readonly',
+				$props: 'readonly'
+			},
 			parser: svelteParser,
 			parserOptions: {
 				parser: tsParser,
