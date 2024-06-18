@@ -73,7 +73,7 @@
 {#if displayedFiles.length > 0}
 	<LazyloadContainer
 		ontrigger={() => {
-			console.log('triggered');
+			console.log('loading more files...');
 		}}
 	>
 		{#each displayedFiles as file (file.id)}
@@ -89,10 +89,6 @@
 				on:keydown={(e) => {
 					e.preventDefault();
 					maybeMoveSelection(e.key, file, displayedFiles, fileIdSelection);
-				}}
-				on:visible={() => {
-					loadMore();
-					console.log('load more files…');
 				}}
 			/>
 		{/each}

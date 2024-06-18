@@ -13,7 +13,6 @@
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type AnyFile } from '$lib/vbranches/types';
 	import { mount, onDestroy, unmount } from 'svelte';
-	import { createEventDispatcher } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
 	export let file: AnyFile;
