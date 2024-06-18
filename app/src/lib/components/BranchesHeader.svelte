@@ -24,7 +24,7 @@
 			<Badge {count} />
 		{/if}
 	</div>
-	{#if count && count > 0}
+	{#if (count && count > 0) || filtersActive}
 		<div class="header__filter-btn" bind:this={filterButton}>
 			<Button
 				style="ghost"
