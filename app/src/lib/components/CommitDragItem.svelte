@@ -5,9 +5,9 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { filesToOwnership, filesToSimpleOwnership } from '$lib/vbranches/ownership';
 	import { RemoteCommit, Branch, Commit, LocalFile, RemoteFile } from '$lib/vbranches/types';
-	import Dropzone from '$lib/components/NewNewDropzone/Dropzone.svelte';
+	import Dropzone from '$lib/components/Dropzone/Dropzone.svelte';
 	import type { Snippet } from 'svelte';
-	import CardOverlay from '$lib/components/NewNewDropzone/CardOverlay.svelte';
+	import CardOverlay from '$lib/components/Dropzone/CardOverlay.svelte';
 
 	interface Props {
 		commit: Commit | RemoteCommit;

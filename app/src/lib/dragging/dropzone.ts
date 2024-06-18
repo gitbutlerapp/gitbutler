@@ -8,18 +8,6 @@ export interface DropzoneConfiguration {
 	onHoverEnd: () => void;
 	target: string;
 }
-
-const defaultDropzoneOptions: DropzoneConfiguration = {
-	disabled: false,
-	accepts: (data) => data === 'default',
-	onDrop: () => {},
-	onActivationStart: () => {},
-	onActivationEnd: () => {},
-	onHoverStart: () => {},
-	onHoverEnd: () => {},
-	target: '.dropzone-target'
-};
-
 export class Dropzone {
 	private active: boolean = false;
 
@@ -70,9 +58,10 @@ export class Dropzone {
 	}
 
 	unregister() {
-		// Mark as no longer active
+		// Mark as no longer active and ensure its not stuck in the hover state
 		this.active = false;
 		this.configuration.onActivationEnd();
+		this.configuration.onHoverEnd();
 
 		// Unregister listeners
 		if (this.registeredOnDrop) {
@@ -109,27 +98,26 @@ export class Dropzone {
 
 export const dropzoneRegistry = new Map<HTMLElement, Dropzone>();
 
-export function dropzone(node: HTMLElement, opts: Partial<DropzoneConfiguration> | undefined) {
-	function setup(opts: Partial<DropzoneConfiguration> | undefined) {
-		const configuration = { ...defaultDropzoneOptions, ...opts };
-
-		if (configuration.disabled) return;
+export function dropzone(node: HTMLElement, opts: DropzoneConfiguration) {
+	function setup(opts: DropzoneConfiguration) {
+		if (opts.disabled) return;
 
 		if (dropzoneRegistry.has(node)) {
 			clean();
 		}
 
-		dropzoneRegistry.set(node, new Dropzone(configuration, node));
+		dropzoneRegistry.set(node, new Dropzone(opts, node));
 	}
 
 	function clean() {
+		dropzoneRegistry.get(node)?.unregister();
 		dropzoneRegistry.delete(node);
 	}
 
 	setup(opts);
 
 	return {
-		update(opts: Partial<DropzoneConfiguration> | undefined) {
+		update(opts: DropzoneConfiguration) {
 			clean();
 			setup(opts);
 		},

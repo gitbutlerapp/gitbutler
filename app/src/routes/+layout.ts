@@ -14,6 +14,7 @@ import { mockTauri } from '$lib/testing/index';
 import lscache from 'lscache';
 import { BehaviorSubject, config } from 'rxjs';
 import { env } from '$env/dynamic/public';
+import { ReorderDropzoneManager } from '$lib/dragging/reorderDropzoneManager';
 
 // call on startup so we don't accumulate old items
 lscache.flushExpired();

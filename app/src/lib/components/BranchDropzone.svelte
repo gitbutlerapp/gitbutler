@@ -6,7 +6,7 @@
 	import topSheetSvg from '$lib/assets/new-branch/top-sheet.svg?raw';
 	// import components
 	import Button from '$lib/components/Button.svelte';
-	import Dropzone from '$lib/components/NewNewDropzone/Dropzone.svelte';
+	import Dropzone from '$lib/components/Dropzone/Dropzone.svelte';
 	import { DraggableFile, DraggableHunk } from '$lib/dragging/draggables';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';

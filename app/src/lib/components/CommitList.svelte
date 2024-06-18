@@ -4,9 +4,9 @@
 	import { Project } from '$lib/backend/projects';
 	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
 	import {
-		ReorderDropzoneIndexer,
+		getReorderDropzoneManager,
 		type ReorderDropzone
-	} from '$lib/dragging/reorderDropzoneIndexer';
+	} from '$lib/dragging/reorderDropzoneManager';
 	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import { getContext } from '$lib/utils/context';
 	import { getContextStore } from '$lib/utils/context';
@@ -19,8 +19,8 @@
 	} from '$lib/vbranches/contexts';
 	import { BaseBranch, Branch, Commit, type CommitStatus } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
-	import Dropzone from '$lib/components/NewNewDropzone/Dropzone.svelte';
-	import LineOverlay from '$lib/components/NewNewDropzone/LineOverlay.svelte';
+	import Dropzone from '$lib/components/Dropzone/Dropzone.svelte';
+	import LineOverlay from '$lib/components/Dropzone/LineOverlay.svelte';
 
 	export let isUnapplied: boolean;
 
@@ -32,6 +32,8 @@
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 	const branchController = getContext(BranchController);
+
+	const ReorderDropzoneManager = getReorderDropzoneManager();
 
 	// Force the "base" commit lines to update when $branch updates.
 	let tsKey: number | undefined;
@@ -48,7 +50,7 @@
 	$: hasIntegratedCommits = $integratedCommits.length > 0;
 	$: hasRemoteCommits = $remoteCommits.length > 0;
 	$: hasShadowedCommits = $localCommits.some((c) => c.relatedTo);
-	$: reorderDropzoneIndexer = new ReorderDropzoneIndexer(
+	$: reorderDropzoneManager = new ReorderDropzoneManager(
 		[...$localCommits, ...$remoteCommits],
 		$branch,
 		branchController
@@ -170,7 +172,7 @@
 		<!-- LOCAL COMMITS -->
 		{#if $localCommits.length > 0}
 			{@render reorderDropzone(
-				reorderDropzoneIndexer.topDropzone,
+				reorderDropzoneManager.topDropzone,
 				getReorderDropzoneOffset({ isFirst: true })
 			)}
 			{#each $localCommits as commit, idx (commit.id)}
@@ -208,7 +210,7 @@
 				</CommitCard>
 
 				{@render reorderDropzone(
-					reorderDropzoneIndexer.dropzoneBelowCommit(commit.id),
+					reorderDropzoneManager.dropzoneBelowCommit(commit.id),
 					getReorderDropzoneOffset({
 						isLast: $remoteCommits.length === 0 && idx + 1 === $localCommits.length,
 						isMiddle: $remoteCommits.length > 0 && idx + 1 === $localCommits.length
@@ -255,7 +257,7 @@
 					</svelte:fragment>
 				</CommitCard>
 				{@render reorderDropzone(
-					reorderDropzoneIndexer.dropzoneBelowCommit(commit.id),
+					reorderDropzoneManager.dropzoneBelowCommit(commit.id),
 					getReorderDropzoneOffset({
 						isLast: idx + 1 === $remoteCommits.length
 					})

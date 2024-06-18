@@ -1,4 +1,5 @@
 import { DraggableCommit } from '$lib/dragging/draggables';
+import { buildConstructorStore } from '$lib/utils/context';
 import type { BranchController } from '$lib/vbranches/branchController';
 import type { Branch, Commit } from '$lib/vbranches/types';
 
@@ -23,7 +24,7 @@ export class ReorderDropzone {
 	constructor(
 		private branch: Branch,
 		private index: number,
-		private indexer: ReorderDropzoneIndexer,
+		private indexer: ReorderDropzoneManager,
 		private branchController: BranchController
 	) {}
 
@@ -45,7 +46,7 @@ export class ReorderDropzone {
 	}
 }
 
-export class ReorderDropzoneIndexer {
+export class ReorderDropzoneManager {
 	private dropzoneIndexes = new Map<string, number>();
 	private commitIndexes = new Map<string, number>();
 
@@ -107,3 +108,6 @@ export class ReorderDropzoneIndexer {
 		}
 	}
 }
+
+export const [getReorderDropzoneManager, setReorderDropzoneManager] =
+	buildConstructorStore<typeof ReorderDropzoneManager>('ReorderDropzoneManager');
