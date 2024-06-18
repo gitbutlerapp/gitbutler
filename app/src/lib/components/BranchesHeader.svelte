@@ -2,12 +2,19 @@
 	import { clickOutside } from '$lib/clickOutside';
 	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import type { Snippet } from 'svelte';
 
-	export let count: number | undefined;
-	export let filtersActive = false;
+	interface Props {
+		filteredBranchCount?: number;
+		totalBranchCount: number;
+		filtersActive: boolean;
+		contextMenu: Snippet<[{ visible: boolean }]>;
+	}
 
-	let visible = false;
-	let filterButton: HTMLDivElement;
+	const { filteredBranchCount, totalBranchCount, filtersActive, contextMenu }: Props = $props();
+
+	let visible = $state(false);
+	let filterButton = $state<HTMLDivElement>();
 
 	function onFilterClick(e: Event) {
 		visible = !visible;
@@ -20,11 +27,11 @@
 	<div class="branches-title">
 		<span class="text-base-14 text-bold">Branches</span>
 
-		{#if count !== undefined}
-			<Badge {count} />
+		{#if filteredBranchCount !== undefined}
+			<Badge count={filteredBranchCount} />
 		{/if}
 	</div>
-	{#if count && count > 0}
+	{#if totalBranchCount > 0}
 		<div class="header__filter-btn" bind:this={filterButton}>
 			<Button
 				style="ghost"
@@ -38,7 +45,7 @@
 				class="filter-popup-menu"
 				use:clickOutside={{ trigger: filterButton, handler: () => (visible = false) }}
 			>
-				<slot name="context-menu" {visible} />
+				{@render contextMenu({ visible })}
 			</div>
 		</div>
 	{/if}
