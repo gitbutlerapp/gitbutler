@@ -6,8 +6,8 @@
 	import topSheetSvg from '$lib/assets/new-branch/top-sheet.svg?raw';
 	// import components
 	import Button from '$lib/components/Button.svelte';
+	import Dropzone from '$lib/components/NewNewDropzone/Dropzone.svelte';
 	import { DraggableFile, DraggableHunk } from '$lib/dragging/draggables';
-	import { dropzone } from '$lib/dragging/dropzone';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
@@ -31,49 +31,45 @@
 	}
 </script>
 
-<div
-	class="canvas-dropzone"
-	use:dropzone={{
-		active: 'new-dz-active',
-		hover: 'new-dz-hover',
-		onDrop,
-		accepts
-	}}
->
-	<div id="new-branch-dz" class="new-virtual-branch">
-		<div class="new-virtual-branch__content">
-			<div class="stimg">
-				<div class="stimg__hand">
-					{@html handSvg}
-				</div>
-				<div class="stimg__top-sheet">
-					{@html topSheetSvg}
-				</div>
-				<div class="stimg__middle-sheet">
-					{@html middleSheetSvg}
-				</div>
-				<div class="stimg__bottom-sheet">
-					{@html bottomSheetSvg}
-				</div>
+<div class="canvas-dropzone">
+	<Dropzone {accepts} ondrop={onDrop}>
+		{#snippet overlay({ hovered, activated })}
+			<div class="new-virtual-branch" class:activated class:hovered>
+				<div class="new-virtual-branch__content">
+					<div class="stimg">
+						<div class="stimg__hand">
+							{@html handSvg}
+						</div>
+						<div class="stimg__top-sheet">
+							{@html topSheetSvg}
+						</div>
+						<div class="stimg__middle-sheet">
+							{@html middleSheetSvg}
+						</div>
+						<div class="stimg__bottom-sheet">
+							{@html bottomSheetSvg}
+						</div>
 
-				<div class="stimg__branch">
-					<div class="stimg__branch-plus"></div>
+						<div class="stimg__branch">
+							<div class="stimg__branch-plus"></div>
+						</div>
+					</div>
+
+					<span class="text-base-body-13 new-branch-caption"
+						>Drag and drop files<br />to create a new branch</span
+					>
+				</div>
+				<div class="new-branch-button">
+					<Button
+						style="ghost"
+						outline
+						icon="plus-small"
+						on:mousedown={async () => await branchController.createBranch({})}>New branch</Button
+					>
 				</div>
 			</div>
-
-			<span class="text-base-body-13 new-branch-caption"
-				>Drag and drop files<br />to create a new branch</span
-			>
-		</div>
-		<div class="new-branch-button">
-			<Button
-				style="ghost"
-				outline
-				icon="plus-small"
-				on:mousedown={async () => await branchController.createBranch({})}>New branch</Button
-			>
-		</div>
-	</div>
+		{/snippet}
+	</Dropzone>
 </div>
 
 <style lang="postcss">
@@ -90,6 +86,7 @@
 		align-items: center;
 		justify-content: center;
 		width: 352px;
+		height: 100%;
 		border-radius: var(--radius-m);
 		border: 1px dashed var(--clr-border-2);
 		background-color: transparent;
@@ -214,8 +211,8 @@
 	}
 
 	/* DRAGZONE MODIEFIERS */
-	:global(.canvas-dropzone.new-dz-active) {
-		& .new-virtual-branch {
+	.activated {
+		&.new-virtual-branch {
 			background-color: oklch(from var(--clr-scale-pop-70) l c h / 0.1);
 			border: 1px dashed oklch(from var(--clr-scale-pop-40) l c h / 0.8);
 			color: var(--clr-scale-pop-50);
