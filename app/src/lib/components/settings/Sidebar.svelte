@@ -199,7 +199,7 @@
 
 		&:not(.item_selected):hover {
 			transition: none;
-			background-color: var(--clr-bg-2);
+			background-color: var(--clr-bg-1-muted);
 		}
 
 		& span {
@@ -238,7 +238,7 @@
 		transition: background-color var(--transition-fast);
 
 		&:hover {
-			background-color: var(--clr-bg-2);
+			background-color: var(--clr-bg-1-muted);
 		}
 	}
 </style>
