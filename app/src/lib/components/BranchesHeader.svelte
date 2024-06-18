@@ -31,24 +31,22 @@
 			<Badge count={filteredBranchCount} />
 		{/if}
 	</div>
-	{#if totalBranchCount > 0}
-		<div class="header__filter-btn" bind:this={filterButton}>
-			<Button
-				style="ghost"
-				outline
-				icon={filtersActive ? 'filter-applied-small' : 'filter-small'}
-				on:mousedown={onFilterClick}
-			>
-				Filter
-			</Button>
-			<div
-				class="filter-popup-menu"
-				use:clickOutside={{ trigger: filterButton, handler: () => (visible = false) }}
-			>
-				{@render contextMenu({ visible })}
-			</div>
+	<div class="header__filter-btn" bind:this={filterButton}>
+		<Button
+			style="ghost"
+			outline
+			icon={filtersActive ? 'filter-applied-small' : 'filter-small'}
+			on:mousedown={onFilterClick}
+		>
+			Filter
+		</Button>
+		<div
+			class="filter-popup-menu"
+			use:clickOutside={{ trigger: filterButton, handler: () => (visible = false) }}
+		>
+			{@render contextMenu({ visible })}
 		</div>
-	{/if}
+	</div>
 </div>
 
 <style lang="postcss">
