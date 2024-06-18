@@ -19,7 +19,6 @@
 	$: branches$ = vbranchService.branches$;
 	$: error = vbranchService.branchesError;
 
-	// eslint-disable-next-line svelte/valid-compile
 	$: branch = $branches$?.find((b) => b.id === $page.params.branchId);
 </script>
 

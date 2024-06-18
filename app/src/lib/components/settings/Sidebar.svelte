@@ -11,7 +11,6 @@
 	const user = userService.user;
 
 	let currentSection: string | undefined;
-	// eslint-disable-next-line svelte/valid-compile
 	$: currentSection = getPageName($page.url.pathname);
 
 	const settingsPageRegExp = /\/settings\/(.*?)(?:$|\/)/;
