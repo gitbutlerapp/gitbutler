@@ -1,4 +1,5 @@
 {
+  "eslint.experimental.useFlatConfig": true
 	"eslint.validate": ["svelte"],
 	"eslint.workingDirectories": ["app"],
 	"prettier.configPath": "app/.prettierrc.js",
