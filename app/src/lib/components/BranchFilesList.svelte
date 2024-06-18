@@ -64,12 +64,12 @@
 				style="ghost"
 				outline
 				on:mousedown={() => copyToClipboard(mergeDiffCommand + $commit.id.slice(0, 7))}
-			></Button>
+			/>
 		</div>
 	</div>
 {/if}
 
-{#each displayedFiles as file (file.id)}
+{#each displayedFiles as file, idx (file.id)}
 	<FileListItem
 		{file}
 		{readonly}
@@ -82,6 +82,11 @@
 		on:keydown={(e) => {
 			e.preventDefault();
 			maybeMoveSelection(e.key, file, displayedFiles, fileIdSelection);
+		}}
+		trackVisibility={idx === displayedFiles.length - 1}
+		on:visible={() => {
+			loadMore();
+			console.log('load more files…');
 		}}
 	/>
 {/each}

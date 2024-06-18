@@ -7,12 +7,14 @@
 	import { DraggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
+	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { updateFocus } from '$lib/utils/selection';
 	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type AnyFile } from '$lib/vbranches/types';
 	import { mount, onDestroy, unmount } from 'svelte';
+	import { createEventDispatcher } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
 	export let file: AnyFile;
@@ -20,6 +22,7 @@
 	export let selected: boolean;
 	export let showCheckbox: boolean = false;
 	export let readonly = false;
+	export let trackVisibility: boolean = false;
 
 	const branch = maybeGetContextStore(Branch);
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
@@ -61,6 +64,8 @@
 	});
 
 	const isDraggable = !readonly && !isUnapplied;
+
+	const dispatch = createEventDispatcher<{ visible: void }>();
 </script>
 
 <div
@@ -104,6 +109,13 @@
 	}}
 	role="button"
 	tabindex="0"
+	on:contextmenu|preventDefault={async (e) => {
+		if (fileIdSelection.has(file.id, $commit?.id)) {
+			popupMenu.openByMouse(e, { files: await $selectedFiles });
+		} else {
+			popupMenu.openByMouse(e, { files: [file] });
+		}
+	}}
 	use:draggable={{
 		data: $selectedFiles.then(
 			(files) => new DraggableFile($branch?.id || '', file, $commit, files)
@@ -112,12 +124,14 @@
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable'
 	}}
-	on:contextmenu|preventDefault={async (e) => {
-		if (fileIdSelection.has(file.id, $commit?.id)) {
-			popupMenu.openByMouse(e, { files: await $selectedFiles });
-		} else {
-			popupMenu.openByMouse(e, { files: [file] });
-		}
+	use:intersectionObserver={{
+		isDisabled: !trackVisibility,
+		callback: (entry) => {
+			if (entry.isIntersecting) {
+				dispatch('visible');
+			}
+		},
+		options: { threshold: 0 }
 	}}
 >
 	{#if showCheckbox}

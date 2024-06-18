@@ -18,12 +18,6 @@
 	function unselectAllFiles() {
 		fileIdSelection.clear();
 	}
-
-	let branchFilesList: BranchFilesList | undefined;
-
-	export function loadMore() {
-		branchFilesList?.loadMore();
-	}
 </script>
 
 <div
@@ -38,14 +32,7 @@
 	on:click={unselectAllFiles}
 >
 	{#if files.length > 0}
-		<BranchFilesList
-			bind:this={branchFilesList}
-			{allowMultiple}
-			{readonly}
-			{files}
-			{showCheckboxes}
-			{isUnapplied}
-		/>
+		<BranchFilesList {allowMultiple} {readonly} {files} {showCheckboxes} {isUnapplied} />
 	{/if}
 </div>
 
