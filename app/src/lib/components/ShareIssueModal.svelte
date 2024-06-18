@@ -44,7 +44,6 @@
 	let sendProjectData = false;
 	let sendProjectRepository = false;
 
-	// eslint-disable-next-line svelte/valid-compile
 	$: projectId = $page.params.projectId;
 
 	function reset() {

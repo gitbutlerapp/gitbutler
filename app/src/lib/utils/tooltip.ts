@@ -17,7 +17,6 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 	let timeoutId: any;
 
 	// Options
-	// eslint-disable-next-line prefer-const
 	let { text, delay, noMaxWidth } = defaultOptions;
 
 	// Most use cases only involve passing a string, so we allow either opts of
