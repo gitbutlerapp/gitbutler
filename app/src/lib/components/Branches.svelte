@@ -109,19 +109,23 @@
 </script>
 
 <div class="branch-list">
-	<BranchesHeader count={$filteredBranches$?.length ?? 0} filtersActive={$filtersActive}>
-		<FilterPopupMenu
-			slot="context-menu"
-			let:visible
-			{visible}
-			{includePrs}
-			{includeRemote}
-			{includeStashed}
-			{hideBots}
-			{hideInactive}
-			showPrCheckbox={githubService.isEnabled}
-			on:action
-		/>
+	<BranchesHeader
+		totalBranchCount={$branches$.length}
+		filteredBranchCount={$filteredBranches$?.length}
+		filtersActive={$filtersActive}
+	>
+		{#snippet contextMenu({ visible })}
+			<FilterPopupMenu
+				{visible}
+				{includePrs}
+				{includeRemote}
+				{includeStashed}
+				{hideBots}
+				{hideInactive}
+				showPrCheckbox={githubService.isEnabled}
+				on:action
+			/>
+		{/snippet}
 	</BranchesHeader>
 	{#if $branches$?.length > 0}
 		<ScrollableContainer
