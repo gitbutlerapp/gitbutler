@@ -175,7 +175,6 @@
 					top: 12,
 					bottom: 12
 				}}
-				bottomBuffer={300}
 			>
 				<div
 					bind:this={rsViewport}

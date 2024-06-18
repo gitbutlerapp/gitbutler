@@ -140,7 +140,7 @@
 
 			<!-- SNAPSHOTS -->
 			{#if $snapshots.length > 0}
-				<ScrollableContainer on:bottomReached={onLastInView}>
+				<ScrollableContainer>
 					<div class="container">
 						<!-- SNAPSHOTS FEED -->
 						{#each $snapshots as entry, idx (entry.id)}
@@ -155,6 +155,7 @@
 
 							{#if entry.details}
 								<SnapshotCard
+									trackVisibility={idx === $snapshots.length - 1}
 									isWithinRestore={withinRestoreItems.includes(entry.id)}
 									{entry}
 									on:restoreClick={() => {
@@ -181,6 +182,10 @@
 											};
 											updateFilePreview(entry, path);
 										}
+									}}
+									on:visible={() => {
+										console.log('load more snapshots…');
+										onLastInView();
 									}}
 								/>
 							{/if}

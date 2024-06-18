@@ -8,9 +8,11 @@
 	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
 	import type iconsJson from '$lib/icons/icons.json';
+	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 
 	export let entry: Snapshot;
 	export let isWithinRestore: boolean = true;
+	export let trackVisibility: boolean = false;
 	export let selectedFile:
 		| {
 				entryId: string;
@@ -29,7 +31,11 @@
 		return `${createdOnDay(date)}, ${toHumanReadableTime(date)}`;
 	}
 
-	const dispatch = createEventDispatcher<{ restoreClick: void; diffClick: string }>();
+	const dispatch = createEventDispatcher<{
+		restoreClick: void;
+		diffClick: string;
+		visible: void;
+	}>();
 
 	function camelToTitleCase(str: string | undefined) {
 		if (!str) return '';
@@ -161,6 +167,15 @@
 <div
 	class="snapshot-card show-restore-on-hover"
 	class:restored-snapshot={isRestoreSnapshot || isWithinRestore}
+	use:intersectionObserver={{
+		isDisabled: !trackVisibility,
+		callback: (entry) => {
+			if (entry.isIntersecting) {
+				dispatch('visible');
+			}
+		},
+		options: { threshold: 0 }
+	}}
 >
 	<div class="snapshot-right-container">
 		<div class="restore-btn">
