@@ -2,15 +2,38 @@ name: Bug report
 description: Report an issue so we can improve
 labels: [triage, bug]
 body:
-  - type: textarea
+  - type: input
+    id: version
     attributes:
-      label: Environment
-      description: |
-        What version of GitButler are you running and in which environment?
-      value: |
-        **OS**: [Windows / Mac OS / Linux]
-        **Distribution**: [.exe / AppImage / Deb]
-        **Version**: [0.12.5]
+      label: Version
+      description: Which version of GitButler are you running?
+      placeholder: 0.12.5
+    validations:
+      required: true
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating System
+      description: What OS are you using GitButler on?
+      options:
+        - Mac OSX
+        - Windows
+        - Linux
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: distribution
+    attributes:
+      label: Distribution Method
+      description: Which package of GitButler are you using?
+      options:
+        - dmg
+        - exe
+        - .deb
+        - RPM
+        - AppImage
+      default: 0
     validations:
       required: true
   - type: textarea
@@ -29,5 +52,13 @@ body:
     attributes:
       label: Expected behavior
       description: Explain what should have happened instead of what actually happened
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
+      render: shell
     validations:
       required: false
