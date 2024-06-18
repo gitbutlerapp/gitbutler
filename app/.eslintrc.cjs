@@ -1,4 +1,4 @@
-export default {
+module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
   extends: [
@@ -13,7 +13,7 @@ export default {
     sourceType: 'module',
     ecmaVersion: 2020,
     project: 'tsconfig.json',
-    tsconfigRootDir: import.meta.dirname,
+    tsconfigRootDir: __dirname,
     extraFileExtensions: ['.svelte']
   },
   overrides: [
