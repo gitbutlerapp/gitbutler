@@ -151,8 +151,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       eslint-plugin-svelte:
-        specifier: ^2.39.3
-        version: 2.39.3(eslint@8.57.0)(svelte@5.0.0-next.149)
+        specifier: 2.36.0-next.13
+        version: 2.36.0-next.13(eslint@8.57.0)(svelte@5.0.0-next.149)
       inter-ui:
         specifier: ^4.0.2
         version: 4.0.2
@@ -1851,12 +1851,12 @@ packages:
   eslint-plugin-square-svelte-store@1.0.0:
     resolution: {integrity: sha512-QLybNNEPcBKVrgAeow/7ouOqbTVsWwEdStFab9ZMZaW19Y//ZEhhtuEb92P69n9u/JRL6EFhArV9AfS+LgS4mA==}
 
-  eslint-plugin-svelte@2.39.3:
-    resolution: {integrity: sha512-uXsHW+VOSHRI3VgoDit4CURKos9wDque6CuaBNw8z6UyF5Rfc2XHmNEsRvvOd+VmMUtS+wC9bvwArv2tt4TFGA==}
+  eslint-plugin-svelte@2.36.0-next.13:
+    resolution: {integrity: sha512-N4bLGdFkGbbAQiKvX17kLfBgnZ+Em00khOY3AReppO7fkP9jaSxwjdgTCcWf+Q5/uZWor58g4GleRqHcb2Dk2w==}
     engines: {node: ^14.17.0 || >=16.0.0}
     peerDependencies:
       eslint: ^7.0.0 || ^8.0.0-0 || ^9.0.0-0
-      svelte: ^3.37.0 || ^4.0.0 || ^5.0.0-next.112
+      svelte: ^3.37.0 || ^4.0.0 || ^5.0.0-next.73
     peerDependenciesMeta:
       svelte:
         optional: true
@@ -2271,8 +2271,8 @@ packages:
     resolution: {integrity: sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==}
     engines: {node: '>=6'}
 
-  known-css-properties@0.31.0:
-    resolution: {integrity: sha512-sBPIUGTNF0czz0mwGGUoKKJC8Q7On1GPbCSFPfyEsfHb2DyBG0Y4QtV+EVWpINSaiGKZblDNuF5AezxSgOhesQ==}
+  known-css-properties@0.30.0:
+    resolution: {integrity: sha512-VSWXYUnsPu9+WYKkfmJyLKtIvaRJi1kXUqVmBACORXZQxT5oZDsoZ2vQP+bQFDnWtpI/4eq3MLoRMjI2fnLzTQ==}
 
   leven@4.0.0:
     resolution: {integrity: sha512-puehA3YKku3osqPlNuzGDUHq8WpwXupUg1V6NXdV38G+gr+gkBwFC8g1b/+YcIvp8gnqVIus+eJCH/eGsRmJNw==}
@@ -5143,14 +5143,15 @@ snapshots:
 
   eslint-plugin-square-svelte-store@1.0.0: {}
 
-  eslint-plugin-svelte@2.39.3(eslint@8.57.0)(svelte@5.0.0-next.149):
+  eslint-plugin-svelte@2.36.0-next.13(eslint@8.57.0)(svelte@5.0.0-next.149):
     dependencies:
       '@eslint-community/eslint-utils': 4.4.0(eslint@8.57.0)
       '@jridgewell/sourcemap-codec': 1.4.15
+      debug: 4.3.4
       eslint: 8.57.0
       eslint-compat-utils: 0.5.0(eslint@8.57.0)
       esutils: 2.0.3
-      known-css-properties: 0.31.0
+      known-css-properties: 0.30.0
       postcss: 8.4.38
       postcss-load-config: 3.1.4(postcss@8.4.38)
       postcss-safe-parser: 6.0.0(postcss@8.4.38)
@@ -5160,6 +5161,7 @@ snapshots:
     optionalDependencies:
       svelte: 5.0.0-next.149
     transitivePeerDependencies:
+      - supports-color
       - ts-node
 
   eslint-scope@7.2.2:
@@ -5604,7 +5606,7 @@ snapshots:
 
   kleur@4.1.5: {}
 
-  known-css-properties@0.31.0: {}
+  known-css-properties@0.30.0: {}
 
   leven@4.0.0: {}
 
