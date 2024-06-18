@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 
 	interface Props {
 		children: any;
@@ -17,17 +16,27 @@
 
 		if (containerChildren.length > minTriggerCount) return;
 
-		const lastChild = containerChildren[containerChildren.length - 1];
-
-		intersectionObserver(lastChild, {
-			isDisabled: false,
-			callback: (entry) => {
-				if (entry.isIntersecting) {
-					ontrigger(lastChild);
-				}
-			},
-			options: { threshold: 0 }
+		const iObserver = new IntersectionObserver((entries) => {
+			const lastChild = containerChildren[containerChildren.length - 1];
+			if (entries[0].target === lastChild && entries[0].isIntersecting) {
+				ontrigger(lastChild);
+			}
 		});
+
+		const mObserver = new MutationObserver(() => {
+			const lastChild = containerChildren[containerChildren.length - 1];
+			if (lastChild) {
+				iObserver.observe(lastChild);
+			}
+		});
+
+		iObserver.observe(containerChildren[containerChildren.length - 1]);
+		mObserver.observe(lazyContainerEl, { childList: true });
+
+		return () => {
+			iObserver.disconnect();
+			mObserver.disconnect();
+		};
 	});
 </script>
 
