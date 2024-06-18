@@ -1,17 +1,23 @@
 export interface Dropzone {
 	disabled: boolean;
-	active: string;
-	hover: string;
 	accepts: (data: any) => boolean;
 	onDrop: (data: any) => Promise<void> | void;
+	onActivationStart: () => void;
+	onActivationEnd: () => void;
+	onHoverStart: () => void;
+	onHoverEnd: () => void;
+	target: string;
 }
 
 const defaultDropzoneOptions: Dropzone = {
 	disabled: false,
-	active: 'dropzone-active',
-	hover: 'dropzone-hover',
 	accepts: (data) => data === 'default',
-	onDrop: () => {}
+	onDrop: () => {},
+	onActivationStart: () => {},
+	onActivationEnd: () => {},
+	onHoverStart: () => {},
+	onHoverEnd: () => {},
+	target: '.dropzone-target'
 };
 
 export function dropzone(node: HTMLElement, opts: Partial<Dropzone> | undefined) {

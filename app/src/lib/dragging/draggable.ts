@@ -1,4 +1,4 @@
-import { dzRegistry } from './dropzone';
+import { dzRegistry, type Dropzone } from './dropzone';
 import type { Draggable } from './draggables';
 
 export interface DraggableConfig {
@@ -72,6 +72,16 @@ function rotateElement(element: HTMLElement) {
 	element.style.rotate = `${Math.floor(Math.random() * 3)}deg`;
 }
 
+function getTarget(node: HTMLElement, config: Dropzone): HTMLElement {
+	const child = node.querySelector<HTMLElement>(config.target);
+
+	if (child) {
+		return child;
+	} else {
+		return node;
+	}
+}
+
 export function draggable(node: HTMLElement, initialOpts: DraggableConfig) {
 	let opts = initialOpts;
 	let dragHandle: HTMLElement | null;
@@ -125,26 +135,34 @@ export function draggable(node: HTMLElement, initialOpts: DraggableConfig) {
 		document.body.appendChild(clone);
 
 		// activate destination zones
-		dzRegistry.forEach(async ([target, dz]) => {
+		dzRegistry.forEach(async ([node, dz]) => {
 			if (!dz.accepts(await opts.data)) return;
+
+			const target = getTarget(node, dz);
+
+			let active = false;
 
 			async function onDrop(e: DragEvent) {
 				e.preventDefault();
+				if (!active) return;
 				dz.onDrop(await opts.data);
 			}
 
 			function onDragEnter(e: DragEvent) {
 				e.preventDefault();
-				target.classList.add(dz.hover);
+				if (!active) return;
+				dz.onHoverStart();
 			}
 
 			function onDragLeave(e: DragEvent) {
 				e.preventDefault();
-				target.classList.remove(dz.hover);
+				if (!active) return;
+				dz.onHoverEnd();
 			}
 
 			function onDragOver(e: DragEvent) {
 				e.preventDefault();
+				if (!active) return;
 			}
 
 			// keep track of listeners so that we can remove them later
@@ -174,7 +192,8 @@ export function draggable(node: HTMLElement, initialOpts: DraggableConfig) {
 
 			// https://stackoverflow.com/questions/14203734/dragend-dragenter-and-dragleave-firing-off-immediately-when-i-drag
 			setTimeout(() => {
-				target.classList.add(dz.active);
+				dz.onActivationStart();
+				active = true;
 			}, 10);
 
 			target.addEventListener('drop', onDrop);
@@ -204,22 +223,25 @@ export function draggable(node: HTMLElement, initialOpts: DraggableConfig) {
 		// deactivate destination zones
 		dzRegistry.forEach(async ([node, dz]) => {
 			if (!dz.accepts(await opts.data)) return;
+
+			const target = getTarget(node, dz);
+
 			// remove all listeners
-			onDropListeners.get(node)?.forEach((listener) => {
-				node.removeEventListener('drop', listener);
+			onDropListeners.get(target)?.forEach((listener) => {
+				target.removeEventListener('drop', listener);
 			});
-			onDragEnterListeners.get(node)?.forEach((listener) => {
-				node.removeEventListener('dragenter', listener);
+			onDragEnterListeners.get(target)?.forEach((listener) => {
+				target.removeEventListener('dragenter', listener);
 			});
-			onDragLeaveListeners.get(node)?.forEach((listener) => {
-				node.removeEventListener('dragleave', listener);
+			onDragLeaveListeners.get(target)?.forEach((listener) => {
+				target.removeEventListener('dragleave', listener);
 			});
-			onDragOverListeners.get(node)?.forEach((listener) => {
-				node.removeEventListener('dragover', listener);
+			onDragOverListeners.get(target)?.forEach((listener) => {
+				target.removeEventListener('dragover', listener);
 			});
 
-			node.classList.remove(dz.active);
-			node.classList.remove(dz.hover);
+			dz.onActivationEnd();
+			dz.onHoverEnd();
 		});
 
 		e.stopPropagation();

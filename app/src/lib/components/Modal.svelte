@@ -6,21 +6,14 @@
 
 	interface Props {
 		width?: 'default' | 'small' | 'large';
-		title?: string | undefined;
-		icon?: keyof typeof iconsJson | undefined;
+		title?: string;
+		icon?: keyof typeof iconsJson;
 		onclose?: () => void;
 		children: Snippet<[item?: any]>;
 		controls?: Snippet<[close: () => void, item: any]>;
 	}
 
-	const {
-		width = 'default',
-		title = undefined,
-		icon = undefined,
-		onclose,
-		children,
-		controls
-	}: Props = $props();
+	const { width = 'default', title, icon, onclose, children, controls }: Props = $props();
 
 	let dialog = $state<HTMLDialogElement>();
 	let item = $state<any>();
