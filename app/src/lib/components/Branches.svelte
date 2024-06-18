@@ -110,7 +110,6 @@
 
 <div class="branch-list">
 	<BranchesHeader
-		totalBranchCount={$branches$.length}
 		filteredBranchCount={$filteredBranches$?.length}
 		filtersActive={$filtersActive}
 	>

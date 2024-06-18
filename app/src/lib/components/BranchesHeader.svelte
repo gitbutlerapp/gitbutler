@@ -6,12 +6,11 @@
 
 	interface Props {
 		filteredBranchCount?: number;
-		totalBranchCount: number;
 		filtersActive: boolean;
 		contextMenu: Snippet<[{ visible: boolean }]>;
 	}
 
-	const { filteredBranchCount, totalBranchCount, filtersActive, contextMenu }: Props = $props();
+	const { filteredBranchCount, filtersActive, contextMenu }: Props = $props();
 
 	let visible = $state(false);
 	let filterButton = $state<HTMLDivElement>();
