@@ -1,0 +1,33 @@
+name: Bug report
+description: Report an issue so we can improve
+labels: [triage, bug]
+body:
+  - type: textarea
+    attributes:
+      label: Environment
+      description: |
+        What version of GitButler are you running and in which environment?
+      value: |
+        **OS**: [Windows / Mac OS / Linux]
+        **Distribution**: [.exe / AppImage / Deb]
+        **Version**: [0.12.5]
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Describe the issue
+      description: Describe us what the issue is and what have you tried so far to fix it. Add any extra useful information in this section. Feel free to use screenshots over a picture of your code) or a video explanation.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: How to reproduce
+      description: Explain with clear steps how to reproduce the issue
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Expected behavior
+      description: Explain what should have happened instead of what actually happened
+    validations:
+      required: false
