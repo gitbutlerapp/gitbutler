@@ -71,11 +71,9 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 14px;
-		/* border: 1px solid var(--clr-border-2); */
 		border-bottom: none;
 		border-radius: var(--radius-m) var(--radius-m) 0 0;
 		background-color: var(--clr-bg-1);
-		/* background-color: rgb(170, 170, 170); */
 	}
 	.header__title {
 		display: flex;

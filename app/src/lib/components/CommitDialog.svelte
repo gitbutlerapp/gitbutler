@@ -123,7 +123,7 @@
 
 	/* MODIFIERS */
 	.not-in-viewport {
-		z-index: var(--z-lifted);
+		z-index: var(--z-ground);
 	}
 
 	.no-sections-after {
