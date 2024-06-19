@@ -40,7 +40,7 @@
 		outline-offset: -10px;
 		backdrop-filter: blur(10px);
 
-		z-index: 100;
+		z-index: var(--z-lifted);
 
 		transition: background-color 0.1s;
 

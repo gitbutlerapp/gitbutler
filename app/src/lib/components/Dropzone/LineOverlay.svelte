@@ -51,10 +51,12 @@
 	.indicator {
 		width: 100%;
 		height: 3px;
-		transition: background-color 0.1s;
+		transition: opacity 0.1s;
+		background-color: var(--clr-border-2);
+		opacity: 0;
 
 		&.hovered {
-			background-color: rgba(0, 0, 0, 0.6);
+			opacity: 1;
 		}
 	}
 </style>
