@@ -9,7 +9,8 @@ export interface DropzoneConfiguration {
 	target: string;
 }
 export class Dropzone {
-	private active: boolean = false;
+	private activated: boolean = false;
+	private hovered: boolean = false;
 
 	private registered: boolean = false;
 	// In order to propperly deregister functions we need to use the same
@@ -18,52 +19,85 @@ export class Dropzone {
 	private registeredOnDragEnter?: (e: DragEvent) => any;
 	private registeredOnDragLeave?: (e: DragEvent) => any;
 
-	private target: HTMLElement;
+	private target!: HTMLElement;
+
+	private data?: any;
 
 	constructor(
 		private configuration: DropzoneConfiguration,
-		node: HTMLElement
+		private rootNode: HTMLElement
 	) {
-		const child = node.querySelector<HTMLElement>(configuration.target);
-
-		if (child) {
-			this.target = child;
-		} else {
-			this.target = node;
-		}
+		// Sets this.target
+		this.setTarget();
 	}
 
 	async register(data: any) {
-		if (!this.configuration.accepts(await data)) return;
+		this.data = data;
+
+		if (!this.configuration.accepts(await this.data)) return;
 		if (this.registered) {
 			this.unregister();
 		}
-
-		// Register listeners and keep references to the functions
 		this.registered = true;
 
-		this.registeredOnDrop = async (e: DragEvent) => await this.onDrop(e, data);
+		this.registerListeners();
+
+		// Mark the dropzone as active
+		setTimeout(() => {
+			this.configuration.onActivationStart();
+			this.activated = true;
+		}, 10);
+	}
+
+	unregister() {
+		// Mark as no longer active and ensure its not stuck in the hover state
+		this.activated = false;
+		this.configuration.onActivationEnd();
+		this.configuration.onHoverEnd();
+
+		this.unregisterListeners();
+
+		this.registered = false;
+	}
+
+	// Designed to quickly swap out the configuration
+	async reregister(configuration: DropzoneConfiguration) {
+		this.unregisterListeners();
+
+		// On the previous configuration, mark configuration as deactivated and unhovered
+		this.configuration.onActivationEnd();
+		this.configuration.onHoverEnd();
+
+		this.configuration = configuration;
+		this.setTarget();
+
+		if (!this.configuration.accepts(await this.data)) return;
+
+		if (this.hovered) {
+			this.configuration.onHoverStart();
+		} else {
+			this.configuration.onHoverEnd();
+		}
+
+		if (this.activated) {
+			this.configuration.onActivationStart();
+		} else {
+			this.configuration.onActivationEnd();
+		}
+		this.registerListeners();
+	}
+
+	private registerListeners() {
+		this.registeredOnDrop = this.onDrop.bind(this);
 		this.registeredOnDragEnter = this.onDragEnter.bind(this);
 		this.registeredOnDragLeave = this.onDragLeave.bind(this);
 
 		this.target.addEventListener('drop', this.registeredOnDrop);
 		this.target.addEventListener('dragenter', this.registeredOnDragEnter);
 		this.target.addEventListener('dragleave', this.registeredOnDragLeave);
-
-		// Mark the dropzone as active
-		setTimeout(() => {
-			this.configuration.onActivationStart();
-			this.active = true;
-		}, 10);
 	}
 
-	unregister() {
-		// Mark as no longer active and ensure its not stuck in the hover state
-		this.active = false;
-		this.configuration.onActivationEnd();
-		this.configuration.onHoverEnd();
-
-		// Unregister listeners
+	private unregisterListeners() {
 		if (this.registeredOnDrop) {
 			this.target.removeEventListener('drop', this.registeredOnDrop);
 		}
@@ -73,40 +107,52 @@ export class Dropzone {
 		if (this.registeredOnDragLeave) {
 			this.target.removeEventListener('dragleave', this.registeredOnDragLeave);
 		}
-
-		this.registered = false;
 	}
 
-	private async onDrop(e: DragEvent, data: any) {
+	private setTarget() {
+		const child = this.rootNode.querySelector<HTMLElement>(this.configuration.target);
+
+		if (child) {
+			this.target = child;
+		} else {
+			this.target = this.rootNode;
+		}
+	}
+
+	private async onDrop(e: DragEvent) {
 		e.preventDefault();
-		if (!this.active) return;
-		this.configuration.onDrop(await data);
+		if (!this.activated) return;
+		this.configuration.onDrop(await this.data);
 	}
 
 	private onDragEnter(e: DragEvent) {
 		e.preventDefault();
-		if (!this.active) return;
+		if (!this.activated) return;
+
+		this.hovered = true;
 		this.configuration.onHoverStart();
 	}
 
 	private onDragLeave(e: DragEvent) {
 		e.preventDefault();
-		if (!this.active) return;
+		if (!this.activated) return;
+
+		this.hovered = false;
 		this.configuration.onHoverEnd();
 	}
 }
 
 export const dropzoneRegistry = new Map<HTMLElement, Dropzone>();
 
-export function dropzone(node: HTMLElement, opts: DropzoneConfiguration) {
-	function setup(opts: DropzoneConfiguration) {
-		if (opts.disabled) return;
+export function dropzone(node: HTMLElement, configuration: DropzoneConfiguration) {
+	function setup(configuration: DropzoneConfiguration) {
+		if (configuration.disabled) return;
 
 		if (dropzoneRegistry.has(node)) {
 			clean();
 		}
 
-		dropzoneRegistry.set(node, new Dropzone(opts, node));
+		dropzoneRegistry.set(node, new Dropzone(configuration, node));
 	}
 
 	function clean() {
@@ -114,12 +160,21 @@ export function dropzone(node: HTMLElement, opts: DropzoneConfiguration) {
 		dropzoneRegistry.delete(node);
 	}
 
-	setup(opts);
+	setup(configuration);
+
+	function update(configuration: DropzoneConfiguration) {
+		const dropzone = dropzoneRegistry.get(node);
+
+		if (dropzone) {
+			dropzone.reregister(configuration);
+		} else {
+			setup(configuration);
+		}
+	}
 
 	return {
-		update(opts: DropzoneConfiguration) {
-			clean();
-			setup(opts);
+		update(configuration: DropzoneConfiguration) {
+			update(configuration);
 		},
 		destroy() {
 			clean();
