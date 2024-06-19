@@ -104,7 +104,13 @@
 </script>
 
 {#if isExpanded}
-	<div class="commit-box__textarea-wrapper text-input">
+	<div
+		class="commit-box__textarea-wrapper text-input"
+		use:useResize={() => {
+			useAutoHeight(titleTextArea);
+			useAutoHeight(descriptionTextArea);
+		}}
+	>
 		<textarea
 			value={title}
 			placeholder="Commit summary"
@@ -114,9 +120,6 @@
 			rows="1"
 			bind:this={titleTextArea}
 			use:focusTextAreaOnMount
-			use:useResize={(e) => {
-				useAutoHeight(e.currentTarget as HTMLTextAreaElement);
-			}}
 			on:focus={(e) => useAutoHeight(e.currentTarget)}
 			on:input={(e) => {
 				commitMessage = concatMessage(e.currentTarget.value, description);
@@ -156,9 +159,6 @@
 						e.preventDefault();
 						titleTextArea.select();
 					}
-				}}
-				use:useResize={(e) => {
-					useAutoHeight(e.currentTarget as HTMLTextAreaElement);
 				}}
 			></textarea>
 		{/if}
