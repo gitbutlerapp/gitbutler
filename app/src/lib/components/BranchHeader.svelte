@@ -293,7 +293,7 @@
 
 <style>
 	.header__wrapper {
-		z-index: var(--z-lifted);
+		z-index: var(--z-floating);
 		position: sticky;
 		top: 12px;
 		padding-bottom: 8px;
