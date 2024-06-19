@@ -1,14 +1,12 @@
 <script lang="ts">
-	import { DraggableCommit, DraggableFile, DraggableHunk } from '$lib/dragging/draggables';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import { BranchController } from '$lib/vbranches/branchController';
-	import { filesToOwnership } from '$lib/vbranches/ownership';
 	import { Branch } from '$lib/vbranches/types';
 	import Dropzone from '$lib/components/Dropzone/Dropzone.svelte';
 	import type { Snippet } from 'svelte';
 	import CardOverlay from '$lib/components/Dropzone/CardOverlay.svelte';
+	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 
-	const branchController = getContext(BranchController);
+	const branchDragActionsFactory = getContext(BranchDragActionsFactory);
 	const branch = getContextStore(Branch);
 
 	interface Props {
@@ -17,38 +15,7 @@
 
 	const { children }: Props = $props();
 
-	function acceptMoveCommit(data: any) {
-		return data instanceof DraggableCommit && data.branchId !== $branch.id && data.isHeadCommit;
-	}
-	function onMoveCommit(data: DraggableCommit) {
-		branchController.moveCommit($branch.id, data.commit.id);
-	}
-
-	function acceptBranchDrop(data: any) {
-		if (data instanceof DraggableHunk && data.branchId !== $branch.id) {
-			return !data.hunk.locked;
-		} else if (data instanceof DraggableFile && data.branchId && data.branchId !== $branch.id) {
-			return !data.files.some((f) => f.locked);
-		} else {
-			return false;
-		}
-	}
-
-	function onBranchDrop(data: DraggableHunk | DraggableFile) {
-		if (data instanceof DraggableHunk) {
-			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
-			branchController.updateBranchOwnership(
-				$branch.id,
-				(newOwnership + '\n' + $branch.ownership).trim()
-			);
-		} else if (data instanceof DraggableFile) {
-			const newOwnership = filesToOwnership(data.files);
-			branchController.updateBranchOwnership(
-				$branch.id,
-				(newOwnership + '\n' + $branch.ownership).trim()
-			);
-		}
-	}
+	const actions = $derived(branchDragActionsFactory.build($branch));
 </script>
 
 <div class="commit-list-item">
@@ -59,7 +26,10 @@
 
 <!-- We require the dropzones to be nested -->
 {#snippet moveCommitDropzone()}
-	<Dropzone accepts={acceptMoveCommit} ondrop={onMoveCommit}>
+	<Dropzone
+		accepts={actions.acceptMoveCommit.bind(actions)}
+		ondrop={actions.onMoveCommit.bind(actions)}
+	>
 		{@render branchDropDropzone()}
 
 		{#snippet overlay({ hovered, activated })}
@@ -69,7 +39,10 @@
 {/snippet}
 
 {#snippet branchDropDropzone()}
-	<Dropzone accepts={acceptBranchDrop} ondrop={onBranchDrop}>
+	<Dropzone
+		accepts={actions.acceptBranchDrop.bind(actions)}
+		ondrop={actions.onBranchDrop.bind(actions)}
+	>
 		{@render children()}
 
 		{#snippet overlay({ hovered, activated })}

@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { listen } from '$lib/backend/ipc';
 	import { Project } from '$lib/backend/projects';
+	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { BranchService } from '$lib/branches/service';
+	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
 	import History from '$lib/components/History.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
@@ -30,7 +32,9 @@
 		baseBranchService,
 		gbBranchActive$,
 		branchService,
-		branchController
+		branchController,
+		branchDragActionsFactory,
+		commitDragActionsFactory
 	} = data);
 
 	$: branchesError = vbranchService.branchesError;
@@ -45,6 +49,8 @@
 	$: setContext(BaseBranchService, baseBranchService);
 	$: setContext(BaseBranch, baseBranch);
 	$: setContext(Project, project);
+	$: setContext(BranchDragActionsFactory, branchDragActionsFactory);
+	$: setContext(CommitDragActionsFactory, commitDragActionsFactory);
 
 	const showHistoryView = persisted(false, 'showHistoryView');
 
