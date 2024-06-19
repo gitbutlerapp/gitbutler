@@ -10,30 +10,25 @@ use tokio::{
     net::windows::named_pipe::{NamedPipeServer, ServerOptions},
     sync::Mutex,
 };
+use windows::Win32::{Foundation::HANDLE, System::Pipes::GetNamedPipeClientProcessId};
 
-const ASKPASS_PIPE_PREFIX: &str = r"\\.\pipe\gitbutler-askpass-";
+// Slashes instead of backslashes to prevent any issues with escaping.
+const ASKPASS_PIPE_PREFIX: &str = r"//./pipe/gitbutler-askpass-";
 
 impl Socket for BufStream<NamedPipeServer> {
     type Error = std::io::Error;
 
     fn pid(&self) -> Result<Pid, Self::Error> {
         let raw_handle = self.get_ref().as_raw_handle();
-        let mut out_pid: winapi::shared::minwindef::ULONG = 0;
+        let handle: HANDLE = HANDLE(raw_handle as isize);
+        let mut out_pid: u32 = 0;
 
         #[allow(unsafe_code)]
-        let r = unsafe {
-            winapi::um::winbase::GetNamedPipeClientProcessId(
-                // We need the `as` here to make rustdoc shut up
-                // about winapi using different type defs for docs.
-                raw_handle as winapi::um::winnt::HANDLE,
-                &mut out_pid,
-            )
-        };
+        let r = unsafe { GetNamedPipeClientProcessId(handle, &mut out_pid) };
 
-        if r == 0 {
-            Err(std::io::Error::last_os_error())
-        } else {
-            Ok(Pid::from(out_pid))
+        match r {
+            Err(err) => Err(std::io::Error::from_raw_os_error(err.code().0)),
+            Ok(_) => Ok(Pid::from(out_pid)),
         }
     }
 
