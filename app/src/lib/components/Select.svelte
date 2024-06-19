@@ -42,7 +42,7 @@
 	let filterText: string | undefined = undefined;
 	let filteredItems: Selectable[] = items;
 
-	function filterItems(items: Selectable[], filterText: string | undefined) {
+	const filterItems = throttle((items: Selectable[], filterText: string | undefined) => {
 		if (!filterText) {
 			return items;
 		}
@@ -52,7 +52,7 @@
 			if (!isStr(property)) return false;
 			return property.includes(filterText);
 		});
-	}
+	}, INPUT_THROTTLE_TIME);
 
 	$: filteredItems = filterItems(items, filterText);
 
@@ -111,13 +111,13 @@
 		}
 	}
 
-	const handleChar = throttle((char: string) => {
+	function handleChar(char: string) {
 		highlightIndex = undefined;
 		filterText ??= '';
 		filterText += char;
-	}, INPUT_THROTTLE_TIME);
+	}
 
-	const handleDelete = throttle(() => {
+	function handleDelete() {
 		if (filterText === undefined) return;
 
 		if (filterText.length === 1) {
@@ -126,7 +126,7 @@
 		}
 
 		filterText = filterText.slice(0, -1);
-	}, INPUT_THROTTLE_TIME);
+	}
 
 	function handleKeyDown(e: CustomEvent<KeyboardEvent>) {
 		if (!listOpen) {
