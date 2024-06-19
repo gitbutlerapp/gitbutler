@@ -264,7 +264,7 @@
 		<!-- BASE -->
 		<div class="base-row-container" class:base-row-container_unfolded={baseIsUnfolded}>
 			<div
-				class="commit-group base-row"
+				class="base-row"
 				tabindex="0"
 				role="button"
 				on:click|stopPropagation={() => (baseIsUnfolded = !baseIsUnfolded)}
@@ -303,7 +303,7 @@
 		flex-direction: column;
 		background-color: var(--clr-bg-2);
 		border-top: 1px solid var(--clr-border-2);
-		border-bottom: 1px solid var(--clr-border-2);
+		/* border-bottom: 1px solid var(--clr-border-2); */
 
 		--base-top-margin: 8px;
 		--base-icon-top: 16px;
@@ -313,10 +313,10 @@
 		--avatar-top: 16px;
 	}
 
-	.commit-group {
-		/* padding-right: 14px;
-		padding-left: 8px; */
-	}
+	/* .commit-group {
+		padding-right: 14px;
+		padding-left: 8px;
+	} */
 
 	/* BASE ROW */
 

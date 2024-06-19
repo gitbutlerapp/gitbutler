@@ -48,8 +48,8 @@
 			dispatch('change', e.currentTarget.value);
 			useAutoHeight(e.currentTarget);
 		}}
-		use:useResize={() => {
-			useAutoHeight(textareaElement);
+		use:useResize={(e) => {
+			useAutoHeight(e.currentTarget as HTMLTextAreaElement);
 		}}
 		on:focus={(e) => useAutoHeight(e.currentTarget)}
 		style:max-height={maxHeight ? pxToRem(maxHeight) : undefined}
