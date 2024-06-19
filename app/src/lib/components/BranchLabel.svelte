@@ -17,8 +17,8 @@
 </script>
 
 <span
-	use:useResize={(frame) => {
-		inputWidth = `${Math.round(frame.width)}px`;
+	use:useResize={(e) => {
+		inputWidth = `${Math.round(e.frame.width)}px`;
 	}}
 	class="branch-name-mesure-el text-base-14 text-bold"
 	bind:this={mesureEl}>{name}</span

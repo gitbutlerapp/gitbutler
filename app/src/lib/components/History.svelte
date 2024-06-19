@@ -4,6 +4,7 @@
 	import FileCard from './FileCard.svelte';
 	import FullviewLoading from './FullviewLoading.svelte';
 	import Icon from './Icon.svelte';
+	import LazyloadContainer from './LazyloadContainer.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import SnapshotCard from './SnapshotCard.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
@@ -140,51 +141,59 @@
 
 			<!-- SNAPSHOTS -->
 			{#if $snapshots.length > 0}
-				<ScrollableContainer on:bottomReached={onLastInView}>
+				<ScrollableContainer>
 					<div class="container">
 						<!-- SNAPSHOTS FEED -->
-						{#each $snapshots as entry, idx (entry.id)}
-							{@const withinRestoreItems = findRestorationRanges($snapshots)}
-							{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1].createdAt)}
-								<div class="sideview__date-header">
-									<h4 class="text-base-13 text-semibold">
-										{createdOnDay(entry.createdAt)}
-									</h4>
-								</div>
-							{/if}
+						<LazyloadContainer
+							minTriggerCount={30}
+							ontrigger={() => {
+								console.log('load more snapshots…');
+								onLastInView();
+							}}
+						>
+							{#each $snapshots as entry, idx (entry.id)}
+								{@const withinRestoreItems = findRestorationRanges($snapshots)}
+								{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1].createdAt)}
+									<div class="sideview__date-header">
+										<h4 class="text-base-13 text-semibold">
+											{createdOnDay(entry.createdAt)}
+										</h4>
+									</div>
+								{/if}
 
-							{#if entry.details}
-								<SnapshotCard
-									isWithinRestore={withinRestoreItems.includes(entry.id)}
-									{entry}
-									on:restoreClick={() => {
-										historyService.restoreSnapshot(project.id, entry.id);
-										// In some cases, restoring the snapshot doesnt update the UI correctly
-										// Until we have that figured out, we need to reload the page.
-										location.reload();
-									}}
-									{selectedFile}
-									on:diffClick={async (filePath) => {
-										const path = filePath.detail;
+								{#if entry.details}
+									<SnapshotCard
+										isWithinRestore={withinRestoreItems.includes(entry.id)}
+										{entry}
+										on:restoreClick={() => {
+											historyService.restoreSnapshot(project.id, entry.id);
+											// In some cases, restoring the snapshot doesnt update the UI correctly
+											// Until we have that figured out, we need to reload the page.
+											location.reload();
+										}}
+										{selectedFile}
+										on:diffClick={async (filePath) => {
+											const path = filePath.detail;
 
-										if (snapshotFilesTempStore?.entryId === entry.id) {
-											if (selectedFile?.path === path) {
-												currentFilePreview = undefined;
-												selectedFile = undefined;
+											if (snapshotFilesTempStore?.entryId === entry.id) {
+												if (selectedFile?.path === path) {
+													currentFilePreview = undefined;
+													selectedFile = undefined;
+												} else {
+													updateFilePreview(entry, path);
+												}
 											} else {
+												snapshotFilesTempStore = {
+													entryId: entry.id,
+													diffs: await historyService.getSnapshotDiff(project.id, entry.id)
+												};
 												updateFilePreview(entry, path);
 											}
-										} else {
-											snapshotFilesTempStore = {
-												entryId: entry.id,
-												diffs: await historyService.getSnapshotDiff(project.id, entry.id)
-											};
-											updateFilePreview(entry, path);
-										}
-									}}
-								/>
-							{/if}
-						{/each}
+										}}
+									/>
+								{/if}
+							{/each}
+						</LazyloadContainer>
 
 						<!-- LOAD MORE -->
 						{#if $loading}

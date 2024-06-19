@@ -104,6 +104,13 @@
 	}}
 	role="button"
 	tabindex="0"
+	on:contextmenu|preventDefault={async (e) => {
+		if (fileIdSelection.has(file.id, $commit?.id)) {
+			popupMenu.openByMouse(e, { files: await $selectedFiles });
+		} else {
+			popupMenu.openByMouse(e, { files: [file] });
+		}
+	}}
 	use:draggable={{
 		data: $selectedFiles.then(
 			(files) => new DraggableFile($branch?.id || '', file, $commit, files)
@@ -111,13 +118,6 @@
 		disabled: !isDraggable,
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable'
-	}}
-	on:contextmenu|preventDefault={async (e) => {
-		if (fileIdSelection.has(file.id, $commit?.id)) {
-			popupMenu.openByMouse(e, { files: await $selectedFiles });
-		} else {
-			popupMenu.openByMouse(e, { files: [file] });
-		}
 	}}
 >
 	{#if showCheckbox}

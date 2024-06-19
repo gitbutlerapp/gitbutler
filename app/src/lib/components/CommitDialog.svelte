@@ -1,17 +1,17 @@
 <script lang="ts">
 	import Button from './Button.svelte';
 	import CommitMessageInput from '$lib/components/CommitMessageInput.svelte';
-	import { projectRunCommitHooks, persistedCommitMessage } from '$lib/config/config';
+	import { persistedCommitMessage, projectRunCommitHooks } from '$lib/config/config';
 	import { getContext, getContextStore } from '$lib/utils/context';
+	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch } from '$lib/vbranches/types';
-	import { quintOut } from 'svelte/easing';
-	import { slide } from 'svelte/transition';
 	import type { Writable } from 'svelte/store';
 
 	export let projectId: string;
 	export let expanded: Writable<boolean>;
+	export let hasSectionsAfter: boolean;
 
 	const branchController = getContext(BranchController);
 	const selectedOwnership = getContextStore(Ownership);
@@ -21,8 +21,8 @@
 	const commitMessage = persistedCommitMessage(projectId, $branch.id);
 
 	let isCommitting = false;
-
 	let commitMessageValid = false;
+	let isInViewport = false;
 
 	async function commit() {
 		const message = $commitMessage;
@@ -41,17 +41,32 @@
 	}
 </script>
 
-<div class="commit-box" class:commit-box__expanded={$expanded}>
-	{#if $expanded}
-		<div class="commit-box__expander" transition:slide={{ duration: 150, easing: quintOut }}>
-			<CommitMessageInput
-				bind:commitMessage={$commitMessage}
-				bind:valid={commitMessageValid}
-				{commit}
-			/>
-		</div>
-	{/if}
-	<div class="actions">
+<div
+	class="commit-box"
+	class:not-in-viewport={!isInViewport}
+	class:no-sections-after={!hasSectionsAfter}
+	use:intersectionObserver={{
+		callback: (entry) => {
+			if (entry.isIntersecting) {
+				isInViewport = true;
+			} else {
+				isInViewport = false;
+			}
+		},
+		options: {
+			root: null,
+			rootMargin: '-1px',
+			threshold: 1
+		}
+	}}
+>
+	<CommitMessageInput
+		bind:commitMessage={$commitMessage}
+		bind:valid={commitMessageValid}
+		isExpanded={$expanded}
+		{commit}
+	/>
+	<div class="actions" class:commit-box__actions-expanded={$expanded}>
 		{#if $expanded && !isCommitting}
 			<Button
 				style="ghost"
@@ -87,18 +102,17 @@
 
 <style lang="postcss">
 	.commit-box {
+		position: sticky;
+		bottom: 0;
+
 		display: flex;
 		flex-direction: column;
+		gap: 12px;
+
 		padding: 14px;
 		background: var(--clr-bg-1);
 		border-top: 1px solid var(--clr-border-2);
 		transition: background-color var(--transition-medium);
-	}
-
-	.commit-box__expander {
-		display: flex;
-		flex-direction: column;
-		margin-bottom: 12px;
 	}
 
 	.actions {
@@ -107,7 +121,12 @@
 		gap: 6px;
 	}
 
-	.commit-box__expanded {
-		background-color: var(--clr-bg-2);
+	/* MODIFIERS */
+	.not-in-viewport {
+		z-index: var(--z-ground);
+	}
+
+	.no-sections-after {
+		border-radius: 0 0 var(--radius-m) var(--radius-m);
 	}
 </style>

@@ -2,6 +2,7 @@
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
 	import Button from './Button.svelte';
 	import FileListItem from './FileListItem.svelte';
+	import LazyloadContainer from './LazyloadContainer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext } from '$lib/utils/context';
@@ -64,27 +65,39 @@
 				style="ghost"
 				outline
 				on:mousedown={() => copyToClipboard(mergeDiffCommand + $commit.id.slice(0, 7))}
-			></Button>
+			/>
 		</div>
 	</div>
 {/if}
 
-{#each displayedFiles as file (file.id)}
-	<FileListItem
-		{file}
-		{readonly}
-		{isUnapplied}
-		showCheckbox={showCheckboxes}
-		selected={$fileIdSelection.includes(stringifyFileKey(file.id, $commit?.id))}
-		on:click={(e) => {
-			selectFilesInList(e, file, fileIdSelection, displayedFiles, allowMultiple, $commit);
+{#if displayedFiles.length > 0}
+	<!-- Maximum amount for initial render is 100 files
+	`minTriggerCount` set to 80 in order to start the loading a bit earlier. -->
+	<LazyloadContainer
+		minTriggerCount={80}
+		ontrigger={() => {
+			console.log('loading more files...');
+			loadMore();
 		}}
-		on:keydown={(e) => {
-			e.preventDefault();
-			maybeMoveSelection(e.key, file, displayedFiles, fileIdSelection);
-		}}
-	/>
-{/each}
+	>
+		{#each displayedFiles as file (file.id)}
+			<FileListItem
+				{file}
+				{readonly}
+				{isUnapplied}
+				showCheckbox={showCheckboxes}
+				selected={$fileIdSelection.includes(stringifyFileKey(file.id, $commit?.id))}
+				on:click={(e) => {
+					selectFilesInList(e, file, fileIdSelection, displayedFiles, allowMultiple, $commit);
+				}}
+				on:keydown={(e) => {
+					e.preventDefault();
+					maybeMoveSelection(e.key, file, displayedFiles, fileIdSelection);
+				}}
+			/>
+		{/each}
+	</LazyloadContainer>
+{/if}
 
 <style lang="postcss">
 	.merge-commit-error {

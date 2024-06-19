@@ -103,7 +103,11 @@
 </script>
 
 <Modal bind:this={commitMessageModal} width="small">
-	<CommitMessageInput bind:commitMessage={description} bind:valid={commitMessageValid} />
+	<CommitMessageInput
+		bind:commitMessage={description}
+		bind:valid={commitMessageValid}
+		isExpanded={true}
+	/>
 	{#snippet controls(close)}
 		<Button style="ghost" outline on:click={close}>Cancel</Button>
 		<Button
