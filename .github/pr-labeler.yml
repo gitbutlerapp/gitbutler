@@ -1,0 +1,3 @@
+# https://github.com/actions/labeler#create-githublabeleryml
+rust: ["crates/**/*"]
+svelte: ["app/**/*"]
