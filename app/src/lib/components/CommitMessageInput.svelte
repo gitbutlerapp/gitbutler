@@ -19,11 +19,13 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { useAutoHeight } from '$lib/utils/useAutoHeight';
+	import { useResize } from '$lib/utils/useResize';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, LocalFile } from '$lib/vbranches/types';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 
+	export let isExpanded: boolean;
 	export let commitMessage: string;
 	export let valid: boolean = false;
 	export let commit: (() => void) | undefined = undefined;
@@ -101,108 +103,117 @@
 	});
 </script>
 
-<div class="commit-box__textarea-wrapper text-input">
-	<textarea
-		value={title}
-		placeholder="Commit summary"
-		disabled={aiLoading}
-		class="text-base-body-13 text-semibold commit-box__textarea commit-box__textarea__title"
-		spellcheck="false"
-		rows="1"
-		bind:this={titleTextArea}
-		use:focusTextAreaOnMount
-		on:focus={(e) => useAutoHeight(e.currentTarget)}
-		on:input={(e) => {
-			commitMessage = concatMessage(e.currentTarget.value, description);
-			useAutoHeight(e.currentTarget);
+{#if isExpanded}
+	<div
+		class="commit-box__textarea-wrapper text-input"
+		use:useResize={() => {
+			useAutoHeight(titleTextArea);
+			useAutoHeight(descriptionTextArea);
 		}}
-		on:keydown={(e) => {
-			if (commit && (e.ctrlKey || e.metaKey) && e.key === 'Enter') commit();
-			if (e.key === 'Enter') {
-				e.preventDefault();
-				descriptionTextArea.focus();
-			}
-		}}
-	></textarea>
-
-	{#if title.length > 0 || description}
+	>
 		<textarea
-			value={description}
+			value={title}
+			placeholder="Commit summary"
 			disabled={aiLoading}
-			placeholder="Commit description (optional)"
-			class="text-base-body-13 commit-box__textarea commit-box__textarea__description"
+			class="text-base-body-13 text-semibold commit-box__textarea commit-box__textarea__title"
 			spellcheck="false"
 			rows="1"
-			bind:this={descriptionTextArea}
+			bind:this={titleTextArea}
+			use:focusTextAreaOnMount
 			on:focus={(e) => useAutoHeight(e.currentTarget)}
 			on:input={(e) => {
-				commitMessage = concatMessage(title, e.currentTarget.value);
+				commitMessage = concatMessage(e.currentTarget.value, description);
 				useAutoHeight(e.currentTarget);
 			}}
 			on:keydown={(e) => {
-				const value = e.currentTarget.value;
-				if (e.key === 'Backspace' && value.length === 0) {
+				if (commit && (e.ctrlKey || e.metaKey) && e.key === 'Enter') commit();
+				if (e.key === 'Enter') {
 					e.preventDefault();
-					titleTextArea.focus();
-					useAutoHeight(e.currentTarget);
-				} else if (e.key === 'a' && (e.metaKey || e.ctrlKey) && value.length === 0) {
-					// select previous textarea on cmd+a if this textarea is empty
-					e.preventDefault();
-					titleTextArea.select();
+					descriptionTextArea.focus();
 				}
 			}}
 		></textarea>
-	{/if}
 
-	{#if title.length > 50}
+		{#if title.length > 0 || description}
+			<textarea
+				value={description}
+				disabled={aiLoading}
+				placeholder="Commit description (optional)"
+				class="text-base-body-13 commit-box__textarea commit-box__textarea__description"
+				spellcheck="false"
+				rows="1"
+				bind:this={descriptionTextArea}
+				on:focus={(e) => useAutoHeight(e.currentTarget)}
+				on:input={(e) => {
+					commitMessage = concatMessage(title, e.currentTarget.value);
+					useAutoHeight(e.currentTarget);
+				}}
+				on:keydown={(e) => {
+					const value = e.currentTarget.value;
+					if (e.key === 'Backspace' && value.length === 0) {
+						e.preventDefault();
+						titleTextArea.focus();
+						useAutoHeight(e.currentTarget);
+					} else if (e.key === 'a' && (e.metaKey || e.ctrlKey) && value.length === 0) {
+						// select previous textarea on cmd+a if this textarea is empty
+						e.preventDefault();
+						titleTextArea.select();
+					}
+				}}
+			></textarea>
+		{/if}
+
+		{#if title.length > 50}
+			<div
+				transition:fly={{ y: 2, duration: 150 }}
+				class="commit-box__textarea-tooltip"
+				use:tooltip={{
+					text: '50 characters or less is best. Extra info can be added in the description.',
+					delay: 200
+				}}
+			>
+				<Icon name="blitz" />
+			</div>
+		{/if}
+
 		<div
-			transition:fly={{ y: 2, duration: 150 }}
-			class="commit-box__textarea-tooltip"
-			use:tooltip={{
-				text: '50 characters or less is best. Extra info can be added in the description.',
-				delay: 200
-			}}
+			class="commit-box__texarea-actions"
+			class:commit-box-actions_expanded={isExpanded}
+			use:tooltip={$aiGenEnabled && aiConfigurationValid
+				? ''
+				: 'You must be logged in or have provided your own API key and have summary generation enabled to use this feature'}
 		>
-			<Icon name="blitz" />
+			<DropDownButton
+				style="ghost"
+				outline
+				icon="ai-small"
+				disabled={!($aiGenEnabled && aiConfigurationValid)}
+				loading={aiLoading}
+				menuPosition="top"
+				on:click={async () => await generateCommitMessage($branch.files)}
+			>
+				Generate message
+				<ContextMenu slot="context-menu">
+					<ContextMenuSection>
+						<ContextMenuItem
+							label="Extra concise"
+							on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+						>
+							<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
+						</ContextMenuItem>
+
+						<ContextMenuItem
+							label="Use emojis 😎"
+							on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+						>
+							<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
+						</ContextMenuItem>
+					</ContextMenuSection>
+				</ContextMenu>
+			</DropDownButton>
 		</div>
-	{/if}
-
-	<div
-		class="commit-box__texarea-actions"
-		use:tooltip={$aiGenEnabled && aiConfigurationValid
-			? ''
-			: 'You must be logged in or have provided your own API key and have summary generation enabled to use this feature'}
-	>
-		<DropDownButton
-			style="ghost"
-			outline
-			icon="ai-small"
-			disabled={!($aiGenEnabled && aiConfigurationValid)}
-			loading={aiLoading}
-			menuPosition="top"
-			on:click={async () => await generateCommitMessage($branch.files)}
-		>
-			Generate message
-			<ContextMenu slot="context-menu">
-				<ContextMenuSection>
-					<ContextMenuItem
-						label="Extra concise"
-						on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
-					>
-						<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
-					</ContextMenuItem>
-
-					<ContextMenuItem
-						label="Use emojis 😎"
-						on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
-					>
-						<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
-					</ContextMenuItem>
-				</ContextMenuSection>
-			</ContextMenu>
-		</DropDownButton>
 	</div>
-</div>
+{/if}
 
 <style lang="postcss">
 	.commit-box__textarea-wrapper {
@@ -211,6 +222,12 @@
 		padding: 0 0 48px;
 		flex-direction: column;
 		gap: 4px;
+		overflow: hidden;
+		animation: expand-box 0.2s ease forwards;
+		/* props to animate on mount */
+		/* display: none;
+		max-height: 0;
+		overflow: hidden; */
 	}
 
 	.commit-box__textarea {
@@ -221,6 +238,7 @@
 		gap: 16px;
 		background: none;
 		resize: none;
+
 		&:focus {
 			outline: none;
 		}
@@ -252,8 +270,45 @@
 
 	.commit-box__texarea-actions {
 		position: absolute;
-		display: flex;
 		right: 12px;
 		bottom: 12px;
+		/* props to animate on mount */
+		display: none;
+		opacity: 0;
+		transform: translateY(10px);
+	}
+
+	/* MODIFIERS */
+	/* .commit-box_expanded {
+		display: flex;
+		animation: expand-box 0.2s ease forwards;
+	} */
+
+	@keyframes expand-box {
+		from {
+			max-height: 0;
+			padding: 0 0 0;
+		}
+		to {
+			max-height: 600px;
+			padding: 0 0 48px;
+		}
+	}
+
+	.commit-box-actions_expanded {
+		display: flex;
+		animation: expand-actions 0.25s ease forwards;
+		animation-delay: 0.1s;
+	}
+
+	@keyframes expand-actions {
+		from {
+			opacity: 0;
+			transform: translateY(10px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
 	}
 </style>

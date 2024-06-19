@@ -29,7 +29,11 @@
 		return `${createdOnDay(date)}, ${toHumanReadableTime(date)}`;
 	}
 
-	const dispatch = createEventDispatcher<{ restoreClick: void; diffClick: string }>();
+	const dispatch = createEventDispatcher<{
+		restoreClick: void;
+		diffClick: string;
+		visible: void;
+	}>();
 
 	function camelToTitleCase(str: string | undefined) {
 		if (!str) return '';

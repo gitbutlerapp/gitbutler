@@ -147,12 +147,6 @@
 			);
 		}
 	}
-
-	let branchFiles: BranchFiles | undefined;
-
-	function onBottomReached() {
-		branchFiles?.loadMore();
-	}
 </script>
 
 {#if $isLaneCollapsed}
@@ -181,8 +175,6 @@
 					top: 12,
 					bottom: 12
 				}}
-				bottomBuffer={300}
-				on:bottomReached={onBottomReached}
 			>
 				<div
 					bind:this={rsViewport}
@@ -243,7 +235,6 @@
 										{isUnapplied}
 										showCheckboxes={$commitBoxOpen}
 										allowMultiple
-										bind:this={branchFiles}
 									/>
 									{#if branch.active && branch.conflicted}
 										<div class="card-notifications">
@@ -264,6 +255,7 @@
 										<CommitDialog
 											projectId={project.id}
 											expanded={commitBoxOpen}
+											hasSectionsAfter={branch.commits.length > 0}
 											on:action={(e) => {
 												if (e.detail === 'generate-branch-name') {
 													generateBranchName();
@@ -283,7 +275,7 @@
 								</div>
 							{:else}
 								<div class="no-changes" data-dnd-ignore>
-									<EmptyStatePlaceholder image={noChangesSvg} width="11rem" hasBottomShift={false}>
+									<EmptyStatePlaceholder image={noChangesSvg} width="11rem" hasBottomMargin={false}>
 										<svelte:fragment slot="caption"
 											>No uncommitted changes on this branch</svelte:fragment
 										>
@@ -292,8 +284,10 @@
 							{/if}
 						</div>
 
-						<CommitList {isUnapplied} />
-						<BranchFooter {isUnapplied} />
+						<div class="card-commits">
+							<CommitList {isUnapplied} />
+							<BranchFooter {isUnapplied} />
+						</div>
 					</div>
 				</div>
 			</ScrollableContainer>
@@ -355,13 +349,18 @@
 
 	.card {
 		flex: 1;
-		overflow: hidden;
+		/* overflow: hidden; */
+		/* border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m); */
 	}
 
 	.branch-card__files {
 		display: flex;
 		flex-direction: column;
 		flex: 1;
+		/* border-left: 1px solid var(--clr-border-2);
+		border-right: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m) var(--radius-m) 0 0; */
 	}
 
 	.card-notifications {

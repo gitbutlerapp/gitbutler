@@ -1,14 +1,14 @@
 <script lang="ts">
 	export let image: string;
 	export let width: string = '18rem';
-	export let hasBottomShift: boolean = true;
+	export let hasBottomMargin: boolean = true;
 </script>
 
 <div class="empty-state-container">
 	<div
 		class="empty-state"
 		style:max-width={width}
-		style:margin-bottom={hasBottomShift ? '48px' : '0'}
+		style:margin-bottom={hasBottomMargin ? '48px' : '0'}
 	>
 		<div class="empty-state__image">
 			{@html image}

@@ -71,6 +71,9 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 14px;
+		border-bottom: none;
+		border-radius: var(--radius-m) var(--radius-m) 0 0;
+		background-color: var(--clr-bg-1);
 	}
 	.header__title {
 		display: flex;

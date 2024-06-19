@@ -5,6 +5,7 @@
 	import { PromptService } from '$lib/backend/prompt';
 	import { project } from '$lib/testing/fixtures';
 	import { getContext, getContextStore } from '$lib/utils/context';
+	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getLocalCommits, getRemoteCommits, getUnknownCommits } from '$lib/vbranches/contexts';
 	import { Branch } from '$lib/vbranches/types';
@@ -25,6 +26,7 @@
 	const unknownCommits = getUnknownCommits();
 
 	let isLoading: boolean;
+	let isInViewport = false;
 
 	$: canBePushed = $localCommits.length !== 0 || $unknownCommits.length !== 0;
 	$: hasUnknownCommits = $unknownCommits.length > 0;
@@ -33,7 +35,25 @@
 </script>
 
 {#if !isUnapplied && hasCommits}
-	<div class="actions">
+	<div
+		class="actions"
+		class:sticky={canBePushed}
+		class:not-in-viewport={!isInViewport}
+		use:intersectionObserver={{
+			callback: (entry) => {
+				if (entry.isIntersecting) {
+					isInViewport = true;
+				} else {
+					isInViewport = false;
+				}
+			},
+			options: {
+				root: null,
+				rootMargin: '-1px',
+				threshold: 1
+			}
+		}}
+	>
 		{#if canBePushed}
 			{#if $prompt}
 				<PassphraseBox prompt={$prompt} error={$promptError} />
@@ -77,13 +97,14 @@
 	.actions {
 		background: var(--clr-bg-1);
 		padding: 16px;
+		border-top: 1px solid var(--clr-border-2);
+		border-radius: 0 0 var(--radius-m) var(--radius-m);
 	}
 
 	/* EMPTY STATE */
 
 	.empty-state {
 		display: flex;
-		/* justify-content: space-between; */
 		align-items: center;
 		gap: 20px;
 	}
@@ -95,5 +116,17 @@
 	.empty-state__text {
 		color: var(--clr-text-3);
 		flex: 1;
+	}
+
+	/* MODIFIERS */
+	.sticky {
+		z-index: var(--z-lifted);
+		position: sticky;
+		bottom: 0;
+	}
+
+	.not-in-viewport {
+		border-radius: 0;
+		/* background-color: aquamarine; */
 	}
 </style>
