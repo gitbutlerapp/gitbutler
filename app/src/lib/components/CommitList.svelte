@@ -2,6 +2,8 @@
 	import CommitCard from './CommitCard.svelte';
 	import CommitLines from './CommitLines.svelte';
 	import { Project } from '$lib/backend/projects';
+	import Dropzone from '$lib/components/Dropzone/Dropzone.svelte';
+	import LineOverlay from '$lib/components/Dropzone/LineOverlay.svelte';
 	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
 	import {
 		ReorderDropzoneManagerFactory,
@@ -19,8 +21,6 @@
 	} from '$lib/vbranches/contexts';
 	import { BaseBranch, Branch, Commit, type CommitStatus } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
-	import Dropzone from '$lib/components/Dropzone/Dropzone.svelte';
-	import LineOverlay from '$lib/components/Dropzone/LineOverlay.svelte';
 
 	export let isUnapplied: boolean;
 

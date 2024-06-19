@@ -1,10 +1,10 @@
 <script lang="ts">
+	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
+	import CardOverlay from '$lib/components/Dropzone/CardOverlay.svelte';
+	import Dropzone from '$lib/components/Dropzone/Dropzone.svelte';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
 	import { RemoteCommit, Branch, Commit } from '$lib/vbranches/types';
-	import Dropzone from '$lib/components/Dropzone/Dropzone.svelte';
 	import type { Snippet } from 'svelte';
-	import CardOverlay from '$lib/components/Dropzone/CardOverlay.svelte';
-	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
 
 	const commitDragActionsFactory = getContext(CommitDragActionsFactory);
 

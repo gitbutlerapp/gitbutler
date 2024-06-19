@@ -1,10 +1,10 @@
 <script lang="ts">
+	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
+	import CardOverlay from '$lib/components/Dropzone/CardOverlay.svelte';
+	import Dropzone from '$lib/components/Dropzone/Dropzone.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { Branch } from '$lib/vbranches/types';
-	import Dropzone from '$lib/components/Dropzone/Dropzone.svelte';
 	import type { Snippet } from 'svelte';
-	import CardOverlay from '$lib/components/Dropzone/CardOverlay.svelte';
-	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 
 	const branchDragActionsFactory = getContext(BranchDragActionsFactory);
 	const branch = getContextStore(Branch);
