@@ -137,8 +137,8 @@
 				class:is-first={first}
 				class:is-last={last}
 				class:local={type === 'local'}
-				class:remote={type === 'remote'}
-				class:upstream={type === 'upstream'}
+				class:local-and-remote={type === 'localAndRemote'}
+				class:upstream={type === 'remote'}
 				class:integrated={type === 'integrated'}
 			></div>
 
@@ -162,11 +162,11 @@
 
 				{#if first}
 					<div class="commit__type text-semibold text-base-12">
-						{#if type === 'upstream'}
+						{#if type === 'remote'}
 							Remote <Icon name="remote" />
 						{:else if type === 'local'}
 							Local <Icon name="local" />
-						{:else if type === 'remote'}
+						{:else if type === 'localAndRemote'}
 							Local and remote
 						{:else if type === 'integrated'}
 							Integrated
@@ -223,7 +223,7 @@
 						<span class="commit__subtitle-divider">•</span>
 
 						<span
-							>{getTimeAgo(commit.createdAt)}{type === 'remote' || type === 'upstream'
+							>{getTimeAgo(commit.createdAt)}{type === 'localAndRemote' || type === 'remote'
 								? ` by ${commit.author.name}`
 								: ' by you'}</span
 						>
@@ -269,7 +269,7 @@
 				{/if}
 
 				<div class="files-container">
-					<BranchFilesList {files} {isUnapplied} readonly={type === 'upstream'} />
+					<BranchFilesList {files} {isUnapplied} readonly={type === 'remote'} />
 				</div>
 			{/if}
 		</div>
@@ -338,7 +338,7 @@
 		&.local {
 			background-color: var(--clr-commit-local);
 		}
-		&.remote {
+		&.local-and-remote {
 			background-color: var(--clr-commit-remote);
 		}
 		&.upstream {

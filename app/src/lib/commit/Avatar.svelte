@@ -16,7 +16,7 @@
 	<div
 		class="shadow-marker"
 		class:first={sectionFirst}
-		class:upstream={status === 'upstream'}
+		class:remote={status === 'remote'}
 		class:integrated={status === 'integrated'}
 		class:shadow-lane={shadowLane}
 		use:tooltip={help}
@@ -30,8 +30,8 @@
 		height="100"
 		class:first={sectionFirst}
 		class:local={status === 'local'}
+		class:local-and-remote={status === 'localAndRemote'}
 		class:remote={status === 'remote'}
-		class:upstream={status === 'upstream'}
 		class:integrated={status === 'integrated'}
 		class:remote-lane={remoteLane}
 		class:shadow-lane={shadowLane}
@@ -53,14 +53,14 @@
 		&.remote-lane {
 			left: 4px;
 		}
-		&.remote {
+		&.local-and-remote {
 			border: 2px solid var(--clr-commit-remote);
 			left: 4px;
 		}
 		&.local {
 			border: 2px solid var(--clr-commit-local);
 		}
-		&.upstream {
+		&.remote {
 			border: 2px solid var(--clr-commit-upstream);
 		}
 		&.integrated {
@@ -92,7 +92,7 @@
 			left: 8px;
 			background-color: var(--clr-commit-shadow);
 		}
-		&.upstream {
+		&.remote {
 			background-color: var(--clr-commit-upstream);
 		}
 	}

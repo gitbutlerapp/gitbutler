@@ -16,8 +16,8 @@
 	import {
 		getIntegratedCommits,
 		getLocalCommits,
-		getRemoteCommits,
-		getUnknownCommits
+		getLocalAndRemoteCommits,
+		getRemoteCommits
 	} from '$lib/vbranches/contexts';
 	import { BaseBranch, Branch, Commit, type CommitStatus } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
@@ -26,8 +26,8 @@
 
 	const branch = getContextStore(Branch);
 	const localCommits = getLocalCommits();
-	const remoteCommits = getRemoteCommits();
-	const unknownCommits = getUnknownCommits();
+	const localAndRemoteCommits = getLocalAndRemoteCommits();
+	const upstreamCommits = getRemoteCommits();
 	const integratedCommits = getIntegratedCommits();
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
@@ -45,14 +45,16 @@
 	$: hasLocalColumn = $localCommits.length > 0;
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
+
 	$: hasLocalCommits = $localCommits.length > 0;
-	$: hasUnknownCommits = $unknownCommits.length > 0;
+	$: hasLocalAndRemoteCommits = $localAndRemoteCommits.length > 0;
+	$: hasRemoteCommits = $upstreamCommits.length > 0;
 	$: hasIntegratedCommits = $integratedCommits.length > 0;
-	$: hasRemoteCommits = $remoteCommits.length > 0;
+
 	$: hasShadowedCommits = $localCommits.some((c) => c.relatedTo);
 	$: reorderDropzoneManager = reorderDropzoneManagerFactory.build($branch, [
 		...$localCommits,
-		...$remoteCommits
+		...$localAndRemoteCommits
 	]);
 
 	$: forkPoint = $branch.forkPoint;
@@ -64,7 +66,7 @@
 	function getOutType(commit: Commit): CommitStatus | undefined {
 		if (!hasShadowedCommits) {
 			if (!commit.next || commit.next.status === 'local') {
-				return $unknownCommits.length > 0 ? 'upstream' : undefined;
+				return $upstreamCommits.length > 0 ? 'remote' : undefined;
 			}
 			return commit.next?.status;
 		}
@@ -75,26 +77,26 @@
 			pointer = pointer.next;
 		}
 		if (pointer) return pointer.status;
-		return hasUnknownCommits ? 'upstream' : undefined;
+		return hasRemoteCommits ? 'remote' : undefined;
 	}
 
 	function getBaseShadowOutType(): CommitStatus | undefined {
 		if (!isRebased) return;
 		if (hasIntegratedCommits) return 'integrated';
-		if (hasShadowedCommits) return 'remote';
-		if (hasUnknownCommits) return 'upstream';
+		if (hasShadowedCommits) return 'localAndRemote';
+		if (hasRemoteCommits) return 'remote';
 	}
 
 	function getBaseRemoteOutType(): CommitStatus | undefined {
 		if (isRebased) return;
 		if (hasIntegratedCommits) return 'integrated';
-		if (hasShadowedCommits || hasRemoteCommits) return 'remote';
-		if (hasUnknownCommits) return 'upstream';
+		if (hasShadowedCommits || hasLocalAndRemoteCommits) return 'localAndRemote';
+		if (hasRemoteCommits) return 'remote';
 	}
 
 	function getInType(commit: Commit): CommitStatus | undefined {
 		if (commit.prev) return getOutType(commit.prev || commit);
-		if (commit.status === 'remote' || commit.relatedTo) return 'remote';
+		if (commit.status === 'localAndRemote' || commit.relatedTo) return 'localAndRemote';
 		if (commit.status === 'integrated') return 'integrated';
 		if (commit) return getOutType(commit);
 	}
@@ -131,18 +133,18 @@
 	</Dropzone>
 {/snippet}
 
-{#if hasCommits || hasUnknownCommits}
+{#if hasCommits || hasRemoteCommits}
 	<div class="commits">
 		<!-- UPSTREAM COMMITS -->
-		{#if $unknownCommits.length > 0}
-			{#each $unknownCommits as commit, idx (commit.id)}
+		{#if $upstreamCommits.length > 0}
+			{#each $upstreamCommits as commit, idx (commit.id)}
 				<CommitCard
-					type="upstream"
+					type="remote"
 					branch={$branch}
 					{commit}
 					{isUnapplied}
 					first={idx === 0}
-					last={idx === $unknownCommits.length - 1}
+					last={idx === $upstreamCommits.length - 1}
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 					isHeadCommit={commit.id === headCommit?.id}
 				>
@@ -158,10 +160,10 @@
 							outDashed={hasLocalColumn}
 							commitStatus={commit.status}
 							help={getAvatarTooltip(commit)}
-							remoteIn={!isRebased ? 'upstream' : undefined}
-							remoteOut={!isRebased && idx !== 0 ? 'upstream' : undefined}
-							shadowIn={isRebased ? 'upstream' : undefined}
-							shadowOut={idx !== 0 && isRebased ? 'upstream' : undefined}
+							remoteIn={!isRebased ? 'remote' : undefined}
+							remoteOut={!isRebased && idx !== 0 ? 'remote' : undefined}
+							shadowIn={isRebased ? 'remote' : undefined}
+							shadowOut={idx !== 0 && isRebased ? 'remote' : undefined}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -203,7 +205,9 @@
 							shadowOut={isRebased ? getOutType(commit) : undefined}
 							relatedToOther={commit?.relatedTo && commit.relatedTo.id !== commit.id}
 							remoteRoot={idx === $localCommits.length - 1}
-							last={idx === $localCommits.length - 1 && !hasRemoteCommits && !hasIntegratedCommits}
+							last={idx === $localCommits.length - 1 &&
+								!hasLocalAndRemoteCommits &&
+								!hasIntegratedCommits}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -211,28 +215,28 @@
 				{@render reorderDropzone(
 					reorderDropzoneManager.dropzoneBelowCommit(commit.id),
 					getReorderDropzoneOffset({
-						isLast: $remoteCommits.length === 0 && idx + 1 === $localCommits.length,
-						isMiddle: $remoteCommits.length > 0 && idx + 1 === $localCommits.length
+						isLast: $localAndRemoteCommits.length === 0 && idx + 1 === $localCommits.length,
+						isMiddle: $localAndRemoteCommits.length > 0 && idx + 1 === $localCommits.length
 					})
 				)}
 
 				<InsertEmptyCommitAction
-					isLast={$remoteCommits.length === 0 && idx + 1 === $localCommits.length}
-					isMiddle={$remoteCommits.length > 0 && idx + 1 === $localCommits.length}
+					isLast={$localAndRemoteCommits.length === 0 && idx + 1 === $localCommits.length}
+					isMiddle={$localAndRemoteCommits.length > 0 && idx + 1 === $localCommits.length}
 					on:click={() => insertBlankCommit(commit.id, 'below')}
 				/>
 			{/each}
 		{/if}
-		<!-- REMOTE COMMITS -->
-		{#if $remoteCommits.length > 0}
-			{#each $remoteCommits as commit, idx (commit.id)}
+		<!-- LOCAL AND REMOTE COMMITS -->
+		{#if $localAndRemoteCommits.length > 0}
+			{#each $localAndRemoteCommits as commit, idx (commit.id)}
 				<CommitCard
 					{commit}
 					{isUnapplied}
-					type="remote"
+					type="localAndRemote"
 					first={idx === 0}
 					branch={$branch}
-					last={idx === $remoteCommits.length - 1}
+					last={idx === $localAndRemoteCommits.length - 1}
 					isHeadCommit={commit.id === headCommit?.id}
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 				>
@@ -258,11 +262,11 @@
 				{@render reorderDropzone(
 					reorderDropzoneManager.dropzoneBelowCommit(commit.id),
 					getReorderDropzoneOffset({
-						isLast: idx + 1 === $remoteCommits.length
+						isLast: idx + 1 === $localAndRemoteCommits.length
 					})
 				)}
 				<InsertEmptyCommitAction
-					isLast={idx + 1 === $remoteCommits.length}
+					isLast={idx + 1 === $localAndRemoteCommits.length}
 					on:click={() => insertBlankCommit(commit.id, 'below')}
 				/>
 			{/each}
@@ -293,7 +297,7 @@
 							remoteIn={!isRebased ? getInType(commit) : undefined}
 							remoteOut={!isRebased ? getOutType(commit) : undefined}
 							integrated={true}
-							localRoot={idx === 0 && !hasRemoteCommits && hasLocalCommits}
+							localRoot={idx === 0 && !hasLocalAndRemoteCommits && hasLocalCommits}
 						/>
 					</svelte:fragment>
 				</CommitCard>
@@ -313,7 +317,7 @@
 						<CommitLines
 							{hasLocalColumn}
 							{isRebased}
-							localRoot={!hasRemoteCommits && !hasIntegratedCommits && hasLocalCommits}
+							localRoot={!hasLocalAndRemoteCommits && !hasIntegratedCommits && hasLocalCommits}
 							shadowOut={getBaseShadowOutType()}
 							remoteOut={getBaseRemoteOutType()}
 							base

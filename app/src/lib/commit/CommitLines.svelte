@@ -44,13 +44,13 @@
 			outDashed={base}
 			inDashed={base}
 		>
-			{#if author && (commitStatus === 'upstream' || relatedToOther)}
+			{#if author && (commitStatus === 'remote' || relatedToOther)}
 				<Avatar
 					{author}
 					{sectionFirst}
 					status={shadowIn}
 					help={shadowHelp || help}
-					shadow={commitStatus && commitStatus !== 'upstream'}
+					shadow={commitStatus && commitStatus !== 'remote'}
 					shadowLane
 				/>
 			{/if}

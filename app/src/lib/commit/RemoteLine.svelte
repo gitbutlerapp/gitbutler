@@ -20,7 +20,7 @@
 			<div
 				class="remote-line base tip"
 				class:dashed={outDashed}
-				class:upstream={outType === 'upstream'}
+				class:upstream={outType === 'remote'}
 			></div>
 		{/if}
 		{#if root}
@@ -47,8 +47,8 @@
 			<div
 				class="remote-line tip"
 				class:integrated
-				class:upstream={outType === 'upstream'}
-				class:remote={outType === 'remote'}
+				class:upstream={outType === 'remote'}
+				class:remote={outType === 'localAndRemote'}
 				class:dashed={outDashed}
 				class:first={sectionFirst}
 			></div>
@@ -58,8 +58,8 @@
 				class="remote-line short"
 				class:integrated
 				class:first={sectionFirst}
-				class:upstream={inType === 'upstream'}
-				class:remote={inType === 'remote'}
+				class:upstream={inType === 'remote'}
+				class:remote={inType === 'localAndRemote'}
 				class:dashed={inDashed}
 			></div>
 		{/if}

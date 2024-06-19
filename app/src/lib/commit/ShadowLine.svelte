@@ -15,13 +15,13 @@
 		<div
 			class="shadow-line tip"
 			class:dashed={outDashed}
-			class:upstream={outType === 'upstream'}
+			class:upstream={outType === 'remote'}
 		></div>
 	{/if}
 	{#if inType}
 		<div
 			class="shadow-line short"
-			class:upstream={inType === 'upstream'}
+			class:upstream={inType === 'remote'}
 			class:first={sectionFirst}
 			class:dashed={inDashed}
 		></div>
