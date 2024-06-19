@@ -1,6 +1,8 @@
+# https://github.com/actions/labeler#create-workflow
+
 name: Label Pull Requests
 on:
-- pull_request_target
+  pull_request_target:
 
 jobs:
   labeler:
