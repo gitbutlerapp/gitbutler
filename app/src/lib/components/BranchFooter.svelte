@@ -5,10 +5,10 @@
 	import { PromptService } from '$lib/backend/prompt';
 	import { project } from '$lib/testing/fixtures';
 	import { getContext, getContextStore } from '$lib/utils/context';
+	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getLocalCommits, getRemoteCommits, getUnknownCommits } from '$lib/vbranches/contexts';
 	import { Branch } from '$lib/vbranches/types';
-	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 
 	export let isUnapplied: boolean;
 

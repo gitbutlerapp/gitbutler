@@ -4,6 +4,7 @@
 	import FileCard from './FileCard.svelte';
 	import FullviewLoading from './FullviewLoading.svelte';
 	import Icon from './Icon.svelte';
+	import LazyloadContainer from './LazyloadContainer.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import SnapshotCard from './SnapshotCard.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
@@ -15,7 +16,6 @@
 	import { plainToInstance } from 'class-transformer';
 	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDiff } from '$lib/history/types';
-	import LazyloadContainer from './LazyloadContainer.svelte';
 
 	const project = getContext(Project);
 	const historyService = getContext(HistoryService);

@@ -1,13 +1,13 @@
 <script lang="ts">
 	import Button from './Button.svelte';
 	import CommitMessageInput from '$lib/components/CommitMessageInput.svelte';
-	import { projectRunCommitHooks, persistedCommitMessage } from '$lib/config/config';
+	import { persistedCommitMessage, projectRunCommitHooks } from '$lib/config/config';
 	import { getContext, getContextStore } from '$lib/utils/context';
+	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
-	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 
 	export let projectId: string;
 	export let expanded: Writable<boolean>;

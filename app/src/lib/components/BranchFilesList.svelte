@@ -2,6 +2,7 @@
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
 	import Button from './Button.svelte';
 	import FileListItem from './FileListItem.svelte';
+	import LazyloadContainer from './LazyloadContainer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext } from '$lib/utils/context';
@@ -11,7 +12,6 @@
 	import { FileIdSelection, stringifyFileKey } from '$lib/vbranches/fileIdSelection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import type { AnyFile } from '$lib/vbranches/types';
-	import LazyloadContainer from './LazyloadContainer.svelte';
 
 	export let files: AnyFile[];
 	export let isUnapplied = false;

@@ -19,11 +19,11 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { useAutoHeight } from '$lib/utils/useAutoHeight';
+	import { useResize } from '$lib/utils/useResize';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, LocalFile } from '$lib/vbranches/types';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { useResize } from '$lib/utils/useResize';
 
 	export let isExpanded: boolean;
 	export let commitMessage: string;
