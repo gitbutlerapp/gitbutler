@@ -2,35 +2,18 @@ import { DraggableCommit } from '$lib/dragging/draggables';
 import type { BranchController } from '$lib/vbranches/branchController';
 import type { Branch, Commit } from '$lib/vbranches/types';
 
-/**
- * This class is used to determine how far a commit has been drag and dropped.
- *
- * We expect the dropzones to be in the following order:
- *
- * ```
- * const indexer = new ReorderDropzoneIndexer(commits);
- *
- * <ReorderDropzone index={indexer.topDropzoneIndex} />
- * <Commit id={commits[0].id} />
- * <ReorderDropzone index={indexer.dropzoneIndexBelowCommit(commits[0].id)} />
- * <Commit id={commits[1].id} />
- * <ReorderDropzone index={indexer.dropzoneIndexBelowCommit(commits[1].id)} />
- * ```
- */
-
 // Exported for type access only
 export class ReorderDropzone {
 	constructor(
 		private branchController: BranchController,
 		private branch: Branch,
-		private index: number,
-		private indexer: ReorderDropzoneManager
+		private entry: Entry
 	) {}
 
 	accepts(data: any) {
 		if (!(data instanceof DraggableCommit)) return false;
 		if (data.branchId !== this.branch.id) return false;
-		if (this.indexer.dropzoneCommitOffset(this.index, data.commit.id) === 0) return false;
+		if (this.entry.distanceToOtherCommit(data.commit.id) === 0) return false;
 
 		return true;
 	}
@@ -39,71 +22,32 @@ export class ReorderDropzone {
 		if (!(data instanceof DraggableCommit)) return;
 		if (data.branchId !== this.branch.id) return;
 
-		const offset = this.indexer.dropzoneCommitOffset(this.index, data.commit.id);
+		const offset = this.entry.distanceToOtherCommit(data.commit.id);
 		this.branchController.reorderCommit(this.branch.id, data.commit.id, offset);
 	}
 }
 
 export class ReorderDropzoneManager {
-	private dropzoneIndexes = new Map<string, number>();
-	private commitIndexes = new Map<string, number>();
+	private indexer: Indexer;
 
 	constructor(
 		private branchController: BranchController,
 		private branch: Branch,
 		commits: Commit[]
 	) {
-		this.dropzoneIndexes.set('top', 0);
-
-		commits.forEach((commit, index) => {
-			this.dropzoneIndexes.set(commit.id, index + 1);
-			this.commitIndexes.set(commit.id, index);
-		});
+		this.indexer = new Indexer(commits);
 	}
 
 	get topDropzone() {
-		const index = this.dropzoneIndexes.get('top') ?? 0;
+		const entry = this.indexer.get('top');
 
-		return new ReorderDropzone(this.branchController, this.branch, index, this);
+		return new ReorderDropzone(this.branchController, this.branch, entry);
 	}
 
 	dropzoneBelowCommit(commitId: string) {
-		const index = this.dropzoneIndexes.get(commitId);
+		const entry = this.indexer.get(commitId);
 
-		if (index === undefined) {
-			throw new Error(`Commit ${commitId} not found in dropzoneIndexes`);
-		}
-
-		return new ReorderDropzone(this.branchController, this.branch, index, this);
-	}
-
-	commitIndex(commitId: string) {
-		const index = this.commitIndexes.get(commitId);
-
-		if (index === undefined) {
-			throw new Error(`Commit ${commitId} not found in commitIndexes`);
-		}
-
-		return index;
-	}
-
-	/**
-	 * A negative offset means the commit has been dragged up, and a positive offset means the commit has been dragged down.
-	 */
-	dropzoneCommitOffset(dropzoneIndex: number, commitId: string) {
-		const commitIndex = this.commitIndexes.get(commitId);
-
-		if (commitIndex === undefined) {
-			throw new Error(`Commit ${commitId} not found in commitIndexes`);
-		}
-
-		const offset = dropzoneIndex - commitIndex;
-
-		if (offset > 0) {
-			return offset - 1;
-		} else {
-			return offset;
-		}
+		return new ReorderDropzone(this.branchController, this.branch, entry);
 	}
 }
 
@@ -112,5 +56,72 @@ export class ReorderDropzoneManagerFactory {
 
 	build(branch: Branch, commits: Commit[]) {
 		return new ReorderDropzoneManager(this.branchController, branch, commits);
+	}
+}
+
+// Private classes used to calculate distances between commtis
+class Indexer {
+	private dropzoneIndexes = new Map<string, number>();
+	private commitIndexes = new Map<string, number>();
+
+	constructor(commits: Commit[]) {
+		this.dropzoneIndexes.set('top', 0);
+
+		commits.forEach((commit, index) => {
+			this.dropzoneIndexes.set(commit.id, index + 1);
+			this.commitIndexes.set(commit.id, index);
+		});
+	}
+
+	get(key: string) {
+		const index = this.getIndex(key);
+
+		return new Entry(this.commitIndexes, index);
+	}
+
+	private getIndex(key: string) {
+		if (key === 'top') {
+			return this.dropzoneIndexes.get(key) ?? 0;
+		} else {
+			const index = this.dropzoneIndexes.get(key);
+
+			if (index === undefined) {
+				throw new Error(`Commit ${key} not found in dropzoneIndexes`);
+			}
+
+			return index;
+		}
+	}
+}
+
+class Entry {
+	constructor(
+		private commitIndexes: Map<string, number>,
+		private index: number
+	) {}
+
+	/**
+	 * A negative offset means the commit has been dragged up, and a positive offset means the commit has been dragged down.
+	 */
+	distanceToOtherCommit(commitId: string) {
+		const commitIndex = this.commitIndex(commitId);
+
+		const offset = this.index - commitIndex;
+
+		if (offset > 0) {
+			return offset - 1;
+		} else {
+			return offset;
+		}
+	}
+
+	private commitIndex(commitId: string) {
+		const index = this.commitIndexes.get(commitId);
+
+		if (index === undefined) {
+			throw new Error(`Commit ${commitId} not found in commitIndexes`);
+		}
+
+		return index;
 	}
 }
