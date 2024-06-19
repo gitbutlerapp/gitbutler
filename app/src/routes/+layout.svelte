@@ -13,10 +13,6 @@
 	import GlobalSettingsMenuAction from '$lib/components/GlobalSettingsMenuAction.svelte';
 	import PromptModal from '$lib/components/PromptModal.svelte';
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
-	import {
-		ReorderDropzoneManager,
-		setReorderDropzoneManager
-	} from '$lib/dragging/reorderDropzoneManager';
 	import { GitHubService } from '$lib/github/service';
 	import ToastController from '$lib/notifications/ToastController.svelte';
 	import { RemotesService } from '$lib/remotes/service';
@@ -51,7 +47,6 @@
 	setContext(User, data.userService.user);
 	setContext(RemotesService, data.remotesService);
 	setContext(AIPromptService, data.aiPromptService);
-	setReorderDropzoneManager(ReorderDropzoneManager);
 
 	let shareIssueModal: ShareIssueModal;
 

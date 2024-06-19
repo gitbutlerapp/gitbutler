@@ -8,8 +8,6 @@
 	}
 
 	const { hovered, activated, yOffsetPx = 0 }: Props = $props();
-
-	console.log(yOffsetPx, pxToRem(yOffsetPx));
 </script>
 
 <div

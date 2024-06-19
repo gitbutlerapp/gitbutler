@@ -10,6 +10,7 @@
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$lib/components/ProjectSettingsMenuAction.svelte';
+	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 	import { HistoryService } from '$lib/history/history';
 	import { persisted } from '$lib/persisted/persisted';
 	import * as events from '$lib/utils/events';
@@ -34,7 +35,8 @@
 		branchService,
 		branchController,
 		branchDragActionsFactory,
-		commitDragActionsFactory
+		commitDragActionsFactory,
+		reorderDropzoneManagerFactory
 	} = data);
 
 	$: branchesError = vbranchService.branchesError;
@@ -51,6 +53,7 @@
 	$: setContext(Project, project);
 	$: setContext(BranchDragActionsFactory, branchDragActionsFactory);
 	$: setContext(CommitDragActionsFactory, commitDragActionsFactory);
+	$: setContext(ReorderDropzoneManagerFactory, reorderDropzoneManagerFactory);
 
 	const showHistoryView = persisted(false, 'showHistoryView');
 

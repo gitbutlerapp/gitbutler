@@ -4,7 +4,7 @@
 	import { Project } from '$lib/backend/projects';
 	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
 	import {
-		getReorderDropzoneManager,
+		ReorderDropzoneManagerFactory,
 		type ReorderDropzone
 	} from '$lib/dragging/reorderDropzoneManager';
 	import { getAvatarTooltip } from '$lib/utils/avatar';
@@ -33,7 +33,7 @@
 	const project = getContext(Project);
 	const branchController = getContext(BranchController);
 
-	const ReorderDropzoneManager = getReorderDropzoneManager();
+	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
 
 	// Force the "base" commit lines to update when $branch updates.
 	let tsKey: number | undefined;
@@ -50,11 +50,10 @@
 	$: hasIntegratedCommits = $integratedCommits.length > 0;
 	$: hasRemoteCommits = $remoteCommits.length > 0;
 	$: hasShadowedCommits = $localCommits.some((c) => c.relatedTo);
-	$: reorderDropzoneManager = new ReorderDropzoneManager(
-		[...$localCommits, ...$remoteCommits],
-		$branch,
-		branchController
-	);
+	$: reorderDropzoneManager = reorderDropzoneManagerFactory.build($branch, [
+		...$localCommits,
+		...$remoteCommits
+	]);
 
 	$: forkPoint = $branch.forkPoint;
 	$: upstreamForkPoint = $branch.upstreamData?.forkPoint;

@@ -1,5 +1,4 @@
 import { DraggableCommit } from '$lib/dragging/draggables';
-import { buildConstructorStore } from '$lib/utils/context';
 import type { BranchController } from '$lib/vbranches/branchController';
 import type { Branch, Commit } from '$lib/vbranches/types';
 
@@ -22,15 +21,14 @@ import type { Branch, Commit } from '$lib/vbranches/types';
 // Exported for type access only
 export class ReorderDropzone {
 	constructor(
+		private branchController: BranchController,
 		private branch: Branch,
 		private index: number,
-		private indexer: ReorderDropzoneManager,
-		private branchController: BranchController
+		private indexer: ReorderDropzoneManager
 	) {}
 
 	accepts(data: any) {
 		if (!(data instanceof DraggableCommit)) return false;
-		console.log(this.branch);
 		if (data.branchId !== this.branch.id) return false;
 		if (this.indexer.dropzoneCommitOffset(this.index, data.commit.id) === 0) return false;
 
@@ -51,9 +49,9 @@ export class ReorderDropzoneManager {
 	private commitIndexes = new Map<string, number>();
 
 	constructor(
-		commits: Commit[],
+		private branchController: BranchController,
 		private branch: Branch,
-		private branchController: BranchController
+		commits: Commit[]
 	) {
 		this.dropzoneIndexes.set('top', 0);
 
@@ -66,7 +64,7 @@ export class ReorderDropzoneManager {
 	get topDropzone() {
 		const index = this.dropzoneIndexes.get('top') ?? 0;
 
-		return new ReorderDropzone(this.branch, index, this, this.branchController);
+		return new ReorderDropzone(this.branchController, this.branch, index, this);
 	}
 
 	dropzoneBelowCommit(commitId: string) {
@@ -76,7 +74,7 @@ export class ReorderDropzoneManager {
 			throw new Error(`Commit ${commitId} not found in dropzoneIndexes`);
 		}
 
-		return new ReorderDropzone(this.branch, index, this, this.branchController);
+		return new ReorderDropzone(this.branchController, this.branch, index, this);
 	}
 
 	commitIndex(commitId: string) {
@@ -109,5 +107,10 @@ export class ReorderDropzoneManager {
 	}
 }
 
-export const [getReorderDropzoneManager, setReorderDropzoneManager] =
-	buildConstructorStore<typeof ReorderDropzoneManager>('ReorderDropzoneManager');
+export class ReorderDropzoneManagerFactory {
+	constructor(private branchController: BranchController) {}
+
+	build(branch: Branch, commits: Commit[]) {
+		return new ReorderDropzoneManager(this.branchController, branch, commits);
+	}
+}
