@@ -24,7 +24,10 @@ export default tsEslint.config(
 				...globals.browser,
 				$state: 'readonly',
 				$derived: 'readonly',
-				$props: 'readonly'
+				$props: 'readonly',
+				$bindable: 'readonly',
+				$inspect: 'readonly',
+				$host: 'readonly'
 			},
 			parser: svelteParser,
 			parserOptions: {
