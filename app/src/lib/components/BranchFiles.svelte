@@ -39,7 +39,5 @@
 <style lang="postcss">
 	.branch-files {
 		flex: 1;
-		/* background: var(--clr-bg-1); */
-		/* padding: 0 14px 14px; */
 	}
 </style>

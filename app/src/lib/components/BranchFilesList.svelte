@@ -71,9 +71,13 @@
 {/if}
 
 {#if displayedFiles.length > 0}
+	<!-- Maximum amount for initial render is 100 files
+	`minTriggerCount` set to 80 in order to start the loading a bit earlier. -->
 	<LazyloadContainer
+		minTriggerCount={80}
 		ontrigger={() => {
 			console.log('loading more files...');
+			loadMore();
 		}}
 	>
 		{#each displayedFiles as file (file.id)}

@@ -3,18 +3,18 @@
 
 	interface Props {
 		children: any;
-		minTriggerCount?: number;
+		minTriggerCount: number;
 		ontrigger: (lastChild: Element) => void;
 	}
 
-	let { children, minTriggerCount = 40, ontrigger }: Props = $props();
+	let { children, minTriggerCount, ontrigger }: Props = $props();
 
 	let lazyContainerEl: HTMLDivElement;
 
 	onMount(() => {
 		const containerChildren = lazyContainerEl.children;
 
-		if (containerChildren.length > minTriggerCount) return;
+		if (containerChildren.length < minTriggerCount) return;
 
 		const iObserver = new IntersectionObserver((entries) => {
 			const lastChild = containerChildren[containerChildren.length - 1];

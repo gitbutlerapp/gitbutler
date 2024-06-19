@@ -145,6 +145,7 @@
 					<div class="container">
 						<!-- SNAPSHOTS FEED -->
 						<LazyloadContainer
+							minTriggerCount={30}
 							ontrigger={() => {
 								console.log('load more snapshots…');
 								onLastInView();
