@@ -292,7 +292,7 @@
 	.no-changes {
 		user-select: none;
 		display: flex;
-		flex-grow: 1;
+		height: 100%;
 		flex-direction: column;
 		align-items: center;
 		color: var(--clr-scale-ntrl-60);

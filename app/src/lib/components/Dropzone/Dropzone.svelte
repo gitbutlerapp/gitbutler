@@ -4,13 +4,21 @@
 
 	interface Props {
 		disabled?: boolean;
+		fillHeight?: boolean;
 		accepts: (data: any) => boolean;
 		ondrop: (data: any) => Promise<void> | void;
 		overlay: Snippet<[{ hovered: boolean; activated: boolean }]>;
 		children?: Snippet;
 	}
 
-	const { disabled = false, accepts, ondrop, overlay, children }: Props = $props();
+	const {
+		disabled = false,
+		fillHeight = false,
+		accepts,
+		ondrop,
+		overlay,
+		children
+	}: Props = $props();
 
 	let hovered = $state(false);
 	// When a draggable is being hovered over the dropzone
@@ -44,6 +52,7 @@
 		onActivationEnd,
 		target: '.dropzone-target'
 	}}
+	class:fill-height={fillHeight}
 >
 	{@render overlay({ hovered, activated })}
 
@@ -51,3 +60,9 @@
 		{@render children()}
 	{/if}
 </div>
+
+<style lang="postcss">
+	.fill-height {
+		height: 100%;
+	}
+</style>

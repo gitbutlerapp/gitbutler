@@ -29,6 +29,7 @@
 	<Dropzone
 		accepts={actions.acceptMoveCommit.bind(actions)}
 		ondrop={actions.onMoveCommit.bind(actions)}
+		fillHeight
 	>
 		{@render branchDropDropzone()}
 
@@ -42,6 +43,7 @@
 	<Dropzone
 		accepts={actions.acceptBranchDrop.bind(actions)}
 		ondrop={actions.onBranchDrop.bind(actions)}
+		fillHeight
 	>
 		{@render children()}
 
