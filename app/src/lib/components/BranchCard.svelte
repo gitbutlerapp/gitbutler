@@ -1,5 +1,4 @@
 <script lang="ts">
-	import BranchFiles from './BranchFiles.svelte';
 	import BranchFooter from './BranchFooter.svelte';
 	import BranchHeader from './BranchHeader.svelte';
 	import CommitDialog from './CommitDialog.svelte';
@@ -17,6 +16,7 @@
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import BranchFiles from '$lib/file/BranchFiles.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';

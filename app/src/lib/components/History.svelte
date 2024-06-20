@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Button from './Button.svelte';
 	import EmptyStatePlaceholder from './EmptyStatePlaceholder.svelte';
-	import FileCard from './FileCard.svelte';
 	import FullviewLoading from './FullviewLoading.svelte';
 	import Icon from './Icon.svelte';
 	import LazyloadContainer from './LazyloadContainer.svelte';
@@ -10,6 +9,7 @@
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import { clickOutside } from '$lib/clickOutside';
+	import FileCard from '$lib/file/FileCard.svelte';
 	import { HistoryService, createdOnDay } from '$lib/history/history';
 	import { getContext } from '$lib/utils/context';
 	import { RemoteFile } from '$lib/vbranches/types';
