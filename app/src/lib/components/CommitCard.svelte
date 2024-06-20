@@ -1,7 +1,7 @@
 <script lang="ts">
-	import BranchFilesList from './BranchFilesList.svelte';
 	import CommitDragItem from './CommitDragItem.svelte';
 	import Icon from './Icon.svelte';
+	import BranchFilesList from '../file/BranchFilesList.svelte';
 	import { Project } from '$lib/backend/projects';
 	import Button from '$lib/components/Button.svelte';
 	import CommitMessageInput from '$lib/components/CommitMessageInput.svelte';

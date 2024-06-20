@@ -1,10 +1,10 @@
 <script lang="ts">
 	import BranchPreviewHeader from './BranchPreviewHeader.svelte';
-	import FileCard from './FileCard.svelte';
 	import Resizer from './Resizer.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import { Project } from '$lib/backend/projects';
 	import CommitCard from '$lib/components/CommitCard.svelte';
+	import FileCard from '$lib/file/FileCard.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
-	import Button from './Button.svelte';
 	import FileListItem from './FileListItem.svelte';
-	import LazyloadContainer from './LazyloadContainer.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import LazyloadContainer from '$lib/components/LazyloadContainer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext } from '$lib/utils/context';
