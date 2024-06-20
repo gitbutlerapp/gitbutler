@@ -5,13 +5,15 @@ use std::os::windows::io::{AsRawHandle, FromRawHandle, IntoRawHandle, RawHandle}
 use std::path::Path;
 use windows::core::PWSTR;
 use windows::Win32::Foundation::{
-    ERROR_PIPE_NOT_CONNECTED, GENERIC_READ, GENERIC_WRITE, HANDLE, WIN32_ERROR,
+    CloseHandle, DuplicateHandle, BOOL, DUPLICATE_SAME_ACCESS, ERROR_PIPE_NOT_CONNECTED,
+    GENERIC_READ, GENERIC_WRITE, HANDLE, WIN32_ERROR,
 };
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FlushFileBuffers, ReadFile, WriteFile, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ,
     FILE_SHARE_WRITE, OPEN_EXISTING,
 };
 use windows::Win32::System::Pipes::{WaitNamedPipeW, NMPWAIT_USE_DEFAULT_WAIT};
+use windows::Win32::System::Threading::GetCurrentProcess;
 
 #[derive(Debug)]
 struct Handle {
@@ -20,6 +22,34 @@ struct Handle {
 
 unsafe impl Send for Handle {}
 unsafe impl Sync for Handle {}
+
+impl Handle {
+    fn try_clone(&self) -> io::Result<Handle> {
+        let mut new_handle = HANDLE::default();
+        let current_ps_handle: HANDLE = unsafe { GetCurrentProcess() };
+        let res = unsafe {
+            DuplicateHandle(
+                current_ps_handle,
+                self.inner,
+                current_ps_handle,
+                &mut new_handle as *mut HANDLE,
+                0,
+                BOOL(1),
+                DUPLICATE_SAME_ACCESS,
+            )
+        };
+        match res {
+            Ok(_) => Ok(Handle { inner: new_handle }),
+            Err(err) => Err(io::Error::from_raw_os_error(err.code().0)),
+        }
+    }
+}
+
+impl Drop for Handle {
+    fn drop(&mut self) {
+        let _ = unsafe { CloseHandle(self.inner) };
+    }
+}
 
 #[derive(Debug)]
 pub struct Pipe {
@@ -56,6 +86,11 @@ impl Pipe {
 
     pub fn get_handle(&self) -> HANDLE {
         self.handle.inner
+    }
+
+    pub fn try_clone(&self) -> io::Result<Pipe> {
+        let handle = self.handle.try_clone()?;
+        Ok(Pipe { handle })
     }
 }
 

@@ -1,8 +1,4 @@
-use std::{
-    io,
-    os::windows::io::{AsRawHandle, FromRawHandle},
-    time::Duration,
-};
+use std::{io, time::Duration};
 use windows::Win32::System::Pipes::SetNamedPipeHandleState;
 #[path = "windows-pipe.rs"]
 mod windows_pipe;
@@ -17,15 +13,10 @@ pub fn establish(sock_path: &str) -> Pipe {
 /// We stub them using this trait so we don't have to newtype
 /// the pipestream itself (which would be extensive and un-DRY).
 pub trait UnixCompatibility: Sized {
-    fn try_clone(&self) -> Option<Self>;
     fn set_read_timeout(&self, timeout: Option<Duration>) -> io::Result<()>;
 }
 
 impl UnixCompatibility for Pipe {
-    fn try_clone(&self) -> Option<Self> {
-        Some(unsafe { Self::from_raw_handle(self.as_raw_handle()) })
-    }
-
     fn set_read_timeout(&self, timeout: Option<Duration>) -> io::Result<()> {
         // NOTE(qix-): Technically, this shouldn't work (and probably doesn't).
         // NOTE(qix-): The documentation states:
