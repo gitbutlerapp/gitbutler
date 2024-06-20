@@ -1,7 +1,7 @@
 <script lang="ts">
-	import BranchPreviewHeader from './BranchPreviewHeader.svelte';
 	import Resizer from './Resizer.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
+	import BranchPreviewHeader from '../branch/BranchPreviewHeader.svelte';
 	import { Project } from '$lib/backend/projects';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
