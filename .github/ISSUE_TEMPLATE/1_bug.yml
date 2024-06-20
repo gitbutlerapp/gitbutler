@@ -16,7 +16,7 @@ body:
       label: Operating System
       description: What OS are you using GitButler on?
       options:
-        - Mac OSX
+        - Mac OS X
         - Windows
         - Linux
       default: 0
@@ -28,11 +28,11 @@ body:
       label: Distribution Method
       description: Which package of GitButler are you using?
       options:
-        - dmg
-        - exe
-        - .deb
-        - RPM
-        - AppImage
+        - dmg (Apple Silicon)
+        - dmg (Intel)
+        - msi (Windows)
+        - deb (Linux)
+        - AppImage (Linux)
       default: 0
     validations:
       required: true

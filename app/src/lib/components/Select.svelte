@@ -63,7 +63,7 @@
 		if (value && value[itemId] === item[itemId]) return closeList();
 		selectedItemId = item[itemId];
 		dispatch('select', { value });
-		listOpen = false;
+		closeList();
 	}
 	function setMaxHeight() {
 		if (maxHeight) return;
