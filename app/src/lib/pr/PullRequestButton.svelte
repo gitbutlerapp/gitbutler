@@ -1,8 +1,8 @@
 <script lang="ts">
-	import DropDownButton from './DropDownButton.svelte';
-	import ContextMenu from './contextmenu/ContextMenu.svelte';
-	import ContextMenuItem from './contextmenu/ContextMenuItem.svelte';
-	import ContextMenuSection from './contextmenu/ContextMenuSection.svelte';
+	import DropDownButton from '$lib/components/DropDownButton.svelte';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
+	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
+	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { persisted, type Persisted } from '$lib/persisted/persisted';
 	import { createEventDispatcher } from 'svelte';
 
