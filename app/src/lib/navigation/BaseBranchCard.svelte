@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SyncButton from './SyncButton.svelte';
+	import SyncButton from '../components/SyncButton.svelte';
 	import { Project } from '$lib/backend/projects';
 	import Badge from '$lib/components/Badge.svelte';
 	import Icon from '$lib/components/Icon.svelte';

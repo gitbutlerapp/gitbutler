@@ -1,10 +1,10 @@
 <script lang="ts">
 	import BaseBranchCard from './BaseBranchCard.svelte';
 	import Branches from './Branches.svelte';
-	import DomainButton from './DomainButton.svelte';
 	import Footer from './Footer.svelte';
 	import ProjectSelector from './ProjectSelector.svelte';
-	import Resizer from './Resizer.svelte';
+	import DomainButton from '../components/DomainButton.svelte';
+	import Resizer from '../components/Resizer.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
