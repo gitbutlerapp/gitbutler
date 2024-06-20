@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Icon from './Icon.svelte';
 	import { checkAuthStatus, initDeviceOauth } from '$lib/backend/github';
 	import Button from '$lib/components/Button.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { GitHubService } from '$lib/github/service';

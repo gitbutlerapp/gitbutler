@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Sidebar from '$lib/components/settings/Sidebar.svelte';
+	import Sidebar from '$lib/settings/Sidebar.svelte';
 </script>
 
 <section class="profile-page">

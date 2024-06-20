@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Link from './Link.svelte';
-	import SectionCard from './SectionCard.svelte';
-	import Toggle from './Toggle.svelte';
+	import Link from '$lib/components/Link.svelte';
+	import SectionCard from '$lib/components/SectionCard.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
 	import {
 		appErrorReportingEnabled,
 		appMetricsEnabled,

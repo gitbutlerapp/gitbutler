@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Spacer from '../Spacer.svelte';
+	import Spacer from '$lib/components/Spacer.svelte';
 	import { pxToRem } from '$lib/utils/pxToRem';
 
 	export let spacer = false;

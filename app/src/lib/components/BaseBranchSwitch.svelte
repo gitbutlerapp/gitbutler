@@ -5,7 +5,7 @@
 	import { Project } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import SelectItem from '$lib/components/SelectItem.svelte';
-	import Section from '$lib/components/settings/Section.svelte';
+	import Section from '$lib/settings/Section.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { getRemoteBranches } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';

@@ -3,7 +3,6 @@
 	import { Project } from '$lib/backend/projects';
 	import BackButton from '$lib/components/BackButton.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import GithubIntegration from '$lib/components/GithubIntegration.svelte';
 	import Login from '$lib/components/Login.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import SelectItem from '$lib/components/SelectItem.svelte';
@@ -11,6 +10,7 @@
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
+	import GithubIntegration from '$lib/settings/GithubIntegration.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 	import { platform } from '@tauri-apps/api/os';

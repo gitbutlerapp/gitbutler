@@ -7,10 +7,10 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import Spacer from '$lib/components/Spacer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
-	import ThemeSelector from '$lib/components/ThemeSelector.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
-	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
 	import { showError } from '$lib/notifications/toasts';
+	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
+	import ThemeSelector from '$lib/settings/ThemeSelector.svelte';
 	import {
 		SETTINGS,
 		type Settings,
