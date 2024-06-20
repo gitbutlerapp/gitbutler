@@ -16,6 +16,7 @@
 	class:local-dashed={style === 'localDashed'}
 	class:local-and-remote={style === 'localAndRemote'}
 	class:shadow={style === 'shadow'}
+	class:integrated={style === 'integrated'}
 ></div>
 
 <style lang="postcss">
@@ -47,6 +48,10 @@
 		}
 
 		&.shadow {
+			--border-color: var(--clr-commit-shadow);
+		}
+
+		&.integrated {
 			--border-color: var(--clr-commit-shadow);
 		}
 

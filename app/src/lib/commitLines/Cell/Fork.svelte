@@ -15,6 +15,7 @@
 	class:local={style === 'local'}
 	class:local-and-remote={style === 'localAndRemote'}
 	class:shadow={style === 'shadow'}
+	class:integrated={style === 'integrated'}
 >
 	<div class="row top-row">
 		<div></div>
@@ -53,6 +54,10 @@
 		}
 
 		&.shadow {
+			--border-color: var(--clr-commit-shadow);
+		}
+
+		&.integrated {
 			--border-color: var(--clr-commit-shadow);
 		}
 	}
