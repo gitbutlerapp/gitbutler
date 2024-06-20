@@ -29,17 +29,16 @@
 	const selectedFiles = fileIdSelection.files;
 
 	let checked = false;
-	let indeterminate = false;
 	let draggableElt: HTMLDivElement;
 
 	$: if (file && $selectedOwnership) {
-		const fileId = file.id;
-		checked = file.hunks.every((hunk) => $selectedOwnership?.contains(fileId, hunk.id));
-		const selectedCount = file.hunks.filter((hunk) =>
-			$selectedOwnership?.contains(fileId, hunk.id)
-		).length;
-		indeterminate = selectedCount > 0 && file.hunks.length - selectedCount > 0;
+		checked = file.hunks.every((hunk) => $selectedOwnership?.contains(file.id, hunk.id));
 	}
+
+	$: if ($fileIdSelection && draggableElt)
+		updateFocus(draggableElt, file, fileIdSelection, $commit?.id);
+
+	$: popupMenu = updateContextMenu();
 
 	function updateContextMenu() {
 		if (popupMenu) unmount(popupMenu);
@@ -48,11 +47,6 @@
 			props: { isUnapplied }
 		});
 	}
-
-	$: if ($fileIdSelection && draggableElt)
-		updateFocus(draggableElt, file, fileIdSelection, $commit?.id);
-
-	$: popupMenu = updateContextMenu();
 
 	onDestroy(() => {
 		if (popupMenu) {
@@ -124,12 +118,35 @@
 		<Checkbox
 			small
 			{checked}
-			{indeterminate}
 			on:change={(e) => {
+				const isChecked = e.detail;
 				selectedOwnership?.update((ownership) => {
-					if (e.detail) file.hunks.forEach((h) => ownership.add(file.id, h));
-					if (!e.detail) file.hunks.forEach((h) => ownership.remove(file.id, h.id));
+					if (isChecked) {
+						file.hunks.forEach((h) => ownership.add(file.id, h));
+					} else {
+						file.hunks.forEach((h) => ownership.remove(file.id, h.id));
+					}
 					return ownership;
+				});
+
+				$selectedFiles.then((files) => {
+					if (files.length > 0 && files.includes(file)) {
+						if (isChecked) {
+							files.forEach((f) => {
+								selectedOwnership?.update((ownership) => {
+									f.hunks.forEach((h) => ownership.add(f.id, h));
+									return ownership;
+								});
+							});
+						} else {
+							files.forEach((f) => {
+								selectedOwnership?.update((ownership) => {
+									f.hunks.forEach((h) => ownership.remove(f.id, h.id));
+									return ownership;
+								});
+							});
+						}
+					}
 				});
 			}}
 		/>
@@ -176,14 +193,9 @@
 	}
 
 	.draggable {
-		/* cursor: grab; */
-
 		&:hover {
 			& .draggable-handle {
-				/* width: 10px; */
-				/* width: 6px; */
 				opacity: 1;
-				/* transition-delay: 0.5s; */
 			}
 		}
 	}
@@ -200,8 +212,6 @@
 		transition:
 			width var(--transition-fast),
 			opacity var(--transition-fast);
-		/* transition-delay: 0s; */
-		/* background-color: rgb(184, 150, 201); */
 	}
 
 	.info {

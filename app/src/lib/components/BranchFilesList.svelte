@@ -92,7 +92,15 @@
 				}}
 				on:keydown={(e) => {
 					e.preventDefault();
-					maybeMoveSelection(e.key, file, displayedFiles, fileIdSelection);
+					maybeMoveSelection(
+						allowMultiple,
+						e.shiftKey,
+						e.key,
+						file,
+						displayedFiles,
+						$fileIdSelection,
+						fileIdSelection
+					);
 				}}
 			/>
 		{/each}
