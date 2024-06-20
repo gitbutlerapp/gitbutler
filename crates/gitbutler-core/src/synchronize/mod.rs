@@ -18,6 +18,8 @@ pub async fn sync_with_gitbutler(
     let project = project_repository.project();
     let vb_state = project.virtual_branches();
     let default_target = vb_state.get_default_target()?;
+
+    // if code should be pushed
     let gb_code_last_commit = project
         .gitbutler_code_push_state
         .as_ref()
@@ -43,10 +45,10 @@ pub async fn sync_with_gitbutler(
     let oplog_refspec = project_repository
         .project()
         .oplog_head()?
-        .map(|sha| format!("+{}:refs/gitbutler/oplog/oplog", sha));
+        .map(|sha| format!("+{}:refs/gitbutler/oplog", sha));
 
     if let Some(oplog_refspec) = oplog_refspec {
-        let x = project_repository.push_to_gitbutler_server(Some(user), &[&oplog_refspec]);
+        let x = project_repository.push_oplog_to_gitbutler_server(Some(user), &[&oplog_refspec]);
         println!("\n\n\nHERE: {:?}", x?);
     }
 
@@ -79,7 +81,7 @@ async fn push_target(
     for (idx, id) in ids.iter().enumerate().rev() {
         let refspec = format!("+{}:refs/push-tmp/{}", id, project_id);
 
-        project_repository.push_to_gitbutler_server(Some(user), &[&refspec])?;
+        project_repository.push_code_to_gitbutler_server(Some(user), &[&refspec])?;
         update_project(projects, project_id, *id).await?;
 
         tracing::info!(
@@ -90,7 +92,7 @@ async fn push_target(
         );
     }
 
-    project_repository.push_to_gitbutler_server(
+    project_repository.push_code_to_gitbutler_server(
         Some(user),
         &[&format!("+{}:refs/{}", default_target.sha, project_id)],
     )?;
@@ -164,7 +166,8 @@ fn push_all_refs(
 
     let all_refs: Vec<_> = all_refs.iter().map(String::as_str).collect();
 
-    let anything_pushed = project_repository.push_to_gitbutler_server(Some(user), &all_refs)?;
+    let anything_pushed =
+        project_repository.push_code_to_gitbutler_server(Some(user), &all_refs)?;
     if anything_pushed {
         tracing::info!(
             %project_id,
