@@ -35,6 +35,11 @@
 		checked = file.hunks.every((hunk) => $selectedOwnership?.contains(file.id, hunk.id));
 	}
 
+	$: if ($fileIdSelection && draggableElt)
+		updateFocus(draggableElt, file, fileIdSelection, $commit?.id);
+
+	$: popupMenu = updateContextMenu();
+
 	function updateContextMenu() {
 		if (popupMenu) unmount(popupMenu);
 		return mount(FileContextMenu, {
@@ -42,11 +47,6 @@
 			props: { isUnapplied }
 		});
 	}
-
-	$: if ($fileIdSelection && draggableElt)
-		updateFocus(draggableElt, file, fileIdSelection, $commit?.id);
-
-	$: popupMenu = updateContextMenu();
 
 	onDestroy(() => {
 		if (popupMenu) {
@@ -119,11 +119,34 @@
 			small
 			{checked}
 			on:change={(e) => {
-				console.log('change', $fileIdSelection);
+				const isChecked = e.detail;
 				selectedOwnership?.update((ownership) => {
-					if (e.detail) file.hunks.forEach((h) => ownership.add(file.id, h));
-					if (!e.detail) file.hunks.forEach((h) => ownership.remove(file.id, h.id));
+					if (isChecked) {
+						file.hunks.forEach((h) => ownership.add(file.id, h));
+					} else {
+						file.hunks.forEach((h) => ownership.remove(file.id, h.id));
+					}
 					return ownership;
+				});
+
+				$selectedFiles.then((files) => {
+					if (files.length > 0 && files.includes(file)) {
+						if (isChecked) {
+							files.forEach((f) => {
+								selectedOwnership?.update((ownership) => {
+									f.hunks.forEach((h) => ownership.add(f.id, h));
+									return ownership;
+								});
+							});
+						} else {
+							files.forEach((f) => {
+								selectedOwnership?.update((ownership) => {
+									f.hunks.forEach((h) => ownership.remove(f.id, h.id));
+									return ownership;
+								});
+							});
+						}
+					}
 				});
 			}}
 		/>
