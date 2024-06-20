@@ -3,8 +3,8 @@
 	import BranchHeader from './BranchHeader.svelte';
 	import EmptyStatePlaceholder from '../components/EmptyStatePlaceholder.svelte';
 	import InfoMessage from '../components/InfoMessage.svelte';
-	import PullRequestCard from '../components/PullRequestCard.svelte';
 	import ScrollableContainer from '../components/ScrollableContainer.svelte';
+	import PullRequestCard from '../pr/PullRequestCard.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';

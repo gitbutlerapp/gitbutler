@@ -2,7 +2,7 @@
 	import ActiveBranchStatus from './ActiveBranchStatus.svelte';
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
-	import PullRequestButton from '../components/PullRequestButton.svelte';
+	import PullRequestButton from '../pr/PullRequestButton.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import { clickOutside } from '$lib/clickOutside';

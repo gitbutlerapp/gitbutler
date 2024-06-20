@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Button from './Button.svelte';
-	import InfoMessage from './InfoMessage.svelte';
 	import MergeButton from './MergeButton.svelte';
+	import Button from '../components/Button.svelte';
+	import InfoMessage from '../components/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
@@ -15,10 +15,10 @@
 	import { distinctUntilChanged } from 'rxjs';
 	import { mount, onDestroy, unmount } from 'svelte';
 	import { derived, type Readable } from 'svelte/store';
+	import type { MessageStyle } from '$lib/components/InfoMessage.svelte';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
+	import type iconsJson from '$lib/icons/icons.json';
 	import type { ComponentColor } from '$lib/vbranches/types';
-	import type { MessageStyle } from './InfoMessage.svelte';
-	import type iconsJson from '../icons/icons.json';
 
 	type StatusInfo = {
 		text: string;
