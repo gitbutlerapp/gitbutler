@@ -1,4 +1,4 @@
-import type { CommitData, LineGroup, Line } from '$lib/commitLines/types';
+import type { CommitData, LineGroup, Line, Style } from '$lib/commitLines/types';
 
 interface Commits {
 	remoteCommits: CommitData[];
@@ -57,9 +57,17 @@ function generateSameForkpoint({
 		lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.style = 'local';
 		lineGroup.lines[RIGHT_COLUMN_INDEX].node = { type: 'large', commit };
 
+		let leftStyle: Style | undefined;
+
+		if (remoteBranchGroups.length > 0) {
+			leftStyle = 'remote';
+		} else {
+			leftStyle = 'localAndRemote';
+		}
+
 		if (localCommitWithChangeIdFound) {
-			lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'localAndRemote';
-			lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'localAndRemote';
+			lineGroup.lines[LEFT_COLUMN_INDEX].top.style = leftStyle;
+			lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = leftStyle;
 
 			if (commit.relatedRemoteCommit) {
 				lineGroup.lines[LEFT_COLUMN_INDEX].node = {
@@ -70,14 +78,14 @@ function generateSameForkpoint({
 		} else {
 			if (commit.relatedRemoteCommit) {
 				if (remoteBranchGroups.length > 0) {
-					lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
+					lineGroup.lines[LEFT_COLUMN_INDEX].top.style = leftStyle;
 				}
 
 				lineGroup.lines[LEFT_COLUMN_INDEX].node = {
 					type: 'small',
 					commit: commit.relatedRemoteCommit
 				};
-				lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'localAndRemote';
+				lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = leftStyle;
 
 				localCommitWithChangeIdFound = true;
 			} else {
@@ -192,6 +200,6 @@ export class LineManager {
 			throw new Error(`Failed to find commit ${commitId} in line manager`);
 		}
 
-		return this.data.get(commitId);
+		return this.data.get(commitId)!;
 	}
 }
