@@ -1,16 +1,16 @@
 <script async lang="ts">
-	import ProjectNameLabel from './ProjectNameLabel.svelte';
+	import ProjectNameLabel from '../shared/ProjectNameLabel.svelte';
 	import { Project } from '$lib/backend/projects';
 	import BackButton from '$lib/components/BackButton.svelte';
-	import Button from '$lib/components/Button.svelte';
 	import Login from '$lib/components/Login.svelte';
-	import Select from '$lib/components/Select.svelte';
-	import SelectItem from '$lib/components/SelectItem.svelte';
 	import SetupFeature from '$lib/components/SetupFeature.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import GithubIntegration from '$lib/settings/GithubIntegration.svelte';
+	import Button from '$lib/shared/Button.svelte';
+	import Select from '$lib/shared/Select.svelte';
+	import SelectItem from '$lib/shared/SelectItem.svelte';
+	import Toggle from '$lib/shared/Toggle.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 	import { platform } from '@tauri-apps/api/os';

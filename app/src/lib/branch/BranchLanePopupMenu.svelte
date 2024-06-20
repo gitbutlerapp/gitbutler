@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
-	import Button from '$lib/components/Button.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import TextBox from '$lib/components/TextBox.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import Button from '$lib/shared/Button.svelte';
+	import Modal from '$lib/shared/Modal.svelte';
+	import TextBox from '$lib/shared/TextBox.svelte';
 	import { User } from '$lib/stores/user';
 	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';

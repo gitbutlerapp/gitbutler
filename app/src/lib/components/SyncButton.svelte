@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Button from '$lib/components/Button.svelte';
-	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import { GitHubService } from '$lib/github/service';
+	import Button from '$lib/shared/Button.svelte';
+	import TimeAgo from '$lib/shared/TimeAgo.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 

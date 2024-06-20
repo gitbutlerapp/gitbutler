@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { checkAuthStatus, initDeviceOauth } from '$lib/backend/github';
-	import Button from '$lib/components/Button.svelte';
-	import Icon from '$lib/components/Icon.svelte';
-	import Modal from '$lib/components/Modal.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { GitHubService } from '$lib/github/service';
+	import Button from '$lib/shared/Button.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
+	import Modal from '$lib/shared/Modal.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext } from '$lib/utils/context';

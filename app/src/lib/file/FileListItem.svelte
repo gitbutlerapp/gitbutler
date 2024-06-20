@@ -1,11 +1,11 @@
 <script lang="ts">
 	import FileContextMenu from './FileContextMenu.svelte';
 	import FileStatusIcons from './FileStatusIcons.svelte';
-	import Checkbox from '$lib/components/Checkbox.svelte';
-	import Icon from '$lib/components/Icon.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
+	import Checkbox from '$lib/shared/Checkbox.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
 	import { updateFocus } from '$lib/utils/selection';
 	import { getCommitStore } from '$lib/vbranches/contexts';

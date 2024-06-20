@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '$lib/components/Icon.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
 	import type { Settings } from '$lib/settings/userSettings';
 	import type { Writable } from 'svelte/store';
 

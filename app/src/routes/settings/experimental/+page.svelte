@@ -1,8 +1,8 @@
 <script lang="ts">
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
 	import { featureBaseBranchSwitching } from '$lib/config/uiFeatureFlags';
 	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
+	import Toggle from '$lib/shared/Toggle.svelte';
 
 	const baseBranchSwitching = featureBaseBranchSwitching();
 </script>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CommitMessageInput from './CommitMessageInput.svelte';
-	import Button from '$lib/components/Button.svelte';
 	import { persistedCommitMessage, projectRunCommitHooks } from '$lib/config/config';
+	import Button from '$lib/shared/Button.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { slideFade } from '$lib/utils/svelteTransitions';

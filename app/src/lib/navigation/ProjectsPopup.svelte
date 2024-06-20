@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ProjectService } from '$lib/backend/projects';
-	import ListItem from '$lib/components/ListItem.svelte';
-	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
+	import ListItem from '$lib/shared/ListItem.svelte';
+	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';

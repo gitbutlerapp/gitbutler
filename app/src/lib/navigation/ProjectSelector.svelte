@@ -3,7 +3,7 @@
 	import ProjectsPopup from './ProjectsPopup.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { clickOutside } from '$lib/clickOutside';
-	import Icon from '$lib/components/Icon.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 

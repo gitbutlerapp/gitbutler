@@ -1,10 +1,10 @@
 <script lang="ts">
-	import Button from './Button.svelte';
-	import Icon from './Icon.svelte';
-	import InfoMessage from './InfoMessage.svelte';
-	import Link from './Link.svelte';
-	import SectionCardDisclaimer from './SectionCardDisclaimer.svelte';
+	import SectionCardDisclaimer from '../components/SectionCardDisclaimer.svelte';
+	import Icon from '../shared/Icon.svelte';
+	import InfoMessage from '../shared/InfoMessage.svelte';
+	import Link from '../shared/Link.svelte';
 	import { AuthService } from '$lib/backend/auth';
+	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { slide } from 'svelte/transition';
 

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import AccountLink from './AccountLink.svelte';
-	import Icon from './Icon.svelte';
+	import AccountLink from '../shared/AccountLink.svelte';
+	import Icon from '../shared/Icon.svelte';
 	import gbLogoSvg from '$lib/assets/gb-logo.svg?raw';
 	import { User } from '$lib/stores/user';
 	import { getContextStore } from '$lib/utils/context';

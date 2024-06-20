@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '$lib/components/Icon.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
 	import { createEventDispatcher, getContext, onMount } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 	import type { SegmentContext } from './segment';

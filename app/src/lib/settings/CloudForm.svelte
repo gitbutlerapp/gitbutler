@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import AiPromptSelect from '$lib/components/AIPromptSelect.svelte';
-	import Button from '$lib/components/Button.svelte';
-	import Link from '$lib/components/Link.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import Spacer from '$lib/components/Spacer.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import Section from '$lib/settings/Section.svelte';
+	import Button from '$lib/shared/Button.svelte';
+	import Link from '$lib/shared/Link.svelte';
+	import Spacer from '$lib/shared/Spacer.svelte';
+	import Toggle from '$lib/shared/Toggle.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';

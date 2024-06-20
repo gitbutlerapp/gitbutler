@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import Spacer from '$lib/components/Spacer.svelte';
-	import TextArea from '$lib/components/TextArea.svelte';
-	import TextBox from '$lib/components/TextBox.svelte';
+	import Spacer from '$lib/shared/Spacer.svelte';
+	import TextArea from '$lib/shared/TextArea.svelte';
+	import TextBox from '$lib/shared/TextBox.svelte';
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore } from '$lib/utils/context';
 

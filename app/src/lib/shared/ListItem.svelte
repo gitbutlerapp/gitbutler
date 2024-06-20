@@ -1,26 +1,17 @@
 <script lang="ts">
-	import Icon from '$lib/components/Icon.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let selected = false;
-	export let disabled = false;
 	export let loading = false;
-	export let highlighted = false;
-	export let value: string | undefined = undefined;
 
-	const dispatch = createEventDispatcher<{ click: string | undefined }>();
+	const dispatch = createEventDispatcher<{ click: void }>();
 </script>
 
-<button
-	{disabled}
-	class="button"
-	class:selected
-	class:highlighted
-	on:click={() => dispatch('click', value)}
->
-	<div class="label text-base-13">
+<button disabled={selected} class="button" class:selected on:click={() => dispatch('click')}>
+	<div class="label text-base-14 text-bold">
 		<slot />
 	</div>
 	{#if icon || selected}
@@ -40,13 +31,14 @@
 		align-items: center;
 		color: var(--clr-scale-ntrl-10);
 		font-weight: 700;
-		padding: 8px 8px;
+		padding: 10px 10px;
 		justify-content: space-between;
 		border-radius: var(--radius-m);
 		width: 100%;
-		white-space: nowrap;
-		&:not(.selected):hover:enabled,
-		&:not(.selected):focus:enabled {
+		transition: background-color var(--transition-fast);
+
+		&:hover:enabled,
+		&:focus:enabled {
 			background-color: var(--clr-bg-1-muted);
 			& .icon {
 				color: var(--clr-scale-ntrl-40);
@@ -54,7 +46,7 @@
 		}
 		&:disabled {
 			background-color: var(--clr-bg-2);
-			color: var(--clr-scale-ntrl-50);
+			color: var(--clr-text-2);
 		}
 		& .icon {
 			display: flex;
@@ -63,19 +55,7 @@
 		& .label {
 			height: 16px;
 			text-overflow: ellipsis;
-			overflow-x: hidden;
+			overflow: hidden;
 		}
-	}
-
-	.selected {
-		background-color: var(--clr-bg-2);
-
-		& .label {
-			opacity: 0.5;
-		}
-	}
-
-	.highlighted {
-		background-color: var(--clr-bg-3);
 	}
 </style>

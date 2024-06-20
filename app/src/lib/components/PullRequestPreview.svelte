@@ -1,11 +1,11 @@
 <script lang="ts">
 	// This is always displayed in the context of not having a cooresponding vbranch or remote
 	import { Project } from '$lib/backend/projects';
-	import Button from '$lib/components/Button.svelte';
-	import Link from '$lib/components/Link.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import TextBox from '$lib/components/TextBox.svelte';
 	import { RemotesService } from '$lib/remotes/service';
+	import Button from '$lib/shared/Button.svelte';
+	import Link from '$lib/shared/Link.svelte';
+	import Modal from '$lib/shared/Modal.svelte';
+	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { remoteUrlIsHttp } from '$lib/utils/url';

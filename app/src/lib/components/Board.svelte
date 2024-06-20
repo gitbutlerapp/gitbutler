@@ -4,9 +4,9 @@
 	import { Project } from '$lib/backend/projects';
 	import BranchLane from '$lib/branch/BranchLane.svelte';
 	import BranchDropzone from '$lib/components/BranchDropzone.svelte';
-	import Icon from '$lib/components/Icon.svelte';
 	import { cloneWithRotation } from '$lib/dragging/draggable';
 	import { persisted } from '$lib/persisted/persisted';
+	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { editor } from '$lib/utils/systemEditor';
 	import { BranchController } from '$lib/vbranches/branchController';

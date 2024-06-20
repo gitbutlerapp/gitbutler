@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/clickOutside';
-	import Button from '$lib/components/Button.svelte';
+	import Button from '$lib/shared/Button.svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 	import type { ComponentColor, ComponentStyleKind } from '$lib/vbranches/types';
 

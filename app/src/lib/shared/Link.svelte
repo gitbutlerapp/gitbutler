@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '$lib/components/Icon.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { onMount } from 'svelte';
 

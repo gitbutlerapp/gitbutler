@@ -2,13 +2,13 @@
 	import CommitDragItem from './CommitDragItem.svelte';
 	import { Project } from '$lib/backend/projects';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
-	import Button from '$lib/components/Button.svelte';
-	import Icon from '$lib/components/Icon.svelte';
-	import Modal from '$lib/components/Modal.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
+	import Button from '$lib/shared/Button.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
+	import Modal from '$lib/shared/Modal.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { getTimeAgo } from '$lib/utils/timeAgo';

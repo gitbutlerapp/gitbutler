@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Button from '$lib/components/Button.svelte';
-	import Modal from '$lib/components/Modal.svelte';
+	import Button from '$lib/shared/Button.svelte';
+	import Modal from '$lib/shared/Modal.svelte';
 
 	export let projectTitle: string = '#';
 	export let isDeleting = false;

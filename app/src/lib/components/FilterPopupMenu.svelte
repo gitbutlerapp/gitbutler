@@ -1,9 +1,9 @@
 <script lang="ts">
-	import Checkbox from '$lib/components/Checkbox.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import Checkbox from '$lib/shared/Checkbox.svelte';
+	import Toggle from '$lib/shared/Toggle.svelte';
 	import type { Writable } from 'svelte/store';
 
 	export let visible: boolean;

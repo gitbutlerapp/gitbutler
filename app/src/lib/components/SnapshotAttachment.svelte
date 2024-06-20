@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from './Icon.svelte';
+	import Icon from '../shared/Icon.svelte';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { onMount } from 'svelte';
 

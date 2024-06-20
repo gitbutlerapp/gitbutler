@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
-	import Button from '$lib/components/Button.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import PopupMenu from '$lib/components/PopupMenu.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import Button from '$lib/shared/Button.svelte';
+	import Modal from '$lib/shared/Modal.svelte';
+	import PopupMenu from '$lib/shared/PopupMenu.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { editor } from '$lib/utils/systemEditor';

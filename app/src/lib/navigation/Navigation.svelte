@@ -4,7 +4,7 @@
 	import Footer from './Footer.svelte';
 	import ProjectSelector from './ProjectSelector.svelte';
 	import DomainButton from '../components/DomainButton.svelte';
-	import Resizer from '../components/Resizer.svelte';
+	import Resizer from '../shared/Resizer.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';

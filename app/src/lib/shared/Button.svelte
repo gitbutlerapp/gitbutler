@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '$lib/components/Icon.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { tooltip } from '$lib/utils/tooltip';
 	import type iconsJson from '$lib/icons/icons.json';
