@@ -1,8 +1,6 @@
 <script lang="ts">
 	import BranchFooter from './BranchFooter.svelte';
 	import BranchHeader from './BranchHeader.svelte';
-	import CommitDialog from './CommitDialog.svelte';
-	import CommitList from './CommitList.svelte';
 	import EmptyStatePlaceholder from './EmptyStatePlaceholder.svelte';
 	import InfoMessage from './InfoMessage.svelte';
 	import PullRequestCard from './PullRequestCard.svelte';
@@ -12,6 +10,8 @@
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { Project } from '$lib/backend/projects';
+	import CommitDialog from '$lib/commit/CommitDialog.svelte';
+	import CommitList from '$lib/commit/CommitList.svelte';
 	import BranchCardDropzones from '$lib/components/BranchCard/Dropzones.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';

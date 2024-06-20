@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Avatar from './Avatar.svelte';
-	import LocalLine from './LocalLine.svelte';
-	import RemoteLine from './RemoteLine.svelte';
-	import ShadowLine from './ShadowLine.svelte';
+	import Avatar from '$lib/commit/Avatar.svelte';
+	import LocalLine from '$lib/commit/LocalLine.svelte';
+	import RemoteLine from '$lib/commit/RemoteLine.svelte';
+	import ShadowLine from '$lib/commit/ShadowLine.svelte';
 	import type { Author, CommitStatus } from '$lib/vbranches/types';
 
 	export let hasLocalColumn = false;

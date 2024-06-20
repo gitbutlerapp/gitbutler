@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Checkbox from './Checkbox.svelte';
 	import Spacer from './Spacer.svelte';
+	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import CommitCard from '$lib/components/CommitCard.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { showInfo } from '$lib/notifications/toasts';

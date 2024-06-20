@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Button from './Button.svelte';
-	import CommitMessageInput from '$lib/components/CommitMessageInput.svelte';
+	import CommitMessageInput from './CommitMessageInput.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import { persistedCommitMessage, projectRunCommitHooks } from '$lib/config/config';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
