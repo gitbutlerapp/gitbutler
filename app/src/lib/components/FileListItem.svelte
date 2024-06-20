@@ -29,16 +29,10 @@
 	const selectedFiles = fileIdSelection.files;
 
 	let checked = false;
-	let indeterminate = false;
 	let draggableElt: HTMLDivElement;
 
 	$: if (file && $selectedOwnership) {
-		const fileId = file.id;
-		checked = file.hunks.every((hunk) => $selectedOwnership?.contains(fileId, hunk.id));
-		const selectedCount = file.hunks.filter((hunk) =>
-			$selectedOwnership?.contains(fileId, hunk.id)
-		).length;
-		indeterminate = selectedCount > 0 && file.hunks.length - selectedCount > 0;
+		checked = file.hunks.every((hunk) => $selectedOwnership?.contains(file.id, hunk.id));
 	}
 
 	function updateContextMenu() {
@@ -124,8 +118,8 @@
 		<Checkbox
 			small
 			{checked}
-			{indeterminate}
 			on:change={(e) => {
+				console.log('change', $fileIdSelection);
 				selectedOwnership?.update((ownership) => {
 					if (e.detail) file.hunks.forEach((h) => ownership.add(file.id, h));
 					if (!e.detail) file.hunks.forEach((h) => ownership.remove(file.id, h.id));
@@ -176,14 +170,9 @@
 	}
 
 	.draggable {
-		/* cursor: grab; */
-
 		&:hover {
 			& .draggable-handle {
-				/* width: 10px; */
-				/* width: 6px; */
 				opacity: 1;
-				/* transition-delay: 0.5s; */
 			}
 		}
 	}
@@ -200,8 +189,6 @@
 		transition:
 			width var(--transition-fast),
 			opacity var(--transition-fast);
-		/* transition-delay: 0s; */
-		/* background-color: rgb(184, 150, 201); */
 	}
 
 	.info {
