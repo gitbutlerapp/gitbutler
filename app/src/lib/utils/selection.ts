@@ -1,10 +1,10 @@
 /**
  * Shared helper functions for manipulating selected files with keyboard.
  */
+import { getSelectionDirection } from './getSelectionDirection';
 import { stringifyFileKey, unstringifyFileKey } from '$lib/vbranches/fileIdSelection';
 import type { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 import type { AnyFile } from '$lib/vbranches/types';
-import { getSelectionDirection } from './getSelectionDirection';
 
 export function getNextFile(files: AnyFile[], currentId: string): AnyFile | undefined {
 	const fileIndex = files.findIndex((f) => f.id === currentId);
@@ -53,10 +53,10 @@ export function maybeMoveSelection(
 		files.findIndex((f) => f.id === firstFileId)
 	);
 
-	const getAndAddFile = (
+	function getAndAddFile(
 		getFileFunc: (files: AnyFile[], id: string) => AnyFile | undefined,
 		id: string
-	) => {
+	) {
 		const file = getFileFunc(files, id);
 		if (file) {
 			// if file is already selected, do nothing
@@ -64,18 +64,18 @@ export function maybeMoveSelection(
 
 			fileIdSelection.add(file.id);
 		}
-	};
+	}
 
-	const getAndClearAndAddFile = (
+	function getAndClearAndAddFile(
 		getFileFunc: (files: AnyFile[], id: string) => AnyFile | undefined,
 		id: string
-	) => {
+	) {
 		const file = getFileFunc(files, id);
 		if (file) {
 			fileIdSelection.clear();
 			fileIdSelection.add(file.id);
 		}
-	};
+	}
 
 	switch (key) {
 		case 'ArrowUp':
