@@ -1,10 +1,10 @@
 <script lang="ts">
 	import BranchFooter from './BranchFooter.svelte';
 	import BranchHeader from './BranchHeader.svelte';
-	import EmptyStatePlaceholder from './EmptyStatePlaceholder.svelte';
-	import InfoMessage from './InfoMessage.svelte';
-	import PullRequestCard from './PullRequestCard.svelte';
-	import ScrollableContainer from './ScrollableContainer.svelte';
+	import EmptyStatePlaceholder from '../components/EmptyStatePlaceholder.svelte';
+	import InfoMessage from '../components/InfoMessage.svelte';
+	import PullRequestCard from '../components/PullRequestCard.svelte';
+	import ScrollableContainer from '../components/ScrollableContainer.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';

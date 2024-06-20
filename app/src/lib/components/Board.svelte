@@ -2,8 +2,8 @@
 	import FullviewLoading from './FullviewLoading.svelte';
 	import dzenSvg from '$lib/assets/dzen-pc.svg?raw';
 	import { Project } from '$lib/backend/projects';
+	import BranchLane from '$lib/branch/BranchLane.svelte';
 	import BranchDropzone from '$lib/components/BranchDropzone.svelte';
-	import BranchLane from '$lib/components/BranchLane.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { cloneWithRotation } from '$lib/dragging/draggable';
 	import { persisted } from '$lib/persisted/persisted';

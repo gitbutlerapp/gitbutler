@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Button from './Button.svelte';
-	import TextBox from './TextBox.svelte';
+	import Button from '../components/Button.svelte';
+	import TextBox from '../components/TextBox.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import type { SystemPromptHandle } from '$lib/backend/prompt';
 

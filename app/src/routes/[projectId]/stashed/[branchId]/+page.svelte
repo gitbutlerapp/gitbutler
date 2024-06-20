@@ -2,7 +2,7 @@
 	// This page is displayed when:
 	// - A vbranch is found
 	// It may also display details about a cooresponding remote and/or pr if they exist
-	import BranchLane from '$lib/components//BranchLane.svelte';
+	import BranchLane from '$lib/branch/BranchLane.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import Modal from '$lib/components/Modal.svelte';

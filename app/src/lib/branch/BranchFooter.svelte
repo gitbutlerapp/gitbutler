@@ -1,6 +1,6 @@
 <script lang="ts">
 	import PassphraseBox from './PassphraseBox.svelte';
-	import PushButton, { BranchAction } from './PushButton.svelte';
+	import PushButton, { BranchAction } from '../components/PushButton.svelte';
 	import emptyStateImg from '$lib/assets/empty-state/commits-up-to-date.svg?raw';
 	import { PromptService } from '$lib/backend/prompt';
 	import { project } from '$lib/testing/fixtures';

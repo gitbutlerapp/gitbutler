@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BranchIcon from './BranchIcon.svelte';
+	import BranchIcon from '../branch/BranchIcon.svelte';
 	// disabled until the performance issue is fixed
 	// import AuthorIcons from '$lib/components/AuthorIcons.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
