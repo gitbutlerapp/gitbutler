@@ -6,6 +6,7 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
+	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
@@ -28,6 +29,7 @@
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
+	let searchQuery: string | undefined = undefined;
 
 	$: error$ = baseBranchService.error$;
 
@@ -41,46 +43,61 @@
 {:else if !$baseBranch}
 	<FullviewLoading />
 {:else}
-	<div class="base">
-		<div
-			class="base__left"
-			bind:this={rsViewport}
-			style:width={`${laneWidth || defaultBranchWidthRem}rem`}
-		>
-			<ScrollableContainer>
-				<div class="card">
-					<BaseBranch base={$baseBranch} />
-				</div>
-			</ScrollableContainer>
-			<Resizer
-				viewport={rsViewport}
-				direction="right"
-				minWidth={320}
-				on:width={(e) => {
-					laneWidth = e.detail / (16 * $userSettings.zoom);
-					lscache.set(laneWidthKey, laneWidth, 7 * 1440); // 7 day ttl
-				}}
-			/>
+	<div class="container">
+		<div class="search">
+			<TextBox icon="search" placeholder="Search" bind:value={searchQuery} />
 		</div>
-		<div class="base__right">
-			{#await $selectedFile then selected}
-				{#if selected}
-					<FileCard
-						conflicted={selected.conflicted}
-						file={selected}
-						isUnapplied={false}
-						readonly={true}
-						on:close={() => {
-							fileIdSelection.clear();
-						}}
-					/>
-				{/if}
-			{/await}
+		<div class="base">
+			<div
+				class="base__left"
+				bind:this={rsViewport}
+				style:width={`${laneWidth || defaultBranchWidthRem}rem`}
+			>
+				<ScrollableContainer wide>
+					<div class="card">
+						<BaseBranch base={$baseBranch} {searchQuery} />
+					</div>
+				</ScrollableContainer>
+				<Resizer
+					viewport={rsViewport}
+					direction="right"
+					minWidth={320}
+					on:width={(e) => {
+						laneWidth = e.detail / (16 * $userSettings.zoom);
+						lscache.set(laneWidthKey, laneWidth, 7 * 1440); // 7 day ttl
+					}}
+				/>
+			</div>
+			<div class="base__right">
+				{#await $selectedFile then selected}
+					{#if selected}
+						<FileCard
+							conflicted={selected.conflicted}
+							file={selected}
+							isUnapplied={false}
+							readonly={true}
+							on:close={() => {
+								fileIdSelection.clear();
+							}}
+						/>
+					{/if}
+				{/await}
+			</div>
 		</div>
 	</div>
 {/if}
 
 <style lang="postcss">
+	.container {
+		display: flex;
+		flex-direction: column;
+		flex-grow: 1;
+		overflow: hidden;
+	}
+
+	.search {
+		padding: 12px;
+	}
 	.base {
 		display: flex;
 		flex-grow: 1;
@@ -101,6 +118,7 @@
 		width: 800px;
 	}
 	.card {
+		width: auto;
 		margin: 12px 6px 12px 12px;
 		padding: 16px;
 	}

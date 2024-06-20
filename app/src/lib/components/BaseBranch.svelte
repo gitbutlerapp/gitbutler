@@ -9,9 +9,10 @@
 	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch } from '$lib/vbranches/types';
+	import type { BaseBranch, RemoteCommit } from '$lib/vbranches/types';
 
 	export let base: BaseBranch;
+	export let searchQuery: string | undefined;
 
 	const branchController = getContext(BranchController);
 
@@ -21,8 +22,22 @@
 
 	let updateTargetModal: Modal;
 	let mergeUpstreamWarningDismissedCheckbox = false;
+	let recentCommits: RemoteCommit[];
+	let upstreamCommits: RemoteCommit[];
+
+	function filterCommits(commits: RemoteCommit[], searchQuery: string) {
+		return searchQuery
+			? commits.filter((commit) => commit.description.includes(searchQuery))
+			: commits;
+	}
 
 	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false;
+	$: recentCommits = searchQuery
+		? filterCommits(base.recentCommits, searchQuery)
+		: base.recentCommits;
+	$: upstreamCommits = searchQuery
+		? filterCommits(base.upstreamCommits, searchQuery)
+		: base.upstreamCommits;
 
 	async function updateBaseBranch() {
 		let infoText = await branchController.updateBaseBranch();
@@ -33,29 +48,34 @@
 </script>
 
 <div class="wrapper">
-	<div class="info-text text-base-13">
-		There {multiple ? 'are' : 'is'}
-		{base.upstreamCommits.length} unmerged upstream
-		{multiple ? 'commits' : 'commit'}
-	</div>
+	{#if !searchQuery}
+		<div class="info-text text-base-13">
+			There {multiple ? 'are' : 'is'}
+			{base.upstreamCommits.length} unmerged upstream
+			{multiple ? 'commits' : 'commit'}
+		</div>
 
-	{#if base.upstreamCommits?.length > 0}
-		<Button
-			style="pop"
-			kind="solid"
-			help={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
-			on:click={() => {
-				if ($mergeUpstreamWarningDismissed) {
-					updateBaseBranch();
-				} else {
-					updateTargetModal.show();
-				}
-			}}
-		>
-			Merge into common base
-		</Button>
+		{#if base.upstreamCommits?.length > 0}
+			<Button
+				style="pop"
+				kind="solid"
+				help={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
+				on:click={() => {
+					if ($mergeUpstreamWarningDismissed) {
+						updateBaseBranch();
+					} else {
+						updateTargetModal.show();
+					}
+				}}
+			>
+				Merge into common base
+			</Button>
+		{/if}
+	{/if}
+
+	{#if upstreamCommits.length > 0}
 		<div>
-			{#each base.upstreamCommits as commit, index}
+			{#each upstreamCommits as commit, index}
 				<CommitCard
 					{commit}
 					first={index === 0}
@@ -69,24 +89,30 @@
 		<Spacer margin={2} />
 	{/if}
 
-	<div>
-		<h1
-			class="text-base-13 info-text text-bold"
-			use:tooltip={'This is the current base for your virtual branches.'}
-		>
-			Local
-		</h1>
-		{#each base.recentCommits as commit, index}
-			<CommitCard
-				{commit}
-				first={index === 0}
-				last={index === base.recentCommits.length - 1}
-				isUnapplied={true}
-				commitUrl={base.commitUrl(commit.id)}
-				type="remote"
-			/>
-		{/each}
-	</div>
+	{#if recentCommits.length > 0}
+		<div>
+			<h1
+				class="text-base-13 info-text text-bold"
+				use:tooltip={'This is the current base for your virtual branches.'}
+			>
+				Local
+			</h1>
+			{#each recentCommits as commit, index}
+				<CommitCard
+					{commit}
+					first={index === 0}
+					last={index === base.recentCommits.length - 1}
+					isUnapplied={true}
+					commitUrl={base.commitUrl(commit.id)}
+					type="remote"
+				/>
+			{/each}
+		</div>
+	{/if}
+
+	{#if searchQuery && recentCommits.length === 0 && upstreamCommits.length === 0}
+		<div class="info-text text-base-13">No commits found that match the current search</div>
+	{/if}
 </div>
 
 <Modal width="small" bind:this={updateTargetModal} title="Merge Upstream Work">
