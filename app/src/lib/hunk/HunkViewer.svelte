@@ -1,11 +1,11 @@
 <script lang="ts">
-	import HunkContextMenu from './HunkContextMenu.svelte';
-	import HunkLines from './HunkLines.svelte';
-	import LargeDiffMessage from './LargeDiffMessage.svelte';
-	import Scrollbar from './Scrollbar.svelte';
 	import { Project } from '$lib/backend/projects';
+	import LargeDiffMessage from '$lib/components/LargeDiffMessage.svelte';
+	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import { draggable } from '$lib/dragging/draggable';
 	import { DraggableHunk } from '$lib/dragging/draggables';
+	import HunkContextMenu from '$lib/hunk/HunkContextMenu.svelte';
+	import HunkLines from '$lib/hunk/HunkLines.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol, maybeGetContextStore } from '$lib/utils/context';
 	import { Ownership } from '$lib/vbranches/ownership';

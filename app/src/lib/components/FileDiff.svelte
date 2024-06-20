@@ -1,7 +1,7 @@
 <script lang="ts">
-	import HunkViewer from './HunkViewer.svelte';
 	import Icon from './Icon.svelte';
 	import LargeDiffMessage from './LargeDiffMessage.svelte';
+	import HunkViewer from '../hunk/HunkViewer.svelte';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { getLocalCommits, getRemoteCommits } from '$lib/vbranches/contexts';
