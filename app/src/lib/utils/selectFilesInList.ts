@@ -1,6 +1,7 @@
 import { stringifyFileKey, type FileIdSelection } from '$lib/vbranches/fileIdSelection';
 import { get } from 'svelte/store';
 import type { AnyCommit, AnyFile } from '$lib/vbranches/types';
+import { getSelectionDirection } from './getSelectionDirection';
 
 export function selectFilesInList(
 	e: MouseEvent,
@@ -26,8 +27,10 @@ export function selectFilesInList(
 		);
 
 		// detect the direction of the selection
-		const selectionDirection =
-			initiallySelectedIndex < sortedFiles.findIndex((f) => f.id === file.id) ? 'down' : 'up';
+		const selectionDirection = getSelectionDirection(
+			initiallySelectedIndex,
+			sortedFiles.findIndex((f) => f.id === file.id)
+		);
 
 		const updatedSelection = sortedFiles.slice(
 			Math.min(
@@ -42,9 +45,11 @@ export function selectFilesInList(
 
 		selectedFileIds = updatedSelection.map((f) => stringifyFileKey(f.id, commit?.id));
 
+		// if the selection is in the opposite direction, reverse the selection
 		if (selectionDirection === 'down') {
 			selectedFileIds = selectedFileIds.reverse();
 		}
+
 		fileIdSelection.set(selectedFileIds);
 	} else {
 		// if only one file is selected and it is already selected, unselect it
