@@ -1,15 +1,15 @@
 <script lang="ts">
-	import CredentialCheck from './CredentialCheck.svelte';
-	import ProjectNameLabel from './ProjectNameLabel.svelte';
-	import RadioButton from './RadioButton.svelte';
-	import SectionCard from './SectionCard.svelte';
-	import TextBox from './TextBox.svelte';
 	import { AuthService } from '$lib/backend/auth';
 	import { ProjectService, type Key, type KeyType, Project } from '$lib/backend/projects';
 	import Button from '$lib/components/Button.svelte';
+	import CredentialCheck from '$lib/components/CredentialCheck.svelte';
 	import Link from '$lib/components/Link.svelte';
-	import Section from '$lib/components/settings/Section.svelte';
+	import ProjectNameLabel from '$lib/components/ProjectNameLabel.svelte';
+	import RadioButton from '$lib/components/RadioButton.svelte';
+	import SectionCard from '$lib/components/SectionCard.svelte';
+	import TextBox from '$lib/components/TextBox.svelte';
 	import { showError } from '$lib/notifications/toasts';
+	import Section from '$lib/settings/Section.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';

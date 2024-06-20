@@ -11,8 +11,8 @@
 	import Spacer from '$lib/components/Spacer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
-	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
-	import Section from '$lib/components/settings/Section.svelte';
+	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
+	import Section from '$lib/settings/Section.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 	import { onMount, tick } from 'svelte';

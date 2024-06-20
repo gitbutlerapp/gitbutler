@@ -1,6 +1,6 @@
 <script lang="ts">
-	import GithubIntegration from '$lib/components/GithubIntegration.svelte';
-	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
+	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
+	import GithubIntegration from '$lib/settings/GithubIntegration.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 

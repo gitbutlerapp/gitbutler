@@ -7,7 +7,7 @@
 	import Spacer from '$lib/components/Spacer.svelte';
 	import TextBox from '$lib/components/TextBox.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
-	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
+	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
