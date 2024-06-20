@@ -1,9 +1,9 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
 	import { Project } from '$lib/backend/projects';
-	import Button from '$lib/components/Button.svelte';
-	import Icon from '$lib/components/Icon.svelte';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
+	import Button from '$lib/shared/Button.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { error } from '$lib/utils/toasts';
 	import { tooltip } from '$lib/utils/tooltip';

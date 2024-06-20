@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { Project, ProjectService } from '$lib/backend/projects';
-	import Button from '$lib/components/Button.svelte';
-	import InfoMessage from '$lib/components/InfoMessage.svelte';
-	import Link from '$lib/components/Link.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import SectionCardDisclaimer from '$lib/components/SectionCardDisclaimer.svelte';
-	import Select from '$lib/components/Select.svelte';
-	import SelectItem from '$lib/components/SelectItem.svelte';
-	import TextBox from '$lib/components/TextBox.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import Section from '$lib/settings/Section.svelte';
+	import Button from '$lib/shared/Button.svelte';
+	import InfoMessage from '$lib/shared/InfoMessage.svelte';
+	import Link from '$lib/shared/Link.svelte';
+	import Select from '$lib/shared/Select.svelte';
+	import SelectItem from '$lib/shared/SelectItem.svelte';
+	import TextBox from '$lib/shared/TextBox.svelte';
+	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { onMount } from 'svelte';

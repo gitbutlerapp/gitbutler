@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Button from './Button.svelte';
 	import { showInfo, showError } from '$lib/notifications/toasts';
+	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 

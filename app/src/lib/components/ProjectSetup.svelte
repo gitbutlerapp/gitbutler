@@ -1,10 +1,10 @@
 <script async lang="ts">
-	import Button from './Button.svelte';
 	import ProjectSetupTarget from './ProjectSetupTarget.svelte';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import KeysForm from '$lib/settings/KeysForm.svelte';
+	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { platform } from '@tauri-apps/api/os';

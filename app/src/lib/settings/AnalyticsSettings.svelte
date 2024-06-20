@@ -1,12 +1,12 @@
 <script lang="ts">
-	import Link from '$lib/components/Link.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
 	import {
 		appErrorReportingEnabled,
 		appMetricsEnabled,
 		appNonAnonMetricsEnabled
 	} from '$lib/config/appSettings';
+	import Link from '$lib/shared/Link.svelte';
+	import Toggle from '$lib/shared/Toggle.svelte';
 
 	const errorReportingEnabled = appErrorReportingEnabled();
 	const metricsEnabled = appMetricsEnabled();

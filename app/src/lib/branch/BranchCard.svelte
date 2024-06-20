@@ -2,9 +2,9 @@
 	import BranchFooter from './BranchFooter.svelte';
 	import BranchHeader from './BranchHeader.svelte';
 	import EmptyStatePlaceholder from '../components/EmptyStatePlaceholder.svelte';
-	import InfoMessage from '../components/InfoMessage.svelte';
-	import ScrollableContainer from '../components/ScrollableContainer.svelte';
 	import PullRequestCard from '../pr/PullRequestCard.svelte';
+	import InfoMessage from '../shared/InfoMessage.svelte';
+	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
@@ -12,14 +12,14 @@
 	import { Project } from '$lib/backend/projects';
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
 	import CommitList from '$lib/commit/CommitList.svelte';
-	import BranchCardDropzones from '$lib/components/BranchCard/Dropzones.svelte';
-	import Resizer from '$lib/components/Resizer.svelte';
+	import Dropzones from '$lib/components/BranchCard/Dropzones.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import Resizer from '$lib/shared/Resizer.svelte';
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
@@ -147,7 +147,7 @@
 					<PullRequestCard />
 
 					<div class="card">
-						<BranchCardDropzones>
+						<Dropzones>
 							{#if branch.files?.length > 0}
 								<div class="branch-card__files">
 									<BranchFiles
@@ -202,7 +202,7 @@
 									</EmptyStatePlaceholder>
 								</div>
 							{/if}
-						</BranchCardDropzones>
+						</Dropzones>
 
 						<div class="card-commits">
 							<CommitList {isUnapplied} />

@@ -2,7 +2,7 @@
 	import BranchIcon from '../branch/BranchIcon.svelte';
 	// disabled until the performance issue is fixed
 	// import AuthorIcons from '$lib/components/AuthorIcons.svelte';
-	import TimeAgo from '$lib/components/TimeAgo.svelte';
+	import TimeAgo from '$lib/shared/TimeAgo.svelte';
 	import type { CombinedBranch } from '$lib/branches/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';

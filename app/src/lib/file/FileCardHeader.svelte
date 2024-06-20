@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FileStatusTag from './FileStatusTag.svelte';
-	import Button from '$lib/components/Button.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
+	import Button from '$lib/shared/Button.svelte';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import { createEventDispatcher } from 'svelte';

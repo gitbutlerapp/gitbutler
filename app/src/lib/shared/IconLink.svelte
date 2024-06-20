@@ -1,6 +1,6 @@
 <script lang="ts">
 	export let href: string;
-	import Icon from '$lib/components/Icon.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 
 	export let iconOpacity: number = 0.7;

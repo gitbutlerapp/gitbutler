@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Button from '$lib/components/Button.svelte';
+	import Button from '$lib/shared/Button.svelte';
 	import type { FileStatus } from '$lib/utils/fileStatus';
 	import type { ComponentColor } from '$lib/vbranches/types';
 

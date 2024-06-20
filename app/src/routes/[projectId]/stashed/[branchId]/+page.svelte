@@ -3,9 +3,9 @@
 	// - A vbranch is found
 	// It may also display details about a cooresponding remote and/or pr if they exist
 	import BranchLane from '$lib/branch/BranchLane.svelte';
-	import Button from '$lib/components/Button.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
-	import Modal from '$lib/components/Modal.svelte';
+	import Button from '$lib/shared/Button.svelte';
+	import Modal from '$lib/shared/Modal.svelte';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';

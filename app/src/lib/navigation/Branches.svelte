@@ -4,11 +4,11 @@
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { BranchService } from '$lib/branches/service';
 	import FilterPopupMenu from '$lib/components/FilterPopupMenu.svelte';
-	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
-	import TextBox from '$lib/components/TextBox.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { persisted } from '$lib/persisted/persisted';
 	import { storeToObservable } from '$lib/rxjs/store';
+	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
+	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BehaviorSubject, combineLatest } from 'rxjs';
 	import { createEventDispatcher } from 'svelte';

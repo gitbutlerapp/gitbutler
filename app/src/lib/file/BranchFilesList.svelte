@@ -1,9 +1,9 @@
 <script lang="ts">
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
 	import FileListItem from './FileListItem.svelte';
-	import Button from '$lib/components/Button.svelte';
-	import LazyloadContainer from '$lib/components/LazyloadContainer.svelte';
-	import TextBox from '$lib/components/TextBox.svelte';
+	import Button from '$lib/shared/Button.svelte';
+	import LazyloadContainer from '$lib/shared/LazyloadContainer.svelte';
+	import TextBox from '$lib/shared/TextBox.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext } from '$lib/utils/context';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';

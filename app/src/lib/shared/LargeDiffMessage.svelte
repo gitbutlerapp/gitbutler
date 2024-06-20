@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Button from './Button.svelte';
+	import Button from '$lib/shared/Button.svelte';
 	import { createEventDispatcher } from 'svelte';
 
 	export let showFrame = false;

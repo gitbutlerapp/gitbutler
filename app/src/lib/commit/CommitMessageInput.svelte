@@ -2,9 +2,6 @@
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
-	import Checkbox from '$lib/components/Checkbox.svelte';
-	import DropDownButton from '$lib/components/DropDownButton.svelte';
-	import Icon from '$lib/components/Icon.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
@@ -14,6 +11,9 @@
 		projectCommitGenerationUseEmojis
 	} from '$lib/config/config';
 	import { showError } from '$lib/notifications/toasts';
+	import Checkbox from '$lib/shared/Checkbox.svelte';
+	import DropDownButton from '$lib/shared/DropDownButton.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
 	import { User } from '$lib/stores/user';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { getContext, getContextStore } from '$lib/utils/context';

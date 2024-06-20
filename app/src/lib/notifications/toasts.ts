@@ -1,5 +1,5 @@
 import { writable, type Writable } from 'svelte/store';
-import type { MessageStyle } from '$lib/components/InfoMessage.svelte';
+import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
 
 export interface Toast {
 	id?: string;

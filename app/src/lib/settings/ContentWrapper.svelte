@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ScrollableContainer from '$lib/components/ScrollableContainer.svelte';
+	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 
 	export let title: string | undefined = undefined;
 </script>

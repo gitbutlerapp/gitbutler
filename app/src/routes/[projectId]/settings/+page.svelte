@@ -3,7 +3,6 @@
 	import BaseBranchSwitch from '$lib/components/BaseBranchSwitch.svelte';
 	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import Spacer from '$lib/components/Spacer.svelte';
 	import { featureBaseBranchSwitching } from '$lib/config/uiFeatureFlags';
 	import { showError } from '$lib/notifications/toasts';
 	import CloudForm from '$lib/settings/CloudForm.svelte';
@@ -11,6 +10,7 @@
 	import DetailsForm from '$lib/settings/DetailsForm.svelte';
 	import KeysForm from '$lib/settings/KeysForm.svelte';
 	import PreferencesForm from '$lib/settings/PreferencesForm.svelte';
+	import Spacer from '$lib/shared/Spacer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { platform } from '@tauri-apps/api/os';

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { MessageRole, type UserPrompt } from '$lib/ai/types';
 	import DialogBubble from '$lib/components/AIPromptEdit/DialogBubble.svelte';
-	import Button from '$lib/components/Button.svelte';
-	import Icon from '$lib/components/Icon.svelte';
-	import TextBox from '$lib/components/TextBox.svelte';
+	import Button from '$lib/shared/Button.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
+	import TextBox from '$lib/shared/TextBox.svelte';
 	import { createEventDispatcher } from 'svelte';
 
 	export let displayMode: 'readOnly' | 'writable' = 'writable';

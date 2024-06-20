@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/clickOutside';
-	import Badge from '$lib/components/Badge.svelte';
-	import Button from '$lib/components/Button.svelte';
+	import Badge from '$lib/shared/Badge.svelte';
+	import Button from '$lib/shared/Button.svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {

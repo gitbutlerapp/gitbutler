@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Button from '../components/Button.svelte';
-	import AccountLink from '$lib/components/AccountLink.svelte';
+	import AccountLink from '$lib/shared/AccountLink.svelte';
+	import Button from '$lib/shared/Button.svelte';
 	import * as events from '$lib/utils/events';
 	import { goto } from '$app/navigation';
 

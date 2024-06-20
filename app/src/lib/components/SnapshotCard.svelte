@@ -1,9 +1,9 @@
 <script lang="ts">
-	import Button from './Button.svelte';
-	import Icon from './Icon.svelte';
 	import SnapshotAttachment from './SnapshotAttachment.svelte';
+	import Icon from '../shared/Icon.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { createdOnDay } from '$lib/history/history';
+	import Button from '$lib/shared/Button.svelte';
 	import { toHumanReadableTime } from '$lib/utils/time';
 	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';

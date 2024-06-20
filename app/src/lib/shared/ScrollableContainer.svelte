@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Scrollbar, { type ScrollbarPadding } from '$lib/components/Scrollbar.svelte';
+	import Scrollbar, { type ScrollbarPadding } from '$lib/shared/Scrollbar.svelte';
 	import { onDestroy, onMount, createEventDispatcher } from 'svelte';
 
 	export const height: string | undefined = undefined;

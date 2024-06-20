@@ -1,10 +1,10 @@
 <script lang="ts">
-	import DropDownButton from '$lib/components/DropDownButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { MergeMethod } from '$lib/github/types';
 	import { persisted, type Persisted } from '$lib/persisted/persisted';
+	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import { createEventDispatcher } from 'svelte';
 
 	export let projectId: string;

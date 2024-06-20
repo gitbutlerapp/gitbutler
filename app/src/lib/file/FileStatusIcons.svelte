@@ -1,6 +1,6 @@
 <script lang="ts">
 	import FileStatusCircle from './FileStatusCircle.svelte';
-	import Icon from '$lib/components/Icon.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { getLocalCommits, getRemoteCommits } from '$lib/vbranches/contexts';

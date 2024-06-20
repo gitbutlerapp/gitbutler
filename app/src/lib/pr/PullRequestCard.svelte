@@ -1,11 +1,11 @@
 <script lang="ts">
 	import MergeButton from './MergeButton.svelte';
-	import Button from '../components/Button.svelte';
-	import InfoMessage from '../components/InfoMessage.svelte';
+	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
 	import { GitHubService } from '$lib/github/service';
+	import Button from '$lib/shared/Button.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { createTimeAgoStore } from '$lib/utils/timeAgo';
 	import * as toasts from '$lib/utils/toasts';
@@ -15,9 +15,9 @@
 	import { distinctUntilChanged } from 'rxjs';
 	import { mount, onDestroy, unmount } from 'svelte';
 	import { derived, type Readable } from 'svelte/store';
-	import type { MessageStyle } from '$lib/components/InfoMessage.svelte';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
 	import type iconsJson from '$lib/icons/icons.json';
+	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
 	import type { ComponentColor } from '$lib/vbranches/types';
 
 	type StatusInfo = {

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import BranchCard from './BranchCard.svelte';
 	import { Project } from '$lib/backend/projects';
-	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectLaneCollapsed } from '$lib/config/config';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import Resizer from '$lib/shared/Resizer.svelte';
 	import { getContext, getContextStoreBySymbol, createContextStore } from '$lib/utils/context';
 	import {
 		createIntegratedContextStore,

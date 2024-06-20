@@ -1,16 +1,16 @@
 <script lang="ts">
-	import Button from './Button.svelte';
 	import EmptyStatePlaceholder from './EmptyStatePlaceholder.svelte';
 	import FullviewLoading from './FullviewLoading.svelte';
-	import Icon from './Icon.svelte';
-	import LazyloadContainer from './LazyloadContainer.svelte';
-	import ScrollableContainer from './ScrollableContainer.svelte';
 	import SnapshotCard from './SnapshotCard.svelte';
+	import Icon from '../shared/Icon.svelte';
+	import LazyloadContainer from '../shared/LazyloadContainer.svelte';
+	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import { clickOutside } from '$lib/clickOutside';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import { HistoryService, createdOnDay } from '$lib/history/history';
+	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { RemoteFile } from '$lib/vbranches/types';
 	import { plainToInstance } from 'class-transformer';

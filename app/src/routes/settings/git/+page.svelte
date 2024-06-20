@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { AuthService } from '$lib/backend/auth';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
-	import Button from '$lib/components/Button.svelte';
-	import Link from '$lib/components/Link.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import Spacer from '$lib/components/Spacer.svelte';
-	import TextBox from '$lib/components/TextBox.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
 	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
+	import Button from '$lib/shared/Button.svelte';
+	import Link from '$lib/shared/Link.svelte';
+	import Spacer from '$lib/shared/Spacer.svelte';
+	import TextBox from '$lib/shared/TextBox.svelte';
+	import Toggle from '$lib/shared/Toggle.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';

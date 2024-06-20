@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Button from './Button.svelte';
-	import Link from './Link.svelte';
+	import Link from '../shared/Link.svelte';
 	import { showError } from '$lib/notifications/toasts';
+	import Button from '$lib/shared/Button.svelte';
 	import { UserService, type LoginToken } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 

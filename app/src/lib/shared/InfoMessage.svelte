@@ -4,8 +4,8 @@
 </script>
 
 <script lang="ts">
-	import Button from './Button.svelte';
-	import Icon, { type IconColor } from '$lib/components/Icon.svelte';
+	import Button from '$lib/shared/Button.svelte';
+	import Icon, { type IconColor } from '$lib/shared/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '../icons/icons.json';
 

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Button from '../components/Button.svelte';
-	import TextBox from '../components/TextBox.svelte';
+	import TextBox from '../shared/TextBox.svelte';
 	import { showError } from '$lib/notifications/toasts';
+	import Button from '$lib/shared/Button.svelte';
 	import type { SystemPromptHandle } from '$lib/backend/prompt';
 
 	export let prompt: SystemPromptHandle | undefined;

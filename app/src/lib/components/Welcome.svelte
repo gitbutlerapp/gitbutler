@@ -3,7 +3,7 @@
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
 	import newProjectSvg from '$lib/assets/no-projects/new-project.svg?raw';
 	import { ProjectService } from '$lib/backend/projects';
-	import IconLink from '$lib/components/IconLink.svelte';
+	import IconLink from '$lib/shared/IconLink.svelte';
 	import { getContext } from '$lib/utils/context';
 
 	const projectService = getContext(ProjectService);
