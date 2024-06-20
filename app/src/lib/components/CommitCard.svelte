@@ -111,7 +111,7 @@
 	{#snippet controls(close)}
 		<Button style="ghost" outline on:click={close}>Cancel</Button>
 		<Button
-			style="pop"
+			style="neutral"
 			kind="solid"
 			grow
 			disabled={!commitMessageValid}
