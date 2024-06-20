@@ -14,6 +14,7 @@ export interface Cell {
 
 export interface CommitNode {
 	type: 'small' | 'large';
+	commit?: CommitData;
 }
 
 export interface Line {
@@ -25,4 +26,18 @@ export interface Line {
 export interface LineGroup {
 	// A tuple of two, three, or four lines
 	lines: [Line, Line] | [Line, Line, Line] | [Line, Line, Line, Line];
+}
+
+export interface Author {
+	email?: string;
+	gravatarUrl?: URL;
+}
+
+/**
+ * A minimal set of data required to represent a commit for line drawing purpouses
+ */
+export interface CommitData {
+	id: string;
+	author: Author;
+	relatedRemoteCommit?: CommitData;
 }
