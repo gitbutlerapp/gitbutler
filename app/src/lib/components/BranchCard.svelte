@@ -98,12 +98,6 @@
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey + branch.id);
 	});
-
-	let branchFiles: BranchFiles | undefined;
-
-	function onBottomReached() {
-		branchFiles?.loadMore();
-	}
 </script>
 
 {#if $isLaneCollapsed}
