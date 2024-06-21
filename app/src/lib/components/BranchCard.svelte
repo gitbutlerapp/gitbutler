@@ -285,15 +285,14 @@
 
 	.new-branch,
 	.no-changes {
+		flex-grow: 1;
 		user-select: none;
 		display: flex;
 		height: 100%;
 		flex-direction: column;
 		align-items: center;
 		color: var(--clr-scale-ntrl-60);
-		background: var(--clr-bg-1);
 		justify-content: center;
-		border-radius: var(--radius-m);
 		cursor: default; /* was defaulting to text cursor */
 	}
 

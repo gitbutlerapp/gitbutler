@@ -63,6 +63,8 @@
 
 <style lang="postcss">
 	.fill-height {
-		height: 100%;
+		display: flex;
+		flex-direction: column;
+		flex-grow: 1;
 	}
 </style>
