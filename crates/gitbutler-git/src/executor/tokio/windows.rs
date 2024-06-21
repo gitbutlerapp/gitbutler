@@ -59,6 +59,7 @@ impl TokioAskpassServer {
         let server = Mutex::new(RefCell::new(
             ServerOptions::new()
                 .first_pipe_instance(true)
+                .max_instances(2)
                 .create(&connection_string)?,
         ));
 
