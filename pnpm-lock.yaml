@@ -211,8 +211,8 @@ importers:
         specifier: ^3.8.0
         version: 3.8.0(@babel/core@7.24.7)(postcss-load-config@5.1.0(postcss@8.4.38))(postcss@8.4.38)(svelte@5.0.0-next.149)
       svelte-eslint-parser:
-        specifier: ^0.39.1
-        version: 0.39.1(svelte@5.0.0-next.149)
+        specifier: github:gitbutlerapp/svelte-eslint-parser
+        version: https://codeload.github.com/gitbutlerapp/svelte-eslint-parser/tar.gz/839ccb1266e4b3660d0b5ca4daf735febb1e06f0(svelte@5.0.0-next.149)
       svelte-floating-ui:
         specifier: ^1.5.8
         version: 1.5.8
@@ -3002,6 +3002,16 @@ packages:
       svelte:
         optional: true
 
+  svelte-eslint-parser@https://codeload.github.com/gitbutlerapp/svelte-eslint-parser/tar.gz/839ccb1266e4b3660d0b5ca4daf735febb1e06f0:
+    resolution: {tarball: https://codeload.github.com/gitbutlerapp/svelte-eslint-parser/tar.gz/839ccb1266e4b3660d0b5ca4daf735febb1e06f0}
+    version: 0.39.1
+    engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+    peerDependencies:
+      svelte: ^3.37.0 || ^4.0.0 || ^5.0.0-next.115
+    peerDependenciesMeta:
+      svelte:
+        optional: true
+
   svelte-floating-ui@1.5.8:
     resolution: {integrity: sha512-dVvJhZ2bT+kQDHlE4Lep8t+sgEc0XD96fXLzAi2DDI2bsaegBbClxXVNMma0C2WsG+n9GJSYx292dTvA8CYRtw==}
 
@@ -4895,15 +4905,15 @@ snapshots:
 
   array.prototype.flat@1.3.2:
     dependencies:
-      call-bind: 1.0.2
-      define-properties: 1.2.0
+      call-bind: 1.0.7
+      define-properties: 1.2.1
       es-abstract: 1.23.3
       es-shim-unscopables: 1.0.2
 
   array.prototype.flatmap@1.3.2:
     dependencies:
-      call-bind: 1.0.2
-      define-properties: 1.2.0
+      call-bind: 1.0.7
+      define-properties: 1.2.1
       es-abstract: 1.23.3
       es-shim-unscopables: 1.0.2
 
@@ -5127,7 +5137,7 @@ snapshots:
   define-properties@1.2.1:
     dependencies:
       define-data-property: 1.1.4
-      has-property-descriptors: 1.0.0
+      has-property-descriptors: 1.0.2
       object-keys: 1.1.1
 
   delayed-stream@1.0.0: {}
@@ -5232,7 +5242,7 @@ snapshots:
 
   es-shim-unscopables@1.0.2:
     dependencies:
-      hasown: 2.0.0
+      hasown: 2.0.2
 
   es-to-primitive@1.2.1:
     dependencies:
@@ -5348,7 +5358,7 @@ snapshots:
       eslint: 9.5.0
       eslint-import-resolver-node: 0.3.9
       eslint-module-utils: 2.8.1(@typescript-eslint/parser@7.13.1(eslint@9.5.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.13.1(eslint@9.5.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.5.0))(eslint@9.5.0)
-      hasown: 2.0.0
+      hasown: 2.0.2
       is-core-module: 2.13.1
       is-glob: 4.0.3
       minimatch: 3.1.2
@@ -5566,9 +5576,9 @@ snapshots:
     dependencies:
       es-errors: 1.3.0
       function-bind: 1.1.2
-      has-proto: 1.0.1
+      has-proto: 1.0.3
       has-symbols: 1.0.3
-      hasown: 2.0.0
+      hasown: 2.0.2
 
   get-symbol-description@1.0.2:
     dependencies:
@@ -5756,7 +5766,7 @@ snapshots:
   is-boolean-object@1.1.2:
     dependencies:
       call-bind: 1.0.7
-      has-tostringtag: 1.0.0
+      has-tostringtag: 1.0.2
 
   is-callable@1.2.7: {}
 
@@ -5770,7 +5780,7 @@ snapshots:
 
   is-date-object@1.0.5:
     dependencies:
-      has-tostringtag: 1.0.0
+      has-tostringtag: 1.0.2
 
   is-extglob@2.1.1: {}
 
@@ -5791,7 +5801,7 @@ snapshots:
 
   is-number-object@1.0.7:
     dependencies:
-      has-tostringtag: 1.0.0
+      has-tostringtag: 1.0.2
 
   is-number@7.0.0: {}
 
@@ -5806,7 +5816,7 @@ snapshots:
   is-regex@1.1.4:
     dependencies:
       call-bind: 1.0.7
-      has-tostringtag: 1.0.0
+      has-tostringtag: 1.0.2
 
   is-shared-array-buffer@1.0.3:
     dependencies:
@@ -5814,7 +5824,7 @@ snapshots:
 
   is-string@1.0.7:
     dependencies:
-      has-tostringtag: 1.0.0
+      has-tostringtag: 1.0.2
 
   is-symbol@1.0.4:
     dependencies:
@@ -6460,6 +6470,16 @@ snapshots:
       - sugarss
 
   svelte-eslint-parser@0.39.1(svelte@5.0.0-next.149):
+    dependencies:
+      eslint-scope: 7.2.2
+      eslint-visitor-keys: 3.4.3
+      espree: 9.6.1
+      postcss: 8.4.38
+      postcss-scss: 4.0.9(postcss@8.4.38)
+    optionalDependencies:
+      svelte: 5.0.0-next.149
+
+  svelte-eslint-parser@https://codeload.github.com/gitbutlerapp/svelte-eslint-parser/tar.gz/839ccb1266e4b3660d0b5ca4daf735febb1e06f0(svelte@5.0.0-next.149):
     dependencies:
       eslint-scope: 7.2.2
       eslint-visitor-keys: 3.4.3

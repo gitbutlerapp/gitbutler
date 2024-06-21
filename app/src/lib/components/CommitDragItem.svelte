@@ -1,145 +1,62 @@
 <script lang="ts">
-	import DropzoneOverlay from './DropzoneOverlay.svelte';
-	import { Project } from '$lib/backend/projects';
-	import { DraggableCommit, DraggableFile, DraggableHunk } from '$lib/dragging/draggables';
-	import { dropzone } from '$lib/dragging/dropzone';
+	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
+	import CardOverlay from '$lib/components/Dropzone/CardOverlay.svelte';
+	import Dropzone from '$lib/components/Dropzone/Dropzone.svelte';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
-	import { BranchController } from '$lib/vbranches/branchController';
-	import { filesToOwnership, filesToSimpleOwnership } from '$lib/vbranches/ownership';
-	import { RemoteCommit, Branch, Commit, LocalFile, RemoteFile } from '$lib/vbranches/types';
+	import { RemoteCommit, Branch, Commit } from '$lib/vbranches/types';
+	import type { Snippet } from 'svelte';
 
-	export let commit: Commit | RemoteCommit;
+	const commitDragActionsFactory = getContext(CommitDragActionsFactory);
 
-	const branchController = getContext(BranchController);
-	const project = getContext(Project);
+	interface Props {
+		commit: Commit | RemoteCommit;
+		children: Snippet;
+	}
+
+	const { commit, children }: Props = $props();
+
 	const branch = maybeGetContextStore(Branch);
 
-	function acceptAmend(commit: Commit | RemoteCommit) {
+	const actions = $derived.by(() => {
 		if (!$branch) return;
 
-		if (commit instanceof RemoteCommit) {
-			return () => false;
-		}
-		return (data: any) => {
-			if (!project.ok_with_force_push && commit.isRemote) {
-				return false;
-			}
-
-			if (commit.isIntegrated) {
-				return false;
-			}
-
-			if (data instanceof DraggableHunk && data.branchId === $branch.id) {
-				return true;
-			} else if (data instanceof DraggableFile && data.branchId === $branch.id) {
-				return true;
-			} else {
-				return false;
-			}
-		};
-	}
-
-	function onAmend(commit: Commit | RemoteCommit) {
-		if (!$branch) return;
-
-		return (data: any) => {
-			if (data instanceof DraggableHunk) {
-				const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
-				branchController.amendBranch($branch.id, commit.id, newOwnership);
-			} else if (data instanceof DraggableFile) {
-				if (data.file instanceof LocalFile) {
-					// this is an uncommitted file change being amended to a previous commit
-					const newOwnership = filesToOwnership(data.files);
-					branchController.amendBranch($branch.id, commit.id, newOwnership);
-				} else if (data.file instanceof RemoteFile) {
-					// this is a file from a commit, rather than an uncommitted file
-					const newOwnership = filesToSimpleOwnership(data.files);
-					if (data.commit) {
-						branchController.moveCommitFile($branch.id, data.commit.id, commit.id, newOwnership);
-					}
-				}
-			}
-		};
-	}
-
-	function acceptSquash(commit: Commit | RemoteCommit) {
-		if (!$branch) return;
-
-		if (commit instanceof RemoteCommit) {
-			return () => false;
-		}
-		return (data: any) => {
-			if (!(data instanceof DraggableCommit)) return false;
-			if (data.branchId !== $branch.id) return false;
-
-			if (data.commit.isParentOf(commit)) {
-				if (data.commit.isIntegrated) return false;
-				if (data.commit.isRemote && !project.ok_with_force_push) return false;
-				return true;
-			} else if (commit.isParentOf(data.commit)) {
-				if (commit.isIntegrated) return false;
-				if (commit.isRemote && !project.ok_with_force_push) return false;
-				return true;
-			} else {
-				return false;
-			}
-		};
-	}
-
-	function onSquash(commit: Commit | RemoteCommit) {
-		if (!$branch) return;
-
-		if (commit instanceof RemoteCommit) {
-			return () => false;
-		}
-		return (data: DraggableCommit) => {
-			if (data.commit.isParentOf(commit)) {
-				branchController.squashBranchCommit(data.branchId, commit.id);
-			} else if (commit.isParentOf(data.commit)) {
-				branchController.squashBranchCommit(data.branchId, data.commit.id);
-			}
-		};
-	}
+		return commitDragActionsFactory.build($branch, commit);
+	});
 </script>
 
-<div class="commit-list-item">
-	<div
-		class="commit-card-wrapper"
-		use:dropzone={{
-			active: 'amend-dz-active',
-			hover: 'amend-dz-hover',
-			accepts: acceptAmend(commit),
-			onDrop: onAmend(commit)
-		}}
-		use:dropzone={{
-			active: 'squash-dz-active',
-			hover: 'squash-dz-hover',
-			accepts: acceptSquash(commit),
-			onDrop: onSquash(commit)
-		}}
-	>
-		<!-- DROPZONES -->
-		<DropzoneOverlay class="amend-dz-marker" label="Amend" />
-		<DropzoneOverlay class="squash-dz-marker" label="Squash" />
-
-		<slot />
-	</div>
+<div class="dropzone-wrapper">
+	{#if actions}
+		{@render ammendDropzone()}
+	{:else}
+		{@render children()}
+	{/if}
 </div>
 
+<!-- We require the dropzones to be nested -->
+{#snippet ammendDropzone()}
+	<Dropzone accepts={actions!.acceptAmend.bind(actions)} ondrop={actions!.onAmend.bind(actions)}>
+		{@render squashDropzone()}
+
+		{#snippet overlay({ hovered, activated })}
+			<CardOverlay {hovered} {activated} label="Ammend commit" />
+		{/snippet}
+	</Dropzone>
+{/snippet}
+
+{#snippet squashDropzone()}
+	<Dropzone accepts={actions!.acceptSquash.bind(actions)} ondrop={actions!.onSquash.bind(actions)}>
+		{@render children()}
+
+		{#snippet overlay({ hovered, activated })}
+			<CardOverlay {hovered} {activated} label="Squash commit" />
+		{/snippet}
+	</Dropzone>
+{/snippet}
+
 <style>
-	.commit-list-item {
-		display: flex;
-		position: relative;
-		padding: 0;
-		gap: 8px;
-		flex-grow: 1;
-		overflow: hidden;
-		&:last-child {
-			padding-bottom: 0;
-		}
-	}
-	.commit-card-wrapper {
+	.dropzone-wrapper {
 		position: relative;
 		width: 100%;
+		overflow: hidden;
 	}
 </style>

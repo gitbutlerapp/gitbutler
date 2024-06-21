@@ -1,5 +1,8 @@
 import { invoke } from '$lib/backend/ipc';
+import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { BranchService } from '$lib/branches/service';
+import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
+import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 import { HistoryService } from '$lib/history/history';
 import { getFetchNotifications } from '$lib/stores/fetches';
 import { getHeads } from '$lib/stores/head';
@@ -63,6 +66,10 @@ export async function load({ params, parent }) {
 		branchController
 	);
 
+	const branchDragActionsFactory = new BranchDragActionsFactory(branchController);
+	const commitDragActionsFactory = new CommitDragActionsFactory(branchController, project);
+	const reorderDropzoneManagerFactory = new ReorderDropzoneManagerFactory(branchController);
+
 	return {
 		authService,
 		baseBranchService,
@@ -76,6 +83,9 @@ export async function load({ params, parent }) {
 		vbranchService,
 
 		// These observables are provided for convenience
-		gbBranchActive$
+		gbBranchActive$,
+		branchDragActionsFactory,
+		commitDragActionsFactory,
+		reorderDropzoneManagerFactory
 	};
 }

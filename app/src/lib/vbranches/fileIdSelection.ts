@@ -12,6 +12,10 @@ export function stringifyFileKey(fileId: string, commitId?: string) {
 	return fileId + '|' + commitId;
 }
 
+export function unstringifyFileKey(fileKeyString: string): string {
+	return fileKeyString.split('|')[0];
+}
+
 export function parseFileKey(fileKeyString: string): FileKey {
 	const [fileId, commitId] = fileKeyString.split('|');
 
