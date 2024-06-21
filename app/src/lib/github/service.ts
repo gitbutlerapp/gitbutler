@@ -78,7 +78,7 @@ export class GitHubService {
 						baseUrl: 'https://api.github.com'
 					});
 					if (remoteUrl) {
-						const [owner, repo] = remoteUrl.split('.git')[0].split(/\/|:/).slice(-2);
+						const [owner, repo] = remoteUrl.split(/.git$/)[0].split(/\/|:/).slice(-2);
 						this._repo = repo;
 						this._owner = owner;
 					}
