@@ -18,10 +18,8 @@
 	const actions = $derived(branchDragActionsFactory.build($branch));
 </script>
 
-<div class="commit-list-item">
-	<div class="commit-card-wrapper">
-		{@render moveCommitDropzone()}
-	</div>
+<div class="dragzone-wrapper">
+	{@render moveCommitDropzone()}
 </div>
 
 <!-- We require the dropzones to be nested -->
@@ -54,19 +52,12 @@
 {/snippet}
 
 <style>
-	.commit-list-item {
+	.dragzone-wrapper {
 		display: flex;
+		flex-direction: column;
 		position: relative;
-		padding: 0;
-		gap: 8px;
 		flex-grow: 1;
-		overflow: hidden;
-		&:last-child {
-			padding-bottom: 0;
-		}
-	}
-	.commit-card-wrapper {
-		position: relative;
 		width: 100%;
+		/* overflow: hidden; */
 	}
 </style>

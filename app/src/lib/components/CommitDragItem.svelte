@@ -24,14 +24,12 @@
 	});
 </script>
 
-<div class="commit-list-item">
-	<div class="commit-card-wrapper">
-		{#if actions}
-			{@render ammendDropzone()}
-		{:else}
-			{@render children()}
-		{/if}
-	</div>
+<div class="dropzone-wrapper">
+	{#if actions}
+		{@render ammendDropzone()}
+	{:else}
+		{@render children()}
+	{/if}
 </div>
 
 <!-- We require the dropzones to be nested -->
@@ -56,19 +54,9 @@
 {/snippet}
 
 <style>
-	.commit-list-item {
-		display: flex;
-		position: relative;
-		padding: 0;
-		gap: 8px;
-		flex-grow: 1;
-		overflow: hidden;
-		&:last-child {
-			padding-bottom: 0;
-		}
-	}
-	.commit-card-wrapper {
+	.dropzone-wrapper {
 		position: relative;
 		width: 100%;
+		overflow: hidden;
 	}
 </style>
