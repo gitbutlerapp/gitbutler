@@ -138,3 +138,51 @@ unsafe impl super::GitExecutor for TokioExecutor {
         }
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::executor::AskpassServer;
+    use crate::executor::GitExecutor;
+    use crate::executor::Socket;
+    use assert_cmd::Command;
+    use std::time::Duration;
+
+    // cargo test --package gitbutler-git --lib test_askpass
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_askpass() {
+        let secret = "super-secret-secret";
+        let executor = TokioExecutor;
+        #[allow(unsafe_code)]
+        let sock_server: TokioAskpassServer = unsafe { executor.create_askpass_server() }
+            .await
+            .expect("create_askpass_server():");
+        let sock_server_string = sock_server.to_string();
+        let handle = tokio::spawn(async move {
+            let mut cmd = Command::cargo_bin("gitbutler-git-askpass").unwrap();
+            let assert = cmd
+                .env("GITBUTLER_ASKPASS_PIPE", sock_server_string)
+                .env("GITBUTLER_ASKPASS_SECRET", secret)
+                .arg("Please enter your password:")
+                .assert();
+            assert.success().stdout("super_secret_password\n");
+        });
+
+        let mut sock = sock_server
+            .accept(Some(Duration::from_secs(10)))
+            .await
+            .expect("accept():");
+
+        let peer_secret = sock.read_line().await.expect("read_line() peer_secret:");
+
+        assert_eq!(peer_secret, secret);
+
+        let prompt = sock.read_line().await.expect("read_line() prompt:");
+        assert_eq!(prompt.trim(), "Please enter your password:");
+
+        sock.write_line("super_secret_password")
+            .await
+            .expect("write_line() password:");
+        handle.await.expect("Askpass command failed");
+    }
+}
