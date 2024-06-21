@@ -1,13 +1,14 @@
 {
   "name": "gitbutler-docs",
   "version": "0.0.0",
-  "private": true,
   "scripts": {
     "build": "next build",
     "dev": "next dev",
     "start": "next start"
   },
   "dependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.13.1",
+    "@typescript-eslint/parser": "^7.13.1",
     "fumadocs-core": "12.2.0",
     "fumadocs-mdx": "8.2.32",
     "fumadocs-ui": "12.2.0",
@@ -21,9 +22,53 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.19",
+    "eslint": "^9.5.0",
+    "eslint-config-next": "^14.2.4",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.3",
+    "lint-staged": "^15.2.7",
     "postcss": "^8.4.38",
+    "postcss-nesting": "^12.1.5",
+    "prettier": "^3.3.2",
+    "prettier-plugin-tailwind": "^2.2.12",
+    "simple-git-hooks": "^2.11.1",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.4.5"
+  },
+  "eslintConfig": {
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "sourceType": "module",
+      "ecmaVersion": "2023"
+    },
+    "extends": [
+      "eslint:recommended",
+      "next",
+      "plugin:@typescript-eslint/eslint-recommended",
+      "plugin:@typescript-eslint/recommended"
+    ],
+    "env": {
+      "browser": true,
+      "es6": true
+    },
+    "plugins": [
+      "prettier",
+      "@typescript-eslint"
+    ],
+    "rules": {
+      "@next/next/no-img-element": "off"
+    }
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,css,json,html}": [
+      "prettier --write"
+    ],
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix"
+    ]
   },
   "packageManager": "pnpm@9.3.0"
 }

@@ -1,9 +1,8 @@
-# gitbutler-docs
+# GitButler Docs
 
-This is a Next.js application generated with
-[Create Fumadocs](https://github.com/fuma-nama/fumadocs).
+<img src="./public/fav/fav-32.png" align="right" />
 
-Run development server:
+## 👷 Development
 
 ```bash
 npm run dev
