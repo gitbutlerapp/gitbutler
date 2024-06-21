@@ -58,9 +58,11 @@ pub struct Pipe {
 
 impl Pipe {
     pub fn connect(path: &Path) -> io::Result<Pipe> {
-        let mut os_str: OsString = path.as_os_str().into();
-        os_str.push("\x00");
-        let mut wide_path: Vec<u16> = os_str.encode_wide().collect();
+        let mut wide_path: Vec<u16> = path
+            .as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
 
         let pwstr_path = PWSTR(wide_path.as_mut_ptr());
         let _ = unsafe { WaitNamedPipeW(pwstr_path, NMPWAIT_USE_DEFAULT_WAIT) };
