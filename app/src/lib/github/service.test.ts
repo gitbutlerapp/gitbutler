@@ -29,7 +29,7 @@ const exampleRemoteUrls = [
 
 describe.concurrent('GitHubService', () => {
 	describe.concurrent('parse GitHub remote URL', () => {
-		test.each(exampleRemoteUrls)('Remote %s', async (remoteUrl) => {
+		test.each(exampleRemoteUrls)('%s', (remoteUrl) => {
 			const accessToken$ = new BehaviorSubject<string | undefined>('token');
 			const remoteUrl$ = new BehaviorSubject<string | undefined>(remoteUrl);
 
