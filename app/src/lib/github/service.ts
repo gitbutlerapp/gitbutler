@@ -12,8 +12,8 @@ import { showError, showToast, type Toast } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import * as toasts from '$lib/utils/toasts';
 import { Octokit } from '@octokit/rest';
-import lscache from 'lscache';
 import GitUrlParse from 'git-url-parse';
+import lscache from 'lscache';
 import posthog from 'posthog-js';
 import {
 	Observable,
