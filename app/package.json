@@ -72,6 +72,7 @@
 		"eslint-plugin-import-x": "^0.5.1",
 		"eslint-plugin-square-svelte-store": "^1.0.0",
 		"eslint-plugin-svelte": "2.40.0",
+		"git-url-parse": "^14.0.0",
 		"globals": "^15.6.0",
 		"inter-ui": "^4.0.2",
 		"leven": "^4.0.0",
