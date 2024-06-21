@@ -1,6 +1,6 @@
 import { GitHubService } from './service';
 import { BehaviorSubject } from 'rxjs';
-import { expect, test, describe, vi } from 'vitest';
+import { expect, test, describe } from 'vitest';
 
 describe.concurrent('GitHubService', () => {
 	describe.concurrent('parse GitHub remote URL', () => {
