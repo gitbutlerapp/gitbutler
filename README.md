@@ -1,6 +1,8 @@
+<img src="./public/fav/fav-64.png" align="right" />
+
 # GitButler Docs
 
-<img src="./public/fav/fav-32.png" align="right" />
+Experimental GitButler documentation
 
 ## 👷 Development
 
@@ -14,7 +16,7 @@ yarn dev
 
 Open http://localhost:3000 with your browser to see the result.
 
-## Learn More
+## 🎒 Learn More
 
 To learn more about Next.js and Fumadocs, take a look at the following
 resources:
