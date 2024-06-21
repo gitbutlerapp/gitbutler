@@ -163,9 +163,101 @@ function generateSameForkpoint({
 	] as [string, LineGroup][]);
 }
 
-function blankLineGroup(lineCount: 2 | 3 | 4): LineGroup {
+function generateDifferentForkpoint({
+	remoteCommits,
+	localCommits,
+	localAndRemoteCommits,
+	integratedCommits
+}: Commits) {
+	const LEFT_COLUMN_INDEX = 0;
+	const MIDDLE_COLUMN_INDEX = 1;
+	const RIGHT_COLUMN_INDEX = 2;
+
+	const remoteBranchGroups = remoteCommits.map((commit) => ({
+		commit,
+		lineGroup: blankLineGroup(4)
+	}));
+	const localBranchGroups = localCommits.map((commit) => ({
+		commit,
+		lineGroup: blankLineGroup(4)
+	}));
+	const localAndRemoteBranchGroups = localAndRemoteCommits.map((commit) => ({
+		commit,
+		lineGroup: blankLineGroup(4)
+	}));
+	const integratedBranchGroups = integratedCommits.map((commit) => ({
+		commit,
+		lineGroup: blankLineGroup(4)
+	}));
+
+	remoteBranchGroups.forEach(({ commit, lineGroup }, index) => {
+		if (index !== 0) {
+			lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
+		}
+		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'remote';
+
+		lineGroup.lines[LEFT_COLUMN_INDEX].node = { type: 'large', commit };
+
+		if (localBranchGroups.length > 0) {
+			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'localDashed';
+			lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.style = 'localDashed';
+		}
+	});
+
+	let localCommitWithChangeIdFound = false;
+	localBranchGroups.forEach(({ commit, lineGroup }, index) => {
+		if (index === 0) {
+			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'localDashed';
+		} else {
+			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'local';
+		}
+		lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.style = 'local';
+		lineGroup.lines[RIGHT_COLUMN_INDEX].node = { type: 'large', commit };
+
+		if (localCommitWithChangeIdFound) {
+			lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'shadow';
+			lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'shadow';
+
+			if (commit.relatedRemoteCommit) {
+				lineGroup.lines[LEFT_COLUMN_INDEX].node = {
+					type: 'small',
+					commit: commit.relatedRemoteCommit
+				};
+			}
+		} else {
+			if (commit.relatedRemoteCommit) {
+				if (remoteBranchGroups.length > 0) {
+					lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
+				}
+
+				lineGroup.lines[LEFT_COLUMN_INDEX].node = {
+					type: 'small',
+					commit: commit.relatedRemoteCommit
+				};
+				lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'shadow';
+
+				localCommitWithChangeIdFound = true;
+			} else {
+				if (remoteBranchGroups.length > 0) {
+					lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
+					lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'remote';
+				}
+			}
+		}
+	});
+
+	localAndRemoteBranchGroups.forEach(({ commit, lineGroup }, index) => {});
+
+	return new Map<string, LineGroup>([
+		...remoteBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup]),
+		...localBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup]),
+		...localAndRemoteBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup]),
+		...integratedBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup])
+	] as [string, LineGroup][]);
+}
+
+function blankLineGroup(lineCount: number): LineGroup {
 	return {
-		// @ts-expect-error TS is unable to understand that it should be a tuple
 		lines: Array(lineCount)
 			.fill(undefined)
 			.map(
@@ -191,7 +283,7 @@ export class LineManager {
 		if (sameForkpoint) {
 			this.data = generateSameForkpoint(commits);
 		} else {
-			this.data = new Map();
+			this.data = generateDifferentForkpoint(commits);
 		}
 	}
 

@@ -25,7 +25,7 @@ export interface Line {
 
 export interface LineGroup {
 	// A tuple of two, three, or four lines
-	lines: [Line, Line] | [Line, Line, Line] | [Line, Line, Line, Line];
+	lines: Line[];
 }
 
 export interface Author {
