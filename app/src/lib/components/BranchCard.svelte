@@ -4,7 +4,6 @@
 	import BranchHeader from './BranchHeader.svelte';
 	import CommitDialog from './CommitDialog.svelte';
 	import CommitList from './CommitList.svelte';
-	import DropzoneOverlay from './DropzoneOverlay.svelte';
 	import EmptyStatePlaceholder from './EmptyStatePlaceholder.svelte';
 	import InfoMessage from './InfoMessage.svelte';
 	import PullRequestCard from './PullRequestCard.svelte';
@@ -14,16 +13,10 @@
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { Project } from '$lib/backend/projects';
+	import BranchCardDropzones from '$lib/components/BranchCard/Dropzones.svelte';
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import {
-		DraggableCommit,
-		DraggableFile,
-		DraggableHunk,
-		DraggableRemoteCommit
-	} from '$lib/dragging/draggables';
-	import { dropzone } from '$lib/dragging/dropzone';
 	import { showError } from '$lib/notifications/toasts';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
@@ -32,7 +25,6 @@
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { filesToOwnership } from '$lib/vbranches/ownership';
 	import { Branch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { onMount } from 'svelte';
@@ -106,47 +98,6 @@
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey + branch.id);
 	});
-
-	function acceptMoveCommit(data: any) {
-		return data instanceof DraggableCommit && data.branchId !== branch.id && data.isHeadCommit;
-	}
-	function onCommitDrop(data: DraggableCommit) {
-		branchController.moveCommit(branch.id, data.commit.id);
-	}
-
-	function acceptCherrypick(data: any) {
-		return data instanceof DraggableRemoteCommit && data.branchId === branch.id;
-	}
-
-	function onCherrypicked(data: DraggableRemoteCommit) {
-		branchController.cherryPick(branch.id, data.remoteCommit.id);
-	}
-
-	function acceptBranchDrop(data: any) {
-		if (data instanceof DraggableHunk && data.branchId !== branch.id) {
-			return !data.hunk.locked;
-		} else if (data instanceof DraggableFile && data.branchId && data.branchId !== branch.id) {
-			return !data.files.some((f) => f.locked);
-		} else {
-			return false;
-		}
-	}
-
-	function onBranchDrop(data: DraggableHunk | DraggableFile) {
-		if (data instanceof DraggableHunk) {
-			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
-			branchController.updateBranchOwnership(
-				branch.id,
-				(newOwnership + '\n' + branch.ownership).trim()
-			);
-		} else if (data instanceof DraggableFile) {
-			const newOwnership = filesToOwnership(data.files);
-			branchController.updateBranchOwnership(
-				branch.id,
-				(newOwnership + '\n' + branch.ownership).trim()
-			);
-		}
-	}
 </script>
 
 {#if $isLaneCollapsed}
@@ -194,40 +145,9 @@
 						}}
 					/>
 					<PullRequestCard />
-					<!-- DROPZONES -->
-					<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
-					<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
-					<DropzoneOverlay class="lane-dz-marker" label="Move here" />
 
 					<div class="card">
-						<div
-							class="branch-card__dropzone-wrapper"
-							use:dropzone={{
-								hover: 'move-commit-dz-hover',
-								active: 'move-commit-dz-active',
-								accepts: acceptMoveCommit,
-								onDrop: onCommitDrop,
-								disabled: isUnapplied
-							}}
-							use:dropzone={{
-								hover: 'cherrypick-dz-hover',
-								active: 'cherrypick-dz-active',
-								accepts: acceptCherrypick,
-								onDrop: onCherrypicked,
-								disabled: isUnapplied
-							}}
-							use:dropzone={{
-								hover: 'lane-dz-hover',
-								active: 'lane-dz-active',
-								accepts: acceptBranchDrop,
-								onDrop: onBranchDrop,
-								disabled: isUnapplied
-							}}
-						>
-							<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
-							<DropzoneOverlay class="lane-dz-marker" label="Move here" />
-							<DropzoneOverlay class="move-commit-dz-marker" label="Move here" />
-
+						<BranchCardDropzones>
 							{#if branch.files?.length > 0}
 								<div class="branch-card__files">
 									<BranchFiles
@@ -282,7 +202,7 @@
 									</EmptyStatePlaceholder>
 								</div>
 							{/if}
-						</div>
+						</BranchCardDropzones>
 
 						<div class="card-commits">
 							<CommitList {isUnapplied} />
@@ -331,13 +251,6 @@
 		height: 100%;
 	}
 
-	.branch-card__dropzone-wrapper {
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-		position: relative;
-	}
-
 	.branch-card__contents {
 		position: relative;
 		display: flex;
@@ -358,6 +271,7 @@
 		display: flex;
 		flex-direction: column;
 		flex: 1;
+		height: 100%;
 		/* border-left: 1px solid var(--clr-border-2);
 		border-right: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m) var(--radius-m) 0 0; */
@@ -373,7 +287,7 @@
 	.no-changes {
 		user-select: none;
 		display: flex;
-		flex-grow: 1;
+		height: 100%;
 		flex-direction: column;
 		align-items: center;
 		color: var(--clr-scale-ntrl-60);
@@ -381,19 +295,6 @@
 		justify-content: center;
 		border-radius: var(--radius-m);
 		cursor: default; /* was defaulting to text cursor */
-	}
-
-	/* hunks drop zone */
-	/* cherry pick drop zone */
-	/* move commit drop zone */
-	/* squash drop zone */
-	:global(
-			.lane-dz-active .lane-dz-marker,
-			.cherrypick-dz-active .cherrypick-dz-marker,
-			.move-commit-dz-active .move-commit-dz-marker,
-			.squash-dz-active .squash-dz-marker
-		) {
-		display: flex;
 	}
 
 	.branch-card :global(.contents) {

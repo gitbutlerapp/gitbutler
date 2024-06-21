@@ -1,8 +1,8 @@
 <script lang="ts" async="true">
 	import FullviewLoading from './FullviewLoading.svelte';
-	import NewBranchDropZone from './NewBranchDropZone.svelte';
 	import dzenSvg from '$lib/assets/dzen-pc.svg?raw';
 	import { Project } from '$lib/backend/projects';
+	import BranchDropzone from '$lib/components/BranchDropzone.svelte';
 	import BranchLane from '$lib/components/BranchLane.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { cloneWithRotation } from '$lib/dragging/draggable';
@@ -193,7 +193,7 @@
 				</div>
 			</div>
 		{:else}
-			<NewBranchDropZone />
+			<BranchDropzone />
 		{/if}
 	</div>
 {/if}

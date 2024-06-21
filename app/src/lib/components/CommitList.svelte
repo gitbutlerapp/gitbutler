@@ -2,9 +2,13 @@
 	import CommitCard from './CommitCard.svelte';
 	import CommitLines from './CommitLines.svelte';
 	import { Project } from '$lib/backend/projects';
-	import ReorderDropzone from '$lib/components/CommitList/ReorderDropzone.svelte';
+	import Dropzone from '$lib/components/Dropzone/Dropzone.svelte';
+	import LineOverlay from '$lib/components/Dropzone/LineOverlay.svelte';
 	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
-	import { ReorderDropzoneIndexer } from '$lib/dragging/reorderDropzoneIndexer';
+	import {
+		ReorderDropzoneManagerFactory,
+		type ReorderDropzone
+	} from '$lib/dragging/reorderDropzoneManager';
 	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import { getContext } from '$lib/utils/context';
 	import { getContextStore } from '$lib/utils/context';
@@ -29,6 +33,8 @@
 	const project = getContext(Project);
 	const branchController = getContext(BranchController);
 
+	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
+
 	// Force the "base" commit lines to update when $branch updates.
 	let tsKey: number | undefined;
 	$: {
@@ -44,7 +50,10 @@
 	$: hasIntegratedCommits = $integratedCommits.length > 0;
 	$: hasRemoteCommits = $remoteCommits.length > 0;
 	$: hasShadowedCommits = $localCommits.some((c) => c.relatedTo);
-	$: reorderDropzoneIndexer = new ReorderDropzoneIndexer([...$localCommits, ...$remoteCommits]);
+	$: reorderDropzoneManager = reorderDropzoneManagerFactory.build($branch, [
+		...$localCommits,
+		...$remoteCommits
+	]);
 
 	$: forkPoint = $branch.forkPoint;
 	$: upstreamForkPoint = $branch.upstreamData?.forkPoint;
@@ -97,7 +106,30 @@
 		}
 		branchController.insertBlankCommit($branch.id, commitId, location === 'above' ? -1 : 1);
 	}
+
+	function getReorderDropzoneOffset({
+		isFirst = false,
+		isMiddle = false,
+		isLast = false
+	}: {
+		isFirst?: boolean;
+		isMiddle?: boolean;
+		isLast?: boolean;
+	}) {
+		if (isFirst) return 12;
+		if (isMiddle) return 6;
+		if (isLast) return 0;
+		return 0;
+	}
 </script>
+
+{#snippet reorderDropzone(dropzone: ReorderDropzone, yOffsetPx: number)}
+	<Dropzone accepts={dropzone.accepts.bind(dropzone)} ondrop={dropzone.onDrop.bind(dropzone)}>
+		{#snippet overlay({ hovered, activated })}
+			<LineOverlay {hovered} {activated} {yOffsetPx} />
+		{/snippet}
+	</Dropzone>
+{/snippet}
 
 {#if hasCommits || hasUnknownCommits}
 	<div class="commits">
@@ -138,10 +170,10 @@
 		<InsertEmptyCommitAction isFirst on:click={() => insertBlankCommit($branch.head, 'above')} />
 		<!-- LOCAL COMMITS -->
 		{#if $localCommits.length > 0}
-			<ReorderDropzone
-				index={reorderDropzoneIndexer.topDropzoneIndex}
-				indexer={reorderDropzoneIndexer}
-			/>
+			{@render reorderDropzone(
+				reorderDropzoneManager.topDropzone,
+				getReorderDropzoneOffset({ isFirst: true })
+			)}
 			{#each $localCommits as commit, idx (commit.id)}
 				<CommitCard
 					{commit}
@@ -176,10 +208,14 @@
 					</svelte:fragment>
 				</CommitCard>
 
-				<ReorderDropzone
-					index={reorderDropzoneIndexer.dropzoneIndexBelowCommit(commit.id)}
-					indexer={reorderDropzoneIndexer}
-				/>
+				{@render reorderDropzone(
+					reorderDropzoneManager.dropzoneBelowCommit(commit.id),
+					getReorderDropzoneOffset({
+						isLast: $remoteCommits.length === 0 && idx + 1 === $localCommits.length,
+						isMiddle: $remoteCommits.length > 0 && idx + 1 === $localCommits.length
+					})
+				)}
+
 				<InsertEmptyCommitAction
 					isLast={$remoteCommits.length === 0 && idx + 1 === $localCommits.length}
 					isMiddle={$remoteCommits.length > 0 && idx + 1 === $localCommits.length}
@@ -219,10 +255,12 @@
 						/>
 					</svelte:fragment>
 				</CommitCard>
-				<ReorderDropzone
-					index={reorderDropzoneIndexer.dropzoneIndexBelowCommit(commit.id)}
-					indexer={reorderDropzoneIndexer}
-				/>
+				{@render reorderDropzone(
+					reorderDropzoneManager.dropzoneBelowCommit(commit.id),
+					getReorderDropzoneOffset({
+						isLast: idx + 1 === $remoteCommits.length
+					})
+				)}
 				<InsertEmptyCommitAction
 					isLast={idx + 1 === $remoteCommits.length}
 					on:click={() => insertBlankCommit(commit.id, 'below')}
