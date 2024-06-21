@@ -90,7 +90,7 @@
 		"rxjs": "^7.8.1",
 		"svelte": "5.0.0-next.149",
 		"svelte-check": "^3.8.0",
-		"svelte-eslint-parser": "^0.39.1",
+		"svelte-eslint-parser": "github:gitbutlerapp/svelte-eslint-parser",
 		"svelte-floating-ui": "^1.5.8",
 		"svelte-french-toast": "^1.2.0",
 		"svelte-loadable-store": "^2.0.1",
