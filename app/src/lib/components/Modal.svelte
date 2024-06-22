@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/clickOutside';
 	import Icon from '$lib/components/Icon.svelte';
+	import { portal } from '$lib/utils/portal';
 	import type iconsJson from '$lib/icons/icons.json';
 	import type { Snippet } from 'svelte';
 
@@ -15,37 +16,32 @@
 
 	const { width = 'default', title, icon, onclose, children, controls }: Props = $props();
 
-	let dialog = $state<HTMLDialogElement>();
+	let dialog = $state<HTMLDivElement>();
 	let item = $state<any>();
 	let open = $state(false);
 
 	export function show(newItem?: any) {
 		item = newItem;
-		dialog?.showModal();
 		open = true;
 	}
 
 	export function close() {
 		item = undefined;
-		dialog?.close();
 		open = false;
 		onclose?.();
 	}
 </script>
 
-<dialog
-	class:s-default={width === 'default'}
-	class:s-small={width === 'small'}
-	class:s-large={width === 'large'}
-	bind:this={dialog}
-	onclose={close}
->
-	{#if open}
+{#if open}
+	<div class="modal-container" class:open bind:this={dialog} onclose={close} use:portal={'body'}>
 		<div
 			class="modal-content"
+			class:s-default={width === 'default'}
+			class:s-small={width === 'small'}
+			class:s-large={width === 'large'}
 			use:clickOutside={{
 				trigger: dialog,
-				handler: () => dialog?.close()
+				handler: () => close()
 			}}
 		>
 			{#if title}
@@ -69,32 +65,43 @@
 				</div>
 			{/if}
 		</div>
-	{/if}
-</dialog>
+	</div>
+{/if}
 
 <style lang="postcss">
-	dialog[open] {
+	.modal-container {
+		z-index: var(--z-modal);
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+
+		display: flex;
+		justify-content: center;
+		align-items: center;
+
+		background-color: var(--clr-overlay-bg);
+	}
+
+	.modal-container.open {
+		animation: dialog-fade 0.2s ease-out;
+
+		& .modal-content {
+			animation: dialog-zoom 0.25s cubic-bezier(0.34, 1.35, 0.7, 1);
+		}
+	}
+
+	.modal-content {
 		display: flex;
 		flex-direction: column;
+
 		max-height: calc(100vh - 80px);
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
 		box-shadow: var(--fx-shadow-l);
-	}
-
-	/* modifiers */
-
-	.s-large {
-		width: 840px;
-	}
-
-	.s-default {
-		width: 580px;
-	}
-
-	.s-small {
-		width: 380px;
+		overflow: hidden;
 	}
 
 	.modal__header {
@@ -117,5 +124,37 @@
 		padding: 16px;
 		border-top: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
+	}
+
+	@keyframes dialog-zoom {
+		from {
+			transform: scale(0.95);
+		}
+		to {
+			transform: scale(1);
+		}
+	}
+
+	@keyframes dialog-fade {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+
+	/* modifiers */
+
+	.s-large {
+		width: 840px;
+	}
+
+	.s-default {
+		width: 580px;
+	}
+
+	.s-small {
+		width: 380px;
 	}
 </style>

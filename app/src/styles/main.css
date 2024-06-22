@@ -22,7 +22,8 @@
 	--z-ground: 1;
 	--z-lifted: 2;
 	--z-floating: 3;
-	--z-tooltip: 4;
+	--z-modal: 4;
+	--z-tooltip: 9;
 	--z-blocker: 10;
 
 	/* TODO: add focus color */
@@ -117,42 +118,6 @@ pre {
 	border-radius: var(--radius-s);
 	background: oklch(from var(--clr-scale-ntrl-50) l c h / 0.2);
 	padding: 2px 4px;
-}
-
-/* DIALOG STYLES */
-
-dialog[open] {
-	animation: dialog-zoom 0.25s cubic-bezier(0.34, 1.35, 0.7, 1);
-}
-
-@keyframes dialog-zoom {
-	from {
-		transform: scale(0.95);
-	}
-	to {
-		transform: scale(1);
-	}
-}
-
-dialog::backdrop {
-	background-color: rgba(214, 214, 214, 0.4);
-}
-
-dialog[open]::backdrop {
-	animation: dialog-fade 0.2s ease-out;
-}
-
-@keyframes dialog-fade {
-	from {
-		opacity: 0;
-	}
-	to {
-		opacity: 1;
-	}
-}
-
-.dark dialog::backdrop {
-	background-color: rgba(0, 0, 0, 0.35);
 }
 
 /* TRANSITION ANIMATION */
