@@ -2,13 +2,13 @@
 	import CommitCard from './CommitCard.svelte';
 	import CommitLines from './CommitLines.svelte';
 	import { Project } from '$lib/backend/projects';
-	import Dropzone from '$lib/components/Dropzone/Dropzone.svelte';
-	import LineOverlay from '$lib/components/Dropzone/LineOverlay.svelte';
 	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
 	import {
 		ReorderDropzoneManagerFactory,
 		type ReorderDropzone
 	} from '$lib/dragging/reorderDropzoneManager';
+	import Dropzone from '$lib/dropzone/Dropzone.svelte';
+	import LineOverlay from '$lib/dropzone/LineOverlay.svelte';
 	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import { getContext } from '$lib/utils/context';
 	import { getContextStore } from '$lib/utils/context';
