@@ -242,8 +242,6 @@
 	.sideview-content-wrap {
 		transform: translateX(100%);
 		display: flex;
-		/* Disabling temporarely because something is broken since the Tailwind removal */
-		/* transform: translateX(100%); */
 	}
 
 	.sideview {
@@ -332,7 +330,7 @@
 
 	/* DATE HEADER */
 	.sideview__date-header {
-		padding: 20px 14px 14px 108px;
+		padding: 20px 14px 14px 114px;
 		border-top: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 		margin-top: 12px;
