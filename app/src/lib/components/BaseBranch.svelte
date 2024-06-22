@@ -10,9 +10,11 @@
 	import { tooltip } from '$lib/utils/tooltip';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, RemoteCommit } from '$lib/vbranches/types';
+	import { commitMatchesFilter, type AppliedFilter } from '$lib/vbranches/filtering';
 
 	export let base: BaseBranch;
 	export let searchQuery: string | undefined;
+	export let searchFilters: AppliedFilter[] = [];
 
 	const branchController = getContext(BranchController);
 
@@ -24,19 +26,24 @@
 	let mergeUpstreamWarningDismissedCheckbox = false;
 	let recentCommits: RemoteCommit[];
 	let upstreamCommits: RemoteCommit[];
+	$: filtersApplied = searchFilters.length > 0 || searchQuery;
 
-	function filterCommits(commits: RemoteCommit[], searchQuery: string) {
+	function filterCommits(commits: RemoteCommit[], isUpstream: boolean = false) {
+		let filteredCommits = commits;
+		for (const filter of searchFilters) {
+			filteredCommits = filteredCommits.filter((commit) => commitMatchesFilter(commit, filter, isUpstream));
+		}
 		return searchQuery
-			? commits.filter((commit) => commit.description.includes(searchQuery))
-			: commits;
+			? filteredCommits.filter((commit) => commit.description.includes(searchQuery))
+			: filteredCommits;
 	}
 
 	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false;
-	$: recentCommits = searchQuery
-		? filterCommits(base.recentCommits, searchQuery)
+	$: recentCommits = searchFilters.length > 0 || searchQuery
+		? filterCommits(base.recentCommits)
 		: base.recentCommits;
-	$: upstreamCommits = searchQuery
-		? filterCommits(base.upstreamCommits, searchQuery)
+	$: upstreamCommits = searchFilters.length > 0 || searchQuery
+		? filterCommits(base.upstreamCommits, true)
 		: base.upstreamCommits;
 
 	async function updateBaseBranch() {
@@ -48,7 +55,7 @@
 </script>
 
 <div class="wrapper">
-	{#if !searchQuery}
+	{#if !filtersApplied}
 		<div class="info-text text-base-13">
 			There {multiple ? 'are' : 'is'}
 			{base.upstreamCommits.length} unmerged upstream
