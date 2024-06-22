@@ -41,10 +41,6 @@
 		return lowerCaseStr.charAt(0).toUpperCase() + lowerCaseStr.slice(1);
 	}
 
-	// if (entry.details?.operation === 'RestoreFromSnapshot') {
-	// 	console.log(entry.details);
-	// }
-
 	function mapOperation(snapshotDetails: SnapshotDetails | undefined): {
 		text: string;
 		icon: keyof typeof iconsJson;
