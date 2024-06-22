@@ -1,7 +1,6 @@
 <script lang="ts">
-	import EmptyStatePlaceholder from './EmptyStatePlaceholder.svelte';
-	import FullviewLoading from './FullviewLoading.svelte';
-	import SnapshotCard from './SnapshotCard.svelte';
+	import EmptyStatePlaceholder from '../components/EmptyStatePlaceholder.svelte';
+	import FullviewLoading from '../components/FullviewLoading.svelte';
 	import Icon from '../shared/Icon.svelte';
 	import LazyloadContainer from '../shared/LazyloadContainer.svelte';
 	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
@@ -9,6 +8,7 @@
 	import { Project } from '$lib/backend/projects';
 	import { clickOutside } from '$lib/clickOutside';
 	import FileCard from '$lib/file/FileCard.svelte';
+	import SnapshotCard from '$lib/history/SnapshotCard.svelte';
 	import { HistoryService, createdOnDay } from '$lib/history/history';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
