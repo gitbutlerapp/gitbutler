@@ -4,12 +4,12 @@
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { BranchService } from '$lib/branches/service';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
-	import History from '$lib/components/History.svelte';
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$lib/components/ProjectSettingsMenuAction.svelte';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
+	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { persisted } from '$lib/persisted/persisted';
