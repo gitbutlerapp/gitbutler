@@ -3,6 +3,7 @@
 	import Icon from './Icon.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import type { AppliedFilter, FilterDescription } from '$lib/vbranches/filtering';
+	import FilterPillContainer from './SearchBar/FilterPillContainer.svelte';
 
 	interface Props {
 		value: string | undefined;
@@ -28,9 +29,12 @@
 
 	function getAllowedFilterValue(filterDesc: FilterDescription): string[] | undefined {
 		if (!value) return undefined;
-		const filterValue = value.replace(`${filterDesc.name}:`, '');
-		if (filterDesc.allowedValues?.includes(filterValue) ?? true) {
-			return filterValue.split(',');
+		const filterValue = value.replace(`${filterDesc.name}:`, '').split(',');
+		if (
+			filterDesc.allowedValues === undefined ||
+			filterValue.every((v) => filterDesc.allowedValues?.includes(v))
+		) {
+			return filterValue;
 		}
 		return undefined;
 	}
@@ -74,14 +78,7 @@
 	{/if}
 
 	{#if appliedFilters?.length}
-		<div class="filter-pill-container">
-			{#each appliedFilters as filter}
-				<div class="filter-pill text-base-14">
-					<div class="filter-name-prop">{filter.name}:</div>
-					<div class="filter-name-value">{filter.values.join(',')}</div>
-				</div>
-			{/each}
-		</div>
+		<FilterPillContainer {appliedFilters} />
 	{/if}
 
 	<input
@@ -119,24 +116,5 @@
 		color: var(--clr-scale-ntrl-0);
 		background-color: var(--clr-bg-1);
 		outline: none;
-	}
-
-	.filter-pill-container {
-		margin-right: 10px;
-		display: flex;
-		gap: 4px;
-	}
-
-	.filter-pill {
-		box-sizing: border-box;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-s);
-		background-color: var(--clr-scale-ntrl-70);
-		display: flex;
-		padding: 4px;
-	}
-
-	.filter-name-prop {
-		color: var(--clr-scale-ntrl-0);
 	}
 </style>
