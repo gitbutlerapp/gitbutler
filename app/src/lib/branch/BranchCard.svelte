@@ -10,9 +10,9 @@
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { Project } from '$lib/backend/projects';
+	import Dropzones from '$lib/branch/Dropzones.svelte';
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
 	import CommitList from '$lib/commit/CommitList.svelte';
-	import Dropzones from '$lib/components/BranchCard/Dropzones.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';

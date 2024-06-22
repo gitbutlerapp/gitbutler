@@ -5,8 +5,8 @@
 	import middleSheetSvg from '$lib/assets/new-branch/middle-sheet.svg?raw';
 	import topSheetSvg from '$lib/assets/new-branch/top-sheet.svg?raw';
 	// import components
-	import Dropzone from '$lib/components/Dropzone/Dropzone.svelte';
 	import { DraggableFile, DraggableHunk } from '$lib/dragging/draggables';
+	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -32,6 +32,7 @@
 </script>
 
 <div class="canvas-dropzone">
+	hello
 	<Dropzone {accepts} ondrop={onDrop}>
 		{#snippet overlay({ hovered, activated })}
 			<div class="new-virtual-branch" class:activated class:hovered>
