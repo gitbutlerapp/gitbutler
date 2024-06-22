@@ -4,6 +4,7 @@
 	import { persistedCommitMessage, projectRunCommitHooks } from '$lib/config/config';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
+	import { slideFade } from '$lib/utils/svelteTransitions';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch } from '$lib/vbranches/types';
@@ -68,16 +69,18 @@
 	/>
 	<div class="actions" class:commit-box__actions-expanded={$expanded}>
 		{#if $expanded && !isCommitting}
-			<Button
-				style="ghost"
-				outline
-				id="commit-to-branch"
-				on:click={() => {
-					$expanded = false;
-				}}
-			>
-				Cancel
-			</Button>
+			<div class="cancel-btn-wrapper" transition:slideFade={{ duration: 200, axis: 'x' }}>
+				<Button
+					style="ghost"
+					outline
+					id="commit-to-branch"
+					on:click={() => {
+						$expanded = false;
+					}}
+				>
+					Cancel
+				</Button>
+			</div>
 		{/if}
 		<Button
 			style={$expanded ? 'neutral' : 'ghost'}
@@ -118,7 +121,12 @@
 	.actions {
 		display: flex;
 		justify-content: right;
-		gap: 6px;
+		/* gap: 6px; */
+	}
+
+	.cancel-btn-wrapper {
+		overflow: hidden;
+		margin-right: 6px;
 	}
 
 	/* MODIFIERS */

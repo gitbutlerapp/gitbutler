@@ -225,9 +225,21 @@
 		overflow: hidden;
 		animation: expand-box 0.2s ease forwards;
 		/* props to animate on mount */
-		/* display: none;
-		max-height: 0;
-		overflow: hidden; */
+		max-height: 40px;
+		opacity: 0;
+	}
+
+	@keyframes expand-box {
+		from {
+			opacity: 0;
+			max-height: 40px;
+			padding: 0 0 0;
+		}
+		to {
+			opacity: 1;
+			max-height: 600px;
+			padding: 0 0 48px;
+		}
 	}
 
 	.commit-box__textarea {
@@ -279,25 +291,10 @@
 	}
 
 	/* MODIFIERS */
-	/* .commit-box_expanded {
-		display: flex;
-		animation: expand-box 0.2s ease forwards;
-	} */
-
-	@keyframes expand-box {
-		from {
-			max-height: 0;
-			padding: 0 0 0;
-		}
-		to {
-			max-height: 600px;
-			padding: 0 0 48px;
-		}
-	}
 
 	.commit-box-actions_expanded {
 		display: flex;
-		animation: expand-actions 0.25s ease forwards;
+		animation: expand-actions 0.3s ease forwards;
 		animation-delay: 0.1s;
 	}
 
