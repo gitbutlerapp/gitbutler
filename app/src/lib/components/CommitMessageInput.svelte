@@ -172,7 +172,7 @@
 					delay: 200
 				}}
 			>
-				<Icon name="blitz" />
+				<Icon name="idea" />
 			</div>
 		{/if}
 
@@ -262,13 +262,19 @@
 
 	.commit-box__textarea-tooltip {
 		position: absolute;
-		display: flex;
 		bottom: 12px;
 		left: 12px;
+
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--size-tag);
+		height: var(--size-tag);
+
 		padding: 2px;
-		border-radius: 100%;
-		background: var(--clr-bg-2);
-		color: var(--clr-scale-ntrl-40);
+		border-radius: var(--radius-m);
+		background: var(--clr-theme-ntrl-soft);
+		color: var(--clr-scale-ntrl-50);
 	}
 
 	.commit-box__textarea__title {
