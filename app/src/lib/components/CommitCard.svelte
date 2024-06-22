@@ -259,7 +259,7 @@
 										size="tag"
 										style="ghost"
 										outline
-										icon="edit-text"
+										icon="edit-small"
 										on:click={openCommitMessageModal}>Edit message</Button
 									>
 								{/if}
