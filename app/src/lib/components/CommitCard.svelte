@@ -111,7 +111,7 @@
 	{#snippet controls(close)}
 		<Button style="ghost" outline on:click={close}>Cancel</Button>
 		<Button
-			style="pop"
+			style="neutral"
 			kind="solid"
 			grow
 			disabled={!commitMessageValid}
@@ -259,7 +259,7 @@
 										size="tag"
 										style="ghost"
 										outline
-										icon="edit-text"
+										icon="edit-small"
 										on:click={openCommitMessageModal}>Edit message</Button
 									>
 								{/if}

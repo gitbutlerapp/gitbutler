@@ -172,7 +172,7 @@
 					delay: 200
 				}}
 			>
-				<Icon name="blitz" />
+				<Icon name="idea" />
 			</div>
 		{/if}
 
@@ -225,9 +225,21 @@
 		overflow: hidden;
 		animation: expand-box 0.2s ease forwards;
 		/* props to animate on mount */
-		/* display: none;
-		max-height: 0;
-		overflow: hidden; */
+		max-height: 40px;
+		opacity: 0;
+	}
+
+	@keyframes expand-box {
+		from {
+			opacity: 0;
+			max-height: 40px;
+			padding: 0 0 0;
+		}
+		to {
+			opacity: 1;
+			max-height: 600px;
+			padding: 0 0 48px;
+		}
 	}
 
 	.commit-box__textarea {
@@ -250,13 +262,19 @@
 
 	.commit-box__textarea-tooltip {
 		position: absolute;
-		display: flex;
 		bottom: 12px;
 		left: 12px;
+
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--size-tag);
+		height: var(--size-tag);
+
 		padding: 2px;
-		border-radius: 100%;
-		background: var(--clr-bg-2);
-		color: var(--clr-scale-ntrl-40);
+		border-radius: var(--radius-m);
+		background: var(--clr-theme-ntrl-soft);
+		color: var(--clr-scale-ntrl-50);
 	}
 
 	.commit-box__textarea__title {
@@ -279,25 +297,10 @@
 	}
 
 	/* MODIFIERS */
-	/* .commit-box_expanded {
-		display: flex;
-		animation: expand-box 0.2s ease forwards;
-	} */
-
-	@keyframes expand-box {
-		from {
-			max-height: 0;
-			padding: 0 0 0;
-		}
-		to {
-			max-height: 600px;
-			padding: 0 0 48px;
-		}
-	}
 
 	.commit-box-actions_expanded {
 		display: flex;
-		animation: expand-actions 0.25s ease forwards;
+		animation: expand-actions 0.3s ease forwards;
 		animation-delay: 0.1s;
 	}
 
