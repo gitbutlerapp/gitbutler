@@ -30,9 +30,19 @@
 
 	let checked = false;
 	let draggableElt: HTMLDivElement;
+	let lastCheckboxDetail = true;
+
+	$: if (!lastCheckboxDetail) {
+		selectedOwnership?.update((ownership) => {
+			file.hunks.forEach((h) => ownership.remove(file.id, h.id));
+			return ownership;
+		});
+	}
 
 	$: if (file && $selectedOwnership) {
-		checked = file.hunks.every((hunk) => $selectedOwnership?.contains(file.id, hunk.id));
+		checked =
+			file.hunks.every((hunk) => $selectedOwnership?.contains(file.id, hunk.id)) &&
+			lastCheckboxDetail;
 	}
 
 	$: if ($fileIdSelection && draggableElt)
@@ -120,6 +130,7 @@
 			{checked}
 			on:change={(e) => {
 				const isChecked = e.detail;
+				lastCheckboxDetail = isChecked;
 				selectedOwnership?.update((ownership) => {
 					if (isChecked) {
 						file.hunks.forEach((h) => ownership.add(file.id, h));
