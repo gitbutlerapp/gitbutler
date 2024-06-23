@@ -5,7 +5,8 @@ const FILTER_OR_VALUE_SEPARATOR = ',';
 
 export enum FilterName {
 	Author = 'author',
-	Origin = 'origin'
+	Origin = 'origin',
+	SHA = 'sha'
 }
 
 enum FilterOriginValue {
@@ -35,11 +36,13 @@ export interface FilterSuggestion {
 
 export const DEFAULT_FILTERS: FilterDescription[] = [
 	{ name: FilterName.Author },
-	{ name: FilterName.Origin, allowedValues: [FilterOriginValue.Local, FilterOriginValue.Remote] }
+	{ name: FilterName.Origin, allowedValues: [FilterOriginValue.Local, FilterOriginValue.Remote] },
+	{ name: FilterName.SHA }
 ];
 
 export const DEFAULT_FILTER_SUGGESTIONS: FilterSuggestion[] = [
 	{ name: FilterName.Author, description: 'Filter by commit author' },
+	{ name: FilterName.SHA, description: 'Filter by commit SHA' },
 	{
 		name: FilterName.Origin,
 		value: FilterOriginValue.Local,
@@ -64,6 +67,8 @@ export function commitMatchesFilter(
 			return filter.values.includes(
 				!isUpstream ? FilterOriginValue.Local : FilterOriginValue.Remote
 			);
+		case FilterName.SHA:
+			return filter.values.some((sha) => commit.id.startsWith(sha));
 	}
 }
 
