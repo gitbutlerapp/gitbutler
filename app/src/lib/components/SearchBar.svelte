@@ -185,10 +185,12 @@
 
 <style lang="postcss">
 	.search-bar-wrapper {
+		z-index: var(--z-floating);
 		position: relative;
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
+		box-shadow: var(--fx-shadow-s);
 	}
 	.textbox {
 		display: flex;

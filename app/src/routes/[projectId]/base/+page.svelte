@@ -106,6 +106,7 @@
 
 	.search {
 		padding: 12px;
+		padding-bottom: 0;
 	}
 	.base {
 		display: flex;
