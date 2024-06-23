@@ -150,7 +150,7 @@ function generateSameForkpoint({
 		...integratedBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup])
 	] as [string, LineGroup][]);
 }
-export default async function testaroni() {}
+
 function generateDifferentForkpoint({
 	remoteCommits,
 	localCommits,
@@ -298,8 +298,7 @@ function blankLineGroup(lineCount: number): LineGroup {
 		.map(
 			(): Line => ({
 				top: { type: 'straight', style: 'none' },
-				bottom: { type: 'straight', style: 'none' },
-				tallerTop: false
+				bottom: { type: 'straight', style: 'none' }
 			})
 		);
 

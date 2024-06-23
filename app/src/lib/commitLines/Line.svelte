@@ -8,8 +8,6 @@
 	}
 
 	const { line }: Props = $props();
-
-	$inspect(line.tallerTop);
 </script>
 
 <div class="line">
