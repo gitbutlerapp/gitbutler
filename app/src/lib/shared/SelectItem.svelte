@@ -61,7 +61,6 @@
 			color: var(--clr-scale-ntrl-50);
 		}
 		& .label {
-			height: 16px;
 			text-overflow: ellipsis;
 			overflow-x: hidden;
 		}

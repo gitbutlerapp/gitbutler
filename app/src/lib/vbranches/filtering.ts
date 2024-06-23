@@ -1,5 +1,8 @@
 import type { RemoteCommit } from './types';
 
+const FILTER_PROP_SEPARATOR = ':';
+const FILTER_OR_VALUE_SEPARATOR = ',';
+
 export enum FilterName {
 	Author = 'author',
 	Origin = 'origin'
@@ -20,9 +23,29 @@ export interface FilterDescription {
 	allowedValues?: string[];
 }
 
+export interface FilterSuggestion {
+	name: string;
+	value?: string;
+	description: string;
+}
+
 export const DEFAULT_FILTERS: FilterDescription[] = [
 	{ name: FilterName.Author },
 	{ name: FilterName.Origin, allowedValues: [FilterOriginValue.Local, FilterOriginValue.Remote] }
+];
+
+export const DEFAULT_FILTER_SUGGESTIONS: FilterSuggestion[] = [
+	{ name: FilterName.Author, description: 'Filter by commit author' },
+	{
+		name: FilterName.Origin,
+		value: FilterOriginValue.Local,
+		description: 'Show only local commits'
+	},
+	{
+		name: FilterName.Origin,
+		value: FilterOriginValue.Remote,
+		description: 'Show only upstream commits'
+	}
 ];
 
 export function commitMatchesFilter(
@@ -38,4 +61,29 @@ export function commitMatchesFilter(
 				!isUpstream ? FilterOriginValue.Local : FilterOriginValue.Remote
 			);
 	}
+}
+
+export function parseFilterValues(
+	value: string,
+	filterDesc: FilterDescription
+): string[] | undefined {
+	const filterValue = value.replace(`${filterDesc.name}${FILTER_PROP_SEPARATOR}`, '');
+	const listedValues = filterValue.split(FILTER_OR_VALUE_SEPARATOR);
+	if (
+		filterDesc.allowedValues === undefined ||
+		listedValues.every((v) => filterDesc.allowedValues!.includes(v))
+	) {
+		return listedValues;
+	}
+	return undefined;
+}
+
+export function formatFilterValues(filter: AppliedFilter): string {
+	return filter.values.join(FILTER_OR_VALUE_SEPARATOR);
+}
+
+export function formatFilterName(
+	filter: AppliedFilter | FilterDescription | FilterSuggestion
+): string {
+	return `${filter.name}${FILTER_PROP_SEPARATOR}`;
 }

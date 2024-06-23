@@ -2,19 +2,22 @@
 	import type iconsJson from '$lib/icons/icons.json';
 	import Icon from './Icon.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
-	import type { AppliedFilter, FilterDescription } from '$lib/vbranches/filtering';
+	import {
+		DEFAULT_FILTER_SUGGESTIONS,
+		formatFilterName,
+		parseFilterValues,
+		type AppliedFilter,
+		type FilterDescription,
+		type FilterSuggestion
+	} from '$lib/vbranches/filtering';
 	import FilterPillContainer from './SearchBar/FilterPillContainer.svelte';
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import { clickOutside } from '$lib/clickOutside';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import SelectItem from './SelectItem.svelte';
+	import FilterPill from './SearchBar/FilterPill.svelte';
 
 	const maxPadding = 10;
-
-	interface FilterSuggestion {
-		name: string;
-		value?: string;
-	}
 
 	interface Props {
 		value: string | undefined;
@@ -37,13 +40,6 @@
 	let searchBarWrapper = $state<HTMLElement | undefined>(undefined);
 	let searchBarInput = $state<HTMLInputElement | undefined>(undefined);
 	let listOpen = $state<boolean>(false);
-	const filterSuggestions: FilterSuggestion[] =
-		filterDescriptions?.flatMap((f) => {
-			if (f.allowedValues) {
-				return f.allowedValues.map((v) => ({ name: f.name, value: v }));
-			}
-			return [{ name: f.name }];
-		}) ?? [];
 
 	function setMaxHeight() {
 		if (maxHeight) return;
@@ -68,14 +64,7 @@
 
 	function getAllowedFilterValue(filterDesc: FilterDescription): string[] | undefined {
 		if (!value) return undefined;
-		const filterValue = value.replace(`${filterDesc.name}:`, '').split(',');
-		if (
-			filterDesc.allowedValues === undefined ||
-			filterValue.every((v) => filterDesc.allowedValues?.includes(v))
-		) {
-			return filterValue;
-		}
-		return undefined;
+		return parseFilterValues(value, filterDesc);
 	}
 
 	function applyFilter(filterDesc: FilterDescription, filterValue: string[]) {
@@ -87,7 +76,7 @@
 		const filterDesc = filterDescriptions?.find((f) => f.name === suggestion.name);
 		if (!filterDesc) return;
 		if (suggestion.value === undefined) {
-			value = `${filterDesc.name}:`;
+			value = formatFilterName(filterDesc);
 			searchBarInput?.focus();
 			closeList();
 			return;
@@ -110,6 +99,11 @@
 		appliedFilters = appliedFilters.slice(0, -1);
 	}
 
+	function handleEscape() {
+		searchBarInput?.blur();
+		closeList();
+	}
+
 	function onkeydown(e: KeyboardEvent) {
 		const { key } = e;
 
@@ -119,6 +113,9 @@
 				break;
 			case KeyName.Delete:
 				handleDelete();
+				break;
+			case KeyName.Escape:
+				handleEscape();
 				break;
 			default:
 				break;
@@ -153,7 +150,7 @@
 			onfocus={openList}
 		/>
 	</div>
-	{#if filterSuggestions.length}
+	{#if filterDescriptions?.length}
 		<div
 			class="options card"
 			style:display={listOpen ? undefined : 'none'}
@@ -166,14 +163,19 @@
 		>
 			<ScrollableContainer initiallyVisible>
 				<div class="options__group">
-					{#each filterSuggestions as suggestion}
+					{#each DEFAULT_FILTER_SUGGESTIONS as suggestion}
 						<div tabindex="-1" role="none">
 							<SelectItem
 								selected={false}
 								highlighted={false}
 								on:click={() => handleSuggestionClick(suggestion)}
 							>
-								{suggestion.name + (suggestion.value ? `:${suggestion.value}` : '')}
+								<div class="filter-suggestion">
+									<FilterPill name={formatFilterName(suggestion)} value={suggestion.value} />
+									<span class="description">
+										{suggestion.description}
+									</span>
+								</div>
 							</SelectItem>
 						</div>
 					{/each}
@@ -236,6 +238,16 @@
 
 		&:not(&:first-child):last-child {
 			border-top: 1px solid var(--clr-border-2);
+		}
+	}
+
+	.filter-suggestion {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+
+		& .description {
+			color: var(--clr-scale-ntrl-50);
 		}
 	}
 </style>
