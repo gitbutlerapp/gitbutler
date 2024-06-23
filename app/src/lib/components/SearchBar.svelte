@@ -3,7 +3,6 @@
 	import Icon from './Icon.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import {
-		DEFAULT_FILTER_SUGGESTIONS,
 		formatFilterName,
 		parseFilterValues,
 		type AppliedFilter,
@@ -11,13 +10,7 @@
 		type FilterSuggestion
 	} from '$lib/vbranches/filtering';
 	import FilterPillContainer from './SearchBar/FilterPillContainer.svelte';
-	import ScrollableContainer from './ScrollableContainer.svelte';
-	import { clickOutside } from '$lib/clickOutside';
-	import { pxToRem } from '$lib/utils/pxToRem';
-	import SelectItem from './SelectItem.svelte';
-	import FilterPill from './SearchBar/FilterPill.svelte';
-
-	const maxPadding = 10;
+	import FilterSuggestions from './SearchBar/FilterSuggestions.svelte';
 
 	interface Props {
 		value: string | undefined;
@@ -25,7 +18,6 @@
 		icon?: keyof typeof iconsJson;
 		filterDescriptions?: FilterDescription[];
 		appliedFilters?: AppliedFilter[];
-		maxHeight?: number;
 	}
 
 	let {
@@ -33,28 +25,12 @@
 		appliedFilters = $bindable(),
 		filterDescriptions,
 		placeholder,
-		icon,
-		maxHeight = 260
+		icon
 	}: Props = $props();
 
 	let searchBarWrapper = $state<HTMLElement | undefined>(undefined);
 	let searchBarInput = $state<HTMLInputElement | undefined>(undefined);
-	let listOpen = $state<boolean>(false);
-
-	function setMaxHeight() {
-		if (maxHeight) return;
-		if (!searchBarWrapper) return;
-		maxHeight = window.innerHeight - searchBarWrapper.getBoundingClientRect().bottom - maxPadding;
-	}
-
-	function openList() {
-		setMaxHeight();
-		listOpen = true;
-	}
-
-	function closeList() {
-		listOpen = false;
-	}
+	let filterSuggestionElem = $state<FilterSuggestions | undefined>(undefined);
 
 	function getFilterDescFromValue(desc: FilterDescription[]): FilterDescription | undefined {
 		if (!value) return undefined;
@@ -78,7 +54,7 @@
 		if (suggestion.value === undefined) {
 			value = formatFilterName(filterDesc);
 			searchBarInput?.focus();
-			closeList();
+			filterSuggestionElem?.closeList();
 			return;
 		}
 		applyFilter(filterDesc, [suggestion.value]);
@@ -95,13 +71,19 @@
 	}
 
 	function handleDelete() {
-		if (!filterDescriptions || !appliedFilters || value) return;
+		if (value) {
+			if (value.length === 1) {
+				filterSuggestionElem?.openList();
+			}
+      return;
+		}
+		if (!filterDescriptions || !appliedFilters) return;
 		appliedFilters = appliedFilters.slice(0, -1);
 	}
 
 	function handleEscape() {
 		searchBarInput?.blur();
-		closeList();
+		filterSuggestionElem?.closeList();
 	}
 
 	function onkeydown(e: KeyboardEvent) {
@@ -147,41 +129,16 @@
 				value = e.currentTarget.value;
 			}}
 			{onkeydown}
-			onfocus={openList}
+			onfocus={() => filterSuggestionElem?.openList()}
 		/>
 	</div>
+
 	{#if filterDescriptions?.length}
-		<div
-			class="options card"
-			style:display={listOpen ? undefined : 'none'}
-			style:max-height={maxHeight && pxToRem(maxHeight)}
-			use:clickOutside={{
-				trigger: searchBarWrapper,
-				handler: closeList,
-				enabled: listOpen
-			}}
-		>
-			<ScrollableContainer initiallyVisible>
-				<div class="options__group">
-					{#each DEFAULT_FILTER_SUGGESTIONS as suggestion}
-						<div tabindex="-1" role="none">
-							<SelectItem
-								selected={false}
-								highlighted={false}
-								on:click={() => handleSuggestionClick(suggestion)}
-							>
-								<div class="filter-suggestion">
-									<FilterPill name={formatFilterName(suggestion)} value={suggestion.value} />
-									<span class="description">
-										{suggestion.description}
-									</span>
-								</div>
-							</SelectItem>
-						</div>
-					{/each}
-				</div>
-			</ScrollableContainer>
-		</div>
+		<FilterSuggestions
+			bind:this={filterSuggestionElem}
+			{searchBarWrapper}
+			{handleSuggestionClick}
+		/>
 	{/if}
 </div>
 
@@ -214,40 +171,5 @@
 		color: var(--clr-scale-ntrl-0);
 		background-color: var(--clr-bg-1);
 		outline: none;
-	}
-
-	.options {
-		position: absolute;
-		right: 0;
-		top: 100%;
-		width: 100%;
-		z-index: var(--z-floating);
-		margin-top: 4px;
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
-		box-shadow: var(--fx-shadow-s);
-		overflow: hidden;
-	}
-
-	.options__group {
-		display: flex;
-		flex-direction: column;
-		padding: 6px;
-		gap: 2px;
-
-		&:not(&:first-child):last-child {
-			border-top: 1px solid var(--clr-border-2);
-		}
-	}
-
-	.filter-suggestion {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-
-		& .description {
-			color: var(--clr-scale-ntrl-50);
-		}
 	}
 </style>
