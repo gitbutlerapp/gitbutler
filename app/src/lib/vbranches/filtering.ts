@@ -11,7 +11,7 @@ export enum FilterName {
 
 enum FilterOriginValue {
 	Local = 'local',
-	Remote = 'remote'
+	Upstream = 'upstream'
 }
 
 export interface AppliedFilterInfo {
@@ -46,7 +46,7 @@ export const DEFAULT_FILTERS: FilterDescription[] = [
 	},
 	{
 		name: FilterName.Origin,
-		allowedValues: [FilterOriginValue.Local, FilterOriginValue.Remote],
+		allowedValues: [FilterOriginValue.Local, FilterOriginValue.Upstream],
 		suggestions: [
 			{
 				name: FilterName.Origin,
@@ -55,7 +55,7 @@ export const DEFAULT_FILTERS: FilterDescription[] = [
 			},
 			{
 				name: FilterName.Origin,
-				value: FilterOriginValue.Remote,
+				value: FilterOriginValue.Upstream,
 				description: 'Show only upstream commits'
 			}
 		]
@@ -72,7 +72,7 @@ function commitMatchesFilter(
 			return !!commit.author.name && filter.values.includes(commit.author.name);
 		case FilterName.Origin:
 			return filter.values.includes(
-				!isUpstream ? FilterOriginValue.Local : FilterOriginValue.Remote
+				!isUpstream ? FilterOriginValue.Local : FilterOriginValue.Upstream
 			);
 		case FilterName.SHA:
 			return filter.values.some((sha) => commit.id.startsWith(sha));
