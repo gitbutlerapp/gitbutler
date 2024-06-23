@@ -31,6 +31,7 @@
 	}: Props = $props();
 
 	let listOpen = $state<boolean>(false);
+	let highlightIndex = $state<number | undefined>(undefined);
 	let suggestions = $derived<FilterSuggestion[]>(
 		DEFAULT_FILTER_SUGGESTIONS.filter((s) => {
 			if (value && !s.name.startsWith(value)) return false;
@@ -45,6 +46,10 @@
 		maxHeight = window.innerHeight - searchBarWrapper.getBoundingClientRect().bottom - maxPadding;
 	}
 
+	export function isOpen() {
+		return listOpen;
+	}
+
 	export function openList() {
 		setMaxHeight();
 		listOpen = true;
@@ -52,12 +57,44 @@
 
 	export function closeList() {
 		listOpen = false;
+		highlightIndex = undefined;
 	}
+
+	export function arrowUp() {
+		if (suggestions.length === 0) return;
+		if (highlightIndex === undefined) {
+			highlightIndex = suggestions.length - 1;
+		} else {
+			highlightIndex = highlightIndex === 0 ? suggestions.length - 1 : highlightIndex - 1;
+		}
+	}
+
+	export function arrowDown() {
+		if (suggestions.length === 0) return;
+		if (highlightIndex === undefined) {
+			highlightIndex = 0;
+		} else {
+			highlightIndex = highlightIndex === suggestions.length - 1 ? 0 : highlightIndex + 1;
+		}
+	}
+
+	export function enter(): boolean {
+		if (highlightIndex !== undefined) {
+			handleSuggestionClick(suggestions[highlightIndex]);
+			highlightIndex = undefined;
+			return true;
+		}
+		return false;
+	}
+
+  function isHighlighted(suggestion: FilterSuggestion) {
+    return highlightIndex !== undefined && suggestion === suggestions[highlightIndex];
+  }
 </script>
 
 <div
 	class="options card"
-	style:display={listOpen ? undefined : 'none'}
+	style:display={listOpen && suggestions.length > 0 ? undefined : 'none'}
 	style:max-height={maxHeight && pxToRem(maxHeight)}
 	use:clickOutside={{
 		trigger: searchBarWrapper,
@@ -71,7 +108,7 @@
 				<div tabindex="-1" role="none">
 					<SelectItem
 						selected={false}
-						highlighted={false}
+						highlighted={isHighlighted(suggestion)}
 						on:click={() => handleSuggestionClick(suggestion)}
 					>
 						<div class="filter-suggestion">

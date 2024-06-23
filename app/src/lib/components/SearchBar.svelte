@@ -53,7 +53,7 @@
 		});
 	}
 
-	function handleFilterClick(filter: AppliedFilter) {
+	function removeFilter(filter: AppliedFilter) {
 		if (appliedFilters === undefined) return;
 		appliedFilters = removeAppliedFilter(appliedFilters, filter);
 	}
@@ -68,9 +68,13 @@
 			return;
 		}
 		applyFilter(filterDesc, [suggestion.value]);
+		value = undefined;
 	}
 
 	function handleEnter() {
+		// If there is a highlighted item, select it
+		if (filterSuggestionElem?.enter()) return;
+
 		if (!filterDescriptions || appliedFilters === undefined) return;
 		const filterDesc = getFilterDescFromValue(filterDescriptions);
 		if (!filterDesc) return;
@@ -91,9 +95,28 @@
 		appliedFilters = appliedFilters.slice(0, -1);
 	}
 
+	function handleArrowUp(e: KeyboardEvent) {
+		if (filterSuggestionElem?.isOpen()) {
+			filterSuggestionElem?.arrowUp();
+			e.stopPropagation();
+			e.preventDefault();
+		}
+	}
+
+	function handleArrowDown(e: KeyboardEvent) {
+		if (filterSuggestionElem?.isOpen()) {
+			filterSuggestionElem?.arrowDown();
+			e.stopPropagation();
+			e.preventDefault();
+		}
+	}
+
 	function handleEscape() {
+		if (filterSuggestionElem?.isOpen()) {
+			filterSuggestionElem?.closeList();
+			return;
+		}
 		searchBarInput?.blur();
-		filterSuggestionElem?.closeList();
 	}
 
 	function onkeydown(e: KeyboardEvent) {
@@ -105,6 +128,12 @@
 				break;
 			case KeyName.Delete:
 				handleDelete();
+				break;
+			case KeyName.Up:
+				handleArrowUp(e);
+				break;
+			case KeyName.Down:
+				handleArrowDown(e);
 				break;
 			case KeyName.Escape:
 				handleEscape();
@@ -124,7 +153,7 @@
 		{/if}
 
 		{#if appliedFilters?.length}
-			<FilterPillContainer {appliedFilters} {handleFilterClick} />
+			<FilterPillContainer {appliedFilters} handleFilterClick={removeFilter} />
 		{/if}
 
 		<input
@@ -162,6 +191,10 @@
 		flex-direction: column;
 		gap: 6px;
 		box-shadow: var(--fx-shadow-s);
+
+		&:focus-within .textbox__icon {
+			color: var(--clr-scale-ntrl-0);
+		}
 	}
 	.textbox {
 		display: flex;
