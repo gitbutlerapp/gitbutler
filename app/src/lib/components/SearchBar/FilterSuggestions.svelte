@@ -4,6 +4,8 @@
 	import {
 		DEFAULT_FILTER_SUGGESTIONS,
 		formatFilterName,
+		suggestionIsApplied,
+		type AppliedFilter,
 		type FilterSuggestion
 	} from '$lib/vbranches/filtering';
 	import ScrollableContainer from '../ScrollableContainer.svelte';
@@ -16,11 +18,26 @@
 		maxHeight?: number;
 		searchBarWrapper: HTMLElement;
 		handleSuggestionClick: (suggestion: FilterSuggestion) => void;
+		appliedFilters: AppliedFilter[] | undefined;
+		value: string | undefined;
 	}
 
-	let { maxHeight = 260, searchBarWrapper, handleSuggestionClick }: Props = $props();
+	let {
+		maxHeight = 260,
+		searchBarWrapper,
+		handleSuggestionClick,
+		value,
+		appliedFilters
+	}: Props = $props();
 
 	let listOpen = $state<boolean>(false);
+	let suggestions = $derived<FilterSuggestion[]>(
+		DEFAULT_FILTER_SUGGESTIONS.filter((s) => {
+			if (value && !s.name.startsWith(value)) return false;
+			if (appliedFilters !== undefined && suggestionIsApplied(s, appliedFilters)) return false;
+			return true;
+		})
+	);
 
 	function setMaxHeight() {
 		if (maxHeight) return;
@@ -50,7 +67,7 @@
 >
 	<ScrollableContainer initiallyVisible>
 		<div class="options__group">
-			{#each DEFAULT_FILTER_SUGGESTIONS as suggestion}
+			{#each suggestions as suggestion}
 				<div tabindex="-1" role="none">
 					<SelectItem
 						selected={false}

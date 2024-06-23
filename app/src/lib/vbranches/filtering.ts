@@ -120,3 +120,10 @@ export function removeAppliedFilter(
 ): AppliedFilter[] {
 	return filters.filter((filter) => filter.id !== toRemove.id);
 }
+
+export function suggestionIsApplied(
+	suggestion: FilterSuggestion,
+	appliedFilters: AppliedFilter[]
+): boolean {
+	return appliedFilters.some((filter) => filter.name === suggestion.name);
+}

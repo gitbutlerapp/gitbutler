@@ -148,6 +148,8 @@
 			bind:this={filterSuggestionElem}
 			{searchBarWrapper}
 			{handleSuggestionClick}
+			{appliedFilters}
+			{value}
 		/>
 	{/if}
 </div>
