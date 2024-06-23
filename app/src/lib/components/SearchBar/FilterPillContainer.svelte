@@ -8,13 +8,18 @@
 
 	interface Props {
 		appliedFilters: AppliedFilter[];
+		handleFilterClick: (filter: AppliedFilter) => void;
 	}
-	let { appliedFilters }: Props = $props();
+	let { appliedFilters, handleFilterClick }: Props = $props();
 </script>
 
 <div class="filter-pill-container text-base-14">
 	{#each appliedFilters as filter}
-		<FilterPill name={formatFilterName(filter)} value={formatFilterValues(filter)} />
+		<FilterPill
+			name={formatFilterName(filter)}
+			value={formatFilterValues(filter)}
+			onclick={() => handleFilterClick(filter)}
+		/>
 	{/each}
 </div>
 

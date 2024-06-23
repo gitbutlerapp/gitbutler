@@ -2,18 +2,28 @@
 	interface Props {
 		name: string;
 		value: string | undefined;
+		onclick?: () => void;
 	}
-	let { name, value }: Props = $props();
+	let { name, value, onclick }: Props = $props();
 </script>
 
-<div class="filter-pill">
-	<span class="filter-name-prop">{name}</span>
-	{#if value}
-		<span class="filter-name-value">{value}</span>
-	{/if}
-</div>
+{#if !!onclick}
+	<button class="filter-pill clickable" {onclick}>
+		<span class="filter-name-prop">{name}</span>
+		{#if value}
+			<span class="filter-name-value">{value}</span>
+		{/if}
+	</button>
+{:else}
+	<div class="filter-pill">
+		<span class="filter-name-prop">{name}</span>
+		{#if value}
+			<span class="filter-name-value">{value}</span>
+		{/if}
+	</div>
+{/if}
 
-<style>
+<style lang="postcss">
 	.filter-pill {
 		box-sizing: border-box;
 		border: 1px solid var(--clr-border-2);
@@ -21,6 +31,13 @@
 		background-color: var(--clr-scale-ntrl-70);
 		display: flex;
 		padding: 2px 4px;
+	}
+
+	.clickable {
+		cursor: pointer;
+		&:hover {
+			background-color: var(--clr-scale-ntrl-60);
+		}
 	}
 
 	.filter-name-prop {

@@ -3,8 +3,10 @@
 	import Icon from './Icon.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import {
+		addAppliedFilter,
 		formatFilterName,
 		parseFilterValues,
+		removeAppliedFilter,
 		type AppliedFilter,
 		type FilterDescription,
 		type FilterSuggestion
@@ -34,7 +36,7 @@
 
 	function getFilterDescFromValue(desc: FilterDescription[]): FilterDescription | undefined {
 		if (!value) return undefined;
-		const filterDesc = desc.find((d) => value?.startsWith(`${d.name}:`));
+		const filterDesc = desc.find((d) => value?.startsWith(formatFilterName(d)));
 		return filterDesc;
 	}
 
@@ -45,7 +47,15 @@
 
 	function applyFilter(filterDesc: FilterDescription, filterValue: string[]) {
 		if (!filterValue || appliedFilters === undefined) return;
-		appliedFilters = [...appliedFilters, { name: filterDesc.name, values: filterValue }];
+		appliedFilters = addAppliedFilter(appliedFilters, {
+			name: filterDesc.name,
+			values: filterValue
+		});
+	}
+
+	function handleFilterClick(filter: AppliedFilter) {
+		if (appliedFilters === undefined) return;
+		appliedFilters = removeAppliedFilter(appliedFilters, filter);
 	}
 
 	function handleSuggestionClick(suggestion: FilterSuggestion) {
@@ -75,7 +85,7 @@
 			if (value.length === 1) {
 				filterSuggestionElem?.openList();
 			}
-      return;
+			return;
 		}
 		if (!filterDescriptions || !appliedFilters) return;
 		appliedFilters = appliedFilters.slice(0, -1);
@@ -114,7 +124,7 @@
 		{/if}
 
 		{#if appliedFilters?.length}
-			<FilterPillContainer {appliedFilters} />
+			<FilterPillContainer {appliedFilters} {handleFilterClick} />
 		{/if}
 
 		<input

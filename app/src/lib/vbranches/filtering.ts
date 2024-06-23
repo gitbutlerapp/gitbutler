@@ -13,9 +13,13 @@ enum FilterOriginValue {
 	Remote = 'remote'
 }
 
-export interface AppliedFilter {
+export interface AppliedFilterInfo {
 	name: FilterName;
 	values: string[];
+}
+
+export interface AppliedFilter extends AppliedFilterInfo {
+	id: string;
 }
 
 export interface FilterDescription {
@@ -86,4 +90,33 @@ export function formatFilterName(
 	filter: AppliedFilter | FilterDescription | FilterSuggestion
 ): string {
 	return `${filter.name}${FILTER_PROP_SEPARATOR}`;
+}
+
+function createAppliedFilterId(filterInfo: AppliedFilterInfo): string {
+	return `${filterInfo.name}${FILTER_PROP_SEPARATOR}${filterInfo.values.sort().join(FILTER_OR_VALUE_SEPARATOR)}`;
+}
+
+export function createAppliedFilter(filterInfo: AppliedFilterInfo): AppliedFilter {
+	return {
+		...filterInfo,
+		id: createAppliedFilterId(filterInfo)
+	};
+}
+
+export function addAppliedFilter(
+	filters: AppliedFilter[],
+	toAdd: AppliedFilterInfo
+): AppliedFilter[] {
+	const newFilter = createAppliedFilter(toAdd);
+	if (filters.some((filter) => filter.id === newFilter.id)) {
+		return filters;
+	}
+	return [...filters, newFilter];
+}
+
+export function removeAppliedFilter(
+	filters: AppliedFilter[],
+	toRemove: AppliedFilter
+): AppliedFilter[] {
+	return filters.filter((filter) => filter.id !== toRemove.id);
 }
