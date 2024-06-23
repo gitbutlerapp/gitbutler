@@ -2,10 +2,10 @@
 	import { clickOutside } from '$lib/clickOutside';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import {
-		DEFAULT_FILTER_SUGGESTIONS,
 		formatFilterName,
 		suggestionIsApplied,
 		type AppliedFilter,
+		type FilterDescription,
 		type FilterSuggestion
 	} from '$lib/vbranches/filtering';
 	import ScrollableContainer from '../ScrollableContainer.svelte';
@@ -18,6 +18,7 @@
 		maxHeight?: number;
 		searchBarWrapper: HTMLElement;
 		handleSuggestionClick: (suggestion: FilterSuggestion) => void;
+		filterDescriptions: FilterDescription[] | undefined;
 		appliedFilters: AppliedFilter[] | undefined;
 		value: string | undefined;
 	}
@@ -27,17 +28,20 @@
 		searchBarWrapper,
 		handleSuggestionClick,
 		value,
-		appliedFilters
+		appliedFilters,
+		filterDescriptions
 	}: Props = $props();
 
 	let listOpen = $state<boolean>(false);
 	let highlightIndex = $state<number | undefined>(undefined);
-	let suggestions = $derived<FilterSuggestion[]>(
-		DEFAULT_FILTER_SUGGESTIONS.filter((s) => {
-			if (value && !s.name.startsWith(value)) return false;
-			if (appliedFilters !== undefined && suggestionIsApplied(s, appliedFilters)) return false;
-			return true;
-		})
+	let suggestions = $derived<FilterSuggestion[] | undefined>(
+		filterDescriptions
+			?.flatMap((d) => d.suggestions ?? [])
+			?.filter((s) => {
+				if (value && !s.name.startsWith(value)) return false;
+				if (appliedFilters !== undefined && suggestionIsApplied(s, appliedFilters)) return false;
+				return true;
+			})
 	);
 
 	function setMaxHeight() {
@@ -61,7 +65,7 @@
 	}
 
 	export function arrowUp() {
-		if (suggestions.length === 0) return;
+		if (!suggestions?.length) return;
 		if (highlightIndex === undefined) {
 			highlightIndex = suggestions.length - 1;
 		} else {
@@ -70,7 +74,7 @@
 	}
 
 	export function arrowDown() {
-		if (suggestions.length === 0) return;
+		if (!suggestions?.length) return;
 		if (highlightIndex === undefined) {
 			highlightIndex = 0;
 		} else {
@@ -79,50 +83,52 @@
 	}
 
 	export function enter(): boolean {
-		if (highlightIndex !== undefined) {
-			handleSuggestionClick(suggestions[highlightIndex]);
-			highlightIndex = undefined;
-			return true;
-		}
-		return false;
+		if (highlightIndex === undefined || !suggestions?.length) return false;
+
+		handleSuggestionClick(suggestions[highlightIndex]);
+		highlightIndex = undefined;
+		return true;
 	}
 
-  function isHighlighted(suggestion: FilterSuggestion) {
-    return highlightIndex !== undefined && suggestion === suggestions[highlightIndex];
-  }
+	function isHighlighted(suggestion: FilterSuggestion) {
+		if (highlightIndex === undefined || !suggestions?.length) return false;
+		return suggestion === suggestions[highlightIndex];
+	}
 </script>
 
-<div
-	class="options card"
-	style:display={listOpen && suggestions.length > 0 ? undefined : 'none'}
-	style:max-height={maxHeight && pxToRem(maxHeight)}
-	use:clickOutside={{
-		trigger: searchBarWrapper,
-		handler: closeList,
-		enabled: listOpen
-	}}
->
-	<ScrollableContainer initiallyVisible>
-		<div class="options__group">
-			{#each suggestions as suggestion}
-				<div tabindex="-1" role="none">
-					<SelectItem
-						selected={false}
-						highlighted={isHighlighted(suggestion)}
-						on:click={() => handleSuggestionClick(suggestion)}
-					>
-						<div class="filter-suggestion">
-							<FilterPill name={formatFilterName(suggestion)} value={suggestion.value} />
-							<span class="description">
-								{suggestion.description}
-							</span>
-						</div>
-					</SelectItem>
-				</div>
-			{/each}
-		</div>
-	</ScrollableContainer>
-</div>
+{#if suggestions?.length}
+	<div
+		class="options card"
+		style:display={listOpen ? undefined : 'none'}
+		style:max-height={maxHeight && pxToRem(maxHeight)}
+		use:clickOutside={{
+			trigger: searchBarWrapper,
+			handler: closeList,
+			enabled: listOpen
+		}}
+	>
+		<ScrollableContainer initiallyVisible>
+			<div class="options__group">
+				{#each suggestions as suggestion}
+					<div tabindex="-1" role="none">
+						<SelectItem
+							selected={false}
+							highlighted={isHighlighted(suggestion)}
+							on:click={() => handleSuggestionClick(suggestion)}
+						>
+							<div class="filter-suggestion">
+								<FilterPill name={formatFilterName(suggestion)} value={suggestion.value} />
+								<span class="description">
+									{suggestion.description}
+								</span>
+							</div>
+						</SelectItem>
+					</div>
+				{/each}
+			</div>
+		</ScrollableContainer>
+	</div>
+{/if}
 
 <style lang="postcss">
 	.options {

@@ -178,6 +178,7 @@
 			{searchBarWrapper}
 			{handleSuggestionClick}
 			{appliedFilters}
+			{filterDescriptions}
 			{value}
 		/>
 	{/if}

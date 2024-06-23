@@ -23,35 +23,42 @@ export interface AppliedFilter extends AppliedFilterInfo {
 	id: string;
 }
 
-export interface FilterDescription {
-	name: FilterName;
-	allowedValues?: string[];
-}
-
 export interface FilterSuggestion {
 	name: string;
 	value?: string;
 	description: string;
 }
 
-export const DEFAULT_FILTERS: FilterDescription[] = [
-	{ name: FilterName.Author },
-	{ name: FilterName.Origin, allowedValues: [FilterOriginValue.Local, FilterOriginValue.Remote] },
-	{ name: FilterName.SHA }
-];
+export interface FilterDescription {
+	name: FilterName;
+	allowedValues?: string[];
+	suggestions?: FilterSuggestion[];
+}
 
-export const DEFAULT_FILTER_SUGGESTIONS: FilterSuggestion[] = [
-	{ name: FilterName.Author, description: 'Filter by commit author' },
-	{ name: FilterName.SHA, description: 'Filter by commit SHA' },
+export const DEFAULT_FILTERS: FilterDescription[] = [
 	{
-		name: FilterName.Origin,
-		value: FilterOriginValue.Local,
-		description: 'Show only local commits'
+		name: FilterName.Author,
+		suggestions: [{ name: FilterName.Author, description: 'Filter by commit author' }]
+	},
+	{
+		name: FilterName.SHA,
+		suggestions: [{ name: FilterName.SHA, description: 'Filter by commit SHA' }]
 	},
 	{
 		name: FilterName.Origin,
-		value: FilterOriginValue.Remote,
-		description: 'Show only upstream commits'
+		allowedValues: [FilterOriginValue.Local, FilterOriginValue.Remote],
+		suggestions: [
+			{
+				name: FilterName.Origin,
+				value: FilterOriginValue.Local,
+				description: 'Show only local commits'
+			},
+			{
+				name: FilterName.Origin,
+				value: FilterOriginValue.Remote,
+				description: 'Show only upstream commits'
+			}
+		]
 	}
 ];
 
