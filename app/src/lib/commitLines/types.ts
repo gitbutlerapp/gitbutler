@@ -21,6 +21,7 @@ export interface Line {
 	top: Cell;
 	bottom: Cell;
 	node?: CommitNode;
+	tallerTop: boolean;
 }
 
 export interface LineGroup {

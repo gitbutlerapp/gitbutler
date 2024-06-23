@@ -8,10 +8,12 @@
 	}
 
 	const { line }: Props = $props();
+
+	$inspect(line.tallerTop);
 </script>
 
 <div class="line">
-	<div class="line-top">
+	<div class="line-top" class:taller-top={line.tallerTop}>
 		<Cell cell={line.top} />
 	</div>
 	{#if line.node}
@@ -32,12 +34,15 @@
 	}
 
 	.line-top {
-		flex-grow: 1;
+		height: 24px;
 		width: 100%;
+		&.taller-top {
+			height: 32px;
+		}
 	}
 
 	.line-bottom {
-		height: 42px;
+		flex-grow: 1;
 		width: 100%;
 	}
 </style>

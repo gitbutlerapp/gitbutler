@@ -129,7 +129,9 @@
 	class:is-last={last}
 	class:has-lines={$$slots.lines}
 >
-	<slot name="lines" />
+	<div>
+		<slot name="lines" />
+	</div>
 	<CommitDragItem {commit}>
 		<div class="commit-card" class:is-first={first} class:is-last={last}>
 			<div
