@@ -68,7 +68,7 @@
 
 	{#if upstreamCommits.length > 0}
 		<div>
-			{#each upstreamCommits as commit, index}
+			{#each upstreamCommits as commit, index (commit.id)}
 				<CommitCard
 					{commit}
 					first={index === 0}
@@ -90,7 +90,7 @@
 			>
 				Local
 			</h1>
-			{#each recentCommits as commit, index}
+			{#each recentCommits as commit, index (commit.id)}
 				<CommitCard
 					{commit}
 					first={index === 0}
