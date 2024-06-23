@@ -85,7 +85,7 @@
 	}
 
 	.modal-container.open {
-		animation: dialog-fade 0.2s ease-out;
+		animation: dialog-fade 0.15s ease-out;
 
 		& .modal-content {
 			animation: dialog-zoom 0.25s cubic-bezier(0.34, 1.35, 0.7, 1);
