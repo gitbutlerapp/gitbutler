@@ -62,7 +62,7 @@ export const DEFAULT_FILTERS: FilterDescription[] = [
 	}
 ];
 
-export function commitMatchesFilter(
+function commitMatchesFilter(
 	commit: RemoteCommit,
 	filter: AppliedFilter,
 	isUpstream: boolean
@@ -77,6 +77,23 @@ export function commitMatchesFilter(
 		case FilterName.SHA:
 			return filter.values.some((sha) => commit.id.startsWith(sha));
 	}
+}
+
+export function filterCommits(
+	commits: RemoteCommit[],
+	searchQuery: string | undefined,
+	searchFilters: AppliedFilter[],
+	isUpstream: boolean = false
+) {
+	let filteredCommits = commits;
+	for (const filter of searchFilters) {
+		filteredCommits = filteredCommits.filter((commit) =>
+			commitMatchesFilter(commit, filter, isUpstream)
+		);
+	}
+	return searchQuery
+		? filteredCommits.filter((commit) => commit.description.includes(searchQuery))
+		: filteredCommits;
 }
 
 export function parseFilterValues(

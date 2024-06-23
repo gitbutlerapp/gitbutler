@@ -10,7 +10,7 @@
 	import { tooltip } from '$lib/utils/tooltip';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch, RemoteCommit } from '$lib/vbranches/types';
-	import { commitMatchesFilter, type AppliedFilter } from '$lib/vbranches/filtering';
+	import { filterCommits, type AppliedFilter } from '$lib/vbranches/filtering';
 
 	export let base: BaseBranch;
 	export let searchQuery: string | undefined;
@@ -28,23 +28,9 @@
 	let upstreamCommits: RemoteCommit[];
 	$: filtersApplied = searchFilters.length > 0 || searchQuery;
 
-	function filterCommits(commits: RemoteCommit[], isUpstream: boolean = false) {
-		let filteredCommits = commits;
-		for (const filter of searchFilters) {
-			filteredCommits = filteredCommits.filter((commit) => commitMatchesFilter(commit, filter, isUpstream));
-		}
-		return searchQuery
-			? filteredCommits.filter((commit) => commit.description.includes(searchQuery))
-			: filteredCommits;
-	}
-
 	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false;
-	$: recentCommits = searchFilters.length > 0 || searchQuery
-		? filterCommits(base.recentCommits)
-		: base.recentCommits;
-	$: upstreamCommits = searchFilters.length > 0 || searchQuery
-		? filterCommits(base.upstreamCommits, true)
-		: base.upstreamCommits;
+	$: recentCommits = filterCommits(base.recentCommits, searchQuery, searchFilters);
+	$: upstreamCommits = filterCommits(base.upstreamCommits, searchQuery, searchFilters, true);
 
 	async function updateBaseBranch() {
 		let infoText = await branchController.updateBaseBranch();
