@@ -3,6 +3,7 @@
 	import { Project } from '$lib/backend/projects';
 	import LineGroup from '$lib/commitLines/LineGroup.svelte';
 	import { LineManagerFactory } from '$lib/commitLines/lineManager';
+	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
 	import {
 		ReorderDropzoneManagerFactory,
@@ -38,10 +39,10 @@
 
 	$: lineManager = lineManagerFactory.build(
 		{
-			remoteCommits: $remoteCommits,
-			localCommits: $localCommits,
-			localAndRemoteCommits: $localAndRemoteCommits,
-			integratedCommits: $integratedCommits
+			remoteCommits: $remoteCommits.map(transformAnyCommit),
+			localCommits: $localCommits.map(transformAnyCommit),
+			localAndRemoteCommits: $localAndRemoteCommits.map(transformAnyCommit),
+			integratedCommits: $integratedCommits.map(transformAnyCommit)
 		},
 		isRebased
 	);
