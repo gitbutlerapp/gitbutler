@@ -5,10 +5,8 @@ edition = "2021"
 publish = false
 
 [lib]
+test = false
 doctest = false
-
-[features]
-mock_instant = ["dep:mock_instant"]
 
 [dependencies]
 gitbutler-core.workspace = true
@@ -22,21 +20,7 @@ gix = { workspace = true, features = ["excludes"] }
 
 backoff = "0.4.0"
 notify = { version = "6.0.1" }
-parking_lot = "0.12.3"
-file-id = "0.2.1"
-walkdir = "2.2.2"
-crossbeam-channel = "0.5.13"
-itertools = "0.13"
-
-mock_instant = { version = "0.3.2", optional = true }
-
-[dev-dependencies]
-gitbutler-watcher = { path = ".", features = ["mock_instant"] }
-pretty_assertions = "1.3.0"
-rstest = "0.20"
-serde = { version = "1.0.203", features = ["derive"] }
-deser-hjson = "1.1.1"
-rand = "0.8.5"
+gitbutler-notify-debouncer.path = "vendor/debouncer"
 
 [lints.clippy]
 all = "deny"

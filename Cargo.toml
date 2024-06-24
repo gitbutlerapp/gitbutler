@@ -4,6 +4,7 @@ members = [
     "crates/gitbutler-tauri",
     "crates/gitbutler-git",
     "crates/gitbutler-watcher",
+    "crates/gitbutler-watcher/vendor/debouncer",
     "crates/gitbutler-testsupport",
     "crates/gitbutler-cli",
 ]
