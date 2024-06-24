@@ -3,6 +3,7 @@
 	import FilterSuggestions from './FilterSuggestions.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
+	import { isChar } from '$lib/utils/string';
 	import {
 		addAppliedFilter,
 		formatFilterName,
@@ -85,14 +86,9 @@
 	}
 
 	function handleDelete() {
-		if (value) {
-			if (value.length === 1) {
-				filterSuggestionElem?.openList();
-			}
-			return;
-		}
-		if (!filterDescriptions || !appliedFilters) return;
+		if (!filterDescriptions || !appliedFilters || value) return;
 		appliedFilters = appliedFilters.slice(0, -1);
+		filterSuggestionElem?.openList();
 	}
 
 	function handleArrowUp(e: KeyboardEvent) {
@@ -119,6 +115,11 @@
 		searchBarInput?.blur();
 	}
 
+	function handleChar() {
+		if (!filterDescriptions || !value) return;
+		filterSuggestionElem?.openList();
+	}
+
 	function onkeydown(e: KeyboardEvent) {
 		const { key } = e;
 
@@ -139,6 +140,7 @@
 				handleEscape();
 				break;
 			default:
+				if (isChar(key)) handleChar();
 				break;
 		}
 	}
