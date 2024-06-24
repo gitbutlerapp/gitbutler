@@ -9,6 +9,7 @@ export default defineConfig({
 			project: 'app-js',
 			authToken: process.env.SENTRY_AUTH_TOKEN,
 			telemetry: false,
+			disable: !process.env.SENTRY_RELEASE,
 			release: {
 				create: true,
 				cleanArtifacts: true,
