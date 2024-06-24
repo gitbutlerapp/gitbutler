@@ -75,6 +75,9 @@ importers:
       prettier-plugin-tailwind:
         specifier: ^2.2.12
         version: 2.2.12(prettier@3.3.2)(tailwindcss@3.4.4)
+      remark-youtube:
+        specifier: ^1.3.2
+        version: 1.3.2(remark-rehype@11.1.0)
       simple-git-hooks:
         specifier: ^2.11.1
         version: 2.11.1
@@ -2517,6 +2520,12 @@ packages:
 
   remark-stringify@11.0.0:
     resolution: {integrity: sha512-1OSmLd3awB/t8qdoEOMazZkNsfVTeY4fTsgzcQFdXNq8ToTN4ZGwrMnlda4K6smTFKD+GRV6O48i6Z4iKgPPpw==}
+
+  remark-youtube@1.3.2:
+    resolution: {integrity: sha512-Rtre0gfwzdfcjBbjkFQlQKJs5J7e6xEFBrto/amYWX70Jjzh2EH4lUQnRGKkGAWuReo7XZMqJalv67ygRIN/wg==}
+    engines: {node: '>= 18'}
+    peerDependencies:
+      remark-rehype: ^11.1.0
 
   remark@15.0.1:
     resolution: {integrity: sha512-Eht5w30ruCXgFmxVUSlNWQ9iiimq07URKeFS3hNc8cUWy1llX4KDWfyEDZRycMc+znsN9Ux5/tJ/BFdgdOwA3A==}
@@ -5953,6 +5962,11 @@ snapshots:
       '@types/mdast': 4.0.4
       mdast-util-to-markdown: 2.1.0
       unified: 11.0.5
+
+  remark-youtube@1.3.2(remark-rehype@11.1.0):
+    dependencies:
+      remark-rehype: 11.1.0
+      unist-util-visit: 5.0.0
 
   remark@15.0.1:
     dependencies:
