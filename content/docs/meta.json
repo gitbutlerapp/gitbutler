@@ -1,0 +1,12 @@
+{
+  "title": "Folder",
+  "pages": [
+    "index",
+    "overview",
+    "features",
+    "troubleshooting",
+    "development",
+    "community",
+    "releases"
+  ]
+}

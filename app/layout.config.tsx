@@ -1,19 +1,26 @@
 import { type BaseLayoutProps, type DocsLayoutProps } from "fumadocs-ui/layout"
 import { pageTree } from "./source"
 import Logo from "@/components/Logo"
+import Discord from "@/components/logos/discord"
+import GitButler from "@/components/logos/gitbutler-wordmark"
 
 // shared configuration
 export const baseOptions: BaseLayoutProps = {
   nav: {
-    // component: <Logo />,
+    title: <Logo />,
     transparentMode: "top"
   },
   githubUrl: "https://github.com/gitbutlerapp/gitbutler",
   links: [
     {
-      text: "Documentation",
-      url: "/docs",
-      active: "nested-url"
+      icon: <Discord />,
+      text: "Discord",
+      url: "https://discord.com/invite/MmFkmaJ42D"
+    },
+    {
+      icon: <GitButler />,
+      text: "GitButler Cloud",
+      url: "https://app.gitbutler.com/"
     }
   ]
 }
@@ -21,8 +28,8 @@ export const baseOptions: BaseLayoutProps = {
 // docs layout configuration
 export const docsOptions: DocsLayoutProps = {
   ...baseOptions,
-  sidebar: {
-    banner: <Logo />
-  },
+  // sidebar: {
+  //   banner: <Logo />
+  // },
   tree: pageTree
 }

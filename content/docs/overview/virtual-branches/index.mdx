@@ -2,21 +2,32 @@
 title: Virtual Branches
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
+import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+
+
 Work on several branches at the same time, committing and stashing them independently and simultaneously.
 
 The main feature of GitButler currently is our virtual branch functionality. Here is a quick video showing off some of what you can do when being able to work on multiple branches at the same time.
 
+> https://www.youtube.com/watch?v=MRcmnUwrP8A
 
 
 Virtual branches are just like normal Git branches, except that you can work on several of them at the same time.
 
+<ImageZoom width="480" height="480" src="https://docs.gitbutler.com/~gitbook/image?url=https%3A%2F%2F1744947193-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FZ5O7nIjz0ow1eQWGNs4v%252Fuploads%252FPSECHjeXR9C9bOk9lnBw%252FCleanShot%25202023-11-30%2520at%252016.25.19%25402x.png%3Falt%3Dmedia%26token%3D0366c6a2-e36b-43bf-b143-e9d72b00ef17&width=400&dpr=3&quality=100&sign=9aedb389f8c489a85cb6d3d2b5acdc940b7b2b1081a16a4fb3713a7370fbb2ca" />
 
 An example of working on two branches at the same time, while pending upstream changes wait for you to merge them.
-[!WARNING] You cannot use both GitButler virtual branches and normal Git branching commands at the same time, you will have to "commit" to one approach or the other.
+
+<Callout type="warn">
+You cannot use both GitButler virtual branches and normal Git branching commands at the same time, you will have to "commit" to one approach or the other.
+</Callout>
 
 The reason is that stock Git can only handle one branch at a time, it does not have tooling to use or understand multiple, so most commands having to do with the index or HEAD or branching (commit, branch, checkout, etc) may behave unexpectedly. Most importantly, do not use normal Git commit tooling or other GUIs.
 
-[!TIP] To understand why and how to get out of this, please read our integration-branch.md docs.
+<Callout type="info">
+To understand why and how to get out of this, please read our integration-branch.md docs.
+</Callout>
 
 Base Branch
 With virtual branches, you are not working off of local main or master branches. Everything that you do is on a virtual branch, automatically.
@@ -50,7 +61,9 @@ Eventually you will have work merged into the branch you chose as your base bran
 Click "Merge into common base" to integrate upstream changes into your virtual branches.
 Upstream work will automatically be shown in your sidebar in the "Trunk" section. When you click "Merge into common base" (or the "Update" button next to your "Applied Branches" section), we will attempt to integrate that work with your existing virtual branches. Each branch, applied or unapplied, will try to be updated with the new work.
 
-[!NOTE] We will attempt to rebase any commits in your virtual branches on top of new work (similar to running a git pull --rebase on each branch). However, if you already have commits in your branch, we have to create a merge commit to get them up to date.
+<Callout>
+We will attempt to rebase any commits in your virtual branches on top of new work (similar to running a git pull --rebase on each branch). However, if you already have commits in your branch, we have to create a merge commit to get them up to date.
+</Callout>
 
 If we cannot update a branch because of merge conflicts, we will unapply the branch automatically and leave it in an unmerged state. You can identify these branches with the blue dot next to them in your branch listing.
 
