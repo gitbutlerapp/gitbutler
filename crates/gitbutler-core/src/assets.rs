@@ -27,20 +27,17 @@ impl Proxy {
         }
     }
 
-    pub async fn proxy_user(&self, user: users::User) -> users::User {
-        match Url::parse(&user.picture) {
-            Ok(picture) => users::User {
-                picture: self.proxy(&picture).await.map_or_else(
-                    |error| {
-                        tracing::error!(?error, "failed to proxy user picture");
-                        user.picture.clone()
-                    },
-                    |url| url.to_string(),
-                ),
-                ..user
-            },
-            Err(_) => user,
+    pub async fn proxy_user(&self, mut user: users::User) -> users::User {
+        if let Ok(picture) = Url::parse(&user.picture) {
+            user.picture = self.proxy(&picture).await.map_or_else(
+                |error| {
+                    tracing::error!(?error, "failed to proxy user picture");
+                    user.picture.clone()
+                },
+                |url| url.to_string(),
+            );
         }
+        user
     }
 
     async fn proxy_virtual_branch_commit(

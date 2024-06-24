@@ -19,6 +19,11 @@ pub fn retrieve(handle: &str) -> Result<Option<Sensitive<String>>> {
     }
 }
 
+/// Delete the secret at `handle` permanently.
+pub fn delete(handle: &str) -> Result<()> {
+    Ok(entry_for(handle)?.delete_password()?)
+}
+
 fn entry_for(handle: &str) -> Result<keyring::Entry> {
     Ok(keyring::Entry::new("gitbutler", handle)?)
 }

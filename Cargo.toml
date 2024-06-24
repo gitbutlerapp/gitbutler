@@ -17,6 +17,7 @@ uuid = { version = "1.8.0", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0.61"
 tokio = { version = "1.38.0", default-features = false }
+keyring = "2.3.3"
 
 gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-core = { path = "crates/gitbutler-core" }
