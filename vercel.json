@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true,
+  "rewrite": [
+    {
+      "source": "/",
+      "destination": "https://gitbutler.com",
+      "permanent": true
+    }
+  ]
+}
