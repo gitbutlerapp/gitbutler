@@ -37,6 +37,8 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-end;
+		width: 24px;
+		margin-right: -2px;
 	}
 
 	.line-top {

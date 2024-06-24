@@ -12,9 +12,7 @@
 
 <div class="line-group">
 	{#each lineGroup.lines as line}
-		<div class="line">
-			<Line {line} {topHeightPx} />
-		</div>
+		<Line {line} {topHeightPx} />
 	{/each}
 </div>
 
@@ -22,11 +20,5 @@
 	.line-group {
 		display: flex;
 		height: 100%;
-	}
-
-	.line {
-		height: 100%;
-		width: 24px;
-		margin-right: -2px;
 	}
 </style>
