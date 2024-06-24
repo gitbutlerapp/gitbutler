@@ -3,7 +3,7 @@
 	import { Project } from '$lib/backend/projects';
 	import BranchPreviewHeader from '$lib/branch/BranchPreviewHeader.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
-	import SearchBar from '$lib/searchBar/SearchBar.svelte';
+	import SearchBarContainer from '$lib/searchBar/SearchBarContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
@@ -60,16 +60,7 @@
 	};
 </script>
 
-<div class="container">
-	<div class="search">
-		<SearchBar
-			bind:value={searchQuery}
-			bind:appliedFilters={searchFilters}
-			{filterDescriptions}
-			icon="search"
-			placeholder="Search"
-		/>
-	</div>
+<SearchBarContainer bind:searchQuery bind:searchFilters {filterDescriptions}>
 	<div class="base">
 		<div
 			class="base__left"
@@ -130,21 +121,9 @@
 			{/await}
 		</div>
 	</div>
-</div>
+</SearchBarContainer>
 
 <style lang="postcss">
-	.container {
-		display: flex;
-		flex-direction: column;
-		flex-grow: 1;
-		overflow: hidden;
-	}
-
-	.search {
-		padding: 12px;
-		padding-bottom: 0;
-	}
-
 	.base {
 		display: flex;
 		flex-grow: 1;
