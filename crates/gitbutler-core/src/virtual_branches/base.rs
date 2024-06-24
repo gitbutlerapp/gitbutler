@@ -590,7 +590,7 @@ pub fn target_to_base_branch(
 
     // get some recent commits
     let recent_commits = project_repository
-        .log(target.sha, LogUntil::Take(20))
+        .log(target.sha, LogUntil::Take(100))
         .context("failed to get recent commits")?
         .iter()
         .map(super::commit_to_remote_commit)
