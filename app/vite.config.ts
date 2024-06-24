@@ -1,16 +1,9 @@
-import { sentrySvelteKit } from '@sentry/sveltekit';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-	build: {
-		sourcemap: true
-	},
 	plugins: [
-		sentrySvelteKit({
-			autoInstrument: false
-		}),
 		sentryVitePlugin({
 			org: 'gitbutler',
 			project: 'app-js',
@@ -49,7 +42,7 @@ export default defineConfig({
 		// minify production builds
 		minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
 		// ship sourcemaps for better sentry error reports
-		sourcemap: 'inline'
+		sourcemap: true
 	},
 	test: {
 		deps: {
