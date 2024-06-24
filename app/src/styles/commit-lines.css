@@ -40,7 +40,7 @@
 			top: 0;
 			right: 0;
 			width: 2px;
-			height: 100%;
+			height: calc(100% + 1px);
 			background: repeating-linear-gradient(
 				0,
 				transparent,
