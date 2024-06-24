@@ -3,6 +3,11 @@ import { remarkHeading, remarkImage, remarkStructure, rehypeCode } from "fumadoc
 import remarkYoutube from "remark-youtube"
 
 const withMDX = createMDX({
+  buildSearchIndex: {
+    filter: (path) => {
+      return path.startsWith("docs")
+    }
+  },
   mdxOptions: {
     remarkPlugins: [remarkHeading, remarkImage, remarkStructure, remarkYoutube],
     rehypePlugins: [[rehypeCode]]

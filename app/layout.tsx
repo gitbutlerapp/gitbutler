@@ -1,19 +1,11 @@
 import "./global.css"
-import { RootProvider } from "fumadocs-ui/provider"
-import { Inter } from "next/font/google"
+import { Provider } from "./provider"
 import localFont from "next/font/local"
 import type { Metadata, Viewport } from "next"
 import type { ReactNode } from "react"
-// import dynamic from "next/dynamic"
-// import { SearchDialog, type SharedProps } from "fumadocs-ui/components/dialog/search"
-import DefaultSearchDialog from "fumadocs-ui/components/dialog/search-default"
 
 const SITE_URL = process.env.SITE_URL ?? "http://localhost:3000"
 const urlBase = new URL(SITE_URL)
-
-const inter = Inter({
-  subsets: ["latin"]
-})
 
 const splineSans = localFont({
   src: [
@@ -47,6 +39,20 @@ const ppEditorialNew = localFont({
   ],
   variable: "--font-ppeditorialnew"
 })
+
+export default function Layout({ children }: { children: ReactNode }) {
+  return (
+    <html
+      lang="en"
+      className={`${splineSans.className} ${ppEditorialNew.className}`}
+      suppressHydrationWarning
+    >
+      <body>
+        <Provider>{children}</Provider>
+      </body>
+    </html>
+  )
+}
 
 export const metadata: Metadata = {
   title: {
@@ -90,26 +96,4 @@ export const viewport: Viewport = {
   colorScheme: "dark light",
   width: "device-width",
   initialScale: 1
-}
-
-// const SearchDialog = dynamic(() => import("@/components/search"))
-
-export default function Layout({ children }: { children: ReactNode }) {
-  return (
-    <html
-      lang="en"
-      className={`${inter.className} ${splineSans.className} ${ppEditorialNew.className}`}
-      suppressHydrationWarning
-    >
-      <body>
-        <RootProvider
-          search={{
-            SearchDialog: DefaultSearchDialog
-          }}
-        >
-          {children}
-        </RootProvider>
-      </body>
-    </html>
-  )
 }
