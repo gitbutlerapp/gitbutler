@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Link from '../shared/Link.svelte';
-	import { showError } from '$lib/notifications/toasts';
 	import Button from '$lib/shared/Button.svelte';
 	import { UserService, type LoginToken } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
@@ -48,11 +47,7 @@
 			on:mousedown={async () => {
 				signUpOrLoginLoading = true;
 				try {
-					token = await userService.createLoginToken();
-					await userService.login(token);
-				} catch (err) {
-					console.error(err);
-					showError('Could not create login token', err);
+					await userService.login();
 				} finally {
 					signUpOrLoginLoading = false;
 				}

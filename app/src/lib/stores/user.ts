@@ -2,6 +2,7 @@ import { resetPostHog, setPostHogUser } from '$lib/analytics/posthog';
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
 import { API_URL, type HttpClient } from '$lib/backend/httpClient';
 import { invoke } from '$lib/backend/ipc';
+import { showError } from '$lib/notifications/toasts';
 import { observableToStore } from '$lib/rxjs/store';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
@@ -62,11 +63,15 @@ export class UserService {
 		resetSentry();
 	}
 
-	async login(token: LoginToken): Promise<User | undefined> {
+	async login(): Promise<User | undefined> {
 		this.logout();
 		this.loading$.next(true);
 		try {
-			openExternalUrl(token.url);
+			// Create login token
+			const token = await this.httpClient.post<LoginToken>('login/token.json');
+			const url = new URL(token.url);
+			url.host = API_URL.host;
+			openExternalUrl(url.toString());
 
 			// Assumed min time for login flow
 			await sleep(4000);
@@ -75,19 +80,12 @@ export class UserService {
 			this.setUser(user);
 
 			return user;
+		} catch (err) {
+			console.error(err);
+			showError('Something went wrong', err);
 		} finally {
 			this.loading$.next(false);
 		}
-	}
-
-	async createLoginToken(): Promise<LoginToken> {
-		const token = await this.httpClient.post<LoginToken>('login/token.json');
-		const url = new URL(token.url);
-		url.host = API_URL.host;
-		return {
-			...token,
-			url: url.toString()
-		};
 	}
 
 	async pollForUser(token: string): Promise<User | undefined> {
