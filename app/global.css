@@ -21,6 +21,10 @@
   color: var(--clr-black);
 }
 
+html:not(.dark) body {
+  background-color: var(--clr-bg);
+}
+
 body {
   /* optimise font rendering */
   -webkit-font-smoothing: antialiased;
@@ -50,6 +54,11 @@ article a:not(h1 > a, h2 > a, h3 > a, h4 > a, h5 > a, h6 > a) {
 
 main div:last-of-type a {
   /* color: var(--clr-accent) !important; */
+}
+
+article code {
+  /* border-color: color-mix(in srgb, var(--clr-accent) 90%, var(--clr-bg)) !important; */
+  /* background-color: color-mix(in srgb, var(--clr-accent) 20%, var(--clr-bg)) !important; */
 }
 
 /* Prev / Next Cards at bottom of every page */
@@ -82,5 +91,6 @@ aside button {
 
 iframe[src*="youtube"] {
   aspect-ratio: 16 / 9;
-  @apply mx-auto;
+  border-radius: 0.5rem;
+  @apply w-full h-full;
 }
