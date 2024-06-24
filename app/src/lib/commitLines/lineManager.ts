@@ -21,13 +21,15 @@ function generateSameForkpoint({
 	const localAndRemoteBranchGroups = mapToCommitLineGroupPair(localAndRemoteCommits, 3);
 	const integratedBranchGroups = mapToCommitLineGroupPair(integratedCommits, 3);
 
+	const base = blankLineGroup(3);
+
 	remoteBranchGroups.forEach(({ commit, lineGroup }, index) => {
 		if (index !== 0) {
 			lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
 		}
 		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'remote';
 
-		lineGroup.lines[LEFT_COLUMN_INDEX].node = { type: 'large', commit };
+		lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = { type: 'large', commit };
 
 		if (localBranchGroups.length > 0) {
 			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'localDashed';
@@ -43,7 +45,7 @@ function generateSameForkpoint({
 			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'local';
 		}
 		lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.style = 'local';
-		lineGroup.lines[RIGHT_COLUMN_INDEX].node = { type: 'large', commit };
+		lineGroup.lines[RIGHT_COLUMN_INDEX].commitNode = { type: 'large', commit };
 
 		let leftStyle: Style | undefined;
 
@@ -58,7 +60,7 @@ function generateSameForkpoint({
 			lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = leftStyle;
 
 			if (commit.relatedRemoteCommit) {
-				lineGroup.lines[LEFT_COLUMN_INDEX].node = {
+				lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
 					type: 'small',
 					commit: commit.relatedRemoteCommit
 				};
@@ -69,7 +71,7 @@ function generateSameForkpoint({
 					lineGroup.lines[LEFT_COLUMN_INDEX].top.style = leftStyle;
 				}
 
-				lineGroup.lines[LEFT_COLUMN_INDEX].node = {
+				lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
 					type: 'small',
 					commit: commit.relatedRemoteCommit
 				};
@@ -99,7 +101,7 @@ function generateSameForkpoint({
 		}
 		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'localAndRemote';
 
-		lineGroup.lines[LEFT_COLUMN_INDEX].node = { type: 'large', commit };
+		lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = { type: 'large', commit };
 	});
 
 	integratedBranchGroups.forEach(({ commit, lineGroup }, index) => {
@@ -119,7 +121,7 @@ function generateSameForkpoint({
 		}
 		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'integrated';
 
-		lineGroup.lines[LEFT_COLUMN_INDEX].node = { type: 'large', commit };
+		lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = { type: 'large', commit };
 	});
 
 	// Set forkpoints
@@ -141,14 +143,32 @@ function generateSameForkpoint({
 		localBranchGroups.forEach(({ lineGroup }) => lineGroup.lines.pop());
 		localAndRemoteBranchGroups.forEach(({ lineGroup }) => lineGroup.lines.pop());
 		integratedBranchGroups.forEach(({ lineGroup }) => lineGroup.lines.pop());
+
+		base.lines.pop();
 	}
 
-	return new Map<string, LineGroup>([
+	// Set base
+	base.lines[LEFT_COLUMN_INDEX].baseNode = {};
+	if (integratedBranchGroups.length > 0) {
+		base.lines[LEFT_COLUMN_INDEX].top.style = 'integrated';
+	} else if (localAndRemoteBranchGroups.length > 0) {
+		base.lines[LEFT_COLUMN_INDEX].top.style = 'localAndRemote';
+	} else if (localBranchGroups.length > 0) {
+		base.lines[LEFT_COLUMN_INDEX].top.style = 'local';
+	} else if (remoteBranchGroups.length > 0) {
+		base.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
+	} else {
+		base.lines[LEFT_COLUMN_INDEX].baseNode = undefined;
+	}
+
+	const data = new Map<string, LineGroup>([
 		...remoteBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup]),
 		...localBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup]),
 		...localAndRemoteBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup]),
 		...integratedBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup])
 	] as [string, LineGroup][]);
+
+	return { data, base };
 }
 
 function generateDifferentForkpoint({
@@ -158,6 +178,7 @@ function generateDifferentForkpoint({
 	integratedCommits
 }: Commits) {
 	const LEFT_COLUMN_INDEX = 0;
+	const MIDDLE_COLUMN_INDEX = 1;
 	const RIGHT_COLUMN_INDEX = 2;
 
 	if (localAndRemoteCommits.length > 0) {
@@ -168,13 +189,15 @@ function generateDifferentForkpoint({
 	const localBranchGroups = mapToCommitLineGroupPair(localCommits, 4);
 	const integratedBranchGroups = mapToCommitLineGroupPair(integratedCommits, 4);
 
+	const base = blankLineGroup(4);
+
 	remoteBranchGroups.forEach(({ commit, lineGroup }, index) => {
 		if (index !== 0) {
 			lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
 		}
 		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'remote';
 
-		lineGroup.lines[LEFT_COLUMN_INDEX].node = { type: 'large', commit };
+		lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = { type: 'large', commit };
 
 		if (localBranchGroups.length > 0) {
 			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'localDashed';
@@ -190,14 +213,14 @@ function generateDifferentForkpoint({
 			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'local';
 		}
 		lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.style = 'local';
-		lineGroup.lines[RIGHT_COLUMN_INDEX].node = { type: 'large', commit };
+		lineGroup.lines[RIGHT_COLUMN_INDEX].commitNode = { type: 'large', commit };
 
 		if (localCommitWithChangeIdFound) {
 			lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'shadow';
 			lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'shadow';
 
 			if (commit.relatedRemoteCommit) {
-				lineGroup.lines[LEFT_COLUMN_INDEX].node = {
+				lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
 					type: 'small',
 					commit: commit.relatedRemoteCommit
 				};
@@ -208,7 +231,7 @@ function generateDifferentForkpoint({
 					lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
 				}
 
-				lineGroup.lines[LEFT_COLUMN_INDEX].node = {
+				lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
 					type: 'small',
 					commit: commit.relatedRemoteCommit
 				};
@@ -232,14 +255,14 @@ function generateDifferentForkpoint({
 			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'integrated';
 		}
 		lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.style = 'integrated';
-		lineGroup.lines[RIGHT_COLUMN_INDEX].node = { type: 'large', commit };
+		lineGroup.lines[RIGHT_COLUMN_INDEX].commitNode = { type: 'large', commit };
 
 		if (localCommitWithChangeIdFound) {
 			lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'shadow';
 			lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'shadow';
 
 			if (commit.relatedRemoteCommit) {
-				lineGroup.lines[LEFT_COLUMN_INDEX].node = {
+				lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
 					type: 'small',
 					commit: commit.relatedRemoteCommit
 				};
@@ -250,7 +273,7 @@ function generateDifferentForkpoint({
 					lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
 				}
 
-				lineGroup.lines[LEFT_COLUMN_INDEX].node = {
+				lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
 					type: 'small',
 					commit: commit.relatedRemoteCommit
 				};
@@ -272,11 +295,45 @@ function generateDifferentForkpoint({
 		localBranchGroups.at(-1)!.lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.type = 'fork';
 	}
 
-	return new Map<string, LineGroup>([
+	function setLeftSideBase() {
+		let style: Style | undefined;
+		if (integratedBranchGroups.length > 0) {
+			style = integratedBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style;
+		} else if (localBranchGroups.length > 0) {
+			style = localBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style;
+		} else if (remoteBranchGroups.length > 0) {
+			style = remoteBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style;
+		} else {
+			style = 'none';
+		}
+
+		base.lines[LEFT_COLUMN_INDEX].top.style = style;
+		base.lines[LEFT_COLUMN_INDEX].bottom.style = style;
+	}
+
+	// Set base
+	if (integratedBranchGroups.length > 0) {
+		base.lines[MIDDLE_COLUMN_INDEX].top.style = 'integrated';
+		base.lines[MIDDLE_COLUMN_INDEX].baseNode = {};
+
+		setLeftSideBase();
+	} else if (localBranchGroups.length > 0) {
+		base.lines[MIDDLE_COLUMN_INDEX].top.style = 'local';
+		base.lines[MIDDLE_COLUMN_INDEX].baseNode = {};
+
+		setLeftSideBase();
+	} else if (remoteBranchGroups.length > 0) {
+		base.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
+		base.lines[LEFT_COLUMN_INDEX].baseNode = {};
+	}
+
+	const data = new Map<string, LineGroup>([
 		...remoteBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup]),
 		...localBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup]),
 		...integratedBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup])
 	] as [string, LineGroup][]);
+
+	return { data, base };
 }
 
 function mapToCommitLineGroupPair(commits: CommitData[], groupSize: number) {
@@ -316,13 +373,18 @@ function blankLineGroup(lineCount: number): LineGroup {
  */
 export class LineManager {
 	private data: Map<string, LineGroup>;
+	base: LineGroup;
 
 	constructor(commits: Commits, sameForkpoint: boolean) {
 		// We should never have local and remote commits with a different forkpoint
 		if (sameForkpoint || commits.localAndRemoteCommits.length > 0) {
-			this.data = generateSameForkpoint(commits);
+			const { data, base } = generateSameForkpoint(commits);
+			this.data = data;
+			this.base = base;
 		} else {
-			this.data = generateDifferentForkpoint(commits);
+			const { data, base } = generateDifferentForkpoint(commits);
+			this.data = data;
+			this.base = base;
 		}
 	}
 

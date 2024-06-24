@@ -1,7 +1,7 @@
 <script lang="ts">
 	import LineGroup from '$lib/commitLines/LineGroup.svelte';
 	import { LineManager } from '$lib/commitLines/lineManager';
-	import type { CommitData } from '$lib/commitLines/types.ts';
+	import type { CommitData } from '$lib/commitLines/types';
 
 	interface Props {
 		remoteCommits: CommitData[];
@@ -51,6 +51,10 @@
 			<LineGroup lineGroup={lineManager.get(commit.id)} />
 		</div>
 	{/each}
+
+	<div class="group">
+		<LineGroup lineGroup={lineManager.base} />
+	</div>
 </div>
 
 <style lang="postcss">

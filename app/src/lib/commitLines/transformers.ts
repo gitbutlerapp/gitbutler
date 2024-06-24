@@ -2,7 +2,7 @@ import type { CommitData, Author } from '$lib/commitLines/types';
 import type { AnyCommit } from '$lib/vbranches/types';
 
 export function transformAnyCommit(anyCommit: AnyCommit): CommitData {
-	const output: CommitData = pullCommitDetails(anyCommit);
+	const output = pullCommitDetails(anyCommit);
 
 	if (anyCommit.relatedTo) {
 		output.relatedRemoteCommit = pullCommitDetails(anyCommit.relatedTo);
@@ -11,14 +11,16 @@ export function transformAnyCommit(anyCommit: AnyCommit): CommitData {
 	return output;
 }
 
-function pullCommitDetails(anyCommit: AnyCommit): Omit<CommitData, 'relatedRemoteCommit'> {
+function pullCommitDetails(anyCommit: AnyCommit): CommitData {
 	const author: Author = {
+		name: anyCommit.author.name,
 		email: anyCommit.author.email,
 		gravatarUrl: anyCommit.author.gravatarUrl
 	};
 
 	return {
 		id: anyCommit.id,
+		title: anyCommit.descriptionTitle,
 		author
 	};
 }

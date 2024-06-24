@@ -1,5 +1,5 @@
 import DemoCommitLines from './DemoCommitLines.svelte';
-import type { Author } from '$lib/commitLines/types';
+import type { Author, CommitData } from '$lib/commitLines/types';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
@@ -9,165 +9,70 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const bill: Author = {
-	email: 'bill@gitbutler.com',
-	gravatarUrl: new URL('https://gravatar.com/avatar/abc123')
+const caleb: Author = {
+	email: 'hello@calebowens.com',
+	gravatarUrl: new URL('https://gravatar.com/avatar/f43ef760d895a84ca7bb35ff6f4c6b7c')
 };
+
+function author() {
+	return caleb;
+}
+
+function commit(): CommitData {
+	return {
+		id: crypto.randomUUID(),
+		title: 'This is a commit',
+		author: author()
+	};
+}
+
+function relatedCommit(): CommitData {
+	return {
+		id: crypto.randomUUID(),
+		title: 'This is a commit with relations',
+		author: author(),
+		relatedRemoteCommit: {
+			id: crypto.randomUUID(),
+			title: 'This is a related commit',
+			author: author()
+		}
+	};
+}
 
 export const sameForkpointAllPopulated: Story = {
 	args: {
-		remoteCommits: [
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			},
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			}
-		],
-		localCommits: [
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			},
-			{
-				id: crypto.randomUUID(),
-				author: bill,
-				relatedRemoteCommit: {
-					id: crypto.randomUUID(),
-					author: bill
-				}
-			}
-		],
-		localAndRemoteCommits: [
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			},
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			}
-		],
-		integratedCommits: [
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			},
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			}
-		],
+		remoteCommits: [commit(), commit()],
+		localCommits: [commit(), relatedCommit()],
+		localAndRemoteCommits: [commit(), commit()],
+		integratedCommits: [commit(), commit()],
 		sameForkpoint: true
 	}
 };
 
 export const sameForkpointNoLocals: Story = {
 	args: {
-		remoteCommits: [
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			},
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			}
-		],
+		remoteCommits: [commit(), commit()],
 		localCommits: [],
-		localAndRemoteCommits: [
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			},
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			}
-		],
-		integratedCommits: [
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			},
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			}
-		],
+		localAndRemoteCommits: [commit(), commit()],
+		integratedCommits: [commit(), commit()],
 		sameForkpoint: true
 	}
 };
 
 export const sameForkpointNoLocalAndRemotes: Story = {
 	args: {
-		remoteCommits: [
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			},
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			}
-		],
-		localCommits: [
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			},
-			{
-				id: crypto.randomUUID(),
-				author: bill,
-				relatedRemoteCommit: {
-					id: crypto.randomUUID(),
-					author: bill
-				}
-			}
-		],
+		remoteCommits: [commit(), commit()],
+		localCommits: [commit(), relatedCommit()],
 		localAndRemoteCommits: [],
-		integratedCommits: [
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			},
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			}
-		],
+		integratedCommits: [commit(), commit()],
 		sameForkpoint: true
 	}
 };
 
 export const sameForkpointNoLocalAndRemotesOrIntegrateds: Story = {
 	args: {
-		remoteCommits: [
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			},
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			}
-		],
-		localCommits: [
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			},
-			{
-				id: crypto.randomUUID(),
-				author: bill,
-				relatedRemoteCommit: {
-					id: crypto.randomUUID(),
-					author: bill
-				}
-			}
-		],
+		remoteCommits: [commit(), commit()],
+		localCommits: [commit(), relatedCommit()],
 		localAndRemoteCommits: [],
 		integratedCommits: [],
 		sameForkpoint: true
@@ -177,40 +82,49 @@ export const sameForkpointNoLocalAndRemotesOrIntegrateds: Story = {
 export const sameForkpointNoRemote: Story = {
 	args: {
 		remoteCommits: [],
-		localCommits: [
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			},
-			{
-				id: crypto.randomUUID(),
-				author: bill,
-				relatedRemoteCommit: {
-					id: crypto.randomUUID(),
-					author: bill
-				}
-			}
-		],
-		localAndRemoteCommits: [
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			},
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			}
-		],
-		integratedCommits: [
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			},
-			{
-				id: crypto.randomUUID(),
-				author: bill
-			}
-		],
+		localCommits: [commit(), relatedCommit()],
+		localAndRemoteCommits: [commit()],
+		integratedCommits: [commit(), commit()],
 		sameForkpoint: true
+	}
+};
+
+export const differentForkpointAll: Story = {
+	args: {
+		remoteCommits: [commit(), commit()],
+		localCommits: [commit(), relatedCommit()],
+		localAndRemoteCommits: [],
+		integratedCommits: [commit(), commit()],
+		sameForkpoint: false
+	}
+};
+
+export const differentForkpointNoIntegrated: Story = {
+	args: {
+		remoteCommits: [commit(), commit()],
+		localCommits: [commit(), relatedCommit()],
+		localAndRemoteCommits: [],
+		integratedCommits: [],
+		sameForkpoint: false
+	}
+};
+
+export const differentForkpointNoIntegratedNoRemote: Story = {
+	args: {
+		remoteCommits: [],
+		localCommits: [commit(), relatedCommit()],
+		localAndRemoteCommits: [],
+		integratedCommits: [],
+		sameForkpoint: false
+	}
+};
+
+export const differentForkpointOnlyRemote: Story = {
+	args: {
+		remoteCommits: [commit(), commit()],
+		localCommits: [],
+		localAndRemoteCommits: [],
+		integratedCommits: [],
+		sameForkpoint: false
 	}
 };

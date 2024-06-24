@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { tooltip } from '$lib/utils/tooltip';
+	import { isDefined } from '$lib/utils/typeguards';
 	import type { CommitNode, Style } from '$lib/commitLines/types';
 
 	interface Props {
@@ -7,6 +9,16 @@
 	}
 
 	const { commitNode, style }: Props = $props();
+
+	const hoverText = $derived(
+		[
+			commitNode.commit?.author.name,
+			commitNode.commit?.title,
+			commitNode.commit?.id.substring(0, 6)
+		]
+			.filter(isDefined)
+			.join('\n')
+	);
 </script>
 
 <div
@@ -26,10 +38,11 @@
 				srcset="{commitNode.commit.author.gravatarUrl} 2x"
 				width="100"
 				height="100"
+				use:tooltip={hoverText}
 			/>
 		</div>
 	{:else}
-		<div class="small-node"></div>
+		<div class="small-node" use:tooltip={hoverText}></div>
 	{/if}
 </div>
 

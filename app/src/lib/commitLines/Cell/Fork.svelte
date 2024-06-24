@@ -68,7 +68,7 @@
 		flex-grow: 1;
 
 		&.bottom-row {
-			height: 14px;
+			height: 16px;
 			flex-grow: 0;
 		}
 	}

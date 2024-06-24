@@ -219,7 +219,9 @@
 				on:keydown={(e) => e.key === 'Enter' && (baseIsUnfolded = !baseIsUnfolded)}
 			>
 				<div class="base-row__lines">
-					{#key tsKey}{/key}
+					{#key tsKey}
+						<LineGroup lineGroup={lineManager.base} />
+					{/key}
 				</div>
 				<div class="base-row__content">
 					<span class="text-base-11 base-row__text"

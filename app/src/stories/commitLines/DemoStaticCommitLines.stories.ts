@@ -15,7 +15,7 @@ export const sameForkpoint: Story = {
 				lines: [
 					{
 						top: { type: 'straight', style: 'remote' },
-						node: { type: 'large' },
+						commitNode: { type: 'large' },
 						bottom: { type: 'straight', style: 'remote' }
 					},
 					{
@@ -32,12 +32,12 @@ export const sameForkpoint: Story = {
 				lines: [
 					{
 						top: { type: 'straight', style: 'remote' },
-						node: { type: 'large' },
+						commitNode: { type: 'large' },
 						bottom: { type: 'straight', style: 'remote' }
 					},
 					{
 						top: { type: 'straight', style: 'local' },
-						node: { type: 'large' },
+						commitNode: { type: 'large' },
 						bottom: { type: 'straight', style: 'local' }
 					},
 					{
@@ -50,7 +50,7 @@ export const sameForkpoint: Story = {
 				lines: [
 					{
 						top: { type: 'straight', style: 'remote' },
-						node: { type: 'large' },
+						commitNode: { type: 'large' },
 						bottom: { type: 'straight', style: 'localAndRemote' }
 					},
 					{
@@ -74,7 +74,7 @@ export const differentForkpoint: Story = {
 				lines: [
 					{
 						top: { type: 'straight', style: 'remote' },
-						node: { type: 'large' },
+						commitNode: { type: 'large' },
 						bottom: { type: 'straight', style: 'remote' }
 					},
 					{
@@ -95,7 +95,7 @@ export const differentForkpoint: Story = {
 				lines: [
 					{
 						top: { type: 'straight', style: 'remote' },
-						node: { type: 'large' },
+						commitNode: { type: 'large' },
 						bottom: { type: 'straight', style: 'shadow' }
 					},
 					{
@@ -104,7 +104,7 @@ export const differentForkpoint: Story = {
 					},
 					{
 						top: { type: 'straight', style: 'localDashed' },
-						node: { type: 'large' },
+						commitNode: { type: 'large' },
 						bottom: { type: 'straight', style: 'local' }
 					},
 					{
@@ -117,7 +117,7 @@ export const differentForkpoint: Story = {
 				lines: [
 					{
 						top: { type: 'straight', style: 'shadow' },
-						node: { type: 'large' },
+						commitNode: { type: 'large' },
 						bottom: { type: 'straight', style: 'shadow' }
 					},
 					{
@@ -126,7 +126,7 @@ export const differentForkpoint: Story = {
 					},
 					{
 						top: { type: 'straight', style: 'local' },
-						node: { type: 'large' },
+						commitNode: { type: 'large' },
 						bottom: { type: 'straight', style: 'local' }
 					},
 					{
@@ -139,7 +139,7 @@ export const differentForkpoint: Story = {
 				lines: [
 					{
 						top: { type: 'straight', style: 'shadow' },
-						node: { type: 'large' },
+						commitNode: { type: 'large' },
 						bottom: { type: 'straight', style: 'shadow' }
 					},
 					{
@@ -148,7 +148,7 @@ export const differentForkpoint: Story = {
 					},
 					{
 						top: { type: 'straight', style: 'local' },
-						node: { type: 'large' },
+						commitNode: { type: 'large' },
 						bottom: { type: 'fork', style: 'integrated' }
 					},
 					{
@@ -168,7 +168,7 @@ export const onlyLocalAndRemote: Story = {
 				lines: [
 					{
 						top: { type: 'straight', style: 'localAndRemote' },
-						node: { type: 'large' },
+						commitNode: { type: 'large' },
 						bottom: { type: 'straight', style: 'localAndRemote' }
 					},
 					{
@@ -181,7 +181,7 @@ export const onlyLocalAndRemote: Story = {
 				lines: [
 					{
 						top: { type: 'straight', style: 'localAndRemote' },
-						node: { type: 'large' },
+						commitNode: { type: 'large' },
 						bottom: { type: 'straight', style: 'localAndRemote' }
 					},
 					{
@@ -194,7 +194,7 @@ export const onlyLocalAndRemote: Story = {
 				lines: [
 					{
 						top: { type: 'straight', style: 'localAndRemote' },
-						node: { type: 'large' },
+						commitNode: { type: 'large' },
 						bottom: { type: 'straight', style: 'localAndRemote' }
 					},
 					{

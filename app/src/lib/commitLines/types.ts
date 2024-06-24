@@ -17,10 +17,13 @@ export interface CommitNode {
 	commit?: CommitData;
 }
 
+export interface BaseNode {}
+
 export interface Line {
 	top: Cell;
 	bottom: Cell;
-	node?: CommitNode;
+	commitNode?: CommitNode;
+	baseNode?: BaseNode;
 	tallerTop?: boolean;
 }
 
@@ -30,6 +33,7 @@ export interface LineGroup {
 }
 
 export interface Author {
+	name?: string;
 	email?: string;
 	gravatarUrl?: URL;
 }
@@ -39,6 +43,7 @@ export interface Author {
  */
 export interface CommitData {
 	id: string;
+	title?: string;
 	author: Author;
 	relatedRemoteCommit?: CommitData;
 }
