@@ -7,15 +7,18 @@
     "start": "next start"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.1",
     "@typescript-eslint/eslint-plugin": "^7.13.1",
     "@typescript-eslint/parser": "^7.13.1",
+    "cmdk": "^1.0.0",
     "fumadocs-core": "12.2.0",
     "fumadocs-mdx": "8.2.32",
     "fumadocs-ui": "12.2.0",
     "next": "^14.2.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "shiki": "^1.9.0"
+    "shiki": "^1.9.0",
+    "tailwind-merge": "^2.3.0"
   },
   "devDependencies": {
     "@types/mdx": "^2.0.13",

@@ -41,7 +41,7 @@ export default async function Page({ params }: { params: { slug?: string[] } }) 
   return (
     <DocsPage
       toc={page.data.exports.toc}
-      full={page.data.full}
+      // full={page.data.full}
       tableOfContent={{
         footer
       }}
