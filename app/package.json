@@ -50,6 +50,7 @@
 		"@playwright/test": "^1.44.1",
 		"@replit/codemirror-lang-svelte": "^6.0.0",
 		"@sentry/sveltekit": "^8.9.2",
+		"@sentry/vite-plugin": "^2.20.0",
 		"@sveltejs/adapter-static": "^3.0.1",
 		"@sveltejs/kit": "^2.5.10",
 		"@sveltejs/vite-plugin-svelte": "^3.1.1",
