@@ -1,44 +1,73 @@
-import { getPage, getPages } from '@/app/source';
-import type { Metadata } from 'next';
-import { DocsPage, DocsBody } from 'fumadocs-ui/page';
-import { notFound } from 'next/navigation';
+import { getPage, getPages } from "@/app/source"
+import type { Metadata } from "next"
+import { DocsPage, DocsBody } from "fumadocs-ui/page"
+import { notFound } from "next/navigation"
 
-export default async function Page({
-  params,
-}: {
-  params: { slug?: string[] };
-}) {
-  const page = getPage(params.slug);
+export default async function Page({ params }: { params: { slug?: string[] } }) {
+  const page = getPage(params.slug)
 
-  if (page == null) {
-    notFound();
-  }
+  if (!page) notFound()
 
-  const MDX = page.data.exports.default;
+  const path = `content/docs/${page.file.path}`
+
+  const footer = (
+    <a
+      href={`https://github.com/ndom91/gitbutler-docs/blob/main/${path}`}
+      target="_blank"
+      rel="noreferrer noopener"
+      className="rounded-md text-neutral-500 dark:text-neutral-200 dark:bg-neutral-800 border border-neutral-300 text-sm py-1 dark:border-neutral-700 flex justify-center items-start gap-2"
+    >
+      <svg
+        className="size-4"
+        fill="none"
+        strokeWidth={1.5}
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
+        />
+      </svg>
+      Edit on GitHub
+    </a>
+  )
+
+  const MDX = page.data.exports.default
 
   return (
-    <DocsPage toc={page.data.exports.toc}>
+    <DocsPage
+      toc={page.data.exports.toc}
+      full={page.data.full}
+      tableOfContent={{
+        footer
+      }}
+      tableOfContentPopover={{ footer }}
+    >
       <DocsBody>
         <h1>{page.data.title}</h1>
         <MDX />
       </DocsBody>
     </DocsPage>
-  );
+  )
 }
 
 export async function generateStaticParams() {
   return getPages().map((page) => ({
-    slug: page.slugs,
-  }));
+    slug: page.slugs
+  }))
 }
 
 export function generateMetadata({ params }: { params: { slug?: string[] } }) {
-  const page = getPage(params.slug);
+  const page = getPage(params.slug)
 
-  if (page == null) notFound();
+  if (page == null) notFound()
 
   return {
     title: page.data.title,
-    description: page.data.description,
-  } satisfies Metadata;
+    description: page.data.description
+  } satisfies Metadata
 }

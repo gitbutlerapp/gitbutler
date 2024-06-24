@@ -14,7 +14,8 @@
     "fumadocs-ui": "12.2.0",
     "next": "^14.2.4",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "shiki": "^1.9.0"
   },
   "devDependencies": {
     "@types/mdx": "^2.0.13",
