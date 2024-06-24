@@ -2,11 +2,21 @@
 title: Fetch / Push Issues
 ---
 
+import ImageSection from "@/components/ImageSection"
+
 If you are having trouble pushing or fetching from a remote, this is likely related to git authentication. Here are a few configuration options you can try out, found in the project settings.
 
 ## Available authentication methods
 
 GitButler can be configured to use several different git authentication methods. You can switch between them in your project settings. You can try multiple different options and see if any of them are appropriate for your setup.
+
+<ImageSection
+  width={700}
+  height={600}
+  className="mx-auto"
+  alt="Virtual Branches Example"
+  src="/img/docs/issues-01.png"
+/>
 
 ### Use a Git executable (default)
 
@@ -18,19 +28,19 @@ If already have an SSH key set up (eg. `~/.ssh/id_rsa`), you can instruct GitBut
 
 ### Use locally generated SSH key
 
-This option generates a new SSH key which will be stored locally in the application data dir. For this to work you will need to add the new public key to your Git remote provider.
+This option generates a new SSH key which will be stored locally in the application [data dir](https://docs.gitbutler.com/development/debugging#data-files). For this to work you will need to add the new public key to your Git remote provider.
 
 ### Use a git credential helper
 
-If your system is set up with a credential helper, GitButler can use that. For more info on git credential helpers, see this article
+If your system is set up with a credential helper, GitButler can use that. For more info on git credential helpers, see this [article](https://git-scm.com/doc/credential-helpers).
 
 ### FIDO security keys (YubiKey, etc.)
 
-If you're using a FIDO key, check out this issue to see how people have set it up with the Git executable method: #2661
+If you're using a FIDO key, check out this issue to see how people have set it up with the Git executable method: [#2661](https://github.com/gitbutlerapp/gitbutler/issues/2661)
 
 ### Keys managed by 1Password
 
-Keys stored in 1Password should properly use it as an SSH agent for authentication and signing commits if you use the Git executable option. (Previously tracked in #2779)
+Keys stored in 1Password should properly use it as an SSH agent for authentication and signing commits if you use the Git executable option. (Previously tracked in [#2779](https://github.com/gitbutlerapp/gitbutler/issues/2779))
 
 ### Host certificate checks
 
@@ -39,9 +49,9 @@ There is an option to ignore host certificate checks when authenticating with ss
 ## Other known issues
 
 ### Git remote servers with a non-standard SSH port
-In some cases, the git remote may be setup on a port number other than 22. If the port is set in your `~/.ssh/config` file, GitButler will not be able to recognize that - tracked in GitHub issue #2700.
+In some cases, the git remote may be setup on a port number other than 22. If the port is set in your `~/.ssh/config` file, GitButler will not be able to recognize that - tracked in GitHub issue [#2700](https://github.com/gitbutlerapp/gitbutler/issues/2700).
 
-As a workaround you may set your remote in the SSH format (eg. `ssh://git@example.com:3022/foo/bar.git`)
+As a workaround you may set your remote in the [SSH format](https://git-scm.com/book/en/v2/Git-on-the-Server-The-Protocols) (eg. `ssh://git@example.com:3022/foo/bar.git`)
 
 Updating virtual branches when the respective remote has new commits
 If you have added a remote branch to your active workspace in GitButler, or pushed a virtual branch to the remote, and new commits are added to the remote branch, there is currently no way to sync those new commits into the existing virtual branch in GitButler. This is being tracked in the GitHub issue [#2649](https://github.com/gitbutlerapp/gitbutler/issues/2649).

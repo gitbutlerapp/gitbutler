@@ -1,0 +1,79 @@
+---
+title: Branch Lanes
+---
+
+import ImageSection from "@/components/ImageSection"
+
+How do you manage your virtual branches?
+
+The main interface for Virtual Branches are a series of branch lanes. Each lane represents a scope of work that is different than what your current base branch (ie, `origin/master`) looks like. Work that is not yet in production.
+
+This could be a local virtual branch that you're working on, or it could be a virtual branch that was created from a remote branch.
+
+The interface looks something like this:
+
+<ImageSection
+  width={700}
+  height={600}
+  className="mx-auto"
+  alt="Virtual Branches Example"
+  src="/img/docs/branch-lanes-01.webp"
+  subtitle="An example of working on two branches at the same time, while pending upstream changes wait for you to merge them."
+/>
+
+An example of working on two branches at the same time, while pending upstream changes wait for you to merge them.
+
+## The Sidebar
+
+The sidebar on the left shows you the stashed virtual branches that you have and the "other" branches that you have available (legacy git branches, remote branches and PRs). All of these branches can be converted into virtual branches by clicking them and then clicking the "Apply" button on the branch view.
+
+### Trunk
+
+The "Trunk" is the view of the base branch that you've set. It will show you essentially a `git log` of `origin/master` or whatever you set as your base branch, and it will show you if there are any commits upstream that you have not integrated locally yet. We will automatically check for new upstream changes every few minutes, but you can also click the update button to check immediately.
+
+<ImageSection
+  width={700}
+  height={600}
+  className="mx-auto"
+  alt="Virtual Branches Example"
+  src="/img/docs/branch-lanes-02.webp"
+  subtitle="A screenshot showcasing the Trunk view."
+/>
+
+### Workspace
+
+Clicking this will give you the list of applied virtual branches that are in your working directory. It is the main view you will be working in.
+
+### Branches
+
+Underneath that, we list all the other unapplied branches that you have. This can be normal git branches, remote branches, remote branches with Pull Requests opened on them, or unapplied virtual branches that you've created.
+
+You can click on any of these to inspect them and optionally apply them to your workspace.
+
+## Applied Virtual Branches Lanes
+
+When you click on "Workspace", you will see your main view, which is a list of the virtual branches that are currently applied into your working directory.
+
+For each virtual branch lane, there is a list of uncommitted work and committed work. If there is uncommitted work, can type a commit message and commit it locally.
+
+If you are logged in, you can also use our AI helper to generate your commit message automatically from the diffs of your in progress work by clicking the "Generate Message" button.
+
+You can drag the uncommitted files from one lane to another in order to separate the work. You can also drag hunks from within files if you want to split up work in one file into multiple branches.
+
+You can inspect any file change by clicking on the file path. GitButler will expand a inspector to the right to show you the diff.
+
+
+<ImageSection
+  width={700}
+  height={600}
+  className="mx-auto"
+  alt="Virtual Branches Example"
+  src="/img/docs/branch-lanes-03.webp"
+  subtitle="Inspecting our file change"
+/>
+
+Once you have committed work, you will see it at the bottom as a list of commits under a tag that indicates that they are local. If you hit the "Push" button, it will attempt to push these commits to the same remote server that your base branch is on.
+
+If you have authenticated to GitHub, you also have the option to create a Pull Request for that branch automatically.
+
+Any further commits will be marked as local until you push them.

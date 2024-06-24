@@ -44,8 +44,12 @@ body {
 
 /* Links in article */
 article a:not(h1 > a, h2 > a, h3 > a, h4 > a, h5 > a, h6 > a) {
-  color: var(--clr-accent) !important;
-  text-decoration-color: var(--clr-accent) !important;
+  /* color: var(--clr-accent) !important; */
+  /* text-decoration-color: var(--clr-accent) !important; */
+}
+
+main div:last-of-type a {
+  /* color: var(--clr-accent) !important; */
 }
 
 /* Prev / Next Cards at bottom of every page */
@@ -73,5 +77,10 @@ h6 {
 /* Main Sidebar */
 aside a,
 aside button {
-  @apply !font-ppeditorial tracking-wide;
+  @apply !font-ppeditorial tracking-wide text-sm;
+}
+
+iframe[src*="youtube"] {
+  aspect-ratio: 16 / 9;
+  @apply mx-auto;
 }

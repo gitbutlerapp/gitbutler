@@ -2,6 +2,8 @@
 title: Recovering Stuff
 ---
 
+import ImageSection from "@/components/ImageSection"
+
 How to dig around our internal data to find (nearly) anything
 
 GitButler saves data in a few different ways. As we're still in beta, sometimes things might break and it may look like you've lost work, but you almost certainly haven't. We're pretty good about saving stuff a lot. Here's how to recover almost anything you had in your working directory or virtual branches.
@@ -25,6 +27,14 @@ You will have one for each virtual branch (applied or unapplied) that you've cre
 If you've committed everything on a virtual branch, the reference will just point to the latest commit. If you have work in progress on the branch, it will point to a WIP commit that includes those changes.
 
 So for example, if I have the following two virtual branches, one fully committed and one with work pending:
+
+<ImageSection
+  width={700}
+  height={600}
+  className="mx-auto"
+  alt="Virtual Branches Example"
+  src="/img/docs/recovering-01.webp"
+/>
 
 
 I can view the git branches like this:

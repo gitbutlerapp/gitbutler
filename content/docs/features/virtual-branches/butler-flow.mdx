@@ -1,3 +1,49 @@
 ---
 title: Butler Flow
 ---
+
+Butler Flow is a lightweight, branch-based workflow enabled by GitButler virtual branch functionality.
+
+Most modern software development teams today that want to set up a culture of shipping, who push to production every day, who are constantly testing and deploying, one of the most popular and effective development workflows is [GitHub Flow](https://docs.github.com/en/get-started/quickstart/github-flow).
+
+These are wise words, enterprising men quote 'em. Don't act surprised, you guys, [cuz I wrote 'em](https://scottchacon.com/2011/08/31/github-flow).
+
+However, a decade later, and with a new and more powerful branching toolset, we're able to amend that basic workflow to be simpler, faster, more flexible and less error prone. Let's take a quick minute to explore what the Butler Flow is for software development teams using GitButler and how this can make all of our lives easier.
+
+## Overview
+
+- In a nutshell, the basic development cycle is very simple.
+- All work is based off a "base branch", which is a representation of released production code.
+- All work immediately exists in a branch.
+- Work can be shared with teammates for review as early as possible.
+- All branches that are close to merging can be applied locally for integration testing.
+- Branches can be reviewed independently and merged after final review.
+- Integrated branches are automatically removed from developer context.
+
+### The Base Branch
+
+In stock Git tooling, there is nothing specified as the production branch, no special "trunk". It is only by convention that this is enforced.
+
+In GitButler, virtual branches will not work without the specification of a special "base branch". Everything exists in relation to this special branch, everything that differs from it must be accounted for by being owned by some other branch, until those changes are integrated.
+
+### Virtual Branches
+
+Once you choose a base branch, everything that is in your working directory and not ignored by the Git ignore specification must be owned by a virtual branch. If you don't have one active, GitButler will automatically create one for you.
+
+All subsequent changes to your working directory, either by applying other branches or directly modifying files, must be owned by a virtual branch.
+
+Branches are meant to be small, independent and rapidly integrated. However, longer lived branches can be continuously re-integrated, keeping them clean and mergeable for long periods of time if needed, while still being shareable and reviewable with your team.
+
+Virtual branches can be started and ended entirely independently of each other. Developers can work on longer branches, while starting, reviewing, finishing, merging and deleting small ones without ever changing branch context.
+
+### Collaboration
+
+All coworkers work, whether created and managed by GitButler or not, exists on the central server as normal Git branches. These will automatically be pulled down and kept up to date by GitButler and can be converted into virtual branches and applied to your working directory in addition to your branches.
+
+This allows you to integrate work from the rest of your team continuously and early, while still keeping non-dependent changes separated and independently reviewable and mergable. It allows you to review code without needing to entirely switch contexts, and to do so early and often in an executable environment.
+
+Merge conflicts are known almost as soon as they occur and can be communicated about and collaborated on far before an upstream merge.
+
+### Maintenance
+
+Virtual branches can remain applied locally until they are merged into your upstream base branch. Once integrated by any fashion (squash merge, rebase, merge), the virtual branch is automatically disposed of, keeping cruft and overhead low.
