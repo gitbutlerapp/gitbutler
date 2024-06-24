@@ -431,10 +431,6 @@ function mapToCommitLineGroupPair(commits: CommitData[], groupSize: number) {
 		lineGroup: blankLineGroup(groupSize)
 	}));
 
-	if (groupings.length > 0) {
-		groupings[0].lineGroup.lines.forEach((line) => (line.tallerTop = true));
-	}
-
 	return groupings;
 }
 

@@ -19,7 +19,6 @@ export interface Line {
 	bottom: Cell;
 	commitNode?: CommitNode;
 	baseNode?: BaseNode;
-	tallerTop?: boolean;
 }
 
 export interface LineGroup {

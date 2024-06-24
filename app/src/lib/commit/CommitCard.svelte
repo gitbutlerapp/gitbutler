@@ -25,7 +25,7 @@
 		BaseBranch,
 		type CommitStatus
 	} from '$lib/vbranches/types';
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, type Snippet } from 'svelte';
 
 	export let branch: Branch | undefined = undefined;
 	export let commit: Commit | RemoteCommit;
@@ -35,6 +35,7 @@
 	export let first = false;
 	export let last = false;
 	export let type: CommitStatus;
+	export let lines: Snippet<[number]> | undefined;
 
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
@@ -100,6 +101,14 @@
 
 		commitMessageModal.close();
 	}
+
+	let topHeightPx = 24;
+
+	$: {
+		topHeightPx = 24;
+		if (first) topHeightPx = 54;
+		if (showDetails && !first) topHeightPx += 12;
+	}
 </script>
 
 <Modal bind:this={commitMessageModal} width="small">
@@ -127,11 +136,13 @@
 	class:is-commit-open={showDetails}
 	class:is-first={first}
 	class:is-last={last}
-	class:has-lines={$$slots.lines}
+	class:has-lines={lines}
 >
-	<div>
-		<slot name="lines" />
-	</div>
+	{#if lines}
+		<div>
+			{@render lines(topHeightPx)}
+		</div>
+	{/if}
 	<CommitDragItem {commit}>
 		<div class="commit-card" class:is-first={first} class:is-last={last}>
 			<div

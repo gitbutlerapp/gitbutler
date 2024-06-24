@@ -117,9 +117,9 @@
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 					isHeadCommit={commit.id === headCommit?.id}
 				>
-					<svelte:fragment slot="lines">
-						<LineGroup lineGroup={lineManager.get(commit.id)} />
-					</svelte:fragment>
+					{#snippet lines(topHeightPx)}
+						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+					{/snippet}
 				</CommitCard>
 			{/each}
 		{/if}
@@ -141,9 +141,9 @@
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 					isHeadCommit={commit.id === headCommit?.id}
 				>
-					<svelte:fragment slot="lines">
-						<LineGroup lineGroup={lineManager.get(commit.id)} />
-					</svelte:fragment>
+					{#snippet lines(topHeightPx)}
+						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+					{/snippet}
 				</CommitCard>
 
 				{@render reorderDropzone(
@@ -174,9 +174,9 @@
 					isHeadCommit={commit.id === headCommit?.id}
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 				>
-					<svelte:fragment slot="lines">
-						<LineGroup lineGroup={lineManager.get(commit.id)} />
-					</svelte:fragment>
+					{#snippet lines(topHeightPx)}
+						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+					{/snippet}
 				</CommitCard>
 				{@render reorderDropzone(
 					reorderDropzoneManager.dropzoneBelowCommit(commit.id),
@@ -203,9 +203,9 @@
 					last={idx === $integratedCommits.length - 1}
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 				>
-					<svelte:fragment slot="lines">
-						<LineGroup lineGroup={lineManager.get(commit.id)} />
-					</svelte:fragment>
+					{#snippet lines(topHeightPx)}
+						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+					{/snippet}
 				</CommitCard>
 			{/each}
 		{/if}

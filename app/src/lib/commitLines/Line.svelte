@@ -3,16 +3,22 @@
 	import Cell from '$lib/commitLines/Cell.svelte';
 	import CommitNode from '$lib/commitLines/CommitNode.svelte';
 	import type { Line } from '$lib/commitLines/types';
+	import { pxToRem } from '$lib/utils/pxToRem';
 
 	interface Props {
 		line: Line;
+		topHeightPx?: number;
 	}
 
-	const { line }: Props = $props();
+	const { line, topHeightPx = 24 }: Props = $props();
 </script>
 
 <div class="line">
-	<div class="line-top" class:taller-top={line.tallerTop} class:has-branch-node={line.baseNode}>
+	<div
+		class="line-top"
+		style:--top-height={pxToRem(topHeightPx)}
+		class:has-branch-node={line.baseNode}
+	>
 		<Cell cell={line.top} />
 	</div>
 	{#if line.commitNode}
@@ -35,11 +41,8 @@
 	}
 
 	.line-top {
-		height: 24px;
+		height: var(--top-height);
 		width: 100%;
-		&.taller-top {
-			height: 58px;
-		}
 
 		&.has-branch-node {
 			height: 24px;
