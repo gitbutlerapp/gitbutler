@@ -21,7 +21,7 @@
 		<BaseNode baseNode={line.baseNode} color={line.top.color} />
 	{/if}
 	<div class="line-bottom">
-		<Cell cell={line.bottom} />
+		<Cell cell={line.bottom} isBottom />
 	</div>
 </div>
 
@@ -38,11 +38,11 @@
 		height: 24px;
 		width: 100%;
 		&.taller-top {
-			height: 48px;
+			height: 58px;
 		}
 
 		&.has-branch-node {
-			height: 28px;
+			height: 24px;
 		}
 	}
 

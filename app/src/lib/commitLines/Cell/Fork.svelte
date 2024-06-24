@@ -4,9 +4,10 @@
 	interface Props {
 		color: Color;
 		style?: Style;
+		isBottom?: boolean;
 	}
 
-	const { color, style }: Props = $props();
+	const { color, style, isBottom = false }: Props = $props();
 </script>
 
 <div
@@ -23,7 +24,7 @@
 		<div></div>
 		<div class="fork-top"></div>
 	</div>
-	<div class="row bottom-row">
+	<div class="row bottom-row" class:is-bottom={isBottom}>
 		<div class="fork-bottom"></div>
 		<div></div>
 	</div>
@@ -77,6 +78,10 @@
 		&.bottom-row {
 			height: 16px;
 			flex-grow: 0;
+		}
+
+		&.is-bottom {
+			height: 8px;
 		}
 	}
 

@@ -109,6 +109,16 @@ export const differentForkpointNoIntegrated: Story = {
 	}
 };
 
+export const differentForkpointNoLocal: Story = {
+	args: {
+		remoteCommits: [commit(), commit()],
+		localCommits: [],
+		localAndRemoteCommits: [],
+		integratedCommits: [commit(), relatedCommit(), commit()],
+		sameForkpoint: false
+	}
+};
+
 export const differentForkpointNoIntegratedNoRemote: Story = {
 	args: {
 		remoteCommits: [],

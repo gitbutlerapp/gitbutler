@@ -297,8 +297,6 @@
 		position: relative;
 		display: flex;
 
-		gap: 2px;
-
 		&.has-lines {
 			padding-right: 14px;
 		}
