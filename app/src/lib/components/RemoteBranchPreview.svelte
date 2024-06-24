@@ -109,7 +109,7 @@
 <style lang="postcss">
 	.base {
 		display: flex;
-		flex-grow: 1;
+		width: 100%;
 		overflow-x: auto;
 	}
 	.base__left {
