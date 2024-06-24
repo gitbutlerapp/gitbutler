@@ -10,14 +10,14 @@
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { DEFAULT_FILTERS, type AppliedFilter } from '$lib/vbranches/filtering';
+	import { TRUNK_BRANCH_FILTERS, type AppliedFilter } from '$lib/vbranches/filtering';
 	import lscache from 'lscache';
 	import { onMount, setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'historyLaneWidth';
-	const filterDescriptions = DEFAULT_FILTERS;
+	const filterDescriptions = TRUNK_BRANCH_FILTERS;
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 	const baseBranchService = getContext(BaseBranchService);

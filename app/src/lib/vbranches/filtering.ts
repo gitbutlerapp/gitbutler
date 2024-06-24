@@ -1,4 +1,4 @@
-import type { RemoteCommit } from './types';
+import type { CommitStatus, RemoteCommit } from './types';
 
 const FILTER_PROP_SEPARATOR = ':';
 const FILTER_OR_VALUE_SEPARATOR = ',';
@@ -35,15 +35,29 @@ export interface FilterDescription {
 	suggestions?: FilterSuggestion[];
 }
 
-export const DEFAULT_FILTERS: FilterDescription[] = [
+export const REMOTE_BRANCH_FILTERS: FilterDescription[] = [
 	{
 		name: FilterName.Author,
-		suggestions: [{ name: FilterName.Author, description: 'Filter by commit author' }]
+		suggestions: [
+			{
+				name: FilterName.Author,
+				description: 'Filter by commit author. Name must match exactly the given value'
+			}
+		]
 	},
 	{
 		name: FilterName.SHA,
-		suggestions: [{ name: FilterName.SHA, description: 'Filter by commit SHA' }]
-	},
+		suggestions: [
+			{
+				name: FilterName.SHA,
+				description: 'Filter by commit SHA. SHA must start with the given value'
+			}
+		]
+	}
+];
+
+export const TRUNK_BRANCH_FILTERS: FilterDescription[] = [
+	...REMOTE_BRANCH_FILTERS,
 	{
 		name: FilterName.Origin,
 		allowedValues: [FilterOriginValue.Local, FilterOriginValue.Upstream],
@@ -65,14 +79,14 @@ export const DEFAULT_FILTERS: FilterDescription[] = [
 function commitMatchesFilter(
 	commit: RemoteCommit,
 	filter: AppliedFilter,
-	isUpstream: boolean
+	type: CommitStatus
 ): boolean {
 	switch (filter.name) {
 		case FilterName.Author:
 			return !!commit.author.name && filter.values.includes(commit.author.name);
 		case FilterName.Origin:
 			return filter.values.includes(
-				!isUpstream ? FilterOriginValue.Local : FilterOriginValue.Upstream
+				type === 'upstream' ? FilterOriginValue.Upstream : FilterOriginValue.Local
 			);
 		case FilterName.SHA:
 			return filter.values.some((sha) => commit.id.startsWith(sha));
@@ -83,13 +97,11 @@ export function filterCommits(
 	commits: RemoteCommit[],
 	searchQuery: string | undefined,
 	searchFilters: AppliedFilter[],
-	isUpstream: boolean = false
+	type: CommitStatus
 ) {
 	let filteredCommits = commits;
 	for (const filter of searchFilters) {
-		filteredCommits = filteredCommits.filter((commit) =>
-			commitMatchesFilter(commit, filter, isUpstream)
-		);
+		filteredCommits = filteredCommits.filter((commit) => commitMatchesFilter(commit, filter, type));
 	}
 	return searchQuery
 		? filteredCommits.filter((commit) => commit.description.includes(searchQuery))

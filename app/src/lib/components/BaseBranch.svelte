@@ -1,7 +1,7 @@
 <script lang="ts">
+	import RemoteCommitList from './RemoteCommitList.svelte';
 	import Checkbox from '../shared/Checkbox.svelte';
 	import Spacer from '../shared/Spacer.svelte';
-	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { showInfo } from '$lib/notifications/toasts';
 	import Button from '$lib/shared/Button.svelte';
@@ -9,8 +9,8 @@
 	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch, RemoteCommit } from '$lib/vbranches/types';
-	import { filterCommits, type AppliedFilter } from '$lib/vbranches/filtering';
+	import { type AppliedFilter } from '$lib/vbranches/filtering';
+	import type { BaseBranch } from '$lib/vbranches/types';
 
 	export let base: BaseBranch;
 	export let searchQuery: string | undefined;
@@ -24,13 +24,11 @@
 
 	let updateTargetModal: Modal;
 	let mergeUpstreamWarningDismissedCheckbox = false;
-	let recentCommits: RemoteCommit[];
-	let upstreamCommits: RemoteCommit[];
+	let upstreamListElem: RemoteCommitList;
+	let localListElem: RemoteCommitList;
 	$: filtersApplied = searchFilters.length > 0 || searchQuery;
 
 	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false;
-	$: recentCommits = filterCommits(base.recentCommits, searchQuery, searchFilters);
-	$: upstreamCommits = filterCommits(base.upstreamCommits, searchQuery, searchFilters, true);
 
 	async function updateBaseBranch() {
 		let infoText = await branchController.updateBaseBranch();
@@ -66,44 +64,37 @@
 		{/if}
 	{/if}
 
-	{#if upstreamCommits.length > 0}
-		<div>
-			{#each upstreamCommits as commit, index (commit.id)}
-				<CommitCard
-					{commit}
-					first={index === 0}
-					last={index === base.upstreamCommits.length - 1}
-					isUnapplied={true}
-					commitUrl={base.commitUrl(commit.id)}
-					type="upstream"
-				/>
-			{/each}
-		</div>
+	<RemoteCommitList
+		bind:this={upstreamListElem}
+		commits={base.upstreamCommits}
+		isUnapplied={true}
+		type="upstream"
+		getCommitUrl={(commitId) => base.commitUrl(commitId)}
+		{searchFilters}
+		{searchQuery}
+	/>
+
+	{#if !upstreamListElem?.isEmpty()}
 		<Spacer margin={2} />
 	{/if}
+	<RemoteCommitList
+		bind:this={localListElem}
+		commits={base.recentCommits}
+		isUnapplied={true}
+		type="remote"
+		getCommitUrl={(commitId) => base.commitUrl(commitId)}
+		{searchFilters}
+		{searchQuery}
+	>
+		<h1
+			class="text-base-13 info-text text-bold"
+			use:tooltip={'This is the current base for your virtual branches.'}
+		>
+			Local
+		</h1>
+	</RemoteCommitList>
 
-	{#if recentCommits.length > 0}
-		<div>
-			<h1
-				class="text-base-13 info-text text-bold"
-				use:tooltip={'This is the current base for your virtual branches.'}
-			>
-				Local
-			</h1>
-			{#each recentCommits as commit, index (commit.id)}
-				<CommitCard
-					{commit}
-					first={index === 0}
-					last={index === base.recentCommits.length - 1}
-					isUnapplied={true}
-					commitUrl={base.commitUrl(commit.id)}
-					type="remote"
-				/>
-			{/each}
-		</div>
-	{/if}
-
-	{#if searchQuery && recentCommits.length === 0 && upstreamCommits.length === 0}
+	{#if filtersApplied && upstreamListElem?.isEmpty() && localListElem?.isEmpty()}
 		<div class="info-text text-base-13">No commits found that match the current search</div>
 	{/if}
 </div>
@@ -150,7 +141,7 @@
 	{/snippet}
 </Modal>
 
-<style>
+<style lang="postcss">
 	.wrapper {
 		display: flex;
 		flex-direction: column;
