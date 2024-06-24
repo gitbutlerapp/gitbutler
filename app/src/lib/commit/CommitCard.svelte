@@ -106,7 +106,7 @@
 
 	$: {
 		topHeightPx = 24;
-		if (first) topHeightPx = 54;
+		if (first) topHeightPx = 58;
 		if (showDetails && !first) topHeightPx += 12;
 	}
 </script>

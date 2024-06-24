@@ -48,8 +48,8 @@
 	let aiLoading = false;
 	let aiConfigurationValid = false;
 
-	let titleTextArea: HTMLTextAreaElement;
-	let descriptionTextArea: HTMLTextAreaElement;
+	let titleTextArea: HTMLTextAreaElement | undefined;
+	let descriptionTextArea: HTMLTextAreaElement | undefined;
 
 	$: ({ title, description } = splitMessage(commitMessage));
 	$: valid = !!title;
@@ -107,8 +107,8 @@
 	<div
 		class="commit-box__textarea-wrapper text-input"
 		use:useResize={() => {
-			useAutoHeight(titleTextArea);
-			useAutoHeight(descriptionTextArea);
+			if (titleTextArea) useAutoHeight(titleTextArea);
+			if (descriptionTextArea) useAutoHeight(descriptionTextArea);
 		}}
 	>
 		<textarea
@@ -129,7 +129,7 @@
 				if (commit && (e.ctrlKey || e.metaKey) && e.key === 'Enter') commit();
 				if (e.key === 'Enter') {
 					e.preventDefault();
-					descriptionTextArea.focus();
+					descriptionTextArea?.focus();
 				}
 			}}
 		></textarea>
@@ -152,12 +152,12 @@
 					const value = e.currentTarget.value;
 					if (e.key === 'Backspace' && value.length === 0) {
 						e.preventDefault();
-						titleTextArea.focus();
+						titleTextArea?.focus();
 						useAutoHeight(e.currentTarget);
 					} else if (e.key === 'a' && (e.metaKey || e.ctrlKey) && value.length === 0) {
 						// select previous textarea on cmd+a if this textarea is empty
 						e.preventDefault();
-						titleTextArea.select();
+						titleTextArea?.select();
 					}
 				}}
 			></textarea>
