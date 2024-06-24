@@ -44,7 +44,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
-      className={`${splineSans.className} ${ppEditorialNew.className}`}
+      className={`${splineSans.variable} ${ppEditorialNew.variable}`}
       suppressHydrationWarning
     >
       <body>
