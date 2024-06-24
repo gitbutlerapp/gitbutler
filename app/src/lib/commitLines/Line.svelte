@@ -2,8 +2,8 @@
 	import BaseNode from '$lib/commitLines/BaseNode.svelte';
 	import Cell from '$lib/commitLines/Cell.svelte';
 	import CommitNode from '$lib/commitLines/CommitNode.svelte';
-	import type { Line } from '$lib/commitLines/types';
 	import { pxToRem } from '$lib/utils/pxToRem';
+	import type { Line } from '$lib/commitLines/types';
 
 	interface Props {
 		line: Line;

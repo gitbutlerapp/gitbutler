@@ -35,7 +35,7 @@
 	export let first = false;
 	export let last = false;
 	export let type: CommitStatus;
-	export let lines: Snippet<[number]> | undefined;
+	export let lines: Snippet<[number]> | undefined = undefined;
 
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
