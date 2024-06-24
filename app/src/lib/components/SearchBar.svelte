@@ -1,6 +1,7 @@
 <script lang="ts">
-	import type iconsJson from '$lib/icons/icons.json';
-	import Icon from './Icon.svelte';
+	import FilterPillContainer from './SearchBar/FilterPillContainer.svelte';
+	import FilterSuggestions from './SearchBar/FilterSuggestions.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import {
 		addAppliedFilter,
@@ -11,8 +12,7 @@
 		type FilterDescription,
 		type FilterSuggestion
 	} from '$lib/vbranches/filtering';
-	import FilterPillContainer from './SearchBar/FilterPillContainer.svelte';
-	import FilterSuggestions from './SearchBar/FilterSuggestions.svelte';
+	import type iconsJson from '$lib/icons/icons.json';
 
 	interface Props {
 		value: string | undefined;

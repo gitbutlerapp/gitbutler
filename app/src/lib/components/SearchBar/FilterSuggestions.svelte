@@ -1,4 +1,7 @@
 <script lang="ts">
+	import FilterPill from './FilterPill.svelte';
+	import ScrollableContainer from '../../shared/ScrollableContainer.svelte';
+	import SelectItem from '../../shared/SelectItem.svelte';
 	import { clickOutside } from '$lib/clickOutside';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import {
@@ -8,9 +11,6 @@
 		type FilterDescription,
 		type FilterSuggestion
 	} from '$lib/vbranches/filtering';
-	import ScrollableContainer from '../ScrollableContainer.svelte';
-	import SelectItem from '../SelectItem.svelte';
-	import FilterPill from './FilterPill.svelte';
 
 	const maxPadding = 10;
 

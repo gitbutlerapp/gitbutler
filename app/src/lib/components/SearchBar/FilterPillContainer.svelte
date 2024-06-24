@@ -1,10 +1,10 @@
 <script lang="ts">
+	import FilterPill from './FilterPill.svelte';
 	import {
 		formatFilterName,
 		formatFilterValues,
 		type AppliedFilter
 	} from '$lib/vbranches/filtering';
-	import FilterPill from './FilterPill.svelte';
 
 	interface Props {
 		appliedFilters: AppliedFilter[];

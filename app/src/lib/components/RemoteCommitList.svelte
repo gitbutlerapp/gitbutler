@@ -1,8 +1,8 @@
 <script lang="ts">
+	import CommitCard from '../commit/CommitCard.svelte';
 	import { filterCommits, type AppliedFilter } from '$lib/vbranches/filtering';
 	import type { CommitStatus, RemoteCommit } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
-	import CommitCard from './CommitCard.svelte';
 
 	interface Props {
 		commits: RemoteCommit[];
