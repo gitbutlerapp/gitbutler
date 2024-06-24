@@ -32,6 +32,22 @@
 	}
 
 	&.dashed {
-		--border-style: dotted;
+		--border-style: none;
+
+		&:before {
+			content: '';
+			position: absolute;
+			top: 0;
+			right: 0;
+			width: 2px;
+			height: 100%;
+			background: repeating-linear-gradient(
+				0,
+				transparent,
+				transparent 2px,
+				var(--border-color) 2px,
+				var(--border-color) 4px
+			);
+		}
 	}
 }
