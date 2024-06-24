@@ -1,5 +1,6 @@
 import { showToast } from '$lib/notifications/toasts';
 import { open } from '@tauri-apps/api/shell';
+import GitUrlParse from 'git-url-parse';
 import { posthog } from 'posthog-js';
 
 export function openExternalUrl(href: string) {
@@ -25,20 +26,16 @@ export function openExternalUrl(href: string) {
 
 // turn a git remote url into a web url (github, gitlab, bitbucket, etc)
 export function convertRemoteToWebUrl(url: string): string {
-	if (url.startsWith('http')) {
-		return url.replace('.git', '').trim();
-	} else if (url.startsWith('ssh')) {
-		url = url.replace('ssh://git@', '');
-		const [host, ...paths] = url.split('/');
-		const path = paths.join('/').replace('.git', '');
-		const protocol = /\d+\.\d+\.\d+\.\d+/.test(host) ? 'http' : 'https';
-		const [hostname, _port] = host.split(':');
-		return `${protocol}://${hostname}/${path}`;
-	} else {
-		return url.replace(':', '/').replace('git@', 'https://').replace('.git', '').trim();
-	}
+	const gitRemote = GitUrlParse(url);
+	const ipv4Regex = new RegExp(/^([0-9]+(\.|$)){4}/);
+	const protocol = ipv4Regex.test(gitRemote.resource) ? 'http' : 'https';
+
+	return `${protocol}://${gitRemote.resource}/${gitRemote.owner}/${gitRemote.name}`;
 }
 
 export function remoteUrlIsHttp(url: string): boolean {
-	return url.startsWith('http');
+	const httpProtocols = ['http', 'https'];
+	const gitRemote = GitUrlParse(url);
+
+	return httpProtocols.includes(gitRemote.protocol);
 }
