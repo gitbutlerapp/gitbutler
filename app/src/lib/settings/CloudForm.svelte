@@ -73,7 +73,7 @@
 		<SectionCard labelFor="aiGenEnabled" orientation="row">
 			<svelte:fragment slot="title">Enable branch and commit message generation</svelte:fragment>
 			<svelte:fragment slot="caption">
-				If enabled, diffs will sent to OpenAI or Anthropic's servers when pressing the "Generate
+				If enabled, diffs will be sent to OpenAI or Anthropic's servers when pressing the "Generate
 				message" and "Generate branch name" button.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
