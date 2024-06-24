@@ -32,7 +32,6 @@
 </script>
 
 <div class="canvas-dropzone">
-	hello
 	<Dropzone {accepts} ondrop={onDrop}>
 		{#snippet overlay({ hovered, activated })}
 			<div class="new-virtual-branch" class:activated class:hovered>
