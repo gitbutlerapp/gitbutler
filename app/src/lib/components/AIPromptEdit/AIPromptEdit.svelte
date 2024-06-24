@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { PromptService } from '$lib/ai/promptService';
 	import Content from '$lib/components/AIPromptEdit/Content.svelte';
-	import Button from '$lib/components/Button.svelte';
+	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { get } from 'svelte/store';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';

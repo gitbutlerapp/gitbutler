@@ -1,5 +1,5 @@
 <script>
-	import Button from './Button.svelte';
+	import Button from '$lib/shared/Button.svelte';
 	import { goto } from '$app/navigation';
 </script>
 

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { MessageRole } from '$lib/ai/types';
-	import Button from '$lib/components/Button.svelte';
-	import Icon from '$lib/components/Icon.svelte';
+	import Button from '$lib/shared/Button.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
 	import { useAutoHeight } from '$lib/utils/useAutoHeight';
 	import { marked } from 'marked';
 	import { createEventDispatcher } from 'svelte';

@@ -1,21 +1,21 @@
 <script lang="ts">
 	import { deleteAllData } from '$lib/backend/data';
-	import Button from '$lib/components/Button.svelte';
 	import Login from '$lib/components/Login.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import RadioButton from '$lib/components/RadioButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import Spacer from '$lib/components/Spacer.svelte';
-	import TextBox from '$lib/components/TextBox.svelte';
-	import ThemeSelector from '$lib/components/ThemeSelector.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
-	import ContentWrapper from '$lib/components/settings/ContentWrapper.svelte';
 	import { showError } from '$lib/notifications/toasts';
+	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
+	import ThemeSelector from '$lib/settings/ThemeSelector.svelte';
 	import {
 		SETTINGS,
 		type Settings,
 		type ScrollbarVisilitySettings
 	} from '$lib/settings/userSettings';
+	import Button from '$lib/shared/Button.svelte';
+	import Modal from '$lib/shared/Modal.svelte';
+	import RadioButton from '$lib/shared/RadioButton.svelte';
+	import Spacer from '$lib/shared/Spacer.svelte';
+	import TextBox from '$lib/shared/TextBox.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';

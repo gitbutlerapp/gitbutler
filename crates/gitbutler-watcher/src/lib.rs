@@ -18,7 +18,6 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-mod debouncer;
 mod file_monitor;
 mod handler;
 

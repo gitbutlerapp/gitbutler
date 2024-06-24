@@ -2,12 +2,11 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::time::Duration;
 
-use crate::debouncer::Debouncer;
-use crate::debouncer::FileIdMap;
-use crate::{debouncer::new_debouncer, events::InternalEvent};
+use crate::events::InternalEvent;
 use anyhow::{anyhow, Context, Result};
 use gitbutler_core::ops::OPLOG_FILE_NAME;
 use gitbutler_core::projects::ProjectId;
+use gitbutler_notify_debouncer::{new_debouncer, Debouncer, NoCache};
 use notify::RecommendedWatcher;
 use notify::Watcher;
 use tokio::task;
@@ -56,7 +55,7 @@ pub fn spawn(
     project_id: ProjectId,
     worktree_path: &std::path::Path,
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
-) -> Result<Debouncer<RecommendedWatcher, FileIdMap>> {
+) -> Result<Debouncer<RecommendedWatcher, NoCache>> {
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
     let mut debouncer = new_debouncer(
         DEBOUNCE_TIMEOUT,

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '$lib/components/Icon.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
 </script>
 
 <div class="loading" data-tauri-drag-region><Icon name="spinner" /></div>

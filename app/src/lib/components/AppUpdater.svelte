@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Button from './Button.svelte';
 	import { UpdaterService } from '$lib/backend/updater';
 	import { showToast } from '$lib/notifications/toasts';
+	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { tap } from 'rxjs';
 	import { fade } from 'svelte/transition';
