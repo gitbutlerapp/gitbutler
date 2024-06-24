@@ -1,22 +1,23 @@
 <script lang="ts">
-	import type { Style } from '$lib/commitLines/types';
+	import type { Color, Style } from '$lib/commitLines/types';
 
 	interface Props {
-		style: Style;
+		color: Color;
+		style?: Style;
 	}
 
-	const { style }: Props = $props();
+	const { color, style }: Props = $props();
 </script>
 
 <div
 	class="straight"
-	class:none={style === 'none'}
-	class:remote={style === 'remote'}
-	class:local={style === 'local'}
-	class:local-dashed={style === 'localDashed'}
-	class:local-and-remote={style === 'localAndRemote'}
-	class:shadow={style === 'shadow'}
-	class:integrated={style === 'integrated'}
+	class:none={color === 'none'}
+	class:remote={color === 'remote'}
+	class:local={color === 'local'}
+	class:local-and-remote={color === 'localAndRemote'}
+	class:shadow={color === 'shadow'}
+	class:integrated={color === 'integrated'}
+	class:dashed={style === 'dashed'}
 ></div>
 
 <style lang="postcss">
@@ -38,11 +39,6 @@
 			--border-color: var(--clr-commit-local);
 		}
 
-		&.local-dashed {
-			--border-color: var(--clr-commit-local);
-			border-style: dashed;
-		}
-
 		&.local-and-remote {
 			--border-color: var(--clr-commit-remote);
 		}
@@ -53,6 +49,10 @@
 
 		&.integrated {
 			--border-color: var(--clr-commit-shadow);
+		}
+
+		&.dashed {
+			border-style: dashed;
 		}
 
 		border-right: 2px solid var(--border-color);

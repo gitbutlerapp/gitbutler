@@ -14,52 +14,52 @@ export const sameForkpoint: Story = {
 			{
 				lines: [
 					{
-						top: { type: 'straight', style: 'remote' },
+						top: { type: 'straight', color: 'remote' },
 						commitNode: { type: 'large' },
-						bottom: { type: 'straight', style: 'remote' }
+						bottom: { type: 'straight', color: 'remote' }
 					},
 					{
-						top: { type: 'straight', style: 'localDashed' },
-						bottom: { type: 'straight', style: 'localDashed' }
+						top: { type: 'straight', color: 'localDashed' },
+						bottom: { type: 'straight', color: 'localDashed' }
 					},
 					{
-						top: { type: 'straight', style: 'none' },
-						bottom: { type: 'straight', style: 'none' }
+						top: { type: 'straight', color: 'none' },
+						bottom: { type: 'straight', color: 'none' }
 					}
 				]
 			},
 			{
 				lines: [
 					{
-						top: { type: 'straight', style: 'remote' },
+						top: { type: 'straight', color: 'remote' },
 						commitNode: { type: 'large' },
-						bottom: { type: 'straight', style: 'remote' }
+						bottom: { type: 'straight', color: 'remote' }
 					},
 					{
-						top: { type: 'straight', style: 'local' },
+						top: { type: 'straight', color: 'local' },
 						commitNode: { type: 'large' },
-						bottom: { type: 'straight', style: 'local' }
+						bottom: { type: 'straight', color: 'local' }
 					},
 					{
-						top: { type: 'straight', style: 'none' },
-						bottom: { type: 'straight', style: 'none' }
+						top: { type: 'straight', color: 'none' },
+						bottom: { type: 'straight', color: 'none' }
 					}
 				]
 			},
 			{
 				lines: [
 					{
-						top: { type: 'straight', style: 'remote' },
+						top: { type: 'straight', color: 'remote' },
 						commitNode: { type: 'large' },
-						bottom: { type: 'straight', style: 'localAndRemote' }
+						bottom: { type: 'straight', color: 'localAndRemote' }
 					},
 					{
-						top: { type: 'fork', style: 'local' },
-						bottom: { type: 'straight', style: 'none' }
+						top: { type: 'fork', color: 'local' },
+						bottom: { type: 'straight', color: 'none' }
 					},
 					{
-						top: { type: 'straight', style: 'none' },
-						bottom: { type: 'straight', style: 'none' }
+						top: { type: 'straight', color: 'none' },
+						bottom: { type: 'straight', color: 'none' }
 					}
 				]
 			}
@@ -73,87 +73,87 @@ export const differentForkpoint: Story = {
 			{
 				lines: [
 					{
-						top: { type: 'straight', style: 'remote' },
+						top: { type: 'straight', color: 'remote' },
 						commitNode: { type: 'large' },
-						bottom: { type: 'straight', style: 'remote' }
+						bottom: { type: 'straight', color: 'remote' }
 					},
 					{
-						top: { type: 'straight', style: 'none' },
-						bottom: { type: 'straight', style: 'none' }
+						top: { type: 'straight', color: 'none' },
+						bottom: { type: 'straight', color: 'none' }
 					},
 					{
-						top: { type: 'straight', style: 'localDashed' },
-						bottom: { type: 'straight', style: 'localDashed' }
+						top: { type: 'straight', color: 'localDashed' },
+						bottom: { type: 'straight', color: 'localDashed' }
 					},
 					{
-						top: { type: 'straight', style: 'none' },
-						bottom: { type: 'straight', style: 'none' }
+						top: { type: 'straight', color: 'none' },
+						bottom: { type: 'straight', color: 'none' }
 					}
 				]
 			},
 			{
 				lines: [
 					{
-						top: { type: 'straight', style: 'remote' },
+						top: { type: 'straight', color: 'remote' },
 						commitNode: { type: 'large' },
-						bottom: { type: 'straight', style: 'shadow' }
+						bottom: { type: 'straight', color: 'shadow' }
 					},
 					{
-						top: { type: 'straight', style: 'none' },
-						bottom: { type: 'straight', style: 'none' }
+						top: { type: 'straight', color: 'none' },
+						bottom: { type: 'straight', color: 'none' }
 					},
 					{
-						top: { type: 'straight', style: 'localDashed' },
+						top: { type: 'straight', color: 'localDashed' },
 						commitNode: { type: 'large' },
-						bottom: { type: 'straight', style: 'local' }
+						bottom: { type: 'straight', color: 'local' }
 					},
 					{
-						top: { type: 'straight', style: 'none' },
-						bottom: { type: 'straight', style: 'none' }
+						top: { type: 'straight', color: 'none' },
+						bottom: { type: 'straight', color: 'none' }
 					}
 				]
 			},
 			{
 				lines: [
 					{
-						top: { type: 'straight', style: 'shadow' },
+						top: { type: 'straight', color: 'shadow' },
 						commitNode: { type: 'large' },
-						bottom: { type: 'straight', style: 'shadow' }
+						bottom: { type: 'straight', color: 'shadow' }
 					},
 					{
-						top: { type: 'straight', style: 'none' },
-						bottom: { type: 'straight', style: 'none' }
+						top: { type: 'straight', color: 'none' },
+						bottom: { type: 'straight', color: 'none' }
 					},
 					{
-						top: { type: 'straight', style: 'local' },
+						top: { type: 'straight', color: 'local' },
 						commitNode: { type: 'large' },
-						bottom: { type: 'straight', style: 'local' }
+						bottom: { type: 'straight', color: 'local' }
 					},
 					{
-						top: { type: 'straight', style: 'none' },
-						bottom: { type: 'straight', style: 'none' }
+						top: { type: 'straight', color: 'none' },
+						bottom: { type: 'straight', color: 'none' }
 					}
 				]
 			},
 			{
 				lines: [
 					{
-						top: { type: 'straight', style: 'shadow' },
+						top: { type: 'straight', color: 'shadow' },
 						commitNode: { type: 'large' },
-						bottom: { type: 'straight', style: 'shadow' }
+						bottom: { type: 'straight', color: 'shadow' }
 					},
 					{
-						top: { type: 'straight', style: 'none' },
-						bottom: { type: 'straight', style: 'none' }
+						top: { type: 'straight', color: 'none' },
+						bottom: { type: 'straight', color: 'none' }
 					},
 					{
-						top: { type: 'straight', style: 'local' },
+						top: { type: 'straight', color: 'local' },
 						commitNode: { type: 'large' },
-						bottom: { type: 'fork', style: 'integrated' }
+						bottom: { type: 'fork', color: 'integrated' }
 					},
 					{
-						top: { type: 'straight', style: 'none' },
-						bottom: { type: 'straight', style: 'none' }
+						top: { type: 'straight', color: 'none' },
+						bottom: { type: 'straight', color: 'none' }
 					}
 				]
 			}
@@ -167,39 +167,39 @@ export const onlyLocalAndRemote: Story = {
 			{
 				lines: [
 					{
-						top: { type: 'straight', style: 'localAndRemote' },
+						top: { type: 'straight', color: 'localAndRemote' },
 						commitNode: { type: 'large' },
-						bottom: { type: 'straight', style: 'localAndRemote' }
+						bottom: { type: 'straight', color: 'localAndRemote' }
 					},
 					{
-						top: { type: 'straight', style: 'none' },
-						bottom: { type: 'straight', style: 'none' }
+						top: { type: 'straight', color: 'none' },
+						bottom: { type: 'straight', color: 'none' }
 					}
 				]
 			},
 			{
 				lines: [
 					{
-						top: { type: 'straight', style: 'localAndRemote' },
+						top: { type: 'straight', color: 'localAndRemote' },
 						commitNode: { type: 'large' },
-						bottom: { type: 'straight', style: 'localAndRemote' }
+						bottom: { type: 'straight', color: 'localAndRemote' }
 					},
 					{
-						top: { type: 'straight', style: 'none' },
-						bottom: { type: 'straight', style: 'none' }
+						top: { type: 'straight', color: 'none' },
+						bottom: { type: 'straight', color: 'none' }
 					}
 				]
 			},
 			{
 				lines: [
 					{
-						top: { type: 'straight', style: 'localAndRemote' },
+						top: { type: 'straight', color: 'localAndRemote' },
 						commitNode: { type: 'large' },
-						bottom: { type: 'straight', style: 'localAndRemote' }
+						bottom: { type: 'straight', color: 'localAndRemote' }
 					},
 					{
-						top: { type: 'straight', style: 'none' },
-						bottom: { type: 'straight', style: 'none' }
+						top: { type: 'straight', color: 'none' },
+						bottom: { type: 'straight', color: 'none' }
 					}
 				]
 			}

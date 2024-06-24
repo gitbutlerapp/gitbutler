@@ -16,9 +16,9 @@
 		<Cell cell={line.top} />
 	</div>
 	{#if line.commitNode}
-		<CommitNode commitNode={line.commitNode} style={line.bottom.style} />
+		<CommitNode commitNode={line.commitNode} color={line.bottom.color} />
 	{:else if line.baseNode}
-		<BaseNode baseNode={line.baseNode} style={line.top.style} />
+		<BaseNode baseNode={line.baseNode} color={line.top.color} />
 	{/if}
 	<div class="line-bottom">
 		<Cell cell={line.bottom} />

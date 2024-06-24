@@ -1,21 +1,23 @@
 <script lang="ts">
-	import type { Style } from '$lib/commitLines/types';
+	import type { Color, Style } from '$lib/commitLines/types';
 
 	interface Props {
-		style: Style;
+		color: Color;
+		style?: Style;
 	}
 
-	const { style }: Props = $props();
+	const { color, style }: Props = $props();
 </script>
 
 <div
 	class="fork"
-	class:none={style === 'none'}
-	class:remote={style === 'remote'}
-	class:local={style === 'local'}
-	class:local-and-remote={style === 'localAndRemote'}
-	class:shadow={style === 'shadow'}
-	class:integrated={style === 'integrated'}
+	class:none={color === 'none'}
+	class:remote={color === 'remote'}
+	class:local={color === 'local'}
+	class:local-and-remote={color === 'localAndRemote'}
+	class:shadow={color === 'shadow'}
+	class:integrated={color === 'integrated'}
+	class:dashed={style === 'dashed'}
 >
 	<div class="row top-row">
 		<div></div>
@@ -36,6 +38,7 @@
 		height: 100%;
 
 		--border-color: black;
+		--border-style: solid;
 
 		&.none {
 			--border-color: transparent;
@@ -59,6 +62,10 @@
 
 		&.integrated {
 			--border-color: var(--clr-commit-shadow);
+		}
+
+		&.dashed {
+			--border-style: dashed;
 		}
 	}
 

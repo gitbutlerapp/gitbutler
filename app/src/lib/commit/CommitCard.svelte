@@ -296,7 +296,8 @@
 	.commit-row {
 		position: relative;
 		display: flex;
-		gap: 8px;
+
+		gap: 2px;
 
 		&.has-lines {
 			padding-right: 14px;

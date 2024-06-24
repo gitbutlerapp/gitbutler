@@ -1,20 +1,20 @@
 <script lang="ts">
 	import { tooltip } from '$lib/utils/tooltip';
 	import { isDefined } from '$lib/utils/typeguards';
-	import type { CommitNode, Style } from '$lib/commitLines/types';
+	import type { CommitNode, Color } from '$lib/commitLines/types';
 
 	interface Props {
 		commitNode: CommitNode;
-		style: Style;
+		color: Color;
 	}
 
-	const { commitNode, style }: Props = $props();
+	const { commitNode, color }: Props = $props();
 
 	const hoverText = $derived(
 		[
 			commitNode.commit?.author.name,
 			commitNode.commit?.title,
-			commitNode.commit?.id.substring(0, 6)
+			commitNode.commit?.id.substring(0, 7)
 		]
 			.filter(isDefined)
 			.join('\n')
@@ -23,12 +23,12 @@
 
 <div
 	class="container"
-	class:none={style === 'none'}
-	class:remote={style === 'remote'}
-	class:local={style === 'local'}
-	class:local-and-remote={style === 'localAndRemote'}
-	class:shadow={style === 'shadow'}
-	class:integrated={style === 'integrated'}
+	class:none={color === 'none'}
+	class:remote={color === 'remote'}
+	class:local={color === 'local'}
+	class:local-and-remote={color === 'localAndRemote'}
+	class:shadow={color === 'shadow'}
+	class:integrated={color === 'integrated'}
 >
 	{#if commitNode.type === 'large' && commitNode.commit}
 		<div class="large-node">
@@ -48,7 +48,7 @@
 
 <style lang="postcss">
 	.container {
-		z-index: var(--z-lifted);
+		z-index: 0;
 
 		&.none {
 			--border-color: transparent;

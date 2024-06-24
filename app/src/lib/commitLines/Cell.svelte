@@ -11,7 +11,7 @@
 </script>
 
 {#if cell.type === 'fork'}
-	<Fork style={cell.style} />
+	<Fork color={cell.color} style={cell.style} />
 {:else}
-	<Straight style={cell.style} />
+	<Straight color={cell.color} style={cell.style} />
 {/if}

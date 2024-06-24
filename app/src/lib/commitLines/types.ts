@@ -1,15 +1,10 @@
-export type Style =
-	| 'local'
-	| 'localDashed'
-	| 'localAndRemote'
-	| 'remote'
-	| 'integrated'
-	| 'shadow'
-	| 'none';
+export type Color = 'local' | 'localAndRemote' | 'remote' | 'integrated' | 'shadow' | 'none';
 
+export type Style = 'dashed';
 export interface Cell {
 	type: 'straight' | 'fork';
-	style: Style;
+	color: Color;
+	style?: Style;
 }
 
 export interface CommitNode {

@@ -1,14 +1,11 @@
 <script lang="ts">
-	import type { BaseNode, Style } from '$lib/commitLines/types';
-
+	import type { BaseNode, Color } from '$lib/commitLines/types';
 	interface Props {
 		baseNode: BaseNode;
-		style: Style;
+		color: Color;
 	}
 
-	const { baseNode: _baseNode, style }: Props = $props();
-
-	$inspect(style);
+	const { baseNode: _baseNode, color: _color }: Props = $props();
 </script>
 
 <div class="container">

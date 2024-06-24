@@ -1,4 +1,4 @@
-import type { CommitData, LineGroup, Line, Style } from '$lib/commitLines/types';
+import type { CommitData, LineGroup, Line, Color } from '$lib/commitLines/types';
 
 interface Commits {
 	remoteCommits: CommitData[];
@@ -25,29 +25,32 @@ function generateSameForkpoint({
 
 	remoteBranchGroups.forEach(({ commit, lineGroup }, index) => {
 		if (index !== 0) {
-			lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
+			lineGroup.lines[LEFT_COLUMN_INDEX].top.color = 'remote';
 		}
-		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'remote';
+		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'remote';
 
 		lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = { type: 'large', commit };
 
 		if (localBranchGroups.length > 0) {
-			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'localDashed';
-			lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.style = 'localDashed';
+			lineGroup.lines[RIGHT_COLUMN_INDEX].top.color = 'local';
+			lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.color = 'local';
+			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'dashed';
+			lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.style = 'dashed';
 		}
 	});
 
 	let localCommitWithChangeIdFound = false;
 	localBranchGroups.forEach(({ commit, lineGroup }, index) => {
+		lineGroup.lines[RIGHT_COLUMN_INDEX].top.color = 'local';
+
 		if (index === 0) {
-			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'localDashed';
-		} else {
-			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'local';
+			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'dashed';
 		}
-		lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.style = 'local';
+
+		lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.color = 'local';
 		lineGroup.lines[RIGHT_COLUMN_INDEX].commitNode = { type: 'large', commit };
 
-		let leftStyle: Style | undefined;
+		let leftStyle: Color | undefined;
 
 		if (remoteBranchGroups.length > 0) {
 			leftStyle = 'remote';
@@ -56,8 +59,8 @@ function generateSameForkpoint({
 		}
 
 		if (localCommitWithChangeIdFound) {
-			lineGroup.lines[LEFT_COLUMN_INDEX].top.style = leftStyle;
-			lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = leftStyle;
+			lineGroup.lines[LEFT_COLUMN_INDEX].top.color = leftStyle;
+			lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = leftStyle;
 
 			if (commit.relatedRemoteCommit) {
 				lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
@@ -68,20 +71,20 @@ function generateSameForkpoint({
 		} else {
 			if (commit.relatedRemoteCommit) {
 				if (remoteBranchGroups.length > 0) {
-					lineGroup.lines[LEFT_COLUMN_INDEX].top.style = leftStyle;
+					lineGroup.lines[LEFT_COLUMN_INDEX].top.color = leftStyle;
 				}
 
 				lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
 					type: 'small',
 					commit: commit.relatedRemoteCommit
 				};
-				lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = leftStyle;
+				lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = leftStyle;
 
 				localCommitWithChangeIdFound = true;
 			} else {
 				if (remoteBranchGroups.length > 0) {
-					lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
-					lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'remote';
+					lineGroup.lines[LEFT_COLUMN_INDEX].top.color = 'remote';
+					lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'remote';
 				}
 			}
 		}
@@ -90,16 +93,16 @@ function generateSameForkpoint({
 	localAndRemoteBranchGroups.forEach(({ commit, lineGroup }, index) => {
 		if (index === 0) {
 			if (localBranchGroups.length > 0) {
-				lineGroup.lines[LEFT_COLUMN_INDEX].top.style =
-					localBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style;
+				lineGroup.lines[LEFT_COLUMN_INDEX].top.color =
+					localBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color;
 			} else if (remoteBranchGroups.length > 0) {
-				lineGroup.lines[LEFT_COLUMN_INDEX].top.style =
-					remoteBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style;
+				lineGroup.lines[LEFT_COLUMN_INDEX].top.color =
+					remoteBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color;
 			}
 		} else {
-			lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'localAndRemote';
+			lineGroup.lines[LEFT_COLUMN_INDEX].top.color = 'localAndRemote';
 		}
-		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'localAndRemote';
+		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'localAndRemote';
 
 		lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = { type: 'large', commit };
 	});
@@ -107,19 +110,19 @@ function generateSameForkpoint({
 	integratedBranchGroups.forEach(({ commit, lineGroup }, index) => {
 		if (index === 0) {
 			if (localAndRemoteBranchGroups.length > 0) {
-				lineGroup.lines[LEFT_COLUMN_INDEX].top.style =
-					localAndRemoteBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style;
+				lineGroup.lines[LEFT_COLUMN_INDEX].top.color =
+					localAndRemoteBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color;
 			} else if (localBranchGroups.length > 0) {
-				lineGroup.lines[LEFT_COLUMN_INDEX].top.style =
-					localBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style;
+				lineGroup.lines[LEFT_COLUMN_INDEX].top.color =
+					localBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color;
 			} else if (remoteBranchGroups.length > 0) {
-				lineGroup.lines[LEFT_COLUMN_INDEX].top.style =
-					remoteBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style;
+				lineGroup.lines[LEFT_COLUMN_INDEX].top.color =
+					remoteBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color;
 			}
 		} else {
-			lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'integrated';
+			lineGroup.lines[LEFT_COLUMN_INDEX].top.color = 'integrated';
 		}
-		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'integrated';
+		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'integrated';
 
 		lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = { type: 'large', commit };
 	});
@@ -130,10 +133,10 @@ function generateSameForkpoint({
 			localBranchGroups.at(-1)!.lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.type = 'fork';
 		} else if (localAndRemoteBranchGroups.length > 0) {
 			localAndRemoteBranchGroups[0].lineGroup.lines[RIGHT_COLUMN_INDEX].top.type = 'fork';
-			localAndRemoteBranchGroups[0].lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'local';
+			localAndRemoteBranchGroups[0].lineGroup.lines[RIGHT_COLUMN_INDEX].top.color = 'local';
 		} else if (integratedBranchGroups.length > 0) {
 			integratedBranchGroups[0].lineGroup.lines[RIGHT_COLUMN_INDEX].top.type = 'fork';
-			integratedBranchGroups[0].lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'local';
+			integratedBranchGroups[0].lineGroup.lines[RIGHT_COLUMN_INDEX].top.color = 'local';
 		}
 	}
 
@@ -149,14 +152,15 @@ function generateSameForkpoint({
 
 	// Set base
 	base.lines[LEFT_COLUMN_INDEX].baseNode = {};
+	base.lines[LEFT_COLUMN_INDEX].top.style = 'dashed';
 	if (integratedBranchGroups.length > 0) {
-		base.lines[LEFT_COLUMN_INDEX].top.style = 'integrated';
+		base.lines[LEFT_COLUMN_INDEX].top.color = 'integrated';
 	} else if (localAndRemoteBranchGroups.length > 0) {
-		base.lines[LEFT_COLUMN_INDEX].top.style = 'localAndRemote';
+		base.lines[LEFT_COLUMN_INDEX].top.color = 'localAndRemote';
 	} else if (localBranchGroups.length > 0) {
-		base.lines[LEFT_COLUMN_INDEX].top.style = 'local';
+		base.lines[LEFT_COLUMN_INDEX].top.color = 'local';
 	} else if (remoteBranchGroups.length > 0) {
-		base.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
+		base.lines[LEFT_COLUMN_INDEX].top.color = 'remote';
 	} else {
 		base.lines[LEFT_COLUMN_INDEX].baseNode = undefined;
 	}
@@ -193,31 +197,34 @@ function generateDifferentForkpoint({
 
 	remoteBranchGroups.forEach(({ commit, lineGroup }, index) => {
 		if (index !== 0) {
-			lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
+			lineGroup.lines[LEFT_COLUMN_INDEX].top.color = 'remote';
 		}
-		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'remote';
+		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'remote';
 
 		lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = { type: 'large', commit };
 
 		if (localBranchGroups.length > 0) {
-			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'localDashed';
-			lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.style = 'localDashed';
+			lineGroup.lines[RIGHT_COLUMN_INDEX].top.color = 'local';
+			lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.color = 'local';
+			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'dashed';
+			lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.style = 'dashed';
 		}
 	});
 
 	let localCommitWithChangeIdFound = false;
 	localBranchGroups.forEach(({ commit, lineGroup }, index) => {
+		lineGroup.lines[RIGHT_COLUMN_INDEX].top.color = 'local';
+
 		if (index === 0) {
-			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'localDashed';
-		} else {
-			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'local';
+			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'dashed';
 		}
-		lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.style = 'local';
+
+		lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.color = 'local';
 		lineGroup.lines[RIGHT_COLUMN_INDEX].commitNode = { type: 'large', commit };
 
 		if (localCommitWithChangeIdFound) {
-			lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'shadow';
-			lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'shadow';
+			lineGroup.lines[LEFT_COLUMN_INDEX].top.color = 'shadow';
+			lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'shadow';
 
 			if (commit.relatedRemoteCommit) {
 				lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
@@ -228,20 +235,20 @@ function generateDifferentForkpoint({
 		} else {
 			if (commit.relatedRemoteCommit) {
 				if (remoteBranchGroups.length > 0) {
-					lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
+					lineGroup.lines[LEFT_COLUMN_INDEX].top.color = 'remote';
 				}
 
 				lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
 					type: 'small',
 					commit: commit.relatedRemoteCommit
 				};
-				lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'shadow';
+				lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'shadow';
 
 				localCommitWithChangeIdFound = true;
 			} else {
 				if (remoteBranchGroups.length > 0) {
-					lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
-					lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'remote';
+					lineGroup.lines[LEFT_COLUMN_INDEX].top.color = 'remote';
+					lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'remote';
 				}
 			}
 		}
@@ -249,17 +256,17 @@ function generateDifferentForkpoint({
 
 	integratedBranchGroups.forEach(({ commit, lineGroup }, index) => {
 		if (index === 0) {
-			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style =
-				localBranchGroups.at(-1)?.lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.style || 'none';
+			lineGroup.lines[RIGHT_COLUMN_INDEX].top.color =
+				localBranchGroups.at(-1)?.lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.color || 'none';
 		} else {
-			lineGroup.lines[RIGHT_COLUMN_INDEX].top.style = 'integrated';
+			lineGroup.lines[RIGHT_COLUMN_INDEX].top.color = 'integrated';
 		}
-		lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.style = 'integrated';
+		lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.color = 'integrated';
 		lineGroup.lines[RIGHT_COLUMN_INDEX].commitNode = { type: 'large', commit };
 
 		if (localCommitWithChangeIdFound) {
-			lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'shadow';
-			lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'shadow';
+			lineGroup.lines[LEFT_COLUMN_INDEX].top.color = 'shadow';
+			lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'shadow';
 
 			if (commit.relatedRemoteCommit) {
 				lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
@@ -270,20 +277,20 @@ function generateDifferentForkpoint({
 		} else {
 			if (commit.relatedRemoteCommit) {
 				if (remoteBranchGroups.length > 0) {
-					lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
+					lineGroup.lines[LEFT_COLUMN_INDEX].top.color = 'remote';
 				}
 
 				lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
 					type: 'small',
 					commit: commit.relatedRemoteCommit
 				};
-				lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'shadow';
+				lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'shadow';
 
 				localCommitWithChangeIdFound = true;
 			} else {
 				if (remoteBranchGroups.length > 0) {
-					lineGroup.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
-					lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style = 'remote';
+					lineGroup.lines[LEFT_COLUMN_INDEX].top.color = 'remote';
+					lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'remote';
 				}
 			}
 		}
@@ -296,34 +303,37 @@ function generateDifferentForkpoint({
 	}
 
 	function setLeftSideBase() {
-		let style: Style | undefined;
+		let color: Color | undefined;
 		if (integratedBranchGroups.length > 0) {
-			style = integratedBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style;
+			color = integratedBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color;
 		} else if (localBranchGroups.length > 0) {
-			style = localBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style;
+			color = localBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color;
 		} else if (remoteBranchGroups.length > 0) {
-			style = remoteBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.style;
+			color = remoteBranchGroups.at(-1)!.lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color;
 		} else {
-			style = 'none';
+			color = 'none';
 		}
 
-		base.lines[LEFT_COLUMN_INDEX].top.style = style;
-		base.lines[LEFT_COLUMN_INDEX].bottom.style = style;
+		base.lines[LEFT_COLUMN_INDEX].top.color = color;
+		base.lines[LEFT_COLUMN_INDEX].bottom.color = color;
+		base.lines[LEFT_COLUMN_INDEX].top.style = 'dashed';
+		base.lines[LEFT_COLUMN_INDEX].bottom.style = 'dashed';
 	}
 
 	// Set base
 	if (integratedBranchGroups.length > 0) {
-		base.lines[MIDDLE_COLUMN_INDEX].top.style = 'integrated';
+		base.lines[MIDDLE_COLUMN_INDEX].top.color = 'integrated';
 		base.lines[MIDDLE_COLUMN_INDEX].baseNode = {};
 
 		setLeftSideBase();
 	} else if (localBranchGroups.length > 0) {
-		base.lines[MIDDLE_COLUMN_INDEX].top.style = 'local';
+		base.lines[MIDDLE_COLUMN_INDEX].top.color = 'local';
 		base.lines[MIDDLE_COLUMN_INDEX].baseNode = {};
 
 		setLeftSideBase();
 	} else if (remoteBranchGroups.length > 0) {
-		base.lines[LEFT_COLUMN_INDEX].top.style = 'remote';
+		base.lines[LEFT_COLUMN_INDEX].top.color = 'remote';
+		base.lines[LEFT_COLUMN_INDEX].top.style = 'dashed';
 		base.lines[LEFT_COLUMN_INDEX].baseNode = {};
 	}
 
@@ -354,8 +364,8 @@ function blankLineGroup(lineCount: number): LineGroup {
 		.fill(undefined)
 		.map(
 			(): Line => ({
-				top: { type: 'straight', style: 'none' },
-				bottom: { type: 'straight', style: 'none' }
+				top: { type: 'straight', color: 'none' },
+				bottom: { type: 'straight', color: 'none' }
 			})
 		);
 
