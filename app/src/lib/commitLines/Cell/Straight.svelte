@@ -10,7 +10,7 @@
 </script>
 
 <div
-	class="straight"
+	class="commit-line straight"
 	class:none={color === 'none'}
 	class:remote={color === 'remote'}
 	class:local={color === 'local'}
@@ -22,39 +22,6 @@
 
 <style lang="postcss">
 	.straight {
-		height: 100%;
-		width: 100%;
-
-		--border-color: black;
-
-		&.none {
-			--border-color: transparent;
-		}
-
-		&.remote {
-			--border-color: var(--clr-commit-upstream);
-		}
-
-		&.local {
-			--border-color: var(--clr-commit-local);
-		}
-
-		&.local-and-remote {
-			--border-color: var(--clr-commit-remote);
-		}
-
-		&.shadow {
-			--border-color: var(--clr-commit-shadow);
-		}
-
-		&.integrated {
-			--border-color: var(--clr-commit-shadow);
-		}
-
-		&.dashed {
-			border-style: dashed;
-		}
-
-		border-right: 2px solid var(--border-color);
+		border-right: 2px var(--border-style) var(--border-color);
 	}
 </style>

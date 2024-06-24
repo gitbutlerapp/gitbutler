@@ -48,7 +48,7 @@
 
 <style lang="postcss">
 	.container {
-		z-index: 0;
+		z-index: var(--z-ground);
 
 		&.none {
 			--border-color: transparent;
@@ -104,6 +104,7 @@
 	}
 
 	.avatar {
+		position: relative;
 		width: 12px;
 		height: 12px;
 

@@ -11,7 +11,7 @@
 </script>
 
 <div
-	class="fork"
+	class="commit-line fork"
 	class:none={color === 'none'}
 	class:remote={color === 'remote'}
 	class:local={color === 'local'}
@@ -34,40 +34,6 @@
 	.fork {
 		display: flex;
 		flex-direction: column;
-
-		width: 100%;
-		height: 100%;
-
-		--border-color: black;
-		--border-style: solid;
-
-		&.none {
-			--border-color: transparent;
-		}
-
-		&.remote {
-			--border-color: var(--clr-commit-upstream);
-		}
-
-		&.local {
-			--border-color: var(--clr-commit-local);
-		}
-
-		&.local-and-remote {
-			--border-color: var(--clr-commit-remote);
-		}
-
-		&.shadow {
-			--border-color: var(--clr-commit-shadow);
-		}
-
-		&.integrated {
-			--border-color: var(--clr-commit-shadow);
-		}
-
-		&.dashed {
-			--border-style: dashed;
-		}
 	}
 
 	.row {
@@ -86,15 +52,15 @@
 	}
 
 	.fork-top {
-		border-right: 2px solid var(--border-color);
-		border-bottom: 2px solid var(--border-color);
+		border-right: 2px var(--border-style) var(--border-color);
+		border-bottom: 2px var(--border-style) var(--border-color);
 		border-bottom-right-radius: 8px;
 		margin-bottom: -2px;
 	}
 
 	.fork-bottom {
-		border-left: 2px solid var(--border-color);
-		border-top: 2px solid var(--border-color);
+		border-left: 2px var(--border-style) var(--border-color);
+		border-top: 2px var(--border-style) var(--border-color);
 		border-top-left-radius: 8px;
 	}
 </style>

@@ -36,7 +36,6 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
-
 		align-items: flex-end;
 	}
 
