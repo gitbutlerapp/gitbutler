@@ -31,6 +31,7 @@
 		background-color: var(--clr-scale-ntrl-70);
 		display: flex;
 		padding: 2px 4px;
+		text-wrap: nowrap;
 	}
 
 	.clickable {
