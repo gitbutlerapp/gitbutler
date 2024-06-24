@@ -4,8 +4,7 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "https://gitbutler.com",
-      "permanent": true
+      "destination": "https://gitbutler.com"
     }
   ]
 }
