@@ -19,8 +19,8 @@ export const sameForkpoint: Story = {
 						bottom: { type: 'straight', color: 'remote' }
 					},
 					{
-						top: { type: 'straight', color: 'localDashed' },
-						bottom: { type: 'straight', color: 'localDashed' }
+						top: { type: 'straight', color: 'local', style: 'dashed' },
+						bottom: { type: 'straight', color: 'local', style: 'dashed' }
 					},
 					{
 						top: { type: 'straight', color: 'none' },
@@ -82,8 +82,8 @@ export const differentForkpoint: Story = {
 						bottom: { type: 'straight', color: 'none' }
 					},
 					{
-						top: { type: 'straight', color: 'localDashed' },
-						bottom: { type: 'straight', color: 'localDashed' }
+						top: { type: 'straight', color: 'local', style: 'dashed' },
+						bottom: { type: 'straight', color: 'local', style: 'dashed' }
 					},
 					{
 						top: { type: 'straight', color: 'none' },
@@ -103,7 +103,7 @@ export const differentForkpoint: Story = {
 						bottom: { type: 'straight', color: 'none' }
 					},
 					{
-						top: { type: 'straight', color: 'localDashed' },
+						top: { type: 'straight', color: 'local', style: 'dashed' },
 						commitNode: { type: 'large' },
 						bottom: { type: 'straight', color: 'local' }
 					},
