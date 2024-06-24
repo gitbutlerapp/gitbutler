@@ -14,6 +14,7 @@ import {
 	MessageRole,
 	type Prompt
 } from '$lib/ai/types';
+import { invoke } from '$lib/backend/ipc';
 import { buildFailureFromAny, isFailure, ok, type Result } from '$lib/result';
 import { splitMessage } from '$lib/utils/commitMessage';
 import OpenAI from 'openai';
@@ -90,7 +91,17 @@ export class AIService {
 	}
 
 	async getOpenAIKey() {
-		return await this.gitConfig.get(GitAIConfigKey.OpenAIKey);
+		const secretInConfig = await this.gitConfig.get(GitAIConfigKey.OpenAIKey);
+		if (secretInConfig !== undefined) {
+			await invoke('secret_set_global', {
+				handle: 'aiOpenAIKey',
+				secret: secretInConfig
+			});
+			await this.gitConfig.remove(GitAIConfigKey.OpenAIKey);
+			return secretInConfig;
+		} else {
+			return await invoke('secret_get_global', { handle: 'aiOpenAIKey' });
+		}
 	}
 
 	async getOpenAIModleName() {
@@ -108,7 +119,17 @@ export class AIService {
 	}
 
 	async getAnthropicKey() {
-		return await this.gitConfig.get(GitAIConfigKey.AnthropicKey);
+		const secretInConfig = await this.gitConfig.get(GitAIConfigKey.AnthropicKey);
+		if (secretInConfig !== undefined) {
+			await invoke('secret_set_global', {
+				handle: 'aiAnthropicKey',
+				secret: secretInConfig
+			});
+			await this.gitConfig.remove(GitAIConfigKey.AnthropicKey);
+			return secretInConfig;
+		} else {
+			return await invoke('secret_get_global', { handle: 'aiAnthropicKey' });
+		}
 	}
 
 	async getAnthropicModelName() {

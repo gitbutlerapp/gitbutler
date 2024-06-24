@@ -15,6 +15,7 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
+	import { invoke } from '@tauri-apps/api/tauri';
 	import { onMount, tick } from 'svelte';
 
 	const gitConfigService = getContext(GitConfigService);
@@ -34,10 +35,17 @@
 	let ollamaEndpoint: string | undefined;
 	let ollamaModel: string | undefined;
 
-	function setConfiguration(key: GitAIConfigKey, value: string | undefined) {
+	async function setConfiguration(key: GitAIConfigKey, value: string | undefined) {
 		if (!initialized) return;
 
-		gitConfigService.set(key, value || '');
+		if (key === GitAIConfigKey.OpenAIKey || key === GitAIConfigKey.AnthropicKey) {
+			await invoke('secret_set_global', {
+				handle: key.split('.')[1],
+				secret: value
+			});
+		} else {
+			gitConfigService.set(key, value || '');
+		}
 	}
 
 	$: setConfiguration(GitAIConfigKey.ModelProvider, modelKind);
