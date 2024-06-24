@@ -24,8 +24,7 @@
 		"fix": "eslint --fix .",
 		"tauri": "tauri",
 		"prepare": "svelte-kit sync",
-		"storybook": "storybook dev -p 6006",
-		"build-storybook": "storybook build"
+		"storybook": "storybook dev -p 6006"
 	},
 	"devDependencies": {
 		"@chromatic-com/storybook": "^1.5.0",
