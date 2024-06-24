@@ -7,7 +7,8 @@ import { observableToStore } from '$lib/rxjs/store';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
 import { plainToInstance } from 'class-transformer';
-import { BehaviorSubject, Observable, Subject, distinct, map, merge, shareReplay } from 'rxjs';
+import { Observable, Subject, distinct, map, merge, shareReplay } from 'rxjs';
+import { writable } from 'svelte/store';
 import type { Readable } from 'svelte/motion';
 
 export type LoginToken = {
@@ -18,7 +19,7 @@ export type LoginToken = {
 
 export class UserService {
 	private reset$ = new Subject<User | undefined>();
-	private loading$ = new BehaviorSubject(false);
+	readonly loading = writable(false);
 
 	private user$ = merge(
 		new Observable<User | undefined>((subscriber) => {
@@ -65,7 +66,7 @@ export class UserService {
 
 	async login(): Promise<User | undefined> {
 		this.logout();
-		this.loading$.next(true);
+		this.loading.set(true);
 		try {
 			// Create login token
 			const token = await this.httpClient.post<LoginToken>('login/token.json');
@@ -84,7 +85,7 @@ export class UserService {
 			console.error(err);
 			showError('Something went wrong', err);
 		} finally {
-			this.loading$.next(false);
+			this.loading.set(false);
 		}
 	}
 

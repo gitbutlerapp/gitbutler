@@ -5,11 +5,11 @@
 	import { getContext } from '$lib/utils/context';
 
 	const userService = getContext(UserService);
+	const loading = userService.loading;
 	const user = userService.user;
 
 	export let wide = false;
 
-	let signUpOrLoginLoading = false;
 	let token: LoginToken | undefined;
 </script>
 
@@ -41,16 +41,11 @@
 		<Button
 			style="pop"
 			kind="solid"
-			loading={signUpOrLoginLoading}
+			loading={$loading}
 			icon="signin"
 			{wide}
 			on:mousedown={async () => {
-				signUpOrLoginLoading = true;
-				try {
-					await userService.login();
-				} finally {
-					signUpOrLoginLoading = false;
-				}
+				await userService.login();
 			}}
 		>
 			Sign up or Log in
