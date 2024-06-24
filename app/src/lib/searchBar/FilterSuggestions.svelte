@@ -1,8 +1,8 @@
 <script lang="ts">
 	import FilterPill from './FilterPill.svelte';
-	import ScrollableContainer from '../../shared/ScrollableContainer.svelte';
-	import SelectItem from '../../shared/SelectItem.svelte';
 	import { clickOutside } from '$lib/clickOutside';
+	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
+	import SelectItem from '$lib/shared/SelectItem.svelte';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import {
 		formatFilterName,

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import FilterPillContainer from './SearchBar/FilterPillContainer.svelte';
-	import FilterSuggestions from './SearchBar/FilterSuggestions.svelte';
+	import FilterPillContainer from './FilterPillContainer.svelte';
+	import FilterSuggestions from './FilterSuggestions.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import {
