@@ -28,17 +28,7 @@ unsafe impl super::GitExecutor for TokioExecutor {
         cwd: P,
         envs: Option<HashMap<String, String>>,
     ) -> Result<(usize, String, String), Self::Error> {
-        let git_exe = {
-            #[cfg(unix)]
-            {
-                "git"
-            }
-            #[cfg(windows)]
-            {
-                "git.exe"
-            }
-        };
-
+        let git_exe = gix_path::env::exe_invocation();
         let mut cmd = Command::new(git_exe);
 
         // Output the command being executed to stderr, for debugging purposes
@@ -56,7 +46,7 @@ unsafe impl super::GitExecutor for TokioExecutor {
                 .map(|s| format!("{s:?}"))
                 .collect::<Vec<_>>()
                 .join(" ");
-            eprintln!("env {envs_str} {git_exe} {args_str}");
+            eprintln!("env {envs_str} {git_exe:?} {args_str}");
         }
 
         cmd.kill_on_drop(true);

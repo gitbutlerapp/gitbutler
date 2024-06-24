@@ -2166,6 +2166,7 @@ name = "gitbutler-git"
 version = "0.0.0"
 dependencies = [
  "futures",
+ "gix-path",
  "nix 0.29.0",
  "rand 0.8.5",
  "serde",
@@ -2692,9 +2693,9 @@ dependencies = [
 
 [[package]]
 name = "gix-path"
-version = "0.10.7"
+version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23623cf0f475691a6d943f898c4d0b89f5c1a2a64d0f92bce0e0322ee6528783"
+checksum = "ca987128ffb056d732bd545db5db3d8b103d252fbf083c2567bb0796876619a4"
 dependencies = [
  "bstr",
  "gix-trace",
