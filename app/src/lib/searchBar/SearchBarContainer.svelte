@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SearchBar from './SearchBar.svelte';
-	import type { AppliedFilter, FilterDescription } from '$lib/vbranches/filtering';
+	import { FilterName, type AppliedFilter, type FilterDescription } from '$lib/vbranches/filtering';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -16,11 +16,18 @@
 		filterDescriptions,
 		children
 	}: Props = $props();
+
+	let searchBarElem = $state<SearchBar | undefined>(undefined);
+
+	export function addAuthorFilter(author: string) {
+		searchBarElem?.applyFilter({ name: FilterName.Author }, [author]);
+	}
 </script>
 
 <div class="container">
 	<div class="search">
 		<SearchBar
+			bind:this={searchBarElem}
 			bind:value={searchQuery}
 			bind:appliedFilters={searchFilters}
 			{filterDescriptions}

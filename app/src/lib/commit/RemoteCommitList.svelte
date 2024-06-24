@@ -1,5 +1,5 @@
 <script lang="ts">
-	import CommitCard from '../commit/CommitCard.svelte';
+	import CommitCard from './CommitCard.svelte';
 	import { filterCommits, type AppliedFilter } from '$lib/vbranches/filtering';
 	import type { CommitStatus, RemoteCommit } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
@@ -11,11 +11,20 @@
 		searchQuery: string | undefined;
 		searchFilters: AppliedFilter[];
 		getCommitUrl: (commitId: string) => string | undefined;
+		onAuthorClick?: (author: string) => void;
 		children?: Snippet;
 	}
 
-	let { commits, isUnapplied, type, getCommitUrl, searchFilters, searchQuery, children }: Props =
-		$props();
+	let {
+		commits,
+		isUnapplied,
+		type,
+		getCommitUrl,
+		onAuthorClick,
+		searchFilters,
+		searchQuery,
+		children
+	}: Props = $props();
 
 	let filteredCommits = $derived<RemoteCommit[]>(
 		filterCommits(commits, searchQuery, searchFilters, type)
@@ -39,6 +48,7 @@
 				{isUnapplied}
 				commitUrl={getCommitUrl(commit.id)}
 				{type}
+				{onAuthorClick}
 			/>
 		{/each}
 	</div>

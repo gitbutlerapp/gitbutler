@@ -35,6 +35,7 @@
 	export let first = false;
 	export let last = false;
 	export let type: CommitStatus;
+	export let onAuthorClick: ((author: string) => void) | undefined = undefined;
 
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
@@ -78,6 +79,8 @@
 	let isUndoable = !!branch?.active && commit instanceof Commit;
 
 	const hasCommitUrl = !commit.isLocal && commitUrl;
+	const commitAuthor =
+		type === 'remote' || type === 'upstream' ? commit.author.name ?? 'unknown' : 'you';
 
 	let commitMessageModal: Modal;
 	let commitMessageValid = false;
@@ -224,11 +227,20 @@
 
 						<span class="commit__subtitle-divider">•</span>
 
-						<span
-							>{getTimeAgo(commit.createdAt)}{type === 'remote' || type === 'upstream'
-								? ` by ${commit.author.name}`
-								: ' by you'}</span
-						>
+						<span>{getTimeAgo(commit.createdAt)}</span>
+						{#if onAuthorClick}
+							<button
+								class="commit__subtitle-btn commit__subtitle-btn_dashed"
+								on:click|stopPropagation={() =>
+									commit.author.name && onAuthorClick(commit.author.name)}
+							>
+								{commitAuthor}
+							</button>
+						{:else}
+							<span>
+								{commitAuthor}
+							</span>
+						{/if}
 					</div>
 				{/if}
 			</div>

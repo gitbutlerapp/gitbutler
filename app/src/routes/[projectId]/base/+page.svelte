@@ -33,12 +33,17 @@
 	let laneWidth: number;
 	let searchQuery: string | undefined = undefined;
 	let searchFilters: AppliedFilter[] = [];
+	let searchBarContainerElem: SearchBarContainer;
 
 	$: error$ = baseBranchService.error$;
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
 	});
+
+	function onAuthorClick(author: string) {
+		searchBarContainerElem.addAuthorFilter(author);
+	}
 </script>
 
 {#if $error$}
@@ -46,7 +51,12 @@
 {:else if !$baseBranch}
 	<FullviewLoading />
 {:else}
-	<SearchBarContainer bind:searchQuery bind:searchFilters {filterDescriptions}>
+	<SearchBarContainer
+		bind:this={searchBarContainerElem}
+		bind:searchQuery
+		bind:searchFilters
+		{filterDescriptions}
+	>
 		<div class="base">
 			<div
 				class="base__left"
@@ -55,7 +65,7 @@
 			>
 				<ScrollableContainer wide>
 					<div class="card">
-						<BaseBranch base={$baseBranch} {searchQuery} {searchFilters} />
+						<BaseBranch base={$baseBranch} {searchQuery} {searchFilters} {onAuthorClick} />
 					</div>
 				</ScrollableContainer>
 				<Resizer

@@ -46,7 +46,7 @@
 		return parseFilterValues(value, filterDesc);
 	}
 
-	function applyFilter(filterDesc: FilterDescription, filterValue: string[]) {
+	export function applyFilter(filterDesc: FilterDescription, filterValue: string[]) {
 		if (!filterValue || appliedFilters === undefined) return;
 		appliedFilters = addAppliedFilter(appliedFilters, {
 			name: filterDesc.name,

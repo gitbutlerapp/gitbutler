@@ -1,5 +1,5 @@
 <script lang="ts">
-	import RemoteCommitList from './RemoteCommitList.svelte';
+	import RemoteCommitList from '../commit/RemoteCommitList.svelte';
 	import { Project } from '$lib/backend/projects';
 	import BranchPreviewHeader from '$lib/branch/BranchPreviewHeader.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
@@ -40,6 +40,7 @@
 	let searchQuery: string | undefined = undefined;
 	let searchFilters: AppliedFilter[] = [];
 	let commitListElem: RemoteCommitList;
+	let searchBarContainerElem: SearchBarContainer;
 
 	$: filtersApplied = searchFilters.length > 0 || searchQuery;
 
@@ -58,9 +59,18 @@
 		if (!title) title = text;
 		return '<a target="_blank" href="' + href + '" title="' + title + '">' + text + '</a>';
 	};
+
+	function onAuthorClick(author: string) {
+		searchBarContainerElem.addAuthorFilter(author);
+	}
 </script>
 
-<SearchBarContainer bind:searchQuery bind:searchFilters {filterDescriptions}>
+<SearchBarContainer
+	bind:this={searchBarContainerElem}
+	bind:searchQuery
+	bind:searchFilters
+	{filterDescriptions}
+>
 	<div class="base">
 		<div
 			class="base__left"
@@ -81,17 +91,23 @@
 					{#await getRemoteBranchData(project.id, branch.name) then branchData}
 						{#if branchData.commits && branchData.commits.length > 0}
 							<RemoteCommitList
+								bind:this={commitListElem}
 								commits={branchData.commits}
 								isUnapplied={true}
 								type="remote"
 								getCommitUrl={(commitId) => $baseBranch?.commitUrl(commitId)}
 								{searchFilters}
 								{searchQuery}
+								{onAuthorClick}
 							/>
 						{/if}
 					{/await}
 					{#if filtersApplied && commitListElem?.isEmpty()}
-						<div class="info-text text-base-13">No commits found that match the current search</div>
+						<div class="card">
+							<div class="info-text text-base-13">
+								No commits found that match the current search
+							</div>
+						</div>
 					{/if}
 				</div>
 			</ScrollableContainer>
@@ -156,6 +172,7 @@
 	}
 
 	.info-text {
+		margin: 8px;
 		opacity: 0.5;
 	}
 </style>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import RemoteCommitList from './RemoteCommitList.svelte';
+	import RemoteCommitList from '../commit/RemoteCommitList.svelte';
 	import Checkbox from '../shared/Checkbox.svelte';
 	import Spacer from '../shared/Spacer.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
@@ -15,6 +15,7 @@
 	export let base: BaseBranch;
 	export let searchQuery: string | undefined;
 	export let searchFilters: AppliedFilter[] = [];
+	export let onAuthorClick: ((author: string) => void) | undefined = undefined;
 
 	const branchController = getContext(BranchController);
 
@@ -72,6 +73,7 @@
 		getCommitUrl={(commitId) => base.commitUrl(commitId)}
 		{searchFilters}
 		{searchQuery}
+		{onAuthorClick}
 	/>
 
 	{#if !upstreamListElem?.isEmpty()}
@@ -85,6 +87,7 @@
 		getCommitUrl={(commitId) => base.commitUrl(commitId)}
 		{searchFilters}
 		{searchQuery}
+		{onAuthorClick}
 	>
 		<h1
 			class="text-base-13 info-text text-bold"

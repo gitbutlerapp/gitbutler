@@ -50,7 +50,7 @@ export const REMOTE_BRANCH_FILTERS: FilterDescription[] = [
 		suggestions: [
 			{
 				name: FilterName.SHA,
-				description: 'Filter by commit SHA. SHA must start with the given value'
+				description: 'Filter by commit SHA. It must start with the given value'
 			}
 		]
 	}
