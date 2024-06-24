@@ -12,6 +12,7 @@ import { showError, showToast, type Toast } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import * as toasts from '$lib/utils/toasts';
 import { Octokit } from '@octokit/rest';
+import GitUrlParse from 'git-url-parse';
 import lscache from 'lscache';
 import posthog from 'posthog-js';
 import {
@@ -78,8 +79,8 @@ export class GitHubService {
 						baseUrl: 'https://api.github.com'
 					});
 					if (remoteUrl) {
-						const [owner, repo] = remoteUrl.split(/.git$/)[0].split(/\/|:/).slice(-2);
-						this._repo = repo;
+						const { owner, name } = GitUrlParse(remoteUrl);
+						this._repo = name;
 						this._owner = owner;
 					}
 				}),
