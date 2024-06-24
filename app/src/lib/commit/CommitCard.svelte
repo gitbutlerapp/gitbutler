@@ -156,9 +156,11 @@
 						}
 					: nonDraggable()}
 			>
-				<div class="commit__drag-icon">
-					<Icon name="draggable-narrow" />
-				</div>
+				{#if commit instanceof Commit}
+					<div class="commit__drag-icon">
+						<Icon name="draggable-narrow" />
+					</div>
+				{/if}
 
 				{#if first}
 					<div class="commit__type text-semibold text-base-12">
