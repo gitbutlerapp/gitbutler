@@ -14,8 +14,8 @@ import {
 	MessageRole,
 	type Prompt
 } from '$lib/ai/types';
+import { err, isError, ok, type Result } from '$lib/result';
 import { splitMessage } from '$lib/utils/commitMessage';
-import * as toasts from '$lib/utils/toasts';
 import OpenAI from 'openai';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
 import type { HttpClient } from '$lib/backend/httpClient';
@@ -189,21 +189,20 @@ export class AIService {
 	// This optionally returns a summarizer. There are a few conditions for how this may occur
 	// Firstly, if the user has opted to use the GB API and isn't logged in, it will return undefined
 	// Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
-	async buildClient(userToken?: string): Promise<undefined | AIClient> {
+	async buildClient(userToken?: string): Promise<Result<AIClient, string>> {
 		const modelKind = await this.getModelKind();
 
 		if (await this.usingGitButlerAPI()) {
 			if (!userToken) {
-				toasts.error("When using GitButler's API to summarize code, you must be logged in");
-				return;
+				return err("When using GitButler's API to summarize code, you must be logged in");
 			}
-			return new ButlerAIClient(this.cloud, userToken, modelKind);
+			return ok(new ButlerAIClient(this.cloud, userToken, modelKind));
 		}
 
 		if (modelKind === ModelKind.Ollama) {
 			const ollamaEndpoint = await this.getOllamaEndpoint();
 			const ollamaModelName = await this.getOllamaModelName();
-			return new OllamaClient(ollamaEndpoint, ollamaModelName);
+			return ok(new OllamaClient(ollamaEndpoint, ollamaModelName));
 		}
 
 		if (modelKind === ModelKind.OpenAI) {
@@ -211,14 +210,13 @@ export class AIService {
 			const openAIKey = await this.getOpenAIKey();
 
 			if (!openAIKey) {
-				toasts.error(
+				return err(
 					'When using OpenAI in a bring your own key configuration, you must provide a valid token'
 				);
-				return;
 			}
 
 			const openAI = new OpenAI({ apiKey: openAIKey, dangerouslyAllowBrowser: true });
-			return new OpenAIClient(openAIModelName, openAI);
+			return ok(new OpenAIClient(openAIModelName, openAI));
 		}
 
 		if (modelKind === ModelKind.Anthropic) {
@@ -226,14 +224,15 @@ export class AIService {
 			const anthropicKey = await this.getAnthropicKey();
 
 			if (!anthropicKey) {
-				toasts.error(
+				return err(
 					'When using Anthropic in a bring your own key configuration, you must provide a valid token'
 				);
-				return;
 			}
 
-			return new AnthropicAIClient(anthropicKey, anthropicModelName);
+			return ok(new AnthropicAIClient(anthropicKey, anthropicModelName));
 		}
+
+		return err('Failed to build ai client');
 	}
 
 	async summarizeCommit({
@@ -242,9 +241,10 @@ export class AIService {
 		useBriefStyle = false,
 		commitTemplate,
 		userToken
-	}: SummarizeCommitOpts) {
-		const aiClient = await this.buildClient(userToken);
-		if (!aiClient) return;
+	}: SummarizeCommitOpts): Promise<Result<string, string>> {
+		const aiClientResult = await this.buildClient(userToken);
+		if (isError(aiClientResult)) return aiClientResult;
+		const aiClient = aiClientResult.value;
 
 		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
 		const defaultedCommitTemplate = commitTemplate || aiClient.defaultCommitTemplate;
@@ -272,19 +272,26 @@ export class AIService {
 			};
 		});
 
-		let message = await aiClient.evaluate(prompt);
+		const messageResult = await aiClient.evaluate(prompt);
+		if (isError(messageResult)) return messageResult;
+		let message = messageResult.value;
 
 		if (useBriefStyle) {
 			message = message.split('\n')[0];
 		}
 
 		const { title, description } = splitMessage(message);
-		return description ? `${title}\n\n${description}` : title;
+		return ok(description ? `${title}\n\n${description}` : title);
 	}
 
-	async summarizeBranch({ hunks, branchTemplate, userToken = undefined }: SummarizeBranchOpts) {
-		const aiClient = await this.buildClient(userToken);
-		if (!aiClient) return;
+	async summarizeBranch({
+		hunks,
+		branchTemplate,
+		userToken = undefined
+	}: SummarizeBranchOpts): Promise<Result<string, string>> {
+		const aiClientResult = await this.buildClient(userToken);
+		if (isError(aiClientResult)) return aiClientResult;
+		const aiClient = aiClientResult.value;
 
 		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
 		const defaultedBranchTemplate = branchTemplate || aiClient.defaultBranchTemplate;
@@ -299,7 +306,10 @@ export class AIService {
 			};
 		});
 
-		const message = await aiClient.evaluate(prompt);
-		return message.replaceAll(' ', '-').replaceAll('\n', '-');
+		const messageResult = await aiClient.evaluate(prompt);
+		if (isError(messageResult)) return messageResult;
+		const message = messageResult.value;
+
+		return ok(message.replaceAll(' ', '-').replaceAll('\n', '-'));
 	}
 }

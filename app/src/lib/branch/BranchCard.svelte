@@ -17,6 +17,7 @@
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { persisted } from '$lib/persisted/persisted';
+	import { isError } from '$lib/result';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import { User } from '$lib/stores/user';
@@ -59,26 +60,32 @@
 		$commitBoxOpen = false;
 	}
 
-	async function generateBranchName() {
+	async function generateBranchName(shouldThrowErrors: boolean) {
 		if (!aiGenEnabled) return;
 
 		const hunks = branch.files.flatMap((f) => f.hunks);
 
-		try {
-			const prompt = promptService.selectedBranchPrompt(project.id);
-			const message = await aiService.summarizeBranch({
-				hunks,
-				userToken: $user?.access_token,
-				branchTemplate: prompt
-			});
+		const prompt = promptService.selectedBranchPrompt(project.id);
+		const messageResult = await aiService.summarizeBranch({
+			hunks,
+			userToken: $user?.access_token,
+			branchTemplate: prompt
+		});
 
-			if (message && message !== branch.name) {
-				branch.name = message;
-				branchController.updateBranchName(branch.id, branch.name);
+		if (isError(messageResult)) {
+			if (shouldThrowErrors) {
+				console.error(messageResult.error);
+				showError('Failed to generate branch name', messageResult.error);
 			}
-		} catch (e) {
-			console.error(e);
-			showError('Failed to generate branch name', e);
+
+			return;
+		}
+
+		const message = messageResult.value;
+
+		if (message && message !== branch.name) {
+			branch.name = message;
+			branchController.updateBranchName(branch.id, branch.name);
 		}
 	}
 
@@ -95,7 +102,7 @@
 			bind:isLaneCollapsed
 			on:action={(e) => {
 				if (e.detail === 'generate-branch-name') {
-					generateBranchName();
+					generateBranchName(true);
 				}
 			}}
 		/>
@@ -124,7 +131,7 @@
 						bind:isLaneCollapsed
 						on:action={(e) => {
 							if (e.detail === 'generate-branch-name') {
-								generateBranchName();
+								generateBranchName(true);
 							}
 							if (e.detail === 'collapse') {
 								$isLaneCollapsed = true;
@@ -165,7 +172,7 @@
 											hasSectionsAfter={branch.commits.length > 0}
 											on:action={(e) => {
 												if (e.detail === 'generate-branch-name') {
-													generateBranchName();
+													generateBranchName(true);
 												}
 											}}
 										/>

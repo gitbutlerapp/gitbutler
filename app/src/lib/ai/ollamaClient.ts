@@ -1,5 +1,6 @@
 import { LONG_DEFAULT_BRANCH_TEMPLATE, LONG_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
 import { MessageRole, type PromptMessage, type AIClient, type Prompt } from '$lib/ai/types';
+import { err, isError, ok, type Result } from '$lib/result';
 import { isNonEmptyObject } from '$lib/utils/typeguards';
 import { fetch, Body, Response } from '@tauri-apps/api/http';
 
@@ -81,15 +82,19 @@ export class OllamaClient implements AIClient {
 		private modelName: string
 	) {}
 
-	async evaluate(prompt: Prompt) {
+	async evaluate(prompt: Prompt): Promise<Result<string, string>> {
 		const messages = this.formatPrompt(prompt);
-		const response = await this.chat(messages);
+
+		const responseResult = await this.chat(messages);
+		if (isError(responseResult)) return responseResult;
+		const response = responseResult.value;
+
 		const rawResponse = JSON.parse(response.message.content);
 		if (!isOllamaChatMessageFormat(rawResponse)) {
-			throw new Error('Invalid response: ' + response.message.content);
+			err('Invalid response: ' + response.message.content);
 		}
 
-		return rawResponse.result;
+		return ok(rawResponse.result);
 	}
 
 	/**
@@ -142,13 +147,12 @@ ${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 	 *
 	 * @param messages - An array of LLMChatMessage objects representing the chat messages.
 	 * @param options - Optional LLMRequestOptions object for specifying additional options.
-	 * @throws Error if the response is invalid.
 	 * @returns A Promise that resolves to an LLMResponse object representing the response from the LLM model.
 	 */
 	private async chat(
 		messages: Prompt,
 		options?: OllamaRequestOptions
-	): Promise<OllamaChatResponse> {
+	): Promise<Result<OllamaChatResponse, string>> {
 		const result = await this.fetchChat({
 			model: this.modelName,
 			stream: false,
@@ -158,9 +162,9 @@ ${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 		});
 
 		if (!isOllamaChatResponse(result.data)) {
-			throw new Error('Invalid response\n' + JSON.stringify(result.data));
+			return err('Invalid response\n' + JSON.stringify(result.data));
 		}
 
-		return result.data;
+		return ok(result.data);
 	}
 }
