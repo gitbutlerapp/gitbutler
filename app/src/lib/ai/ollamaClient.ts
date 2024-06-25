@@ -1,6 +1,6 @@
 import { LONG_DEFAULT_BRANCH_TEMPLATE, LONG_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
 import { MessageRole, type PromptMessage, type AIClient, type Prompt } from '$lib/ai/types';
-import { err, isError, ok, type Result } from '$lib/result';
+import { err, isError, ok, stringErrorFromAny, type Result } from '$lib/result';
 import { isNonEmptyObject } from '$lib/utils/typeguards';
 import { fetch, Body, Response } from '@tauri-apps/api/http';
 
@@ -89,12 +89,17 @@ export class OllamaClient implements AIClient {
 		if (isError(responseResult)) return responseResult;
 		const response = responseResult.value;
 
-		const rawResponse = JSON.parse(response.message.content);
-		if (!isOllamaChatMessageFormat(rawResponse)) {
-			err('Invalid response: ' + response.message.content);
-		}
+		try {
+			const rawResponse = JSON.parse(response.message.content);
+			if (!isOllamaChatMessageFormat(rawResponse)) {
+				return err('Invalid response: ' + response.message.content);
+			}
 
-		return ok(rawResponse.result);
+			return ok(rawResponse.result);
+		} catch (e) {
+			// Catch JSON.parse error
+			return stringErrorFromAny(e);
+		}
 	}
 
 	/**

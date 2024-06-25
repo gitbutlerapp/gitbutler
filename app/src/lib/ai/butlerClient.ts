@@ -1,5 +1,5 @@
 import { SHORT_DEFAULT_BRANCH_TEMPLATE, SHORT_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
-import { err, ok, type Result } from '$lib/result';
+import { ok, stringErrorFromAny, type Result } from '$lib/result';
 import type { AIClient, ModelKind, Prompt } from '$lib/ai/types';
 import type { HttpClient } from '$lib/backend/httpClient';
 
@@ -26,11 +26,7 @@ export class ButlerAIClient implements AIClient {
 
 			return ok(response.message);
 		} catch (e) {
-			if (e instanceof Error) {
-				return err(e.message);
-			} else {
-				return err('Failed to contant GitButler API');
-			}
+			return stringErrorFromAny(e);
 		}
 	}
 }

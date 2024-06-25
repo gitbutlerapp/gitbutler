@@ -41,3 +41,11 @@ export function ok<Ok, Error>(value: Ok): Result<Ok, Error> {
 export function err<Ok, Error>(value: Error): Result<Ok, Error> {
 	return { ok: false, error: value };
 }
+
+export function stringErrorFromAny<Ok>(value: any): Result<Ok, string> {
+	if (value instanceof Error) {
+		return err(value.message);
+	} else {
+		return err(String(value));
+	}
+}
