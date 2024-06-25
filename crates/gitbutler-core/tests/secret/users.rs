@@ -1,4 +1,5 @@
 use crate::{credentials, credentials::count as count_secrets};
+use gitbutler_core::users::User;
 use serial_test::serial;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
@@ -31,18 +32,23 @@ fn auto_migration_of_secrets_on_when_getting_and_setting_user() -> anyhow::Resul
             expected_secrets,
             "it automatically entered the secrets to the secrets store after getting the existing user"
         );
-        assert_eq!(
-            user.access_token()?.0,
-            "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-            "it can make the access token available"
-        );
-        if has_github_token {
+
+        let assert_access_token_values = |user: &User| -> anyhow::Result<()> {
             assert_eq!(
-                user.github_access_token()?.map(|s| s.0),
-                Some("gho_AAAAAAAAAAAAABBBBBBBBBBBBBBBCCCCCCCC".into()),
+                user.access_token()?.0,
+                "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
                 "it can make the access token available"
             );
-        }
+            if has_github_token {
+                assert_eq!(
+                    user.github_access_token()?.map(|s| s.0),
+                    Some("gho_AAAAAAAAAAAAABBBBBBBBBBBBBBBCCCCCCCC".into()),
+                    "it can make the access token available"
+                );
+            }
+            Ok(())
+        };
+        assert_access_token_values(&user)?;
 
         let assert_no_secret_in_plain_text = || -> anyhow::Result<()> {
             let buf = std::fs::read(&user_json_path)?;
@@ -60,6 +66,9 @@ fn auto_migration_of_secrets_on_when_getting_and_setting_user() -> anyhow::Resul
             Ok(())
         };
         assert_no_secret_in_plain_text()?;
+
+        let user = users.get_user()?.expect("stored user can be read");
+        assert_access_token_values(&user)?;
 
         users.delete_user()?;
         assert_eq!(

@@ -35,29 +35,24 @@ impl User {
     ///
     /// It's cached after the first retrieval.
     pub fn access_token(&self) -> Result<Sensitive<String>> {
-        match self.access_token.borrow().as_ref() {
-            Some(token) => Ok(token.clone()),
-            None => {
-                let err_msg = "BUG: access token for user must have been stored - delete user.json and login again to fix";
-                let secret =
-                    crate::secret::retrieve(Self::ACCESS_TOKEN_HANDLE)?.context(err_msg)?;
-                *self.access_token.borrow_mut() = Some(secret.clone());
-                Ok(secret)
-            }
+        if let Some(token) = self.access_token.borrow().as_ref() {
+            return Ok(token.clone());
         }
+        let err_msg = "BUG: access token for user must have been stored - delete user.json and login again to fix";
+        let secret = crate::secret::retrieve(Self::ACCESS_TOKEN_HANDLE)?.context(err_msg)?;
+        *self.access_token.borrow_mut() = Some(secret.clone());
+        Ok(secret)
     }
 
     /// Obtain the GitHub access token, if it is stored either on this instance or in the secrets store.
     ///
     /// Note that if retrieved from the secrets store, it will be cached on instance.
     pub fn github_access_token(&self) -> Result<Option<Sensitive<String>>> {
-        match self.github_access_token.borrow().as_ref() {
-            Some(token) => Ok(Some(token.clone())),
-            None => {
-                let secret = crate::secret::retrieve(Self::GITHUB_ACCESS_TOKEN_HANDLE)?;
-                self.github_access_token.borrow_mut().clone_from(&secret);
-                Ok(secret)
-            }
+        if let Some(token) = self.github_access_token.borrow().as_ref() {
+            return Ok(Some(token.clone()));
         }
+        let secret = crate::secret::retrieve(Self::GITHUB_ACCESS_TOKEN_HANDLE)?;
+        self.github_access_token.borrow_mut().clone_from(&secret);
+        Ok(secret)
     }
 }
