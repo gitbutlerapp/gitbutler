@@ -72,9 +72,6 @@ impl Controller {
                     bail!("can only work in main worktrees");
                 };
             }
-            Ok(repo) if repo.submodules().map_or(false, |sm| sm.is_some()) => {
-                bail!("repositories with git submodules are not supported");
-            }
             Ok(_repo) => {}
             Err(err) => {
                 return Err(anyhow::Error::from(err))
