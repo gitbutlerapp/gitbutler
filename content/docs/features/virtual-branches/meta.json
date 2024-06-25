@@ -3,6 +3,13 @@
   "pages": [
     "overview",
     "butler-flow",
-    "branch-lanes"
+    "branch-lanes",
+    "commits",
+    "pushing",
+    "remote",
+    "integration",
+    "merging",
+    "signing",
+    "committer"
   ]
 }

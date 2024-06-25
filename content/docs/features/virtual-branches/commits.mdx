@@ -1,0 +1,129 @@
+---
+title: Commits
+---
+
+import ImageSection from "@/components/ImageSection"
+import { Callout } from 'fumadocs-ui/components/callout';
+
+GitButler gives you a lot of tooling for creating, modifying, squashing, splitting and undoing commits.
+
+GitButler has lots of ways to craft the exact commits that you want to end up with. With other Git clients, you tend to have to run somewhat complicated git rebase -i type commands to change commit messages, split a commit up or absorb new changes into an existing commit. With GitButler, most of these are simply drag-and-drop operations.
+
+Here are some of the cool things you can do very easily with GitButler.
+
+## Creating Commits
+Once you have changes on a virtual branch and want to commit them, you can hit the "Start Commit" button, which gives you an editor to write a summary and optional description for your commit message. 
+
+If you want AI to use your diff to generate a commit message, you can hit the "Generate message" button.
+
+<ImageSection
+  width={700}
+  height={600}
+  className="mx-auto"
+  alt="Creating Commits Example"
+  src="/img/docs/commits-01.gif"
+/>
+
+## AI Commit Message Settings
+
+If you want to use AI for generating your commit messages from time to time, you there are quite a few options in your user preferences. You can choose from [OpenAI](https://platform.openai.com/), [Anthropic](https://www.anthropic.com/) or [Ollama](https://www.ollama.com/) as your engine. 
+
+For both OpenAI and Anthropic, you can either use your own API key to directly send your request to their servers, or you can proxy via our server (which you need to be logged in for).
+
+<ImageSection
+  width={700}
+  height={600}
+  className="mx-auto"
+  alt="AI Commit Settings"
+  src="/img/docs/commits-02.avif"
+/>
+
+If you use your own key for OpenAI or Anthropic, you can choose which model you would like us to use.
+
+<ImageSection
+  width={700}
+  height={600}
+  className="mx-auto"
+  alt="AI Commit Settings"
+  src="/img/docs/commits-03.avif"
+/>
+
+If you don't want to send your diff to another server, you can also use Ollama, which is a local LLM server. With Ollama, you can run nearly any open source large language model ([Llama 3](https://www.ollama.com/library/llama3), [Phi 3](https://www.ollama.com/library/phi3), [Mistral](https://www.ollama.com/library/mistral), [Gemma](https://www.ollama.com/library/gemma), etc) entirely locally.
+
+With all of these models, you can also customize the prompt if you want something more specific. In the "Custom AI prompts" section, you can add new prompts and select which one you want to use per project. This is useful for following certain formats or generating messages in other languages, etc.
+
+<ImageSection
+  width={700}
+  height={600}
+  className="mx-auto"
+  alt="AI Commit Settings"
+  src="/img/docs/commits-04.avif"
+/>
+
+## Absorbing New Work
+
+If you have a commit and get some feedback on it or find an issue and wish to amend it, you can very easily absorb changes into existing commits. Simply drag the file into the commit you want to absorb that change into and drop it there. 
+
+This will both rewrite that commit to include the new changes and also rebase every commit upstream from it automatically.
+
+<ImageSection
+  width={700}
+  height={600}
+  className="mx-auto"
+  alt="Absorbing New Work"
+  src="/img/docs/commits-05.gif"
+/>
+
+## Undoing Commits
+
+You can easily undo any commit in your stack by expanding the commit and hitting the 'Undo' button. This will rebase all the commits above it and leave whatever work was in that commit as new uncommitted changes.
+
+<Callout>
+"Undo"ing a commit does not throw it away, it simply makes that work not in a commit anymore. It will not discard the changes.
+</Callout>
+
+<ImageSection
+  width={700}
+  height={600}
+  className="mx-auto"
+  alt="Undoing Commits"
+  src="/img/docs/commits-06.gif"
+/>
+
+## Squashing Commits
+
+Squashing two commits into a single combined commit is also very simple. Just drag one commit on top of another one.
+
+<ImageSection
+  width={700}
+  height={600}
+  className="mx-auto"
+  alt="Squashing Commits"
+  src="/img/docs/commits-07.gif"
+/>
+
+## Splitting Commits
+
+Splitting commits is slightly more complex. GitButler allows you to create an "empty" commit anywhere and then drag changes into it. Here is an example of creating an empty commit between two other commits, dragging changes from both of them into it and then absorbing new work into it as well.
+
+<ImageSection
+  width={700}
+  height={600}
+  className="mx-auto"
+  alt="Splitting Commits"
+  src="/img/docs/commits-08.gif"
+/>
+
+You can also notice that I easily edit the commit message by just hitting the "edit message" button.
+
+## Moving Commits
+
+You can also arbitrarily change the order of your commits by dragging and dropping them, which rebases everything to change the order.
+
+<ImageSection
+  width={700}
+  height={600}
+  className="mx-auto"
+  alt="Moving Commits"
+  src="/img/docs/commits-09.gif"
+/>
