@@ -16,6 +16,8 @@
   --clr-light-gray: #f1f1ed;
   /* accent */
   --clr-accent: #97eae5;
+  --clr-err-50: #DC606B;
+  --clr-warn-50: #DC9B14;
   --font-system: system-ui, sans-serif;
 }
 

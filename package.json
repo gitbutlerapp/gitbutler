@@ -43,30 +43,6 @@
     "tailwindcss": "^3.4.4",
     "typescript": "^5.5.2"
   },
-  "eslintConfig": {
-    "parser": "@typescript-eslint/parser",
-    "parserOptions": {
-      "sourceType": "module",
-      "ecmaVersion": "2023"
-    },
-    "extends": [
-      "eslint:recommended",
-      "next",
-      "plugin:@typescript-eslint/eslint-recommended",
-      "plugin:@typescript-eslint/recommended"
-    ],
-    "env": {
-      "browser": true,
-      "es6": true
-    },
-    "plugins": [
-      "prettier",
-      "@typescript-eslint"
-    ],
-    "rules": {
-      "@next/next/no-img-element": "off"
-    }
-  },
   "simple-git-hooks": {
     "pre-commit": "npx lint-staged"
   },
