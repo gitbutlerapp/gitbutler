@@ -38,24 +38,21 @@ export default async function Page({ params }: { params: { slug?: string[] } }) 
         className="rounded-md text-neutral-500 dark:text-neutral-400 dark:bg-neutral-900 border border-neutral-300/50 text-sm py-1 dark:border-neutral-700 flex justify-center items-center gap-2 hover:bg-neutral-100 transition duration-300 dark:hover:bg-neutral-950 group"
       >
         <svg
-          className="size-4 transition ease-[var(--ease-spring-3)] duration-500 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+          className="size-4 transition ease-[var(--ease-spring-3)] duration-500 group-hover:animate-[var(--animation-bounce)]"
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 256 256"
         >
           <rect width="256" height="256" fill="none" />
-          <line
-            x1="64"
-            y1="192"
-            x2="192"
-            y2="64"
+          <path
+            d="M32,104H80a0,0,0,0,1,0,0V208a0,0,0,0,1,0,0H32a8,8,0,0,1-8-8V112A8,8,0,0,1,32,104Z"
             fill="none"
             stroke="currentColor"
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth="16"
           />
-          <polyline
-            points="88 64 192 64 192 168"
+          <path
+            d="M80,104l40-80a32,32,0,0,1,32,32V80h64a16,16,0,0,1,15.87,18l-12,96A16,16,0,0,1,204,208H80"
             fill="none"
             stroke="currentColor"
             strokeLinecap="round"
