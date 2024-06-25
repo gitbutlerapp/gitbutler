@@ -2,6 +2,7 @@
 title: Debugging
 ---
 
+import CodeEditor from "@/components/CodeEditor"
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 
 If you are having technical issues with the GitButler client, here are a few things you can do to help us help you. Or help yourself.
@@ -34,6 +35,8 @@ Often the most helpful thing is to look at the logs. GitButler is a Tauri app, s
 
 In this directory, there should be rolling daily logs:
 
+<CodeEditor>
+
 ```bash
 ❯ cd ~/Library/Logs/com.gitbutler.app
 
@@ -62,6 +65,8 @@ In this directory, there should be rolling daily logs:
 2024-01-30T13:02:56.343524Z  INFO menu_item_set_enabled: gitbutler-app/src/menu.rs:11: close time.busy=35.7µs time.idle=28.8µs menu_item_id="project/settings" enabled=false
 ```
 
+</CodeEditor>
+
 ## Data Files
 
 GitButler also keeps it's own data about each of your projects. The virtual branch metadata, your user config stuff, a log of changes in each file, etc. If you want to inspect what GitButler is doing or debug or reset everything, you can go to our data directory.
@@ -86,6 +91,8 @@ GitButler also keeps it's own data about each of your projects. The virtual bran
 
 In this folder there are a bunch of interesting things.
 
+<CodeEditor>
+
 ```bash
 ❯ cd ~/Library/Application\ Support/com.gitbutler.app
 
@@ -100,7 +107,11 @@ In this folder there are a bunch of interesting things.
 4 directories, 4 files
 ```
 
+</CodeEditor>
+
 The `projects.json` file will have a list of your projects metadata:
+
+<CodeEditor>
 
 ```bash
 ❯ cat projects.json
@@ -127,7 +138,11 @@ The `projects.json` file will have a list of your projects metadata:
 ]
 ```
 
+</CodeEditor>
+
 The `settings.json` are some top level preferences you've set.
+
+<CodeEditor>
 
 ```bash
 ❯ cat settings.json
@@ -136,5 +151,7 @@ The `settings.json` are some top level preferences you've set.
   "appNonAnonMetricsEnabled": true
 }
 ```
+
+</CodeEditor>
 
 Finally, the `keys` directory holds the SSH key that we generate for you in case you don't want to go through creating your own. It's only used if you want to use it to sign commits or use it for authentication.

@@ -3,6 +3,7 @@ title: Recovering Stuff
 ---
 
 import ImageSection from "@/components/ImageSection"
+import CodeEditor from "@/components/CodeEditor"
 import { File, Folder, Files } from 'fumadocs-ui/components/files';
 
 How to dig around our internal data to find (nearly) anything
@@ -13,6 +14,8 @@ GitButler saves data in a few different ways. As we're still in beta, sometimes 
 
 If everything crashes or the UI isn't working at all, you may be surprised to know that even though your virtual branches don't show up in a normal git branch output, we do actually constantly write them out as Git references (just not in refs/heads).
 
+<CodeEditor>
+
 ```bash
 ❯ git for-each-ref | grep gitbutler
 e63b3bac82835dc17083a785d25db8b4b46744b9 commit	refs/gitbutler/add-can-create-method-to-notebook
@@ -20,6 +23,8 @@ e63b3bac82835dc17083a785d25db8b4b46744b9 commit	refs/gitbutler/add-can-create-me
 c7e27b9f99f25160a4d5f07d5972c217bdd44319 commit	refs/gitbutler/add-database-schema-conversion-script
 4afdfed6c14b57491a9d295c31613fd79b92f63a commit	refs/gitbutler/add-gems-for-test-group
 ```
+
+</CodeEditor>
 
 These references are just like git branches - they point to a commit that has the latest version of your branch. You can create other git branches off of them, you can push them to GitHub, etc.
 
