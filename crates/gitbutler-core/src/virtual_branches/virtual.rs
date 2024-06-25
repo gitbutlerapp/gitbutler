@@ -1823,10 +1823,10 @@ fn get_applied_status(
                         // if any of the current hunks intersects with the owned hunk, we want to keep it
                         for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
                             let hash = Hunk::hash_diff(&git_diff_hunk.diff_lines);
-                            if locks.contains_key(&hash) {
-                                return None; // Defer allocation to unclaimed hunks processing
-                            }
                             if claimed_hunk.eq(&Hunk::from(git_diff_hunk)) {
+                                if locks.contains_key(&hash) {
+                                    return None; // Defer allocation to unclaimed hunks processing
+                                }
                                 let timestamp = claimed_hunk.timestamp_ms().unwrap_or(mtime);
                                 diffs_by_branch
                                     .entry(branch.id)
@@ -1843,6 +1843,9 @@ fn get_applied_status(
                                         .with_hash(hash),
                                 );
                             } else if claimed_hunk.intersects(git_diff_hunk) {
+                                if locks.contains_key(&hash) {
+                                    return None; // Defer allocation to unclaimed hunks processing
+                                }
                                 diffs_by_branch
                                     .entry(branch.id)
                                     .or_default()
