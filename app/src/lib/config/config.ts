@@ -36,11 +36,6 @@ export function projectAiGenEnabled(projectId: string): Persisted<boolean> {
 	return persisted(false, key + projectId);
 }
 
-export function projectAiGenAutoBranchNamingEnabled(projectId: string): Persisted<boolean> {
-	const key = 'projectAiGenAutoBranchNamingEnabled_';
-	return persisted(false, key + projectId);
-}
-
 export function projectRunCommitHooks(projectId: string): Persisted<boolean> {
 	const key = 'projectRunCommitHooks_';
 	return persisted(false, key + projectId);
