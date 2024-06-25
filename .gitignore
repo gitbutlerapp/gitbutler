@@ -1,5 +1,5 @@
 # deps
-/node_modules
+node_modules
 
 # generated content
 .map.ts
