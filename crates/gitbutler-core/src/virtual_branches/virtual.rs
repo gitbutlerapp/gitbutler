@@ -1786,8 +1786,6 @@ fn get_applied_status(
         .map(|branch| (branch.id, HashMap::new()))
         .collect();
 
-    let mut mtimes = MTimeCache::default();
-
     let locks = if project_repository.project().use_new_locking {
         new_compute_locks(project_repository.repo(), &base_diffs, &virtual_branches)?
     } else {
@@ -1814,35 +1812,16 @@ fn get_applied_status(
                     Some(hunks) => hunks,
                 };
 
-                let mtime = mtimes.mtime_by_path(claim.file_path.as_path());
-
                 let claimed_hunks: Vec<Hunk> = claim
                     .hunks
                     .iter()
                     .filter_map(|claimed_hunk| {
                         // if any of the current hunks intersects with the owned hunk, we want to keep it
                         for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
-                            let hash = Hunk::hash_diff(&git_diff_hunk.diff_lines);
-                            if claimed_hunk.eq(&Hunk::from(git_diff_hunk)) {
-                                if locks.contains_key(&hash) {
-                                    return None; // Defer allocation to unclaimed hunks processing
-                                }
-                                let timestamp = claimed_hunk.timestamp_ms().unwrap_or(mtime);
-                                diffs_by_branch
-                                    .entry(branch.id)
-                                    .or_default()
-                                    .entry(claim.file_path.clone())
-                                    .or_default()
-                                    .push(git_diff_hunk.clone());
-
-                                git_diff_hunks.remove(i);
-                                return Some(
-                                    claimed_hunk
-                                        .clone()
-                                        .with_timestamp(timestamp)
-                                        .with_hash(hash),
-                                );
-                            } else if claimed_hunk.intersects(git_diff_hunk) {
+                            if claimed_hunk == &Hunk::from(git_diff_hunk)
+                                || claimed_hunk.intersects(git_diff_hunk)
+                            {
+                                let hash = Hunk::hash_diff(&git_diff_hunk.diff_lines);
                                 if locks.contains_key(&hash) {
                                     return None; // Defer allocation to unclaimed hunks processing
                                 }
@@ -1855,7 +1834,6 @@ fn get_applied_status(
                                 let updated_hunk = Hunk {
                                     start: git_diff_hunk.new_start,
                                     end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
-                                    timestamp_ms: Some(mtime),
                                     hash: Some(hash),
                                     locked_to: git_diff_hunk.locked_to.to_vec(),
                                 };
@@ -1912,9 +1890,7 @@ fn get_applied_status(
             };
 
             let hash = Hunk::hash_diff(&hunk.diff_lines);
-            let mut new_hunk = Hunk::from(&hunk)
-                .with_timestamp(mtimes.mtime_by_path(filepath.as_path()))
-                .with_hash(hash);
+            let mut new_hunk = Hunk::from(&hunk).with_hash(hash);
             new_hunk.locked_to = match locked_to {
                 Some(locked_to) => locked_to.clone(),
                 _ => vec![],
@@ -1922,9 +1898,7 @@ fn get_applied_status(
 
             virtual_branches[vbranch_pos].ownership.put(OwnershipClaim {
                 file_path: filepath.clone(),
-                hunks: vec![Hunk::from(&hunk)
-                    .with_timestamp(mtimes.mtime_by_path(filepath.as_path()))
-                    .with_hash(Hunk::hash_diff(&hunk.diff_lines))],
+                hunks: vec![Hunk::from(&hunk).with_hash(Hunk::hash_diff(&hunk.diff_lines))],
             });
 
             let hunk = match locked_to {
