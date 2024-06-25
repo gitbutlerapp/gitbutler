@@ -5,11 +5,11 @@
     "butler-flow",
     "branch-lanes",
     "commits",
-    "pushing",
-    "remote",
-    "integration",
+    "pushing-and-fetching",
+    "remote-branches",
+    "integration-branch",
     "merging",
-    "signing",
-    "committer"
+    "signing-commits",
+    "committer-mark"
   ]
 }

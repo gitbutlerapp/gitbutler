@@ -9,7 +9,7 @@ export default async function Page({ params }: { params: { slug?: string[] } }) 
 
   if (!page) notFound()
 
-  const path = `content/docs/${page.file.path}`
+  const path = `content/(docs)/${page.file.path}`
 
   const footer = (
     <>
@@ -73,6 +73,7 @@ export default async function Page({ params }: { params: { slug?: string[] } }) 
   return (
     <DocsPage
       toc={page.data.exports.toc}
+      full={page.data.full ?? false}
       tableOfContent={{
         footer
       }}

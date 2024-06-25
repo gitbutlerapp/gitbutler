@@ -6,5 +6,15 @@
       "source": "/",
       "destination": "https://gitbutler.com"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/features/virtual-branches",
+      "destination": "/features/virtual-branches/overview"
+    },
+    {
+      "source": "/features/virtual-branches/verifying-commits",
+      "destination": "/features/virtual-branches/signing-commits"
+    }
   ]
 }

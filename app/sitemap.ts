@@ -1,13 +1,17 @@
 import type { MetadataRoute } from "next"
-import { baseUrl } from "@/utils/metadata"
 import { getPages } from "./source"
+
+const baseUrl =
+  process.env.NODE_ENV === "development"
+    ? new URL("http://localhost:3000")
+    : new URL(`https://${process.env.VERCEL_URL}`)
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const url = (path: string): string => new URL(path, baseUrl).toString()
 
   return [
     {
-      url: url("/docs"),
+      url: url("/"),
       changeFrequency: "monthly",
       priority: 0.8
     },
