@@ -45,7 +45,8 @@
 			lastCheckboxDetail;
 	}
 
-	$: if ($fileIdSelection && draggableElt)
+	// Don't focus if it's multiple selection. Issue #4139
+	$: if ($fileIdSelection && draggableElt && $fileIdSelection.length === 1)
 		updateFocus(draggableElt, file, fileIdSelection, $commit?.id);
 
 	$: popupMenu = updateContextMenu();
