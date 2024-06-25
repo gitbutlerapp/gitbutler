@@ -7,24 +7,6 @@ import type { ReactNode } from "react"
 const SITE_URL = process.env.SITE_URL ?? "http://localhost:3000"
 const urlBase = new URL(SITE_URL)
 
-const splineSans = localFont({
-  src: [
-    {
-      path: "../public/fonts/SplineSansMono-Regular.woff2",
-      weight: "300"
-    },
-    {
-      path: "../public/fonts/SplineSansMono-Medium.woff2",
-      weight: "400"
-    },
-    {
-      path: "../public/fonts/SplineSansMono-Semibold.woff2",
-      weight: "600"
-    }
-  ],
-  variable: "--font-splinesansmono"
-})
-
 const ppEditorialNew = localFont({
   src: [
     {
@@ -44,7 +26,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
-      className={`${splineSans.variable} ${ppEditorialNew.variable}`}
+      className={`${ppEditorialNew.variable}`}
       suppressHydrationWarning
     >
       <body>
@@ -56,7 +38,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
 export const metadata: Metadata = {
   title: {
-    template: "GitButler - %s",
+    template: "%s | GitButler",
     default: "GitButler"
   },
   description:
@@ -67,7 +49,7 @@ export const metadata: Metadata = {
   openGraph: {
     images: "/cover.png",
     title: {
-      template: "GitButler - %s",
+      template: "%s | GitButler",
       default: "GitButler"
     },
     description:
@@ -75,23 +57,17 @@ export const metadata: Metadata = {
   },
   metadataBase: urlBase,
   applicationName: "GitButler",
-  manifest: "/manifest.webmanifest",
   robots: {
     index: true,
     follow: true
-  },
-  alternates: {
-    types: {
-      "application/rss+xml": [{ url: "/feed.xml", title: "rss" }]
-    }
   },
   icons: { icon: "/fav/fav-64.png", apple: "/fav/fav-180.png" }
 }
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" }
+    { media: "(prefers-color-scheme: dark)", color: "#707070" },
+    { media: "(prefers-color-scheme: light)", color: "#f5f5f3" }
   ],
   colorScheme: "dark light",
   width: "device-width",

@@ -28,8 +28,5 @@ export const baseOptions: BaseLayoutProps = {
 // docs layout configuration
 export const docsOptions: DocsLayoutProps = {
   ...baseOptions,
-  // sidebar: {
-  //   banner: <Logo />
-  // },
   tree: pageTree
 }

@@ -13,6 +13,7 @@
   --clr-light-gray: #f1f1ed;
   /* accent */
   --clr-accent: #97eae5;
+  --font-system: system-ui, sans-serif;
 }
 
 /* change selection */
@@ -29,6 +30,7 @@ body {
   /* optimise font rendering */
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  font-family: var(--font-system);
 
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -46,47 +48,15 @@ body {
   }
 }
 
-/* Links in article */
-article a:not(h1 > a, h2 > a, h3 > a, h4 > a, h5 > a, h6 > a) {
-  /* color: var(--clr-accent) !important; */
-  /* text-decoration-color: var(--clr-accent) !important; */
-}
-
-main div:last-of-type a {
-  /* color: var(--clr-accent) !important; */
-}
-
-article code {
-  /* border-color: color-mix(in srgb, var(--clr-accent) 90%, var(--clr-bg)) !important; */
-  /* background-color: color-mix(in srgb, var(--clr-accent) 20%, var(--clr-bg)) !important; */
-}
-
 /* Prev / Next Cards at bottom of every page */
 article div:last-of-type:is(.grid.grid-cols-2) * {
   @apply !font-ppeditorial text-base;
 }
 
-/* Main Body */
-/* article p, */
-/* article div, */
-/* article span { */
-/*   @apply font-spline font-light; */
-/* } */
-
-/* All Headers */
+/* Headers Serif */
 h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
+h2 {
   @apply !font-ppeditorial;
-}
-
-/* Main Sidebar */
-aside a,
-aside button {
-  @apply !font-ppeditorial tracking-wide text-sm;
 }
 
 iframe[src*="youtube"] {
