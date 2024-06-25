@@ -4,8 +4,10 @@ import localFont from "next/font/local"
 import type { Metadata, Viewport } from "next"
 import type { ReactNode } from "react"
 
-const SITE_URL = process.env.SITE_URL ?? "http://localhost:3000"
-const urlBase = new URL(SITE_URL)
+const baseUrl =
+  process.env.NODE_ENV === "development"
+    ? new URL("http://localhost:3000")
+    : new URL(`https://${process.env.VERCEL_URL}`)
 
 const ppEditorialNew = localFont({
   src: [
@@ -24,11 +26,7 @@ const ppEditorialNew = localFont({
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${ppEditorialNew.variable}`}
-      suppressHydrationWarning
-    >
+    <html lang="en" className={`${ppEditorialNew.variable}`} suppressHydrationWarning>
       <body>
         <Provider>{children}</Provider>
       </body>
@@ -43,19 +41,26 @@ export const metadata: Metadata = {
   },
   description:
     "GitButler is a new Source Code Management system designed to manage your branches, record and backup your work, be your Git client, help with your code and much more",
-  twitter: {
-    card: "summary_large_image"
-  },
   openGraph: {
     images: "/cover.png",
     title: {
       template: "%s | GitButler",
       default: "GitButler"
     },
+    url: "https://docs.gitbutler.com",
+    siteName: "GitButler Docs",
     description:
       "GitButler is a new Source Code Management system designed to manage your branches, record and backup your work, be your Git client, help with your code and much more"
   },
-  metadataBase: urlBase,
+  twitter: {
+    card: "summary_large_image",
+    creator: "@gitbutler",
+    title: "GitButler",
+    description:
+      "GitButler is a new Source Code Management system designed to manage your branches, record and backup your work, be your Git client, help with your code and much more",
+    images: "/cover.png"
+  },
+  metadataBase: baseUrl,
   applicationName: "GitButler",
   robots: {
     index: true,
