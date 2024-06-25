@@ -8,11 +8,10 @@
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import { getContext, getContextStoreBySymbol, createContextStore } from '$lib/utils/context';
 	import {
-		createIntegratedContextStore,
-		createLocalContextStore,
-		createRemoteContextStore,
-		createUnknownCommitsStore,
-		createUpstreamContextStore
+		createIntegratedCommitsContextStore,
+		createLocalCommitsContextStore,
+		createLocalAndRemoteCommitsContextStore,
+		createRemoteCommitsContextStore
 	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
@@ -33,20 +32,17 @@
 	const branchStore = createContextStore(Branch, undefined);
 	$: branchStore.set(branch);
 
-	const localCommits = createLocalContextStore(undefined);
+	const localCommits = createLocalCommitsContextStore(undefined);
 	$: localCommits.set(branch.localCommits);
 
-	const remoteCommits = createRemoteContextStore(undefined);
-	$: remoteCommits.set(branch.remoteCommits);
+	const localAndRemoteCommits = createLocalAndRemoteCommitsContextStore(undefined);
+	$: localAndRemoteCommits.set(branch.remoteCommits);
 
-	// Set the store immediately so it can be updated later.
-	const upstreamCommits = createUpstreamContextStore([]);
-	$: upstreamCommits.set(branch.upstreamData?.commits ?? []);
+	const remoteCommits = createRemoteCommitsContextStore([]);
+	$: allUpstreamCommits = branch.upstreamData?.commits ?? [];
+	$: remoteCommits.set(allUpstreamCommits.filter((c) => !c.relatedTo));
 
-	const unknownCommits = createUnknownCommitsStore([]);
-	$: unknownCommits.set($upstreamCommits.filter((c) => !c.relatedTo));
-
-	const integratedCommits = createIntegratedContextStore([]);
+	const integratedCommits = createIntegratedCommitsContextStore([]);
 	$: integratedCommits.set(branch.integratedCommits);
 
 	const project = getContext(Project);

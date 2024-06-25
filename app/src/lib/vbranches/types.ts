@@ -136,7 +136,7 @@ export class Branch {
 	}
 
 	get remoteCommits() {
-		return this.commits.filter((c) => c.status === 'remote');
+		return this.commits.filter((c) => c.status === 'localAndRemote');
 	}
 
 	get integratedCommits() {
@@ -161,7 +161,7 @@ export type ComponentColor =
 	| 'error'
 	| 'warning'
 	| 'purple';
-export type CommitStatus = 'local' | 'remote' | 'integrated' | 'upstream';
+export type CommitStatus = 'local' | 'localAndRemote' | 'integrated' | 'remote';
 
 export class Commit {
 	id!: string;
@@ -188,7 +188,8 @@ export class Commit {
 
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
-		if (this.isRemote && (!this.relatedTo || this.id === this.relatedTo.id)) return 'remote';
+		if (this.isRemote && (!this.relatedTo || this.id === this.relatedTo.id))
+			return 'localAndRemote';
 		return 'local';
 	}
 
@@ -240,7 +241,7 @@ export class RemoteCommit {
 	}
 
 	get status(): CommitStatus {
-		return 'upstream';
+		return 'remote';
 	}
 
 	isMergeCommit() {

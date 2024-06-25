@@ -4,7 +4,7 @@
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { tooltip } from '$lib/utils/tooltip';
-	import { getLocalCommits, getRemoteCommits } from '$lib/vbranches/contexts';
+	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
 
@@ -21,7 +21,7 @@
 	$: minWidth = getGutterMinWidth(maxLineNumber);
 
 	const localCommits = isFileLocked ? getLocalCommits() : undefined;
-	const remoteCommits = isFileLocked ? getRemoteCommits() : undefined;
+	const remoteCommits = isFileLocked ? getLocalAndRemoteCommits() : undefined;
 
 	const commits = isFileLocked ? ($localCommits || []).concat($remoteCommits || []) : undefined;
 	let alwaysShow = false;

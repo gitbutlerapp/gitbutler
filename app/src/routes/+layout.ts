@@ -7,6 +7,7 @@ import { HttpClient } from '$lib/backend/httpClient';
 import { ProjectService } from '$lib/backend/projects';
 import { PromptService } from '$lib/backend/prompt';
 import { UpdaterService } from '$lib/backend/updater';
+import { LineManagerFactory } from '$lib/commitLines/lineManager';
 import { GitHubService } from '$lib/github/service';
 import { RemotesService } from '$lib/remotes/service';
 import { UserService } from '$lib/stores/user';
@@ -56,6 +57,7 @@ export async function load() {
 	const aiService = new AIService(gitConfig, httpClient);
 	const remotesService = new RemotesService();
 	const aiPromptService = new AIPromptService();
+	const lineManagerFactory = new LineManagerFactory();
 
 	return {
 		authService,
@@ -70,6 +72,7 @@ export async function load() {
 		gitConfig,
 		aiService,
 		remotesService,
-		aiPromptService
+		aiPromptService,
+		lineManagerFactory
 	};
 }
