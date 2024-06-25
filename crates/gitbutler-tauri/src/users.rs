@@ -16,7 +16,13 @@ pub mod commands {
         let proxy = handle.state::<assets::Proxy>();
 
         match app.get_user()? {
-            Some(user) => Ok(Some(proxy.proxy_user(user).await.try_into()?)),
+            Some(user) => {
+                if let Err(err) = user.access_token() {
+                    app.delete_user()?;
+                    return Err(err.context("Please login to GitButler again").into());
+                }
+                Ok(Some(proxy.proxy_user(user).await.try_into()?))
+            }
             None => Ok(None),
         }
     }

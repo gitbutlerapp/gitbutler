@@ -38,7 +38,7 @@ impl User {
         if let Some(token) = self.access_token.borrow().as_ref() {
             return Ok(token.clone());
         }
-        let err_msg = "BUG: access token for user must have been stored - delete user.json and login again to fix";
+        let err_msg = "access token for user was deleted from keychain - login is now invalid";
         let secret = crate::secret::retrieve(Self::ACCESS_TOKEN_HANDLE)?.context(err_msg)?;
         *self.access_token.borrow_mut() = Some(secret.clone());
         Ok(secret)

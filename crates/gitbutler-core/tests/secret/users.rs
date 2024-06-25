@@ -85,9 +85,25 @@ fn auto_migration_of_secrets_on_when_getting_and_setting_user() -> anyhow::Resul
         assert_eq!(
             count_secrets(),
             expected_secrets,
-            "the in-memory users had its secrets cached, so they are picked up and stored officially"
+            "the in-memory users had its secrets cached, so they are picked up and stored officially. \
+            This is important, as the frontend sends these initially"
         );
         assert_no_secret_in_plain_text()?;
+
+        // forget all passwords
+        credentials::setup();
+        let user = users
+            .get_user()?
+            .expect("user still on disk and passwords are accessed lazily");
+        assert!(
+            user.access_token().is_err(),
+            "this is critical - we have a user without access token, this fails early"
+        );
+        assert!(
+            users.get_user()?.is_some(),
+            "Client code needs to handle this case and delete the user, \
+            otherwise it's there and errors forever"
+        );
     }
 
     Ok(())
