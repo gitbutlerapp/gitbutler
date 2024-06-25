@@ -69,6 +69,14 @@ fn main() {
 
                     logs::init(&app_handle);
 
+                    // On MacOS, in dev mode with debug assertions, we encounter popups each time
+                    // the binary is rebuilt. To counter that, use a git-credential based implementation.
+                    // This isn't an issue for actual release build (i.e. nightly, production),
+                    // hence the specific condition.
+                    if cfg!(debug_assertions) && cfg!(target_os = "macos") {
+                        gitbutler_core::secret::git_credentials::setup().ok();
+                    }
+
                     // SAFETY(qix-): This is safe because we're initializing the askpass broker here,
                     // SAFETY(qix-): before any other threads would ever access it.
                     unsafe {

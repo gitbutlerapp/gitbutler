@@ -30,7 +30,7 @@ fslock = "0.2.1"
 futures = "0.3"
 git2.workspace = true
 git2-hooks = "0.3"
-gix = { workspace = true, features = ["dirwalk"] }
+gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 itertools = "0.13"
 keyring.workspace = true
 lazy_static = "1.4.0"
@@ -51,7 +51,7 @@ tempfile = "3.10"
 thiserror.workspace = true
 tokio = { workspace = true, features = [ "rt-multi-thread", "rt", "macros" ] }
 tracing = "0.1.40"
-url = { version = "2.5", features = ["serde"] }
+url = { version = "2.5.2", features = ["serde"] }
 urlencoding = "2.1.3"
 uuid.workspace = true
 walkdir = "2.5.0"
