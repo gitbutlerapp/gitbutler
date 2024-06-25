@@ -56,7 +56,7 @@ export class FileIdSelection {
 	}
 
 	add(fileId: string, commitId?: string) {
-		this.value.push(stringifyFileKey(fileId, commitId));
+		this.value.unshift(stringifyFileKey(fileId, commitId));
 		this.emit();
 	}
 

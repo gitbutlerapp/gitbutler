@@ -46,8 +46,8 @@ export function maybeMoveSelection(
 ) {
 	if (selectedFileIds.length === 0) return;
 
-	const firstFileId = unstringifyFileKey(selectedFileIds[0]);
-	const lastFileId = unstringifyFileKey(selectedFileIds[selectedFileIds.length - 1]);
+	const firstFileId = unstringifyFileKey(selectedFileIds[selectedFileIds.length - 1]);
+	const lastFileId = unstringifyFileKey(selectedFileIds[0]);
 	let selectionDirection = getSelectionDirection(
 		files.findIndex((f) => f.id === lastFileId),
 		files.findIndex((f) => f.id === firstFileId)
@@ -87,6 +87,7 @@ export function maybeMoveSelection(
 				} else if (selectionDirection === 'down') {
 					fileIdSelection.remove(lastFileId);
 				}
+
 				getAndAddFile(getPreviousFile, lastFileId);
 			} else {
 				// Handle reset of selection

@@ -11,8 +11,9 @@ export function selectFilesInList(
 	allowMultiple: boolean,
 	commit: AnyCommit | undefined
 ) {
-	let selectedFileIds = get(fileIdSelection);
 	e.stopPropagation();
+
+	let selectedFileIds = get(fileIdSelection);
 	const isAlreadySelected = selectedFileIds && fileIdSelection.has(file.id, commit?.id);
 
 	if (e.ctrlKey || e.metaKey) {

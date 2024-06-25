@@ -74,6 +74,8 @@
 	class:draggable={isDraggable}
 	id={`file-${file.id}`}
 	data-locked={file.locked}
+	role="button"
+	tabindex="0"
 	on:click
 	on:keydown
 	on:dragstart={async () => {
@@ -106,8 +108,6 @@
 			draggableElt.classList.remove('locked-file-animation');
 		}
 	}}
-	role="button"
-	tabindex="0"
 	on:contextmenu|preventDefault={async (e) => {
 		if (fileIdSelection.has(file.id, $commit?.id)) {
 			popupMenu.openByMouse(e, { files: await $selectedFiles });
