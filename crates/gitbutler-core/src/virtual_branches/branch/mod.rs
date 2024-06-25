@@ -48,6 +48,12 @@ pub struct Branch {
     // is Some(timestamp), the branch is considered a default destination for new changes.
     // if more than one branch is selected, the branch with the highest timestamp wins.
     pub selected_for_changes: Option<i64>,
+    #[serde(default = "default_true")]
+    pub allow_rebasing: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn serialize_u128<S>(x: &u128, s: S) -> Result<S::Ok, S::Error>

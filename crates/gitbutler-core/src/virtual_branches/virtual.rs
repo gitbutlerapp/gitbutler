@@ -1059,6 +1059,7 @@ pub fn create_virtual_branch(
         ownership: BranchOwnershipClaims::default(),
         order,
         selected_for_changes,
+        allow_rebasing: true,
     };
 
     if let Some(ownership) = &create.ownership {
@@ -3903,6 +3904,7 @@ pub fn create_virtual_branch_from_branch(
         ownership,
         order,
         selected_for_changes,
+        allow_rebasing: true,
     };
 
     vb_state.set_branch(branch.clone())?;

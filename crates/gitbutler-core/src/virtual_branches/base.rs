@@ -255,6 +255,7 @@ pub fn set_base_branch(
                 ownership,
                 order: 0,
                 selected_for_changes: None,
+                allow_rebasing: true,
             };
 
             vb_state.set_branch(branch)?;
