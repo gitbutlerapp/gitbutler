@@ -4,6 +4,7 @@
 //! in memory beyond their use.
 use crate::types::Sensitive;
 use anyhow::Result;
+use std::sync::Mutex;
 
 /// Persist `secret` so that it can be retrieved by the given `handle`.
 pub fn persist(handle: &str, secret: &Sensitive<String>) -> Result<()> {
@@ -24,6 +25,21 @@ pub fn delete(handle: &str) -> Result<()> {
     Ok(entry_for(handle)?.delete_password()?)
 }
 
-fn entry_for(handle: &str) -> Result<keyring::Entry> {
-    Ok(keyring::Entry::new("gitbutler", handle)?)
+/// Use this `identifier` as 'namespace' for identifying secrets.
+/// Each namespace has its own set of secrets, useful for different application versions.
+///
+/// Note that the namespace will default to `gitbutler` if empty.
+pub fn set_application_namespace(identifier: impl Into<String>) {
+    *NAMESPACE.lock().unwrap() = identifier.into()
 }
+
+fn entry_for(handle: &str) -> Result<keyring::Entry> {
+    let ns = NAMESPACE.lock().unwrap();
+    Ok(keyring::Entry::new(
+        if ns.is_empty() { "gitbutler" } else { &ns },
+        handle,
+    )?)
+}
+
+/// How to further specialize secrets to avoid name clashes in the globally shared keystore.
+static NAMESPACE: Mutex<String> = Mutex::new(String::new());

@@ -23,6 +23,9 @@ use tauri_plugin_log::LogTarget;
 
 fn main() {
     let tauri_context = generate_context!();
+    gitbutler_core::secret::set_application_namespace(
+        &tauri_context.config().tauri.bundle.identifier,
+    );
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
