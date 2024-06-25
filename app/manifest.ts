@@ -12,22 +12,22 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     icons: [
       {
-        src: "fav/fav-32x32.png",
+        src: "fav/fav-32.png",
         sizes: "32x32",
         type: "image/png"
       },
       {
-        src: "fav/fav-64x64.png",
+        src: "fav/fav-64.png",
         sizes: "64x64",
         type: "image/png"
       },
       {
-        src: "fav/fav-180x180.png",
+        src: "fav/fav-180.png",
         sizes: "180x180",
         type: "image/png"
       },
       {
-        src: "fav/fav.svg",
+        src: "fav/fav-svg.svg",
         type: "image/svg+xml"
       }
     ]
