@@ -5,7 +5,6 @@
 	import Login from '$lib/components/Login.svelte';
 	import SetupFeature from '$lib/components/SetupFeature.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import GithubIntegration from '$lib/settings/GithubIntegration.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import Select from '$lib/shared/Select.svelte';
@@ -30,7 +29,6 @@
 	}>();
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
-	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
 
 	let aiGenCheckbox: Toggle;
 	let loading = false;
@@ -174,7 +172,6 @@
 						id="aiGenEnabled"
 						on:change={() => {
 							$aiGenEnabled = !$aiGenEnabled;
-							$aiGenAutoBranchNamingEnabled = $aiGenEnabled;
 						}}
 					/>
 				{/if}
