@@ -71,7 +71,7 @@
 									last={index === branchData.commits.length - 1}
 									{commit}
 									commitUrl={$baseBranch?.commitUrl(commit.id)}
-									type="remote"
+									type="localAndRemote"
 								/>
 							{/each}
 						</div>

@@ -373,3 +373,64 @@ async fn applying_first_branch() {
     assert!(branches[0].active);
     assert!(branches[0].selected_for_changes);
 }
+
+// This test was written in response to issue #4148, to ensure the appearence
+// of a locked hunk doesn't drag along unrelated hunks to its branch.
+#[tokio::test]
+async fn new_locked_hunk_without_modifying_existing() {
+    let Test {
+        repository,
+        project_id,
+        controller,
+        ..
+    } = &Test::default();
+
+    let mut lines = repository.gen_file("file.txt", 9);
+    repository.commit_all("first commit");
+    repository.push();
+
+    controller
+        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .await
+        .unwrap();
+
+    lines[0] = "modification 1".to_string();
+    repository.write_file("file.txt", &lines);
+
+    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    assert_eq!(branches[0].files.len(), 1);
+
+    controller
+        .create_commit(*project_id, branches[0].id, "second commit", None, false)
+        .await
+        .expect("failed to create commit");
+
+    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    assert_eq!(branches[0].files.len(), 0);
+    assert_eq!(branches[0].commits.len(), 1);
+
+    controller
+        .create_virtual_branch(
+            *project_id,
+            &branch::BranchCreateRequest {
+                selected_for_changes: Some(true),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+    lines[8] = "modification 2".to_string();
+    repository.write_file("file.txt", &lines);
+
+    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    dbg!(&branches);
+    assert_eq!(branches[0].files.len(), 0);
+    assert_eq!(branches[1].files.len(), 1);
+
+    lines[0] = "modification 3".to_string();
+    repository.write_file("file.txt", &lines);
+    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    assert_eq!(branches[0].files.len(), 1);
+    assert_eq!(branches[1].files.len(), 1);
+}

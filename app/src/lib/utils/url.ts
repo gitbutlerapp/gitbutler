@@ -3,9 +3,9 @@ import { open } from '@tauri-apps/api/shell';
 import GitUrlParse from 'git-url-parse';
 import { posthog } from 'posthog-js';
 
-export function openExternalUrl(href: string) {
+export async function openExternalUrl(href: string) {
 	try {
-		open(href);
+		await open(href);
 	} catch (e) {
 		if (typeof e === 'string' || e instanceof String) {
 			// TODO: Remove if/when we've resolved all external URL problems.

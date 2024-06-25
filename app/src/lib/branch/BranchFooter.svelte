@@ -7,7 +7,11 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { getLocalCommits, getRemoteCommits, getUnknownCommits } from '$lib/vbranches/contexts';
+	import {
+		getLocalCommits,
+		getLocalAndRemoteCommits,
+		getRemoteCommits
+	} from '$lib/vbranches/contexts';
 	import { Branch } from '$lib/vbranches/types';
 
 	export let isUnapplied: boolean;
@@ -22,8 +26,8 @@
 	});
 
 	const localCommits = getLocalCommits();
-	const remoteCommits = getRemoteCommits();
-	const unknownCommits = getUnknownCommits();
+	const remoteCommits = getLocalAndRemoteCommits();
+	const unknownCommits = getRemoteCommits();
 
 	let isLoading: boolean;
 	let isInViewport = false;

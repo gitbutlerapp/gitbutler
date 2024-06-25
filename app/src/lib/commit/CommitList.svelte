@@ -1,7 +1,9 @@
 <script lang="ts">
 	import CommitCard from './CommitCard.svelte';
-	import CommitLines from './CommitLines.svelte';
 	import { Project } from '$lib/backend/projects';
+	import LineGroup from '$lib/commitLines/LineGroup.svelte';
+	import { LineManagerFactory } from '$lib/commitLines/lineManager';
+	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
 	import {
 		ReorderDropzoneManagerFactory,
@@ -9,31 +11,41 @@
 	} from '$lib/dragging/reorderDropzoneManager';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import LineOverlay from '$lib/dropzone/LineOverlay.svelte';
-	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import { getContext } from '$lib/utils/context';
 	import { getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import {
 		getIntegratedCommits,
 		getLocalCommits,
-		getRemoteCommits,
-		getUnknownCommits
+		getLocalAndRemoteCommits,
+		getRemoteCommits
 	} from '$lib/vbranches/contexts';
-	import { BaseBranch, Branch, Commit, type CommitStatus } from '$lib/vbranches/types';
+	import { BaseBranch, Branch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied: boolean;
 
 	const branch = getContextStore(Branch);
 	const localCommits = getLocalCommits();
+	const localAndRemoteCommits = getLocalAndRemoteCommits();
 	const remoteCommits = getRemoteCommits();
-	const unknownCommits = getUnknownCommits();
 	const integratedCommits = getIntegratedCommits();
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 	const branchController = getContext(BranchController);
+	const lineManagerFactory = getContext(LineManagerFactory);
 
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
+
+	$: lineManager = lineManagerFactory.build(
+		{
+			remoteCommits: $remoteCommits.map(transformAnyCommit),
+			localCommits: $localCommits.map(transformAnyCommit),
+			localAndRemoteCommits: $localAndRemoteCommits.map(transformAnyCommit),
+			integratedCommits: $integratedCommits.map(transformAnyCommit)
+		},
+		isRebased
+	);
 
 	// Force the "base" commit lines to update when $branch updates.
 	let tsKey: number | undefined;
@@ -42,17 +54,14 @@
 		tsKey = Date.now();
 	}
 
-	$: hasLocalColumn = $localCommits.length > 0;
 	$: hasCommits = $branch.commits && $branch.commits.length > 0;
 	$: headCommit = $branch.commits.at(0);
-	$: hasLocalCommits = $localCommits.length > 0;
-	$: hasUnknownCommits = $unknownCommits.length > 0;
-	$: hasIntegratedCommits = $integratedCommits.length > 0;
+
 	$: hasRemoteCommits = $remoteCommits.length > 0;
-	$: hasShadowedCommits = $localCommits.some((c) => c.relatedTo);
+
 	$: reorderDropzoneManager = reorderDropzoneManagerFactory.build($branch, [
 		...$localCommits,
-		...$remoteCommits
+		...$localAndRemoteCommits
 	]);
 
 	$: forkPoint = $branch.forkPoint;
@@ -60,44 +69,6 @@
 	$: isRebased = !!forkPoint && !!upstreamForkPoint && forkPoint !== upstreamForkPoint;
 
 	let baseIsUnfolded = false;
-
-	function getOutType(commit: Commit): CommitStatus | undefined {
-		if (!hasShadowedCommits) {
-			if (!commit.next || commit.next.status === 'local') {
-				return $unknownCommits.length > 0 ? 'upstream' : undefined;
-			}
-			return commit.next?.status;
-		}
-
-		let pointer: Commit | undefined = commit.next;
-
-		while (pointer && !pointer.relatedTo) {
-			pointer = pointer.next;
-		}
-		if (pointer) return pointer.status;
-		return hasUnknownCommits ? 'upstream' : undefined;
-	}
-
-	function getBaseShadowOutType(): CommitStatus | undefined {
-		if (!isRebased) return;
-		if (hasIntegratedCommits) return 'integrated';
-		if (hasShadowedCommits) return 'remote';
-		if (hasUnknownCommits) return 'upstream';
-	}
-
-	function getBaseRemoteOutType(): CommitStatus | undefined {
-		if (isRebased) return;
-		if (hasIntegratedCommits) return 'integrated';
-		if (hasShadowedCommits || hasRemoteCommits) return 'remote';
-		if (hasUnknownCommits) return 'upstream';
-	}
-
-	function getInType(commit: Commit): CommitStatus | undefined {
-		if (commit.prev) return getOutType(commit.prev || commit);
-		if (commit.status === 'remote' || commit.relatedTo) return 'remote';
-		if (commit.status === 'integrated') return 'integrated';
-		if (commit) return getOutType(commit);
-	}
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
 		if (!$branch || !$baseBranch) {
@@ -131,39 +102,24 @@
 	</Dropzone>
 {/snippet}
 
-{#if hasCommits || hasUnknownCommits}
+{#if hasCommits || hasRemoteCommits}
 	<div class="commits">
 		<!-- UPSTREAM COMMITS -->
-		{#if $unknownCommits.length > 0}
-			{#each $unknownCommits as commit, idx (commit.id)}
+		{#if $remoteCommits.length > 0}
+			{#each $remoteCommits as commit, idx (commit.id)}
 				<CommitCard
-					type="upstream"
+					type="remote"
 					branch={$branch}
 					{commit}
 					{isUnapplied}
 					first={idx === 0}
-					last={idx === $unknownCommits.length - 1}
+					last={idx === $remoteCommits.length - 1}
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 					isHeadCommit={commit.id === headCommit?.id}
 				>
-					<svelte:fragment slot="lines">
-						<CommitLines
-							{hasLocalColumn}
-							{isRebased}
-							localIn={'local'}
-							localOut={'local'}
-							author={commit.author}
-							sectionFirst={idx === 0}
-							inDashed={hasLocalColumn}
-							outDashed={hasLocalColumn}
-							commitStatus={commit.status}
-							help={getAvatarTooltip(commit)}
-							remoteIn={!isRebased ? 'upstream' : undefined}
-							remoteOut={!isRebased && idx !== 0 ? 'upstream' : undefined}
-							shadowIn={isRebased ? 'upstream' : undefined}
-							shadowOut={idx !== 0 && isRebased ? 'upstream' : undefined}
-						/>
-					</svelte:fragment>
+					{#snippet lines(topHeightPx)}
+						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+					{/snippet}
 				</CommitCard>
 			{/each}
 		{/if}
@@ -185,84 +141,51 @@
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 					isHeadCommit={commit.id === headCommit?.id}
 				>
-					<svelte:fragment slot="lines">
-						<CommitLines
-							{isRebased}
-							{hasLocalColumn}
-							localIn={idx !== $localCommits.length - 1 ? 'local' : undefined}
-							localOut={'local'}
-							author={commit.author}
-							sectionFirst={idx === 0}
-							commitStatus={commit.status}
-							help={getAvatarTooltip(commit)}
-							shadowHelp={getAvatarTooltip(commit.relatedTo)}
-							outDashed={hasLocalColumn && idx === 0}
-							remoteIn={!isRebased ? getInType(commit) : undefined}
-							remoteOut={!isRebased ? getOutType(commit) : undefined}
-							shadowIn={isRebased ? getInType(commit) : undefined}
-							shadowOut={isRebased ? getOutType(commit) : undefined}
-							relatedToOther={commit?.relatedTo && commit.relatedTo.id !== commit.id}
-							remoteRoot={idx === $localCommits.length - 1}
-							last={idx === $localCommits.length - 1 && !hasRemoteCommits && !hasIntegratedCommits}
-						/>
-					</svelte:fragment>
+					{#snippet lines(topHeightPx)}
+						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+					{/snippet}
 				</CommitCard>
 
 				{@render reorderDropzone(
 					reorderDropzoneManager.dropzoneBelowCommit(commit.id),
 					getReorderDropzoneOffset({
-						isLast: $remoteCommits.length === 0 && idx + 1 === $localCommits.length,
-						isMiddle: $remoteCommits.length > 0 && idx + 1 === $localCommits.length
+						isLast: $localAndRemoteCommits.length === 0 && idx + 1 === $localCommits.length,
+						isMiddle: $localAndRemoteCommits.length > 0 && idx + 1 === $localCommits.length
 					})
 				)}
 
 				<InsertEmptyCommitAction
-					isLast={$remoteCommits.length === 0 && idx + 1 === $localCommits.length}
-					isMiddle={$remoteCommits.length > 0 && idx + 1 === $localCommits.length}
+					isLast={$localAndRemoteCommits.length === 0 && idx + 1 === $localCommits.length}
+					isMiddle={$localAndRemoteCommits.length > 0 && idx + 1 === $localCommits.length}
 					on:click={() => insertBlankCommit(commit.id, 'below')}
 				/>
 			{/each}
 		{/if}
-		<!-- REMOTE COMMITS -->
-		{#if $remoteCommits.length > 0}
-			{#each $remoteCommits as commit, idx (commit.id)}
+		<!-- LOCAL AND REMOTE COMMITS -->
+		{#if $localAndRemoteCommits.length > 0}
+			{#each $localAndRemoteCommits as commit, idx (commit.id)}
 				<CommitCard
 					{commit}
 					{isUnapplied}
-					type="remote"
+					type="localAndRemote"
 					first={idx === 0}
 					branch={$branch}
-					last={idx === $remoteCommits.length - 1}
+					last={idx === $localAndRemoteCommits.length - 1}
 					isHeadCommit={commit.id === headCommit?.id}
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 				>
-					<svelte:fragment slot="lines">
-						<CommitLines
-							{hasLocalColumn}
-							{isRebased}
-							author={commit.author}
-							sectionFirst={idx === 0}
-							commitStatus={commit.status}
-							help={getAvatarTooltip(commit)}
-							shadowHelp={getAvatarTooltip(commit.relatedTo)}
-							integrated={commit.isIntegrated}
-							localRoot={idx === 0 && hasLocalCommits}
-							outDashed={idx === 0 && commit.prev?.status === 'local'}
-							remoteIn={!isRebased ? getInType(commit) : undefined}
-							remoteOut={!isRebased ? getOutType(commit) : undefined}
-							shadowIn={isRebased ? getInType(commit) : undefined}
-							shadowOut={isRebased ? getOutType(commit) : undefined}
-						/>
-					</svelte:fragment>
+					{#snippet lines(topHeightPx)}
+						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+					{/snippet}
 				</CommitCard>
 				{@render reorderDropzone(
 					reorderDropzoneManager.dropzoneBelowCommit(commit.id),
 					getReorderDropzoneOffset({
-						isLast: idx + 1 === $remoteCommits.length
+						isLast: idx + 1 === $localAndRemoteCommits.length
 					})
 				)}
 				<InsertEmptyCommitAction
-					isLast={idx + 1 === $remoteCommits.length}
+					isLast={idx + 1 === $localAndRemoteCommits.length}
 					on:click={() => insertBlankCommit(commit.id, 'below')}
 				/>
 			{/each}
@@ -280,22 +203,9 @@
 					last={idx === $integratedCommits.length - 1}
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 				>
-					<svelte:fragment slot="lines">
-						<CommitLines
-							{hasLocalColumn}
-							{isRebased}
-							author={commit.author}
-							sectionFirst={idx === 0}
-							commitStatus={commit.status}
-							help={getAvatarTooltip(commit)}
-							shadowIn={isRebased ? getInType(commit) : undefined}
-							shadowOut={isRebased ? getOutType(commit) : undefined}
-							remoteIn={!isRebased ? getInType(commit) : undefined}
-							remoteOut={!isRebased ? getOutType(commit) : undefined}
-							integrated={true}
-							localRoot={idx === 0 && !hasRemoteCommits && hasLocalCommits}
-						/>
-					</svelte:fragment>
+					{#snippet lines(topHeightPx)}
+						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+					{/snippet}
 				</CommitCard>
 			{/each}
 		{/if}
@@ -310,14 +220,7 @@
 			>
 				<div class="base-row__lines">
 					{#key tsKey}
-						<CommitLines
-							{hasLocalColumn}
-							{isRebased}
-							localRoot={!hasRemoteCommits && !hasIntegratedCommits && hasLocalCommits}
-							shadowOut={getBaseShadowOutType()}
-							remoteOut={getBaseRemoteOutType()}
-							base
-						/>
+						<LineGroup lineGroup={lineManager.base} />
 					{/key}
 				</div>
 				<div class="base-row__content">

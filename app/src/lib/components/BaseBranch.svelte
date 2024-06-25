@@ -62,7 +62,7 @@
 					last={index === base.upstreamCommits.length - 1}
 					isUnapplied={true}
 					commitUrl={base.commitUrl(commit.id)}
-					type="upstream"
+					type="remote"
 				/>
 			{/each}
 		</div>
@@ -83,7 +83,7 @@
 				last={index === base.recentCommits.length - 1}
 				isUnapplied={true}
 				commitUrl={base.commitUrl(commit.id)}
-				type="remote"
+				type="localAndRemote"
 			/>
 		{/each}
 	</div>
