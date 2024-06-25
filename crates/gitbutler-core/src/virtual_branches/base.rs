@@ -255,7 +255,7 @@ pub fn set_base_branch(
                 ownership,
                 order: 0,
                 selected_for_changes: None,
-                allow_rebasing: true,
+                allow_rebasing: project_repository.project().ok_with_force_push.into(),
             };
 
             vb_state.set_branch(branch)?;
@@ -472,7 +472,7 @@ pub fn update_base_branch(
                             branch.id
                         ))?;
 
-                    let ok_with_force_push = project_repository.project().ok_with_force_push;
+                    let ok_with_force_push = branch.allow_rebasing;
 
                     let result_merge =
                         |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
