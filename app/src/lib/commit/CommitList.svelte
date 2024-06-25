@@ -44,7 +44,7 @@
 			localAndRemoteCommits: $localAndRemoteCommits.map(transformAnyCommit),
 			integratedCommits: $integratedCommits.map(transformAnyCommit)
 		},
-		isRebased
+		!isRebased
 	);
 
 	// Force the "base" commit lines to update when $branch updates.
@@ -67,6 +67,7 @@
 	$: forkPoint = $branch.forkPoint;
 	$: upstreamForkPoint = $branch.upstreamData?.forkPoint;
 	$: isRebased = !!forkPoint && !!upstreamForkPoint && forkPoint !== upstreamForkPoint;
+	$: console.log(forkPoint, upstreamForkPoint, isRebased);
 
 	let baseIsUnfolded = false;
 
