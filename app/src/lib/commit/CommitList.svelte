@@ -67,7 +67,6 @@
 	$: forkPoint = $branch.forkPoint;
 	$: upstreamForkPoint = $branch.upstreamData?.forkPoint;
 	$: isRebased = !!forkPoint && !!upstreamForkPoint && forkPoint !== upstreamForkPoint;
-	$: console.log(forkPoint, upstreamForkPoint, isRebased);
 
 	let baseIsUnfolded = false;
 
