@@ -38,7 +38,7 @@
 		{@render squashDropzone()}
 
 		{#snippet overlay({ hovered, activated })}
-			<CardOverlay {hovered} {activated} label="Ammend commit" />
+			<CardOverlay {hovered} {activated} label="Amend commit" />
 		{/snippet}
 	</Dropzone>
 {/snippet}
