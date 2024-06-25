@@ -60,7 +60,7 @@
 		$commitBoxOpen = false;
 	}
 
-	async function generateBranchName(shouldThrowErrors: boolean) {
+	async function generateBranchName() {
 		if (!aiGenEnabled) return;
 
 		const hunks = branch.files.flatMap((f) => f.hunks);
@@ -73,10 +73,8 @@
 		});
 
 		if (isFailure(messageResult)) {
-			if (shouldThrowErrors) {
-				console.error(messageResult.failure);
-				showError('Failed to generate branch name', messageResult.failure);
-			}
+			console.error(messageResult.failure);
+			showError('Failed to generate branch name', messageResult.failure);
 
 			return;
 		}
@@ -102,7 +100,7 @@
 			bind:isLaneCollapsed
 			on:action={(e) => {
 				if (e.detail === 'generate-branch-name') {
-					generateBranchName(true);
+					generateBranchName();
 				}
 			}}
 		/>
@@ -131,7 +129,7 @@
 						bind:isLaneCollapsed
 						on:action={(e) => {
 							if (e.detail === 'generate-branch-name') {
-								generateBranchName(true);
+								generateBranchName();
 							}
 							if (e.detail === 'collapse') {
 								$isLaneCollapsed = true;
@@ -172,7 +170,7 @@
 											hasSectionsAfter={branch.commits.length > 0}
 											on:action={(e) => {
 												if (e.detail === 'generate-branch-name') {
-													generateBranchName(true);
+													generateBranchName();
 												}
 											}}
 										/>
