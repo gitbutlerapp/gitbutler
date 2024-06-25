@@ -1,6 +1,6 @@
 import createMDX from "fumadocs-mdx/config"
-import { remarkHeading, remarkImage, remarkStructure, rehypeCode } from "fumadocs-core/mdx-plugins"
 import remarkYoutube from "remark-youtube"
+import { remarkHeading, remarkImage, remarkStructure, rehypeCode } from "fumadocs-core/mdx-plugins"
 
 const withMDX = createMDX({
   buildSearchIndex: {
