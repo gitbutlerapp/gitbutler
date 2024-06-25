@@ -33,7 +33,7 @@
             libsoup_3
             webkitgtk
             nodejs_20
-            nodePackages.pnpm
+            corepack_20
           ];
 
           # runtime Deps
