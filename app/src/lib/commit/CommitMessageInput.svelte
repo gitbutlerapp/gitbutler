@@ -11,7 +11,7 @@
 		projectCommitGenerationUseEmojis
 	} from '$lib/config/config';
 	import { showError } from '$lib/notifications/toasts';
-	import { isError } from '$lib/result';
+	import { isFailure } from '$lib/result';
 	import Checkbox from '$lib/shared/Checkbox.svelte';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
@@ -87,8 +87,8 @@
 			commitTemplate: prompt
 		});
 
-		if (isError(generatedMessageResult)) {
-			showError('Failed to generate commit message', generatedMessageResult.error);
+		if (isFailure(generatedMessageResult)) {
+			showError('Failed to generate commit message', generatedMessageResult.failure);
 			aiLoading = false;
 			return;
 		}

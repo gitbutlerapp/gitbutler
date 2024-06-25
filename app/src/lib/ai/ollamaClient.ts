@@ -1,6 +1,6 @@
 import { LONG_DEFAULT_BRANCH_TEMPLATE, LONG_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
 import { MessageRole, type PromptMessage, type AIClient, type Prompt } from '$lib/ai/types';
-import { err, isError, ok, stringErrorFromAny, type Result } from '$lib/result';
+import { failure, isFailure, ok, type Result } from '$lib/result';
 import { isNonEmptyObject } from '$lib/utils/typeguards';
 import { fetch, Body, Response } from '@tauri-apps/api/http';
 
@@ -82,23 +82,23 @@ export class OllamaClient implements AIClient {
 		private modelName: string
 	) {}
 
-	async evaluate(prompt: Prompt): Promise<Result<string, string>> {
+	async evaluate(prompt: Prompt): Promise<Result<string>> {
 		const messages = this.formatPrompt(prompt);
 
 		const responseResult = await this.chat(messages);
-		if (isError(responseResult)) return responseResult;
+		if (isFailure(responseResult)) return responseResult;
 		const response = responseResult.value;
 
 		try {
 			const rawResponse = JSON.parse(response.message.content);
 			if (!isOllamaChatMessageFormat(rawResponse)) {
-				return err('Invalid response: ' + response.message.content);
+				return failure('Invalid response: ' + response.message.content);
 			}
 
 			return ok(rawResponse.result);
 		} catch (e) {
 			// Catch JSON.parse error
-			return stringErrorFromAny(e);
+			return failure(e);
 		}
 	}
 
@@ -157,7 +157,7 @@ ${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 	private async chat(
 		messages: Prompt,
 		options?: OllamaRequestOptions
-	): Promise<Result<OllamaChatResponse, string>> {
+	): Promise<Result<OllamaChatResponse>> {
 		const result = await this.fetchChat({
 			model: this.modelName,
 			stream: false,
@@ -167,7 +167,7 @@ ${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 		});
 
 		if (!isOllamaChatResponse(result.data)) {
-			return err('Invalid response\n' + JSON.stringify(result.data));
+			return failure('Invalid response\n' + JSON.stringify(result.data));
 		}
 
 		return ok(result.data);

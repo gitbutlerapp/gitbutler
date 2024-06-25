@@ -17,7 +17,7 @@
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { persisted } from '$lib/persisted/persisted';
-	import { isError } from '$lib/result';
+	import { isFailure } from '$lib/result';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import { User } from '$lib/stores/user';
@@ -72,10 +72,10 @@
 			branchTemplate: prompt
 		});
 
-		if (isError(messageResult)) {
+		if (isFailure(messageResult)) {
 			if (shouldThrowErrors) {
-				console.error(messageResult.error);
-				showError('Failed to generate branch name', messageResult.error);
+				console.error(messageResult.failure);
+				showError('Failed to generate branch name', messageResult.failure);
 			}
 
 			return;

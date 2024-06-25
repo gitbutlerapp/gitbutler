@@ -11,7 +11,7 @@ import {
 	type Prompt
 } from '$lib/ai/types';
 import { HttpClient } from '$lib/backend/httpClient';
-import { err, ok, unwrap, type Result } from '$lib/result';
+import { failure, ok, unwrap, type Result } from '$lib/result';
 import { Hunk } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { expect, test, describe, vi } from 'vitest';
@@ -56,7 +56,7 @@ class DummyAIClient implements AIClient {
 	defaultBranchTemplate = SHORT_DEFAULT_BRANCH_TEMPLATE;
 	constructor(private response = 'lorem ipsum') {}
 
-	async evaluate(_prompt: Prompt): Promise<Result<string, string>> {
+	async evaluate(_prompt: Prompt): Promise<Result<string>> {
 		return ok(this.response);
 	}
 }
@@ -123,7 +123,7 @@ describe.concurrent('AIService', () => {
 			const aiService = buildDefaultAIService();
 
 			expect(await aiService.buildClient()).toStrictEqual(
-				err("When using GitButler's API to summarize code, you must be logged in")
+				failure("When using GitButler's API to summarize code, you must be logged in")
 			);
 		});
 
@@ -147,7 +147,7 @@ describe.concurrent('AIService', () => {
 			const aiService = new AIService(gitConfig, cloud);
 
 			expect(await aiService.buildClient()).toStrictEqual(
-				err(
+				failure(
 					'When using OpenAI in a bring your own key configuration, you must provide a valid token'
 				)
 			);
@@ -175,7 +175,7 @@ describe.concurrent('AIService', () => {
 			const aiService = new AIService(gitConfig, cloud);
 
 			expect(await aiService.buildClient()).toStrictEqual(
-				err(
+				failure(
 					'When using Anthropic in a bring your own key configuration, you must provide a valid token'
 				)
 			);
@@ -187,11 +187,11 @@ describe.concurrent('AIService', () => {
 			const aiService = buildDefaultAIService();
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(
-				(async () => err<AIClient, string>('Failed to build'))()
+				(async () => failure('Failed to build'))()
 			);
 
 			expect(await aiService.summarizeCommit({ hunks: exampleHunks })).toStrictEqual(
-				err('Failed to build')
+				failure('Failed to build')
 			);
 		});
 
@@ -201,7 +201,7 @@ describe.concurrent('AIService', () => {
 			const clientResponse = 'single line commit';
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(
-				(async () => ok<AIClient, string>(new DummyAIClient(clientResponse)))()
+				(async () => ok<AIClient>(new DummyAIClient(clientResponse)))()
 			);
 
 			expect(await aiService.summarizeCommit({ hunks: exampleHunks })).toStrictEqual(
@@ -215,7 +215,7 @@ describe.concurrent('AIService', () => {
 			const clientResponse = 'one\nnew line';
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(
-				(async () => ok<AIClient, string>(new DummyAIClient(clientResponse)))()
+				(async () => ok<AIClient>(new DummyAIClient(clientResponse)))()
 			);
 
 			expect(await aiService.summarizeCommit({ hunks: exampleHunks })).toStrictEqual(
@@ -229,7 +229,7 @@ describe.concurrent('AIService', () => {
 			const clientResponse = 'one\nnew line';
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(
-				(async () => ok<AIClient, string>(new DummyAIClient(clientResponse)))()
+				(async () => ok<AIClient>(new DummyAIClient(clientResponse)))()
 			);
 
 			expect(
@@ -243,11 +243,11 @@ describe.concurrent('AIService', () => {
 			const aiService = buildDefaultAIService();
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(
-				(async () => err<AIClient, string>('Failed to build client'))()
+				(async () => failure('Failed to build client'))()
 			);
 
 			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toStrictEqual(
-				err('Failed to build client')
+				failure('Failed to build client')
 			);
 		});
 
@@ -257,7 +257,7 @@ describe.concurrent('AIService', () => {
 			const clientResponse = 'with spaces included';
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(
-				(async () => ok<AIClient, string>(new DummyAIClient(clientResponse)))()
+				(async () => ok<AIClient>(new DummyAIClient(clientResponse)))()
 			);
 
 			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toStrictEqual(
@@ -271,7 +271,7 @@ describe.concurrent('AIService', () => {
 			const clientResponse = 'with\nnew\nlines\nincluded';
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(
-				(async () => ok<AIClient, string>(new DummyAIClient(clientResponse)))()
+				(async () => ok<AIClient>(new DummyAIClient(clientResponse)))()
 			);
 
 			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toStrictEqual(
@@ -285,7 +285,7 @@ describe.concurrent('AIService', () => {
 			const clientResponse = 'with\nnew lines\nincluded';
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(
-				(async () => ok<AIClient, string>(new DummyAIClient(clientResponse)))()
+				(async () => ok<AIClient>(new DummyAIClient(clientResponse)))()
 			);
 
 			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toStrictEqual(

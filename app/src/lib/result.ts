@@ -3,30 +3,30 @@ export type OkVariant<Ok> = {
 	value: Ok;
 };
 
-export type ErrorVariant<Error> = {
+export type FailureVariant<Err extends Error = Error> = {
 	ok: false;
-	error: Error;
+	failure: Err;
 };
 
-export type Result<Ok, Error> = OkVariant<Ok> | ErrorVariant<Error>;
+export type Result<Ok, Err extends Error = Error> = OkVariant<Ok> | FailureVariant<Err>;
 
-export function isOk<Ok, Error>(subject: Result<Ok, Error>): subject is OkVariant<Ok> {
+export function isOk<Ok>(subject: Result<Ok>): subject is OkVariant<Ok> {
 	return subject.ok;
 }
 
-export function isError<Ok, Error>(subject: Result<Ok, Error>): subject is ErrorVariant<Error> {
+export function isFailure<Ok>(subject: Result<Ok>): subject is FailureVariant {
 	return !subject.ok;
 }
 
-export function unwrap<Ok, Error>(subject: Result<Ok, Error>): Ok {
+export function unwrap<Ok>(subject: Result<Ok>): Ok {
 	if (isOk(subject)) {
 		return subject.value;
 	} else {
-		throw new Error(String(subject.error));
+		throw subject.failure;
 	}
 }
 
-export function unwrapOr<Ok, Error, Or>(subject: Result<Ok, Error>, or: Or): Ok | Or {
+export function unwrapOr<Ok, Or>(subject: Result<Ok>, or: Or): Ok | Or {
 	if (isOk(subject)) {
 		return subject.value;
 	} else {
@@ -34,18 +34,14 @@ export function unwrapOr<Ok, Error, Or>(subject: Result<Ok, Error>, or: Or): Ok 
 	}
 }
 
-export function ok<Ok, Error>(value: Ok): Result<Ok, Error> {
+export function ok<Ok>(value: Ok): Result<Ok> {
 	return { ok: true, value };
 }
 
-export function err<Ok, Error>(value: Error): Result<Ok, Error> {
-	return { ok: false, error: value };
-}
-
-export function stringErrorFromAny<Ok>(value: any): Result<Ok, string> {
+export function failure<Ok>(value: any): Result<Ok> {
 	if (value instanceof Error) {
-		return err(value.message);
+		return { ok: false, failure: value };
 	} else {
-		return err(String(value));
+		return { ok: false, failure: new Error(value) };
 	}
 }

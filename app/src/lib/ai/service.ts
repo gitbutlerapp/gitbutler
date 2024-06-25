@@ -14,7 +14,7 @@ import {
 	MessageRole,
 	type Prompt
 } from '$lib/ai/types';
-import { err, isError, ok, type Result } from '$lib/result';
+import { failure, isFailure, ok, type Result } from '$lib/result';
 import { splitMessage } from '$lib/utils/commitMessage';
 import OpenAI from 'openai';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
@@ -189,12 +189,12 @@ export class AIService {
 	// This optionally returns a summarizer. There are a few conditions for how this may occur
 	// Firstly, if the user has opted to use the GB API and isn't logged in, it will return undefined
 	// Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
-	async buildClient(userToken?: string): Promise<Result<AIClient, string>> {
+	async buildClient(userToken?: string): Promise<Result<AIClient>> {
 		const modelKind = await this.getModelKind();
 
 		if (await this.usingGitButlerAPI()) {
 			if (!userToken) {
-				return err("When using GitButler's API to summarize code, you must be logged in");
+				return failure("When using GitButler's API to summarize code, you must be logged in");
 			}
 			return ok(new ButlerAIClient(this.cloud, userToken, modelKind));
 		}
@@ -210,7 +210,7 @@ export class AIService {
 			const openAIKey = await this.getOpenAIKey();
 
 			if (!openAIKey) {
-				return err(
+				return failure(
 					'When using OpenAI in a bring your own key configuration, you must provide a valid token'
 				);
 			}
@@ -224,7 +224,7 @@ export class AIService {
 			const anthropicKey = await this.getAnthropicKey();
 
 			if (!anthropicKey) {
-				return err(
+				return failure(
 					'When using Anthropic in a bring your own key configuration, you must provide a valid token'
 				);
 			}
@@ -232,7 +232,7 @@ export class AIService {
 			return ok(new AnthropicAIClient(anthropicKey, anthropicModelName));
 		}
 
-		return err('Failed to build ai client');
+		return failure('Failed to build ai client');
 	}
 
 	async summarizeCommit({
@@ -241,9 +241,9 @@ export class AIService {
 		useBriefStyle = false,
 		commitTemplate,
 		userToken
-	}: SummarizeCommitOpts): Promise<Result<string, string>> {
+	}: SummarizeCommitOpts): Promise<Result<string>> {
 		const aiClientResult = await this.buildClient(userToken);
-		if (isError(aiClientResult)) return aiClientResult;
+		if (isFailure(aiClientResult)) return aiClientResult;
 		const aiClient = aiClientResult.value;
 
 		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
@@ -273,7 +273,7 @@ export class AIService {
 		});
 
 		const messageResult = await aiClient.evaluate(prompt);
-		if (isError(messageResult)) return messageResult;
+		if (isFailure(messageResult)) return messageResult;
 		let message = messageResult.value;
 
 		if (useBriefStyle) {
@@ -288,9 +288,9 @@ export class AIService {
 		hunks,
 		branchTemplate,
 		userToken = undefined
-	}: SummarizeBranchOpts): Promise<Result<string, string>> {
+	}: SummarizeBranchOpts): Promise<Result<string>> {
 		const aiClientResult = await this.buildClient(userToken);
-		if (isError(aiClientResult)) return aiClientResult;
+		if (isFailure(aiClientResult)) return aiClientResult;
 		const aiClient = aiClientResult.value;
 
 		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
@@ -307,7 +307,7 @@ export class AIService {
 		});
 
 		const messageResult = await aiClient.evaluate(prompt);
-		if (isError(messageResult)) return messageResult;
+		if (isFailure(messageResult)) return messageResult;
 		const message = messageResult.value;
 
 		return ok(message.replaceAll(' ', '-').replaceAll('\n', '-'));
