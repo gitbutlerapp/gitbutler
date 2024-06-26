@@ -104,17 +104,8 @@
 					branch.files?.length === 0 ||
 					!branch.active}
 			/>
-
-			<ContextMenuItem label="Allow rebasing" on:click={toggleAllowRebasing}>
-				<Toggle
-					small
-					slot="control"
-					bind:checked={allowRebasing}
-					on:click={toggleAllowRebasing}
-					help="Having this enabled permits commit amending and reordering after a branch has been pushed, which would subsequently require force pushing"
-				/>
-			</ContextMenuItem>
 		</ContextMenuSection>
+
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Set remote branch name"
@@ -126,6 +117,19 @@
 				}}
 			/>
 		</ContextMenuSection>
+
+		<ContextMenuSection>
+			<ContextMenuItem label="Allow rebasing" on:click={toggleAllowRebasing}>
+				<Toggle
+					small
+					slot="control"
+					bind:checked={allowRebasing}
+					on:click={toggleAllowRebasing}
+					help="Having this enabled permits commit amending and reordering after a branch has been pushed, which would subsequently require force pushing"
+				/>
+			</ContextMenuItem>
+		</ContextMenuSection>
+
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Create branch to the left"
