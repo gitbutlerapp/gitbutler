@@ -12,7 +12,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        spline: ['var(--font-splinesansmono)'],
+        sans: ['var(--font-inter)', 'var(--font-system)'],
         ppeditorial: ['var(--font-ppeditorialnew)']
       }
     }

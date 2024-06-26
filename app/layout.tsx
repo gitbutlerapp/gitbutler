@@ -1,6 +1,7 @@
 import "./global.css"
 import { Provider } from "./provider"
 import localFont from "next/font/local"
+import { Inter } from 'next/font/google'
 import type { Metadata, Viewport } from "next"
 import type { ReactNode } from "react"
 
@@ -8,6 +9,12 @@ const baseUrl =
   process.env.NODE_ENV === "development"
     ? new URL("http://localhost:3000")
     : new URL(`https://${process.env.VERCEL_URL}`)
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: "--font-inter"
+})
 
 const ppEditorialNew = localFont({
   src: [
@@ -26,7 +33,7 @@ const ppEditorialNew = localFont({
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${ppEditorialNew.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${ppEditorialNew.variable} ${inter.variable}`} suppressHydrationWarning>
       <body>
         <Provider>{children}</Provider>
       </body>
