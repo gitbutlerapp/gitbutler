@@ -106,7 +106,13 @@
 			/>
 
 			<ContextMenuItem label="Allow rebasing" on:click={toggleAllowRebasing}>
-				<Toggle small slot="control" bind:checked={allowRebasing} on:click={toggleAllowRebasing} />
+				<Toggle
+					small
+					slot="control"
+					bind:checked={allowRebasing}
+					on:click={toggleAllowRebasing}
+					help="Having this enabled permits commit amending and reordering after a branch has been pushed, which would subsequently require force pushing"
+				/>
 			</ContextMenuItem>
 		</ContextMenuSection>
 		<ContextMenuSection>
