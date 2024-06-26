@@ -1,4 +1,4 @@
-<img src="./public/img/sharp-bowtie.svg" width="256" align="right" />
+<img src="./public/img/dots-bowtie.svg" width="256" align="right" />
 
 # GitButler Docs
 
