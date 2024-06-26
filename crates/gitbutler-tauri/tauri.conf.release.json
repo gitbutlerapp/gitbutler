@@ -1,6 +1,6 @@
 {
 	"build": {
-		"beforeBuildCommand": "pnpm build && cargo build --release -p gitbutler-git && bash ./gitbutler-tauri/inject-git-binaries.sh"
+		"beforeBuildCommand": "pnpm build:app && cargo build --release -p gitbutler-git && bash ./gitbutler-tauri/inject-git-binaries.sh"
 	},
 	"package": {
 		"productName": "GitButler"

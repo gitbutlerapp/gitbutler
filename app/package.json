@@ -1,5 +1,5 @@
 {
-	"name": "@gitbutler/ui",
+	"name": "@gitbutler/app",
 	"private": true,
 	"version": "0.0.0",
 	"type": "module",
@@ -121,10 +121,5 @@
 	},
 	"dependencies": {
 		"openai": "^4.47.3"
-	},
-	"eslintConfig": {
-		"extends": [
-			"plugin:storybook/recommended"
-		]
 	}
 }

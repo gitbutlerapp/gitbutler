@@ -1,22 +1,23 @@
 {
-	"name": "git-butler-tauri",
+	"name": "git-butler",
 	"private": true,
 	"engines": {
 		"node": ">=20.11"
 	},
 	"packageManager": "pnpm@9.2.0",
 	"scripts": {
-		"dev": "pnpm --filter @gitbutler/ui run dev",
-		"test": "pnpm --filter @gitbutler/ui run test",
-		"test:watch": "pnpm --filter @gitbutler/ui run test:watch",
-		"build": "pnpm --filter @gitbutler/ui run build",
-		"build:nightly": "pnpm --filter @gitbutler/ui run build:nightly",
-		"build:development": "pnpm --filter @gitbutler/ui run build:development",
-		"check": "pnpm --filter @gitbutler/ui run check",
-		"lint": "pnpm --filter @gitbutler/ui run lint",
-		"format": "pnpm --filter @gitbutler/ui run format",
+		"dev": "pnpm --filter @gitbutler/app run dev",
+		"test": "pnpm --filter @gitbutler/app run test",
+		"test:watch": "pnpm --filter @gitbutler/app run test:watch",
+		"build:ui": "pnpm --filter @gitbutler/ui run build",
+		"build:app": "pnpm --filter @gitbutler/app run build",
+		"build:nightly": "pnpm --filter @gitbutler/app run build:nightly",
+		"build:development": "pnpm --filter @gitbutler/app run build:development",
+		"check": "pnpm --filter @gitbutler/app run check",
+		"lint": "pnpm --filter @gitbutler/app run lint",
+		"format": "pnpm --filter @gitbutler/app run format",
 		"tauri": "tauri",
-		"prepare": "pnpm --filter @gitbutler/ui run prepare",
+		"prepare": "pnpm --filter @gitbutler/app run prepare",
 		"rustfmt": "cargo +nightly fmt -- --config-path rustfmt-nightly.toml"
 	},
 	"devDependencies": {
