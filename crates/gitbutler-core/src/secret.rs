@@ -36,8 +36,11 @@ pub fn set_application_namespace(identifier: impl Into<String>) {
 fn entry_for(handle: &str) -> Result<keyring::Entry> {
     let ns = NAMESPACE.lock().unwrap();
     Ok(keyring::Entry::new(
-        if ns.is_empty() { "gitbutler" } else { &ns },
-        handle,
+        &format!(
+            "{prefix}-{handle}",
+            prefix = if ns.is_empty() { "development" } else { &ns }
+        ),
+        "GitButler",
     )?)
 }
 

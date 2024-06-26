@@ -49,11 +49,11 @@ impl CredentialBuilderApi for Builder {
     fn build(
         &self,
         _target: Option<&str>,
-        _service: &str,
-        user: &str,
+        service: &str,
+        _user: &str,
     ) -> keyring::Result<Box<Credential>> {
         let credential = Entry {
-            handle: user.to_string(),
+            handle: service.to_string(),
             store: self.store.clone(),
         };
         Ok(Box::new(credential))
