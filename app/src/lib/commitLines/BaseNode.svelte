@@ -29,7 +29,7 @@
 			height: 16px;
 			width: 16px;
 
-			margin-top: -8px;
+			margin-top: var(--base-icon-top);
 			margin-bottom: -8px;
 			margin-left: -9px;
 			margin-right: -7px;
@@ -40,6 +40,8 @@
 			display: flex;
 			align-items: center;
 			justify-content: center;
+
+			transition: margin-top var(--transition-medium);
 		}
 	}
 </style>
