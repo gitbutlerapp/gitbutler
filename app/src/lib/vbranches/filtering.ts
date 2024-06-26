@@ -6,7 +6,8 @@ const FILTER_OR_VALUE_SEPARATOR = ',';
 export enum FilterName {
 	Author = 'author',
 	Origin = 'origin',
-	SHA = 'sha'
+	SHA = 'sha',
+	File = 'file'
 }
 
 enum FilterOriginValue {
@@ -53,6 +54,15 @@ export const REMOTE_BRANCH_FILTERS: FilterDescription[] = [
 				description: 'Filter by commit SHA. It must start with the given value'
 			}
 		]
+	},
+	{
+		name: FilterName.File,
+		suggestions: [
+			{
+				name: FilterName.File,
+				description: 'Filter by file path. It must match the given RegExp'
+			}
+		]
 	}
 ];
 
@@ -76,6 +86,22 @@ export const TRUNK_BRANCH_FILTERS: FilterDescription[] = [
 	}
 ];
 
+function commitMatchesFileFilter(commit: RemoteCommit, filter: AppliedFilter): boolean {
+	if (!commit.filePaths) {
+		return false;
+	}
+
+
+	for (const value of filter.values) {
+		for (const filePath of commit.filePaths) {
+			if (filePath.includes(value)) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 function commitMatchesFilter(
 	commit: RemoteCommit,
 	filter: AppliedFilter,
@@ -90,6 +116,8 @@ function commitMatchesFilter(
 			);
 		case FilterName.SHA:
 			return filter.values.some((sha) => commit.id.startsWith(sha));
+		case FilterName.File:
+			return commitMatchesFileFilter(commit, filter);
 	}
 }
 
