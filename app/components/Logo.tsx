@@ -1,6 +1,6 @@
 export default function Logo() {
   return (
-    <div className="flex gap-4 items-baseline">
+    <div className="flex gap-4 items-center">
       <img src="/fav/fav-svg.svg" alt="GitButler Logo" className="size-9" />
       <svg
         className="!h-8 !w-[6.5rem] dark:text-white text-black"

@@ -76,7 +76,7 @@ export default async function Page({ params }: { params: { slug?: string[] } }) 
       }}
       tableOfContentPopover={{ footer }}
     >
-      <RollButton />
+      <RollButton percentage={0.3} />
       <DocsBody>
         <h1>{page.data.title}</h1>
         <MDX />
