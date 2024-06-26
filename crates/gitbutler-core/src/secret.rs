@@ -8,7 +8,13 @@ use std::sync::Mutex;
 
 /// Persist `secret` so that it can be retrieved by the given `handle`.
 pub fn persist(handle: &str, secret: &Sensitive<String>) -> Result<()> {
-    Ok(entry_for(handle)?.set_password(&secret.0)?)
+    let entry = entry_for(handle)?;
+    if secret.0.is_empty() {
+        entry.delete_password()?;
+    } else {
+        entry.set_password(&secret.0)?;
+    }
+    Ok(())
 }
 
 /// Obtain the previously [stored](persist()) secret known as `handle`.

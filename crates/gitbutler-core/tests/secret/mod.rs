@@ -28,5 +28,22 @@ fn store_and_retrieve() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+#[serial]
+fn store_empty_equals_deletion() -> anyhow::Result<()> {
+    credentials::setup();
+    secret::persist("new", &Sensitive("secret".into()))?;
+    assert_eq!(credentials::count(), 1);
+
+    secret::persist("new", &Sensitive("".into()))?;
+    assert_eq!(
+        secret::retrieve("new")?.map(|s| s.0),
+        None,
+        "empty passwords are automatically deleted"
+    );
+    assert_eq!(credentials::count(), 0);
+    Ok(())
+}
+
 pub(crate) mod credentials;
 mod users;
