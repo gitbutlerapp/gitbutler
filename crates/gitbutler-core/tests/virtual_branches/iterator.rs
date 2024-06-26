@@ -42,6 +42,7 @@ fn new_test_branch() -> virtual_branches::branch::Branch {
         ownership: virtual_branches::branch::BranchOwnershipClaims::default(),
         order: TEST_INDEX.load(Ordering::Relaxed),
         selected_for_changes: Some(1),
+        allow_rebasing: true,
     }
 }
 

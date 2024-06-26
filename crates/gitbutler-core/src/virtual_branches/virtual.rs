@@ -71,6 +71,7 @@ pub struct VirtualBranch {
     pub ownership: BranchOwnershipClaims,
     pub updated_at: u128,
     pub selected_for_changes: bool,
+    pub allow_rebasing: bool,
     #[serde(with = "crate::serde::oid")]
     pub head: git2::Oid,
     /// The merge base between the target branch and the virtual branch
@@ -329,7 +330,7 @@ pub fn apply_branch(
             .find_tree(merged_branch_tree_oid)
             .context("failed to find tree")?;
 
-        let ok_with_force_push = project_repository.project().ok_with_force_push;
+        let ok_with_force_push = branch.allow_rebasing;
         if branch.upstream.is_some() && !ok_with_force_push {
             // branch was pushed to upstream, and user doesn't like force pushing.
             // create a merge commit to avoid the need of force pushing then.
@@ -850,6 +851,7 @@ pub fn list_virtual_branches(
             ownership: branch.ownership,
             updated_at: branch.updated_timestamp_ms,
             selected_for_changes: branch.selected_for_changes == Some(max_selected_for_changes),
+            allow_rebasing: branch.allow_rebasing,
             head: branch.head,
             merge_base,
             fork_point,
@@ -1059,6 +1061,7 @@ pub fn create_virtual_branch(
         ownership: BranchOwnershipClaims::default(),
         order,
         selected_for_changes,
+        allow_rebasing: project_repository.project().ok_with_force_push.into(),
     };
 
     if let Some(ownership) = &create.ownership {
@@ -1158,7 +1161,7 @@ pub fn integrate_upstream_commits(
 
     // Booleans needed for a decision on how integrate upstream commits.
     // let is_same_base = default_target.sha == merge_base;
-    let can_use_force = *project.ok_with_force_push;
+    let can_use_force = branch.allow_rebasing;
     let has_rebased_commits = !rebased_commits.is_empty();
 
     // We can't proceed if we rebased local commits but no permission to force push. In this
@@ -1365,6 +1368,10 @@ pub fn update_branch(
         } else {
             None
         };
+    };
+
+    if let Some(allow_rebasing) = branch_update.allow_rebasing {
+        branch.allow_rebasing = allow_rebasing;
     };
 
     vb_state.set_branch(branch.clone())?;
@@ -2889,7 +2896,7 @@ pub fn amend(
         .find(|(b, _)| b.id == branch_id)
         .ok_or_else(|| anyhow!("could not find branch {branch_id} in status list"))?;
 
-    if target_branch.upstream.is_some() && !project_repository.project().ok_with_force_push {
+    if target_branch.upstream.is_some() && !target_branch.allow_rebasing {
         // amending to a pushed head commit will cause a force push that is not allowed
         bail!("force-push is not allowed");
     }
@@ -3507,9 +3514,7 @@ pub fn squash(
         },
     )?;
 
-    if pushed_commit_oids.contains(&parent_commit.id())
-        && !project_repository.project().ok_with_force_push
-    {
+    if pushed_commit_oids.contains(&parent_commit.id()) && !branch.allow_rebasing {
         // squashing into a pushed commit will cause a force push that is not allowed
         bail!("force push not allowed");
     }
@@ -3603,7 +3608,7 @@ pub fn update_commit_message(
         },
     )?;
 
-    if pushed_commit_oids.contains(&commit_id) && !project_repository.project().ok_with_force_push {
+    if pushed_commit_oids.contains(&commit_id) && !branch.allow_rebasing {
         // updating the message of a pushed commit will cause a force push that is not allowed
         bail!("force push not allowed");
     }
@@ -3903,6 +3908,7 @@ pub fn create_virtual_branch_from_branch(
         ownership,
         order,
         selected_for_changes,
+        allow_rebasing: project_repository.project().ok_with_force_push.into(),
     };
 
     vb_state.set_branch(branch.clone())?;

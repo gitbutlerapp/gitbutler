@@ -107,6 +107,17 @@ export class BranchController {
 		}
 	}
 
+	async updateBranchAllowRebasing(branchId: string, allowRebasing: boolean) {
+		try {
+			await invoke<void>('update_virtual_branch', {
+				projectId: this.projectId,
+				branch: { id: branchId, allow_rebasing: allowRebasing }
+			});
+		} catch (err) {
+			showError('Failed to update branch allow rebasing', err);
+		}
+	}
+
 	async updateBranchNotes(branchId: string, notes: string) {
 		try {
 			await invoke<void>('update_virtual_branch', {

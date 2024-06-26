@@ -1204,7 +1204,6 @@ mod applied_branch {
             projects
                 .update(&projects::UpdateRequest {
                     id: *project_id,
-                    ok_with_force_push: Some(true),
                     ..Default::default()
                 })
                 .await
@@ -1267,7 +1266,6 @@ mod applied_branch {
                 repository,
                 project_id,
                 controller,
-                projects,
                 ..
             } = &Test::default();
 
@@ -1308,12 +1306,15 @@ mod applied_branch {
                 branch_id
             };
 
-            projects
-                .update(&projects::UpdateRequest {
-                    id: *project_id,
-                    ok_with_force_push: Some(false),
-                    ..Default::default()
-                })
+            controller
+                .update_virtual_branch(
+                    *project_id,
+                    branch::BranchUpdateRequest {
+                        id: branch_id,
+                        allow_rebasing: Some(false),
+                        ..Default::default()
+                    },
+                )
                 .await
                 .unwrap();
 
@@ -1656,7 +1657,6 @@ mod applied_branch {
         projects
             .update(&projects::UpdateRequest {
                 id: *project_id,
-                ok_with_force_push: Some(false),
                 ..Default::default()
             })
             .await
