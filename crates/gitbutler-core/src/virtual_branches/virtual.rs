@@ -71,6 +71,7 @@ pub struct VirtualBranch {
     pub ownership: BranchOwnershipClaims,
     pub updated_at: u128,
     pub selected_for_changes: bool,
+    pub allow_rebasing: bool,
     #[serde(with = "crate::serde::oid")]
     pub head: git2::Oid,
     /// The merge base between the target branch and the virtual branch
@@ -850,6 +851,7 @@ pub fn list_virtual_branches(
             ownership: branch.ownership,
             updated_at: branch.updated_timestamp_ms,
             selected_for_changes: branch.selected_for_changes == Some(max_selected_for_changes),
+            allow_rebasing: branch.allow_rebasing,
             head: branch.head,
             merge_base,
             fork_point,

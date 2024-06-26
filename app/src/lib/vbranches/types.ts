@@ -130,6 +130,7 @@ export class Branch {
 	mergeBase!: string;
 	/// The fork point between the target branch and the virtual branch
 	forkPoint!: string;
+	allowRebasing!: boolean;
 
 	get localCommits() {
 		return this.commits.filter((c) => c.status === 'local');
