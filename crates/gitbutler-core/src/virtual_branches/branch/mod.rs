@@ -87,6 +87,7 @@ pub struct BranchUpdateRequest {
     pub order: Option<usize>,
     pub upstream: Option<String>, // just the branch name, so not refs/remotes/origin/branchA, just branchA
     pub selected_for_changes: Option<bool>,
+    pub allow_rebasing: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

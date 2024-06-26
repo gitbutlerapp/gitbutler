@@ -18,7 +18,7 @@ use gitbutler_core::{
     git::{self, CommitExt, RepositoryExt},
     virtual_branches::{
         self, apply_branch,
-        branch::{BranchCreateRequest, BranchOwnershipClaims},
+        branch::{BranchCreateRequest, BranchOwnershipClaims, BranchUpdateRequest},
         commit, create_virtual_branch, integrate_upstream_commits,
         integration::verify_branch,
         is_remote_branch_mergeable, is_virtual_branch_mergeable, list_remote_branches,
@@ -841,17 +841,6 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
 async fn merge_vbranch_upstream_conflict() -> Result<()> {
     let suite = Suite::default();
     let mut case = suite.new_case();
-    let project = &case.project;
-
-    suite
-        .projects
-        .update(&gitbutler_core::projects::UpdateRequest {
-            id: project.id,
-            ok_with_force_push: Some(false),
-            ..Default::default()
-        })
-        .await
-        .unwrap();
 
     case = case.refresh(&suite);
     let project_repository = &case.project_repository;
@@ -918,6 +907,16 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
     branch.upstream = Some(remote_branch.clone());
     branch.head = last_push;
     vb_state.set_branch(branch.clone())?;
+
+    update_branch(
+        project_repository,
+        &BranchUpdateRequest {
+            id: branch.id,
+            allow_rebasing: Some(false),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
     // create the branch
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
