@@ -585,7 +585,7 @@ pub fn target_to_base_branch(
         .log(oid, project_repository::LogUntil::Commit(target.sha))
         .context("failed to get upstream commits")?
         .iter()
-        .map(super::commit_to_remote_commit)
+        .map(|commit| super::commit_to_remote_commit(project_repository, commit))
         .collect::<Vec<_>>();
 
     // get some recent commits
@@ -593,7 +593,7 @@ pub fn target_to_base_branch(
         .log(target.sha, LogUntil::Take(100))
         .context("failed to get recent commits")?
         .iter()
-        .map(super::commit_to_remote_commit)
+        .map(|commit| super::commit_to_remote_commit(project_repository, commit))
         .collect::<Vec<_>>();
 
     // there has got to be a better way to do this.

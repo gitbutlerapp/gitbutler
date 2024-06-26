@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use bstr::BString;
 use serde::Serialize;
 
-use super::{target, Author, VirtualBranchesHandle};
+use super::{get_remote_commit_file_paths, target, Author, VirtualBranchesHandle};
 use crate::{
     git::{self, CommitExt, RepositoryExt},
     project_repository::{self, LogUntil},
@@ -54,6 +54,7 @@ pub struct RemoteCommit {
     pub change_id: Option<String>,
     #[serde(with = "crate::serde::oid_vec")]
     pub parent_ids: Vec<git2::Oid>,
+    pub file_paths: Vec<String>,
 }
 
 // for legacy purposes, this is still named "remote" branches, but it's actually
@@ -177,7 +178,7 @@ pub fn branch_to_remote_branch_data(
                 behind: count_behind,
                 commits: ahead
                     .into_iter()
-                    .map(|commit| commit_to_remote_commit(&commit))
+                    .map(|commit| commit_to_remote_commit(project_repository, &commit))
                     .collect::<Vec<_>>(),
                 fork_point,
             })
@@ -185,8 +186,16 @@ pub fn branch_to_remote_branch_data(
         .transpose()
 }
 
-pub fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
+pub fn commit_to_remote_commit(
+    project_repository: &project_repository::Repository,
+    commit: &git2::Commit,
+) -> RemoteCommit {
     let parent_ids: Vec<git2::Oid> = commit.parents().map(|c| c.id()).collect::<Vec<_>>();
+    let file_paths = get_remote_commit_file_paths(project_repository.repo(), commit)
+        .ok()
+        .filter(|files| !files.is_empty())
+        .unwrap_or_default();
+
     RemoteCommit {
         id: commit.id().to_string(),
         description: commit.message_bstr().to_owned(),
@@ -194,6 +203,7 @@ pub fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
         author: commit.author().into(),
         change_id: commit.change_id(),
         parent_ids,
+        file_paths,
     }
 }
 

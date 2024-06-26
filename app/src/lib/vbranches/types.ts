@@ -222,6 +222,7 @@ export class RemoteCommit {
 	changeId!: string;
 	isSigned!: boolean;
 	parentIds!: string[];
+	filePaths!: string[];
 
 	prev?: RemoteCommit;
 	next?: RemoteCommit;
