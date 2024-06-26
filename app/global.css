@@ -35,7 +35,7 @@ body {
   /* optimise font rendering */
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  font-family: var(--font-system);
+  font-family: var(--font-sans);
 
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
