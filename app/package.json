@@ -46,6 +46,7 @@
 		"@codemirror/state": "^6.4.1",
 		"@codemirror/view": "^6.26.3",
 		"@eslint/js": "^9.5.0",
+		"@gitbutler/ui": "workspace:*",
 		"@lezer/common": "^1.2.1",
 		"@lezer/highlight": "^1.2.0",
 		"@octokit/rest": "^20.1.1",

@@ -1,27 +1,37 @@
 {
 	"name": "@gitbutler/ui",
 	"version": "0.0.1",
-  "description": "GitButler Component Library",
-  "keywords": [
-    "components",
-    "documentation",
-    "Svelte",
-    "SvelteKit"
-  ],
+	"description": "GitButler Component Library",
+	"keywords": [
+		"components",
+		"documentation",
+		"Svelte",
+		"SvelteKit"
+	],
 	"type": "module",
 	"engines": {
 		"node": ">=20.11"
 	},
 	"packageManager": "pnpm@9.2.0",
+	"exports": {
+		"./CommitLines/*": {
+      "svelte": "./dist/commitLines/*.js",
+      "types": "./dist/commitLines/*.d.ts"
+    }
+	},
+  "files": [
+    "dist"
+  ],
 	"scripts": {
 		"dev": "vite dev",
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
+		"build": "vite build",
 		"fix": "eslint --fix .",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "pnpm check --watch",
-    "package": "svelte-kit sync && svelte-package && publint",
-    "prepublishOnly": "npm run package",
+		"package": "svelte-kit sync && svelte-package",
+		"prepublishOnly": "npm run package",
 		"prepare": "svelte-kit sync",
 		"storybook": "storybook dev --no-open -p 6006"
 	},
@@ -37,6 +47,7 @@
 		"@storybook/test": "^8.1.10",
 		"@sveltejs/adapter-static": "^3.0.1",
 		"@sveltejs/kit": "^2.5.10",
+		"@sveltejs/package": "^2.3.2",
 		"@sveltejs/vite-plugin-svelte": "^3.1.1",
 		"@types/crypto-js": "^4.2.2",
 		"@types/diff": "^5.2.1",
