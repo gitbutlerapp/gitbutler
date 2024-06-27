@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '$lib/utils/tooltip';
 	import { isDefined } from '$lib/utils/typeguards';
-	import type { CommitNode, Color } from '$lib/commitLines/types';
+	import type { CommitNode, Color } from '$lib/CommitLines/types';
 
 	interface Props {
 		commitNode: CommitNode;

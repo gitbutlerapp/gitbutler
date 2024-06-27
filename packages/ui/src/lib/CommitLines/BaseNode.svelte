@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { BaseNode, Color } from '$lib/commitLines/types';
+	import type { BaseNode, Color } from '$lib/CommitLines/types';
 	interface Props {
 		baseNode: BaseNode;
 		color: Color;
