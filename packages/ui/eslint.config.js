@@ -6,9 +6,11 @@ import globals from 'globals';
 import svelteParser from 'svelte-eslint-parser';
 import tsEslint from 'typescript-eslint';
 import pluginImportX from 'eslint-plugin-import-x';
+import storybook from "eslint-plugin-storybook"
 
 export default tsEslint.config(
 	js.configs.recommended,
+  storybook.configs.recommended,
 	...tsEslint.configs.recommended,
 	...eslintPluginSvelte.configs['flat/recommended'],
 	eslintConfigPrettier,
