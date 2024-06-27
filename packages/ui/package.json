@@ -15,7 +15,7 @@
 	"packageManager": "pnpm@9.2.0",
 	"exports": {
 		"./CommitLines/*": {
-			"svelte": "./dist/CommitLines/*.js",
+			"svelte": "./dist/CommitLines/*",
 			"types": "./dist/CommitLines/*.d.ts"
 		}
 	},

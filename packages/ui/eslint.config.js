@@ -11,7 +11,7 @@ import svelteParser from 'svelte-eslint-parser';
 
 export default tsEslint.config(
 	js.configs.recommended,
-  ...storybook.configs["flat/recommended"],
+	...storybook.configs['flat/recommended'],
 	...tsEslint.configs.recommended,
 	...eslintPluginSvelte.configs['flat/recommended'],
 	eslintConfigPrettier,
@@ -46,6 +46,7 @@ export default tsEslint.config(
 			'**/node_modules',
 			'butler/target',
 			'build',
+			'dist',
 			'.svelte-kit',
 			'package',
 			'e2e',
