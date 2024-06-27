@@ -222,7 +222,6 @@
 		padding: 0 0 48px;
 		flex-direction: column;
 		gap: 4px;
-		overflow: hidden;
 		animation: expand-box 0.2s ease forwards;
 		/* props to animate on mount */
 		max-height: 40px;
