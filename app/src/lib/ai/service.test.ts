@@ -11,7 +11,7 @@ import {
 	type Prompt
 } from '$lib/ai/types';
 import { HttpClient } from '$lib/backend/httpClient';
-import { failure, buildFailureFromAny, ok, unwrap, type Result } from '$lib/result';
+import { buildFailureFromAny, ok, unwrap, type Result } from '$lib/result';
 import { Hunk } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { expect, test, describe, vi } from 'vitest';
@@ -123,7 +123,7 @@ describe.concurrent('AIService', () => {
 			const aiService = buildDefaultAIService();
 
 			expect(await aiService.buildClient()).toStrictEqual(
-				failure("When using GitButler's API to summarize code, you must be logged in")
+				buildFailureFromAny("When using GitButler's API to summarize code, you must be logged in")
 			);
 		});
 
@@ -147,7 +147,7 @@ describe.concurrent('AIService', () => {
 			const aiService = new AIService(gitConfig, cloud);
 
 			expect(await aiService.buildClient()).toStrictEqual(
-				failure(
+				buildFailureFromAny(
 					'When using OpenAI in a bring your own key configuration, you must provide a valid token'
 				)
 			);
@@ -175,7 +175,7 @@ describe.concurrent('AIService', () => {
 			const aiService = new AIService(gitConfig, cloud);
 
 			expect(await aiService.buildClient()).toStrictEqual(
-				failure(
+				buildFailureFromAny(
 					'When using Anthropic in a bring your own key configuration, you must provide a valid token'
 				)
 			);
@@ -191,7 +191,7 @@ describe.concurrent('AIService', () => {
 			);
 
 			expect(await aiService.summarizeCommit({ hunks: exampleHunks })).toStrictEqual(
-				failure('Failed to build')
+				buildFailureFromAny('Failed to build')
 			);
 		});
 
@@ -247,7 +247,7 @@ describe.concurrent('AIService', () => {
 			);
 
 			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toStrictEqual(
-				failure('Failed to build client')
+				buildFailureFromAny('Failed to build client')
 			);
 		});
 
