@@ -34,7 +34,7 @@ export interface PromptMessage {
 export type Prompt = PromptMessage[];
 
 export interface AIClient {
-	evaluate(prompt: Prompt): Promise<Result<string>>;
+	evaluate(prompt: Prompt): Promise<Result<string, Error>>;
 
 	defaultBranchTemplate: Prompt;
 	defaultCommitTemplate: Prompt;

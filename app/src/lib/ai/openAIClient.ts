@@ -1,5 +1,5 @@
 import { SHORT_DEFAULT_BRANCH_TEMPLATE, SHORT_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
-import { failure, ok, type Result } from '$lib/result';
+import { buildFailureFromAny, ok, type Result } from '$lib/result';
 import type { OpenAIModelName, Prompt, AIClient } from '$lib/ai/types';
 import type OpenAI from 'openai';
 
@@ -12,7 +12,7 @@ export class OpenAIClient implements AIClient {
 		private openAI: OpenAI
 	) {}
 
-	async evaluate(prompt: Prompt): Promise<Result<string>> {
+	async evaluate(prompt: Prompt): Promise<Result<string, Error>> {
 		try {
 			const response = await this.openAI.chat.completions.create({
 				messages: prompt,
@@ -23,13 +23,13 @@ export class OpenAIClient implements AIClient {
 			if (response.choices[0]?.message.content) {
 				return ok(response.choices[0]?.message.content);
 			} else {
-				return failure('Open AI generated an empty message');
+				return buildFailureFromAny('Open AI generated an empty message');
 			}
 		} catch (e) {
 			if (e instanceof Error) {
-				return failure(e.message);
+				return buildFailureFromAny(e.message);
 			} else {
-				return failure('Failed to contact Open AI');
+				return buildFailureFromAny('Failed to contact Open AI');
 			}
 		}
 	}

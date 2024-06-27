@@ -14,7 +14,7 @@ import {
 	MessageRole,
 	type Prompt
 } from '$lib/ai/types';
-import { failure, isFailure, ok, type Result } from '$lib/result';
+import { buildFailureFromAny, isFailure, ok, type Result } from '$lib/result';
 import { splitMessage } from '$lib/utils/commitMessage';
 import OpenAI from 'openai';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
@@ -189,12 +189,14 @@ export class AIService {
 	// This optionally returns a summarizer. There are a few conditions for how this may occur
 	// Firstly, if the user has opted to use the GB API and isn't logged in, it will return undefined
 	// Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
-	async buildClient(userToken?: string): Promise<Result<AIClient>> {
+	async buildClient(userToken?: string): Promise<Result<AIClient, Error>> {
 		const modelKind = await this.getModelKind();
 
 		if (await this.usingGitButlerAPI()) {
 			if (!userToken) {
-				return failure("When using GitButler's API to summarize code, you must be logged in");
+				return buildFailureFromAny(
+					"When using GitButler's API to summarize code, you must be logged in"
+				);
 			}
 			return ok(new ButlerAIClient(this.cloud, userToken, modelKind));
 		}
@@ -210,7 +212,7 @@ export class AIService {
 			const openAIKey = await this.getOpenAIKey();
 
 			if (!openAIKey) {
-				return failure(
+				return buildFailureFromAny(
 					'When using OpenAI in a bring your own key configuration, you must provide a valid token'
 				);
 			}
@@ -224,7 +226,7 @@ export class AIService {
 			const anthropicKey = await this.getAnthropicKey();
 
 			if (!anthropicKey) {
-				return failure(
+				return buildFailureFromAny(
 					'When using Anthropic in a bring your own key configuration, you must provide a valid token'
 				);
 			}
@@ -232,7 +234,7 @@ export class AIService {
 			return ok(new AnthropicAIClient(anthropicKey, anthropicModelName));
 		}
 
-		return failure('Failed to build ai client');
+		return buildFailureFromAny('Failed to build ai client');
 	}
 
 	async summarizeCommit({
@@ -241,7 +243,7 @@ export class AIService {
 		useBriefStyle = false,
 		commitTemplate,
 		userToken
-	}: SummarizeCommitOpts): Promise<Result<string>> {
+	}: SummarizeCommitOpts): Promise<Result<string, Error>> {
 		const aiClientResult = await this.buildClient(userToken);
 		if (isFailure(aiClientResult)) return aiClientResult;
 		const aiClient = aiClientResult.value;
@@ -288,7 +290,7 @@ export class AIService {
 		hunks,
 		branchTemplate,
 		userToken = undefined
-	}: SummarizeBranchOpts): Promise<Result<string>> {
+	}: SummarizeBranchOpts): Promise<Result<string, Error>> {
 		const aiClientResult = await this.buildClient(userToken);
 		if (isFailure(aiClientResult)) return aiClientResult;
 		const aiClient = aiClientResult.value;

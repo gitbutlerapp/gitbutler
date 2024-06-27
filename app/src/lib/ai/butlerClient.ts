@@ -1,5 +1,5 @@
 import { SHORT_DEFAULT_BRANCH_TEMPLATE, SHORT_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
-import { ok, failure, type Result } from '$lib/result';
+import { map, type Result } from '$lib/result';
 import type { AIClient, ModelKind, Prompt } from '$lib/ai/types';
 import type { HttpClient } from '$lib/backend/httpClient';
 
@@ -13,20 +13,19 @@ export class ButlerAIClient implements AIClient {
 		private modelKind: ModelKind
 	) {}
 
-	async evaluate(prompt: Prompt): Promise<Result<string>> {
-		try {
-			const response = await this.cloud.post<{ message: string }>('evaluate_prompt/predict.json', {
+	async evaluate(prompt: Prompt): Promise<Result<string, Error>> {
+		const response = await this.cloud.postSafe<{ message: string }>(
+			'evaluate_prompt/predict.json',
+			{
 				body: {
 					messages: prompt,
 					max_tokens: 400,
 					model_kind: this.modelKind
 				},
 				token: this.userToken
-			});
+			}
+		);
 
-			return ok(response.message);
-		} catch (e) {
-			return failure(e);
-		}
+		return map(response, ({ message }) => message);
 	}
 }
