@@ -7,19 +7,22 @@
 	let { name, value, onclick }: Props = $props();
 </script>
 
-{#if !!onclick}
-	<button class="filter-pill clickable" {onclick}>
+{#snippet figure()}
+	<figure>
 		<span class="filter-name-prop">{name}</span>
 		{#if value}
 			<span class="filter-name-value">{value}</span>
 		{/if}
+	</figure>
+{/snippet}
+
+{#if !!onclick}
+	<button class="filter-pill clickable" {onclick}>
+		{@render figure()}
 	</button>
 {:else}
 	<div class="filter-pill">
-		<span class="filter-name-prop">{name}</span>
-		{#if value}
-			<span class="filter-name-value">{value}</span>
-		{/if}
+		{@render figure()}
 	</div>
 {/if}
 
