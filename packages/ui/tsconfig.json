@@ -11,8 +11,6 @@
 		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
-		"module": "NodeNext",
-		"moduleResolution": "NodeNext",
 		"experimentalDecorators": true,
 		"types": ["vitest/importMeta"]
 	}

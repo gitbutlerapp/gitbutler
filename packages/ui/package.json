@@ -15,8 +15,8 @@
 	"packageManager": "pnpm@9.2.0",
 	"exports": {
 		"./CommitLines/*": {
-			"svelte": "./dist/commitLines/*.js",
-			"types": "./dist/commitLines/*.d.ts"
+			"svelte": "./dist/CommitLines/*.js",
+			"types": "./dist/CommitLines/*.d.ts"
 		}
 	},
 	"files": [
@@ -26,7 +26,6 @@
 		"dev": "vite dev",
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
-		"build": "vite build",
 		"fix": "eslint --fix .",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "pnpm check --watch",
@@ -54,7 +53,7 @@
 		"eslint-config-prettier": "^9.1.0",
 		"eslint-import-resolver-typescript": "^3.6.1",
 		"eslint-plugin-import-x": "^0.5.1",
-		"eslint-plugin-storybook": "^0.8.0",
+		"eslint-plugin-storybook": "0.9.0--canary.156.da7873a.0",
 		"eslint-plugin-svelte": "2.40.0",
 		"globals": "^15.6.0",
 		"prettier": "^3.3.2",

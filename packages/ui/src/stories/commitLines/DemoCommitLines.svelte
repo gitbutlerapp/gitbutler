@@ -1,7 +1,7 @@
 <script lang="ts">
-	import LineGroup from '$lib/commitLines/LineGroup.svelte';
-	import { LineManager } from '$lib/commitLines/lineManager';
-	import type { CommitData } from '$lib/commitLines/types';
+	import LineGroup from '$lib/CommitLines/LineGroup.svelte';
+	import { LineManager } from '$lib/CommitLines/lineManager';
+	import type { CommitData } from '$lib/CommitLines/types';
 
 	interface Props {
 		remoteCommits: CommitData[];

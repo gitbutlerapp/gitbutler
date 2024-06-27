@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CommitCard from './CommitCard.svelte';
 	import { Project } from '$lib/backend/projects';
-	import { LineManagerFactory } from '$lib/commitLines/lineManager';
+	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
 	import {
 		ReorderDropzoneManagerFactory,
@@ -19,8 +19,8 @@
 		getRemoteCommits
 	} from '$lib/vbranches/contexts';
 	import { BaseBranch, Branch } from '$lib/vbranches/types';
-  import LineGroup from '@gitbutler/ui/CommitLines/LineGroup.svelte';
-	import { transformAnyCommit } from '@gitbutler/ui/CommitLines/transformers';
+	import LineGroup from '@gitbutler/ui/CommitLines/LineGroup.svelte';
+	import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied: boolean;

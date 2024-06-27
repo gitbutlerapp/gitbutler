@@ -9,7 +9,6 @@
 	import { ProjectService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
-	import { LineManagerFactory } from '$lib/commitLines/lineManager';
 	import AppUpdater from '$lib/components/AppUpdater.svelte';
 	import GlobalSettingsMenuAction from '$lib/components/GlobalSettingsMenuAction.svelte';
 	import PromptModal from '$lib/components/PromptModal.svelte';
@@ -23,6 +22,7 @@
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { initTheme } from '$lib/utils/theme';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
+	import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
 	import { onMount, setContext } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';

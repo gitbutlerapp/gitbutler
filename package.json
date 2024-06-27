@@ -1,12 +1,15 @@
 {
-	"name": "git-butler",
+	"name": "root",
 	"private": true,
+  "repository": "https://github.com/gitbutlerapp/gitbutler.git",
 	"engines": {
 		"node": ">=20.11"
 	},
 	"packageManager": "pnpm@9.2.0",
 	"scripts": {
 		"dev": "pnpm --filter @gitbutler/app run dev",
+    "dev:ui": "pnpm --filter @gitbutler/ui dev",
+    "dev:tauri": "pnpm tauri dev",
 		"test": "pnpm --filter @gitbutler/app run test",
 		"test:watch": "pnpm --filter @gitbutler/app run test:watch",
 		"build:ui": "pnpm --filter @gitbutler/ui run build",

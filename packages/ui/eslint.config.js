@@ -3,14 +3,15 @@ import tsParser from '@typescript-eslint/parser';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import eslintPluginSvelte from 'eslint-plugin-svelte';
 import globals from 'globals';
-import svelteParser from 'svelte-eslint-parser';
 import tsEslint from 'typescript-eslint';
 import pluginImportX from 'eslint-plugin-import-x';
-import storybook from "eslint-plugin-storybook"
+// Flat config support: https://github.com/storybookjs/eslint-plugin-storybook/pull/156
+import storybook from 'eslint-plugin-storybook';
+import svelteParser from 'svelte-eslint-parser';
 
 export default tsEslint.config(
 	js.configs.recommended,
-  storybook.configs.recommended,
+  ...storybook.configs["flat/recommended"],
 	...tsEslint.configs.recommended,
 	...eslintPluginSvelte.configs['flat/recommended'],
 	eslintConfigPrettier,
@@ -61,7 +62,8 @@ export default tsEslint.config(
 			'svelte.config.js',
 			'postcss.config.cjs',
 			'playwright.config.ts',
-			'**/.pnpm-store'
+			'**/.pnpm-store',
+			'!.storybook'
 		]
 	},
 	{

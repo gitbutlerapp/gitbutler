@@ -1,7 +1,6 @@
 import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vitest/config';
 
-export default defineConfig({
+export default {
 	plugins: [
 		sveltekit()
 	],
@@ -27,12 +26,5 @@ export default defineConfig({
 		minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
 		// ship sourcemaps for better sentry error reports
 		sourcemap: true
-	},
-	test: {
-		deps: {
-			inline: ['sorcery']
-		},
-		includeSource: ['src/**/*.{js,ts}'],
-		exclude: ['**/e2e/playwright/**/*', 'node_modules/**/*']
 	}
-});
+};

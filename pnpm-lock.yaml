@@ -304,8 +304,8 @@ importers:
         specifier: ^0.5.1
         version: 0.5.1(eslint@9.5.0)(typescript@5.4.5)
       eslint-plugin-storybook:
-        specifier: ^0.8.0
-        version: 0.8.0(eslint@9.5.0)(typescript@5.4.5)
+        specifier: 0.9.0--canary.156.da7873a.0
+        version: 0.9.0--canary.156.da7873a.0(eslint@9.5.0)(typescript@5.4.5)
       eslint-plugin-svelte:
         specifier: 2.40.0
         version: 2.40.0(eslint@9.5.0)(svelte@5.0.0-next.149)
@@ -3428,8 +3428,8 @@ packages:
   eslint-plugin-square-svelte-store@1.0.0:
     resolution: {integrity: sha512-QLybNNEPcBKVrgAeow/7ouOqbTVsWwEdStFab9ZMZaW19Y//ZEhhtuEb92P69n9u/JRL6EFhArV9AfS+LgS4mA==}
 
-  eslint-plugin-storybook@0.8.0:
-    resolution: {integrity: sha512-CZeVO5EzmPY7qghO2t64oaFM+8FTaD4uzOEjHKp516exyTKo+skKAL9GI3QALS2BXhyALJjNtwbmr1XinGE8bA==}
+  eslint-plugin-storybook@0.9.0--canary.156.da7873a.0:
+    resolution: {integrity: sha512-3b6hQMRfKWwkNB0koK0y9Boi+GYAt8vz+3tzU5JHylyAZh3Vg5TgvxM6IRhKixEY4OlQhsJPhqMzP0rT9fP5mA==}
     engines: {node: '>= 18'}
     peerDependencies:
       eslint: '>=6'
@@ -5082,10 +5082,6 @@ packages:
   require-in-the-middle@7.3.0:
     resolution: {integrity: sha512-nQFEv9gRw6SJAwWD2LrL0NmQvAcO7FBwJbwmr2ttPAacfy0xuiOjE5zt+zM4xDyuyvUaxBi/9gb2SoCyNEVJcw==}
     engines: {node: '>=8.6.0'}
-
-  requireindex@1.2.0:
-    resolution: {integrity: sha512-L9jEkOi3ASd9PYit2cwRfyppc9NoABujTP8/5gFcbERmo5jUoAKovIC3fsF17pkTnGsrByysqX+Kxd2OTNI1ww==}
-    engines: {node: '>=0.10.5'}
 
   resize-observer-polyfill@1.5.1:
     resolution: {integrity: sha512-LwZrotdHOo12nQuZlHEmtuXdqGoOD0OhaxopaNFxWzInpEgaLWoVuAMbTzixuosCx2nEG58ngzW3vxdWoxIgdg==}
@@ -8733,7 +8729,7 @@ snapshots:
       lodash: 4.17.21
       redent: 3.0.0
     optionalDependencies:
-      vitest: 0.34.6
+      vitest: 0.34.6(playwright@1.44.1)
 
   '@testing-library/user-event@14.5.2(@testing-library/dom@9.3.4)':
     dependencies:
@@ -10036,12 +10032,11 @@ snapshots:
 
   eslint-plugin-square-svelte-store@1.0.0: {}
 
-  eslint-plugin-storybook@0.8.0(eslint@9.5.0)(typescript@5.4.5):
+  eslint-plugin-storybook@0.9.0--canary.156.da7873a.0(eslint@9.5.0)(typescript@5.4.5):
     dependencies:
       '@storybook/csf': 0.0.1
       '@typescript-eslint/utils': 5.62.0(eslint@9.5.0)(typescript@5.4.5)
       eslint: 9.5.0
-      requireindex: 1.2.0
       ts-dedent: 2.2.0
     transitivePeerDependencies:
       - supports-color
@@ -11812,8 +11807,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  requireindex@1.2.0: {}
-
   resize-observer-polyfill@1.5.1: {}
 
   resolve-from@4.0.0: {}
@@ -12566,42 +12559,6 @@ snapshots:
   vitefu@0.2.5(vite@5.2.13(@types/node@20.5.9)):
     optionalDependencies:
       vite: 5.2.13(@types/node@20.5.9)
-
-  vitest@0.34.6:
-    dependencies:
-      '@types/chai': 4.3.6
-      '@types/chai-subset': 1.3.3
-      '@types/node': 20.5.9
-      '@vitest/expect': 0.34.6
-      '@vitest/runner': 0.34.6
-      '@vitest/snapshot': 0.34.6
-      '@vitest/spy': 0.34.6
-      '@vitest/utils': 0.34.6
-      acorn: 8.12.0
-      acorn-walk: 8.2.0
-      cac: 6.7.14
-      chai: 4.3.10
-      debug: 4.3.4
-      local-pkg: 0.4.3
-      magic-string: 0.30.10
-      pathe: 1.1.2
-      picocolors: 1.0.0
-      std-env: 3.4.3
-      strip-literal: 1.3.0
-      tinybench: 2.5.0
-      tinypool: 0.7.0
-      vite: 5.2.13(@types/node@20.5.9)
-      vite-node: 0.34.6(@types/node@20.5.9)
-      why-is-node-running: 2.2.2
-    transitivePeerDependencies:
-      - less
-      - lightningcss
-      - sass
-      - stylus
-      - sugarss
-      - supports-color
-      - terser
-    optional: true
 
   vitest@0.34.6(playwright@1.44.1):
     dependencies:
