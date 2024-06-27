@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail, Context};
-use git2::FileMode;
+use git2::{DiffOptions, FileMode};
 use std::collections::HashMap;
 use std::path::Path;
 use std::str::{from_utf8, FromStr};
@@ -301,7 +301,11 @@ impl Project {
                     .or_insert_with(|| tree_from_applied_vbranches(&repo, parent.id()).unwrap());
                 let parent_tree = repo.find_tree(parent_wd_tree_id.to_owned())?;
 
-                let diff = repo.diff_tree_to_tree(Some(&parent_tree), Some(&wd_tree), None)?;
+                let mut opts = DiffOptions::new();
+                opts.include_untracked(true);
+                opts.ignore_submodules(true);
+                let diff =
+                    repo.diff_tree_to_tree(Some(&parent_tree), Some(&wd_tree), Some(&mut opts))?;
 
                 let mut files_changed = Vec::new();
                 diff.print(git2::DiffFormat::NameOnly, |delta, _, _| {

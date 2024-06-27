@@ -83,7 +83,7 @@
 								bind:this={commitListElem}
 								commits={branchData.commits}
 								isUnapplied={true}
-								type="remote"
+								type="localAndRemote"
 								getCommitUrl={(commitId) => $baseBranch?.commitUrl(commitId)}
 							/>
 						{/if}
@@ -128,7 +128,7 @@
 <style lang="postcss">
 	.base {
 		display: flex;
-		flex-grow: 1;
+		width: 100%;
 		overflow-x: auto;
 	}
 	.base__left {

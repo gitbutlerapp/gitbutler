@@ -66,7 +66,7 @@
 		bind:this={upstreamListElem}
 		commits={base.upstreamCommits}
 		isUnapplied={true}
-		type="upstream"
+		type="remote"
 		getCommitUrl={(commitId) => base.commitUrl(commitId)}
 	/>
 
@@ -77,7 +77,7 @@
 		bind:this={localListElem}
 		commits={base.recentCommits}
 		isUnapplied={true}
-		type="remote"
+		type="localAndRemote"
 		getCommitUrl={(commitId) => base.commitUrl(commitId)}
 	>
 		<h1

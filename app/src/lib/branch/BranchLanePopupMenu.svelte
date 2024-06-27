@@ -8,6 +8,7 @@
 	import Button from '$lib/shared/Button.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
+	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
 	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
@@ -37,6 +38,11 @@
 	$: branch = $branchStore;
 	$: commits = branch.commits;
 	$: setAIConfigurationValid($user);
+	$: allowRebasing = branch.allowRebasing;
+
+	async function toggleAllowRebasing() {
+		branchController.updateBranchAllowRebasing(branch.id, !allowRebasing);
+	}
 
 	async function setAIConfigurationValid(user: User | undefined) {
 		aiConfigurationValid = await aiService.validateConfiguration(user?.access_token);
@@ -99,6 +105,7 @@
 					!branch.active}
 			/>
 		</ContextMenuSection>
+
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Set remote branch name"
@@ -110,6 +117,19 @@
 				}}
 			/>
 		</ContextMenuSection>
+
+		<ContextMenuSection>
+			<ContextMenuItem label="Allow rebasing" on:click={toggleAllowRebasing}>
+				<Toggle
+					small
+					slot="control"
+					bind:checked={allowRebasing}
+					on:click={toggleAllowRebasing}
+					help="Having this enabled permits commit amending and reordering after a branch has been pushed, which would subsequently require force pushing"
+				/>
+			</ContextMenuItem>
+		</ContextMenuSection>
+
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Create branch to the left"
@@ -150,7 +170,7 @@
 
 <Modal width="small" title="Delete branch" bind:this={deleteBranchModal}>
 	{#snippet children(branch)}
-		Deleting <code class="code-string">{branch.name}</code> cannot be undone.
+		Are you sure you want to delete <code class="code-string">{branch.name}</code>?
 	{/snippet}
 	{#snippet controls(close)}
 		<Button style="ghost" outline on:click={close}>Cancel</Button>

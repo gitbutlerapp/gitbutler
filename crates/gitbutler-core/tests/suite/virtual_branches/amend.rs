@@ -13,7 +13,6 @@ async fn forcepush_allowed() {
     projects
         .update(&projects::UpdateRequest {
             id: *project_id,
-            ok_with_force_push: Some(false),
             ..Default::default()
         })
         .await
@@ -27,7 +26,6 @@ async fn forcepush_allowed() {
     projects
         .update(&projects::UpdateRequest {
             id: *project_id,
-            ok_with_force_push: Some(true),
             ..Default::default()
         })
         .await
@@ -80,7 +78,6 @@ async fn forcepush_forbidden() {
         repository,
         project_id,
         controller,
-        projects,
         ..
     } = &Test::default();
 
@@ -89,17 +86,20 @@ async fn forcepush_forbidden() {
         .await
         .unwrap();
 
-    projects
-        .update(&projects::UpdateRequest {
-            id: *project_id,
-            ok_with_force_push: Some(false),
-            ..Default::default()
-        })
+    let branch_id = controller
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
-    let branch_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+    controller
+        .update_virtual_branch(
+            *project_id,
+            branch::BranchUpdateRequest {
+                id: branch_id,
+                allow_rebasing: Some(false),
+                ..Default::default()
+            },
+        )
         .await
         .unwrap();
 

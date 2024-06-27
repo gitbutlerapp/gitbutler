@@ -130,13 +130,14 @@ export class Branch {
 	mergeBase!: string;
 	/// The fork point between the target branch and the virtual branch
 	forkPoint!: string;
+	allowRebasing!: boolean;
 
 	get localCommits() {
 		return this.commits.filter((c) => c.status === 'local');
 	}
 
 	get remoteCommits() {
-		return this.commits.filter((c) => c.status === 'remote');
+		return this.commits.filter((c) => c.status === 'localAndRemote');
 	}
 
 	get integratedCommits() {
@@ -161,7 +162,7 @@ export type ComponentColor =
 	| 'error'
 	| 'warning'
 	| 'purple';
-export type CommitStatus = 'local' | 'remote' | 'integrated' | 'upstream';
+export type CommitStatus = 'local' | 'localAndRemote' | 'integrated' | 'remote';
 
 export class Commit {
 	id!: string;
@@ -188,7 +189,8 @@ export class Commit {
 
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
-		if (this.isRemote && (!this.relatedTo || this.id === this.relatedTo.id)) return 'remote';
+		if (this.isRemote && (!this.relatedTo || this.id === this.relatedTo.id))
+			return 'localAndRemote';
 		return 'local';
 	}
 
@@ -241,7 +243,7 @@ export class RemoteCommit {
 	}
 
 	get status(): CommitStatus {
-		return 'upstream';
+		return 'remote';
 	}
 
 	isMergeCommit() {

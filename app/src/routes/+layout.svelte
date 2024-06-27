@@ -9,6 +9,7 @@
 	import { ProjectService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
+	import { LineManagerFactory } from '$lib/commitLines/lineManager';
 	import AppUpdater from '$lib/components/AppUpdater.svelte';
 	import GlobalSettingsMenuAction from '$lib/components/GlobalSettingsMenuAction.svelte';
 	import PromptModal from '$lib/components/PromptModal.svelte';
@@ -47,6 +48,7 @@
 	setContext(User, data.userService.user);
 	setContext(RemotesService, data.remotesService);
 	setContext(AIPromptService, data.aiPromptService);
+	setContext(LineManagerFactory, data.lineManagerFactory);
 
 	let shareIssueModal: ShareIssueModal;
 

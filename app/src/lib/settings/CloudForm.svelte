@@ -4,7 +4,6 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import Section from '$lib/settings/Section.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import Link from '$lib/shared/Link.svelte';
@@ -23,7 +22,6 @@
 	const user = userService.user;
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
-	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
 
 	onMount(async () => {
 		if (!project?.api) return;
@@ -73,7 +71,7 @@
 		<SectionCard labelFor="aiGenEnabled" orientation="row">
 			<svelte:fragment slot="title">Enable branch and commit message generation</svelte:fragment>
 			<svelte:fragment slot="caption">
-				If enabled, diffs will sent to OpenAI or Anthropic's servers when pressing the "Generate
+				If enabled, diffs will be sent to OpenAI or Anthropic's servers when pressing the "Generate
 				message" and "Generate branch name" button.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
@@ -82,20 +80,7 @@
 					checked={$aiGenEnabled}
 					on:click={() => {
 						$aiGenEnabled = !$aiGenEnabled;
-						$aiGenAutoBranchNamingEnabled = $aiGenEnabled;
 					}}
-				/>
-			</svelte:fragment>
-		</SectionCard>
-
-		<SectionCard labelFor="branchNameGen" disabled={!$aiGenEnabled} orientation="row">
-			<svelte:fragment slot="title">Automatically generate branch names</svelte:fragment>
-			<svelte:fragment slot="actions">
-				<Toggle
-					id="branchNameGen"
-					disabled={!$aiGenEnabled}
-					checked={$aiGenAutoBranchNamingEnabled}
-					on:click={() => ($aiGenAutoBranchNamingEnabled = !$aiGenAutoBranchNamingEnabled)}
 				/>
 			</svelte:fragment>
 		</SectionCard>

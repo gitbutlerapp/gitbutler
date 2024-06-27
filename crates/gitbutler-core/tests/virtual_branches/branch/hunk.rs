@@ -16,7 +16,7 @@ fn parse_with_hash() {
     let hash = Hunk::hash("hash");
     assert_eq!(
         format!("2-3-{hash:x}").parse::<Hunk>().unwrap(),
-        Hunk::new(2, 3, Some(hash), None).unwrap()
+        Hunk::new(2, 3, Some(hash)).unwrap()
     );
 }
 
@@ -24,7 +24,7 @@ fn parse_with_hash() {
 fn parse_with_timestamp() {
     assert_eq!(
         "2-3--123".parse::<Hunk>().unwrap(),
-        Hunk::new(2, 3, None, Some(123)).unwrap()
+        Hunk::new(2, 3, None).unwrap()
     );
 }
 
@@ -35,10 +35,7 @@ fn parse_invalid_2() {
 
 #[test]
 fn to_string_no_hash() {
-    assert_eq!(
-        "1-2--123",
-        Hunk::new(1, 2, None, Some(123)).unwrap().to_string()
-    );
+    assert_eq!("1-2", Hunk::new(1, 2, None).unwrap().to_string());
 }
 
 #[test]
@@ -115,6 +112,12 @@ fn eq() {
             format!("1-2-{a_hash:x}").parse::<Hunk>().unwrap(),
             format!("2-3-{b_hash:x}").parse::<Hunk>().unwrap(),
             false,
+        ),
+        (
+            // Ensures unknown data is ignored
+            format!("1-2-{a_hash:x}-unknown").parse::<Hunk>().unwrap(),
+            "1-2".parse::<Hunk>().unwrap(),
+            true,
         ),
     ] {
         assert_eq!(a == b, expected, "comparing {} and {}", a, b);

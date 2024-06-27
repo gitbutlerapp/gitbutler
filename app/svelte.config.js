@@ -13,7 +13,10 @@ const config = {
 			strict: false
 		})
 	},
-	compilerOptions: { css: 'injected' }
+	compilerOptions: {
+		css: 'injected',
+		enableSourcemap: true
+	}
 };
 
 export default config;

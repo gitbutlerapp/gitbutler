@@ -17,14 +17,12 @@ fn reconcile_ownership_simple() {
                         start: 1,
                         end: 3,
                         hash: Some(Hunk::hash("1,3")),
-                        timestamp_ms: None,
                         locked_to: vec![],
                     },
                     Hunk {
                         start: 4,
                         end: 6,
                         hash: Some(Hunk::hash("4,6")),
-                        timestamp_ms: None,
                         locked_to: vec![],
                     },
                 ],
@@ -41,6 +39,7 @@ fn reconcile_ownership_simple() {
         updated_timestamp_ms: u128::default(),
         order: usize::default(),
         selected_for_changes: None,
+        allow_rebasing: true,
     };
     let branch_b = Branch {
         name: "b".to_string(),
@@ -51,7 +50,6 @@ fn reconcile_ownership_simple() {
                     start: 7,
                     end: 9,
                     hash: Some(Hunk::hash("7,9")),
-                    timestamp_ms: None,
                     locked_to: vec![],
                 }],
             }],
@@ -67,6 +65,7 @@ fn reconcile_ownership_simple() {
         updated_timestamp_ms: u128::default(),
         order: usize::default(),
         selected_for_changes: None,
+        allow_rebasing: true,
     };
     let all_branches: Vec<Branch> = vec![branch_a.clone(), branch_b.clone()];
     let claim: Vec<OwnershipClaim> = vec![OwnershipClaim {
@@ -76,14 +75,12 @@ fn reconcile_ownership_simple() {
                 start: 4,
                 end: 6,
                 hash: Some(Hunk::hash("4,6")),
-                timestamp_ms: None,
                 locked_to: vec![],
             },
             Hunk {
                 start: 7,
                 end: 9,
                 hash: Some(Hunk::hash("9,7")),
-                timestamp_ms: None,
                 locked_to: vec![],
             },
         ],
@@ -102,7 +99,6 @@ fn reconcile_ownership_simple() {
                     start: 1,
                     end: 3,
                     hash: Some(Hunk::hash("1,3")),
-                    timestamp_ms: None,
                     locked_to: vec![],
                 },],
             }],
@@ -119,14 +115,12 @@ fn reconcile_ownership_simple() {
                         start: 4,
                         end: 6,
                         hash: Some(Hunk::hash("4,6")),
-                        timestamp_ms: None,
                         locked_to: vec![],
                     },
                     Hunk {
                         start: 7,
                         end: 9,
                         hash: Some(Hunk::hash("9,7")),
-                        timestamp_ms: None,
                         locked_to: vec![],
                     },
                 ],

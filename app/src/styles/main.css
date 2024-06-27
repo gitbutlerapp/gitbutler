@@ -10,6 +10,7 @@
 @import './card.css';
 @import './tooltip.css';
 @import './text-input.css';
+@import './commit-lines.css';
 @import './markdown.css';
 
 /* CSS VARIABLES */

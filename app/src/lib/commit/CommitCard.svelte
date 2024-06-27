@@ -25,7 +25,7 @@
 		BaseBranch,
 		type CommitStatus
 	} from '$lib/vbranches/types';
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, type Snippet } from 'svelte';
 
 	export let branch: Branch | undefined = undefined;
 	export let commit: Commit | RemoteCommit;
@@ -37,6 +37,7 @@
 	export let type: CommitStatus;
 	export let onAuthorClick: ((author: string) => void) | undefined = undefined;
 	export let onFileClick: ((filePath: string) => void) | undefined = undefined;
+	export let lines: Snippet<[number]> | undefined = undefined;
 
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
@@ -81,7 +82,7 @@
 
 	const hasCommitUrl = !commit.isLocal && commitUrl;
 	const commitAuthor =
-		type === 'remote' || type === 'upstream' ? commit.author.name ?? 'unknown' : 'you';
+	type === 'localAndRemote' || type === 'remote' ? commit.author.name ?? 'unknown' : 'you';
 
 	let commitMessageModal: Modal;
 	let commitMessageValid = false;
@@ -103,6 +104,14 @@
 		}
 
 		commitMessageModal.close();
+	}
+
+	let topHeightPx = 24;
+
+	$: {
+		topHeightPx = 24;
+		if (first) topHeightPx = 58;
+		if (showDetails && !first) topHeightPx += 12;
 	}
 </script>
 
@@ -131,9 +140,13 @@
 	class:is-commit-open={showDetails}
 	class:is-first={first}
 	class:is-last={last}
-	class:has-lines={$$slots.lines}
+	class:has-lines={lines}
 >
-	<slot name="lines" />
+	{#if lines}
+		<div>
+			{@render lines(topHeightPx)}
+		</div>
+	{/if}
 	<CommitDragItem {commit}>
 		<div class="commit-card" class:is-first={first} class:is-last={last}>
 			<div
@@ -141,8 +154,8 @@
 				class:is-first={first}
 				class:is-last={last}
 				class:local={type === 'local'}
-				class:remote={type === 'remote'}
-				class:upstream={type === 'upstream'}
+				class:local-and-remote={type === 'localAndRemote'}
+				class:upstream={type === 'remote'}
 				class:integrated={type === 'integrated'}
 			></div>
 
@@ -168,11 +181,11 @@
 
 				{#if first}
 					<div class="commit__type text-semibold text-base-12">
-						{#if type === 'upstream'}
+						{#if type === 'remote'}
 							Remote <Icon name="remote" />
 						{:else if type === 'local'}
 							Local <Icon name="local" />
-						{:else if type === 'remote'}
+						{:else if type === 'localAndRemote'}
 							Local and remote
 						{:else if type === 'integrated'}
 							Integrated
@@ -288,7 +301,7 @@
 				{/if}
 
 				<div class="files-container">
-					<BranchFilesList {files} {isUnapplied} {onFileClick} readonly={type === 'upstream'} />
+					<BranchFilesList {files} {isUnapplied} {onFileClick} readonly={type === 'remote'} />
 				</div>
 			{/if}
 		</div>
@@ -313,7 +326,6 @@
 	.commit-row {
 		position: relative;
 		display: flex;
-		gap: 8px;
 
 		&.has-lines {
 			padding-right: 14px;
@@ -357,7 +369,7 @@
 		&.local {
 			background-color: var(--clr-commit-local);
 		}
-		&.remote {
+		&.local-and-remote {
 			background-color: var(--clr-commit-remote);
 		}
 		&.upstream {

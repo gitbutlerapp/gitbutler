@@ -32,7 +32,7 @@ mod cache;
 mod event;
 
 #[cfg(test)]
-mod testing;
+mod tests;
 
 use std::{
     collections::{HashMap, VecDeque},
@@ -44,14 +44,11 @@ use std::{
     time::Duration,
 };
 
-#[allow(unused_imports)]
 pub use cache::{FileIdCache, FileIdMap, NoCache};
 pub use event::DebouncedEvent;
 
-#[allow(unused_imports)]
 pub use file_id;
 
-#[allow(unused_imports)]
 pub use notify;
 
 use file_id::FileId;
@@ -59,7 +56,7 @@ use notify::{
     event::{ModifyKind, RemoveKind, RenameMode},
     Error, ErrorKind, Event, EventKind, RecommendedWatcher, Watcher,
 };
-use parking_lot::Mutex;
+use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
 
 #[cfg(test)]
 use mock_instant::Instant;
@@ -487,7 +484,6 @@ impl<T: FileIdCache> DebounceDataInner<T> {
 pub struct Debouncer<T: Watcher, C: FileIdCache> {
     watcher: T,
     debouncer_thread: Option<std::thread::JoinHandle<()>>,
-    #[allow(dead_code)]
     data: DebounceData<C>,
     stop: Arc<AtomicBool>,
     flush: Arc<AtomicBool>,
@@ -496,7 +492,6 @@ pub struct Debouncer<T: Watcher, C: FileIdCache> {
 impl<T: Watcher, C: FileIdCache> Debouncer<T, C> {
     /// Stop the debouncer, waits for the event thread to finish.
     /// May block for the duration of one tick_rate.
-    #[allow(dead_code)]
     pub fn stop(mut self) {
         self.set_stop();
         if let Some(t) = self.debouncer_thread.take() {
@@ -505,7 +500,6 @@ impl<T: Watcher, C: FileIdCache> Debouncer<T, C> {
     }
 
     /// Stop the debouncer, does not wait for the event thread to finish.
-    #[allow(dead_code)]
     pub fn stop_nonblocking(self) {
         self.set_stop();
     }
@@ -517,6 +511,11 @@ impl<T: Watcher, C: FileIdCache> Debouncer<T, C> {
     /// Indicates that on the next tick of the debouncer thread, all events should be emitted.
     pub fn flush_nonblocking(&self) {
         self.flush.store(true, Ordering::Relaxed);
+    }
+
+    /// Access to the internally used notify Watcher backend
+    pub fn cache(&mut self) -> MappedMutexGuard<'_, C> {
+        MutexGuard::map(self.data.lock(), |data| &mut data.cache)
     }
 
     /// Access to the internally used notify Watcher backend
@@ -567,58 +566,58 @@ pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + S
         })?,
     };
 
-    let data_c = data.clone();
-    let stop_c = stop.clone();
-    let flush_c = flush.clone();
-    let mut idle_count = 0;
-    let mut prev_queue_count = 0;
     let thread = std::thread::Builder::new()
         .name("notify-rs debouncer loop".to_string())
-        .spawn(move || loop {
-            if stop_c.load(Ordering::Acquire) {
-                break;
-            }
-
-            let mut should_flush = flush_c.load(Ordering::Acquire);
-
-            std::thread::sleep(tick);
-
-            let send_data;
-            let errors;
-            {
-                let mut lock = data_c.lock();
-
-                let queue_count = lock.queues.values().fold(0, |acc, x| acc + x.events.len());
-                if prev_queue_count == queue_count {
-                    idle_count += 1;
-                } else {
-                    prev_queue_count = queue_count
+        .spawn({
+            let data = data.clone();
+            let stop = stop.clone();
+            let flush = flush.clone();
+            let mut idle_count = 0;
+            let mut prev_queue_count = 0;
+            move || loop {
+                if stop.load(Ordering::Acquire) {
+                    break;
                 }
 
-                if let Some(threshold) = flush_after {
-                    if idle_count >= threshold {
+                let mut should_flush = flush.load(Ordering::Acquire);
+
+                std::thread::sleep(tick);
+
+                let send_data;
+                let errors;
+                {
+                    let mut lock = data.lock();
+
+                    let queue_count = lock.queues.values().fold(0, |acc, x| acc + x.events.len());
+                    if prev_queue_count == queue_count {
+                        idle_count += 1;
+                    } else {
+                        prev_queue_count = queue_count
+                    }
+
+                    if flush_after.map_or(false, |threshold| idle_count >= threshold) {
                         idle_count = 0;
                         prev_queue_count = 0;
                         should_flush = true;
                     }
-                }
 
-                send_data = lock.debounced_events(should_flush);
-                if should_flush {
-                    flush_c.store(false, Ordering::Release);
-                }
+                    send_data = lock.debounced_events(should_flush);
+                    if should_flush {
+                        flush.store(false, Ordering::Release);
+                    }
 
-                errors = lock.errors();
-            }
-            if !send_data.is_empty() {
-                if should_flush {
-                    tracing::debug!("Flushed {} events", send_data.len());
+                    errors = lock.errors();
                 }
+                if !send_data.is_empty() {
+                    if should_flush {
+                        tracing::debug!("Flushed {} events", send_data.len());
+                    }
 
-                event_handler.handle_event(Ok(send_data));
-            }
-            if !errors.is_empty() {
-                event_handler.handle_event(Err(errors));
+                    event_handler.handle_event(Ok(send_data));
+                }
+                if !errors.is_empty() {
+                    event_handler.handle_event(Err(errors));
+                }
             }
         })?;
 
@@ -636,18 +635,16 @@ pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + S
         config,
     )?;
 
-    let guard = Debouncer {
+    Ok(Debouncer {
         watcher,
         debouncer_thread: Some(thread),
         data,
         stop,
         flush,
-    };
-
-    Ok(guard)
+    })
 }
 
-/// Short function to create a new debounced watcher with the recommended debouncer and the built-in file ID cache.
+/// Short function to create a new debounced watcher with the recommended debouncer, without FileID cache for performance.
 ///
 /// Timeout is the amount of time after which a debounced event is emitted.
 ///
@@ -657,153 +654,13 @@ pub fn new_debouncer<F: DebounceEventHandler>(
     tick_rate: Option<Duration>,
     flush_after: Option<u32>,
     event_handler: F,
-) -> Result<Debouncer<RecommendedWatcher, FileIdMap>, Error> {
-    new_debouncer_opt::<F, RecommendedWatcher, FileIdMap>(
+) -> Result<Debouncer<RecommendedWatcher, NoCache>, Error> {
+    new_debouncer_opt::<F, RecommendedWatcher, NoCache>(
         timeout,
         tick_rate,
         flush_after,
         event_handler,
-        FileIdMap::new(),
+        NoCache,
         notify::Config::default(),
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use std::{fs, path::Path};
-
-    use super::*;
-
-    use mock_instant::MockClock;
-    use pretty_assertions::assert_eq;
-    use rstest::rstest;
-
-    #[rstest]
-    fn state(
-        #[values(
-            "add_create_event",
-            "add_create_event_after_remove_event",
-            "add_create_dir_event_twice",
-            "add_modify_content_event_after_create_event",
-            "add_rename_from_event",
-            "add_rename_from_event_after_create_event",
-            "add_rename_from_event_after_modify_event",
-            "add_rename_from_event_after_create_and_modify_event",
-            "add_rename_from_event_after_rename_from_event",
-            "add_rename_to_event",
-            "add_rename_to_dir_event",
-            "add_rename_from_and_to_event",
-            "add_rename_from_and_to_event_after_create",
-            "add_rename_from_and_to_event_after_rename",
-            "add_rename_from_and_to_event_after_modify_content",
-            "add_rename_from_and_to_event_override_created",
-            "add_rename_from_and_to_event_override_modified",
-            "add_rename_from_and_to_event_override_removed",
-            "add_rename_from_and_to_event_with_file_ids",
-            "add_rename_from_and_to_event_with_different_file_ids",
-            "add_rename_from_and_to_event_with_different_tracker",
-            "add_rename_both_event",
-            "add_remove_event",
-            "add_remove_event_after_create_event",
-            "add_remove_event_after_modify_event",
-            "add_remove_event_after_create_and_modify_event",
-            "add_remove_parent_event_after_remove_child_event",
-            "add_errors",
-            "emit_continuous_modify_content_events",
-            "emit_events_in_chronological_order",
-            "emit_events_with_a_prepended_rename_event",
-            "emit_close_events_only_once",
-            "emit_modify_event_after_close_event",
-            "emit_needs_rescan_event",
-            "read_file_id_without_create_event"
-        )]
-        file_name: &str,
-    ) {
-        use testing::TestCase;
-
-        let file_content =
-            fs::read_to_string(Path::new(&format!("./tests/fixtures/{file_name}.hjson"))).unwrap();
-        let mut test_case = deser_hjson::from_str::<TestCase>(&file_content).unwrap();
-
-        MockClock::set_time(Duration::default());
-
-        let time = Instant::now();
-
-        let mut state = test_case.state.into_debounce_data_inner(time);
-
-        for event in test_case.events {
-            let event = event.into_debounced_event(time, None);
-            MockClock::set_time(event.time - time);
-            state.add_event(event.event);
-        }
-
-        for error in test_case.errors {
-            let e = error.into_notify_error();
-            state.add_error(e);
-        }
-
-        let expected_errors = std::mem::take(&mut test_case.expected.errors);
-        let expected_events = std::mem::take(&mut test_case.expected.events);
-        let expected_state = test_case.expected.into_debounce_data_inner(time);
-        assert_eq!(
-            state.queues, expected_state.queues,
-            "queues not as expected"
-        );
-        assert_eq!(
-            state.rename_event, expected_state.rename_event,
-            "rename event not as expected"
-        );
-        assert_eq!(
-            state.rescan_event, expected_state.rescan_event,
-            "rescan event not as expected"
-        );
-        assert_eq!(
-            state.cache.paths, expected_state.cache.paths,
-            "cache not as expected"
-        );
-
-        assert_eq!(
-            state
-                .errors
-                .iter()
-                .map(|e| format!("{:?}", e))
-                .collect::<Vec<_>>(),
-            expected_errors
-                .iter()
-                .map(|e| format!("{:?}", e.clone().into_notify_error()))
-                .collect::<Vec<_>>(),
-            "errors not as expected"
-        );
-
-        let backup_time = Instant::now().duration_since(time);
-        let backup_queues = state.queues.clone();
-
-        for (delay, events) in expected_events {
-            MockClock::set_time(backup_time);
-            state.queues.clone_from(&backup_queues);
-
-            match delay.as_str() {
-                "none" => {}
-                "short" => MockClock::advance(Duration::from_millis(10)),
-                "long" => MockClock::advance(Duration::from_millis(100)),
-                _ => {
-                    if let Ok(ts) = delay.parse::<u64>() {
-                        let ts = time + Duration::from_millis(ts);
-                        MockClock::set_time(ts - time);
-                    }
-                }
-            }
-
-            let events = events
-                .into_iter()
-                .map(|event| event.into_debounced_event(time, None))
-                .collect::<Vec<_>>();
-
-            assert_eq!(
-                state.debounced_events(false),
-                events,
-                "debounced events after a `{delay}` delay"
-            );
-        }
-    }
 }

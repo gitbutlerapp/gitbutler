@@ -13,7 +13,6 @@
 	import Dropzones from '$lib/branch/Dropzones.svelte';
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
 	import CommitList from '$lib/commit/CommitList.svelte';
-	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
 	import { showError } from '$lib/notifications/toasts';
@@ -22,7 +21,6 @@
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
-	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Branch } from '$lib/vbranches/types';
@@ -44,7 +42,6 @@
 	$: branch = $branchStore;
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
-	const aiGenAutoBranchNamingEnabled = projectAiGenAutoBranchNamingEnabled(project.id);
 
 	const aiService = getContext(AIService);
 	const promptService = getContext(PromptService);
@@ -52,7 +49,6 @@
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
 	const laneWidthKey = 'laneWidth_';
-	const newVbranchNameRegex = /^virtual\sbranch\s*[\d]*$/;
 
 	let laneWidth: number;
 
@@ -84,15 +80,6 @@
 			console.error(e);
 			showError('Failed to generate branch name', e);
 		}
-	}
-
-	$: linesTouched = computeAddedRemovedByFiles(...branch.files);
-	$: if (
-		$aiGenAutoBranchNamingEnabled &&
-		newVbranchNameRegex.test(branch.name.toLowerCase()) &&
-		linesTouched.added + linesTouched.removed > 4
-	) {
-		generateBranchName();
 	}
 
 	onMount(() => {

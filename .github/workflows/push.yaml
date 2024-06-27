@@ -54,7 +54,7 @@ jobs:
               - 'crates/gitbutler-cli/**'
             gitbutler-watcher:
               - *rust
-              - 'crates/gitbutler-cli/**'
+              - 'crates/gitbutler-watcher/**'
 
   lint-node:
     needs: changes
@@ -228,7 +228,7 @@ jobs:
       - uses: ./.github/actions/init-env-rust
       - uses: ./.github/actions/check-crate
         with:
-          crate: gitbutler-watcher
+          crate: gitbutler-notify-debouncer
           features: ${{ toJson(matrix.features) }}
           action: ${{ matrix.action }}
 

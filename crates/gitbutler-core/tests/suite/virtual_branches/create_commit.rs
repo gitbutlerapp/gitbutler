@@ -26,7 +26,7 @@ async fn should_lock_updated_hunks() {
 
     {
         // by default, hunks are not locked
-        write_file(repository, "file.txt", &["content".to_string()]);
+        repository.write_file("file.txt", &["content".to_string()]);
 
         let branch = get_virtual_branch(controller, *project_id, branch_id).await;
         assert_eq!(branch.files.len(), 1);
@@ -42,7 +42,7 @@ async fn should_lock_updated_hunks() {
 
     {
         // change in the committed hunks leads to hunk locking
-        write_file(repository, "file.txt", &["updated content".to_string()]);
+        repository.write_file("file.txt", &["updated content".to_string()]);
 
         let branch = controller
             .list_virtual_branches(*project_id)
@@ -69,7 +69,7 @@ async fn should_not_lock_disjointed_hunks() {
     } = &Test::default();
 
     let mut lines: Vec<_> = (0_i32..24_i32).map(|i| format!("line {}", i)).collect();
-    write_file(repository, "file.txt", &lines);
+    repository.write_file("file.txt", &lines);
     repository.commit_all("my commit");
     repository.push();
 
@@ -86,7 +86,7 @@ async fn should_not_lock_disjointed_hunks() {
     {
         // new hunk in the middle of the file
         lines[12] = "commited stuff".to_string();
-        write_file(repository, "file.txt", &lines);
+        repository.write_file("file.txt", &lines);
         let branch = get_virtual_branch(controller, *project_id, branch_id).await;
         assert_eq!(branch.files.len(), 1);
         assert_eq!(branch.files[0].path.display().to_string(), "file.txt");
@@ -107,33 +107,33 @@ async fn should_not_lock_disjointed_hunks() {
         // hunk before the commited part is not locked
         let mut changed_lines = lines.clone();
         changed_lines[8] = "updated line".to_string();
-        write_file(repository, "file.txt", &changed_lines);
+        repository.write_file("file.txt", &changed_lines);
         let branch = get_virtual_branch(controller, *project_id, branch_id).await;
         assert_eq!(branch.files.len(), 1);
         assert_eq!(branch.files[0].path.display().to_string(), "file.txt");
         assert_eq!(branch.files[0].hunks.len(), 1);
         assert!(!branch.files[0].hunks[0].locked);
         // cleanup
-        write_file(repository, "file.txt", &lines);
+        repository.write_file("file.txt", &lines);
     }
     {
         // hunk after the commited part is not locked
         let mut changed_lines = lines.clone();
         changed_lines[16] = "updated line".to_string();
-        write_file(repository, "file.txt", &changed_lines);
+        repository.write_file("file.txt", &changed_lines);
         let branch = get_virtual_branch(controller, *project_id, branch_id).await;
         assert_eq!(branch.files.len(), 1);
         assert_eq!(branch.files[0].path.display().to_string(), "file.txt");
         assert_eq!(branch.files[0].hunks.len(), 1);
         assert!(!branch.files[0].hunks[0].locked);
         // cleanup
-        write_file(repository, "file.txt", &lines);
+        repository.write_file("file.txt", &lines);
     }
     {
         // hunk before the commited part but with overlapping context
         let mut changed_lines = lines.clone();
         changed_lines[10] = "updated line".to_string();
-        write_file(repository, "file.txt", &changed_lines);
+        repository.write_file("file.txt", &changed_lines);
         let branch = get_virtual_branch(controller, *project_id, branch_id).await;
         assert_eq!(branch.files.len(), 1);
         assert_eq!(branch.files[0].path.display().to_string(), "file.txt");
@@ -141,13 +141,13 @@ async fn should_not_lock_disjointed_hunks() {
         // TODO: We lock this hunk, but can we afford not lock it?
         assert!(branch.files[0].hunks[0].locked);
         // cleanup
-        write_file(repository, "file.txt", &lines);
+        repository.write_file("file.txt", &lines);
     }
     {
         // hunk after the commited part but with overlapping context
         let mut changed_lines = lines.clone();
         changed_lines[14] = "updated line".to_string();
-        write_file(repository, "file.txt", &changed_lines);
+        repository.write_file("file.txt", &changed_lines);
         let branch = get_virtual_branch(controller, *project_id, branch_id).await;
         assert_eq!(branch.files.len(), 1);
         assert_eq!(branch.files[0].path.display().to_string(), "file.txt");
@@ -155,7 +155,7 @@ async fn should_not_lock_disjointed_hunks() {
         // TODO: We lock this hunk, but can we afford not lock it?
         assert!(branch.files[0].hunks[0].locked);
         // cleanup
-        write_file(repository, "file.txt", &lines);
+        repository.write_file("file.txt", &lines);
     }
 }
 
@@ -168,7 +168,7 @@ async fn should_reset_into_same_branch() {
         ..
     } = &Test::default();
 
-    let mut lines = gen_file(repository, "file.txt", 7);
+    let mut lines = repository.gen_file("file.txt", 7);
     commit_and_push_initial(repository);
 
     let base_branch = controller
@@ -193,7 +193,7 @@ async fn should_reset_into_same_branch() {
         .unwrap();
 
     lines[0] = "change 1".to_string();
-    write_file(repository, "file.txt", &lines);
+    repository.write_file("file.txt", &lines);
 
     controller
         .create_commit(*project_id, branch_2_id, "commit to branch 2", None, false)
@@ -238,8 +238,8 @@ async fn should_double_lock() {
         ..
     } = &Test::default();
 
-    let mut lines = gen_file(repository, "file.txt", 7);
-    write_file(repository, "file.txt", &lines);
+    let mut lines = repository.gen_file("file.txt", 7);
+    repository.write_file("file.txt", &lines);
     commit_and_push_initial(repository);
 
     controller
@@ -253,7 +253,7 @@ async fn should_double_lock() {
         .unwrap();
 
     lines[0] = "change 1".to_string();
-    write_file(repository, "file.txt", &lines);
+    repository.write_file("file.txt", &lines);
 
     let commit_1 = controller
         .create_commit(*project_id, branch_id, "commit 1", None, false)
@@ -261,7 +261,7 @@ async fn should_double_lock() {
         .unwrap();
 
     lines[6] = "change 2".to_string();
-    write_file(repository, "file.txt", &lines);
+    repository.write_file("file.txt", &lines);
 
     let commit_2 = controller
         .create_commit(*project_id, branch_id, "commit 2", None, false)
@@ -269,7 +269,7 @@ async fn should_double_lock() {
         .unwrap();
 
     lines[3] = "change3".to_string();
-    write_file(repository, "file.txt", &lines);
+    repository.write_file("file.txt", &lines);
 
     let branch = get_virtual_branch(controller, *project_id, branch_id).await;
     let locks = &branch.files[0].hunks[0].locked_to.clone().unwrap();
@@ -277,16 +277,6 @@ async fn should_double_lock() {
     assert_eq!(locks.len(), 2);
     assert_eq!(locks[0].commit_id, commit_1);
     assert_eq!(locks[1].commit_id, commit_2);
-}
-
-fn write_file(repository: &TestProject, path: &str, lines: &[String]) {
-    fs::write(repository.path().join(path), lines.join("\n")).unwrap()
-}
-
-fn gen_file(repository: &TestProject, path: &str, line_count: i32) -> Vec<String> {
-    let lines: Vec<_> = (0_i32..line_count).map(|i| format!("line {}", i)).collect();
-    write_file(repository, path, &lines);
-    lines
 }
 
 fn commit_and_push_initial(repository: &TestProject) {
