@@ -24,7 +24,7 @@
 	}
 
 	let {
-		maxHeight = 260,
+		maxHeight,
 		searchBarWrapper,
 		handleSuggestionClick,
 		value,
@@ -100,7 +100,7 @@
 	<div
 		class="options card"
 		style:display={listOpen ? undefined : 'none'}
-		style:max-height={maxHeight && pxToRem(maxHeight)}
+		style:max-height={pxToRem(maxHeight)}
 		use:clickOutside={{
 			trigger: searchBarWrapper,
 			handler: closeList,
