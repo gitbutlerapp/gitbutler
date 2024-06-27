@@ -207,10 +207,7 @@ export function createAppliedFilter(filterInfo: AppliedFilterInfo): AppliedFilte
 	};
 }
 
-export function addAppliedFilter(
-	filters: AppliedFilter[],
-	toAdd: AppliedFilterInfo
-): AppliedFilter[] {
+export function addAppliedFilter(filters: AppliedFilter[], toAdd: AppliedFilterInfo): AppliedFilter[] {
 	const newFilter = createAppliedFilter(toAdd);
 	if (filters.some((filter) => filter.id === newFilter.id)) {
 		return filters;
@@ -218,10 +215,7 @@ export function addAppliedFilter(
 	return [...filters, newFilter];
 }
 
-export function removeAppliedFilter(
-	filters: AppliedFilter[],
-	toRemove: AppliedFilter
-): AppliedFilter[] {
+export function removeAppliedFilter(filters: AppliedFilter[], toRemove: AppliedFilter): AppliedFilter[] {
 	return filters.filter((filter) => filter.id !== toRemove.id);
 }
 

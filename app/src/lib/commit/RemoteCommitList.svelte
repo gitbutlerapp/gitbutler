@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CommitCard from './CommitCard.svelte';
-	import { filterCommits, type AppliedFilter } from '$lib/vbranches/filtering';
+	import { getFilterContext } from '$lib/searchBar/filterContext.svelte';
+	import {  FilterName, filterCommits } from '$lib/vbranches/filtering';
 	import type { CommitStatus, RemoteCommit } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
 
@@ -8,32 +9,28 @@
 		commits: RemoteCommit[];
 		isUnapplied: boolean;
 		type: CommitStatus;
-		searchQuery: string | undefined;
-		searchFilters: AppliedFilter[];
 		getCommitUrl: (commitId: string) => string | undefined;
-		onAuthorClick?: (author: string) => void;
-		onFileClick?: (filePath: string) => void;
 		children?: Snippet;
 	}
 
-	let {
-		commits,
-		isUnapplied,
-		type,
-		getCommitUrl,
-		onAuthorClick,
-		onFileClick,
-		searchFilters,
-		searchQuery,
-		children
-	}: Props = $props();
+	let { commits, isUnapplied, type, getCommitUrl, children }: Props = $props();
+
+	const filterContext = getFilterContext();
 
 	let filteredCommits = $derived<RemoteCommit[]>(
-		filterCommits(commits, searchQuery, searchFilters, type)
+		filterCommits(commits, filterContext.searchQuery, filterContext.appliedFilters, type)
 	);
 
 	export function isEmpty() {
 		return filteredCommits.length === 0;
+	}
+
+	function onAuthorClick(author: string) {
+		filterContext.addFilter({ name: FilterName.Author, values: [author] });
+	}
+
+	function onFileClick(file: string) {
+		filterContext.addFilter({ name: FilterName.File, values: [file] });
 	}
 </script>
 

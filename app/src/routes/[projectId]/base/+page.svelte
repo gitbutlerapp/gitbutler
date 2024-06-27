@@ -4,13 +4,14 @@
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import SearchBarContainer from '$lib/searchBar/SearchBarContainer.svelte';
+	import { getFilterContext } from '$lib/searchBar/filterContext.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { TRUNK_BRANCH_FILTERS, type AppliedFilter } from '$lib/vbranches/filtering';
+	import { TRUNK_BRANCH_FILTERS } from '$lib/vbranches/filtering';
 	import lscache from 'lscache';
 	import { onMount, setContext } from 'svelte';
 	import { writable } from 'svelte/store';
@@ -23,6 +24,7 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 	const project = getContext(Project);
+	const filterContext = getFilterContext();
 
 	const fileIdSelection = new FileIdSelection(project.id, writable([]));
 	setContext(FileIdSelection, fileIdSelection);
@@ -31,23 +33,13 @@
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
-	let searchQuery: string | undefined = undefined;
-	let searchFilters: AppliedFilter[] = [];
-	let searchBarContainerElem: SearchBarContainer;
 
 	$: error$ = baseBranchService.error$;
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
+		filterContext.clear();
 	});
-
-	function onAuthorClick(author: string) {
-		searchBarContainerElem.addAuthorFilter(author);
-	}
-
-	function onFileClick(filePath: string) {
-		searchBarContainerElem.addFileFilter(filePath);
-	}
 </script>
 
 {#if $error$}
@@ -55,12 +47,7 @@
 {:else if !$baseBranch}
 	<FullviewLoading />
 {:else}
-	<SearchBarContainer
-		bind:this={searchBarContainerElem}
-		bind:searchQuery
-		bind:searchFilters
-		{filterDescriptions}
-	>
+	<SearchBarContainer {filterDescriptions}>
 		<div class="base">
 			<div
 				class="base__left"
@@ -71,10 +58,6 @@
 					<div class="card">
 						<BaseBranch
 							base={$baseBranch}
-							{searchQuery}
-							{searchFilters}
-							{onAuthorClick}
-							{onFileClick}
 						/>
 					</div>
 				</ScrollableContainer>

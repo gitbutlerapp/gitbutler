@@ -4,13 +4,14 @@
 	import BranchPreviewHeader from '$lib/branch/BranchPreviewHeader.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import SearchBarContainer from '$lib/searchBar/SearchBarContainer.svelte';
+	import { getFilterContext } from '$lib/searchBar/filterContext.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { REMOTE_BRANCH_FILTERS, type AppliedFilter } from '$lib/vbranches/filtering';
+	import { REMOTE_BRANCH_FILTERS } from '$lib/vbranches/filtering';
 	import { BaseBranch, type RemoteBranch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
@@ -25,6 +26,7 @@
 
 	const project = getContext(Project);
 	const baseBranch = getContextStore(BaseBranch);
+	const filterContext = getFilterContext();
 
 	const fileIdSelection = new FileIdSelection(project.id, writable([]));
 	setContext(FileIdSelection, fileIdSelection);
@@ -37,17 +39,13 @@
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
-	let searchQuery: string | undefined = undefined;
-	let searchFilters: AppliedFilter[] = [];
 	let commitListElem: RemoteCommitList;
-	let searchBarContainerElem: SearchBarContainer;
-
-	$: filtersApplied = searchFilters.length > 0 || searchQuery;
 
 	// Reset the search query and filters when the branch changes
-	$: if (branch) {
-		searchQuery = undefined;
-		searchFilters = [];
+	$: {
+		if (branch) {
+			filterContext.clear();
+		}
 	}
 
 	onMount(() => {
@@ -59,22 +57,9 @@
 		if (!title) title = text;
 		return '<a target="_blank" href="' + href + '" title="' + title + '">' + text + '</a>';
 	};
-
-	function onAuthorClick(author: string) {
-		searchBarContainerElem.addAuthorFilter(author);
-	}
-
-	function onFileClick(filePath: string) {
-		searchBarContainerElem.addFileFilter(filePath);
-	}
 </script>
 
-<SearchBarContainer
-	bind:this={searchBarContainerElem}
-	bind:searchQuery
-	bind:searchFilters
-	{filterDescriptions}
->
+<SearchBarContainer {filterDescriptions}>
 	<div class="base">
 		<div
 			class="base__left"
@@ -84,7 +69,7 @@
 			<ScrollableContainer wide>
 				<div class="branch-preview">
 					<BranchPreviewHeader base={$baseBranch} {branch} {pr} />
-					{#if pr?.body && !filtersApplied}
+					{#if pr?.body && !filterContext.active()}
 						<div class="card">
 							<div class="card__header text-base-body-14 text-semibold">PR Description</div>
 							<div class="markdown card__content text-base-body-13">
@@ -100,14 +85,10 @@
 								isUnapplied={true}
 								type="remote"
 								getCommitUrl={(commitId) => $baseBranch?.commitUrl(commitId)}
-								{searchFilters}
-								{searchQuery}
-								{onAuthorClick}
-								{onFileClick}
 							/>
 						{/if}
 					{/await}
-					{#if filtersApplied && commitListElem?.isEmpty()}
+					{#if filterContext.active() && commitListElem?.isEmpty()}
 						<div class="card">
 							<div class="info-text text-base-13">
 								No commits found that match the current search

@@ -4,21 +4,18 @@
 	import Spacer from '../shared/Spacer.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { showInfo } from '$lib/notifications/toasts';
+	import { getFilterContext } from '$lib/searchBar/filterContext.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { type AppliedFilter } from '$lib/vbranches/filtering';
 	import type { BaseBranch } from '$lib/vbranches/types';
 
 	export let base: BaseBranch;
-	export let searchQuery: string | undefined;
-	export let searchFilters: AppliedFilter[] = [];
-	export let onAuthorClick: ((author: string) => void) | undefined = undefined;
-	export let onFileClick: ((filePath: string) => void) | undefined = undefined;
 
 	const branchController = getContext(BranchController);
+	const filterContext = getFilterContext();
 
 	const mergeUpstreamWarningDismissed = projectMergeUpstreamWarningDismissed(
 		branchController.projectId
@@ -28,7 +25,6 @@
 	let mergeUpstreamWarningDismissedCheckbox = false;
 	let upstreamListElem: RemoteCommitList;
 	let localListElem: RemoteCommitList;
-	$: filtersApplied = searchFilters.length > 0 || searchQuery;
 
 	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false;
 
@@ -41,7 +37,7 @@
 </script>
 
 <div class="wrapper">
-	{#if !filtersApplied}
+	{#if !filterContext.active()}
 		<div class="info-text text-base-13">
 			There {multiple ? 'are' : 'is'}
 			{base.upstreamCommits.length} unmerged upstream
@@ -72,10 +68,6 @@
 		isUnapplied={true}
 		type="upstream"
 		getCommitUrl={(commitId) => base.commitUrl(commitId)}
-		{searchFilters}
-		{searchQuery}
-		{onAuthorClick}
-		{onFileClick}
 	/>
 
 	{#if !upstreamListElem?.isEmpty()}
@@ -87,10 +79,6 @@
 		isUnapplied={true}
 		type="remote"
 		getCommitUrl={(commitId) => base.commitUrl(commitId)}
-		{searchFilters}
-		{searchQuery}
-		{onAuthorClick}
-		{onFileClick}
 	>
 		<h1
 			class="text-base-13 info-text text-bold"
@@ -100,7 +88,7 @@
 		</h1>
 	</RemoteCommitList>
 
-	{#if filtersApplied && upstreamListElem?.isEmpty() && localListElem?.isEmpty()}
+	{#if filterContext.active() && upstreamListElem?.isEmpty() && localListElem?.isEmpty()}
 		<div class="info-text text-base-13">No commits found that match the current search</div>
 	{/if}
 </div>

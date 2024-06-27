@@ -1,93 +1,72 @@
 <script lang="ts">
 	import FilterPillContainer from './FilterPillContainer.svelte';
 	import FilterSuggestions from './FilterSuggestions.svelte';
+	import { getFilterContext } from './filterContext.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { isChar } from '$lib/utils/string';
 	import {
-		addAppliedFilter,
 		formatFilterName,
 		parseFilterValues,
-		removeAppliedFilter,
-		type AppliedFilter,
 		type FilterDescription,
 		type FilterSuggestion
 	} from '$lib/vbranches/filtering';
 	import type iconsJson from '$lib/icons/icons.json';
 
 	interface Props {
-		value: string | undefined;
 		placeholder?: string;
 		icon?: keyof typeof iconsJson;
 		filterDescriptions?: FilterDescription[];
-		appliedFilters?: AppliedFilter[];
 	}
 
-	let {
-		value = $bindable(),
-		appliedFilters = $bindable(),
-		filterDescriptions,
-		placeholder,
-		icon
-	}: Props = $props();
+	let { filterDescriptions, placeholder, icon }: Props = $props();
+
+	const filterContext = getFilterContext();
 
 	let searchBarWrapper = $state<HTMLElement | undefined>(undefined);
 	let searchBarInput = $state<HTMLInputElement | undefined>(undefined);
 	let filterSuggestionElem = $state<FilterSuggestions | undefined>(undefined);
 
 	function getFilterDescFromValue(desc: FilterDescription[]): FilterDescription | undefined {
-		if (!value) return undefined;
-		const filterDesc = desc.find((d) => value?.startsWith(formatFilterName(d)));
+		if (!filterContext.searchQuery) return undefined;
+		const filterDesc = desc.find((d) => filterContext.searchQuery?.startsWith(formatFilterName(d)));
 		return filterDesc;
 	}
 
 	function getAllowedFilterValue(filterDesc: FilterDescription): string[] | undefined {
-		if (!value) return undefined;
-		return parseFilterValues(value, filterDesc);
-	}
-
-	export function applyFilter(filterDesc: FilterDescription, filterValue: string[]) {
-		if (!filterValue || appliedFilters === undefined) return;
-		appliedFilters = addAppliedFilter(appliedFilters, {
-			name: filterDesc.name,
-			values: filterValue
-		});
-	}
-
-	function removeFilter(filter: AppliedFilter) {
-		if (appliedFilters === undefined) return;
-		appliedFilters = removeAppliedFilter(appliedFilters, filter);
+		if (!filterContext.searchQuery) return undefined;
+		return parseFilterValues(filterContext.searchQuery, filterDesc);
 	}
 
 	function handleSuggestionClick(suggestion: FilterSuggestion) {
 		const filterDesc = filterDescriptions?.find((f) => f.name === suggestion.name);
 		if (!filterDesc) return;
 		if (suggestion.value === undefined) {
-			value = formatFilterName(filterDesc);
+			filterContext.searchQuery = formatFilterName(filterDesc);
 			searchBarInput?.focus();
 			filterSuggestionElem?.closeList();
 			return;
 		}
-		applyFilter(filterDesc, [suggestion.value]);
-		value = undefined;
+		filterContext.addFilter({ name: filterDesc.name, values: [suggestion.value] });
+		filterContext.searchQuery = undefined;
 	}
 
 	function handleEnter() {
 		// If there is a highlighted item, select it
 		if (filterSuggestionElem?.enter()) return;
 
-		if (!filterDescriptions || appliedFilters === undefined) return;
+		if (!filterDescriptions) return;
 		const filterDesc = getFilterDescFromValue(filterDescriptions);
 		if (!filterDesc) return;
 		const filterValue = getAllowedFilterValue(filterDesc);
 		if (!filterValue) return;
-		applyFilter(filterDesc, filterValue);
-		value = undefined;
+		filterContext.addFilter({ name: filterDesc.name, values: filterValue });
+		filterContext.searchQuery = undefined;
 	}
 
 	function handleDelete() {
-		if (!filterDescriptions || !appliedFilters || value) return;
-		appliedFilters = appliedFilters.slice(0, -1);
+		if (!filterDescriptions || !filterContext.appliedFilters || filterContext.searchQuery) return;
+		filterContext.popFilter();
 		filterSuggestionElem?.openList();
 	}
 
@@ -116,7 +95,7 @@
 	}
 
 	function handleChar() {
-		if (!filterDescriptions || !value) return;
+		if (!filterDescriptions || !filterContext.searchQuery) return;
 		filterSuggestionElem?.openList();
 	}
 
@@ -154,8 +133,11 @@
 			</div>
 		{/if}
 
-		{#if appliedFilters?.length}
-			<FilterPillContainer {appliedFilters} handleFilterClick={removeFilter} />
+		{#if filterContext.appliedFilters.length}
+			<FilterPillContainer
+				appliedFilters={filterContext.appliedFilters}
+				handleFilterClick={(f) => filterContext.removeFilter(f)}
+			/>
 		{/if}
 
 		<input
@@ -164,11 +146,8 @@
 			autocomplete="off"
 			{placeholder}
 			class="textbox__input text-base-18"
-			bind:value
+			bind:value={filterContext.searchQuery}
 			bind:this={searchBarInput}
-			oninput={(e) => {
-				value = e.currentTarget.value;
-			}}
 			{onkeydown}
 			onfocus={() => filterSuggestionElem?.openList()}
 		/>
@@ -179,9 +158,9 @@
 			bind:this={filterSuggestionElem}
 			{searchBarWrapper}
 			{handleSuggestionClick}
-			{appliedFilters}
+			appliedFilters={filterContext.appliedFilters}
 			{filterDescriptions}
-			{value}
+			value={filterContext.searchQuery}
 		/>
 	{/if}
 </div>
