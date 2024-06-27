@@ -7,7 +7,10 @@ export enum FilterName {
 	Author = 'author',
 	Origin = 'origin',
 	SHA = 'sha',
-	File = 'file'
+	File = 'file',
+	Title = 'title',
+	Body = 'body',
+	Message = 'message'
 }
 
 enum FilterOriginValue {
@@ -60,7 +63,34 @@ export const REMOTE_BRANCH_FILTERS: FilterDescription[] = [
 		suggestions: [
 			{
 				name: FilterName.File,
-				description: 'Filter by file path. It must match the given RegExp'
+				description: 'Filter by file path. It must include the given value'
+			}
+		]
+	},
+	{
+		name: FilterName.Title,
+		suggestions: [
+			{
+				name: FilterName.Title,
+				description: 'Filter by commit title. It must include the given value'
+			}
+		]
+	},
+	{
+		name: FilterName.Body,
+		suggestions: [
+			{
+				name: FilterName.Body,
+				description: 'Filter by commit body. It must include the given value'
+			}
+		]
+	},
+	{
+		name: FilterName.Message,
+		suggestions: [
+			{
+				name: FilterName.Message,
+				description: 'Filter by commit message. It must include the given value'
 			}
 		]
 	}
@@ -91,7 +121,6 @@ function commitMatchesFileFilter(commit: RemoteCommit, filter: AppliedFilter): b
 		return false;
 	}
 
-
 	for (const value of filter.values) {
 		for (const filePath of commit.filePaths) {
 			if (filePath.includes(value)) {
@@ -118,6 +147,12 @@ function commitMatchesFilter(
 			return filter.values.some((sha) => commit.id.startsWith(sha));
 		case FilterName.File:
 			return commitMatchesFileFilter(commit, filter);
+		case FilterName.Title:
+			return filter.values.some((title) => commit.descriptionTitle?.includes(title));
+		case FilterName.Body:
+			return filter.values.some((body) => commit.descriptionBody?.includes(body));
+		case FilterName.Message:
+			return filter.values.some((message) => commit.description.includes(message));
 	}
 }
 
