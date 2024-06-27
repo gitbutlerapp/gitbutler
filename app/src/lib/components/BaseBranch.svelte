@@ -16,6 +16,7 @@
 	export let searchQuery: string | undefined;
 	export let searchFilters: AppliedFilter[] = [];
 	export let onAuthorClick: ((author: string) => void) | undefined = undefined;
+	export let onFileClick: ((filePath: string) => void) | undefined = undefined;
 
 	const branchController = getContext(BranchController);
 
@@ -74,6 +75,7 @@
 		{searchFilters}
 		{searchQuery}
 		{onAuthorClick}
+		{onFileClick}
 	/>
 
 	{#if !upstreamListElem?.isEmpty()}
@@ -88,6 +90,7 @@
 		{searchFilters}
 		{searchQuery}
 		{onAuthorClick}
+		{onFileClick}
 	>
 		<h1
 			class="text-base-13 info-text text-bold"

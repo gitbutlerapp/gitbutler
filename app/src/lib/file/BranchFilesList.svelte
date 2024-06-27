@@ -18,6 +18,7 @@
 	export let showCheckboxes = false;
 	export let allowMultiple = false;
 	export let readonly = false;
+	export let onFileClick: ((filePath: string) => void) | undefined = undefined;
 
 	const fileIdSelection = getContext(FileIdSelection);
 	const commit = getCommitStore();
@@ -85,6 +86,7 @@
 				{file}
 				{readonly}
 				{isUnapplied}
+				addFileFilter={onFileClick}
 				showCheckbox={showCheckboxes}
 				selected={$fileIdSelection.includes(stringifyFileKey(file.id, $commit?.id))}
 				on:click={(e) => {

@@ -22,6 +22,10 @@
 	export function addAuthorFilter(author: string) {
 		searchBarElem?.applyFilter({ name: FilterName.Author }, [author]);
 	}
+
+	export function addFileFilter(filePath: string) {
+		searchBarElem?.applyFilter({ name: FilterName.File }, [filePath]);
+	}
 </script>
 
 <div class="container">

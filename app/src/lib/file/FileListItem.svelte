@@ -20,6 +20,7 @@
 	export let selected: boolean;
 	export let showCheckbox: boolean = false;
 	export let readonly = false;
+	export let addFileFilter: ((filePath: string) => void) | undefined = undefined;
 
 	const branch = maybeGetContextStore(Branch);
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
@@ -54,7 +55,7 @@
 		if (popupMenu) unmount(popupMenu);
 		return mount(FileContextMenu, {
 			target: document.body,
-			props: { isUnapplied }
+			props: { isUnapplied, addFileFilter }
 		});
 	}
 

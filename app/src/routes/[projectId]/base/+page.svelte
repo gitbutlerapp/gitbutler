@@ -44,6 +44,10 @@
 	function onAuthorClick(author: string) {
 		searchBarContainerElem.addAuthorFilter(author);
 	}
+
+	function onFileClick(filePath: string) {
+		searchBarContainerElem.addFileFilter(filePath);
+	}
 </script>
 
 {#if $error$}
@@ -65,7 +69,13 @@
 			>
 				<ScrollableContainer wide>
 					<div class="card">
-						<BaseBranch base={$baseBranch} {searchQuery} {searchFilters} {onAuthorClick} />
+						<BaseBranch
+							base={$baseBranch}
+							{searchQuery}
+							{searchFilters}
+							{onAuthorClick}
+							{onFileClick}
+						/>
 					</div>
 				</ScrollableContainer>
 				<Resizer

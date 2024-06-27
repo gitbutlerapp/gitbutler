@@ -16,6 +16,7 @@
 	import { open } from '@tauri-apps/api/shell';
 
 	export let isUnapplied;
+	export let addFileFilter: ((filePath: string) => void) | undefined = undefined;
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
@@ -83,6 +84,20 @@
 							}
 						}}
 					/>
+					{#if addFileFilter}
+						<ContextMenuItem
+							label="Filter commits by this file"
+							on:click={() => {
+								try {
+									addFileFilter(files[0].path);
+									dismiss();
+								} catch (err) {
+									console.error('Failed to filter commits by file', err);
+									toasts.error('Failed to filter commits by file');
+								}
+							}}
+						/>
+					{/if}
 				{/if}
 				<ContextMenuItem
 					label="Open in VSCode"

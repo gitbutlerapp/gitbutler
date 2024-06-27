@@ -12,6 +12,7 @@
 		searchFilters: AppliedFilter[];
 		getCommitUrl: (commitId: string) => string | undefined;
 		onAuthorClick?: (author: string) => void;
+		onFileClick?: (filePath: string) => void;
 		children?: Snippet;
 	}
 
@@ -21,6 +22,7 @@
 		type,
 		getCommitUrl,
 		onAuthorClick,
+		onFileClick,
 		searchFilters,
 		searchQuery,
 		children
@@ -49,6 +51,7 @@
 				commitUrl={getCommitUrl(commit.id)}
 				{type}
 				{onAuthorClick}
+				{onFileClick}
 			/>
 		{/each}
 	</div>

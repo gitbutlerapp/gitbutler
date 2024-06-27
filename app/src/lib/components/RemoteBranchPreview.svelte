@@ -63,6 +63,10 @@
 	function onAuthorClick(author: string) {
 		searchBarContainerElem.addAuthorFilter(author);
 	}
+
+	function onFileClick(filePath: string) {
+		searchBarContainerElem.addFileFilter(filePath);
+	}
 </script>
 
 <SearchBarContainer
@@ -99,6 +103,7 @@
 								{searchFilters}
 								{searchQuery}
 								{onAuthorClick}
+								{onFileClick}
 							/>
 						{/if}
 					{/await}

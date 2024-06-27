@@ -36,6 +36,7 @@
 	export let last = false;
 	export let type: CommitStatus;
 	export let onAuthorClick: ((author: string) => void) | undefined = undefined;
+	export let onFileClick: ((filePath: string) => void) | undefined = undefined;
 
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
@@ -234,7 +235,11 @@
 								on:click|stopPropagation={() =>
 									commit.author.name && onAuthorClick(commit.author.name)}
 							>
-								{commitAuthor}
+								<span>{commitAuthor}</span>
+
+								<div class="commit__subtitle-btn__icon">
+									<Icon name="filter-small" />
+								</div>
 							</button>
 						{:else}
 							<span>
@@ -283,7 +288,7 @@
 				{/if}
 
 				<div class="files-container">
-					<BranchFilesList {files} {isUnapplied} readonly={type === 'upstream'} />
+					<BranchFilesList {files} {isUnapplied} {onFileClick} readonly={type === 'upstream'} />
 				</div>
 			{/if}
 		</div>
