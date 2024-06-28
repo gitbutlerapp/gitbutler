@@ -2,6 +2,7 @@ use std::{path::Path, time};
 
 use anyhow::{anyhow, Context, Result};
 use git2::Index;
+use itertools::Itertools;
 use serde::Serialize;
 
 use super::{
@@ -22,6 +23,14 @@ use crate::{
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct CommitMetrics {
+    pub name: String,
+    pub value: u32,
+    pub commit_ids: Vec<String>,
+}
+
+#[derive(Debug, Serialize, PartialEq, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct BaseBranch {
     pub branch_name: String,
     pub remote_name: String,
@@ -36,6 +45,8 @@ pub struct BaseBranch {
     pub upstream_commits: Vec<RemoteCommit>,
     pub recent_commits: Vec<RemoteCommit>,
     pub last_fetched_ms: Option<u128>,
+    pub recent_authors: Vec<CommitMetrics>,
+    pub recent_files: Vec<CommitMetrics>,
 }
 
 pub fn get_base_branch_data(
@@ -322,6 +333,53 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
     Ok(())
 }
 
+fn get_recent_commits_metric(
+    recent_commits: &Vec<RemoteCommit>,
+) -> (Vec<CommitMetrics>, Vec<CommitMetrics>) {
+    let mut recent_authors =
+        std::collections::HashMap::<String, CommitMetrics>::with_capacity(recent_commits.len());
+    let mut recent_files = std::collections::HashMap::<String, CommitMetrics>::new();
+    for commit in recent_commits {
+        let commit_id = &commit.id;
+        let author_name = &commit.author.name;
+        let author_metric =
+            recent_authors
+                .entry(author_name.to_string())
+                .or_insert(CommitMetrics {
+                    name: author_name.to_string(),
+                    value: 0,
+                    commit_ids: Vec::new(),
+                });
+        author_metric.value += 1;
+        author_metric.commit_ids.push(commit_id.to_string());
+        for file_path in &commit.file_paths {
+            let file_metric = recent_files
+                .entry(file_path.to_string())
+                .or_insert(CommitMetrics {
+                    name: file_path.to_string(),
+                    value: 0,
+                    commit_ids: Vec::new(),
+                });
+            file_metric.value += 1;
+            file_metric.commit_ids.push(commit_id.to_string());
+        }
+    }
+
+    let recent_authors = recent_authors
+        .into_values()
+        .sorted_by_key(|a| a.value)
+        .rev()
+        .collect();
+
+    let recent_files = recent_files
+        .into_values()
+        .sorted_by_key(|f| f.value)
+        .rev()
+        .collect();
+
+    (recent_authors, recent_files)
+}
+
 // try to update the target branch
 // this means that we need to:
 // determine if what the target branch is now pointing to is mergeable with our current working directory
@@ -597,6 +655,9 @@ pub fn target_to_base_branch(
         .map(|commit| super::commit_to_remote_commit(project_repository, commit))
         .collect::<Vec<_>>();
 
+    // get recent authors and file paths, and their appearance count
+    let (recent_authors, recent_files) = get_recent_commits_metric(&recent_commits);
+
     // there has got to be a better way to do this.
     let push_remote_url = match target.push_remote_name {
         Some(ref name) => match repo.find_remote(name) {
@@ -620,6 +681,8 @@ pub fn target_to_base_branch(
         behind: upstream_commits.len(),
         upstream_commits,
         recent_commits,
+        recent_authors,
+        recent_files,
         last_fetched_ms: project_repository
             .project()
             .project_data_last_fetch

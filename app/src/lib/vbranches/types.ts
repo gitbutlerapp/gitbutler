@@ -255,6 +255,12 @@ export function isRemoteCommit(obj: any): obj is RemoteCommit {
 	return obj instanceof RemoteCommit;
 }
 
+interface CommitMetrics {
+	name: string;
+	value: number;
+	commitIds: string[];
+}
+
 export type AnyCommit = Commit | RemoteCommit;
 
 export const LOCAL_COMMITS = Symbol('LocalCommtis');
@@ -389,6 +395,8 @@ export class BaseBranch {
 	upstreamCommits!: RemoteCommit[];
 	@Type(() => RemoteCommit)
 	recentCommits!: RemoteCommit[];
+	recentAuthors!: CommitMetrics[];
+	recentFiles!: CommitMetrics[];
 	lastFetchedMs?: number;
 
 	actualPushRemoteName(): string {
