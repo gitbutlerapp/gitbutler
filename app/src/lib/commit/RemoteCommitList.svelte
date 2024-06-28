@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CommitCard from './CommitCard.svelte';
 	import { getFilterContext } from '$lib/searchBar/filterContext.svelte';
-	import {  FilterName, filterCommits } from '$lib/vbranches/filtering';
+	import { FilterName, filterCommits } from '$lib/vbranches/filtering';
 	import type { CommitStatus, RemoteCommit } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
 

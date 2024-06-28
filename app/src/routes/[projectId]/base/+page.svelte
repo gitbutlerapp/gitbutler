@@ -56,9 +56,7 @@
 			>
 				<ScrollableContainer wide>
 					<div class="card">
-						<BaseBranch
-							base={$baseBranch}
-						/>
+						<BaseBranch base={$baseBranch} />
 					</div>
 				</ScrollableContainer>
 				<Resizer

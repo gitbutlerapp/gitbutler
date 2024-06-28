@@ -82,7 +82,7 @@
 
 	const hasCommitUrl = !commit.isLocal && commitUrl;
 	const commitAuthor =
-	type === 'localAndRemote' || type === 'remote' ? commit.author.name ?? 'unknown' : 'you';
+		type === 'localAndRemote' || type === 'remote' ? commit.author.name ?? 'unknown' : 'you';
 
 	let commitMessageModal: Modal;
 	let commitMessageValid = false;
