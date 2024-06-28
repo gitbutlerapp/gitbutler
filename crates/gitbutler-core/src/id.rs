@@ -43,20 +43,6 @@ impl<T> Default for Id<T> {
     }
 }
 
-impl<T> rusqlite::types::FromSql for Id<T> {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        Uuid::parse_str(value.as_str()?)
-            .map(Into::into)
-            .map_err(|error| rusqlite::types::FromSqlError::Other(Box::new(error)))
-    }
-}
-
-impl<T> rusqlite::ToSql for Id<T> {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::from(self.0.to_string()))
-    }
-}
-
 impl<T> PartialEq for Id<T> {
     fn eq(&self, other: &Self) -> bool {
         self.0.eq(&other.0)

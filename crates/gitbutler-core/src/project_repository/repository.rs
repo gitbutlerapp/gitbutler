@@ -15,7 +15,7 @@ use crate::{
     ssh, users,
     virtual_branches::{Branch, BranchId},
 };
-use crate::{git::RepositoryExt, virtual_branches::errors::Marker};
+use crate::{error::Marker, git::RepositoryExt};
 
 pub struct Repository {
     git_repository: git2::Repository,

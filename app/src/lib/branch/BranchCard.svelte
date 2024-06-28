@@ -17,6 +17,7 @@
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { persisted } from '$lib/persisted/persisted';
+	import { isFailure } from '$lib/result';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import { User } from '$lib/stores/user';
@@ -64,21 +65,25 @@
 
 		const hunks = branch.files.flatMap((f) => f.hunks);
 
-		try {
-			const prompt = promptService.selectedBranchPrompt(project.id);
-			const message = await aiService.summarizeBranch({
-				hunks,
-				userToken: $user?.access_token,
-				branchTemplate: prompt
-			});
+		const prompt = promptService.selectedBranchPrompt(project.id);
+		const messageResult = await aiService.summarizeBranch({
+			hunks,
+			userToken: $user?.access_token,
+			branchTemplate: prompt
+		});
 
-			if (message && message !== branch.name) {
-				branch.name = message;
-				branchController.updateBranchName(branch.id, branch.name);
-			}
-		} catch (e) {
-			console.error(e);
-			showError('Failed to generate branch name', e);
+		if (isFailure(messageResult)) {
+			console.error(messageResult.failure);
+			showError('Failed to generate branch name', messageResult.failure);
+
+			return;
+		}
+
+		const message = messageResult.value;
+
+		if (message && message !== branch.name) {
+			branch.name = message;
+			branchController.updateBranchName(branch.id, branch.name);
 		}
 	}
 

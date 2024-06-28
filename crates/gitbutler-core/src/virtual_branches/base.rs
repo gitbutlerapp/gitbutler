@@ -11,13 +11,13 @@ use super::{
     },
     target, BranchId, RemoteCommit, VirtualBranchHunk, VirtualBranchesHandle,
 };
-use crate::{git::RepositoryExt, virtual_branches::errors::Marker};
+use crate::{error::Marker, git::RepositoryExt, rebase::cherry_rebase};
 use crate::{
     git::{self, diff},
     project_repository::{self, LogUntil},
     projects::FetchResult,
     users,
-    virtual_branches::{branch::BranchOwnershipClaims, cherry_rebase},
+    virtual_branches::branch::BranchOwnershipClaims,
 };
 
 #[derive(Debug, Serialize, PartialEq, Clone)]

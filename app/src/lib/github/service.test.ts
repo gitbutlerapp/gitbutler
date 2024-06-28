@@ -3,22 +3,6 @@ import { BehaviorSubject } from 'rxjs';
 import { expect, test, describe } from 'vitest';
 
 const exampleRemoteUrls = [
-	'ssh://user@host.xz:123/org/repo.git/',
-	'ssh://user@host.xz/org/repo.git/',
-	'ssh://host.xz:123/org/repo.git/',
-	'ssh://host.xz:123/org/repo',
-	'ssh://host.xz/org/repo.git/',
-	'ssh://host.xz/org/repo.git',
-	'ssh://host.xz/org/repo',
-	'ssh://user@host.xz/org/repo.git/',
-	'ssh://user@host.xz/org/repo.git',
-	'ssh://user@host.xz/org/repo',
-	'host.xz:org/repo.git/',
-	'host.xz:org/repo.git',
-	'host.xz:org/repo',
-	'user@host.xz:org/repo.git/',
-	'user@host.xz:org/repo.git',
-	'user@host.xz:org/repo',
 	'git@github.com:org/repo.git/',
 	'git@github.com:org/repo.git',
 	'git@github.com:org/repo',

@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use gitbutler_core::error::Marker;
 use gitbutler_core::ops::entry::{OperationKind, SnapshotDetails};
 use gitbutler_core::projects::ProjectId;
 use gitbutler_core::synchronize::sync_with_gitbutler;
@@ -101,8 +102,8 @@ impl Handler {
             }
             Err(err)
                 if matches!(
-                    err.downcast_ref::<virtual_branches::errors::Marker>(),
-                    Some(virtual_branches::errors::Marker::VerificationFailure)
+                    err.downcast_ref::<Marker>(),
+                    Some(Marker::VerificationFailure)
                 ) =>
             {
                 Ok(())

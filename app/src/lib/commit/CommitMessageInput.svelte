@@ -11,6 +11,7 @@
 		projectCommitGenerationUseEmojis
 	} from '$lib/config/config';
 	import { showError } from '$lib/notifications/toasts';
+	import { isFailure } from '$lib/result';
 	import Checkbox from '$lib/shared/Checkbox.svelte';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
@@ -75,27 +76,35 @@
 		}
 
 		aiLoading = true;
-		try {
-			const prompt = promptService.selectedCommitPrompt(project.id);
-			console.log(prompt);
-			const generatedMessage = await aiService.summarizeCommit({
-				hunks,
-				useEmojiStyle: $commitGenerationUseEmojis,
-				useBriefStyle: $commitGenerationExtraConcise,
-				userToken: $user?.access_token,
-				commitTemplate: prompt
-			});
 
-			if (generatedMessage) {
-				commitMessage = generatedMessage;
-			} else {
-				throw new Error('Prompt generated no response');
-			}
-		} catch (e: any) {
-			showError('Failed to generate commit message', e);
-		} finally {
+		const prompt = promptService.selectedCommitPrompt(project.id);
+
+		const generatedMessageResult = await aiService.summarizeCommit({
+			hunks,
+			useEmojiStyle: $commitGenerationUseEmojis,
+			useBriefStyle: $commitGenerationExtraConcise,
+			userToken: $user?.access_token,
+			commitTemplate: prompt
+		});
+
+		if (isFailure(generatedMessageResult)) {
+			showError('Failed to generate commit message', generatedMessageResult.failure);
 			aiLoading = false;
+			return;
 		}
+
+		const generatedMessage = generatedMessageResult.value;
+
+		if (generatedMessage) {
+			commitMessage = generatedMessage;
+		} else {
+			const errorMessage = 'Prompt generated no response';
+			showError(errorMessage, undefined);
+			aiLoading = false;
+			return;
+		}
+
+		aiLoading = false;
 	}
 
 	onMount(async () => {
@@ -152,7 +161,10 @@
 					const value = e.currentTarget.value;
 					if (e.key === 'Backspace' && value.length === 0) {
 						e.preventDefault();
-						titleTextArea?.focus();
+						if (titleTextArea) {
+							titleTextArea?.focus();
+							titleTextArea.selectionStart = titleTextArea.textLength;
+						}
 						useAutoHeight(e.currentTarget);
 					} else if (e.key === 'a' && (e.metaKey || e.ctrlKey) && value.length === 0) {
 						// select previous textarea on cmd+a if this textarea is empty
@@ -222,7 +234,6 @@
 		padding: 0 0 48px;
 		flex-direction: column;
 		gap: 4px;
-		overflow: hidden;
 		animation: expand-box 0.2s ease forwards;
 		/* props to animate on mount */
 		max-height: 40px;
