@@ -141,7 +141,7 @@ function commitMatchesFilter(
 			return !!commit.author.name && filter.values.includes(commit.author.name);
 		case FilterName.Origin:
 			return filter.values.includes(
-				type === 'upstream' ? FilterOriginValue.Upstream : FilterOriginValue.Local
+				type === 'remote' ? FilterOriginValue.Upstream : FilterOriginValue.Local
 			);
 		case FilterName.SHA:
 			return filter.values.some((sha) => commit.id.startsWith(sha));
