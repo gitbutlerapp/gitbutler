@@ -9,6 +9,7 @@ package
 .env.*
 !.env.example
 crates/
+flake*
 
 # Ignore files for PNPM, NPM and YARN
 pnpm-lock.yaml
