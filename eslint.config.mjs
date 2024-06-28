@@ -44,12 +44,12 @@ export default tsEslint.config(
 			'.*', // dotfiles aren't ignored by default in FlatConfig
 			'**/.DS_Store',
 			'**/node_modules',
-			'butler/target',
-			'build',
-			'dist',
+			'**/butler/target',
+			'**/build',
+			'**/dist',
 			'.svelte-kit',
-			'package',
-			'e2e',
+			'**/package',
+			'**/e2e',
 			'**/.env',
 			'**/.env.*',
 			'!**/.env.example',
@@ -59,19 +59,22 @@ export default tsEslint.config(
 			'.github',
 			'.vscode',
 			'src-tauri',
-			'eslint.config.js',
-			'svelte.config.js',
-			'postcss.config.cjs',
-			'playwright.config.ts',
+			'**/eslint.config.js',
+			'**/eslint.config.mjs',
+			'**/svelte.config.js',
+			'**/postcss.config.cjs',
+			'**/playwright.config.ts',
 			'**/.pnpm-store',
-			'!.storybook'
+			'!.storybook',
+			'target/',
+			'crates/'
 		]
 	},
 	{
 		languageOptions: {
 			parserOptions: {
 				parser: tsEslint.parser,
-				project: true,
+				project: ['./packages/**/tsconfig.json', './app/tsconfig.json'],
 				extraFileExtensions: ['.svelte']
 			}
 		},
@@ -137,7 +140,12 @@ export default tsEslint.config(
 			},
 			'import-x/resolver': {
 				typescript: {
-					project: ['./tsconfig.json', './.svelte-kit/tsconfig.json']
+					project: [
+						'./app/tsconfig.json',
+						'./app/.svelte-kit/tsconfig.json',
+						'./packages/**/tsconfig.json',
+						'./packages/**/.svelte-kit/tsconfig.json'
+					]
 				}
 			}
 		},
