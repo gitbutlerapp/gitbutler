@@ -256,11 +256,6 @@ export function isRemoteCommit(obj: any): obj is RemoteCommit {
 
 export type AnyCommit = Commit | RemoteCommit;
 
-export const LOCAL_COMMITS = Symbol('LocalCommtis');
-export const REMOTE_COMMITS = Symbol('RemoteCommits');
-export const INTEGRATED_COMMITS = Symbol('IntegratedCommits');
-export const UNKNOWN_COMMITS = Symbol('UnknownCommits');
-
 export function commitCompare(left: AnyCommit, right: AnyCommit): boolean {
 	if (left.id === right.id) return true;
 	if (left.changeId && right.changeId && left.changeId === right.changeId) return true;
