@@ -1,12 +1,14 @@
 .DS_Store
 node_modules
 butler/target
-/build
-/.svelte-kit
-/package
+build
+dist
+.svelte-kit
+package
 .env
 .env.*
 !.env.example
+crates/
 
 # Ignore files for PNPM, NPM and YARN
 pnpm-lock.yaml

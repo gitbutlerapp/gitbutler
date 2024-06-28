@@ -8,9 +8,51 @@ importers:
 
   .:
     devDependencies:
+      '@eslint/js':
+        specifier: ^9.5.0
+        version: 9.5.0
       '@tauri-apps/cli':
         specifier: ^1.5.13
         version: 1.5.14
+      '@types/eslint__js':
+        specifier: ^8.42.3
+        version: 8.42.3
+      '@typescript-eslint/parser':
+        specifier: ^7.13.1
+        version: 7.13.1(eslint@9.5.0)(typescript@5.4.5)
+      eslint:
+        specifier: ^9.5.0
+        version: 9.5.0
+      eslint-config-prettier:
+        specifier: ^9.1.0
+        version: 9.1.0(eslint@9.5.0)
+      eslint-import-resolver-typescript:
+        specifier: ^3.6.1
+        version: 3.6.1(@typescript-eslint/parser@7.13.1(eslint@9.5.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.5.0)
+      eslint-plugin-import-x:
+        specifier: ^0.5.1
+        version: 0.5.1(eslint@9.5.0)(typescript@5.4.5)
+      eslint-plugin-storybook:
+        specifier: 0.9.0--canary.156.da7873a.0
+        version: 0.9.0--canary.156.da7873a.0(eslint@9.5.0)(typescript@5.4.5)
+      eslint-plugin-svelte:
+        specifier: 2.40.0
+        version: 2.40.0(eslint@9.5.0)(svelte@5.0.0-next.149)
+      prettier:
+        specifier: ^3.3.2
+        version: 3.3.2
+      prettier-plugin-svelte:
+        specifier: ^3.2.4
+        version: 3.2.4(prettier@3.3.2)(svelte@5.0.0-next.149)
+      svelte-eslint-parser:
+        specifier: ^0.39.2
+        version: 0.39.2(svelte@5.0.0-next.149)
+      typescript:
+        specifier: 5.4.5
+        version: 5.4.5
+      typescript-eslint:
+        specifier: ^7.13.1
+        version: 7.13.1(eslint@9.5.0)(typescript@5.4.5)
 
   app:
     dependencies:
@@ -69,9 +111,6 @@ importers:
       '@codemirror/view':
         specifier: ^6.26.3
         version: 6.26.3
-      '@eslint/js':
-        specifier: ^9.5.0
-        version: 9.5.0
       '@gitbutler/ui':
         specifier: workspace:*
         version: link:../packages/ui
@@ -114,9 +153,6 @@ importers:
       '@types/diff-match-patch':
         specifier: ^1.0.36
         version: 1.0.36
-      '@types/eslint__js':
-        specifier: ^8.42.3
-        version: 8.42.3
       '@types/git-url-parse':
         specifier: ^9.0.3
         version: 9.0.3
@@ -126,9 +162,6 @@ importers:
       '@types/marked':
         specifier: ^5.0.2
         version: 5.0.2
-      '@typescript-eslint/parser':
-        specifier: ^7.13.1
-        version: 7.13.1(eslint@9.5.0)(typescript@5.4.5)
       autoprefixer:
         specifier: ^10.4.19
         version: 10.4.19(postcss@8.4.38)
@@ -141,24 +174,6 @@ importers:
       diff-match-patch:
         specifier: ^1.0.5
         version: 1.0.5
-      eslint:
-        specifier: ^9.5.0
-        version: 9.5.0
-      eslint-config-prettier:
-        specifier: ^9.1.0
-        version: 9.1.0(eslint@9.5.0)
-      eslint-import-resolver-typescript:
-        specifier: ^3.6.1
-        version: 3.6.1(@typescript-eslint/parser@7.13.1(eslint@9.5.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.5.0)
-      eslint-plugin-import-x:
-        specifier: ^0.5.1
-        version: 0.5.1(eslint@9.5.0)(typescript@5.4.5)
-      eslint-plugin-square-svelte-store:
-        specifier: ^1.0.0
-        version: 1.0.0
-      eslint-plugin-svelte:
-        specifier: 2.40.0
-        version: 2.40.0(eslint@9.5.0)(svelte@5.0.0-next.149)
       git-url-parse:
         specifier: ^14.0.0
         version: 14.0.0
@@ -189,12 +204,6 @@ importers:
       posthog-js:
         specifier: 1.136.4
         version: 1.136.4
-      prettier:
-        specifier: ^3.3.2
-        version: 3.3.2
-      prettier-plugin-svelte:
-        specifier: ^3.2.4
-        version: 3.2.4(prettier@3.3.2)(svelte@5.0.0-next.149)
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -207,9 +216,6 @@ importers:
       svelte-check:
         specifier: ^3.8.0
         version: 3.8.0(@babel/core@7.24.7)(postcss-load-config@5.1.0(postcss@8.4.38))(postcss@8.4.38)(svelte@5.0.0-next.149)
-      svelte-eslint-parser:
-        specifier: ^0.39.2
-        version: 0.39.2(svelte@5.0.0-next.149)
       svelte-floating-ui:
         specifier: ^1.5.8
         version: 1.5.8
@@ -237,12 +243,6 @@ importers:
       tslib:
         specifier: ^2.6.3
         version: 2.6.3
-      typescript:
-        specifier: ^5.4.5
-        version: 5.4.5
-      typescript-eslint:
-        specifier: ^7.13.1
-        version: 7.13.1(eslint@9.5.0)(typescript@5.4.5)
       vite:
         specifier: ^5.2.13
         version: 5.2.13(@types/node@20.5.9)
@@ -252,9 +252,6 @@ importers:
 
   packages/ui:
     devDependencies:
-      '@eslint/js':
-        specifier: ^9.5.0
-        version: 9.5.0
       '@storybook/addon-essentials':
         specifier: ^8.1.10
         version: 8.1.10(@types/react@18.3.3)(prettier@3.3.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -285,39 +282,9 @@ importers:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^3.1.1
         version: 3.1.1(svelte@5.0.0-next.149)(vite@5.2.13(@types/node@20.5.9))
-      '@types/eslint__js':
-        specifier: ^8.42.3
-        version: 8.42.3
-      '@typescript-eslint/parser':
-        specifier: ^7.13.1
-        version: 7.13.1(eslint@9.5.0)(typescript@5.4.5)
-      eslint:
-        specifier: ^9.5.0
-        version: 9.5.0
-      eslint-config-prettier:
-        specifier: ^9.1.0
-        version: 9.1.0(eslint@9.5.0)
-      eslint-import-resolver-typescript:
-        specifier: ^3.6.1
-        version: 3.6.1(@typescript-eslint/parser@7.13.1(eslint@9.5.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.5.0)
-      eslint-plugin-import-x:
-        specifier: ^0.5.1
-        version: 0.5.1(eslint@9.5.0)(typescript@5.4.5)
-      eslint-plugin-storybook:
-        specifier: 0.9.0--canary.156.da7873a.0
-        version: 0.9.0--canary.156.da7873a.0(eslint@9.5.0)(typescript@5.4.5)
-      eslint-plugin-svelte:
-        specifier: 2.40.0
-        version: 2.40.0(eslint@9.5.0)(svelte@5.0.0-next.149)
       globals:
         specifier: ^15.6.0
         version: 15.6.0
-      prettier:
-        specifier: ^3.3.2
-        version: 3.3.2
-      prettier-plugin-svelte:
-        specifier: ^3.2.4
-        version: 3.2.4(prettier@3.3.2)(svelte@5.0.0-next.149)
       storybook:
         specifier: ^8.1.10
         version: 8.1.10(@babel/preset-env@7.24.7(@babel/core@7.24.7))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -327,15 +294,6 @@ importers:
       svelte-check:
         specifier: ^3.8.0
         version: 3.8.0(@babel/core@7.24.7)(postcss-load-config@5.1.0(postcss@8.4.38))(postcss@8.4.38)(svelte@5.0.0-next.149)
-      svelte-eslint-parser:
-        specifier: ^0.39.2
-        version: 0.39.2(svelte@5.0.0-next.149)
-      typescript:
-        specifier: ^5.4.5
-        version: 5.4.5
-      typescript-eslint:
-        specifier: ^7.13.1
-        version: 7.13.1(eslint@9.5.0)(typescript@5.4.5)
       vite:
         specifier: ^5.2.13
         version: 5.2.13(@types/node@20.5.9)
@@ -3424,9 +3382,6 @@ packages:
     peerDependenciesMeta:
       '@typescript-eslint/parser':
         optional: true
-
-  eslint-plugin-square-svelte-store@1.0.0:
-    resolution: {integrity: sha512-QLybNNEPcBKVrgAeow/7ouOqbTVsWwEdStFab9ZMZaW19Y//ZEhhtuEb92P69n9u/JRL6EFhArV9AfS+LgS4mA==}
 
   eslint-plugin-storybook@0.9.0--canary.156.da7873a.0:
     resolution: {integrity: sha512-3b6hQMRfKWwkNB0koK0y9Boi+GYAt8vz+3tzU5JHylyAZh3Vg5TgvxM6IRhKixEY4OlQhsJPhqMzP0rT9fP5mA==}
@@ -7474,7 +7429,7 @@ snapshots:
       '@types/shimmer': 1.0.5
       import-in-the-middle: 1.4.2
       require-in-the-middle: 7.3.0
-      semver: 7.6.0
+      semver: 7.6.2
       shimmer: 1.2.1
     transitivePeerDependencies:
       - supports-color
@@ -7487,7 +7442,7 @@ snapshots:
       '@types/shimmer': 1.0.5
       import-in-the-middle: 1.7.4
       require-in-the-middle: 7.3.0
-      semver: 7.6.0
+      semver: 7.6.2
       shimmer: 1.2.1
     transitivePeerDependencies:
       - supports-color
@@ -10029,8 +9984,6 @@ snapshots:
       - eslint-import-resolver-typescript
       - eslint-import-resolver-webpack
       - supports-color
-
-  eslint-plugin-square-svelte-store@1.0.0: {}
 
   eslint-plugin-storybook@0.9.0--canary.156.da7873a.0(eslint@9.5.0)(typescript@5.4.5):
     dependencies:

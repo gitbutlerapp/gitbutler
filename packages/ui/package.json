@@ -24,9 +24,6 @@
 	],
 	"scripts": {
 		"dev": "vite dev",
-		"lint": "prettier --check . && eslint .",
-		"format": "prettier --write .",
-		"fix": "eslint --fix .",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "pnpm check --watch",
 		"package": "svelte-kit sync && svelte-package",
@@ -36,7 +33,6 @@
 		"storybook:build": "storybook build"
 	},
 	"devDependencies": {
-		"@eslint/js": "^9.5.0",
 		"@storybook/addon-essentials": "^8.1.10",
 		"@storybook/addon-interactions": "^8.1.10",
 		"@storybook/addon-links": "^8.1.10",
@@ -47,23 +43,10 @@
 		"@sveltejs/kit": "^2.5.10",
 		"@sveltejs/package": "^2.3.2",
 		"@sveltejs/vite-plugin-svelte": "^3.1.1",
-		"@types/eslint__js": "^8.42.3",
-		"@typescript-eslint/parser": "^7.13.1",
-		"eslint": "^9.5.0",
-		"eslint-config-prettier": "^9.1.0",
-		"eslint-import-resolver-typescript": "^3.6.1",
-		"eslint-plugin-import-x": "^0.5.1",
-		"eslint-plugin-storybook": "0.9.0--canary.156.da7873a.0",
-		"eslint-plugin-svelte": "2.40.0",
 		"globals": "^15.6.0",
-		"prettier": "^3.3.2",
-		"prettier-plugin-svelte": "^3.2.4",
 		"storybook": "^8.1.10",
 		"svelte": "5.0.0-next.149",
 		"svelte-check": "^3.8.0",
-		"svelte-eslint-parser": "^0.39.2",
-		"typescript": "^5.4.5",
-		"typescript-eslint": "^7.13.1",
 		"vite": "^5.2.13"
 	}
 }
