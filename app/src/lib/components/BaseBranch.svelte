@@ -80,12 +80,14 @@
 		type="localAndRemote"
 		getCommitUrl={(commitId) => base.commitUrl(commitId)}
 	>
-		<h1
-			class="text-base-13 info-text text-bold"
-			use:tooltip={'This is the current base for your virtual branches.'}
-		>
-			Local
-		</h1>
+		{#snippet header()}
+			<h1
+				class="text-base-13 info-text text-bold"
+				use:tooltip={'This is the current base for your virtual branches.'}
+			>
+				Local
+			</h1>
+		{/snippet}
 	</RemoteCommitList>
 
 	{#if filterContext.active() && upstreamListElem?.isEmpty() && localListElem?.isEmpty()}

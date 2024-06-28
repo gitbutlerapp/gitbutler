@@ -5,15 +5,17 @@
 	import type { CommitStatus, RemoteCommit } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
 
+	const MAX_COMMITS = 50;
+
 	interface Props {
 		commits: RemoteCommit[];
 		isUnapplied: boolean;
 		type: CommitStatus;
 		getCommitUrl: (commitId: string) => string | undefined;
-		children?: Snippet;
+		header?: Snippet;
 	}
 
-	let { commits, isUnapplied, type, getCommitUrl, children }: Props = $props();
+	let { commits, isUnapplied, type, getCommitUrl, header }: Props = $props();
 
 	const filterContext = getFilterContext();
 
@@ -36,10 +38,10 @@
 
 {#if !isEmpty()}
 	<div>
-		{#if children}
-			{@render children()}
+		{#if header}
+			{@render header()}
 		{/if}
-		{#each filteredCommits as commit, index (commit.id)}
+		{#each filteredCommits.slice(undefined, MAX_COMMITS) as commit, index (commit.id)}
 			<CommitCard
 				{commit}
 				first={index === 0}
