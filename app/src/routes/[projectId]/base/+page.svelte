@@ -11,18 +11,23 @@
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { TRUNK_BRANCH_FILTERS } from '$lib/vbranches/filtering';
+	import { FilterName, getTrunkBranchFilters } from '$lib/vbranches/filtering';
 	import lscache from 'lscache';
 	import { onMount, setContext } from 'svelte';
-	import { writable } from 'svelte/store';
+	import { derived, writable } from 'svelte/store';
 
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'historyLaneWidth';
-	const filterDescriptions = TRUNK_BRANCH_FILTERS;
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
+	const filterDescriptions = derived(baseBranch, (b) =>
+		getTrunkBranchFilters({
+			[FilterName.Author]: b?.recentAuthors,
+			[FilterName.File]: b?.recentFiles
+		})
+	);
 	const project = getContext(Project);
 	const filterContext = getFilterContext();
 
@@ -47,7 +52,7 @@
 {:else if !$baseBranch}
 	<FullviewLoading />
 {:else}
-	<SearchBarContainer {filterDescriptions}>
+	<SearchBarContainer filterDescriptions={$filterDescriptions}>
 		<div class="base">
 			<div
 				class="base__left"

@@ -7,12 +7,14 @@
 	import {
 		formatFilterName,
 		suggestionIsApplied,
+		tryToParseFilter,
 		type AppliedFilter,
 		type FilterDescription,
 		type FilterSuggestion
 	} from '$lib/vbranches/filtering';
 
-	const maxPadding = 10;
+	const MAX_PADDING = 10;
+	const MAX_FILTER_SPECIFIC_SUGGESTIONS = 10;
 
 	interface Props {
 		maxHeight?: number;
@@ -44,10 +46,29 @@
 			})
 	);
 
+	let filterSpecificSuggestions = $derived<FilterSuggestion[] | undefined>(
+		value
+			? filterDescriptions
+					?.filter((d) => value?.startsWith(formatFilterName(d)))
+					.flatMap((d) => d.dynamicSuggestions ?? [])
+					.filter((s) => appliedFilters === undefined || !suggestionIsApplied(s, appliedFilters))
+					.filter((s) => {
+						const f = tryToParseFilter(value);
+						if (!f?.values.length) return true;
+						return f.values.some((v) => s.value?.includes(v));
+					})
+					.slice(undefined, MAX_FILTER_SPECIFIC_SUGGESTIONS)
+			: undefined
+	);
+
+	let list = $derived<FilterSuggestion[] | undefined>(
+		suggestions?.length ? suggestions : filterSpecificSuggestions
+	);
+
 	function setMaxHeight() {
 		if (maxHeight) return;
 		if (!searchBarWrapper) return;
-		maxHeight = window.innerHeight - searchBarWrapper.getBoundingClientRect().bottom - maxPadding;
+		maxHeight = window.innerHeight - searchBarWrapper.getBoundingClientRect().bottom - MAX_PADDING;
 	}
 
 	export function isOpen() {
@@ -57,6 +78,7 @@
 	export function openList() {
 		setMaxHeight();
 		listOpen = true;
+		highlightIndex = undefined;
 	}
 
 	export function closeList() {
@@ -65,38 +87,38 @@
 	}
 
 	export function arrowUp() {
-		if (!suggestions?.length) return;
+		if (!list?.length) return;
 		if (highlightIndex === undefined) {
-			highlightIndex = suggestions.length - 1;
+			highlightIndex = list.length - 1;
 		} else {
-			highlightIndex = highlightIndex === 0 ? suggestions.length - 1 : highlightIndex - 1;
+			highlightIndex = highlightIndex === 0 ? list.length - 1 : highlightIndex - 1;
 		}
 	}
 
 	export function arrowDown() {
-		if (!suggestions?.length) return;
+		if (!list?.length) return;
 		if (highlightIndex === undefined) {
 			highlightIndex = 0;
 		} else {
-			highlightIndex = highlightIndex === suggestions.length - 1 ? 0 : highlightIndex + 1;
+			highlightIndex = highlightIndex === list.length - 1 ? 0 : highlightIndex + 1;
 		}
 	}
 
 	export function enter(): boolean {
-		if (highlightIndex === undefined || !suggestions?.length) return false;
+		if (highlightIndex === undefined || !list?.length) return false;
 
-		handleSuggestionClick(suggestions[highlightIndex]);
+		handleSuggestionClick(list[highlightIndex]);
 		highlightIndex = undefined;
 		return true;
 	}
 
 	function isHighlighted(suggestion: FilterSuggestion) {
-		if (highlightIndex === undefined || !suggestions?.length) return false;
-		return suggestion === suggestions[highlightIndex];
+		if (highlightIndex === undefined || !list?.length) return false;
+		return suggestion === list[highlightIndex];
 	}
 </script>
 
-{#if suggestions?.length}
+{#if list?.length}
 	<div
 		class="options card"
 		style:display={listOpen ? undefined : 'none'}
@@ -109,7 +131,7 @@
 	>
 		<ScrollableContainer initiallyVisible>
 			<div class="options__group">
-				{#each suggestions as suggestion}
+				{#each list as suggestion}
 					<div tabindex="-1" role="none">
 						<SelectItem
 							selected={false}

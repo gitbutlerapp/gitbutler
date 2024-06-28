@@ -44,7 +44,6 @@
 		if (suggestion.value === undefined) {
 			filterContext.searchQuery = formatFilterName(filterDesc);
 			searchBarInput?.focus();
-			filterSuggestionElem?.closeList();
 			return;
 		}
 		filterContext.addFilter({ name: filterDesc.name, values: [suggestion.value] });
@@ -65,9 +64,9 @@
 	}
 
 	function handleDelete() {
+		filterSuggestionElem?.openList();
 		if (!filterDescriptions || !filterContext.appliedFilters || filterContext.searchQuery) return;
 		filterContext.popFilter();
-		filterSuggestionElem?.openList();
 	}
 
 	function handleArrowUp(e: KeyboardEvent) {

@@ -1,4 +1,4 @@
-import type { CommitStatus, RemoteCommit } from './types';
+import type { CommitMetrics, CommitStatus, RemoteCommit } from './types';
 
 const FILTER_PROP_SEPARATOR = ':';
 const FILTER_OR_VALUE_SEPARATOR = ',';
@@ -12,6 +12,8 @@ export enum FilterName {
 	Body = 'body',
 	Message = 'message'
 }
+
+type FormattedFilterName = `${FilterName}${typeof FILTER_PROP_SEPARATOR}`;
 
 enum FilterOriginValue {
 	Local = 'local',
@@ -28,7 +30,7 @@ export interface AppliedFilter extends AppliedFilterInfo {
 }
 
 export interface FilterSuggestion {
-	name: string;
+	name: FilterName;
 	value?: string;
 	description: string;
 }
@@ -37,6 +39,7 @@ export interface FilterDescription {
 	name: FilterName;
 	allowedValues?: string[];
 	suggestions?: FilterSuggestion[];
+	dynamicSuggestions?: FilterSuggestion[];
 }
 
 export const REMOTE_BRANCH_FILTERS: FilterDescription[] = [
@@ -96,7 +99,7 @@ export const REMOTE_BRANCH_FILTERS: FilterDescription[] = [
 	}
 ];
 
-export const TRUNK_BRANCH_FILTERS: FilterDescription[] = [
+const TRUNK_BRANCH_FILTERS: FilterDescription[] = [
 	...REMOTE_BRANCH_FILTERS,
 	{
 		name: FilterName.Origin,
@@ -115,6 +118,31 @@ export const TRUNK_BRANCH_FILTERS: FilterDescription[] = [
 		]
 	}
 ];
+
+export function getTrunkBranchFilters(
+	suggestedValues: Partial<Record<FilterName, CommitMetrics[]>>
+): FilterDescription[] {
+	const result: FilterDescription[] = [];
+	for (const filter of TRUNK_BRANCH_FILTERS) {
+		const values = suggestedValues[filter.name];
+		if (values === undefined) {
+			result.push(filter);
+			continue;
+		}
+
+		filter.dynamicSuggestions ??= [];
+		for (const v of values) {
+			filter.dynamicSuggestions.push({
+				name: filter.name,
+				value: v.name,
+				description: `Number of commits: ${v.value}`
+			});
+		}
+		result.push(filter);
+	}
+
+	return result;
+}
 
 function commitMatchesFileFilter(commit: RemoteCommit, filter: AppliedFilter): boolean {
 	if (!commit.filePaths) {
@@ -186,14 +214,37 @@ export function parseFilterValues(
 	return undefined;
 }
 
+export function tryToParseFilter(value: string): AppliedFilterInfo | undefined {
+	const filterName = value.split(FILTER_PROP_SEPARATOR)[0];
+	const filterDesc = TRUNK_BRANCH_FILTERS.find((desc) => desc.name === filterName);
+	if (filterDesc === undefined) {
+		return undefined;
+	}
+
+	const values = parseFilterValues(value, filterDesc);
+	return values === undefined ? undefined : { name: filterDesc.name, values };
+}
+
 export function formatFilterValues(filter: AppliedFilter): string {
 	return filter.values.join(FILTER_OR_VALUE_SEPARATOR);
 }
 
 export function formatFilterName(
 	filter: AppliedFilter | FilterDescription | FilterSuggestion
-): string {
+): FormattedFilterName {
 	return `${filter.name}${FILTER_PROP_SEPARATOR}`;
+}
+
+export function isFormattedFilterName(something: string): something is FormattedFilterName {
+	const isFilterName = Object.values(FilterName).includes(
+		something.split(FILTER_PROP_SEPARATOR)[0] as FilterName
+	);
+
+	return isFilterName && something.endsWith(FILTER_PROP_SEPARATOR);
+}
+
+export function getFilterName(formattedName: FormattedFilterName): FilterName {
+	return formattedName.replace(FILTER_PROP_SEPARATOR, '') as FilterName;
 }
 
 function createAppliedFilterId(filterInfo: AppliedFilterInfo): string {
@@ -229,5 +280,9 @@ export function suggestionIsApplied(
 	suggestion: FilterSuggestion,
 	appliedFilters: AppliedFilter[]
 ): boolean {
-	return appliedFilters.some((filter) => filter.name === suggestion.name);
+	return appliedFilters.some(
+		(filter) =>
+			suggestion.value &&
+			filter.id === createAppliedFilterId({ name: suggestion.name, values: [suggestion.value] })
+	);
 }

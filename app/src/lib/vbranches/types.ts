@@ -255,7 +255,7 @@ export function isRemoteCommit(obj: any): obj is RemoteCommit {
 	return obj instanceof RemoteCommit;
 }
 
-interface CommitMetrics {
+export interface CommitMetrics {
 	name: string;
 	value: number;
 	commitIds: string[];
