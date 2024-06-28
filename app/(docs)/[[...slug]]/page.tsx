@@ -9,12 +9,10 @@ export default async function Page({ params }: { params: { slug?: string[] } }) 
 
   if (!page) notFound()
 
-  const path = `content/(docs)/${page.file.path}`
-
   const footer = (
     <>
       <a
-        href={`https://github.com/ndom91/gitbutler-docs/blob/main/${path}`}
+        href={`https://github.com/ndom91/gitbutler-docs/blob/main/content/docs/${page.file.path}`}
         target="_blank"
         rel="noreferrer noopener"
         className="group rounded-md text-neutral-500 dark:text-neutral-400 dark:bg-neutral-900 border border-neutral-300/50 text-sm py-1 dark:border-neutral-700 flex justify-center items-center gap-2 hover:bg-neutral-100 transition duration-300 dark:hover:bg-neutral-950"
