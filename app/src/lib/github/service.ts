@@ -70,7 +70,9 @@ export class GitHubService {
 		combineLatest([accessToken$, remoteUrl$])
 			.pipe(
 				tap(([accessToken, remoteUrl]) => {
-					if (!accessToken) {
+					// We check the remote url since GitHub is currently enabled at the account
+					// level rather than project level.
+					if (!accessToken || !remoteUrl?.includes('github.com')) {
 						return of();
 					}
 					this._octokit = new Octokit({
@@ -91,8 +93,8 @@ export class GitHubService {
 		combineLatest([this.reload$, accessToken$, remoteUrl$])
 			.pipe(
 				tap(() => this.error$.next(undefined)),
-				switchMap(([reload, _token, remoteUrl]) => {
-					if (!this.isEnabled || !remoteUrl) return EMPTY;
+				switchMap(([reload, _token, _remoteUrl]) => {
+					if (!this._octokit || !this._owner) return EMPTY;
 					const prs = this.fetchPrs(!!reload?.skipCache);
 					this.fresh$.next();
 					return prs;

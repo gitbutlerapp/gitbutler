@@ -26,16 +26,16 @@
 	});
 
 	const localCommits = getLocalCommits();
-	const remoteCommits = getLocalAndRemoteCommits();
-	const unknownCommits = getRemoteCommits();
+	const localAndRemoteCommits = getLocalAndRemoteCommits();
+	const remoteCommits = getRemoteCommits();
 
 	let isLoading: boolean;
 	let isInViewport = false;
 
-	$: canBePushed = $localCommits.length !== 0 || $unknownCommits.length !== 0;
-	$: hasUnknownCommits = $unknownCommits.length > 0;
+	$: canBePushed = $localCommits.length !== 0 || $remoteCommits.length !== 0;
+	$: hasRemoteCommits = $remoteCommits.length > 0;
 	$: hasCommits =
-		$localCommits.length > 0 || $remoteCommits.length > 0 || $unknownCommits.length > 0;
+		$localCommits.length > 0 || $localAndRemoteCommits.length > 0 || $remoteCommits.length > 0;
 </script>
 
 {#if !isUnapplied && hasCommits}
@@ -66,7 +66,7 @@
 				wide
 				projectId={project.id}
 				requiresForce={$branch.requiresForce}
-				integrate={hasUnknownCommits}
+				integrate={hasRemoteCommits}
 				{isLoading}
 				on:trigger={async (e) => {
 					isLoading = true;

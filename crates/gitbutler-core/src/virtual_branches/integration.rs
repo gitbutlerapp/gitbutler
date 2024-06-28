@@ -5,8 +5,8 @@ use bstr::ByteSlice;
 use lazy_static::lazy_static;
 
 use super::VirtualBranchesHandle;
+use crate::error::Marker;
 use crate::git::RepositoryExt;
-use crate::virtual_branches::errors::Marker;
 use crate::{
     git::{self, CommitExt},
     project_repository::{self, conflicts, LogUntil},
