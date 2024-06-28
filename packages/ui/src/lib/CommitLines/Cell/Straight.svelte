@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Color, Style } from '$lib/CommitLines/types';
+	import type { Color, Style } from '../types';
 
 	interface Props {
 		color: Color;

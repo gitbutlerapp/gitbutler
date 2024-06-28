@@ -1,9 +1,9 @@
 <script lang="ts">
-	import BaseNode from '$lib/CommitLines/BaseNode.svelte';
-	import Cell from '$lib/CommitLines/Cell.svelte';
-	import CommitNode from '$lib/CommitLines/CommitNode.svelte';
-	import { pxToRem } from '$lib/utils/pxToRem';
-	import type { Line } from '$lib/CommitLines/types';
+	import BaseNode from './BaseNode.svelte';
+	import Cell from './Cell.svelte';
+	import CommitNode from './CommitNode.svelte';
+	import { pxToRem } from '../utils/pxToRem';
+	import type { Line } from './types';
 
 	interface Props {
 		line: Line;
