@@ -3,7 +3,6 @@ title: Recovering Stuff
 ---
 
 import ImageSection from "@/components/ImageSection"
-import CodeEditor from "@/components/CodeEditor"
 import { File, Folder, Files } from 'fumadocs-ui/components/files';
 
 How to dig around our internal data to find (nearly) anything
@@ -14,9 +13,8 @@ GitButler saves data in a few different ways. As we're still in beta, sometimes 
 
 If everything crashes or the UI isn't working at all, you may be surprised to know that even though your virtual branches don't show up in a normal git branch output, we do actually constantly write them out as Git references (just not in refs/heads).
 
-<CodeEditor>
 
-```bash
+```bash title="Terminal"
 ❯ git for-each-ref | grep gitbutler
 e63b3bac82835dc17083a785d25db8b4b46744b9 commit	refs/gitbutler/add-can-create-method-to-notebook
 98ef3cd6eea14ee4159a600e448271c0d777efe2 commit	refs/gitbutler/add-conditional-blocks-for-image-and-video
@@ -24,7 +22,6 @@ c7e27b9f99f25160a4d5f07d5972c217bdd44319 commit	refs/gitbutler/add-database-sche
 4afdfed6c14b57491a9d295c31613fd79b92f63a commit	refs/gitbutler/add-gems-for-test-group
 ```
 
-</CodeEditor>
 
 These references are just like git branches - they point to a commit that has the latest version of your branch. You can create other git branches off of them, you can push them to GitHub, etc.
 
@@ -71,7 +68,7 @@ See how the `Add-database-schema-conversion-script` reference points to a "WIP c
 
 If you don't want to search through all your refs with `for-each-refs`, you can also just run a normal `git log` command and we'll show you what references we've written and which modified files are in each one:
 
-```bash
+```bash title="Terminal"
 ❯ git log
 commit 2d8afe0ea811b5f24b9a6f84f6d024bb323a2db5 (HEAD -> gitbutler/integration)
 Author: GitButler <gitbutler@gitbutler.com>
@@ -110,7 +107,7 @@ You can see the two `gitbutler` refs under the "Here are the branches that are c
 
 Again, these are real git refs, just not under `refs/heads` so that we don't pollute your `git branch` output. But if GitButler crashes at some point, you can still push them to GitHub or whatever you want. Here is an example pushing my virtual branch to a GitHub branch called `convert-tables`:
 
-```bash
+```bash title="Terminal"
 ❯ git push origin refs/gitbutler/Convert-tables-to-utf8mb4:refs/heads/convert-tables
 Enumerating objects: 6, done.
 Counting objects: 100% (6/6), done.
@@ -141,7 +138,7 @@ Every time that GitButler does some possibly data-changing operation, we store a
 
 You can inspect this by looking at the `.git/gitbutler/operations-log.toml` file.
 
-```bash
+```bash title="Terminal"
 ❯ tree .git/gitbutler
 .git/gitbutler
 ├── operations-log.toml
@@ -159,7 +156,7 @@ nanos_since_epoch = 560458000
 
 If we look at this commit, we can see the history of all of the project history snapshots that GitButler is keeping:
 
-```bash
+```bash title="Terminal"
 ❯ git log 16e47cb1d091ca9dd44327fef2f5305b09403a9 -2
 commit 16e47cb1d091ca9dd44327fef2f5305b09403a95
 Author: GitButler <gitbutler@gitbutler.com>
@@ -185,7 +182,7 @@ You can see that before creating a branch or updating our workspace with upstrea
 
 Let's look at the tree of one of these commits:
 
-```bash
+```bash title="Terminal"
 ❯ git cat-file -p 16e47cb1d091ca9dd44327fef2f5305b09403a95^{tree}
 040000 tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904    conflicts
 040000 tree b283f22f5abf4ed9c612c1b5b3b9a98ec25474b0    index
@@ -199,7 +196,7 @@ So, it's not a snapshot of your working directory alone, but it includes a bunch
 
 The state of your working directory is indeed stored in the workdir tree:
 
-```bash
+```bash title="Terminal"
 ❯ git cat-file -p 16e47cb1d091ca9dd44327fef2f5305b09403a95^{tree}:workdir
 040000 tree 6676978c86f95a96a59d712c2a4432a7df39f4c9    .cargo
 100644 blob 2cb803c6460cd42bce8611d101e1e546b3f57ada    .editorconfig
@@ -228,7 +225,7 @@ The state of your working directory is indeed stored in the workdir tree:
 
 So you can easily recover file contents from any of these snapshots if needed:
 
-```bash
+```bash title="Terminal"
 ❯ git cat-file -p 16e47cb1^{tree}:workdir/.github/dependabot.yml
 version: 2
 
@@ -243,7 +240,7 @@ Beyond that, we also store the state of your index in index as a tree, the state
 
 The virtual branches toml file has the metadata:
 
-```bash
+```bash title="Terminal"
 ❯ git cat-file -p 16e47cb1d091ca9dd44^{tree}:virtual_branches.toml
 [default_target]
 branchName = "master"

@@ -51,7 +51,7 @@ The only major thing we don't support yet is `gpg.ssh.defaultKeyCommand` for oth
 
 Here is an example, if you have a public key here `.ssh/id_ed25519.pub` then you can setup signing with something like this:
 
-```bash
+```bash title="Terminal"
 $ git config --global user.signingkey "/Users/schacon/.ssh/id_ed25519.pub"
 $ git config --global gpg.format ssh
 $ git config --global gitbutler.signCommits true
