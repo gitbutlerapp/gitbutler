@@ -43,7 +43,6 @@
 		"@sveltejs/kit": "^2.5.10",
 		"@sveltejs/package": "^2.3.2",
 		"@sveltejs/vite-plugin-svelte": "^3.1.1",
-		"globals": "^15.6.0",
 		"storybook": "^8.1.10",
 		"svelte": "5.0.0-next.149",
 		"svelte-check": "^3.8.0",

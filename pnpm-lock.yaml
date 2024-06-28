@@ -38,6 +38,9 @@ importers:
       eslint-plugin-svelte:
         specifier: 2.40.0
         version: 2.40.0(eslint@9.5.0)(svelte@5.0.0-next.149)
+      globals:
+        specifier: ^15.6.0
+        version: 15.6.0
       prettier:
         specifier: ^3.3.2
         version: 3.3.2
@@ -177,9 +180,6 @@ importers:
       git-url-parse:
         specifier: ^14.0.0
         version: 14.0.0
-      globals:
-        specifier: ^15.6.0
-        version: 15.6.0
       inter-ui:
         specifier: ^4.0.2
         version: 4.0.2
@@ -282,9 +282,6 @@ importers:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^3.1.1
         version: 3.1.1(svelte@5.0.0-next.149)(vite@5.2.13(@types/node@20.5.9))
-      globals:
-        specifier: ^15.6.0
-        version: 15.6.0
       storybook:
         specifier: ^8.1.10
         version: 8.1.10(@babel/preset-env@7.24.7(@babel/core@7.24.7))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
