@@ -33,3 +33,7 @@ runs:
     - name: Install dependencies
       shell: bash
       run: pnpm install
+
+    - name: Build @gitbutler/ui
+      shell: bash
+      run: cd packages/ui && pnpm package
