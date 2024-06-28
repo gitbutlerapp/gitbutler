@@ -11,6 +11,7 @@
 		projectCommitGenerationUseEmojis
 	} from '$lib/config/config';
 	import { showError } from '$lib/notifications/toasts';
+	import { isFailure } from '$lib/result';
 	import Checkbox from '$lib/shared/Checkbox.svelte';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
@@ -75,27 +76,35 @@
 		}
 
 		aiLoading = true;
-		try {
-			const prompt = promptService.selectedCommitPrompt(project.id);
-			console.log(prompt);
-			const generatedMessage = await aiService.summarizeCommit({
-				hunks,
-				useEmojiStyle: $commitGenerationUseEmojis,
-				useBriefStyle: $commitGenerationExtraConcise,
-				userToken: $user?.access_token,
-				commitTemplate: prompt
-			});
 
-			if (generatedMessage) {
-				commitMessage = generatedMessage;
-			} else {
-				throw new Error('Prompt generated no response');
-			}
-		} catch (e: any) {
-			showError('Failed to generate commit message', e);
-		} finally {
+		const prompt = promptService.selectedCommitPrompt(project.id);
+
+		const generatedMessageResult = await aiService.summarizeCommit({
+			hunks,
+			useEmojiStyle: $commitGenerationUseEmojis,
+			useBriefStyle: $commitGenerationExtraConcise,
+			userToken: $user?.access_token,
+			commitTemplate: prompt
+		});
+
+		if (isFailure(generatedMessageResult)) {
+			showError('Failed to generate commit message', generatedMessageResult.failure);
 			aiLoading = false;
+			return;
 		}
+
+		const generatedMessage = generatedMessageResult.value;
+
+		if (generatedMessage) {
+			commitMessage = generatedMessage;
+		} else {
+			const errorMessage = 'Prompt generated no response';
+			showError(errorMessage, undefined);
+			aiLoading = false;
+			return;
+		}
+
+		aiLoading = false;
 	}
 
 	onMount(async () => {

@@ -1,4 +1,5 @@
 import type { Persisted } from '$lib/persisted/persisted';
+import type { Result } from '$lib/result';
 
 export enum ModelKind {
 	OpenAI = 'openai',
@@ -33,7 +34,7 @@ export interface PromptMessage {
 export type Prompt = PromptMessage[];
 
 export interface AIClient {
-	evaluate(prompt: Prompt): Promise<string>;
+	evaluate(prompt: Prompt): Promise<Result<string, Error>>;
 
 	defaultBranchTemplate: Prompt;
 	defaultCommitTemplate: Prompt;

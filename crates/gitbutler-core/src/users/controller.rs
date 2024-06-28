@@ -19,7 +19,13 @@ impl Controller {
     }
 
     pub fn get_user(&self) -> anyhow::Result<Option<User>> {
-        self.storage.get().context("failed to get user")
+        match self.storage.get().context("failed to get user") {
+            Ok(user) => Ok(user),
+            Err(err) => {
+                self.storage.delete().ok();
+                Err(err)
+            }
+        }
     }
 
     pub fn set_user(&self, user: &User) -> anyhow::Result<()> {
