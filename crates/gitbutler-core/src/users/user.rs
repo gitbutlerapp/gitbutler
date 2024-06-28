@@ -1,3 +1,4 @@
+use crate::secret;
 use crate::types::Sensitive;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -39,7 +40,8 @@ impl User {
             return Ok(token.clone());
         }
         let err_msg = "access token for user was deleted from keychain - login is now invalid";
-        let secret = crate::secret::retrieve(Self::ACCESS_TOKEN_HANDLE)?.context(err_msg)?;
+        let secret = secret::retrieve(Self::ACCESS_TOKEN_HANDLE, secret::Namespace::BuildKind)?
+            .context(err_msg)?;
         *self.access_token.borrow_mut() = Some(secret.clone());
         Ok(secret)
     }
@@ -51,7 +53,10 @@ impl User {
         if let Some(token) = self.github_access_token.borrow().as_ref() {
             return Ok(Some(token.clone()));
         }
-        let secret = crate::secret::retrieve(Self::GITHUB_ACCESS_TOKEN_HANDLE)?;
+        let secret = secret::retrieve(
+            Self::GITHUB_ACCESS_TOKEN_HANDLE,
+            secret::Namespace::BuildKind,
+        )?;
         self.github_access_token.borrow_mut().clone_from(&secret);
         Ok(secret)
     }

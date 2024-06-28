@@ -30,4 +30,6 @@ pub mod remotes;
 pub mod undo;
 pub mod users;
 pub mod virtual_branches;
+pub mod secret;
+
 pub mod zip;

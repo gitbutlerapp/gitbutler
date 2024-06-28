@@ -9,22 +9,26 @@ use serial_test::serial;
 #[serial]
 fn retrieve_unknown_is_none() {
     credentials::setup();
-    assert!(secret::retrieve("does not exist for sure")
-        .expect("no error to ask for non-existing")
-        .is_none());
+    for ns in all_namespaces() {
+        assert!(secret::retrieve("does not exist for sure", *ns)
+            .expect("no error to ask for non-existing")
+            .is_none());
+    }
 }
 
 #[test]
 #[serial]
 fn store_and_retrieve() -> anyhow::Result<()> {
     credentials::setup();
-    secret::persist("new", &Sensitive("secret".into()))?;
-    let secret = secret::retrieve("new")?.expect("it was just stored");
-    assert_eq!(
-        secret.0, "secret",
-        "note that this works only if the engine supports actual persistence, \
+    for ns in all_namespaces() {
+        secret::persist("new", &Sensitive("secret".into()), *ns)?;
+        let secret = secret::retrieve("new", *ns)?.expect("it was just stored");
+        assert_eq!(
+            secret.0, "secret",
+            "note that this works only if the engine supports actual persistence, \
                which should be the default outside of tests"
-    );
+        );
+    }
     Ok(())
 }
 
@@ -32,17 +36,23 @@ fn store_and_retrieve() -> anyhow::Result<()> {
 #[serial]
 fn store_empty_equals_deletion() -> anyhow::Result<()> {
     credentials::setup();
-    secret::persist("new", &Sensitive("secret".into()))?;
-    assert_eq!(credentials::count(), 1);
+    for ns in all_namespaces() {
+        secret::persist("new", &Sensitive("secret".into()), *ns)?;
+        assert_eq!(credentials::count(), 1);
 
-    secret::persist("new", &Sensitive("".into()))?;
-    assert_eq!(
-        secret::retrieve("new")?.map(|s| s.0),
-        None,
-        "empty passwords are automatically deleted"
-    );
-    assert_eq!(credentials::count(), 0);
+        secret::persist("new", &Sensitive("".into()), *ns)?;
+        assert_eq!(
+            secret::retrieve("new", *ns)?.map(|s| s.0),
+            None,
+            "empty passwords are automatically deleted"
+        );
+        assert_eq!(credentials::count(), 0);
+    }
     Ok(())
+}
+
+fn all_namespaces() -> &'static [secret::Namespace] {
+    &[secret::Namespace::Global, secret::Namespace::BuildKind]
 }
 
 pub(crate) mod credentials;

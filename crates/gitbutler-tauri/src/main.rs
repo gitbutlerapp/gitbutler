@@ -15,8 +15,8 @@
 
 use gitbutler_core::{assets, git, storage};
 use gitbutler_tauri::{
-    app, askpass, commands, config, github, keys, logs, menu, projects, remotes, undo, users,
-    virtual_branches, watcher, zip,
+    app, askpass, commands, config, github, keys, logs, menu, projects, remotes, secret, undo,
+    users, virtual_branches, watcher, zip,
 };
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
@@ -215,6 +215,8 @@ fn main() {
                     virtual_branches::commands::squash_branch_commit,
                     virtual_branches::commands::fetch_from_remotes,
                     virtual_branches::commands::move_commit,
+                    secret::secret_get_global,
+                    secret::secret_set_global,
                     undo::list_snapshots,
                     undo::restore_snapshot,
                     undo::snapshot_diff,

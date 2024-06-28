@@ -1,8 +1,8 @@
+use super::{storage::Storage, User};
+use crate::secret;
 use anyhow::Context;
 use anyhow::Result;
 use std::path::PathBuf;
-
-use super::{storage::Storage, User};
 
 /// TODO(ST): rename to `Login` - seems more akin to what it does
 /// This type deals with user-related data which is only known if the user is logged in to GitButler.
@@ -45,8 +45,9 @@ impl Controller {
 
     pub fn delete_user(&self) -> Result<()> {
         self.storage.delete().context("failed to delete user")?;
-        crate::secret::delete(User::ACCESS_TOKEN_HANDLE).ok();
-        crate::secret::delete(User::GITHUB_ACCESS_TOKEN_HANDLE).ok();
+        let namespace = secret::Namespace::BuildKind;
+        secret::delete(User::ACCESS_TOKEN_HANDLE, namespace).ok();
+        secret::delete(User::GITHUB_ACCESS_TOKEN_HANDLE, namespace).ok();
         Ok(())
     }
 }
@@ -54,11 +55,13 @@ impl Controller {
 /// As `user` sports interior mutability right now, let's play it safe and work with fully owned items only.
 fn write_without_secrets_if_secrets_present(storage: &Storage, user: User) -> Result<bool> {
     let mut needs_write = false;
+    let namespace = secret::Namespace::BuildKind;
     if let Some(gb_token) = user.access_token.borrow_mut().take() {
-        needs_write |= crate::secret::persist(User::ACCESS_TOKEN_HANDLE, &gb_token).is_ok();
+        needs_write |= secret::persist(User::ACCESS_TOKEN_HANDLE, &gb_token, namespace).is_ok();
     }
     if let Some(gh_token) = user.github_access_token.borrow_mut().take() {
-        needs_write |= crate::secret::persist(User::GITHUB_ACCESS_TOKEN_HANDLE, &gh_token).is_ok();
+        needs_write |=
+            secret::persist(User::GITHUB_ACCESS_TOKEN_HANDLE, &gh_token, namespace).is_ok();
     }
     if needs_write {
         storage.set(&user)?;
