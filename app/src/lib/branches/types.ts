@@ -31,7 +31,7 @@ export class CombinedBranch {
 	}
 
 	get displayName(): string {
-		return this.pr?.title || this.remoteBranch?.displayName || this.vbranch?.name || 'unknown';
+		return this.remoteBranch?.displayName || this.vbranch?.name || 'unknown';
 	}
 
 	get authors(): Author[] {
