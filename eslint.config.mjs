@@ -144,7 +144,7 @@ export default tsEslint.config(
 						'./app/tsconfig.json',
 						'./app/.svelte-kit/tsconfig.json',
 						'./packages/**/tsconfig.json',
-						'./packages/**/.svelte-kit/tsconfig.json'
+						'./packages/ui/.svelte-kit/tsconfig.json'
 					]
 				}
 			}
