@@ -161,7 +161,10 @@
 					const value = e.currentTarget.value;
 					if (e.key === 'Backspace' && value.length === 0) {
 						e.preventDefault();
-						titleTextArea?.focus();
+						if (titleTextArea) {
+							titleTextArea?.focus();
+							titleTextArea.selectionStart = titleTextArea.textLength;
+						}
 						useAutoHeight(e.currentTarget);
 					} else if (e.key === 'a' && (e.metaKey || e.ctrlKey) && value.length === 0) {
 						// select previous textarea on cmd+a if this textarea is empty
