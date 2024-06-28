@@ -11,7 +11,7 @@ use super::{
     },
     target, BranchId, RemoteCommit, VirtualBranchHunk, VirtualBranchesHandle,
 };
-use crate::{git::RepositoryExt, rebase::cherry_rebase, virtual_branches::errors::Marker};
+use crate::{error::Marker, git::RepositoryExt, rebase::cherry_rebase};
 use crate::{
     git::{self, diff},
     project_repository::{self, LogUntil},

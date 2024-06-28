@@ -26,13 +26,13 @@ use super::{
     branch_to_remote_branch, target, RemoteBranch, VirtualBranchesHandle,
 };
 use crate::error::Code;
+use crate::error::Marker;
 use crate::git::diff::GitHunk;
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
 use crate::git::{CommitExt, RepositoryExt};
 use crate::rebase::{cherry_rebase, cherry_rebase_group};
 use crate::time::now_since_unix_epoch_ms;
 use crate::virtual_branches::branch::HunkHash;
-use crate::virtual_branches::errors::Marker;
 use crate::{
     dedup::{dedup, dedup_fmt},
     git::{
