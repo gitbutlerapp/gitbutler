@@ -2,8 +2,6 @@ pub mod branch;
 pub use branch::{Branch, BranchId};
 pub mod target;
 
-pub mod errors;
-
 mod files;
 pub use files::*;
 

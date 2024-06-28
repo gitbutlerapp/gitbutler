@@ -1,6 +1,4 @@
-use crate::{
-    git::CommitExt, git::RepositoryExt, project_repository, virtual_branches::errors::Marker,
-};
+use crate::{error::Marker, git::CommitExt, git::RepositoryExt, project_repository};
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
 
