@@ -2228,27 +2228,6 @@ pub fn write_tree_onto_tree(
     Ok(tree_oid)
 }
 
-fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
-    println!("tree id: {}", tree.id());
-    for entry in tree {
-        println!(
-            "  entry: {} {}",
-            entry.name().unwrap_or_default(),
-            entry.id()
-        );
-        // get entry contents
-        let object = entry.to_object(repo).context("failed to get object")?;
-        let blob = object.as_blob().context("failed to get blob")?;
-        // convert content to string
-        if let Ok(content) = std::str::from_utf8(blob.content()) {
-            println!("    blob: {}", content);
-        } else {
-            println!("    blob: BINARY");
-        }
-    }
-    Ok(())
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn commit(
     project_repository: &project_repository::Repository,
