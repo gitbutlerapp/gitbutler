@@ -49,7 +49,7 @@
 	class="textbox"
 	bind:this={element}
 	class:wide
-	style:width={pxToRem(width)}
+	style:width={width ? pxToRem(width) : undefined}
 	class:wiggle={!isInputValid}
 >
 	{#if label}
