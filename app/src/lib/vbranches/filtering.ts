@@ -1,7 +1,11 @@
+import lscache from 'lscache';
 import type { CommitMetrics, CommitStatus, RemoteCommit } from './types';
 
 const FILTER_PROP_SEPARATOR = ':';
 const FILTER_OR_VALUE_SEPARATOR = ',';
+const APPLIED_FILTERS_CACHE_KEY = 'AppliedSearchFilters';
+const APPLIED_FILTERS_CACHE_EXPIRATION_MIN = 7 * 24 * 60; // 7 days
+const APPLIED_FILTERS_CACHE_MAX_SIZE = 5;
 
 export enum FilterName {
 	Author = 'author',
@@ -248,7 +252,7 @@ export function getFilterName(formattedName: FormattedFilterName): FilterName {
 	return formattedName.replace(FILTER_PROP_SEPARATOR, '') as FilterName;
 }
 
-function createAppliedFilterId(filterInfo: AppliedFilterInfo): string {
+export function createAppliedFilterId(filterInfo: AppliedFilterInfo): string {
 	return `${filterInfo.name}${FILTER_PROP_SEPARATOR}${filterInfo.values.sort().join(FILTER_OR_VALUE_SEPARATOR)}`;
 }
 
@@ -261,9 +265,13 @@ export function createAppliedFilter(filterInfo: AppliedFilterInfo): AppliedFilte
 
 export function addAppliedFilter(
 	filters: AppliedFilter[],
-	toAdd: AppliedFilterInfo
+	toAdd: AppliedFilterInfo,
+	appendOnly?: boolean
 ): AppliedFilter[] {
 	const newFilter = createAppliedFilter(toAdd);
+	if (appendOnly) {
+		return [...filters.filter((f) => f.id !== newFilter.id), newFilter];
+	}
 	if (filters.some((filter) => filter.id === newFilter.id)) {
 		return filters;
 	}
@@ -305,4 +313,24 @@ export function getFilterEmoji(filterName: FilterName): string {
 		case FilterName.Message:
 			return '💬';
 	}
+}
+
+export function loadAppliedFilters(projectId: string, branchName: string): AppliedFilter[] {
+	const filters = lscache.get(`${APPLIED_FILTERS_CACHE_KEY}:${projectId}:${branchName}`);
+	return filters ? JSON.parse(filters) : [];
+}
+
+export function cacheAppliedFilters(
+	projectId: string,
+	branchName: string,
+	filter: AppliedFilterInfo
+): AppliedFilter[] {
+	let filters = loadAppliedFilters(projectId, branchName);
+	filters = addAppliedFilter(filters, filter, true).slice(-APPLIED_FILTERS_CACHE_MAX_SIZE);
+	lscache.set(
+		`${APPLIED_FILTERS_CACHE_KEY}:${projectId}:${branchName}`,
+		JSON.stringify(filters),
+		APPLIED_FILTERS_CACHE_EXPIRATION_MIN
+	);
+	return filters;
 }

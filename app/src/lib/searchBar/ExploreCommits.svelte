@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { getFilterContext } from './filterContext.svelte';
 	import {
+		formatFilterValues,
 		getFilterEmoji,
+		type AppliedFilter,
 		type FilterDescription,
 		type FilterSuggestion
 	} from '$lib/vbranches/filtering';
@@ -18,8 +20,12 @@
 
 	const filterContext = getFilterContext();
 
-	const quickFilters = filterDescriptions.flatMap(
-		(d) => d.dynamicSuggestions?.slice(undefined, DYNAMIC_SUGGESTIONS_QUICK_FILTER) ?? []
+	const quickFilters = $derived<FilterSuggestion[]>(
+		filterDescriptions
+			.flatMap(
+				(d) => d.dynamicSuggestions?.slice(undefined, DYNAMIC_SUGGESTIONS_QUICK_FILTER) ?? []
+			)
+			.filter((s) => !filterContext.hasRecentFilter(s))
 	);
 
 	function handleSuggestionClick(suggestion: FilterSuggestion) {
@@ -29,10 +35,24 @@
 		}
 		expanded = false;
 	}
+
+	function handleFilterClick(filter: AppliedFilter) {
+		filterContext.addFilter(filter);
+		expanded = false;
+	}
 </script>
 
 <div class="explore-container" class:expanded>
 	<div class="explore-row">
+		{#each filterContext.recentFilters as filter}
+			<button
+				onclick={() => handleFilterClick(filter)}
+				class="explore-filter card text-semibold text-base-11"
+			>
+				{getFilterEmoji(filter.name)}
+				{formatFilterValues(filter)}
+			</button>
+		{/each}
 		{#each quickFilters as filter}
 			<button
 				onclick={() => handleSuggestionClick(filter)}

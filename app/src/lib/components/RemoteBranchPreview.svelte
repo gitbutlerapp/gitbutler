@@ -42,11 +42,7 @@
 	let commitListElem: RemoteCommitList;
 
 	// Reset the search query and filters when the branch changes
-	$: {
-		if (branch) {
-			filterContext.clear();
-		}
-	}
+	$: if (branch) filterContext.init(branch.name);
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);

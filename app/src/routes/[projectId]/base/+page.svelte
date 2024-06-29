@@ -43,9 +43,10 @@
 
 	$: error$ = baseBranchService.error$;
 
+	$: if ($baseBranch?.branchName) filterContext.init($baseBranch?.branchName);
+
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
-		filterContext.clear();
 	});
 </script>
 
