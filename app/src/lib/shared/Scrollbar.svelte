@@ -34,10 +34,10 @@
 
 	$: vert = !horz;
 
-	$: paddingTop = pxToRem(padding.top) ?? '0px';
-	$: paddingBottom = pxToRem(padding.bottom) ?? '0px';
-	$: paddingRight = pxToRem(padding.right) ?? '0px';
-	$: paddingLeft = pxToRem(padding.left) ?? '0px';
+	$: paddingTop = pxToRem(padding.top ?? 0);
+	$: paddingBottom = pxToRem(padding.bottom ?? 0);
+	$: paddingRight = pxToRem(padding.right ?? 0);
+	$: paddingLeft = pxToRem(padding.left ?? 0);
 
 	$: wholeHeight = viewport?.scrollHeight ?? 0;
 	$: wholeWidth = viewport?.scrollWidth ?? 0;
