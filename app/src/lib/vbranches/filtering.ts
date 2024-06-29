@@ -130,15 +130,16 @@ export function getTrunkBranchFilters(
 			continue;
 		}
 
-		filter.dynamicSuggestions ??= [];
+		const f = { ...filter };
+		f.dynamicSuggestions ??= [];
 		for (const v of values) {
-			filter.dynamicSuggestions.push({
-				name: filter.name,
+			f.dynamicSuggestions.push({
+				name: f.name,
 				value: v.name,
-				description: `Number of commits: ${v.value}`
+				description: v.value.toString()
 			});
 		}
-		result.push(filter);
+		result.push(f);
 	}
 
 	return result;
