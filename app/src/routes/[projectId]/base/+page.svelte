@@ -3,6 +3,7 @@
 	import BaseBranch from '$lib/components/BaseBranch.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
+	import ExploreCommits from '$lib/searchBar/ExploreCommits.svelte';
 	import SearchBarContainer from '$lib/searchBar/SearchBarContainer.svelte';
 	import { getFilterContext } from '$lib/searchBar/filterContext.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
@@ -38,6 +39,7 @@
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
+	let hideCommitList: boolean = true;
 
 	$: error$ = baseBranchService.error$;
 
@@ -52,8 +54,12 @@
 {:else if !$baseBranch}
 	<FullviewLoading />
 {:else}
-	<SearchBarContainer filterDescriptions={$filterDescriptions}>
-		<div class="base">
+	<SearchBarContainer
+		filterDescriptions={$filterDescriptions}
+		onFocus={() => (hideCommitList = false)}
+	>
+		<ExploreCommits bind:expanded={hideCommitList} filterDescriptions={$filterDescriptions} />
+		<div class="base" class:open={!hideCommitList}>
 			<div
 				class="base__left"
 				bind:this={rsViewport}
@@ -95,10 +101,23 @@
 
 <style lang="postcss">
 	.base {
+		z-index: var(--z-lifted);
 		display: flex;
 		width: 100%;
 		overflow-x: auto;
+		position: relative;
+		top: 100vh;
+		opacity: 0;
+		transition:
+			top var(--transition-slower),
+			opacity var(--transition-slower);
+
+		&.open {
+			top: 0;
+			opacity: 1;
+		}
 	}
+
 	.base__left {
 		display: flex;
 		flex-grow: 0;

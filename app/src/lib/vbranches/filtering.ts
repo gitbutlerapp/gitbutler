@@ -286,3 +286,22 @@ export function suggestionIsApplied(
 			filter.id === createAppliedFilterId({ name: suggestion.name, values: [suggestion.value] })
 	);
 }
+
+export function getFilterEmoji(filterName: FilterName): string {
+	switch (filterName) {
+		case FilterName.Author:
+			return '👤';
+		case FilterName.Origin:
+			return '🔗';
+		case FilterName.SHA:
+			return '🔑';
+		case FilterName.File:
+			return '📄';
+		case FilterName.Title:
+			return '🏷️';
+		case FilterName.Body:
+			return '📝';
+		case FilterName.Message:
+			return '💬';
+	}
+}

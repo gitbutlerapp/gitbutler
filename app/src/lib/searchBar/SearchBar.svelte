@@ -17,9 +17,10 @@
 		placeholder?: string;
 		icon?: keyof typeof iconsJson;
 		filterDescriptions?: FilterDescription[];
+		onFocus?: () => void;
 	}
 
-	let { filterDescriptions, placeholder, icon }: Props = $props();
+	let { filterDescriptions, placeholder, icon, onFocus }: Props = $props();
 
 	const filterContext = getFilterContext();
 
@@ -122,6 +123,11 @@
 				break;
 		}
 	}
+
+	function onfocus() {
+		onFocus?.();
+		filterSuggestionElem?.openList();
+	}
 </script>
 
 <div class="search-bar-wrapper" bind:this={searchBarWrapper}>
@@ -148,7 +154,7 @@
 			bind:value={filterContext.searchQuery}
 			bind:this={searchBarInput}
 			{onkeydown}
-			onfocus={() => filterSuggestionElem?.openList()}
+			{onfocus}
 		/>
 	</div>
 
