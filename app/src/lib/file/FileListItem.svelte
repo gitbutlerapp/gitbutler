@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FileContextMenu from './FileContextMenu.svelte';
 	import FileStatusIcons from './FileStatusIcons.svelte';
-	import { draggable } from '$lib/dragging/draggable';
+	import { draggable } from '$lib/dragging/draggableChips';
 	import { DraggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import Checkbox from '$lib/shared/Checkbox.svelte';
@@ -117,6 +117,9 @@
 		}
 	}}
 	use:draggable={{
+		label: `${file.filename}`,
+		filePath: file.path,
+		kind: 'file',
 		data: $selectedFiles.then(
 			(files) => new DraggableFile($branch?.id || '', file, $commit, files)
 		),
@@ -227,6 +230,7 @@
 	}
 
 	.info {
+		pointer-events: none;
 		display: flex;
 		align-items: center;
 		flex-grow: 1;
