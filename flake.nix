@@ -31,7 +31,7 @@
             gettext
             libiconv
             libsoup_3
-            webkitgtk
+            webkitgtk_6_0
             nodejs_20
             corepack_20
           ];

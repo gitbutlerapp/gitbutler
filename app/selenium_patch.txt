@@ -1,0 +1,4 @@
+Setup `selenium-webdriver` node package
+
+1. Add some logging to `node_modules/selenium-webdriver/lib/http.js` in the `executing()` fn (~line 431)
+2. Run `SELENIUM_REMOTE_URL=http://localhost:4444 pnpm test:e2e` in `app` dir
