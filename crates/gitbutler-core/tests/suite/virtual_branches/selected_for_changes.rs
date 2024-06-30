@@ -44,13 +44,10 @@ async fn unapplying_selected_branch_selects_anther() {
 
     let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
 
-    assert_eq!(branches.len(), 2);
-    assert_eq!(branches[0].id, b.id);
-    assert!(!branches[0].selected_for_changes);
-    assert!(!branches[0].active);
-    assert_eq!(branches[1].id, b2.id);
-    assert!(branches[1].selected_for_changes);
-    assert!(branches[1].active);
+    assert_eq!(branches.len(), 1);
+    assert_eq!(branches[0].id, b2.id);
+    assert!(branches[0].selected_for_changes);
+    assert!(branches[0].active);
 }
 
 #[tokio::test]
@@ -289,20 +286,33 @@ async fn unapply_virtual_branch_should_reset_selected_for_changes() {
         .unwrap();
     assert!(b1.selected_for_changes);
 
-    controller
-        .convert_to_real_branch(*project_id, b1_id, Default::default())
+    let b2_id = controller
+        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
-    let b1 = controller
+    let b2 = controller
         .list_virtual_branches(*project_id)
         .await
         .unwrap()
         .0
         .into_iter()
-        .find(|b| b.id == b1_id)
+        .find(|b| b.id == b2_id)
         .unwrap();
-    assert!(!b1.selected_for_changes);
+    assert!(!b2.selected_for_changes);
+
+    controller
+        .convert_to_real_branch(*project_id, b1_id, Default::default())
+        .await
+        .unwrap();
+
+    assert!(controller
+        .list_virtual_branches(*project_id)
+        .await
+        .unwrap()
+        .0
+        .into_iter()
+        .any(|b| b.selected_for_changes && b.id != b1_id))
 }
 
 #[tokio::test]
@@ -359,12 +369,13 @@ async fn applying_first_branch() {
     let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
-    controller
+    let unapplied_branch = controller
         .convert_to_real_branch(*project_id, branches[0].id, Default::default())
         .await
         .unwrap();
+    let unapplied_branch = git::Refname::from_str(&unapplied_branch).unwrap();
     controller
-        .apply_virtual_branch(*project_id, branches[0].id)
+        .create_virtual_branch_from_branch(*project_id, &unapplied_branch)
         .await
         .unwrap();
 
