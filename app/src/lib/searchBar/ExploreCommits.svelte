@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { getFilterContext } from './filterContext.svelte';
+	import Icon from '$lib/shared/Icon.svelte';
+	import { getContext } from '$lib/utils/context';
+	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import {
 		formatFilterValues,
 		getFilterEmoji,
@@ -19,6 +22,10 @@
 	let { expanded = $bindable(), filterDescriptions }: Props = $props();
 
 	const filterContext = getFilterContext();
+	const baseBranchService = getContext(BaseBranchService);
+
+	let isBusy = $state<boolean>(true);
+	baseBranchService.busy$.subscribe((busy) => (isBusy = busy));
 
 	const quickFilters = $derived<FilterSuggestion[]>(
 		filterDescriptions
@@ -77,6 +84,9 @@
 				<div class="card explore-list">
 					<h3 class="text-base-14 text-semibold">
 						{getFilterEmoji(filter.name)} Top {filter.name}s
+						{#if isBusy}
+							<Icon name="spinner" />
+						{/if}
 					</h3>
 					<ul>
 						{#each filter.dynamicSuggestions.slice(undefined, DYNAMIC_SUGGESTIONS_EXPANDED_FILTER) as suggestion}

@@ -25,6 +25,7 @@ export class BaseBranchService {
 	readonly busy$ = new BehaviorSubject(false);
 	readonly error$ = new BehaviorSubject<any>(undefined);
 	private readonly reload$ = new Subject<void>();
+	private numCommits: undefined | number = undefined;
 
 	readonly base: Readable<BaseBranch | null | undefined>;
 	readonly error: Readable<any>;
@@ -40,7 +41,7 @@ export class BaseBranchService {
 			debounceTime(100),
 			switchMap(async () => {
 				this.busy$.next(true);
-				const baseBranch = await getBaseBranch({ projectId });
+				const baseBranch = await getBaseBranch({ projectId, numCommits: this.numCommits });
 				if (!baseBranch) {
 					throw new NoDefaultTarget();
 				}
@@ -87,6 +88,12 @@ export class BaseBranchService {
 		}
 	}
 
+	fetchLastCommits(numCommits: number) {
+		if (numCommits === this.numCommits) return;
+		this.numCommits = numCommits;
+		this.reload();
+	}
+
 	async setTarget(branch: string, pushRemote: string | undefined = undefined) {
 		this.busy$.next(true);
 		await invoke<BaseBranch>('set_base_branch', {
@@ -103,7 +110,10 @@ export class BaseBranchService {
 	}
 }
 
-async function getBaseBranch(params: { projectId: string }): Promise<BaseBranch | null> {
+async function getBaseBranch(params: {
+	projectId: string;
+	numCommits?: number;
+}): Promise<BaseBranch | null> {
 	return plainToInstance(BaseBranch, await invoke<any>('get_base_branch_data', params));
 }
 

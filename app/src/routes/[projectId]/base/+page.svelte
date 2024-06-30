@@ -17,6 +17,8 @@
 	import { onMount, setContext } from 'svelte';
 	import { derived, writable } from 'svelte/store';
 
+	const COMMITS_TO_FETCH = 500;
+
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'historyLaneWidth';
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
@@ -47,6 +49,7 @@
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
+		baseBranchService.fetchLastCommits(COMMITS_TO_FETCH);
 	});
 </script>
 
