@@ -1,5 +1,6 @@
 import { dropzoneRegistry } from './dropzone';
 import { getVSIFileIcon } from '$lib/ext-icons';
+import { pxToRem } from '$lib/utils/pxToRem';
 import { type CommitStatus } from '$lib/vbranches/types';
 import type { Draggable } from './draggables';
 
@@ -32,7 +33,12 @@ function setupDragHandlers(
 	node: HTMLElement,
 	opts: DraggableConfig,
 	createClone: (opts: DraggableConfig, selectedElements: HTMLElement[]) => HTMLElement,
-	handlerWidth: boolean = false
+	params: {
+		handlerWidth: boolean;
+		maxHeight?: number;
+	} = {
+		handlerWidth: false
+	}
 ) {
 	let dragHandle: HTMLElement | null;
 	let clone: HTMLElement;
@@ -63,8 +69,11 @@ function setupDragHandlers(
 		}
 
 		clone = createClone(opts, selectedElements);
-		if (handlerWidth) {
+		if (params.handlerWidth) {
 			clone.style.width = node.clientWidth + 'px';
+		}
+		if (params.maxHeight) {
+			clone.style.maxHeight = pxToRem(params.maxHeight);
 		}
 		selectedElements.forEach((el) => (el.style.opacity = '0.5'));
 		document.body.appendChild(clone);
@@ -74,7 +83,7 @@ function setupDragHandlers(
 		});
 
 		if (e.dataTransfer) {
-			if (handlerWidth) {
+			if (params.handlerWidth) {
 				e.dataTransfer.setDragImage(clone, e.offsetX, e.offsetY);
 			} else {
 				e.dataTransfer.setDragImage(clone, clone.offsetWidth - 20, 25);
@@ -137,7 +146,9 @@ function setupDragHandlers(
 	};
 }
 
-// COMMIT DRAGGABLE
+//////////////////////////
+//// COMMIT DRAGGABLE ////
+//////////////////////////
 
 export function createCommitElement(
 	commitType: CommitStatus | undefined,
@@ -145,7 +156,7 @@ export function createCommitElement(
 	sha: string | undefined,
 	dateAndAuthor: string | undefined
 ): HTMLDivElement {
-	const chipEl = createElement('div', ['draggable-commit']) as HTMLDivElement;
+	const cardEl = createElement('div', ['draggable-commit']) as HTMLDivElement;
 	const labelEl = createElement('span', ['text-base-13', 'text-bold'], label);
 	const infoEl = createElement('div', ['draggable-commit-info', 'text-base-11']);
 	const shaEl = createElement('span', ['draggable-commit-info-text'], sha);
@@ -156,21 +167,25 @@ export function createCommitElement(
 		labelEl.classList.add('draggable-commit-indicator', indicatorClass);
 	}
 
-	chipEl.appendChild(labelEl);
+	cardEl.appendChild(labelEl);
 	infoEl.appendChild(shaEl);
 	infoEl.appendChild(dateAndAuthorEl);
-	chipEl.appendChild(infoEl);
-	return chipEl;
+	cardEl.appendChild(infoEl);
+	return cardEl;
 }
 
 export function draggableCommit(node: HTMLElement, initialOpts: DraggableConfig) {
 	function createClone(opts: DraggableConfig) {
 		return createCommitElement(opts.commitType, opts.label, opts.sha, opts.dateAndAuthor);
 	}
-	return setupDragHandlers(node, initialOpts, createClone, true);
+	return setupDragHandlers(node, initialOpts, createClone, {
+		handlerWidth: true
+	});
 }
 
-// FILE DRAGGABLE
+////////////////////////
+//// FILE DRAGGABLE ////
+////////////////////////
 
 export function createChipsElement(
 	childrenAmount: number,
@@ -217,4 +232,23 @@ export function draggableChips(node: HTMLElement, initialOpts: DraggableConfig) 
 		return createChipsElement(selectedElements.length, opts.label, opts.filePath);
 	}
 	return setupDragHandlers(node, initialOpts, createClone);
+}
+
+////////////////////////
+//// HUNK DRAGGABLE ////
+////////////////////////
+
+export function cloneHunkElement(node: HTMLElement) {
+	const cloneEl = node.cloneNode(true) as HTMLElement;
+
+	return cloneEl;
+}
+
+export function draggableHunk(node: HTMLElement, initialOpts: DraggableConfig) {
+	function createClone() {
+		return cloneHunkElement(node);
+	}
+	return setupDragHandlers(node, initialOpts, createClone, {
+		handlerWidth: true
+	});
 }

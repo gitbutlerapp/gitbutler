@@ -115,6 +115,13 @@
 	}
 }
 
+.draggable-commit-integrated {
+	color: var(--clr-text-1);
+	&::before {
+		background-color: var(--clr-commit-shadow);
+	}
+}
+
 .draggable-commit-info {
 	display: flex;
 	align-items: center;
