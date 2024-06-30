@@ -1,7 +1,5 @@
 .draggable-chip-container {
 	position: absolute;
-	top: -9999px;
-	left: -9999px;
 	display: flex;
 }
 
@@ -16,6 +14,7 @@
 	border: 1px solid var(--clr-border-2);
 	padding: 8px;
 	min-width: 50px;
+	max-width: 250px;
 }
 
 .draggable-chip-icon {
@@ -76,5 +75,38 @@
 		z-index: 1;
 		top: 12px;
 		left: 12px;
+	}
+}
+
+/* COMMIT */
+.draggable-commit {
+	position: absolute;
+	background-color: var(--clr-bg-1);
+	border-radius: var(--radius-m);
+	border: 1px solid var(--clr-border-2);
+	padding: 12px 12px 12px 16px;
+	overflow: hidden;
+}
+
+.draggable-commit-indicator {
+	&::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 4px;
+		height: 100%;
+	}
+}
+
+.draggable-commit-localAndRemote {
+	&::before {
+		background-color: var(--clr-commit-remote);
+	}
+}
+
+.draggable-commit-local {
+	&::before {
+		background-color: var(--clr-commit-local);
 	}
 }

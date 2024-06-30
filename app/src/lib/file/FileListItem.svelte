@@ -119,7 +119,6 @@
 	use:draggable={{
 		label: `${file.filename}`,
 		filePath: file.path,
-		kind: 'file',
 		data: $selectedFiles.then(
 			(files) => new DraggableFile($branch?.id || '', file, $commit, files)
 		),

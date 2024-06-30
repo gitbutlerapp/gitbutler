@@ -1,69 +1,45 @@
 import { dropzoneRegistry } from './dropzone';
-import { getVSIFileIcon } from '$lib/ext-icons';
+import { type CommitStatus } from '$lib/vbranches/types';
 import type { Draggable } from './draggables';
 
 export interface DraggableConfig {
 	readonly selector?: string;
 	readonly disabled?: boolean;
 	readonly label?: string;
-	readonly filePath?: string;
+	readonly commitType?: CommitStatus;
 	readonly data?: Draggable | Promise<Draggable>;
 	readonly viewportId?: string;
 }
 
 export function createChipsElement(
-	childrenAmount: number,
-	label: string | undefined,
-	filePath: string | undefined
+	commitType: CommitStatus | undefined,
+	label: string | undefined
 ): HTMLDivElement {
-	// CREATE CONTAINER
-	const containerEl = document.createElement('div');
-	containerEl.classList.add('draggable-chip-container');
-
 	// CREATE CHIP
 	const chipEl = document.createElement('div');
-	chipEl.classList.add('draggable-chip');
-	containerEl.appendChild(chipEl);
-
-	// CREATE ICON
-	if (filePath) {
-		const iconEl = document.createElement('img');
-		iconEl.classList.add('draggable-chip-icon');
-		iconEl.src = getVSIFileIcon(filePath);
-		chipEl.appendChild(iconEl);
-	}
+	chipEl.classList.add('draggable-commmit');
 
 	// CREATE LABEL
 	const labelEl = document.createElement('span');
-	labelEl.classList.add('text-base-12');
+	labelEl.classList.add('text-base-13', 'text-bold');
+
 	labelEl.textContent = label || '';
 	chipEl.appendChild(labelEl);
 
-	// CREATE AMOUNT TAG
-	if (childrenAmount > 1) {
-		const amountTag = document.createElement('div');
-		amountTag.classList.add('text-base-11', 'text-bold', 'draggable-chip-amount');
-		amountTag.textContent = childrenAmount.toString();
-		chipEl.appendChild(amountTag);
+	if (commitType === 'localAndRemote') {
+		labelEl.classList.add('draggable-commmit-indicator', 'draggable-commmit-remote');
+	}
+	if (commitType === 'local') {
+		labelEl.classList.add('draggable-commmit-indicator', 'draggable-commmit-local');
 	}
 
-	if (childrenAmount === 2) {
-		containerEl.classList.add('draggable-chip-two');
-	}
-
-	if (childrenAmount > 2) {
-		containerEl.classList.add('draggable-chip-multiple');
-	}
-
-	return containerEl;
+	return chipEl;
 }
 
 export function draggable(node: HTMLElement, initialOpts: DraggableConfig) {
 	let opts = initialOpts;
 	let dragHandle: HTMLElement | null;
 	let clone: HTMLElement;
-
-	let selectedElements: HTMLElement[] = [];
 
 	function handleMouseDown(e: MouseEvent) {
 		dragHandle = e.target as HTMLElement;
@@ -77,28 +53,10 @@ export function draggable(node: HTMLElement, initialOpts: DraggableConfig) {
 			return false;
 		}
 
-		if (opts.selector) {
-			// Checking for selected siblings in the parent of the parent container likely works
-			// for most use-cases but it was done here primarily for dragging multiple files.
-			const parentNode = node.parentNode?.parentNode;
+		node.style.opacity = '0.5';
 
-			if (!parentNode) {
-				console.error('draggable parent node not found');
-				return;
-			}
-
-			selectedElements = Array.from(
-				parentNode.querySelectorAll(opts.selector).values() as Iterable<HTMLElement>
-			);
-			selectedElements = selectedElements.length > 0 ? selectedElements : [node];
-		}
-
-		clone = createChipsElement(selectedElements.length, opts.label, opts.filePath);
-
-		// Dim the original element while dragging
-		selectedElements.forEach((element) => {
-			element.style.opacity = '0.5';
-		});
+		clone = createChipsElement(opts.commitType, opts.label);
+		clone.style.width = node.clientWidth + 'px';
 
 		document.body.appendChild(clone);
 
@@ -107,7 +65,7 @@ export function draggable(node: HTMLElement, initialOpts: DraggableConfig) {
 		});
 
 		if (e.dataTransfer) {
-			e.dataTransfer.setDragImage(clone, clone.offsetWidth - 20, clone.offsetHeight - 4); // Adds the padding
+			e.dataTransfer.setDragImage(clone, clone.offsetWidth - 30, 25); // Adds the padding
 			e.dataTransfer.effectAllowed = 'uninitialized';
 		}
 	}
@@ -120,9 +78,7 @@ export function draggable(node: HTMLElement, initialOpts: DraggableConfig) {
 		}
 
 		// reset the opacity of the selected elements
-		selectedElements.forEach((element) => {
-			element.style.opacity = '1';
-		});
+		node.style.opacity = '1';
 
 		Array.from(dropzoneRegistry.values()).forEach((dropzone) => {
 			dropzone.unregister();
