@@ -765,11 +765,15 @@ pub fn convert_to_real_branch(
 
     delete_branch(project_repository, branch_id)?;
 
+    // If we were conflicting, it means that it was the only branch applied. Since we've now unapplied it we can clear all conflicts
+    if conflicts::is_conflicting(project_repository, None)? {
+        conflicts::clear(project_repository)?;
+    }
+
     // Ensure we still have a default target
     ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
-    super::integration::update_gitbutler_integration(&vb_state, project_repository)
-        .context("Failed to adfasdf")?;
+    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     Ok(real_branch)
 }

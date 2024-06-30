@@ -301,7 +301,7 @@ impl Controller {
         project_id: ProjectId,
         branch_id: BranchId,
         name_conflict_resolution: NameConflitResolution,
-    ) -> Result<()> {
+    ) -> Result<ReferenceName> {
         self.inner(project_id)
             .await
             .convert_to_real_branch(project_id, branch_id, name_conflict_resolution)
@@ -783,7 +783,7 @@ impl ControllerInner {
         project_id: ProjectId,
         branch_id: BranchId,
         name_conflict_resolution: NameConflitResolution,
-    ) -> Result<()> {
+    ) -> Result<ReferenceName> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
@@ -799,7 +799,7 @@ impl ControllerInner {
                     .project()
                     .snapshot_branch_unapplied(snapshot_tree, result.as_ref())
             });
-            result.map(|_| ())
+            result.and_then(|b| b.reference_name())
         })
     }
 

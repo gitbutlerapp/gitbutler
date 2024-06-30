@@ -65,6 +65,7 @@ impl Test {
 mod amend;
 mod apply_virtual_branch;
 mod cherry_pick;
+mod convert_to_real_branch;
 mod create_commit;
 mod create_virtual_branch_from_branch;
 mod delete_virtual_branch;
@@ -80,7 +81,6 @@ mod reset_virtual_branch;
 mod selected_for_changes;
 mod set_base_branch;
 mod squash;
-mod unapply;
 mod unapply_ownership;
 mod undo_commit;
 mod update_base_branch;
