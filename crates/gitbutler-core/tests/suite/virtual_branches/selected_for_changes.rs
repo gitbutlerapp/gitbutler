@@ -424,7 +424,6 @@ async fn new_locked_hunk_without_modifying_existing() {
     repository.write_file("file.txt", &lines);
 
     let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
-    dbg!(&branches);
     assert_eq!(branches[0].files.len(), 0);
     assert_eq!(branches[1].files.len(), 1);
 

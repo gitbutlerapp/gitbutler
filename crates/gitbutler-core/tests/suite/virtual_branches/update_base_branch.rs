@@ -28,47 +28,40 @@ mod applied_branch {
             .await
             .unwrap();
 
-        let branch_id = {
+        {
             // make a branch that conflicts with the remote branch, but doesn't know about it yet
-            let branch_id = controller
+            controller
                 .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
                 .await
                 .unwrap();
 
             fs::write(repository.path().join("file.txt"), "conflict").unwrap();
+        }
 
-            branch_id
-        };
-
-        {
+        let unapplied_branch = {
             // fetch remote
-            controller.update_base_branch(*project_id).await.unwrap();
+            let unapplied_branches = controller.update_base_branch(*project_id).await.unwrap();
+            assert_eq!(unapplied_branches.len(), 1);
 
             // should stash conflicting branch
 
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
-            assert_eq!(branches.len(), 1);
-            assert_eq!(branches[0].id, branch_id);
-            assert!(!branches[0].active);
-            assert!(!branches[0].base_current);
-            assert_eq!(branches[0].files.len(), 1);
-            assert_eq!(branches[0].commits.len(), 0);
-        }
+            assert_eq!(branches.len(), 0);
+
+            git::Refname::from_str(unapplied_branches[0].as_str()).unwrap()
+        };
 
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, branch_id)
+                .create_virtual_branch_from_branch(*project_id, &unapplied_branch)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
-            assert_eq!(branches[0].id, branch_id);
-            assert!(branches[0].active);
             assert!(branches[0].conflicted);
             assert!(branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
-            assert_eq!(branches[0].commits.len(), 0);
             assert_eq!(
                 std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                 "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -100,7 +93,7 @@ mod applied_branch {
             .await
             .unwrap();
 
-        let branch_id = {
+        {
             // make a branch with a commit that conflicts with upstream, and work that fixes
             // that conflict
             let branch_id = controller
@@ -113,39 +106,33 @@ mod applied_branch {
                 .create_commit(*project_id, branch_id, "conflicting commit", None, false)
                 .await
                 .unwrap();
+        }
 
-            branch_id
-        };
-
-        {
+        let unapplied_branch = {
             // when fetching remote
-            controller.update_base_branch(*project_id).await.unwrap();
+            let unapplied_branches = controller.update_base_branch(*project_id).await.unwrap();
+            assert_eq!(unapplied_branches.len(), 1);
 
             // should stash the branch.
 
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
-            assert_eq!(branches.len(), 1);
-            assert_eq!(branches[0].id, branch_id);
-            assert!(!branches[0].active);
-            assert!(!branches[0].base_current);
-            assert_eq!(branches[0].files.len(), 0);
-            assert_eq!(branches[0].commits.len(), 1);
-        }
+            assert_eq!(branches.len(), 0);
+
+            git::Refname::from_str(unapplied_branches[0].as_str()).unwrap()
+        };
 
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, branch_id)
+                .create_virtual_branch_from_branch(*project_id, &unapplied_branch)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
-            assert_eq!(branches[0].id, branch_id);
-            assert!(branches[0].active);
             assert!(branches[0].conflicted);
             assert!(branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
-            assert_eq!(branches[0].commits.len(), 1);
+            assert_eq!(branches[0].commits.len(), 2);
             assert_eq!(
                 std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                 "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -177,7 +164,7 @@ mod applied_branch {
             .await
             .unwrap();
 
-        let branch_id = {
+        {
             // make a branch with a commit that conflicts with upstream, and work that fixes
             // that conflict
             let branch_id = controller
@@ -195,39 +182,33 @@ mod applied_branch {
                 .push_virtual_branch(*project_id, branch_id, false, None)
                 .await
                 .unwrap();
+        }
 
-            branch_id
-        };
-
-        {
+        let unapplied_branch = {
             // when fetching remote
-            controller.update_base_branch(*project_id).await.unwrap();
+            let unapplied_branches = controller.update_base_branch(*project_id).await.unwrap();
+            assert_eq!(unapplied_branches.len(), 1);
 
             // should stash the branch.
 
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
-            assert_eq!(branches.len(), 1);
-            assert_eq!(branches[0].id, branch_id);
-            assert!(!branches[0].active);
-            assert!(!branches[0].base_current);
-            assert_eq!(branches[0].files.len(), 0);
-            assert_eq!(branches[0].commits.len(), 1);
-        }
+            assert_eq!(branches.len(), 0);
+
+            git::Refname::from_str(unapplied_branches[0].as_str()).unwrap()
+        };
 
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, branch_id)
+                .create_virtual_branch_from_branch(*project_id, &unapplied_branch)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
-            assert_eq!(branches[0].id, branch_id);
-            assert!(branches[0].active);
             assert!(branches[0].conflicted);
             assert!(branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
-            assert_eq!(branches[0].commits.len(), 1);
+            assert_eq!(branches[0].commits.len(), 2);
             assert_eq!(
                 std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                 "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -259,7 +240,7 @@ mod applied_branch {
             .await
             .unwrap();
 
-        let branch_id = {
+        {
             // make a branch with a commit that conflicts with upstream, and work that fixes
             // that conflict
             let branch_id = controller
@@ -274,39 +255,33 @@ mod applied_branch {
                 .unwrap();
 
             fs::write(repository.path().join("file.txt"), "fix conflict").unwrap();
+        }
 
-            branch_id
-        };
-
-        {
+        let unapplied_branch = {
             // when fetching remote
-            controller.update_base_branch(*project_id).await.unwrap();
+            let unapplied_branches = controller.update_base_branch(*project_id).await.unwrap();
+            assert_eq!(unapplied_branches.len(), 1);
 
             // should rebase upstream, and leave uncommited file as is
 
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
-            assert_eq!(branches.len(), 1);
-            assert_eq!(branches[0].id, branch_id);
-            assert!(!branches[0].active);
-            assert!(!branches[0].base_current); // TODO: should be true
-            assert_eq!(branches[0].files.len(), 1);
-            assert_eq!(branches[0].commits.len(), 1);
-        }
+            assert_eq!(branches.len(), 0);
+
+            git::Refname::from_str(unapplied_branches[0].as_str()).unwrap()
+        };
 
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, branch_id)
+                .create_virtual_branch_from_branch(*project_id, &unapplied_branch)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
-            assert_eq!(branches[0].id, branch_id);
-            assert!(branches[0].active);
             assert!(branches[0].conflicted);
             assert!(branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
-            assert_eq!(branches[0].commits.len(), 1);
+            assert_eq!(branches[0].commits.len(), 2);
             assert_eq!(
                 std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                 "<<<<<<< ours\nfix conflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -338,7 +313,7 @@ mod applied_branch {
             .await
             .unwrap();
 
-        let branch_id = {
+        {
             // make a branch with a commit that conflicts with upstream, and work that fixes
             // that conflict
             let branch_id = controller
@@ -353,39 +328,33 @@ mod applied_branch {
                 .unwrap();
 
             fs::write(repository.path().join("file.txt"), "fix conflict").unwrap();
+        }
 
-            branch_id
-        };
-
-        {
+        let unapplied_branch = {
             // when fetching remote
-            controller.update_base_branch(*project_id).await.unwrap();
+            let unapplied_branches = controller.update_base_branch(*project_id).await.unwrap();
+            assert_eq!(unapplied_branches.len(), 1);
 
             // should merge upstream, and leave uncommited file as is.
 
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
-            assert_eq!(branches.len(), 1);
-            assert_eq!(branches[0].id, branch_id);
-            assert!(!branches[0].active);
-            assert!(!branches[0].base_current); // TODO: should be true
-            assert_eq!(branches[0].commits.len(), 1); // TODO: should be 2
-            assert_eq!(branches[0].files.len(), 1);
-        }
+            assert_eq!(branches.len(), 0);
+
+            git::Refname::from_str(unapplied_branches[0].as_str()).unwrap()
+        };
 
         {
             // applying the branch should produce conflict markers
             controller
-                .apply_virtual_branch(*project_id, branch_id)
+                .create_virtual_branch_from_branch(*project_id, &unapplied_branch)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
-            assert_eq!(branches[0].id, branch_id);
-            assert!(branches[0].active);
             assert!(branches[0].conflicted);
             assert!(branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
-            assert_eq!(branches[0].commits.len(), 1);
+            assert_eq!(branches[0].commits.len(), 2);
             assert_eq!(
                 std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                 "<<<<<<< ours\nfix conflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -796,15 +765,6 @@ mod applied_branch {
         )
         .unwrap();
 
-        let branch_count = controller
-            .list_virtual_branches(*project_id)
-            .await
-            .unwrap()
-            .0
-            .len();
-
-        println!("branch count: {}", branch_count);
-
         {
             // merge branch remotely
             let branch = controller
@@ -818,22 +778,28 @@ mod applied_branch {
 
         repository.fetch();
 
-        {
-            dbg!(controller.update_base_branch(*project_id).await.unwrap());
+        let unapplied_refname = {
+            let unapplied_refnames = controller.update_base_branch(*project_id).await.unwrap();
+            assert_eq!(unapplied_refnames.len(), 1);
 
             // removes integrated commit, leaves non commited work as is
 
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
-            assert_eq!(branches.len(), 1);
-            assert_eq!(branches[0].id, branch_id);
-            assert!(!branches[0].active);
-            assert!(branches[0].commits.is_empty());
-            assert!(!branches[0].files.is_empty());
-        }
+            assert_eq!(branches.len(), 0);
+            assert_eq!(
+                fs::read_to_string(repository.path().join("file.txt")).unwrap(),
+                "1\n2\n3\n4\n5\n6\n17\n8\n19\n10\n11\n12\n"
+            );
+
+            unapplied_refnames[0].clone()
+        };
 
         {
             controller
-                .apply_virtual_branch(*project_id, branch_id)
+                .create_virtual_branch_from_branch(
+                    *project_id,
+                    &git::Refname::from_str(unapplied_refname.as_str()).unwrap(),
+                )
                 .await
                 .unwrap();
 
@@ -848,7 +814,6 @@ mod applied_branch {
                 branches[0].files[0].hunks[0].diff,
                 "@@ -4,7 +4,11 @@\n 4\n 5\n 6\n-7\n+<<<<<<< ours\n+77\n+=======\n+17\n+>>>>>>> theirs\n 8\n 19\n 10\n"
             );
-            assert_eq!(branches[0].commits.len(), 0);
         }
     }
 

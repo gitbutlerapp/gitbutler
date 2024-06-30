@@ -428,9 +428,10 @@ pub fn update_base_branch<'repo>(
                             branch.id,
                             Default::default(),
                         )?;
+
                         unapplied_branch_names.push(unapplied_real_branch);
 
-                        return Ok(Some(branch));
+                        return Ok(None);
                     }
 
                     let branch_merge_index_tree_oid =
@@ -465,7 +466,7 @@ pub fn update_base_branch<'repo>(
                         )?;
                         unapplied_branch_names.push(unapplied_real_branch);
 
-                        return Ok(Some(branch));
+                        return Ok(None);
                     }
 
                     // branch commits do not conflict with new target, so lets merge them
