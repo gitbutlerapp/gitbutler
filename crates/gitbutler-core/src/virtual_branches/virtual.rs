@@ -709,55 +709,6 @@ pub fn convert_to_real_branch(
     let vb_state = project_repository.project().virtual_branches();
 
     let target_branch = vb_state.get_branch(branch_id)?;
-    if target_branch.applied {
-        let repo = project_repository.repo();
-
-        let integration_commit = repo.integration_commit()?;
-        let target_commit = repo.target_commit()?;
-        let base_tree = target_commit.tree().context("failed to get target tree")?;
-
-        let applied_branches = vb_state
-            .list_branches()
-            .context("failed to read virtual branches")?
-            .into_iter()
-            .filter(|b| b.applied)
-            .collect::<Vec<_>>();
-
-        let (applied_statuses, _) = get_applied_status(
-            project_repository,
-            &integration_commit.id(),
-            &target_commit.id(),
-            applied_branches,
-        )
-        .context("failed to get status by branch")?;
-
-        // go through the other applied branches and merge them into the final tree
-        // then check that out into the working directory
-        let final_tree = applied_statuses
-            .into_iter()
-            .filter(|(branch, _)| branch.id != branch_id)
-            .fold(
-                target_commit.tree().context("failed to get target tree"),
-                |final_tree, status| {
-                    let final_tree = final_tree?;
-                    let branch = status.0;
-                    let tree_oid = write_tree(project_repository, &branch.head, status.1)?;
-                    let branch_tree = repo.find_tree(tree_oid)?;
-                    let mut result =
-                        repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
-                    let final_tree_oid = result.write_tree_to(repo)?;
-                    repo.find_tree(final_tree_oid)
-                        .context("failed to find tree")
-                },
-            )?;
-
-        // checkout final_tree into the working directory
-        repo.checkout_tree_builder(&final_tree)
-            .force()
-            .remove_untracked()
-            .checkout()
-            .context("failed to checkout tree")?;
-    }
 
     // Convert the vbranch to a real branch
     let real_branch =
@@ -1483,6 +1434,53 @@ pub fn delete_branch(
     _ = project_repository
         .project()
         .snapshot_branch_deletion(branch.name.clone());
+
+    let repo = project_repository.repo();
+
+    let integration_commit = repo.integration_commit()?;
+    let target_commit = repo.target_commit()?;
+    let base_tree = target_commit.tree().context("failed to get target tree")?;
+
+    let applied_branches = vb_state
+        .list_branches()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .filter(|b| b.applied)
+        .collect::<Vec<_>>();
+
+    let (applied_statuses, _) = get_applied_status(
+        project_repository,
+        &integration_commit.id(),
+        &target_commit.id(),
+        applied_branches,
+    )
+    .context("failed to get status by branch")?;
+
+    // go through the other applied branches and merge them into the final tree
+    // then check that out into the working directory
+    let final_tree = applied_statuses
+        .into_iter()
+        .filter(|(branch, _)| branch.id != branch_id)
+        .fold(
+            target_commit.tree().context("failed to get target tree"),
+            |final_tree, status| {
+                let final_tree = final_tree?;
+                let branch = status.0;
+                let tree_oid = write_tree(project_repository, &branch.head, status.1)?;
+                let branch_tree = repo.find_tree(tree_oid)?;
+                let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
+                let final_tree_oid = result.write_tree_to(repo)?;
+                repo.find_tree(final_tree_oid)
+                    .context("failed to find tree")
+            },
+        )?;
+
+    // checkout final_tree into the working directory
+    repo.checkout_tree_builder(&final_tree)
+        .force()
+        .remove_untracked()
+        .checkout()
+        .context("failed to checkout tree")?;
 
     vb_state
         .remove_branch(branch.id)
@@ -3902,6 +3900,8 @@ pub fn apply<S: AsRef<[u8]>>(base_image: S, patch: &Patch<'_, [u8]>) -> Result<B
             std::fmt::Debug::fmt(self, f)
         }
     }
+
+    dbg!(&patch);
 
     diffy_apply(base_image.as_ref(), patch)
         .with_context(|| DebugContext {

@@ -114,7 +114,7 @@ async fn resolve_conflict_flow() {
         .await
         .unwrap();
 
-    let branch1_id = {
+    let mut branch1_id = {
         // make a branch that conflicts with the remote branch, but doesn't know about it yet
         let branch1_id = controller
             .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
@@ -130,27 +130,27 @@ async fn resolve_conflict_flow() {
         branch1_id
     };
 
-    {
-        // fetch remote
-        controller.update_base_branch(*project_id).await.unwrap();
+    let unapplied_branch = {
+        // fetch remote. There is now a conflict, so the branch will be unapplied
+        let unapplied_branches = controller.update_base_branch(*project_id).await.unwrap();
+        assert_eq!(unapplied_branches.len(), 1);
 
         // there is a conflict now, so the branch should be inactive
         let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
-        assert_eq!(branches.len(), 1);
-        assert_eq!(branches[0].id, branch1_id);
-        assert!(!branches[0].active);
-    }
+        assert_eq!(branches.len(), 0);
+
+        git::Refname::from_str(&unapplied_branches[0]).unwrap()
+    };
 
     {
         // when we apply conflicted branch, it has conflict
-        controller
-            .apply_virtual_branch(*project_id, branch1_id)
+        branch1_id = controller
+            .create_virtual_branch_from_branch(*project_id, &unapplied_branch)
             .await
             .unwrap();
 
         let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
-        assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
         assert!(branches[0].conflicted);
         assert_eq!(branches[0].files.len(), 2); // third.txt should be present during conflict
@@ -177,6 +177,7 @@ async fn resolve_conflict_flow() {
     {
         // fixing the conflict removes conflicted mark
         fs::write(repository.path().join("file.txt"), "resolved").unwrap();
+        controller.list_virtual_branches(*project_id).await.unwrap();
         let commit_oid = controller
             .create_commit(*project_id, branch1_id, "resolution", None, false)
             .await
