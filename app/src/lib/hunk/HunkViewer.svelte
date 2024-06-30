@@ -64,8 +64,8 @@
 		tabindex="0"
 		role="cell"
 		use:draggable={{
-			data: new DraggableHunk($branch?.id || '', section.hunk),
-			disabled: draggingDisabled
+			data: new DraggableHunk($branch?.id || '', section.hunk)
+			// disabled: draggingDisabled
 		}}
 		on:contextmenu|preventDefault
 		class="hunk hide-native-scrollbar"

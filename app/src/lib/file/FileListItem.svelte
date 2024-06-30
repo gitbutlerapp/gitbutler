@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FileContextMenu from './FileContextMenu.svelte';
 	import FileStatusIcons from './FileStatusIcons.svelte';
-	import { draggable } from '$lib/dragging/draggableChips';
+	import { draggableChips } from '$lib/dragging/draggableNew';
 	import { DraggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import Checkbox from '$lib/shared/Checkbox.svelte';
@@ -116,7 +116,7 @@
 			popupMenu.openByMouse(e, { files: [file] });
 		}
 	}}
-	use:draggable={{
+	use:draggableChips={{
 		label: `${file.filename}`,
 		filePath: file.path,
 		data: $selectedFiles.then(

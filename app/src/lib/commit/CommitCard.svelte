@@ -102,6 +102,14 @@
 		commitMessageModal.close();
 	}
 
+	function getTimeAndAuthor() {
+		const timeAgo = getTimeAgo(commit.createdAt);
+		const author = type === 'localAndRemote' || type === 'remote' ? commit.author.name : 'you';
+		return `${timeAgo} by ${author}`;
+	}
+
+	const commitShortSha = commit.id.substring(0, 7);
+
 	let topHeightPx = 24;
 
 	$: {
@@ -165,6 +173,8 @@
 				use:draggableCommit={commit instanceof Commit
 					? {
 							label: commit.descriptionTitle,
+							sha: commitShortSha,
+							dateAndAuthor: getTimeAndAuthor(),
 							commitType: type,
 							data: new DraggableCommit(commit.branchId, commit, isHeadCommit),
 							viewportId: 'board-viewport'
@@ -211,7 +221,7 @@
 							class="commit__subtitle-btn commit__subtitle-btn_dashed"
 							on:click|stopPropagation={() => copyToClipboard(commit.id)}
 						>
-							<span>{commit.id.substring(0, 7)}</span>
+							<span>{commitShortSha}</span>
 
 							<div class="commit__subtitle-btn__icon">
 								<Icon name="copy-small" />
@@ -237,11 +247,7 @@
 
 						<span class="commit__subtitle-divider">•</span>
 
-						<span
-							>{getTimeAgo(commit.createdAt)}{type === 'localAndRemote' || type === 'remote'
-								? ` by ${commit.author.name}`
-								: ' by you'}</span
-						>
+						<span>{getTimeAndAuthor()}</span>
 					</div>
 				{/if}
 			</div>

@@ -8,6 +8,8 @@ export interface DraggableConfig {
 	readonly disabled?: boolean;
 	readonly label?: string;
 	readonly filePath?: string;
+	readonly sha?: string;
+	readonly dateAndAuthor?: string;
 	readonly commitType?: CommitStatus;
 	readonly data?: Draggable | Promise<Draggable>;
 	readonly viewportId?: string;
@@ -72,7 +74,11 @@ function setupDragHandlers(
 		});
 
 		if (e.dataTransfer) {
-			e.dataTransfer.setDragImage(clone, e.offsetX, e.offsetY);
+			if (handlerWidth) {
+				e.dataTransfer.setDragImage(clone, e.offsetX, e.offsetY);
+			} else {
+				e.dataTransfer.setDragImage(clone, clone.offsetWidth - 20, 25);
+			}
 			e.dataTransfer.effectAllowed = 'uninitialized';
 		}
 	}
@@ -135,10 +141,15 @@ function setupDragHandlers(
 
 export function createCommitElement(
 	commitType: CommitStatus | undefined,
-	label: string | undefined
+	label: string | undefined,
+	sha: string | undefined,
+	dateAndAuthor: string | undefined
 ): HTMLDivElement {
 	const chipEl = createElement('div', ['draggable-commit']) as HTMLDivElement;
 	const labelEl = createElement('span', ['text-base-13', 'text-bold'], label);
+	const infoEl = createElement('div', ['draggable-commit-info', 'text-base-11']);
+	const shaEl = createElement('span', ['draggable-commit-info-text'], sha);
+	const dateAndAuthorEl = createElement('span', ['draggable-commit-info-text'], dateAndAuthor);
 
 	if (commitType) {
 		const indicatorClass = `draggable-commit-${commitType}`;
@@ -146,12 +157,15 @@ export function createCommitElement(
 	}
 
 	chipEl.appendChild(labelEl);
+	infoEl.appendChild(shaEl);
+	infoEl.appendChild(dateAndAuthorEl);
+	chipEl.appendChild(infoEl);
 	return chipEl;
 }
 
 export function draggableCommit(node: HTMLElement, initialOpts: DraggableConfig) {
 	function createClone(opts: DraggableConfig) {
-		return createCommitElement(opts.commitType, opts.label);
+		return createCommitElement(opts.commitType, opts.label, opts.sha, opts.dateAndAuthor);
 	}
 	return setupDragHandlers(node, initialOpts, createClone, true);
 }
