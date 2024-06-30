@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FileContextMenu from './FileContextMenu.svelte';
 	import FileStatusIcons from './FileStatusIcons.svelte';
-	import { draggableChips } from '$lib/dragging/draggableNew';
+	import { draggableChips } from '$lib/dragging/draggable';
 	import { DraggableFile } from '$lib/dragging/draggables';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import Checkbox from '$lib/shared/Checkbox.svelte';

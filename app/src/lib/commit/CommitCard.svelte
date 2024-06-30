@@ -3,7 +3,7 @@
 	import { Project } from '$lib/backend/projects';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
-	import { draggableCommit } from '$lib/dragging/draggableNew';
+	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
 	import Button from '$lib/shared/Button.svelte';
@@ -186,7 +186,7 @@
 				</div>
 
 				{#if first}
-					<div class="commit__type text-semibold text-base-12" data-remove-from-draggable>
+					<div class="commit__type text-semibold text-base-12">
 						{#if type === 'remote'}
 							Remote <Icon name="remote" />
 						{:else if type === 'local'}

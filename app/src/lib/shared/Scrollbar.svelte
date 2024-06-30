@@ -276,6 +276,7 @@
 
 <div
 	bind:this={track}
+	data-remove-from-draggable
 	class="scrollbar-track"
 	class:horz
 	class:vert
