@@ -139,9 +139,9 @@
 					<PullRequestCard />
 
 					<div class="card">
-						<Dropzones>
-							{#if branch.files?.length > 0}
-								<div class="branch-card__files">
+						{#if branch.files?.length > 0}
+							<div class="branch-card__files">
+								<Dropzones>
 									<BranchFiles
 										files={branch.files}
 										{isUnapplied}
@@ -162,21 +162,23 @@
 											</InfoMessage>
 										</div>
 									{/if}
+								</Dropzones>
 
-									{#if branch.active}
-										<CommitDialog
-											projectId={project.id}
-											expanded={commitBoxOpen}
-											hasSectionsAfter={branch.commits.length > 0}
-											on:action={(e) => {
-												if (e.detail === 'generate-branch-name') {
-													generateBranchName();
-												}
-											}}
-										/>
-									{/if}
-								</div>
-							{:else if branch.commits.length === 0}
+								{#if branch.active}
+									<CommitDialog
+										projectId={project.id}
+										expanded={commitBoxOpen}
+										hasSectionsAfter={branch.commits.length > 0}
+										on:action={(e) => {
+											if (e.detail === 'generate-branch-name') {
+												generateBranchName();
+											}
+										}}
+									/>
+								{/if}
+							</div>
+						{:else if branch.commits.length === 0}
+							<Dropzones>
 								<div class="new-branch">
 									<EmptyStatePlaceholder image={laneNewSvg} width="11rem">
 										<svelte:fragment slot="title">This is a new branch</svelte:fragment>
@@ -185,7 +187,9 @@
 										</svelte:fragment>
 									</EmptyStatePlaceholder>
 								</div>
-							{:else}
+							</Dropzones>
+						{:else}
+							<Dropzones>
 								<div class="no-changes" data-dnd-ignore>
 									<EmptyStatePlaceholder image={noChangesSvg} width="11rem" hasBottomMargin={false}>
 										<svelte:fragment slot="caption"
@@ -193,8 +197,8 @@
 										>
 									</EmptyStatePlaceholder>
 								</div>
-							{/if}
-						</Dropzones>
+							</Dropzones>
+						{/if}
 
 						<div class="card-commits">
 							<CommitList {isUnapplied} />

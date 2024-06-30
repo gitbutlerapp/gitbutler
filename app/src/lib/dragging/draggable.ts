@@ -65,7 +65,8 @@ function setupDragHandlers(
 			selectedElements = Array.from(
 				parentNode.querySelectorAll(opts.selector) as NodeListOf<HTMLElement>
 			);
-			selectedElements = selectedElements.length ? selectedElements : [node];
+		} else {
+			selectedElements = [node];
 		}
 
 		clone = createClone(opts, selectedElements);
@@ -76,6 +77,7 @@ function setupDragHandlers(
 			clone.style.maxHeight = pxToRem(params.maxHeight);
 		}
 
+		console.log('selectedElements', selectedElements);
 		selectedElements.forEach((el) => (el.style.opacity = '0.5'));
 		document.body.appendChild(clone);
 

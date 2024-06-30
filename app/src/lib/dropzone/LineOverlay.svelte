@@ -19,12 +19,10 @@
 </div>
 
 <style lang="postcss">
-	:root {
+	.container {
 		--dropzone-height: 16px;
 		--dropzone-overlap: calc(var(--dropzone-height) / 2);
-	}
 
-	.container {
 		height: var(--dropzone-height);
 		margin-top: calc(var(--dropzone-overlap) * -1);
 		margin-bottom: calc(var(--dropzone-overlap) * -1);

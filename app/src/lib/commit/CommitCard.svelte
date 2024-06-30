@@ -151,18 +151,19 @@
 			{@render lines(topHeightPx)}
 		</div>
 	{/if}
-	<CommitDragItem {commit}>
-		<div class="commit-card" class:is-first={first} class:is-last={last}>
-			<div
-				class="accent-border-line"
-				class:is-first={first}
-				class:is-last={last}
-				class:local={type === 'local'}
-				class:local-and-remote={type === 'localAndRemote'}
-				class:upstream={type === 'remote'}
-				class:integrated={type === 'integrated'}
-			></div>
 
+	<div class="commit-card" class:is-first={first} class:is-last={last}>
+		<div
+			class="accent-border-line"
+			class:is-first={first}
+			class:is-last={last}
+			class:local={type === 'local'}
+			class:local-and-remote={type === 'localAndRemote'}
+			class:upstream={type === 'remote'}
+			class:integrated={type === 'integrated'}
+		></div>
+
+		<CommitDragItem {commit}>
 			<!-- GENERAL INFO -->
 			<div
 				class="commit__header"
@@ -170,7 +171,7 @@
 				on:keyup={onKeyup}
 				role="button"
 				tabindex="0"
-				use:draggableCommit={commit instanceof Commit
+				use:draggableCommit={commit instanceof Commit && !isUnapplied && type !== 'integrated'
 					? {
 							label: commit.descriptionTitle,
 							sha: commitShortSha,
@@ -181,9 +182,11 @@
 						}
 					: nonDraggable()}
 			>
-				<div class="commit__drag-icon">
-					<Icon name="draggable-narrow" />
-				</div>
+				{#if type === 'local' || type === 'localAndRemote'}
+					<div class="commit__drag-icon">
+						<Icon name="draggable-narrow" />
+					</div>
+				{/if}
 
 				{#if first}
 					<div class="commit__type text-semibold text-base-12">
@@ -293,8 +296,8 @@
 					<BranchFilesList {files} {isUnapplied} readonly={type === 'remote'} />
 				</div>
 			{/if}
-		</div>
-	</CommitDragItem>
+		</CommitDragItem>
+	</div>
 </div>
 
 <style lang="postcss">
@@ -329,6 +332,7 @@
 		display: flex;
 		position: relative;
 		flex-direction: column;
+		flex: 1;
 
 		background-color: var(--clr-bg-1);
 		border-right: 1px solid var(--clr-border-2);
@@ -353,8 +357,12 @@
 
 	.accent-border-line {
 		position: absolute;
+		top: 0;
+		left: 0;
 		width: 4px;
 		height: 100%;
+		z-index: var(--z-ground);
+
 		&.local {
 			background-color: var(--clr-commit-local);
 		}
