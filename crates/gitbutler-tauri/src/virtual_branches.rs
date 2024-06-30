@@ -325,23 +325,6 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
-    pub async fn cherry_pick_onto_virtual_branch(
-        handle: AppHandle,
-        project_id: ProjectId,
-        branch_id: BranchId,
-        target_commit_oid: String,
-    ) -> Result<Option<String>, Error> {
-        let target_commit_oid = git2::Oid::from_str(&target_commit_oid).map_err(|e| anyhow!(e))?;
-        let oid = handle
-            .state::<Controller>()
-            .cherry_pick(project_id, branch_id, target_commit_oid)
-            .await?;
-        emit_vbranches(&handle, project_id).await;
-        Ok(oid.map(|o| o.to_string()))
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
     pub async fn amend_virtual_branch(
         handle: AppHandle,
         project_id: ProjectId,

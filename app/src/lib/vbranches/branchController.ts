@@ -291,25 +291,6 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 		}
 	}
 
-	async cherryPick(branchId: string, targetCommitOid: string) {
-		try {
-			await invoke<void>('cherry_pick_onto_virtual_branch', {
-				projectId: this.projectId,
-				branchId,
-				targetCommitOid
-			});
-		} catch (err: any) {
-			// TODO: Probably we wanna have error code checking in a more generic way
-			if (err.code === 'errors.commit.signing_failed') {
-				showSignError(err);
-			} else {
-				showError('Failed to cherry-pick commit', err);
-			}
-		} finally {
-			this.targetBranchService.reload();
-		}
-	}
-
 	async markResolved(path: string) {
 		try {
 			await invoke<void>('mark_resolved', { projectId: this.projectId, path });

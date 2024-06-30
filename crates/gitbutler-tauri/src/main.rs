@@ -194,7 +194,6 @@ fn main() {
                     virtual_branches::commands::can_apply_remote_branch,
                     virtual_branches::commands::list_remote_commit_files,
                     virtual_branches::commands::reset_virtual_branch,
-                    virtual_branches::commands::cherry_pick_onto_virtual_branch,
                     virtual_branches::commands::amend_virtual_branch,
                     virtual_branches::commands::move_commit_file,
                     virtual_branches::commands::undo_commit,
