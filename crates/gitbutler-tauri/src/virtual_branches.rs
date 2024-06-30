@@ -104,10 +104,11 @@ pub mod commands {
     pub async fn get_base_branch_data(
         handle: AppHandle,
         project_id: ProjectId,
+        num_commits: Option<usize>,
     ) -> Result<Option<BaseBranch>, Error> {
         if let Ok(base_branch) = handle
             .state::<Controller>()
-            .get_base_branch_data(project_id)
+            .get_base_branch_data(project_id, num_commits)
             .await
         {
             let proxy = handle.state::<assets::Proxy>();

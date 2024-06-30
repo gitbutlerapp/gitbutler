@@ -51,9 +51,10 @@ pub struct BaseBranch {
 
 pub fn get_base_branch_data(
     project_repository: &project_repository::Repository,
+    num_commits: Option<usize>,
 ) -> Result<BaseBranch> {
     let target = default_target(&project_repository.project().gb_dir())?;
-    let base = target_to_base_branch(project_repository, &target)?;
+    let base = target_to_base_branch(project_repository, &target, num_commits)?;
     Ok(base)
 }
 
@@ -123,7 +124,7 @@ fn go_back_to_integration(
         .checkout()
         .context("failed to checkout tree")?;
 
-    let base = target_to_base_branch(project_repository, default_target)?;
+    let base = target_to_base_branch(project_repository, default_target, None)?;
     update_gitbutler_integration(&vb_state, project_repository)?;
     Ok(base)
 }
@@ -277,7 +278,7 @@ pub fn set_base_branch(
 
     update_gitbutler_integration(&vb_state, project_repository)?;
 
-    let base = target_to_base_branch(project_repository, &target)?;
+    let base = target_to_base_branch(project_repository, &target, None)?;
     Ok(base)
 }
 
@@ -631,6 +632,7 @@ pub fn update_base_branch(
 pub fn target_to_base_branch(
     project_repository: &project_repository::Repository,
     target: &target::Target,
+    num_commits: Option<usize>,
 ) -> Result<super::BaseBranch> {
     let repo = project_repository.repo();
     let branch = repo
@@ -649,7 +651,7 @@ pub fn target_to_base_branch(
 
     // get some recent commits
     let recent_commits = project_repository
-        .log(target.sha, LogUntil::Take(500))
+        .log(target.sha, LogUntil::Take(num_commits.unwrap_or(10)))
         .context("failed to get recent commits")?
         .iter()
         .map(|commit| super::commit_to_remote_commit(project_repository, commit))

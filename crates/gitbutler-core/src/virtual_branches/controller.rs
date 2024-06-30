@@ -114,10 +114,14 @@ impl Controller {
             .await
     }
 
-    pub async fn get_base_branch_data(&self, project_id: ProjectId) -> Result<BaseBranch> {
+    pub async fn get_base_branch_data(
+        &self,
+        project_id: ProjectId,
+        num_commits: Option<usize>,
+    ) -> Result<BaseBranch> {
         self.inner(project_id)
             .await
-            .get_base_branch_data(project_id)
+            .get_base_branch_data(project_id, num_commits)
     }
 
     pub async fn list_remote_commit_files(
@@ -518,10 +522,14 @@ impl ControllerInner {
         })
     }
 
-    pub fn get_base_branch_data(&self, project_id: ProjectId) -> Result<BaseBranch> {
+    pub fn get_base_branch_data(
+        &self,
+        project_id: ProjectId,
+        num_commits: Option<usize>,
+    ) -> Result<BaseBranch> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::Repository::open(&project)?;
-        super::get_base_branch_data(&project_repository)
+        super::get_base_branch_data(&project_repository, num_commits)
     }
 
     pub fn list_remote_commit_files(
@@ -937,7 +945,7 @@ impl ControllerInner {
 
         project_repository.set_project(&updated_project);
 
-        let base_branch = target_to_base_branch(&project_repository, &default_target)
+        let base_branch = target_to_base_branch(&project_repository, &default_target, None)
             .context("failed to convert target to base branch")?;
 
         Ok(base_branch)
