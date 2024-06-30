@@ -4,7 +4,7 @@ import { persisted } from '$lib/persisted/persisted';
 import * as toasts from '$lib/utils/toasts';
 import { open } from '@tauri-apps/api/dialog';
 import { plainToInstance } from 'class-transformer';
-import { derived, get, writable } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 import type { HttpClient } from './httpClient';
 import { goto } from '$app/navigation';
 
@@ -44,7 +44,7 @@ export type CloudProject = {
 
 export class ProjectService {
 	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
-	private _projects = writable<Project[]>(undefined, (set) => {
+	readonly projects = writable<Project[]>([], (set) => {
 		this.loadAll()
 			.then((projects) => {
 				this.error.set(undefined);
@@ -55,7 +55,6 @@ export class ProjectService {
 				showError('Failed to load projects', err);
 			});
 	});
-	readonly projects = derived(this._projects, (value) => value); // public & readonly
 	readonly error = writable();
 
 	constructor(
@@ -68,7 +67,7 @@ export class ProjectService {
 	}
 
 	async reload(): Promise<void> {
-		this._projects.set(await this.loadAll());
+		this.projects.set(await this.loadAll());
 	}
 
 	async getProject(projectId: string) {
