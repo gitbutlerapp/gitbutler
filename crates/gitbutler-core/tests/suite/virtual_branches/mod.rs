@@ -113,7 +113,7 @@ async fn resolve_conflict_flow() {
         .await
         .unwrap();
 
-    let mut branch1_id = {
+    {
         // make a branch that conflicts with the remote branch, but doesn't know about it yet
         let branch1_id = controller
             .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
@@ -125,8 +125,6 @@ async fn resolve_conflict_flow() {
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
-
-        branch1_id
     };
 
     let unapplied_branch = {
@@ -141,9 +139,9 @@ async fn resolve_conflict_flow() {
         git::Refname::from_str(&unapplied_branches[0]).unwrap()
     };
 
-    {
+    let branch1_id = {
         // when we apply conflicted branch, it has conflict
-        branch1_id = controller
+        let branch1_id = controller
             .create_virtual_branch_from_branch(*project_id, &unapplied_branch)
             .await
             .unwrap();
@@ -159,7 +157,9 @@ async fn resolve_conflict_flow() {
             fs::read_to_string(repository.path().join("file.txt")).unwrap(),
             "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
         );
-    }
+
+        branch1_id
+    };
 
     {
         // can't commit conflicts

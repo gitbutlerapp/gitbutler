@@ -3722,8 +3722,6 @@ pub fn apply<S: AsRef<[u8]>>(base_image: S, patch: &Patch<'_, [u8]>) -> Result<B
         }
     }
 
-    dbg!(&patch);
-
     diffy_apply(base_image.as_ref(), patch)
         .with_context(|| DebugContext {
             base_image_hash: md5_hash_hex(base_image),
