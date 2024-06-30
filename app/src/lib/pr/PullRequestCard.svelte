@@ -86,7 +86,7 @@
 		isFetchingChecks = true;
 
 		try {
-			checksStatus = await githubService.checks($pr$?.targetBranch);
+			checksStatus = await githubService.checks($pr$?.sourceBranch);
 		} catch (e: any) {
 			console.error(e);
 			checksError = e.message;

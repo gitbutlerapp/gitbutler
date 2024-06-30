@@ -67,7 +67,7 @@
 			await remotesService.addRemote(project.id, remoteName, remoteUrl);
 			await baseBranchService.fetchFromRemotes();
 			await branchController.createvBranchFromBranch(
-				`refs/remotes/${remoteName}/${pullrequest.targetBranch}`
+				`refs/remotes/${remoteName}/${pullrequest.sourceBranch}`
 			);
 			await virtualBranchService.reload();
 			const vbranch = await virtualBranchService.getByUpstreamSha(pullrequest.sha);
@@ -132,11 +132,11 @@
 				</span>
 				wants to merge into
 				<span class="code-string">
-					{pullrequest.sourceBranch}
+					{pullrequest.targetBranch}
 				</span>
 				from
 				<span class="code-string">
-					{pullrequest.targetBranch}
+					{pullrequest.sourceBranch}
 				</span>
 			</div>
 			{#if pullrequest.body}
