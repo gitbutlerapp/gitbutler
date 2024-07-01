@@ -11,7 +11,7 @@ import { GitHubService } from '$lib/github/service';
 import { RemotesService } from '$lib/remotes/service';
 import { UserService } from '$lib/stores/user';
 import { mockTauri } from '$lib/testing/index';
-import { LineManagerFactory } from '@gitbutler/ui';
+import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
 import lscache from 'lscache';
 import { BehaviorSubject, config } from 'rxjs';
 import { env } from '$env/dynamic/public';

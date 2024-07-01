@@ -19,7 +19,8 @@
 		getRemoteCommits
 	} from '$lib/vbranches/contexts';
 	import { BaseBranch, Branch } from '$lib/vbranches/types';
-	import { LineManagerFactory, LineGroup } from '@gitbutler/ui';
+	import LineGroup from '@gitbutler/ui/CommitLines/LineGroup.svelte';
+	import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied: boolean;

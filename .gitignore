@@ -23,6 +23,7 @@ dist
 dist-ssr
 *.local
 
+.turbo
 build
 .svelte-kit
 package

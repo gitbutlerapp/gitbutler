@@ -42,30 +42,17 @@
 	"peerDependencies": {
 		"svelte": "^4.0.0 || ^5.0.0-0"
 	},
-	"publishConfig": {
-		"types": "./dist/types.d.ts",
-		"exports": {
-			".": {
-				"types": "./dist/types.d.ts",
-				"svelte": "./dist/index.js",
-				"default": "./dist/index.js"
-			}
-		},
-		"typesVersions": {
-			">4.0": {
-				"types.d.ts": [
-					"./dist/types.d.ts"
-				]
-			}
-		}
-	},
 	"exports": {
-		".": {
-			"types": "./dist/types.d.ts",
-			"svelte": "./dist/index.js",
-			"default": "./dist/index.js"
-		},
-		"./*": "./dist/*"
+    "./CommitLines/*": {
+			"svelte": "./dist/CommitLines/*.svelte",
+			"import": "./dist/CommitLines/*.svelte",
+			"types": "./dist/CommitLines/*.svelte.d.ts"
+    }
+	},
+  "typesVersions": {
+		">4.0": {
+			"./*": ["./dist/components/*.d.ts"]
+		}
 	},
 	"files": [
 		"./dist/**/*.svelte",

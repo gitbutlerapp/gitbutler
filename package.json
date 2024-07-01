@@ -5,9 +5,10 @@
 	"engines": {
 		"node": ">=20.11"
 	},
+	"type": "module",
 	"packageManager": "pnpm@9.2.0",
 	"scripts": {
-		"dev": "pnpm --filter @gitbutler/app run dev",
+		"dev": "turbo run dev",
 		"dev:ui": "pnpm --filter @gitbutler/ui dev",
 		"dev:tauri": "pnpm tauri dev",
 		"test": "pnpm --filter @gitbutler/app run test",
@@ -18,7 +19,7 @@
 		"build:app:development": "pnpm --filter @gitbutler/app run build:development",
 		"check": "pnpm --filter @gitbutler/app run check",
 		"tauri": "tauri",
-		"lint": "prettier --check . && eslint .",
+		"lint": "turbo run lint",
 		"format": "prettier --write .",
 		"fix": "eslint --fix .",
 		"prepare": "pnpm --filter @gitbutler/app run prepare",
@@ -39,6 +40,7 @@
 		"prettier": "^3.3.2",
 		"prettier-plugin-svelte": "^3.2.4",
 		"svelte-eslint-parser": "^0.39.2",
+		"turbo": "^2.0.6",
 		"typescript": "5.4.5",
 		"typescript-eslint": "^7.13.1"
 	}
