@@ -232,11 +232,12 @@ const TRUNK_BRANCH_FILTERS: FilterDescription[] = [
 	}
 ];
 
-export function getTrunkBranchFilters(
+function augmentFilterDescriptions(
+	filters: FilterDescription[],
 	suggestedValues: Partial<Record<FilterName, CommitMetrics[]>>
 ): FilterDescription[] {
 	const result: FilterDescription[] = [];
-	for (const filter of TRUNK_BRANCH_FILTERS) {
+	for (const filter of filters) {
 		const values = suggestedValues[filter.name];
 		if (values === undefined) {
 			result.push(filter);
@@ -257,6 +258,18 @@ export function getTrunkBranchFilters(
 	}
 
 	return result;
+}
+
+export function getRemoteBranchFilters(
+	suggestedValues: Partial<Record<FilterName, CommitMetrics[]>>
+): FilterDescription[] {
+	return augmentFilterDescriptions(REMOTE_BRANCH_FILTERS, suggestedValues);
+}
+
+export function getTrunkBranchFilters(
+	suggestedValues: Partial<Record<FilterName, CommitMetrics[]>>
+): FilterDescription[] {
+	return augmentFilterDescriptions(TRUNK_BRANCH_FILTERS, suggestedValues);
 }
 
 function commitMatchesFileFilter(commit: RemoteCommit, filter: AppliedFilter): boolean {

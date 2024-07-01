@@ -11,7 +11,11 @@
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { REMOTE_BRANCH_FILTERS } from '$lib/vbranches/filtering';
+	import {
+		FilterName,
+		getRemoteBranchFilters,
+		REMOTE_BRANCH_FILTERS
+	} from '$lib/vbranches/filtering';
 	import { BaseBranch, type RemoteBranch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
@@ -19,10 +23,10 @@
 	import { writable } from 'svelte/store';
 	import type { PullRequest } from '$lib/github/types';
 
-	const filterDescriptions = REMOTE_BRANCH_FILTERS;
-
 	export let branch: RemoteBranch;
 	export let pr: PullRequest | undefined;
+
+	let filterDescriptions = REMOTE_BRANCH_FILTERS;
 
 	const project = getContext(Project);
 	const baseBranch = getContextStore(BaseBranch);
@@ -36,6 +40,14 @@
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'branchPreviewLaneWidth';
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+
+	const branchDataPromise = getRemoteBranchData(project.id, branch.name);
+	branchDataPromise.then((d) => {
+		filterDescriptions = getRemoteBranchFilters({
+			[FilterName.Author]: d.recentAuthors,
+			[FilterName.File]: d.recentFiles
+		});
+	});
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
@@ -75,7 +87,7 @@
 							{/if}
 						</div>
 					{/if}
-					{#await getRemoteBranchData(project.id, branch.name) then branchData}
+					{#await branchDataPromise then branchData}
 						{#if branchData.commits && branchData.commits.length > 0}
 							<RemoteCommitList
 								bind:this={commitListElem}
