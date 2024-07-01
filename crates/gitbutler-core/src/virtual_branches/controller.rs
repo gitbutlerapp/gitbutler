@@ -1,4 +1,8 @@
-use crate::ops::entry::{OperationKind, SnapshotDetails};
+use crate::{
+    git::BranchExt,
+    ops::entry::{OperationKind, SnapshotDetails},
+    types::ReferenceName,
+};
 use anyhow::Result;
 use std::{collections::HashMap, path::Path, sync::Arc};
 
@@ -7,7 +11,8 @@ use tokio::{sync::Semaphore, task::JoinHandle};
 
 use super::{
     branch::{BranchId, BranchOwnershipClaims},
-    target, target_to_base_branch, BaseBranch, Branch, RemoteBranchFile, VirtualBranchesHandle,
+    target, target_to_base_branch, BaseBranch, NameConflitResolution, RemoteBranchFile,
+    VirtualBranchesHandle,
 };
 use crate::{
     git, project_repository,
@@ -70,16 +75,6 @@ impl Controller {
         self.inner(project_id)
             .await
             .can_apply_remote_branch(project_id, branch_name)
-    }
-
-    pub async fn can_apply_virtual_branch(
-        &self,
-        project_id: ProjectId,
-        branch_id: BranchId,
-    ) -> Result<bool> {
-        self.inner(project_id)
-            .await
-            .can_apply_virtual_branch(project_id, branch_id)
     }
 
     pub async fn list_virtual_branches(
@@ -161,7 +156,7 @@ impl Controller {
             .await
     }
 
-    pub async fn update_base_branch(&self, project_id: ProjectId) -> Result<Vec<Branch>> {
+    pub async fn update_base_branch(&self, project_id: ProjectId) -> Result<Vec<ReferenceName>> {
         self.inner(project_id)
             .await
             .update_base_branch(project_id)
@@ -186,17 +181,6 @@ impl Controller {
         self.inner(project_id)
             .await
             .delete_virtual_branch(project_id, branch_id)
-            .await
-    }
-
-    pub async fn apply_virtual_branch(
-        &self,
-        project_id: ProjectId,
-        branch_id: BranchId,
-    ) -> Result<()> {
-        self.inner(project_id)
-            .await
-            .apply_virtual_branch(project_id, branch_id)
             .await
     }
 
@@ -301,14 +285,15 @@ impl Controller {
             .await
     }
 
-    pub async fn unapply_virtual_branch(
+    pub async fn convert_to_real_branch(
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-    ) -> Result<()> {
+        name_conflict_resolution: NameConflitResolution,
+    ) -> Result<ReferenceName> {
         self.inner(project_id)
             .await
-            .unapply_virtual_branch(project_id, branch_id)
+            .convert_to_real_branch(project_id, branch_id, name_conflict_resolution)
             .await
     }
 
@@ -322,18 +307,6 @@ impl Controller {
         self.inner(project_id)
             .await
             .push_virtual_branch(project_id, branch_id, with_force, askpass)
-            .await
-    }
-
-    pub async fn cherry_pick(
-        &self,
-        project_id: ProjectId,
-        branch_id: BranchId,
-        commit_oid: git2::Oid,
-    ) -> Result<Option<git2::Oid>> {
-        self.inner(project_id)
-            .await
-            .cherry_pick(project_id, branch_id, commit_oid)
             .await
     }
 
@@ -471,16 +444,6 @@ impl ControllerInner {
         super::is_remote_branch_mergeable(&project_repository, branch_name).map_err(Into::into)
     }
 
-    pub fn can_apply_virtual_branch(
-        &self,
-        project_id: ProjectId,
-        branch_id: BranchId,
-    ) -> Result<bool> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
-        super::is_virtual_branch_mergeable(&project_repository, branch_id).map_err(Into::into)
-    }
-
     pub async fn list_virtual_branches(
         &self,
         project_id: ProjectId,
@@ -569,14 +532,21 @@ impl ControllerInner {
         })
     }
 
-    pub async fn update_base_branch(&self, project_id: ProjectId) -> Result<Vec<Branch>> {
+    pub async fn update_base_branch(&self, project_id: ProjectId) -> Result<Vec<ReferenceName>> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::UpdateWorkspaceBase));
-            super::update_base_branch(project_repository, user).map_err(Into::into)
+            super::update_base_branch(project_repository, user)
+                .map(|unapplied_branches| {
+                    unapplied_branches
+                        .iter()
+                        .filter_map(|unapplied_branch| unapplied_branch.reference_name().ok())
+                        .collect()
+                })
+                .map_err(Into::into)
         })
     }
 
@@ -617,27 +587,6 @@ impl ControllerInner {
 
         self.with_verify_branch(project_id, |project_repository, _| {
             super::delete_branch(project_repository, branch_id)
-        })
-    }
-
-    pub async fn apply_virtual_branch(
-        &self,
-        project_id: ProjectId,
-        branch_id: BranchId,
-    ) -> Result<()> {
-        let _permit = self.semaphore.acquire().await;
-
-        self.with_verify_branch(project_id, |project_repository, user| {
-            let snapshot_tree = project_repository.project().prepare_snapshot();
-            let result =
-                super::apply_branch(project_repository, branch_id, user).map_err(Into::into);
-
-            let _ = snapshot_tree.and_then(|snapshot_tree| {
-                project_repository
-                    .project()
-                    .snapshot_branch_applied(snapshot_tree, result.as_ref())
-            });
-            result.map(|_| ())
         })
     }
 
@@ -785,22 +734,28 @@ impl ControllerInner {
         })
     }
 
-    pub async fn unapply_virtual_branch(
+    pub async fn convert_to_real_branch(
         &self,
         project_id: ProjectId,
         branch_id: BranchId,
-    ) -> Result<()> {
+        name_conflict_resolution: NameConflitResolution,
+    ) -> Result<ReferenceName> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, _| {
             let snapshot_tree = project_repository.project().prepare_snapshot();
-            let result = super::unapply_branch(project_repository, branch_id).map_err(Into::into);
+            let result = super::convert_to_real_branch(
+                project_repository,
+                branch_id,
+                name_conflict_resolution,
+            )
+            .map_err(Into::into);
             let _ = snapshot_tree.and_then(|snapshot_tree| {
                 project_repository
                     .project()
                     .snapshot_branch_unapplied(snapshot_tree, result.as_ref())
             });
-            result.map(|_| ())
+            result.and_then(|b| b.reference_name())
         })
     }
 
@@ -817,22 +772,6 @@ impl ControllerInner {
             super::push(project_repository, branch_id, with_force, &helper, askpass)
         })?
         .await?
-    }
-
-    pub async fn cherry_pick(
-        &self,
-        project_id: ProjectId,
-        branch_id: BranchId,
-        commit_oid: git2::Oid,
-    ) -> Result<Option<git2::Oid>> {
-        let _permit = self.semaphore.acquire().await;
-
-        self.with_verify_branch(project_id, |project_repository, _| {
-            let _ = project_repository
-                .project()
-                .create_snapshot(SnapshotDetails::new(OperationKind::CherryPick));
-            super::cherry_pick(project_repository, branch_id, commit_oid).map_err(Into::into)
-        })
     }
 
     pub fn list_remote_branches(&self, project_id: ProjectId) -> Result<Vec<super::RemoteBranch>> {

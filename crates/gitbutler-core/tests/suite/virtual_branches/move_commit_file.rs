@@ -194,7 +194,6 @@ async fn move_file_up_overlapping_hunks() {
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    dbg!(&branch.commits);
     assert_eq!(branch.commits.len(), 4);
     //
 }

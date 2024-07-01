@@ -58,10 +58,8 @@ export class VirtualBranchService {
 			tap((branches) => {
 				branches.forEach((branch) => {
 					branch.files.sort((a) => (a.conflicted ? -1 : 0));
-					branch.isMergeable = invoke<boolean>('can_apply_virtual_branch', {
-						projectId: projectId,
-						branchId: branch.id
-					});
+					// This is always true now
+					branch.isMergeable = Promise.resolve(true);
 				});
 				this.fresh$.next(); // Notification for fresh reload
 			}),
