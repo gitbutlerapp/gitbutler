@@ -15,8 +15,8 @@ export interface PullRequest {
 	author: Author | null;
 	labels: Label[];
 	draft: boolean;
-	targetBranch: string;
 	sourceBranch: string;
+	targetBranch: string;
 	sha: string;
 	createdAt: Date;
 	modifiedAt: Date;
@@ -102,8 +102,8 @@ export function ghResponseToInstance(
 		draft: pr.draft || false,
 		createdAt: new Date(pr.created_at),
 		modifiedAt: new Date(pr.created_at),
-		targetBranch: pr.head.ref,
-		sourceBranch: pr.base.ref,
+		sourceBranch: pr.head.ref,
+		targetBranch: pr.base.ref,
 		sha: pr.head.sha,
 		mergedAt: pr.merged_at ? new Date(pr.merged_at) : undefined,
 		closedAt: pr.closed_at ? new Date(pr.closed_at) : undefined,
