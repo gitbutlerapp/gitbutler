@@ -75,6 +75,7 @@ export async function load() {
 		aiService,
 		remotesService,
 		aiPromptService,
-		lineManagerFactory
+		lineManagerFactory,
+		secretsService
 	};
 }

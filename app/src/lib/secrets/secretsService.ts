@@ -20,11 +20,9 @@ export class RustSecretService implements SecretsService {
 	constructor(private gitConfigService: GitConfigService) {}
 
 	async get(handle: string) {
-		console.warn('getting ', handle);
 		const secret = await invoke<string>('secret_get_global', { handle });
 		if (secret) return secret;
 
-		console.warn('migrating', handle);
 		if (MIGRATION_HANDLES.includes(handle)) {
 			const key = 'gitbutler.' + handle;
 			const migratedSecret = await this.migrate(key, handle);
@@ -48,7 +46,7 @@ export class RustSecretService implements SecretsService {
 		const secretInConfig = await this.gitConfigService.get(key);
 		if (secretInConfig === undefined) return;
 
-		this.set(handle, secretInConfig);
+		await this.set(handle, secretInConfig);
 		await this.gitConfigService.remove(key);
 
 		console.warn(`Migrated Git config "${key}" to secret store.`);

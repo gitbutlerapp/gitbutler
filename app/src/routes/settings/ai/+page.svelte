@@ -43,7 +43,7 @@
 
 	async function setSecret(handle: AISecretHandle, secret: string | undefined) {
 		if (!initialized) return;
-		secretsService.set(handle, secret || '');
+		await secretsService.set(handle, secret || '');
 	}
 
 	$: setConfiguration(GitAIConfigKey.ModelProvider, modelKind);
