@@ -14,10 +14,22 @@ export enum FilterName {
 	File = 'file',
 	Title = 'title',
 	Body = 'body',
-	Message = 'message'
+	Message = 'message',
+	Category = 'category'
 }
 
 type FormattedFilterName = `${FilterName}${typeof FILTER_PROP_SEPARATOR}`;
+
+export enum FilterCatergoryValue {
+	Feature = 'feature',
+	Fix = 'fix',
+	Refactor = 'refactor',
+	Performance = 'performance',
+	Style = 'style',
+	Docs = 'docs',
+	Chore = 'chore',
+	Test = 'test'
+}
 
 enum FilterOriginValue {
 	Local = 'local',
@@ -124,6 +136,60 @@ export const REMOTE_BRANCH_FILTERS: FilterDescription[] = [
 				description: 'Filter by commit message. It must include the given value'
 			}
 		]
+	},
+	{
+		name: FilterName.Category,
+		allowedValues: Object.values(FilterCatergoryValue),
+		suggestions: [
+			{
+				type: FilterSuggestionType.Static,
+				name: FilterName.Category,
+				value: FilterCatergoryValue.Feature,
+				description: 'Show only feature commits'
+			},
+			{
+				type: FilterSuggestionType.Static,
+				name: FilterName.Category,
+				value: FilterCatergoryValue.Fix,
+				description: 'Show only fix commits'
+			},
+			{
+				type: FilterSuggestionType.Static,
+				name: FilterName.Category,
+				value: FilterCatergoryValue.Refactor,
+				description: 'Show only refactor commits'
+			},
+			{
+				type: FilterSuggestionType.Static,
+				name: FilterName.Category,
+				value: FilterCatergoryValue.Performance,
+				description: 'Show only performance commits'
+			},
+			{
+				type: FilterSuggestionType.Static,
+				name: FilterName.Category,
+				value: FilterCatergoryValue.Style,
+				description: 'Show only style commits'
+			},
+			{
+				type: FilterSuggestionType.Static,
+				name: FilterName.Category,
+				value: FilterCatergoryValue.Docs,
+				description: 'Show only docs commits'
+			},
+			{
+				type: FilterSuggestionType.Static,
+				name: FilterName.Category,
+				value: FilterCatergoryValue.Chore,
+				description: 'Show only chore commits'
+			},
+			{
+				type: FilterSuggestionType.Static,
+				name: FilterName.Category,
+				value: FilterCatergoryValue.Test,
+				description: 'Show only test commits'
+			}
+		]
 	}
 ];
 
@@ -191,6 +257,28 @@ function commitMatchesFileFilter(commit: RemoteCommit, filter: AppliedFilter): b
 	return false;
 }
 
+const COMMIT_CATEGORIE_SEARCH_TERMS: Record<FilterCatergoryValue, string[]> = {
+	[FilterCatergoryValue.Feature]: ['feat'],
+	[FilterCatergoryValue.Fix]: ['fix'],
+	[FilterCatergoryValue.Refactor]: ['refactor'],
+	[FilterCatergoryValue.Performance]: ['perf'],
+	[FilterCatergoryValue.Style]: ['style', 'css'],
+	[FilterCatergoryValue.Docs]: ['docs', '.md', '.txt'],
+	[FilterCatergoryValue.Chore]: ['chore'],
+	[FilterCatergoryValue.Test]: ['test']
+};
+
+function commitMatchesCategoryFilter(commit: RemoteCommit, filter: AppliedFilter): boolean {
+	const message = commit.description.toLowerCase();
+	for (const value of filter.values) {
+		const searchTerms = COMMIT_CATEGORIE_SEARCH_TERMS[value as FilterCatergoryValue];
+		if (searchTerms.some((term) => message.includes(term))) {
+			return true;
+		}
+	}
+	return false;
+}
+
 function commitMatchesFilter(
 	commit: RemoteCommit,
 	filter: AppliedFilter,
@@ -213,6 +301,8 @@ function commitMatchesFilter(
 			return filter.values.some((body) => commit.descriptionBody?.includes(body));
 		case FilterName.Message:
 			return filter.values.some((message) => commit.description.includes(message));
+		case FilterName.Category:
+			return commitMatchesCategoryFilter(commit, filter);
 	}
 }
 
@@ -339,6 +429,8 @@ export function getFilterEmoji(filterName: FilterName): string {
 			return '📝';
 		case FilterName.Message:
 			return '💬';
+		case FilterName.Category:
+			return '📚';
 	}
 }
 
