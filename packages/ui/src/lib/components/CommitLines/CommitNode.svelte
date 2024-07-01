@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { tooltip } from '../utils/tooltip';
-	import { isDefined } from '../utils/typeguards';
+	import { tooltip } from '../../utils/tooltip';
+	import { isDefined } from '../../utils/typeguards';
 	import type { CommitNode, Color } from './types';
 
 	interface Props {

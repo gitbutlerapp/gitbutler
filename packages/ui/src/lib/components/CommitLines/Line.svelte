@@ -2,7 +2,7 @@
 	import BaseNode from './BaseNode.svelte';
 	import Cell from './Cell.svelte';
 	import CommitNode from './CommitNode.svelte';
-	import { pxToRem } from '../utils/pxToRem';
+	import { pxToRem } from '../../utils/pxToRem';
 	import type { Line } from './types';
 
 	interface Props {

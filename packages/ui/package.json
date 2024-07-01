@@ -13,15 +13,6 @@
 		"node": ">=20.11"
 	},
 	"packageManager": "pnpm@9.2.0",
-	"exports": {
-		"./CommitLines/*": {
-			"svelte": "./dist/CommitLines/*",
-			"types": "./dist/CommitLines/*.d.ts"
-		}
-	},
-	"files": [
-		"dist"
-	],
 	"scripts": {
 		"dev": "vite dev",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
@@ -47,5 +38,39 @@
 		"svelte": "5.0.0-next.149",
 		"svelte-check": "^3.8.0",
 		"vite": "^5.2.13"
-	}
+	},
+  "peerDependencies": {
+    "svelte": "^4.0.0 || ^5.0.0-0"
+  },
+  "publishConfig": {
+		"types": "./dist/types.d.ts",
+		"exports": {
+			".": {
+				"types": "./dist/types.d.ts",
+				"svelte": "./dist/index.js",
+				"default": "./dist/index.js"
+			}
+		},
+		"typesVersions": {
+			">4.0": {
+				"types.d.ts": [
+					"./dist/types.d.ts"
+				]
+			}
+		}
+	},
+	"exports": {
+		".": {
+      "types": "./src/lib/types.ts",
+			"svelte": "./src/lib/index.ts",
+      "default": "./src/lib/index.ts"
+		},
+    "./*": "./src/lib/*"
+	},
+  "files": [
+		"./dist/**/*.svelte",
+		"./dist/**/*.js",
+		"./dist/**/*.d.ts",
+		"!./dist/**/*.test.*"
+	]
 }
