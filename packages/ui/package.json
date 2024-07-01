@@ -61,11 +61,11 @@
 	},
 	"exports": {
 		".": {
-			"types": "./src/lib/types.ts",
-			"svelte": "./src/lib/index.ts",
-			"default": "./src/lib/index.ts"
+			"types": "./dist/types.d.ts",
+			"svelte": "./dist/index.js",
+			"default": "./dist/index.js"
 		},
-		"./*": "./src/lib/*"
+		"./*": "./dist/*"
 	},
 	"files": [
 		"./dist/**/*.svelte",
