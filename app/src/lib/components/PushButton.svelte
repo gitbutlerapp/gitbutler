@@ -55,7 +55,7 @@
 		dispatch('trigger', { action });
 	}}
 >
-	{labels[$preferredAction]}
+	{labels[action]}
 	<ContextMenu slot="context-menu" bind:this={contextMenu}>
 		<ContextMenuSection>
 			<ContextMenuItem
