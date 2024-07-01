@@ -8,7 +8,7 @@ use crate::{
     error::Code,
 };
 
-use super::{CommitBuffer, Refname};
+use super::{CommitBuffer, CommitHeadersV2, Refname};
 use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -55,7 +55,7 @@ pub trait RepositoryExt {
         message: &str,
         tree: &git2::Tree<'_>,
         parents: &[&git2::Commit<'_>],
-        change_id: Option<&str>,
+        commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid>;
 
     fn blame(
@@ -161,19 +161,23 @@ impl RepositoryExt for Repository {
         message: &str,
         tree: &git2::Tree<'_>,
         parents: &[&git2::Commit<'_>],
-        change_id: Option<&str>,
+        commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid> {
         let mut commit_buffer: CommitBuffer = self
             .commit_create_buffer(author, committer, message, tree, parents)?
-            .try_into()?;
+            .into();
 
-        commit_buffer.set_change_id(change_id);
+        commit_buffer.set_gitbutler_headers(commit_headers);
 
         let oid = if self.gb_config()?.sign_commits.unwrap_or(false) {
             let signature = self.sign_buffer(&commit_buffer);
             match signature {
                 Ok(signature) => self
-                    .commit_signed(commit_buffer.as_string().as_ref(), &signature, None)
+                    .commit_signed(
+                        commit_buffer.as_bstring().to_string().as_str(),
+                        &signature,
+                        None,
+                    )
                     .map_err(Into::into),
                 Err(e) => {
                     // If signing fails, set the "gitbutler.signCommits" config to false before erroring out
@@ -195,10 +199,9 @@ impl RepositoryExt for Repository {
     }
 
     fn commit_buffer(&self, commit_buffer: &CommitBuffer) -> Result<git2::Oid> {
-        let oid = self.odb()?.write(
-            git2::ObjectType::Commit,
-            commit_buffer.as_string().as_bytes(),
-        )?;
+        let oid = self
+            .odb()?
+            .write(git2::ObjectType::Commit, &commit_buffer.as_bstring())?;
 
         Ok(oid)
     }
@@ -235,7 +238,7 @@ impl RepositoryExt for Repository {
             if is_ssh {
                 // write commit data to a temp file so we can sign it
                 let mut signature_storage = tempfile::NamedTempFile::new()?;
-                signature_storage.write_all(buffer.as_string().as_ref())?;
+                signature_storage.write_all(&buffer.as_bstring())?;
                 let buffer_file_to_sign_path = signature_storage.into_temp_path();
 
                 let gpg_program = self.config()?.get_string("gpg.ssh.program");
@@ -329,7 +332,7 @@ impl RepositoryExt for Repository {
                     .stdin
                     .take()
                     .expect("configured")
-                    .write_all(buffer.as_string().as_ref())?;
+                    .write_all(&buffer.as_bstring())?;
 
                 let output = child.wait_with_output()?;
                 if output.status.success() {

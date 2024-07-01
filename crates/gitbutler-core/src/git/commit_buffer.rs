@@ -1,31 +1,32 @@
-use anyhow::Result;
+use bstr::{BStr, BString, ByteSlice, ByteVec};
 use core::str;
 
+use super::CommitHeadersV2;
+
 pub struct CommitBuffer {
-    heading: Vec<(String, String)>,
-    message: String,
+    heading: Vec<(BString, BString)>,
+    message: BString,
 }
 
 impl CommitBuffer {
-    pub fn new(buffer: &[u8]) -> Result<Self> {
-        let buffer = str::from_utf8(buffer)?;
-
-        if let Some((heading, message)) = buffer.split_once("\n\n") {
+    pub fn new(buffer: &[u8]) -> Self {
+        let buffer = BStr::new(buffer);
+        if let Some((heading, message)) = buffer.split_once_str("\n\n") {
             let heading = heading
                 .lines()
-                .filter_map(|line| line.split_once(' '))
-                .map(|(key, value)| (key.to_string(), value.to_string()))
+                .filter_map(|line| line.split_once_str(" "))
+                .map(|(key, value)| (key.into(), value.into()))
                 .collect();
 
-            Ok(Self {
+            Self {
                 heading,
-                message: message.to_string(),
-            })
+                message: message.into(),
+            }
         } else {
-            Ok(Self {
+            Self {
                 heading: vec![],
-                message: buffer.to_string(),
-            })
+                message: buffer.into(),
+            }
         }
     }
 
@@ -33,32 +34,37 @@ impl CommitBuffer {
         let mut set_heading = false;
         self.heading.iter_mut().for_each(|(k, v)| {
             if k == key {
-                *v = value.to_string();
+                *v = value.into();
                 set_heading = true;
             }
         });
 
         if !set_heading {
-            self.heading.push((key.to_string(), value.to_string()));
+            self.heading.push((key.into(), value.into()));
         }
     }
 
-    pub fn set_change_id(&mut self, change_id: Option<&str>) {
-        let change_id = change_id
-            .map(|id| id.to_string())
-            .unwrap_or_else(|| format!("{}", uuid::Uuid::new_v4()));
-
-        self.set_header("change-id", change_id.as_str());
+    /// Defers to the CommitHeadersV2 struct about which headers should be injected.
+    /// If `commit_headers: None` is provided, a default set of headers, including a generated change-id will be used
+    pub fn set_gitbutler_headers(&mut self, commit_headers: Option<CommitHeadersV2>) {
+        if let Some(commit_headers) = commit_headers {
+            commit_headers.inject_into(self)
+        } else {
+            CommitHeadersV2::inject_default(self)
+        }
     }
 
-    pub fn as_string(&self) -> String {
-        let mut output = String::new();
+    pub fn as_bstring(&self) -> BString {
+        let mut output = BString::new(vec![]);
 
         for (key, value) in &self.heading {
-            output.push_str(&format!("{} {}\n", key, value));
+            output.push_str(key);
+            output.push_str(" ");
+            output.push_str(value);
+            output.push_str("\n");
         }
 
-        output.push('\n');
+        output.push_str("\n");
 
         output.push_str(&self.message);
 
@@ -66,24 +72,20 @@ impl CommitBuffer {
     }
 }
 
-impl TryFrom<git2::Buf> for CommitBuffer {
-    type Error = anyhow::Error;
-
-    fn try_from(git2_buffer: git2::Buf) -> Result<Self> {
+impl From<git2::Buf> for CommitBuffer {
+    fn from(git2_buffer: git2::Buf) -> Self {
         Self::new(&git2_buffer)
     }
 }
 
-impl TryFrom<String> for CommitBuffer {
-    type Error = anyhow::Error;
-
-    fn try_from(s: String) -> Result<Self> {
+impl From<BString> for CommitBuffer {
+    fn from(s: BString) -> Self {
         Self::new(s.as_bytes())
     }
 }
 
-impl From<CommitBuffer> for String {
-    fn from(buffer: CommitBuffer) -> String {
-        buffer.as_string()
+impl From<CommitBuffer> for BString {
+    fn from(buffer: CommitBuffer) -> BString {
+        buffer.as_bstring()
     }
 }

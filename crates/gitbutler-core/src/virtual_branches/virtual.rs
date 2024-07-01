@@ -30,7 +30,7 @@ use crate::error::Code;
 use crate::error::Marker;
 use crate::git::diff::GitHunk;
 use crate::git::diff::{diff_files_into_hunks, trees, FileDiff};
-use crate::git::{CommitBuffer, CommitExt, RepositoryExt};
+use crate::git::{CommitExt, CommitHeadersV2, HasCommitHeaders, RepositoryExt};
 use crate::rebase::{cherry_rebase, cherry_rebase_group};
 use crate::time::now_since_unix_epoch_ms;
 use crate::virtual_branches::branch::HunkHash;
@@ -447,21 +447,17 @@ pub fn convert_to_real_branch(
         let committer = get_integration_commiter()?;
         let parent = branch.get().peel_to_commit()?;
 
-        let mut commit_buffer: CommitBuffer = repo
-            .commit_create_buffer(&committer, &committer, &message, &tree, &[&parent])?
-            .try_into()?;
+        let commit_headers = CommitHeadersV2::new(true, Some(vbranch.name.clone()));
 
-        commit_buffer.set_header("gitbutler-vbranch", &vbranch.id.to_string());
-        commit_buffer.set_header("gitbutler-vbranch-name", &vbranch.name.to_string());
-
-        let commit_oid = repo.commit_buffer(&commit_buffer)?;
-
-        // Update branch reference
-        let branch_name = branch
-            .get()
-            .name()
-            .ok_or(anyhow!("failed to get branch name"))?;
-        repo.reference(branch_name, commit_oid, true, message.as_str())?;
+        let commit_oid = repo.commit_with_signature(
+            Some(&branch.try_into()?),
+            &committer,
+            &committer,
+            &message,
+            &tree,
+            &[&parent],
+            Some(commit_headers),
+        )?;
 
         Ok(commit_oid)
     }
@@ -2501,7 +2497,6 @@ pub fn move_commit_file(
         let new_from_tree = &repo
             .find_tree(new_from_tree_id)
             .with_context(|| "tree {new_from_tree_oid} not found")?;
-        let change_id = from_commit.change_id();
         let new_from_commit_oid = project_repository
             .repo()
             .commit_with_signature(
@@ -2511,7 +2506,7 @@ pub fn move_commit_file(
                 &from_commit.message_bstr().to_str_lossy(),
                 new_from_tree,
                 &[&from_parent],
-                change_id.as_deref(),
+                from_commit.gitbutler_headers(),
             )
             .context("commit failed")?;
 
@@ -2577,7 +2572,6 @@ pub fn move_commit_file(
         .find_tree(new_tree_oid)
         .context("failed to find new tree")?;
     let parents: Vec<_> = amend_commit.parents().collect();
-    let change_id = amend_commit.change_id();
     let commit_oid = project_repository
         .repo()
         .commit_with_signature(
@@ -2587,7 +2581,7 @@ pub fn move_commit_file(
             &amend_commit.message_bstr().to_str_lossy(),
             &new_tree,
             &parents.iter().collect::<Vec<_>>(),
-            change_id.as_deref(),
+            amend_commit.gitbutler_headers(),
         )
         .context("failed to create commit")?;
 
@@ -2736,7 +2730,7 @@ pub fn amend(
             &amend_commit.message_bstr().to_str_lossy(),
             &new_tree,
             &parents.iter().collect::<Vec<_>>(),
-            amend_commit.change_id().as_deref(),
+            amend_commit.gitbutler_headers(),
         )
         .context("failed to create commit")?;
 
@@ -3026,9 +3020,6 @@ pub fn squash(
     //  * has parents of the parents commit.
     let parents: Vec<_> = parent_commit.parents().collect();
 
-    // use the squash commit's change id
-    let change_id = commit_to_squash.change_id();
-
     let new_commit_oid = project_repository
         .repo()
         .commit_with_signature(
@@ -3042,7 +3033,8 @@ pub fn squash(
             ),
             &commit_to_squash.tree().context("failed to find tree")?,
             &parents.iter().collect::<Vec<_>>(),
-            change_id.as_deref(),
+            // use the squash commit's headers
+            commit_to_squash.gitbutler_headers(),
         )
         .context("failed to commit")?;
 
@@ -3117,8 +3109,6 @@ pub fn update_commit_message(
 
     let parents: Vec<_> = target_commit.parents().collect();
 
-    let change_id = target_commit.change_id();
-
     let new_commit_oid = project_repository
         .repo()
         .commit_with_signature(
@@ -3128,7 +3118,7 @@ pub fn update_commit_message(
             message,
             &target_commit.tree().context("failed to find tree")?,
             &parents.iter().collect::<Vec<_>>(),
-            change_id.as_deref(),
+            target_commit.gitbutler_headers(),
         )
         .context("failed to commit")?;
 
@@ -3273,7 +3263,6 @@ pub fn move_commit(
             .find_tree(new_destination_tree_oid)
             .context("failed to find tree")?;
 
-        let change_id = source_branch_head.change_id();
         let new_destination_head_oid = project_repository
             .commit(
                 user,
@@ -3283,7 +3272,7 @@ pub fn move_commit(
                     .repo()
                     .find_commit(destination_branch.head)
                     .context("failed to get dst branch head commit")?],
-                change_id.as_deref(),
+                source_branch_head.gitbutler_headers(),
             )
             .context("failed to commit")?;
 

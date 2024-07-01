@@ -1,3 +1,4 @@
+use crate::git::HasCommitHeaders;
 use crate::{error::Marker, git::CommitExt, git::RepositoryExt, project_repository};
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
@@ -72,7 +73,7 @@ pub fn cherry_rebase_group(
                     .find_tree(merge_tree_oid)
                     .context("failed to find merge tree")?;
 
-                let change_id = to_rebase.change_id();
+                let commit_headers = to_rebase.gitbutler_headers();
 
                 let commit_oid = project_repository
                     .repo()
@@ -83,7 +84,7 @@ pub fn cherry_rebase_group(
                         &to_rebase.message_bstr().to_str_lossy(),
                         &merge_tree,
                         &[&head],
-                        change_id.as_deref(),
+                        commit_headers,
                     )
                     .context("failed to create commit")?;
 
