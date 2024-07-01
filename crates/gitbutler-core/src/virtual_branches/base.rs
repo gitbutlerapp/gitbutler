@@ -5,9 +5,11 @@ use git2::Index;
 use serde::Serialize;
 
 use super::{
-    branch, convert_to_real_branch, integration::{
+    branch, convert_to_real_branch,
+    integration::{
         get_workspace_head, update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE,
-    }, target, BranchId, CommitMetrics, RemoteCommit, VirtualBranchHunk, VirtualBranchesHandle
+    },
+    target, BranchId, CommitMetrics, RemoteCommit, VirtualBranchHunk, VirtualBranchesHandle,
 };
 use crate::{error::Marker, git::RepositoryExt, rebase::cherry_rebase};
 use crate::{
@@ -322,7 +324,6 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
     }
     Ok(())
 }
-
 
 // try to update the target branch
 // this means that we need to:

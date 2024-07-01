@@ -7,4 +7,3 @@ pub struct CommitMetrics {
     pub value: usize,
     pub commit_ids: Vec<String>,
 }
-
