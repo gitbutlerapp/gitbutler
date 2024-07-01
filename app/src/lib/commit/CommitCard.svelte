@@ -25,7 +25,7 @@
 		BaseBranch,
 		type CommitStatus
 	} from '$lib/vbranches/types';
-	import { createEventDispatcher, type Snippet } from 'svelte';
+	import { type Snippet } from 'svelte';
 
 	export let branch: Branch | undefined = undefined;
 	export let commit: Commit | RemoteCommit;
@@ -46,8 +46,7 @@
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
-	const dispatch = createEventDispatcher<{ dragover: boolean }>();
-
+	let draggableCommitElement: HTMLElement | null = null;
 	let files: RemoteFile[] = [];
 	let showDetails = false;
 
@@ -116,6 +115,9 @@
 		if (first) topHeightPx = 58;
 		if (showDetails && !first) topHeightPx += 12;
 	}
+
+	let dragDirection: 'up' | 'down' | undefined;
+	let isDragTargeted = false;
 </script>
 
 <Modal bind:this={commitMessageModal} width="small">
@@ -138,16 +140,23 @@
 	{/snippet}
 </Modal>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="commit-row"
 	class:is-commit-open={showDetails}
 	class:is-first={first}
 	class:is-last={last}
 	class:has-lines={lines}
-	on:dragenter|preventDefault={() => dispatch('dragover', true)}
-	on:dragleave|preventDefault={() => dispatch('dragover', false)}
 >
+	{#if dragDirection && isDragTargeted}
+		<div
+			class="pseudo-reorder-zone"
+			class:top={dragDirection === 'up'}
+			class:bottom={dragDirection === 'down'}
+			class:is-first={first}
+			class:is-last={last}
+		></div>
+	{/if}
+
 	{#if lines}
 		<div>
 			{@render lines(topHeightPx)}
@@ -168,11 +177,31 @@
 		<CommitDragItem {commit}>
 			<!-- GENERAL INFO -->
 			<div
+				bind:this={draggableCommitElement}
 				class="commit__header"
 				on:click={toggleFiles}
 				on:keyup={onKeyup}
 				role="button"
 				tabindex="0"
+				on:dragenter={() => {
+					isDragTargeted = true;
+				}}
+				on:dragleave={() => {
+					isDragTargeted = false;
+				}}
+				on:drop={() => {
+					isDragTargeted = false;
+				}}
+				on:drag={(e) => {
+					const target = e.target as HTMLElement;
+					const targetHeight = target.offsetHeight;
+					const targetTop = target.getBoundingClientRect().top;
+					const mouseY = e.clientY;
+
+					const isTop = mouseY < targetTop + targetHeight / 2;
+					
+					dragDirection = isTop ? 'up' : 'down';
+				}}
 				use:draggableCommit={commit instanceof Commit && !isUnapplied && type !== 'integrated'
 					? {
 							label: commit.descriptionTitle,
@@ -534,5 +563,30 @@
 			transform: scale(1);
 			margin-left: 2px;
 		}
+	}
+
+	/* PSUEDO DROPZONE */
+	.pseudo-reorder-zone {
+		z-index: var(--z-lifted);
+		position: absolute;
+		height: 2px;
+		width: 100%;
+		background-color: var(--clr-theme-pop-element);
+	}
+
+	.pseudo-reorder-zone.top {
+		top: -2px;
+	}
+
+	.pseudo-reorder-zone.bottom {
+		bottom: -2px;
+	}
+
+	.pseudo-reorder-zone.top.is-first {
+		top: 5px;
+	}
+
+	.pseudo-reorder-zone.bottom.is-last {
+		bottom: -7px;
 	}
 </style>

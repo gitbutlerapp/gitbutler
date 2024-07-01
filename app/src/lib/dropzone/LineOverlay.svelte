@@ -5,31 +5,29 @@
 		hovered: boolean;
 		activated: boolean;
 		yOffsetPx?: number;
-		isPreviewing?: boolean;
 	}
 
-	const { hovered, activated, yOffsetPx = 0, isPreviewing = false }: Props = $props();
+	const { hovered, activated, yOffsetPx = 0 }: Props = $props();
 </script>
 
 <div
 	class="dropzone-target container"
 	class:activated
 	class:hovered
-	class:previewing={isPreviewing}
-	style="--y-offset: {pxToRem(yOffsetPx) || 0}"
+	style:--y-offset={pxToRem(yOffsetPx)}
 >
 	<div class="indicator"></div>
 </div>
 
 <style lang="postcss">
 	.container {
-		--dropzone-height: 16px;
 		--dropzone-overlap: calc(var(--dropzone-height) / 2);
+		--dropzone-height: 16px;
 
 		height: var(--dropzone-height);
 		margin-top: calc(var(--dropzone-overlap) * -1);
 		margin-bottom: calc(var(--dropzone-overlap) * -1);
-		background-color: rgba(0, 0, 0, 0.3);
+		/* background-color: rgba(0, 0, 0, 0.1); */
 		width: 100%;
 		position: relative;
 		top: var(--y-offset);
@@ -51,20 +49,15 @@
 
 		&.hovered {
 			& .indicator {
-				opacity: 1;
+				background-color: var(--clr-theme-pop-element);
 			}
 		}
-	}
-
-	.previewing {
-		background-color: red;
 	}
 
 	.indicator {
 		width: 100%;
 		height: 3px;
 		transition: opacity 0.1s;
-		background-color: var(--clr-border-2);
-		opacity: 0;
+		background-color: transparent;
 	}
 </style>

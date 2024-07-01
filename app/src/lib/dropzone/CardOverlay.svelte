@@ -139,7 +139,7 @@
 		height: 100%;
 
 		& rect {
-			fill: oklch(from var(--clr-scale-pop-50) l c h / 0.05);
+			fill: oklch(from var(--clr-scale-pop-50) l c h / 0.08);
 			stroke: var(--clr-scale-pop-50);
 
 			stroke-width: 2px;

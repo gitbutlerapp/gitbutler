@@ -140,3 +140,12 @@
 		color: var(--clr-text-3);
 	}
 }
+
+.drag-handle {
+	opacity: 0.5;
+
+	/* disable children events in order to prevent false dragleave events */
+	& > * {
+		pointer-events: none;
+	}
+}

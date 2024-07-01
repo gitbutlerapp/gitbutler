@@ -124,7 +124,7 @@
 
 	/* MODIFIERS */
 	.sticky {
-		z-index: var(--z-floating);
+		z-index: var(--z-lifted);
 		position: sticky;
 		bottom: 0;
 	}

@@ -240,6 +240,7 @@
 
 <style lang="postcss">
 	.commits {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		background-color: var(--clr-bg-2);

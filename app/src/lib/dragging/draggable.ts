@@ -78,7 +78,7 @@ function setupDragHandlers(
 		}
 
 		// console.log('selectedElements', selectedElements);
-		selectedElements.forEach((el) => (el.style.opacity = '0.5'));
+		selectedElements.forEach((el) => el.classList.add('drag-handle'));
 		document.body.appendChild(clone);
 
 		Array.from(dropzoneRegistry.values()).forEach((dropzone) => {
@@ -102,7 +102,7 @@ function setupDragHandlers(
 	function handleDragEnd(e: DragEvent) {
 		e.stopPropagation();
 		if (clone) clone.remove();
-		selectedElements.forEach((el) => (el.style.opacity = '1'));
+		selectedElements.forEach((el) => el.classList.remove('drag-handle'));
 		Array.from(dropzoneRegistry.values()).forEach((dropzone) => {
 			dropzone.unregister();
 		});
