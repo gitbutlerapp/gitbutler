@@ -56,7 +56,8 @@
 
 	.indicator {
 		width: 100%;
-		height: 3px;
+		height: 2px;
+		margin-top: 1px;
 		transition: opacity 0.1s;
 		background-color: transparent;
 	}

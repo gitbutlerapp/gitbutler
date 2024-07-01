@@ -149,8 +149,8 @@
 				{@render reorderDropzone(
 					reorderDropzoneManager.dropzoneBelowCommit(commit.id),
 					getReorderDropzoneOffset({
-						isLast: $localAndRemoteCommits.length === 0 && idx + 1 === $localCommits.length,
-						isMiddle: $localAndRemoteCommits.length > 0 && idx + 1 === $localCommits.length
+						isLast: idx + 1 === $localCommits.length,
+						isMiddle: idx + 1 === $localCommits.length
 					})
 				)}
 
@@ -181,7 +181,8 @@
 				{@render reorderDropzone(
 					reorderDropzoneManager.dropzoneBelowCommit(commit.id),
 					getReorderDropzoneOffset({
-						isLast: idx + 1 === $localAndRemoteCommits.length
+						isMiddle: idx + 1 === $localAndRemoteCommits.length
+						// isLast: idx + 1 === $localAndRemoteCommits.length
 					})
 				)}
 				<InsertEmptyCommitAction

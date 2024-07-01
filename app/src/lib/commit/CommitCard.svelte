@@ -164,16 +164,6 @@
 	{/if}
 
 	<div class="commit-card" class:is-first={first} class:is-last={last}>
-		<div
-			class="accent-border-line"
-			class:is-first={first}
-			class:is-last={last}
-			class:local={type === 'local'}
-			class:local-and-remote={type === 'localAndRemote'}
-			class:upstream={type === 'remote'}
-			class:integrated={type === 'integrated'}
-		></div>
-
 		<CommitDragItem {commit}>
 			<!-- GENERAL INFO -->
 			<div
@@ -213,6 +203,16 @@
 						}
 					: nonDraggable()}
 			>
+				<div
+					class="accent-border-line"
+					class:is-first={first}
+					class:is-last={last}
+					class:local={type === 'local'}
+					class:local-and-remote={type === 'localAndRemote'}
+					class:upstream={type === 'remote'}
+					class:integrated={type === 'integrated'}
+				></div>
+
 				{#if type === 'local' || type === 'localAndRemote'}
 					<div class="commit__drag-icon">
 						<Icon name="draggable-narrow" />
@@ -575,18 +575,18 @@
 	}
 
 	.pseudo-reorder-zone.top {
-		top: -2px;
+		top: -1px;
 	}
 
 	.pseudo-reorder-zone.bottom {
-		bottom: -2px;
+		bottom: -1px;
 	}
 
 	.pseudo-reorder-zone.top.is-first {
-		top: 5px;
+		top: 6px;
 	}
 
 	.pseudo-reorder-zone.bottom.is-last {
-		bottom: -7px;
+		bottom: -6px;
 	}
 </style>

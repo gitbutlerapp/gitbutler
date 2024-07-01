@@ -65,7 +65,9 @@ function setupDragHandlers(
 			selectedElements = Array.from(
 				parentNode.querySelectorAll(opts.selector) as NodeListOf<HTMLElement>
 			);
-		} else {
+		}
+
+		if (selectedElements.length === 0) {
 			selectedElements = [node];
 		}
 

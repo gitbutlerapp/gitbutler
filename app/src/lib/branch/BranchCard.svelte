@@ -258,9 +258,6 @@
 
 	.card {
 		flex: 1;
-		/* overflow: hidden; */
-		/* border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m); */
 	}
 
 	.branch-card__files {
@@ -268,9 +265,6 @@
 		flex-direction: column;
 		flex: 1;
 		height: 100%;
-		/* border-left: 1px solid var(--clr-border-2);
-		border-right: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m) var(--radius-m) 0 0; */
 	}
 
 	.card-notifications {
