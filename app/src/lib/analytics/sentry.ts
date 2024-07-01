@@ -4,7 +4,7 @@ import type { User } from '$lib/stores/user';
 import { dev } from '$app/environment';
 import { PUBLIC_SENTRY_ENVIRONMENT } from '$env/static/public';
 
-const { startSpan, setUser, init, rewriteFramesIntegration } = Sentry
+const { startSpan, setUser, init, rewriteFramesIntegration } = Sentry;
 
 export function initSentry() {
 	init({
