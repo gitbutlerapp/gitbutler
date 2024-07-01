@@ -1,4 +1,5 @@
 use anyhow::{anyhow, bail, Context, Result};
+use bstr::BString;
 use git2::{BlameOptions, Repository, Tree};
 use std::{path::Path, process::Stdio, str};
 use tracing::instrument;
@@ -26,9 +27,12 @@ pub trait RepositoryExt {
     fn in_memory<T, F>(&self, f: F) -> Result<T>
     where
         F: FnOnce(&git2::Repository) -> Result<T>;
+    /// Fetches the integration commit from the gitbutler/integration branch
     fn integration_commit(&self) -> Result<git2::Commit<'_>>;
-    fn sign_buffer(&self, buffer: &CommitBuffer) -> Result<String>;
-    fn commit_buffer(&self, commit_buffer: &CommitBuffer) -> Result<git2::Oid>;
+    /// Fetches the target commit by finding the parent of the integration commit
+    fn target_commit(&self) -> Result<git2::Commit<'_>>;
+    /// Takes a CommitBuffer and returns it after being signed by by your git signing configuration
+    fn sign_buffer(&self, buffer: &CommitBuffer) -> Result<BString>;
 
     fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder;
     fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()>;
@@ -43,8 +47,6 @@ pub trait RepositoryExt {
     ///
     /// This is for safety to assure the repository actually is in 'gitbutler mode'.
     fn integration_ref_from_head(&self) -> Result<git2::Reference<'_>>;
-
-    fn target_commit(&self) -> Result<git2::Commit<'_>>;
 
     #[allow(clippy::too_many_arguments)]
     fn commit_with_signature(
@@ -163,19 +165,30 @@ impl RepositoryExt for Repository {
         parents: &[&git2::Commit<'_>],
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid> {
-        let mut commit_buffer: CommitBuffer = self
+        fn commit_buffer(
+            repository: &git2::Repository,
+            commit_buffer: &CommitBuffer,
+        ) -> Result<git2::Oid> {
+            let oid = repository
+                .odb()?
+                .write(git2::ObjectType::Commit, &commit_buffer.as_bstring())?;
+
+            Ok(oid)
+        }
+
+        let mut buffer: CommitBuffer = self
             .commit_create_buffer(author, committer, message, tree, parents)?
             .into();
 
-        commit_buffer.set_gitbutler_headers(commit_headers);
+        buffer.set_gitbutler_headers(commit_headers);
 
         let oid = if self.gb_config()?.sign_commits.unwrap_or(false) {
-            let signature = self.sign_buffer(&commit_buffer);
+            let signature = self.sign_buffer(&buffer);
             match signature {
                 Ok(signature) => self
                     .commit_signed(
-                        commit_buffer.as_bstring().to_string().as_str(),
-                        &signature,
+                        buffer.as_bstring().to_string().as_str(),
+                        signature.to_string().as_str(),
                         None,
                     )
                     .map_err(Into::into),
@@ -189,20 +202,12 @@ impl RepositoryExt for Repository {
                 }
             }
         } else {
-            self.commit_buffer(&commit_buffer)
+            commit_buffer(self, &buffer)
         }?;
         // update reference
         if let Some(refname) = update_ref {
             self.reference(&refname.to_string(), oid, true, message)?;
         }
-        Ok(oid)
-    }
-
-    fn commit_buffer(&self, commit_buffer: &CommitBuffer) -> Result<git2::Oid> {
-        let oid = self
-            .odb()?
-            .write(git2::ObjectType::Commit, &commit_buffer.as_bstring())?;
-
         Ok(oid)
     }
 
@@ -223,7 +228,7 @@ impl RepositoryExt for Repository {
         self.blame_file(path, Some(&mut opts))
     }
 
-    fn sign_buffer(&self, buffer: &CommitBuffer) -> Result<String> {
+    fn sign_buffer(&self, buffer: &CommitBuffer) -> Result<BString> {
         // check git config for gpg.signingkey
         // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
         let signing_key = self.config()?.get_string("user.signingkey");
@@ -296,11 +301,11 @@ impl RepositoryExt for Repository {
                     // read signed_storage path plus .sig
                     let signature_path = buffer_file_to_sign_path.with_extension("sig");
                     let sig_data = std::fs::read(signature_path)?;
-                    let signature = String::from_utf8_lossy(&sig_data).into_owned();
+                    let signature = BString::new(sig_data);
                     return Ok(signature);
                 } else {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let stderr = BString::new(output.stderr);
+                    let stdout = BString::new(output.stdout);
                     let std_both = format!("{} {}", stdout, stderr);
                     bail!("Failed to sign SSH: {}", std_both);
                 }
@@ -337,11 +342,11 @@ impl RepositoryExt for Repository {
                 let output = child.wait_with_output()?;
                 if output.status.success() {
                     // read stdout
-                    let signature = String::from_utf8_lossy(&output.stdout).into_owned();
+                    let signature = BString::new(output.stdout);
                     return Ok(signature);
                 } else {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let stderr = BString::new(output.stderr);
+                    let stdout = BString::new(output.stdout);
                     let std_both = format!("{} {}", stdout, stderr);
                     bail!("Failed to sign GPG: {}", std_both);
                 }
