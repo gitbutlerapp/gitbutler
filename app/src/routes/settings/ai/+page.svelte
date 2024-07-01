@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
+	import { AISecretHandle, AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import AiPromptEdit from '$lib/components/AIPromptEdit/AIPromptEdit.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
+	import { getSecretsService } from '$lib/secrets/secretsService';
 	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
@@ -15,10 +16,10 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
-	import { invoke } from '@tauri-apps/api/tauri';
 	import { onMount, tick } from 'svelte';
 
 	const gitConfigService = getContext(GitConfigService);
+	const secretsService = getSecretsService();
 	const aiService = getContext(AIService);
 	const userService = getContext(UserService);
 	const user = userService.user;
@@ -37,27 +38,24 @@
 
 	async function setConfiguration(key: GitAIConfigKey, value: string | undefined) {
 		if (!initialized) return;
+		gitConfigService.set(key, value || '');
+	}
 
-		if (key === GitAIConfigKey.OpenAIKey || key === GitAIConfigKey.AnthropicKey) {
-			await invoke('secret_set_global', {
-				handle: key.split('.')[1],
-				secret: value
-			});
-		} else {
-			gitConfigService.set(key, value || '');
-		}
+	async function setSecret(handle: AISecretHandle, secret: string | undefined) {
+		if (!initialized) return;
+		secretsService.set(handle, secret || '');
 	}
 
 	$: setConfiguration(GitAIConfigKey.ModelProvider, modelKind);
 
 	$: setConfiguration(GitAIConfigKey.OpenAIKeyOption, openAIKeyOption);
 	$: setConfiguration(GitAIConfigKey.OpenAIModelName, openAIModelName);
-	$: setConfiguration(GitAIConfigKey.OpenAIKey, openAIKey);
+	$: setSecret(AISecretHandle.OpenAIKey, openAIKey);
 
 	$: setConfiguration(GitAIConfigKey.AnthropicKeyOption, anthropicKeyOption);
 	$: setConfiguration(GitAIConfigKey.AnthropicModelName, anthropicModelName);
-	$: setConfiguration(GitAIConfigKey.AnthropicKey, anthropicKey);
 	$: setConfiguration(GitAIConfigKey.DiffLengthLimit, diffLengthLimit?.toString());
+	$: setSecret(AISecretHandle.AnthropicKey, anthropicKey);
 
 	$: setConfiguration(GitAIConfigKey.OllamaEndpoint, ollamaEndpoint);
 	$: setConfiguration(GitAIConfigKey.OllamaModelName, ollamaModel);
