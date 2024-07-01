@@ -78,6 +78,15 @@
 		</button>
 	</div>
 
+	<div class="explore-row center" class:hidden={!expanded}>
+		<button
+			class="explore-filter card text-semibold text-base-11"
+			onclick={() => (expanded = false)}
+		>
+			📋 show the commit list
+		</button>
+	</div>
+
 	<div class="transition-fly explore-row wrap" class:hidden={!expanded}>
 		{#each filterDescriptions as filter}
 			{#if filter.dynamicSuggestions?.length}
@@ -102,14 +111,7 @@
 		{/each}
 	</div>
 
-	<div class="explore-row center" class:hidden={!expanded}>
-		<button
-			class="explore-filter card text-semibold text-base-11"
-			onclick={() => (expanded = false)}
-		>
-			📋 show the commit list
-		</button>
-	</div>
+
 </div>
 
 <style lang="postcss">
@@ -146,7 +148,6 @@
 			height var(--transition-slower);
 
 		&.center {
-			margin-top: 24px;
 			justify-content: center;
 		}
 
