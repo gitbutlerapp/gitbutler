@@ -8,8 +8,7 @@
 	},
 	"packageManager": "pnpm@9.2.0",
 	"scripts": {
-		"dev": "tauri dev",
-		"vite:dev": "vite dev",
+		"dev": "vite --clearScreen false --debug hmr",
 		"test": "vitest run --mode development",
 		"test:watch": "vitest --watch --mode development",
 		"test:e2e": "playwright test -c ./playwright.config.ts",

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import Line from './Line.svelte';
-	import type { LineGroup } from './types';
+	import type { LineGroupData } from './types';
 
 	interface Props {
-		lineGroup: LineGroup;
+		lineGroup: LineGroupData;
 		topHeightPx?: number;
 	}
 

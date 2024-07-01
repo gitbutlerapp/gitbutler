@@ -11,7 +11,7 @@
 		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
-		"experimentalDecorators": true,
-		"types": ["vitest/importMeta"]
+		"experimentalDecorators": true
+		// 		"types": ["vitest/importMeta"]
 	}
 }

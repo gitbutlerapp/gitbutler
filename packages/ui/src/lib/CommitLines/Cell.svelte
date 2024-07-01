@@ -1,10 +1,10 @@
 <script lang="ts">
 	import Fork from './Cell/Fork.svelte';
 	import Straight from './Cell/Straight.svelte';
-	import type { Cell } from './types';
+	import type { CellData } from './types';
 
 	interface Props {
-		cell: Cell;
+		cell: CellData;
 		isBottom?: boolean;
 	}
 

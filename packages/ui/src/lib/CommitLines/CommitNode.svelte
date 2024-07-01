@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { tooltip } from '../../utils/tooltip';
-	import { isDefined } from '../../utils/typeguards';
-	import type { CommitNode, Color } from './types';
+	import { tooltip } from '../utils/tooltip';
+	import { isDefined } from '../utils/typeguards';
+	import type { CommitNodeData, Color } from './types';
 
 	interface Props {
-		commitNode: CommitNode;
+		commitNode: CommitNodeData;
 		color: Color;
 	}
 

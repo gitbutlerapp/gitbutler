@@ -1,26 +1,13 @@
 {
-  "$schema": "https://turborepo.org/schema.json",
-  "tasks": {
-    "dev": {
-      "dependsOn": [
-        "@gitbutler/app#dev",
-        "@gitbutler/ui#package"
-      ],
-      "outputs": ["package/ui/dist/*"],
-      "cache": false
-    },
-    "prepare": {
-      "cache": false
-    },
-    "build": {
-      "dependsOn": ["@gitbutler/ui#build"],
-      "outputs": ["build/**"]
-    },
-    "preview": {
-      "cache": false
-    },
-    "lint": {
-      "outputs": []
-    }
-  }
+	"$schema": "https://turborepo.org/schema.json",
+	"tasks": {
+		"package": {
+			"cache": false
+		},
+		"dev": {
+			"dependsOn": ["@gitbutler/ui#package"],
+			"cache": false,
+			"persistent": true
+		}
+	}
 }

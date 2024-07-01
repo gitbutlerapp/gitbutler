@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { BaseNode, Color } from './types';
+	import type { BaseNodeData, Color } from './types';
 	interface Props {
-		baseNode: BaseNode;
+		baseNode: BaseNodeData;
 		color: Color;
 	}
 

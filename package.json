@@ -8,7 +8,7 @@
 	"type": "module",
 	"packageManager": "pnpm@9.2.0",
 	"scripts": {
-		"dev": "turbo run dev",
+		"dev": "turbo watch --filter @gitbutler/app dev",
 		"dev:ui": "pnpm --filter @gitbutler/ui dev",
 		"dev:tauri": "pnpm tauri dev",
 		"test": "pnpm --filter @gitbutler/app run test",

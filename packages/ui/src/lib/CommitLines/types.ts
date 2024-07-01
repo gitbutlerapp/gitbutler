@@ -1,29 +1,29 @@
 export type Color = 'local' | 'localAndRemote' | 'remote' | 'integrated' | 'shadow' | 'none';
 
 export type Style = 'dashed';
-export interface Cell {
+export interface CellData {
 	type: 'straight' | 'fork';
 	color: Color;
 	style?: Style;
 }
 
-export interface CommitNode {
+export interface CommitNodeData {
 	type: 'small' | 'large';
 	commit?: CommitData;
 }
 
-export interface BaseNode {}
+export interface BaseNodeData {}
 
-export interface Line {
-	top: Cell;
-	bottom: Cell;
-	commitNode?: CommitNode;
-	baseNode?: BaseNode;
+export interface LineData {
+	top: CellData;
+	bottom: CellData;
+	commitNode?: CommitNodeData;
+	baseNode?: BaseNodeData;
 }
 
-export interface LineGroup {
+export interface LineGroupData {
 	// A tuple of two, three, or four lines
-	lines: Line[];
+	lines: LineData[];
 }
 
 export interface Author {

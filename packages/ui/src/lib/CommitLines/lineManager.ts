@@ -1,4 +1,4 @@
-import type { CommitData, LineGroup, Line, Color } from './types';
+import type { CommitData, LineGroupData, LineData, Color } from './types';
 
 interface Commits {
 	remoteCommits: CommitData[];
@@ -173,12 +173,12 @@ function generateSameForkpoint({
 		base.lines[LEFT_COLUMN_INDEX].baseNode = undefined;
 	}
 
-	const data = new Map<string, LineGroup>([
+	const data = new Map<string, LineGroupData>([
 		...remoteBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup]),
 		...localBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup]),
 		...localAndRemoteBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup]),
 		...integratedBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup])
-	] as [string, LineGroup][]);
+	] as [string, LineGroupData][]);
 
 	return { data, base };
 }
@@ -416,11 +416,11 @@ function generateDifferentForkpoint({
 		removeRightMostColumn();
 	}
 
-	const data = new Map<string, LineGroup>([
+	const data = new Map<string, LineGroupData>([
 		...remoteBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup]),
 		...localBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup]),
 		...integratedBranchGroups.map(({ commit, lineGroup }) => [commit.id, lineGroup])
-	] as [string, LineGroup][]);
+	] as [string, LineGroupData][]);
 
 	return { data, base };
 }
@@ -434,11 +434,11 @@ function mapToCommitLineGroupPair(commits: CommitData[], groupSize: number) {
 	return groupings;
 }
 
-function blankLineGroup(lineCount: number): LineGroup {
+function blankLineGroup(lineCount: number): LineGroupData {
 	const lines = Array(lineCount)
 		.fill(undefined)
 		.map(
-			(): Line => ({
+			(): LineData => ({
 				top: { type: 'straight', color: 'none' },
 				bottom: { type: 'straight', color: 'none' }
 			})
@@ -457,8 +457,8 @@ function blankLineGroup(lineCount: number): LineGroup {
  * 4. Integrated Commits (Commits that exist locally and perhaps on the remote that are in the trunk)
  */
 export class LineManager {
-	private data: Map<string, LineGroup>;
-	base: LineGroup;
+	private data: Map<string, LineGroupData>;
+	base: LineGroupData;
 
 	constructor(commits: Commits, sameForkpoint: boolean) {
 		// We should never have local and remote commits with a different forkpoint

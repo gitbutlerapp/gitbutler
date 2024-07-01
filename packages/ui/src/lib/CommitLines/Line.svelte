@@ -2,11 +2,12 @@
 	import BaseNode from './BaseNode.svelte';
 	import Cell from './Cell.svelte';
 	import CommitNode from './CommitNode.svelte';
-	import { pxToRem } from '../../utils/pxToRem';
-	import type { Line } from './types';
+	import { pxToRem } from '../utils/pxToRem';
+	import type { LineData } from './types';
 
+	console.log('hello world!! :D');
 	interface Props {
-		line: Line;
+		line: LineData;
 		topHeightPx?: number;
 	}
 
@@ -39,6 +40,7 @@
 		align-items: flex-end;
 		width: 24px;
 		margin-right: -2px;
+		background-color: green;
 	}
 
 	.line-top {
