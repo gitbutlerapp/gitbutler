@@ -77,7 +77,7 @@ function setupDragHandlers(
 			clone.style.maxHeight = pxToRem(params.maxHeight);
 		}
 
-		console.log('selectedElements', selectedElements);
+		// console.log('selectedElements', selectedElements);
 		selectedElements.forEach((el) => (el.style.opacity = '0.5'));
 		document.body.appendChild(clone);
 
@@ -164,7 +164,7 @@ export function createCommitElement(
 	dateAndAuthor: string | undefined
 ): HTMLDivElement {
 	const cardEl = createElement('div', ['draggable-commit']) as HTMLDivElement;
-	const labelEl = createElement('span', ['text-base-13', 'text-bold'], label);
+	const labelEl = createElement('span', ['text-base-13', 'text-bold'], label || 'Empty commit');
 	const infoEl = createElement('div', ['draggable-commit-info', 'text-base-11']);
 	const shaEl = createElement('span', ['draggable-commit-info-text'], sha);
 	const dateAndAuthorEl = createElement('span', ['draggable-commit-info-text'], dateAndAuthor);

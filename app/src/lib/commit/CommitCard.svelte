@@ -46,7 +46,7 @@
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
-	const dispatch = createEventDispatcher<{ toggle: void }>();
+	const dispatch = createEventDispatcher<{ dragover: boolean }>();
 
 	let files: RemoteFile[] = [];
 	let showDetails = false;
@@ -57,7 +57,6 @@
 
 	function toggleFiles() {
 		showDetails = !showDetails;
-		dispatch('toggle');
 
 		if (showDetails) loadFiles();
 	}
@@ -139,12 +138,15 @@
 	{/snippet}
 </Modal>
 
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="commit-row"
 	class:is-commit-open={showDetails}
 	class:is-first={first}
 	class:is-last={last}
 	class:has-lines={lines}
+	on:dragenter|preventDefault={() => dispatch('dragover', true)}
+	on:dragleave|preventDefault={() => dispatch('dragover', false)}
 >
 	{#if lines}
 		<div>

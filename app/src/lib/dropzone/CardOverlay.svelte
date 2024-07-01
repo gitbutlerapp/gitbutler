@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Icon from '$lib/shared/Icon.svelte';
 	import { pxToRem } from '$lib/utils/pxToRem';
 
 	interface Props {
