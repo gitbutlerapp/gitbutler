@@ -13,9 +13,7 @@
 		type DynamicFilterSuggestion,
 		type FilterDescription,
 		type FilterSuggestion,
-
 		type StaticFilterSuggestion
-
 	} from '$lib/vbranches/filtering';
 
 	const MAX_PADDING = 10;

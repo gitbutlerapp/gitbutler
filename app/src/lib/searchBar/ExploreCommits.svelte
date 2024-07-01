@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getFilterContext } from './filterContext.svelte';
+	import Badge from '$lib/shared/Badge.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
@@ -101,7 +102,10 @@
 						{#each filter.dynamicSuggestions.slice(undefined, DYNAMIC_SUGGESTIONS_EXPANDED_FILTER) as suggestion}
 							<li class="text-base-12">
 								<button onclick={() => handleSuggestionClick(suggestion)}>
-									{suggestion.value}
+									<div class="dynamic-sugesstion">
+										{suggestion.value}
+										<Badge count={suggestion.metric.value} />
+									</div>
 								</button>
 							</li>
 						{/each}
@@ -110,8 +114,6 @@
 			{/if}
 		{/each}
 	</div>
-
-
 </div>
 
 <style lang="postcss">
@@ -191,6 +193,11 @@
 		}
 	}
 
+	.dynamic-sugesstion {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
 	.explore-filter {
 		display: flex;
 		align-items: center;
