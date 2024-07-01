@@ -1,3 +1,4 @@
+import { isStr } from '$lib/utils/string';
 import lscache from 'lscache';
 import type { CommitMetrics, CommitStatus, RemoteCommit } from './types';
 
@@ -30,6 +31,22 @@ export enum FilterCatergoryValue {
 	Chore = 'chore',
 	Test = 'test'
 }
+
+export function isFilterCatergoryValue(value: unknown): value is FilterCatergoryValue {
+	if (!isStr(value)) return false;
+	return Object.values(FilterCatergoryValue).includes(value as FilterCatergoryValue);
+}
+
+const COMMIT_CATEGORY_SEARCH_TERMS: Record<FilterCatergoryValue, string[]> = {
+	[FilterCatergoryValue.Feature]: ['feat'],
+	[FilterCatergoryValue.Fix]: ['fix'],
+	[FilterCatergoryValue.Refactor]: ['refactor'],
+	[FilterCatergoryValue.Performance]: ['perf'],
+	[FilterCatergoryValue.Style]: ['style', 'css'],
+	[FilterCatergoryValue.Docs]: ['docs', 'readme', 'log'],
+	[FilterCatergoryValue.Chore]: ['chore'],
+	[FilterCatergoryValue.Test]: ['test']
+};
 
 enum FilterOriginValue {
 	Local = 'local',
@@ -257,22 +274,11 @@ function commitMatchesFileFilter(commit: RemoteCommit, filter: AppliedFilter): b
 	return false;
 }
 
-const COMMIT_CATEGORIE_SEARCH_TERMS: Record<FilterCatergoryValue, string[]> = {
-	[FilterCatergoryValue.Feature]: ['feat'],
-	[FilterCatergoryValue.Fix]: ['fix'],
-	[FilterCatergoryValue.Refactor]: ['refactor'],
-	[FilterCatergoryValue.Performance]: ['perf'],
-	[FilterCatergoryValue.Style]: ['style', 'css'],
-	[FilterCatergoryValue.Docs]: ['docs', '.md', '.txt'],
-	[FilterCatergoryValue.Chore]: ['chore'],
-	[FilterCatergoryValue.Test]: ['test']
-};
-
 function commitMatchesCategoryFilter(commit: RemoteCommit, filter: AppliedFilter): boolean {
 	const message = commit.description.toLowerCase();
 	for (const value of filter.values) {
-		const searchTerms = COMMIT_CATEGORIE_SEARCH_TERMS[value as FilterCatergoryValue];
-		if (searchTerms.some((term) => message.includes(term))) {
+		const searchTerms = COMMIT_CATEGORY_SEARCH_TERMS[value as FilterCatergoryValue];
+		if (searchTerms?.some((term) => message.includes(term))) {
 			return true;
 		}
 	}
@@ -431,6 +437,27 @@ export function getFilterEmoji(filterName: FilterName): string {
 			return '💬';
 		case FilterName.Category:
 			return '📚';
+	}
+}
+
+export function getCommitCategoryEmoji(category: FilterCatergoryValue): string {
+	switch (category) {
+		case FilterCatergoryValue.Feature:
+			return '🚀';
+		case FilterCatergoryValue.Fix:
+			return '🔧';
+		case FilterCatergoryValue.Refactor:
+			return '🔨';
+		case FilterCatergoryValue.Performance:
+			return '⚡';
+		case FilterCatergoryValue.Style:
+			return '🎨';
+		case FilterCatergoryValue.Docs:
+			return '📖';
+		case FilterCatergoryValue.Chore:
+			return '🧹';
+		case FilterCatergoryValue.Test:
+			return '🧪';
 	}
 }
 

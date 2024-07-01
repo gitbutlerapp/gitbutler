@@ -5,9 +5,13 @@
 	import { getContext } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import {
+		FilterCatergoryValue,
+		FilterName,
 		formatFilterValues,
+		getCommitCategoryEmoji,
 		getFilterEmoji,
-		type AppliedFilter,
+		isFilterCatergoryValue,
+		type AppliedFilterInfo,
 		type FilterDescription,
 		type FilterSuggestion
 	} from '$lib/vbranches/filtering';
@@ -36,6 +40,22 @@
 			.filter((s) => !filterContext.hasRecentFilter(s))
 	);
 
+	const filterDescriptionPairs = $derived.by<FilterDescription[][]>(() => {
+		const pairs = [];
+		for (let i = 0; i < filterDescriptions.length; i += 2) {
+			pairs.push(filterDescriptions.slice(i, i + 2));
+		}
+		return pairs;
+	});
+
+	const commitCategories = $derived<FilterCatergoryValue[]>(
+		filterDescriptions
+			.filter((d) => d.name === FilterName.Category)
+			.flatMap(
+				(d) => d.suggestions?.map((s) => s.value).filter((v) => isFilterCatergoryValue(v)) ?? []
+			)
+	);
+
 	function handleSuggestionClick(suggestion: FilterSuggestion) {
 		addSuggestion: {
 			if (suggestion.value === undefined) break addSuggestion;
@@ -44,7 +64,7 @@
 		expanded = false;
 	}
 
-	function handleFilterClick(filter: AppliedFilter) {
+	function handleFilterClick(filter: AppliedFilterInfo) {
 		filterContext.addFilter(filter);
 		expanded = false;
 	}
@@ -88,30 +108,56 @@
 		</button>
 	</div>
 
-	<div class="transition-fly explore-row wrap" class:hidden={!expanded}>
-		{#each filterDescriptions as filter}
-			{#if filter.dynamicSuggestions?.length}
-				<div class="card explore-list">
-					<h3 class="text-base-14 text-semibold">
-						{getFilterEmoji(filter.name)} Top {filter.name}s
-						{#if isBusy}
-							<Icon name="spinner" />
-						{/if}
-					</h3>
-					<ul>
-						{#each filter.dynamicSuggestions.slice(undefined, DYNAMIC_SUGGESTIONS_EXPANDED_FILTER) as suggestion}
-							<li class="text-base-12">
-								<button onclick={() => handleSuggestionClick(suggestion)}>
-									<div class="dynamic-sugesstion">
-										{suggestion.value}
-										<Badge count={suggestion.metric.value} />
-									</div>
-								</button>
-							</li>
-						{/each}
-					</ul>
+	{#if commitCategories.length}
+		<div class="transition-fly explore-row" class:hidden={!expanded}>
+			<div class="card explore-list single-line">
+				<h3 class="text-base-18 text-semibold">
+					{getFilterEmoji(FilterName.Category)} Categories
+					{#if isBusy}
+						<Icon name="spinner" />
+					{/if}
+				</h3>
+
+				<div class="category-container text-base-16">
+					{#each commitCategories as category}
+						<button
+							onclick={() => handleFilterClick({ name: FilterName.Category, values: [category] })}
+						>
+							{getCommitCategoryEmoji(category)}
+							{category}
+						</button>
+					{/each}
 				</div>
-			{/if}
+			</div>
+		</div>
+	{/if}
+
+	<div class="transition-fly explore-row" class:hidden={!expanded}>
+		{#each filterDescriptionPairs as filterPair}
+			{#each filterPair as filter}
+				{#if filter.dynamicSuggestions?.length}
+					<div class="card explore-list">
+						<h3 class="text-base-14 text-semibold">
+							{getFilterEmoji(filter.name)} Top {filter.name}s
+							{#if isBusy}
+								<Icon name="spinner" />
+							{/if}
+						</h3>
+						<ul>
+							{#each filter.dynamicSuggestions.slice(undefined, DYNAMIC_SUGGESTIONS_EXPANDED_FILTER) as suggestion}
+								<li class="text-base-12">
+									<button onclick={() => handleSuggestionClick(suggestion)}>
+										<div class="dynamic-sugesstion">
+											{suggestion.value}
+											<Badge count={suggestion.metric.value} />
+										</div>
+									</button>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
+			{/each}
 		{/each}
 	</div>
 </div>
@@ -157,12 +203,6 @@
 			display: none;
 		}
 
-		&.wrap {
-			flex-wrap: wrap;
-			justify-content: start;
-			align-items: start;
-		}
-
 		&.hidden {
 			opacity: 0;
 			height: 0;
@@ -171,11 +211,15 @@
 	}
 
 	.explore-list {
-		width: 420px;
+		width: 100%;
 		min-height: 278px;
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
+
+		&.single-line {
+			min-height: unset;
+		}
 
 		& li > button {
 			width: 100%;
@@ -189,6 +233,25 @@
 
 			&:hover {
 				background: var(--clr-theme-ntrl-soft-hover);
+			}
+		}
+
+		& .category-container {
+			padding: 6px 0;
+			& button {
+				text-align: left;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+				overflow: hidden;
+				border-radius: var(--radius-m);
+				padding: 4px 8px;
+				margin: 4px 4px;
+				transition: background var(--transition-fast);
+				border: 1px solid var(--clr-border-2);
+
+				&:hover {
+					background: var(--clr-theme-ntrl-soft-hover);
+				}
 			}
 		}
 	}
