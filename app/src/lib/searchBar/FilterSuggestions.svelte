@@ -6,11 +6,16 @@
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import {
 		formatFilterName,
+		getSuggestionDescription,
 		suggestionIsApplied,
 		tryToParseFilter,
 		type AppliedFilter,
+		type DynamicFilterSuggestion,
 		type FilterDescription,
-		type FilterSuggestion
+		type FilterSuggestion,
+
+		type StaticFilterSuggestion
+
 	} from '$lib/vbranches/filtering';
 
 	const MAX_PADDING = 10;
@@ -36,7 +41,7 @@
 
 	let listOpen = $state<boolean>(false);
 	let highlightIndex = $state<number | undefined>(undefined);
-	let suggestions = $derived<FilterSuggestion[] | undefined>(
+	let suggestions = $derived<StaticFilterSuggestion[] | undefined>(
 		filterDescriptions
 			?.flatMap((d) => d.suggestions ?? [])
 			?.filter((s) => {
@@ -46,7 +51,7 @@
 			})
 	);
 
-	let filterSpecificSuggestions = $derived<FilterSuggestion[] | undefined>(
+	let filterSpecificSuggestions = $derived<DynamicFilterSuggestion[] | undefined>(
 		value
 			? filterDescriptions
 					?.filter((d) => value?.startsWith(formatFilterName(d)))
@@ -141,7 +146,7 @@
 							<div class="filter-suggestion">
 								<FilterPill name={formatFilterName(suggestion)} value={suggestion.value} />
 								<span class="description">
-									{suggestion.description}
+									{getSuggestionDescription(suggestion)}
 								</span>
 							</div>
 						</SelectItem>

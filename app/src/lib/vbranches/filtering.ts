@@ -33,17 +33,35 @@ export interface AppliedFilter extends AppliedFilterInfo {
 	id: string;
 }
 
-export interface FilterSuggestion {
+enum FilterSuggestionType {
+	Static = 'static',
+	Dynamic = 'dynamic'
+}
+
+interface FilterSuggestionBase {
 	name: FilterName;
+	value?: string;
+}
+
+export interface StaticFilterSuggestion extends FilterSuggestionBase {
+	type: FilterSuggestionType.Static;
 	value?: string;
 	description: string;
 }
 
+export interface DynamicFilterSuggestion extends FilterSuggestionBase {
+	type: FilterSuggestionType.Dynamic;
+	value: string;
+	metric: CommitMetrics;
+}
+
+export type FilterSuggestion = StaticFilterSuggestion | DynamicFilterSuggestion;
+
 export interface FilterDescription {
 	name: FilterName;
 	allowedValues?: string[];
-	suggestions?: FilterSuggestion[];
-	dynamicSuggestions?: FilterSuggestion[];
+	suggestions?: StaticFilterSuggestion[];
+	dynamicSuggestions?: DynamicFilterSuggestion[];
 }
 
 export const REMOTE_BRANCH_FILTERS: FilterDescription[] = [
@@ -51,6 +69,7 @@ export const REMOTE_BRANCH_FILTERS: FilterDescription[] = [
 		name: FilterName.Author,
 		suggestions: [
 			{
+				type: FilterSuggestionType.Static,
 				name: FilterName.Author,
 				description: 'Filter by commit author. Name must match exactly the given value'
 			}
@@ -60,6 +79,7 @@ export const REMOTE_BRANCH_FILTERS: FilterDescription[] = [
 		name: FilterName.SHA,
 		suggestions: [
 			{
+				type: FilterSuggestionType.Static,
 				name: FilterName.SHA,
 				description: 'Filter by commit SHA. It must start with the given value'
 			}
@@ -69,6 +89,7 @@ export const REMOTE_BRANCH_FILTERS: FilterDescription[] = [
 		name: FilterName.File,
 		suggestions: [
 			{
+				type: FilterSuggestionType.Static,
 				name: FilterName.File,
 				description: 'Filter by file path. It must include the given value'
 			}
@@ -78,6 +99,7 @@ export const REMOTE_BRANCH_FILTERS: FilterDescription[] = [
 		name: FilterName.Title,
 		suggestions: [
 			{
+				type: FilterSuggestionType.Static,
 				name: FilterName.Title,
 				description: 'Filter by commit title. It must include the given value'
 			}
@@ -87,6 +109,7 @@ export const REMOTE_BRANCH_FILTERS: FilterDescription[] = [
 		name: FilterName.Body,
 		suggestions: [
 			{
+				type: FilterSuggestionType.Static,
 				name: FilterName.Body,
 				description: 'Filter by commit body. It must include the given value'
 			}
@@ -96,6 +119,7 @@ export const REMOTE_BRANCH_FILTERS: FilterDescription[] = [
 		name: FilterName.Message,
 		suggestions: [
 			{
+				type: FilterSuggestionType.Static,
 				name: FilterName.Message,
 				description: 'Filter by commit message. It must include the given value'
 			}
@@ -110,11 +134,13 @@ const TRUNK_BRANCH_FILTERS: FilterDescription[] = [
 		allowedValues: [FilterOriginValue.Local, FilterOriginValue.Upstream],
 		suggestions: [
 			{
+				type: FilterSuggestionType.Static,
 				name: FilterName.Origin,
 				value: FilterOriginValue.Local,
 				description: 'Show only local commits'
 			},
 			{
+				type: FilterSuggestionType.Static,
 				name: FilterName.Origin,
 				value: FilterOriginValue.Upstream,
 				description: 'Show only upstream commits'
@@ -138,9 +164,10 @@ export function getTrunkBranchFilters(
 		f.dynamicSuggestions ??= [];
 		for (const v of values) {
 			f.dynamicSuggestions.push({
+				type: FilterSuggestionType.Dynamic,
 				name: f.name,
 				value: v.name,
-				description: v.value.toString()
+				metric: v
 			});
 		}
 		result.push(f);
@@ -333,4 +360,13 @@ export function cacheAppliedFilters(
 		APPLIED_FILTERS_CACHE_EXPIRATION_MIN
 	);
 	return filters;
+}
+
+export function getSuggestionDescription(suggestion: FilterSuggestion): string {
+	switch (suggestion.type) {
+		case FilterSuggestionType.Static:
+			return suggestion.description;
+		case FilterSuggestionType.Dynamic:
+			return `Found in ${suggestion.metric.commitIds.length} commits`;
+	}
 }
