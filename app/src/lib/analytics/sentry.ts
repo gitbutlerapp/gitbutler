@@ -1,7 +1,10 @@
-import { startSpan, setUser, type Span, init, rewriteFramesIntegration } from '@sentry/sveltekit';
+import * as Sentry from '@sentry/sveltekit';
+import { type Span } from '@sentry/sveltekit';
 import type { User } from '$lib/stores/user';
 import { dev } from '$app/environment';
 import { PUBLIC_SENTRY_ENVIRONMENT } from '$env/static/public';
+
+const { startSpan, setUser, init, rewriteFramesIntegration } = Sentry
 
 export function initSentry() {
 	init({
