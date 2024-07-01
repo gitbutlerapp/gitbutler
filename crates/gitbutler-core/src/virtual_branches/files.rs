@@ -54,10 +54,10 @@ pub fn get_remote_commit_file_paths(
     let parent = commit.parent(0).context("failed to get parent commit")?;
     let commit_tree = commit.tree().context("failed to get commit tree")?;
     let parent_tree = parent.tree().context("failed to get parent tree")?;
-    let diff_files = diff::trees(repository, &parent_tree, &commit_tree)?;
+    let file_paths = diff::tree_filepaths(repository, &parent_tree, &commit_tree)?;
 
-    Ok(diff_files
-        .into_keys()
+    Ok(file_paths
+        .into_iter()
         .map(|path| path.to_string_lossy().into_owned())
         .collect())
 }

@@ -143,6 +143,18 @@ pub struct FileDiff {
     pub new_size_bytes: u64,
 }
 
+fn get_diff_options() -> git2::DiffOptions {
+    let mut diff_opts = git2::DiffOptions::new();
+    diff_opts
+        .recurse_untracked_dirs(true)
+        .include_untracked(true)
+        .show_binary(true)
+        .show_untracked_content(true)
+        .ignore_submodules(true)
+        .context_lines(3);
+    diff_opts
+}
+
 #[instrument(skip(repo))]
 pub fn workdir(repo: &git2::Repository, commit_oid: &git2::Oid) -> Result<DiffByPathMap> {
     let commit = repo
@@ -178,14 +190,7 @@ pub fn workdir(repo: &git2::Repository, commit_oid: &git2::Oid) -> Result<DiffBy
 
     let new_tree = repo.find_tree(workdir_tree_id)?;
 
-    let mut diff_opts = git2::DiffOptions::new();
-    diff_opts
-        .recurse_untracked_dirs(true)
-        .include_untracked(true)
-        .show_binary(true)
-        .show_untracked_content(true)
-        .ignore_submodules(true)
-        .context_lines(3);
+    let mut diff_opts = get_diff_options();
 
     let diff = repo.diff_tree_to_tree(Some(&old_tree), Some(&new_tree), Some(&mut diff_opts))?;
     let diff_files = hunks_by_filepath(Some(repo), &diff);
@@ -202,19 +207,35 @@ pub fn trees(
     old_tree: &git2::Tree,
     new_tree: &git2::Tree,
 ) -> Result<DiffByPathMap> {
-    let mut diff_opts = git2::DiffOptions::new();
-    diff_opts
-        .recurse_untracked_dirs(true)
-        .include_untracked(true)
-        .show_binary(true)
-        .ignore_submodules(true)
-        .context_lines(3)
-        .show_untracked_content(true);
+    let mut diff_opts = get_diff_options();
 
     let diff =
         repository.diff_tree_to_tree(Some(old_tree), Some(new_tree), Some(&mut diff_opts))?;
 
     hunks_by_filepath(None, &diff)
+}
+
+pub fn tree_filepaths(
+    repository: &git2::Repository,
+    old_tree: &git2::Tree,
+    new_tree: &git2::Tree,
+) -> Result<Vec<PathBuf>> {
+    let mut diff_opts = get_diff_options();
+
+    let diff =
+        repository.diff_tree_to_tree(Some(old_tree), Some(new_tree), Some(&mut diff_opts))?;
+
+    let mut filepaths = Vec::new();
+    diff.deltas().for_each(|delta| {
+        let file_path = delta.new_file().path().unwrap_or_else(|| {
+            delta
+                .old_file()
+                .path()
+                .expect("failed to get file name from diff")
+        });
+        filepaths.push(file_path.to_path_buf());
+    });
+    Ok(filepaths)
 }
 
 /// Transform `diff` into a mapping of `worktree-relative path -> FileDiff`, where `FileDiff` is
