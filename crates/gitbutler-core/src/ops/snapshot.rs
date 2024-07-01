@@ -11,17 +11,6 @@ use super::entry::Trailer;
 
 /// Snapshot functionality
 impl Project {
-    pub(crate) fn snapshot_branch_applied(
-        &self,
-        snapshot_tree: git2::Oid,
-        result: Result<&String, &anyhow::Error>,
-    ) -> anyhow::Result<()> {
-        let result = result.map(|o| Some(o.clone()));
-        let details = SnapshotDetails::new(OperationKind::ApplyBranch)
-            .with_trailers(result_trailer(result, "name".to_string()));
-        self.commit_snapshot(snapshot_tree, details)?;
-        Ok(())
-    }
     pub(crate) fn snapshot_branch_unapplied(
         &self,
         snapshot_tree: git2::Oid,

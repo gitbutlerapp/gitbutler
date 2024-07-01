@@ -185,7 +185,6 @@ fn main() {
                     virtual_branches::commands::integrate_upstream_commits,
                     virtual_branches::commands::update_virtual_branch,
                     virtual_branches::commands::delete_virtual_branch,
-                    virtual_branches::commands::apply_branch,
                     virtual_branches::commands::convert_to_real_branch,
                     virtual_branches::commands::unapply_ownership,
                     virtual_branches::commands::reset_files,

@@ -575,21 +575,7 @@ mod applied_branch {
             assert!(branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].commits.len(), 1);
-        }
 
-        {
-            controller
-                .apply_virtual_branch(*project_id, branch_id)
-                .await
-                .unwrap();
-            let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
-            assert_eq!(branches.len(), 1);
-            assert_eq!(branches[0].id, branch_id);
-            assert!(branches[0].active);
-            assert!(!branches[0].conflicted);
-            assert!(branches[0].base_current);
-            assert_eq!(branches[0].files.len(), 1);
-            assert_eq!(branches[0].commits.len(), 1);
             assert_eq!(
                 std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                 "second"
@@ -672,22 +658,7 @@ mod applied_branch {
             assert!(branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].commits.len(), 0);
-        }
 
-        {
-            // applying the branch should produce conflict markers
-            controller
-                .apply_virtual_branch(*project_id, branch_id)
-                .await
-                .unwrap();
-            let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
-            assert_eq!(branches.len(), 1);
-            assert_eq!(branches[0].id, branch_id);
-            assert!(branches[0].active);
-            assert!(!branches[0].conflicted);
-            assert!(branches[0].base_current);
-            assert_eq!(branches[0].files.len(), 1);
-            assert_eq!(branches[0].commits.len(), 0);
             assert_eq!(
                 std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                 "second"
@@ -890,21 +861,6 @@ mod applied_branch {
             assert!(branches[0].upstream.is_none());
             assert_eq!(branches[0].files.len(), 1);
         }
-
-        {
-            controller
-                .apply_virtual_branch(*project_id, branch_id)
-                .await
-                .unwrap();
-
-            let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
-            assert_eq!(branches.len(), 1);
-            assert!(branches[0].active);
-            assert!(!branches[0].conflicted);
-            assert!(branches[0].base_current);
-            assert_eq!(branches[0].files.len(), 1);
-            assert_eq!(branches[0].commits.len(), 0); // no merge commit
-        }
     }
 
     #[tokio::test]
@@ -970,22 +926,7 @@ mod applied_branch {
             assert!(branches[0].active);
             assert!(branches[0].commits.is_empty());
             assert!(branches[0].upstream.is_none());
-            assert!(!branches[0].files.is_empty());
-        }
-
-        {
-            controller
-                .apply_virtual_branch(*project_id, branch_id)
-                .await
-                .unwrap();
-
-            let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
-            assert_eq!(branches.len(), 1);
-            assert!(branches[0].active);
-            assert!(!branches[0].conflicted);
-            assert!(branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
-            assert_eq!(branches[0].commits.len(), 0);
         }
     }
 

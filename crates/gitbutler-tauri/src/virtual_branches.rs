@@ -197,21 +197,6 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
-    pub async fn apply_branch(
-        handle: AppHandle,
-        project_id: ProjectId,
-        branch: BranchId,
-    ) -> Result<(), Error> {
-        handle
-            .state::<Controller>()
-            .apply_virtual_branch(project_id, branch)
-            .await?;
-        emit_vbranches(&handle, project_id).await;
-        Ok(())
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
     pub async fn convert_to_real_branch(
         handle: AppHandle,
         project_id: ProjectId,

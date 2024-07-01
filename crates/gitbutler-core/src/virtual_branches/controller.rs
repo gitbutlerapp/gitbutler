@@ -184,17 +184,6 @@ impl Controller {
             .await
     }
 
-    pub async fn apply_virtual_branch(
-        &self,
-        project_id: ProjectId,
-        branch_id: BranchId,
-    ) -> Result<()> {
-        self.inner(project_id)
-            .await
-            .apply_virtual_branch(project_id, branch_id)
-            .await
-    }
-
     pub async fn unapply_ownership(
         &self,
         project_id: ProjectId,
@@ -598,27 +587,6 @@ impl ControllerInner {
 
         self.with_verify_branch(project_id, |project_repository, _| {
             super::delete_branch(project_repository, branch_id)
-        })
-    }
-
-    pub async fn apply_virtual_branch(
-        &self,
-        project_id: ProjectId,
-        branch_id: BranchId,
-    ) -> Result<()> {
-        let _permit = self.semaphore.acquire().await;
-
-        self.with_verify_branch(project_id, |project_repository, user| {
-            let snapshot_tree = project_repository.project().prepare_snapshot();
-            let result =
-                super::apply_branch(project_repository, branch_id, user).map_err(Into::into);
-
-            let _ = snapshot_tree.and_then(|snapshot_tree| {
-                project_repository
-                    .project()
-                    .snapshot_branch_applied(snapshot_tree, result.as_ref())
-            });
-            result.map(|_| ())
         })
     }
 

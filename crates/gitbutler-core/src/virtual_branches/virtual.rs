@@ -236,247 +236,6 @@ pub fn normalize_branch_name(name: &str) -> String {
     pattern.replace_all(name, "-").to_string()
 }
 
-pub fn apply_branch(
-    project_repository: &project_repository::Repository,
-    branch_id: BranchId,
-    user: Option<&users::User>,
-) -> Result<String> {
-    project_repository.assure_resolved()?;
-    let repo = project_repository.repo();
-
-    let vb_state = project_repository.project().virtual_branches();
-    let default_target = vb_state.get_default_target()?;
-
-    let mut branch = vb_state.get_branch(branch_id)?;
-
-    if branch.applied {
-        return Ok(branch.name);
-    }
-
-    let target_commit = repo
-        .find_commit(default_target.sha)
-        .context("failed to find target commit")?;
-    let target_tree = target_commit.tree().context("failed to get target tree")?;
-
-    // calculate the merge base and make sure it's the same as the target commit
-    // if not, we need to merge or rebase the branch to get it up to date
-
-    let merge_base = repo
-        .merge_base(default_target.sha, branch.head)
-        .context(format!(
-            "failed to find merge base between {} and {}",
-            default_target.sha, branch.head
-        ))?;
-    if merge_base != default_target.sha {
-        // Branch is out of date, merge or rebase it
-        let merge_base_tree = repo
-            .find_commit(merge_base)
-            .context(format!("failed to find merge base commit {}", merge_base))?
-            .tree()
-            .context("failed to find merge base tree")?;
-
-        let branch_tree = repo
-            .find_tree(branch.tree)
-            .context("failed to find branch tree")?;
-
-        let mut merge_index = repo
-            .merge_trees(&merge_base_tree, &branch_tree, &target_tree, None)
-            .context("failed to merge trees")?;
-
-        if merge_index.has_conflicts() {
-            // currently we can only deal with the merge problem branch
-            for branch in get_status_by_branch(project_repository, Some(&target_commit.id()))?
-                .0
-                .into_iter()
-                .map(|(branch, _)| branch)
-                .filter(|branch| branch.applied)
-            {
-                convert_to_real_branch(project_repository, branch.id, Default::default())?;
-            }
-
-            // apply the branch
-            branch.applied = true;
-            vb_state.set_branch(branch.clone())?;
-
-            // checkout the conflicts
-            repo.checkout_index_builder(&mut merge_index)
-                .allow_conflicts()
-                .conflict_style_merge()
-                .force()
-                .checkout()
-                .context("failed to checkout index")?;
-
-            // mark conflicts
-            let conflicts = merge_index
-                .conflicts()
-                .context("failed to get merge index conflicts")?;
-            let mut merge_conflicts = Vec::new();
-            for path in conflicts.flatten() {
-                if let Some(ours) = path.our {
-                    let path = std::str::from_utf8(&ours.path)
-                        .context("failed to convert path to utf8")?
-                        .to_string();
-                    merge_conflicts.push(path);
-                }
-            }
-            conflicts::mark(
-                project_repository,
-                &merge_conflicts,
-                Some(default_target.sha),
-            )?;
-
-            return Ok(branch.name);
-        }
-
-        let head_commit = repo
-            .find_commit(branch.head)
-            .context("failed to find head commit")?;
-
-        let merged_branch_tree_oid = merge_index
-            .write_tree_to(project_repository.repo())
-            .context("failed to write tree")?;
-
-        let merged_branch_tree = repo
-            .find_tree(merged_branch_tree_oid)
-            .context("failed to find tree")?;
-
-        let ok_with_force_push = branch.allow_rebasing;
-        if branch.upstream.is_some() && !ok_with_force_push {
-            // branch was pushed to upstream, and user doesn't like force pushing.
-            // create a merge commit to avoid the need of force pushing then.
-
-            let new_branch_head = project_repository.commit(
-                user,
-                format!(
-                    "Merged {}/{} into {}",
-                    default_target.branch.remote(),
-                    default_target.branch.branch(),
-                    branch.name
-                )
-                .as_str(),
-                &merged_branch_tree,
-                &[&head_commit, &target_commit],
-                None,
-            )?;
-
-            // ok, update the virtual branch
-            branch.head = new_branch_head;
-        } else {
-            let rebase = cherry_rebase(
-                project_repository,
-                target_commit.id(),
-                target_commit.id(),
-                branch.head,
-            );
-            let mut rebase_success = true;
-            let mut last_rebase_head = branch.head;
-            match rebase {
-                Ok(rebase_oid) => {
-                    if let Some(oid) = rebase_oid {
-                        last_rebase_head = oid;
-                    }
-                }
-                Err(_) => {
-                    rebase_success = false;
-                }
-            }
-
-            if rebase_success {
-                // rebase worked out, rewrite the branch head
-                branch.head = last_rebase_head;
-            } else {
-                // rebase failed, do a merge commit
-
-                // get tree from merge_tree_oid
-                let merge_tree = repo
-                    .find_tree(merged_branch_tree_oid)
-                    .context("failed to find tree")?;
-
-                // commit the merge tree oid
-                let new_branch_head = project_repository
-                    .commit(
-                        user,
-                        format!(
-                            "Merged {}/{} into {}",
-                            default_target.branch.remote(),
-                            default_target.branch.branch(),
-                            branch.name
-                        )
-                        .as_str(),
-                        &merge_tree,
-                        &[&head_commit, &target_commit],
-                        None,
-                    )
-                    .context("failed to commit merge")?;
-
-                branch.head = new_branch_head;
-            }
-        }
-
-        branch.tree = repo
-            .find_commit(branch.head)?
-            .tree()
-            .map_err(anyhow::Error::from)?
-            .id();
-        vb_state.set_branch(branch.clone())?;
-    }
-
-    let wd_tree = project_repository.repo().get_wd_tree()?;
-
-    let branch_tree = repo
-        .find_tree(branch.tree)
-        .context("failed to find branch tree")?;
-
-    // check index for conflicts
-    let mut merge_index = repo
-        .merge_trees(&target_tree, &wd_tree, &branch_tree, None)
-        .context("failed to merge trees")?;
-
-    if merge_index.has_conflicts() {
-        return Err(anyhow!("branch {branch_id} is in a conflicting state"))
-            .context(Marker::ProjectConflict);
-    }
-
-    // apply the branch
-    branch.applied = true;
-    vb_state.set_branch(branch.clone())?;
-
-    ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
-    // checkout the merge index
-    repo.checkout_index_builder(&mut merge_index)
-        .force()
-        .checkout()
-        .context("failed to checkout index")?;
-
-    // Look for and handle the vbranch indicator commit
-    {
-        let head_commit = repo.find_commit(branch.head)?;
-
-        if let Some(header) = head_commit.raw_header() {
-            if header
-                .lines()
-                .any(|line| line.starts_with("gitbutler-vbranch"))
-            {
-                if let Some(branch_name) = header
-                    .lines()
-                    .find(|line| line.starts_with("gitbutler-vbranch-name"))
-                    .and_then(|line| line.split_once(' '))
-                    .map(|(_, name)| name.to_string())
-                {
-                    branch.name = branch_name;
-                    vb_state.set_branch(branch.clone())?;
-                }
-
-                undo_commit(project_repository, branch_id, branch.head)?;
-            }
-        }
-    }
-
-    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-
-    Ok(branch.name)
-}
-
 pub fn unapply_ownership(
     project_repository: &project_repository::Repository,
     ownership: &BranchOwnershipClaims,
@@ -3543,6 +3302,247 @@ pub fn create_virtual_branch_from_branch(
     upstream: &git::Refname,
     user: Option<&users::User>,
 ) -> Result<BranchId> {
+    fn apply_branch(
+        project_repository: &project_repository::Repository,
+        branch_id: BranchId,
+        user: Option<&users::User>,
+    ) -> Result<String> {
+        project_repository.assure_resolved()?;
+        let repo = project_repository.repo();
+
+        let vb_state = project_repository.project().virtual_branches();
+        let default_target = vb_state.get_default_target()?;
+
+        let mut branch = vb_state.get_branch(branch_id)?;
+
+        if branch.applied {
+            return Ok(branch.name);
+        }
+
+        let target_commit = repo
+            .find_commit(default_target.sha)
+            .context("failed to find target commit")?;
+        let target_tree = target_commit.tree().context("failed to get target tree")?;
+
+        // calculate the merge base and make sure it's the same as the target commit
+        // if not, we need to merge or rebase the branch to get it up to date
+
+        let merge_base = repo
+            .merge_base(default_target.sha, branch.head)
+            .context(format!(
+                "failed to find merge base between {} and {}",
+                default_target.sha, branch.head
+            ))?;
+        if merge_base != default_target.sha {
+            // Branch is out of date, merge or rebase it
+            let merge_base_tree = repo
+                .find_commit(merge_base)
+                .context(format!("failed to find merge base commit {}", merge_base))?
+                .tree()
+                .context("failed to find merge base tree")?;
+
+            let branch_tree = repo
+                .find_tree(branch.tree)
+                .context("failed to find branch tree")?;
+
+            let mut merge_index = repo
+                .merge_trees(&merge_base_tree, &branch_tree, &target_tree, None)
+                .context("failed to merge trees")?;
+
+            if merge_index.has_conflicts() {
+                // currently we can only deal with the merge problem branch
+                for branch in get_status_by_branch(project_repository, Some(&target_commit.id()))?
+                    .0
+                    .into_iter()
+                    .map(|(branch, _)| branch)
+                    .filter(|branch| branch.applied)
+                {
+                    convert_to_real_branch(project_repository, branch.id, Default::default())?;
+                }
+
+                // apply the branch
+                branch.applied = true;
+                vb_state.set_branch(branch.clone())?;
+
+                // checkout the conflicts
+                repo.checkout_index_builder(&mut merge_index)
+                    .allow_conflicts()
+                    .conflict_style_merge()
+                    .force()
+                    .checkout()
+                    .context("failed to checkout index")?;
+
+                // mark conflicts
+                let conflicts = merge_index
+                    .conflicts()
+                    .context("failed to get merge index conflicts")?;
+                let mut merge_conflicts = Vec::new();
+                for path in conflicts.flatten() {
+                    if let Some(ours) = path.our {
+                        let path = std::str::from_utf8(&ours.path)
+                            .context("failed to convert path to utf8")?
+                            .to_string();
+                        merge_conflicts.push(path);
+                    }
+                }
+                conflicts::mark(
+                    project_repository,
+                    &merge_conflicts,
+                    Some(default_target.sha),
+                )?;
+
+                return Ok(branch.name);
+            }
+
+            let head_commit = repo
+                .find_commit(branch.head)
+                .context("failed to find head commit")?;
+
+            let merged_branch_tree_oid = merge_index
+                .write_tree_to(project_repository.repo())
+                .context("failed to write tree")?;
+
+            let merged_branch_tree = repo
+                .find_tree(merged_branch_tree_oid)
+                .context("failed to find tree")?;
+
+            let ok_with_force_push = branch.allow_rebasing;
+            if branch.upstream.is_some() && !ok_with_force_push {
+                // branch was pushed to upstream, and user doesn't like force pushing.
+                // create a merge commit to avoid the need of force pushing then.
+
+                let new_branch_head = project_repository.commit(
+                    user,
+                    format!(
+                        "Merged {}/{} into {}",
+                        default_target.branch.remote(),
+                        default_target.branch.branch(),
+                        branch.name
+                    )
+                    .as_str(),
+                    &merged_branch_tree,
+                    &[&head_commit, &target_commit],
+                    None,
+                )?;
+
+                // ok, update the virtual branch
+                branch.head = new_branch_head;
+            } else {
+                let rebase = cherry_rebase(
+                    project_repository,
+                    target_commit.id(),
+                    target_commit.id(),
+                    branch.head,
+                );
+                let mut rebase_success = true;
+                let mut last_rebase_head = branch.head;
+                match rebase {
+                    Ok(rebase_oid) => {
+                        if let Some(oid) = rebase_oid {
+                            last_rebase_head = oid;
+                        }
+                    }
+                    Err(_) => {
+                        rebase_success = false;
+                    }
+                }
+
+                if rebase_success {
+                    // rebase worked out, rewrite the branch head
+                    branch.head = last_rebase_head;
+                } else {
+                    // rebase failed, do a merge commit
+
+                    // get tree from merge_tree_oid
+                    let merge_tree = repo
+                        .find_tree(merged_branch_tree_oid)
+                        .context("failed to find tree")?;
+
+                    // commit the merge tree oid
+                    let new_branch_head = project_repository
+                        .commit(
+                            user,
+                            format!(
+                                "Merged {}/{} into {}",
+                                default_target.branch.remote(),
+                                default_target.branch.branch(),
+                                branch.name
+                            )
+                            .as_str(),
+                            &merge_tree,
+                            &[&head_commit, &target_commit],
+                            None,
+                        )
+                        .context("failed to commit merge")?;
+
+                    branch.head = new_branch_head;
+                }
+            }
+
+            branch.tree = repo
+                .find_commit(branch.head)?
+                .tree()
+                .map_err(anyhow::Error::from)?
+                .id();
+            vb_state.set_branch(branch.clone())?;
+        }
+
+        let wd_tree = project_repository.repo().get_wd_tree()?;
+
+        let branch_tree = repo
+            .find_tree(branch.tree)
+            .context("failed to find branch tree")?;
+
+        // check index for conflicts
+        let mut merge_index = repo
+            .merge_trees(&target_tree, &wd_tree, &branch_tree, None)
+            .context("failed to merge trees")?;
+
+        if merge_index.has_conflicts() {
+            return Err(anyhow!("branch {branch_id} is in a conflicting state"))
+                .context(Marker::ProjectConflict);
+        }
+
+        // apply the branch
+        branch.applied = true;
+        vb_state.set_branch(branch.clone())?;
+
+        ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
+        // checkout the merge index
+        repo.checkout_index_builder(&mut merge_index)
+            .force()
+            .checkout()
+            .context("failed to checkout index")?;
+
+        // Look for and handle the vbranch indicator commit
+        {
+            let head_commit = repo.find_commit(branch.head)?;
+
+            if let Some(header) = head_commit.raw_header() {
+                if header
+                    .lines()
+                    .any(|line| line.starts_with("gitbutler-vbranch"))
+                {
+                    if let Some(branch_name) = header
+                        .lines()
+                        .find(|line| line.starts_with("gitbutler-vbranch-name"))
+                        .and_then(|line| line.split_once(' '))
+                        .map(|(_, name)| name.to_string())
+                    {
+                        branch.name = branch_name;
+                        vb_state.set_branch(branch.clone())?;
+                    }
+
+                    undo_commit(project_repository, branch_id, branch.head)?;
+                }
+            }
+        }
+
+        super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+
+        Ok(branch.name)
+    }
+
     // only set upstream if it's not the default target
     let upstream_branch = match upstream {
         git::Refname::Other(_) | git::Refname::Virtual(_) => {
