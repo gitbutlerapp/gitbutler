@@ -2,9 +2,10 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use bstr::BString;
+use itertools::Itertools;
 use serde::Serialize;
 
-use super::{get_remote_commit_file_paths, target, Author, VirtualBranchesHandle};
+use super::{get_remote_commit_file_paths, target, Author, CommitMetrics, VirtualBranchesHandle};
 use crate::{
     git::{self, CommitExt, RepositoryExt},
     project_repository::{self, LogUntil},
@@ -41,6 +42,8 @@ pub struct RemoteBranchData {
     pub commits: Vec<RemoteCommit>,
     #[serde(with = "crate::serde::oid_opt", default)]
     pub fork_point: Option<git2::Oid>,
+    pub recent_authors: Vec<CommitMetrics>,
+    pub recent_files: Vec<CommitMetrics>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -55,6 +58,53 @@ pub struct RemoteCommit {
     #[serde(with = "crate::serde::oid_vec")]
     pub parent_ids: Vec<git2::Oid>,
     pub file_paths: Vec<String>,
+}
+
+pub fn get_recent_commits_metric(
+    recent_commits: &Vec<RemoteCommit>,
+) -> (Vec<CommitMetrics>, Vec<CommitMetrics>) {
+    let mut recent_authors =
+        std::collections::HashMap::<String, CommitMetrics>::with_capacity(recent_commits.len());
+    let mut recent_files = std::collections::HashMap::<String, CommitMetrics>::new();
+    for commit in recent_commits {
+        let commit_id = &commit.id;
+        let author_name = &commit.author.name;
+        let author_metric =
+            recent_authors
+                .entry(author_name.to_string())
+                .or_insert(CommitMetrics {
+                    name: author_name.to_string(),
+                    value: 0,
+                    commit_ids: Vec::new(),
+                });
+        author_metric.value += 1;
+        author_metric.commit_ids.push(commit_id.to_string());
+        for file_path in &commit.file_paths {
+            let file_metric = recent_files
+                .entry(file_path.to_string())
+                .or_insert(CommitMetrics {
+                    name: file_path.to_string(),
+                    value: 0,
+                    commit_ids: Vec::new(),
+                });
+            file_metric.value += 1;
+            file_metric.commit_ids.push(commit_id.to_string());
+        }
+    }
+
+    let recent_authors = recent_authors
+        .into_values()
+        .sorted_by_key(|a| a.value)
+        .rev()
+        .collect();
+
+    let recent_files = recent_files
+        .into_values()
+        .sorted_by_key(|f| f.value)
+        .rev()
+        .collect();
+
+    (recent_authors, recent_files)
 }
 
 // for legacy purposes, this is still named "remote" branches, but it's actually
@@ -167,6 +217,13 @@ pub fn branch_to_remote_branch_data(
 
             let fork_point = ahead.last().and_then(|c| c.parent(0).ok()).map(|c| c.id());
 
+            let commits = ahead
+                .iter()
+                .map(|commit| commit_to_remote_commit(project_repository, commit))
+                .collect::<Vec<_>>();
+
+            let (recent_authors, recent_files) = super::get_recent_commits_metric(&commits);
+
             Ok(RemoteBranchData {
                 sha,
                 upstream: if let git::Refname::Local(local_name) = &name {
@@ -176,11 +233,10 @@ pub fn branch_to_remote_branch_data(
                 },
                 name,
                 behind: count_behind,
-                commits: ahead
-                    .into_iter()
-                    .map(|commit| commit_to_remote_commit(project_repository, &commit))
-                    .collect::<Vec<_>>(),
+                commits,
                 fork_point,
+                recent_authors,
+                recent_files,
             })
         })
         .transpose()

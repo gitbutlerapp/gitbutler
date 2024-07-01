@@ -74,8 +74,11 @@ export async function getRelevantRemoteBranchData(
 	filePath: string
 ): Promise<RelevantBranchData | undefined> {
 	const remoteBranch = await getRemoteBranchData(projectId, refname);
-	for (const commit of remoteBranch.commits) {
-		if (commit.filePaths.includes(filePath)) {
+	for (const recentFile of remoteBranch.recentFiles) {
+		if (recentFile.name === filePath && recentFile.commitIds.length > 0) {
+			const commitId = recentFile.commitIds[0];
+			const commit = remoteBranch.commits.find((c) => c.id === commitId);
+			if (!commit) throw new Error(`Commit ${commitId} not found in remote branch ${refname}`);
 			return { remoteBranch, commit };
 		}
 	}

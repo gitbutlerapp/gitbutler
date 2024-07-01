@@ -351,6 +351,8 @@ export class RemoteBranchData {
 	commits!: RemoteCommit[];
 	isMergeable!: boolean | undefined;
 	forkPoint?: string | undefined;
+	recentAuthors!: CommitMetrics[];
+	recentFiles!: CommitMetrics[];
 
 	get ahead(): number {
 		return this.commits.length;
@@ -365,10 +367,10 @@ export class RemoteBranchData {
 	}
 
 	get authors(): Author[] {
-		const allAuthors = this.commits.map((commit) => commit.author);
-		const uniqueAuthors = allAuthors.filter(
-			(author, index) => allAuthors.findIndex((a) => a.email === author.email) === index
-		);
+		const uniqueAuthors = this.recentAuthors
+			.map((a) => this.commits.find((c) => c.author.name === a.name)?.author)
+			.filter((a): a is Author => !!a);
+
 		return uniqueAuthors;
 	}
 
