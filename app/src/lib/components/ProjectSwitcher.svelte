@@ -15,8 +15,8 @@
 		title: string;
 	};
 
-	const mappedProjects = derived(projectService.projects, ($projects) =>
-		$projects.map((project) => ({
+	const mappedProjects = derived(projectService.projects, (projects) =>
+		projects.map((project) => ({
 			id: project.id,
 			title: project.title
 		}))

@@ -1,7 +1,10 @@
-import { startSpan, setUser, type Span, init } from '@sentry/sveltekit';
+import * as Sentry from '@sentry/sveltekit';
+import { type Span } from '@sentry/sveltekit';
 import type { User } from '$lib/stores/user';
 import { dev } from '$app/environment';
 import { PUBLIC_SENTRY_ENVIRONMENT } from '$env/static/public';
+
+const { startSpan, setUser, init, rewriteFramesIntegration } = Sentry;
 
 export function initSentry() {
 	init({
@@ -9,7 +12,8 @@ export function initSentry() {
 		dsn: 'https://a35bbd6688a3a8f76e4956c6871f414a@o4504644069687296.ingest.sentry.io/4505976067129344',
 		environment: PUBLIC_SENTRY_ENVIRONMENT,
 		tracesSampleRate: 0.1,
-		tracePropagationTargets: ['localhost', /gitbutler\.com/i]
+		tracePropagationTargets: ['localhost', /gitbutler\.com/i],
+		integrations: [rewriteFramesIntegration()]
 	});
 }
 

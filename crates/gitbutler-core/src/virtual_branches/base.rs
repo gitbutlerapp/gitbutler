@@ -6,7 +6,7 @@ use itertools::Itertools;
 use serde::Serialize;
 
 use super::{
-    branch,
+    branch, convert_to_real_branch,
     integration::{
         get_workspace_head, update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE,
     },
@@ -386,10 +386,10 @@ fn get_recent_commits_metric(
 // determine if what the target branch is now pointing to is mergeable with our current working directory
 // merge the target branch into our current working directory
 // update the target sha
-pub fn update_base_branch(
-    project_repository: &project_repository::Repository,
+pub fn update_base_branch<'repo>(
+    project_repository: &'repo project_repository::Repository,
     user: Option<&users::User>,
-) -> anyhow::Result<Vec<branch::Branch>> {
+) -> anyhow::Result<Vec<git2::Branch<'repo>>> {
     project_repository.assure_resolved()?;
 
     // look up the target and see if there is a new oid
@@ -405,10 +405,10 @@ pub fn update_base_branch(
         .peel_to_commit()
         .context(format!("failed to peel branch {} to commit", target.branch))?;
 
-    let mut unapplied_branches: Vec<branch::Branch> = Vec::new();
+    let mut unapplied_branch_names: Vec<git2::Branch> = Vec::new();
 
     if new_target_commit.id() == target.sha {
-        return Ok(unapplied_branches);
+        return Ok(unapplied_branch_names);
     }
 
     let new_target_tree = new_target_commit
@@ -482,12 +482,15 @@ pub fn update_base_branch(
 
                     if branch_tree_merge_index.has_conflicts() {
                         // branch tree conflicts with new target, unapply branch for now. we'll handle it later, when user applies it back.
-                        if branch.applied {
-                            unapplied_branches.push(branch.clone());
-                        }
-                        branch.applied = false;
-                        vb_state.set_branch(branch.clone())?;
-                        return Ok(Some(branch));
+                        let unapplied_real_branch = convert_to_real_branch(
+                            project_repository,
+                            branch.id,
+                            Default::default(),
+                        )?;
+
+                        unapplied_branch_names.push(unapplied_real_branch);
+
+                        return Ok(None);
                     }
 
                     let branch_merge_index_tree_oid =
@@ -515,12 +518,14 @@ pub fn update_base_branch(
                     if branch_head_merge_index.has_conflicts() {
                         // branch commits conflict with new target, make sure the branch is
                         // unapplied. conflicts witll be dealt with when applying it back.
-                        if branch.applied {
-                            unapplied_branches.push(branch.clone());
-                        }
-                        branch.applied = false;
-                        vb_state.set_branch(branch.clone())?;
-                        return Ok(Some(branch));
+                        let unapplied_real_branch = convert_to_real_branch(
+                            project_repository,
+                            branch.id,
+                            Default::default(),
+                        )?;
+                        unapplied_branch_names.push(unapplied_real_branch);
+
+                        return Ok(None);
                     }
 
                     // branch commits do not conflict with new target, so lets merge them
@@ -626,7 +631,7 @@ pub fn update_base_branch(
 
     // Rewriting the integration commit is necessary after changing target sha.
     super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
-    Ok(unapplied_branches)
+    Ok(unapplied_branch_names)
 }
 
 pub fn target_to_base_branch(

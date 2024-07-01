@@ -7,6 +7,6 @@ export function normalizeBranchName(value: string) {
 export function getBranchLink(b: CombinedBranch, projectId: string): string | undefined {
 	if (b.vbranch?.active) return `/${projectId}/board/`;
 	if (b.vbranch) return `/${projectId}/stashed/${b.vbranch.id}`;
-	if (b.remoteBranch) return `/${projectId}/remote/${b?.displayName}`;
+	if (b.remoteBranch) return `/${projectId}/remote/${b?.remoteBranch?.displayName}`;
 	if (b.pr) return `/${projectId}/pull/${b.pr.number}`;
 }

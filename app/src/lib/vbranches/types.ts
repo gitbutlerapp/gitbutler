@@ -470,3 +470,17 @@ export class BaseBranch {
 		return this.repoBaseUrl.includes('gitlab.com');
 	}
 }
+
+export type NameConflictResolution =
+	| {
+			type: 'suffix';
+			value: undefined;
+	  }
+	| {
+			type: 'overwrite';
+			value: undefined;
+	  }
+	| {
+			type: 'rename';
+			value: string;
+	  };

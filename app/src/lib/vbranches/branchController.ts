@@ -4,7 +4,7 @@ import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { BaseBranchService } from './baseBranch';
-import type { Branch, Hunk, LocalFile } from './types';
+import type { Branch, Hunk, LocalFile, NameConflictResolution } from './types';
 import type { VirtualBranchService } from './virtualBranch';
 
 export class BranchController {
@@ -180,10 +180,17 @@ export class BranchController {
 		}
 	}
 
-	async unapplyBranch(branchId: string) {
+	async convertToRealBranch(
+		branchId: string,
+		nameConflictResolution: NameConflictResolution = { type: 'suffix', value: undefined }
+	) {
 		try {
-			// TODO: make this optimistic again.
-			await invoke<void>('unapply_branch', { projectId: this.projectId, branch: branchId });
+			await invoke<void>('convert_to_real_branch', {
+				projectId: this.projectId,
+				branch: branchId,
+				nameConflictResolution
+			});
+			this.remoteBranchService.reload();
 		} catch (err) {
 			showError('Failed to unapply branch', err);
 		}
@@ -280,25 +287,6 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 			showError('Failed to create virtual branch', err);
 		} finally {
 			this.remoteBranchService.reload();
-			this.targetBranchService.reload();
-		}
-	}
-
-	async cherryPick(branchId: string, targetCommitOid: string) {
-		try {
-			await invoke<void>('cherry_pick_onto_virtual_branch', {
-				projectId: this.projectId,
-				branchId,
-				targetCommitOid
-			});
-		} catch (err: any) {
-			// TODO: Probably we wanna have error code checking in a more generic way
-			if (err.code === 'errors.commit.signing_failed') {
-				showSignError(err);
-			} else {
-				showError('Failed to cherry-pick commit', err);
-			}
-		} finally {
 			this.targetBranchService.reload();
 		}
 	}
