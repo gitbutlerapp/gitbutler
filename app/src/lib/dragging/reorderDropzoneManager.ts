@@ -10,6 +10,10 @@ export class ReorderDropzone {
 		private entry: Entry
 	) {}
 
+	distanceToOtherCommit(commitSha: string): number {
+		return this.entry.distanceToOtherCommit(commitSha);
+	}
+
 	accepts(data: any) {
 		if (!(data instanceof DraggableCommit)) return false;
 		if (data.branchId !== this.branch.id) return false;

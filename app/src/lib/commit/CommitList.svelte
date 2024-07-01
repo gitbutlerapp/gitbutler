@@ -22,6 +22,7 @@
 	} from '$lib/vbranches/contexts';
 	import { BaseBranch, Branch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
+	import ja from 'date-fns/locale/ja';
 
 	export let isUnapplied: boolean;
 
@@ -92,12 +93,28 @@
 		if (isLast) return 0;
 		return 0;
 	}
+
+	let currentlyDraggedCommitId: string | undefined;
+
+	function handleDragStart(commit: string) {
+		currentlyDraggedCommitId = commit;
+	}
+
+	function handleDragEnd() {
+		currentlyDraggedCommitId = undefined;
+	}
 </script>
 
 {#snippet reorderDropzone(dropzone: ReorderDropzone, yOffsetPx: number)}
 	<Dropzone accepts={dropzone.accepts.bind(dropzone)} ondrop={dropzone.onDrop.bind(dropzone)}>
 		{#snippet overlay({ hovered, activated })}
-			<LineOverlay {hovered} {activated} {yOffsetPx} />
+			<LineOverlay
+				{hovered}
+				{activated}
+				{yOffsetPx}
+				isNeighbour={!!currentlyDraggedCommitId &&
+					dropzone.distanceToOtherCommit(currentlyDraggedCommitId) === 0}
+			/>
 		{/snippet}
 	</Dropzone>
 {/snippet}
@@ -116,6 +133,8 @@
 					last={idx === $remoteCommits.length - 1}
 					commitUrl={$baseBranch?.commitUrl(commit.id)}
 					isHeadCommit={commit.id === headCommit?.id}
+					ondragstart={() => handleDragStart(commit.id)}
+					ondragend={() => handleDragEnd()}
 				>
 					{#snippet lines(topHeightPx)}
 						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
