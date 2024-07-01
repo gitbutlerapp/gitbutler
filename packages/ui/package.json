@@ -44,9 +44,9 @@
 	},
 	"exports": {
 		"./CommitLines/*": {
-			"svelte": "./dist/CommitLines/*.svelte",
-			"import": "./dist/CommitLines/*.svelte",
-			"types": "./dist/CommitLines/*.svelte.d.ts"
+			"svelte": "./dist/CommitLines/*",
+			"import": "./dist/CommitLines/*",
+			"types": "./dist/CommitLines/*.d.ts"
 		}
 	},
 	"typesVersions": {
