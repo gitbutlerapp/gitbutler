@@ -73,7 +73,10 @@
 		filterDescriptions
 			.filter((d) => d.name === FilterName.Category)
 			.flatMap(
-				(d) => d.suggestions?.map((s) => s.value).filter((v) => isFilterCatergoryValue(v)) ?? []
+				(d) =>
+					d.suggestions
+						?.map((s) => s.value)
+						.filter((v): v is FilterCatergoryValue => isFilterCatergoryValue(v)) ?? []
 			)
 	);
 

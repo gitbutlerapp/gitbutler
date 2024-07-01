@@ -125,7 +125,7 @@
 	<div
 		class="options card"
 		style:display={listOpen ? undefined : 'none'}
-		style:max-height={pxToRem(maxHeight)}
+		style:max-height={maxHeight && pxToRem(maxHeight)}
 		use:clickOutside={{
 			trigger: searchBarWrapper,
 			handler: closeList,
