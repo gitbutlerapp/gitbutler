@@ -476,6 +476,8 @@ pub fn convert_to_real_branch(
         conflicts::clear(project_repository)?;
     }
 
+    vb_state.update_ordering()?;
+
     // Ensure we still have a default target
     ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
@@ -810,10 +812,7 @@ pub fn create_virtual_branch(
 
     all_virtual_branches.sort_by_key(|branch| branch.order);
 
-    let order = create
-        .order
-        .unwrap_or(all_virtual_branches.len())
-        .clamp(0, all_virtual_branches.len());
+    let order = create.order.unwrap_or(vb_state.next_order_index()?);
 
     let selected_for_changes = if let Some(selected_for_changes) = create.selected_for_changes {
         if selected_for_changes {
@@ -3581,7 +3580,7 @@ pub fn create_virtual_branch_from_branch(
         .into_iter()
         .collect::<Vec<branch::Branch>>();
 
-    let order = all_virtual_branches.len();
+    let order = vb_state.next_order_index()?;
 
     let selected_for_changes = (!all_virtual_branches
         .iter()
