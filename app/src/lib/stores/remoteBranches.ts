@@ -1,7 +1,7 @@
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { observableToStore } from '$lib/rxjs/store';
-import { RemoteBranch, RemoteBranchData } from '$lib/vbranches/types';
+import { RemoteBranch, RemoteBranchData, RemoteCommit } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import {
 	Observable,
@@ -61,4 +61,23 @@ export async function getRemoteBranchData(
 		RemoteBranchData,
 		await invoke<any>('get_remote_branch_data', { projectId, refname })
 	);
+}
+
+export interface RelevantBranchData {
+	remoteBranch: RemoteBranch;
+	commit: RemoteCommit;
+}
+
+export async function getRelevantRemoteBranchData(
+	projectId: string,
+	refname: string,
+	filePath: string
+): Promise<RelevantBranchData | undefined> {
+	const remoteBranch = await getRemoteBranchData(projectId, refname);
+	for (const commit of remoteBranch.commits) {
+		if (commit.filePaths.includes(filePath)) {
+			return { remoteBranch, commit };
+		}
+	}
+	return undefined;
 }

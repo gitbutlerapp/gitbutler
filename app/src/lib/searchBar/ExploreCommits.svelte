@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { getFilterContext } from './filterContext.svelte';
+	import { Project } from '$lib/backend/projects';
+	import BranchIcon from '$lib/branch/BranchIcon.svelte';
+	import { BranchService } from '$lib/branches/service';
 	import Badge from '$lib/shared/Badge.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
+	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
+	import { getRelevantRemoteBranchData } from '$lib/stores/remoteBranches';
+	import { getBranchLink } from '$lib/utils/branch';
 	import { getContext } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import {
@@ -15,6 +21,9 @@
 		type FilterDescription,
 		type FilterSuggestion
 	} from '$lib/vbranches/filtering';
+	import type { CombinedBranch } from '$lib/branches/types';
+	import type { Branch, RemoteBranch } from '$lib/vbranches/types';
+	import { goto } from '$app/navigation';
 
 	const DYNAMIC_SUGGESTIONS_QUICK_FILTER = 2;
 	const DYNAMIC_SUGGESTIONS_EXPANDED_FILTER = 10;
@@ -22,15 +31,27 @@
 	interface Props {
 		expanded: boolean;
 		filterDescriptions: FilterDescription[];
+		remoteBranchNames: string[];
+		activeBranches: Branch[] | undefined;
 	}
 
-	let { expanded = $bindable(), filterDescriptions }: Props = $props();
+	let {
+		expanded = $bindable(),
+		filterDescriptions,
+		remoteBranchNames,
+		activeBranches
+	}: Props = $props();
 
 	const filterContext = getFilterContext();
 	const baseBranchService = getContext(BaseBranchService);
+	const project = getContext(Project);
+	const branchService = getContext(BranchService);
 
 	let isBusy = $state<boolean>(true);
 	baseBranchService.busy$.subscribe((busy) => (isBusy = busy));
+
+	let combinedBranches = $state<CombinedBranch[]>([]);
+	branchService.branches$.subscribe((b) => (combinedBranches = b));
 
 	const quickFilters = $derived<FilterSuggestion[]>(
 		filterDescriptions
@@ -56,6 +77,10 @@
 			)
 	);
 
+	const filesBeingWorkedOn = $derived<string[]>(
+		activeBranches?.flatMap((b) => b.files.map((f) => f.path)) ?? []
+	);
+
 	function handleSuggestionClick(suggestion: FilterSuggestion) {
 		addSuggestion: {
 			if (suggestion.value === undefined) break addSuggestion;
@@ -68,6 +93,16 @@
 		filterContext.addFilter(filter);
 		expanded = false;
 	}
+
+	function getBranchIcon(remoteBranch: RemoteBranch) {
+		return combinedBranches.find((b) => b.remoteBranch?.name === remoteBranch.name)?.icon;
+	}
+
+	function handleBranchActivityClick(remoteBranch: RemoteBranch) {
+		const combinedBranch = combinedBranches.find((b) => b.remoteBranch?.name === remoteBranch.name);
+		const href = combinedBranch && getBranchLink(combinedBranch, project.id);
+		if (href) goto(href);
+	}
 </script>
 
 <div class="explore-container" class:expanded>
@@ -75,7 +110,7 @@
 		{#each filterContext.recentFilters as filter}
 			<button
 				onclick={() => handleFilterClick(filter)}
-				class="explore-filter card text-semibold text-base-11"
+				class="card explore-filter text-semibold text-base-11"
 			>
 				{getFilterEmoji(filter.name)}
 				{formatFilterValues(filter)}
@@ -84,14 +119,14 @@
 		{#each quickFilters as filter}
 			<button
 				onclick={() => handleSuggestionClick(filter)}
-				class="explore-filter card text-semibold text-base-11"
+				class="card explore-filter text-semibold text-base-11"
 			>
 				{getFilterEmoji(filter.name)}
 				{filter.value}
 			</button>
 		{/each}
 		<button
-			class="explore-filter card text-semibold text-base-11 fixed"
+			class="card explore-filter text-semibold text-base-11 fixed"
 			class:hidden={expanded}
 			onclick={() => (expanded = true)}
 		>
@@ -101,12 +136,69 @@
 
 	<div class="explore-row center" class:hidden={!expanded}>
 		<button
-			class="explore-filter card text-semibold text-base-11"
+			class="card explore-filter text-semibold text-base-11"
 			onclick={() => (expanded = false)}
 		>
 			📋 show the commit list
 		</button>
 	</div>
+
+	{#if remoteBranchNames.length}
+		<div class="transition-fly explore-row" class:hidden={!expanded}>
+			<div class="card explore-list" style:height="200px">
+				<h3 class="text-base-18 text-semibold">Activity ⚡️</h3>
+				{#if filesBeingWorkedOn.length === 0}
+					<div class="center">
+						<p class="text-base-14">
+							No files are being currently worked on. This will update once you make some local
+							changes 😄
+						</p>
+					</div>
+				{:else}
+					<ScrollableContainer wide>
+						<div class="explore-list-container">
+							{#each filesBeingWorkedOn as filePath}
+								<div class="explore-list-container">
+									<h4 class="text-base-14 text-semibold">on {filePath}</h4>
+									<ul>
+										{#each remoteBranchNames as bName}
+											{#await getRelevantRemoteBranchData(project.id, bName, filePath) then branchData}
+												{#if branchData}
+													<li class="transition-fly">
+														<button
+															onclick={() => handleBranchActivityClick(branchData.remoteBranch)}
+														>
+															<div class="text-base-11 explore-list-item gapped">
+																<div>
+																	<BranchIcon
+																		help={undefined}
+																		name={getBranchIcon(branchData.remoteBranch)}
+																	/>
+																</div>
+																<div>
+																	<span class="text-semibold">
+																		{branchData.remoteBranch.displayName}:
+																	</span>
+																	{branchData.commit.author.name} is working on
+																	<span class="text-semibold">
+																		{branchData.commit.descriptionTitle}ed2d23d2323d23d2
+																	</span>
+																</div>
+															</div>
+														</button>
+													</li>
+												{/if}
+											{/await}
+										{/each}
+									</ul>
+								</div>
+							{/each}
+						</div>
+					</ScrollableContainer>
+				{/if}
+			</div>
+		</div>
+	{/if}
 
 	{#if commitCategories.length}
 		<div class="transition-fly explore-row" class:hidden={!expanded}>
@@ -147,7 +239,7 @@
 							{#each filter.dynamicSuggestions.slice(undefined, DYNAMIC_SUGGESTIONS_EXPANDED_FILTER) as suggestion}
 								<li class="text-base-12">
 									<button onclick={() => handleSuggestionClick(suggestion)}>
-										<div class="dynamic-sugesstion">
+										<div class="explore-list-item space-between">
 											{suggestion.value}
 											<Badge count={suggestion.metric.value} />
 										</div>
@@ -254,12 +346,32 @@
 				}
 			}
 		}
+
+		& .center {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			height: 100%;
+		}
 	}
 
-	.dynamic-sugesstion {
+	.explore-list-container {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	.explore-list-item {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
+
+		&.space-between {
+			justify-content: space-between;
+		}
+
+		&.gapped {
+			gap: 6px;
+		}
 	}
 	.explore-filter {
 		display: flex;
@@ -270,6 +382,7 @@
 		flex-grow: 0;
 		flex-shrink: 0;
 		color: var(--btn-text-clr);
+		padding: 4px 8px;
 
 		&:hover {
 			background: var(--clr-theme-ntrl-soft-hover);

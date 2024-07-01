@@ -13,9 +13,13 @@
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { FilterName, getTrunkBranchFilters } from '$lib/vbranches/filtering';
+	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import lscache from 'lscache';
 	import { onMount, setContext } from 'svelte';
 	import { derived, writable } from 'svelte/store';
+	import type { PageData } from './$types';
+
+	export let data: PageData;
 
 	const COMMITS_TO_FETCH = 500;
 
@@ -32,8 +36,10 @@
 		})
 	);
 	const project = getContext(Project);
+	const vbranchService = getContext(VirtualBranchService);
 	const filterContext = getFilterContext();
 
+	const activeBranches = vbranchService.activeBranches;
 	const fileIdSelection = new FileIdSelection(project.id, writable([]));
 	setContext(FileIdSelection, fileIdSelection);
 
@@ -46,6 +52,9 @@
 	$: error$ = baseBranchService.error$;
 
 	$: if ($baseBranch?.branchName) filterContext.init($baseBranch?.branchName);
+
+	$: ({ branches } = data.remoteBranchService);
+	$: remoteBranchNames = $branches?.map((b) => b.name) ?? [];
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
@@ -62,7 +71,12 @@
 		filterDescriptions={$filterDescriptions}
 		onFocus={() => (hideCommitList = false)}
 	>
-		<ExploreCommits bind:expanded={hideCommitList} filterDescriptions={$filterDescriptions} />
+		<ExploreCommits
+			bind:expanded={hideCommitList}
+			filterDescriptions={$filterDescriptions}
+			{remoteBranchNames}
+			activeBranches={$activeBranches}
+		/>
 		<div class="base" class:open={!hideCommitList}>
 			<div
 				class="base__left"

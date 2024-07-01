@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BranchIcon from '../branch/BranchIcon.svelte';
 	import TimeAgo from '$lib/shared/TimeAgo.svelte';
+	import { getBranchLink } from '$lib/utils/branch';
 	import type { CombinedBranch } from '$lib/branches/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -8,14 +9,7 @@
 	export let projectId: string;
 	export let branch: CombinedBranch;
 
-	function getBranchLink(b: CombinedBranch): string | undefined {
-		if (b.vbranch?.active) return `/${projectId}/board/`;
-		if (b.vbranch) return `/${projectId}/stashed/${b.vbranch.id}`;
-		if (b.remoteBranch) return `/${projectId}/remote/${branch?.displayName}`;
-		if (b.pr) return `/${projectId}/pull/${b.pr.number}`;
-	}
-
-	$: href = getBranchLink(branch);
+	$: href = getBranchLink(branch, projectId);
 	$: selected = href ? $page.url.href.endsWith(href) : false;
 </script>
 
