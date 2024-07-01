@@ -43,15 +43,17 @@
 		"svelte": "^4.0.0 || ^5.0.0-0"
 	},
 	"exports": {
-    "./CommitLines/*": {
+		"./CommitLines/*": {
 			"svelte": "./dist/CommitLines/*.svelte",
 			"import": "./dist/CommitLines/*.svelte",
 			"types": "./dist/CommitLines/*.svelte.d.ts"
-    }
+		}
 	},
-  "typesVersions": {
+	"typesVersions": {
 		">4.0": {
-			"./*": ["./dist/components/*.d.ts"]
+			"./*": [
+				"./dist/components/*.d.ts"
+			]
 		}
 	},
 	"files": [
