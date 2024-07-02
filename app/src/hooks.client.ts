@@ -1,17 +1,24 @@
-import { handleErrorWithSentry } from '@sentry/sveltekit';
+import { captureException } from '@sentry/sveltekit';
 import { error as logErrorToFile } from 'tauri-plugin-log-api';
 import type { HandleClientError } from '@sveltejs/kit';
 
-const errorHandler: HandleClientError = ({ error, message }) => {
-	const errorId = crypto.randomUUID();
+export const handleError: HandleClientError = ({ error, status }) => {
+	let errorId: string = crypto.randomUUID();
 
-	logErrorToFile(message);
-	console.error(`${errorId}: ${message}\n${(error as Error)?.stack}`);
+	if (status !== 404) {
+		errorId = captureException(error, {
+			mechanism: {
+				type: 'sveltekit',
+				handled: false
+			}
+		});
+	}
+
+	logErrorToFile((error as Error).message);
+	console.error(`${errorId}: ${(error as Error).message}\n${(error as Error)?.stack}`);
 
 	return {
-		message,
+		message: (error as Error).message,
 		errorId
 	};
 };
-
-export const handleError = handleErrorWithSentry(errorHandler);

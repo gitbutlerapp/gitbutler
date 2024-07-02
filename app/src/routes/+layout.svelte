@@ -28,6 +28,8 @@
 	import type { LayoutData } from './$types';
 	import { dev } from '$app/environment';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
+	import { showError } from '$lib/notifications/toasts';
 
 	export let data: LayoutData;
 
@@ -57,6 +59,9 @@
 	$: userSettings.update((s) => ({ ...s, zoom: zoom }));
 
 	onMount(() => {
+		if ($page.error?.message) {
+			showError('There was a problem', $page.error.message);
+		}
 		return unsubscribe(
 			events.on('goto', async (path: string) => await goto(path)),
 			events.on('openSendIssueModal', () => shareIssueModal?.show())
