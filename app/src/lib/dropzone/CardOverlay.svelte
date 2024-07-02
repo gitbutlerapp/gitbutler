@@ -48,7 +48,7 @@
 				<path d="M11 7L6 2M6 2L1 7M6 2L6 12" stroke="white" stroke-width="1.5" />
 			</svg>
 
-			<span class="text-base-13">{label}</span>
+			<span class="text-base-12 text-semibold">{label}</span>
 		</div>
 
 		<!-- add svg rectange -->
@@ -118,8 +118,8 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		padding: 6px 7px;
-		border-radius: var(--radius-m);
+		padding: 6px 10px;
+		border-radius: 100px;
 		color: var(--clr-theme-pop-on-element);
 		background-color: var(--clr-theme-pop-element);
 		transform: translateY(3px) scale(0.95);
