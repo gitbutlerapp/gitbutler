@@ -197,17 +197,20 @@ elif [ "$OS" = "linux" ]; then
 	APPIMAGE_UPDATER="$(find $BUNDLE_DIR/appimage -name \*.AppImage.tar.gz)"
 	APPIMAGE_UPDATER_SIG="$(find $BUNDLE_DIR/appimage -name \*.AppImage.tar.gz.sig)"
 	DEB="$(find $BUNDLE_DIR/deb -name \*.deb)"
+	RPM="$(find $BUNDLE_DIR/rpm -name \*.rpm)"
 
 	cp "$APPIMAGE" "$RELEASE_DIR"
 	cp "$APPIMAGE_UPDATER" "$RELEASE_DIR"
 	cp "$APPIMAGE_UPDATER_SIG" "$RELEASE_DIR"
 	cp "$DEB" "$RELEASE_DIR"
+	cp "$RPM" "$RELEASE_DIR"
 
 	info "built:"
 	info "  - $RELEASE_DIR/$(basename "$APPIMAGE")"
 	info "  - $RELEASE_DIR/$(basename "$APPIMAGE_UPDATER")"
 	info "  - $RELEASE_DIR/$(basename "$APPIMAGE_UPDATER_SIG")"
 	info "  - $RELEASE_DIR/$(basename "$DEB")"
+	info "  - $RELEASE_DIR/$(basename "$RPM")"
 elif [ "$OS" = "windows" ]; then
 	WINDOWS_INSTALLER="$(find $BUNDLE_DIR/msi -name \*.msi)"
 	WINDOWS_UPDATER="$(find $BUNDLE_DIR/msi -name \*.msi.zip)"
