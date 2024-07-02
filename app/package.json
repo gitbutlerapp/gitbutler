@@ -87,5 +87,11 @@
 	},
 	"dependencies": {
 		"openai": "^4.47.3"
-	}
+	},
+	"browserslist": [
+		"iOS >= 15",
+		"last 2 versions",
+		"not dead",
+		"not op_mini all"
+	]
 }
