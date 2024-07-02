@@ -3,6 +3,7 @@
 *.dmg
 *.tar.gz
 *.deb
+*.rpm
 *.sig
 *.exe
 *.app
