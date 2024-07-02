@@ -1,4 +1,5 @@
 use anyhow::{anyhow, bail, Context, Result};
+use bstr::BString;
 use git2::{BlameOptions, Repository, Tree};
 use std::{path::Path, process::Stdio, str};
 use tracing::instrument;
@@ -8,7 +9,7 @@ use crate::{
     error::Code,
 };
 
-use super::Refname;
+use super::{CommitBuffer, CommitHeadersV2, Refname};
 use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -26,6 +27,13 @@ pub trait RepositoryExt {
     fn in_memory<T, F>(&self, f: F) -> Result<T>
     where
         F: FnOnce(&git2::Repository) -> Result<T>;
+    /// Fetches the integration commit from the gitbutler/integration branch
+    fn integration_commit(&self) -> Result<git2::Commit<'_>>;
+    /// Fetches the target commit by finding the parent of the integration commit
+    fn target_commit(&self) -> Result<git2::Commit<'_>>;
+    /// Takes a CommitBuffer and returns it after being signed by by your git signing configuration
+    fn sign_buffer(&self, buffer: &CommitBuffer) -> Result<BString>;
+
     fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder;
     fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()>;
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler;
@@ -40,8 +48,6 @@ pub trait RepositoryExt {
     /// This is for safety to assure the repository actually is in 'gitbutler mode'.
     fn integration_ref_from_head(&self) -> Result<git2::Reference<'_>>;
 
-    fn target_commit(&self) -> Result<git2::Commit<'_>>;
-
     #[allow(clippy::too_many_arguments)]
     fn commit_with_signature(
         &self,
@@ -51,7 +57,7 @@ pub trait RepositoryExt {
         message: &str,
         tree: &git2::Tree<'_>,
         parents: &[&git2::Commit<'_>],
-        change_id: Option<&str>,
+        commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid>;
 
     fn blame(
@@ -62,8 +68,6 @@ pub trait RepositoryExt {
         oldest_commit: git2::Oid,
         newest_commit: git2::Oid,
     ) -> Result<git2::Blame, git2::Error>;
-
-    fn sign_buffer(&self, buffer: &str) -> Result<String>;
 }
 
 impl RepositoryExt for Repository {
@@ -141,10 +145,13 @@ impl RepositoryExt for Repository {
         }
     }
 
-    fn target_commit(&self) -> Result<git2::Commit<'_>> {
+    fn integration_commit(&self) -> Result<git2::Commit<'_>> {
         let integration_ref = self.integration_ref_from_head()?;
-        let integration_commit = integration_ref.peel_to_commit()?;
-        Ok(integration_commit.parent(0)?)
+        Ok(integration_ref.peel_to_commit()?)
+    }
+
+    fn target_commit(&self) -> Result<git2::Commit<'_>> {
+        Ok(self.integration_commit()?.parent(0)?)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -156,17 +163,34 @@ impl RepositoryExt for Repository {
         message: &str,
         tree: &git2::Tree<'_>,
         parents: &[&git2::Commit<'_>],
-        change_id: Option<&str>,
+        commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid> {
-        let commit_buffer = self.commit_create_buffer(author, committer, message, tree, parents)?;
+        fn commit_buffer(
+            repository: &git2::Repository,
+            commit_buffer: &CommitBuffer,
+        ) -> Result<git2::Oid> {
+            let oid = repository
+                .odb()?
+                .write(git2::ObjectType::Commit, &commit_buffer.as_bstring())?;
 
-        let commit_buffer = inject_change_id(&commit_buffer, change_id)?;
+            Ok(oid)
+        }
+
+        let mut buffer: CommitBuffer = self
+            .commit_create_buffer(author, committer, message, tree, parents)?
+            .into();
+
+        buffer.set_gitbutler_headers(commit_headers);
 
         let oid = if self.gb_config()?.sign_commits.unwrap_or(false) {
-            let signature = sign_buffer(self, &commit_buffer);
+            let signature = self.sign_buffer(&buffer);
             match signature {
                 Ok(signature) => self
-                    .commit_signed(&commit_buffer, &signature, None)
+                    .commit_signed(
+                        buffer.as_bstring().to_string().as_str(),
+                        signature.to_string().as_str(),
+                        None,
+                    )
                     .map_err(Into::into),
                 Err(e) => {
                     // If signing fails, set the "gitbutler.signCommits" config to false before erroring out
@@ -178,9 +202,7 @@ impl RepositoryExt for Repository {
                 }
             }
         } else {
-            self.odb()?
-                .write(git2::ObjectType::Commit, commit_buffer.as_bytes())
-                .map_err(Into::into)
+            commit_buffer(self, &buffer)
         }?;
         // update reference
         if let Some(refname) = update_ref {
@@ -206,140 +228,136 @@ impl RepositoryExt for Repository {
         self.blame_file(path, Some(&mut opts))
     }
 
-    fn sign_buffer(&self, buffer: &str) -> Result<String> {
-        sign_buffer(self, &buffer.to_string())
+    fn sign_buffer(&self, buffer: &CommitBuffer) -> Result<BString> {
+        // check git config for gpg.signingkey
+        // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
+        let signing_key = self.config()?.get_string("user.signingkey");
+        if let Ok(signing_key) = signing_key {
+            let sign_format = self.config()?.get_string("gpg.format");
+            let is_ssh = if let Ok(sign_format) = sign_format {
+                sign_format == "ssh"
+            } else {
+                false
+            };
+
+            if is_ssh {
+                // write commit data to a temp file so we can sign it
+                let mut signature_storage = tempfile::NamedTempFile::new()?;
+                signature_storage.write_all(&buffer.as_bstring())?;
+                let buffer_file_to_sign_path = signature_storage.into_temp_path();
+
+                let gpg_program = self.config()?.get_string("gpg.ssh.program");
+                let mut gpg_program = gpg_program.unwrap_or("ssh-keygen".to_string());
+                // if cmd is "", use gpg
+                if gpg_program.is_empty() {
+                    gpg_program = "ssh-keygen".to_string();
+                }
+
+                let mut cmd = std::process::Command::new(gpg_program);
+                cmd.args(["-Y", "sign", "-n", "git", "-f"]);
+
+                #[cfg(windows)]
+                cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+
+                let output;
+                // support literal ssh key
+                if let (true, signing_key) = is_literal_ssh_key(&signing_key) {
+                    // write the key to a temp file
+                    let mut key_storage = tempfile::NamedTempFile::new()?;
+                    key_storage.write_all(signing_key.as_bytes())?;
+
+                    // if on unix
+                    #[cfg(unix)]
+                    {
+                        // make sure the tempfile permissions are acceptable for a private ssh key
+                        let mut permissions = key_storage.as_file().metadata()?.permissions();
+                        permissions.set_mode(0o600);
+                        key_storage.as_file().set_permissions(permissions)?;
+                    }
+
+                    let key_file_path = key_storage.into_temp_path();
+
+                    cmd.arg(&key_file_path);
+                    cmd.arg("-U");
+                    cmd.arg(&buffer_file_to_sign_path);
+                    cmd.stderr(Stdio::piped());
+                    cmd.stdout(Stdio::piped());
+                    cmd.stdin(Stdio::null());
+
+                    let child = cmd.spawn()?;
+                    output = child.wait_with_output()?;
+                } else {
+                    cmd.arg(signing_key);
+                    cmd.arg(&buffer_file_to_sign_path);
+                    cmd.stderr(Stdio::piped());
+                    cmd.stdout(Stdio::piped());
+                    cmd.stdin(Stdio::null());
+
+                    let child = cmd.spawn()?;
+                    output = child.wait_with_output()?;
+                }
+
+                if output.status.success() {
+                    // read signed_storage path plus .sig
+                    let signature_path = buffer_file_to_sign_path.with_extension("sig");
+                    let sig_data = std::fs::read(signature_path)?;
+                    let signature = BString::new(sig_data);
+                    return Ok(signature);
+                } else {
+                    let stderr = BString::new(output.stderr);
+                    let stdout = BString::new(output.stdout);
+                    let std_both = format!("{} {}", stdout, stderr);
+                    bail!("Failed to sign SSH: {}", std_both);
+                }
+            } else {
+                // is gpg
+                let gpg_program = self.config()?.get_string("gpg.program");
+                let mut gpg_program = gpg_program.unwrap_or("gpg".to_string());
+                // if cmd is "", use gpg
+                if gpg_program.is_empty() {
+                    gpg_program = "gpg".to_string();
+                }
+
+                let mut cmd = std::process::Command::new(gpg_program);
+
+                cmd.args(["--status-fd=2", "-bsau", &signing_key])
+                    //.arg(&signed_storage)
+                    .arg("-")
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .stdin(Stdio::piped());
+
+                #[cfg(windows)]
+                cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+
+                let mut child = cmd
+                    .spawn()
+                    .context(anyhow::format_err!("failed to spawn {:?}", cmd))?;
+                child
+                    .stdin
+                    .take()
+                    .expect("configured")
+                    .write_all(&buffer.as_bstring())?;
+
+                let output = child.wait_with_output()?;
+                if output.status.success() {
+                    // read stdout
+                    let signature = BString::new(output.stdout);
+                    return Ok(signature);
+                } else {
+                    let stderr = BString::new(output.stderr);
+                    let stdout = BString::new(output.stdout);
+                    let std_both = format!("{} {}", stdout, stderr);
+                    bail!("Failed to sign GPG: {}", std_both);
+                }
+            }
+        }
+        Err(anyhow::anyhow!("No signing key found"))
     }
 }
 
 /// Signs the buffer with the configured gpg key, returning the signature.
-pub fn sign_buffer(repo: &git2::Repository, buffer: &String) -> Result<String> {
-    // check git config for gpg.signingkey
-    // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
-    let signing_key = repo.config()?.get_string("user.signingkey");
-    if let Ok(signing_key) = signing_key {
-        let sign_format = repo.config()?.get_string("gpg.format");
-        let is_ssh = if let Ok(sign_format) = sign_format {
-            sign_format == "ssh"
-        } else {
-            false
-        };
-
-        if is_ssh {
-            // write commit data to a temp file so we can sign it
-            let mut signature_storage = tempfile::NamedTempFile::new()?;
-            signature_storage.write_all(buffer.as_ref())?;
-            let buffer_file_to_sign_path = signature_storage.into_temp_path();
-
-            let gpg_program = repo.config()?.get_string("gpg.ssh.program");
-            let mut gpg_program = gpg_program.unwrap_or("ssh-keygen".to_string());
-            // if cmd is "", use gpg
-            if gpg_program.is_empty() {
-                gpg_program = "ssh-keygen".to_string();
-            }
-
-            let mut cmd = std::process::Command::new(gpg_program);
-            cmd.args(["-Y", "sign", "-n", "git", "-f"]);
-
-            #[cfg(windows)]
-            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-
-            let output;
-            // support literal ssh key
-            if let (true, signing_key) = is_literal_ssh_key(&signing_key) {
-                // write the key to a temp file
-                let mut key_storage = tempfile::NamedTempFile::new()?;
-                key_storage.write_all(signing_key.as_bytes())?;
-
-                // if on unix
-                #[cfg(unix)]
-                {
-                    // make sure the tempfile permissions are acceptable for a private ssh key
-                    let mut permissions = key_storage.as_file().metadata()?.permissions();
-                    permissions.set_mode(0o600);
-                    key_storage.as_file().set_permissions(permissions)?;
-                }
-
-                let key_file_path = key_storage.into_temp_path();
-
-                cmd.arg(&key_file_path);
-                cmd.arg("-U");
-                cmd.arg(&buffer_file_to_sign_path);
-                cmd.stderr(Stdio::piped());
-                cmd.stdout(Stdio::piped());
-                cmd.stdin(Stdio::null());
-
-                let child = cmd.spawn()?;
-                output = child.wait_with_output()?;
-            } else {
-                cmd.arg(signing_key);
-                cmd.arg(&buffer_file_to_sign_path);
-                cmd.stderr(Stdio::piped());
-                cmd.stdout(Stdio::piped());
-                cmd.stdin(Stdio::null());
-
-                let child = cmd.spawn()?;
-                output = child.wait_with_output()?;
-            }
-
-            if output.status.success() {
-                // read signed_storage path plus .sig
-                let signature_path = buffer_file_to_sign_path.with_extension("sig");
-                let sig_data = std::fs::read(signature_path)?;
-                let signature = String::from_utf8_lossy(&sig_data).into_owned();
-                return Ok(signature);
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                let std_both = format!("{} {}", stdout, stderr);
-                bail!("Failed to sign SSH: {}", std_both);
-            }
-        } else {
-            // is gpg
-            let gpg_program = repo.config()?.get_string("gpg.program");
-            let mut gpg_program = gpg_program.unwrap_or("gpg".to_string());
-            // if cmd is "", use gpg
-            if gpg_program.is_empty() {
-                gpg_program = "gpg".to_string();
-            }
-
-            let mut cmd = std::process::Command::new(gpg_program);
-
-            cmd.args(["--status-fd=2", "-bsau", &signing_key])
-                //.arg(&signed_storage)
-                .arg("-")
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .stdin(Stdio::piped());
-
-            #[cfg(windows)]
-            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-
-            let mut child = cmd
-                .spawn()
-                .context(anyhow::format_err!("failed to spawn {:?}", cmd))?;
-            child
-                .stdin
-                .take()
-                .expect("configured")
-                .write_all(buffer.to_string().as_ref())?;
-
-            let output = child.wait_with_output()?;
-            if output.status.success() {
-                // read stdout
-                let signature = String::from_utf8_lossy(&output.stdout).into_owned();
-                return Ok(signature);
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                let std_both = format!("{} {}", stdout, stderr);
-                bail!("Failed to sign GPG: {}", std_both);
-            }
-        }
-    }
-    Err(anyhow::anyhow!("No signing key found"))
-}
-
-fn is_literal_ssh_key(string: &str) -> (bool, &str) {
+pub fn is_literal_ssh_key(string: &str) -> (bool, &str) {
     if let Some(key) = string.strip_prefix("key::") {
         return (true, key);
     }
@@ -347,34 +365,6 @@ fn is_literal_ssh_key(string: &str) -> (bool, &str) {
         return (true, string);
     }
     (false, string)
-}
-
-// in commit_buffer, inject a line right before the first `\n\n` that we see:
-// `change-id: <id>`
-fn inject_change_id(commit_buffer: &[u8], change_id: Option<&str>) -> Result<String> {
-    // if no change id, generate one
-    let change_id = change_id
-        .map(|id| id.to_string())
-        .unwrap_or_else(|| format!("{}", uuid::Uuid::new_v4()));
-
-    let commit_ends_in_newline = commit_buffer.ends_with(b"\n");
-    let commit_buffer = str::from_utf8(commit_buffer)?;
-    let lines = commit_buffer.lines();
-    let mut new_buffer = String::new();
-    let mut found = false;
-    for line in lines {
-        if line.is_empty() && !found {
-            new_buffer.push_str(&format!("change-id {}\n", change_id));
-            found = true;
-        }
-        new_buffer.push_str(line);
-        new_buffer.push('\n');
-    }
-    if !commit_ends_in_newline {
-        // strip last \n
-        new_buffer.pop();
-    }
-    Ok(new_buffer)
 }
 
 pub struct CheckoutTreeBuidler<'a> {
