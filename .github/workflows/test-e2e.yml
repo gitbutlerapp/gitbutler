@@ -23,6 +23,8 @@ jobs:
             pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install
+      - name: Build @gitbutler/ui
+        run: cd packages/ui && pnpm package
       - name: Get installed Playwright version
         id: playwright-version
         run: echo "PLAYWRIGHT_VERSION=$(node -e "console.log(require('./app/package.json').devDependencies['@playwright/test'].substring(1))")" >> $GITHUB_ENV
