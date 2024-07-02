@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
+use bstr::BString;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
 use crate::git::RepositoryExt;
@@ -71,9 +72,6 @@ impl Controller {
                 if path.join(".git").is_file() {
                     bail!("can only work in main worktrees");
                 };
-            }
-            Ok(repo) if repo.submodules().map_or(false, |sm| sm.is_some()) => {
-                bail!("repositories with git submodules are not supported");
             }
             Ok(_repo) => {}
             Err(err) => {
@@ -234,7 +232,7 @@ impl Controller {
         let project = self.projects_storage.get(id)?;
 
         let repo = project_repository::Repository::open(&project)?;
-        let signed = repo.repo().sign_buffer("test");
+        let signed = repo.repo().sign_buffer(&BString::new("test".into()).into());
         match signed {
             Ok(_) => Ok(true),
             Err(e) => Err(e),

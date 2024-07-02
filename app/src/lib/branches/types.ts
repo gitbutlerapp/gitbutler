@@ -31,7 +31,9 @@ export class CombinedBranch {
 	}
 
 	get displayName(): string {
-		return this.pr?.title || this.remoteBranch?.displayName || this.vbranch?.name || 'unknown';
+		return (
+			this.pr?.sourceBranch || this.remoteBranch?.displayName || this.vbranch?.name || 'unknown'
+		);
 	}
 
 	get authors(): Author[] {
@@ -101,7 +103,7 @@ export class CombinedBranch {
 		if (this.vbranch) identifiers.push(this.vbranch.name);
 		if (this.pr) {
 			identifiers.push(this.pr.title);
-			identifiers.push(this.pr.targetBranch);
+			identifiers.push(this.pr.sourceBranch);
 			this.pr.author?.email && identifiers.push(this.pr.author.email);
 			this.pr.author?.name && identifiers.push(this.pr.author.name);
 		}

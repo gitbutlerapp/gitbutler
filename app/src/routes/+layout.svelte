@@ -16,12 +16,14 @@
 	import { GitHubService } from '$lib/github/service';
 	import ToastController from '$lib/notifications/ToastController.svelte';
 	import { RemotesService } from '$lib/remotes/service';
+	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
 	import { User, UserService } from '$lib/stores/user';
 	import * as events from '$lib/utils/events';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { initTheme } from '$lib/utils/theme';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
+	import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
 	import { onMount, setContext } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
@@ -35,6 +37,7 @@
 	setContext(SETTINGS, userSettings);
 
 	// Setters do not need to be reactive since `data` never updates
+	setSecretsService(data.secretsService);
 	setContext(UserService, data.userService);
 	setContext(ProjectService, data.projectService);
 	setContext(UpdaterService, data.updaterService);
@@ -47,6 +50,7 @@
 	setContext(User, data.userService.user);
 	setContext(RemotesService, data.remotesService);
 	setContext(AIPromptService, data.aiPromptService);
+	setContext(LineManagerFactory, data.lineManagerFactory);
 
 	let shareIssueModal: ShareIssueModal;
 

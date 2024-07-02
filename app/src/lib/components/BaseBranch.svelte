@@ -1,11 +1,11 @@
 <script lang="ts">
-	import Checkbox from './Checkbox.svelte';
-	import Spacer from './Spacer.svelte';
-	import Button from '$lib/components/Button.svelte';
-	import CommitCard from '$lib/components/CommitCard.svelte';
-	import Modal from '$lib/components/Modal.svelte';
+	import Checkbox from '../shared/Checkbox.svelte';
+	import Spacer from '../shared/Spacer.svelte';
+	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { showInfo } from '$lib/notifications/toasts';
+	import Button from '$lib/shared/Button.svelte';
+	import Modal from '$lib/shared/Modal.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -62,7 +62,7 @@
 					last={index === base.upstreamCommits.length - 1}
 					isUnapplied={true}
 					commitUrl={base.commitUrl(commit.id)}
-					type="upstream"
+					type="remote"
 				/>
 			{/each}
 		</div>
@@ -83,7 +83,7 @@
 				last={index === base.recentCommits.length - 1}
 				isUnapplied={true}
 				commitUrl={base.commitUrl(commit.id)}
-				type="remote"
+				type="localAndRemote"
 			/>
 		{/each}
 	</div>

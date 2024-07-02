@@ -1,5 +1,5 @@
-use std::path;
 use std::path::PathBuf;
+use std::{fs, path};
 
 use gitbutler_core::git::{self, RepositoryExt};
 use tempfile::TempDir;
@@ -394,6 +394,16 @@ impl TestProject {
         // with `init.defaultBranch`, causing failure otherwise.
         repo.set_head("refs/heads/master").unwrap();
         submodule.add_finalize().unwrap();
+    }
+
+    pub fn write_file(&self, path: &str, lines: &[String]) {
+        fs::write(self.path().join(path), lines.join("\n")).unwrap()
+    }
+
+    pub fn gen_file(&self, path: &str, line_count: i32) -> Vec<String> {
+        let lines: Vec<_> = (0_i32..line_count).map(|i| format!("line {}", i)).collect();
+        self.write_file(path, &lines);
+        lines
     }
 }
 

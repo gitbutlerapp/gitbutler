@@ -8,3 +8,6 @@ pub mod default_true;
 pub struct Sensitive<T>(pub T);
 
 mod sensitive;
+
+mod tagged_string;
+pub use tagged_string::*;

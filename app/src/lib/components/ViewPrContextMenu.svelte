@@ -1,8 +1,8 @@
 <script lang="ts">
-	import PopupMenu from '$lib/components/PopupMenu.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import PopupMenu from '$lib/shared/PopupMenu.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 
 	export let prUrl: string;

@@ -12,6 +12,7 @@ import { showError, showToast, type Toast } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import * as toasts from '$lib/utils/toasts';
 import { Octokit } from '@octokit/rest';
+import GitUrlParse from 'git-url-parse';
 import lscache from 'lscache';
 import posthog from 'posthog-js';
 import {
@@ -69,7 +70,9 @@ export class GitHubService {
 		combineLatest([accessToken$, remoteUrl$])
 			.pipe(
 				tap(([accessToken, remoteUrl]) => {
-					if (!accessToken) {
+					// We check the remote url since GitHub is currently enabled at the account
+					// level rather than project level.
+					if (!accessToken || !remoteUrl?.includes('github.com')) {
 						return of();
 					}
 					this._octokit = new Octokit({
@@ -78,8 +81,8 @@ export class GitHubService {
 						baseUrl: 'https://api.github.com'
 					});
 					if (remoteUrl) {
-						const [owner, repo] = remoteUrl.split(/.git$/)[0].split(/\/|:/).slice(-2);
-						this._repo = repo;
+						const { owner, name } = GitUrlParse(remoteUrl);
+						this._repo = name;
 						this._owner = owner;
 					}
 				}),
@@ -90,8 +93,8 @@ export class GitHubService {
 		combineLatest([this.reload$, accessToken$, remoteUrl$])
 			.pipe(
 				tap(() => this.error$.next(undefined)),
-				switchMap(([reload, _token, remoteUrl]) => {
-					if (!this.isEnabled || !remoteUrl) return EMPTY;
+				switchMap(([reload, _token, _remoteUrl]) => {
+					if (!this._octokit || !this._owner) return EMPTY;
 					const prs = this.fetchPrs(!!reload?.skipCache);
 					this.fresh$.next();
 					return prs;

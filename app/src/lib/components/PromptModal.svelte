@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Button from './Button.svelte';
-	import Modal from './Modal.svelte';
-	import TextBox from './TextBox.svelte';
+	import Modal from '../shared/Modal.svelte';
+	import TextBox from '../shared/TextBox.svelte';
 	import { PromptService } from '$lib/backend/prompt';
+	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 
 	const promptService = getContext(PromptService);

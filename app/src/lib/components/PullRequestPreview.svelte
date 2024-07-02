@@ -1,11 +1,11 @@
 <script lang="ts">
 	// This is always displayed in the context of not having a cooresponding vbranch or remote
 	import { Project } from '$lib/backend/projects';
-	import Button from '$lib/components/Button.svelte';
-	import Link from '$lib/components/Link.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import TextBox from '$lib/components/TextBox.svelte';
 	import { RemotesService } from '$lib/remotes/service';
+	import Button from '$lib/shared/Button.svelte';
+	import Link from '$lib/shared/Link.svelte';
+	import Modal from '$lib/shared/Modal.svelte';
+	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { remoteUrlIsHttp } from '$lib/utils/url';
@@ -67,7 +67,7 @@
 			await remotesService.addRemote(project.id, remoteName, remoteUrl);
 			await baseBranchService.fetchFromRemotes();
 			await branchController.createvBranchFromBranch(
-				`refs/remotes/${remoteName}/${pullrequest.targetBranch}`
+				`refs/remotes/${remoteName}/${pullrequest.sourceBranch}`
 			);
 			await virtualBranchService.reload();
 			const vbranch = await virtualBranchService.getByUpstreamSha(pullrequest.sha);
@@ -132,11 +132,11 @@
 				</span>
 				wants to merge into
 				<span class="code-string">
-					{pullrequest.sourceBranch}
+					{pullrequest.targetBranch}
 				</span>
 				from
 				<span class="code-string">
-					{pullrequest.targetBranch}
+					{pullrequest.sourceBranch}
 				</span>
 			</div>
 			{#if pullrequest.body}

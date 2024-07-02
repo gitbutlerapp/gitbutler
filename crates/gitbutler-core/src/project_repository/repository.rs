@@ -7,7 +7,6 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 
 use super::conflicts;
-use crate::error::Code;
 use crate::{
     askpass,
     git::{self, Url},
@@ -15,7 +14,8 @@ use crate::{
     ssh, users,
     virtual_branches::{Branch, BranchId},
 };
-use crate::{git::RepositoryExt, virtual_branches::errors::Marker};
+use crate::{error::Code, git::CommitHeadersV2};
+use crate::{error::Marker, git::RepositoryExt};
 
 pub struct Repository {
     git_repository: git2::Repository,
@@ -339,12 +339,20 @@ impl Repository {
         message: &str,
         tree: &git2::Tree,
         parents: &[&git2::Commit],
-        change_id: Option<&str>,
+        commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid> {
         let (author, committer) =
             super::signatures::signatures(self, user).context("failed to get signatures")?;
         self.repo()
-            .commit_with_signature(None, &author, &committer, message, tree, parents, change_id)
+            .commit_with_signature(
+                None,
+                &author,
+                &committer,
+                message,
+                tree,
+                parents,
+                commit_headers,
+            )
             .context("failed to commit")
     }
 
@@ -370,10 +378,10 @@ impl Repository {
             "pushing code to gb repo",
         );
 
-        let access_token = user
-            .map(|user| user.access_token.clone())
-            .context("access token is missing")
+        let user = user
+            .context("need user to push to gitbutler")
             .context(Code::ProjectGitAuth)?;
+        let access_token = user.access_token()?;
 
         let mut callbacks = git2::RemoteCallbacks::new();
         if self.project.omit_certificate_check.unwrap_or(false) {

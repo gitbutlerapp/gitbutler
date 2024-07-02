@@ -165,7 +165,6 @@ async fn forcepush_allowed() {
     projects
         .update(&projects::UpdateRequest {
             id: *project_id,
-            ok_with_force_push: Some(true),
             ..Default::default()
         })
         .await
@@ -250,7 +249,6 @@ async fn forcepush_forbidden() {
         repository,
         project_id,
         controller,
-        projects,
         ..
     } = &Test::default();
 
@@ -264,6 +262,18 @@ async fn forcepush_forbidden() {
         .await
         .unwrap();
 
+    controller
+        .update_virtual_branch(
+            *project_id,
+            branch::BranchUpdateRequest {
+                id: branch_id,
+                allow_rebasing: Some(false),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
         controller
@@ -274,15 +284,6 @@ async fn forcepush_forbidden() {
 
     controller
         .push_virtual_branch(*project_id, branch_id, false, None)
-        .await
-        .unwrap();
-
-    projects
-        .update(&projects::UpdateRequest {
-            id: *project_id,
-            ok_with_force_push: Some(false),
-            ..Default::default()
-        })
         .await
         .unwrap();
 

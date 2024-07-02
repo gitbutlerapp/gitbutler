@@ -3,16 +3,14 @@ import type { AnyCommit, Commit, RemoteCommit } from './types';
 
 // When we can't use type for context objects we build typed getter/setter pairs
 // to avoid using symbols explicitly.
-export const [getLocalCommits, createLocalContextStore] =
+export const [getLocalCommits, createLocalCommitsContextStore] =
 	buildContextStore<Commit[]>('localCommits');
-export const [getRemoteCommits, createRemoteContextStore] =
+export const [getLocalAndRemoteCommits, createLocalAndRemoteCommitsContextStore] =
 	buildContextStore<Commit[]>('remoteCommits');
-export const [getUpstreamCommits, createUpstreamContextStore] =
-	buildContextStore<RemoteCommit[]>('upstreamCommits');
-export const [getIntegratedCommits, createIntegratedContextStore] =
+export const [getIntegratedCommits, createIntegratedCommitsContextStore] =
 	buildContextStore<Commit[]>('integratedCommits');
-export const [getUnknownCommits, createUnknownCommitsStore] =
-	buildContextStore<RemoteCommit[]>('unknownCommits');
+export const [getRemoteCommits, createRemoteCommitsContextStore] =
+	buildContextStore<RemoteCommit[]>('remoteCommits');
 export const [getCommitStore, createCommitStore] = buildContextStore<AnyCommit | undefined>(
 	'commit'
 );

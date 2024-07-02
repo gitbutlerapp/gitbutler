@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Select from './Select.svelte';
+	import Select from '../shared/Select.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { Project } from '$lib/backend/projects';
-	import SelectItem from '$lib/components/SelectItem.svelte';
+	import SelectItem from '$lib/shared/SelectItem.svelte';
 	import { getContext } from '$lib/utils/context';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
 	import type { Persisted } from '$lib/persisted/persisted';

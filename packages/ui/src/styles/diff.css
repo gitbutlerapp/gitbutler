@@ -1,0 +1,47 @@
+:root {
+	--hunk-line-selected-bg: #60a5fa;
+	--hunk-line-selected-border: #2563eb;
+}
+
+:root.dark {
+	--hunk-line-selected-bg: #044289;
+	--hunk-line-selected-border: #005cc5;
+}
+
+.inner-diff {
+	border-radius: 2px;
+}
+
+.diff-line-marker-addition,
+.diff-line-addition {
+	--override-addition-background-color: hsl(144deg 55% 49% / 20%);
+
+	background-color: var(--override-addition-background-color);
+}
+
+.diff-line-marker-deletion,
+.diff-line-deletion {
+	--override-deletion-background-color: rgba(220, 38, 38, 0.2);
+
+	background-color: var(--override-deletion-background-color);
+}
+
+.diff-line-addition .inner-diff {
+	--override-addition-inner-diff-background-color: hsl(144deg 55% 49% / 60%);
+
+	background-color: var(--override-addition-inner-diff-background-color);
+}
+
+.diff-line-deletion .inner-diff {
+	--override-deletion-inner-diff-background-color: rgba(220, 38, 38, 0.3);
+
+	background-color: var(--override-deletion-inner-diff-background-color);
+}
+
+.diff-line-spacer {
+	color: rgb(229, 231, 235);
+	text-align: left;
+	background-color: rgba(24, 24, 27, 1);
+	padding-left: 8px;
+	padding-right: 8px;
+}

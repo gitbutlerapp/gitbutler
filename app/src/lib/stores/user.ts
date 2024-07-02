@@ -2,11 +2,13 @@ import { resetPostHog, setPostHogUser } from '$lib/analytics/posthog';
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
 import { API_URL, type HttpClient } from '$lib/backend/httpClient';
 import { invoke } from '$lib/backend/ipc';
+import { showError } from '$lib/notifications/toasts';
 import { observableToStore } from '$lib/rxjs/store';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
 import { plainToInstance } from 'class-transformer';
-import { BehaviorSubject, Observable, Subject, distinct, map, merge, shareReplay } from 'rxjs';
+import { Observable, Subject, distinct, map, merge, shareReplay } from 'rxjs';
+import { writable } from 'svelte/store';
 import type { Readable } from 'svelte/motion';
 
 export type LoginToken = {
@@ -17,7 +19,7 @@ export type LoginToken = {
 
 export class UserService {
 	private reset$ = new Subject<User | undefined>();
-	private loading$ = new BehaviorSubject(false);
+	readonly loading = writable(false);
 
 	private user$ = merge(
 		new Observable<User | undefined>((subscriber) => {
@@ -62,11 +64,15 @@ export class UserService {
 		resetSentry();
 	}
 
-	async login(token: LoginToken): Promise<User | undefined> {
+	async login(): Promise<User | undefined> {
 		this.logout();
-		this.loading$.next(true);
+		this.loading.set(true);
 		try {
-			openExternalUrl(token.url);
+			// Create login token
+			const token = await this.httpClient.post<LoginToken>('login/token.json');
+			const url = new URL(token.url);
+			url.host = API_URL.host;
+			openExternalUrl(url.toString());
 
 			// Assumed min time for login flow
 			await sleep(4000);
@@ -75,19 +81,12 @@ export class UserService {
 			this.setUser(user);
 
 			return user;
+		} catch (err) {
+			console.error(err);
+			showError('Something went wrong', err);
 		} finally {
-			this.loading$.next(false);
+			this.loading.set(false);
 		}
-	}
-
-	async createLoginToken(): Promise<LoginToken> {
-		const token = await this.httpClient.post<LoginToken>('login/token.json');
-		const url = new URL(token.url);
-		url.host = API_URL.host;
-		return {
-			...token,
-			url: url.toString()
-		};
 	}
 
 	async pollForUser(token: string): Promise<User | undefined> {

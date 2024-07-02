@@ -410,10 +410,10 @@ fn reverse_patch(patch: &BStr) -> Option<BString> {
                 return None;
             }
         } else if line.starts_with(b"+") {
-            reversed.push_str(&line.replacen(b"+", b"-", 1));
+            reversed.push_str(line.replacen(b"+", b"-", 1));
             reversed.push(b'\n');
         } else if line.starts_with(b"-") {
-            reversed.push_str(&line.replacen(b"-", b"+", 1));
+            reversed.push_str(line.replacen(b"-", b"+", 1));
             reversed.push(b'\n');
         } else {
             reversed.push_str(line);

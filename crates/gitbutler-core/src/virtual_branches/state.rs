@@ -5,6 +5,7 @@ use std::{
 
 use crate::{error::Code, fs::read_toml_file_or_default};
 use anyhow::{anyhow, Result};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use super::{target::Target, Branch};
@@ -125,6 +126,38 @@ impl VirtualBranchesHandle {
 
     fn write_file(&self, virtual_branches: &VirtualBranches) -> Result<()> {
         write(self.file_path.as_path(), virtual_branches)
+    }
+
+    pub fn update_ordering(&self) -> Result<()> {
+        let succeeded = self
+            .list_branches()?
+            .iter()
+            .sorted_by_key(|branch| branch.order)
+            .enumerate()
+            .all(|(index, branch)| {
+                let mut branch = branch.clone();
+                branch.order = index;
+                self.set_branch(branch).is_ok()
+            });
+
+        if succeeded {
+            Ok(())
+        } else {
+            Err(anyhow!("Failed to update virtual branches ordering"))
+        }
+    }
+
+    pub fn next_order_index(&self) -> Result<usize> {
+        self.update_ordering()?;
+        let order = self
+            .list_branches()?
+            .iter()
+            .sorted_by_key(|branch| branch.order)
+            .collect::<Vec<&Branch>>()
+            .last()
+            .map_or(0, |b| b.order + 1);
+
+        Ok(order)
     }
 }
 

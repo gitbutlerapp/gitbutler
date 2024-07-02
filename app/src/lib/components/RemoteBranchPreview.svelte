@@ -1,10 +1,10 @@
 <script lang="ts">
-	import BranchPreviewHeader from './BranchPreviewHeader.svelte';
-	import FileCard from './FileCard.svelte';
-	import Resizer from './Resizer.svelte';
-	import ScrollableContainer from './ScrollableContainer.svelte';
+	import BranchPreviewHeader from '../branch/BranchPreviewHeader.svelte';
+	import Resizer from '../shared/Resizer.svelte';
+	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import { Project } from '$lib/backend/projects';
-	import CommitCard from '$lib/components/CommitCard.svelte';
+	import CommitCard from '$lib/commit/CommitCard.svelte';
+	import FileCard from '$lib/file/FileCard.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
@@ -54,12 +54,14 @@
 		<ScrollableContainer wide>
 			<div class="branch-preview">
 				<BranchPreviewHeader base={$baseBranch} {branch} {pr} />
-				{#if pr?.body}
+				{#if pr}
 					<div class="card">
-						<div class="card__header text-base-body-14 text-semibold">PR Description</div>
-						<div class="markdown card__content text-base-body-13">
-							{@html marked.parse(pr.body, { renderer })}
-						</div>
+						<div class="card__header text-base-body-14 text-semibold">{pr.title}</div>
+						{#if pr.body}
+							<div class="markdown card__content text-base-body-13">
+								{@html marked.parse(pr.body, { renderer })}
+							</div>
+						{/if}
 					</div>
 				{/if}
 				{#await getRemoteBranchData(project.id, branch.name) then branchData}
@@ -71,7 +73,7 @@
 									last={index === branchData.commits.length - 1}
 									{commit}
 									commitUrl={$baseBranch?.commitUrl(commit.id)}
-									type="remote"
+									type="localAndRemote"
 								/>
 							{/each}
 						</div>
@@ -109,7 +111,7 @@
 <style lang="postcss">
 	.base {
 		display: flex;
-		flex-grow: 1;
+		width: 100%;
 		overflow-x: auto;
 	}
 	.base__left {

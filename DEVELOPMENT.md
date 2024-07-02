@@ -9,28 +9,27 @@ you right. Let's get started.
 
 - [Overview](#overview)
 - [The Basics](#the-basics)
-    - [Prerequisites](#prerequisites)
-    - [Install dependencies](#install-dependencies)
-    - [Run the app](#run-the-app)
-    - [Lint & format](#lint--format)
+  - [Prerequisites](#prerequisites)
+  - [Install dependencies](#install-dependencies)
+  - [Run the app](#run-the-app)
+  - [Lint & format](#lint--format)
 - [Debugging](#debugging)
-    - [Logs](#logs)
-    - [Tokio](#tokio)
+  - [Logs](#logs)
+  - [Tokio](#tokio)
 - [Building](#building)
-    - [Building on Windows](#building-on-windows)
-    - [File permissions](#file-permissions)
-    - [Perl](#perl)
-    - [Crosscompilation](#crosscompilation)
+  - [Building on Windows](#building-on-windows)
+  - [File permissions](#file-permissions)
+  - [Perl](#perl)
+  - [Crosscompilation](#crosscompilation)
 - [Design](#design)
 - [Contributing](#contributing)
 - [Some Other Random Notes](#some-other-random-notes)
-    - [Icon generation](#icon-generation)
-    - [Release](#release)
-    - [Versioning](#versioning)
-    - [Publishing](#publishing)
+  - [Icon generation](#icon-generation)
+  - [Release](#release)
+  - [Versioning](#versioning)
+  - [Publishing](#publishing)
 - [Development mode OAuth login](#development-mode-oauth-login)
 - [Joining the GitButler Team](#joining-the-gitbutler-team)
-
 
 ---
 
@@ -134,18 +133,18 @@ The app writes logs into:
 
 We are also collecting tokio's runtime tracing information that could be viewed using [tokio-console](https://github.com/tokio-rs/console#tokio-console-prototypes):
 
--   development:
-    ```bash
-    $ tokio-console
-    ```
--   nightly:
-    ```bash
-    $ tokio-console http://127.0.0.1:6668
-    ```
--   production:
-    ```bash
-    $ tokio-console http://127.0.0.1:6667
-    ```
+- development:
+  ```bash
+  $ tokio-console
+  ```
+- nightly:
+  ```bash
+  $ tokio-console http://127.0.0.1:6668
+  ```
+- production:
+  ```bash
+  $ tokio-console http://127.0.0.1:6667
+  ```
 
 ---
 
@@ -175,7 +174,7 @@ Sometimes npm's prefix is incorrect on Windows, we can check this via:
 npm config get prefix
 ```
 
-If it's not `C:\Users\<username>\AppData\Roaming\npm` or another folder that is 
+If it's not `C:\Users\<username>\AppData\Roaming\npm` or another folder that is
 normally writable, then we can set it in Powershell:
 
 ```sh
@@ -205,10 +204,10 @@ which only allow ARM Windows to be used.
 
 The `windows` dependency on `gitbutler-git` doesn't currently compile on ARM,
 which means cross-compilation to x86-64 is required to workaround that. Besides,
-most users will probably still be on INTEL machines, making this capability 
+most users will probably still be on INTEL machines, making this capability
 a common requirement.
 
-In a Git `bash`, *with MSVC for x86-64 installed on the system*, run the following
+In a Git `bash`, _with MSVC for x86-64 installed on the system_, run the following
 to prepare the environment.
 
 ```bash
@@ -302,4 +301,3 @@ If you are interested in joining our small but tightly knit engineering team, we
 - [Senior Rust developer](https://gitbutler.homerun.co/senior-rust-developer) (Onsite Berlin)
 - [Senior TypeScript developer](https://gitbutler.homerun.co/senior-typescript-developer) (Onsite Berlin)
 - [Senior Rails developer](https://gitbutler.homerun.co/senior-rails-developer) (Onsite Berlin)
-

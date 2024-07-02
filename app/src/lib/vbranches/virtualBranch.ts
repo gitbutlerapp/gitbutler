@@ -58,10 +58,8 @@ export class VirtualBranchService {
 			tap((branches) => {
 				branches.forEach((branch) => {
 					branch.files.sort((a) => (a.conflicted ? -1 : 0));
-					branch.isMergeable = invoke<boolean>('can_apply_virtual_branch', {
-						projectId: projectId,
-						branchId: branch.id
-					});
+					// This is always true now
+					branch.isMergeable = Promise.resolve(true);
 				});
 				this.fresh$.next(); // Notification for fresh reload
 			}),
@@ -87,17 +85,21 @@ export class VirtualBranchService {
 						.map(async (b) => {
 							const upstreamName = b.upstream?.name;
 							if (upstreamName) {
-								const data = await getRemoteBranchData(projectId, upstreamName);
-								const commits = data.commits;
-								commits.forEach((uc) => {
-									const match = b.commits.find((c) => commitCompare(uc, c));
-									if (match) {
-										match.relatedTo = uc;
-										uc.relatedTo = match;
-									}
-								});
-								linkAsParentChildren(commits);
-								b.upstreamData = data;
+								try {
+									const data = await getRemoteBranchData(projectId, upstreamName);
+									const commits = data.commits;
+									commits.forEach((uc) => {
+										const match = b.commits.find((c) => commitCompare(uc, c));
+										if (match) {
+											match.relatedTo = uc;
+											uc.relatedTo = match;
+										}
+									});
+									linkAsParentChildren(commits);
+									b.upstreamData = data;
+								} catch (e: any) {
+									console.log(e);
+								}
 							}
 							return b;
 						})

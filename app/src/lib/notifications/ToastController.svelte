@@ -1,6 +1,6 @@
 <script lang="ts">
-	import InfoMessage from '$lib/components/InfoMessage.svelte';
 	import { dismissToast, toastStore } from '$lib/notifications/toasts';
+	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import { marked } from 'marked';
 	import { slide } from 'svelte/transition';
 

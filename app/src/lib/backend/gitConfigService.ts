@@ -5,6 +5,10 @@ export class GitConfigService {
 		return (await invoke<T | undefined>('git_get_global_config', { key })) || undefined;
 	}
 
+	async remove(key: string): Promise<undefined> {
+		return await invoke('git_remove_global_config', { key });
+	}
+
 	async getWithDefault<T extends string>(key: string, defaultValue: T): Promise<T> {
 		const value = await invoke<T | undefined>('git_get_global_config', { key });
 		return value || defaultValue;

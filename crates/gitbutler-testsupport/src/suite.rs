@@ -4,7 +4,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use gitbutler_core::types::Sensitive;
 use gitbutler_core::{git::RepositoryExt, project_repository};
 use tempfile::{tempdir, TempDir};
 
@@ -48,12 +47,10 @@ impl Suite {
         self.local_app_data.as_ref().unwrap().path()
     }
     pub fn sign_in(&self) -> gitbutler_core::users::User {
-        let user = gitbutler_core::users::User {
-            name: Some("test".to_string()),
-            email: "test@email.com".to_string(),
-            access_token: Sensitive("token".to_string()),
-            ..Default::default()
-        };
+        crate::secrets::setup_blackhole_store();
+        let user: gitbutler_core::users::User =
+            serde_json::from_str(include_str!("fixtures/user/minimal.v1"))
+                .expect("valid v1 user file");
         self.users.set_user(&user).expect("failed to add user");
         user
     }

@@ -1,3 +1,4 @@
+import { wrapAsync } from '$lib/result';
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 export const API_URL = new URL('/api/', PUBLIC_API_BASE_URL);
@@ -47,20 +48,40 @@ export class HttpClient {
 		return await this.request<T>(path, { ...opts, method: 'GET' });
 	}
 
+	async getSafe<T>(path: string, opts?: Omit<RequestOptions, 'body'>) {
+		return await wrapAsync<T, Error>(async () => await this.get<T>(path, opts));
+	}
+
 	async post<T>(path: string, opts?: RequestOptions) {
 		return await this.request<T>(path, { ...opts, method: 'POST' });
+	}
+
+	async postSafe<T>(path: string, opts?: RequestOptions) {
+		return await wrapAsync<T, Error>(async () => await this.post<T>(path, opts));
 	}
 
 	async put<T>(path: string, opts?: RequestOptions) {
 		return await this.request<T>(path, { ...opts, method: 'PUT' });
 	}
 
+	async putSafe<T>(path: string, opts?: RequestOptions) {
+		return await wrapAsync<T, Error>(async () => await this.put<T>(path, opts));
+	}
+
 	async patch<T>(path: string, opts?: RequestOptions) {
 		return await this.request<T>(path, { ...opts, method: 'PATCH' });
 	}
 
+	async patchSafe<T>(path: string, opts?: RequestOptions) {
+		return await wrapAsync<T, Error>(async () => await this.patch<T>(path, opts));
+	}
+
 	async delete<T>(path: string, opts?: RequestOptions) {
 		return await this.request<T>(path, { ...opts, method: 'DELETE' });
+	}
+
+	async deleteSafe<T>(path: string, opts?: RequestOptions) {
+		return await wrapAsync<T, Error>(async () => await this.delete<T>(path, opts));
 	}
 }
 

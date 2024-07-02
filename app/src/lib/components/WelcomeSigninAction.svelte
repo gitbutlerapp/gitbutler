@@ -8,33 +8,17 @@
 		'Enable GitButler features like automatic branch and commit message generation.';
 
 	const userService = getContext(UserService);
+	const loading = userService.loading;
 	const user = userService.user;
-
-	let loginSignupLoading = false;
-
-	async function onLoginOrSignup() {
-		loginSignupLoading = true;
-		try {
-			const token = await userService.createLoginToken();
-			await userService.login(token);
-		} catch {
-			loginSignupLoading = false;
-		}
-	}
-
-	// reset loading state after 60 seconds
-	// this is to prevent the loading state from getting stuck
-	// if the user closes the tab before the request is finished
-	setTimeout(() => {
-		loginSignupLoading = false;
-	}, 60 * 1000);
 </script>
 
 {#if !$user}
 	<WelcomeAction
 		title="Log in or Sign up"
-		loading={loginSignupLoading}
-		on:mousedown={onLoginOrSignup}
+		loading={$loading}
+		on:mousedown={async () => {
+			await userService.login();
+		}}
 	>
 		<svelte:fragment slot="icon">
 			{@html signinSvg}

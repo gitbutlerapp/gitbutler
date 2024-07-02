@@ -2,11 +2,11 @@
 	import analyticsSvg from '$lib/assets/illustrations/analytics.svg?raw';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { ProjectService } from '$lib/backend/projects';
-	import AnalyticsConfirmation from '$lib/components/AnalyticsConfirmation.svelte';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import Welcome from '$lib/components/Welcome.svelte';
 	import { appAnalyticsConfirmed } from '$lib/config/appSettings';
+	import AnalyticsConfirmation from '$lib/settings/AnalyticsConfirmation.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { derived } from 'svelte/store';
 	import { goto } from '$app/navigation';

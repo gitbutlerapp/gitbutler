@@ -2,7 +2,7 @@ import { AnthropicAIClient } from '$lib/ai/anthropicClient';
 import { ButlerAIClient } from '$lib/ai/butlerClient';
 import { OpenAIClient } from '$lib/ai/openAIClient';
 import { SHORT_DEFAULT_BRANCH_TEMPLATE, SHORT_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
-import { AIService, GitAIConfigKey, KeyOption, buildDiff } from '$lib/ai/service';
+import { AISecretHandle, AIService, GitAIConfigKey, KeyOption, buildDiff } from '$lib/ai/service';
 import {
 	AnthropicModelName,
 	ModelKind,
@@ -11,20 +11,24 @@ import {
 	type Prompt
 } from '$lib/ai/types';
 import { HttpClient } from '$lib/backend/httpClient';
-import * as toasts from '$lib/utils/toasts';
+import { buildFailureFromAny, ok, unwrap, type Result } from '$lib/result';
 import { Hunk } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { expect, test, describe, vi } from 'vitest';
 import type { GbConfig, GitConfigService } from '$lib/backend/gitConfigService';
+import type { SecretsService } from '$lib/secrets/secretsService';
 
 const defaultGitConfig = Object.freeze({
 	[GitAIConfigKey.ModelProvider]: ModelKind.OpenAI,
 	[GitAIConfigKey.OpenAIKeyOption]: KeyOption.ButlerAPI,
-	[GitAIConfigKey.OpenAIKey]: undefined,
 	[GitAIConfigKey.OpenAIModelName]: OpenAIModelName.GPT35Turbo,
 	[GitAIConfigKey.AnthropicKeyOption]: KeyOption.ButlerAPI,
-	[GitAIConfigKey.AnthropicKey]: undefined,
 	[GitAIConfigKey.AnthropicModelName]: AnthropicModelName.Haiku
+});
+
+const defaultSecretsConfig = Object.freeze({
+	[AISecretHandle.AnthropicKey]: undefined,
+	[AISecretHandle.OpenAIKey]: undefined
 });
 
 class DummyGitConfigService implements GitConfigService {
@@ -46,6 +50,24 @@ class DummyGitConfigService implements GitConfigService {
 	async set<T extends string>(key: string, value: T): Promise<T | undefined> {
 		return (this.config[key] = value);
 	}
+	async remove(key: string): Promise<undefined> {
+		delete this.config[key];
+	}
+}
+
+class DummySecretsService implements SecretsService {
+	private config: { [index: string]: string | undefined };
+	constructor(config?: { [index: string]: string | undefined }) {
+		this.config = config || {};
+	}
+
+	async get(key: string): Promise<string | undefined> {
+		return this.config[key];
+	}
+
+	async set(handle: string, secret: string): Promise<void> {
+		this.config[handle] = secret;
+	}
 }
 
 const fetchMock = vi.fn();
@@ -56,8 +78,8 @@ class DummyAIClient implements AIClient {
 	defaultBranchTemplate = SHORT_DEFAULT_BRANCH_TEMPLATE;
 	constructor(private response = 'lorem ipsum') {}
 
-	async evaluate(_prompt: Prompt) {
-		return this.response;
+	async evaluate(_prompt: Prompt): Promise<Result<string, Error>> {
+		return ok(this.response);
 	}
 }
 
@@ -108,7 +130,8 @@ const exampleHunks = [hunk1, hunk2];
 
 function buildDefaultAIService() {
 	const gitConfig = new DummyGitConfigService(structuredClone(defaultGitConfig));
-	return new AIService(gitConfig, cloud);
+	const secretsService = new DummySecretsService(structuredClone(defaultSecretsConfig));
+	return new AIService(gitConfig, secretsService, cloud);
 }
 
 describe.concurrent('AIService', () => {
@@ -116,42 +139,40 @@ describe.concurrent('AIService', () => {
 		test('With default configuration, When a user token is provided. It returns ButlerAIClient', async () => {
 			const aiService = buildDefaultAIService();
 
-			expect(await aiService.buildClient('token')).toBeInstanceOf(ButlerAIClient);
+			expect(unwrap(await aiService.buildClient('token'))).toBeInstanceOf(ButlerAIClient);
 		});
 
 		test('With default configuration, When a user is undefined. It returns undefined', async () => {
-			const toastErrorSpy = vi.spyOn(toasts, 'error');
 			const aiService = buildDefaultAIService();
 
-			expect(await aiService.buildClient()).toBe(undefined);
-			expect(toastErrorSpy).toHaveBeenLastCalledWith(
-				"When using GitButler's API to summarize code, you must be logged in"
+			expect(await aiService.buildClient()).toStrictEqual(
+				buildFailureFromAny("When using GitButler's API to summarize code, you must be logged in")
 			);
 		});
 
 		test('When token is bring your own, When a openAI token is present. It returns OpenAIClient', async () => {
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
-				[GitAIConfigKey.OpenAIKeyOption]: KeyOption.BringYourOwn,
-				[GitAIConfigKey.OpenAIKey]: 'sk-asdfasdf'
+				[GitAIConfigKey.OpenAIKeyOption]: KeyOption.BringYourOwn
 			});
-			const aiService = new AIService(gitConfig, cloud);
+			const secretsService = new DummySecretsService({ [AISecretHandle.OpenAIKey]: 'sk-asdfasdf' });
+			const aiService = new AIService(gitConfig, secretsService, cloud);
 
-			expect(await aiService.buildClient()).toBeInstanceOf(OpenAIClient);
+			expect(unwrap(await aiService.buildClient())).toBeInstanceOf(OpenAIClient);
 		});
 
 		test('When token is bring your own, When a openAI token is blank. It returns undefined', async () => {
-			const toastErrorSpy = vi.spyOn(toasts, 'error');
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
-				[GitAIConfigKey.OpenAIKeyOption]: KeyOption.BringYourOwn,
-				[GitAIConfigKey.OpenAIKey]: undefined
+				[GitAIConfigKey.OpenAIKeyOption]: KeyOption.BringYourOwn
 			});
-			const aiService = new AIService(gitConfig, cloud);
+			const secretsService = new DummySecretsService();
+			const aiService = new AIService(gitConfig, secretsService, cloud);
 
-			expect(await aiService.buildClient()).toBe(undefined);
-			expect(toastErrorSpy).toHaveBeenLastCalledWith(
-				'When using OpenAI in a bring your own key configuration, you must provide a valid token'
+			expect(await aiService.buildClient()).toStrictEqual(
+				buildFailureFromAny(
+					'When using OpenAI in a bring your own key configuration, you must provide a valid token'
+				)
 			);
 		});
 
@@ -159,27 +180,29 @@ describe.concurrent('AIService', () => {
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
 				[GitAIConfigKey.ModelProvider]: ModelKind.Anthropic,
-				[GitAIConfigKey.AnthropicKeyOption]: KeyOption.BringYourOwn,
-				[GitAIConfigKey.AnthropicKey]: 'sk-ant-api03-asdfasdf'
+				[GitAIConfigKey.AnthropicKeyOption]: KeyOption.BringYourOwn
 			});
-			const aiService = new AIService(gitConfig, cloud);
+			const secretsService = new DummySecretsService({
+				[AISecretHandle.AnthropicKey]: 'test-key'
+			});
+			const aiService = new AIService(gitConfig, secretsService, cloud);
 
-			expect(await aiService.buildClient()).toBeInstanceOf(AnthropicAIClient);
+			expect(unwrap(await aiService.buildClient())).toBeInstanceOf(AnthropicAIClient);
 		});
 
 		test('When ai provider is Anthropic, When token is bring your own, When an anthropic token is blank. It returns undefined', async () => {
-			const toastErrorSpy = vi.spyOn(toasts, 'error');
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
 				[GitAIConfigKey.ModelProvider]: ModelKind.Anthropic,
-				[GitAIConfigKey.AnthropicKeyOption]: KeyOption.BringYourOwn,
-				[GitAIConfigKey.AnthropicKey]: undefined
+				[GitAIConfigKey.AnthropicKeyOption]: KeyOption.BringYourOwn
 			});
-			const aiService = new AIService(gitConfig, cloud);
+			const secretsService = new DummySecretsService();
+			const aiService = new AIService(gitConfig, secretsService, cloud);
 
-			expect(await aiService.buildClient()).toBe(undefined);
-			expect(toastErrorSpy).toHaveBeenLastCalledWith(
-				'When using Anthropic in a bring your own key configuration, you must provide a valid token'
+			expect(await aiService.buildClient()).toStrictEqual(
+				buildFailureFromAny(
+					'When using Anthropic in a bring your own key configuration, you must provide a valid token'
+				)
 			);
 		});
 	});
@@ -188,9 +211,13 @@ describe.concurrent('AIService', () => {
 		test('When buildModel returns undefined, it returns undefined', async () => {
 			const aiService = buildDefaultAIService();
 
-			vi.spyOn(aiService, 'buildClient').mockReturnValue((async () => undefined)());
+			vi.spyOn(aiService, 'buildClient').mockReturnValue(
+				(async () => buildFailureFromAny('Failed to build'))()
+			);
 
-			expect(await aiService.summarizeCommit({ hunks: exampleHunks })).toBe(undefined);
+			expect(await aiService.summarizeCommit({ hunks: exampleHunks })).toStrictEqual(
+				buildFailureFromAny('Failed to build')
+			);
 		});
 
 		test('When the AI returns a single line commit message, it returns it unchanged', async () => {
@@ -199,10 +226,12 @@ describe.concurrent('AIService', () => {
 			const clientResponse = 'single line commit';
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(
-				(async () => new DummyAIClient(clientResponse))()
+				(async () => ok<AIClient, Error>(new DummyAIClient(clientResponse)))()
 			);
 
-			expect(await aiService.summarizeCommit({ hunks: exampleHunks })).toBe('single line commit');
+			expect(await aiService.summarizeCommit({ hunks: exampleHunks })).toStrictEqual(
+				ok('single line commit')
+			);
 		});
 
 		test('When the AI returns a title and body that is split by a single new line, it replaces it with two', async () => {
@@ -211,10 +240,12 @@ describe.concurrent('AIService', () => {
 			const clientResponse = 'one\nnew line';
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(
-				(async () => new DummyAIClient(clientResponse))()
+				(async () => ok<AIClient, Error>(new DummyAIClient(clientResponse)))()
 			);
 
-			expect(await aiService.summarizeCommit({ hunks: exampleHunks })).toBe('one\n\nnew line');
+			expect(await aiService.summarizeCommit({ hunks: exampleHunks })).toStrictEqual(
+				ok('one\n\nnew line')
+			);
 		});
 
 		test('When the commit is in brief mode, When the AI returns a title and body, it takes just the title', async () => {
@@ -223,12 +254,12 @@ describe.concurrent('AIService', () => {
 			const clientResponse = 'one\nnew line';
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(
-				(async () => new DummyAIClient(clientResponse))()
+				(async () => ok<AIClient, Error>(new DummyAIClient(clientResponse)))()
 			);
 
-			expect(await aiService.summarizeCommit({ hunks: exampleHunks, useBriefStyle: true })).toBe(
-				'one'
-			);
+			expect(
+				await aiService.summarizeCommit({ hunks: exampleHunks, useBriefStyle: true })
+			).toStrictEqual(ok('one'));
 		});
 	});
 
@@ -236,9 +267,13 @@ describe.concurrent('AIService', () => {
 		test('When buildModel returns undefined, it returns undefined', async () => {
 			const aiService = buildDefaultAIService();
 
-			vi.spyOn(aiService, 'buildClient').mockReturnValue((async () => undefined)());
+			vi.spyOn(aiService, 'buildClient').mockReturnValue(
+				(async () => buildFailureFromAny('Failed to build client'))()
+			);
 
-			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toBe(undefined);
+			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toStrictEqual(
+				buildFailureFromAny('Failed to build client')
+			);
 		});
 
 		test('When the AI client returns a string with spaces, it replaces them with hypens', async () => {
@@ -247,10 +282,12 @@ describe.concurrent('AIService', () => {
 			const clientResponse = 'with spaces included';
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(
-				(async () => new DummyAIClient(clientResponse))()
+				(async () => ok<AIClient, Error>(new DummyAIClient(clientResponse)))()
 			);
 
-			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toBe('with-spaces-included');
+			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toStrictEqual(
+				ok('with-spaces-included')
+			);
 		});
 
 		test('When the AI client returns multiple lines, it replaces them with hypens', async () => {
@@ -259,11 +296,11 @@ describe.concurrent('AIService', () => {
 			const clientResponse = 'with\nnew\nlines\nincluded';
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(
-				(async () => new DummyAIClient(clientResponse))()
+				(async () => ok<AIClient, Error>(new DummyAIClient(clientResponse)))()
 			);
 
-			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toBe(
-				'with-new-lines-included'
+			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toStrictEqual(
+				ok('with-new-lines-included')
 			);
 		});
 
@@ -273,11 +310,11 @@ describe.concurrent('AIService', () => {
 			const clientResponse = 'with\nnew lines\nincluded';
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(
-				(async () => new DummyAIClient(clientResponse))()
+				(async () => ok<AIClient, Error>(new DummyAIClient(clientResponse)))()
 			);
 
-			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toBe(
-				'with-new-lines-included'
+			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toStrictEqual(
+				ok('with-new-lines-included')
 			);
 		});
 	});

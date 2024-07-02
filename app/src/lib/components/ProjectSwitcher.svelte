@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Button from './Button.svelte';
-	import Select from './Select.svelte';
-	import SelectItem from './SelectItem.svelte';
+	import Select from '../shared/Select.svelte';
+	import SelectItem from '../shared/SelectItem.svelte';
 	import { ProjectService, Project } from '$lib/backend/projects';
+	import Button from '$lib/shared/Button.svelte';
 	import { getContext, maybeGetContext } from '$lib/utils/context';
 	import { derived } from 'svelte/store';
 	import { goto } from '$app/navigation';
@@ -15,8 +15,8 @@
 		title: string;
 	};
 
-	const mappedProjects = derived(projectService.projects, ($projects) =>
-		$projects.map((project) => ({
+	const mappedProjects = derived(projectService.projects, (projects) =>
+		projects.map((project) => ({
 			id: project.id,
 			title: project.title
 		}))
