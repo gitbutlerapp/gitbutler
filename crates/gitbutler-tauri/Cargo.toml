@@ -14,7 +14,7 @@ path = "src/main.rs"
 test = false
 
 [build-dependencies]
-tauri-build = { version = "1.5", features = [] }
+tauri-build = { version = "1.5.3", features = [] }
 
 [dev-dependencies]
 pretty_assertions = "1.4"
@@ -51,7 +51,7 @@ gitbutler-watcher.workspace = true
 open = "5"
 
 [dependencies.tauri]
-version = "1.6.8"
+version = "1.7.0"
 features = [
     "http-all", "os-all", "dialog-open", "fs-read-file",
     "path-all", "process-relaunch", "protocol-asset",
