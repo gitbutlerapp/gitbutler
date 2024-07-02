@@ -2,6 +2,7 @@
 	import FileStatusTag from './FileStatusTag.svelte';
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import Button from '$lib/shared/Button.svelte';
+	import { splitFilePath } from '$lib/utils/filePath';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import { createEventDispatcher } from 'svelte';
@@ -14,22 +15,12 @@
 	$: fileStats = computeAddedRemovedByFiles(file);
 	$: fileStatus = computeFileStatus(file);
 
-	function boldenFilename(filepath: string): { filename: string; path: string } {
-		const parts = filepath.split('/');
-		if (parts.length === 0) return { filename: '', path: '' };
-
-		const filename = parts[parts.length - 1];
-		const path = parts.slice(0, -1).join('/');
-
-		return { filename, path };
-	}
-
-	$: fileTitle = boldenFilename(file.path);
+	$: fileTitle = splitFilePath(file.path);
 </script>
 
 <div class="header">
 	<div class="header__inner">
-		<img src={getVSIFileIcon(file.path)} alt="" width="13" height="13" class="icon" />
+		<img src={getVSIFileIcon(file.path)} alt="" class="icon" />
 		<div class="header__info truncate">
 			<div class="header__filetitle text-base-13 truncate">
 				<span class="header__filename">{fileTitle.filename}</span>

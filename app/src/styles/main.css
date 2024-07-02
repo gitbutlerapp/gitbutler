@@ -12,6 +12,7 @@
 @import './text-input.css';
 @import './commit-lines.css';
 @import './markdown.css';
+@import './draggable.css';
 
 /* CSS VARIABLES */
 :root {

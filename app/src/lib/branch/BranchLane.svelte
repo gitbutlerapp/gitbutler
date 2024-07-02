@@ -77,7 +77,7 @@
 	{#await $selectedFile then selected}
 		{#if selected}
 			<div
-				class="file-preview resize-viewport"
+				class="file-preview"
 				bind:this={rsViewport}
 				in:slide={{ duration: 180, easing: quintOut, axis: 'x' }}
 				style:width={`${fileWidth || $defaultFileWidthRem}rem`}

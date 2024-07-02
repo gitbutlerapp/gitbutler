@@ -61,6 +61,7 @@
 
 	const dispatch = createEventDispatcher<{
 		dragging: boolean;
+		scroll: Event;
 	}>();
 
 	/////////////////////
@@ -190,8 +191,10 @@
 		};
 	}
 
-	function onScroll() {
+	function onScroll(e: Event) {
 		if (!isScrollable) return;
+
+		dispatch('scroll', e);
 
 		clearTimer();
 		setupTimer();
@@ -276,6 +279,7 @@
 
 <div
 	bind:this={track}
+	data-remove-from-draggable
 	class="scrollbar-track"
 	class:horz
 	class:vert

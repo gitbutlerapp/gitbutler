@@ -58,6 +58,5 @@
 		position: relative;
 		flex-grow: 1;
 		width: 100%;
-		/* overflow: hidden; */
 	}
 </style>
