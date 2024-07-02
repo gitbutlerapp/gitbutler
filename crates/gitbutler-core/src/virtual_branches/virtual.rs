@@ -3506,20 +3506,13 @@ pub fn create_virtual_branch_from_branch(
         {
             let head_commit = repo.find_commit(branch.head)?;
 
-            if let Some(header) = head_commit.raw_header() {
-                if header
-                    .lines()
-                    .any(|line| line.starts_with("gitbutler-vbranch"))
-                {
-                    if let Some(branch_name) = header
-                        .lines()
-                        .find(|line| line.starts_with("gitbutler-vbranch-name"))
-                        .and_then(|line| line.split_once(' '))
-                        .map(|(_, name)| name.to_string())
-                    {
+            if let Some(headers) = head_commit.gitbutler_headers() {
+                if headers.is_unapplied_header_commit {
+                    if let Some(branch_name) = headers.vbranch_name {
                         branch.name = branch_name;
+
                         vb_state.set_branch(branch.clone())?;
-                    }
+                    };
 
                     undo_commit(project_repository, branch_id, branch.head)?;
                 }
