@@ -286,12 +286,6 @@
 		cursor: default; /* was defaulting to text cursor */
 	}
 
-	.branch-card :global(.contents) {
-		display: flex;
-		flex-direction: column;
-		min-height: 100%;
-	}
-
 	/* COLLAPSED LANE */
 	.collapsed-lane-container {
 		display: flex;

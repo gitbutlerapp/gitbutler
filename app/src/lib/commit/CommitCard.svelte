@@ -332,20 +332,6 @@
 </div>
 
 <style lang="postcss">
-	/* amend drop zone */
-	:global(.amend-dz-active .amend-dz-marker) {
-		display: flex;
-	}
-	:global(.amend-dz-hover .hover-text) {
-		visibility: visible;
-	}
-	:global(.commit_draggable) {
-		cursor: grab;
-		background-color: var(--clr-bg-1);
-		border-radius: var(--radius-m);
-		border: none;
-	}
-
 	.commit-row {
 		position: relative;
 		display: flex;

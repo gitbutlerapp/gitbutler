@@ -61,6 +61,7 @@
 
 	const dispatch = createEventDispatcher<{
 		dragging: boolean;
+		scroll: Event;
 	}>();
 
 	/////////////////////
@@ -190,8 +191,10 @@
 		};
 	}
 
-	function onScroll() {
+	function onScroll(e: Event) {
 		if (!isScrollable) return;
+
+		dispatch('scroll', e);
 
 		clearTimer();
 		setupTimer();
