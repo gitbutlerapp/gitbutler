@@ -4,6 +4,7 @@
 	import { getVSIFileIcon } from '$lib/ext-icons';
 	import { createdOnDay } from '$lib/history/history';
 	import Button from '$lib/shared/Button.svelte';
+	import { splitFilePath } from '$lib/utils/filePath';
 	import { toHumanReadableTime } from '$lib/utils/time';
 	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
@@ -152,10 +153,6 @@
 	const error = entry.details?.trailers.find((t) => t.key === 'error')?.value;
 
 	const operation = mapOperation(entry.details);
-
-	function getPathOnly(path: string) {
-		return path.split('/').slice(0, -1).join('/');
-	}
 </script>
 
 <div
@@ -225,10 +222,10 @@
 							/>
 							<div class="text-base-12 files-attacment__file-path-and-name">
 								<span class="files-attacment__file-name">
-									{filePath.split('/').pop()}
+									{splitFilePath(filePath).filename}
 								</span>
 								<span class="files-attacment__file-path">
-									{getPathOnly(filePath)}
+									{splitFilePath(filePath).path}
 								</span>
 							</div>
 						</button>

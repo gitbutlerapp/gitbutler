@@ -3,7 +3,7 @@
 	import { Project } from '$lib/backend/projects';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
-	import { draggable } from '$lib/dragging/draggable';
+	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
 	import Button from '$lib/shared/Button.svelte';
@@ -25,7 +25,7 @@
 		BaseBranch,
 		type CommitStatus
 	} from '$lib/vbranches/types';
-	import { createEventDispatcher, type Snippet } from 'svelte';
+	import { type Snippet } from 'svelte';
 
 	export let branch: Branch | undefined = undefined;
 	export let commit: Commit | RemoteCommit;
@@ -46,8 +46,7 @@
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
-	const dispatch = createEventDispatcher<{ toggle: void }>();
-
+	let draggableCommitElement: HTMLElement | null = null;
 	let files: RemoteFile[] = [];
 	let showDetails = false;
 
@@ -57,7 +56,6 @@
 
 	function toggleFiles() {
 		showDetails = !showDetails;
-		dispatch('toggle');
 
 		if (showDetails) loadFiles();
 	}
@@ -102,6 +100,14 @@
 		commitMessageModal.close();
 	}
 
+	function getTimeAndAuthor() {
+		const timeAgo = getTimeAgo(commit.createdAt);
+		const author = type === 'localAndRemote' || type === 'remote' ? commit.author.name : 'you';
+		return `${timeAgo} by ${author}`;
+	}
+
+	const commitShortSha = commit.id.substring(0, 7);
+
 	let topHeightPx = 24;
 
 	$: {
@@ -109,6 +115,9 @@
 		if (first) topHeightPx = 58;
 		if (showDetails && !first) topHeightPx += 12;
 	}
+
+	let dragDirection: 'up' | 'down' | undefined;
+	let isDragTargeted = false;
 </script>
 
 <Modal bind:this={commitMessageModal} width="small">
@@ -138,40 +147,77 @@
 	class:is-last={last}
 	class:has-lines={lines}
 >
+	{#if dragDirection && isDragTargeted}
+		<div
+			class="pseudo-reorder-zone"
+			class:top={dragDirection === 'up'}
+			class:bottom={dragDirection === 'down'}
+			class:is-first={first}
+			class:is-last={last}
+		></div>
+	{/if}
+
 	{#if lines}
 		<div>
 			{@render lines(topHeightPx)}
 		</div>
 	{/if}
-	<CommitDragItem {commit}>
-		<div class="commit-card" class:is-first={first} class:is-last={last}>
-			<div
-				class="accent-border-line"
-				class:is-first={first}
-				class:is-last={last}
-				class:local={type === 'local'}
-				class:local-and-remote={type === 'localAndRemote'}
-				class:upstream={type === 'remote'}
-				class:integrated={type === 'integrated'}
-			></div>
 
+	<div class="commit-card" class:is-first={first} class:is-last={last}>
+		<CommitDragItem {commit}>
 			<!-- GENERAL INFO -->
 			<div
+				bind:this={draggableCommitElement}
 				class="commit__header"
 				on:click={toggleFiles}
 				on:keyup={onKeyup}
 				role="button"
 				tabindex="0"
-				use:draggable={commit instanceof Commit
+				on:dragenter={() => {
+					isDragTargeted = true;
+				}}
+				on:dragleave={() => {
+					isDragTargeted = false;
+				}}
+				on:drop={() => {
+					isDragTargeted = false;
+				}}
+				on:drag={(e) => {
+					const target = e.target as HTMLElement;
+					const targetHeight = target.offsetHeight;
+					const targetTop = target.getBoundingClientRect().top;
+					const mouseY = e.clientY;
+
+					const isTop = mouseY < targetTop + targetHeight / 2;
+					
+					dragDirection = isTop ? 'up' : 'down';
+				}}
+				use:draggableCommit={commit instanceof Commit && !isUnapplied && type !== 'integrated'
 					? {
+							label: commit.descriptionTitle,
+							sha: commitShortSha,
+							dateAndAuthor: getTimeAndAuthor(),
+							commitType: type,
 							data: new DraggableCommit(commit.branchId, commit, isHeadCommit),
-							extendWithClass: 'commit_draggable'
+							viewportId: 'board-viewport'
 						}
 					: nonDraggable()}
 			>
-				<div class="commit__drag-icon">
-					<Icon name="draggable-narrow" />
-				</div>
+				<div
+					class="accent-border-line"
+					class:is-first={first}
+					class:is-last={last}
+					class:local={type === 'local'}
+					class:local-and-remote={type === 'localAndRemote'}
+					class:upstream={type === 'remote'}
+					class:integrated={type === 'integrated'}
+				></div>
+
+				{#if type === 'local' || type === 'localAndRemote'}
+					<div class="commit__drag-icon">
+						<Icon name="draggable-narrow" />
+					</div>
+				{/if}
 
 				{#if first}
 					<div class="commit__type text-semibold text-base-12">
@@ -209,7 +255,7 @@
 							class="commit__subtitle-btn commit__subtitle-btn_dashed"
 							on:click|stopPropagation={() => copyToClipboard(commit.id)}
 						>
-							<span>{commit.id.substring(0, 7)}</span>
+							<span>{commitShortSha}</span>
 
 							<div class="commit__subtitle-btn__icon">
 								<Icon name="copy-small" />
@@ -235,11 +281,7 @@
 
 						<span class="commit__subtitle-divider">•</span>
 
-						<span
-							>{getTimeAgo(commit.createdAt)}{type === 'localAndRemote' || type === 'remote'
-								? ` by ${commit.author.name}`
-								: ' by you'}</span
-						>
+						<span>{getTimeAndAuthor()}</span>
 					</div>
 				{/if}
 			</div>
@@ -285,25 +327,11 @@
 					<BranchFilesList {files} {isUnapplied} readonly={type === 'remote'} />
 				</div>
 			{/if}
-		</div>
-	</CommitDragItem>
+		</CommitDragItem>
+	</div>
 </div>
 
 <style lang="postcss">
-	/* amend drop zone */
-	:global(.amend-dz-active .amend-dz-marker) {
-		display: flex;
-	}
-	:global(.amend-dz-hover .hover-text) {
-		visibility: visible;
-	}
-	:global(.commit_draggable) {
-		cursor: grab;
-		background-color: var(--clr-bg-1);
-		border-radius: var(--radius-m);
-		border: none;
-	}
-
 	.commit-row {
 		position: relative;
 		display: flex;
@@ -321,6 +349,7 @@
 		display: flex;
 		position: relative;
 		flex-direction: column;
+		flex: 1;
 
 		background-color: var(--clr-bg-1);
 		border-right: 1px solid var(--clr-border-2);
@@ -345,8 +374,12 @@
 
 	.accent-border-line {
 		position: absolute;
+		top: 0;
+		left: 0;
 		width: 4px;
 		height: 100%;
+		z-index: var(--z-ground);
+
 		&.local {
 			background-color: var(--clr-commit-local);
 		}
@@ -516,5 +549,30 @@
 			transform: scale(1);
 			margin-left: 2px;
 		}
+	}
+
+	/* PSUEDO DROPZONE */
+	.pseudo-reorder-zone {
+		z-index: var(--z-lifted);
+		position: absolute;
+		height: 2px;
+		width: 100%;
+		background-color: var(--clr-theme-pop-element);
+	}
+
+	.pseudo-reorder-zone.top {
+		top: -1px;
+	}
+
+	.pseudo-reorder-zone.bottom {
+		bottom: -1px;
+	}
+
+	.pseudo-reorder-zone.top.is-first {
+		top: 6px;
+	}
+
+	.pseudo-reorder-zone.bottom.is-last {
+		bottom: -6px;
 	}
 </style>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
-	import { draggable } from '$lib/dragging/draggable';
+	import { draggableElement } from '$lib/dragging/draggable';
 	import { DraggableHunk } from '$lib/dragging/draggables';
 	import HunkContextMenu from '$lib/hunk/HunkContextMenu.svelte';
 	import HunkLines from '$lib/hunk/HunkLines.svelte';
@@ -63,7 +63,7 @@
 		bind:this={viewport}
 		tabindex="0"
 		role="cell"
-		use:draggable={{
+		use:draggableElement={{
 			data: new DraggableHunk($branch?.id || '', section.hunk),
 			disabled: draggingDisabled
 		}}
