@@ -1,13 +1,13 @@
 <script lang="ts">
 	import Select from '../shared/Select.svelte';
 	import SelectItem from '../shared/SelectItem.svelte';
-	import { ProjectService, Project } from '$lib/backend/projects';
+	import { ProjectListingService, Project } from '$lib/backend/projects';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext, maybeGetContext } from '$lib/utils/context';
 	import { derived } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
-	const projectService = getContext(ProjectService);
+	const projectService = getContext(ProjectListingService);
 	const project = maybeGetContext(Project);
 
 	type ProjectRecord = {

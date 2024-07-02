@@ -5,7 +5,7 @@
 	import Link from '../shared/Link.svelte';
 	import ProjectNameLabel from '../shared/ProjectNameLabel.svelte';
 	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
-	import { ProjectService, Project } from '$lib/backend/projects';
+	import { ProjectListingService, Project } from '$lib/backend/projects';
 	import { showError } from '$lib/notifications/toasts';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
@@ -17,7 +17,7 @@
 	export let baseBranch: BaseBranch;
 
 	const branchController = getContext(BranchController);
-	const projectService = getContext(ProjectService);
+	const projectService = getContext(ProjectListingService);
 	const project = getContext(Project);
 
 	let isDeleting = false;

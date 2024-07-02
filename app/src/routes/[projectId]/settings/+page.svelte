@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Project, ProjectService } from '$lib/backend/projects';
+	import { Project, ProjectListingService } from '$lib/backend/projects';
 	import BaseBranchSwitch from '$lib/components/BaseBranchSwitch.svelte';
 	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
@@ -18,7 +18,7 @@
 	import { goto } from '$app/navigation';
 
 	const baseBranchSwitching = featureBaseBranchSwitching();
-	const projectService = getContext(ProjectService);
+	const projectService = getContext(ProjectListingService);
 	const project = getContext(Project);
 	const platformName = from(platform());
 

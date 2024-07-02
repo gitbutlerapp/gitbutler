@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { GitConfigService } from '$lib/backend/gitConfigService';
-	import { Project, ProjectService } from '$lib/backend/projects';
+	import { Project, ProjectListingService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import SectionCardDisclaimer from '$lib/components/SectionCardDisclaimer.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
@@ -16,7 +16,7 @@
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { onMount } from 'svelte';
 
-	const projectService = getContext(ProjectService);
+	const projectService = getContext(ProjectListingService);
 	const project = getContext(Project);
 
 	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
