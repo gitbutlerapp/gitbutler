@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { AuthService } from '$lib/backend/auth';
-	import { ProjectListingService, type Key, type KeyType, Project } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { showError } from '$lib/notifications/toasts';
+	import { ProjectListingService } from '$lib/projects/projectListingService';
+	import { type Key, type KeyType, Project } from '$lib/projects/types';
 	import Section from '$lib/settings/Section.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import CredentialCheck from '$lib/shared/CredentialCheck.svelte';

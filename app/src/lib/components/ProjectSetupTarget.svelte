@@ -1,10 +1,10 @@
 <script async lang="ts">
 	import ProjectNameLabel from '../shared/ProjectNameLabel.svelte';
-	import { Project } from '$lib/backend/projects';
 	import BackButton from '$lib/components/BackButton.svelte';
 	import Login from '$lib/components/Login.svelte';
 	import SetupFeature from '$lib/components/SetupFeature.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { Project } from '$lib/projects/types';
 	import GithubIntegration from '$lib/settings/GithubIntegration.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import Select from '$lib/shared/Select.svelte';

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import Select from '../shared/Select.svelte';
-	import { Project } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import { Project } from '$lib/projects/types';
 	import Section from '$lib/settings/Section.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import SelectItem from '$lib/shared/SelectItem.svelte';

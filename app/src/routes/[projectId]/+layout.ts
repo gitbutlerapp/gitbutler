@@ -12,7 +12,7 @@ import { BranchController } from '$lib/vbranches/branchController';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 import { error } from '@sveltejs/kit';
 import { map } from 'rxjs';
-import type { Project } from '$lib/backend/projects';
+import type { Project } from '$lib/projects/types';
 
 export const prerender = false;
 

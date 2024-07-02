@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { listen } from '$lib/backend/ipc';
-	import { Project } from '$lib/backend/projects';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { BranchService } from '$lib/branches/service';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
@@ -13,6 +12,7 @@
 	import { HistoryService } from '$lib/history/history';
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { persisted } from '$lib/persisted/persisted';
+	import { Project } from '$lib/projects/types';
 	import * as events from '$lib/utils/events';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
