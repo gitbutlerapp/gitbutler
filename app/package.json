@@ -14,8 +14,6 @@
 		"test:e2e": "playwright test -c ./playwright.config.ts",
 		"test:e2e:watch": "playwright test -c ./playwright.config.ts --ui",
 		"test:e2e:run": "vite dev --mode testing",
-		"build:development": "vite build --mode development",
-		"build:nightly": "vite build --mode nightly",
 		"build": "vite build",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "pnpm check --watch",

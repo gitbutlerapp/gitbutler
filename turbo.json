@@ -4,12 +4,21 @@
 		"package": {
 			"cache": false
 		},
+		"build": {
+			"dependsOn": ["^package"],
+			"cache": false
+		},
 		"dev": {
 			"dependsOn": ["@gitbutler/ui#package"],
 			"cache": false,
 			"persistent": true
 		},
 		"lint": {
+			"dependsOn": ["@gitbutler/ui#package"],
+			"cache": true
+		},
+		"check": {
+			"dependsOn": ["@gitbutler/ui#package"],
 			"cache": true
 		}
 	}
