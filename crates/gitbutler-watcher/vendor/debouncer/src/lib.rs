@@ -98,12 +98,14 @@ where
     }
 }
 
-#[cfg(feature = "crossbeam")]
-impl DebounceEventHandler for crossbeam_channel::Sender<DebounceEventResult> {
-    fn handle_event(&mut self, event: DebounceEventResult) {
-        let _ = self.send(event);
-    }
-}
+// Unlike https://github.com/notify-rs/notify/blob/main/notify-debouncer-full/Cargo.toml#L19 we don't seem to be setting this feature
+//
+// #[cfg(feature = "crossbeam")]
+// impl DebounceEventHandler for crossbeam_channel::Sender<DebounceEventResult> {
+//     fn handle_event(&mut self, event: DebounceEventResult) {
+//         let _ = self.send(event);
+//     }
+// }
 
 impl DebounceEventHandler for std::sync::mpsc::Sender<DebounceEventResult> {
     fn handle_event(&mut self, event: DebounceEventResult) {
