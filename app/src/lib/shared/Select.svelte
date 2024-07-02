@@ -5,9 +5,9 @@
 <script lang="ts" generics="Selectable extends Record<string, unknown>">
 	import ScrollableContainer from './ScrollableContainer.svelte';
 	import TextBox from './TextBox.svelte';
-	import { clickOutside } from '$lib/clickOutside';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { throttle } from '$lib/utils/misc';
+	import { portal } from '$lib/utils/portal';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { isChar, isStr } from '$lib/utils/string';
 	import { createEventDispatcher } from 'svelte';
@@ -41,6 +41,7 @@
 	let highlightedItem: Selectable | undefined = undefined;
 	let filterText: string | undefined = undefined;
 	let filteredItems: Selectable[] = items;
+	let inputBoundingRect: DOMRect;
 
 	const filterItems = throttle((items: Selectable[], filterText: string | undefined) => {
 		if (!filterText) {
@@ -55,7 +56,6 @@
 	}, INPUT_THROTTLE_TIME);
 
 	$: filteredItems = filterItems(items, filterText);
-
 	$: highlightedItem = highlightIndex !== undefined ? filteredItems[highlightIndex] : undefined;
 
 	function handleItemClick(item: Selectable) {
@@ -70,7 +70,12 @@
 		maxHeight = window.innerHeight - element.getBoundingClientRect().bottom - maxPadding;
 	}
 
-	function toggleList() {
+	function toggleList(e: MouseEvent) {
+		const target = e.target as HTMLElement;
+		if (target) {
+			inputBoundingRect = target.getBoundingClientRect();
+		}
+
 		if (listOpen) closeList();
 		else openList();
 	}
@@ -173,49 +178,60 @@
 		icon="select-chevron"
 		value={filterText ?? value?.[labelId]}
 		disabled={disabled || loading}
-		on:mousedown={() => toggleList()}
+		on:mousedown={(ev) => toggleList(ev)}
 		on:keydown={(ev) => handleKeyDown(ev)}
 	/>
-	<div
-		class="options card"
-		style:display={listOpen ? undefined : 'none'}
-		bind:this={options}
-		style:max-height={maxHeight && pxToRem(maxHeight)}
-		use:clickOutside={{
-			trigger: element,
-			handler: closeList,
-			enabled: listOpen
-		}}
-	>
-		<ScrollableContainer initiallyVisible>
-			{#if filteredItems}
-				<div class="options__group">
-					{#each filteredItems as item}
-						<div
-							class="option"
-							class:selected={item === value}
-							tabindex="-1"
-							role="none"
-							on:mousedown={() => handleItemClick(item)}
-							on:keydown|preventDefault|stopPropagation
-						>
-							<slot
-								name="template"
-								{item}
-								selected={item === value}
-								highlighted={item === highlightedItem}
-							/>
+
+	{#if listOpen}
+		<div
+			role="presentation"
+			class="scroll-blocker"
+			on:click={(e: MouseEvent) => {
+				if (e.target === e.currentTarget) closeList();
+			}}
+			use:portal={'body'}
+		>
+			<div
+				bind:this={options}
+				class="options card"
+				style:width="{inputBoundingRect?.width}px"
+				style:top={inputBoundingRect?.top
+					? pxToRem(inputBoundingRect.top + inputBoundingRect.height)
+					: undefined}
+				style:left={inputBoundingRect?.left ? pxToRem(inputBoundingRect.left) : undefined}
+				style:max-height={maxHeight && pxToRem(maxHeight)}
+			>
+				<ScrollableContainer initiallyVisible>
+					{#if filteredItems}
+						<div class="options__group">
+							{#each filteredItems as item}
+								<div
+									class="option"
+									class:selected={item === value}
+									tabindex="-1"
+									role="none"
+									on:mousedown={() => handleItemClick(item)}
+									on:keydown|preventDefault|stopPropagation
+								>
+									<slot
+										name="template"
+										{item}
+										selected={item === value}
+										highlighted={item === highlightedItem}
+									/>
+								</div>
+							{/each}
 						</div>
-					{/each}
-				</div>
-			{/if}
-			{#if $$slots?.append}
-				<div class="options__group">
-					<slot name="append" />
-				</div>
-			{/if}
-		</ScrollableContainer>
-	</div>
+					{/if}
+					{#if $$slots?.append}
+						<div class="options__group">
+							<slot name="append" />
+						</div>
+					{/if}
+				</ScrollableContainer>
+			</div>
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -232,11 +248,21 @@
 		color: var(--clr-scale-ntrl-50);
 	}
 
+	.scroll-blocker {
+		z-index: var(--z-blocker);
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background-color: rgba(0, 0, 0, 0.1);
+	}
+
 	.options {
 		position: absolute;
-		right: 0;
-		top: 100%;
-		width: 100%;
+		/* right: 0; */
+		/* top: 100%;
+		width: 100%; */
 		z-index: var(--z-floating);
 		margin-top: 4px;
 		border-radius: var(--radius-m);

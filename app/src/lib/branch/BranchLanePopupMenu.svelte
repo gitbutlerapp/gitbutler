@@ -121,6 +121,7 @@
 			itemId={'value'}
 			labelId={'label'}
 			bind:selectedItemId={selectedResolution}
+			maxHeight={80}
 		>
 			<SelectItem slot="template" let:item let:selected {selected}>
 				{item.label}
@@ -137,9 +138,7 @@
 	</div>
 	{#snippet controls()}
 		<Button style="ghost" outline on:click={() => unapplyBranchModal.close()}>Cancel</Button>
-		<Button style="pop" kind="solid" grow on:click={unapplyBranchWithSelectedResolution}
-			>Submit</Button
-		>
+		<Button style="pop" kind="solid" on:click={unapplyBranchWithSelectedResolution}>Submit</Button>
 	{/snippet}
 </Modal>
 
