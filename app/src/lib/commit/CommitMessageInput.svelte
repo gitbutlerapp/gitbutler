@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
-	import { Project } from '$lib/backend/projects';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
@@ -11,6 +10,7 @@
 		projectCommitGenerationUseEmojis
 	} from '$lib/config/config';
 	import { showError } from '$lib/notifications/toasts';
+	import { Project } from '$lib/projects/types';
 	import { isFailure } from '$lib/result';
 	import Checkbox from '$lib/shared/Checkbox.svelte';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';

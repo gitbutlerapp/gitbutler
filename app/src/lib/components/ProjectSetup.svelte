@@ -1,8 +1,9 @@
 <script async lang="ts">
 	import ProjectSetupTarget from './ProjectSetupTarget.svelte';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
-	import { Project, ProjectListingService } from '$lib/backend/projects';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
+	import { ProjectListingService } from '$lib/projects/projectListingService';
+	import { Project } from '$lib/projects/types';
 	import KeysForm from '$lib/settings/KeysForm.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';

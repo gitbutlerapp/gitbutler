@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { Project, ProjectListingService } from '$lib/backend/projects';
 	import AiPromptSelect from '$lib/components/AIPromptSelect.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { ProjectListingService } from '$lib/projects/projectListingService';
+	import { Project } from '$lib/projects/types';
 	import Section from '$lib/settings/Section.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import Link from '$lib/shared/Link.svelte';

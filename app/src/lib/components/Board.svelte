@@ -1,11 +1,11 @@
 <script lang="ts" async="true">
 	import FullviewLoading from './FullviewLoading.svelte';
 	import dzenSvg from '$lib/assets/dzen-pc.svg?raw';
-	import { Project } from '$lib/backend/projects';
 	import BranchDropzone from '$lib/branch/BranchDropzone.svelte';
 	import BranchLane from '$lib/branch/BranchLane.svelte';
 	import { cloneElement } from '$lib/dragging/draggable';
 	import { persisted } from '$lib/persisted/persisted';
+	import { Project } from '$lib/projects/types';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { editor } from '$lib/utils/systemEditor';

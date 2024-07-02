@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { Project } from '$lib/backend/projects';
 	import { draggableElement } from '$lib/dragging/draggable';
 	import { DraggableHunk } from '$lib/dragging/draggables';
 	import HunkContextMenu from '$lib/hunk/HunkContextMenu.svelte';
 	import HunkLines from '$lib/hunk/HunkLines.svelte';
+	import { Project } from '$lib/projects/types';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
 	import Scrollbar from '$lib/shared/Scrollbar.svelte';

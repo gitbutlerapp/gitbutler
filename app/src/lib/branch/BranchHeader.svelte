@@ -3,11 +3,11 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import { clickOutside } from '$lib/clickOutside';
 	import { GitHubService } from '$lib/github/service';
 	import { showError } from '$lib/notifications/toasts';
+	import { Project } from '$lib/projects/types';
 	import Button from '$lib/shared/Button.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';

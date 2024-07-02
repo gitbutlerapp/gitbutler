@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { listen } from '$lib/backend/ipc';
-	import { Project } from '$lib/backend/projects';
+	import { Project } from '$lib/projects/types';
 	import { getContext } from '$lib/utils/context';
 	import { editor } from '$lib/utils/systemEditor';
 	import { open } from '@tauri-apps/api/shell';

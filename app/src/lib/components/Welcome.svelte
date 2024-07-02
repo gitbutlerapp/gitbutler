@@ -2,7 +2,7 @@
 	import WelcomeAction from './WelcomeAction.svelte';
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
 	import newProjectSvg from '$lib/assets/no-projects/new-project.svg?raw';
-	import { ProjectListingService } from '$lib/backend/projects';
+	import { ProjectListingService } from '$lib/projects/projectListingService';
 	import IconLink from '$lib/shared/IconLink.svelte';
 	import { getContext } from '$lib/utils/context';
 

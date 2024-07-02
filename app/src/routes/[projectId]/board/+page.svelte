@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { Project } from '$lib/backend/projects';
 	import Board from '$lib/components/Board.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import { GitHubService } from '$lib/github/service';
 	import { showToast } from '$lib/notifications/toasts';
+	import { Project } from '$lib/projects/types';
 	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';

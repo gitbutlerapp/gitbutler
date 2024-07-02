@@ -1,10 +1,10 @@
 <script lang="ts">
 	import MergeButton from './MergeButton.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
 	import { GitHubService } from '$lib/github/service';
+	import { Project } from '$lib/projects/types';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { createTimeAgoStore } from '$lib/utils/timeAgo';

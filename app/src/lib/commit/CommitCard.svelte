@@ -1,11 +1,11 @@
 <script lang="ts">
 	import CommitDragItem from './CommitDragItem.svelte';
-	import { Project } from '$lib/backend/projects';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
+	import { Project } from '$lib/projects/types';
 	import Button from '$lib/shared/Button.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import Modal from '$lib/shared/Modal.svelte';

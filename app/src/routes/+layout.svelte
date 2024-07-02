@@ -6,7 +6,6 @@
 	import { AuthService } from '$lib/backend/auth';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { HttpClient } from '$lib/backend/httpClient';
-	import { ProjectListingService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
 	import AppUpdater from '$lib/components/AppUpdater.svelte';
@@ -15,6 +14,7 @@
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import ToastController from '$lib/notifications/ToastController.svelte';
+	import { ProjectListingService } from '$lib/projects/projectListingService';
 	import { RemotesService } from '$lib/remotes/service';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';

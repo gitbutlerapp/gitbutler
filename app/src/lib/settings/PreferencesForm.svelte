@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { GitConfigService } from '$lib/backend/gitConfigService';
-	import { Project, ProjectListingService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import SectionCardDisclaimer from '$lib/components/SectionCardDisclaimer.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
+	import { ProjectListingService } from '$lib/projects/projectListingService';
+	import { Project } from '$lib/projects/types';
 	import Section from '$lib/settings/Section.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';

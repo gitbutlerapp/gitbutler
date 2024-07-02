@@ -7,7 +7,7 @@ import {
 	type Branch,
 	type Commit
 } from '$lib/vbranches/types';
-import type { Project } from '$lib/backend/projects';
+import type { Project } from '$lib/projects/types';
 import type { BranchController } from '$lib/vbranches/branchController';
 
 class CommitDragActions {

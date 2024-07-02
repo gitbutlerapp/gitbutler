@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { Project, ProjectListingService } from '$lib/backend/projects';
 	import BaseBranchSwitch from '$lib/components/BaseBranchSwitch.svelte';
 	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { featureBaseBranchSwitching } from '$lib/config/uiFeatureFlags';
 	import { showError } from '$lib/notifications/toasts';
+	import { ProjectListingService } from '$lib/projects/projectListingService';
+	import { Project } from '$lib/projects/types';
 	import CloudForm from '$lib/settings/CloudForm.svelte';
 	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
 	import DetailsForm from '$lib/settings/DetailsForm.svelte';
@@ -29,7 +30,7 @@
 		isDeleting = true;
 		try {
 			await projectService.deleteProject(project.id);
-			await projectService.reload();
+			await projectService.reloadAll();
 			goto('/');
 			toasts.success('Project deleted');
 		} catch (err: any) {

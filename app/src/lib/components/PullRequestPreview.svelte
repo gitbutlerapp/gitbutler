@@ -1,6 +1,6 @@
 <script lang="ts">
 	// This is always displayed in the context of not having a cooresponding vbranch or remote
-	import { Project } from '$lib/backend/projects';
+	import { Project } from '$lib/projects/types';
 	import { RemotesService } from '$lib/remotes/service';
 	import Button from '$lib/shared/Button.svelte';
 	import Link from '$lib/shared/Link.svelte';

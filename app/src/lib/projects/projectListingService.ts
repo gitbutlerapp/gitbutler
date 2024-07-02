@@ -1,46 +1,13 @@
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { persisted } from '$lib/persisted/persisted';
+import { Project, type CloudProject } from '$lib/projects/types';
 import * as toasts from '$lib/utils/toasts';
 import { open } from '@tauri-apps/api/dialog';
 import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';
-import type { HttpClient } from './httpClient';
+import type { HttpClient } from '../backend/httpClient';
 import { goto } from '$app/navigation';
-
-export type KeyType = 'generated' | 'gitCredentialsHelper' | 'local' | 'systemExecutable';
-export type LocalKey = {
-	local: { private_key_path: string };
-};
-
-export type Key = Exclude<KeyType, 'local'> | LocalKey;
-
-export class Project {
-	id!: string;
-	title!: string;
-	description?: string;
-	path!: string;
-	api?: CloudProject & { sync: boolean };
-	preferred_key!: Key;
-	ok_with_force_push!: boolean;
-	omit_certificate_check: boolean | undefined;
-	use_diff_context: boolean | undefined;
-	snapshot_lines_threshold!: number | undefined;
-	use_new_locking!: boolean;
-
-	get vscodePath() {
-		return this.path.includes('\\') ? '/' + this.path.replace('\\', '/') : this.path;
-	}
-}
-
-export type CloudProject = {
-	name: string;
-	description: string | null;
-	repository_id: string;
-	git_url: string;
-	created_at: string;
-	updated_at: string;
-};
 
 export class ProjectListingService {
 	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
@@ -66,7 +33,7 @@ export class ProjectListingService {
 		return await invoke<Project[]>('list_projects').then((p) => plainToInstance(Project, p));
 	}
 
-	async reload(): Promise<void> {
+	async reloadAll(): Promise<void> {
 		this.projects.set(await this.loadAll());
 	}
 
@@ -76,12 +43,12 @@ export class ProjectListingService {
 
 	async updateProject(project: Project) {
 		plainToInstance(Project, await invoke('update_project', { project: project }));
-		this.reload();
+		this.reloadAll();
 	}
 
 	async add(path: string) {
 		const project = plainToInstance(Project, await invoke('add_project', { path }));
-		await this.reload();
+		await this.reloadAll();
 		return project;
 	}
 
