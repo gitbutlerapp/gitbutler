@@ -1,4 +1,4 @@
-import type { CommitData, LineGroupData, LineData, Color } from './types';
+import type { CommitData, LineGroupData, LineData, Color } from '$lib/CommitLines/types';
 
 interface Commits {
 	remoteCommits: CommitData[];
