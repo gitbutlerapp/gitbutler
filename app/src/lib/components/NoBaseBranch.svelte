@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { Project } from '$lib/backend/projects';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSetup from '$lib/components/ProjectSetup.svelte';
+	import { Project } from '$lib/projects/types';
 	import { getContext } from '$lib/utils/context';
 	import { getRemoteBranches } from '$lib/vbranches/baseBranch';
 

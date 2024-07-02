@@ -3,8 +3,9 @@
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
-	import { ProjectService, Project } from '$lib/backend/projects';
 	import { showError } from '$lib/notifications/toasts';
+	import { ProjectListingService } from '$lib/projects/projectListingService';
+	import { Project } from '$lib/projects/types';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
@@ -12,7 +13,7 @@
 
 	export let error: any = undefined;
 
-	const projectService = getContext(ProjectService);
+	const projectService = getContext(ProjectListingService);
 	const project = getContext(Project);
 
 	let loading = false;
@@ -30,7 +31,7 @@
 			showError('Failed to delete project', err);
 		} finally {
 			loading = false;
-			projectService.reload();
+			projectService.reloadAll();
 		}
 	}
 </script>

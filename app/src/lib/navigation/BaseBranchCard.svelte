@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SyncButton from '../components/SyncButton.svelte';
-	import { Project } from '$lib/backend/projects';
+	import { Project } from '$lib/projects/types';
 	import Badge from '$lib/shared/Badge.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';

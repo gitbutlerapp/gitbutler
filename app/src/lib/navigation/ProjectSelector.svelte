@@ -1,8 +1,8 @@
 <script lang="ts">
 	import ProjectAvatar from './ProjectAvatar.svelte';
 	import ProjectsPopup from './ProjectsPopup.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { clickOutside } from '$lib/clickOutside';
+	import { Project } from '$lib/projects/types';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';

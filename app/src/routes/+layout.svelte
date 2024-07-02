@@ -6,7 +6,6 @@
 	import { AuthService } from '$lib/backend/auth';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { HttpClient } from '$lib/backend/httpClient';
-	import { ProjectService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
 	import AppUpdater from '$lib/components/AppUpdater.svelte';
@@ -15,6 +14,7 @@
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import ToastController from '$lib/notifications/ToastController.svelte';
+	import { ProjectListingService } from '$lib/projects/projectListingService';
 	import { RemotesService } from '$lib/remotes/service';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
@@ -39,7 +39,7 @@
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
 	setContext(UserService, data.userService);
-	setContext(ProjectService, data.projectService);
+	setContext(ProjectListingService, data.projectService);
 	setContext(UpdaterService, data.updaterService);
 	setContext(GitHubService, data.githubService);
 	setContext(GitConfigService, data.gitConfig);

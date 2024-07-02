@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Select from '../shared/Select.svelte';
 	import { PromptService } from '$lib/ai/promptService';
-	import { Project } from '$lib/backend/projects';
+	import { Project } from '$lib/projects/types';
 	import SelectItem from '$lib/shared/SelectItem.svelte';
 	import { getContext } from '$lib/utils/context';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';

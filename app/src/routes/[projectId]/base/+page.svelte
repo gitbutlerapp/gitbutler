@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { Project } from '$lib/backend/projects';
 	import BaseBranch from '$lib/components/BaseBranch.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
+	import { Project } from '$lib/projects/types';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';

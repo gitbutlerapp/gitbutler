@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { Project, ProjectService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import { ProjectListingService } from '$lib/projects/projectListingService';
+	import { Project } from '$lib/projects/types';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextArea from '$lib/shared/TextArea.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
@@ -9,7 +10,7 @@
 
 	const project = getContext(Project);
 	const user = getContextStore(User);
-	const projectService = getContext(ProjectService);
+	const projectService = getContext(ProjectListingService);
 
 	let title = project?.title;
 	let description = project?.description;

@@ -4,10 +4,10 @@ import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 import { AuthService } from '$lib/backend/auth';
 import { GitConfigService } from '$lib/backend/gitConfigService';
 import { HttpClient } from '$lib/backend/httpClient';
-import { ProjectService } from '$lib/backend/projects';
 import { PromptService } from '$lib/backend/prompt';
 import { UpdaterService } from '$lib/backend/updater';
 import { GitHubService } from '$lib/github/service';
+import { ProjectListingService } from '$lib/projects/projectListingService';
 import { RemotesService } from '$lib/remotes/service';
 import { RustSecretService } from '$lib/secrets/secretsService';
 import { UserService } from '$lib/stores/user';
@@ -40,7 +40,7 @@ export async function load() {
 
 	const httpClient = new HttpClient();
 	const authService = new AuthService();
-	const projectService = new ProjectService(defaultPath, httpClient);
+	const projectService = new ProjectListingService(defaultPath, httpClient);
 	const updaterService = new UpdaterService();
 	const promptService = new PromptService();
 	const userService = new UserService(httpClient);

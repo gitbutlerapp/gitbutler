@@ -5,8 +5,8 @@
 	import ProjectSelector from './ProjectSelector.svelte';
 	import DomainButton from '../components/DomainButton.svelte';
 	import Resizer from '../shared/Resizer.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { persisted } from '$lib/persisted/persisted';
+	import { Project } from '$lib/projects/types';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import { createKeybind } from '$lib/utils/hotkeys';
