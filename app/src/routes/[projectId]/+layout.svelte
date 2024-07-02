@@ -29,7 +29,7 @@
 		vbranchService,
 		project,
 		projectId,
-		projectService,
+		projectListingService: projectService,
 		baseBranchService,
 		gbBranchActive$,
 		branchService,

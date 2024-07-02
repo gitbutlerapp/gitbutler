@@ -12,14 +12,14 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
-	const projectService = getContext(ProjectListingService);
+	const projectListingService = getContext(ProjectListingService);
 
-	const projects = projectService.projects;
+	const projects = projectListingService.projects;
 
 	$: debug = $page.url.searchParams.get('debug');
 
 	const analyticsConfirmed = appAnalyticsConfirmed();
-	const persistedId = projectService.getLastOpenedProject();
+	const persistedId = projectListingService.getLastOpenedProject();
 	const redirect = derived(projects, (projects) => {
 		if (debug || !projects) return null;
 		const projectId = projects.find((p) => p.id === persistedId)?.id;

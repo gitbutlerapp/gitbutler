@@ -13,7 +13,7 @@
 
 	export let error: any = undefined;
 
-	const projectService = getContext(ProjectListingService);
+	const projectListingService = getContext(ProjectListingService);
 	const project = getContext(Project);
 
 	let loading = false;
@@ -23,7 +23,7 @@
 		loading = true;
 		try {
 			deleteConfirmationModal.close();
-			await projectService.deleteProject(project.id);
+			await projectListingService.deleteProject(project.id);
 			toasts.success('Project deleted');
 			goto('/');
 		} catch (err: any) {
@@ -31,7 +31,7 @@
 			showError('Failed to delete project', err);
 		} finally {
 			loading = false;
-			projectService.reloadAll();
+			projectListingService.reloadAll();
 		}
 	}
 </script>

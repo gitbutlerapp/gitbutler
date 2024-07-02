@@ -6,14 +6,14 @@
 	import IconLink from '$lib/shared/IconLink.svelte';
 	import { getContext } from '$lib/utils/context';
 
-	const projectService = getContext(ProjectListingService);
+	const projectListingService = getContext(ProjectListingService);
 
 	let newProjectLoading = false;
 
 	async function onNewProject() {
 		newProjectLoading = true;
 		try {
-			await projectService.addProject();
+			await projectListingService.addProject();
 		} finally {
 			newProjectLoading = false;
 		}

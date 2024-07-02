@@ -39,7 +39,7 @@
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
 	setContext(UserService, data.userService);
-	setContext(ProjectListingService, data.projectService);
+	setContext(ProjectListingService, data.projectListingService);
 	setContext(UpdaterService, data.updaterService);
 	setContext(GitHubService, data.githubService);
 	setContext(GitConfigService, data.gitConfig);

@@ -18,7 +18,7 @@
 	export let baseBranch: BaseBranch;
 
 	const branchController = getContext(BranchController);
-	const projectService = getContext(ProjectListingService);
+	const projectListingService = getContext(ProjectListingService);
 	const project = getContext(Project);
 
 	let isDeleting = false;
@@ -29,7 +29,7 @@
 			isDeleting = true;
 			try {
 				deleteConfirmationModal.close();
-				await projectService.deleteProject(project.id);
+				await projectListingService.deleteProject(project.id);
 				toasts.success('Project deleted');
 				goto('/', { invalidateAll: true });
 			} catch (err: any) {
@@ -37,7 +37,7 @@
 				showError('Failed to delete project', err);
 			} finally {
 				isDeleting = false;
-				projectService.reloadAll();
+				projectListingService.reloadAll();
 			}
 		}
 	}

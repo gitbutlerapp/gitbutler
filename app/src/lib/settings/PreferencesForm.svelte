@@ -17,7 +17,7 @@
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { onMount } from 'svelte';
 
-	const projectService = getContext(ProjectListingService);
+	const projectListingService = getContext(ProjectListingService);
 	const project = getContext(Project);
 
 	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
@@ -31,17 +31,17 @@
 
 	async function setWithForcePush(value: boolean) {
 		project.ok_with_force_push = value;
-		await projectService.updateProject(project);
+		await projectListingService.updateProject(project);
 	}
 
 	async function setOmitCertificateCheck(value: boolean | undefined) {
 		project.omit_certificate_check = !!value;
-		await projectService.updateProject(project);
+		await projectListingService.updateProject(project);
 	}
 
 	async function setSnapshotLinesThreshold(value: number) {
 		project.snapshot_lines_threshold = value;
-		await projectService.updateProject(project);
+		await projectListingService.updateProject(project);
 	}
 
 	async function setSignCommits(targetState: boolean) {
@@ -100,7 +100,7 @@
 
 	async function setUseNewLocking(value: boolean) {
 		project.use_new_locking = value;
-		await projectService.updateProject(project);
+		await projectListingService.updateProject(project);
 	}
 
 	$: setUseNewLocking(useNewLocking);

@@ -21,7 +21,7 @@
 
 	const authService = getContext(AuthService);
 	const baseBranch = getContextStore(BaseBranch);
-	const projectService = getContext(ProjectListingService);
+	const projectListingService = getContext(ProjectListingService);
 
 	// Used by credential checker before target branch set
 	export let remoteName = '';
@@ -52,7 +52,7 @@
 	async function updateKey(detail: { preferred_key: Key }) {
 		try {
 			project.preferred_key = detail.preferred_key;
-			projectService.updateProject(project);
+			projectListingService.updateProject(project);
 		} catch (err: any) {
 			showError('Failed to update key', err);
 		}

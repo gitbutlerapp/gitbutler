@@ -8,7 +8,7 @@
 	import { derived } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
-	const projectService = getContext(ProjectListingService);
+	const projectListingService = getContext(ProjectListingService);
 	const project = maybeGetContext(Project);
 
 	type ProjectRecord = {
@@ -16,7 +16,7 @@
 		title: string;
 	};
 
-	const mappedProjects = derived(projectService.projects, (projects) =>
+	const mappedProjects = derived(projectListingService.projects, (projects) =>
 		projects.map((project) => ({
 			id: project.id,
 			title: project.title
@@ -50,7 +50,7 @@
 			on:click={async () => {
 				loading = true;
 				try {
-					await projectService.addProject();
+					await projectListingService.addProject();
 				} finally {
 					loading = false;
 				}

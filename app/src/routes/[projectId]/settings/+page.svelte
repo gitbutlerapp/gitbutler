@@ -19,7 +19,7 @@
 	import { goto } from '$app/navigation';
 
 	const baseBranchSwitching = featureBaseBranchSwitching();
-	const projectService = getContext(ProjectListingService);
+	const projectListingService = getContext(ProjectListingService);
 	const project = getContext(Project);
 	const platformName = from(platform());
 
@@ -29,8 +29,8 @@
 	async function onDeleteClicked() {
 		isDeleting = true;
 		try {
-			await projectService.deleteProject(project.id);
-			await projectService.reloadAll();
+			await projectListingService.deleteProject(project.id);
+			await projectListingService.reloadAll();
 			goto('/');
 			toasts.success('Project deleted');
 		} catch (err: any) {

@@ -1,7 +1,7 @@
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { persisted } from '$lib/persisted/persisted';
-import { Project, type CloudProject } from '$lib/projects/types';
+import { Project } from '$lib/projects/types';
 import * as toasts from '$lib/utils/toasts';
 import { open } from '@tauri-apps/api/dialog';
 import { plainToInstance } from 'class-transformer';
@@ -114,39 +114,5 @@ export class ProjectListingService {
 
 	setLastOpenedProject(projectId: string) {
 		this.persistedId.set(projectId);
-	}
-
-	async createCloudProject(
-		token: string,
-		params: {
-			name: string;
-			description?: string;
-			uid?: string;
-		}
-	): Promise<CloudProject> {
-		return await this.httpClient.post('projects.json', {
-			body: params,
-			token
-		});
-	}
-
-	async updateCloudProject(
-		token: string,
-		repositoryId: string,
-		params: {
-			name: string;
-			description?: string;
-		}
-	): Promise<CloudProject> {
-		return await this.httpClient.put(`projects/${repositoryId}.json`, {
-			body: params,
-			token
-		});
-	}
-
-	async getCloudProject(token: string, repositoryId: string): Promise<CloudProject> {
-		return await this.httpClient.get(`projects/${repositoryId}.json`, {
-			token
-		});
 	}
 }

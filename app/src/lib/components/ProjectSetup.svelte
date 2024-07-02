@@ -15,7 +15,7 @@
 	export let remoteBranches: { name: string }[];
 
 	const project = getContext(Project);
-	const projectService = getContext(ProjectListingService);
+	const projectListingService = getContext(ProjectListingService);
 	const branchController = getContext(BranchController);
 	const platformName = from(platform());
 
@@ -29,7 +29,7 @@
 			// TODO: Refactor temporary solution to forcing Windows to use system executable
 			if ($platformName === 'win32') {
 				project.preferred_key = 'systemExecutable';
-				projectService.updateProject(project);
+				projectListingService.updateProject(project);
 			}
 			await branchController.setTarget(selectedBranch[0], selectedBranch[1]);
 			goto(`/${project.id}/`);

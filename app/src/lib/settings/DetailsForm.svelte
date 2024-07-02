@@ -10,7 +10,7 @@
 
 	const project = getContext(Project);
 	const user = getContextStore(User);
-	const projectService = getContext(ProjectListingService);
+	const projectListingService = getContext(ProjectListingService);
 
 	let title = project?.title;
 	let description = project?.description;
@@ -18,13 +18,17 @@
 	async function saveProject() {
 		const api =
 			$user && project.api
-				? await projectService.updateCloudProject($user?.access_token, project.api.repository_id, {
-						name: project.title,
-						description: project.description
-					})
+				? await projectListingService.updateCloudProject(
+						$user?.access_token,
+						project.api.repository_id,
+						{
+							name: project.title,
+							description: project.description
+						}
+					)
 				: undefined;
 		project.api = api ? { ...api, sync: true } : undefined;
-		projectService.updateProject(project);
+		projectListingService.updateProject(project);
 	}
 </script>
 

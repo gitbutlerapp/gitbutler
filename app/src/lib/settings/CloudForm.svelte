@@ -18,7 +18,7 @@
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	const userService = getContext(UserService);
-	const projectService = getContext(ProjectListingService);
+	const projectListingService = getContext(ProjectListingService);
 	const project = getContext(Project);
 	const user = userService.user;
 
@@ -27,13 +27,13 @@
 	onMount(async () => {
 		if (!project?.api) return;
 		if (!$user) return;
-		const cloudProject = await projectService.getCloudProject(
+		const cloudProject = await projectListingService.getCloudProject(
 			$user.access_token,
 			project.api.repository_id
 		);
 		if (cloudProject === project.api) return;
 		project.api = { ...cloudProject, sync: project.api.sync };
-		projectService.updateProject(project);
+		projectListingService.updateProject(project);
 	});
 
 	async function onSyncChange(sync: boolean) {
@@ -41,13 +41,13 @@
 		try {
 			const cloudProject =
 				project.api ??
-				(await projectService.createCloudProject($user.access_token, {
+				(await projectListingService.createCloudProject($user.access_token, {
 					name: project.title,
 					description: project.description,
 					uid: project.id
 				}));
 			project.api = { ...cloudProject, sync };
-			projectService.updateProject(project);
+			projectListingService.updateProject(project);
 		} catch (error) {
 			console.error(`Failed to update project sync status: ${error}`);
 			toasts.error('Failed to update project sync status');

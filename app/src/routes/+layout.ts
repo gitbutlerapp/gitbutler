@@ -40,7 +40,7 @@ export async function load() {
 
 	const httpClient = new HttpClient();
 	const authService = new AuthService();
-	const projectService = new ProjectListingService(defaultPath, httpClient);
+	const projectListingService = new ProjectListingService(defaultPath, httpClient);
 	const updaterService = new UpdaterService();
 	const promptService = new PromptService();
 	const userService = new UserService(httpClient);
@@ -65,7 +65,7 @@ export async function load() {
 		authService,
 		cloud: httpClient,
 		githubService,
-		projectService,
+		projectListingService: projectListingService,
 		updaterService,
 		promptService,
 		userService,
