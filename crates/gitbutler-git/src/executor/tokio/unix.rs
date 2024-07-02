@@ -31,6 +31,8 @@ impl Socket for BufStream<UnixStream> {
     async fn read_line(&mut self) -> Result<String, Self::Error> {
         let mut buf = String::new();
         <Self as AsyncBufReadExt>::read_line(self, &mut buf).await?;
+        // TODO: use an array of `char`
+        #[allow(clippy::manual_pattern_char_comparison)]
         Ok(buf.trim_end_matches(|c| c == '\r' || c == '\n').into())
     }
 

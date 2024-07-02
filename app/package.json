@@ -63,7 +63,7 @@
 		"@sveltejs/adapter-static": "^3.0.1",
 		"@sveltejs/kit": "^2.5.10",
 		"@sveltejs/vite-plugin-svelte": "^3.1.1",
-		"@tauri-apps/api": "^1.5.5",
+		"@tauri-apps/api": "^1.6.0",
 		"@types/crypto-js": "^4.2.2",
 		"@types/diff": "^5.2.1",
 		"@types/diff-match-patch": "^1.0.36",
