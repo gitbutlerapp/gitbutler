@@ -1,14 +1,21 @@
 <script lang="ts">
-	import BranchPreviewHeader from '../branch/BranchPreviewHeader.svelte';
-	import Resizer from '../shared/Resizer.svelte';
-	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
+	import RemoteCommitList from '../commit/RemoteCommitList.svelte';
 	import { Project } from '$lib/backend/projects';
-	import CommitCard from '$lib/commit/CommitCard.svelte';
+	import BranchPreviewHeader from '$lib/branch/BranchPreviewHeader.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
+	import SearchBarContainer from '$lib/searchBar/SearchBarContainer.svelte';
+	import { getFilterContext } from '$lib/searchBar/filterContext.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import Resizer from '$lib/shared/Resizer.svelte';
+	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
+	import {
+		FilterName,
+		getRemoteBranchFilters,
+		REMOTE_BRANCH_FILTERS
+	} from '$lib/vbranches/filtering';
 	import { BaseBranch, type RemoteBranch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
@@ -19,8 +26,11 @@
 	export let branch: RemoteBranch;
 	export let pr: PullRequest | undefined;
 
+	let filterDescriptions = REMOTE_BRANCH_FILTERS;
+
 	const project = getContext(Project);
 	const baseBranch = getContextStore(BaseBranch);
+	const filterContext = getFilterContext();
 
 	const fileIdSelection = new FileIdSelection(project.id, writable([]));
 	setContext(FileIdSelection, fileIdSelection);
@@ -31,8 +41,20 @@
 	const laneWidthKey = 'branchPreviewLaneWidth';
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
+	const branchDataPromise = getRemoteBranchData(project.id, branch.name);
+	branchDataPromise.then((d) => {
+		filterDescriptions = getRemoteBranchFilters({
+			[FilterName.Author]: d.recentAuthors,
+			[FilterName.File]: d.recentFiles
+		});
+	});
+
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
+	let commitListElem: RemoteCommitList;
+
+	// Reset the search query and filters when the branch changes
+	$: if (branch) filterContext.init(branch.name);
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
@@ -45,68 +67,73 @@
 	};
 </script>
 
-<div class="base">
-	<div
-		class="base__left"
-		bind:this={rsViewport}
-		style:width={`${laneWidth || defaultBranchWidthRem}rem`}
-	>
-		<ScrollableContainer wide>
-			<div class="branch-preview">
-				<BranchPreviewHeader base={$baseBranch} {branch} {pr} />
-				{#if pr}
-					<div class="card">
-						<div class="card__header text-base-body-14 text-semibold">{pr.title}</div>
-						{#if pr.body}
-							<div class="markdown card__content text-base-body-13">
-								{@html marked.parse(pr.body, { renderer })}
-							</div>
-						{/if}
-					</div>
-				{/if}
-				{#await getRemoteBranchData(project.id, branch.name) then branchData}
-					{#if branchData.commits && branchData.commits.length > 0}
-						<div>
-							{#each branchData.commits as commit, index (commit.id)}
-								<CommitCard
-									first={index === 0}
-									last={index === branchData.commits.length - 1}
-									{commit}
-									commitUrl={$baseBranch?.commitUrl(commit.id)}
-									type="localAndRemote"
-								/>
-							{/each}
+<SearchBarContainer {filterDescriptions}>
+	<div class="base">
+		<div
+			class="base__left"
+			bind:this={rsViewport}
+			style:width={`${laneWidth || defaultBranchWidthRem}rem`}
+		>
+			<ScrollableContainer wide>
+				<div class="branch-preview">
+					<BranchPreviewHeader base={$baseBranch} {branch} {pr} />
+					{#if pr}
+						<div class="card">
+							<div class="card__header text-base-body-14 text-semibold">{pr.title}</div>
+							{#if pr.body}
+								<div class="markdown card__content text-base-body-13">
+									{@html marked.parse(pr.body, { renderer })}
+								</div>
+							{/if}
 						</div>
 					{/if}
-				{/await}
-			</div>
-		</ScrollableContainer>
-		<Resizer
-			viewport={rsViewport}
-			direction="right"
-			minWidth={320}
-			on:width={(e) => {
-				laneWidth = e.detail / (16 * $userSettings.zoom);
-				lscache.set(laneWidthKey, laneWidth, 7 * 1440); // 7 day ttl
-			}}
-		/>
+					{#await branchDataPromise then branchData}
+						{#if branchData.commits && branchData.commits.length > 0}
+							<RemoteCommitList
+								bind:this={commitListElem}
+								commits={branchData.commits}
+								isUnapplied={true}
+								type="localAndRemote"
+								getCommitUrl={(commitId) => $baseBranch?.commitUrl(commitId)}
+							/>
+						{/if}
+					{/await}
+					{#if filterContext.active() && commitListElem?.isEmpty()}
+						<div class="card">
+							<div class="info-text text-base-13">
+								No commits found that match the current search
+							</div>
+						</div>
+					{/if}
+				</div>
+			</ScrollableContainer>
+			<Resizer
+				viewport={rsViewport}
+				direction="right"
+				minWidth={320}
+				on:width={(e) => {
+					laneWidth = e.detail / (16 * $userSettings.zoom);
+					lscache.set(laneWidthKey, laneWidth, 7 * 1440); // 7 day ttl
+				}}
+			/>
+		</div>
+		<div class="base__right">
+			{#await $selectedFile then selected}
+				{#if selected}
+					<FileCard
+						conflicted={selected.conflicted}
+						file={selected}
+						isUnapplied={false}
+						readonly={true}
+						on:close={() => {
+							fileIdSelection.clear();
+						}}
+					/>
+				{/if}
+			{/await}
+		</div>
 	</div>
-	<div class="base__right">
-		{#await $selectedFile then selected}
-			{#if selected}
-				<FileCard
-					conflicted={selected.conflicted}
-					file={selected}
-					isUnapplied={false}
-					readonly={true}
-					on:close={() => {
-						fileIdSelection.clear();
-					}}
-				/>
-			{/if}
-		{/await}
-	</div>
-</div>
+</SearchBarContainer>
 
 <style lang="postcss">
 	.base {
@@ -138,5 +165,10 @@
 
 	.card__content {
 		color: var(--clr-scale-ntrl-30);
+	}
+
+	.info-text {
+		margin: 8px;
+		opacity: 0.5;
 	}
 </style>

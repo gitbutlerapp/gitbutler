@@ -18,6 +18,7 @@
 	--transition-fast: 0.06s ease-in-out;
 	--transition-medium: 0.15s ease-in-out;
 	--transition-slow: 0.2s ease-in-out;
+	--transition-slower: 0.3s ease-in-out;
 
 	/* Z-index */
 	--z-ground: 1;

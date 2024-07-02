@@ -35,6 +35,8 @@
 	export let first = false;
 	export let last = false;
 	export let type: CommitStatus;
+	export let onAuthorClick: ((author: string) => void) | undefined = undefined;
+	export let onFileClick: ((filePath: string) => void) | undefined = undefined;
 	export let lines: Snippet<[number]> | undefined = undefined;
 
 	const branchController = getContext(BranchController);
@@ -79,6 +81,8 @@
 	let isUndoable = !!branch?.active && commit instanceof Commit;
 
 	const hasCommitUrl = !commit.isLocal && commitUrl;
+	const commitAuthor =
+		type === 'localAndRemote' || type === 'remote' ? commit.author.name ?? 'unknown' : 'you';
 
 	let commitMessageModal: Modal;
 	let commitMessageValid = false;
@@ -169,9 +173,11 @@
 						}
 					: nonDraggable()}
 			>
-				<div class="commit__drag-icon">
-					<Icon name="draggable-narrow" />
-				</div>
+				{#if commit instanceof Commit}
+					<div class="commit__drag-icon">
+						<Icon name="draggable-narrow" />
+					</div>
+				{/if}
 
 				{#if first}
 					<div class="commit__type text-semibold text-base-12">
@@ -235,11 +241,24 @@
 
 						<span class="commit__subtitle-divider">•</span>
 
-						<span
-							>{getTimeAgo(commit.createdAt)}{type === 'localAndRemote' || type === 'remote'
-								? ` by ${commit.author.name}`
-								: ' by you'}</span
-						>
+						<span>{getTimeAgo(commit.createdAt)}</span>
+						{#if onAuthorClick}
+							<button
+								class="commit__subtitle-btn commit__subtitle-btn_dashed"
+								on:click|stopPropagation={() =>
+									commit.author.name && onAuthorClick(commit.author.name)}
+							>
+								<span>{commitAuthor}</span>
+
+								<div class="commit__subtitle-btn__icon">
+									<Icon name="filter-small" />
+								</div>
+							</button>
+						{:else}
+							<span>
+								{commitAuthor}
+							</span>
+						{/if}
 					</div>
 				{/if}
 			</div>
@@ -282,7 +301,7 @@
 				{/if}
 
 				<div class="files-container">
-					<BranchFilesList {files} {isUnapplied} readonly={type === 'remote'} />
+					<BranchFilesList {files} {isUnapplied} {onFileClick} readonly={type === 'remote'} />
 				</div>
 			{/if}
 		</div>

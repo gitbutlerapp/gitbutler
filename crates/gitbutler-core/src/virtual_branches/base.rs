@@ -9,7 +9,7 @@ use super::{
     integration::{
         get_workspace_head, update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE,
     },
-    target, BranchId, RemoteCommit, VirtualBranchHunk, VirtualBranchesHandle,
+    target, BranchId, CommitMetrics, RemoteCommit, VirtualBranchHunk, VirtualBranchesHandle,
 };
 use crate::{error::Marker, git::RepositoryExt, rebase::cherry_rebase};
 use crate::{
@@ -36,13 +36,16 @@ pub struct BaseBranch {
     pub upstream_commits: Vec<RemoteCommit>,
     pub recent_commits: Vec<RemoteCommit>,
     pub last_fetched_ms: Option<u128>,
+    pub recent_authors: Vec<CommitMetrics>,
+    pub recent_files: Vec<CommitMetrics>,
 }
 
 pub fn get_base_branch_data(
     project_repository: &project_repository::Repository,
+    num_commits: Option<usize>,
 ) -> Result<BaseBranch> {
     let target = default_target(&project_repository.project().gb_dir())?;
-    let base = target_to_base_branch(project_repository, &target)?;
+    let base = target_to_base_branch(project_repository, &target, num_commits)?;
     Ok(base)
 }
 
@@ -112,7 +115,7 @@ fn go_back_to_integration(
         .checkout()
         .context("failed to checkout tree")?;
 
-    let base = target_to_base_branch(project_repository, default_target)?;
+    let base = target_to_base_branch(project_repository, default_target, None)?;
     update_gitbutler_integration(&vb_state, project_repository)?;
     Ok(base)
 }
@@ -266,7 +269,7 @@ pub fn set_base_branch(
 
     update_gitbutler_integration(&vb_state, project_repository)?;
 
-    let base = target_to_base_branch(project_repository, &target)?;
+    let base = target_to_base_branch(project_repository, &target, None)?;
     Ok(base)
 }
 
@@ -578,6 +581,7 @@ pub fn update_base_branch<'repo>(
 pub fn target_to_base_branch(
     project_repository: &project_repository::Repository,
     target: &target::Target,
+    num_commits: Option<usize>,
 ) -> Result<super::BaseBranch> {
     let repo = project_repository.repo();
     let branch = repo
@@ -591,16 +595,19 @@ pub fn target_to_base_branch(
         .log(oid, project_repository::LogUntil::Commit(target.sha))
         .context("failed to get upstream commits")?
         .iter()
-        .map(super::commit_to_remote_commit)
+        .map(|commit| super::commit_to_remote_commit(project_repository, commit))
         .collect::<Vec<_>>();
 
     // get some recent commits
     let recent_commits = project_repository
-        .log(target.sha, LogUntil::Take(20))
+        .log(target.sha, LogUntil::Take(num_commits.unwrap_or(10)))
         .context("failed to get recent commits")?
         .iter()
-        .map(super::commit_to_remote_commit)
+        .map(|commit| super::commit_to_remote_commit(project_repository, commit))
         .collect::<Vec<_>>();
+
+    // get recent authors and file paths, and their appearance count
+    let (recent_authors, recent_files) = super::get_recent_commits_metric(&recent_commits);
 
     // there has got to be a better way to do this.
     let push_remote_url = match target.push_remote_name {
@@ -625,6 +632,8 @@ pub fn target_to_base_branch(
         behind: upstream_commits.len(),
         upstream_commits,
         recent_commits,
+        recent_authors,
+        recent_files,
         last_fetched_ms: project_repository
             .project()
             .project_data_last_fetch

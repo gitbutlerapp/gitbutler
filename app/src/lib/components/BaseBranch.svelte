@@ -1,9 +1,10 @@
 <script lang="ts">
+	import RemoteCommitList from '../commit/RemoteCommitList.svelte';
 	import Checkbox from '../shared/Checkbox.svelte';
 	import Spacer from '../shared/Spacer.svelte';
-	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { showInfo } from '$lib/notifications/toasts';
+	import { getFilterContext } from '$lib/searchBar/filterContext.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
 	import { getContext } from '$lib/utils/context';
@@ -14,6 +15,7 @@
 	export let base: BaseBranch;
 
 	const branchController = getContext(BranchController);
+	const filterContext = getFilterContext();
 
 	const mergeUpstreamWarningDismissed = projectMergeUpstreamWarningDismissed(
 		branchController.projectId
@@ -21,6 +23,8 @@
 
 	let updateTargetModal: Modal;
 	let mergeUpstreamWarningDismissedCheckbox = false;
+	let upstreamListElem: RemoteCommitList;
+	let localListElem: RemoteCommitList;
 
 	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false;
 
@@ -33,60 +37,62 @@
 </script>
 
 <div class="wrapper">
-	<div class="info-text text-base-13">
-		There {multiple ? 'are' : 'is'}
-		{base.upstreamCommits.length} unmerged upstream
-		{multiple ? 'commits' : 'commit'}
-	</div>
-
-	{#if base.upstreamCommits?.length > 0}
-		<Button
-			style="pop"
-			kind="solid"
-			help={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
-			on:click={() => {
-				if ($mergeUpstreamWarningDismissed) {
-					updateBaseBranch();
-				} else {
-					updateTargetModal.show();
-				}
-			}}
-		>
-			Merge into common base
-		</Button>
-		<div>
-			{#each base.upstreamCommits as commit, index}
-				<CommitCard
-					{commit}
-					first={index === 0}
-					last={index === base.upstreamCommits.length - 1}
-					isUnapplied={true}
-					commitUrl={base.commitUrl(commit.id)}
-					type="remote"
-				/>
-			{/each}
+	{#if !filterContext.active()}
+		<div class="info-text text-base-13">
+			There {multiple ? 'are' : 'is'}
+			{base.upstreamCommits.length} unmerged upstream
+			{multiple ? 'commits' : 'commit'}
 		</div>
-		<Spacer margin={2} />
+
+		{#if base.upstreamCommits?.length > 0}
+			<Button
+				style="pop"
+				kind="solid"
+				help={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
+				on:click={() => {
+					if ($mergeUpstreamWarningDismissed) {
+						updateBaseBranch();
+					} else {
+						updateTargetModal.show();
+					}
+				}}
+			>
+				Merge into common base
+			</Button>
+		{/if}
 	{/if}
 
-	<div>
-		<h1
-			class="text-base-13 info-text text-bold"
-			use:tooltip={'This is the current base for your virtual branches.'}
-		>
-			Local
-		</h1>
-		{#each base.recentCommits as commit, index}
-			<CommitCard
-				{commit}
-				first={index === 0}
-				last={index === base.recentCommits.length - 1}
-				isUnapplied={true}
-				commitUrl={base.commitUrl(commit.id)}
-				type="localAndRemote"
-			/>
-		{/each}
-	</div>
+	<RemoteCommitList
+		bind:this={upstreamListElem}
+		commits={base.upstreamCommits}
+		isUnapplied={true}
+		type="remote"
+		getCommitUrl={(commitId) => base.commitUrl(commitId)}
+	/>
+
+	{#if !upstreamListElem?.isEmpty()}
+		<Spacer margin={2} />
+	{/if}
+	<RemoteCommitList
+		bind:this={localListElem}
+		commits={base.recentCommits}
+		isUnapplied={true}
+		type="localAndRemote"
+		getCommitUrl={(commitId) => base.commitUrl(commitId)}
+	>
+		{#snippet header()}
+			<h1
+				class="text-base-13 info-text text-bold"
+				use:tooltip={'This is the current base for your virtual branches.'}
+			>
+				Local
+			</h1>
+		{/snippet}
+	</RemoteCommitList>
+
+	{#if filterContext.active() && upstreamListElem?.isEmpty() && localListElem?.isEmpty()}
+		<div class="info-text text-base-13">No commits found that match the current search</div>
+	{/if}
 </div>
 
 <Modal width="small" bind:this={updateTargetModal} title="Merge Upstream Work">
@@ -131,7 +137,7 @@
 	{/snippet}
 </Modal>
 
-<style>
+<style lang="postcss">
 	.wrapper {
 		display: flex;
 		flex-direction: column;

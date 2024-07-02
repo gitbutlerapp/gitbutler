@@ -224,6 +224,7 @@ export class RemoteCommit {
 	changeId!: string;
 	isSigned!: boolean;
 	parentIds!: string[];
+	filePaths!: string[];
 
 	prev?: RemoteCommit;
 	next?: RemoteCommit;
@@ -252,6 +253,12 @@ export class RemoteCommit {
 
 export function isRemoteCommit(obj: any): obj is RemoteCommit {
 	return obj instanceof RemoteCommit;
+}
+
+export interface CommitMetrics {
+	name: string;
+	value: number;
+	commitIds: string[];
 }
 
 export type AnyCommit = Commit | RemoteCommit;
@@ -344,6 +351,8 @@ export class RemoteBranchData {
 	commits!: RemoteCommit[];
 	isMergeable!: boolean | undefined;
 	forkPoint?: string | undefined;
+	recentAuthors!: CommitMetrics[];
+	recentFiles!: CommitMetrics[];
 
 	get ahead(): number {
 		return this.commits.length;
@@ -358,10 +367,10 @@ export class RemoteBranchData {
 	}
 
 	get authors(): Author[] {
-		const allAuthors = this.commits.map((commit) => commit.author);
-		const uniqueAuthors = allAuthors.filter(
-			(author, index) => allAuthors.findIndex((a) => a.email === author.email) === index
-		);
+		const uniqueAuthors = this.recentAuthors
+			.map((a) => this.commits.find((c) => c.author.name === a.name)?.author)
+			.filter((a): a is Author => !!a);
+
 		return uniqueAuthors;
 	}
 
@@ -383,6 +392,8 @@ export class BaseBranch {
 	upstreamCommits!: RemoteCommit[];
 	@Type(() => RemoteCommit)
 	recentCommits!: RemoteCommit[];
+	recentAuthors!: CommitMetrics[];
+	recentFiles!: CommitMetrics[];
 	lastFetchedMs?: number;
 
 	actualPushRemoteName(): string {

@@ -46,3 +46,18 @@ pub fn list_remote_commit_files(
         })
         .collect())
 }
+
+pub fn get_remote_commit_file_paths(
+    repository: &git2::Repository,
+    commit: &git2::Commit,
+) -> Result<Vec<String>> {
+    let parent = commit.parent(0).context("failed to get parent commit")?;
+    let commit_tree = commit.tree().context("failed to get commit tree")?;
+    let parent_tree = parent.tree().context("failed to get parent tree")?;
+    let file_paths = diff::tree_filepaths(repository, &parent_tree, &commit_tree)?;
+
+    Ok(file_paths
+        .into_iter()
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect())
+}
