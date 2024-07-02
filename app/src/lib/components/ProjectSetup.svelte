@@ -1,7 +1,7 @@
 <script async lang="ts">
 	import ProjectSetupTarget from './ProjectSetupTarget.svelte';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
-	import { Project, ProjectService } from '$lib/backend/projects';
+	import { Project, ProjectListingService } from '$lib/backend/projects';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import KeysForm from '$lib/settings/KeysForm.svelte';
 	import Button from '$lib/shared/Button.svelte';
@@ -14,7 +14,7 @@
 	export let remoteBranches: { name: string }[];
 
 	const project = getContext(Project);
-	const projectService = getContext(ProjectService);
+	const projectService = getContext(ProjectListingService);
 	const branchController = getContext(BranchController);
 	const platformName = from(platform());
 

@@ -42,7 +42,7 @@ export type CloudProject = {
 	updated_at: string;
 };
 
-export class ProjectService {
+export class ProjectListingService {
 	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
 	readonly projects = writable<Project[]>([], (set) => {
 		this.loadAll()

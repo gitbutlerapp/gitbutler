@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Project, ProjectService } from '$lib/backend/projects';
+	import { Project, ProjectListingService } from '$lib/backend/projects';
 	import AiPromptSelect from '$lib/components/AIPromptSelect.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
@@ -17,7 +17,7 @@
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	const userService = getContext(UserService);
-	const projectService = getContext(ProjectService);
+	const projectService = getContext(ProjectListingService);
 	const project = getContext(Project);
 	const user = userService.user;
 

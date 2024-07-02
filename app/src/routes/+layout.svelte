@@ -6,7 +6,7 @@
 	import { AuthService } from '$lib/backend/auth';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { HttpClient } from '$lib/backend/httpClient';
-	import { ProjectService } from '$lib/backend/projects';
+	import { ProjectListingService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
 	import AppUpdater from '$lib/components/AppUpdater.svelte';
@@ -39,7 +39,7 @@
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
 	setContext(UserService, data.userService);
-	setContext(ProjectService, data.projectService);
+	setContext(ProjectListingService, data.projectService);
 	setContext(UpdaterService, data.updaterService);
 	setContext(GitHubService, data.githubService);
 	setContext(GitConfigService, data.gitConfig);

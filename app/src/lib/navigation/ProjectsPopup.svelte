@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ProjectService } from '$lib/backend/projects';
+	import { ProjectListingService } from '$lib/backend/projects';
 	import ListItem from '$lib/shared/ListItem.svelte';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
@@ -8,7 +8,7 @@
 
 	export let isNavCollapsed: boolean;
 
-	const projectService = getContext(ProjectService);
+	const projectService = getContext(ProjectListingService);
 	const projects = projectService.projects;
 
 	let hidden = true;
