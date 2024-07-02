@@ -202,7 +202,7 @@ This paragraph is about crosscompilation to x86_64-MSVC from ARM Windows,
 a configuration typical for people with Apple Silicon and Parallels VMs,
 which only allow ARM Windows to be used.
 
-The `winapi` dependency on `gitbutler-git` doesn't currently compile on ARM,
+The `windows` dependency on `gitbutler-git` doesn't currently compile on ARM,
 which means cross-compilation to x86-64 is required to workaround that. Besides,
 most users will probably still be on INTEL machines, making this capability
 a common requirement.
