@@ -113,6 +113,7 @@ export default tsEslint.config(
 				}
 			],
 
+			'import-x/no-relative-packages': 'error', // Don't allow packages to have relative imports between each other
 			'func-style': [2, 'declaration'],
 			'@typescript-eslint/no-namespace': 'off',
 			'@typescript-eslint/no-empty-function': 'off',
