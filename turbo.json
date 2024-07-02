@@ -9,11 +9,16 @@
 			"cache": false
 		},
 		"dev": {
-			"dependsOn": ["@gitbutler/ui#package"],
+			"dependsOn": ["^package"],
 			"cache": false,
 			"persistent": true
 		},
 		"check": {
+			"dependsOn": ["^package"],
+			"cache": true
+		},
+		"//#globallint": {
+			// Root rules require dependencies to manually be listed https://github.com/vercel/turbo/discussions/7481
 			"dependsOn": ["@gitbutler/ui#package"],
 			"cache": true
 		}
