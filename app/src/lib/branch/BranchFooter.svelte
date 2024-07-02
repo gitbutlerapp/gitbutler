@@ -54,7 +54,7 @@
 			options: {
 				root: null,
 				rootMargin: '-1px',
-				threshold: 1
+				threshold: 0
 			}
 		}}
 	>
@@ -131,6 +131,5 @@
 
 	.not-in-viewport {
 		border-radius: 0;
-		/* background-color: aquamarine; */
 	}
 </style>
