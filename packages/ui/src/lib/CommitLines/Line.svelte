@@ -5,7 +5,6 @@
 	import { pxToRem } from '../utils/pxToRem';
 	import type { LineData } from './types';
 
-	console.log('hello world!! :D');
 	interface Props {
 		line: LineData;
 		topHeightPx?: number;
@@ -40,7 +39,6 @@
 		align-items: flex-end;
 		width: 24px;
 		margin-right: -2px;
-		background-color: green;
 	}
 
 	.line-top {
