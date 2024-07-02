@@ -2,7 +2,7 @@ import { AnthropicAIClient } from '$lib/ai/anthropicClient';
 import { ButlerAIClient } from '$lib/ai/butlerClient';
 import { OpenAIClient } from '$lib/ai/openAIClient';
 import { SHORT_DEFAULT_BRANCH_TEMPLATE, SHORT_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
-import { AIService, GitAIConfigKey, KeyOption, buildDiff } from '$lib/ai/service';
+import { AISecretHandle, AIService, GitAIConfigKey, KeyOption, buildDiff } from '$lib/ai/service';
 import {
 	AnthropicModelName,
 	ModelKind,
@@ -16,15 +16,19 @@ import { Hunk } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { expect, test, describe, vi } from 'vitest';
 import type { GbConfig, GitConfigService } from '$lib/backend/gitConfigService';
+import type { SecretsService } from '$lib/secrets/secretsService';
 
 const defaultGitConfig = Object.freeze({
 	[GitAIConfigKey.ModelProvider]: ModelKind.OpenAI,
 	[GitAIConfigKey.OpenAIKeyOption]: KeyOption.ButlerAPI,
-	[GitAIConfigKey.OpenAIKey]: undefined,
 	[GitAIConfigKey.OpenAIModelName]: OpenAIModelName.GPT35Turbo,
 	[GitAIConfigKey.AnthropicKeyOption]: KeyOption.ButlerAPI,
-	[GitAIConfigKey.AnthropicKey]: undefined,
 	[GitAIConfigKey.AnthropicModelName]: AnthropicModelName.Haiku
+});
+
+const defaultSecretsConfig = Object.freeze({
+	[AISecretHandle.AnthropicKey]: undefined,
+	[AISecretHandle.OpenAIKey]: undefined
 });
 
 class DummyGitConfigService implements GitConfigService {
@@ -45,6 +49,24 @@ class DummyGitConfigService implements GitConfigService {
 
 	async set<T extends string>(key: string, value: T): Promise<T | undefined> {
 		return (this.config[key] = value);
+	}
+	async remove(key: string): Promise<undefined> {
+		delete this.config[key];
+	}
+}
+
+class DummySecretsService implements SecretsService {
+	private config: { [index: string]: string | undefined };
+	constructor(config?: { [index: string]: string | undefined }) {
+		this.config = config || {};
+	}
+
+	async get(key: string): Promise<string | undefined> {
+		return this.config[key];
+	}
+
+	async set(handle: string, secret: string): Promise<void> {
+		this.config[handle] = secret;
 	}
 }
 
@@ -108,7 +130,8 @@ const exampleHunks = [hunk1, hunk2];
 
 function buildDefaultAIService() {
 	const gitConfig = new DummyGitConfigService(structuredClone(defaultGitConfig));
-	return new AIService(gitConfig, cloud);
+	const secretsService = new DummySecretsService(structuredClone(defaultSecretsConfig));
+	return new AIService(gitConfig, secretsService, cloud);
 }
 
 describe.concurrent('AIService', () => {
@@ -130,10 +153,10 @@ describe.concurrent('AIService', () => {
 		test('When token is bring your own, When a openAI token is present. It returns OpenAIClient', async () => {
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
-				[GitAIConfigKey.OpenAIKeyOption]: KeyOption.BringYourOwn,
-				[GitAIConfigKey.OpenAIKey]: 'sk-asdfasdf'
+				[GitAIConfigKey.OpenAIKeyOption]: KeyOption.BringYourOwn
 			});
-			const aiService = new AIService(gitConfig, cloud);
+			const secretsService = new DummySecretsService({ [AISecretHandle.OpenAIKey]: 'sk-asdfasdf' });
+			const aiService = new AIService(gitConfig, secretsService, cloud);
 
 			expect(unwrap(await aiService.buildClient())).toBeInstanceOf(OpenAIClient);
 		});
@@ -141,10 +164,10 @@ describe.concurrent('AIService', () => {
 		test('When token is bring your own, When a openAI token is blank. It returns undefined', async () => {
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
-				[GitAIConfigKey.OpenAIKeyOption]: KeyOption.BringYourOwn,
-				[GitAIConfigKey.OpenAIKey]: undefined
+				[GitAIConfigKey.OpenAIKeyOption]: KeyOption.BringYourOwn
 			});
-			const aiService = new AIService(gitConfig, cloud);
+			const secretsService = new DummySecretsService();
+			const aiService = new AIService(gitConfig, secretsService, cloud);
 
 			expect(await aiService.buildClient()).toStrictEqual(
 				buildFailureFromAny(
@@ -157,10 +180,12 @@ describe.concurrent('AIService', () => {
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
 				[GitAIConfigKey.ModelProvider]: ModelKind.Anthropic,
-				[GitAIConfigKey.AnthropicKeyOption]: KeyOption.BringYourOwn,
-				[GitAIConfigKey.AnthropicKey]: 'sk-ant-api03-asdfasdf'
+				[GitAIConfigKey.AnthropicKeyOption]: KeyOption.BringYourOwn
 			});
-			const aiService = new AIService(gitConfig, cloud);
+			const secretsService = new DummySecretsService({
+				[AISecretHandle.AnthropicKey]: 'test-key'
+			});
+			const aiService = new AIService(gitConfig, secretsService, cloud);
 
 			expect(unwrap(await aiService.buildClient())).toBeInstanceOf(AnthropicAIClient);
 		});
@@ -169,10 +194,10 @@ describe.concurrent('AIService', () => {
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
 				[GitAIConfigKey.ModelProvider]: ModelKind.Anthropic,
-				[GitAIConfigKey.AnthropicKeyOption]: KeyOption.BringYourOwn,
-				[GitAIConfigKey.AnthropicKey]: undefined
+				[GitAIConfigKey.AnthropicKeyOption]: KeyOption.BringYourOwn
 			});
-			const aiService = new AIService(gitConfig, cloud);
+			const secretsService = new DummySecretsService();
+			const aiService = new AIService(gitConfig, secretsService, cloud);
 
 			expect(await aiService.buildClient()).toStrictEqual(
 				buildFailureFromAny(

@@ -100,3 +100,15 @@ export function getContextStoreBySymbol<T, S extends Readable<T> = Readable<T>>(
 	if (!instance) throw new Error(`no instance of \`Readable<${key.toString()}[]>\` in context`);
 	return instance;
 }
+
+export function buildContext<T>(name: string): [() => T, (value: T | undefined) => void] {
+	const identifier = Symbol(name);
+	return [
+		() => {
+			return svelteGetContext<T>(identifier);
+		},
+		(value: T | undefined) => {
+			setContext(identifier, value);
+		}
+	];
+}

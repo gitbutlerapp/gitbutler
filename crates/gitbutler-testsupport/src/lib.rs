@@ -60,3 +60,9 @@ pub fn init_opts_bare() -> git2::RepositoryInitOptions {
     opts.bare(true);
     opts
 }
+
+/// A secrets store to prevent secrets to be written into the systems own store.
+///
+/// Note that this can't be used if secrets themselves are under test as it' doesn't act
+/// like a real store, i.e. stored secrets can't be retrieved anymore.
+pub mod secrets;

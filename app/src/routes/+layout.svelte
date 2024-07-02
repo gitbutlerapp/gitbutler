@@ -17,6 +17,7 @@
 	import { GitHubService } from '$lib/github/service';
 	import ToastController from '$lib/notifications/ToastController.svelte';
 	import { RemotesService } from '$lib/remotes/service';
+	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
 	import { User, UserService } from '$lib/stores/user';
 	import * as events from '$lib/utils/events';
@@ -36,6 +37,7 @@
 	setContext(SETTINGS, userSettings);
 
 	// Setters do not need to be reactive since `data` never updates
+	setSecretsService(data.secretsService);
 	setContext(UserService, data.userService);
 	setContext(ProjectService, data.projectService);
 	setContext(UpdaterService, data.updaterService);

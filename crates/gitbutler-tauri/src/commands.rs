@@ -104,6 +104,12 @@ pub async fn git_set_global_config(
 }
 
 #[tauri::command(async)]
+#[instrument(err(Debug))]
+pub async fn git_remove_global_config(key: &str) -> Result<(), Error> {
+    Ok(app::App::git_remove_global_config(key)?)
+}
+
+#[tauri::command(async)]
 #[instrument(skip(_handle), err(Debug))]
 pub async fn git_get_global_config(
     _handle: tauri::AppHandle,

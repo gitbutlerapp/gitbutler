@@ -19,6 +19,7 @@ import { splitMessage } from '$lib/utils/commitMessage';
 import OpenAI from 'openai';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
 import type { HttpClient } from '$lib/backend/httpClient';
+import type { SecretsService } from '$lib/secrets/secretsService';
 import type { Hunk } from '$lib/vbranches/types';
 
 const maxDiffLengthLimitForAPI = 5000;
@@ -28,14 +29,17 @@ export enum KeyOption {
 	ButlerAPI = 'butlerAPI'
 }
 
+export enum AISecretHandle {
+	OpenAIKey = 'aiOpenAIKey',
+	AnthropicKey = 'aiAnthropicKey'
+}
+
 export enum GitAIConfigKey {
 	ModelProvider = 'gitbutler.aiModelProvider',
 	OpenAIKeyOption = 'gitbutler.aiOpenAIKeyOption',
 	OpenAIModelName = 'gitbutler.aiOpenAIModelName',
-	OpenAIKey = 'gitbutler.aiOpenAIKey',
 	AnthropicKeyOption = 'gitbutler.aiAnthropicKeyOption',
 	AnthropicModelName = 'gitbutler.aiAnthropicModelName',
-	AnthropicKey = 'gitbutler.aiAnthropicKey',
 	DiffLengthLimit = 'gitbutler.diffLengthLimit',
 	OllamaEndpoint = 'gitbutler.aiOllamaEndpoint',
 	OllamaModelName = 'gitbutler.aiOllamaModelName'
@@ -72,6 +76,7 @@ function shuffle<T>(items: T[]): T[] {
 export class AIService {
 	constructor(
 		private gitConfig: GitConfigService,
+		private secretsService: SecretsService,
 		private cloud: HttpClient
 	) {}
 
@@ -90,7 +95,7 @@ export class AIService {
 	}
 
 	async getOpenAIKey() {
-		return await this.gitConfig.get(GitAIConfigKey.OpenAIKey);
+		return await this.secretsService.get(AISecretHandle.OpenAIKey);
 	}
 
 	async getOpenAIModleName() {
@@ -108,7 +113,7 @@ export class AIService {
 	}
 
 	async getAnthropicKey() {
-		return await this.gitConfig.get(GitAIConfigKey.AnthropicKey);
+		return await this.secretsService.get(AISecretHandle.AnthropicKey);
 	}
 
 	async getAnthropicModelName() {
