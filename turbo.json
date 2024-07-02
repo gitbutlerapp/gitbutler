@@ -8,6 +8,9 @@
 			"dependsOn": ["@gitbutler/ui#package"],
 			"cache": false,
 			"persistent": true
+		},
+		"lint": {
+			"cache": true
 		}
 	}
 }
