@@ -3739,7 +3739,7 @@ fn update_conflict_markers(
                 }
             }
             if !conflicted {
-                conflicts::resolve(project_repository, &file_path.display().to_string()).unwrap();
+                conflicts::resolve(project_repository, file_path.display().to_string()).unwrap();
             }
         }
     }
