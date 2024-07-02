@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Button from '$lib/shared/Button.svelte';
+	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BaseBranch, Branch } from '$lib/vbranches/types';
@@ -52,7 +53,7 @@
 			disabled
 			help="Branch name that will be used when pushing. You can change it from the lane menu."
 		>
-			{isLaneCollapsed ? 'View branch' : $branch.displayName}
+			{normalizeBranchName($branch.displayName)}
 		</Button>
 	{/if}
 {:else}
