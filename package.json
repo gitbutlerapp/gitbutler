@@ -16,7 +16,7 @@
 		"build": "turbo run build",
 		"check": "turbo run check",
 		"tauri": "tauri",
-		"lint": "turbo run lint",
+		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"fix": "eslint --fix .",
 		"prepare": "pnpm --filter @gitbutler/app run prepare",

@@ -13,10 +13,6 @@
 			"cache": false,
 			"persistent": true
 		},
-		"lint": {
-			"dependsOn": ["@gitbutler/ui#package"],
-			"cache": true
-		},
 		"check": {
 			"dependsOn": ["@gitbutler/ui#package"],
 			"cache": true
