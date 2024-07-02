@@ -1,25 +1,24 @@
-import { handleErrorWithSentry } from '@sentry/sveltekit';
+import { captureException } from '@sentry/sveltekit';
 import { error as logErrorToFile } from 'tauri-plugin-log-api';
-import type { NavigationEvent } from '@sveltejs/kit';
+import type { HandleClientError } from '@sveltejs/kit';
 
-function myErrorHandler({ error, event }: { error: any; event: NavigationEvent }) {
-	console.error(error.message + '\n' + error.stack);
-	logErrorToFile(error.toString());
-	console.error('An error occurred on the client side:', error, event);
-}
+export const handleError: HandleClientError = ({ error, status }) => {
+	let errorId: string = crypto.randomUUID();
 
-export const handleError = handleErrorWithSentry(myErrorHandler);
+	if (status !== 404) {
+		errorId = captureException(error, {
+			mechanism: {
+				type: 'sveltekit',
+				handled: false
+			}
+		});
+	}
 
-/**
- * This is not an ideal way of handling unhandled errors, but it's what we have at the moment. The
- * main reason for adding this is that it gives us better stack traces when promises throw errors
- * in reactive statements.
- *
- * See: https://github.com/sveltejs/rfcs/pull/46
- */
-const originalUnhandledHandler = window.onunhandledrejection;
-window.onunhandledrejection = (event: PromiseRejectionEvent) => {
-	logErrorToFile('Unhandled exception: ' + event?.reason + ' ' + event?.reason?.sourceURL);
-	console.log('Unhandled exception', event.reason);
-	originalUnhandledHandler?.bind(window)(event);
+	logErrorToFile((error as Error).message);
+	console.error(`${errorId}: ${(error as Error).message}\n${(error as Error)?.stack}`);
+
+	return {
+		message: (error as Error).message,
+		errorId
+	};
 };
