@@ -5,6 +5,9 @@ edition = "2021"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
+[[test]]
+name = "secret"
+path = "tests/secret/mod.rs"
 
 [dev-dependencies]
 once_cell = "1.19"
@@ -12,6 +15,7 @@ pretty_assertions = "1.4"
 gitbutler-testsupport.workspace = true
 gitbutler-git = { workspace = true, features = ["test-askpass-path"] }
 glob = "0.3.1"
+serial_test = "3.1.1"
 
 [dependencies]
 toml = "0.8.13"
@@ -26,8 +30,9 @@ fslock = "0.2.1"
 futures = "0.3"
 git2.workspace = true
 git2-hooks = "0.3"
-gix = { workspace = true, features = ["dirwalk"] }
+gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 itertools = "0.13"
+keyring.workspace = true
 lazy_static = "1.4.0"
 md5 = "0.7.0"
 hex = "0.4.3"
@@ -46,7 +51,7 @@ tempfile = "3.10"
 thiserror.workspace = true
 tokio = { workspace = true, features = [ "rt-multi-thread", "rt", "macros" ] }
 tracing = "0.1.40"
-url = { version = "2.5", features = ["serde"] }
+url = { version = "2.5.2", features = ["serde"] }
 urlencoding = "2.1.3"
 uuid.workspace = true
 walkdir = "2.5.0"

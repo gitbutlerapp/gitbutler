@@ -1,9 +1,16 @@
+use super::{storage::Storage, User};
+use crate::secret;
 use anyhow::Context;
+use anyhow::Result;
 use std::path::PathBuf;
 
-use super::{storage::Storage, User};
-
-/// TODO(ST): useless intermediary - remove
+/// TODO(ST): rename to `Login` - seems more akin to what it does
+/// This type deals with user-related data which is only known if the user is logged in to GitButler.
+///
+/// ### Migrations: V1 -> V2
+///
+/// V2 is implied by not storing the `access_token` in plain text anymore, nor the GitHub token even if present.
+/// It happens automatically on [Self::get_user()] and [Self::set_user()]
 #[derive(Clone)]
 pub struct Controller {
     storage: Storage,
@@ -18,21 +25,46 @@ impl Controller {
         Controller::new(Storage::from_path(path))
     }
 
-    pub fn get_user(&self) -> anyhow::Result<Option<User>> {
-        match self.storage.get().context("failed to get user") {
-            Ok(user) => Ok(user),
-            Err(err) => {
-                self.storage.delete().ok();
-                Err(err)
-            }
+    /// Return the current login, or `None` if there is none yet.
+    pub fn get_user(&self) -> Result<Option<User>> {
+        let user = self.storage.get().context("failed to get user")?;
+        if let Some(user) = &user {
+            write_without_secrets_if_secrets_present(&self.storage, user.clone())?;
+        }
+        Ok(user)
+    }
+
+    /// Note that secrets are never written in plain text, but we assure they are stored.
+    pub fn set_user(&self, user: &User) -> Result<()> {
+        if !write_without_secrets_if_secrets_present(&self.storage, user.clone())? {
+            self.storage.set(user).context("failed to set user")
+        } else {
+            Ok(())
         }
     }
 
-    pub fn set_user(&self, user: &User) -> anyhow::Result<()> {
-        self.storage.set(user).context("failed to set user")
+    pub fn delete_user(&self) -> Result<()> {
+        self.storage.delete().context("failed to delete user")?;
+        let namespace = secret::Namespace::BuildKind;
+        secret::delete(User::ACCESS_TOKEN_HANDLE, namespace).ok();
+        secret::delete(User::GITHUB_ACCESS_TOKEN_HANDLE, namespace).ok();
+        Ok(())
     }
+}
 
-    pub fn delete_user(&self) -> anyhow::Result<()> {
-        self.storage.delete().context("failed to delete user")
+/// As `user` sports interior mutability right now, let's play it safe and work with fully owned items only.
+fn write_without_secrets_if_secrets_present(storage: &Storage, user: User) -> Result<bool> {
+    let mut needs_write = false;
+    let namespace = secret::Namespace::BuildKind;
+    if let Some(gb_token) = user.access_token.borrow_mut().take() {
+        needs_write |= secret::persist(User::ACCESS_TOKEN_HANDLE, &gb_token, namespace).is_ok();
     }
+    if let Some(gh_token) = user.github_access_token.borrow_mut().take() {
+        needs_write |=
+            secret::persist(User::GITHUB_ACCESS_TOKEN_HANDLE, &gh_token, namespace).is_ok();
+    }
+    if needs_write {
+        storage.set(&user)?;
+    }
+    Ok(needs_write)
 }

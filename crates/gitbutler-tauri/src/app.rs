@@ -79,6 +79,11 @@ impl App {
         Ok(value.to_string())
     }
 
+    pub fn git_remove_global_config(key: &str) -> Result<()> {
+        let mut config = git2::Config::open_default()?;
+        Ok(config.remove(key)?)
+    }
+
     pub fn git_get_global_config(key: &str) -> Result<Option<String>> {
         let config = git2::Config::open_default()?;
         let value = config.get_string(key);

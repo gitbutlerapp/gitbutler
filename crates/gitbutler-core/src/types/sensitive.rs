@@ -6,11 +6,11 @@ impl<T> Serialize for Sensitive<T>
 where
     T: Serialize,
 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        self.0.serialize(serializer)
+        unreachable!("BUG: Sensitive data cannot be serialized - it needs to be extracted and put into a struct for serialization explicitly")
     }
 }
 impl<'de, T> Deserialize<'de> for Sensitive<T>
