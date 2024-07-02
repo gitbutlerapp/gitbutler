@@ -24,14 +24,14 @@ gitbutler-testsupport.workspace = true
 [dependencies]
 anyhow = "1.0.86"
 async-trait = "0.1.80"
-backtrace = { version = "0.3.72", optional = true }
-console-subscriber = "0.2.0"
+backtrace = { version = "0.3.73", optional = true }
+console-subscriber = "0.3.0"
 dirs = "5.0.1"
 futures = "0.3"
 git2.workspace = true
 nonzero_ext = "0.3.0"
 once_cell = "1.19"
-reqwest = { version = "0.12.4", features = ["json"] }
+reqwest = { version = "0.12.5", features = ["json"] }
 serde.workspace = true
 serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
 tauri-plugin-context-menu = { git = "https://github.com/c2r0b/tauri-plugin-context-menu", branch = "main" }
@@ -51,7 +51,7 @@ gitbutler-watcher.workspace = true
 open = "5"
 
 [dependencies.tauri]
-version = "1.6.8"
+version = "1.7.0"
 features = [
     "http-all", "os-all", "dialog-open", "fs-read-file",
     "path-all", "process-relaunch", "protocol-asset",

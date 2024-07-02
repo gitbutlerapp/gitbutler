@@ -18,12 +18,12 @@ glob = "0.3.1"
 serial_test = "3.1.1"
 
 [dependencies]
-toml = "0.8.13"
+toml = "0.8.14"
 anyhow = "1.0.86"
 async-trait = "0.1.80"
-backtrace = { version = "0.3.72", optional = true }
+backtrace = { version = "0.3.73", optional = true }
 bstr = "1.9.1"
-diffy = "0.3.0"
+diffy = "0.4.0"
 dirs = "5.0.1"
 filetime = "0.2.23"
 fslock = "0.2.1"
@@ -33,12 +33,12 @@ git2-hooks = "0.3"
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 itertools = "0.13"
 keyring.workspace = true
-lazy_static = "1.4.0"
+lazy_static = "1.5.0"
 md5 = "0.7.0"
 hex = "0.4.3"
 rand = "0.8.5"
 regex = "1.10"
-reqwest = { version = "0.12.4", features = ["json"] }
+reqwest = { version = "0.12.5", features = ["json"] }
 resolve-path = "0.1.0"
 serde = { workspace = true, features = ["std"]}
 serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
