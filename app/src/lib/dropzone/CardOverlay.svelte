@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { pxToRem } from '$lib/utils/pxToRem';
+	import { scale } from 'svelte/transition';
 
 	interface Props {
 		hovered: boolean;
 		activated: boolean;
 		label?: string;
-		padding?: {
+		extraPaddings?: {
 			top?: number;
 			right?: number;
 			bottom?: number;
@@ -13,18 +14,27 @@
 		};
 	}
 
-	const { hovered, activated, label = 'Drop here', padding }: Props = $props();
-	const defaultPadding = 4;
+	const { hovered, activated, label = 'Drop here', extraPaddings }: Props = $props();
+	let defaultPadding = $derived.by(() => {
+		if (hovered) return 2;
+		return 4;
+	});
+
+	const extraPaddingTop = extraPaddings?.top ?? 0;
+	const extraPaddingRight = extraPaddings?.right ?? 0;
+	const extraPaddingBottom = extraPaddings?.bottom ?? 0;
+	const extraPaddingLeft = extraPaddings?.left ?? 0;
 </script>
 
 <div
+	transition:scale={{ duration: 200, start: 0.9 }}
 	class="dropzone-target dropzone-wrapper"
 	class:activated
 	class:hovered
-	style="--padding-top: {pxToRem(padding?.top || defaultPadding)}; --padding-right: {pxToRem(
-		padding?.right || defaultPadding
-	)}; --padding-bottom: {pxToRem(padding?.bottom || defaultPadding)}; --padding-left: {pxToRem(
-		padding?.left || defaultPadding
+	style="--padding-top: {pxToRem(defaultPadding + extraPaddingTop)}; --padding-right: {pxToRem(
+		defaultPadding + extraPaddingRight
+	)}; --padding-bottom: {pxToRem(defaultPadding + extraPaddingBottom)}; --padding-left: {pxToRem(
+		defaultPadding + extraPaddingLeft
 	)}"
 >
 	<div class="container">
@@ -43,7 +53,7 @@
 
 		<!-- add svg rectange -->
 		<svg width="100%" height="100%" class="animated-rectangle">
-			<rect width="100%" height="100%" rx="5" ry="5" />
+			<rect width="100%" height="100%" rx="5" ry="5" vector-effect="non-scaling-stroke" />
 		</svg>
 	</div>
 </div>
@@ -61,9 +71,13 @@
 		padding-bottom: var(--padding-bottom);
 		padding-left: var(--padding-left);
 
-		display: flex;
+		display: none;
 		align-items: center;
 		justify-content: center;
+
+		transition:
+			transform 0.1s,
+			padding 0.1s;
 
 		/* It is very important that all children are pointer-events: none */
 		/* https://stackoverflow.com/questions/7110353/html5-dragleave-fired-when-hovering-a-child-element */
@@ -71,13 +85,16 @@
 			pointer-events: none;
 		}
 
-		&:not(.activated) {
-			display: none;
+		&.activated {
+			display: flex;
+			animation: dropzone-scale 0.1s forwards;
 		}
 
 		&.hovered {
+			transform: scale(1.01);
+
 			.animated-rectangle rect {
-				fill: oklch(from var(--clr-scale-pop-50) l c h / 0.1);
+				fill: oklch(from var(--clr-scale-pop-50) l c h / 0.12);
 			}
 
 			.dropzone-label {
@@ -97,7 +114,6 @@
 	}
 
 	.dropzone-label {
-		/* display: none; */
 		opacity: 0;
 		display: flex;
 		align-items: center;
@@ -145,8 +161,12 @@
 			stroke-width: 2px;
 			stroke-dasharray: 2;
 			stroke-dashoffset: 30;
+			transform-origin: center;
 
-			transition: fill var(--transition-fast);
+			transition:
+				fill var(--transition-fast),
+				transform var(--transition-fast);
+
 			animation: dash 4s linear infinite;
 		}
 	}

@@ -42,8 +42,8 @@
 				{hovered}
 				{activated}
 				label="Amend commit"
-				padding={{
-					left: 8
+				extraPaddings={{
+					left: 4
 				}}
 			/>
 		{/snippet}
@@ -59,8 +59,8 @@
 				{hovered}
 				{activated}
 				label="Squash commit"
-				padding={{
-					left: 8
+				extraPaddings={{
+					left: 4
 				}}
 			/>
 		{/snippet}
