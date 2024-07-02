@@ -1,5 +1,8 @@
 name: "Publish"
 on:
+  schedule:
+    # every day at 3am
+    - cron: '0 3 * * *'
   workflow_run:
     workflows: ["Nightly build"]
     types:
@@ -79,19 +82,12 @@ jobs:
       - uses: ./.github/actions/init-env-rust
       - uses: ./.github/actions/init-env-node
 
-      - name: Set nightly params
-        shell: bash
-        if: ${{!!github.event.workflow_run }}
-        run: |
-          echo "channel=nightly" >> $GITHUB_ENV
-          echo "bump=patch" >> $GITHUB_ENV
-
       - name: Use input params
         shell: bash
         if: ${{ !github.event.workflow_run }}
         run: |
-          echo "channel=${{ github.event.inputs.channel }}" >> $GITHUB_ENV
-          echo "bump=${{ github.event.inputs.bump }}" >> $GITHUB_ENV
+          echo "channel=${{ github.event.inputs.channel || 'nightly' }}" >> $GITHUB_ENV
+          echo "bump=${{ github.event.inputs.bump || 'patch' }}" >> $GITHUB_ENV
 
       - name: Set env variable with version
         shell: bash

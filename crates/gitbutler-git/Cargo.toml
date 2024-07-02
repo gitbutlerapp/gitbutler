@@ -45,10 +45,21 @@ gix-path = "0.10.7"
 nix = { version = "0.29.0", features = ["process", "socket", "user"] }
 
 [target."cfg(windows)".dependencies]
-winapi = { version = "0.3.9", features = ["winbase", "namedpipeapi"] }
+windows = { version = "0.57.0", features = [
+  "Win32",
+  "Win32_System",
+  "Win32_System_Pipes",
+  "Win32_Storage",
+  "Win32_Storage_FileSystem",
+  "Win32_Security",
+  "Win32_System_IO",
+  "Win32_System_Threading",
+] }
 tokio = { workspace = true, optional = true, features = ["sync"] }
-# synchronous named pipes for the askpass utility
-windows-named-pipe = "0.1.0"
+
+[dev-dependencies]
+assert_cmd = "2.0.14"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [lints.clippy]
 all = "deny"

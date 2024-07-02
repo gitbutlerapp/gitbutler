@@ -107,7 +107,7 @@ impl Project {
                 let commit_tree_id = commit_tree_builder.write()?;
 
                 commits_tree_builder.insert(
-                    &commit_id.to_string(),
+                    commit_id.to_string(),
                     commit_tree_id,
                     FileMode::Tree.into(),
                 )?;

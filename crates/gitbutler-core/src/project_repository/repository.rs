@@ -378,10 +378,10 @@ impl Repository {
             "pushing code to gb repo",
         );
 
-        let access_token = user
-            .map(|user| user.access_token.clone())
-            .context("access token is missing")
+        let user = user
+            .context("need user to push to gitbutler")
             .context(Code::ProjectGitAuth)?;
+        let access_token = user.access_token()?;
 
         let mut callbacks = git2::RemoteCallbacks::new();
         if self.project.omit_certificate_check.unwrap_or(false) {

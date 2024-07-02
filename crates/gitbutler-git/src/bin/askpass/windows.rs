@@ -1,12 +1,11 @@
-use std::{
-    io,
-    os::windows::io::{AsRawHandle, FromRawHandle},
-    time::Duration,
-};
-use windows_named_pipe::PipeStream;
+use std::{io, time::Duration};
+use windows::Win32::System::Pipes::SetNamedPipeHandleState;
+#[path = "windows-pipe.rs"]
+mod windows_pipe;
+use windows_pipe::Pipe;
 
-pub fn establish(sock_path: &str) -> PipeStream {
-    PipeStream::connect(sock_path).unwrap()
+pub fn establish(sock_path: &str) -> Pipe {
+    Pipe::connect(std::path::Path::new(sock_path)).unwrap()
 }
 
 /// There are some methods we need in order to run askpass correctly,
@@ -14,15 +13,10 @@ pub fn establish(sock_path: &str) -> PipeStream {
 /// We stub them using this trait so we don't have to newtype
 /// the pipestream itself (which would be extensive and un-DRY).
 pub trait UnixCompatibility: Sized {
-    fn try_clone(&self) -> Option<Self>;
     fn set_read_timeout(&self, timeout: Option<Duration>) -> io::Result<()>;
 }
 
-impl UnixCompatibility for PipeStream {
-    fn try_clone(&self) -> Option<Self> {
-        Some(unsafe { Self::from_raw_handle(self.as_raw_handle()) })
-    }
-
+impl UnixCompatibility for Pipe {
     fn set_read_timeout(&self, timeout: Option<Duration>) -> io::Result<()> {
         // NOTE(qix-): Technically, this shouldn't work (and probably doesn't).
         // NOTE(qix-): The documentation states:
@@ -32,28 +26,14 @@ impl UnixCompatibility for PipeStream {
         // NOTE(qix-):
         // NOTE(qix-): This is indeed the case here, but we try to make it work
         // NOTE(qix-): anyway.
-        #[allow(unused_assignments)]
-        let mut timeout_ms: winapi::shared::minwindef::DWORD = 0;
-        let timeout_ptr: winapi::shared::minwindef::LPDWORD = if let Some(timeout) = timeout {
-            timeout_ms = timeout.as_millis() as winapi::shared::minwindef::DWORD;
-            &mut timeout_ms as *mut _
-        } else {
-            std::ptr::null_mut()
-        };
+        let timeout_ms: Option<*const u32> =
+            timeout.map(|timeout| timeout.as_millis() as *const u32);
 
-        let r = unsafe {
-            winapi::um::namedpipeapi::SetNamedPipeHandleState(
-                self.as_raw_handle() as winapi::um::winnt::HANDLE,
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
-                timeout_ptr,
-            )
-        };
+        let r = unsafe { SetNamedPipeHandleState(self.get_handle(), None, None, timeout_ms) };
 
-        if r == 0 {
-            Err(io::Error::last_os_error())
-        } else {
-            Ok(())
+        match r {
+            Ok(_) => Ok(()),
+            Err(err) => Err(io::Error::from_raw_os_error(err.code().0)),
         }
     }
 }
