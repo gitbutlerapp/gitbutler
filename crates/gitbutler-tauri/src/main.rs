@@ -15,14 +15,17 @@
 
 use gitbutler_core::{assets, git, storage};
 use gitbutler_tauri::{
-    app, askpass, commands, config, github, keys, logs, menu, projects, remotes, undo, users,
-    virtual_branches, watcher, zip,
+    app, askpass, commands, config, github, keys, logs, menu, projects, remotes, secret, undo,
+    users, virtual_branches, watcher, zip,
 };
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
 
 fn main() {
     let tauri_context = generate_context!();
+    gitbutler_core::secret::set_application_namespace(
+        &tauri_context.config().tauri.bundle.identifier,
+    );
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -65,6 +68,14 @@ fn main() {
                     let app_handle = tauri_app.handle();
 
                     logs::init(&app_handle);
+
+                    // On MacOS, in dev mode with debug assertions, we encounter popups each time
+                    // the binary is rebuilt. To counter that, use a git-credential based implementation.
+                    // This isn't an issue for actual release build (i.e. nightly, production),
+                    // hence the specific condition.
+                    if cfg!(debug_assertions) && cfg!(target_os = "macos") {
+                        gitbutler_core::secret::git_credentials::setup().ok();
+                    }
 
                     // SAFETY(qix-): This is safe because we're initializing the askpass broker here,
                     // SAFETY(qix-): before any other threads would ever access it.
@@ -157,6 +168,7 @@ fn main() {
                     commands::delete_all_data,
                     commands::mark_resolved,
                     commands::git_set_global_config,
+                    commands::git_remove_global_config,
                     commands::git_get_global_config,
                     commands::git_test_push,
                     commands::git_test_fetch,
@@ -204,6 +216,8 @@ fn main() {
                     virtual_branches::commands::squash_branch_commit,
                     virtual_branches::commands::fetch_from_remotes,
                     virtual_branches::commands::move_commit,
+                    secret::secret_get_global,
+                    secret::secret_set_global,
                     undo::list_snapshots,
                     undo::restore_snapshot,
                     undo::snapshot_diff,

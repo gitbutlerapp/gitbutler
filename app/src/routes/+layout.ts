@@ -9,6 +9,7 @@ import { PromptService } from '$lib/backend/prompt';
 import { UpdaterService } from '$lib/backend/updater';
 import { GitHubService } from '$lib/github/service';
 import { RemotesService } from '$lib/remotes/service';
+import { RustSecretService } from '$lib/secrets/secretsService';
 import { UserService } from '$lib/stores/user';
 import { mockTauri } from '$lib/testing/index';
 import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
@@ -54,7 +55,8 @@ export async function load() {
 	const githubService = new GitHubService(userService.accessToken$, remoteUrl$);
 
 	const gitConfig = new GitConfigService();
-	const aiService = new AIService(gitConfig, httpClient);
+	const secretsService = new RustSecretService(gitConfig);
+	const aiService = new AIService(gitConfig, secretsService, httpClient);
 	const remotesService = new RemotesService();
 	const aiPromptService = new AIPromptService();
 	const lineManagerFactory = new LineManagerFactory();
@@ -73,6 +75,7 @@ export async function load() {
 		aiService,
 		remotesService,
 		aiPromptService,
-		lineManagerFactory
+		lineManagerFactory,
+		secretsService
 	};
 }

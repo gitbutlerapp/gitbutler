@@ -25,7 +25,7 @@ async fn workdir_vbranch_restore() -> anyhow::Result<()> {
         let line_count = round * 20;
         fs::write(
             worktree_dir.join(format!("file{round}.txt")),
-            &make_lines(line_count),
+            make_lines(line_count),
         )?;
         let branch_id = controller
             .create_virtual_branch(

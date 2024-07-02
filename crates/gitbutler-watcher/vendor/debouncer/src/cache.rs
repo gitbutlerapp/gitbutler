@@ -102,6 +102,8 @@ impl FileIdMap {
 
     fn dir_scan_depth(is_recursive: bool) -> usize {
         if is_recursive {
+            // TODO
+            #[allow(clippy::legacy_numeric_constants)]
             usize::max_value()
         } else {
             1
