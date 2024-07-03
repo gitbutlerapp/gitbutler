@@ -24,7 +24,6 @@ import { writable, type Readable } from 'svelte/store';
 
 export class VirtualBranchService {
 	branches$: Observable<Branch[] | undefined>;
-	stashedBranches$: Observable<Branch[] | undefined>;
 	activeBranches$: Observable<Branch[] | undefined>;
 	branchesError = writable<any>();
 	private reload$ = new BehaviorSubject<void>(undefined);
@@ -67,10 +66,6 @@ export class VirtualBranchService {
 			shareReplay(1)
 		);
 
-		this.stashedBranches$ = this.branches$.pipe(
-			map((branches) => branches?.filter((b) => !b.active))
-		);
-
 		// We need upstream data to be part of the branch without delay since the way we render
 		// commits depends on it.
 		// TODO: Move this async behavior into the rust code.
@@ -80,29 +75,27 @@ export class VirtualBranchService {
 			switchMap((branches) => {
 				if (!branches) return of();
 				return Promise.all(
-					branches
-						.filter((b) => b.active)
-						.map(async (b) => {
-							const upstreamName = b.upstream?.name;
-							if (upstreamName) {
-								try {
-									const data = await getRemoteBranchData(projectId, upstreamName);
-									const commits = data.commits;
-									commits.forEach((uc) => {
-										const match = b.commits.find((c) => commitCompare(uc, c));
-										if (match) {
-											match.relatedTo = uc;
-											uc.relatedTo = match;
-										}
-									});
-									linkAsParentChildren(commits);
-									b.upstreamData = data;
-								} catch (e: any) {
-									console.log(e);
-								}
+					branches.map(async (b) => {
+						const upstreamName = b.upstream?.name;
+						if (upstreamName) {
+							try {
+								const data = await getRemoteBranchData(projectId, upstreamName);
+								const commits = data.commits;
+								commits.forEach((uc) => {
+									const match = b.commits.find((c) => commitCompare(uc, c));
+									if (match) {
+										match.relatedTo = uc;
+										uc.relatedTo = match;
+									}
+								});
+								linkAsParentChildren(commits);
+								b.upstreamData = data;
+							} catch (e: any) {
+								console.log(e);
 							}
-							return b;
-						})
+						}
+						return b;
+					})
 				);
 			})
 		);

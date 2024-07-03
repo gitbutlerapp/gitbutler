@@ -3343,7 +3343,7 @@ pub fn create_virtual_branch_from_branch(
                     .0
                     .into_iter()
                     .map(|(branch, _)| branch)
-                    .filter(|branch| branch.applied)
+                    .filter(|branch| branch.id != branch_id)
                 {
                     convert_to_real_branch(project_repository, branch.id, Default::default())?;
                 }

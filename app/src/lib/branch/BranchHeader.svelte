@@ -182,33 +182,31 @@
 
 			<div class="header__actions">
 				<div class="header__buttons">
-					{#if branch.active}
-						{#if branch.selectedForChanges}
-							<Button
-								style="pop"
-								kind="soft"
-								help="New changes will land here"
-								icon="target"
-								clickable={false}
-								disabled={isUnapplied}
-							>
-								Default branch
-							</Button>
-						{:else}
-							<Button
-								style="ghost"
-								outline
-								help="When selected, new changes will land here"
-								icon="target"
-								disabled={isUnapplied}
-								on:click={async () => {
-									isTargetBranchAnimated = true;
-									await branchController.setSelectedForChanges(branch.id);
-								}}
-							>
-								Set as default
-							</Button>
-						{/if}
+					{#if branch.selectedForChanges}
+						<Button
+							style="pop"
+							kind="soft"
+							help="New changes will land here"
+							icon="target"
+							clickable={false}
+							disabled={isUnapplied}
+						>
+							Default branch
+						</Button>
+					{:else}
+						<Button
+							style="ghost"
+							outline
+							help="When selected, new changes will land here"
+							icon="target"
+							disabled={isUnapplied}
+							on:click={async () => {
+								isTargetBranchAnimated = true;
+								await branchController.setSelectedForChanges(branch.id);
+							}}
+						>
+							Set as default
+						</Button>
 					{/if}
 				</div>
 

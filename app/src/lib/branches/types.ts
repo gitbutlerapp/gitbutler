@@ -64,10 +64,9 @@ export class CombinedBranch {
 	}
 
 	// GH colors reference https://github.blog/changelog/2021-06-08-new-issue-and-pull-request-state-icons
-	get color(): 'neutral' | 'success' | 'pop' | 'purple' | undefined {
+	get color(): 'neutral' | 'success' | 'purple' | undefined {
 		if (this.pr?.mergedAt) return 'purple'; // merged PR
 		if (this.pr) return 'success'; // open PR
-		if (this.vbranch && this.vbranch.active === false) return 'pop'; // stashed virtual branches
 		// if (this.remoteBranch?.isMergeable) return 'success'; // remote branches
 		return 'neutral';
 	}

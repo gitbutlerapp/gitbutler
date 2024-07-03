@@ -137,7 +137,7 @@ function mergeBranchesAndPrs(
 
 	// This should be everything considered a branch in one list
 	const filtered = contributions
-		.filter((b) => !b.vbranch || !b.vbranch.active)
+		.filter((b) => !b.vbranch)
 		.sort((a, b) => {
 			return (a.modifiedAt || new Date(0)) < (b.modifiedAt || new Date(0)) ? 1 : -1;
 		});

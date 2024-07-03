@@ -156,7 +156,6 @@ export const file1 = {
 };
 
 export const virtualBranch = {
-	active: true,
 	baseCurrent: true,
 	commits: [],
 	conflicted: false,
