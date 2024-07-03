@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Select from '$lib/Select/Select.svelte';
+	import SelectItem from '$lib/Select/SelectItem.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
@@ -7,8 +9,6 @@
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import Button from '$lib/shared/Button.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
-	import Select from '$lib/shared/Select.svelte';
-	import SelectItem from '$lib/shared/SelectItem.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
@@ -121,7 +121,6 @@
 			itemId={'value'}
 			labelId={'label'}
 			bind:selectedItemId={selectedResolution}
-			maxHeight={80}
 		>
 			<SelectItem slot="template" let:item let:selected {selected}>
 				{item.label}

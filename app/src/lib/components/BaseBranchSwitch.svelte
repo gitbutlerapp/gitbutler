@@ -1,11 +1,11 @@
 <script lang="ts">
+	import Select from '../Select/Select.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
-	import Select from '../shared/Select.svelte';
+	import SelectItem from '$lib/Select/SelectItem.svelte';
 	import { Project } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import Button from '$lib/shared/Button.svelte';
-	import SelectItem from '$lib/shared/SelectItem.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { getRemoteBranches } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';

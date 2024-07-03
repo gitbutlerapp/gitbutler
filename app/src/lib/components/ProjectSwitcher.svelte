@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Select from '../shared/Select.svelte';
-	import SelectItem from '../shared/SelectItem.svelte';
+	import Select from '../Select/Select.svelte';
+	import SelectItem from '../Select/SelectItem.svelte';
 	import { ProjectService, Project } from '$lib/backend/projects';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext, maybeGetContext } from '$lib/utils/context';

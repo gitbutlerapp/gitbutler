@@ -3,8 +3,8 @@
 </script>
 
 <script lang="ts" generics="Selectable extends Record<string, unknown>">
-	import ScrollableContainer from './ScrollableContainer.svelte';
-	import TextBox from './TextBox.svelte';
+	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
+	import TextBox from '../shared/TextBox.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { throttle } from '$lib/utils/misc';
 	import { portal } from '$lib/utils/portal';
@@ -158,7 +158,7 @@
 				handleDelete();
 				break;
 			default:
-				if (isChar(key)) handleChar(key);
+				// if (isChar(key)) handleChar(key);
 				break;
 		}
 	}
@@ -179,7 +179,6 @@
 		value={filterText ?? value?.[labelId]}
 		disabled={disabled || loading}
 		on:mousedown={(ev) => toggleList(ev)}
-		on:keydown={(ev) => handleKeyDown(ev)}
 	/>
 
 	{#if listOpen}

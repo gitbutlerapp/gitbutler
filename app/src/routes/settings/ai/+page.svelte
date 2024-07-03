@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Select from '$lib/Select/Select.svelte';
+	import SelectItem from '$lib/Select/SelectItem.svelte';
 	import { AISecretHandle, AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
@@ -10,8 +12,6 @@
 	import Section from '$lib/settings/Section.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import RadioButton from '$lib/shared/RadioButton.svelte';
-	import Select from '$lib/shared/Select.svelte';
-	import SelectItem from '$lib/shared/SelectItem.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { UserService } from '$lib/stores/user';

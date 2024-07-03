@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Select from '$lib/Select/Select.svelte';
+	import SelectItem from '$lib/Select/SelectItem.svelte';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
@@ -8,8 +10,6 @@
 	import Button from '$lib/shared/Button.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import Link from '$lib/shared/Link.svelte';
-	import Select from '$lib/shared/Select.svelte';
-	import SelectItem from '$lib/shared/SelectItem.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '$lib/utils/context';

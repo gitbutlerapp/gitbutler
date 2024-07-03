@@ -77,6 +77,6 @@
 	}
 
 	.highlighted {
-		background-color: var(--clr-bg-3);
+		background-color: var(--clr-bg-1-muted);
 	}
 </style>
