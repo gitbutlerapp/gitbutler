@@ -99,8 +99,6 @@ export class Branch {
 	id!: string;
 	name!: string;
 	notes!: string;
-	// Active means the branch has been applied to the workspace
-	active!: boolean;
 	@Type(() => LocalFile)
 	files!: LocalFile[];
 	@Type(() => Commit)

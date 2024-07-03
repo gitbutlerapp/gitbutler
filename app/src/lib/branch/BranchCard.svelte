@@ -110,7 +110,7 @@
 		<div
 			class="branch-card hide-native-scrollbar"
 			data-tauri-drag-region
-			class:target-branch={branch.active && branch.selectedForChanges}
+			class:target-branch={branch.selectedForChanges}
 		>
 			<ScrollableContainer
 				wide
@@ -148,7 +148,7 @@
 										showCheckboxes={$commitBoxOpen}
 										allowMultiple
 									/>
-									{#if branch.active && branch.conflicted}
+									{#if branch.conflicted}
 										<div class="card-notifications">
 											<InfoMessage filled outlined={false} style="error">
 												<svelte:fragment slot="title">
@@ -164,18 +164,16 @@
 									{/if}
 								</Dropzones>
 
-								{#if branch.active}
-									<CommitDialog
-										projectId={project.id}
-										expanded={commitBoxOpen}
-										hasSectionsAfter={branch.commits.length > 0}
-										on:action={(e) => {
-											if (e.detail === 'generate-branch-name') {
-												generateBranchName();
-											}
-										}}
-									/>
-								{/if}
+								<CommitDialog
+									projectId={project.id}
+									expanded={commitBoxOpen}
+									hasSectionsAfter={branch.commits.length > 0}
+									on:action={(e) => {
+										if (e.detail === 'generate-branch-name') {
+											generateBranchName();
+										}
+									}}
+								/>
 							</div>
 						{:else if branch.commits.length === 0}
 							<Dropzones>

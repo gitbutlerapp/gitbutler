@@ -70,20 +70,9 @@
 				`refs/remotes/${remoteName}/${pullrequest.sourceBranch}`
 			);
 			await virtualBranchService.reload();
-			const vbranch = await virtualBranchService.getByUpstreamSha(pullrequest.sha);
 
 			// This is a little absurd, but it makes it soundly typed
-			if (!vbranch) {
-				goto(`/${project.id}/board`);
-				return;
-			}
-
-			// Active seems to be a more reliable metric to determine whether to go to the branch page
-			if (vbranch.active) {
-				goto(`/${project.id}/board`);
-			} else {
-				goto(`/${project.id}/stashed/${vbranch.id}`);
-			}
+			goto(`/${project.id}/board`);
 
 			createRemoteModal?.close();
 		} finally {

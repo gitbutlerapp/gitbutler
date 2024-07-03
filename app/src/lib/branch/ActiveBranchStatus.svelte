@@ -15,16 +15,7 @@
 </script>
 
 {#if !remoteExists}
-	{#if !$branch.active}
-		<Button
-			clickable={false}
-			size="tag"
-			icon="virtual-branch-small"
-			style="neutral"
-			help="These changes are stashed away from your working directory."
-			reversedDirection>unapplied</Button
-		>
-	{:else if hasIntegratedCommits}
+	{#if hasIntegratedCommits}
 		<Button
 			clickable={false}
 			size="tag"

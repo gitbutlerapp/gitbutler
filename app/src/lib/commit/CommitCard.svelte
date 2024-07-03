@@ -74,7 +74,7 @@
 		branchController.undoCommit(branch.id, commit.id);
 	}
 
-	let isUndoable = !!branch?.active && commit instanceof Commit;
+	let isUndoable = commit instanceof Commit;
 
 	const hasCommitUrl = !commit.isLocal && commitUrl;
 
