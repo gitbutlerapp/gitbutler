@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts" generics="Selectable extends Record<string, unknown>">
+	import SearchItem from './SearchItem.svelte';
 	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import TextBox from '../shared/TextBox.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
@@ -158,7 +159,7 @@
 				handleDelete();
 				break;
 			default:
-				// if (isChar(key)) handleChar(key);
+				if (isChar(key)) handleChar(key);
 				break;
 		}
 	}
@@ -176,11 +177,11 @@
 		type="select"
 		reversedDirection
 		icon="select-chevron"
-		value={filterText ?? value?.[labelId]}
+		value={value?.[labelId]}
 		disabled={disabled || loading}
 		on:mousedown={(ev) => toggleList(ev)}
+		on:keydown={handleKeyDown}
 	/>
-
 	{#if listOpen}
 		<div
 			role="presentation"
@@ -201,6 +202,12 @@
 				style:max-height={maxHeight && pxToRem(maxHeight)}
 			>
 				<ScrollableContainer initiallyVisible>
+					<SearchItem
+						{items}
+						onSort={(data) => {
+							console.log('data', data);
+						}}
+					/>
 					{#if filteredItems}
 						<div class="options__group">
 							{#each filteredItems as item}
