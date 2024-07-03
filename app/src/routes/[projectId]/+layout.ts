@@ -22,6 +22,7 @@ export async function load({ params, parent }) {
         authService,
         githubService,
         projectService,
+		projectMetrics,
         remoteUrl$,
     } = await parent();
 
@@ -45,10 +46,11 @@ export async function load({ params, parent }) {
 
 	const historyService = new HistoryService(projectId);
 	const baseBranchService = new BaseBranchService(projectId, remoteUrl$, fetches$, heads$);
-	const vbranchService = new VirtualBranchService(projectId, gbBranchActive$);
+	const vbranchService = new VirtualBranchService(projectId, projectMetrics, gbBranchActive$);
 
 	const remoteBranchService = new RemoteBranchService(
 		projectId,
+		projectMetrics,
 		fetches$,
 		heads$,
 		baseBranchService.base$
@@ -65,6 +67,7 @@ export async function load({ params, parent }) {
 		githubService,
 		branchController
 	);
+	projectMetrics.setProject(projectId);
 
 	const branchDragActionsFactory = new BranchDragActionsFactory(branchController);
 	const commitDragActionsFactory = new CommitDragActionsFactory(branchController, project);

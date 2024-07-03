@@ -10,7 +10,7 @@ import type { Branch, RemoteBranch } from '$lib/vbranches/types';
 import type { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 
 export class BranchService {
-	public branches$: Observable<CombinedBranch[]>;
+	readonly branches$: Observable<CombinedBranch[]>;
 
 	constructor(
 		private vbranchService: VirtualBranchService,
