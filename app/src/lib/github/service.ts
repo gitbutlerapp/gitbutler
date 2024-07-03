@@ -39,6 +39,7 @@ import {
 	tap,
 	timeout
 } from 'rxjs/operators';
+import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };
@@ -64,6 +65,7 @@ export class GitHubService {
 	private _owner: string | undefined;
 
 	constructor(
+		private projectMetrics: ProjectMetrics,
 		accessToken$: Observable<string | undefined>,
 		remoteUrl$: Observable<string | undefined>
 	) {
@@ -168,7 +170,9 @@ export class GitHubService {
 					})
 					.then((rsp) => {
 						lscache.set(key, rsp, 1440); // 1 day ttl
-						subscriber.next(rsp.data.map(ghResponseToInstance));
+						const data = rsp.data;
+						this.projectMetrics.setMetric('pr_count', data.length);
+						subscriber.next(data.map(ghResponseToInstance));
 					})
 					.catch((e) => subscriber.error(e));
 			} catch (e) {

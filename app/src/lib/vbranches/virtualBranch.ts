@@ -21,6 +21,7 @@ import {
 	Subject
 } from 'rxjs';
 import { writable, type Readable } from 'svelte/store';
+import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 
 export class VirtualBranchService {
 	branches$: Observable<Branch[] | undefined>;
@@ -32,7 +33,11 @@ export class VirtualBranchService {
 	activeBranches: Readable<Branch[] | undefined>;
 	activeBranchesError: Readable<any>;
 
-	constructor(projectId: string, gbBranchActive$: Observable<boolean>) {
+	constructor(
+		projectId: string,
+		projectMetrics: ProjectMetrics,
+		gbBranchActive$: Observable<boolean>
+	) {
 		this.branches$ = this.reload$.pipe(
 			switchMap(() => gbBranchActive$),
 			switchMap((gbBranchActive) =>
@@ -47,6 +52,9 @@ export class VirtualBranchService {
 						)
 					: of([])
 			),
+			tap((branches) => {
+				projectMetrics.setMetric('virtual_branch_count', branches.length);
+			}),
 			tap((branches) => {
 				for (let i = 0; i < branches.length; i++) {
 					const branch = branches[i];

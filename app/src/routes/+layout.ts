@@ -8,6 +8,7 @@ import { ProjectService } from '$lib/backend/projects';
 import { PromptService } from '$lib/backend/prompt';
 import { UpdaterService } from '$lib/backend/updater';
 import { GitHubService } from '$lib/github/service';
+import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { RemotesService } from '$lib/remotes/service';
 import { RustSecretService } from '$lib/secrets/secretsService';
 import { UserService } from '$lib/stores/user';
@@ -52,7 +53,12 @@ export async function load() {
 	// way we would not need `remoteUrl$` for the non-repo service, and therefore the other one
 	// could easily get an observable of the remote url from `BaseBranchService`.
 	const remoteUrl$ = new BehaviorSubject<string | undefined>(undefined);
-	const githubService = new GitHubService(userService.accessToken$, remoteUrl$);
+	// It feels we should split GitHubService into unauthenticated/authenticated parts so we can
+	// declare project metrics in `/[projectId]/layout.ts` instead of here. The current solution
+	// requires the `projectId` field to be mutable, and be updated when the user loads a new
+	// project.
+	const projectMetrics = new ProjectMetrics();
+	const githubService = new GitHubService(projectMetrics, userService.accessToken$, remoteUrl$);
 
 	const gitConfig = new GitConfigService();
 	const secretsService = new RustSecretService(gitConfig);
@@ -69,13 +75,13 @@ export async function load() {
 		updaterService,
 		promptService,
 		userService,
-		// These observables are provided for convenience
 		remoteUrl$,
 		gitConfig,
 		aiService,
 		remotesService,
 		aiPromptService,
 		lineManagerFactory,
-		secretsService
+		secretsService,
+		projectMetrics
 	};
 }
