@@ -101,12 +101,18 @@
 	}
 
 	function scheduleNextUpdate() {
-		if (!checksStatus || checksStatus.completed) return;
+		if (!checksStatus) return;
 
 		const startedAt = checksStatus.startedAt;
 		if (!startedAt) return;
 
-		const secondsAgo = (new Date().getTime() - startedAt.getTime()) / 1000;
+		const secondsAgo = (Date.now() - startedAt.getTime()) / 1000;
+		// Only stop polling for updates if checks have completed and check suite age is
+		// more than a minute. We do this to work around a bug where just after pushing
+		// to a branch GitHub might not report all the checks that will eventually be
+		// run as part of the suite.
+		if (checksStatus.completed && secondsAgo > 60) return;
+
 		let timeUntilUdate: number | undefined = undefined;
 
 		if (secondsAgo < 60) {
@@ -221,8 +227,7 @@
 					text: 'Your PR has conflicts that must be resolved before merging.'
 				};
 			}
-
-			if (mergeableState === 'blocked' && !isFetchingChecks) {
+			if (mergeableState === 'blocked' && !isFetchingChecks && checksStatus.failed > 0) {
 				return {
 					icon: 'error',
 					messageStyle: 'error',
