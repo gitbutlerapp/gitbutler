@@ -84,6 +84,7 @@
 
 <style lang="postcss">
 	.btn {
+		user-select: none;
 		position: relative;
 		display: inline-flex;
 		align-items: center;

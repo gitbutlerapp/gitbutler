@@ -210,6 +210,7 @@
 	/* select */
 	.textbox__input[type='select']:not([disabled]),
 	.textbox__input[type='select']:not([readonly]) {
+		user-select: none;
 		cursor: pointer;
 	}
 
