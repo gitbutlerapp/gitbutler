@@ -435,6 +435,7 @@
 
 	.commit__description {
 		color: var(--clr-text-2);
+		white-space: pre-wrap;
 	}
 
 	.commit__empty-title {
