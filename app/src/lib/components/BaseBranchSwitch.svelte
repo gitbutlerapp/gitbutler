@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SelectNew from '../Select/SelectNew.svelte';
+	import Select from '../Select/Select.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import SelectItem from '$lib/Select/SelectItem.svelte';
 	import { Project } from '$lib/backend/projects';
@@ -66,7 +66,7 @@
 					section helps ensure your code goes to the correct remote and branch for integration.
 				</svelte:fragment>
 
-				<SelectNew
+				<Select
 					value={selectedBranch.name}
 					options={remoteBranches.map((b) => ({ label: b.name, value: b.name }))}
 					onselect={(value) => {
@@ -80,10 +80,10 @@
 							{item.label}
 						</SelectItem>
 					{/snippet}
-				</SelectNew>
+				</Select>
 
 				{#if uniqueRemotes(remoteBranches).length > 1}
-					<SelectNew
+					<Select
 						value={selectedRemote.name}
 						options={uniqueRemotes(remoteBranches).map((r) => ({ label: r.name, value: r.name }))}
 						onselect={(value) => {
@@ -97,7 +97,7 @@
 								{item.label}
 							</SelectItem>
 						{/snippet}
-					</SelectNew>
+					</Select>
 				{/if}
 
 				{#if $activeBranches && targetChangeDisabled}

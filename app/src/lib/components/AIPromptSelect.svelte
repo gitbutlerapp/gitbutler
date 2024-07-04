@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SelectNew from '../Select/SelectNew.svelte';
+	import Select from '../Select/Select.svelte';
 	import SelectItem from '$lib/Select/SelectItem.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { Project } from '$lib/backend/projects';
@@ -42,7 +42,7 @@
 	}
 </script>
 
-<SelectNew
+<Select
 	value={$selectedPromptId}
 	options={allPrompts.map((p) => ({ label: p.name, value: p.id }))}
 	label={promptUse === 'commits' ? 'Commit message' : 'Branch name'}
@@ -57,4 +57,4 @@
 			{item.label}
 		</SelectItem>
 	{/snippet}
-</SelectNew>
+</Select>

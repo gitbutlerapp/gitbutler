@@ -1,6 +1,6 @@
 <script lang="ts">
+	import Select from '../Select/Select.svelte';
 	import SelectItem from '../Select/SelectItem.svelte';
-	import SelectNew from '../Select/SelectNew.svelte';
 	import OptionsGroup from '$lib/Select/OptionsGroup.svelte';
 	import { ProjectService, Project } from '$lib/backend/projects';
 	import Button from '$lib/shared/Button.svelte';
@@ -23,7 +23,7 @@
 </script>
 
 <div class="project-switcher">
-	<SelectNew
+	<Select
 		value={selectedProjectId}
 		options={$mappedProjects}
 		label="Switch to another project"
@@ -54,7 +54,7 @@
 				Add new project
 			</SelectItem>
 		</OptionsGroup>
-	</SelectNew>
+	</Select>
 
 	<Button
 		style="pop"

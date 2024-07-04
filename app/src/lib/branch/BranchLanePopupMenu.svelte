@@ -1,6 +1,6 @@
 <script lang="ts">
+	import Select from '$lib/Select/Select.svelte';
 	import SelectItem from '$lib/Select/SelectItem.svelte';
-	import SelectNew from '$lib/Select/SelectNew.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
@@ -116,7 +116,7 @@
 			<p class="text-base-15">Please choose how you want to resolve this:</p>
 		</div>
 
-		<SelectNew
+		<Select
 			value={selectedResolution}
 			options={resolutions}
 			onselect={(value) => {
@@ -128,7 +128,7 @@
 					{item.label}
 				</SelectItem>
 			{/snippet}
-		</SelectNew>
+		</Select>
 
 		{#if selectedResolution === 'rename'}
 			<TextBox

@@ -1,7 +1,7 @@
 <script async lang="ts">
 	import ProjectNameLabel from '../shared/ProjectNameLabel.svelte';
+	import Select from '$lib/Select/Select.svelte';
 	import SelectItem from '$lib/Select/SelectItem.svelte';
-	import SelectNew from '$lib/Select/SelectNew.svelte';
 	import { Project } from '$lib/backend/projects';
 	import BackButton from '$lib/components/BackButton.svelte';
 	import Login from '$lib/components/Login.svelte';
@@ -88,7 +88,7 @@
 
 	<div class="project-setup__fields">
 		<div class="project-setup__field-wrap">
-			<SelectNew
+			<Select
 				value={selectedBranch.name}
 				options={remoteBranches.map((b) => ({ label: b.name, value: b.name }))}
 				onselect={(value) => {
@@ -101,7 +101,7 @@
 						{item.label}
 					</SelectItem>
 				{/snippet}
-			</SelectNew>
+			</Select>
 
 			<p class="project-setup__description-text text-base-body-12">
 				This is the branch that you consider "production", normally something like "origin/master"
@@ -111,7 +111,7 @@
 
 		{#if remotes.length > 1}
 			<div class="project-setup__field-wrap">
-				<SelectNew
+				<Select
 					value={selectedRemote.value}
 					options={remotes.map((r) => ({ label: r.name, value: r.value }))}
 					onselect={(value) => {
@@ -124,7 +124,7 @@
 							{item.label}
 						</SelectItem>
 					{/snippet}
-				</SelectNew>
+				</Select>
 
 				<p class="project-setup__description-text text-base-body-12">
 					You have branches from multiple remotes. If you want to specify a remote for creating

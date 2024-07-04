@@ -1,75 +1,68 @@
-<script lang="ts" context="module">
-	export type Selectable<S extends string> = Record<S, unknown>;
-</script>
-
-<script lang="ts" generics="Selectable extends Record<string, unknown>">
-	import SearchItem from './SearchItem.svelte';
+<script lang="ts">
+	import OptionsGroup from './OptionsGroup.svelte';
 	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import TextBox from '../shared/TextBox.svelte';
-	import { KeyName } from '$lib/utils/hotkeys';
-	import { throttle } from '$lib/utils/misc';
 	import { portal } from '$lib/utils/portal';
 	import { pxToRem } from '$lib/utils/pxToRem';
-	import { isChar, isStr } from '$lib/utils/string';
-	import { createEventDispatcher } from 'svelte';
+	import type { Snippet } from 'svelte';
 
-	const INPUT_THROTTLE_TIME = 100;
-
-	type SelectableKey = keyof Selectable;
-
-	export let id: undefined | string = undefined;
-	export let label = '';
-	export let disabled = false;
-	export let loading = false;
-	export let wide = false;
-	export let items: Selectable[];
-	export let labelId: SelectableKey = 'label';
-	export let itemId: SelectableKey = 'value';
-	export let value: any = undefined;
-	export let selectedItemId: any = undefined;
-	export let placeholder = '';
-	export let maxHeight: number | undefined = 260;
-
-	$: if (selectedItemId) value = items.find((item) => item[itemId] === selectedItemId);
-
-	const dispatch = createEventDispatcher<{ select: { value: any } }>();
-	const maxPadding = 10;
-
-	let listOpen = false;
-	let element: HTMLElement;
-	let options: HTMLDivElement;
-	let highlightIndex: number | undefined = undefined;
-	let highlightedItem: Selectable | undefined = undefined;
-	let filterText: string | undefined = undefined;
-	let filteredItems: Selectable[] = items;
-	let inputBoundingRect: DOMRect;
-
-	const filterItems = throttle((items: Selectable[], filterText: string | undefined) => {
-		if (!filterText) {
-			return items;
-		}
-
-		return items.filter((it) => {
-			console.log('it', it);
-			const property = it[labelId];
-			if (!isStr(property)) return false;
-			return property.includes(filterText);
-		});
-	}, INPUT_THROTTLE_TIME);
-
-	$: filteredItems = filterItems(items, filterText);
-	$: highlightedItem = highlightIndex !== undefined ? filteredItems[highlightIndex] : undefined;
-
-	function handleItemClick(item: Selectable) {
-		if (item?.selectable === false) return;
-		if (value && value[itemId] === item[itemId]) return closeList();
-		selectedItemId = item[itemId];
-		dispatch('select', { value });
-		closeList();
+	interface SelectProps {
+		id?: string;
+		label?: string;
+		disabled?: boolean;
+		loading?: boolean;
+		wide?: boolean;
+		options: {
+			label: string;
+			value: string;
+			selectable?: boolean;
+		}[];
+		value?: any;
+		placeholder?: string;
+		maxHeight?: number;
+		itemSnippet: Snippet<[item: any, selected?: boolean]>;
+		children?: Snippet;
+		onselect?: (value: string) => void;
 	}
+
+	const {
+		id,
+		label,
+		disabled,
+		loading,
+		wide,
+		options = [],
+		value,
+		placeholder,
+		maxHeight,
+		itemSnippet,
+		children,
+		onselect
+	}: SelectProps = $props();
+
+	let selectWrapperEl: HTMLElement;
+	let maxHeightState = $state(maxHeight);
+	let listOpen = $state(false);
+	let inputBoundingRect = $state<DOMRect>();
+	let optionsEl = $state<HTMLDivElement>();
+
+	const maxBottomPadding = 20;
+
 	function setMaxHeight() {
 		if (maxHeight) return;
-		maxHeight = window.innerHeight - element.getBoundingClientRect().bottom - maxPadding;
+		maxHeightState =
+			window.innerHeight - selectWrapperEl.getBoundingClientRect().bottom - maxBottomPadding;
+
+		console.log('maxHeightState', maxHeightState);
+	}
+
+	function openList() {
+		setMaxHeight();
+		listOpen = true;
+	}
+
+	function closeList() {
+		listOpen = false;
 	}
 
 	function toggleList(e: MouseEvent) {
@@ -82,91 +75,14 @@
 		else openList();
 	}
 
-	function openList() {
-		setMaxHeight();
-		listOpen = true;
-	}
-
-	function closeList() {
-		listOpen = false;
-		highlightIndex = undefined;
-		filterText = undefined;
-	}
-
-	function handleEnter() {
-		if (highlightIndex !== undefined) {
-			handleItemClick(filteredItems[highlightIndex]);
-		}
+	function handleSelect(item: { label: string; value: string }) {
+		const value = item.value;
+		onselect?.(value);
 		closeList();
-	}
-
-	function handleArrowUp() {
-		if (filteredItems.length === 0) return;
-		if (highlightIndex === undefined) {
-			highlightIndex = filteredItems.length - 1;
-		} else {
-			highlightIndex = highlightIndex === 0 ? filteredItems.length - 1 : highlightIndex - 1;
-		}
-	}
-
-	function handleArrowDown() {
-		if (filteredItems.length === 0) return;
-		if (highlightIndex === undefined) {
-			highlightIndex = 0;
-		} else {
-			highlightIndex = highlightIndex === filteredItems.length - 1 ? 0 : highlightIndex + 1;
-		}
-	}
-
-	function handleChar(char: string) {
-		highlightIndex = undefined;
-		filterText ??= '';
-		filterText += char;
-	}
-
-	function handleDelete() {
-		if (filterText === undefined) return;
-
-		if (filterText.length === 1) {
-			filterText = undefined;
-			return;
-		}
-
-		filterText = filterText.slice(0, -1);
-	}
-
-	function handleKeyDown(e: CustomEvent<KeyboardEvent>) {
-		if (!listOpen) {
-			return;
-		}
-		e.detail.stopPropagation();
-		e.detail.preventDefault();
-
-		const { key } = e.detail;
-		switch (key) {
-			case KeyName.Escape:
-				closeList();
-				break;
-			case KeyName.Up:
-				handleArrowUp();
-				break;
-			case KeyName.Down:
-				handleArrowDown();
-				break;
-			case KeyName.Enter:
-				handleEnter();
-				break;
-			case KeyName.Delete:
-				handleDelete();
-				break;
-			default:
-				if (isChar(key)) handleChar(key);
-				break;
-		}
 	}
 </script>
 
-<div class="select-wrapper" class:wide bind:this={element}>
+<div class="select-wrapper" class:wide bind:this={selectWrapperEl}>
 	{#if label}
 		<label for={id} class="select__label text-base-body-13 text-semibold">{label}</label>
 	{/if}
@@ -178,62 +94,46 @@
 		type="select"
 		reversedDirection
 		icon="select-chevron"
-		value={value?.[labelId]}
+		value={options.find((item) => item.value === value)?.label || 'Select an option...'}
 		disabled={disabled || loading}
 		on:mousedown={(ev) => toggleList(ev)}
-		on:keydown={handleKeyDown}
 	/>
 	{#if listOpen}
 		<div
 			role="presentation"
 			class="scroll-blocker"
-			on:click={(e: MouseEvent) => {
+			onclick={(e: MouseEvent) => {
 				if (e.target === e.currentTarget) closeList();
 			}}
 			use:portal={'body'}
 		>
 			<div
-				bind:this={options}
+				bind:this={optionsEl}
 				class="options card"
 				style:width="{inputBoundingRect?.width}px"
 				style:top={inputBoundingRect?.top
 					? pxToRem(inputBoundingRect.top + inputBoundingRect.height)
 					: undefined}
 				style:left={inputBoundingRect?.left ? pxToRem(inputBoundingRect.left) : undefined}
-				style:max-height={maxHeight && pxToRem(maxHeight)}
+				style:max-height={maxHeightState && pxToRem(maxHeightState)}
 			>
 				<ScrollableContainer initiallyVisible>
-					<SearchItem
-						{items}
-						onSort={(data) => {
-							console.log('data', data);
-						}}
-					/>
-					{#if filteredItems}
-						<div class="options__group">
-							{#each filteredItems as item}
-								<div
-									class="option"
-									class:selected={item === value}
-									tabindex="-1"
-									role="none"
-									on:mousedown={() => handleItemClick(item)}
-									on:keydown|preventDefault|stopPropagation
-								>
-									<slot
-										name="template"
-										{item}
-										selected={item === value}
-										highlighted={item === highlightedItem}
-									/>
-								</div>
-							{/each}
-						</div>
-					{/if}
-					{#if $$slots?.append}
-						<div class="options__group">
-							<slot name="append" />
-						</div>
+					<OptionsGroup>
+						{#each options as item}
+							<div
+								class="option"
+								class:selected={item === value}
+								tabindex="-1"
+								role="none"
+								onmousedown={() => handleSelect(item)}
+							>
+								{@render itemSnippet(item)}
+							</div>
+						{/each}
+					</OptionsGroup>
+
+					{#if children}
+						{@render children()}
 					{/if}
 				</ScrollableContainer>
 			</div>
@@ -277,17 +177,6 @@
 		background: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-s);
 		overflow: hidden;
-	}
-
-	.options__group {
-		display: flex;
-		flex-direction: column;
-		padding: 6px;
-		gap: 2px;
-
-		&:not(&:first-child):last-child {
-			border-top: 1px solid var(--clr-border-2);
-		}
 	}
 
 	.wide {

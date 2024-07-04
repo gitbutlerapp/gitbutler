@@ -1,6 +1,6 @@
 <script lang="ts">
+	import Select from '$lib/Select/Select.svelte';
 	import SelectItem from '$lib/Select/SelectItem.svelte';
-	import SelectNew from '$lib/Select/SelectNew.svelte';
 	import { AISecretHandle, AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
@@ -166,7 +166,7 @@
 		{#if modelKind === ModelKind.OpenAI}
 			<SectionCard roundedTop={false} roundedBottom={false} orientation="row" topDivider>
 				<div class="inputs-group">
-					<SelectNew
+					<Select
 						value={openAIKeyOption}
 						options={keyOptions}
 						label="Do you want to provide your own key?"
@@ -179,7 +179,7 @@
 								{item.label}
 							</SelectItem>
 						{/snippet}
-					</SelectNew>
+					</Select>
 
 					{#if openAIKeyOption === KeyOption.ButlerAPI}
 						<InfoMessage filled outlined={false} style="pop" icon="ai">
@@ -192,7 +192,7 @@
 					{#if openAIKeyOption === KeyOption.BringYourOwn}
 						<TextBox label="API key" bind:value={openAIKey} required placeholder="sk-..." />
 
-						<SelectNew
+						<Select
 							value={openAIModelName}
 							options={openAIModelOptions}
 							label="Model version"
@@ -205,7 +205,7 @@
 									{item.label}
 								</SelectItem>
 							{/snippet}
-						</SelectNew>
+						</Select>
 					{:else if !$user}
 						<WelcomeSigninAction prompt="A user is required to make use of the GitButler API" />
 					{/if}
@@ -228,7 +228,7 @@
 		{#if modelKind === ModelKind.Anthropic}
 			<SectionCard roundedTop={false} roundedBottom={false} orientation="row" topDivider>
 				<div class="inputs-group">
-					<SelectNew
+					<Select
 						value={anthropicKeyOption}
 						options={keyOptions}
 						label="Do you want to provide your own key?"
@@ -241,7 +241,7 @@
 								{item.label}
 							</SelectItem>
 						{/snippet}
-					</SelectNew>
+					</Select>
 
 					{#if anthropicKeyOption === KeyOption.ButlerAPI}
 						<InfoMessage filled outlined={false} style="pop" icon="ai">
@@ -259,7 +259,7 @@
 							placeholder="sk-ant-api03-..."
 						/>
 
-						<SelectNew
+						<Select
 							value={anthropicModelName}
 							options={anthropicModelOptions}
 							label="Model version"
@@ -272,7 +272,7 @@
 									{item.label}
 								</SelectItem>
 							{/snippet}
-						</SelectNew>
+						</Select>
 					{:else if !$user}
 						<WelcomeSigninAction prompt="A user is required to make use of the GitButler API" />
 					{/if}
