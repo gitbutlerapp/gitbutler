@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { pxToRem } from '$lib/utils/pxToRem';
+	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { useAutoHeight } from '$lib/utils/useAutoHeight';
-	import { useResize } from '$lib/utils/useResize';
 	import { createEventDispatcher } from 'svelte';
 
 	export let value: string | undefined;
@@ -48,7 +48,7 @@
 			dispatch('change', e.currentTarget.value);
 			useAutoHeight(e.currentTarget);
 		}}
-		use:useResize={(e) => {
+		use:resizeObserver={(e) => {
 			useAutoHeight(e.currentTarget as HTMLTextAreaElement);
 		}}
 		on:focus={(e) => useAutoHeight(e.currentTarget)}

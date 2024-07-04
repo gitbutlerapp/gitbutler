@@ -18,9 +18,9 @@
 	import { User } from '$lib/stores/user';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { getContext, getContextStore } from '$lib/utils/context';
+	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { useAutoHeight } from '$lib/utils/useAutoHeight';
-	import { useResize } from '$lib/utils/useResize';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, LocalFile } from '$lib/vbranches/types';
 	import { createEventDispatcher, onMount } from 'svelte';
@@ -115,7 +115,7 @@
 {#if isExpanded}
 	<div
 		class="commit-box__textarea-wrapper text-input"
-		use:useResize={() => {
+		use:resizeObserver={() => {
 			if (titleTextArea) useAutoHeight(titleTextArea);
 			if (descriptionTextArea) useAutoHeight(descriptionTextArea);
 		}}
