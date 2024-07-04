@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use migrations::migrator::Migrator;
+use migrations::{gitbutler_migrations::gitbutler_migrations, migrator::Migrator};
 use rusqlite::Connection;
 use std::path::Path;
 
@@ -58,9 +58,10 @@ impl ProjectStore {
         Ok(())
     }
 
+    /// Calls the migrator with appropriate migrations
     fn run_migrations(&mut self) -> Result<()> {
         let mut migrator = Migrator::new(&mut self.connection);
-        migrator.migrate(vec![])?;
+        migrator.migrate(gitbutler_migrations())?;
         Ok(())
     }
 }
@@ -69,4 +70,20 @@ fn sleeper(attempts: i32) -> bool {
     println!("SQLITE_BUSY, retrying after 50ms (attempt {})", attempts);
     std::thread::sleep(std::time::Duration::from_millis(50));
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn run_migrations_should_succeed() {
+        let connection = Connection::open_in_memory().unwrap();
+
+        ProjectStore::configure_connection(&connection).unwrap();
+
+        let mut project_store = ProjectStore { connection };
+
+        project_store.run_migrations().unwrap()
+    }
 }
