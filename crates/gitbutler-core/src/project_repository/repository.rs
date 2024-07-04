@@ -335,14 +335,12 @@ impl Repository {
 
     pub fn commit(
         &self,
-        user: Option<&users::User>,
         message: &str,
         tree: &git2::Tree,
         parents: &[&git2::Commit],
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid> {
-        let (author, committer) =
-            super::signatures::signatures(self, user).context("failed to get signatures")?;
+        let (author, committer) = self.signatures().context("failed to get signatures")?;
         self.repo()
             .commit_with_signature(
                 None,
@@ -630,6 +628,25 @@ impl Repository {
 
     pub fn repo(&self) -> &git2::Repository {
         &self.git_repository
+    }
+
+    fn signatures<'a>(&self) -> Result<(git2::Signature<'a>, git2::Signature<'a>)> {
+        let config = self.config();
+
+        let author = match (config.user_name()?, config.user_email()?) {
+            (None, Some(email)) => git2::Signature::now(&email, &email)?,
+            (Some(name), None) => git2::Signature::now(&name, &format!("{}@example.com", &name))?,
+            (Some(name), Some(email)) => git2::Signature::now(&name, &email)?,
+            _ => git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?,
+        };
+
+        let comitter = if config.user_real_comitter()? {
+            author.clone()
+        } else {
+            git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?
+        };
+
+        Ok((author, comitter))
     }
 }
 

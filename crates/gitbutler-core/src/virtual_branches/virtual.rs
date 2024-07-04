@@ -42,7 +42,6 @@ use crate::{
         Refname, RemoteRefname,
     },
     project_repository::{self, conflicts, LogUntil},
-    users,
 };
 
 type AppliedStatuses = Vec<(branch::Branch, BranchStatus)>;
@@ -901,7 +900,6 @@ pub fn create_virtual_branch(
 pub fn integrate_upstream_commits(
     project_repository: &project_repository::Repository,
     branch_id: BranchId,
-    user: Option<&users::User>,
 ) -> Result<()> {
     conflicts::is_conflicting(project_repository, None)?;
 
@@ -984,7 +982,6 @@ pub fn integrate_upstream_commits(
             }
             integrate_with_merge(
                 project_repository,
-                user,
                 &mut branch,
                 &upstream_commit,
                 merge_base,
@@ -1044,7 +1041,6 @@ pub fn integrate_with_rebase(
 
 pub fn integrate_with_merge(
     project_repository: &project_repository::Repository,
-    user: Option<&users::User>,
     branch: &mut Branch,
     upstream_commit: &git2::Commit,
     merge_base: git2::Oid,
@@ -1084,7 +1080,6 @@ pub fn integrate_with_merge(
     let head_commit = repo.find_commit(branch.head)?;
 
     project_repository.commit(
-        user,
         format!(
             "Merged {}/{} into {}",
             upstream_branch.remote(),
@@ -2076,7 +2071,6 @@ pub fn commit(
     branch_id: BranchId,
     message: &str,
     ownership: Option<&branch::BranchOwnershipClaims>,
-    user: Option<&users::User>,
     run_hooks: bool,
 ) -> Result<git2::Oid> {
     let mut message_buffer = message.to_owned();
@@ -2165,7 +2159,6 @@ pub fn commit(
                 .find_commit(merge_parent)
                 .context(format!("failed to find merge parent {:?}", merge_parent))?;
             let commit_oid = project_repository.commit(
-                user,
                 message,
                 &tree,
                 &[&parent_commit, &merge_parent],
@@ -2174,7 +2167,7 @@ pub fn commit(
             conflicts::clear(project_repository).context("failed to clear conflicts")?;
             commit_oid
         }
-        None => project_repository.commit(user, message, &tree, &[&parent_commit], None)?,
+        None => project_repository.commit(message, &tree, &[&parent_commit], None)?,
     };
 
     if run_hooks {
@@ -2864,7 +2857,6 @@ pub fn insert_blank_commit(
     project_repository: &project_repository::Repository,
     branch_id: BranchId,
     commit_oid: git2::Oid,
-    user: Option<&users::User>,
     offset: i32,
 ) -> Result<()> {
     let vb_state = project_repository.project().virtual_branches();
@@ -2881,7 +2873,7 @@ pub fn insert_blank_commit(
     }
 
     let commit_tree = commit.tree().unwrap();
-    let blank_commit_oid = project_repository.commit(user, "", &commit_tree, &[&commit], None)?;
+    let blank_commit_oid = project_repository.commit("", &commit_tree, &[&commit], None)?;
 
     if commit.id() == branch.head && offset < 0 {
         // inserting before the first commit
@@ -3147,7 +3139,6 @@ pub fn move_commit(
     project_repository: &project_repository::Repository,
     target_branch_id: BranchId,
     commit_id: git2::Oid,
-    user: Option<&users::User>,
 ) -> Result<()> {
     project_repository.assure_resolved()?;
     let vb_state = project_repository.project().virtual_branches();
@@ -3264,7 +3255,6 @@ pub fn move_commit(
 
         let new_destination_head_oid = project_repository
             .commit(
-                user,
                 &source_branch_head.message_bstr().to_str_lossy(),
                 &new_destination_tree,
                 &[&project_repository
@@ -3288,12 +3278,10 @@ pub fn move_commit(
 pub fn create_virtual_branch_from_branch(
     project_repository: &project_repository::Repository,
     upstream: &git::Refname,
-    user: Option<&users::User>,
 ) -> Result<BranchId> {
     fn apply_branch(
         project_repository: &project_repository::Repository,
         branch_id: BranchId,
-        user: Option<&users::User>,
     ) -> Result<String> {
         project_repository.assure_resolved()?;
         let repo = project_repository.repo();
@@ -3400,7 +3388,6 @@ pub fn create_virtual_branch_from_branch(
                 // create a merge commit to avoid the need of force pushing then.
 
                 let new_branch_head = project_repository.commit(
-                    user,
                     format!(
                         "Merged {}/{} into {}",
                         default_target.branch.remote(),
@@ -3449,7 +3436,6 @@ pub fn create_virtual_branch_from_branch(
                     // commit the merge tree oid
                     let new_branch_head = project_repository
                         .commit(
-                            user,
                             format!(
                                 "Merged {}/{} into {}",
                                 default_target.branch.remote(),
@@ -3633,7 +3619,7 @@ pub fn create_virtual_branch_from_branch(
     vb_state.set_branch(branch.clone())?;
     project_repository.add_branch_reference(&branch)?;
 
-    match apply_branch(project_repository, branch.id, user) {
+    match apply_branch(project_repository, branch.id) {
         Ok(_) => Ok(branch.id),
         Err(err)
             if err

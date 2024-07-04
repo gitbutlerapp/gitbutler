@@ -53,17 +53,11 @@ impl Controller {
         run_hooks: bool,
     ) -> Result<git2::Oid> {
         let _permit = self.semaphore.acquire().await;
-        self.with_verify_branch(project_id, |project_repository, user| {
+        self.with_verify_branch(project_id, |project_repository, _| {
             let snapshot_tree = project_repository.project().prepare_snapshot();
-            let result = super::commit(
-                project_repository,
-                branch_id,
-                message,
-                ownership,
-                user,
-                run_hooks,
-            )
-            .map_err(Into::into);
+            let result =
+                super::commit(project_repository, branch_id, message, ownership, run_hooks)
+                    .map_err(Into::into);
             let _ = snapshot_tree.and_then(|snapshot_tree| {
                 project_repository.project().snapshot_commit_creation(
                     snapshot_tree,
@@ -117,9 +111,8 @@ impl Controller {
     ) -> Result<BranchId> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository, user| {
-            super::create_virtual_branch_from_branch(project_repository, branch, user)
-                .map_err(Into::into)
+        self.with_verify_branch(project_id, |project_repository, _| {
+            super::create_virtual_branch_from_branch(project_repository, branch).map_err(Into::into)
         })
     }
 
@@ -169,23 +162,22 @@ impl Controller {
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository, user| {
+        self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::MergeUpstream));
-            super::integrate_upstream_commits(project_repository, branch_id, user)
-                .map_err(Into::into)
+            super::integrate_upstream_commits(project_repository, branch_id).map_err(Into::into)
         })
     }
 
     pub async fn update_base_branch(&self, project_id: ProjectId) -> Result<Vec<ReferenceName>> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository, user| {
+        self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::UpdateWorkspaceBase));
-            super::update_base_branch(project_repository, user)
+            super::update_base_branch(project_repository)
                 .map(|unapplied_branches| {
                     unapplied_branches
                         .iter()
@@ -335,11 +327,11 @@ impl Controller {
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository, user| {
+        self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::InsertBlankCommit));
-            super::insert_blank_commit(project_repository, branch_id, commit_oid, user, offset)
+            super::insert_blank_commit(project_repository, branch_id, commit_oid, offset)
                 .map_err(Into::into)
         })
     }
@@ -538,12 +530,11 @@ impl Controller {
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository, user| {
+        self.with_verify_branch(project_id, |project_repository, _| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::MoveCommit));
-            super::move_commit(project_repository, target_branch_id, commit_oid, user)
-                .map_err(Into::into)
+            super::move_commit(project_repository, target_branch_id, commit_oid).map_err(Into::into)
         })
     }
 }
