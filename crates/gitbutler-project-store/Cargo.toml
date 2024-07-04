@@ -9,6 +9,9 @@ path = "src/lib.rs"
 doctest = false
 test = false
 
+[dev.dependencies]
+gitbutler-testsupport.workspace = true
+
 [dependencies]
 rusqlite = { version = "0.31.0", features = ["bundled", "uuid"] }
 anyhow = "1.0.86"

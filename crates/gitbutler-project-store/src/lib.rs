@@ -1,6 +1,9 @@
 use anyhow::{anyhow, Context, Result};
+use migrations::migrator::Migrator;
 use rusqlite::Connection;
 use std::path::Path;
+
+mod migrations;
 
 const DATABASE_NAME: &str = "project.sqlite";
 
@@ -27,7 +30,7 @@ impl ProjectStore {
 
         ProjectStore::configure_connection(&connection)?;
 
-        let project_store = ProjectStore { connection };
+        let mut project_store = ProjectStore { connection };
 
         project_store.run_migrations()?;
 
@@ -55,7 +58,9 @@ impl ProjectStore {
         Ok(())
     }
 
-    fn run_migrations(&self) -> Result<()> {
+    fn run_migrations(&mut self) -> Result<()> {
+        let mut migrator = Migrator::new(&mut self.connection);
+        migrator.migrate(vec![])?;
         Ok(())
     }
 }
