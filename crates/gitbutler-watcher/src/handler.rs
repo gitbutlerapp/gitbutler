@@ -146,15 +146,6 @@ impl Handler {
         Ok(())
     }
 
-    // TODO: Remove if unused
-    pub async fn git_file_change(
-        &self,
-        path: impl Into<PathBuf>,
-        project_id: ProjectId,
-    ) -> Result<()> {
-        self.git_files_change(vec![path.into()], project_id).await
-    }
-
     pub async fn git_files_change(&self, paths: Vec<PathBuf>, project_id: ProjectId) -> Result<()> {
         let project = self
             .projects
