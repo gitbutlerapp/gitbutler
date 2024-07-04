@@ -8,7 +8,7 @@ async fn twice() {
 
     let test_project = TestProject::default();
 
-    let controller = Controller::new(projects.clone(), helper);
+    let controller = Controller::new(helper);
 
     {
         let project = projects
