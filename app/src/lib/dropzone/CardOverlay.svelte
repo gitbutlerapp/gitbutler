@@ -15,10 +15,7 @@
 	}
 
 	const { hovered, activated, label = 'Drop here', extraPaddings }: Props = $props();
-	let defaultPadding = $derived.by(() => {
-		if (hovered) return 2;
-		return 4;
-	});
+	let defaultPadding = 4;
 
 	const extraPaddingTop = extraPaddings?.top ?? 0;
 	const extraPaddingRight = extraPaddings?.right ?? 0;
@@ -94,7 +91,7 @@
 			transform: scale(1.01);
 
 			.animated-rectangle rect {
-				fill: oklch(from var(--clr-scale-pop-50) l c h / 0.14);
+				fill: oklch(from var(--clr-scale-pop-50) l c h / 0.16);
 			}
 
 			.dropzone-label {
