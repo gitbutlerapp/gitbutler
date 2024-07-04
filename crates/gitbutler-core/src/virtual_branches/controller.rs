@@ -16,7 +16,7 @@ use super::{
 };
 use crate::{
     git, project_repository,
-    projects::{self, ProjectId},
+    projects::{self, Project},
 };
 
 #[derive(Clone)]
@@ -39,14 +39,14 @@ impl Controller {
 
     pub async fn create_commit(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         branch_id: BranchId,
         message: &str,
         ownership: Option<&BranchOwnershipClaims>,
         run_hooks: bool,
     ) -> Result<git2::Oid> {
         let _permit = self.semaphore.acquire().await;
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let snapshot_tree = project_repository.project().prepare_snapshot();
             let result =
                 super::commit(project_repository, branch_id, message, ownership, run_hooks)
@@ -65,33 +65,32 @@ impl Controller {
 
     pub async fn can_apply_remote_branch(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         branch_name: &git::RemoteRefname,
     ) -> Result<bool> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::Repository::open(project)?;
         super::is_remote_branch_mergeable(&project_repository, branch_name).map_err(Into::into)
     }
 
     pub async fn list_virtual_branches(
         &self,
-        project_id: ProjectId,
+        project: &Project,
     ) -> Result<(Vec<super::VirtualBranch>, Vec<git::diff::FileDiff>)> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             super::list_virtual_branches(project_repository).map_err(Into::into)
         })
     }
 
     pub async fn create_virtual_branch(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         create: &super::branch::BranchCreateRequest,
     ) -> Result<BranchId> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let branch_id = super::create_virtual_branch(project_repository, create)?.id;
             Ok(branch_id)
         })
@@ -99,63 +98,55 @@ impl Controller {
 
     pub async fn create_virtual_branch_from_branch(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         branch: &git::Refname,
     ) -> Result<BranchId> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             super::create_virtual_branch_from_branch(project_repository, branch).map_err(Into::into)
         })
     }
 
-    pub async fn get_base_branch_data(&self, project_id: ProjectId) -> Result<BaseBranch> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+    pub async fn get_base_branch_data(&self, project: &Project) -> Result<BaseBranch> {
+        let project_repository = project_repository::Repository::open(project)?;
         super::get_base_branch_data(&project_repository)
     }
 
     pub async fn list_remote_commit_files(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         commit_oid: git2::Oid,
     ) -> Result<Vec<RemoteBranchFile>> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::Repository::open(project)?;
         super::list_remote_commit_files(project_repository.repo(), commit_oid).map_err(Into::into)
     }
 
     pub async fn set_base_branch(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         target_branch: &git::RemoteRefname,
     ) -> Result<BaseBranch> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::Repository::open(project)?;
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::SetBaseBranch));
         super::set_base_branch(&project_repository, target_branch)
     }
 
-    pub async fn set_target_push_remote(
-        &self,
-        project_id: ProjectId,
-        push_remote: &str,
-    ) -> Result<()> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+    pub async fn set_target_push_remote(&self, project: &Project, push_remote: &str) -> Result<()> {
+        let project_repository = project_repository::Repository::open(project)?;
         super::set_target_push_remote(&project_repository, push_remote)
     }
 
     pub async fn integrate_upstream_commits(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         branch_id: BranchId,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::MergeUpstream));
@@ -163,10 +154,10 @@ impl Controller {
         })
     }
 
-    pub async fn update_base_branch(&self, project_id: ProjectId) -> Result<Vec<ReferenceName>> {
+    pub async fn update_base_branch(&self, project: &Project) -> Result<Vec<ReferenceName>> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::UpdateWorkspaceBase));
@@ -183,12 +174,12 @@ impl Controller {
 
     pub async fn update_virtual_branch(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         branch_update: super::branch::BranchUpdateRequest,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let snapshot_tree = project_repository.project().prepare_snapshot();
             let old_branch = project_repository
                 .project()
@@ -210,24 +201,24 @@ impl Controller {
     }
     pub async fn delete_virtual_branch(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         branch_id: BranchId,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             super::delete_branch(project_repository, branch_id)
         })
     }
 
     pub async fn unapply_ownership(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         ownership: &BranchOwnershipClaims,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::DiscardHunk));
@@ -235,10 +226,10 @@ impl Controller {
         })
     }
 
-    pub async fn reset_files(&self, project_id: ProjectId, files: &Vec<String>) -> Result<()> {
+    pub async fn reset_files(&self, project: &Project, files: &Vec<String>) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::DiscardFile));
@@ -248,14 +239,14 @@ impl Controller {
 
     pub async fn amend(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         branch_id: BranchId,
         commit_oid: git2::Oid,
         ownership: &BranchOwnershipClaims,
     ) -> Result<git2::Oid> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::AmendCommit));
@@ -265,7 +256,7 @@ impl Controller {
 
     pub async fn move_commit_file(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         branch_id: BranchId,
         from_commit_oid: git2::Oid,
         to_commit_oid: git2::Oid,
@@ -273,7 +264,7 @@ impl Controller {
     ) -> Result<git2::Oid> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::MoveCommitFile));
@@ -290,13 +281,13 @@ impl Controller {
 
     pub async fn undo_commit(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         branch_id: BranchId,
         commit_oid: git2::Oid,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let snapshot_tree = project_repository.project().prepare_snapshot();
             let result: Result<()> =
                 super::undo_commit(project_repository, branch_id, commit_oid).map_err(Into::into);
@@ -313,14 +304,14 @@ impl Controller {
 
     pub async fn insert_blank_commit(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         branch_id: BranchId,
         commit_oid: git2::Oid,
         offset: i32,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::InsertBlankCommit));
@@ -331,14 +322,14 @@ impl Controller {
 
     pub async fn reorder_commit(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         branch_id: BranchId,
         commit_oid: git2::Oid,
         offset: i32,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::ReorderCommit));
@@ -349,13 +340,13 @@ impl Controller {
 
     pub async fn reset_virtual_branch(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         branch_id: BranchId,
         target_commit_oid: git2::Oid,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::UndoCommit));
@@ -366,13 +357,13 @@ impl Controller {
 
     pub async fn convert_to_real_branch(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         branch_id: BranchId,
         name_conflict_resolution: NameConflitResolution,
     ) -> Result<ReferenceName> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let snapshot_tree = project_repository.project().prepare_snapshot();
             let result = super::convert_to_real_branch(
                 project_repository,
@@ -391,47 +382,42 @@ impl Controller {
 
     pub async fn push_virtual_branch(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         branch_id: BranchId,
         with_force: bool,
         askpass: Option<Option<BranchId>>,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
         let helper = self.helper.clone();
-        self.with_verify_branch_async(project_id, move |project_repository| {
+        self.with_verify_branch_async(project, move |project_repository| {
             super::push(project_repository, branch_id, with_force, &helper, askpass)
         })?
         .await?
     }
 
-    pub async fn list_remote_branches(
-        &self,
-        project_id: ProjectId,
-    ) -> Result<Vec<super::RemoteBranch>> {
-        let project = self.projects.get(project_id)?;
+    pub async fn list_remote_branches(&self, project: Project) -> Result<Vec<super::RemoteBranch>> {
         let project_repository = project_repository::Repository::open(&project)?;
         super::list_remote_branches(&project_repository)
     }
 
     pub async fn get_remote_branch_data(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         refname: &git::Refname,
     ) -> Result<super::RemoteBranchData> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::Repository::open(project)?;
         super::get_branch_data(&project_repository, refname)
     }
 
     pub async fn squash(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         branch_id: BranchId,
         commit_oid: git2::Oid,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::SquashCommit));
@@ -441,13 +427,13 @@ impl Controller {
 
     pub async fn update_commit_message(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         branch_id: BranchId,
         commit_oid: git2::Oid,
         message: &str,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::UpdateCommitMessage));
@@ -458,11 +444,10 @@ impl Controller {
 
     pub async fn fetch_from_remotes(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         askpass: Option<String>,
     ) -> Result<BaseBranch> {
-        let project = self.projects.get(project_id)?;
-        let mut project_repository = project_repository::Repository::open(&project)?;
+        let mut project_repository = project_repository::Repository::open(project)?;
 
         let remotes = project_repository.remotes()?;
         let fetch_results: Vec<Result<(), _>> = remotes
@@ -500,7 +485,7 @@ impl Controller {
         let updated_project = self
             .projects
             .update(&projects::UpdateRequest {
-                id: project_id,
+                id: project.id,
                 project_data_last_fetched: Some(project_data_last_fetched),
                 ..Default::default()
             })
@@ -517,13 +502,13 @@ impl Controller {
 
     pub async fn move_commit(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         target_branch_id: BranchId,
         commit_oid: git2::Oid,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
 
-        self.with_verify_branch(project_id, |project_repository| {
+        self.with_verify_branch(project, |project_repository| {
             let _ = project_repository
                 .project()
                 .create_snapshot(SnapshotDetails::new(OperationKind::MoveCommit));
@@ -535,22 +520,20 @@ impl Controller {
 impl Controller {
     fn with_verify_branch<T>(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         action: impl FnOnce(&project_repository::Repository) -> Result<T>,
     ) -> Result<T> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::Repository::open(project)?;
         super::integration::verify_branch(&project_repository)?;
         action(&project_repository)
     }
 
     fn with_verify_branch_async<T: Send + 'static>(
         &self,
-        project_id: ProjectId,
+        project: &Project,
         action: impl FnOnce(&project_repository::Repository) -> Result<T> + Send + 'static,
     ) -> Result<JoinHandle<Result<T>>> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::Repository::open(project)?;
         super::integration::verify_branch(&project_repository)?;
         Ok(tokio::task::spawn_blocking(move || {
             action(&project_repository)

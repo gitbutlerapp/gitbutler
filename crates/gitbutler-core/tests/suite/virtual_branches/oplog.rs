@@ -9,14 +9,13 @@ async fn workdir_vbranch_restore() -> anyhow::Result<()> {
     let test = Test::default();
     let Test {
         repository,
-        project_id,
         controller,
         project,
         ..
     } = &test;
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
@@ -29,7 +28,7 @@ async fn workdir_vbranch_restore() -> anyhow::Result<()> {
         )?;
         let branch_id = controller
             .create_virtual_branch(
-                *project_id,
+                project,
                 &branch::BranchCreateRequest {
                     name: Some(round.to_string()),
                     ..Default::default()
@@ -38,7 +37,7 @@ async fn workdir_vbranch_restore() -> anyhow::Result<()> {
             .await?;
         controller
             .create_commit(
-                *project_id,
+                project,
                 branch_id,
                 &format!("commit {round}"),
                 None,
@@ -56,7 +55,7 @@ async fn workdir_vbranch_restore() -> anyhow::Result<()> {
         );
     }
     let _empty = controller
-        .create_virtual_branch(*project_id, &Default::default())
+        .create_virtual_branch(project, &Default::default())
         .await?;
 
     let snapshots = project.list_snapshots(10, None)?;
@@ -102,24 +101,23 @@ fn make_lines(count: usize) -> Vec<u8> {
 async fn basic_oplog() -> anyhow::Result<()> {
     let Test {
         repository,
-        project_id,
         controller,
         project,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse()?)
+        .set_base_branch(project, &"refs/remotes/origin/master".parse()?)
         .await?;
 
     let branch_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await?;
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content")?;
     let _commit1_id = controller
-        .create_commit(*project_id, branch_id, "commit one", None, false)
+        .create_commit(project, branch_id, "commit one", None, false)
         .await?;
 
     // dont store large files
@@ -135,7 +133,7 @@ async fn basic_oplog() -> anyhow::Result<()> {
     fs::write(repository.path().join("file2.txt"), "content2")?;
     fs::write(repository.path().join("file3.txt"), "content3")?;
     let commit2_id = controller
-        .create_commit(*project_id, branch_id, "commit two", None, false)
+        .create_commit(project, branch_id, "commit two", None, false)
         .await?;
 
     // Create conflict state
@@ -146,7 +144,7 @@ async fn basic_oplog() -> anyhow::Result<()> {
 
     // create state with conflict state
     let _empty_branch_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await?;
 
     std::fs::remove_file(&base_merge_parent_path)?;
@@ -154,18 +152,18 @@ async fn basic_oplog() -> anyhow::Result<()> {
 
     fs::write(repository.path().join("file4.txt"), "content4")?;
     let _commit3_id = controller
-        .create_commit(*project_id, branch_id, "commit three", None, false)
+        .create_commit(project, branch_id, "commit three", None, false)
         .await?;
 
     let branch = controller
-        .list_virtual_branches(*project_id)
+        .list_virtual_branches(project)
         .await?
         .0
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    let branches = controller.list_virtual_branches(*project_id).await?;
+    let branches = controller.list_virtual_branches(project).await?;
     assert_eq!(branches.0.len(), 2);
 
     assert_eq!(branch.commits.len(), 3);
@@ -204,7 +202,7 @@ async fn basic_oplog() -> anyhow::Result<()> {
     project.restore_snapshot(snapshots[2].clone().commit_id)?;
 
     // the restore removed our new branch
-    let branches = controller.list_virtual_branches(*project_id).await?;
+    let branches = controller.list_virtual_branches(project).await?;
     assert_eq!(branches.0.len(), 1);
 
     // assert that the conflicts file was removed
@@ -252,26 +250,25 @@ async fn basic_oplog() -> anyhow::Result<()> {
 async fn restores_gitbutler_integration() -> anyhow::Result<()> {
     let Test {
         repository,
-        project_id,
         controller,
         project,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse()?)
+        .set_base_branch(project, &"refs/remotes/origin/master".parse()?)
         .await?;
 
     assert_eq!(project.virtual_branches().list_branches()?.len(), 0);
     let branch_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await?;
     assert_eq!(project.virtual_branches().list_branches()?.len(), 1);
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content")?;
     let _commit1_id = controller
-        .create_commit(*project_id, branch_id, "commit one", None, false)
+        .create_commit(project, branch_id, "commit one", None, false)
         .await?;
 
     let repo = git2::Repository::open(&project.path)?;
@@ -286,7 +283,7 @@ async fn restores_gitbutler_integration() -> anyhow::Result<()> {
     // create second commit
     fs::write(repository.path().join("file.txt"), "changed content")?;
     let _commit2_id = controller
-        .create_commit(*project_id, branch_id, "commit two", None, false)
+        .create_commit(project, branch_id, "commit two", None, false)
         .await?;
 
     // check the integration commit changed
@@ -365,18 +362,17 @@ async fn restores_gitbutler_integration() -> anyhow::Result<()> {
 async fn head_corrupt_is_recreated_automatically() {
     let Test {
         repository,
-        project_id,
         controller,
         project,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
@@ -396,7 +392,7 @@ async fn head_corrupt_is_recreated_automatically() {
     .unwrap();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .expect("the snapshot doesn't fail despite the corrupt head");
 

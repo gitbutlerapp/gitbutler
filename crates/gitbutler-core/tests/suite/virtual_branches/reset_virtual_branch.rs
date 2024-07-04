@@ -8,18 +8,18 @@ use crate::suite::virtual_branches::Test;
 async fn to_head() {
     let Test {
         repository,
-        project_id,
+        project,
         controller,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch1_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -28,11 +28,11 @@ async fn to_head() {
 
         // commit changes
         let oid = controller
-            .create_commit(*project_id, branch1_id, "commit", None, false)
+            .create_commit(project, branch1_id, "commit", None, false)
             .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -49,11 +49,11 @@ async fn to_head() {
     {
         // reset changes to head
         controller
-            .reset_virtual_branch(*project_id, branch1_id, oid)
+            .reset_virtual_branch(project, branch1_id, oid)
             .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -70,18 +70,18 @@ async fn to_head() {
 async fn to_target() {
     let Test {
         repository,
-        project_id,
+        project,
         controller,
         ..
     } = &Test::default();
 
     let base_branch = controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch1_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -90,11 +90,11 @@ async fn to_target() {
 
         // commit changes
         let oid = controller
-            .create_commit(*project_id, branch1_id, "commit", None, false)
+            .create_commit(project, branch1_id, "commit", None, false)
             .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -109,11 +109,11 @@ async fn to_target() {
     {
         // reset changes to head
         controller
-            .reset_virtual_branch(*project_id, branch1_id, base_branch.base_sha)
+            .reset_virtual_branch(project, branch1_id, base_branch.base_sha)
             .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 0);
@@ -129,18 +129,18 @@ async fn to_target() {
 async fn to_commit() {
     let Test {
         repository,
-        project_id,
+        project,
         controller,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch1_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -150,11 +150,11 @@ async fn to_commit() {
         fs::write(repository.path().join("file.txt"), "content").unwrap();
 
         let oid = controller
-            .create_commit(*project_id, branch1_id, "commit", None, false)
+            .create_commit(project, branch1_id, "commit", None, false)
             .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -173,11 +173,11 @@ async fn to_commit() {
         fs::write(repository.path().join("file.txt"), "more content").unwrap();
 
         let second_commit_oid = controller
-            .create_commit(*project_id, branch1_id, "commit", None, false)
+            .create_commit(project, branch1_id, "commit", None, false)
             .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 2);
@@ -193,11 +193,11 @@ async fn to_commit() {
     {
         // reset changes to the first commit
         controller
-            .reset_virtual_branch(*project_id, branch1_id, first_commit_oid)
+            .reset_virtual_branch(project, branch1_id, first_commit_oid)
             .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -214,18 +214,18 @@ async fn to_commit() {
 async fn to_non_existing() {
     let Test {
         repository,
-        project_id,
+        project,
         controller,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch1_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -234,11 +234,11 @@ async fn to_non_existing() {
 
         // commit changes
         let oid = controller
-            .create_commit(*project_id, branch1_id, "commit", None, false)
+            .create_commit(project, branch1_id, "commit", None, false)
             .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -255,7 +255,7 @@ async fn to_non_existing() {
     assert_eq!(
         controller
             .reset_virtual_branch(
-                *project_id,
+                project,
                 branch1_id,
                 "fe14df8c66b73c6276f7bb26102ad91da680afcb".parse().unwrap()
             )

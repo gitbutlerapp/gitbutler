@@ -4,13 +4,13 @@ use super::*;
 async fn unapplying_selected_branch_selects_anther() {
     let Test {
         repository,
-        project_id,
+        project,
         controller,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
@@ -18,17 +18,17 @@ async fn unapplying_selected_branch_selects_anther() {
 
     // first branch should be created as default
     let b_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     // if default branch exists, new branch should not be created as default
     let b2_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
 
     let b = branches.iter().find(|b| b.id == b_id).unwrap();
 
@@ -38,11 +38,11 @@ async fn unapplying_selected_branch_selects_anther() {
     assert!(!b2.selected_for_changes);
 
     controller
-        .convert_to_real_branch(*project_id, b_id, Default::default())
+        .convert_to_real_branch(project, b_id, Default::default())
         .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
 
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, b2.id);
@@ -53,29 +53,29 @@ async fn unapplying_selected_branch_selects_anther() {
 #[tokio::test]
 async fn deleting_selected_branch_selects_anther() {
     let Test {
-        project_id,
+        project,
         controller,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     // first branch should be created as default
     let b_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     // if default branch exists, new branch should not be created as default
     let b2_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
 
     let b = branches.iter().find(|b| b.id == b_id).unwrap();
 
@@ -85,11 +85,11 @@ async fn deleting_selected_branch_selects_anther() {
     assert!(!b2.selected_for_changes);
 
     controller
-        .delete_virtual_branch(*project_id, b_id)
+        .delete_virtual_branch(project, b_id)
         .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
 
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, b2.id);
@@ -99,23 +99,23 @@ async fn deleting_selected_branch_selects_anther() {
 #[tokio::test]
 async fn create_virtual_branch_should_set_selected_for_changes() {
     let Test {
-        project_id,
+        project,
         controller,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     // first branch should be created as default
     let b_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
     let branch = controller
-        .list_virtual_branches(*project_id)
+        .list_virtual_branches(project)
         .await
         .unwrap()
         .0
@@ -126,11 +126,11 @@ async fn create_virtual_branch_should_set_selected_for_changes() {
 
     // if default branch exists, new branch should not be created as default
     let b_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
     let branch = controller
-        .list_virtual_branches(*project_id)
+        .list_virtual_branches(project)
         .await
         .unwrap()
         .0
@@ -142,7 +142,7 @@ async fn create_virtual_branch_should_set_selected_for_changes() {
     // explicitly don't make this one default
     let b_id = controller
         .create_virtual_branch(
-            *project_id,
+            project,
             &branch::BranchCreateRequest {
                 selected_for_changes: Some(false),
                 ..Default::default()
@@ -151,7 +151,7 @@ async fn create_virtual_branch_should_set_selected_for_changes() {
         .await
         .unwrap();
     let branch = controller
-        .list_virtual_branches(*project_id)
+        .list_virtual_branches(project)
         .await
         .unwrap()
         .0
@@ -163,7 +163,7 @@ async fn create_virtual_branch_should_set_selected_for_changes() {
     // explicitly make this one default
     let b_id = controller
         .create_virtual_branch(
-            *project_id,
+            project,
             &branch::BranchCreateRequest {
                 selected_for_changes: Some(true),
                 ..Default::default()
@@ -172,7 +172,7 @@ async fn create_virtual_branch_should_set_selected_for_changes() {
         .await
         .unwrap();
     let branch = controller
-        .list_virtual_branches(*project_id)
+        .list_virtual_branches(project)
         .await
         .unwrap()
         .0
@@ -185,22 +185,22 @@ async fn create_virtual_branch_should_set_selected_for_changes() {
 #[tokio::test]
 async fn update_virtual_branch_should_reset_selected_for_changes() {
     let Test {
-        project_id,
+        project,
         controller,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let b1_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
     let b1 = controller
-        .list_virtual_branches(*project_id)
+        .list_virtual_branches(project)
         .await
         .unwrap()
         .0
@@ -210,11 +210,11 @@ async fn update_virtual_branch_should_reset_selected_for_changes() {
     assert!(b1.selected_for_changes);
 
     let b2_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
     let b2 = controller
-        .list_virtual_branches(*project_id)
+        .list_virtual_branches(project)
         .await
         .unwrap()
         .0
@@ -225,7 +225,7 @@ async fn update_virtual_branch_should_reset_selected_for_changes() {
 
     controller
         .update_virtual_branch(
-            *project_id,
+            project,
             branch::BranchUpdateRequest {
                 id: b2_id,
                 selected_for_changes: Some(true),
@@ -236,7 +236,7 @@ async fn update_virtual_branch_should_reset_selected_for_changes() {
         .unwrap();
 
     let b1 = controller
-        .list_virtual_branches(*project_id)
+        .list_virtual_branches(project)
         .await
         .unwrap()
         .0
@@ -246,7 +246,7 @@ async fn update_virtual_branch_should_reset_selected_for_changes() {
     assert!(!b1.selected_for_changes);
 
     let b2 = controller
-        .list_virtual_branches(*project_id)
+        .list_virtual_branches(project)
         .await
         .unwrap()
         .0
@@ -260,24 +260,24 @@ async fn update_virtual_branch_should_reset_selected_for_changes() {
 async fn unapply_virtual_branch_should_reset_selected_for_changes() {
     let Test {
         repository,
-        project_id,
+        project,
         controller,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let b1_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
     let b1 = controller
-        .list_virtual_branches(*project_id)
+        .list_virtual_branches(project)
         .await
         .unwrap()
         .0
@@ -287,12 +287,12 @@ async fn unapply_virtual_branch_should_reset_selected_for_changes() {
     assert!(b1.selected_for_changes);
 
     let b2_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     let b2 = controller
-        .list_virtual_branches(*project_id)
+        .list_virtual_branches(project)
         .await
         .unwrap()
         .0
@@ -302,12 +302,12 @@ async fn unapply_virtual_branch_should_reset_selected_for_changes() {
     assert!(!b2.selected_for_changes);
 
     controller
-        .convert_to_real_branch(*project_id, b1_id, Default::default())
+        .convert_to_real_branch(project, b1_id, Default::default())
         .await
         .unwrap();
 
     assert!(controller
-        .list_virtual_branches(*project_id)
+        .list_virtual_branches(project)
         .await
         .unwrap()
         .0
@@ -319,24 +319,24 @@ async fn unapply_virtual_branch_should_reset_selected_for_changes() {
 async fn hunks_distribution() {
     let Test {
         repository,
-        project_id,
+        project,
         controller,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
     assert_eq!(branches[0].files.len(), 1);
 
     controller
         .create_virtual_branch(
-            *project_id,
+            project,
             &branch::BranchCreateRequest {
                 selected_for_changes: Some(true),
                 ..Default::default()
@@ -345,7 +345,7 @@ async fn hunks_distribution() {
         .await
         .unwrap();
     std::fs::write(repository.path().join("another_file.txt"), "content").unwrap();
-    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[1].files.len(), 1);
 }
@@ -354,32 +354,32 @@ async fn hunks_distribution() {
 async fn applying_first_branch() {
     let Test {
         repository,
-        project_id,
+        project,
         controller,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     let unapplied_branch = controller
-        .convert_to_real_branch(*project_id, branches[0].id, Default::default())
+        .convert_to_real_branch(project, branches[0].id, Default::default())
         .await
         .unwrap();
     let unapplied_branch = git::Refname::from_str(&unapplied_branch).unwrap();
     controller
-        .create_virtual_branch_from_branch(*project_id, &unapplied_branch)
+        .create_virtual_branch_from_branch(project, &unapplied_branch)
         .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].active);
     assert!(branches[0].selected_for_changes);
@@ -391,7 +391,7 @@ async fn applying_first_branch() {
 async fn new_locked_hunk_without_modifying_existing() {
     let Test {
         repository,
-        project_id,
+        project,
         controller,
         ..
     } = &Test::default();
@@ -401,28 +401,28 @@ async fn new_locked_hunk_without_modifying_existing() {
     repository.push();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     lines[0] = "modification 1".to_string();
     repository.write_file("file.txt", &lines);
 
-    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
     assert_eq!(branches[0].files.len(), 1);
 
     controller
-        .create_commit(*project_id, branches[0].id, "second commit", None, false)
+        .create_commit(project, branches[0].id, "second commit", None, false)
         .await
         .expect("failed to create commit");
 
-    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
     assert_eq!(branches[0].files.len(), 0);
     assert_eq!(branches[0].commits.len(), 1);
 
     controller
         .create_virtual_branch(
-            *project_id,
+            project,
             &branch::BranchCreateRequest {
                 selected_for_changes: Some(true),
                 ..Default::default()
@@ -434,13 +434,13 @@ async fn new_locked_hunk_without_modifying_existing() {
     lines[8] = "modification 2".to_string();
     repository.write_file("file.txt", &lines);
 
-    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
     assert_eq!(branches[0].files.len(), 0);
     assert_eq!(branches[1].files.len(), 1);
 
     lines[0] = "modification 3".to_string();
     repository.write_file("file.txt", &lines);
-    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[1].files.len(), 1);
 }
