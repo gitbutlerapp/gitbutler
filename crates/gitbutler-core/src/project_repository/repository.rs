@@ -630,7 +630,7 @@ impl Repository {
         &self.git_repository
     }
 
-    fn signatures<'a>(&self) -> Result<(git2::Signature<'a>, git2::Signature<'a>)> {
+    fn signatures(&self) -> Result<(git2::Signature, git2::Signature)> {
         let config = self.config();
 
         let author = match (config.user_name()?, config.user_email()?) {
