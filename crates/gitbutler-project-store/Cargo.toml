@@ -10,7 +10,6 @@ doctest = false
 test = false
 
 [dependencies]
-diesel = { version = "2.2.0", features = ["sqlite"] }
-diesel_migrations = { version = "2.2.0" }
-libsqlite3-sys = { version = "0.25.2", features = ["bundled"] }
+rusqlite = { version = "0.31.0", features = ["bundled", "uuid"] }
 anyhow = "1.0.86"
+uuid.workspace = true
