@@ -1,0 +1,16 @@
+[package]
+name = "gitbutler-project-store"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+doctest = false
+test = false
+
+[dependencies]
+diesel = { version = "2.2.0", features = ["sqlite"] }
+diesel_migrations = { version = "2.2.0" }
+libsqlite3-sys = { version = "0.25.2", features = ["bundled"] }
+anyhow = "1.0.86"
