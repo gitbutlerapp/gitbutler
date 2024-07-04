@@ -14,6 +14,8 @@
 	import PromptModal from '$lib/components/PromptModal.svelte';
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
 	import { GitHubService } from '$lib/github/service';
+	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
+	import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import ToastController from '$lib/notifications/ToastController.svelte';
 	import { RemotesService } from '$lib/remotes/service';
 	import { setSecretsService } from '$lib/secrets/secretsService';
@@ -51,6 +53,7 @@
 	setContext(RemotesService, data.remotesService);
 	setContext(AIPromptService, data.aiPromptService);
 	setContext(LineManagerFactory, data.lineManagerFactory);
+	setContext(ProjectMetrics, data.projectMetrics);
 
 	let shareIssueModal: ShareIssueModal;
 
@@ -107,6 +110,7 @@
 <AppUpdater />
 <PromptModal />
 <GlobalSettingsMenuAction />
+<MetricsReporter />
 
 <style lang="postcss">
 	.app-root {

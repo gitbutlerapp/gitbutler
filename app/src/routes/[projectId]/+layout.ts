@@ -67,7 +67,7 @@ export async function load({ params, parent }) {
 		githubService,
 		branchController
 	);
-	projectMetrics.setProject(projectId);
+	projectMetrics.setProjectId(projectId);
 
 	const branchDragActionsFactory = new BranchDragActionsFactory(branchController);
 	const commitDragActionsFactory = new CommitDragActionsFactory(branchController, project);
