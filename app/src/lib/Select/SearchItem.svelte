@@ -74,8 +74,9 @@
 		transition: border-color var(--transition-fast);
 
 		&:hover,
-		&:focus {
+		&:focus-within {
 			background-color: var(--clr-bg-1-muted);
+			outline: none;
 		}
 
 		&::placeholder {
