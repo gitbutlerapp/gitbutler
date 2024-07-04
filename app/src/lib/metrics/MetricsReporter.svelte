@@ -42,7 +42,7 @@
 	onMount(() => {
 		intervalId = setInterval(() => {
 			sample();
-		}, hourMs / 12);
+		}, 4 * hourMs);
 		return () => {
 			if (intervalId) clearInterval(intervalId);
 		};
