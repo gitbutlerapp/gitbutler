@@ -2,7 +2,7 @@
 	import { MessageRole } from '$lib/ai/types';
 	import Button from '$lib/shared/Button.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
-	import { useAutoHeight } from '$lib/utils/useAutoHeight';
+	import { autoHeight } from '$lib/utils/autoHeight';
 	import { marked } from 'marked';
 	import { createEventDispatcher } from 'svelte';
 
@@ -33,7 +33,7 @@
 
 	$: focusTextareaOnMount(textareaElement, autofocus, editing);
 
-	$: if (textareaElement) useAutoHeight(textareaElement);
+	$: if (textareaElement) autoHeight(textareaElement);
 </script>
 
 <div
@@ -61,12 +61,12 @@
 				class:is-error={isError}
 				rows={1}
 				on:input={(e) => {
-					useAutoHeight(e.currentTarget);
+					autoHeight(e.currentTarget);
 
 					dispatcher('input', e.currentTarget.value);
 				}}
 				on:change={(e) => {
-					useAutoHeight(e.currentTarget);
+					autoHeight(e.currentTarget);
 				}}
 			></textarea>
 		{:else}
