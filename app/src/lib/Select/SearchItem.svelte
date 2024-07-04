@@ -1,24 +1,38 @@
 <script lang="ts">
-	import { type Selectable } from './Select.svelte';
+	import { type SelectItem } from './Select.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 
 	interface Props {
 		placeholder?: string;
-		items: Selectable<string>[];
-		onSort?: (items: Selectable<string>[]) => void;
+		items: SelectItem[];
+		onSort?: (items: SelectItem[]) => void;
 	}
 
 	const { placeholder = 'Search…', items, onSort }: Props = $props();
 
 	let value = $state('');
-	let filteredItems = items;
+	let filteredItems = $state(items);
 
 	let inputEl: HTMLInputElement;
 
+	function handleFilter() {
+		filteredItems = items.filter((item) => item.label.toLowerCase().includes(value.toLowerCase()));
+	}
+
+	function resetFilter() {
+		value = '';
+		handleFilter();
+		inputEl.focus();
+	}
+
 	function handleInput(event: Event) {
 		value = (event.target as HTMLInputElement).value;
-		onSort?.(items);
+		handleFilter();
 	}
+
+	$effect(() => {
+		onSort?.(filteredItems);
+	});
 </script>
 
 <div class="container">
@@ -27,13 +41,7 @@
 			<Icon name="search" />
 		</i>
 	{:else}
-		<button
-			class="icon"
-			onclick={() => {
-				value = '';
-				inputEl.focus();
-			}}
-		>
+		<button class="icon" onclick={resetFilter}>
 			<Icon name="clear-input" />
 		</button>
 	{/if}
@@ -53,6 +61,7 @@
 <style lang="postcss">
 	.container {
 		position: relative;
+		user-select: text;
 	}
 
 	.search-input {
@@ -60,6 +69,14 @@
 		width: 100%;
 		background-color: var(--clr-bg-1);
 		color: var(--clr-text-1);
+
+		border-bottom: 1px solid var(--clr-border-2);
+		transition: border-color var(--transition-fast);
+
+		&:hover,
+		&:focus {
+			background-color: var(--clr-bg-1-muted);
+		}
 
 		&::placeholder {
 			color: var(--clr-text-3);
@@ -72,6 +89,11 @@
 		right: 12px;
 		transform: translateY(-50%);
 		color: var(--clr-scale-ntrl-50);
+		transition: color var(--transition-fast);
+
+		&:hover {
+			color: var(--clr-scale-ntrl-40);
+		}
 	}
 
 	.search-icon {

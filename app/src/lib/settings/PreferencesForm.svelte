@@ -161,7 +161,6 @@
 				}}
 			>
 				{#snippet itemSnippet(item)}
-					{console.log(item)}
 					<SelectItem selected={item.value === signingFormat}>
 						{item.label}
 					</SelectItem>

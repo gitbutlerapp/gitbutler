@@ -19,8 +19,8 @@
 		padding: 6px;
 		gap: 2px;
 
-		&:not(&:first-child):last-child {
-			border-top: 1px solid var(--clr-border-2);
+		&:not(&:last-child) {
+			border-bottom: 1px solid var(--clr-border-2);
 		}
 	}
 </style>

@@ -47,6 +47,7 @@
 	options={allPrompts.map((p) => ({ label: p.name, value: p.id }))}
 	label={promptUse === 'commits' ? 'Commit message' : 'Branch name'}
 	wide={true}
+	searchable
 	disabled={allPrompts.length === 1}
 	onselect={(value) => {
 		$selectedPromptId = value;

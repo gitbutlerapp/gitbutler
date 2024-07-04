@@ -74,6 +74,7 @@
 					}}
 					disabled={targetChangeDisabled}
 					label="Current target branch"
+					searchable
 				>
 					{#snippet itemSnippet(item)}
 						<SelectItem selected={item.value === selectedBranch.name}>

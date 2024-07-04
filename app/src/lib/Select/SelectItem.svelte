@@ -36,6 +36,7 @@
 
 <style lang="postcss">
 	.button {
+		user-select: none;
 		display: flex;
 		align-items: center;
 		color: var(--clr-scale-ntrl-10);

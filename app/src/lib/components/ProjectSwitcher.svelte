@@ -31,6 +31,7 @@
 		onselect={(value) => {
 			selectedProjectId = value;
 		}}
+		searchable
 	>
 		{#snippet itemSnippet(item)}
 			<SelectItem selected={item.value === selectedProjectId}>

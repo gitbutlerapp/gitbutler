@@ -1,5 +1,14 @@
+<script lang="ts" context="module">
+	export type SelectItem = {
+		label: string;
+		value: string;
+		selectable?: boolean;
+	};
+</script>
+
 <script lang="ts">
 	import OptionsGroup from './OptionsGroup.svelte';
+	import SearchItem from './SearchItem.svelte';
 	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import TextBox from '../shared/TextBox.svelte';
 	import { portal } from '$lib/utils/portal';
@@ -12,14 +21,11 @@
 		disabled?: boolean;
 		loading?: boolean;
 		wide?: boolean;
-		options: {
-			label: string;
-			value: string;
-			selectable?: boolean;
-		}[];
+		options: SelectItem[];
 		value?: any;
 		placeholder?: string;
 		maxHeight?: number;
+		searchable?: boolean;
 		itemSnippet: Snippet<[item: any, selected?: boolean]>;
 		children?: Snippet;
 		onselect?: (value: string) => void;
@@ -35,12 +41,15 @@
 		value,
 		placeholder,
 		maxHeight,
+		searchable,
 		itemSnippet,
 		children,
 		onselect
 	}: SelectProps = $props();
 
 	let selectWrapperEl: HTMLElement;
+
+	let filteredOptions = $state(options);
 	let maxHeightState = $state(maxHeight);
 	let listOpen = $state(false);
 	let inputBoundingRect = $state<DOMRect>();
@@ -52,8 +61,6 @@
 		if (maxHeight) return;
 		maxHeightState =
 			window.innerHeight - selectWrapperEl.getBoundingClientRect().bottom - maxBottomPadding;
-
-		console.log('maxHeightState', maxHeightState);
 	}
 
 	function openList() {
@@ -118,8 +125,21 @@
 				style:max-height={maxHeightState && pxToRem(maxHeightState)}
 			>
 				<ScrollableContainer initiallyVisible>
+					{#if searchable && options.length > 5}
+						<SearchItem
+							items={options}
+							onSort={(filtered) => {
+								filteredOptions = filtered;
+							}}
+						/>
+					{/if}
 					<OptionsGroup>
-						{#each options as item}
+						{#if filteredOptions.length === 0}
+							<div class="text-base-13 text-semibold option nothing-found">
+								<span class=""> Nothing found ¯\_(ツ)_/¯ </span>
+							</div>
+						{/if}
+						{#each filteredOptions as item}
 							<div
 								class="option"
 								class:selected={item === value}
@@ -166,10 +186,8 @@
 	}
 
 	.options {
+		user-select: none;
 		position: absolute;
-		/* right: 0; */
-		/* top: 100%;
-		width: 100%; */
 		z-index: var(--z-floating);
 		margin-top: 4px;
 		border-radius: var(--radius-m);
@@ -181,5 +199,10 @@
 
 	.wide {
 		width: 100%;
+	}
+
+	.nothing-found {
+		padding: 8px 8px;
+		color: var(--clr-text-3);
 	}
 </style>
