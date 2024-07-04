@@ -5,7 +5,6 @@ use gitbutler_core::error::Marker;
 use gitbutler_core::{
     git,
     projects::{self, Project, ProjectId},
-    users,
     virtual_branches::{branch, Controller},
 };
 use tempfile::TempDir;
@@ -33,7 +32,6 @@ impl Default for Test {
     fn default() -> Self {
         let data_dir = paths::data_dir();
         let projects = projects::Controller::from_path(data_dir.path());
-        let users = users::Controller::from_path(data_dir.path());
         let helper = git::credentials::Helper::from_path(data_dir.path());
 
         let test_project = TestProject::default();
@@ -44,7 +42,7 @@ impl Default for Test {
         Self {
             repository: test_project,
             project_id: project.id,
-            controller: Controller::new(projects.clone(), users, helper),
+            controller: Controller::new(projects.clone(), helper),
             projects,
             project,
             data_dir: Some(data_dir),

@@ -16,7 +16,6 @@ use crate::{
     git::{self, diff},
     project_repository::{self, LogUntil},
     projects::FetchResult,
-    users,
     virtual_branches::branch::BranchOwnershipClaims,
 };
 
@@ -327,10 +326,9 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 // determine if what the target branch is now pointing to is mergeable with our current working directory
 // merge the target branch into our current working directory
 // update the target sha
-pub fn update_base_branch<'repo>(
-    project_repository: &'repo project_repository::Repository,
-    user: Option<&users::User>,
-) -> anyhow::Result<Vec<git2::Branch<'repo>>> {
+pub fn update_base_branch(
+    project_repository: &project_repository::Repository,
+) -> anyhow::Result<Vec<git2::Branch<'_>>> {
     project_repository.assure_resolved()?;
 
     // look up the target and see if there is a new oid
@@ -489,7 +487,6 @@ pub fn update_base_branch<'repo>(
 
                             let new_target_head = project_repository
                                 .commit(
-                                    user,
                                     format!(
                                         "Merged {}/{} into {}",
                                         target.branch.remote(),

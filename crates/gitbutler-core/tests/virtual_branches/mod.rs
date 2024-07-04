@@ -59,14 +59,7 @@ fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
     assert_eq!(branch.commits.len(), 0);
 
     // commit
-    commit(
-        project_repository,
-        branch1_id,
-        "test commit",
-        None,
-        None,
-        false,
-    )?;
+    commit(project_repository, branch1_id, "test commit", None, false)?;
 
     // status (no files)
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
@@ -157,14 +150,7 @@ fn track_binary_files() -> Result<()> {
     );
 
     // commit
-    commit(
-        project_repository,
-        branch1_id,
-        "test commit",
-        None,
-        None,
-        false,
-    )?;
+    commit(project_repository, branch1_id, "test commit", None, false)?;
 
     // status (no files)
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository).unwrap();
@@ -190,14 +176,7 @@ fn track_binary_files() -> Result<()> {
     file.write_all(&image_data)?;
 
     // commit
-    commit(
-        project_repository,
-        branch1_id,
-        "test commit",
-        None,
-        None,
-        false,
-    )?;
+    commit(project_repository, branch1_id, "test commit", None, false)?;
 
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
@@ -824,7 +803,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     assert_eq!(branch1.commits.len(), 1);
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
-    integrate_upstream_commits(project_repository, branch1.id, None)?;
+    integrate_upstream_commits(project_repository, branch1.id)?;
 
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
     let branch1 = &branches[0];
@@ -932,7 +911,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
     assert_eq!(branch1.commits.len(), 1);
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
-    integrate_upstream_commits(project_repository, branch1.id, None)?;
+    integrate_upstream_commits(project_repository, branch1.id)?;
 
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
     let branch1 = &branches[0];
@@ -962,7 +941,6 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
         project_repository,
         branch1.id,
         "fix merge conflict",
-        None,
         None,
         false,
     )?;
@@ -1100,7 +1078,6 @@ fn unapply_branch() -> Result<()> {
     let branch1_id = virtual_branches::create_virtual_branch_from_branch(
         project_repository,
         &git::Refname::try_from(&real_branch)?,
-        None,
     )?;
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!(
@@ -1188,7 +1165,6 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     create_virtual_branch_from_branch(
         project_repository,
         &git::Refname::try_from(&real_branch_2).unwrap(),
-        None,
     )
     .unwrap();
 
@@ -1198,7 +1174,6 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     create_virtual_branch_from_branch(
         project_repository,
         &git::Refname::try_from(&real_branch_3).unwrap(),
-        None,
     )
     .unwrap();
 
@@ -1457,14 +1432,12 @@ fn upstream_integrated_vbranch() -> Result<()> {
         branch1_id,
         "integrated commit",
         None,
-        None,
         false,
     )?;
     commit(
         project_repository,
         branch2_id,
         "non-integrated commit",
-        None,
         None,
         false,
     )?;
@@ -1525,7 +1498,6 @@ fn commit_same_hunk_twice() -> Result<()> {
         branch1_id,
         "first commit to test.txt",
         None,
-        None,
         false,
     )?;
 
@@ -1559,7 +1531,6 @@ fn commit_same_hunk_twice() -> Result<()> {
         project_repository,
         branch1_id,
         "second commit to test.txt",
-        None,
         None,
         false,
     )?;
@@ -1618,7 +1589,6 @@ fn commit_same_file_twice() -> Result<()> {
         branch1_id,
         "first commit to test.txt",
         None,
-        None,
         false,
     )?;
 
@@ -1652,7 +1622,6 @@ fn commit_same_file_twice() -> Result<()> {
         project_repository,
         branch1_id,
         "second commit to test.txt",
-        None,
         None,
         false,
     )?;
@@ -1711,7 +1680,6 @@ fn commit_partial_by_hunk() -> Result<()> {
         branch1_id,
         "first commit to test.txt",
         Some(&"test.txt:1-6".parse::<BranchOwnershipClaims>().unwrap()),
-        None,
         false,
     )?;
 
@@ -1729,7 +1697,6 @@ fn commit_partial_by_hunk() -> Result<()> {
         branch1_id,
         "second commit to test.txt",
         Some(&"test.txt:16-22".parse::<BranchOwnershipClaims>().unwrap()),
-        None,
         false,
     )?;
 
@@ -1778,7 +1745,6 @@ fn commit_partial_by_file() -> Result<()> {
         project_repository,
         branch1_id,
         "branch1 commit",
-        None,
         None,
         false,
     )?;
@@ -1837,7 +1803,6 @@ fn commit_add_and_delete_files() -> Result<()> {
         project_repository,
         branch1_id,
         "branch1 commit",
-        None,
         None,
         false,
     )?;
@@ -1902,7 +1867,6 @@ fn commit_executable_and_symlinks() -> Result<()> {
         project_repository,
         branch1_id,
         "branch1 commit",
-        None,
         None,
         false,
     )?;
@@ -2069,14 +2033,7 @@ fn pre_commit_hook_rejection() -> Result<()> {
 
     git2_hooks::create_hook(project_repository.repo(), git2_hooks::HOOK_PRE_COMMIT, hook);
 
-    let res = commit(
-        project_repository,
-        branch1_id,
-        "test commit",
-        None,
-        None,
-        true,
-    );
+    let res = commit(project_repository, branch1_id, "test commit", None, true);
 
     let err = res.unwrap_err();
     assert_eq!(err.to_string(), "commit hook rejected: rejected");
@@ -2126,14 +2083,7 @@ fn post_commit_hook() -> Result<()> {
 
     assert!(!hook_ran_proof.exists());
 
-    commit(
-        project_repository,
-        branch1_id,
-        "test commit",
-        None,
-        None,
-        true,
-    )?;
+    commit(project_repository, branch1_id, "test commit", None, true)?;
 
     assert!(hook_ran_proof.exists());
 
@@ -2170,14 +2120,7 @@ fn commit_msg_hook_rejection() -> Result<()> {
 
     git2_hooks::create_hook(project_repository.repo(), git2_hooks::HOOK_COMMIT_MSG, hook);
 
-    let res = commit(
-        project_repository,
-        branch1_id,
-        "test commit",
-        None,
-        None,
-        true,
-    );
+    let res = commit(project_repository, branch1_id, "test commit", None, true);
 
     let err = res.unwrap_err();
     assert_eq!(err.to_string(), "commit-msg hook rejected: rejected");
