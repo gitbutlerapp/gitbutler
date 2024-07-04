@@ -105,15 +105,31 @@
 			branchController.convertToRealBranch(branch.id);
 		}
 	}
+
+	function setButtonCoppy() {
+		switch (selectedResolution) {
+			case 'overwrite':
+				return 'Overwrite and unapply';
+			case 'suffix':
+				return 'Suffix and unapply';
+			case 'rename':
+				return 'Rename and unapply';
+		}
+	}
 </script>
 
-<Modal bind:this={unapplyBranchModal}>
+<Modal width="small" bind:this={unapplyBranchModal}>
 	<div class="flow">
 		<div class="modal-copy">
-			<p class="text-base-15">There is already branch with the name</p>
-			<Button size="tag" clickable={false}>{normalizeBranchName(branch.name)}</Button>
-			<p class="text-base-15">.</p>
-			<p class="text-base-15">Please choose how you want to resolve this:</p>
+			<p class="text-base-14 text-semibold">
+				"{normalizeBranchName(branch.name)}" branch already exists
+			</p>
+
+			<p class="text-base-body-13 modal-copy-caption">
+				A branch with the same name already exists.
+				<br />
+				Please select a resolution:
+			</p>
 		</div>
 
 		<Select
@@ -141,7 +157,14 @@
 	</div>
 	{#snippet controls()}
 		<Button style="ghost" outline on:click={() => unapplyBranchModal.close()}>Cancel</Button>
-		<Button style="pop" kind="solid" on:click={unapplyBranchWithSelectedResolution}>Submit</Button>
+		<Button
+			style="pop"
+			kind="solid"
+			on:click={unapplyBranchWithSelectedResolution}
+			disabled={!newBranchName && selectedResolution === 'rename'}
+		>
+			{setButtonCoppy()}
+		</Button>
 	{/snippet}
 </Modal>
 
@@ -284,9 +307,14 @@
 		flex-direction: column;
 		gap: 16px;
 	}
+
 	.modal-copy {
-		& > * {
-			display: inline;
-		}
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.modal-copy-caption {
+		color: var(--clr-text-2);
 	}
 </style>
