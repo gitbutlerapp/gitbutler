@@ -42,7 +42,7 @@ impl Default for Test {
         Self {
             repository: test_project,
             project_id: project.id,
-            controller: Controller::new(projects.clone(), helper),
+            controller: Controller::new(helper),
             projects,
             project,
             data_dir: Some(data_dir),
@@ -66,7 +66,6 @@ mod convert_to_real_branch;
 mod create_commit;
 mod create_virtual_branch_from_branch;
 mod delete_virtual_branch;
-mod fetch_from_remotes;
 mod init;
 mod insert_blank_commit;
 mod move_commit_file;

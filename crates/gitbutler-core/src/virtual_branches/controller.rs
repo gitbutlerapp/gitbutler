@@ -1,18 +1,17 @@
 use crate::{
     git::BranchExt,
     ops::entry::{OperationKind, SnapshotDetails},
+    projects::FetchResult,
     types::ReferenceName,
 };
 use anyhow::Result;
 use std::{path::Path, sync::Arc};
 
-use anyhow::Context;
 use tokio::{sync::Semaphore, task::JoinHandle};
 
 use super::{
     branch::{BranchId, BranchOwnershipClaims},
-    target, target_to_base_branch, BaseBranch, NameConflitResolution, RemoteBranchFile,
-    VirtualBranchesHandle,
+    target, BaseBranch, NameConflitResolution, RemoteBranchFile, VirtualBranchesHandle,
 };
 use crate::{
     git, project_repository,
@@ -21,18 +20,16 @@ use crate::{
 
 #[derive(Clone)]
 pub struct Controller {
-    projects: projects::Controller,
     helper: git::credentials::Helper,
 
     semaphore: Arc<Semaphore>,
 }
 
 impl Controller {
-    pub fn new(projects: projects::Controller, helper: git::credentials::Helper) -> Self {
+    pub fn new(helper: git::credentials::Helper) -> Self {
         Self {
             semaphore: Arc::new(Semaphore::new(1)),
 
-            projects,
             helper,
         }
     }
@@ -446,8 +443,8 @@ impl Controller {
         &self,
         project: &Project,
         askpass: Option<String>,
-    ) -> Result<BaseBranch> {
-        let mut project_repository = project_repository::Repository::open(project)?;
+    ) -> Result<FetchResult> {
+        let project_repository = project_repository::Repository::open(project)?;
 
         let remotes = project_repository.remotes()?;
         let fetch_results: Vec<Result<(), _>> = remotes
@@ -481,23 +478,7 @@ impl Controller {
                 tracing::warn!(?err, "fetch from push-remote failed");
             }
         }
-
-        let updated_project = self
-            .projects
-            .update(&projects::UpdateRequest {
-                id: project.id,
-                project_data_last_fetched: Some(project_data_last_fetched),
-                ..Default::default()
-            })
-            .await
-            .context("failed to update project")?;
-
-        project_repository.set_project(&updated_project);
-
-        let base_branch = target_to_base_branch(&project_repository, &default_target)
-            .context("failed to convert target to base branch")?;
-
-        Ok(base_branch)
+        Ok(project_data_last_fetched)
     }
 
     pub async fn move_commit(

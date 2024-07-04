@@ -485,15 +485,33 @@ pub mod commands {
         project_id: ProjectId,
         action: Option<String>,
     ) -> Result<BaseBranch, Error> {
-        let project = handle.state::<projects::Controller>().get(project_id)?;
-        let base_branch = handle
+        let projects = handle.state::<projects::Controller>();
+        let project = projects.get(project_id)?;
+
+        let project_data_last_fetched = handle
             .state::<Controller>()
             .fetch_from_remotes(
                 &project,
                 Some(action.unwrap_or_else(|| "unknown".to_string())),
             )
             .await?;
-        emit_vbranches(&handle, project_id).await;
+
+        // Updates the project controller with the last fetched timestamp
+        //
+        // TODO: This cross dependency likely indicates that last_fetched is stored in the wrong place - value is coupled with virtual branches state
+        projects
+            .update(&projects::UpdateRequest {
+                id: project.id,
+                project_data_last_fetched: Some(project_data_last_fetched),
+                ..Default::default()
+            })
+            .await
+            .context("failed to update project with last fetched timestamp")?;
+
+        let base_branch = handle
+            .state::<Controller>()
+            .get_base_branch_data(&project)
+            .await?;
         Ok(base_branch)
     }
 
