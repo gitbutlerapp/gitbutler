@@ -5,14 +5,14 @@ use super::*;
 async fn should_fail_on_incorrect_branch() {
     let Test {
         repository,
-        project_id,
+        project,
         controller,
         ..
     } = &Test::default();
 
     let branch_name: git::LocalRefname = "refs/heads/somebranch".parse().unwrap();
     repository.checkout(&branch_name);
-    let result = controller.list_virtual_branches(*project_id).await;
+    let result = controller.list_virtual_branches(project).await;
 
     let err = result.unwrap_err();
     assert_eq!(

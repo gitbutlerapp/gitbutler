@@ -85,15 +85,19 @@ impl Handler {
 
     #[instrument(skip(self, project_id))]
     async fn calculate_virtual_branches(&self, project_id: ProjectId) -> Result<()> {
+        let project = self
+            .projects
+            .get(project_id)
+            .context("failed to get project")?;
         match self
             .vbranch_controller
-            .list_virtual_branches(project_id)
+            .list_virtual_branches(&project)
             .await
         {
             Ok((branches, skipped_files)) => {
                 let branches = self.assets_proxy.proxy_virtual_branches(branches).await;
                 self.emit_app_event(Change::VirtualBranches {
-                    project_id,
+                    project_id: project.id,
                     virtual_branches: VirtualBranches {
                         branches,
                         skipped_files,
@@ -142,21 +146,13 @@ impl Handler {
         Ok(())
     }
 
-    pub async fn git_file_change(
-        &self,
-        path: impl Into<PathBuf>,
-        project_id: ProjectId,
-    ) -> Result<()> {
-        self.git_files_change(vec![path.into()], project_id).await
-    }
-
     pub async fn git_files_change(&self, paths: Vec<PathBuf>, project_id: ProjectId) -> Result<()> {
         let project = self
             .projects
             .get(project_id)
             .context("failed to get project")?;
         let open_projects_repository = || {
-            project_repository::Repository::open(&project)
+            project_repository::Repository::open(&project.clone())
                 .context("failed to open project repository for project")
         };
 

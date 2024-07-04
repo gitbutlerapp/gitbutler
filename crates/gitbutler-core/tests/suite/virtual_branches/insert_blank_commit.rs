@@ -4,25 +4,25 @@ use super::*;
 async fn insert_blank_commit_down() {
     let Test {
         repository,
-        project_id,
+        project,
         controller,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let _commit1_id = controller
-        .create_commit(*project_id, branch_id, "commit one", None, false)
+        .create_commit(project, branch_id, "commit one", None, false)
         .await
         .unwrap();
 
@@ -30,24 +30,24 @@ async fn insert_blank_commit_down() {
     fs::write(repository.path().join("file2.txt"), "content2").unwrap();
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
     let commit2_id = controller
-        .create_commit(*project_id, branch_id, "commit two", None, false)
+        .create_commit(project, branch_id, "commit two", None, false)
         .await
         .unwrap();
 
     // create commit
     fs::write(repository.path().join("file4.txt"), "content4").unwrap();
     let _commit3_id = controller
-        .create_commit(*project_id, branch_id, "commit three", None, false)
+        .create_commit(project, branch_id, "commit three", None, false)
         .await
         .unwrap();
 
     controller
-        .insert_blank_commit(*project_id, branch_id, commit2_id, 1)
+        .insert_blank_commit(project, branch_id, commit2_id, 1)
         .await
         .unwrap();
 
     let branch = controller
-        .list_virtual_branches(*project_id)
+        .list_virtual_branches(project)
         .await
         .unwrap()
         .0
@@ -76,25 +76,25 @@ async fn insert_blank_commit_down() {
 async fn insert_blank_commit_up() {
     let Test {
         repository,
-        project_id,
+        project,
         controller,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let _commit1_id = controller
-        .create_commit(*project_id, branch_id, "commit one", None, false)
+        .create_commit(project, branch_id, "commit one", None, false)
         .await
         .unwrap();
 
@@ -102,24 +102,24 @@ async fn insert_blank_commit_up() {
     fs::write(repository.path().join("file2.txt"), "content2").unwrap();
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
     let commit2_id = controller
-        .create_commit(*project_id, branch_id, "commit two", None, false)
+        .create_commit(project, branch_id, "commit two", None, false)
         .await
         .unwrap();
 
     // create commit
     fs::write(repository.path().join("file4.txt"), "content4").unwrap();
     let _commit3_id = controller
-        .create_commit(*project_id, branch_id, "commit three", None, false)
+        .create_commit(project, branch_id, "commit three", None, false)
         .await
         .unwrap();
 
     controller
-        .insert_blank_commit(*project_id, branch_id, commit2_id, -1)
+        .insert_blank_commit(project, branch_id, commit2_id, -1)
         .await
         .unwrap();
 
     let branch = controller
-        .list_virtual_branches(*project_id)
+        .list_virtual_branches(project)
         .await
         .unwrap()
         .0

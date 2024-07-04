@@ -3,37 +3,37 @@ use super::*;
 #[tokio::test]
 async fn unapply_with_data() {
     let Test {
-        project_id,
+        project,
         controller,
         repository,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     controller
-        .convert_to_real_branch(*project_id, branches[0].id, Default::default())
+        .convert_to_real_branch(project, branches[0].id, Default::default())
         .await
         .unwrap();
 
     assert!(!repository.path().join("file.txt").exists());
 
-    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
     assert_eq!(branches.len(), 0);
 }
 
 #[tokio::test]
 async fn conflicting() {
     let Test {
-        project_id,
+        project,
         controller,
         repository,
         ..
@@ -50,7 +50,7 @@ async fn conflicting() {
     }
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
@@ -59,7 +59,7 @@ async fn conflicting() {
 
         std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert!(branches[0].base_current);
         assert!(branches[0].active);
@@ -69,7 +69,7 @@ async fn conflicting() {
         );
 
         let unapplied_branch = controller
-            .convert_to_real_branch(*project_id, branches[0].id, Default::default())
+            .convert_to_real_branch(project, branches[0].id, Default::default())
             .await
             .unwrap();
 
@@ -78,7 +78,7 @@ async fn conflicting() {
 
     {
         // update base branch, causing conflict
-        controller.update_base_branch(*project_id).await.unwrap();
+        controller.update_base_branch(project).await.unwrap();
 
         assert_eq!(
             std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
@@ -89,7 +89,7 @@ async fn conflicting() {
     let branch_id = {
         // apply branch, it should conflict
         let branch_id = controller
-            .create_virtual_branch_from_branch(*project_id, &unapplied_branch)
+            .create_virtual_branch_from_branch(project, &unapplied_branch)
             .await
             .unwrap();
 
@@ -98,7 +98,7 @@ async fn conflicting() {
             "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
         );
 
-        let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
 
         assert_eq!(branches.len(), 1);
         let branch = &branches[0];
@@ -115,7 +115,7 @@ async fn conflicting() {
     {
         // Converting the branch to a real branch should put us back in an unconflicted state
         controller
-            .convert_to_real_branch(*project_id, branch_id, Default::default())
+            .convert_to_real_branch(project, branch_id, Default::default())
             .await
             .unwrap();
 
@@ -129,29 +129,29 @@ async fn conflicting() {
 #[tokio::test]
 async fn delete_if_empty() {
     let Test {
-        project_id,
+        project,
         controller,
         ..
     } = &Test::default();
 
     controller
-        .set_base_branch(*project_id, &"refs/remotes/origin/master".parse().unwrap())
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
         .await
         .unwrap();
 
     controller
-        .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
     assert_eq!(branches.len(), 1);
 
     controller
-        .convert_to_real_branch(*project_id, branches[0].id, Default::default())
+        .convert_to_real_branch(project, branches[0].id, Default::default())
         .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
     assert_eq!(branches.len(), 0);
 }
