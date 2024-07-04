@@ -11,8 +11,6 @@
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
-	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
-	import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import * as events from '$lib/utils/events';
@@ -36,7 +34,6 @@
 		gbBranchActive$,
 		branchService,
 		branchController,
-		projectMetrics,
 		branchDragActionsFactory,
 		commitDragActionsFactory,
 		reorderDropzoneManagerFactory
@@ -54,7 +51,6 @@
 	$: setContext(BaseBranchService, baseBranchService);
 	$: setContext(BaseBranch, baseBranch);
 	$: setContext(Project, project);
-	$: setContext(ProjectMetrics, projectMetrics);
 	$: setContext(BranchDragActionsFactory, branchDragActionsFactory);
 	$: setContext(CommitDragActionsFactory, commitDragActionsFactory);
 	$: setContext(ReorderDropzoneManagerFactory, reorderDropzoneManagerFactory);
@@ -131,7 +127,6 @@
 			{/if}
 			<slot />
 		</div>
-		<MetricsReporter />
 	{/if}
 {/key}
 

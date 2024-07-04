@@ -1,23 +1,26 @@
 export type ProjectMetricsReport = {
-	project_id?: string;
 	[key: string]: string | number | undefined;
 };
 
 export class ProjectMetrics {
-	metrics: { [key: string]: string | number } = {};
 	private projectId: string | undefined;
+	private metrics: { [key: string]: string | number } = {};
 
-	setProject(projectId: string) {
+	getProjectId() {
+		return this.projectId;
+	}
+
+	setProjectId(projectId: string) {
 		this.projectId = projectId;
+		this.metrics = {};
 	}
 
 	setMetric(key: string, value: string | number) {
 		this.metrics[key] = value;
 	}
 
-	getReport(): ProjectMetricsReport | undefined {
+	getMetrics(): ProjectMetricsReport | undefined {
 		if (!this.projectId) return;
-		if (Object.keys(this.metrics).length === 0) return;
-		return { ...this.metrics, project_id: this.projectId };
+		return this.metrics;
 	}
 }
