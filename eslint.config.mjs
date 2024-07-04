@@ -29,7 +29,8 @@ export default tsEslint.config(
 				$props: 'readonly',
 				$bindable: 'readonly',
 				$inspect: 'readonly',
-				$host: 'readonly'
+				$host: 'readonly',
+				$effect: 'readonly'
 			},
 			parser: svelteParser,
 			parserOptions: {
