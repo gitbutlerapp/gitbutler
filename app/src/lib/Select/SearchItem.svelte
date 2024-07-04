@@ -50,7 +50,7 @@
 	/>
 </div>
 
-<style lang="post-css">
+<style lang="postcss">
 	.container {
 		position: relative;
 	}

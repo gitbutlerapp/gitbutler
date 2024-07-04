@@ -1,7 +1,7 @@
 <script async lang="ts">
 	import ProjectNameLabel from '../shared/ProjectNameLabel.svelte';
-	import Select from '$lib/Select/Select.svelte';
 	import SelectItem from '$lib/Select/SelectItem.svelte';
+	import SelectNew from '$lib/Select/SelectNew.svelte';
 	import { Project } from '$lib/backend/projects';
 	import BackButton from '$lib/components/BackButton.svelte';
 	import Login from '$lib/components/Login.svelte';
@@ -88,11 +88,21 @@
 
 	<div class="project-setup__fields">
 		<div class="project-setup__field-wrap">
-			<Select items={remoteBranches} bind:value={selectedBranch} itemId="name" labelId="name">
-				<SelectItem slot="template" let:item let:selected {selected} let:highlighted {highlighted}>
-					{item.name}
-				</SelectItem>
-			</Select>
+			<SelectNew
+				value={selectedBranch.name}
+				options={remoteBranches.map((b) => ({ label: b.name, value: b.name }))}
+				onselect={(value) => {
+					selectedBranch = { name: value };
+				}}
+				label="Current target branch"
+			>
+				{#snippet itemSnippet(item)}
+					<SelectItem selected={item.value === selectedBranch.name}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</SelectNew>
+
 			<p class="project-setup__description-text text-base-body-12">
 				This is the branch that you consider "production", normally something like "origin/master"
 				or "upstream/main".
@@ -101,18 +111,21 @@
 
 		{#if remotes.length > 1}
 			<div class="project-setup__field-wrap">
-				<Select items={remotes} bind:value={selectedRemote} itemId="name" labelId="name">
-					<SelectItem
-						slot="template"
-						let:item
-						let:selected
-						{selected}
-						let:highlighted
-						{highlighted}
-					>
-						{item.name}
-					</SelectItem>
-				</Select>
+				<SelectNew
+					value={selectedRemote.value}
+					options={remotes.map((r) => ({ label: r.name, value: r.value }))}
+					onselect={(value) => {
+						const newSelectedRemote = remotes.find((r) => r.value === value);
+						selectedRemote = newSelectedRemote || selectedRemote;
+					}}
+				>
+					{#snippet itemSnippet(item)}
+						<SelectItem selected={item.value === selectedRemote.name}>
+							{item.label}
+						</SelectItem>
+					{/snippet}
+				</SelectNew>
+
 				<p class="project-setup__description-text text-base-body-12">
 					You have branches from multiple remotes. If you want to specify a remote for creating
 					branches that is different from the remote that your target branch is on, change it here.

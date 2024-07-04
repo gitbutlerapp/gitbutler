@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Select from '../Select/Select.svelte';
+	import SelectNew from '../Select/SelectNew.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import SelectItem from '$lib/Select/SelectItem.svelte';
 	import { Project } from '$lib/backend/projects';
@@ -66,49 +66,38 @@
 					section helps ensure your code goes to the correct remote and branch for integration.
 				</svelte:fragment>
 
-				<Select
-					items={remoteBranches}
-					bind:value={selectedBranch}
-					itemId="name"
-					labelId="name"
-					selectedItemId={$baseBranch.branchName}
+				<SelectNew
+					value={selectedBranch.name}
+					options={remoteBranches.map((b) => ({ label: b.name, value: b.name }))}
+					onselect={(value) => {
+						selectedBranch = { name: value };
+					}}
 					disabled={targetChangeDisabled}
-					wide={true}
 					label="Current target branch"
 				>
-					<SelectItem
-						slot="template"
-						let:item
-						let:selected
-						{selected}
-						let:highlighted
-						{highlighted}
-					>
-						{item.name}
-					</SelectItem>
-				</Select>
+					{#snippet itemSnippet(item)}
+						<SelectItem selected={item.value === selectedBranch.name}>
+							{item.label}
+						</SelectItem>
+					{/snippet}
+				</SelectNew>
 
 				{#if uniqueRemotes(remoteBranches).length > 1}
-					<Select
-						items={uniqueRemotes(remoteBranches)}
-						bind:value={selectedRemote}
-						itemId="name"
-						labelId="name"
-						selectedItemId={$baseBranch.actualPushRemoteName()}
+					<SelectNew
+						value={selectedRemote.name}
+						options={uniqueRemotes(remoteBranches).map((r) => ({ label: r.name, value: r.name }))}
+						onselect={(value) => {
+							selectedRemote = { name: value };
+						}}
 						disabled={targetChangeDisabled}
 						label="Create branches on remote"
 					>
-						<SelectItem
-							slot="template"
-							let:item
-							let:selected
-							{selected}
-							let:highlighted
-							{highlighted}
-						>
-							{item.name}
-						</SelectItem>
-					</Select>
+						{#snippet itemSnippet(item)}
+							<SelectItem selected={item.value === selectedRemote.name}>
+								{item.label}
+							</SelectItem>
+						{/snippet}
+					</SelectNew>
 				{/if}
 
 				{#if $activeBranches && targetChangeDisabled}

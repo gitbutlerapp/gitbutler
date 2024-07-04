@@ -50,6 +50,7 @@
 		}
 
 		return items.filter((it) => {
+			console.log('it', it);
 			const property = it[labelId];
 			if (!isStr(property)) return false;
 			return property.includes(filterText);

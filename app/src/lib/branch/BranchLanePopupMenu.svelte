@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Select from '$lib/Select/Select.svelte';
 	import SelectItem from '$lib/Select/SelectItem.svelte';
+	import SelectNew from '$lib/Select/SelectNew.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
@@ -116,16 +116,20 @@
 			<p class="text-base-15">Please choose how you want to resolve this:</p>
 		</div>
 
-		<Select
-			items={resolutions}
-			itemId={'value'}
-			labelId={'label'}
-			bind:selectedItemId={selectedResolution}
+		<SelectNew
+			value={selectedResolution}
+			options={resolutions}
+			onselect={(value) => {
+				selectedResolution = value as ResolutionVariants;
+			}}
 		>
-			<SelectItem slot="template" let:item let:selected {selected}>
-				{item.label}
-			</SelectItem>
-		</Select>
+			{#snippet itemSnippet(item)}
+				<SelectItem selected={item.value === selectedResolution}>
+					{item.label}
+				</SelectItem>
+			{/snippet}
+		</SelectNew>
+
 		{#if selectedResolution === 'rename'}
 			<TextBox
 				label="New branch name"

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Select from '$lib/Select/Select.svelte';
 	import SelectItem from '$lib/Select/SelectItem.svelte';
+	import SelectNew from '$lib/Select/SelectNew.svelte';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
@@ -58,11 +58,11 @@
 
 	const signingFormatOptions = [
 		{
-			name: 'GPG',
+			label: 'GPG',
 			value: 'openpgp'
 		},
 		{
-			name: 'SSH',
+			label: 'SSH',
 			value: 'ssh'
 		}
 	];
@@ -151,18 +151,22 @@
 	</SectionCard>
 	{#if signCommits}
 		<SectionCard orientation="column">
-			<Select
-				items={signingFormatOptions}
-				bind:selectedItemId={signingFormat}
-				itemId="value"
-				labelId="name"
-				on:select={updateSigningInfo}
+			<SelectNew
+				value={signingFormat}
+				options={signingFormatOptions}
 				label="Signing format"
+				onselect={(value) => {
+					signingFormat = value;
+					updateSigningInfo();
+				}}
 			>
-				<SelectItem slot="template" let:item let:selected {selected} let:highlighted {highlighted}>
-					{item.name}
-				</SelectItem>
-			</Select>
+				{#snippet itemSnippet(item)}
+					{console.log(item)}
+					<SelectItem selected={item.value === signingFormat}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</SelectNew>
 
 			<TextBox
 				label="Signing key"
