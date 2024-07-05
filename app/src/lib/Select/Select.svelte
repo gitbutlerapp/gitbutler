@@ -13,6 +13,7 @@
 	import TextBox from '../shared/TextBox.svelte';
 	import { portal } from '$lib/utils/portal';
 	import { pxToRem } from '$lib/utils/pxToRem';
+	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import type { Snippet } from 'svelte';
 
 	interface SelectProps {
@@ -72,11 +73,18 @@
 		listOpen = false;
 	}
 
-	function toggleList(e: MouseEvent) {
-		const target = e.target as HTMLElement;
-		if (target) {
-			inputBoundingRect = target.getBoundingClientRect();
+	function clickOutside(e: MouseEvent) {
+		if (e.target === e.currentTarget) closeList();
+	}
+
+	function getInputBoundingRect() {
+		if (selectWrapperEl) {
+			inputBoundingRect = selectWrapperEl.getBoundingClientRect();
 		}
+	}
+
+	function toggleList() {
+		getInputBoundingRect();
 
 		if (listOpen) closeList();
 		else openList();
@@ -103,16 +111,18 @@
 		icon="select-chevron"
 		value={options.find((item) => item.value === value)?.label || 'Select an option...'}
 		disabled={disabled || loading}
-		on:mousedown={(ev) => toggleList(ev)}
+		on:mousedown={toggleList}
 	/>
 	{#if listOpen}
 		<div
 			role="presentation"
-			class="scroll-blocker"
-			onclick={(e: MouseEvent) => {
-				if (e.target === e.currentTarget) closeList();
-			}}
+			class="overlay-wrapper"
+			onclick={clickOutside}
 			use:portal={'body'}
+			use:resizeObserver={() => {
+				getInputBoundingRect();
+				setMaxHeight();
+			}}
 		>
 			<div
 				bind:this={optionsEl}
@@ -163,7 +173,6 @@
 
 <style lang="postcss">
 	.select-wrapper {
-		/* display set directly on element */
 		position: relative;
 		display: flex;
 		flex-direction: column;
@@ -175,7 +184,7 @@
 		color: var(--clr-scale-ntrl-50);
 	}
 
-	.scroll-blocker {
+	.overlay-wrapper {
 		z-index: var(--z-blocker);
 		position: fixed;
 		top: 0;
