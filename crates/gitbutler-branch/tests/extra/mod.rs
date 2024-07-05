@@ -260,7 +260,9 @@ fn create_branch_in_the_middle() -> Result<()> {
     .expect("failed to create virtual branch");
 
     let vb_state = project_repository.project().virtual_branches();
-    let mut branches = vb_state.list_branches().expect("failed to read branches");
+    let mut branches = vb_state
+        .list_branches_in_workspace()
+        .expect("failed to read branches");
     branches.sort_by_key(|b| b.order);
     assert_eq!(branches.len(), 3);
     assert_eq!(branches[0].name, "Virtual branch");
@@ -283,10 +285,11 @@ fn create_branch_no_arguments() -> Result<()> {
         .expect("failed to create virtual branch");
 
     let vb_state = project_repository.project().virtual_branches();
-    let branches = vb_state.list_branches().expect("failed to read branches");
+    let branches = vb_state
+        .list_branches_in_workspace()
+        .expect("failed to read branches");
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].name, "Virtual branch");
-    assert!(branches[0].applied);
     assert_eq!(branches[0].ownership, BranchOwnershipClaims::default());
     assert_eq!(branches[0].order, 0);
 

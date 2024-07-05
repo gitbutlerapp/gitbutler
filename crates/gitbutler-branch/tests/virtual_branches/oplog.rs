@@ -261,11 +261,23 @@ async fn restores_gitbutler_integration() -> anyhow::Result<()> {
         .set_base_branch(project, &"refs/remotes/origin/master".parse()?)
         .await?;
 
-    assert_eq!(project.virtual_branches().list_branches()?.len(), 0);
+    assert_eq!(
+        project
+            .virtual_branches()
+            .list_branches_in_workspace()?
+            .len(),
+        0
+    );
     let branch_id = controller
         .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await?;
-    assert_eq!(project.virtual_branches().list_branches()?.len(), 1);
+    assert_eq!(
+        project
+            .virtual_branches()
+            .list_branches_in_workspace()?
+            .len(),
+        1
+    );
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content")?;
@@ -315,7 +327,7 @@ async fn restores_gitbutler_integration() -> anyhow::Result<()> {
         "head now points to the first commit, it's not commit 2 anymore"
     );
 
-    let vbranches = project.virtual_branches().list_branches()?;
+    let vbranches = project.virtual_branches().list_branches_in_workspace()?;
     assert_eq!(
         vbranches.len(),
         1,

@@ -22,10 +22,10 @@ pub struct VirtualBranches {
 }
 
 impl VirtualBranches {
-    /// Lists all virtual branches.
+    /// Lists all virtual branches that are in the user's workspace.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn list_branches(&self) -> Result<Vec<Branch>> {
+    pub fn list_branches_in_workspace(&self) -> Result<Vec<Branch>> {
         let branches: Vec<Branch> = self.branches.values().cloned().collect();
         Ok(branches)
     }
@@ -121,10 +121,10 @@ impl VirtualBranchesHandle {
         Ok(virtual_branches.branches.get(&id).cloned())
     }
 
-    /// Lists all virtual branches.
+    /// Lists all virtual branches that are in the user's workspace.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn list_branches(&self) -> Result<Vec<Branch>> {
+    pub fn list_branches_in_workspace(&self) -> Result<Vec<Branch>> {
         let virtual_branches = self.read_file()?;
         let branches: Vec<Branch> = virtual_branches.branches.values().cloned().collect();
         Ok(branches)
@@ -150,7 +150,7 @@ impl VirtualBranchesHandle {
 
     pub fn update_ordering(&self) -> Result<()> {
         let succeeded = self
-            .list_branches()?
+            .list_branches_in_workspace()?
             .iter()
             .sorted_by_key(|branch| branch.order)
             .enumerate()
@@ -170,7 +170,7 @@ impl VirtualBranchesHandle {
     pub fn next_order_index(&self) -> Result<usize> {
         self.update_ordering()?;
         let order = self
-            .list_branches()?
+            .list_branches_in_workspace()?
             .iter()
             .sorted_by_key(|branch| branch.order)
             .collect::<Vec<&Branch>>()

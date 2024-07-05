@@ -38,7 +38,7 @@ pub fn get_workspace_head(
     let repo: &git2::Repository = project_repo.repo();
     let vb_state = project_repo.project().virtual_branches();
 
-    let virtual_branches = vb_state.list_branches()?;
+    let virtual_branches = vb_state.list_branches_in_workspace()?;
 
     let target_commit = repo.find_commit(target.sha)?;
     let mut workspace_tree = target_commit.tree()?;
@@ -165,7 +165,7 @@ pub fn update_gitbutler_integration(
 
     // get all virtual branches, we need to try to update them all
     let virtual_branches = vb_state
-        .list_branches()
+        .list_branches_in_workspace()
         .context("failed to list virtual branches")?;
 
     let integration_commit =

@@ -64,7 +64,7 @@ fn go_back_to_integration(
 
     let vb_state = project_repository.project().virtual_branches();
     let virtual_branches = vb_state
-        .list_branches()
+        .list_branches_in_workspace()
         .context("failed to read virtual branches")?;
 
     let target_commit = project_repository

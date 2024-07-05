@@ -214,7 +214,7 @@ pub fn unapply_ownership(
     let default_target = vb_state.get_default_target()?;
 
     let virtual_branches = vb_state
-        .list_branches()
+        .list_branches_in_workspace()
         .context("failed to read virtual branches")?;
 
     let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
@@ -744,7 +744,7 @@ pub fn create_virtual_branch(
         .context("failed to find defaut target commit tree")?;
 
     let mut all_virtual_branches = vb_state
-        .list_branches()
+        .list_branches_in_workspace()
         .context("failed to read virtual branches")?;
 
     let name = dedup(
@@ -769,7 +769,7 @@ pub fn create_virtual_branch(
     let selected_for_changes = if let Some(selected_for_changes) = create.selected_for_changes {
         if selected_for_changes {
             for mut other_branch in vb_state
-                .list_branches()
+                .list_branches_in_workspace()
                 .context("failed to read virtual branches")?
             {
                 other_branch.selected_for_changes = None;
@@ -1058,7 +1058,7 @@ pub fn update_branch(
 
     if let Some(name) = &branch_update.name {
         let all_virtual_branches = vb_state
-            .list_branches()
+            .list_branches_in_workspace()
             .context("failed to read virtual branches")?;
 
         project_repository.delete_branch_reference(&branch)?;
@@ -1102,7 +1102,7 @@ pub fn update_branch(
     if let Some(selected_for_changes) = branch_update.selected_for_changes {
         branch.selected_for_changes = if selected_for_changes {
             for mut other_branch in vb_state
-                .list_branches()
+                .list_branches_in_workspace()
                 .context("failed to read virtual branches")?
                 .into_iter()
                 .filter(|b| b.id != branch.id)
@@ -1140,7 +1140,7 @@ pub fn delete_branch(project_repository: &ProjectRepo, branch_id: BranchId) -> R
     let base_tree = target_commit.tree().context("failed to get target tree")?;
 
     let virtual_branches = vb_state
-        .list_branches()
+        .list_branches_in_workspace()
         .context("failed to read virtual branches")?;
 
     let (applied_statuses, _) = get_applied_status(
@@ -1190,7 +1190,7 @@ pub fn delete_branch(project_repository: &ProjectRepo, branch_id: BranchId) -> R
 
 fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> Result<()> {
     let mut virtual_branches = vb_state
-        .list_branches()
+        .list_branches_in_workspace()
         .context("failed to list branches")?;
 
     if virtual_branches.is_empty() {
@@ -1224,7 +1224,7 @@ fn set_ownership(
     }
 
     let virtual_branches = vb_state
-        .list_branches()
+        .list_branches_in_workspace()
         .context("failed to read virtual branches")?;
 
     let mut claim_outcomes =
@@ -1314,7 +1314,7 @@ pub fn get_status_by_branch(
     let default_target = vb_state.get_default_target()?;
 
     let virtual_branches = vb_state
-        .list_branches()
+        .list_branches_in_workspace()
         .context("failed to read virtual branches")?;
 
     let (applied_status, skipped_files) = get_applied_status(
@@ -2493,7 +2493,7 @@ pub fn amend(
     let vb_state = project_repository.project().virtual_branches();
 
     let virtual_branches = vb_state
-        .list_branches()
+        .list_branches_in_workspace()
         .context("failed to read virtual branches")?;
 
     if !virtual_branches.iter().any(|b| b.id == branch_id) {
@@ -2983,7 +2983,7 @@ pub fn move_commit(
     let vb_state = project_repository.project().virtual_branches();
 
     let applied_branches = vb_state
-        .list_branches()
+        .list_branches_in_workspace()
         .context("failed to read virtual branches")?;
 
     if !applied_branches.iter().any(|b| b.id == target_branch_id) {
@@ -3158,7 +3158,7 @@ pub fn create_virtual_branch_from_branch(
             if merge_index.has_conflicts() {
                 // currently we can only deal with the merge problem branch
                 for branch in vb_state
-                    .list_branches()?
+                    .list_branches_in_workspace()?
                     .iter()
                     .filter(|branch| branch.id != branch_id)
                 {
@@ -3397,7 +3397,7 @@ pub fn create_virtual_branch_from_branch(
     let head_commit_tree = head_commit.tree().context("failed to find tree")?;
 
     let virtual_branches = vb_state
-        .list_branches()
+        .list_branches_in_workspace()
         .context("failed to read virtual branches")?
         .into_iter()
         .collect::<Vec<branch::Branch>>();
