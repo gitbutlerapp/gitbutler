@@ -63,14 +63,9 @@ fn go_back_to_integration(
     }
 
     let vb_state = project_repository.project().virtual_branches();
-    let all_virtual_branches = vb_state
+    let virtual_branches = vb_state
         .list_branches()
         .context("failed to read virtual branches")?;
-
-    let applied_virtual_branches = all_virtual_branches
-        .iter()
-        .filter(|branch| branch.applied)
-        .collect::<Vec<_>>();
 
     let target_commit = project_repository
         .repo()
@@ -83,7 +78,7 @@ fn go_back_to_integration(
     let mut final_tree = target_commit
         .tree()
         .context("failed to get base tree from commit")?;
-    for branch in &applied_virtual_branches {
+    for branch in &virtual_branches {
         // merge this branches tree with our tree
         let branch_head = project_repository
             .repo()
@@ -241,7 +236,6 @@ pub fn set_base_branch(
                 id: BranchId::generate(),
                 name: head_name.to_string().replace("refs/heads/", ""),
                 notes: String::new(),
-                applied: true,
                 upstream,
                 upstream_head,
                 created_timestamp_ms: now_ms,
@@ -545,7 +539,6 @@ pub fn update_base_branch(
 
     let final_tree = updated_vbranches
         .iter()
-        .filter(|branch| branch.applied)
         .fold(new_target_commit.tree(), |final_tree, branch| {
             let repo: &git2::Repository = repo;
             let final_tree = final_tree?;

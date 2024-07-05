@@ -21,7 +21,6 @@ pub struct Branch {
     pub id: BranchId,
     pub name: String,
     pub notes: String,
-    pub applied: bool,
     pub upstream: Option<git::RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
     #[serde(with = "crate::serde::oid_opt", default)]

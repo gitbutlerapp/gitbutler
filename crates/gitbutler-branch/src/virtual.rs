@@ -213,12 +213,9 @@ pub fn unapply_ownership(
     let vb_state = project_repository.project().virtual_branches();
     let default_target = vb_state.get_default_target()?;
 
-    let applied_branches = vb_state
+    let virtual_branches = vb_state
         .list_branches()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter(|b| b.applied)
-        .collect::<Vec<_>>();
+        .context("failed to read virtual branches")?;
 
     let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
 
@@ -226,7 +223,7 @@ pub fn unapply_ownership(
         project_repository,
         &integration_commit_id,
         &default_target.sha,
-        applied_branches,
+        virtual_branches,
     )
     .context("failed to get status by branch")?;
 
@@ -496,10 +493,6 @@ pub fn list_virtual_branches(
         .unwrap_or(-1);
 
     for (branch, files) in statuses {
-        if !branch.applied {
-            convert_to_real_branch(project_repository, branch.id, Default::default())?;
-        }
-
         let repo = project_repository.repo();
         update_conflict_markers(project_repository, &files)?;
 
@@ -566,10 +559,7 @@ pub fn list_virtual_branches(
         let merge_base = repo
             .merge_base(default_target.sha, branch.head)
             .context("failed to find merge base")?;
-        let mut base_current = true;
-        if !branch.applied {
-            base_current = merge_base == default_target.sha;
-        }
+        let base_current = true;
 
         let upstream = upstream_branch
             .map(|upstream_branch| branch_to_remote_branch(&upstream_branch))
@@ -604,7 +594,7 @@ pub fn list_virtual_branches(
             id: branch.id,
             name: branch.name,
             notes: branch.notes,
-            active: branch.applied,
+            active: true,
             files,
             order: branch.order,
             commits: vbranch_commits,
@@ -812,7 +802,6 @@ pub fn create_virtual_branch(
         id: BranchId::generate(),
         name: name.clone(),
         notes: String::new(),
-        applied: true,
         upstream: None,
         upstream_head: None,
         tree: tree.id(),
@@ -1150,18 +1139,15 @@ pub fn delete_branch(project_repository: &ProjectRepo, branch_id: BranchId) -> R
     let target_commit = repo.target_commit()?;
     let base_tree = target_commit.tree().context("failed to get target tree")?;
 
-    let applied_branches = vb_state
+    let virtual_branches = vb_state
         .list_branches()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter(|b| b.applied)
-        .collect::<Vec<_>>();
+        .context("failed to read virtual branches")?;
 
     let (applied_statuses, _) = get_applied_status(
         project_repository,
         &integration_commit.id(),
         &target_commit.id(),
-        applied_branches,
+        virtual_branches,
     )
     .context("failed to get status by branch")?;
 
@@ -1203,19 +1189,16 @@ pub fn delete_branch(project_repository: &ProjectRepo, branch_id: BranchId) -> R
 }
 
 fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> Result<()> {
-    let mut applied_branches = vb_state
+    let mut virtual_branches = vb_state
         .list_branches()
-        .context("failed to list branches")?
-        .into_iter()
-        .filter(|b| b.applied)
-        .collect::<Vec<_>>();
+        .context("failed to list branches")?;
 
-    if applied_branches.is_empty() {
+    if virtual_branches.is_empty() {
         println!("no applied branches");
         return Ok(());
     }
 
-    if applied_branches
+    if virtual_branches
         .iter()
         .any(|b| b.selected_for_changes.is_some())
     {
@@ -1223,10 +1206,10 @@ fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> Result<()> {
         return Ok(());
     }
 
-    applied_branches.sort_by_key(|branch| branch.order);
+    virtual_branches.sort_by_key(|branch| branch.order);
 
-    applied_branches[0].selected_for_changes = Some(now_since_unix_epoch_ms());
-    vb_state.set_branch(applied_branches[0].clone())?;
+    virtual_branches[0].selected_for_changes = Some(now_since_unix_epoch_ms());
+    vb_state.set_branch(virtual_branches[0].clone())?;
     Ok(())
 }
 
@@ -1334,68 +1317,15 @@ pub fn get_status_by_branch(
         .list_branches()
         .context("failed to read virtual branches")?;
 
-    let applied_virtual_branches = virtual_branches
-        .iter()
-        .filter(|branch| branch.applied)
-        .cloned()
-        .collect::<Vec<_>>();
-
     let (applied_status, skipped_files) = get_applied_status(
         project_repository,
         // TODO: Keep this optional or update lots of tests?
         integration_commit.unwrap_or(&default_target.sha),
         &default_target.sha,
-        applied_virtual_branches,
+        virtual_branches,
     )?;
 
-    let non_applied_virtual_branches = virtual_branches
-        .into_iter()
-        .filter(|branch| !branch.applied)
-        .collect::<Vec<_>>();
-
-    let non_applied_status =
-        get_non_applied_status(project_repository, non_applied_virtual_branches)?;
-
-    Ok((
-        applied_status
-            .into_iter()
-            .chain(non_applied_status)
-            .collect(),
-        skipped_files,
-    ))
-}
-
-// given a list of non applied virtual branches, return the status of each file, comparing the default target with
-// virtual branch latest tree
-//
-// ownerships are not taken into account here, as they are not relevant for non applied branches
-fn get_non_applied_status(
-    project_repository: &ProjectRepo,
-    virtual_branches: Vec<branch::Branch>,
-) -> Result<Vec<(branch::Branch, BranchStatus)>> {
-    virtual_branches
-        .into_iter()
-        .map(|branch| -> Result<(branch::Branch, BranchStatus)> {
-            if branch.applied {
-                bail!("branch {} is applied", branch.name);
-            }
-            let branch_tree = project_repository
-                .repo()
-                .find_tree(branch.tree)
-                .context(format!("failed to find tree {}", branch.tree))?;
-
-            let head_tree = project_repository
-                .repo()
-                .find_commit(branch.head)
-                .context("failed to find target commit")?
-                .tree()
-                .context("failed to find target tree")?;
-
-            let diff = diff::trees(project_repository.repo(), &head_tree, &branch_tree)?;
-
-            Ok((branch, diff::diff_files_into_hunks(diff).collect()))
-        })
-        .collect::<Result<Vec<_>>>()
+    Ok((applied_status, skipped_files))
 }
 
 fn new_compute_locks(
@@ -1414,7 +1344,6 @@ fn new_compute_locks(
 
     let branch_path_diffs = virtual_branches
         .iter()
-        .filter(|branch| branch.applied)
         .filter_map(|branch| {
             let commit = repository.find_commit(branch.head).ok()?;
             let tree = commit.tree().ok()?;
@@ -1603,10 +1532,6 @@ fn get_applied_status(
     };
 
     for branch in &mut virtual_branches {
-        if !branch.applied {
-            bail!("branch {} is not applied", branch.name);
-        }
-
         let old_claims = branch.ownership.claims.clone();
         let new_claims = old_claims
             .iter()
@@ -2567,20 +2492,11 @@ pub fn amend(
     project_repository.assure_resolved()?;
     let vb_state = project_repository.project().virtual_branches();
 
-    let all_branches = vb_state
+    let virtual_branches = vb_state
         .list_branches()
         .context("failed to read virtual branches")?;
 
-    if !all_branches.iter().any(|b| b.id == branch_id) {
-        bail!("could not find any branch with id {branch_id} to amend to");
-    }
-
-    let applied_branches = all_branches
-        .into_iter()
-        .filter(|b| b.applied)
-        .collect::<Vec<_>>();
-
-    if !applied_branches.iter().any(|b| b.id == branch_id) {
+    if !virtual_branches.iter().any(|b| b.id == branch_id) {
         bail!("could not find applied branch with id {branch_id} to amend to");
     }
 
@@ -2593,7 +2509,7 @@ pub fn amend(
         project_repository,
         &integration_commit_id,
         &default_target.sha,
-        applied_branches,
+        virtual_branches,
     )?;
 
     let (ref mut target_branch, target_status) = applied_statuses
@@ -3068,10 +2984,7 @@ pub fn move_commit(
 
     let applied_branches = vb_state
         .list_branches()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .filter(|b| b.applied)
-        .collect::<Vec<_>>();
+        .context("failed to read virtual branches")?;
 
     if !applied_branches.iter().any(|b| b.id == target_branch_id) {
         bail!("branch {target_branch_id} is not among applied branches")
@@ -3204,16 +3117,13 @@ pub fn create_virtual_branch_from_branch(
 ) -> Result<BranchId> {
     fn apply_branch(project_repository: &ProjectRepo, branch_id: BranchId) -> Result<String> {
         project_repository.assure_resolved()?;
+        project_repository.assure_unconflicted()?;
         let repo = project_repository.repo();
 
         let vb_state = project_repository.project().virtual_branches();
         let default_target = vb_state.get_default_target()?;
 
         let mut branch = vb_state.get_branch(branch_id)?;
-
-        if branch.applied {
-            return Ok(branch.name);
-        }
 
         let target_commit = repo
             .find_commit(default_target.sha)
@@ -3247,17 +3157,15 @@ pub fn create_virtual_branch_from_branch(
 
             if merge_index.has_conflicts() {
                 // currently we can only deal with the merge problem branch
-                for branch in get_status_by_branch(project_repository, Some(&target_commit.id()))?
-                    .0
-                    .into_iter()
-                    .map(|(branch, _)| branch)
+                for branch in vb_state
+                    .list_branches()?
+                    .iter()
                     .filter(|branch| branch.id != branch_id)
                 {
                     convert_to_real_branch(project_repository, branch.id, Default::default())?;
                 }
 
                 // apply the branch
-                branch.applied = true;
                 vb_state.set_branch(branch.clone())?;
 
                 // checkout the conflicts
@@ -3393,12 +3301,27 @@ pub fn create_virtual_branch_from_branch(
             .context("failed to merge trees")?;
 
         if merge_index.has_conflicts() {
-            return Err(anyhow!("branch {branch_id} is in a conflicting state"))
-                .context(Marker::ProjectConflict);
+            // mark conflicts
+            let conflicts = merge_index
+                .conflicts()
+                .context("failed to get merge index conflicts")?;
+            let mut merge_conflicts = Vec::new();
+            for path in conflicts.flatten() {
+                if let Some(ours) = path.our {
+                    let path = std::str::from_utf8(&ours.path)
+                        .context("failed to convert path to utf8")?
+                        .to_string();
+                    merge_conflicts.push(path);
+                }
+            }
+            conflicts::mark(
+                project_repository,
+                &merge_conflicts,
+                Some(default_target.sha),
+            )?;
         }
 
         // apply the branch
-        branch.applied = true;
         vb_state.set_branch(branch.clone())?;
 
         ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
@@ -3473,7 +3396,7 @@ pub fn create_virtual_branch_from_branch(
         .context("failed to peel to commit")?;
     let head_commit_tree = head_commit.tree().context("failed to find tree")?;
 
-    let all_virtual_branches = vb_state
+    let virtual_branches = vb_state
         .list_branches()
         .context("failed to read virtual branches")?
         .into_iter()
@@ -3481,7 +3404,7 @@ pub fn create_virtual_branch_from_branch(
 
     let order = vb_state.next_order_index()?;
 
-    let selected_for_changes = (!all_virtual_branches
+    let selected_for_changes = (!virtual_branches
         .iter()
         .any(|b| b.selected_for_changes.is_some()))
     .then_some(now_since_unix_epoch_ms());
@@ -3523,7 +3446,6 @@ pub fn create_virtual_branch_from_branch(
         id: BranchId::generate(),
         name: branch_name.clone(),
         notes: String::new(),
-        applied: false,
         upstream_head: upstream_branch.is_some().then_some(head_commit.id()),
         upstream: upstream_branch,
         tree: head_commit_tree.id(),

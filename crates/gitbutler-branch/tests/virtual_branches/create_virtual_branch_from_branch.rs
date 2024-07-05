@@ -205,7 +205,7 @@ async fn conflicts_with_uncommited() {
         .into_iter()
         .find(|branch| branch.id == new_branch_id)
         .unwrap();
-    assert!(!new_branch.active);
+    assert_eq!(new_branch_id, new_branch.id);
     assert_eq!(new_branch.commits.len(), 1);
     assert!(new_branch.upstream.is_some());
 }
@@ -261,7 +261,7 @@ async fn conflicts_with_commited() {
         .into_iter()
         .find(|branch| branch.id == new_branch_id)
         .unwrap();
-    assert!(!new_branch.active);
+    assert_eq!(new_branch_id, new_branch.id);
     assert_eq!(new_branch.commits.len(), 1);
     assert!(new_branch.upstream.is_some());
 }

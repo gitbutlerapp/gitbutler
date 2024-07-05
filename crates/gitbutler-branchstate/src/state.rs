@@ -14,12 +14,23 @@ use gitbutler_core::virtual_branches::{target::Target, Branch, BranchId};
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct VirtualBranches {
     /// This is the target/base that is set when a repo is added to gb
-    pub default_target: Option<Target>,
+    default_target: Option<Target>,
     /// The targets for each virtual branch
-    pub branch_targets: HashMap<BranchId, Target>,
+    branch_targets: HashMap<BranchId, Target>,
     /// The current state of the virtual branches
-    pub branches: HashMap<BranchId, Branch>,
+    branches: HashMap<BranchId, Branch>,
 }
+
+impl VirtualBranches {
+    /// Lists all virtual branches.
+    ///
+    /// Errors if the file cannot be read or written.
+    pub fn list_branches(&self) -> Result<Vec<Branch>> {
+        let branches: Vec<Branch> = self.branches.values().cloned().collect();
+        Ok(branches)
+    }
+}
+
 /// A handle to the state of virtual branches.
 ///
 /// For all operations, if the state file does not exist, it will be created.
