@@ -10,7 +10,6 @@ use crate::{id::Id, types::default_true::DefaultTrue, virtual_branches::VirtualB
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum AuthKey {
-    Generated,
     GitCredentialsHelper,
     Local {
         private_key_path: path::PathBuf,

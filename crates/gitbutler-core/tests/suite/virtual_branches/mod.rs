@@ -32,7 +32,7 @@ impl Default for Test {
     fn default() -> Self {
         let data_dir = paths::data_dir();
         let projects = projects::Controller::from_path(data_dir.path());
-        let helper = git::credentials::Helper::from_path(data_dir.path());
+        let helper = git::credentials::Helper::default();
 
         let test_project = TestProject::default();
         let project = projects

@@ -1,24 +1,19 @@
 <script lang="ts">
-	import { AuthService } from '$lib/backend/auth';
 	import { ProjectService, type Key, type KeyType, Project } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import Section from '$lib/settings/Section.svelte';
-	import Button from '$lib/shared/Button.svelte';
 	import CredentialCheck from '$lib/shared/CredentialCheck.svelte';
 	import Link from '$lib/shared/Link.svelte';
 	import ProjectNameLabel from '$lib/shared/ProjectNameLabel.svelte';
 	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import { openExternalUrl } from '$lib/utils/url';
 	import { BaseBranch } from '$lib/vbranches/types';
 	import { onMount } from 'svelte';
 
 	const project = getContext(Project);
 
-	const authService = getContext(AuthService);
 	const baseBranch = getContextStore(BaseBranch);
 	const projectService = getContext(ProjectService);
 
@@ -28,7 +23,6 @@
 	export let showProjectName = false;
 	export let disabled = false;
 
-	let sshKey = '';
 	let credentialCheck: CredentialCheck;
 
 	let selectedType: KeyType =
@@ -72,7 +66,6 @@
 
 	onMount(async () => {
 		form.credentialType.value = selectedType;
-		sshKey = await authService.getPublicKey();
 	});
 </script>
 
@@ -144,48 +137,6 @@
 		<SectionCard
 			roundedTop={false}
 			roundedBottom={false}
-			bottomBorder={selectedType !== 'generated'}
-			orientation="row"
-			labelFor="credential-generated"
-		>
-			<svelte:fragment slot="title">Use locally generated SSH key</svelte:fragment>
-
-			<svelte:fragment slot="actions">
-				<RadioButton name="credentialType" id="credential-generated" value="generated" />
-			</svelte:fragment>
-
-			<svelte:fragment slot="caption">
-				{#if selectedType === 'generated'}
-					GitButler will use a locally generated SSH key. For this to work you need to add the
-					following public key to your Git remote provider:
-				{/if}
-			</svelte:fragment>
-		</SectionCard>
-
-		{#if selectedType === 'generated'}
-			<SectionCard topDivider roundedTop={false} roundedBottom={false}>
-				<TextBox id="sshKey" readonly bind:value={sshKey} wide />
-				<div class="row-buttons">
-					<Button style="pop" kind="solid" icon="copy" on:mousedown={() => copyToClipboard(sshKey)}>
-						Copy to Clipboard
-					</Button>
-					<Button
-						style="ghost"
-						outline
-						icon="open-link"
-						on:mousedown={() => {
-							openExternalUrl('https://github.com/settings/ssh/new');
-						}}
-					>
-						Add key to GitHub
-					</Button>
-				</div>
-			</SectionCard>
-		{/if}
-
-		<SectionCard
-			roundedTop={false}
-			roundedBottom={false}
 			orientation="row"
 			labelFor="credential-helper"
 		>
@@ -222,12 +173,6 @@
 		flex-direction: column;
 		gap: 16px;
 		width: 100%;
-	}
-
-	.row-buttons {
-		display: flex;
-		justify-content: flex-end;
-		gap: 8px;
 	}
 
 	.git-radio {
