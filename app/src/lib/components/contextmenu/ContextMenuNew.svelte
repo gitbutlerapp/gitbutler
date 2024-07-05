@@ -1,6 +1,6 @@
 <script lang="ts" context="module">
 	export type ContextMenuActions = {
-		open: (item: any) => void;
+		open: (e?: MouseEvent, item?: any) => void;
 		close: () => void;
 	};
 </script>
@@ -17,7 +17,6 @@
 		rightClick?: boolean;
 		verticalAlign?: 'top' | 'bottom';
 		horizontalAlign?: 'left' | 'right';
-		onOpen?: (item: any) => void;
 		children: Snippet<[item: any]>;
 	}
 
@@ -26,7 +25,6 @@
 		rightClick,
 		verticalAlign = 'bottom',
 		horizontalAlign = 'right',
-		onOpen,
 		children
 	}: Props = $props();
 
@@ -38,37 +36,29 @@
 	let contextMenuHeight = $state(0);
 	let contextMenuWidth = $state(0);
 	let isVisibile = $state(false);
-	// let targetBoundingRect = $state<DOMRect>();
 	let menuPosition = $state({ x: 0, y: 0 });
-	// let mousePosition = $state({ x: 0, y: 0 });
 
 	// METHODS
 	export function close() {
 		isVisibile = false;
 	}
 
-	export function open() {
+	export function open(e?: MouseEvent, newItem?: any) {
+		if (!trigger) return;
+
+		if (newItem) item = newItem;
 		isVisibile = true;
 
-		onOpen?.(item);
-	}
+		if (!rightClick) {
+			setAlignByTarget();
+		}
 
-	// HELPERS
-	function handleTargetClick(e: MouseEvent) {
-		console.log('handleTargetClick', e);
-		e.preventDefault();
-		setAlignByTarget();
-		open();
-	}
-
-	function handleContextMenu(e: MouseEvent) {
-		// console.log('handleContextMenu', e);
-		e.preventDefault();
-		menuPosition = {
-			x: e.clientX,
-			y: e.clientY
-		};
-		open();
+		if (rightClick && e) {
+			menuPosition = {
+				x: e.clientX,
+				y: e.clientY
+			};
+		}
 	}
 
 	function setVerticalAlign(targetBoundingRect: DOMRect) {
@@ -119,27 +109,6 @@
 			return 'top right';
 		}
 	}
-
-	// LIFECYCLE
-	$effect(() => {
-		if (trigger && !rightClick) {
-			trigger.addEventListener('click', handleTargetClick);
-		}
-
-		if (trigger && rightClick) {
-			trigger.addEventListener('contextmenu', handleContextMenu);
-		}
-
-		return () => {
-			if (trigger && !rightClick) {
-				trigger.removeEventListener('click', handleTargetClick);
-			}
-
-			if (trigger && rightClick) {
-				trigger.removeEventListener('contextmenu', handleContextMenu);
-			}
-		};
-	});
 </script>
 
 {#if isVisibile}
@@ -147,12 +116,12 @@
 		role="presentation"
 		class="overlay-wrapper"
 		use:portal={'body'}
-		use:resizeObserver={() => {
-			if (!rightClick) setAlignByTarget();
-		}}
 		oncontextmenu={(e) => {
 			e.preventDefault();
 			close();
+		}}
+		use:resizeObserver={() => {
+			if (!rightClick) setAlignByTarget();
 		}}
 		onclick={clickOutside}
 	>

@@ -4,9 +4,7 @@
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
-	import ContextMenuNew, {
-		type ContextMenuActions
-	} from '$lib/components/contextmenu/ContextMenuNew.svelte';
+	import ContextMenuNew from '$lib/components/contextmenu/ContextMenuNew.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import Button from '$lib/shared/Button.svelte';
@@ -20,6 +18,7 @@
 	import { Branch, type NameConflictResolution } from '$lib/vbranches/types';
 	import { createEventDispatcher } from 'svelte';
 
+	export let contextMenuEl: ContextMenuNew;
 	export let trigger: HTMLElement;
 	export let isUnapplied = false;
 
@@ -30,7 +29,6 @@
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const branchController = getContext(BranchController);
 
-	let contextMenuEl: ContextMenuActions;
 	let aiConfigurationValid = false;
 	let deleteBranchModal: Modal;
 	let renameRemoteModal: Modal;
