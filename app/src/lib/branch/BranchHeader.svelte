@@ -6,6 +6,7 @@
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import { clickOutside } from '$lib/clickOutside';
+	import ContextMenuNew from '$lib/components/contextmenu/ContextMenuNew.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { showError } from '$lib/notifications/toasts';
 	import Button from '$lib/shared/Button.svelte';
@@ -33,7 +34,7 @@
 	$: pr$ = githubService.getPr$(branch.upstream?.sha || branch.head);
 	$: hasPullRequest = branch.upstreamName && $pr$;
 
-	let meatballButton: HTMLDivElement;
+	let meatballButtonEl: HTMLDivElement;
 	let visible = false;
 	let isApplying = false;
 	let isDeleting = false;
@@ -263,23 +264,26 @@
 								/>
 							{/if}
 							<Button
-								element={meatballButton}
+								bind:element={meatballButtonEl}
 								style="ghost"
 								outline
 								icon="kebab"
 								on:mousedown={() => {
 									visible = !visible;
+									// console.log('meatballButtonEl', meatballButtonEl);
 								}}
 							/>
-							<div
+							<BranchLanePopupMenu {isUnapplied} trigger={meatballButtonEl} />
+							<!-- <ContextMenuNew openByTarget={meatballButtonEl}>helllo sdfsdf</ContextMenuNew> -->
+							<!-- <div
 								class="branch-popup-menu"
 								use:clickOutside={{
-									trigger: meatballButton,
+									trigger: meatballButtonEl,
 									handler: () => (visible = false)
 								}}
 							>
 								<BranchLanePopupMenu {isUnapplied} bind:visible on:action />
-							</div>
+							</div> -->
 						</div>
 					{/if}
 				</div>

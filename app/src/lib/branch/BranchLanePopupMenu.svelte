@@ -3,8 +3,10 @@
 	import SelectItem from '$lib/Select/SelectItem.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
-	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
+	import ContextMenuNew, {
+		type ContextMenuActions
+	} from '$lib/components/contextmenu/ContextMenuNew.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import Button from '$lib/shared/Button.svelte';
@@ -18,7 +20,7 @@
 	import { Branch, type NameConflictResolution } from '$lib/vbranches/types';
 	import { createEventDispatcher } from 'svelte';
 
-	export let visible: boolean;
+	export let trigger: HTMLElement;
 	export let isUnapplied = false;
 
 	const user = getContextStore(User);
@@ -28,6 +30,7 @@
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const branchController = getContext(BranchController);
 
+	let contextMenuEl: ContextMenuActions;
 	let aiConfigurationValid = false;
 	let deleteBranchModal: Modal;
 	let renameRemoteModal: Modal;
@@ -48,10 +51,6 @@
 
 	async function setAIConfigurationValid(user: User | undefined) {
 		aiConfigurationValid = await aiService.validateConfiguration(user?.access_token);
-	}
-
-	function close() {
-		visible = false;
 	}
 
 	let unapplyBranchModal: Modal;
@@ -168,101 +167,101 @@
 	{/snippet}
 </Modal>
 
-{#if visible}
-	<ContextMenu>
-		<ContextMenuSection>
-			{#if !isUnapplied}
-				<ContextMenuItem
-					label="Collapse lane"
-					on:click={() => {
-						dispatch('action', 'collapse');
-						close();
-					}}
-				/>
-			{/if}
-		</ContextMenuSection>
-		<ContextMenuSection>
-			{#if !isUnapplied}
-				<ContextMenuItem
-					label="Unapply"
-					on:click={() => {
-						tryUnapplyBranch();
-						close();
-					}}
-				/>
-			{/if}
-
+<ContextMenuNew bind:this={contextMenuEl} openByTarget={trigger}>
+	<ContextMenuSection>
+		{#if !isUnapplied}
 			<ContextMenuItem
-				label="Delete"
-				on:click={async () => {
-					if (
-						branch.name.toLowerCase().includes('virtual branch') &&
-						commits.length === 0 &&
-						branch.files?.length === 0
-					) {
-						await branchController.deleteBranch(branch.id);
-					} else {
-						deleteBranchModal.show(branch);
-					}
-					close();
-				}}
-			/>
-
-			<ContextMenuItem
-				label="Generate branch name"
+				label="Collapse lane"
 				on:click={() => {
-					dispatch('action', 'generate-branch-name');
-					close();
+					dispatch('action', 'collapse');
+					contextMenuEl.close();
 				}}
-				disabled={isUnapplied ||
-					!($aiGenEnabled && aiConfigurationValid) ||
-					branch.files?.length === 0}
 			/>
-		</ContextMenuSection>
-
-		<ContextMenuSection>
+		{/if}
+	</ContextMenuSection>
+	<ContextMenuSection>
+		{#if !isUnapplied}
 			<ContextMenuItem
-				label="Set remote branch name"
-				disabled={isUnapplied}
+				label="Unapply"
 				on:click={() => {
-					newRemoteName = branch.upstreamName || normalizeBranchName(branch.name) || '';
-					close();
-					renameRemoteModal.show(branch);
+					tryUnapplyBranch();
+					contextMenuEl.close();
 				}}
 			/>
-		</ContextMenuSection>
+		{/if}
 
-		<ContextMenuSection>
-			<ContextMenuItem label="Allow rebasing" on:click={toggleAllowRebasing}>
-				<Toggle
-					small
-					slot="control"
-					bind:checked={allowRebasing}
-					on:click={toggleAllowRebasing}
-					help="Having this enabled permits commit amending and reordering after a branch has been pushed, which would subsequently require force pushing"
-				/>
-			</ContextMenuItem>
-		</ContextMenuSection>
+		<ContextMenuItem
+			label="Delete"
+			on:click={async () => {
+				if (
+					branch.name.toLowerCase().includes('virtual branch') &&
+					commits.length === 0 &&
+					branch.files?.length === 0
+				) {
+					await branchController.deleteBranch(branch.id);
+				} else {
+					deleteBranchModal.show(branch);
+				}
+				contextMenuEl.close();
+			}}
+		/>
 
-		<ContextMenuSection>
-			<ContextMenuItem
-				label="Create branch to the left"
-				on:click={() => {
-					branchController.createBranch({ order: branch.order });
-					close();
-				}}
+		<ContextMenuItem
+			label="Generate branch name"
+			on:click={() => {
+				dispatch('action', 'generate-branch-name');
+				contextMenuEl.close();
+			}}
+			disabled={isUnapplied ||
+				!($aiGenEnabled && aiConfigurationValid) ||
+				branch.files?.length === 0}
+		/>
+	</ContextMenuSection>
+
+	<ContextMenuSection>
+		<ContextMenuItem
+			label="Set remote branch name"
+			disabled={isUnapplied}
+			on:click={() => {
+				console.log('Set remote branch name');
+
+				newRemoteName = branch.upstreamName || normalizeBranchName(branch.name) || '';
+				renameRemoteModal.show(branch);
+				contextMenuEl.close();
+			}}
+		/>
+	</ContextMenuSection>
+
+	<ContextMenuSection>
+		<ContextMenuItem label="Allow rebasing" on:click={toggleAllowRebasing}>
+			<Toggle
+				small
+				slot="control"
+				bind:checked={allowRebasing}
+				on:click={toggleAllowRebasing}
+				help="Having this enabled permits commit amending and reordering after a branch has been pushed, which would subsequently require force pushing"
 			/>
+		</ContextMenuItem>
+	</ContextMenuSection>
 
-			<ContextMenuItem
-				label="Create branch to the right"
-				on:click={() => {
-					branchController.createBranch({ order: branch.order + 1 });
-					close();
-				}}
-			/>
-		</ContextMenuSection>
-	</ContextMenu>
-{/if}
+	<ContextMenuSection>
+		<ContextMenuItem
+			label="Create branch to the left"
+			on:click={() => {
+				branchController.createBranch({ order: branch.order });
+				contextMenuEl.close();
+			}}
+		/>
+
+		<ContextMenuItem
+			label="Create branch to the right"
+			on:click={() => {
+				branchController.createBranch({ order: branch.order + 1 });
+				contextMenuEl.close();
+			}}
+		/>
+	</ContextMenuSection>
+</ContextMenuNew>
 
 <Modal width="small" bind:this={renameRemoteModal}>
 	<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName} focus />
