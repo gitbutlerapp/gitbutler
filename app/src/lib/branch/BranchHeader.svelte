@@ -33,6 +33,7 @@
 	$: hasPullRequest = branch.upstreamName && $pr$;
 
 	let meatballButtonEl: HTMLDivElement;
+	let visible = false;
 	let isApplying = false;
 	let isDeleting = false;
 	let isLoading: boolean;
@@ -260,8 +261,27 @@
 									loading={isLoading}
 								/>
 							{/if}
-							<Button bind:element={meatballButtonEl} style="ghost" outline icon="kebab" />
+							<Button
+								bind:element={meatballButtonEl}
+								style="ghost"
+								outline
+								icon="kebab"
+								on:mousedown={() => {
+									visible = !visible;
+									// console.log('meatballButtonEl', meatballButtonEl);
+								}}
+							/>
 							<BranchLanePopupMenu {isUnapplied} trigger={meatballButtonEl} />
+							<!-- <ContextMenuNew openByTarget={meatballButtonEl}>helllo sdfsdf</ContextMenuNew> -->
+							<!-- <div
+								class="branch-popup-menu"
+								use:clickOutside={{
+									trigger: meatballButtonEl,
+									handler: () => (visible = false)
+								}}
+							>
+								<BranchLanePopupMenu {isUnapplied} bind:visible on:action />
+							</div> -->
 						</div>
 					{/if}
 				</div>

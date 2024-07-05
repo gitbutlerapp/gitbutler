@@ -49,25 +49,24 @@
 	$: if ($fileIdSelection && draggableElt && $fileIdSelection.length === 1)
 		updateFocus(draggableElt, file, fileIdSelection, $commit?.id);
 
-	// $: popupMenu = updateContextMenu();
+	$: popupMenu = updateContextMenu();
 
-	// function updateContextMenu() {
-	// 	if (popupMenu) unmount(popupMenu);
-	// 	return mount(FileContextMenu, {
-	// 		target: document.body,
-	// 		props: { isUnapplied }
-	// 	});
-	// }
+	function updateContextMenu() {
+		if (popupMenu) unmount(popupMenu);
+		return mount(FileContextMenu, {
+			target: document.body,
+			props: { isUnapplied }
+		});
+	}
 
-	// onDestroy(() => {
-	// 	if (popupMenu) {
-	// 		unmount(popupMenu);
-	// 	}
-	// });
+	onDestroy(() => {
+		if (popupMenu) {
+			unmount(popupMenu);
+		}
+	});
+
 	const isDraggable = !readonly && !isUnapplied;
 </script>
-
-<FileContextMenu files={[file]} trigger={draggableElt} {isUnapplied} />
 
 <div
 	bind:this={draggableElt}
@@ -107,17 +106,16 @@
 		if (file.locked) {
 			draggableElt.classList.remove('locked-file-animation');
 		}
-
-		// on:contextmenu|preventDefault={async (e) => {
-		// if (fileIdSelection.has(file.id, $commit?.id)) {
-		// 	popupMenu.openByMouse(e, { files: await $selectedFiles });
-		// } else {
-		// 	popupMenu.openByMouse(e, { files: [file] });
-		// }
-		// }}
 	}}
 	role="button"
 	tabindex="0"
+	on:contextmenu|preventDefault={async (e) => {
+		if (fileIdSelection.has(file.id, $commit?.id)) {
+			popupMenu.openByMouse(e, { files: await $selectedFiles });
+		} else {
+			popupMenu.openByMouse(e, { files: [file] });
+		}
+	}}
 	use:draggableChips={{
 		label: `${file.filename}`,
 		filePath: file.path,
