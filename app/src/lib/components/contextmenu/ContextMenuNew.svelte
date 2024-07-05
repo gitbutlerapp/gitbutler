@@ -1,6 +1,6 @@
 <script lang="ts" context="module">
 	export type ContextMenuActions = {
-		open: () => void;
+		open: (item: any) => void;
 		close: () => void;
 	};
 </script>
@@ -10,102 +10,133 @@
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { type Snippet } from 'svelte';
-	import { onMount } from 'svelte';
 
+	// TYPES AND INTERFACES
 	interface Props {
-		openByTarget?: HTMLElement;
+		trigger?: HTMLElement;
+		rightClick?: boolean;
 		verticalAlign?: 'top' | 'bottom';
 		horizontalAlign?: 'left' | 'right';
-		children: Snippet;
+		onOpen?: (item: any) => void;
+		children: Snippet<[item: any]>;
 	}
 
 	const {
-		openByTarget,
+		trigger,
+		rightClick,
 		verticalAlign = 'bottom',
 		horizontalAlign = 'right',
+		onOpen,
 		children
 	}: Props = $props();
 
+	// LOCAL VARS
+	let menuMargin = 4;
+
+	// STATES
+	let item = $state<any>();
 	let contextMenuHeight = $state(0);
 	let contextMenuWidth = $state(0);
 	let isVisibile = $state(false);
-	let targetBoundingRect = $state<DOMRect>();
+	// let targetBoundingRect = $state<DOMRect>();
+	let menuPosition = $state({ x: 0, y: 0 });
+	// let mousePosition = $state({ x: 0, y: 0 });
 
-	let menuMargin = 4;
-
+	// METHODS
 	export function close() {
 		isVisibile = false;
 	}
 
 	export function open() {
 		isVisibile = true;
+
+		onOpen?.(item);
 	}
 
-	function getTargetBoundingRect() {
-		if (openByTarget) {
-			targetBoundingRect = openByTarget.getBoundingClientRect();
-		}
-	}
-
+	// HELPERS
 	function handleTargetClick(e: MouseEvent) {
+		console.log('handleTargetClick', e);
 		e.preventDefault();
-		getTargetBoundingRect();
+		setAlignByTarget();
 		open();
+	}
+
+	function handleContextMenu(e: MouseEvent) {
+		// console.log('handleContextMenu', e);
+		e.preventDefault();
+		menuPosition = {
+			x: e.clientX,
+			y: e.clientY
+		};
+		open();
+	}
+
+	function setVerticalAlign(targetBoundingRect: DOMRect) {
+		if (verticalAlign === 'top') {
+			return targetBoundingRect?.top ? targetBoundingRect.top - contextMenuHeight - menuMargin : 0;
+		}
+
+		return targetBoundingRect?.top
+			? targetBoundingRect.top + targetBoundingRect.height + menuMargin
+			: 0;
+	}
+
+	function setHorizontalAlign(targetBoundingRect: DOMRect) {
+		if (horizontalAlign === 'left') {
+			return targetBoundingRect?.left ? targetBoundingRect.left : 0;
+		}
+
+		return targetBoundingRect?.left
+			? targetBoundingRect.left + targetBoundingRect.width - contextMenuWidth
+			: 0;
+	}
+
+	function setAlignByTarget() {
+		if (trigger) {
+			const targetBoundingRect = trigger.getBoundingClientRect();
+			menuPosition = {
+				x: setHorizontalAlign(targetBoundingRect),
+				y: setVerticalAlign(targetBoundingRect)
+			};
+		}
 	}
 
 	function clickOutside(e: MouseEvent) {
 		if (e.target === e.currentTarget) close();
 	}
 
-	function setVerticalAlign() {
-		if (verticalAlign === 'top') {
-			return targetBoundingRect?.top
-				? pxToRem(targetBoundingRect.top - contextMenuHeight - menuMargin)
-				: undefined;
-		}
-
-		return targetBoundingRect?.top
-			? pxToRem(targetBoundingRect.top + targetBoundingRect.height + menuMargin)
-			: undefined;
-	}
-
-	function setHorizontalAlign() {
-		if (horizontalAlign === 'left') {
-			return targetBoundingRect?.left ? pxToRem(targetBoundingRect.left) : undefined;
-		}
-
-		return targetBoundingRect?.left
-			? pxToRem(targetBoundingRect.left + targetBoundingRect.width - contextMenuWidth)
-			: undefined;
-	}
-
 	function setTransformOrigin() {
 		if (verticalAlign === 'top' && horizontalAlign === 'left') {
 			return 'bottom left';
 		}
-
 		if (verticalAlign === 'top' && horizontalAlign === 'right') {
 			return 'bottom right';
 		}
-
 		if (verticalAlign === 'bottom' && horizontalAlign === 'left') {
 			return 'top left';
 		}
-
 		if (verticalAlign === 'bottom' && horizontalAlign === 'right') {
 			return 'top right';
 		}
 	}
 
-	onMount(() => {
-		if (openByTarget) {
-			// click listener for the target
-			openByTarget.addEventListener('click', handleTargetClick);
+	// LIFECYCLE
+	$effect(() => {
+		if (trigger && !rightClick) {
+			trigger.addEventListener('click', handleTargetClick);
+		}
+
+		if (trigger && rightClick) {
+			trigger.addEventListener('contextmenu', handleContextMenu);
 		}
 
 		return () => {
-			if (openByTarget) {
-				openByTarget.removeEventListener('click', handleTargetClick);
+			if (trigger && !rightClick) {
+				trigger.removeEventListener('click', handleTargetClick);
+			}
+
+			if (trigger && rightClick) {
+				trigger.removeEventListener('contextmenu', handleContextMenu);
 			}
 		};
 	});
@@ -116,19 +147,25 @@
 		role="presentation"
 		class="overlay-wrapper"
 		use:portal={'body'}
-		use:resizeObserver={getTargetBoundingRect}
+		use:resizeObserver={() => {
+			if (!rightClick) setAlignByTarget();
+		}}
+		oncontextmenu={(e) => {
+			e.preventDefault();
+			close();
+		}}
 		onclick={clickOutside}
 	>
 		<div
 			bind:offsetHeight={contextMenuHeight}
 			bind:offsetWidth={contextMenuWidth}
 			class="context-menu"
-			style:top={setVerticalAlign()}
-			style:left={setHorizontalAlign()}
+			style:top={pxToRem(menuPosition.y)}
+			style:left={pxToRem(menuPosition.x)}
 			style:transform-origin={setTransformOrigin()}
 			style:--animation-transform-shift={verticalAlign === 'top' ? '6px' : '-6px'}
 		>
-			{@render children()}
+			{@render children(item)}
 		</div>
 	</div>
 {/if}

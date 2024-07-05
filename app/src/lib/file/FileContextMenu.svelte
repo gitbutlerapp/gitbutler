@@ -2,6 +2,9 @@
 	import { Project } from '$lib/backend/projects';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
+	import ContextMenuNew, {
+		type ContextMenuActions
+	} from '$lib/components/contextmenu/ContextMenuNew.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
@@ -15,33 +18,107 @@
 	import { join } from '@tauri-apps/api/path';
 	import { open } from '@tauri-apps/api/shell';
 
+	export let files: any;
+
+	export let trigger: HTMLElement;
 	export let isUnapplied;
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 
+	let contextMenuEl: ContextMenuActions;
 	let confirmationModal: Modal;
 	let popupMenu: PopupMenu;
 
 	function containsBinaryFiles(item: any) {
-		return item.files.some((f: AnyFile) => f.binary);
+		return files.some((f: AnyFile) => f.binary);
 	}
 
 	function isDeleted(item: any): boolean {
-		return item.files.some((f: AnyFile) => computeFileStatus(f) === 'D');
+		return files.some((f: AnyFile) => computeFileStatus(f) === 'D');
 	}
 
 	export function openByMouse(e: MouseEvent, item: any) {
 		popupMenu.openByMouse(e, item);
 	}
+
+	console.log('item log in scripts', files);
 </script>
 
-<PopupMenu bind:this={popupMenu} let:item let:dismiss>
+<ContextMenuNew bind:this={contextMenuEl} {trigger} rightClick>
+	<ContextMenuSection>
+		{#if files && files.length > 0}
+			{console.log(files)}
+			<!-- TODO: Refactor so we can have types -->
+			{#if files[0] instanceof LocalFile && !isUnapplied}
+				{#if containsBinaryFiles(files)}
+					<ContextMenuItem label="Discard changes (Binary files not yet supported)" disabled />
+				{:else}
+					<ContextMenuItem
+						label="Discard changes"
+						on:click={() => {
+							confirmationModal.show(files);
+							// dismiss();
+						}}
+					/>
+				{/if}
+			{/if}
+			<!-- {#if files.length === 1}
+				<ContextMenuItem
+					label="Copy Path"
+					on:click={async () => {
+						try {
+							if (!project) return;
+							const absPath = await join(project.path, item.files[0].path);
+							navigator.clipboard.writeText(absPath);
+							// dismiss();
+						} catch (err) {
+							console.error('Failed to copy path', err);
+							toasts.error('Failed to copy path');
+						}
+					}}
+				/>
+				<ContextMenuItem
+					label="Copy Relative Path"
+					on:click={() => {
+						try {
+							if (!project) return;
+							navigator.clipboard.writeText(item.files[0].path);
+							// dismiss();
+						} catch (err) {
+							console.error('Failed to copy relative path', err);
+							toasts.error('Failed to copy relative path');
+						}
+					}}
+				/>
+			{/if}
+			<ContextMenuItem
+				label="Open in VSCode"
+				disabled={isDeleted(item)}
+				on:click={async () => {
+					try {
+						if (!project) return;
+						for (let file of item.files) {
+							const absPath = await join(project.vscodePath, file.path);
+							open(`${editor.get()}://file${absPath}`);
+						}
+						// dismiss();
+					} catch {
+						console.error('Failed to open in VSCode');
+						toasts.error('Failed to open in VSCode');
+					}
+				}}
+			/> -->
+		{/if}
+	</ContextMenuSection>
+</ContextMenuNew>
+
+<!-- <PopupMenu bind:this={popupMenu} let:item let:dismiss>
 	<ContextMenu>
 		<ContextMenuSection>
 			{#if item.files && item.files.length > 0}
 				{@const files = item.files}
-				<!-- TODO: Refactor so we can have types -->
+				TODO: Refactor so we can have types
 				{#if files[0] instanceof LocalFile && !isUnapplied}
 					{#if containsBinaryFiles(item)}
 						<ContextMenuItem label="Discard changes (Binary files not yet supported)" disabled />
@@ -104,7 +181,7 @@
 			{/if}
 		</ContextMenuSection>
 	</ContextMenu>
-</PopupMenu>
+</PopupMenu> -->
 
 <Modal width="small" title="Discard changes" bind:this={confirmationModal}>
 	{#snippet children(item)}

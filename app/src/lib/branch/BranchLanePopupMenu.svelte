@@ -167,7 +167,7 @@
 	{/snippet}
 </Modal>
 
-<ContextMenuNew bind:this={contextMenuEl} openByTarget={trigger}>
+<ContextMenuNew bind:this={contextMenuEl} {trigger}>
 	<ContextMenuSection>
 		{#if !isUnapplied}
 			<ContextMenuItem

@@ -5,8 +5,6 @@
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
-	import { clickOutside } from '$lib/clickOutside';
-	import ContextMenuNew from '$lib/components/contextmenu/ContextMenuNew.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { showError } from '$lib/notifications/toasts';
 	import Button from '$lib/shared/Button.svelte';
@@ -35,7 +33,6 @@
 	$: hasPullRequest = branch.upstreamName && $pr$;
 
 	let meatballButtonEl: HTMLDivElement;
-	let visible = false;
 	let isApplying = false;
 	let isDeleting = false;
 	let isLoading: boolean;
@@ -263,27 +260,8 @@
 									loading={isLoading}
 								/>
 							{/if}
-							<Button
-								bind:element={meatballButtonEl}
-								style="ghost"
-								outline
-								icon="kebab"
-								on:mousedown={() => {
-									visible = !visible;
-									// console.log('meatballButtonEl', meatballButtonEl);
-								}}
-							/>
+							<Button bind:element={meatballButtonEl} style="ghost" outline icon="kebab" />
 							<BranchLanePopupMenu {isUnapplied} trigger={meatballButtonEl} />
-							<!-- <ContextMenuNew openByTarget={meatballButtonEl}>helllo sdfsdf</ContextMenuNew> -->
-							<!-- <div
-								class="branch-popup-menu"
-								use:clickOutside={{
-									trigger: meatballButtonEl,
-									handler: () => (visible = false)
-								}}
-							>
-								<BranchLanePopupMenu {isUnapplied} bind:visible on:action />
-							</div> -->
 						</div>
 					{/if}
 				</div>
@@ -385,13 +363,6 @@
 		&:hover {
 			color: var(--clr-scale-ntrl-40);
 		}
-	}
-
-	.branch-popup-menu {
-		position: absolute;
-		top: calc(100% + 4px);
-		right: 0;
-		z-index: var(--z-floating);
 	}
 
 	.header__remote-branch {
