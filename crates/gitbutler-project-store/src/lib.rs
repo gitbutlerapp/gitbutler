@@ -3,6 +3,7 @@ use migrations::{gitbutler_migrations::gitbutler_migrations, migrator::Migrator}
 use rusqlite::Connection;
 use std::path::Path;
 
+mod changes;
 mod migrations;
 
 const DATABASE_NAME: &str = "project.sqlite";
@@ -11,6 +12,8 @@ const DATABASE_NAME: &str = "project.sqlite";
 struct ProjectStore {
     connection: Connection,
 }
+
+impl ProjectStore {}
 
 /// Database setup
 ///
