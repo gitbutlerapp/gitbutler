@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/clickOutside';
+	import ContextMenuNew from '$lib/components/contextmenu/ContextMenuNew.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 	import type { ComponentColor, ComponentStyleKind } from '$lib/vbranches/types';
@@ -13,23 +13,25 @@
 	export let wide = false;
 	export let help = '';
 	export let menuPosition: 'top' | 'bottom' = 'bottom';
+
+	let contextMenu: ContextMenuNew;
+	let iconEl: HTMLElement;
+
 	let visible = false;
 
 	export function show() {
 		visible = true;
+		contextMenu.open();
 	}
 
 	export function close() {
 		visible = false;
+		contextMenu.close();
 	}
-
-	let container: HTMLDivElement;
-	let contextMenuContainer: HTMLDivElement;
-	let iconEl: HTMLElement;
 </script>
 
 <div class="dropdown-wrapper" class:wide>
-	<div class="dropdown" bind:this={container}>
+	<div class="dropdown">
 		<Button
 			{style}
 			{icon}
@@ -44,7 +46,7 @@
 			<slot />
 		</Button>
 		<Button
-			bind:element={iconEl}
+			bind:el={iconEl}
 			{style}
 			{kind}
 			{help}
@@ -55,23 +57,13 @@
 			isDropdownChild
 			on:click={() => {
 				visible = !visible;
+				contextMenu.toggle();
 			}}
 		/>
 	</div>
-	<div
-		class="context-menu-container"
-		use:clickOutside={{
-			trigger: iconEl,
-			handler: () => (visible = false),
-			enabled: visible
-		}}
-		bind:this={contextMenuContainer}
-		style:display={visible ? 'block' : 'none'}
-		class:dropdown-top={menuPosition === 'top'}
-		class:dropdown-bottom={menuPosition === 'bottom'}
-	>
+	<ContextMenuNew bind:this={contextMenu} target={iconEl} verticalAlign={menuPosition}>
 		<slot name="context-menu" />
-	</div>
+	</ContextMenuNew>
 </div>
 
 <style lang="postcss">

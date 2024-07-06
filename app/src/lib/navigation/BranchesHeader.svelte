@@ -6,10 +6,10 @@
 		filteredBranchCount?: number;
 		totalBranchCount: number;
 		filtersActive: boolean;
-		contextMenu: Snippet;
+		filterButton: Snippet<[filtersActive: boolean]>;
 	}
 
-	const { filteredBranchCount, totalBranchCount, contextMenu }: Props = $props();
+	const { filteredBranchCount, totalBranchCount, filtersActive, filterButton }: Props = $props();
 </script>
 
 <div class="header">
@@ -21,7 +21,7 @@
 		{/if}
 	</div>
 	{#if totalBranchCount > 0}
-		{@render contextMenu()}
+		{@render filterButton(filtersActive)}
 	{/if}
 </div>
 

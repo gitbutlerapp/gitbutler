@@ -26,10 +26,10 @@
 
 <div class="header__filter-btn">
 	<Button
-		bind:element={target}
+		bind:el={target}
 		style="ghost"
 		outline
-		icon={filtersActive ? 'filter-applied-small' : 'filter-small'}
+		icon={$filtersActive ? 'filter-applied-small' : 'filter-small'}
 		on:mousedown={onFilterClick}
 	>
 		Filter

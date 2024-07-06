@@ -263,7 +263,7 @@
 								/>
 							{/if}
 							<Button
-								bind:element={meatballButtonEl}
+								bind:el={meatballButtonEl}
 								style="ghost"
 								outline
 								icon="kebab"

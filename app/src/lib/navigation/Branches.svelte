@@ -3,7 +3,7 @@
 	import BranchesHeader from './BranchesHeader.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { BranchService } from '$lib/branches/service';
-	import FilterPopupMenu from '$lib/components/FilterPopupMenu.svelte';
+	import FilterButton from '$lib/components/FilterBranchesButton.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { persisted } from '$lib/persisted/persisted';
 	import { storeToObservable } from '$lib/rxjs/store';
@@ -114,8 +114,8 @@
 		filteredBranchCount={$filteredBranches$?.length}
 		filtersActive={$filtersActive}
 	>
-		{#snippet contextMenu()}
-			<FilterPopupMenu
+		{#snippet filterButton()}
+			<FilterButton
 				{filtersActive}
 				{includePrs}
 				{includeRemote}

@@ -2,7 +2,6 @@
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
-	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import {
@@ -205,23 +204,22 @@
 				on:click={async () => await generateCommitMessage($branch.files)}
 			>
 				Generate message
-				<ContextMenu slot="context-menu">
-					<ContextMenuSection>
-						<ContextMenuItem
-							label="Extra concise"
-							on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
-						>
-							<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
-						</ContextMenuItem>
 
-						<ContextMenuItem
-							label="Use emojis 😎"
-							on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
-						>
-							<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
-						</ContextMenuItem>
-					</ContextMenuSection>
-				</ContextMenu>
+				<ContextMenuSection slot="context-menu">
+					<ContextMenuItem
+						label="Extra concise"
+						on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+					>
+						<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
+					</ContextMenuItem>
+
+					<ContextMenuItem
+						label="Use emojis 😎"
+						on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+					>
+						<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
+					</ContextMenuItem>
+				</ContextMenuSection>
 			</DropDownButton>
 		</div>
 	</div>
