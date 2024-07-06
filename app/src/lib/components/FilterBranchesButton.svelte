@@ -1,6 +1,6 @@
 <script lang="ts">
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
-	import ContextMenuNew from '$lib/components/contextmenu/ContextMenuNew.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import Checkbox from '$lib/shared/Checkbox.svelte';
@@ -17,7 +17,7 @@
 	export let hideInactive: Writable<boolean | undefined>;
 
 	let target: HTMLElement;
-	let contextMenu: ContextMenuNew;
+	let contextMenu: ContextMenu;
 
 	export function onFilterClick() {
 		contextMenu.toggle();
@@ -34,7 +34,7 @@
 	>
 		Filter
 	</Button>
-	<ContextMenuNew bind:this={contextMenu} {target}>
+	<ContextMenu bind:this={contextMenu} {target}>
 		<ContextMenuSection>
 			{#if showPrCheckbox}
 				<ContextMenuItem label="Pull requests" on:click={() => ($includePrs = !$includePrs)}>
@@ -58,5 +58,5 @@
 				<Toggle small slot="control" bind:checked={$hideInactive} />
 			</ContextMenuItem>
 		</ContextMenuSection>
-	</ContextMenuNew>
+	</ContextMenu>
 </div>

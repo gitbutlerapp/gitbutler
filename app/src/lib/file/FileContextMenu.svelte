@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
-	import ContextMenuNew from '$lib/components/contextmenu/ContextMenuNew.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
@@ -21,7 +21,7 @@
 	const project = getContext(Project);
 
 	let confirmationModal: Modal;
-	let contextMenu: ContextMenuNew;
+	let contextMenu: ContextMenu;
 
 	function containsBinaryFiles(item: any) {
 		return item.files.some((f: AnyFile) => f.binary);
@@ -36,7 +36,7 @@
 	}
 </script>
 
-<ContextMenuNew bind:this={contextMenu} {target} openByMouse>
+<ContextMenu bind:this={contextMenu} {target} openByMouse>
 	{#snippet children(item)}
 		<ContextMenuSection>
 			{#if item.files && item.files.length > 0}
@@ -108,7 +108,7 @@
 			{/if}
 		</ContextMenuSection>
 	{/snippet}
-</ContextMenuNew>
+</ContextMenu>
 
 <Modal width="small" title="Discard changes" bind:this={confirmationModal}>
 	{#snippet children(item)}

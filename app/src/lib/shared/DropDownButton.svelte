@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ContextMenuNew from '$lib/components/contextmenu/ContextMenuNew.svelte';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 	import type { ComponentColor, ComponentStyleKind } from '$lib/vbranches/types';
@@ -14,7 +14,7 @@
 	export let help = '';
 	export let menuPosition: 'top' | 'bottom' = 'bottom';
 
-	let contextMenu: ContextMenuNew;
+	let contextMenu: ContextMenu;
 	let iconEl: HTMLElement;
 
 	let visible = false;
@@ -61,9 +61,9 @@
 			}}
 		/>
 	</div>
-	<ContextMenuNew bind:this={contextMenu} target={iconEl} verticalAlign={menuPosition}>
+	<ContextMenu bind:this={contextMenu} target={iconEl} verticalAlign={menuPosition}>
 		<slot name="context-menu" />
-	</ContextMenuNew>
+	</ContextMenu>
 </div>
 
 <style lang="postcss">
@@ -77,23 +77,6 @@
 		flex-grow: 1;
 		align-items: center;
 	}
-
-	.context-menu-container {
-		position: absolute;
-		right: 0;
-		z-index: var(--z-floating);
-	}
-
-	.dropdown-top {
-		bottom: 100%;
-		padding-bottom: 4px;
-	}
-
-	.dropdown-bottom {
-		top: 100%;
-		padding-top: 4px;
-	}
-
 	.wide {
 		width: 100%;
 	}

@@ -1,6 +1,6 @@
 <script lang="ts">
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
-	import ContextMenu from '$lib/components/contextmenu/ContextMenuNew.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { editor } from '$lib/utils/systemEditor';

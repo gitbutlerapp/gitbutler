@@ -5,7 +5,7 @@
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
-	import ContextMenuNew from '$lib/components/contextmenu/ContextMenuNew.svelte';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { showError } from '$lib/notifications/toasts';
 	import Button from '$lib/shared/Button.svelte';
@@ -33,7 +33,7 @@
 	$: pr$ = githubService.getPr$(branch.upstream?.sha || branch.head);
 	$: hasPullRequest = branch.upstreamName && $pr$;
 
-	let contextMenu: ContextMenuNew;
+	let contextMenu: ContextMenu;
 	let meatballButtonEl: HTMLDivElement;
 	let isApplying = false;
 	let isDeleting = false;

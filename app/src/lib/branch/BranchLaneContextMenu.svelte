@@ -3,8 +3,8 @@
 	import SelectItem from '$lib/Select/SelectItem.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
-	import ContextMenuNew from '$lib/components/contextmenu/ContextMenuNew.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import Button from '$lib/shared/Button.svelte';
@@ -18,7 +18,7 @@
 	import { Branch, type NameConflictResolution } from '$lib/vbranches/types';
 	import { createEventDispatcher } from 'svelte';
 
-	export let contextMenuEl: ContextMenuNew;
+	export let contextMenuEl: ContextMenu;
 	export let target: HTMLElement;
 	export let isUnapplied = false;
 
@@ -165,7 +165,7 @@
 	{/snippet}
 </Modal>
 
-<ContextMenuNew bind:this={contextMenuEl} {target}>
+<ContextMenu bind:this={contextMenuEl} {target}>
 	<ContextMenuSection>
 		{#if !isUnapplied}
 			<ContextMenuItem
@@ -259,7 +259,7 @@
 			}}
 		/>
 	</ContextMenuSection>
-</ContextMenuNew>
+</ContextMenu>
 
 <Modal width="small" bind:this={renameRemoteModal}>
 	<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName} focus />
