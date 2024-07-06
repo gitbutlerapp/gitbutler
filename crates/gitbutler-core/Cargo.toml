@@ -57,6 +57,7 @@ uuid.workspace = true
 walkdir = "2.5.0"
 zip = "0.6.5"
 gitbutler-git.workspace = true
+gitbutler-project-store.workspace = true
 
 [features]
 # by default Tauri runs in production mode

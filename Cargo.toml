@@ -7,6 +7,7 @@ members = [
     "crates/gitbutler-watcher/vendor/debouncer",
     "crates/gitbutler-testsupport",
     "crates/gitbutler-cli",
+    "crates/gitbutler-project-store"
 ]
 resolver = "2"
 
@@ -14,7 +15,7 @@ resolver = "2"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 gix = { git = "https://github.com/Byron/gitoxide", rev = "55cbc1b9d6f210298a86502a7f20f9736c7e963e", default-features = false, features = [] }
 git2 = { version = "0.18.3", features = ["vendored-openssl", "vendored-libgit2"] }
-uuid = { version = "1.8.0", features = ["serde"] }
+uuid = { version = "1.8.0", features = ["serde", "v4", "v7"] }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0.61"
 tokio = { version = "1.38.0", default-features = false }
@@ -25,6 +26,7 @@ gitbutler-core = { path = "crates/gitbutler-core" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }
 gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
 gitbutler-cli ={ path = "crates/gitbutler-cli" }
+gitbutler-project-store = { path = "crates/gitbutler-project-store" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better
