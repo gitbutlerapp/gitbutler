@@ -11,6 +11,7 @@
 	import SearchItem from './SearchItem.svelte';
 	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import TextBox from '../shared/TextBox.svelte';
+	import { KeyName } from '$lib/utils/hotkeys';
 	import { portal } from '$lib/utils/portal';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
@@ -27,7 +28,7 @@
 		placeholder?: string;
 		maxHeight?: number;
 		searchable?: boolean;
-		itemSnippet: Snippet<[item: any, selected?: boolean]>;
+		itemSnippet: Snippet<[{ item: any; highlighted: boolean }]>;
 		children?: Snippet;
 		onselect?: (value: string) => void;
 	}
@@ -50,6 +51,8 @@
 
 	let selectWrapperEl: HTMLElement;
 
+	// let hightlighted = $state(false);
+	let highlightedIndex: number | undefined = $state(undefined);
 	let filteredOptions = $state(options);
 	let maxHeightState = $state(maxHeight);
 	let listOpen = $state(false);
@@ -96,6 +99,30 @@
 		closeList();
 	}
 
+	function handleEnter() {
+		if (highlightedIndex !== undefined) {
+			handleSelect(filteredOptions[highlightedIndex]);
+		}
+	}
+
+	function handleArrowUp() {
+		if (filteredOptions.length === 0) return;
+		if (highlightedIndex === undefined) {
+			highlightedIndex = filteredOptions.length - 1;
+		} else {
+			highlightedIndex = highlightedIndex === 0 ? filteredOptions.length - 1 : highlightedIndex - 1;
+		}
+	}
+
+	function handleArrowDown() {
+		if (filteredOptions.length === 0) return;
+		if (highlightedIndex === undefined) {
+			highlightedIndex = 0;
+		} else {
+			highlightedIndex = highlightedIndex === filteredOptions.length - 1 ? 0 : highlightedIndex + 1;
+		}
+	}
+
 	function handleKeyDown(e: CustomEvent<KeyboardEvent>) {
 		if (!listOpen) {
 			return;
@@ -105,27 +132,20 @@
 
 		const { key } = e.detail;
 
-		console.log(key);
-		// switch (key) {
-		// 	case KeyName.Escape:
-		// 		closeList();
-		// 		break;
-		// 	case KeyName.Up:
-		// 		handleArrowUp();
-		// 		break;
-		// 	case KeyName.Down:
-		// 		handleArrowDown();
-		// 		break;
-		// 	case KeyName.Enter:
-		// 		handleEnter();
-		// 		break;
-		// 	case KeyName.Delete:
-		// 		handleDelete();
-		// 		break;
-		// 	default:
-		// 		if (isChar(key)) handleChar(key);
-		// 		break;
-		// }
+		switch (key) {
+			case KeyName.Escape:
+				closeList();
+				break;
+			case KeyName.Up:
+				handleArrowUp();
+				break;
+			case KeyName.Down:
+				handleArrowDown();
+				break;
+			case KeyName.Enter:
+				handleEnter();
+				break;
+		}
 	}
 </script>
 
@@ -182,15 +202,9 @@
 								<span class=""> Nothing found ¯\_(ツ)_/¯ </span>
 							</div>
 						{/if}
-						{#each filteredOptions as item}
-							<div
-								class="option"
-								class:selected={item === value}
-								tabindex="-1"
-								role="none"
-								onmousedown={() => handleSelect(item)}
-							>
-								{@render itemSnippet(item)}
+						{#each filteredOptions as item, idx}
+							<div class="option" tabindex="-1" role="none" onmousedown={() => handleSelect(item)}>
+								{@render itemSnippet({ item, highlighted: idx === highlightedIndex })}
 							</div>
 						{/each}
 					</OptionsGroup>

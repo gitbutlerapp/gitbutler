@@ -33,8 +33,8 @@
 		}}
 		searchable
 	>
-		{#snippet itemSnippet(item)}
-			<SelectItem selected={item.value === selectedProjectId}>
+		{#snippet itemSnippet({ item, highlighted })}
+			<SelectItem selected={item.value === selectedProjectId} {highlighted}>
 				{item.label}
 			</SelectItem>
 		{/snippet}

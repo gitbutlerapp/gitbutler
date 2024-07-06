@@ -97,8 +97,8 @@
 				label="Current target branch"
 				searchable
 			>
-				{#snippet itemSnippet(item)}
-					<SelectItem selected={item.value === selectedBranch.name}>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === selectedBranch.name} {highlighted}>
 						{item.label}
 					</SelectItem>
 				{/snippet}
@@ -120,8 +120,8 @@
 						selectedRemote = newSelectedRemote || selectedRemote;
 					}}
 				>
-					{#snippet itemSnippet(item)}
-						<SelectItem selected={item.value === selectedRemote.name}>
+					{#snippet itemSnippet({ item, highlighted })}
+						<SelectItem selected={item.value === selectedRemote.name} {highlighted}>
 							{item.label}
 						</SelectItem>
 					{/snippet}

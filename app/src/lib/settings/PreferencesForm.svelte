@@ -160,8 +160,8 @@
 					updateSigningInfo();
 				}}
 			>
-				{#snippet itemSnippet(item)}
-					<SelectItem selected={item.value === signingFormat}>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === signingFormat} {highlighted}>
 						{item.label}
 					</SelectItem>
 				{/snippet}

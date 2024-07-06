@@ -53,8 +53,8 @@
 		$selectedPromptId = value;
 	}}
 >
-	{#snippet itemSnippet(item)}
-		<SelectItem selected={item.value === $selectedPromptId}>
+	{#snippet itemSnippet({ item, highlighted })}
+		<SelectItem selected={item.value === $selectedPromptId} {highlighted}>
 			{item.label}
 		</SelectItem>
 	{/snippet}

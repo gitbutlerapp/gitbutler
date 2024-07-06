@@ -174,8 +174,8 @@
 						openAIKeyOption = value as KeyOption;
 					}}
 					>
-						{#snippet itemSnippet(item)}
-							<SelectItem selected={item.value === openAIKeyOption}>
+						{#snippet itemSnippet({ item, highlighted })}
+							<SelectItem selected={item.value === openAIKeyOption} {highlighted}>
 								{item.label}
 							</SelectItem>
 						{/snippet}
@@ -200,8 +200,8 @@
 							openAIModelName = value as OpenAIModelName;
 						}}
 						>
-							{#snippet itemSnippet(item)}
-								<SelectItem selected={item.value === openAIModelName}>
+							{#snippet itemSnippet({ item, highlighted })}
+								<SelectItem selected={item.value === openAIModelName} {highlighted}>
 									{item.label}
 								</SelectItem>
 							{/snippet}
@@ -236,8 +236,8 @@
 						anthropicKeyOption = value as KeyOption;
 					}}
 					>
-						{#snippet itemSnippet(item)}
-							<SelectItem selected={item.value === anthropicKeyOption}>
+						{#snippet itemSnippet({ item, highlighted })}
+							<SelectItem selected={item.value === anthropicKeyOption} {highlighted}>
 								{item.label}
 							</SelectItem>
 						{/snippet}
@@ -267,8 +267,8 @@
 							anthropicModelName = value as AnthropicModelName;
 						}}
 						>
-							{#snippet itemSnippet(item)}
-								<SelectItem selected={item.value === anthropicModelName}>
+							{#snippet itemSnippet({ item, highlighted })}
+								<SelectItem selected={item.value === anthropicModelName} {highlighted}>
 									{item.label}
 								</SelectItem>
 							{/snippet}

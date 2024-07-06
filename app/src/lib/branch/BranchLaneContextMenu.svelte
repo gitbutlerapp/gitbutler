@@ -136,8 +136,8 @@
 				selectedResolution = value as ResolutionVariants;
 			}}
 		>
-			{#snippet itemSnippet(item)}
-				<SelectItem selected={item.value === selectedResolution}>
+			{#snippet itemSnippet({ item, highlighted })}
+				<SelectItem selected={item.value === selectedResolution} {highlighted}>
 					{item.label}
 				</SelectItem>
 			{/snippet}
