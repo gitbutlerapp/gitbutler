@@ -177,7 +177,7 @@
 		border-radius: var(--radius-m);
 		box-shadow: var(--fx-shadow-s);
 
-		animation: fadeIn 0.12s ease-out forwards;
+		animation: fadeIn 0.1s ease-out forwards;
 	}
 
 	@keyframes fadeIn {
