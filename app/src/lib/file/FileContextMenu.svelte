@@ -41,7 +41,6 @@
 		<ContextMenuSection>
 			{#if item.files && item.files.length > 0}
 				{@const files = item.files}
-				{console.log(files)}
 				{#if files[0] instanceof LocalFile && !isUnapplied}
 					{#if containsBinaryFiles(item)}
 						<ContextMenuItem label="Discard changes (Binary files not yet supported)" disabled />
@@ -51,7 +50,6 @@
 							on:click={() => {
 								confirmationModal.show(item);
 								contextMenu.close();
-								// dismiss();
 							}}
 						/>
 					{/if}
@@ -79,7 +77,6 @@
 								if (!project) return;
 								navigator.clipboard.writeText(item.files[0].path);
 								contextMenu.close();
-								// dismiss();
 							} catch (err) {
 								console.error('Failed to copy relative path', err);
 								toasts.error('Failed to copy relative path');
@@ -98,7 +95,6 @@
 								openFile(`${editor.get()}://file${absPath}`);
 							}
 							contextMenu.close();
-							// dismiss();
 						} catch {
 							console.error('Failed to open in VSCode');
 							toasts.error('Failed to open in VSCode');

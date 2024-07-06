@@ -95,6 +95,38 @@
 		onselect?.(value);
 		closeList();
 	}
+
+	function handleKeyDown(e: CustomEvent<KeyboardEvent>) {
+		if (!listOpen) {
+			return;
+		}
+		e.detail.stopPropagation();
+		e.detail.preventDefault();
+
+		const { key } = e.detail;
+
+		console.log(key);
+		// switch (key) {
+		// 	case KeyName.Escape:
+		// 		closeList();
+		// 		break;
+		// 	case KeyName.Up:
+		// 		handleArrowUp();
+		// 		break;
+		// 	case KeyName.Down:
+		// 		handleArrowDown();
+		// 		break;
+		// 	case KeyName.Enter:
+		// 		handleEnter();
+		// 		break;
+		// 	case KeyName.Delete:
+		// 		handleDelete();
+		// 		break;
+		// 	default:
+		// 		if (isChar(key)) handleChar(key);
+		// 		break;
+		// }
+	}
 </script>
 
 <div class="select-wrapper" class:wide bind:this={selectWrapperEl}>
@@ -112,6 +144,7 @@
 		value={options.find((item) => item.value === value)?.label || 'Select an option...'}
 		disabled={disabled || loading}
 		on:mousedown={toggleList}
+		on:keydown={(ev) => handleKeyDown(ev)}
 	/>
 	{#if listOpen}
 		<div
