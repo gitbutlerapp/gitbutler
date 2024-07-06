@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ActiveBranchStatus from './ActiveBranchStatus.svelte';
 	import BranchLabel from './BranchLabel.svelte';
-	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
+	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
@@ -271,7 +271,7 @@
 									contextMenu.toggle();
 								}}
 							/>
-							<BranchLanePopupMenu
+							<BranchLaneContextMenu
 								bind:contextMenuEl={contextMenu}
 								{isUnapplied}
 								target={meatballButtonEl}
