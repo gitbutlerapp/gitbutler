@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Select from '../Select/Select.svelte';
-	import SelectItem from '../Select/SelectItem.svelte';
-	import OptionsGroup from '$lib/Select/OptionsGroup.svelte';
+	import Select from '../select/Select.svelte';
+	import SelectItem from '../select/SelectItem.svelte';
 	import { ProjectService, Project } from '$lib/backend/projects';
+	import OptionsGroup from '$lib/select/OptionsGroup.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext, maybeGetContext } from '$lib/utils/context';
 	import { derived } from 'svelte/store';

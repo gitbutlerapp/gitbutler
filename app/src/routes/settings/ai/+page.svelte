@@ -1,6 +1,4 @@
 <script lang="ts">
-	import Select from '$lib/Select/Select.svelte';
-	import SelectItem from '$lib/Select/SelectItem.svelte';
 	import { AISecretHandle, AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
@@ -8,6 +6,8 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import { getSecretsService } from '$lib/secrets/secretsService';
+	import Select from '$lib/select/Select.svelte';
+	import SelectItem from '$lib/select/SelectItem.svelte';
 	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
