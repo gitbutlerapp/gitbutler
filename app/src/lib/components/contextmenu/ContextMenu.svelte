@@ -12,6 +12,8 @@
 		verticalAlign?: 'top' | 'bottom';
 		horizontalAlign?: 'left' | 'right';
 		children: Snippet<[item: any]>;
+		onclose?: () => void;
+		onopen?: () => void;
 	}
 
 	const {
@@ -19,7 +21,9 @@
 		openByMouse,
 		verticalAlign = 'bottom',
 		horizontalAlign = 'right',
-		children
+		children,
+		onclose,
+		onopen
 	}: Props = $props();
 
 	// LOCAL VARS
@@ -35,6 +39,7 @@
 	// METHODS
 	export function close() {
 		isVisibile = false;
+		onclose && onclose();
 	}
 
 	export function open(e?: MouseEvent, newItem?: any) {
@@ -42,6 +47,7 @@
 
 		if (newItem) item = newItem;
 		isVisibile = true;
+		onopen && onopen();
 
 		if (!openByMouse) {
 			setAlignByTarget();
@@ -113,12 +119,11 @@
 	}
 </script>
 
-{#if isVisibile}
+{#snippet contextMenu()}
 	<div
-		use:portal={'body'}
 		use:clickOutside={{
 			excludeElement: target,
-			handler: () => (isVisibile = false)
+			handler: () => close()
 		}}
 		use:resizeObserver={() => {
 			if (!openByMouse) setAlignByTarget();
@@ -133,9 +138,25 @@
 	>
 		{@render children(item)}
 	</div>
+{/snippet}
+
+{#if isVisibile}
+	<div class="portal-wrap" use:portal={'body'}>
+		{#if openByMouse}
+			{@render contextMenu()}
+		{:else}
+			<div class="overlay-wrapper">
+				{@render contextMenu()}
+			</div>
+		{/if}
+	</div>
 {/if}
 
 <style lang="postcss">
+	.portal-wrap {
+		display: contents;
+	}
+
 	.overlay-wrapper {
 		z-index: var(--z-blocker);
 		position: fixed;

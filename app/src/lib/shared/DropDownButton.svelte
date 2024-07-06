@@ -61,7 +61,14 @@
 			}}
 		/>
 	</div>
-	<ContextMenu bind:this={contextMenu} target={iconEl} verticalAlign={menuPosition}>
+	<ContextMenu
+		bind:this={contextMenu}
+		target={iconEl}
+		verticalAlign={menuPosition}
+		onclose={() => {
+			visible = false;
+		}}
+	>
 		<slot name="context-menu" />
 	</ContextMenu>
 </div>
