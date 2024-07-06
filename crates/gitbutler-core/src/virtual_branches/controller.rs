@@ -1,5 +1,5 @@
 use crate::{
-    git::BranchExt,
+    git::{credentials::Helper, BranchExt},
     ops::entry::{OperationKind, SnapshotDetails},
     project_repository::Repository,
     projects::FetchResult,
@@ -21,20 +21,18 @@ use crate::{
 
 #[derive(Clone)]
 pub struct Controller {
-    helper: git::credentials::Helper,
-
     semaphore: Arc<Semaphore>,
 }
 
-impl Controller {
-    pub fn new(helper: git::credentials::Helper) -> Self {
+impl Default for Controller {
+    fn default() -> Self {
         Self {
             semaphore: Arc::new(Semaphore::new(1)),
-
-            helper,
         }
     }
+}
 
+impl Controller {
     pub async fn create_commit(
         &self,
         project: &Project,
@@ -369,7 +367,7 @@ impl Controller {
         askpass: Option<Option<BranchId>>,
     ) -> Result<()> {
         let _permit = self.semaphore.acquire().await;
-        let helper = self.helper.clone();
+        let helper = Helper::default();
         let project_repository = open_with_verify(project)?;
         super::push(&project_repository, branch_id, with_force, &helper, askpass)
     }
@@ -426,10 +424,11 @@ impl Controller {
     ) -> Result<FetchResult> {
         let project_repository = Repository::open(project)?;
 
+        let helper = Helper::default();
         let remotes = project_repository.remotes()?;
         let fetch_results: Vec<Result<(), _>> = remotes
             .iter()
-            .map(|remote| project_repository.fetch(remote, &self.helper, askpass.clone()))
+            .map(|remote| project_repository.fetch(remote, &helper, askpass.clone()))
             .collect();
 
         let project_data_last_fetched = if fetch_results.iter().any(Result::is_err) {
@@ -454,7 +453,7 @@ impl Controller {
 
         // if we have a push remote, let's fetch from this too
         if let Some(push_remote) = &default_target.push_remote_name {
-            if let Err(err) = project_repository.fetch(push_remote, &self.helper, askpass.clone()) {
+            if let Err(err) = project_repository.fetch(push_remote, &helper, askpass.clone()) {
                 tracing::warn!(?err, "fetch from push-remote failed");
             }
         }
