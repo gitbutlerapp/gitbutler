@@ -268,13 +268,13 @@
 								outline
 								icon="kebab"
 								on:click={() => {
-									contextMenu.open();
+									contextMenu.toggle();
 								}}
 							/>
 							<BranchLanePopupMenu
 								bind:contextMenuEl={contextMenu}
 								{isUnapplied}
-								trigger={meatballButtonEl}
+								target={meatballButtonEl}
 							/>
 						</div>
 					{/if}

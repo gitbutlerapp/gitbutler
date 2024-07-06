@@ -12,9 +12,9 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { LocalFile, type AnyFile } from '$lib/vbranches/types';
 	import { join } from '@tauri-apps/api/path';
-	import { open } from '@tauri-apps/api/shell';
+	import { open as openFile } from '@tauri-apps/api/shell';
 
-	export let trigger: HTMLElement;
+	export let target: HTMLElement;
 	export let isUnapplied;
 
 	const branchController = getContext(BranchController);
@@ -31,13 +31,12 @@
 		return item.files.some((f: AnyFile) => computeFileStatus(f) === 'D');
 	}
 
-	export function openByMouse(e: MouseEvent, item: any) {
-		console.log('openByMouse', item);
+	export function open(e: MouseEvent, item: any) {
 		contextMenu.open(e, item);
 	}
 </script>
 
-<ContextMenuNew bind:this={contextMenu} {trigger} rightClick>
+<ContextMenuNew bind:this={contextMenu} {target} openByMouse>
 	{#snippet children(item)}
 		<ContextMenuSection>
 			{#if item.files && item.files.length > 0}
@@ -96,7 +95,7 @@
 							if (!project) return;
 							for (let file of item.files) {
 								const absPath = await join(project.vscodePath, file.path);
-								open(`${editor.get()}://file${absPath}`);
+								openFile(`${editor.get()}://file${absPath}`);
 							}
 							contextMenu.close();
 							// dismiss();

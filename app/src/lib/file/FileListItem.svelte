@@ -12,7 +12,6 @@
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type AnyFile } from '$lib/vbranches/types';
-	import { mount, onDestroy, unmount } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
 	export let file: AnyFile;
@@ -69,7 +68,7 @@
 	const isDraggable = !readonly && !isUnapplied;
 </script>
 
-<FileContextMenu bind:this={popupMenu} trigger={draggableElt} {isUnapplied} />
+<FileContextMenu bind:this={popupMenu} target={draggableElt} {isUnapplied} />
 
 <div
 	bind:this={draggableElt}
@@ -119,7 +118,7 @@
 		// }}
 	}}
 	on:contextmenu|preventDefault={async (e) => {
-		popupMenu.openByMouse(e, { files: [file] });
+		popupMenu.open(e, { files: [file] });
 		// if (fileIdSelection.has(file.id, $commit?.id)) {
 		// 	popupMenu.openByMouse(e, { files: await $selectedFiles });
 		// } else {

@@ -1,12 +1,13 @@
 <script lang="ts">
-	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
+	import ContextMenuNew from '$lib/components/contextmenu/ContextMenuNew.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import Button from '$lib/shared/Button.svelte';
 	import Checkbox from '$lib/shared/Checkbox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
-	import type { Writable } from 'svelte/store';
+	import type { Writable, Readable } from 'svelte/store';
 
-	export let visible: boolean;
+	export let filtersActive: Readable<boolean>;
 	export let showPrCheckbox: boolean;
 
 	export let includePrs: Writable<boolean | undefined>;
@@ -14,10 +15,26 @@
 	export let includeStashed: Writable<boolean | undefined>;
 	export let hideBots: Writable<boolean | undefined>;
 	export let hideInactive: Writable<boolean | undefined>;
+
+	let target: HTMLElement;
+	let contextMenu: ContextMenuNew;
+
+	export function onFilterClick() {
+		contextMenu.toggle();
+	}
 </script>
 
-{#if visible}
-	<ContextMenu>
+<div class="header__filter-btn">
+	<Button
+		bind:element={target}
+		style="ghost"
+		outline
+		icon={filtersActive ? 'filter-applied-small' : 'filter-small'}
+		on:mousedown={onFilterClick}
+	>
+		Filter
+	</Button>
+	<ContextMenuNew bind:this={contextMenu} {target}>
 		<ContextMenuSection>
 			{#if showPrCheckbox}
 				<ContextMenuItem label="Pull requests" on:click={() => ($includePrs = !$includePrs)}>
@@ -41,5 +58,5 @@
 				<Toggle small slot="control" bind:checked={$hideInactive} />
 			</ContextMenuItem>
 		</ContextMenuSection>
-	</ContextMenu>
-{/if}
+	</ContextMenuNew>
+</div>

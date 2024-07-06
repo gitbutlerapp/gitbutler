@@ -19,7 +19,7 @@
 	import { createEventDispatcher } from 'svelte';
 
 	export let contextMenuEl: ContextMenuNew;
-	export let trigger: HTMLElement;
+	export let target: HTMLElement;
 	export let isUnapplied = false;
 
 	const user = getContextStore(User);
@@ -165,7 +165,7 @@
 	{/snippet}
 </Modal>
 
-<ContextMenuNew bind:this={contextMenuEl} {trigger}>
+<ContextMenuNew bind:this={contextMenuEl} {target}>
 	<ContextMenuSection>
 		{#if !isUnapplied}
 			<ContextMenuItem

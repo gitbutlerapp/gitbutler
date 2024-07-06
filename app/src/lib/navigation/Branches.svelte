@@ -18,12 +18,12 @@
 	const dispatch = createEventDispatcher<{ scrollbarDragging: boolean }>();
 
 	export let projectId: string;
-
 	export const textFilter$ = new BehaviorSubject<string | undefined>(undefined);
 
 	const branchService = getContext(BranchService);
 	const githubService = getContext(GitHubService);
 
+	// let contextMenu: ContextMenuActions;
 	let includePrs = persisted(true, 'includePrs_' + projectId);
 	let includeRemote = persisted(true, 'includeRemote_' + projectId);
 	let includeStashed = persisted(true, 'includeStashed_' + projectId);
@@ -114,9 +114,9 @@
 		filteredBranchCount={$filteredBranches$?.length}
 		filtersActive={$filtersActive}
 	>
-		{#snippet contextMenu({ visible })}
+		{#snippet contextMenu()}
 			<FilterPopupMenu
-				{visible}
+				{filtersActive}
 				{includePrs}
 				{includeRemote}
 				{includeStashed}

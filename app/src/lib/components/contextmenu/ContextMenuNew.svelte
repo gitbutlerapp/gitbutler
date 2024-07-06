@@ -1,11 +1,5 @@
-<script lang="ts" context="module">
-	export type ContextMenuActions = {
-		open: (e?: MouseEvent, item?: any) => void;
-		close: () => void;
-	};
-</script>
-
 <script lang="ts">
+	import { clickOutside } from '$lib/clickOutsideNew';
 	import { portal } from '$lib/utils/portal';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
@@ -13,16 +7,16 @@
 
 	// TYPES AND INTERFACES
 	interface Props {
-		trigger?: HTMLElement;
-		rightClick?: boolean;
+		target?: HTMLElement;
+		openByMouse?: boolean;
 		verticalAlign?: 'top' | 'bottom';
 		horizontalAlign?: 'left' | 'right';
 		children: Snippet<[item: any]>;
 	}
 
 	const {
-		trigger,
-		rightClick,
+		target,
+		openByMouse,
 		verticalAlign = 'bottom',
 		horizontalAlign = 'right',
 		children
@@ -44,20 +38,28 @@
 	}
 
 	export function open(e?: MouseEvent, newItem?: any) {
-		if (!trigger) return;
+		if (!target) return;
 
 		if (newItem) item = newItem;
 		isVisibile = true;
 
-		if (!rightClick) {
+		if (!openByMouse) {
 			setAlignByTarget();
 		}
 
-		if (rightClick && e) {
+		if (openByMouse && e) {
 			menuPosition = {
 				x: e.clientX,
 				y: e.clientY
 			};
+		}
+	}
+
+	export function toggle(e?: MouseEvent, newItem?: any) {
+		if (!isVisibile) {
+			open(e, newItem);
+		} else {
+			close();
 		}
 	}
 
@@ -82,8 +84,8 @@
 	}
 
 	function setAlignByTarget() {
-		if (trigger) {
-			const targetBoundingRect = trigger.getBoundingClientRect();
+		if (target) {
+			const targetBoundingRect = target.getBoundingClientRect();
 			menuPosition = {
 				x: setHorizontalAlign(targetBoundingRect),
 				y: setVerticalAlign(targetBoundingRect)
@@ -91,51 +93,45 @@
 		}
 	}
 
-	function clickOutside(e: MouseEvent) {
-		if (e.target === e.currentTarget) close();
-	}
-
 	function setTransformOrigin() {
-		if (verticalAlign === 'top' && horizontalAlign === 'left') {
-			return 'bottom left';
-		}
-		if (verticalAlign === 'top' && horizontalAlign === 'right') {
-			return 'bottom right';
-		}
-		if (verticalAlign === 'bottom' && horizontalAlign === 'left') {
+		if (!openByMouse) {
+			if (verticalAlign === 'top' && horizontalAlign === 'left') {
+				return 'bottom left';
+			}
+			if (verticalAlign === 'top' && horizontalAlign === 'right') {
+				return 'bottom right';
+			}
+			if (verticalAlign === 'bottom' && horizontalAlign === 'left') {
+				return 'top left';
+			}
+			if (verticalAlign === 'bottom' && horizontalAlign === 'right') {
+				return 'top right';
+			}
+		} else {
 			return 'top left';
-		}
-		if (verticalAlign === 'bottom' && horizontalAlign === 'right') {
-			return 'top right';
 		}
 	}
 </script>
 
 {#if isVisibile}
 	<div
-		role="presentation"
-		class="overlay-wrapper"
 		use:portal={'body'}
-		oncontextmenu={(e) => {
-			e.preventDefault();
-			close();
+		use:clickOutside={{
+			excludeElement: target,
+			handler: () => (isVisibile = false)
 		}}
 		use:resizeObserver={() => {
-			if (!rightClick) setAlignByTarget();
+			if (!openByMouse) setAlignByTarget();
 		}}
-		onclick={clickOutside}
+		bind:offsetHeight={contextMenuHeight}
+		bind:offsetWidth={contextMenuWidth}
+		class="context-menu"
+		style:top={pxToRem(menuPosition.y)}
+		style:left={pxToRem(menuPosition.x)}
+		style:transform-origin={setTransformOrigin()}
+		style:--animation-transform-shift={verticalAlign === 'top' ? '6px' : '-6px'}
 	>
-		<div
-			bind:offsetHeight={contextMenuHeight}
-			bind:offsetWidth={contextMenuWidth}
-			class="context-menu"
-			style:top={pxToRem(menuPosition.y)}
-			style:left={pxToRem(menuPosition.x)}
-			style:transform-origin={setTransformOrigin()}
-			style:--animation-transform-shift={verticalAlign === 'top' ? '6px' : '-6px'}
-		>
-			{@render children(item)}
-		</div>
+		{@render children(item)}
 	</div>
 {/if}
 
@@ -151,7 +147,8 @@
 	}
 
 	.context-menu {
-		position: absolute;
+		z-index: var(--z-blocker);
+		position: fixed;
 		display: flex;
 		flex-direction: column;
 		background: var(--clr-bg-2);
