@@ -3,7 +3,6 @@
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
-	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
@@ -13,7 +12,6 @@
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { Branch } from '$lib/vbranches/types';
 	import { distinctUntilChanged } from 'rxjs';
-	import { mount, onDestroy, unmount } from 'svelte';
 	import { derived, type Readable } from 'svelte/store';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
 	import type iconsJson from '$lib/icons/icons.json';
@@ -236,22 +234,6 @@
 			}
 		}
 	}
-
-	function updateContextMenu(copyablePrUrl: string) {
-		if (popupMenu) unmount(popupMenu);
-		return mount(ViewPrContextMenu, {
-			target: document.body,
-			props: { prUrl: copyablePrUrl }
-		});
-	}
-
-	$: popupMenu = updateContextMenu($pr$?.htmlUrl || '');
-
-	onDestroy(() => {
-		if (popupMenu) {
-			unmount(popupMenu);
-		}
-	});
 </script>
 
 {#if $pr$}
@@ -306,10 +288,6 @@
 					if (url) openExternalUrl(url);
 					e.preventDefault();
 					e.stopPropagation();
-				}}
-				on:contextmenu={(e) => {
-					e.preventDefault();
-					popupMenu.openByMouse(e, undefined);
 				}}
 			>
 				Open in browser
