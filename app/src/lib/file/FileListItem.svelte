@@ -28,7 +28,7 @@
 	const selectedFiles = fileIdSelection.files;
 
 	let checked = false;
-	let popupMenu: FileContextMenu;
+	let contextMenu: FileContextMenu;
 	let draggableElt: HTMLDivElement;
 	let lastCheckboxDetail = true;
 
@@ -52,7 +52,7 @@
 	const isDraggable = !readonly && !isUnapplied;
 </script>
 
-<FileContextMenu bind:this={popupMenu} target={draggableElt} {isUnapplied} />
+<FileContextMenu bind:this={contextMenu} target={draggableElt} {isUnapplied} />
 
 <div
 	bind:this={draggableElt}
@@ -95,9 +95,9 @@
 	}}
 	on:contextmenu|preventDefault={async (e) => {
 		if (fileIdSelection.has(file.id, $commit?.id)) {
-			popupMenu.open(e, { files: await $selectedFiles });
+			contextMenu.open(e, { files: await $selectedFiles });
 		} else {
-			popupMenu.open(e, { files: [file] });
+			contextMenu.open(e, { files: [file] });
 		}
 	}}
 	role="button"

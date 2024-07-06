@@ -16,6 +16,7 @@
 
 	const dispatch = createEventDispatcher<{
 		lineContextMenu: { lineNumber: number | undefined; event: MouseEvent };
+		click: void;
 		selected: boolean;
 	}>();
 
@@ -49,8 +50,10 @@
 >
 	{#each lines as line}
 		<div
+			tabindex="-1"
+			role="none"
 			class="code-line"
-			role="group"
+			on:click={() => dispatch('click')}
 			on:contextmenu={(event) => {
 				const lineNumber = line.afterLineNumber ? line.afterLineNumber : line.beforeLineNumber;
 				dispatch('lineContextMenu', { event, lineNumber });
