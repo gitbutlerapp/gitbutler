@@ -49,22 +49,6 @@
 	$: if ($fileIdSelection && draggableElt && $fileIdSelection.length === 1)
 		updateFocus(draggableElt, file, fileIdSelection, $commit?.id);
 
-	// $: popupMenu = updateContextMenu();
-
-	// function updateContextMenu() {
-	// 	if (popupMenu) unmount(popupMenu);
-	// 	return mount(FileContextMenu, {
-	// 		target: document.body,
-	// 		props: { isUnapplied }
-	// 	});
-	// }
-
-	// onDestroy(() => {
-	// 	if (popupMenu) {
-	// 		unmount(popupMenu);
-	// 	}
-	// });
-
 	const isDraggable = !readonly && !isUnapplied;
 </script>
 
@@ -108,22 +92,13 @@
 		if (file.locked) {
 			draggableElt.classList.remove('locked-file-animation');
 		}
-
-		// 	on:contextmenu|preventDefault={async (e) => {
-		// 	if (fileIdSelection.has(file.id, $commit?.id)) {
-		// 		popupMenu.openByMouse(e, { files: await $selectedFiles });
-		// 	} else {
-		// 		popupMenu.openByMouse(e, { files: [file] });
-		// 	}
-		// }}
 	}}
 	on:contextmenu|preventDefault={async (e) => {
-		popupMenu.open(e, { files: [file] });
-		// if (fileIdSelection.has(file.id, $commit?.id)) {
-		// 	popupMenu.openByMouse(e, { files: await $selectedFiles });
-		// } else {
-		// 	popupMenu.openByMouse(e, { files: [file] });
-		// }
+		if (fileIdSelection.has(file.id, $commit?.id)) {
+			popupMenu.open(e, { files: await $selectedFiles });
+		} else {
+			popupMenu.open(e, { files: [file] });
+		}
 	}}
 	role="button"
 	tabindex="0"
