@@ -29,6 +29,7 @@ pub struct UpdateRequest {
     pub use_diff_context: Option<bool>,
     pub snapshot_lines_threshold: Option<usize>,
     pub use_new_locking: Option<bool>,
+    pub ignore_project_semaphore: Option<bool>,
 }
 
 impl Storage {
@@ -125,6 +126,10 @@ impl Storage {
 
         if let Some(use_new_locking) = update_request.use_new_locking {
             project.use_new_locking = use_new_locking;
+        }
+
+        if let Some(ignore_project_semaphore) = update_request.ignore_project_semaphore {
+            project.ignore_project_semaphore = ignore_project_semaphore;
         }
 
         self.inner

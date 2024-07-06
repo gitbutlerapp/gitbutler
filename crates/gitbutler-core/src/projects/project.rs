@@ -90,6 +90,8 @@ pub struct Project {
 
     #[serde(default = "default_true")]
     pub use_new_locking: bool,
+    #[serde(default)]
+    pub ignore_project_semaphore: bool,
 }
 
 fn default_true() -> bool {
