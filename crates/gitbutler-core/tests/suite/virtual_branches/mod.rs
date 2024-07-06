@@ -32,7 +32,6 @@ impl Default for Test {
     fn default() -> Self {
         let data_dir = paths::data_dir();
         let projects = projects::Controller::from_path(data_dir.path());
-        let helper = git::credentials::Helper::default();
 
         let test_project = TestProject::default();
         let project = projects
@@ -42,7 +41,7 @@ impl Default for Test {
         Self {
             repository: test_project,
             project_id: project.id,
-            controller: Controller::new(helper),
+            controller: Controller::default(),
             projects,
             project,
             data_dir: Some(data_dir),
