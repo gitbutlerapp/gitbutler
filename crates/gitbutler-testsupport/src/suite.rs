@@ -80,7 +80,7 @@ impl Suite {
 
     pub fn new_case_with_files(&self, fs: HashMap<PathBuf, &str>) -> Case {
         let (project, project_tmp) = self.project(fs);
-        Case::new(self, project, project_tmp)
+        Case::new(project, project_tmp)
     }
 
     pub fn new_case(&self) -> Case {
@@ -109,15 +109,10 @@ impl Drop for Case {
 }
 
 impl Case {
-    fn new(
-        suite: &Suite,
-        project: gitbutler_core::projects::Project,
-        project_tmp: TempDir,
-    ) -> Case {
+    fn new(project: gitbutler_core::projects::Project, project_tmp: TempDir) -> Case {
         let project_repository = gitbutler_core::project_repository::Repository::open(&project)
             .expect("failed to create project repository");
-        let credentials =
-            gitbutler_core::git::credentials::Helper::from_path(suite.local_app_data());
+        let credentials = gitbutler_core::git::credentials::Helper::default();
         Case {
             project,
             project_repository,
@@ -133,8 +128,7 @@ impl Case {
             .expect("failed to get project");
         let project_repository = gitbutler_core::project_repository::Repository::open(&project)
             .expect("failed to create project repository");
-        let credentials =
-            gitbutler_core::git::credentials::Helper::from_path(suite.local_app_data());
+        let credentials = gitbutler_core::git::credentials::Helper::default();
         Self {
             credentials,
             project_repository,

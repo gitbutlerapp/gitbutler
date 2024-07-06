@@ -132,9 +132,7 @@ fn main() {
                     let keys_controller = gitbutler_core::keys::Controller::new(keys_storage_controller.clone());
                     app_handle.manage(keys_controller.clone());
 
-                    let git_credentials_controller = git::credentials::Helper::new(
-                        keys_controller.clone(),
-                    );
+                    let git_credentials_controller = git::credentials::Helper::default();
                     app_handle.manage(git_credentials_controller.clone());
 
                     app_handle.manage(gitbutler_core::virtual_branches::controller::Controller::new(

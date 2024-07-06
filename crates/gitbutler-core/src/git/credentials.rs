@@ -72,10 +72,8 @@ impl From<Credential> for git2::RemoteCallbacks<'_> {
     }
 }
 
-#[derive(Clone)]
-pub struct Helper {
-    keys: keys::Controller,
-}
+#[derive(Clone, Default)]
+pub struct Helper {}
 
 #[derive(Debug, thiserror::Error)]
 pub enum HelpError {
@@ -90,16 +88,6 @@ pub enum HelpError {
 }
 
 impl Helper {
-    pub fn new(keys: keys::Controller) -> Self {
-        Self { keys }
-    }
-
-    pub fn from_path(path: impl Into<PathBuf>) -> Self {
-        let path = path.into();
-        let keys = keys::Controller::from_path(path);
-        Self::new(keys)
-    }
-
     pub fn help<'a>(
         &'a self,
         project_repository: &'a project_repository::Repository,
@@ -146,40 +134,11 @@ impl Helper {
                     .collect::<Vec<_>>();
                 Ok(vec![(https_remote, flow)])
             }
-            projects::AuthKey::Generated => {
-                let generated_flow = self.generated_flow(remote, project_repository)?;
-
-                Ok(vec![generated_flow].into_iter().flatten().collect())
-            }
             projects::AuthKey::SystemExecutable => {
                 tracing::error!("WARNING: FIXME: this codepath should NEVER be hit. Something is seriously wrong.");
                 Ok(vec![])
             }
         }
-    }
-
-    fn generated_flow<'a>(
-        &'a self,
-        remote: git2::Remote<'a>,
-        project_repository: &'a project_repository::Repository,
-    ) -> Result<Vec<(git2::Remote, Vec<Credential>)>, HelpError> {
-        let remote_url = Url::from_str(remote.url().ok_or(HelpError::NoUrlSet)?)
-            .context("failed to parse remote url")?;
-
-        let ssh_remote = if remote_url.scheme == super::Scheme::Ssh {
-            Ok(remote)
-        } else {
-            let ssh_url = remote_url.as_ssh()?;
-            project_repository
-                .repo()
-                .remote_anonymous(&ssh_url.to_string())
-        }?;
-
-        let key = self.keys.get_or_create()?;
-        Ok(vec![(
-            ssh_remote,
-            vec![Credential::Ssh(SshCredential::GitButlerKey(Box::new(key)))],
-        )])
     }
 
     fn https_flow(

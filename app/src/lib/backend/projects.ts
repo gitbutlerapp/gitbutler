@@ -8,7 +8,7 @@ import { get, writable } from 'svelte/store';
 import type { HttpClient } from './httpClient';
 import { goto } from '$app/navigation';
 
-export type KeyType = 'generated' | 'gitCredentialsHelper' | 'local' | 'systemExecutable';
+export type KeyType = 'gitCredentialsHelper' | 'local' | 'systemExecutable';
 export type LocalKey = {
 	local: { private_key_path: string };
 };
