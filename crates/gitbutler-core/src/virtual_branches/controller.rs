@@ -41,7 +41,7 @@ impl Controller {
         ownership: Option<&BranchOwnershipClaims>,
         run_hooks: bool,
     ) -> Result<git2::Oid> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();
         let result = super::commit(
@@ -76,7 +76,7 @@ impl Controller {
         &self,
         project: &Project,
     ) -> Result<(Vec<super::VirtualBranch>, Vec<git::diff::FileDiff>)> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         super::list_virtual_branches(&project_repository).map_err(Into::into)
@@ -87,7 +87,7 @@ impl Controller {
         project: &Project,
         create: &super::branch::BranchCreateRequest,
     ) -> Result<BranchId> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         let branch_id = super::create_virtual_branch(&project_repository, create)?.id;
@@ -99,7 +99,7 @@ impl Controller {
         project: &Project,
         branch: &git::Refname,
     ) -> Result<BranchId> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         super::create_virtual_branch_from_branch(&project_repository, branch).map_err(Into::into)
@@ -141,7 +141,7 @@ impl Controller {
         project: &Project,
         branch_id: BranchId,
     ) -> Result<()> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
@@ -151,7 +151,7 @@ impl Controller {
     }
 
     pub async fn update_base_branch(&self, project: &Project) -> Result<Vec<ReferenceName>> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
@@ -172,7 +172,7 @@ impl Controller {
         project: &Project,
         branch_update: super::branch::BranchUpdateRequest,
     ) -> Result<()> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();
@@ -197,7 +197,7 @@ impl Controller {
         project: &Project,
         branch_id: BranchId,
     ) -> Result<()> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         super::delete_branch(&project_repository, branch_id)
@@ -208,7 +208,7 @@ impl Controller {
         project: &Project,
         ownership: &BranchOwnershipClaims,
     ) -> Result<()> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
@@ -218,7 +218,7 @@ impl Controller {
     }
 
     pub async fn reset_files(&self, project: &Project, files: &Vec<String>) -> Result<()> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
@@ -234,7 +234,7 @@ impl Controller {
         commit_oid: git2::Oid,
         ownership: &BranchOwnershipClaims,
     ) -> Result<git2::Oid> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
@@ -251,7 +251,7 @@ impl Controller {
         to_commit_oid: git2::Oid,
         ownership: &BranchOwnershipClaims,
     ) -> Result<git2::Oid> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
@@ -273,7 +273,7 @@ impl Controller {
         branch_id: BranchId,
         commit_oid: git2::Oid,
     ) -> Result<()> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();
@@ -296,7 +296,7 @@ impl Controller {
         commit_oid: git2::Oid,
         offset: i32,
     ) -> Result<()> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
@@ -313,7 +313,7 @@ impl Controller {
         commit_oid: git2::Oid,
         offset: i32,
     ) -> Result<()> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
@@ -329,7 +329,7 @@ impl Controller {
         branch_id: BranchId,
         target_commit_oid: git2::Oid,
     ) -> Result<()> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
@@ -344,7 +344,7 @@ impl Controller {
         branch_id: BranchId,
         name_conflict_resolution: NameConflitResolution,
     ) -> Result<ReferenceName> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();
@@ -366,7 +366,7 @@ impl Controller {
         with_force: bool,
         askpass: Option<Option<BranchId>>,
     ) -> Result<()> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
         let helper = Helper::default();
         let project_repository = open_with_verify(project)?;
         super::push(&project_repository, branch_id, with_force, &helper, askpass)
@@ -392,7 +392,7 @@ impl Controller {
         branch_id: BranchId,
         commit_oid: git2::Oid,
     ) -> Result<()> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
@@ -408,7 +408,7 @@ impl Controller {
         commit_oid: git2::Oid,
         message: &str,
     ) -> Result<()> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -466,13 +466,19 @@ impl Controller {
         target_branch_id: BranchId,
         commit_oid: git2::Oid,
     ) -> Result<()> {
-        let _permit = self.semaphore.acquire().await;
+        self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::MoveCommit));
         super::move_commit(&project_repository, target_branch_id, commit_oid).map_err(Into::into)
+    }
+
+    async fn permit(&self, ignore: bool) {
+        if !ignore {
+            let _permit = self.semaphore.acquire().await;
+        }
     }
 }
 
