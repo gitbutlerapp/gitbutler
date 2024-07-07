@@ -2267,6 +2267,9 @@ dependencies = [
  "bstr",
  "git2",
  "gitbutler-core",
+ "gitbutler-git",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -2296,6 +2299,7 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-core",
  "gitbutler-oplog",
+ "gitbutler-repo",
  "gitbutler-testsupport",
  "gitbutler-watcher",
  "log",

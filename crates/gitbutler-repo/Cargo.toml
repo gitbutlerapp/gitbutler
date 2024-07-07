@@ -10,3 +10,6 @@ git2.workspace = true
 gitbutler-core.workspace = true
 anyhow = "1.0.86"
 bstr = "1.9.1"
+tokio = { workspace = true, features = [ "rt-multi-thread", "rt", "macros" ] }
+gitbutler-git.workspace = true
+tracing = "0.1.40"

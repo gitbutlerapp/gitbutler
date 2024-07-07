@@ -50,6 +50,7 @@ gitbutler-core.workspace = true
 gitbutler-watcher.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-oplog.workspace = true
+gitbutler-repo.workspace = true
 open = "5"
 
 [dependencies.tauri]
