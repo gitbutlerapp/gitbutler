@@ -1,17 +1,13 @@
-use std::{
-    str::FromStr,
-    sync::{atomic::AtomicUsize, Arc},
-};
+use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
 
-// use super::conflicts;
 use crate::git::RepositoryExt;
 use crate::{
     askpass,
-    git::{self, Url},
+    git::{self},
     projects::{self, AuthKey},
-    ssh, users,
+    ssh,
     virtual_branches::{Branch, BranchId},
 };
 use crate::{error::Code, git::CommitHeadersV2};
@@ -105,11 +101,6 @@ pub trait RepoActions {
         refspec: Option<String>,
         askpass_broker: Option<Option<BranchId>>,
     ) -> Result<()>;
-    fn push_to_gitbutler_server(
-        &self,
-        user: Option<&users::User>,
-        ref_specs: &[&str],
-    ) -> Result<bool>;
     fn commit(
         &self,
         message: &str,
@@ -344,82 +335,6 @@ impl RepoActions for ProjectRepo {
                 commit_headers,
             )
             .context("failed to commit")
-    }
-
-    fn push_to_gitbutler_server(
-        &self,
-        user: Option<&users::User>,
-        ref_specs: &[&str],
-    ) -> Result<bool> {
-        let url = self
-            .project
-            .api
-            .as_ref()
-            .context("api not set")?
-            .code_git_url
-            .as_ref()
-            .context("code_git_url not set")?
-            .as_str()
-            .parse::<Url>()?;
-
-        tracing::debug!(
-            project_id = %self.project.id,
-            %url,
-            "pushing code to gb repo",
-        );
-
-        let user = user
-            .context("need user to push to gitbutler")
-            .context(Code::ProjectGitAuth)?;
-        let access_token = user.access_token()?;
-
-        let mut callbacks = git2::RemoteCallbacks::new();
-        if self.project.omit_certificate_check.unwrap_or(false) {
-            callbacks.certificate_check(|_, _| Ok(git2::CertificateCheckStatus::CertificateOk));
-        }
-        let bytes_pushed = Arc::new(AtomicUsize::new(0));
-        let total_objects = Arc::new(AtomicUsize::new(0));
-        {
-            let byte_counter = Arc::<AtomicUsize>::clone(&bytes_pushed);
-            let total_counter = Arc::<AtomicUsize>::clone(&total_objects);
-            callbacks.push_transfer_progress(move |_current, total, bytes| {
-                byte_counter.store(bytes, std::sync::atomic::Ordering::Relaxed);
-                total_counter.store(total, std::sync::atomic::Ordering::Relaxed);
-            });
-        }
-
-        let mut push_options = git2::PushOptions::new();
-        push_options.remote_callbacks(callbacks);
-        let auth_header = format!("Authorization: {}", access_token.0);
-        let headers = &[auth_header.as_str()];
-        push_options.custom_headers(headers);
-
-        let mut remote = self.git_repository.remote_anonymous(&url.to_string())?;
-
-        remote
-            .push(ref_specs, Some(&mut push_options))
-            .map_err(|err| match err.class() {
-                git2::ErrorClass::Net => anyhow!("network failed"),
-                _ => match err.code() {
-                    git2::ErrorCode::Auth => anyhow!("authentication failed")
-                        .context(Code::ProjectGitAuth)
-                        .context(err),
-                    _ => anyhow!("push failed"),
-                },
-            })?;
-
-        let bytes_pushed = bytes_pushed.load(std::sync::atomic::Ordering::Relaxed);
-        let total_objects_pushed = total_objects.load(std::sync::atomic::Ordering::Relaxed);
-
-        tracing::debug!(
-            project_id = %self.project.id,
-            ref_spec = ref_specs.join(" "),
-            bytes = bytes_pushed,
-            objects = total_objects_pushed,
-            "pushed to gb repo tmp ref",
-        );
-
-        Ok(total_objects_pushed > 0)
     }
 
     fn push(
