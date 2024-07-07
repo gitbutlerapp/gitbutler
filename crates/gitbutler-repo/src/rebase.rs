@@ -1,8 +1,9 @@
-use crate::git::HasCommitHeaders;
-use crate::project_repository::RepoActions;
-use crate::{error::Marker, git::CommitExt, git::RepositoryExt, project_repository};
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
+use gitbutler_core::git::HasCommitHeaders;
+use gitbutler_core::{error::Marker, git::CommitExt, git::RepositoryExt, project_repository};
+
+use crate::{LogUntil, RepoActions};
 
 /// cherry-pick based rebase, which handles empty commits
 /// this function takes a commit range and generates a Vector of commit oids
@@ -14,10 +15,8 @@ pub fn cherry_rebase(
     end_commit_oid: git2::Oid,
 ) -> Result<Option<git2::Oid>> {
     // get a list of the commits to rebase
-    let mut ids_to_rebase = project_repository.l(
-        end_commit_oid,
-        project_repository::LogUntil::Commit(start_commit_oid),
-    )?;
+    let mut ids_to_rebase =
+        project_repository.l(end_commit_oid, LogUntil::Commit(start_commit_oid))?;
 
     if ids_to_rebase.is_empty() {
         return Ok(None);

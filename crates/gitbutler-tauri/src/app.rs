@@ -2,10 +2,11 @@ use anyhow::{Context, Result};
 use gitbutler_branch::conflicts;
 use gitbutler_core::{
     git::{self, RepositoryExt},
-    project_repository::{self, RepoActions},
+    project_repository,
     projects::{self, ProjectId},
     virtual_branches::BranchId,
 };
+use gitbutler_repo::RepoActions;
 
 #[derive(Clone)]
 pub struct App {

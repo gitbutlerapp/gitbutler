@@ -3,7 +3,7 @@ use std::{path::Path, time};
 use anyhow::{anyhow, Context, Result};
 use git2::Index;
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
-use gitbutler_core::project_repository::RepoActions;
+use gitbutler_repo::{LogUntil, RepoActions};
 use serde::Serialize;
 
 use super::r#virtual as vb;
@@ -13,13 +13,14 @@ use crate::integration::{get_workspace_head, update_gitbutler_integration};
 use crate::remote::{commit_to_remote_commit, RemoteCommit};
 use crate::VirtualBranchHunk;
 use gitbutler_core::virtual_branches::{branch, target, BranchId, GITBUTLER_INTEGRATION_REFERENCE};
-use gitbutler_core::{error::Marker, git::RepositoryExt, rebase::cherry_rebase};
+use gitbutler_core::{error::Marker, git::RepositoryExt};
 use gitbutler_core::{
     git::{self, diff},
-    project_repository::{self, LogUntil},
+    project_repository,
     projects::FetchResult,
     virtual_branches::branch::BranchOwnershipClaims,
 };
+use gitbutler_repo::rebase::cherry_rebase;
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -587,7 +588,7 @@ pub fn target_to_base_branch(
 
     // gather a list of commits between oid and target.sha
     let upstream_commits = project_repository
-        .log(oid, project_repository::LogUntil::Commit(target.sha))
+        .log(oid, LogUntil::Commit(target.sha))
         .context("failed to get upstream commits")?
         .iter()
         .map(commit_to_remote_commit)

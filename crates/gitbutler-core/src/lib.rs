@@ -26,7 +26,6 @@ pub mod lock;
 pub mod path;
 pub mod project_repository;
 pub mod projects;
-pub mod rebase;
 pub mod remotes;
 pub mod secret;
 pub mod serde;

@@ -2116,6 +2116,7 @@ dependencies = [
  "gitbutler-core",
  "gitbutler-git",
  "gitbutler-oplog",
+ "gitbutler-repo",
  "gitbutler-testsupport",
  "glob",
  "hex",
@@ -2259,6 +2260,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-repo"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "git2",
+ "gitbutler-core",
+ "gitbutler-git",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "gitbutler-sync"
 version = "0.0.0"
 dependencies = [
@@ -2285,6 +2299,7 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-core",
  "gitbutler-oplog",
+ "gitbutler-repo",
  "gitbutler-testsupport",
  "gitbutler-watcher",
  "log",

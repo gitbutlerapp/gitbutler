@@ -3,13 +3,13 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use bstr::BString;
 use gitbutler_branchstate::VirtualBranchesHandle;
-use gitbutler_core::project_repository::RepoActions;
+use gitbutler_repo::{LogUntil, RepoActions};
 use serde::Serialize;
 
 use gitbutler_core::virtual_branches::{target, Author};
 use gitbutler_core::{
     git::{self, CommitExt, RepositoryExt},
-    project_repository::{self, LogUntil},
+    project_repository,
 };
 
 // this struct is a mapping to the view `RemoteBranch` type in Typescript
