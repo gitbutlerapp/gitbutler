@@ -1,10 +1,10 @@
-use crate::{
+use anyhow::{Context, Result};
+use gitbutler_core::{
     fs::write,
     virtual_branches::{
         GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
     },
 };
-use anyhow::{Context, Result};
 use gix::config::tree::Key;
 use std::path::Path;
 

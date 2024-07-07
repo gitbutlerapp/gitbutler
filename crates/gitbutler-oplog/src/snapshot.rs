@@ -1,17 +1,51 @@
 use anyhow::Result;
 use std::vec;
 
-use crate::projects::Project;
 use crate::{
-    ops::entry::{OperationKind, SnapshotDetails},
-    virtual_branches::{branch::BranchUpdateRequest, Branch},
+    entry::{OperationKind, SnapshotDetails},
+    oplog::Oplog,
 };
+use gitbutler_core::projects::Project;
+use gitbutler_core::virtual_branches::{branch::BranchUpdateRequest, Branch};
 
 use super::entry::Trailer;
 
+pub trait Snapshot {
+    fn snapshot_branch_unapplied(
+        &self,
+        snapshot_tree: git2::Oid,
+        result: Result<&git2::Branch, &anyhow::Error>,
+    ) -> anyhow::Result<()>;
+
+    fn snapshot_commit_undo(
+        &self,
+        snapshot_tree: git2::Oid,
+        result: Result<&(), &anyhow::Error>,
+        commit_sha: git2::Oid,
+    ) -> anyhow::Result<()>;
+
+    fn snapshot_commit_creation(
+        &self,
+        snapshot_tree: git2::Oid,
+        error: Option<&anyhow::Error>,
+        commit_message: String,
+        sha: Option<git2::Oid>,
+    ) -> anyhow::Result<()>;
+
+    fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()>;
+    fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()>;
+    fn snapshot_branch_update(
+        &self,
+        snapshot_tree: git2::Oid,
+        old_branch: &Branch,
+        update: &BranchUpdateRequest,
+        error: Option<&anyhow::Error>,
+    ) -> anyhow::Result<()>;
+}
+
 /// Snapshot functionality
-impl Project {
-    pub fn snapshot_branch_unapplied(
+impl Snapshot for Project {
+    fn snapshot_branch_unapplied(
         &self,
         snapshot_tree: git2::Oid,
         result: Result<&git2::Branch, &anyhow::Error>,
@@ -22,7 +56,7 @@ impl Project {
         self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
-    pub fn snapshot_commit_undo(
+    fn snapshot_commit_undo(
         &self,
         snapshot_tree: git2::Oid,
         result: Result<&(), &anyhow::Error>,
@@ -34,7 +68,7 @@ impl Project {
         self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
-    pub fn snapshot_commit_creation(
+    fn snapshot_commit_creation(
         &self,
         snapshot_tree: git2::Oid,
         error: Option<&anyhow::Error>,
@@ -60,7 +94,7 @@ impl Project {
         self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
-    pub fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()> {
+    fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
             SnapshotDetails::new(OperationKind::CreateBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
@@ -69,7 +103,7 @@ impl Project {
         self.create_snapshot(details)?;
         Ok(())
     }
-    pub fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()> {
+    fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
             SnapshotDetails::new(OperationKind::DeleteBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
@@ -79,7 +113,7 @@ impl Project {
         self.create_snapshot(details)?;
         Ok(())
     }
-    pub fn snapshot_branch_update(
+    fn snapshot_branch_update(
         &self,
         snapshot_tree: git2::Oid,
         old_branch: &Branch,

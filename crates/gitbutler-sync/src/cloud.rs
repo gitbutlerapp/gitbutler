@@ -8,6 +8,7 @@ use gitbutler_core::{
     projects::{self, CodePushState},
     users,
 };
+use gitbutler_oplog::oplog::Oplog;
 use itertools::Itertools;
 
 pub async fn sync_with_gitbutler(
