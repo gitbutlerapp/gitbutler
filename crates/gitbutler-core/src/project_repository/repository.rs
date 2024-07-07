@@ -133,23 +133,9 @@ pub trait RepoActions {
         askpass: Option<Option<BranchId>>,
     ) -> Result<()>;
     fn git_remote_branches(&self) -> Result<Vec<git::RemoteRefname>>;
-    fn root(&self) -> &std::path::Path;
-    fn is_path_ignored<P>(&self, path: P) -> Result<bool>
-    where
-        P: AsRef<std::path::Path>;
 }
 
 impl RepoActions for ProjectRepo {
-    fn is_path_ignored<P: AsRef<std::path::Path>>(&self, path: P) -> Result<bool> {
-        let path = path.as_ref();
-        let ignored = self.git_repository.is_path_ignored(path)?;
-        Ok(ignored)
-    }
-
-    fn root(&self) -> &std::path::Path {
-        self.git_repository.path().parent().unwrap()
-    }
-
     fn git_remote_branches(&self) -> Result<Vec<git::RemoteRefname>> {
         self.git_repository
             .branches(Some(git2::BranchType::Remote))?
