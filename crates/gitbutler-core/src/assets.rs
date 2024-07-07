@@ -52,7 +52,7 @@ impl Proxy {
         }
     }
 
-    async fn proxy_author(&self, author: Author) -> Author {
+    pub async fn proxy_author(&self, author: Author) -> Author {
         Author {
             gravatar_url: self.proxy(&author.gravatar_url).await.unwrap_or_else(|error| {
                 tracing::error!(gravatar_url = %author.gravatar_url, ?error, "failed to proxy gravatar url");

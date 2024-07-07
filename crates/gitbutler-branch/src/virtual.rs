@@ -4,7 +4,6 @@ use std::os::unix::prelude::PermissionsExt;
 use std::time::SystemTime;
 use std::{
     collections::HashMap,
-    hash::Hash,
     path::{Path, PathBuf},
     time, vec,
 };
@@ -15,6 +14,7 @@ use diffy::{apply_bytes as diffy_apply, Line, Patch};
 use git2::build::TreeUpdateBuilder;
 use git2::ErrorCode;
 use git2_hooks::HookResult;
+use gitbutler_core::virtual_branches::Author;
 use hex::ToHex;
 use serde::{Deserialize, Serialize};
 
@@ -191,33 +191,6 @@ impl VirtualBranchHunk {
             locked: hunk.locked_to.len() > 0,
             locked_to: Some(hunk.locked_to),
             change_type: hunk.change_type,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Hash, Clone, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct Author {
-    pub name: String,
-    pub email: String,
-    pub gravatar_url: url::Url,
-}
-
-impl From<git2::Signature<'_>> for Author {
-    fn from(value: git2::Signature) -> Self {
-        let name = value.name().unwrap_or_default().to_string();
-        let email = value.email().unwrap_or_default().to_string();
-
-        let gravatar_url = url::Url::parse(&format!(
-            "https://www.gravatar.com/avatar/{:x}?s=100&r=g&d=retro",
-            md5::compute(email.to_lowercase())
-        ))
-        .unwrap();
-
-        Author {
-            name,
-            email,
-            gravatar_url,
         }
     }
 }

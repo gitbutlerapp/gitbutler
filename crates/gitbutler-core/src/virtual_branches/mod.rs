@@ -20,3 +20,6 @@ pub use remote::*;
 mod state;
 pub use state::VirtualBranches as VirtualBranchesState;
 pub use state::VirtualBranchesHandle;
+
+mod author;
+pub use author::Author;
