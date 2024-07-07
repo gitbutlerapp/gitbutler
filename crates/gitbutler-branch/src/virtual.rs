@@ -1903,7 +1903,7 @@ pub fn write_tree_onto_tree(
     for (rel_path, hunks) in files {
         let rel_path = rel_path.borrow();
         let hunks = hunks.borrow();
-        let full_path = project_repository.path().join(rel_path);
+        let full_path = project_repository.project().worktree_path().join(rel_path);
 
         let is_submodule = full_path.is_dir()
             && hunks.len() == 1
@@ -1950,7 +1950,7 @@ pub fn write_tree_onto_tree(
 
                 // if the link target is inside the project repository, make it relative
                 let link_target = link_target
-                    .strip_prefix(project_repository.path())
+                    .strip_prefix(project_repository.project().worktree_path())
                     .unwrap_or(&link_target);
 
                 let blob_oid = git_repository.blob(

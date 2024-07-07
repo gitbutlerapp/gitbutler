@@ -1,5 +1,4 @@
 use std::{
-    path,
     str::FromStr,
     sync::{atomic::AtomicUsize, Arc},
 };
@@ -139,14 +138,9 @@ pub trait RepoActions {
     fn get_head(&self) -> Result<git2::Reference>;
     fn git_index_size(&self) -> Result<usize>;
     fn config(&self) -> super::Config;
-    fn path(&self) -> &path::Path;
 }
 
 impl RepoActions for ProjectRepo {
-    fn path(&self) -> &path::Path {
-        path::Path::new(&self.project.path)
-    }
-
     fn config(&self) -> super::Config {
         super::Config::from(&self.git_repository)
     }
@@ -493,7 +487,7 @@ impl RepoActions for ProjectRepo {
         // NOTE(qix-): work around a time-sensitive change that was necessary
         // NOTE(qix-): without having to refactor a large portion of the codebase.
         if self.project.preferred_key == AuthKey::SystemExecutable {
-            let path = self.path().to_path_buf();
+            let path = self.project.worktree_path();
             let remote = branch.remote().to_string();
             return std::thread::spawn(move || {
                 tokio::runtime::Runtime::new()
@@ -589,7 +583,7 @@ impl RepoActions for ProjectRepo {
         // NOTE(qix-): work around a time-sensitive change that was necessary
         // NOTE(qix-): without having to refactor a large portion of the codebase.
         if self.project.preferred_key == AuthKey::SystemExecutable {
-            let path = self.path().to_path_buf();
+            let path = self.project.worktree_path();
             let remote = remote_name.to_string();
             return std::thread::spawn(move || {
                 tokio::runtime::Runtime::new()
