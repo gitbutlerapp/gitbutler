@@ -2107,18 +2107,27 @@ name = "gitbutler-branch"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "bstr",
+ "diffy",
+ "futures",
  "git2",
+ "git2-hooks",
  "gitbutler-core",
  "gitbutler-git",
  "gitbutler-testsupport",
  "glob",
+ "hex",
  "itertools 0.13.0",
+ "md5",
  "once_cell",
  "pretty_assertions",
+ "regex",
+ "serde",
  "serial_test",
  "tempfile",
  "tokio",
  "tracing",
+ "url",
 ]
 
 [[package]]

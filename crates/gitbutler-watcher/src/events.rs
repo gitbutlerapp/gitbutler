@@ -1,8 +1,8 @@
 use std::fmt::Display;
 use std::path::PathBuf;
 
+use gitbutler_branch::VirtualBranches;
 use gitbutler_core::projects::ProjectId;
-use gitbutler_core::virtual_branches;
 
 /// An event for internal use, as merge between [super::file_monitor::Event] and [Action].
 #[derive(Debug)]
@@ -98,6 +98,6 @@ pub enum Change {
     GitActivity(ProjectId),
     VirtualBranches {
         project_id: ProjectId,
-        virtual_branches: virtual_branches::VirtualBranches,
+        virtual_branches: VirtualBranches,
     },
 }

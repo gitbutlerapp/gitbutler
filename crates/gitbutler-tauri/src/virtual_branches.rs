@@ -1,7 +1,7 @@
 pub mod commands {
     use crate::error::Error;
     use anyhow::{anyhow, Context};
-    use gitbutler_branch::Controller;
+    use gitbutler_branch::{Controller, NameConflitResolution, VirtualBranches};
     use gitbutler_core::{
         assets,
         error::Code,
@@ -10,8 +10,7 @@ pub mod commands {
         types::ReferenceName,
         virtual_branches::{
             branch::{self, BranchId, BranchOwnershipClaims},
-            BaseBranch, NameConflitResolution, RemoteBranch, RemoteBranchData, RemoteBranchFile,
-            VirtualBranches,
+            BaseBranch, RemoteBranch, RemoteBranchData, RemoteBranchFile,
         },
     };
     use tauri::{AppHandle, Manager};
@@ -50,7 +49,8 @@ pub mod commands {
             .list_virtual_branches(&project)
             .await?;
 
-        let proxy = handle.state::<assets::Proxy>();
+        let proxy =
+            gitbutler_branch::assets::Proxy::new(handle.state::<assets::Proxy>().inner().clone());
         let branches = proxy.proxy_virtual_branches(branches).await;
         Ok(VirtualBranches {
             branches,

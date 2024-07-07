@@ -1,7 +1,5 @@
-use gitbutler_core::{
-    id::Id,
-    virtual_branches::{Branch, VirtualBranch},
-};
+use gitbutler_branch::VirtualBranch;
+use gitbutler_core::{id::Id, virtual_branches::Branch};
 
 use super::*;
 
