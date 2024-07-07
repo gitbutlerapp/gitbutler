@@ -18,7 +18,10 @@ pub mod paths {
 }
 
 pub mod virtual_branches {
-    use gitbutler_core::{project_repository, virtual_branches};
+    use gitbutler_core::{
+        project_repository,
+        virtual_branches::{self, VirtualBranchesAccess},
+    };
 
     use crate::empty_bare_repository;
 

@@ -11,7 +11,8 @@ use tracing::instrument;
 
 use gitbutler_core::git::diff::FileDiff;
 use gitbutler_core::virtual_branches::{
-    Branch, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
+    Branch, VirtualBranchesAccess, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
+    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
 };
 use gitbutler_core::{git::diff::hunks_by_filepath, git::RepositoryExt, projects::Project};
 

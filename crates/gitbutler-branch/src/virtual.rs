@@ -15,7 +15,7 @@ use diffy::{apply_bytes as diffy_apply, Line, Patch};
 use git2::build::TreeUpdateBuilder;
 use git2::ErrorCode;
 use git2_hooks::HookResult;
-use gitbutler_core::virtual_branches::Author;
+use gitbutler_core::virtual_branches::{Author, VirtualBranchesAccess};
 use hex::ToHex;
 use serde::{Deserialize, Serialize};
 

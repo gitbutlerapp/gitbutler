@@ -4,6 +4,7 @@ use gitbutler_core::{
     project_repository::Repository,
     projects::FetchResult,
     types::ReferenceName,
+    virtual_branches::VirtualBranchesAccess,
 };
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},

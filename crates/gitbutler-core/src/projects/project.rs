@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{id::Id, types::default_true::DefaultTrue, virtual_branches::VirtualBranchesHandle};
+use crate::{id::Id, types::default_true::DefaultTrue};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -115,11 +115,6 @@ impl Project {
     /// Normally this is `.git/gitbutler` in the project's repository.
     pub fn gb_dir(&self) -> PathBuf {
         self.path.join(".git").join("gitbutler")
-    }
-
-    /// Returns a handle to the virtual branches manager of the project.
-    pub fn virtual_branches(&self) -> VirtualBranchesHandle {
-        VirtualBranchesHandle::new(self.gb_dir())
     }
 
     pub fn snapshot_lines_threshold(&self) -> usize {

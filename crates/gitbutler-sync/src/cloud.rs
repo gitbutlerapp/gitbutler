@@ -2,6 +2,7 @@ use std::time;
 
 use anyhow::{Context, Result};
 use gitbutler_core::id::Id;
+use gitbutler_core::virtual_branches::VirtualBranchesAccess;
 use gitbutler_core::{
     git::{self},
     project_repository,

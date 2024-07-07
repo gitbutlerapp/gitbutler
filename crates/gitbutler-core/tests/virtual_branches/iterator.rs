@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::Result;
-use gitbutler_core::virtual_branches;
+use gitbutler_core::virtual_branches::{self, VirtualBranchesAccess};
 use once_cell::sync::Lazy;
 
 use gitbutler_testsupport::{Case, Suite};

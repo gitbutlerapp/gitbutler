@@ -19,7 +19,10 @@ use gitbutler_branch::r#virtual::{
 };
 use gitbutler_core::{
     git::{self, CommitExt, RepositoryExt},
-    virtual_branches::branch::{BranchCreateRequest, BranchOwnershipClaims, BranchUpdateRequest},
+    virtual_branches::{
+        branch::{BranchCreateRequest, BranchOwnershipClaims, BranchUpdateRequest},
+        VirtualBranchesAccess,
+    },
 };
 use pretty_assertions::assert_eq;
 

@@ -10,7 +10,8 @@ use crate::integration::{get_workspace_head, update_gitbutler_integration};
 use crate::remote::{commit_to_remote_commit, RemoteCommit};
 use crate::VirtualBranchHunk;
 use gitbutler_core::virtual_branches::{
-    branch, target, BranchId, VirtualBranchesHandle, GITBUTLER_INTEGRATION_REFERENCE,
+    branch, target, BranchId, VirtualBranchesAccess, VirtualBranchesHandle,
+    GITBUTLER_INTEGRATION_REFERENCE,
 };
 use gitbutler_core::{error::Marker, git::RepositoryExt, rebase::cherry_rebase};
 use gitbutler_core::{
