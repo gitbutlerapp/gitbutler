@@ -14,16 +14,21 @@ use std::{path::Path, sync::Arc};
 
 use tokio::sync::Semaphore;
 
-use crate::base::{
-    get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch, BaseBranch,
+use crate::{
+    base::{
+        get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch,
+        BaseBranch,
+    },
+    remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
 };
 
 use super::r#virtual as branch;
 use gitbutler_core::virtual_branches;
 
+use crate::files::RemoteBranchFile;
 use gitbutler_core::virtual_branches::{
     branch::{BranchId, BranchOwnershipClaims},
-    target, RemoteBranchFile, VirtualBranchesHandle,
+    target, VirtualBranchesHandle,
 };
 use gitbutler_core::{
     git,
@@ -127,7 +132,7 @@ impl Controller {
         commit_oid: git2::Oid,
     ) -> Result<Vec<RemoteBranchFile>> {
         let project_repository = Repository::open(project)?;
-        virtual_branches::list_remote_commit_files(project_repository.repo(), commit_oid)
+        crate::files::list_remote_commit_files(project_repository.repo(), commit_oid)
             .map_err(Into::into)
     }
 
@@ -387,21 +392,18 @@ impl Controller {
         branch::push(&project_repository, branch_id, with_force, &helper, askpass)
     }
 
-    pub async fn list_remote_branches(
-        &self,
-        project: Project,
-    ) -> Result<Vec<virtual_branches::RemoteBranch>> {
+    pub async fn list_remote_branches(&self, project: Project) -> Result<Vec<RemoteBranch>> {
         let project_repository = Repository::open(&project)?;
-        virtual_branches::list_remote_branches(&project_repository)
+        list_remote_branches(&project_repository)
     }
 
     pub async fn get_remote_branch_data(
         &self,
         project: &Project,
         refname: &git::Refname,
-    ) -> Result<virtual_branches::RemoteBranchData> {
+    ) -> Result<RemoteBranchData> {
         let project_repository = Repository::open(project)?;
-        virtual_branches::get_branch_data(&project_repository, refname)
+        get_branch_data(&project_repository, refname)
     }
 
     pub async fn squash(

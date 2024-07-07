@@ -1,14 +1,10 @@
 use std::{collections::HashMap, path, sync, time::Duration};
 
 use anyhow::Result;
-use futures::future::join_all;
 use tokio::sync::Semaphore;
 use url::Url;
 
-use crate::{
-    users,
-    virtual_branches::{Author, RemoteBranchData, RemoteCommit},
-};
+use crate::{users, virtual_branches::Author};
 
 #[derive(Clone)]
 pub struct Proxy {
@@ -38,20 +34,6 @@ impl Proxy {
         user
     }
 
-    pub async fn proxy_remote_branch_data(&self, branch: RemoteBranchData) -> RemoteBranchData {
-        RemoteBranchData {
-            commits: join_all(
-                branch
-                    .commits
-                    .into_iter()
-                    .map(|commit| self.proxy_remote_commit(commit))
-                    .collect::<Vec<_>>(),
-            )
-            .await,
-            ..branch
-        }
-    }
-
     pub async fn proxy_author(&self, author: Author) -> Author {
         Author {
             gravatar_url: self.proxy(&author.gravatar_url).await.unwrap_or_else(|error| {
@@ -59,13 +41,6 @@ impl Proxy {
                 author.gravatar_url
             }),
             ..author
-        }
-    }
-
-    pub async fn proxy_remote_commit(&self, commit: RemoteCommit) -> RemoteCommit {
-        RemoteCommit {
-            author: self.proxy_author(commit.author).await,
-            ..commit
         }
     }
 

@@ -1299,7 +1299,7 @@ fn detect_mergeable_branch() -> Result<()> {
     };
     vb_state.set_branch(branch4.clone())?;
 
-    let remotes = gitbutler_core::virtual_branches::list_remote_branches(project_repository)
+    let remotes = gitbutler_branch::remote::list_remote_branches(project_repository)
         .expect("failed to list remotes");
     let _remote1 = &remotes
         .iter()

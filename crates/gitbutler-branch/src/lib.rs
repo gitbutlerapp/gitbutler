@@ -10,3 +10,7 @@ pub mod assets;
 pub mod base;
 
 pub mod integration;
+
+pub mod files;
+
+pub mod remote;

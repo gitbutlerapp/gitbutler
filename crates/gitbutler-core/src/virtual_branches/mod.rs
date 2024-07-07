@@ -2,12 +2,6 @@ pub mod branch;
 pub use branch::{Branch, BranchId};
 pub mod target;
 
-mod files;
-pub use files::*;
-
-mod remote;
-pub use remote::*;
-
 mod state;
 pub use state::VirtualBranches as VirtualBranchesState;
 pub use state::VirtualBranchesHandle;

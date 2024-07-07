@@ -20,6 +20,7 @@ use hex::ToHex;
 use serde::{Deserialize, Serialize};
 
 use crate::integration::{get_integration_commiter, get_workspace_head};
+use crate::remote::{branch_to_remote_branch, RemoteBranch};
 use gitbutler_core::error::Code;
 use gitbutler_core::error::Marker;
 use gitbutler_core::git::diff::GitHunk;
@@ -34,7 +35,7 @@ use gitbutler_core::virtual_branches::{
     branch::{
         self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
     },
-    branch_to_remote_branch, target, RemoteBranch, VirtualBranchesHandle,
+    target, VirtualBranchesHandle,
 };
 use gitbutler_core::{
     dedup::{dedup, dedup_fmt},

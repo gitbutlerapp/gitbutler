@@ -2,6 +2,8 @@ pub mod commands {
     use crate::error::Error;
     use anyhow::{anyhow, Context};
     use gitbutler_branch::base::BaseBranch;
+    use gitbutler_branch::files::RemoteBranchFile;
+    use gitbutler_branch::remote::{RemoteBranch, RemoteBranchData};
     use gitbutler_branch::{Controller, NameConflitResolution, VirtualBranches};
     use gitbutler_core::{
         assets,
@@ -9,10 +11,7 @@ pub mod commands {
         git,
         projects::{self, ProjectId},
         types::ReferenceName,
-        virtual_branches::{
-            branch::{self, BranchId, BranchOwnershipClaims},
-            RemoteBranch, RemoteBranchData, RemoteBranchFile,
-        },
+        virtual_branches::branch::{self, BranchId, BranchOwnershipClaims},
     };
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
@@ -456,10 +455,10 @@ pub mod commands {
             .state::<Controller>()
             .get_remote_branch_data(&project, &refname)
             .await?;
-        let branch_data = handle
-            .state::<assets::Proxy>()
-            .proxy_remote_branch_data(branch_data)
-            .await;
+
+        let proxy =
+            gitbutler_branch::assets::Proxy::new(handle.state::<assets::Proxy>().inner().clone());
+        let branch_data = proxy.proxy_remote_branch_data(branch_data).await;
         Ok(branch_data)
     }
 
