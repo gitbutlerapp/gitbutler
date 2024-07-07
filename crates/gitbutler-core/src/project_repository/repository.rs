@@ -90,7 +90,6 @@ impl ProjectRepo {
 }
 
 pub trait RepoActions {
-    fn remotes(&self) -> Result<Vec<String>>;
     fn fetch(
         &self,
         remote_name: &str,
@@ -603,15 +602,6 @@ impl RepoActions for ProjectRepo {
         }
 
         Err(anyhow!("authentication failed")).context(Code::ProjectGitAuth)
-    }
-
-    fn remotes(&self) -> Result<Vec<String>> {
-        Ok(self.git_repository.remotes().map(|string_array| {
-            string_array
-                .iter()
-                .filter_map(|s| s.map(String::from))
-                .collect()
-        })?)
     }
 }
 

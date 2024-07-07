@@ -1,7 +1,7 @@
 use anyhow::Result;
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_core::{
-    git::{credentials::Helper, BranchExt},
+    git::{credentials::Helper, BranchExt, RepositoryExt},
     project_repository::{ProjectRepo, RepoActions},
     projects::FetchResult,
     types::ReferenceName,
@@ -446,7 +446,7 @@ impl Controller {
         let project_repository = ProjectRepo::open(project)?;
 
         let helper = Helper::default();
-        let remotes = project_repository.remotes()?;
+        let remotes = project_repository.repo().remotes_as_string()?;
         let fetch_results: Vec<Result<(), _>> = remotes
             .iter()
             .map(|remote| project_repository.fetch(remote, &helper, askpass.clone()))
