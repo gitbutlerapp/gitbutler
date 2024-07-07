@@ -16,14 +16,15 @@ use git2::build::TreeUpdateBuilder;
 use git2::ErrorCode;
 use git2_hooks::HookResult;
 use hex::ToHex;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use gitbutler_core::error::Code;
 use gitbutler_core::error::Marker;
 use gitbutler_core::git::diff::GitHunk;
 use gitbutler_core::git::diff::{diff_files_into_hunks, trees, FileDiff};
-use gitbutler_core::git::{CommitExt, CommitHeadersV2, HasCommitHeaders, RepositoryExt};
+use gitbutler_core::git::{
+    normalize_branch_name, CommitExt, CommitHeadersV2, HasCommitHeaders, RepositoryExt,
+};
 use gitbutler_core::rebase::{cherry_rebase, cherry_rebase_group};
 use gitbutler_core::time::now_since_unix_epoch_ms;
 use gitbutler_core::virtual_branches::branch::HunkHash;
@@ -228,11 +229,6 @@ pub enum NameConflitResolution {
     Suffix,
     Rename(String),
     Overwrite,
-}
-
-pub fn normalize_branch_name(name: &str) -> String {
-    let pattern = Regex::new("[^A-Za-z0-9_/.#]+").unwrap();
-    pattern.replace_all(name, "-").to_string()
 }
 
 pub fn unapply_ownership(
