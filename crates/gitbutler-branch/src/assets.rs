@@ -1,6 +1,10 @@
 use futures::future::join_all;
 
-use crate::{base::BaseBranch, VirtualBranch, VirtualBranchCommit};
+use crate::{
+    base::BaseBranch,
+    remote::{RemoteBranchData, RemoteCommit},
+    VirtualBranch, VirtualBranchCommit,
+};
 
 #[derive(Clone)]
 pub struct Proxy {
@@ -19,6 +23,27 @@ impl Proxy {
                 .collect::<Vec<_>>(),
         )
         .await
+    }
+
+    pub async fn proxy_remote_branch_data(&self, branch: RemoteBranchData) -> RemoteBranchData {
+        RemoteBranchData {
+            commits: join_all(
+                branch
+                    .commits
+                    .into_iter()
+                    .map(|commit| self.proxy_remote_commit(commit))
+                    .collect::<Vec<_>>(),
+            )
+            .await,
+            ..branch
+        }
+    }
+
+    pub async fn proxy_remote_commit(&self, commit: RemoteCommit) -> RemoteCommit {
+        RemoteCommit {
+            author: self.core_proxy.proxy_author(commit.author).await,
+            ..commit
+        }
     }
 
     pub async fn proxy_virtual_branch(&self, branch: VirtualBranch) -> VirtualBranch {
@@ -52,7 +77,7 @@ impl Proxy {
                     .clone()
                     .recent_commits
                     .into_iter()
-                    .map(|commit| self.core_proxy.proxy_remote_commit(commit))
+                    .map(|commit| self.proxy_remote_commit(commit))
                     .collect::<Vec<_>>(),
             )
             .await,
@@ -61,7 +86,7 @@ impl Proxy {
                     .clone()
                     .upstream_commits
                     .into_iter()
-                    .map(|commit| self.core_proxy.proxy_remote_commit(commit))
+                    .map(|commit| self.proxy_remote_commit(commit))
                     .collect::<Vec<_>>(),
             )
             .await,

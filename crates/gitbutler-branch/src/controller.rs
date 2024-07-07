@@ -14,8 +14,12 @@ use std::{path::Path, sync::Arc};
 
 use tokio::sync::Semaphore;
 
-use crate::base::{
-    get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch, BaseBranch,
+use crate::{
+    base::{
+        get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch,
+        BaseBranch,
+    },
+    remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
 };
 
 use super::r#virtual as branch;
@@ -388,21 +392,18 @@ impl Controller {
         branch::push(&project_repository, branch_id, with_force, &helper, askpass)
     }
 
-    pub async fn list_remote_branches(
-        &self,
-        project: Project,
-    ) -> Result<Vec<virtual_branches::RemoteBranch>> {
+    pub async fn list_remote_branches(&self, project: Project) -> Result<Vec<RemoteBranch>> {
         let project_repository = Repository::open(&project)?;
-        virtual_branches::list_remote_branches(&project_repository)
+        list_remote_branches(&project_repository)
     }
 
     pub async fn get_remote_branch_data(
         &self,
         project: &Project,
         refname: &git::Refname,
-    ) -> Result<virtual_branches::RemoteBranchData> {
+    ) -> Result<RemoteBranchData> {
         let project_repository = Repository::open(project)?;
-        virtual_branches::get_branch_data(&project_repository, refname)
+        get_branch_data(&project_repository, refname)
     }
 
     pub async fn squash(

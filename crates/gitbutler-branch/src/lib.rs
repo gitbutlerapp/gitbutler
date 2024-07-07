@@ -12,3 +12,5 @@ pub mod base;
 pub mod integration;
 
 pub mod files;
+
+pub mod remote;

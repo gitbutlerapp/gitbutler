@@ -7,9 +7,10 @@ use serde::Serialize;
 use super::r#virtual as vb;
 use super::r#virtual::convert_to_real_branch;
 use crate::integration::{get_workspace_head, update_gitbutler_integration};
+use crate::remote::{commit_to_remote_commit, RemoteCommit};
 use crate::VirtualBranchHunk;
 use gitbutler_core::virtual_branches::{
-    branch, target, BranchId, RemoteCommit, VirtualBranchesHandle, GITBUTLER_INTEGRATION_REFERENCE,
+    branch, target, BranchId, VirtualBranchesHandle, GITBUTLER_INTEGRATION_REFERENCE,
 };
 use gitbutler_core::{error::Marker, git::RepositoryExt, rebase::cherry_rebase};
 use gitbutler_core::{
@@ -588,7 +589,7 @@ pub fn target_to_base_branch(
         .log(oid, project_repository::LogUntil::Commit(target.sha))
         .context("failed to get upstream commits")?
         .iter()
-        .map(gitbutler_core::virtual_branches::commit_to_remote_commit)
+        .map(commit_to_remote_commit)
         .collect::<Vec<_>>();
 
     // get some recent commits
@@ -596,7 +597,7 @@ pub fn target_to_base_branch(
         .log(target.sha, LogUntil::Take(20))
         .context("failed to get recent commits")?
         .iter()
-        .map(gitbutler_core::virtual_branches::commit_to_remote_commit)
+        .map(commit_to_remote_commit)
         .collect::<Vec<_>>();
 
     // there has got to be a better way to do this.

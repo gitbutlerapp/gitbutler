@@ -4,8 +4,8 @@ use anyhow::{Context, Result};
 use bstr::BString;
 use serde::Serialize;
 
-use super::{target, Author, VirtualBranchesHandle};
-use crate::{
+use gitbutler_core::virtual_branches::{target, Author, VirtualBranchesHandle};
+use gitbutler_core::{
     git::{self, CommitExt, RepositoryExt},
     project_repository::{self, LogUntil},
 };
@@ -22,7 +22,7 @@ use crate::{
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranch {
-    #[serde(with = "crate::serde::oid")]
+    #[serde(with = "gitbutler_core::serde::oid")]
     pub sha: git2::Oid,
     pub name: git::Refname,
     pub upstream: Option<git::RemoteRefname>,
@@ -33,13 +33,13 @@ pub struct RemoteBranch {
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranchData {
-    #[serde(with = "crate::serde::oid")]
+    #[serde(with = "gitbutler_core::serde::oid")]
     pub sha: git2::Oid,
     pub name: git::Refname,
     pub upstream: Option<git::RemoteRefname>,
     pub behind: u32,
     pub commits: Vec<RemoteCommit>,
-    #[serde(with = "crate::serde::oid_opt", default)]
+    #[serde(with = "gitbutler_core::serde::oid_opt", default)]
     pub fork_point: Option<git2::Oid>,
 }
 
@@ -47,12 +47,12 @@ pub struct RemoteBranchData {
 #[serde(rename_all = "camelCase")]
 pub struct RemoteCommit {
     pub id: String,
-    #[serde(serialize_with = "crate::serde::as_string_lossy")]
+    #[serde(serialize_with = "gitbutler_core::serde::as_string_lossy")]
     pub description: BString,
     pub created_at: u128,
     pub author: Author,
     pub change_id: Option<String>,
-    #[serde(with = "crate::serde::oid_vec")]
+    #[serde(with = "gitbutler_core::serde::oid_vec")]
     pub parent_ids: Vec<git2::Oid>,
 }
 
