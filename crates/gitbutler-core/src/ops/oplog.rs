@@ -46,7 +46,7 @@ impl Project {
     /// Prepares a snapshot of the current state of the working directory as well as GitButler data.
     /// Returns a tree hash of the snapshot. The snapshot is not discoverable until it is committed with [`commit_snapshot`](Self::commit_snapshot())
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
-    pub(crate) fn prepare_snapshot(&self) -> Result<git2::Oid> {
+    pub fn prepare_snapshot(&self) -> Result<git2::Oid> {
         let worktree_dir = self.path.as_path();
         let repo = git2::Repository::open(worktree_dir)?;
 
@@ -172,7 +172,7 @@ impl Project {
     ///
     /// Returns `Some(snapshot_commit_id)` if it was created or `None` if nothing changed between the previous oplog
     /// commit and the current one (after comparing trees).
-    pub(crate) fn commit_snapshot(
+    pub fn commit_snapshot(
         &self,
         snapshot_tree_id: git2::Oid,
         details: SnapshotDetails,

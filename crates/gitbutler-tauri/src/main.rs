@@ -135,7 +135,7 @@ fn main() {
                     let git_credentials_controller = git::credentials::Helper::default();
                     app_handle.manage(git_credentials_controller.clone());
 
-                    app_handle.manage(gitbutler_core::virtual_branches::controller::Controller::default());
+                    app_handle.manage(gitbutler_branch::controller::Controller::default());
 
                     let remotes_controller = gitbutler_core::remotes::controller::Controller::new(
                         projects_controller.clone(),

@@ -2,7 +2,7 @@ use std::fs;
 
 use gitbutler_core::virtual_branches::branch;
 
-use crate::suite::virtual_branches::Test;
+use super::Test;
 
 #[tokio::test]
 async fn to_head() {

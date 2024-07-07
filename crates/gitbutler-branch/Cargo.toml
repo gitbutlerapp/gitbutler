@@ -1,0 +1,27 @@
+[package]
+name = "gitbutler-branch"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+tracing = "0.1.40"
+anyhow = "1.0.86"
+git2.workspace = true
+tokio.workspace = true
+gitbutler-core.workspace = true
+
+[[test]]
+name="branches"
+path = "tests/virtual_branches/mod.rs"
+
+[dev-dependencies]
+once_cell = "1.19"
+pretty_assertions = "1.4"
+gitbutler-testsupport.workspace = true
+gitbutler-git = { workspace = true, features = ["test-askpass-path"] }
+glob = "0.3.1"
+serial_test = "3.1.1"
+tempfile = "3.10"
+itertools = "0.13"

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use futures::executor::block_on;
 use gitbutler_core::projects::{self, Project, ProjectId};
-use gitbutler_core::{assets, users, virtual_branches};
+use gitbutler_core::{assets, users};
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
@@ -76,7 +76,7 @@ pub struct Watchers {
 fn handler_from_app(app: &AppHandle) -> anyhow::Result<gitbutler_watcher::Handler> {
     let projects = app.state::<projects::Controller>().inner().clone();
     let users = app.state::<users::Controller>().inner().clone();
-    let vbranches = app.state::<virtual_branches::Controller>().inner().clone();
+    let vbranches = app.state::<gitbutler_branch::Controller>().inner().clone();
     let assets_proxy = app.state::<assets::Proxy>().inner().clone();
 
     Ok(gitbutler_watcher::Handler::new(

@@ -1,6 +1,5 @@
 mod suite {
     mod projects;
-    mod virtual_branches;
 }
 
 mod git;

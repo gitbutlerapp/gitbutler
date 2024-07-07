@@ -11,7 +11,7 @@ use super::entry::Trailer;
 
 /// Snapshot functionality
 impl Project {
-    pub(crate) fn snapshot_branch_unapplied(
+    pub fn snapshot_branch_unapplied(
         &self,
         snapshot_tree: git2::Oid,
         result: Result<&git2::Branch, &anyhow::Error>,
@@ -22,7 +22,7 @@ impl Project {
         self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
-    pub(crate) fn snapshot_commit_undo(
+    pub fn snapshot_commit_undo(
         &self,
         snapshot_tree: git2::Oid,
         result: Result<&(), &anyhow::Error>,
@@ -34,7 +34,7 @@ impl Project {
         self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
-    pub(crate) fn snapshot_commit_creation(
+    pub fn snapshot_commit_creation(
         &self,
         snapshot_tree: git2::Oid,
         error: Option<&anyhow::Error>,
@@ -60,7 +60,7 @@ impl Project {
         self.commit_snapshot(snapshot_tree, details)?;
         Ok(())
     }
-    pub(crate) fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()> {
+    pub fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
             SnapshotDetails::new(OperationKind::CreateBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
@@ -69,7 +69,7 @@ impl Project {
         self.create_snapshot(details)?;
         Ok(())
     }
-    pub(crate) fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()> {
+    pub fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()> {
         let details =
             SnapshotDetails::new(OperationKind::DeleteBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
@@ -79,7 +79,7 @@ impl Project {
         self.create_snapshot(details)?;
         Ok(())
     }
-    pub(crate) fn snapshot_branch_update(
+    pub fn snapshot_branch_update(
         &self,
         snapshot_tree: git2::Oid,
         old_branch: &Branch,
