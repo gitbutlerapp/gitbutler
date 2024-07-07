@@ -5,11 +5,11 @@ use git2::Index;
 use serde::Serialize;
 
 use gitbutler_core::virtual_branches::integration::{
-    get_workspace_head, update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE,
+    get_workspace_head, update_gitbutler_integration,
 };
 use gitbutler_core::virtual_branches::{
     branch, convert_to_real_branch, target, BranchId, RemoteCommit, VirtualBranchHunk,
-    VirtualBranchesHandle,
+    VirtualBranchesHandle, GITBUTLER_INTEGRATION_REFERENCE,
 };
 use gitbutler_core::{error::Marker, git::RepositoryExt, rebase::cherry_rebase};
 use gitbutler_core::{

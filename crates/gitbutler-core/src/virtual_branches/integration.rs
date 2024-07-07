@@ -2,21 +2,15 @@ use std::{path::PathBuf, vec};
 
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
-use lazy_static::lazy_static;
 
-use super::VirtualBranchesHandle;
+use super::{VirtualBranchesHandle, GITBUTLER_INTEGRATION_REFERENCE};
 use crate::error::Marker;
 use crate::git::RepositoryExt;
 use crate::{
-    git::{self, CommitExt},
+    git::CommitExt,
     project_repository::{self, conflicts, LogUntil},
     virtual_branches::branch::BranchCreateRequest,
 };
-
-lazy_static! {
-    pub static ref GITBUTLER_INTEGRATION_REFERENCE: git::LocalRefname =
-        git::LocalRefname::new("gitbutler/integration", None);
-}
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
 pub const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME: &str = "GitButler";

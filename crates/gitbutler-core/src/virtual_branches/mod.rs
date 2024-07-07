@@ -6,7 +6,6 @@ mod files;
 pub use files::*;
 
 pub mod integration;
-pub use integration::GITBUTLER_INTEGRATION_REFERENCE;
 
 mod r#virtual;
 pub use r#virtual::*;
@@ -20,3 +19,9 @@ pub use state::VirtualBranchesHandle;
 
 mod author;
 pub use author::Author;
+
+use lazy_static::lazy_static;
+lazy_static! {
+    pub static ref GITBUTLER_INTEGRATION_REFERENCE: crate::git::LocalRefname =
+        crate::git::LocalRefname::new("gitbutler/integration", None);
+}
