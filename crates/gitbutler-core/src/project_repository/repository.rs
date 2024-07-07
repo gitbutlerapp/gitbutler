@@ -6,7 +6,8 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 
-use super::conflicts;
+// use super::conflicts;
+use crate::git::RepositoryExt;
 use crate::{
     askpass,
     git::{self, Url},
@@ -15,7 +16,6 @@ use crate::{
     virtual_branches::{Branch, BranchId},
 };
 use crate::{error::Code, git::CommitHeadersV2};
-use crate::{error::Marker, git::RepositoryExt};
 
 pub struct ProjectRepo {
     git_repository: git2::Repository,
@@ -140,32 +140,9 @@ pub trait RepoActions {
     fn git_index_size(&self) -> Result<usize>;
     fn config(&self) -> super::Config;
     fn path(&self) -> &path::Path;
-    fn assure_unconflicted(&self) -> Result<()>;
-    fn assure_resolved(&self) -> Result<()>;
-    fn is_resolving(&self) -> bool;
 }
 
 impl RepoActions for ProjectRepo {
-    fn is_resolving(&self) -> bool {
-        conflicts::is_resolving(self)
-    }
-
-    fn assure_resolved(&self) -> Result<()> {
-        if self.is_resolving() {
-            Err(anyhow!("project has active conflicts")).context(Marker::ProjectConflict)
-        } else {
-            Ok(())
-        }
-    }
-
-    fn assure_unconflicted(&self) -> Result<()> {
-        if conflicts::is_conflicting(self, None)? {
-            Err(anyhow!("project has active conflicts")).context(Marker::ProjectConflict)
-        } else {
-            Ok(())
-        }
-    }
-
     fn path(&self) -> &path::Path {
         path::Path::new(&self.project.path)
     }

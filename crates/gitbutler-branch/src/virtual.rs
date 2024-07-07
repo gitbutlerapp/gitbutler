@@ -21,6 +21,7 @@ use gitbutler_core::virtual_branches::Author;
 use hex::ToHex;
 use serde::{Deserialize, Serialize};
 
+use crate::conflicts::{self, RepoConflicts};
 use crate::integration::{get_integration_commiter, get_workspace_head};
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
 use gitbutler_core::error::Code;
@@ -46,7 +47,7 @@ use gitbutler_core::{
         diff::{self},
         Refname, RemoteRefname,
     },
-    project_repository::{self, conflicts, LogUntil},
+    project_repository::{self, LogUntil},
 };
 
 type AppliedStatuses = Vec<(branch::Branch, BranchStatus)>;

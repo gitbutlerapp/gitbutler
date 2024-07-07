@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
+use gitbutler_branch::conflicts;
 use gitbutler_core::{
     git,
-    project_repository::{self, conflicts, RepoActions},
+    project_repository::{self, RepoActions},
     projects::{self, ProjectId},
     virtual_branches::BranchId,
 };

@@ -13,9 +13,11 @@ use gitbutler_core::virtual_branches::{
 };
 use gitbutler_core::{
     git::CommitExt,
-    project_repository::{self, conflicts, LogUntil},
+    project_repository::{self, LogUntil},
     virtual_branches::branch::BranchCreateRequest,
 };
+
+use crate::conflicts;
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
 

@@ -8,6 +8,7 @@ use serde::Serialize;
 
 use super::r#virtual as vb;
 use super::r#virtual::convert_to_real_branch;
+use crate::conflicts::RepoConflicts;
 use crate::integration::{get_workspace_head, update_gitbutler_integration};
 use crate::remote::{commit_to_remote_commit, RemoteCommit};
 use crate::VirtualBranchHunk;
