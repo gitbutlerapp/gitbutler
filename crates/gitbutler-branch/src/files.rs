@@ -3,7 +3,7 @@ use std::path;
 use anyhow::{anyhow, Context, Result};
 use serde::Serialize;
 
-use crate::git::diff;
+use gitbutler_core::git::diff;
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

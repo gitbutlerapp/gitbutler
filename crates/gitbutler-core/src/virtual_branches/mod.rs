@@ -2,9 +2,6 @@ pub mod branch;
 pub use branch::{Branch, BranchId};
 pub mod target;
 
-mod files;
-pub use files::*;
-
 mod remote;
 pub use remote::*;
 

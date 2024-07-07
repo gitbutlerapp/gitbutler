@@ -2,6 +2,7 @@ pub mod commands {
     use crate::error::Error;
     use anyhow::{anyhow, Context};
     use gitbutler_branch::base::BaseBranch;
+    use gitbutler_branch::files::RemoteBranchFile;
     use gitbutler_branch::{Controller, NameConflitResolution, VirtualBranches};
     use gitbutler_core::{
         assets,
@@ -11,7 +12,7 @@ pub mod commands {
         types::ReferenceName,
         virtual_branches::{
             branch::{self, BranchId, BranchOwnershipClaims},
-            RemoteBranch, RemoteBranchData, RemoteBranchFile,
+            RemoteBranch, RemoteBranchData,
         },
     };
     use tauri::{AppHandle, Manager};

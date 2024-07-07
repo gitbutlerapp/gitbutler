@@ -21,9 +21,10 @@ use crate::base::{
 use super::r#virtual as branch;
 use gitbutler_core::virtual_branches;
 
+use crate::files::RemoteBranchFile;
 use gitbutler_core::virtual_branches::{
     branch::{BranchId, BranchOwnershipClaims},
-    target, RemoteBranchFile, VirtualBranchesHandle,
+    target, VirtualBranchesHandle,
 };
 use gitbutler_core::{
     git,
@@ -127,7 +128,7 @@ impl Controller {
         commit_oid: git2::Oid,
     ) -> Result<Vec<RemoteBranchFile>> {
         let project_repository = Repository::open(project)?;
-        virtual_branches::list_remote_commit_files(project_repository.repo(), commit_oid)
+        crate::files::list_remote_commit_files(project_repository.repo(), commit_oid)
             .map_err(Into::into)
     }
 
