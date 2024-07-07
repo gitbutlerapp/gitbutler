@@ -1,4 +1,5 @@
 use super::*;
+use gitbutler_oplog::oplog::Oplog;
 use itertools::Itertools;
 use std::io::Write;
 use std::path::Path;

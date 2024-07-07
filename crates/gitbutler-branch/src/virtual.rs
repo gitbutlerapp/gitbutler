@@ -1,3 +1,4 @@
+use gitbutler_oplog::snapshot::Snapshot;
 use std::borrow::Borrow;
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::PermissionsExt;

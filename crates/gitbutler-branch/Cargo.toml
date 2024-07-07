@@ -11,6 +11,7 @@ anyhow = "1.0.86"
 git2.workspace = true
 tokio.workspace = true
 gitbutler-core.workspace = true
+gitbutler-oplog.workspace = true
 serde = { workspace = true, features = ["std"]}
 bstr = "1.9.1"
 diffy = "0.3.0"

@@ -4,7 +4,7 @@ use std::{
     time::SystemTime,
 };
 
-use crate::fs::read_toml_file_or_default;
+use gitbutler_core::fs::read_toml_file_or_default;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use super::OPLOG_FILE_NAME;
@@ -26,7 +26,7 @@ fn unix_epoch() -> SystemTime {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Oplog {
     /// This is the sha of the last oplog commit
-    #[serde(with = "crate::serde::oid_opt", default)]
+    #[serde(with = "gitbutler_core::serde::oid_opt", default)]
     pub head_sha: Option<git2::Oid>,
     /// The time when the last snapshot was created. Seconds since Epoch
     #[serde(
@@ -92,6 +92,6 @@ impl OplogHandle {
 
     fn write_file(&self, mut oplog: Oplog) -> Result<()> {
         oplog.modified_at = SystemTime::now();
-        crate::fs::write(&self.file_path, toml::to_string(&oplog)?)
+        gitbutler_core::fs::write(&self.file_path, toml::to_string(&oplog)?)
     }
 }

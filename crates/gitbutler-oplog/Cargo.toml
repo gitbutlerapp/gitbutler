@@ -1,0 +1,25 @@
+[package]
+name = "gitbutler-oplog"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+anyhow = "1.0.86"
+git2.workspace = true
+gitbutler-core.workspace = true
+serde = { workspace = true, features = ["std"]}
+itertools = "0.13"
+strum = { version = "0.26", features = ["derive"] }
+tracing = "0.1.40"
+gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
+toml = "0.8.13"
+
+[[test]]
+name="oplog"
+path = "tests/mod.rs"
+
+[dev-dependencies]
+pretty_assertions = "1.4"
+tempfile = "3.10"

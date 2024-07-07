@@ -23,7 +23,6 @@ pub mod git;
 pub mod id;
 pub mod keys;
 pub mod lock;
-pub mod ops;
 pub mod path;
 pub mod project_repository;
 pub mod projects;

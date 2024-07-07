@@ -1,7 +1,7 @@
 pub mod entry;
-mod oplog;
+pub mod oplog;
 mod reflog;
-mod snapshot;
+pub mod snapshot;
 mod state;
 
 /// The name of the file holding our state, useful for watching for changes.

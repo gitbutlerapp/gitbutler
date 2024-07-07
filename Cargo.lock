@@ -2114,6 +2114,7 @@ dependencies = [
  "git2-hooks",
  "gitbutler-core",
  "gitbutler-git",
+ "gitbutler-oplog",
  "gitbutler-testsupport",
  "glob",
  "hex",
@@ -2138,6 +2139,7 @@ dependencies = [
  "chrono",
  "clap",
  "gitbutler-core",
+ "gitbutler-oplog",
  "pager",
 ]
 
@@ -2227,12 +2229,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-oplog"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "git2",
+ "gitbutler-core",
+ "gix",
+ "itertools 0.13.0",
+ "pretty_assertions",
+ "serde",
+ "strum",
+ "tempfile",
+ "toml 0.8.14",
+ "tracing",
+]
+
+[[package]]
 name = "gitbutler-sync"
 version = "0.0.0"
 dependencies = [
  "anyhow",
  "git2",
  "gitbutler-core",
+ "gitbutler-oplog",
  "itertools 0.13.0",
  "tracing",
 ]
@@ -2250,6 +2270,7 @@ dependencies = [
  "git2",
  "gitbutler-branch",
  "gitbutler-core",
+ "gitbutler-oplog",
  "gitbutler-testsupport",
  "gitbutler-watcher",
  "log",
@@ -2300,6 +2321,7 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-core",
  "gitbutler-notify-debouncer",
+ "gitbutler-oplog",
  "gitbutler-sync",
  "gix",
  "notify",

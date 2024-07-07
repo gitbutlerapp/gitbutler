@@ -11,3 +11,4 @@ tracing = "0.1.40"
 itertools = "0.13"
 git2.workspace = true
 gitbutler-core.workspace = true
+gitbutler-oplog.workspace = true

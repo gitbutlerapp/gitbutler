@@ -1,10 +1,14 @@
 use anyhow::Result;
 use gitbutler_core::{
     git::{credentials::Helper, BranchExt},
-    ops::entry::{OperationKind, SnapshotDetails},
     project_repository::Repository,
     projects::FetchResult,
     types::ReferenceName,
+};
+use gitbutler_oplog::{
+    entry::{OperationKind, SnapshotDetails},
+    oplog::Oplog,
+    snapshot::Snapshot,
 };
 use std::{path::Path, sync::Arc};
 

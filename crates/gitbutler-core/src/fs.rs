@@ -60,10 +60,7 @@ pub fn iter_worktree_files(
 
 /// Write a single file so that the write either fully succeeds, or fully fails,
 /// assuming the containing directory already exists.
-pub(crate) fn write<P: AsRef<Path>>(
-    file_path: P,
-    contents: impl AsRef<[u8]>,
-) -> anyhow::Result<()> {
+pub fn write<P: AsRef<Path>>(file_path: P, contents: impl AsRef<[u8]>) -> anyhow::Result<()> {
     let mut temp_file = gix::tempfile::new(
         file_path.as_ref().parent().unwrap(),
         ContainingDirectory::Exists,
@@ -104,7 +101,7 @@ fn persist_tempfile(
 /// Reads and parses the state file.
 ///
 /// If the file does not exist, it will be created.
-pub(crate) fn read_toml_file_or_default<T: DeserializeOwned + Default>(path: &Path) -> Result<T> {
+pub fn read_toml_file_or_default<T: DeserializeOwned + Default>(path: &Path) -> Result<T> {
     let mut file = match File::open(path) {
         Ok(f) => f,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(T::default()),
