@@ -1,6 +1,6 @@
 use gitbutler_core::virtual_branches::{branch, BranchId};
 
-use crate::suite::virtual_branches::Test;
+use super::Test;
 
 #[tokio::test]
 async fn no_diffs() {

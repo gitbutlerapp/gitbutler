@@ -2103,6 +2103,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-branch"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "git2",
+ "gitbutler-core",
+ "gitbutler-git",
+ "gitbutler-testsupport",
+ "glob",
+ "itertools 0.13.0",
+ "once_cell",
+ "pretty_assertions",
+ "serial_test",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "gitbutler-cli"
 version = "0.0.0"
 dependencies = [
@@ -2209,6 +2228,7 @@ dependencies = [
  "dirs 5.0.1",
  "futures",
  "git2",
+ "gitbutler-branch",
  "gitbutler-core",
  "gitbutler-testsupport",
  "gitbutler-watcher",
@@ -2256,6 +2276,7 @@ dependencies = [
  "anyhow",
  "backoff",
  "futures",
+ "gitbutler-branch",
  "gitbutler-core",
  "gitbutler-notify-debouncer",
  "gix",

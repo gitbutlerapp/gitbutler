@@ -1,6 +1,7 @@
 pub mod commands {
     use crate::error::Error;
     use anyhow::{anyhow, Context};
+    use gitbutler_branch::Controller;
     use gitbutler_core::{
         assets,
         error::Code,
@@ -9,7 +10,6 @@ pub mod commands {
         types::ReferenceName,
         virtual_branches::{
             branch::{self, BranchId, BranchOwnershipClaims},
-            controller::Controller,
             BaseBranch, NameConflitResolution, RemoteBranch, RemoteBranchData, RemoteBranchFile,
             VirtualBranches,
         },

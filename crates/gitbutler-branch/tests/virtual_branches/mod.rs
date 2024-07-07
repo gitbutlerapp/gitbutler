@@ -1,11 +1,12 @@
 use std::path::PathBuf;
 use std::{fs, path, str::FromStr};
 
+use gitbutler_branch::Controller;
 use gitbutler_core::error::Marker;
 use gitbutler_core::{
     git,
     projects::{self, Project, ProjectId},
-    virtual_branches::{branch, Controller},
+    virtual_branches::branch,
 };
 use tempfile::TempDir;
 

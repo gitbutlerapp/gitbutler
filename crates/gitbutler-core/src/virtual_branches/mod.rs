@@ -11,9 +11,6 @@ pub use integration::GITBUTLER_INTEGRATION_REFERENCE;
 mod base;
 pub use base::*;
 
-pub mod controller;
-pub use controller::Controller;
-
 mod r#virtual;
 pub use r#virtual::*;
 

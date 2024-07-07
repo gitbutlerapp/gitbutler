@@ -7,7 +7,7 @@ use gitbutler_core::ops::entry::{OperationKind, SnapshotDetails};
 use gitbutler_core::projects::ProjectId;
 use gitbutler_core::synchronize::sync_with_gitbutler;
 use gitbutler_core::virtual_branches::VirtualBranches;
-use gitbutler_core::{assets, git, project_repository, projects, users, virtual_branches};
+use gitbutler_core::{assets, git, project_repository, projects, users};
 use tracing::instrument;
 
 use super::{events, Change};
@@ -24,7 +24,7 @@ pub struct Handler {
     // need extra protection.
     projects: projects::Controller,
     users: users::Controller,
-    vbranch_controller: virtual_branches::Controller,
+    vbranch_controller: gitbutler_branch::Controller,
     assets_proxy: assets::Proxy,
 
     /// A function to send events - decoupled from app-handle for testing purposes.
@@ -38,7 +38,7 @@ impl Handler {
     pub fn new(
         projects: projects::Controller,
         users: users::Controller,
-        vbranch_controller: virtual_branches::Controller,
+        vbranch_controller: gitbutler_branch::Controller,
         assets_proxy: assets::Proxy,
         send_event: impl Fn(Change) -> Result<()> + Send + Sync + 'static,
     ) -> Self {
