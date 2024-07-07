@@ -2188,7 +2188,7 @@ pub fn push(
         .parse::<git::RemoteRefname>()
         .context("failed to parse remote branch name")?;
 
-        let remote_branches = project_repository.git_remote_branches()?;
+        let remote_branches = project_repository.repo().remote_branches()?;
         let existing_branches = remote_branches
             .iter()
             .map(RemoteRefname::branch)

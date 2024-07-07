@@ -132,21 +132,9 @@ pub trait RepoActions {
         branch_name: &str,
         askpass: Option<Option<BranchId>>,
     ) -> Result<()>;
-    fn git_remote_branches(&self) -> Result<Vec<git::RemoteRefname>>;
 }
 
 impl RepoActions for ProjectRepo {
-    fn git_remote_branches(&self) -> Result<Vec<git::RemoteRefname>> {
-        self.git_repository
-            .branches(Some(git2::BranchType::Remote))?
-            .flatten()
-            .map(|(branch, _)| {
-                git::RemoteRefname::try_from(&branch)
-                    .context("failed to convert branch to remote name")
-            })
-            .collect::<Result<Vec<_>>>()
-    }
-
     fn git_test_push(
         &self,
         credentials: &git::credentials::Helper,

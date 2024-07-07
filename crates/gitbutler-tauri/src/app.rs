@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use gitbutler_branch::conflicts;
 use gitbutler_core::{
-    git,
+    git::{self, RepositoryExt},
     project_repository::{self, RepoActions},
     projects::{self, ProjectId},
     virtual_branches::BranchId,
@@ -28,7 +28,7 @@ impl App {
     pub fn git_remote_branches(&self, project_id: ProjectId) -> Result<Vec<git::RemoteRefname>> {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::ProjectRepo::open(&project)?;
-        project_repository.git_remote_branches()
+        project_repository.repo().remote_branches()
     }
 
     pub fn git_test_push(

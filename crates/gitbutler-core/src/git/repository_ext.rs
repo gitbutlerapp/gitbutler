@@ -9,7 +9,7 @@ use crate::{
     error::Code,
 };
 
-use super::{CommitBuffer, CommitHeadersV2, Refname};
+use super::{CommitBuffer, CommitHeadersV2, Refname, RemoteRefname};
 use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -20,6 +20,7 @@ use std::os::windows::process::CommandExt;
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
+    fn remote_branches(&self) -> Result<Vec<RemoteRefname>>;
     fn remotes_as_string(&self) -> Result<Vec<String>>;
     /// Open a new in-memory repository and executes the provided closure using it.
     /// This is useful when temporary objects are created for the purpose of comparing or getting a diff.
@@ -363,6 +364,15 @@ impl RepositoryExt for Repository {
                 .filter_map(|s| s.map(String::from))
                 .collect()
         })?)
+    }
+
+    fn remote_branches(&self) -> Result<Vec<RemoteRefname>> {
+        self.branches(Some(git2::BranchType::Remote))?
+            .flatten()
+            .map(|(branch, _)| {
+                RemoteRefname::try_from(&branch).context("failed to convert branch to remote name")
+            })
+            .collect::<Result<Vec<_>>>()
     }
 }
 
