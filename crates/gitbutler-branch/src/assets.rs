@@ -1,6 +1,6 @@
 use futures::future::join_all;
 
-use crate::{VirtualBranch, VirtualBranchCommit};
+use crate::{base::BaseBranch, VirtualBranch, VirtualBranchCommit};
 
 #[derive(Clone)]
 pub struct Proxy {
@@ -42,6 +42,30 @@ impl Proxy {
         VirtualBranchCommit {
             author: self.core_proxy.proxy_author(commit.author).await,
             ..commit
+        }
+    }
+
+    pub async fn proxy_base_branch(&self, base_branch: BaseBranch) -> BaseBranch {
+        BaseBranch {
+            recent_commits: join_all(
+                base_branch
+                    .clone()
+                    .recent_commits
+                    .into_iter()
+                    .map(|commit| self.core_proxy.proxy_remote_commit(commit))
+                    .collect::<Vec<_>>(),
+            )
+            .await,
+            upstream_commits: join_all(
+                base_branch
+                    .clone()
+                    .upstream_commits
+                    .into_iter()
+                    .map(|commit| self.core_proxy.proxy_remote_commit(commit))
+                    .collect::<Vec<_>>(),
+            )
+            .await,
+            ..base_branch.clone()
         }
     }
 }

@@ -167,7 +167,7 @@ pub struct VirtualBranchHunk {
 
 /// Lifecycle
 impl VirtualBranchHunk {
-    pub(crate) fn gen_id(new_start: u32, new_lines: u32) -> String {
+    pub fn gen_id(new_start: u32, new_lines: u32) -> String {
         format!("{}-{}", new_start, new_start + new_lines)
     }
     fn from_git_hunk(

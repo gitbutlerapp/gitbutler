@@ -8,9 +8,6 @@ pub use files::*;
 pub mod integration;
 pub use integration::GITBUTLER_INTEGRATION_REFERENCE;
 
-mod base;
-pub use base::*;
-
 mod r#virtual;
 pub use r#virtual::*;
 

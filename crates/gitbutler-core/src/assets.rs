@@ -7,7 +7,7 @@ use url::Url;
 
 use crate::{
     users,
-    virtual_branches::{Author, BaseBranch, RemoteBranchData, RemoteCommit},
+    virtual_branches::{Author, RemoteBranchData, RemoteCommit},
 };
 
 #[derive(Clone)]
@@ -62,34 +62,10 @@ impl Proxy {
         }
     }
 
-    async fn proxy_remote_commit(&self, commit: RemoteCommit) -> RemoteCommit {
+    pub async fn proxy_remote_commit(&self, commit: RemoteCommit) -> RemoteCommit {
         RemoteCommit {
             author: self.proxy_author(commit.author).await,
             ..commit
-        }
-    }
-
-    pub async fn proxy_base_branch(&self, base_branch: BaseBranch) -> BaseBranch {
-        BaseBranch {
-            recent_commits: join_all(
-                base_branch
-                    .clone()
-                    .recent_commits
-                    .into_iter()
-                    .map(|commit| self.proxy_remote_commit(commit))
-                    .collect::<Vec<_>>(),
-            )
-            .await,
-            upstream_commits: join_all(
-                base_branch
-                    .clone()
-                    .upstream_commits
-                    .into_iter()
-                    .map(|commit| self.proxy_remote_commit(commit))
-                    .collect::<Vec<_>>(),
-            )
-            .await,
-            ..base_branch.clone()
         }
     }
 

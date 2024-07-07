@@ -10,12 +10,16 @@ use std::{path::Path, sync::Arc};
 
 use tokio::sync::Semaphore;
 
+use crate::base::{
+    get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch, BaseBranch,
+};
+
 use super::r#virtual as branch;
 use gitbutler_core::virtual_branches;
 
 use gitbutler_core::virtual_branches::{
     branch::{BranchId, BranchOwnershipClaims},
-    target, BaseBranch, RemoteBranchFile, VirtualBranchesHandle,
+    target, RemoteBranchFile, VirtualBranchesHandle,
 };
 use gitbutler_core::{
     git,
@@ -110,7 +114,7 @@ impl Controller {
 
     pub async fn get_base_branch_data(&self, project: &Project) -> Result<BaseBranch> {
         let project_repository = Repository::open(project)?;
-        virtual_branches::get_base_branch_data(&project_repository)
+        get_base_branch_data(&project_repository)
     }
 
     pub async fn list_remote_commit_files(
@@ -132,12 +136,12 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::SetBaseBranch));
-        virtual_branches::set_base_branch(&project_repository, target_branch)
+        set_base_branch(&project_repository, target_branch)
     }
 
     pub async fn set_target_push_remote(&self, project: &Project, push_remote: &str) -> Result<()> {
         let project_repository = Repository::open(project)?;
-        virtual_branches::set_target_push_remote(&project_repository, push_remote)
+        set_target_push_remote(&project_repository, push_remote)
     }
 
     pub async fn integrate_upstream_commits(
@@ -162,7 +166,7 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::UpdateWorkspaceBase));
-        virtual_branches::update_base_branch(&project_repository)
+        update_base_branch(&project_repository)
             .map(|unapplied_branches| {
                 unapplied_branches
                     .iter()

@@ -1,6 +1,7 @@
 pub mod commands {
     use crate::error::Error;
     use anyhow::{anyhow, Context};
+    use gitbutler_branch::base::BaseBranch;
     use gitbutler_branch::{Controller, NameConflitResolution, VirtualBranches};
     use gitbutler_core::{
         assets,
@@ -10,7 +11,7 @@ pub mod commands {
         types::ReferenceName,
         virtual_branches::{
             branch::{self, BranchId, BranchOwnershipClaims},
-            BaseBranch, RemoteBranch, RemoteBranchData, RemoteBranchFile,
+            RemoteBranch, RemoteBranchData, RemoteBranchFile,
         },
     };
     use tauri::{AppHandle, Manager};
@@ -118,7 +119,9 @@ pub mod commands {
             .get_base_branch_data(&project)
             .await
         {
-            let proxy = handle.state::<assets::Proxy>();
+            let proxy = gitbutler_branch::assets::Proxy::new(
+                handle.state::<assets::Proxy>().inner().clone(),
+            );
             let base_branch = proxy.proxy_base_branch(base_branch).await;
             return Ok(Some(base_branch));
         }
@@ -141,10 +144,10 @@ pub mod commands {
             .state::<Controller>()
             .set_base_branch(&project, &branch_name)
             .await?;
-        let base_branch = handle
-            .state::<assets::Proxy>()
-            .proxy_base_branch(base_branch)
-            .await;
+
+        let proxy =
+            gitbutler_branch::assets::Proxy::new(handle.state::<assets::Proxy>().inner().clone());
+        let base_branch = proxy.proxy_base_branch(base_branch).await;
 
         // if they also sent a different push remote, set that too
         if let Some(push_remote) = push_remote {
