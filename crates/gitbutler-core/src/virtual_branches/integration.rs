@@ -3,7 +3,10 @@ use std::{path::PathBuf, vec};
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 
-use super::{VirtualBranchesHandle, GITBUTLER_INTEGRATION_REFERENCE};
+use super::{
+    VirtualBranchesHandle, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
+    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME, GITBUTLER_INTEGRATION_REFERENCE,
+};
 use crate::error::Marker;
 use crate::git::RepositoryExt;
 use crate::{
@@ -13,8 +16,6 @@ use crate::{
 };
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
-pub const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME: &str = "GitButler";
-pub const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
 
 pub fn get_integration_commiter<'a>() -> Result<git2::Signature<'a>> {
     Ok(git2::Signature::now(
