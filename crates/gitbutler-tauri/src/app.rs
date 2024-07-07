@@ -60,8 +60,10 @@ impl App {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::ProjectRepo::open(&project)?;
         let size = project_repository
-            .git_index_size()
-            .context("failed to get index size")?;
+            .repo()
+            .index()
+            .context("failed to get index size")?
+            .len();
         Ok(size)
     }
 

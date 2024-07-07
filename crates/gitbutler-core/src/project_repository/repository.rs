@@ -138,15 +138,9 @@ pub trait RepoActions {
     where
         P: AsRef<std::path::Path>;
     fn get_head(&self) -> Result<git2::Reference>;
-    fn git_index_size(&self) -> Result<usize>;
 }
 
 impl RepoActions for ProjectRepo {
-    fn git_index_size(&self) -> Result<usize> {
-        let head = self.git_repository.index()?.len();
-        Ok(head)
-    }
-
     fn get_head(&self) -> Result<git2::Reference> {
         let head = self.git_repository.head()?;
         Ok(head)
