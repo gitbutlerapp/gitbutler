@@ -17,12 +17,12 @@ use crate::{
 use crate::{error::Code, git::CommitHeadersV2};
 use crate::{error::Marker, git::RepositoryExt};
 
-pub struct Repository {
+pub struct ProjectRepo {
     git_repository: git2::Repository,
     project: projects::Project,
 }
 
-impl Repository {
+impl ProjectRepo {
     pub fn open(project: &projects::Project) -> Result<Self> {
         let repo = git2::Repository::open(&project.path)?;
 

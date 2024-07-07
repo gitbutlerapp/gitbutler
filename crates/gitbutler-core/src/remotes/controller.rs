@@ -17,14 +17,14 @@ impl Controller {
 
     pub async fn remotes(&self, project_id: ProjectId) -> Result<Vec<String>> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::ProjectRepo::open(&project)?;
 
         project_repository.remotes()
     }
 
     pub async fn add_remote(&self, project_id: ProjectId, name: &str, url: &str) -> Result<()> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::ProjectRepo::open(&project)?;
 
         project_repository.add_remote(name, url)
     }

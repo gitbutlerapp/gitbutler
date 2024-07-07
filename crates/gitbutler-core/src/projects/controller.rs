@@ -217,21 +217,21 @@ impl Controller {
     pub fn get_local_config(&self, id: ProjectId, key: &str) -> Result<Option<String>> {
         let project = self.projects_storage.get(id)?;
 
-        let repo = project_repository::Repository::open(&project)?;
+        let repo = project_repository::ProjectRepo::open(&project)?;
         repo.config().get_local(key)
     }
 
     pub fn set_local_config(&self, id: ProjectId, key: &str, value: &str) -> Result<()> {
         let project = self.projects_storage.get(id)?;
 
-        let repo = project_repository::Repository::open(&project)?;
+        let repo = project_repository::ProjectRepo::open(&project)?;
         repo.config().set_local(key, value)
     }
 
     pub fn check_signing_settings(&self, id: ProjectId) -> Result<bool> {
         let project = self.projects_storage.get(id)?;
 
-        let repo = project_repository::Repository::open(&project)?;
+        let repo = project_repository::ProjectRepo::open(&project)?;
         let signed = repo.repo().sign_buffer(&BString::new("test".into()).into());
         match signed {
             Ok(_) => Ok(true),

@@ -38,7 +38,7 @@ impl TestCase<'_> {
             preferred_key: self.preferred_key.clone(),
             ..Default::default()
         };
-        let project_repository = project_repository::Repository::open(&project).unwrap();
+        let project_repository = project_repository::ProjectRepo::open(&project).unwrap();
 
         let flow = helper.help(&project_repository, "origin").unwrap();
         flow.into_iter()

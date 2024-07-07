@@ -60,7 +60,7 @@ pub struct RemoteCommit {
 // for legacy purposes, this is still named "remote" branches, but it's actually
 // a list of all the normal (non-gitbutler) git branches.
 pub fn list_remote_branches(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
 ) -> Result<Vec<RemoteBranch>> {
     let default_target = default_target(&project_repository.project().gb_dir())?;
 
@@ -89,7 +89,7 @@ pub fn list_remote_branches(
 }
 
 pub fn get_branch_data(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     refname: &git::Refname,
 ) -> Result<RemoteBranchData> {
     let default_target = default_target(&project_repository.project().gb_dir())?;
@@ -147,7 +147,7 @@ pub fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<RemoteBra
 }
 
 pub fn branch_to_remote_branch_data(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch: &git2::Branch,
     base: git2::Oid,
 ) -> Result<Option<RemoteBranchData>> {

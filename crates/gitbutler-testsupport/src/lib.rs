@@ -24,7 +24,7 @@ pub mod virtual_branches {
     use crate::empty_bare_repository;
 
     pub fn set_test_target(
-        project_repository: &project_repository::Repository,
+        project_repository: &project_repository::ProjectRepo,
     ) -> anyhow::Result<()> {
         let vb_state = project_repository.project().virtual_branches();
         let (remote_repo, _tmp) = empty_bare_repository();

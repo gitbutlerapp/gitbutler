@@ -38,7 +38,7 @@ pub struct BaseBranch {
 }
 
 pub fn get_base_branch_data(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
 ) -> Result<BaseBranch> {
     let target = default_target(&project_repository.project().gb_dir())?;
     let base = target_to_base_branch(project_repository, &target)?;
@@ -46,7 +46,7 @@ pub fn get_base_branch_data(
 }
 
 fn go_back_to_integration(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     default_target: &target::Target,
 ) -> Result<BaseBranch> {
     let statuses = project_repository
@@ -117,7 +117,7 @@ fn go_back_to_integration(
 }
 
 pub fn set_base_branch(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     target_branch_ref: &git::RemoteRefname,
 ) -> Result<BaseBranch> {
     let repo = project_repository.repo();
@@ -270,7 +270,7 @@ pub fn set_base_branch(
 }
 
 pub fn set_target_push_remote(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     push_remote_name: &str,
 ) -> Result<()> {
     let remote = project_repository
@@ -291,7 +291,7 @@ pub fn set_target_push_remote(
     Ok(())
 }
 
-fn set_exclude_decoration(project_repository: &project_repository::Repository) -> Result<()> {
+fn set_exclude_decoration(project_repository: &project_repository::ProjectRepo) -> Result<()> {
     let repo = project_repository.repo();
     let mut config = repo.config()?;
     config
@@ -327,7 +327,7 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 // merge the target branch into our current working directory
 // update the target sha
 pub fn update_base_branch(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
 ) -> anyhow::Result<Vec<git2::Branch<'_>>> {
     project_repository.assure_resolved()?;
 
@@ -573,7 +573,7 @@ pub fn update_base_branch(
 }
 
 pub fn target_to_base_branch(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     target: &target::Target,
 ) -> Result<BaseBranch> {
     let repo = project_repository.repo();

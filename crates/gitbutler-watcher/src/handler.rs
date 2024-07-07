@@ -155,7 +155,7 @@ impl Handler {
             .get(project_id)
             .context("failed to get project")?;
         let open_projects_repository = || {
-            project_repository::Repository::open(&project.clone())
+            project_repository::ProjectRepo::open(&project.clone())
                 .context("failed to open project repository for project")
         };
 
@@ -210,7 +210,7 @@ impl Handler {
 
         if project.is_sync_enabled() && project.has_code_url() {
             if let Some(user) = self.users.get_user()? {
-                let repository = project_repository::Repository::open(&project)
+                let repository = project_repository::ProjectRepo::open(&project)
                     .context("failed to open project repository for project")?;
                 return sync_with_gitbutler(&repository, &user, &self.projects).await;
             }

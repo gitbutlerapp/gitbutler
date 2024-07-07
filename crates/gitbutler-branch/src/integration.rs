@@ -31,7 +31,7 @@ pub fn get_integration_commiter<'a>() -> Result<git2::Signature<'a>> {
 // what files have been modified.
 pub fn get_workspace_head(
     vb_state: &VirtualBranchesHandle,
-    project_repo: &project_repository::Repository,
+    project_repo: &project_repository::ProjectRepo,
 ) -> Result<git2::Oid> {
     let target = vb_state
         .get_default_target()
@@ -139,7 +139,7 @@ fn write_integration_file(head: &git2::Reference, path: PathBuf) -> Result<()> {
 }
 pub fn update_gitbutler_integration(
     vb_state: &VirtualBranchesHandle,
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
 ) -> Result<git2::Oid> {
     let target = vb_state
         .get_default_target()
@@ -289,7 +289,7 @@ pub fn update_gitbutler_integration(
     Ok(final_commit)
 }
 
-pub fn verify_branch(project_repository: &project_repository::Repository) -> Result<()> {
+pub fn verify_branch(project_repository: &project_repository::ProjectRepo) -> Result<()> {
     project_repository
         .verify_current_branch_name()
         .and_then(|me| me.verify_head_is_set())
@@ -304,7 +304,7 @@ pub trait Verify {
     fn verify_head_is_clean(&self) -> Result<&Self>;
 }
 
-impl Verify for project_repository::Repository {
+impl Verify for project_repository::ProjectRepo {
     fn verify_head_is_set(&self) -> Result<&Self> {
         match self.get_head().context("failed to get head")?.name() {
             Some(refname) if *refname == GITBUTLER_INTEGRATION_REFERENCE.to_string() => Ok(self),
