@@ -1,10 +1,10 @@
 use anyhow::Result;
+use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_core::{
     git::{credentials::Helper, BranchExt},
     project_repository::Repository,
     projects::FetchResult,
     types::ReferenceName,
-    virtual_branches::VirtualBranchesAccess,
 };
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
@@ -29,7 +29,7 @@ use gitbutler_core::virtual_branches;
 use crate::files::RemoteBranchFile;
 use gitbutler_core::virtual_branches::{
     branch::{BranchId, BranchOwnershipClaims},
-    target, VirtualBranchesHandle,
+    target,
 };
 use gitbutler_core::{
     git,

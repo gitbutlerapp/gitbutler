@@ -1,5 +1,6 @@
 use anyhow::{anyhow, bail, Context};
 use git2::{DiffOptions, FileMode};
+use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesState};
 use std::collections::HashMap;
 use std::path::Path;
 use std::str::{from_utf8, FromStr};
@@ -11,8 +12,7 @@ use tracing::instrument;
 
 use gitbutler_core::git::diff::FileDiff;
 use gitbutler_core::virtual_branches::{
-    Branch, VirtualBranchesAccess, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
-    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
+    Branch, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
 };
 use gitbutler_core::{git::diff::hunks_by_filepath, git::RepositoryExt, projects::Project};
 
@@ -808,8 +808,7 @@ fn tree_from_applied_vbranches(
         .find_blob(vb_toml_entry.id())
         .context("failed to convert virtual_branches tree entry to blob")?;
 
-    let vbs_from_toml: gitbutler_core::virtual_branches::VirtualBranchesState =
-        toml::from_str(from_utf8(vb_toml_blob.content())?)?;
+    let vbs_from_toml: VirtualBranchesState = toml::from_str(from_utf8(vb_toml_blob.content())?)?;
     let applied_branch_trees: Vec<git2::Oid> = vbs_from_toml
         .branches
         .values()

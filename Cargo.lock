@@ -2112,6 +2112,7 @@ dependencies = [
  "futures",
  "git2",
  "git2-hooks",
+ "gitbutler-branchstate",
  "gitbutler-core",
  "gitbutler-git",
  "gitbutler-oplog",
@@ -2129,6 +2130,17 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "gitbutler-branchstate"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gitbutler-core",
+ "itertools 0.13.0",
+ "serde",
+ "toml 0.8.14",
 ]
 
 [[package]]
@@ -2234,6 +2246,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "git2",
+ "gitbutler-branchstate",
  "gitbutler-core",
  "gix",
  "itertools 0.13.0",
@@ -2251,6 +2264,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "git2",
+ "gitbutler-branchstate",
  "gitbutler-core",
  "gitbutler-oplog",
  "itertools 0.13.0",
@@ -2303,6 +2317,7 @@ dependencies = [
  "anyhow",
  "git2",
  "gitbutler-branch",
+ "gitbutler-branchstate",
  "gitbutler-core",
  "keyring",
  "once_cell",

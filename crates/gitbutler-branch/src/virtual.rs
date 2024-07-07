@@ -1,3 +1,4 @@
+use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_oplog::snapshot::Snapshot;
 use std::borrow::Borrow;
 #[cfg(target_family = "unix")]
@@ -15,7 +16,7 @@ use diffy::{apply_bytes as diffy_apply, Line, Patch};
 use git2::build::TreeUpdateBuilder;
 use git2::ErrorCode;
 use git2_hooks::HookResult;
-use gitbutler_core::virtual_branches::{Author, VirtualBranchesAccess};
+use gitbutler_core::virtual_branches::Author;
 use hex::ToHex;
 use serde::{Deserialize, Serialize};
 
@@ -35,7 +36,7 @@ use gitbutler_core::virtual_branches::{
     branch::{
         self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
     },
-    target, VirtualBranchesHandle,
+    target,
 };
 use gitbutler_core::{
     dedup::{dedup, dedup_fmt},

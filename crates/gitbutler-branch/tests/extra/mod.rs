@@ -17,12 +17,10 @@ use gitbutler_branch::r#virtual::{
     commit, create_virtual_branch, create_virtual_branch_from_branch, integrate_upstream_commits,
     is_remote_branch_mergeable, list_virtual_branches, unapply_ownership, update_branch,
 };
+use gitbutler_branchstate::VirtualBranchesAccess;
 use gitbutler_core::{
     git::{self, CommitExt, RepositoryExt},
-    virtual_branches::{
-        branch::{BranchCreateRequest, BranchOwnershipClaims, BranchUpdateRequest},
-        VirtualBranchesAccess,
-    },
+    virtual_branches::branch::{BranchCreateRequest, BranchOwnershipClaims, BranchUpdateRequest},
 };
 use pretty_assertions::assert_eq;
 

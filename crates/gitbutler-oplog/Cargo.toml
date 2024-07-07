@@ -9,6 +9,7 @@ publish = false
 anyhow = "1.0.86"
 git2.workspace = true
 gitbutler-core.workspace = true
+gitbutler-branchstate.workspace = true
 serde = { workspace = true, features = ["std"]}
 itertools = "0.13"
 strum = { version = "0.26", features = ["derive"] }
