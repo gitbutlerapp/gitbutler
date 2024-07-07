@@ -10,11 +10,16 @@ use std::{path::Path, sync::Arc};
 
 use tokio::sync::Semaphore;
 
+use crate::base::{
+    get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch, BaseBranch,
+};
+
+use super::r#virtual as branch;
 use gitbutler_core::virtual_branches;
 
 use gitbutler_core::virtual_branches::{
     branch::{BranchId, BranchOwnershipClaims},
-    target, BaseBranch, NameConflitResolution, RemoteBranchFile, VirtualBranchesHandle,
+    target, RemoteBranchFile, VirtualBranchesHandle,
 };
 use gitbutler_core::{
     git,
@@ -46,7 +51,7 @@ impl Controller {
         self.permit(project.ignore_project_semaphore).await;
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();
-        let result = virtual_branches::commit(
+        let result = branch::commit(
             &project_repository,
             branch_id,
             message,
@@ -71,21 +76,17 @@ impl Controller {
         branch_name: &git::RemoteRefname,
     ) -> Result<bool> {
         let project_repository = Repository::open(project)?;
-        virtual_branches::is_remote_branch_mergeable(&project_repository, branch_name)
-            .map_err(Into::into)
+        branch::is_remote_branch_mergeable(&project_repository, branch_name).map_err(Into::into)
     }
 
     pub async fn list_virtual_branches(
         &self,
         project: &Project,
-    ) -> Result<(
-        Vec<virtual_branches::VirtualBranch>,
-        Vec<git::diff::FileDiff>,
-    )> {
+    ) -> Result<(Vec<branch::VirtualBranch>, Vec<git::diff::FileDiff>)> {
         self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
-        virtual_branches::list_virtual_branches(&project_repository).map_err(Into::into)
+        branch::list_virtual_branches(&project_repository).map_err(Into::into)
     }
 
     pub async fn create_virtual_branch(
@@ -96,7 +97,7 @@ impl Controller {
         self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
-        let branch_id = virtual_branches::create_virtual_branch(&project_repository, create)?.id;
+        let branch_id = branch::create_virtual_branch(&project_repository, create)?.id;
         Ok(branch_id)
     }
 
@@ -108,13 +109,12 @@ impl Controller {
         self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
-        virtual_branches::create_virtual_branch_from_branch(&project_repository, branch)
-            .map_err(Into::into)
+        branch::create_virtual_branch_from_branch(&project_repository, branch).map_err(Into::into)
     }
 
     pub async fn get_base_branch_data(&self, project: &Project) -> Result<BaseBranch> {
         let project_repository = Repository::open(project)?;
-        virtual_branches::get_base_branch_data(&project_repository)
+        get_base_branch_data(&project_repository)
     }
 
     pub async fn list_remote_commit_files(
@@ -136,12 +136,12 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::SetBaseBranch));
-        virtual_branches::set_base_branch(&project_repository, target_branch)
+        set_base_branch(&project_repository, target_branch)
     }
 
     pub async fn set_target_push_remote(&self, project: &Project, push_remote: &str) -> Result<()> {
         let project_repository = Repository::open(project)?;
-        virtual_branches::set_target_push_remote(&project_repository, push_remote)
+        set_target_push_remote(&project_repository, push_remote)
     }
 
     pub async fn integrate_upstream_commits(
@@ -155,8 +155,7 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::MergeUpstream));
-        virtual_branches::integrate_upstream_commits(&project_repository, branch_id)
-            .map_err(Into::into)
+        branch::integrate_upstream_commits(&project_repository, branch_id).map_err(Into::into)
     }
 
     pub async fn update_base_branch(&self, project: &Project) -> Result<Vec<ReferenceName>> {
@@ -166,7 +165,7 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::UpdateWorkspaceBase));
-        virtual_branches::update_base_branch(&project_repository)
+        update_base_branch(&project_repository)
             .map(|unapplied_branches| {
                 unapplied_branches
                     .iter()
@@ -189,7 +188,7 @@ impl Controller {
             .project()
             .virtual_branches()
             .get_branch(branch_update.id)?;
-        let result = virtual_branches::update_branch(&project_repository, &branch_update);
+        let result = branch::update_branch(&project_repository, &branch_update);
         let _ = snapshot_tree.and_then(|snapshot_tree| {
             project_repository.project().snapshot_branch_update(
                 snapshot_tree,
@@ -209,7 +208,7 @@ impl Controller {
         self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
-        virtual_branches::delete_branch(&project_repository, branch_id)
+        branch::delete_branch(&project_repository, branch_id)
     }
 
     pub async fn unapply_ownership(
@@ -223,7 +222,7 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::DiscardHunk));
-        virtual_branches::unapply_ownership(&project_repository, ownership).map_err(Into::into)
+        branch::unapply_ownership(&project_repository, ownership).map_err(Into::into)
     }
 
     pub async fn reset_files(&self, project: &Project, files: &Vec<String>) -> Result<()> {
@@ -233,7 +232,7 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::DiscardFile));
-        virtual_branches::reset_files(&project_repository, files).map_err(Into::into)
+        branch::reset_files(&project_repository, files).map_err(Into::into)
     }
 
     pub async fn amend(
@@ -249,7 +248,7 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::AmendCommit));
-        virtual_branches::amend(&project_repository, branch_id, commit_oid, ownership)
+        branch::amend(&project_repository, branch_id, commit_oid, ownership)
     }
 
     pub async fn move_commit_file(
@@ -266,7 +265,7 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::MoveCommitFile));
-        virtual_branches::move_commit_file(
+        branch::move_commit_file(
             &project_repository,
             branch_id,
             from_commit_oid,
@@ -287,8 +286,7 @@ impl Controller {
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();
         let result: Result<()> =
-            virtual_branches::undo_commit(&project_repository, branch_id, commit_oid)
-                .map_err(Into::into);
+            branch::undo_commit(&project_repository, branch_id, commit_oid).map_err(Into::into);
         let _ = snapshot_tree.and_then(|snapshot_tree| {
             project_repository.project().snapshot_commit_undo(
                 snapshot_tree,
@@ -312,7 +310,7 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::InsertBlankCommit));
-        virtual_branches::insert_blank_commit(&project_repository, branch_id, commit_oid, offset)
+        branch::insert_blank_commit(&project_repository, branch_id, commit_oid, offset)
             .map_err(Into::into)
     }
 
@@ -329,7 +327,7 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::ReorderCommit));
-        virtual_branches::reorder_commit(&project_repository, branch_id, commit_oid, offset)
+        branch::reorder_commit(&project_repository, branch_id, commit_oid, offset)
             .map_err(Into::into)
     }
 
@@ -345,21 +343,20 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::UndoCommit));
-        virtual_branches::reset_branch(&project_repository, branch_id, target_commit_oid)
-            .map_err(Into::into)
+        branch::reset_branch(&project_repository, branch_id, target_commit_oid).map_err(Into::into)
     }
 
     pub async fn convert_to_real_branch(
         &self,
         project: &Project,
         branch_id: BranchId,
-        name_conflict_resolution: NameConflitResolution,
+        name_conflict_resolution: branch::NameConflitResolution,
     ) -> Result<ReferenceName> {
         self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();
-        let result = virtual_branches::convert_to_real_branch(
+        let result = branch::convert_to_real_branch(
             &project_repository,
             branch_id,
             name_conflict_resolution,
@@ -383,7 +380,7 @@ impl Controller {
         self.permit(project.ignore_project_semaphore).await;
         let helper = Helper::default();
         let project_repository = open_with_verify(project)?;
-        virtual_branches::push(&project_repository, branch_id, with_force, &helper, askpass)
+        branch::push(&project_repository, branch_id, with_force, &helper, askpass)
     }
 
     pub async fn list_remote_branches(
@@ -415,7 +412,7 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::SquashCommit));
-        virtual_branches::squash(&project_repository, branch_id, commit_oid).map_err(Into::into)
+        branch::squash(&project_repository, branch_id, commit_oid).map_err(Into::into)
     }
 
     pub async fn update_commit_message(
@@ -430,7 +427,7 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::UpdateCommitMessage));
-        virtual_branches::update_commit_message(&project_repository, branch_id, commit_oid, message)
+        branch::update_commit_message(&project_repository, branch_id, commit_oid, message)
             .map_err(Into::into)
     }
 
@@ -489,8 +486,7 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::MoveCommit));
-        virtual_branches::move_commit(&project_repository, target_branch_id, commit_oid)
-            .map_err(Into::into)
+        branch::move_commit(&project_repository, target_branch_id, commit_oid).map_err(Into::into)
     }
 
     async fn permit(&self, ignore: bool) {
@@ -502,7 +498,7 @@ impl Controller {
 
 fn open_with_verify(project: &Project) -> Result<Repository> {
     let project_repository = Repository::open(project)?;
-    virtual_branches::integration::verify_branch(&project_repository)?;
+    crate::integration::verify_branch(&project_repository)?;
     Ok(project_repository)
 }
 

@@ -1,11 +1,12 @@
-use crate::fs::write;
+use crate::{
+    fs::write,
+    virtual_branches::{
+        GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
+    },
+};
 use anyhow::{Context, Result};
 use gix::config::tree::Key;
 use std::path::Path;
-
-use crate::virtual_branches::integration::{
-    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
-};
 
 /// Sets a reference to the oplog head commit such that snapshots are reachable and will not be garbage collected.
 /// We want to achieve 2 things:

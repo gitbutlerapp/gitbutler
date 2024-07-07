@@ -2,11 +2,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use gitbutler_branch::VirtualBranches;
 use gitbutler_core::error::Marker;
 use gitbutler_core::ops::entry::{OperationKind, SnapshotDetails};
 use gitbutler_core::projects::ProjectId;
 use gitbutler_core::synchronize::sync_with_gitbutler;
-use gitbutler_core::virtual_branches::VirtualBranches;
 use gitbutler_core::{assets, git, project_repository, projects, users};
 use tracing::instrument;
 
@@ -25,7 +25,7 @@ pub struct Handler {
     projects: projects::Controller,
     users: users::Controller,
     vbranch_controller: gitbutler_branch::Controller,
-    assets_proxy: assets::Proxy,
+    assets_proxy: gitbutler_branch::assets::Proxy,
 
     /// A function to send events - decoupled from app-handle for testing purposes.
     #[allow(clippy::type_complexity)]
@@ -46,7 +46,7 @@ impl Handler {
             projects,
             users,
             vbranch_controller,
-            assets_proxy,
+            assets_proxy: gitbutler_branch::assets::Proxy::new(assets_proxy),
             send_event: Arc::new(send_event),
         }
     }

@@ -4,15 +4,15 @@ use anyhow::{anyhow, Context, Result};
 use git2::Index;
 use serde::Serialize;
 
-use super::{
-    branch, convert_to_real_branch,
-    integration::{
-        get_workspace_head, update_gitbutler_integration, GITBUTLER_INTEGRATION_REFERENCE,
-    },
-    target, BranchId, RemoteCommit, VirtualBranchHunk, VirtualBranchesHandle,
+use super::r#virtual as vb;
+use super::r#virtual::convert_to_real_branch;
+use crate::integration::{get_workspace_head, update_gitbutler_integration};
+use crate::VirtualBranchHunk;
+use gitbutler_core::virtual_branches::{
+    branch, target, BranchId, RemoteCommit, VirtualBranchesHandle, GITBUTLER_INTEGRATION_REFERENCE,
 };
-use crate::{error::Marker, git::RepositoryExt, rebase::cherry_rebase};
-use crate::{
+use gitbutler_core::{error::Marker, git::RepositoryExt, rebase::cherry_rebase};
+use gitbutler_core::{
     git::{self, diff},
     project_repository::{self, LogUntil},
     projects::FetchResult,
@@ -27,9 +27,9 @@ pub struct BaseBranch {
     pub remote_url: String,
     pub push_remote_name: Option<String>,
     pub push_remote_url: String,
-    #[serde(with = "crate::serde::oid")]
+    #[serde(with = "gitbutler_core::serde::oid")]
     pub base_sha: git2::Oid,
-    #[serde(with = "crate::serde::oid")]
+    #[serde(with = "gitbutler_core::serde::oid")]
     pub current_sha: git2::Oid,
     pub behind: usize,
     pub upstream_commits: Vec<RemoteCommit>,
@@ -209,7 +209,7 @@ pub fn set_base_branch(
                 },
             );
 
-            let now_ms = crate::time::now_ms();
+            let now_ms = gitbutler_core::time::now_ms();
 
             let (upstream, upstream_head) = if let git::Refname::Local(head_name) = &head_name {
                 let upstream_name = target_branch_ref.with_branch(head_name.branch());
@@ -246,7 +246,7 @@ pub fn set_base_branch(
                 created_timestamp_ms: now_ms,
                 updated_timestamp_ms: now_ms,
                 head: current_head_commit.id(),
-                tree: super::write_tree_onto_commit(
+                tree: vb::write_tree_onto_commit(
                     project_repository,
                     current_head_commit.id(),
                     diff::diff_files_into_hunks(wd_diff),
@@ -364,7 +364,7 @@ pub fn update_base_branch(
 
     // try to update every branch
     let updated_vbranches =
-        super::get_status_by_branch(project_repository, Some(&integration_commit))?
+        vb::get_status_by_branch(project_repository, Some(&integration_commit))?
             .0
             .into_iter()
             .map(|(branch, _)| branch)
@@ -568,14 +568,14 @@ pub fn update_base_branch(
     })?;
 
     // Rewriting the integration commit is necessary after changing target sha.
-    super::integration::update_gitbutler_integration(&vb_state, project_repository)?;
+    crate::integration::update_gitbutler_integration(&vb_state, project_repository)?;
     Ok(unapplied_branch_names)
 }
 
 pub fn target_to_base_branch(
     project_repository: &project_repository::Repository,
     target: &target::Target,
-) -> Result<super::BaseBranch> {
+) -> Result<BaseBranch> {
     let repo = project_repository.repo();
     let branch = repo
         .find_branch_by_refname(&target.branch.clone().into())?
@@ -588,7 +588,7 @@ pub fn target_to_base_branch(
         .log(oid, project_repository::LogUntil::Commit(target.sha))
         .context("failed to get upstream commits")?
         .iter()
-        .map(super::commit_to_remote_commit)
+        .map(gitbutler_core::virtual_branches::commit_to_remote_commit)
         .collect::<Vec<_>>();
 
     // get some recent commits
@@ -596,7 +596,7 @@ pub fn target_to_base_branch(
         .log(target.sha, LogUntil::Take(20))
         .context("failed to get recent commits")?
         .iter()
-        .map(super::commit_to_remote_commit)
+        .map(gitbutler_core::virtual_branches::commit_to_remote_commit)
         .collect::<Vec<_>>();
 
     // there has got to be a better way to do this.
@@ -611,7 +611,7 @@ pub fn target_to_base_branch(
         None => target.remote_url.clone(),
     };
 
-    let base = super::BaseBranch {
+    let base = BaseBranch {
         branch_name: format!("{}/{}", target.branch.remote(), target.branch.branch()),
         remote_name: target.branch.remote().to_string(),
         remote_url: target.remote_url.clone(),

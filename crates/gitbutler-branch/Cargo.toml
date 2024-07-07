@@ -11,6 +11,15 @@ anyhow = "1.0.86"
 git2.workspace = true
 tokio.workspace = true
 gitbutler-core.workspace = true
+serde = { workspace = true, features = ["std"]}
+bstr = "1.9.1"
+diffy = "0.3.0"
+hex = "0.4.3"
+regex = "1.10"
+git2-hooks = "0.3"
+url = { version = "2.5.2", features = ["serde"] }
+md5 = "0.7.0"
+futures = "0.3"
 
 [[test]]
 name="branches"

@@ -2,25 +2,20 @@ use std::{path::PathBuf, vec};
 
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
-use lazy_static::lazy_static;
 
-use super::VirtualBranchesHandle;
-use crate::error::Marker;
-use crate::git::RepositoryExt;
-use crate::{
-    git::{self, CommitExt},
+use gitbutler_core::error::Marker;
+use gitbutler_core::git::RepositoryExt;
+use gitbutler_core::virtual_branches::{
+    VirtualBranchesHandle, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
+    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME, GITBUTLER_INTEGRATION_REFERENCE,
+};
+use gitbutler_core::{
+    git::CommitExt,
     project_repository::{self, conflicts, LogUntil},
     virtual_branches::branch::BranchCreateRequest,
 };
 
-lazy_static! {
-    pub static ref GITBUTLER_INTEGRATION_REFERENCE: git::LocalRefname =
-        git::LocalRefname::new("gitbutler/integration", None);
-}
-
 const WORKSPACE_HEAD: &str = "Workspace Head";
-pub const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME: &str = "GitButler";
-pub const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
 
 pub fn get_integration_commiter<'a>() -> Result<git2::Signature<'a>> {
     Ok(git2::Signature::now(
@@ -302,7 +297,13 @@ pub fn verify_branch(project_repository: &project_repository::Repository) -> Res
     Ok(())
 }
 
-impl project_repository::Repository {
+pub trait Verify {
+    fn verify_head_is_set(&self) -> Result<&Self>;
+    fn verify_current_branch_name(&self) -> Result<&Self>;
+    fn verify_head_is_clean(&self) -> Result<&Self>;
+}
+
+impl Verify for project_repository::Repository {
     fn verify_head_is_set(&self) -> Result<&Self> {
         match self.get_head().context("failed to get head")?.name() {
             Some(refname) if *refname == GITBUTLER_INTEGRATION_REFERENCE.to_string() => Ok(self),
