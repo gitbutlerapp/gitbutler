@@ -155,7 +155,7 @@ impl Handler {
             .get(project_id)
             .context("failed to get project")?;
         let open_projects_repository = || {
-            project_repository::Repository::open(&project.clone())
+            project_repository::ProjectRepo::open(&project.clone())
                 .context("failed to open project repository for project")
         };
 
@@ -174,7 +174,8 @@ impl Handler {
                 "HEAD" => {
                     let project_repository = open_projects_repository()?;
                     let head_ref = project_repository
-                        .get_head()
+                        .repo()
+                        .head()
                         .context("failed to get head")?;
                     let head_ref_name = head_ref.name().context("failed to get head name")?;
                     if head_ref_name != "refs/heads/gitbutler/integration" {
@@ -210,7 +211,7 @@ impl Handler {
 
         if project.is_sync_enabled() && project.has_code_url() {
             if let Some(user) = self.users.get_user()? {
-                let repository = project_repository::Repository::open(&project)
+                let repository = project_repository::ProjectRepo::open(&project)
                     .context("failed to open project repository for project")?;
                 return sync_with_gitbutler(&repository, &user, &self.projects).await;
             }

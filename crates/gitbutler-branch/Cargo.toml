@@ -22,6 +22,7 @@ git2-hooks = "0.3"
 url = { version = "2.5.2", features = ["serde"] }
 md5 = "0.7.0"
 futures = "0.3"
+itertools = "0.13"
 
 [[test]]
 name="branches"
@@ -35,4 +36,3 @@ gitbutler-git = { workspace = true, features = ["test-askpass-path"] }
 glob = "0.3.1"
 serial_test = "3.1.1"
 tempfile = "3.10"
-itertools = "0.13"

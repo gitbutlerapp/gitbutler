@@ -6,15 +6,18 @@ use bstr::ByteSlice;
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_core::error::Marker;
 use gitbutler_core::git::RepositoryExt;
+use gitbutler_core::project_repository::RepoActions;
 use gitbutler_core::virtual_branches::{
     GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
     GITBUTLER_INTEGRATION_REFERENCE,
 };
 use gitbutler_core::{
     git::CommitExt,
-    project_repository::{self, conflicts, LogUntil},
+    project_repository::{self, LogUntil},
     virtual_branches::branch::BranchCreateRequest,
 };
+
+use crate::conflicts;
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
 
@@ -31,7 +34,7 @@ pub fn get_integration_commiter<'a>() -> Result<git2::Signature<'a>> {
 // what files have been modified.
 pub fn get_workspace_head(
     vb_state: &VirtualBranchesHandle,
-    project_repo: &project_repository::Repository,
+    project_repo: &project_repository::ProjectRepo,
 ) -> Result<git2::Oid> {
     let target = vb_state
         .get_default_target()
@@ -139,7 +142,7 @@ fn write_integration_file(head: &git2::Reference, path: PathBuf) -> Result<()> {
 }
 pub fn update_gitbutler_integration(
     vb_state: &VirtualBranchesHandle,
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
 ) -> Result<git2::Oid> {
     let target = vb_state
         .get_default_target()
@@ -289,7 +292,7 @@ pub fn update_gitbutler_integration(
     Ok(final_commit)
 }
 
-pub fn verify_branch(project_repository: &project_repository::Repository) -> Result<()> {
+pub fn verify_branch(project_repository: &project_repository::ProjectRepo) -> Result<()> {
     project_repository
         .verify_current_branch_name()
         .and_then(|me| me.verify_head_is_set())
@@ -304,9 +307,9 @@ pub trait Verify {
     fn verify_head_is_clean(&self) -> Result<&Self>;
 }
 
-impl Verify for project_repository::Repository {
+impl Verify for project_repository::ProjectRepo {
     fn verify_head_is_set(&self) -> Result<&Self> {
-        match self.get_head().context("failed to get head")?.name() {
+        match self.repo().head().context("failed to get head")?.name() {
             Some(refname) if *refname == GITBUTLER_INTEGRATION_REFERENCE.to_string() => Ok(self),
             Some(head_name) => Err(invalid_head_err(head_name)),
             None => Err(anyhow!(
@@ -318,7 +321,7 @@ impl Verify for project_repository::Repository {
 
     // Returns an error if repo head is not pointing to the integration branch.
     fn verify_current_branch_name(&self) -> Result<&Self> {
-        match self.get_head()?.name() {
+        match self.repo().head()?.name() {
             Some(head) => {
                 let head_name = head.to_string();
                 if head_name != GITBUTLER_INTEGRATION_REFERENCE.to_string() {

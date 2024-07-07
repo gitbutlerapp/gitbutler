@@ -120,4 +120,8 @@ impl Project {
     pub fn snapshot_lines_threshold(&self) -> usize {
         self.snapshot_lines_threshold.unwrap_or(20)
     }
+
+    pub fn worktree_path(&self) -> PathBuf {
+        self.path.clone()
+    }
 }

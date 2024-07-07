@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
+use gitbutler_branch::conflicts;
 use gitbutler_core::{
-    git,
-    project_repository::{self, conflicts},
+    git::{self, RepositoryExt},
+    project_repository::{self, RepoActions},
     projects::{self, ProjectId},
     virtual_branches::BranchId,
 };
@@ -18,7 +19,7 @@ impl App {
 
     pub fn mark_resolved(&self, project_id: ProjectId, path: &str) -> Result<()> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::ProjectRepo::open(&project)?;
         // mark file as resolved
         conflicts::resolve(&project_repository, path)?;
         Ok(())
@@ -26,8 +27,8 @@ impl App {
 
     pub fn git_remote_branches(&self, project_id: ProjectId) -> Result<Vec<git::RemoteRefname>> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
-        project_repository.git_remote_branches()
+        let project_repository = project_repository::ProjectRepo::open(&project)?;
+        project_repository.repo().remote_branches()
     }
 
     pub fn git_test_push(
@@ -39,7 +40,7 @@ impl App {
         askpass: Option<Option<BranchId>>,
     ) -> Result<()> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::ProjectRepo::open(&project)?;
         project_repository.git_test_push(credentials, remote_name, branch_name, askpass)
     }
 
@@ -51,24 +52,27 @@ impl App {
         askpass: Option<String>,
     ) -> Result<()> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::ProjectRepo::open(&project)?;
         project_repository.fetch(remote_name, credentials, askpass)
     }
 
     pub fn git_index_size(&self, project_id: ProjectId) -> Result<usize> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::ProjectRepo::open(&project)?;
         let size = project_repository
-            .git_index_size()
-            .context("failed to get index size")?;
+            .repo()
+            .index()
+            .context("failed to get index size")?
+            .len();
         Ok(size)
     }
 
     pub fn git_head(&self, project_id: ProjectId) -> Result<String> {
         let project = self.projects.get(project_id)?;
-        let project_repository = project_repository::Repository::open(&project)?;
+        let project_repository = project_repository::ProjectRepo::open(&project)?;
         let head = project_repository
-            .get_head()
+            .repo()
+            .head()
             .context("failed to get repository head")?;
         Ok(head.name().unwrap().to_string())
     }

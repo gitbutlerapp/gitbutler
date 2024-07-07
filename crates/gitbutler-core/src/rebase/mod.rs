@@ -1,4 +1,5 @@
 use crate::git::HasCommitHeaders;
+use crate::project_repository::RepoActions;
 use crate::{error::Marker, git::CommitExt, git::RepositoryExt, project_repository};
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
@@ -7,7 +8,7 @@ use bstr::ByteSlice;
 /// this function takes a commit range and generates a Vector of commit oids
 /// and then passes them to `cherry_rebase_group` to rebase them onto the target commit
 pub fn cherry_rebase(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     target_commit_oid: git2::Oid,
     start_commit_oid: git2::Oid,
     end_commit_oid: git2::Oid,
@@ -33,7 +34,7 @@ pub fn cherry_rebase(
 /// the difference between this and a libgit2 based rebase is that this will successfully
 /// rebase empty commits (two commits with identical trees)
 pub fn cherry_rebase_group(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     target_commit_oid: git2::Oid,
     ids_to_rebase: &mut [git2::Oid],
 ) -> Result<git2::Oid> {

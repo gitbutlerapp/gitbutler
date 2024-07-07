@@ -1,4 +1,5 @@
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
+use gitbutler_core::project_repository::RepoActions;
 use gitbutler_oplog::snapshot::Snapshot;
 use std::borrow::Borrow;
 #[cfg(target_family = "unix")]
@@ -20,6 +21,7 @@ use gitbutler_core::virtual_branches::Author;
 use hex::ToHex;
 use serde::{Deserialize, Serialize};
 
+use crate::conflicts::{self, RepoConflicts};
 use crate::integration::{get_integration_commiter, get_workspace_head};
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
 use gitbutler_core::error::Code;
@@ -45,7 +47,7 @@ use gitbutler_core::{
         diff::{self},
         Refname, RemoteRefname,
     },
-    project_repository::{self, conflicts, LogUntil},
+    project_repository::{self, LogUntil},
 };
 
 type AppliedStatuses = Vec<(branch::Branch, BranchStatus)>;
@@ -208,7 +210,7 @@ pub enum NameConflitResolution {
 }
 
 pub fn unapply_ownership(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     ownership: &BranchOwnershipClaims,
 ) -> Result<()> {
     project_repository.assure_resolved()?;
@@ -309,7 +311,7 @@ pub fn unapply_ownership(
 
 // reset a file in the project to the index state
 pub fn reset_files(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     files: &Vec<String>,
 ) -> Result<()> {
     project_repository.assure_resolved()?;
@@ -338,12 +340,12 @@ pub fn reset_files(
 
 // to unapply a branch, we need to write the current tree out, then remove those file changes from the wd
 pub fn convert_to_real_branch(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch_id: BranchId,
     name_conflict_resolution: NameConflitResolution,
 ) -> Result<git2::Branch<'_>> {
     fn build_real_branch<'l>(
-        project_repository: &'l project_repository::Repository,
+        project_repository: &'l project_repository::ProjectRepo,
         vbranch: &branch::Branch,
         name_conflict_resolution: NameConflitResolution,
     ) -> Result<git2::Branch<'l>> {
@@ -394,7 +396,7 @@ pub fn convert_to_real_branch(
         Ok(branch)
     }
     fn build_metadata_commit<'l>(
-        project_repository: &'l project_repository::Repository,
+        project_repository: &'l project_repository::ProjectRepo,
         vbranch: &branch::Branch,
         branch: &git2::Branch<'l>,
     ) -> Result<git2::Oid> {
@@ -477,7 +479,7 @@ fn find_base_tree<'a>(
 }
 
 pub fn list_virtual_branches(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
 ) -> Result<(Vec<VirtualBranch>, Vec<diff::FileDiff>)> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
@@ -659,7 +661,7 @@ fn joined(start_a: u32, end_a: u32, start_b: u32, end_b: u32) -> bool {
 }
 
 fn is_requires_force(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch: &branch::Branch,
 ) -> Result<bool> {
     let upstream = if let Some(upstream) = &branch.upstream {
@@ -690,7 +692,7 @@ fn is_requires_force(
 }
 
 fn list_virtual_commit_files(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     commit: &git2::Commit,
 ) -> Result<Vec<VirtualBranchFile>> {
     if commit.parent_count() == 0 {
@@ -708,7 +710,7 @@ fn list_virtual_commit_files(
 }
 
 fn commit_to_vbranch_commit(
-    repository: &project_repository::Repository,
+    repository: &project_repository::ProjectRepo,
     branch: &branch::Branch,
     commit: &git2::Commit,
     is_integrated: bool,
@@ -746,7 +748,7 @@ fn commit_to_vbranch_commit(
 }
 
 pub fn create_virtual_branch(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     create: &BranchCreateRequest,
 ) -> Result<branch::Branch> {
     let vb_state = project_repository.project().virtual_branches();
@@ -870,7 +872,7 @@ pub fn create_virtual_branch(
 /// end since there will only be one parent commit.
 ///
 pub fn integrate_upstream_commits(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch_id: BranchId,
 ) -> Result<()> {
     conflicts::is_conflicting(project_repository, None)?;
@@ -1000,7 +1002,7 @@ pub fn integrate_upstream_commits(
 }
 
 pub fn integrate_with_rebase(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch: &mut Branch,
     unknown_commits: &mut Vec<git2::Oid>,
 ) -> Result<git2::Oid> {
@@ -1012,7 +1014,7 @@ pub fn integrate_with_rebase(
 }
 
 pub fn integrate_with_merge(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch: &mut Branch,
     upstream_commit: &git2::Commit,
     merge_base: git2::Oid,
@@ -1066,7 +1068,7 @@ pub fn integrate_with_merge(
 }
 
 pub fn update_branch(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch_update: &branch::BranchUpdateRequest,
 ) -> Result<branch::Branch> {
     let vb_state = project_repository.project().virtual_branches();
@@ -1145,7 +1147,7 @@ pub fn update_branch(
 }
 
 pub fn delete_branch(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch_id: BranchId,
 ) -> Result<()> {
     let vb_state = project_repository.project().virtual_branches();
@@ -1335,7 +1337,7 @@ pub type VirtualBranchHunksByPathMap = HashMap<PathBuf, Vec<VirtualBranchHunk>>;
 // list the virtual branches and their file statuses (statusi?)
 #[allow(clippy::type_complexity)]
 pub fn get_status_by_branch(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     integration_commit: Option<&git2::Oid>,
 ) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
     let vb_state = project_repository.project().virtual_branches();
@@ -1382,7 +1384,7 @@ pub fn get_status_by_branch(
 //
 // ownerships are not taken into account here, as they are not relevant for non applied branches
 fn get_non_applied_status(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     virtual_branches: Vec<branch::Branch>,
 ) -> Result<Vec<(branch::Branch, BranchStatus)>> {
     virtual_branches
@@ -1485,7 +1487,7 @@ fn new_compute_locks(
 }
 
 fn compute_merge_base(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     target_sha: &git2::Oid,
     virtual_branches: &Vec<branch::Branch>,
 ) -> Result<git2::Oid> {
@@ -1506,7 +1508,7 @@ fn compute_merge_base(
 }
 
 fn compute_locks(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     integration_commit: &git2::Oid,
     target_sha: &git2::Oid,
     base_diffs: &BranchStatus,
@@ -1570,7 +1572,7 @@ fn compute_locks(
 // Returns branches and their associated file changes, in addition to a list
 // of skipped files.
 fn get_applied_status(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     integration_commit: &git2::Oid,
     target_sha: &git2::Oid,
     mut virtual_branches: Vec<branch::Branch>,
@@ -1760,7 +1762,7 @@ fn get_applied_status(
 
 /// NOTE: There is no use returning an iterator here as this acts like the final product.
 fn virtual_hunks_into_virtual_files(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     hunks: impl IntoIterator<Item = (PathBuf, Vec<VirtualBranchHunk>)>,
 ) -> Vec<VirtualBranchFile> {
     hunks
@@ -1787,7 +1789,7 @@ fn virtual_hunks_into_virtual_files(
 
 // reset virtual branch to a specific commit
 pub fn reset_branch(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch_id: BranchId,
     target_commit_id: git2::Oid,
 ) -> Result<()> {
@@ -1858,7 +1860,7 @@ pub fn reset_branch(
 }
 
 fn diffs_into_virtual_files(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     diffs: BranchStatus,
 ) -> Vec<VirtualBranchFile> {
     let hunks_by_filepath = virtual_hunks_by_git_hunks(&project_repository.project().path, diffs);
@@ -1869,7 +1871,7 @@ fn diffs_into_virtual_files(
 // constructs a tree from those changes on top of the target
 // and writes it as a new tree for storage
 pub fn write_tree(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     target: &git2::Oid,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
 ) -> Result<git2::Oid> {
@@ -1877,7 +1879,7 @@ pub fn write_tree(
 }
 
 pub fn write_tree_onto_commit(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     commit_oid: git2::Oid,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
 ) -> Result<git2::Oid> {
@@ -1891,7 +1893,7 @@ pub fn write_tree_onto_commit(
 }
 
 pub fn write_tree_onto_tree(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     base_tree: &git2::Tree,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
 ) -> Result<git2::Oid> {
@@ -1901,7 +1903,7 @@ pub fn write_tree_onto_tree(
     for (rel_path, hunks) in files {
         let rel_path = rel_path.borrow();
         let hunks = hunks.borrow();
-        let full_path = project_repository.path().join(rel_path);
+        let full_path = project_repository.project().worktree_path().join(rel_path);
 
         let is_submodule = full_path.is_dir()
             && hunks.len() == 1
@@ -1948,7 +1950,7 @@ pub fn write_tree_onto_tree(
 
                 // if the link target is inside the project repository, make it relative
                 let link_target = link_target
-                    .strip_prefix(project_repository.path())
+                    .strip_prefix(project_repository.project().worktree_path())
                     .unwrap_or(&link_target);
 
                 let blob_oid = git_repository.blob(
@@ -2039,7 +2041,7 @@ pub fn write_tree_onto_tree(
 
 #[allow(clippy::too_many_arguments)]
 pub fn commit(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch_id: BranchId,
     message: &str,
     ownership: Option<&branch::BranchOwnershipClaims>,
@@ -2160,7 +2162,7 @@ pub fn commit(
 }
 
 pub fn push(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch_id: BranchId,
     with_force: bool,
     credentials: &git::credentials::Helper,
@@ -2186,7 +2188,7 @@ pub fn push(
         .parse::<git::RemoteRefname>()
         .context("failed to parse remote branch name")?;
 
-        let remote_branches = project_repository.git_remote_branches()?;
+        let remote_branches = project_repository.repo().remote_branches()?;
         let existing_branches = remote_branches
             .iter()
             .map(RemoteRefname::branch)
@@ -2227,7 +2229,7 @@ pub fn push(
 }
 
 fn is_commit_integrated(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     target: &target::Target,
     commit: &git2::Commit,
 ) -> Result<bool> {
@@ -2294,7 +2296,7 @@ fn is_commit_integrated(
 }
 
 pub fn is_remote_branch_mergeable(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch_name: &git::RemoteRefname,
 ) -> Result<bool> {
     let vb_state = project_repository.project().virtual_branches();
@@ -2337,7 +2339,7 @@ pub fn is_remote_branch_mergeable(
 // the changes need to be removed from the "from" commit, everything rebased,
 // then added to the "to" commit and everything above that rebased again.
 pub fn move_commit_file(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch_id: BranchId,
     from_commit_id: git2::Oid,
     to_commit_id: git2::Oid,
@@ -2583,7 +2585,7 @@ pub fn move_commit_file(
 // add the file changes. The branch is then rebased onto the new commit
 // and the respective branch head is updated
 pub fn amend(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch_id: BranchId,
     commit_oid: git2::Oid,
     target_ownership: &BranchOwnershipClaims,
@@ -2735,7 +2737,7 @@ pub fn amend(
 // if the offset is negative, move the commit up one
 // rewrites the branch head to the new head commit
 pub fn reorder_commit(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch_id: BranchId,
     commit_oid: git2::Oid,
     offset: i32,
@@ -2826,7 +2828,7 @@ pub fn reorder_commit(
 // if offset is positive, insert below, if negative, insert above
 // return the oid of the new head commit of the branch with the inserted blank commit
 pub fn insert_blank_commit(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch_id: BranchId,
     commit_oid: git2::Oid,
     offset: i32,
@@ -2880,7 +2882,7 @@ pub fn insert_blank_commit(
 // remove a commit in a branch by rebasing all commits _except_ for it onto it's parent
 // if successful, it will update the branch head to the new head commit
 pub fn undo_commit(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch_id: BranchId,
     commit_oid: git2::Oid,
 ) -> Result<()> {
@@ -2931,7 +2933,7 @@ pub fn undo_commit(
 
 /// squashes a commit from a virtual branch into its parent.
 pub fn squash(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch_id: BranchId,
     commit_id: git2::Oid,
 ) -> Result<()> {
@@ -3027,7 +3029,7 @@ pub fn squash(
 
 // changes a commit message for commit_oid, rebases everything above it, updates branch head if successful
 pub fn update_commit_message(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     branch_id: BranchId,
     commit_id: git2::Oid,
     message: &str,
@@ -3108,7 +3110,7 @@ pub fn update_commit_message(
 
 /// moves commit from the branch it's in to the top of the target branch
 pub fn move_commit(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     target_branch_id: BranchId,
     commit_id: git2::Oid,
 ) -> Result<()> {
@@ -3248,11 +3250,11 @@ pub fn move_commit(
 }
 
 pub fn create_virtual_branch_from_branch(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     upstream: &git::Refname,
 ) -> Result<BranchId> {
     fn apply_branch(
-        project_repository: &project_repository::Repository,
+        project_repository: &project_repository::ProjectRepo,
         branch_id: BranchId,
     ) -> Result<String> {
         project_repository.assure_resolved()?;
@@ -3673,7 +3675,7 @@ pub fn apply<S: AsRef<[u8]>>(base_image: S, patch: &Patch<'_, [u8]>) -> Result<B
 // are present in a file it will be resolved, meaning it will be removed from the
 // conflicts file.
 fn update_conflict_markers(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     files: &HashMap<PathBuf, Vec<GitHunk>>,
 ) -> Result<()> {
     let conflicting_files = conflicts::conflicting_files(project_repository)?;

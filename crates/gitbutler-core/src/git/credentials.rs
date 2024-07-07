@@ -90,7 +90,7 @@ pub enum HelpError {
 impl Helper {
     pub fn help<'a>(
         &'a self,
-        project_repository: &'a project_repository::Repository,
+        project_repository: &'a project_repository::ProjectRepo,
         remote_name: &str,
     ) -> Result<Vec<(git2::Remote, Vec<Credential>)>, HelpError> {
         let remote = project_repository.repo().find_remote(remote_name)?;
@@ -142,7 +142,7 @@ impl Helper {
     }
 
     fn https_flow(
-        project_repository: &project_repository::Repository,
+        project_repository: &project_repository::ProjectRepo,
         remote_url: &super::Url,
     ) -> Result<Vec<HttpsCredential>, HelpError> {
         let mut flow = vec![];

@@ -90,7 +90,7 @@ impl Suite {
 
 pub struct Case {
     pub project: gitbutler_core::projects::Project,
-    pub project_repository: gitbutler_core::project_repository::Repository,
+    pub project_repository: gitbutler_core::project_repository::ProjectRepo,
     pub credentials: gitbutler_core::git::credentials::Helper,
     /// The directory containing the `project_repository`
     project_tmp: Option<TempDir>,
@@ -110,7 +110,7 @@ impl Drop for Case {
 
 impl Case {
     fn new(project: gitbutler_core::projects::Project, project_tmp: TempDir) -> Case {
-        let project_repository = gitbutler_core::project_repository::Repository::open(&project)
+        let project_repository = gitbutler_core::project_repository::ProjectRepo::open(&project)
             .expect("failed to create project repository");
         let credentials = gitbutler_core::git::credentials::Helper::default();
         Case {
@@ -126,7 +126,7 @@ impl Case {
             .projects
             .get(self.project.id)
             .expect("failed to get project");
-        let project_repository = gitbutler_core::project_repository::Repository::open(&project)
+        let project_repository = gitbutler_core::project_repository::ProjectRepo::open(&project)
             .expect("failed to create project repository");
         let credentials = gitbutler_core::git::credentials::Helper::default();
         Self {

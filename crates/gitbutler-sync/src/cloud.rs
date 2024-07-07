@@ -3,6 +3,7 @@ use std::time;
 use anyhow::{Context, Result};
 use gitbutler_branchstate::VirtualBranchesAccess;
 use gitbutler_core::id::Id;
+use gitbutler_core::project_repository::RepoActions;
 use gitbutler_core::{
     git::{self},
     project_repository,
@@ -13,7 +14,7 @@ use gitbutler_oplog::oplog::Oplog;
 use itertools::Itertools;
 
 pub async fn sync_with_gitbutler(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     user: &users::User,
     projects: &projects::Controller,
 ) -> Result<()> {
@@ -57,7 +58,7 @@ pub async fn sync_with_gitbutler(
 
 async fn push_target(
     projects: &projects::Controller,
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     default_target: &gitbutler_core::virtual_branches::target::Target,
     gb_code_last_commit: Option<git2::Oid>,
     project_id: Id<projects::Project>,
@@ -134,7 +135,7 @@ fn batch_rev_walk(
 }
 
 fn collect_refs(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
 ) -> anyhow::Result<Vec<git::Refname>> {
     Ok(project_repository
         .repo()
@@ -148,7 +149,7 @@ fn collect_refs(
 }
 
 fn push_all_refs(
-    project_repository: &project_repository::Repository,
+    project_repository: &project_repository::ProjectRepo,
     user: &users::User,
     project_id: Id<projects::Project>,
 ) -> Result<()> {

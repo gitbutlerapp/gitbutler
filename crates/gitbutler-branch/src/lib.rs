@@ -14,3 +14,5 @@ pub mod integration;
 pub mod files;
 
 pub mod remote;
+
+pub mod conflicts;
