@@ -33,7 +33,6 @@ pub mod secret;
 pub mod serde;
 pub mod ssh;
 pub mod storage;
-pub mod synchronize;
 pub mod time;
 pub mod types;
 pub mod users;

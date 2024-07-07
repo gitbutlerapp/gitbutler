@@ -1,13 +1,13 @@
 use std::time;
 
-use crate::id::Id;
-use crate::{
+use anyhow::{Context, Result};
+use gitbutler_core::id::Id;
+use gitbutler_core::{
     git::{self},
     project_repository,
     projects::{self, CodePushState},
     users,
 };
-use anyhow::{Context, Result};
 use itertools::Itertools;
 
 pub async fn sync_with_gitbutler(
@@ -56,7 +56,7 @@ pub async fn sync_with_gitbutler(
 async fn push_target(
     projects: &projects::Controller,
     project_repository: &project_repository::Repository,
-    default_target: &crate::virtual_branches::target::Target,
+    default_target: &gitbutler_core::virtual_branches::target::Target,
     gb_code_last_commit: Option<git2::Oid>,
     project_id: Id<projects::Project>,
     user: &users::User,

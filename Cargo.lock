@@ -2227,6 +2227,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-sync"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "git2",
+ "gitbutler-core",
+ "itertools 0.13.0",
+ "tracing",
+]
+
+[[package]]
 name = "gitbutler-tauri"
 version = "0.0.0"
 dependencies = [
@@ -2289,6 +2300,7 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-core",
  "gitbutler-notify-debouncer",
+ "gitbutler-sync",
  "gix",
  "notify",
  "thiserror",

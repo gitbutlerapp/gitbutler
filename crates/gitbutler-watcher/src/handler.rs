@@ -6,8 +6,8 @@ use gitbutler_branch::VirtualBranches;
 use gitbutler_core::error::Marker;
 use gitbutler_core::ops::entry::{OperationKind, SnapshotDetails};
 use gitbutler_core::projects::ProjectId;
-use gitbutler_core::synchronize::sync_with_gitbutler;
 use gitbutler_core::{assets, git, project_repository, projects, users};
+use gitbutler_sync::cloud::sync_with_gitbutler;
 use tracing::instrument;
 
 use super::{events, Change};
