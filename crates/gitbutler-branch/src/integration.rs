@@ -309,7 +309,7 @@ pub trait Verify {
 
 impl Verify for project_repository::ProjectRepo {
     fn verify_head_is_set(&self) -> Result<&Self> {
-        match self.get_head().context("failed to get head")?.name() {
+        match self.repo().head().context("failed to get head")?.name() {
             Some(refname) if *refname == GITBUTLER_INTEGRATION_REFERENCE.to_string() => Ok(self),
             Some(head_name) => Err(invalid_head_err(head_name)),
             None => Err(anyhow!(
@@ -321,7 +321,7 @@ impl Verify for project_repository::ProjectRepo {
 
     // Returns an error if repo head is not pointing to the integration branch.
     fn verify_current_branch_name(&self) -> Result<&Self> {
-        match self.get_head()?.name() {
+        match self.repo().head()?.name() {
             Some(head) => {
                 let head_name = head.to_string();
                 if head_name != GITBUTLER_INTEGRATION_REFERENCE.to_string() {

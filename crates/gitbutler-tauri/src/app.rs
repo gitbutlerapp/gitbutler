@@ -71,7 +71,8 @@ impl App {
         let project = self.projects.get(project_id)?;
         let project_repository = project_repository::ProjectRepo::open(&project)?;
         let head = project_repository
-            .get_head()
+            .repo()
+            .head()
             .context("failed to get repository head")?;
         Ok(head.name().unwrap().to_string())
     }

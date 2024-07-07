@@ -4,7 +4,6 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use gitbutler_branch::VirtualBranches;
 use gitbutler_core::error::Marker;
-use gitbutler_core::project_repository::RepoActions;
 use gitbutler_core::projects::ProjectId;
 use gitbutler_core::{assets, git, project_repository, projects, users};
 use gitbutler_oplog::{
@@ -175,7 +174,8 @@ impl Handler {
                 "HEAD" => {
                     let project_repository = open_projects_repository()?;
                     let head_ref = project_repository
-                        .get_head()
+                        .repo()
+                        .head()
                         .context("failed to get head")?;
                     let head_ref_name = head_ref.name().context("failed to get head name")?;
                     if head_ref_name != "refs/heads/gitbutler/integration" {
