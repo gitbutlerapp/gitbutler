@@ -1,4 +1,5 @@
 use anyhow::Result;
+use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_core::{
     git::{credentials::Helper, BranchExt},
     project_repository::Repository,
@@ -28,7 +29,7 @@ use gitbutler_core::virtual_branches;
 use crate::files::RemoteBranchFile;
 use gitbutler_core::virtual_branches::{
     branch::{BranchId, BranchOwnershipClaims},
-    target, VirtualBranchesHandle,
+    target,
 };
 use gitbutler_core::{
     git,

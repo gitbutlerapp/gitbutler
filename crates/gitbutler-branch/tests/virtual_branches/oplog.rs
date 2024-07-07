@@ -1,4 +1,5 @@
 use super::*;
+use gitbutler_branchstate::VirtualBranchesAccess;
 use gitbutler_oplog::oplog::Oplog;
 use itertools::Itertools;
 use std::io::Write;

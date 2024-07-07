@@ -2,9 +2,10 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use bstr::BString;
+use gitbutler_branchstate::VirtualBranchesHandle;
 use serde::Serialize;
 
-use gitbutler_core::virtual_branches::{target, Author, VirtualBranchesHandle};
+use gitbutler_core::virtual_branches::{target, Author};
 use gitbutler_core::{
     git::{self, CommitExt, RepositoryExt},
     project_repository::{self, LogUntil},

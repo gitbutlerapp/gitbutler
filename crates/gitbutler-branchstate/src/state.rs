@@ -3,13 +3,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{error::Code, fs::read_toml_file_or_default};
 use anyhow::{anyhow, Result};
+use gitbutler_core::{error::Code, fs::read_toml_file_or_default, projects::Project};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use super::{target::Target, Branch};
-use crate::virtual_branches::BranchId;
+use gitbutler_core::virtual_branches::{target::Target, Branch, BranchId};
 
 /// The state of virtual branches data, as persisted in a TOML file.
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -27,6 +26,16 @@ pub struct VirtualBranches {
 pub struct VirtualBranchesHandle {
     /// The path to the file containing the virtual branches state.
     file_path: PathBuf,
+}
+
+pub trait VirtualBranchesAccess {
+    fn virtual_branches(&self) -> VirtualBranchesHandle;
+}
+
+impl VirtualBranchesAccess for Project {
+    fn virtual_branches(&self) -> VirtualBranchesHandle {
+        VirtualBranchesHandle::new(self.gb_dir())
+    }
 }
 
 impl VirtualBranchesHandle {
@@ -162,5 +171,5 @@ impl VirtualBranchesHandle {
 }
 
 fn write<P: AsRef<Path>>(file_path: P, virtual_branches: &VirtualBranches) -> Result<()> {
-    crate::fs::write(file_path, toml::to_string(&virtual_branches)?)
+    gitbutler_core::fs::write(file_path, toml::to_string(&virtual_branches)?)
 }
