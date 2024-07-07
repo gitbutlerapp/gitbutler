@@ -10,7 +10,8 @@ members = [
     "crates/gitbutler-branch", 
     "crates/gitbutler-sync",
     "crates/gitbutler-oplog", 
-    "crates/gitbutler-branchstate",
+    "crates/gitbutler-branchstate", 
+    "crates/gitbutler-repo",
 ]
 resolver = "2"
 
@@ -33,6 +34,7 @@ gitbutler-branch = { path = "crates/gitbutler-branch" }
 gitbutler-sync = { path = "crates/gitbutler-sync" }
 gitbutler-oplog = { path = "crates/gitbutler-oplog" }
 gitbutler-branchstate = { path = "crates/gitbutler-branchstate" }
+gitbutler-repo = { path = "crates/gitbutler-repo" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better

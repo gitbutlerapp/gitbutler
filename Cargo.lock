@@ -2116,6 +2116,7 @@ dependencies = [
  "gitbutler-core",
  "gitbutler-git",
  "gitbutler-oplog",
+ "gitbutler-repo",
  "gitbutler-testsupport",
  "glob",
  "hex",
@@ -2256,6 +2257,16 @@ dependencies = [
  "tempfile",
  "toml 0.8.14",
  "tracing",
+]
+
+[[package]]
+name = "gitbutler-repo"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "git2",
+ "gitbutler-core",
 ]
 
 [[package]]

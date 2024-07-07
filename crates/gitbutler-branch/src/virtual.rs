@@ -31,7 +31,6 @@ use gitbutler_core::git::diff::{diff_files_into_hunks, trees, FileDiff};
 use gitbutler_core::git::{
     normalize_branch_name, CommitExt, CommitHeadersV2, HasCommitHeaders, RepositoryExt,
 };
-use gitbutler_core::rebase::{cherry_rebase, cherry_rebase_group};
 use gitbutler_core::time::now_since_unix_epoch_ms;
 use gitbutler_core::virtual_branches::branch::HunkHash;
 use gitbutler_core::virtual_branches::{
@@ -49,6 +48,7 @@ use gitbutler_core::{
     },
     project_repository::{self, LogUntil},
 };
+use gitbutler_repo::rebase::{cherry_rebase, cherry_rebase_group};
 
 type AppliedStatuses = Vec<(branch::Branch, BranchStatus)>;
 

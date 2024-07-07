@@ -13,13 +13,14 @@ use crate::integration::{get_workspace_head, update_gitbutler_integration};
 use crate::remote::{commit_to_remote_commit, RemoteCommit};
 use crate::VirtualBranchHunk;
 use gitbutler_core::virtual_branches::{branch, target, BranchId, GITBUTLER_INTEGRATION_REFERENCE};
-use gitbutler_core::{error::Marker, git::RepositoryExt, rebase::cherry_rebase};
+use gitbutler_core::{error::Marker, git::RepositoryExt};
 use gitbutler_core::{
     git::{self, diff},
     project_repository::{self, LogUntil},
     projects::FetchResult,
     virtual_branches::branch::BranchOwnershipClaims,
 };
+use gitbutler_repo::rebase::cherry_rebase;
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
