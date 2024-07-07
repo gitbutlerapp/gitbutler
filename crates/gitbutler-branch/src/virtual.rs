@@ -1,4 +1,5 @@
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
+use gitbutler_core::project_repository::RepoActions;
 use gitbutler_oplog::snapshot::Snapshot;
 use std::borrow::Borrow;
 #[cfg(target_family = "unix")]

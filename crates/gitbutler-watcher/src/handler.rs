@@ -4,6 +4,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use gitbutler_branch::VirtualBranches;
 use gitbutler_core::error::Marker;
+use gitbutler_core::project_repository::RepoActions;
 use gitbutler_core::projects::ProjectId;
 use gitbutler_core::{assets, git, project_repository, projects, users};
 use gitbutler_oplog::{

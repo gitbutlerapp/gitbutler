@@ -8,9 +8,9 @@ use async_trait::async_trait;
 use bstr::BString;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
-use crate::git::RepositoryExt;
 use crate::projects::AuthKey;
 use crate::{error, project_repository};
+use crate::{git::RepositoryExt, project_repository::RepoActions};
 
 #[async_trait]
 pub trait Watchers {

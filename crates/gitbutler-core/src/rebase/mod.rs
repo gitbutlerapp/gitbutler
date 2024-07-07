@@ -1,4 +1,5 @@
 use crate::git::HasCommitHeaders;
+use crate::project_repository::RepoActions;
 use crate::{error::Marker, git::CommitExt, git::RepositoryExt, project_repository};
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;

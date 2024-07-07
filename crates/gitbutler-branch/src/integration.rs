@@ -6,6 +6,7 @@ use bstr::ByteSlice;
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_core::error::Marker;
 use gitbutler_core::git::RepositoryExt;
+use gitbutler_core::project_repository::RepoActions;
 use gitbutler_core::virtual_branches::{
     GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
     GITBUTLER_INTEGRATION_REFERENCE,

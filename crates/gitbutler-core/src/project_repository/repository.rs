@@ -75,11 +75,83 @@ impl ProjectRepo {
         })
     }
 
-    pub fn is_resolving(&self) -> bool {
+    pub fn set_project(&mut self, project: &projects::Project) {
+        self.project = project.clone();
+    }
+
+    pub fn project(&self) -> &projects::Project {
+        &self.project
+    }
+
+    pub fn repo(&self) -> &git2::Repository {
+        &self.git_repository
+    }
+}
+
+pub trait RepoActions {
+    fn add_remote(&self, name: &str, url: &str) -> Result<()>;
+    fn remotes(&self) -> Result<Vec<String>>;
+    fn fetch(
+        &self,
+        remote_name: &str,
+        credentials: &git::credentials::Helper,
+        askpass: Option<String>,
+    ) -> Result<()>;
+    fn push(
+        &self,
+        head: &git2::Oid,
+        branch: &git::RemoteRefname,
+        with_force: bool,
+        credentials: &git::credentials::Helper,
+        refspec: Option<String>,
+        askpass_broker: Option<Option<BranchId>>,
+    ) -> Result<()>;
+    fn push_to_gitbutler_server(
+        &self,
+        user: Option<&users::User>,
+        ref_specs: &[&str],
+    ) -> Result<bool>;
+    fn commit(
+        &self,
+        message: &str,
+        tree: &git2::Tree,
+        parents: &[&git2::Commit],
+        commit_headers: Option<CommitHeadersV2>,
+    ) -> Result<git2::Oid>;
+    fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32>;
+    fn log(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Commit>>;
+    fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>>;
+    fn list(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Oid>>;
+    fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>>;
+    fn delete_branch_reference(&self, branch: &Branch) -> Result<()>;
+    fn add_branch_reference(&self, branch: &Branch) -> Result<()>;
+    fn git_test_push(
+        &self,
+        credentials: &git::credentials::Helper,
+        remote_name: &str,
+        branch_name: &str,
+        askpass: Option<Option<BranchId>>,
+    ) -> Result<()>;
+    fn git_remote_branches(&self) -> Result<Vec<git::RemoteRefname>>;
+    fn root(&self) -> &std::path::Path;
+    fn is_path_ignored<P>(&self, path: P) -> Result<bool>
+    where
+        P: AsRef<std::path::Path>;
+    fn get_head(&self) -> Result<git2::Reference>;
+    fn git_index_size(&self) -> Result<usize>;
+    fn config(&self) -> super::Config;
+    fn path(&self) -> &path::Path;
+    fn assure_unconflicted(&self) -> Result<()>;
+    fn assure_resolved(&self) -> Result<()>;
+    fn is_resolving(&self) -> bool;
+}
+
+impl RepoActions for ProjectRepo {
+    fn is_resolving(&self) -> bool {
         conflicts::is_resolving(self)
     }
 
-    pub fn assure_resolved(&self) -> Result<()> {
+    fn assure_resolved(&self) -> Result<()> {
         if self.is_resolving() {
             Err(anyhow!("project has active conflicts")).context(Marker::ProjectConflict)
         } else {
@@ -87,7 +159,7 @@ impl ProjectRepo {
         }
     }
 
-    pub fn assure_unconflicted(&self) -> Result<()> {
+    fn assure_unconflicted(&self) -> Result<()> {
         if conflicts::is_conflicting(self, None)? {
             Err(anyhow!("project has active conflicts")).context(Marker::ProjectConflict)
         } else {
@@ -95,43 +167,35 @@ impl ProjectRepo {
         }
     }
 
-    pub fn path(&self) -> &path::Path {
+    fn path(&self) -> &path::Path {
         path::Path::new(&self.project.path)
     }
 
-    pub fn config(&self) -> super::Config {
+    fn config(&self) -> super::Config {
         super::Config::from(&self.git_repository)
     }
 
-    pub fn project(&self) -> &projects::Project {
-        &self.project
-    }
-
-    pub fn set_project(&mut self, project: &projects::Project) {
-        self.project = project.clone();
-    }
-
-    pub fn git_index_size(&self) -> Result<usize> {
+    fn git_index_size(&self) -> Result<usize> {
         let head = self.git_repository.index()?.len();
         Ok(head)
     }
 
-    pub fn get_head(&self) -> Result<git2::Reference> {
+    fn get_head(&self) -> Result<git2::Reference> {
         let head = self.git_repository.head()?;
         Ok(head)
     }
 
-    pub fn is_path_ignored<P: AsRef<std::path::Path>>(&self, path: P) -> Result<bool> {
+    fn is_path_ignored<P: AsRef<std::path::Path>>(&self, path: P) -> Result<bool> {
         let path = path.as_ref();
         let ignored = self.git_repository.is_path_ignored(path)?;
         Ok(ignored)
     }
 
-    pub fn root(&self) -> &std::path::Path {
+    fn root(&self) -> &std::path::Path {
         self.git_repository.path().parent().unwrap()
     }
 
-    pub fn git_remote_branches(&self) -> Result<Vec<git::RemoteRefname>> {
+    fn git_remote_branches(&self) -> Result<Vec<git::RemoteRefname>> {
         self.git_repository
             .branches(Some(git2::BranchType::Remote))?
             .flatten()
@@ -142,7 +206,7 @@ impl ProjectRepo {
             .collect::<Result<Vec<_>>>()
     }
 
-    pub fn git_test_push(
+    fn git_test_push(
         &self,
         credentials: &git::credentials::Helper,
         remote_name: &str,
@@ -185,7 +249,7 @@ impl ProjectRepo {
         Ok(())
     }
 
-    pub fn add_branch_reference(&self, branch: &Branch) -> Result<()> {
+    fn add_branch_reference(&self, branch: &Branch) -> Result<()> {
         let (should_write, with_force) = match self
             .git_repository
             .find_reference(&branch.refname().to_string())
@@ -215,7 +279,7 @@ impl ProjectRepo {
         Ok(())
     }
 
-    pub fn delete_branch_reference(&self, branch: &Branch) -> Result<()> {
+    fn delete_branch_reference(&self, branch: &Branch) -> Result<()> {
         match self
             .git_repository
             .find_reference(&branch.refname().to_string())
@@ -235,7 +299,7 @@ impl ProjectRepo {
     }
 
     // returns a list of commit oids from the first oid to the second oid
-    pub fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>> {
+    fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>> {
         match to {
             LogUntil::Commit(oid) => {
                 let mut revwalk = self
@@ -306,11 +370,11 @@ impl ProjectRepo {
     }
 
     // returns a list of oids from the first oid to the second oid
-    pub fn list(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Oid>> {
+    fn list(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Oid>> {
         self.l(from, LogUntil::Commit(to))
     }
 
-    pub fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>> {
+    fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>> {
         Ok(self
             .list(from, to)?
             .into_iter()
@@ -319,7 +383,7 @@ impl ProjectRepo {
     }
 
     // returns a list of commits from the first oid to the second oid
-    pub fn log(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Commit>> {
+    fn log(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Commit>> {
         self.l(from, to)?
             .into_iter()
             .map(|oid| self.git_repository.find_commit(oid))
@@ -328,19 +392,19 @@ impl ProjectRepo {
     }
 
     // returns the number of commits between the first oid to the second oid
-    pub fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32> {
+    fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32> {
         let oids = self.l(from, LogUntil::Commit(to))?;
         Ok(oids.len().try_into()?)
     }
 
-    pub fn commit(
+    fn commit(
         &self,
         message: &str,
         tree: &git2::Tree,
         parents: &[&git2::Commit],
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid> {
-        let (author, committer) = self.signatures().context("failed to get signatures")?;
+        let (author, committer) = signatures(self).context("failed to get signatures")?;
         self.repo()
             .commit_with_signature(
                 None,
@@ -354,7 +418,7 @@ impl ProjectRepo {
             .context("failed to commit")
     }
 
-    pub fn push_to_gitbutler_server(
+    fn push_to_gitbutler_server(
         &self,
         user: Option<&users::User>,
         ref_specs: &[&str],
@@ -430,7 +494,7 @@ impl ProjectRepo {
         Ok(total_objects_pushed > 0)
     }
 
-    pub fn push(
+    fn push(
         &self,
         head: &git2::Oid,
         branch: &git::RemoteRefname,
@@ -535,7 +599,7 @@ impl ProjectRepo {
         Err(anyhow!("authentication failed").context(Code::ProjectGitAuth))
     }
 
-    pub fn fetch(
+    fn fetch(
         &self,
         remote_name: &str,
         credentials: &git::credentials::Helper,
@@ -612,7 +676,7 @@ impl ProjectRepo {
         Err(anyhow!("authentication failed")).context(Code::ProjectGitAuth)
     }
 
-    pub fn remotes(&self) -> Result<Vec<String>> {
+    fn remotes(&self) -> Result<Vec<String>> {
         Ok(self.git_repository.remotes().map(|string_array| {
             string_array
                 .iter()
@@ -621,33 +685,29 @@ impl ProjectRepo {
         })?)
     }
 
-    pub fn add_remote(&self, name: &str, url: &str) -> Result<()> {
+    fn add_remote(&self, name: &str, url: &str) -> Result<()> {
         self.git_repository.remote(name, url)?;
         Ok(())
     }
+}
 
-    pub fn repo(&self) -> &git2::Repository {
-        &self.git_repository
-    }
+fn signatures(project_repo: &ProjectRepo) -> Result<(git2::Signature, git2::Signature)> {
+    let config = project_repo.config();
 
-    fn signatures(&self) -> Result<(git2::Signature, git2::Signature)> {
-        let config = self.config();
+    let author = match (config.user_name()?, config.user_email()?) {
+        (None, Some(email)) => git2::Signature::now(&email, &email)?,
+        (Some(name), None) => git2::Signature::now(&name, &format!("{}@example.com", &name))?,
+        (Some(name), Some(email)) => git2::Signature::now(&name, &email)?,
+        _ => git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?,
+    };
 
-        let author = match (config.user_name()?, config.user_email()?) {
-            (None, Some(email)) => git2::Signature::now(&email, &email)?,
-            (Some(name), None) => git2::Signature::now(&name, &format!("{}@example.com", &name))?,
-            (Some(name), Some(email)) => git2::Signature::now(&name, &email)?,
-            _ => git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?,
-        };
+    let comitter = if config.user_real_comitter()? {
+        author.clone()
+    } else {
+        git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?
+    };
 
-        let comitter = if config.user_real_comitter()? {
-            author.clone()
-        } else {
-            git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?
-        };
-
-        Ok((author, comitter))
-    }
+    Ok((author, comitter))
 }
 
 type OidFilter = dyn Fn(&git2::Commit) -> Result<bool>;

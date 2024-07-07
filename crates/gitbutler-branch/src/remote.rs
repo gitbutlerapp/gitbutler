@@ -3,6 +3,7 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use bstr::BString;
 use gitbutler_branchstate::VirtualBranchesHandle;
+use gitbutler_core::project_repository::RepoActions;
 use serde::Serialize;
 
 use gitbutler_core::virtual_branches::{target, Author};

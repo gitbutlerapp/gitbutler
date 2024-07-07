@@ -2,7 +2,7 @@ use anyhow::Result;
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_core::{
     git::{credentials::Helper, BranchExt},
-    project_repository::ProjectRepo,
+    project_repository::{ProjectRepo, RepoActions},
     projects::FetchResult,
     types::ReferenceName,
 };

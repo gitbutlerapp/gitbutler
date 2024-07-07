@@ -1,7 +1,7 @@
 use anyhow::Result;
 
 use crate::{
-    project_repository,
+    project_repository::{self, RepoActions},
     projects::{self, ProjectId},
 };
 

@@ -3,6 +3,7 @@ use std::{path::Path, time};
 use anyhow::{anyhow, Context, Result};
 use git2::Index;
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
+use gitbutler_core::project_repository::RepoActions;
 use serde::Serialize;
 
 use super::r#virtual as vb;
