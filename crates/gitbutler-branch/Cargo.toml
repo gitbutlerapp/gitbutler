@@ -15,7 +15,7 @@ gitbutler-oplog.workspace = true
 gitbutler-branchstate.workspace = true
 serde = { workspace = true, features = ["std"]}
 bstr = "1.9.1"
-diffy = "0.3.0"
+diffy = "0.4.0"
 hex = "0.4.3"
 regex = "1.10"
 git2-hooks = "0.3"
