@@ -16,6 +16,8 @@ use crate::{
 };
 use crate::{error::Code, git::CommitHeadersV2};
 
+use super::Config;
+
 pub struct ProjectRepo {
     git_repository: git2::Repository,
     project: projects::Project,
@@ -137,14 +139,9 @@ pub trait RepoActions {
         P: AsRef<std::path::Path>;
     fn get_head(&self) -> Result<git2::Reference>;
     fn git_index_size(&self) -> Result<usize>;
-    fn config(&self) -> super::Config;
 }
 
 impl RepoActions for ProjectRepo {
-    fn config(&self) -> super::Config {
-        super::Config::from(&self.git_repository)
-    }
-
     fn git_index_size(&self) -> Result<usize> {
         let head = self.git_repository.index()?.len();
         Ok(head)
@@ -657,7 +654,7 @@ impl RepoActions for ProjectRepo {
 }
 
 fn signatures(project_repo: &ProjectRepo) -> Result<(git2::Signature, git2::Signature)> {
-    let config = project_repo.config();
+    let config: Config = project_repo.repo().into();
 
     let author = match (config.user_name()?, config.user_email()?) {
         (None, Some(email)) => git2::Signature::now(&email, &email)?,

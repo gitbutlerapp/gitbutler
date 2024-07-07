@@ -10,7 +10,7 @@ use bstr::BString;
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
 use crate::projects::AuthKey;
 use crate::{error, project_repository};
-use crate::{git::RepositoryExt, project_repository::RepoActions};
+use crate::{git::RepositoryExt, project_repository::Config};
 
 #[async_trait]
 pub trait Watchers {
@@ -217,15 +217,17 @@ impl Controller {
     pub fn get_local_config(&self, id: ProjectId, key: &str) -> Result<Option<String>> {
         let project = self.projects_storage.get(id)?;
 
-        let repo = project_repository::ProjectRepo::open(&project)?;
-        repo.config().get_local(key)
+        let project_repo = project_repository::ProjectRepo::open(&project)?;
+        let config: Config = project_repo.repo().into();
+        config.get_local(key)
     }
 
     pub fn set_local_config(&self, id: ProjectId, key: &str, value: &str) -> Result<()> {
         let project = self.projects_storage.get(id)?;
 
-        let repo = project_repository::ProjectRepo::open(&project)?;
-        repo.config().set_local(key, value)
+        let project_repo = project_repository::ProjectRepo::open(&project)?;
+        let config: Config = project_repo.repo().into();
+        config.set_local(key, value)
     }
 
     pub fn check_signing_settings(&self, id: ProjectId) -> Result<bool> {
