@@ -42,7 +42,7 @@ pub mod virtual_branches {
             })
             .expect("failed to write target");
 
-        virtual_branches::integration::update_gitbutler_integration(&vb_state, project_repository)
+        gitbutler_branch::integration::update_gitbutler_integration(&vb_state, project_repository)
             .expect("failed to update integration");
 
         Ok(())

@@ -2270,6 +2270,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "git2",
+ "gitbutler-branch",
  "gitbutler-core",
  "keyring",
  "once_cell",

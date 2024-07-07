@@ -3,13 +3,13 @@ use std::{path::PathBuf, vec};
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 
-use super::{
+use gitbutler_core::error::Marker;
+use gitbutler_core::git::RepositoryExt;
+use gitbutler_core::virtual_branches::{
     VirtualBranchesHandle, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
     GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME, GITBUTLER_INTEGRATION_REFERENCE,
 };
-use crate::error::Marker;
-use crate::git::RepositoryExt;
-use crate::{
+use gitbutler_core::{
     git::CommitExt,
     project_repository::{self, conflicts, LogUntil},
     virtual_branches::branch::BranchCreateRequest,
@@ -297,7 +297,13 @@ pub fn verify_branch(project_repository: &project_repository::Repository) -> Res
     Ok(())
 }
 
-impl project_repository::Repository {
+pub trait Verify {
+    fn verify_head_is_set(&self) -> Result<&Self>;
+    fn verify_current_branch_name(&self) -> Result<&Self>;
+    fn verify_head_is_clean(&self) -> Result<&Self>;
+}
+
+impl Verify for project_repository::Repository {
     fn verify_head_is_set(&self) -> Result<&Self> {
         match self.get_head().context("failed to get head")?.name() {
             Some(refname) if *refname == GITBUTLER_INTEGRATION_REFERENCE.to_string() => Ok(self),

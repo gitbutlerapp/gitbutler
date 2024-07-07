@@ -18,6 +18,7 @@ use gitbutler_core::virtual_branches::Author;
 use hex::ToHex;
 use serde::{Deserialize, Serialize};
 
+use crate::integration::{get_integration_commiter, get_workspace_head};
 use gitbutler_core::error::Code;
 use gitbutler_core::error::Marker;
 use gitbutler_core::git::diff::GitHunk;
@@ -28,7 +29,6 @@ use gitbutler_core::git::{
 use gitbutler_core::rebase::{cherry_rebase, cherry_rebase_group};
 use gitbutler_core::time::now_since_unix_epoch_ms;
 use gitbutler_core::virtual_branches::branch::HunkHash;
-use gitbutler_core::virtual_branches::integration::{get_integration_commiter, get_workspace_head};
 use gitbutler_core::virtual_branches::{
     branch::{
         self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
@@ -299,10 +299,7 @@ pub fn unapply_ownership(
         .checkout()
         .context("failed to checkout tree")?;
 
-    gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-        &vb_state,
-        project_repository,
-    )?;
+    crate::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     Ok(())
 }
@@ -452,10 +449,7 @@ pub fn convert_to_real_branch(
     // Ensure we still have a default target
     ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
-    gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-        &vb_state,
-        project_repository,
-    )?;
+    crate::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     Ok(real_branch)
 }
@@ -489,10 +483,8 @@ pub fn list_virtual_branches(
         .get_default_target()
         .context("failed to get default target")?;
 
-    let integration_commit_id = gitbutler_core::virtual_branches::integration::get_workspace_head(
-        &vb_state,
-        project_repository,
-    )?;
+    let integration_commit_id =
+        crate::integration::get_workspace_head(&vb_state, project_repository)?;
     let integration_commit = project_repository
         .repo()
         .find_commit(integration_commit_id)
@@ -1000,10 +992,7 @@ pub fn integrate_upstream_commits(
             .checkout()?;
     };
 
-    gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-        &vb_state,
-        project_repository,
-    )?;
+    crate::integration::update_gitbutler_integration(&vb_state, project_repository)?;
     Ok(())
 }
 
@@ -1859,11 +1848,8 @@ pub fn reset_branch(
         .set_branch(branch)
         .context("failed to write branch")?;
 
-    gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-        &vb_state,
-        project_repository,
-    )
-    .context("failed to update gitbutler integration")?;
+    crate::integration::update_gitbutler_integration(&vb_state, project_repository)
+        .context("failed to update gitbutler integration")?;
 
     Ok(())
 }
@@ -2164,11 +2150,8 @@ pub fn commit(
     branch.updated_timestamp_ms = gitbutler_core::time::now_ms();
     vb_state.set_branch(branch.clone())?;
 
-    gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-        &vb_state,
-        project_repository,
-    )
-    .context("failed to update gitbutler integration")?;
+    crate::integration::update_gitbutler_integration(&vb_state, project_repository)
+        .context("failed to update gitbutler integration")?;
 
     Ok(commit_oid)
 }
@@ -2569,10 +2552,7 @@ pub fn move_commit_file(
     if upstream_commits.is_empty() {
         target_branch.head = commit_oid;
         vb_state.set_branch(target_branch.clone())?;
-        gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-            &vb_state,
-            project_repository,
-        )?;
+        crate::integration::update_gitbutler_integration(&vb_state, project_repository)?;
         return Ok(commit_oid);
     }
 
@@ -2589,10 +2569,7 @@ pub fn move_commit_file(
     if let Some(new_head) = new_head {
         target_branch.head = new_head;
         vb_state.set_branch(target_branch.clone())?;
-        gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-            &vb_state,
-            project_repository,
-        )?;
+        crate::integration::update_gitbutler_integration(&vb_state, project_repository)?;
         Ok(commit_oid)
     } else {
         Err(anyhow!("rebase failed"))
@@ -2630,10 +2607,8 @@ pub fn amend(
 
     let default_target = vb_state.get_default_target()?;
 
-    let integration_commit_id = gitbutler_core::virtual_branches::integration::get_workspace_head(
-        &vb_state,
-        project_repository,
-    )?;
+    let integration_commit_id =
+        crate::integration::get_workspace_head(&vb_state, project_repository)?;
 
     let (mut applied_statuses, _) = get_applied_status(
         project_repository,
@@ -2729,10 +2704,7 @@ pub fn amend(
     if upstream_commits.is_empty() {
         target_branch.head = commit_oid;
         vb_state.set_branch(target_branch.clone())?;
-        gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-            &vb_state,
-            project_repository,
-        )?;
+        crate::integration::update_gitbutler_integration(&vb_state, project_repository)?;
         return Ok(commit_oid);
     }
 
@@ -2748,10 +2720,7 @@ pub fn amend(
     if let Some(new_head) = new_head {
         target_branch.head = new_head;
         vb_state.set_branch(target_branch.clone())?;
-        gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-            &vb_state,
-            project_repository,
-        )?;
+        crate::integration::update_gitbutler_integration(&vb_state, project_repository)?;
         Ok(commit_oid)
     } else {
         Err(anyhow!("rebase failed"))
@@ -2806,11 +2775,8 @@ pub fn reorder_commit(
         branch.updated_timestamp_ms = gitbutler_core::time::now_ms();
         vb_state.set_branch(branch.clone())?;
 
-        gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-            &vb_state,
-            project_repository,
-        )
-        .context("failed to update gitbutler integration")?;
+        crate::integration::update_gitbutler_integration(&vb_state, project_repository)
+            .context("failed to update gitbutler integration")?;
     } else {
         //  move commit down
         if default_target.sha == parent_oid {
@@ -2846,11 +2812,8 @@ pub fn reorder_commit(
         branch.updated_timestamp_ms = gitbutler_core::time::now_ms();
         vb_state.set_branch(branch.clone())?;
 
-        gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-            &vb_state,
-            project_repository,
-        )
-        .context("failed to update gitbutler integration")?;
+        crate::integration::update_gitbutler_integration(&vb_state, project_repository)
+            .context("failed to update gitbutler integration")?;
     }
 
     Ok(())
@@ -2884,11 +2847,8 @@ pub fn insert_blank_commit(
     if commit.id() == branch.head && offset < 0 {
         // inserting before the first commit
         branch.head = blank_commit_oid;
-        gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-            &vb_state,
-            project_repository,
-        )
-        .context("failed to update gitbutler integration")?;
+        crate::integration::update_gitbutler_integration(&vb_state, project_repository)
+            .context("failed to update gitbutler integration")?;
     } else {
         // rebase all commits above it onto the new commit
         match cherry_rebase(
@@ -2899,11 +2859,8 @@ pub fn insert_blank_commit(
         ) {
             Ok(Some(new_head)) => {
                 branch.head = new_head;
-                gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-                    &vb_state,
-                    project_repository,
-                )
-                .context("failed to update gitbutler integration")?;
+                crate::integration::update_gitbutler_integration(&vb_state, project_repository)
+                    .context("failed to update gitbutler integration")?;
             }
             Ok(None) => bail!("no rebase happened"),
             Err(err) => {
@@ -2962,11 +2919,8 @@ pub fn undo_commit(
         branch.updated_timestamp_ms = gitbutler_core::time::now_ms();
         vb_state.set_branch(branch.clone())?;
 
-        gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-            &vb_state,
-            project_repository,
-        )
-        .context("failed to update gitbutler integration")?;
+        crate::integration::update_gitbutler_integration(&vb_state, project_repository)
+            .context("failed to update gitbutler integration")?;
     }
 
     Ok(())
@@ -3060,11 +3014,8 @@ pub fn squash(
             branch.updated_timestamp_ms = gitbutler_core::time::now_ms();
             vb_state.set_branch(branch.clone())?;
 
-            gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-                &vb_state,
-                project_repository,
-            )
-            .context("failed to update gitbutler integration")?;
+            crate::integration::update_gitbutler_integration(&vb_state, project_repository)
+                .context("failed to update gitbutler integration")?;
             Ok(())
         }
         Err(err) => Err(err.context("rebase error").context(Code::Unknown)),
@@ -3147,11 +3098,8 @@ pub fn update_commit_message(
     branch.updated_timestamp_ms = gitbutler_core::time::now_ms();
     vb_state.set_branch(branch.clone())?;
 
-    gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-        &vb_state,
-        project_repository,
-    )
-    .context("failed to update gitbutler integration")?;
+    crate::integration::update_gitbutler_integration(&vb_state, project_repository)
+        .context("failed to update gitbutler integration")?;
     Ok(())
 }
 
@@ -3177,10 +3125,8 @@ pub fn move_commit(
 
     let default_target = vb_state.get_default_target()?;
 
-    let integration_commit_id = gitbutler_core::virtual_branches::integration::get_workspace_head(
-        &vb_state,
-        project_repository,
-    )?;
+    let integration_commit_id =
+        crate::integration::get_workspace_head(&vb_state, project_repository)?;
 
     let (mut applied_statuses, _) = get_applied_status(
         project_repository,
@@ -3292,11 +3238,8 @@ pub fn move_commit(
         vb_state.set_branch(destination_branch.clone())?;
     }
 
-    gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-        &vb_state,
-        project_repository,
-    )
-    .context("failed to update gitbutler integration")?;
+    crate::integration::update_gitbutler_integration(&vb_state, project_repository)
+        .context("failed to update gitbutler integration")?;
 
     Ok(())
 }
@@ -3531,10 +3474,7 @@ pub fn create_virtual_branch_from_branch(
             }
         }
 
-        gitbutler_core::virtual_branches::integration::update_gitbutler_integration(
-            &vb_state,
-            project_repository,
-        )?;
+        crate::integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
         Ok(branch.name)
     }

@@ -155,8 +155,7 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::MergeUpstream));
-        virtual_branches::integrate_upstream_commits(&project_repository, branch_id)
-            .map_err(Into::into)
+        branch::integrate_upstream_commits(&project_repository, branch_id).map_err(Into::into)
     }
 
     pub async fn update_base_branch(&self, project: &Project) -> Result<Vec<ReferenceName>> {
@@ -499,7 +498,7 @@ impl Controller {
 
 fn open_with_verify(project: &Project) -> Result<Repository> {
     let project_repository = Repository::open(project)?;
-    virtual_branches::integration::verify_branch(&project_repository)?;
+    crate::integration::verify_branch(&project_repository)?;
     Ok(project_repository)
 }
 
