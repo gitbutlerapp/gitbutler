@@ -1,7 +1,7 @@
+use std::path::Path;
 use std::{fs, net::Ipv4Addr, time::Duration};
-
 use tauri::{AppHandle, Manager};
-use tracing::{metadata::LevelFilter, subscriber::set_global_default};
+use tracing::{instrument, metadata::LevelFilter, subscriber::set_global_default};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, Layer};
 
@@ -12,13 +12,19 @@ pub fn init(app_handle: &AppHandle) {
         .expect("failed to get logs dir");
     fs::create_dir_all(&logs_dir).expect("failed to create logs dir");
 
+    let log_prefix = "GitButler.log";
+    let max_log_files = 14;
     let file_appender = RollingFileAppender::builder()
         .rotation(Rotation::DAILY)
-        .max_log_files(14)
-        .filename_prefix("GitButler.log")
+        .max_log_files(max_log_files)
+        .filename_prefix(log_prefix)
         .build(&logs_dir)
         .expect("initializing rolling file appender failed");
     let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
+    // As the file-writer only checks `max_log_files` on file rotation, it bascially never happens.
+    // Run it now.
+    prune_old_logs(&logs_dir, Some(log_prefix), None, max_log_files).ok();
+
     app_handle.manage(guard); // keep the guard alive for the lifetime of the app
 
     let format_for_humans = tracing_subscriber::fmt::format()
@@ -80,4 +86,65 @@ fn get_server_addr(app_handle: &AppHandle) -> (Ipv4Addr, u16) {
         6669
     };
     (Ipv4Addr::LOCALHOST, port)
+}
+
+/// Originally based on https://github.com/tokio-rs/tracing/blob/44861cad7a821f08b3c13aba14bb8ddf562b7053/tracing-appender/src/rolling.rs#L571
+#[instrument(err(Debug))]
+fn prune_old_logs(
+    log_directory: &Path,
+    log_filename_prefix: Option<&str>,
+    log_filename_suffix: Option<&str>,
+    max_files: usize,
+) -> anyhow::Result<()> {
+    let mut files: Vec<_> = {
+        let dir = fs::read_dir(log_directory)?;
+        dir.filter_map(|entry| {
+            let entry = entry.ok()?;
+            let metadata = entry.metadata().ok()?;
+
+            // the appender only creates files, not directories or symlinks,
+            // so we should never delete a dir or symlink.
+            if !metadata.is_file() {
+                return None;
+            }
+
+            let filename = entry.file_name();
+            let filename = filename.to_str()?;
+            if let Some(prefix) = log_filename_prefix {
+                if !filename.starts_with(prefix) {
+                    return None;
+                }
+            }
+
+            if let Some(suffix) = log_filename_suffix {
+                if !filename.ends_with(suffix) {
+                    return None;
+                }
+            }
+
+            let created = metadata.created().ok()?;
+            Some((entry, created))
+        })
+        .collect()
+    };
+
+    if files.len() < max_files {
+        return Ok(());
+    }
+
+    // sort the files by their creation timestamps.
+    files.sort_by_key(|(_, created_at)| *created_at);
+
+    // delete files, so that (n-1) files remain, because we will create another log file
+    for (file, _) in files.iter().take(files.len() - (max_files - 1)) {
+        if let Err(error) = fs::remove_file(file.path()) {
+            tracing::warn!(
+                "Failed to remove old log file {}: {}",
+                file.path().display(),
+                error,
+            );
+        }
+    }
+
+    Ok(())
 }
