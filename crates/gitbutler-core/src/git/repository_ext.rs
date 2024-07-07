@@ -20,6 +20,7 @@ use std::os::windows::process::CommandExt;
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
+    fn remotes_as_string(&self) -> Result<Vec<String>>;
     /// Open a new in-memory repository and executes the provided closure using it.
     /// This is useful when temporary objects are created for the purpose of comparing or getting a diff.
     /// Note that it's the odb that is in-memory, not the working directory.
@@ -353,6 +354,15 @@ impl RepositoryExt for Repository {
             }
         }
         Err(anyhow::anyhow!("No signing key found"))
+    }
+
+    fn remotes_as_string(&self) -> Result<Vec<String>> {
+        Ok(self.remotes().map(|string_array| {
+            string_array
+                .iter()
+                .filter_map(|s| s.map(String::from))
+                .collect()
+        })?)
     }
 }
 

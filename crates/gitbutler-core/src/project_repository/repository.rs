@@ -89,7 +89,6 @@ impl ProjectRepo {
 }
 
 pub trait RepoActions {
-    fn add_remote(&self, name: &str, url: &str) -> Result<()>;
     fn remotes(&self) -> Result<Vec<String>>;
     fn fetch(
         &self,
@@ -683,11 +682,6 @@ impl RepoActions for ProjectRepo {
                 .filter_map(|s| s.map(String::from))
                 .collect()
         })?)
-    }
-
-    fn add_remote(&self, name: &str, url: &str) -> Result<()> {
-        self.git_repository.remote(name, url)?;
-        Ok(())
     }
 }
 
