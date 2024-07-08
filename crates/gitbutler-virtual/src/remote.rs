@@ -7,8 +7,8 @@ use gitbutler_command_context::ProjectRepo;
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 use serde::Serialize;
 
+use gitbutler_branch::target;
 use gitbutler_core::git::{self, CommitExt};
-use gitbutler_core::virtual_branches::target;
 
 use crate::author::Author;
 

@@ -1,6 +1,6 @@
 use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::git;
+use gitbutler_core::git;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Target {

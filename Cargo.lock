@@ -2112,6 +2112,7 @@ dependencies = [
  "gitbutler-core",
  "hex",
  "itertools 0.13.0",
+ "lazy_static",
  "md5",
  "serde",
  "tracing",
@@ -2334,6 +2335,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "git2",
+ "gitbutler-branch",
  "gitbutler-branchstate",
  "gitbutler-command-context",
  "gitbutler-core",
@@ -2396,6 +2398,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "git2",
+ "gitbutler-branch",
  "gitbutler-branchstate",
  "gitbutler-command-context",
  "gitbutler-core",

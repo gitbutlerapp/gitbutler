@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time;
 
 use anyhow::{anyhow, Context, Result};
+use gitbutler_branch::target::Target;
 use gitbutler_branchstate::VirtualBranchesAccess;
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::error::Code;
@@ -61,7 +62,7 @@ pub async fn sync_with_gitbutler(
 async fn push_target(
     projects: &projects::Controller,
     project_repository: &ProjectRepo,
-    default_target: &gitbutler_core::virtual_branches::target::Target,
+    default_target: &Target,
     gb_code_last_commit: Option<git2::Oid>,
     project_id: Id<Project>,
     user: &users::User,

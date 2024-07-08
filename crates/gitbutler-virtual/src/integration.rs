@@ -4,14 +4,14 @@ use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 
 use gitbutler_branch::branch::BranchCreateRequest;
+use gitbutler_branch::{
+    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
+    GITBUTLER_INTEGRATION_REFERENCE,
+};
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::error::Marker;
 use gitbutler_core::git::CommitExt;
-use gitbutler_core::virtual_branches::{
-    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
-    GITBUTLER_INTEGRATION_REFERENCE,
-};
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 
 use crate::conflicts;

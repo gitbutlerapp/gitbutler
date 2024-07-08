@@ -1,10 +1,8 @@
 use anyhow::{Context, Result};
-use gitbutler_core::{
-    fs::write,
-    virtual_branches::{
-        GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
-    },
+use gitbutler_branch::{
+    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
 };
+use gitbutler_core::fs::write;
 use gix::config::tree::Key;
 use std::path::Path;
 

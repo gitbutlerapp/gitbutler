@@ -5,6 +5,7 @@ use git2::Index;
 use gitbutler_branch::branch::{self, BranchId};
 use gitbutler_branch::diff;
 use gitbutler_branch::ownership::BranchOwnershipClaims;
+use gitbutler_branch::target::Target;
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_project::FetchResult;
@@ -17,9 +18,9 @@ use crate::conflicts::RepoConflicts;
 use crate::integration::{get_workspace_head, update_gitbutler_integration};
 use crate::remote::{commit_to_remote_commit, RemoteCommit};
 use crate::VirtualBranchHunk;
+use gitbutler_branch::GITBUTLER_INTEGRATION_REFERENCE;
 use gitbutler_core::error::Marker;
 use gitbutler_core::git;
-use gitbutler_core::virtual_branches::{target, GITBUTLER_INTEGRATION_REFERENCE};
 use gitbutler_repo::rebase::cherry_rebase;
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
@@ -48,7 +49,7 @@ pub fn get_base_branch_data(project_repository: &ProjectRepo) -> Result<BaseBran
 
 fn go_back_to_integration(
     project_repository: &ProjectRepo,
-    default_target: &target::Target,
+    default_target: &Target,
 ) -> Result<BaseBranch> {
     let statuses = project_repository
         .repo()
@@ -162,7 +163,7 @@ pub fn set_base_branch(
             target_branch_head.id()
         ))?;
 
-    let target = target::Target {
+    let target = Target {
         branch: target_branch_ref.clone(),
         remote_url: remote_url.to_string(),
         sha: target_commit_oid,
@@ -560,7 +561,7 @@ pub fn update_base_branch(
         .context("failed to checkout index, this should not have happened, we should have already detected this")?;
 
     // write new target oid
-    vb_state.set_default_target(target::Target {
+    vb_state.set_default_target(Target {
         sha: new_target_commit.id(),
         ..target
     })?;
@@ -572,7 +573,7 @@ pub fn update_base_branch(
 
 pub fn target_to_base_branch(
     project_repository: &ProjectRepo,
-    target: &target::Target,
+    target: &Target,
 ) -> Result<BaseBranch> {
     let repo = project_repository.repo();
     let branch = repo
@@ -631,6 +632,6 @@ pub fn target_to_base_branch(
     Ok(base)
 }
 
-fn default_target(base_path: &Path) -> Result<target::Target> {
+fn default_target(base_path: &Path) -> Result<Target> {
     VirtualBranchesHandle::new(base_path).get_default_target()
 }
