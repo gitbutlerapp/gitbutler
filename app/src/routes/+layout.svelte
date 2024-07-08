@@ -17,6 +17,7 @@
 	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
 	import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import ToastController from '$lib/notifications/ToastController.svelte';
+	import { showError } from '$lib/notifications/toasts';
 	import { RemotesService } from '$lib/remotes/service';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
@@ -31,6 +32,7 @@
 	import type { LayoutData } from './$types';
 	import { dev } from '$app/environment';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 
 	export let data: LayoutData;
 
@@ -62,6 +64,13 @@
 	$: userSettings.update((s) => ({ ...s, zoom: zoom }));
 
 	onMount(() => {
+		if ($page.error?.message) {
+			let message = $page.error.message;
+			if ($page.error.errorId) {
+				message += `\n\nError ID: ${$page.error.errorId}`;
+			}
+			showError('There was a problem', message);
+		}
 		return unsubscribe(
 			events.on('goto', async (path: string) => await goto(path)),
 			events.on('openSendIssueModal', () => shareIssueModal?.show())
