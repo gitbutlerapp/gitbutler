@@ -15,7 +15,6 @@ pub struct Suite {
     pub storage: gitbutler_core::storage::Storage,
     pub users: gitbutler_user::Controller,
     pub projects: gitbutler_project::Controller,
-    pub keys: gitbutler_core::keys::Controller,
 }
 
 impl Drop for Suite {
@@ -32,13 +31,11 @@ impl Default for Suite {
         let storage = gitbutler_core::storage::Storage::new(local_app_data.path());
         let users = gitbutler_user::Controller::from_path(local_app_data.path());
         let projects = gitbutler_project::Controller::from_path(local_app_data.path());
-        let keys = gitbutler_core::keys::Controller::from_path(local_app_data.path());
         Self {
             storage,
             local_app_data: Some(local_app_data),
             users,
             projects,
-            keys,
         }
     }
 }
