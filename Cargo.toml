@@ -7,7 +7,7 @@ members = [
     "crates/gitbutler-watcher/vendor/debouncer",
     "crates/gitbutler-testsupport",
     "crates/gitbutler-cli", 
-    "crates/gitbutler-branch", 
+    "crates/gitbutler-virtual", 
     "crates/gitbutler-sync",
     "crates/gitbutler-oplog", 
     "crates/gitbutler-branchstate", 
@@ -35,7 +35,7 @@ gitbutler-core = { path = "crates/gitbutler-core" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }
 gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
 gitbutler-cli ={ path = "crates/gitbutler-cli" }
-gitbutler-branch = { path = "crates/gitbutler-branch" }
+gitbutler-virtual = { path = "crates/gitbutler-virtual" }
 gitbutler-sync = { path = "crates/gitbutler-sync" }
 gitbutler-oplog = { path = "crates/gitbutler-oplog" }
 gitbutler-branchstate = { path = "crates/gitbutler-branchstate" }

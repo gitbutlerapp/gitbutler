@@ -11,18 +11,18 @@ use std::{
 
 use anyhow::{Context, Result};
 use git2::TreeEntry;
-use gitbutler_branch::integration;
-use gitbutler_branch::r#virtual as virtual_branches;
-use gitbutler_branch::r#virtual::{
-    commit, create_virtual_branch, create_virtual_branch_from_branch, integrate_upstream_commits,
-    is_remote_branch_mergeable, list_virtual_branches, unapply_ownership, update_branch,
-};
 use gitbutler_branchstate::VirtualBranchesAccess;
 use gitbutler_core::{
     git::{self, CommitExt},
     virtual_branches::branch::{BranchCreateRequest, BranchOwnershipClaims, BranchUpdateRequest},
 };
 use gitbutler_repo::RepositoryExt;
+use gitbutler_virtual::integration;
+use gitbutler_virtual::r#virtual as virtual_branches;
+use gitbutler_virtual::r#virtual::{
+    commit, create_virtual_branch, create_virtual_branch_from_branch, integrate_upstream_commits,
+    is_remote_branch_mergeable, list_virtual_branches, unapply_ownership, update_branch,
+};
 use pretty_assertions::assert_eq;
 
 use gitbutler_testsupport::{commit_all, virtual_branches::set_test_target, Case, Suite};
@@ -1303,7 +1303,7 @@ fn detect_mergeable_branch() -> Result<()> {
     };
     vb_state.set_branch(branch4.clone())?;
 
-    let remotes = gitbutler_branch::remote::list_remote_branches(project_repository)
+    let remotes = gitbutler_virtual::remote::list_remote_branches(project_repository)
         .expect("failed to list remotes");
     let _remote1 = &remotes
         .iter()

@@ -13,13 +13,13 @@
     clippy::too_many_lines
 )]
 
-use gitbutler_branch::assets;
 use gitbutler_core::storage;
 use gitbutler_repo::credentials::Helper;
 use gitbutler_tauri::{
     app, askpass, commands, config, github, keys, logs, menu, projects, remotes, repo, secret,
     undo, users, virtual_branches, watcher, zip,
 };
+use gitbutler_virtual::assets;
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
 
@@ -137,7 +137,7 @@ fn main() {
                     let git_credentials_controller = Helper::default();
                     app_handle.manage(git_credentials_controller.clone());
 
-                    app_handle.manage(gitbutler_branch::controller::Controller::default());
+                    app_handle.manage(gitbutler_virtual::controller::Controller::default());
 
                     let app = app::App::new(
                         projects_controller,

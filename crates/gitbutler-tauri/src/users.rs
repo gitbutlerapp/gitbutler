@@ -1,6 +1,6 @@
 pub mod commands {
-    use gitbutler_branch::assets;
     use gitbutler_user::{controller::Controller, User};
+    use gitbutler_virtual::assets;
     use serde::{Deserialize, Serialize};
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
