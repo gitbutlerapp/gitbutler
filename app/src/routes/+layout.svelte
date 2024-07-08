@@ -17,6 +17,7 @@
 	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
 	import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import ToastController from '$lib/notifications/ToastController.svelte';
+	import { showError } from '$lib/notifications/toasts';
 	import { RemotesService } from '$lib/remotes/service';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
@@ -32,7 +33,6 @@
 	import { dev } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { showError } from '$lib/notifications/toasts';
 
 	export let data: LayoutData;
 
@@ -65,7 +65,10 @@
 
 	onMount(() => {
 		if ($page.error?.message) {
-			showError('There was a problem', $page.error.message);
+			showError(
+				'There was a problem',
+				`${$page.error.message}\n\nError ID: ${$page.error.errorId}`
+			);
 		}
 		return unsubscribe(
 			events.on('goto', async (path: string) => await goto(path)),
