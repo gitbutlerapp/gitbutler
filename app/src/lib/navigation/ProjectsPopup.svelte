@@ -151,7 +151,7 @@
 		position: absolute;
 		top: 100%;
 		z-index: var(--z-floating);
-		margin-top: 6px;
+		margin-top: 4px;
 		border-radius: var(--m, 6px);
 		border: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
