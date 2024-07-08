@@ -4,7 +4,12 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use gitbutler_core::{error::Code, fs::read_toml_file_or_default, projects::Project};
+use gitbutler_core::{
+    error::Code,
+    fs::read_toml_file_or_default,
+    git::{self},
+    projects::Project,
+};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -14,12 +19,35 @@ use gitbutler_core::virtual_branches::{target::Target, Branch, BranchId};
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct VirtualBranches {
     /// This is the target/base that is set when a repo is added to gb
-    pub default_target: Option<Target>,
+    default_target: Option<Target>,
     /// The targets for each virtual branch
-    pub branch_targets: HashMap<BranchId, Target>,
+    branch_targets: HashMap<BranchId, Target>,
     /// The current state of the virtual branches
-    pub branches: HashMap<BranchId, Branch>,
+    branches: HashMap<BranchId, Branch>,
 }
+
+impl VirtualBranches {
+    /// Lists all virtual branches that are in the user's workspace.
+    ///
+    /// Errors if the file cannot be read or written.
+    pub fn list_all_branches(&self) -> Result<Vec<Branch>> {
+        let branches: Vec<Branch> = self.branches.values().cloned().collect();
+        Ok(branches)
+    }
+
+    /// Lists all virtual branches that are in the user's workspace.
+    ///
+    /// Errors if the file cannot be read or written.
+    pub fn list_branches_in_workspace(&self) -> Result<Vec<Branch>> {
+        self.list_all_branches().map(|branches| {
+            branches
+                .into_iter()
+                .filter(|branch| branch.in_workspace)
+                .collect()
+        })
+    }
+}
+
 /// A handle to the state of virtual branches.
 ///
 /// For all operations, if the state file does not exist, it will be created.
@@ -85,14 +113,42 @@ impl VirtualBranchesHandle {
         Ok(())
     }
 
-    /// Removes the given virtual branch.
+    /// Marks a particular branch as not in the workspace
     ///
     /// Errors if the file cannot be read or written.
-    pub fn remove_branch(&self, id: BranchId) -> Result<()> {
-        let mut virtual_branches = self.read_file()?;
-        virtual_branches.branches.remove(&id);
-        self.write_file(&virtual_branches)?;
+    pub fn mark_as_not_in_workspace(&self, id: BranchId) -> Result<()> {
+        let mut branch = self.get_branch(id)?;
+        branch.in_workspace = false;
+        branch.old_applied = false;
+        self.set_branch(branch)?;
         Ok(())
+    }
+
+    pub fn find_by_source_refname_where_not_in_workspace(
+        &self,
+        refname: &git::Refname,
+    ) -> Result<Option<Branch>> {
+        self.list_all_branches().map(|branches| {
+            branches.into_iter().find(|branch| {
+                if branch.in_workspace {
+                    return false;
+                }
+
+                if let Some(source_refname) = branch.source_refname.clone() {
+                    return source_refname.to_string() == refname.to_string();
+                }
+
+                false
+            })
+        })
+    }
+
+    /// Gets the state of the given virtual branch.
+    ///
+    /// Errors if the file cannot be read or written.
+    pub fn get_branch_in_workspace(&self, id: BranchId) -> Result<Branch> {
+        self.try_branch_in_workspace(id)?
+            .ok_or_else(|| anyhow!("branch with ID {id} not found"))
     }
 
     /// Gets the state of the given virtual branch.
@@ -105,18 +161,44 @@ impl VirtualBranchesHandle {
 
     /// Gets the state of the given virtual branch returning `Some(branch)` or `None`
     /// if that branch doesn't exist.
+    pub fn try_branch_in_workspace(&self, id: BranchId) -> Result<Option<Branch>> {
+        if let Some(branch) = self.try_branch(id)? {
+            if branch.in_workspace {
+                Ok(Some(branch))
+            } else {
+                Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Gets the state of the given virtual branch returning `Some(branch)` or `None`
+    /// if that branch doesn't exist.
     pub fn try_branch(&self, id: BranchId) -> Result<Option<Branch>> {
         let virtual_branches = self.read_file()?;
         Ok(virtual_branches.branches.get(&id).cloned())
     }
 
-    /// Lists all virtual branches.
+    /// Lists all branches in vbranches.toml
     ///
     /// Errors if the file cannot be read or written.
-    pub fn list_branches(&self) -> Result<Vec<Branch>> {
+    pub fn list_all_branches(&self) -> Result<Vec<Branch>> {
         let virtual_branches = self.read_file()?;
         let branches: Vec<Branch> = virtual_branches.branches.values().cloned().collect();
         Ok(branches)
+    }
+
+    /// Lists all virtual branches that are in the user's workspace.
+    ///
+    /// Errors if the file cannot be read or written.
+    pub fn list_branches_in_workspace(&self) -> Result<Vec<Branch>> {
+        self.list_all_branches().map(|branches| {
+            branches
+                .into_iter()
+                .filter(|branch| branch.in_workspace)
+                .collect()
+        })
     }
 
     /// Checks if the state file exists.
@@ -139,7 +221,7 @@ impl VirtualBranchesHandle {
 
     pub fn update_ordering(&self) -> Result<()> {
         let succeeded = self
-            .list_branches()?
+            .list_branches_in_workspace()?
             .iter()
             .sorted_by_key(|branch| branch.order)
             .enumerate()
@@ -159,7 +241,7 @@ impl VirtualBranchesHandle {
     pub fn next_order_index(&self) -> Result<usize> {
         self.update_ordering()?;
         let order = self
-            .list_branches()?
+            .list_branches_in_workspace()?
             .iter()
             .sorted_by_key(|branch| branch.order)
             .collect::<Vec<&Branch>>()
