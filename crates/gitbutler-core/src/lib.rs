@@ -37,4 +37,3 @@ pub mod virtual_branches;
 #[cfg(target_os = "windows")]
 pub mod windows;
 pub mod writer;
-pub mod zip;
