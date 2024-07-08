@@ -1,6 +1,7 @@
 pub mod commands {
     use crate::error::Error;
-    use gitbutler_core::projects::{controller::Controller, ProjectId};
+    use gitbutler_core::projects::{self, ProjectId};
+    use gitbutler_repo::RepoCommands;
     use tauri::Manager;
     use tracing::instrument;
 
@@ -11,7 +12,8 @@ pub mod commands {
         id: ProjectId,
         key: &str,
     ) -> Result<Option<String>, Error> {
-        Ok(handle.state::<Controller>().get_local_config(id, key)?)
+        let project = handle.state::<projects::Controller>().get(id)?;
+        Ok(project.get_local_config(key)?)
     }
 
     #[tauri::command(async)]
@@ -22,10 +24,8 @@ pub mod commands {
         key: &str,
         value: &str,
     ) -> Result<(), Error> {
-        handle
-            .state::<Controller>()
-            .set_local_config(id, key, value)
-            .map_err(Into::into)
+        let project = handle.state::<projects::Controller>().get(id)?;
+        project.set_local_config(key, value).map_err(Into::into)
     }
 
     #[tauri::command(async)]
@@ -34,9 +34,7 @@ pub mod commands {
         handle: tauri::AppHandle,
         id: ProjectId,
     ) -> Result<bool, Error> {
-        handle
-            .state::<Controller>()
-            .check_signing_settings(id)
-            .map_err(Into::into)
+        let project = handle.state::<projects::Controller>().get(id)?;
+        project.check_signing_settings().map_err(Into::into)
     }
 }

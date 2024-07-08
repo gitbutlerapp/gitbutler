@@ -5,12 +5,10 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
-use bstr::BString;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
+use crate::error;
 use crate::projects::AuthKey;
-use crate::{error, project_repository};
-use crate::{git::RepositoryExt, project_repository::Config};
 
 #[async_trait]
 pub trait Watchers {
@@ -212,32 +210,5 @@ impl Controller {
         }
 
         Ok(())
-    }
-
-    pub fn get_local_config(&self, id: ProjectId, key: &str) -> Result<Option<String>> {
-        let project = self.projects_storage.get(id)?;
-
-        let project_repo = project_repository::ProjectRepo::open(&project)?;
-        let config: Config = project_repo.repo().into();
-        config.get_local(key)
-    }
-
-    pub fn set_local_config(&self, id: ProjectId, key: &str, value: &str) -> Result<()> {
-        let project = self.projects_storage.get(id)?;
-
-        let project_repo = project_repository::ProjectRepo::open(&project)?;
-        let config: Config = project_repo.repo().into();
-        config.set_local(key, value)
-    }
-
-    pub fn check_signing_settings(&self, id: ProjectId) -> Result<bool> {
-        let project = self.projects_storage.get(id)?;
-
-        let repo = project_repository::ProjectRepo::open(&project)?;
-        let signed = repo.repo().sign_buffer(&BString::new("test".into()).into());
-        match signed {
-            Ok(_) => Ok(true),
-            Err(e) => Err(e),
-        }
     }
 }
