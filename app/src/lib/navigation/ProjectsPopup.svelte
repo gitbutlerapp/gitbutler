@@ -157,7 +157,7 @@
 		background: var(--clr-bg-1);
 		/* shadow/s */
 		box-shadow: 0px 7px 14px 0px rgba(0, 0, 0, 0.1);
-		animation: fadeIn 0.2s ease-out forwards;
+		animation: fadeIn 0.17s ease-out forwards;
 	}
 
 	@keyframes fadeIn {
@@ -165,7 +165,7 @@
 			opacity: 0;
 			transform: translateY(-6px);
 		}
-		50% {
+		40% {
 			opacity: 1;
 		}
 		100% {
