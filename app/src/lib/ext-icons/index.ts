@@ -15,7 +15,7 @@ function convertToBase64(iconString: string) {
 export function getFileIcon(fileName: string) {
 	fileName = fileName.toLowerCase();
 	const splitName = fileName.split('.');
-	let iconName: keyof typeof symbolFileNamesToIcons = '';
+	let iconName = '';
 
 	while (splitName.length) {
 		const curName = splitName.join('.');
