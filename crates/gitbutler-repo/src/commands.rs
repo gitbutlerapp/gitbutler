@@ -7,6 +7,8 @@ use gitbutler_core::{
 };
 
 pub trait RepoCommands {
+    fn add_remote(&self, name: &str, url: &str) -> Result<()>;
+    fn remotes(&self) -> Result<Vec<String>>;
     fn get_local_config(&self, key: &str) -> Result<Option<String>>;
     fn set_local_config(&self, key: &str, value: &str) -> Result<()>;
     fn check_signing_settings(&self) -> Result<bool>;
@@ -32,5 +34,16 @@ impl RepoCommands for Project {
             Ok(_) => Ok(true),
             Err(e) => Err(e),
         }
+    }
+
+    fn remotes(&self) -> Result<Vec<String>> {
+        let project_repository = project_repository::ProjectRepo::open(self)?;
+        project_repository.repo().remotes_as_string()
+    }
+
+    fn add_remote(&self, name: &str, url: &str) -> Result<()> {
+        let project_repository = project_repository::ProjectRepo::open(self)?;
+        project_repository.repo().remote(name, url)?;
+        Ok(())
     }
 }

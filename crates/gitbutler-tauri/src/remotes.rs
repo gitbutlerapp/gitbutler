@@ -1,5 +1,6 @@
 use crate::error::Error;
-use gitbutler_core::{projects::ProjectId, remotes::Controller};
+use gitbutler_core::projects::{self, ProjectId};
+use gitbutler_repo::RepoCommands;
 use tauri::Manager;
 use tracing::instrument;
 
@@ -9,11 +10,8 @@ pub async fn list_remotes(
     handle: tauri::AppHandle,
     project_id: ProjectId,
 ) -> Result<Vec<String>, Error> {
-    handle
-        .state::<Controller>()
-        .remotes(project_id)
-        .await
-        .map_err(Into::into)
+    let project = handle.state::<projects::Controller>().get(project_id)?;
+    project.remotes().map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -24,9 +22,6 @@ pub async fn add_remote(
     name: &str,
     url: &str,
 ) -> Result<(), Error> {
-    handle
-        .state::<Controller>()
-        .add_remote(project_id, name, url)
-        .await
-        .map_err(Into::into)
+    let project = handle.state::<projects::Controller>().get(project_id)?;
+    project.add_remote(name, url).map_err(Into::into)
 }

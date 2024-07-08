@@ -137,12 +137,6 @@ fn main() {
 
                     app_handle.manage(gitbutler_branch::controller::Controller::default());
 
-                    let remotes_controller = gitbutler_core::remotes::controller::Controller::new(
-                        projects_controller.clone(),
-                    );
-
-                    app_handle.manage(remotes_controller.clone());
-
                     let app = app::App::new(
                         projects_controller,
                     );
