@@ -1,5 +1,3 @@
-pub mod diff;
-
 mod reference;
 pub use reference::*;
 

@@ -1,4 +1,4 @@
-use gitbutler_core::virtual_branches::branch::OwnershipClaim;
+use gitbutler_branch::file_ownership::OwnershipClaim;
 
 #[test]
 fn parse_ownership() {

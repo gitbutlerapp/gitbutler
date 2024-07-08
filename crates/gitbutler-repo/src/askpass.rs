@@ -1,9 +1,10 @@
 use std::{collections::HashMap, path::Path, sync::Arc};
 
+use gitbutler_branch::branch::BranchId;
 use serde::Serialize;
 use tokio::sync::{oneshot, Mutex};
 
-use gitbutler_core::{id::Id, virtual_branches::BranchId};
+use gitbutler_core::id::Id;
 
 static mut GLOBAL_ASKPASS_BROKER: Option<AskpassBroker> = None;
 

@@ -21,6 +21,7 @@ resolve-path = "0.1.0"
 gitbutler-command-context.workspace = true
 gitbutler-config.workspace = true
 gitbutler-project.workspace = true
+gitbutler-branch.workspace = true
 
 [[test]]
 name="repo"

@@ -11,11 +11,12 @@ use std::{
 
 use anyhow::{Context, Result};
 use git2::TreeEntry;
-use gitbutler_branchstate::VirtualBranchesAccess;
-use gitbutler_core::{
-    git::{self, CommitExt},
-    virtual_branches::branch::{BranchCreateRequest, BranchOwnershipClaims, BranchUpdateRequest},
+use gitbutler_branch::{
+    branch::{BranchCreateRequest, BranchUpdateRequest},
+    ownership::BranchOwnershipClaims,
 };
+use gitbutler_branchstate::VirtualBranchesAccess;
+use gitbutler_core::git::{self, CommitExt};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_virtual::integration;
 use gitbutler_virtual::r#virtual as virtual_branches;
@@ -333,7 +334,7 @@ fn hunk_expantion() -> Result<()> {
     // even though selected branch has changed
     update_branch(
         project_repository,
-        &gitbutler_core::virtual_branches::branch::BranchUpdateRequest {
+        &BranchUpdateRequest {
             id: branch1_id,
             order: Some(1),
             ..Default::default()
@@ -341,7 +342,7 @@ fn hunk_expantion() -> Result<()> {
     )?;
     update_branch(
         project_repository,
-        &gitbutler_core::virtual_branches::branch::BranchUpdateRequest {
+        &BranchUpdateRequest {
             id: branch2_id,
             order: Some(0),
             ..Default::default()
@@ -482,7 +483,7 @@ fn move_hunks_multiple_sources() -> Result<()> {
 
     update_branch(
         project_repository,
-        &gitbutler_core::virtual_branches::branch::BranchUpdateRequest {
+        &BranchUpdateRequest {
             id: branch3_id,
             ownership: Some("test.txt:1-5,11-15".parse()?),
             ..Default::default()
@@ -559,7 +560,7 @@ fn move_hunks_partial_explicitly() -> Result<()> {
 
     update_branch(
         project_repository,
-        &gitbutler_core::virtual_branches::branch::BranchUpdateRequest {
+        &BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test.txt:1-5".parse()?),
             ..Default::default()
@@ -1039,7 +1040,7 @@ fn unapply_branch() -> Result<()> {
 
     update_branch(
         project_repository,
-        &gitbutler_core::virtual_branches::branch::BranchUpdateRequest {
+        &BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test2.txt:1-3".parse()?),
             ..Default::default()
@@ -1126,7 +1127,7 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
 
     update_branch(
         project_repository,
-        &gitbutler_core::virtual_branches::branch::BranchUpdateRequest {
+        &BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test2.txt:0-0".parse()?),
             ..Default::default()
@@ -1134,7 +1135,7 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     )?;
     update_branch(
         project_repository,
-        &gitbutler_core::virtual_branches::branch::BranchUpdateRequest {
+        &BranchUpdateRequest {
             id: branch3_id,
             ownership: Some("test3.txt:1-2".parse()?),
             ..Default::default()
@@ -1219,7 +1220,7 @@ fn detect_mergeable_branch() -> Result<()> {
 
     update_branch(
         project_repository,
-        &gitbutler_core::virtual_branches::branch::BranchUpdateRequest {
+        &BranchUpdateRequest {
             id: branch2_id,
             ownership: Some("test4.txt:1-3".parse()?),
             ..Default::default()
@@ -1398,7 +1399,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
 
     update_branch(
         project_repository,
-        &gitbutler_core::virtual_branches::branch::BranchUpdateRequest {
+        &BranchUpdateRequest {
             id: branch1_id,
             name: Some("integrated".to_string()),
             ownership: Some("test.txt:1-2".parse()?),
@@ -1408,7 +1409,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
 
     update_branch(
         project_repository,
-        &gitbutler_core::virtual_branches::branch::BranchUpdateRequest {
+        &BranchUpdateRequest {
             id: branch2_id,
             name: Some("not integrated".to_string()),
             ownership: Some("test2.txt:1-2".parse()?),
@@ -1418,7 +1419,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
 
     update_branch(
         project_repository,
-        &gitbutler_core::virtual_branches::branch::BranchUpdateRequest {
+        &BranchUpdateRequest {
             id: branch3_id,
             name: Some("not committed".to_string()),
             ownership: Some("test3.txt:1-2".parse()?),

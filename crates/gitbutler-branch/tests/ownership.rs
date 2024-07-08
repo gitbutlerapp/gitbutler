@@ -1,8 +1,10 @@
 use std::{path::PathBuf, vec};
 
-use gitbutler_core::virtual_branches::{
-    branch::{reconcile_claims, BranchOwnershipClaims, Hunk, OwnershipClaim},
-    Branch, BranchId,
+use gitbutler_branch::{
+    branch::{Branch, BranchId},
+    file_ownership::OwnershipClaim,
+    hunk::Hunk,
+    ownership::{reconcile_claims, BranchOwnershipClaims},
 };
 
 #[test]

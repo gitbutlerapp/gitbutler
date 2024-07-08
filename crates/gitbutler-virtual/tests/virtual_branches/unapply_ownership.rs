@@ -1,6 +1,6 @@
 use std::fs;
 
-use gitbutler_core::virtual_branches::{branch, branch::BranchOwnershipClaims};
+use gitbutler_branch::{branch::BranchCreateRequest, ownership::BranchOwnershipClaims};
 
 use super::Test;
 
@@ -19,7 +19,7 @@ async fn should_unapply_with_commits() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 

@@ -2,6 +2,9 @@ use std::{path::Path, time};
 
 use anyhow::{anyhow, Context, Result};
 use git2::Index;
+use gitbutler_branch::branch::{self, BranchId};
+use gitbutler_branch::diff;
+use gitbutler_branch::ownership::BranchOwnershipClaims;
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_project::FetchResult;
@@ -15,11 +18,8 @@ use crate::integration::{get_workspace_head, update_gitbutler_integration};
 use crate::remote::{commit_to_remote_commit, RemoteCommit};
 use crate::VirtualBranchHunk;
 use gitbutler_core::error::Marker;
-use gitbutler_core::virtual_branches::{branch, target, BranchId, GITBUTLER_INTEGRATION_REFERENCE};
-use gitbutler_core::{
-    git::{self, diff},
-    virtual_branches::branch::BranchOwnershipClaims,
-};
+use gitbutler_core::git;
+use gitbutler_core::virtual_branches::{target, GITBUTLER_INTEGRATION_REFERENCE};
 use gitbutler_repo::rebase::cherry_rebase;
 
 #[derive(Debug, Serialize, PartialEq, Clone)]

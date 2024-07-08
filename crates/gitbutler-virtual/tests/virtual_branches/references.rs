@@ -1,6 +1,8 @@
 use super::*;
 
 mod create_virtual_branch {
+    use branch::BranchCreateRequest;
+
     use super::*;
 
     #[tokio::test]
@@ -52,7 +54,7 @@ mod create_virtual_branch {
         let branch1_id = controller
             .create_virtual_branch(
                 project,
-                &gitbutler_core::virtual_branches::branch::BranchCreateRequest {
+                &BranchCreateRequest {
                     name: Some("name".to_string()),
                     ..Default::default()
                 },
@@ -63,7 +65,7 @@ mod create_virtual_branch {
         let branch2_id = controller
             .create_virtual_branch(
                 project,
-                &gitbutler_core::virtual_branches::branch::BranchCreateRequest {
+                &BranchCreateRequest {
                     name: Some("name".to_string()),
                     ..Default::default()
                 },

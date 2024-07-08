@@ -7,8 +7,9 @@ use bstr::{BStr, BString, ByteSlice, ByteVec};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use crate::id::Id;
-use crate::virtual_branches::Branch;
+use gitbutler_core::id::Id;
+
+use crate::branch::Branch;
 
 pub type DiffByPathMap = HashMap<PathBuf, FileDiff>;
 
@@ -49,7 +50,10 @@ pub struct GitHunk {
     pub new_start: u32,
     pub new_lines: u32,
     /// The `+`, `-` or ` ` prefixed lines of the diff produced by `git2`, along with their line separator.
-    #[serde(rename = "diff", serialize_with = "crate::serde::as_string_lossy")]
+    #[serde(
+        rename = "diff",
+        serialize_with = "gitbutler_core::serde::as_string_lossy"
+    )]
     pub diff_lines: BString,
     pub binary: bool,
     pub locked_to: Box<[HunkLock]>,
@@ -123,7 +127,7 @@ impl GitHunk {
 #[serde(rename_all = "camelCase")]
 pub struct HunkLock {
     pub branch_id: Id<Branch>,
-    #[serde(with = "crate::serde::oid")]
+    #[serde(with = "gitbutler_core::serde::oid")]
     pub commit_id: git2::Oid,
 }
 

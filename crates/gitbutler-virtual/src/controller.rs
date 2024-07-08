@@ -1,4 +1,9 @@
 use anyhow::Result;
+use gitbutler_branch::{
+    branch::{BranchCreateRequest, BranchId, BranchUpdateRequest},
+    diff,
+    ownership::BranchOwnershipClaims,
+};
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::{git::BranchExt, types::ReferenceName};
@@ -22,14 +27,10 @@ use crate::{
 };
 
 use super::r#virtual as branch;
-use gitbutler_core::virtual_branches;
 
 use crate::files::RemoteBranchFile;
 use gitbutler_core::git;
-use gitbutler_core::virtual_branches::{
-    branch::{BranchId, BranchOwnershipClaims},
-    target,
-};
+use gitbutler_core::virtual_branches::target;
 
 #[derive(Clone)]
 pub struct Controller {
@@ -87,7 +88,7 @@ impl Controller {
     pub async fn list_virtual_branches(
         &self,
         project: &Project,
-    ) -> Result<(Vec<branch::VirtualBranch>, Vec<git::diff::FileDiff>)> {
+    ) -> Result<(Vec<branch::VirtualBranch>, Vec<diff::FileDiff>)> {
         self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
@@ -97,7 +98,7 @@ impl Controller {
     pub async fn create_virtual_branch(
         &self,
         project: &Project,
-        create: &virtual_branches::branch::BranchCreateRequest,
+        create: &BranchCreateRequest,
     ) -> Result<BranchId> {
         self.permit(project.ignore_project_semaphore).await;
 
@@ -183,7 +184,7 @@ impl Controller {
     pub async fn update_virtual_branch(
         &self,
         project: &Project,
-        branch_update: virtual_branches::branch::BranchUpdateRequest,
+        branch_update: BranchUpdateRequest,
     ) -> Result<()> {
         self.permit(project.ignore_project_semaphore).await;
 

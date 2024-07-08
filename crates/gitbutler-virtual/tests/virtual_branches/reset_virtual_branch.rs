@@ -1,6 +1,6 @@
 use std::fs;
 
-use gitbutler_core::virtual_branches::branch;
+use gitbutler_branch::branch::BranchCreateRequest;
 
 use super::Test;
 
@@ -19,7 +19,7 @@ async fn to_head() {
         .unwrap();
 
     let branch1_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -81,7 +81,7 @@ async fn to_target() {
         .unwrap();
 
     let branch1_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -140,7 +140,7 @@ async fn to_commit() {
         .unwrap();
 
     let branch1_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -225,7 +225,7 @@ async fn to_non_existing() {
         .unwrap();
 
     let branch1_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
