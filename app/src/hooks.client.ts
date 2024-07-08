@@ -2,6 +2,7 @@ import { captureException } from '@sentry/sveltekit';
 import { error as logErrorToFile } from 'tauri-plugin-log-api';
 import type { HandleClientError } from '@sveltejs/kit';
 
+// eslint-disable-next-line func-style
 export const handleError: HandleClientError = ({ error, status }) => {
 	let errorId: string = crypto.randomUUID();
 
