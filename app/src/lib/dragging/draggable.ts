@@ -206,12 +206,7 @@ export function createChipsElement(
 	containerEl.appendChild(chipEl);
 
 	if (filePath) {
-		const iconEl = createElement(
-			'img',
-			['draggable-chip-icon'],
-			undefined,
-			getFileIcon(filePath)
-		);
+		const iconEl = createElement('img', ['draggable-chip-icon'], undefined, getFileIcon(filePath));
 		chipEl.appendChild(iconEl);
 	}
 
