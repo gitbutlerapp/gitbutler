@@ -4,7 +4,6 @@
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { portal } from '$lib/utils/portal';
-	import { pxToRem } from '$lib/utils/pxToRem';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import type iconsJson from '$lib/icons/icons.json';
 	import { goto } from '$app/navigation';
@@ -17,16 +16,20 @@
 		onclick: () => void;
 	}
 
-	export let target: HTMLButtonElement;
-	export let isNavCollapsed: boolean;
+	interface ProjectsPopupProps {
+		target: HTMLButtonElement;
+		isNavCollapsed: boolean;
+	}
+
+	const { target, isNavCollapsed }: ProjectsPopupProps = $props();
 
 	const projectService = getContext(ProjectService);
 	const projects = projectService.projects;
 
-	let inputBoundingRect: DOMRect;
-	let optionsEl: HTMLDivElement;
-	let hidden = true;
-	let loading = false;
+	let inputBoundingRect: DOMRect | undefined = $state();
+	let optionsEl: HTMLDivElement | undefined = $state();
+	let hidden = $state(true);
+	let loading = $state(false);
 
 	function getInputBoundingRect() {
 		if (target) {
@@ -44,8 +47,6 @@
 	}
 
 	export function toggle() {
-		getInputBoundingRect();
-
 		if (hidden) {
 			show();
 		} else {
@@ -56,8 +57,6 @@
 	function clickOutside(e: MouseEvent) {
 		if (e.target === e.currentTarget) hide();
 	}
-
-	$: console.log('isNavCollapsed', isNavCollapsed);
 </script>
 
 {#snippet itemSnippet(props: ItemSnippetProps)}
@@ -95,11 +94,12 @@
 		<div
 			bind:this={optionsEl}
 			class="popup"
-			style:width={!isNavCollapsed ? `${inputBoundingRect?.width}px` : pxToRem(240)}
+			class:collapsed={isNavCollapsed}
+			style:width={!isNavCollapsed ? `${inputBoundingRect?.width}px` : undefined}
 			style:top={inputBoundingRect?.top
-				? pxToRem(inputBoundingRect.top + inputBoundingRect.height)
+				? `${inputBoundingRect.top + inputBoundingRect.height}px`
 				: undefined}
-			style:left={inputBoundingRect?.left ? pxToRem(inputBoundingRect.left) : undefined}
+			style:left={inputBoundingRect?.left ? `${inputBoundingRect.left}px` : undefined}
 		>
 			{#if $projects.length > 0}
 				<ScrollableContainer maxHeight="20rem">
@@ -216,5 +216,9 @@
 			text-overflow: ellipsis;
 			overflow: hidden;
 		}
+	}
+
+	.popup.collapsed {
+		width: 240px;
 	}
 </style>

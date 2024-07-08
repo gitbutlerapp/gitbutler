@@ -13,7 +13,6 @@
 	import TextBox from '../shared/TextBox.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { portal } from '$lib/utils/portal';
-	import { pxToRem } from '$lib/utils/pxToRem';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import type { Snippet } from 'svelte';
 
@@ -83,6 +82,7 @@
 	function getInputBoundingRect() {
 		if (selectWrapperEl) {
 			inputBoundingRect = selectWrapperEl.getBoundingClientRect();
+			console.log('inputBoundingRect', inputBoundingRect);
 		}
 	}
 
@@ -182,10 +182,10 @@
 				class="options card"
 				style:width="{inputBoundingRect?.width}px"
 				style:top={inputBoundingRect?.top
-					? pxToRem(inputBoundingRect.top + inputBoundingRect.height)
+					? `${inputBoundingRect.top + inputBoundingRect.height}px`
 					: undefined}
-				style:left={inputBoundingRect?.left ? pxToRem(inputBoundingRect.left) : undefined}
-				style:max-height={maxHeightState && pxToRem(maxHeightState)}
+				style:left={inputBoundingRect?.left ? `${inputBoundingRect.left}px` : undefined}
+				style:max-height={maxHeightState && `${maxHeightState}px`}
 			>
 				<ScrollableContainer initiallyVisible>
 					{#if searchable && options.length > 5}
