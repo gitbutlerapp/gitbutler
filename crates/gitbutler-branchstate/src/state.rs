@@ -4,7 +4,12 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use gitbutler_core::{error::Code, fs::read_toml_file_or_default, git::Refname, projects::Project};
+use gitbutler_core::{
+    error::Code,
+    fs::read_toml_file_or_default,
+    git::{self},
+    projects::Project,
+};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -119,20 +124,18 @@ impl VirtualBranchesHandle {
         Ok(())
     }
 
-    pub fn find_by_refname_where_not_in_workspace(
+    pub fn find_by_source_refname_where_not_in_workspace(
         &self,
-        refname: &Refname,
+        refname: &git::Refname,
     ) -> Result<Option<Branch>> {
         self.list_all_branches().map(|branches| {
             branches.into_iter().find(|branch| {
-                if !branch.in_workspace {
+                if branch.in_workspace {
                     return false;
                 }
 
-                if let (Refname::Remote(remote_refname), Some(upstream_refname)) =
-                    (refname.clone(), branch.upstream.clone())
-                {
-                    return upstream_refname == remote_refname;
+                if let Some(source_refname) = branch.source_refname.clone() {
+                    return source_refname.to_string() == refname.to_string();
                 }
 
                 false

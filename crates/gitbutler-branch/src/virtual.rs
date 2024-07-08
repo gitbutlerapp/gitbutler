@@ -335,7 +335,7 @@ pub fn convert_to_real_branch(
 ) -> Result<git2::Branch<'_>> {
     fn build_real_branch<'l>(
         project_repository: &'l ProjectRepo,
-        vbranch: &branch::Branch,
+        vbranch: &mut branch::Branch,
         name_conflict_resolution: NameConflitResolution,
     ) -> Result<git2::Branch<'l>> {
         let repo = project_repository.repo();
@@ -378,7 +378,10 @@ pub fn convert_to_real_branch(
             branch_name
         };
 
+        let vb_state = project_repository.project().virtual_branches();
         let branch = repo.branch(&branch_name, &target_commit, true)?;
+        vbranch.source_refname = Some(git::Refname::try_from(&branch)?);
+        vb_state.set_branch(vbranch.clone())?;
 
         build_metadata_commit(project_repository, vbranch, &branch)?;
 
@@ -386,7 +389,7 @@ pub fn convert_to_real_branch(
     }
     fn build_metadata_commit<'l>(
         project_repository: &'l ProjectRepo,
-        vbranch: &branch::Branch,
+        vbranch: &mut branch::Branch,
         branch: &git2::Branch<'l>,
     ) -> Result<git2::Oid> {
         let repo = project_repository.repo();
@@ -409,7 +412,7 @@ pub fn convert_to_real_branch(
         let committer = get_integration_commiter()?;
         let parent = branch.get().peel_to_commit()?;
 
-        let commit_headers = CommitHeadersV2::new(true, Some(vbranch.name.clone()));
+        let commit_headers = CommitHeadersV2::new();
 
         let commit_oid = repo.commit_with_signature(
             Some(&branch.try_into()?),
@@ -418,18 +421,26 @@ pub fn convert_to_real_branch(
             &message,
             &tree,
             &[&parent],
-            Some(commit_headers),
+            Some(commit_headers.clone()),
         )?;
+
+        let vb_state = project_repository.project().virtual_branches();
+        // vbranch.head = commit_oid;
+        vbranch.not_in_workspace_wip_change_id = Some(commit_headers.change_id);
+        vb_state.set_branch(vbranch.clone())?;
 
         Ok(commit_oid)
     }
     let vb_state = project_repository.project().virtual_branches();
 
-    let target_branch = vb_state.get_branch_in_workspace(branch_id)?;
+    let mut target_branch = vb_state.get_branch_in_workspace(branch_id)?;
 
     // Convert the vbranch to a real branch
-    let real_branch =
-        build_real_branch(project_repository, &target_branch, name_conflict_resolution)?;
+    let real_branch = build_real_branch(
+        project_repository,
+        &mut target_branch,
+        name_conflict_resolution,
+    )?;
 
     delete_branch(project_repository, branch_id)?;
 
@@ -842,6 +853,8 @@ pub fn create_virtual_branch(
         allow_rebasing: project_repository.project().ok_with_force_push.into(),
         old_applied: true,
         in_workspace: true,
+        not_in_workspace_wip_change_id: None,
+        source_refname: None,
     };
 
     if let Some(ownership) = &create.ownership {
@@ -3362,19 +3375,20 @@ pub fn create_virtual_branch_from_branch(
             .context("failed to checkout index")?;
 
         // Look for and handle the vbranch indicator commit
+        // TODO: This is not unapplying the WIP commit for some unholy reason.
+        // If you can figgure it out I'll buy you a beer.
         {
-            let head_commit = repo.find_commit(branch.head)?;
+            if let Some(wip_commit_to_unapply) = branch.not_in_workspace_wip_change_id {
+                let potential_wip_commit = repo.find_commit(branch.head)?;
 
-            if let Some(headers) = head_commit.gitbutler_headers() {
-                if headers.is_unapplied_header_commit {
-                    if let Some(branch_name) = headers.vbranch_name {
-                        branch.name = branch_name;
-
-                        vb_state.set_branch(branch.clone())?;
-                    };
-
-                    undo_commit(project_repository, branch_id, branch.head)?;
+                if let Some(headers) = potential_wip_commit.gitbutler_headers() {
+                    if headers.change_id == wip_commit_to_unapply {
+                        undo_commit(project_repository, branch.id, branch.head)?;
+                    }
                 }
+
+                branch.not_in_workspace_wip_change_id = None;
+                vb_state.set_branch(branch.clone())?;
             }
         }
 
@@ -3472,35 +3486,42 @@ pub fn create_virtual_branch_from_branch(
         },
     );
 
-    let branch =
-        if let Ok(Some(mut branch)) = vb_state.find_by_refname_where_not_in_workspace(upstream) {
-            branch.tree = head_commit_tree.id();
-            branch.head = head_commit.id();
-            branch.updated_timestamp_ms = now;
-            branch.order = order;
-            branch.old_applied = true;
-            branch.in_workspace = true;
+    let branch = if let Ok(Some(mut branch)) =
+        vb_state.find_by_source_refname_where_not_in_workspace(upstream)
+    {
+        branch.upstream_head = upstream_branch.is_some().then_some(head_commit.id());
+        branch.upstream = upstream_branch;
+        branch.tree = head_commit_tree.id();
+        branch.head = head_commit.id();
+        branch.ownership = ownership;
+        branch.order = order;
+        branch.selected_for_changes = selected_for_changes;
+        branch.allow_rebasing = project_repository.project().ok_with_force_push.into();
+        branch.old_applied = true;
+        branch.in_workspace = true;
 
-            branch
-        } else {
-            branch::Branch {
-                id: BranchId::generate(),
-                name: branch_name.clone(),
-                notes: String::new(),
-                upstream_head: upstream_branch.is_some().then_some(head_commit.id()),
-                upstream: upstream_branch,
-                tree: head_commit_tree.id(),
-                head: head_commit.id(),
-                created_timestamp_ms: now,
-                updated_timestamp_ms: now,
-                ownership,
-                order,
-                selected_for_changes,
-                allow_rebasing: project_repository.project().ok_with_force_push.into(),
-                old_applied: true,
-                in_workspace: true,
-            }
-        };
+        branch
+    } else {
+        branch::Branch {
+            id: BranchId::generate(),
+            name: branch_name.clone(),
+            notes: String::new(),
+            source_refname: Some(upstream.clone()),
+            upstream_head: upstream_branch.is_some().then_some(head_commit.id()),
+            upstream: upstream_branch,
+            tree: head_commit_tree.id(),
+            head: head_commit.id(),
+            created_timestamp_ms: now,
+            updated_timestamp_ms: now,
+            ownership,
+            order,
+            selected_for_changes,
+            allow_rebasing: project_repository.project().ok_with_force_push.into(),
+            old_applied: true,
+            in_workspace: true,
+            not_in_workspace_wip_change_id: None,
+        }
+    };
 
     vb_state.set_branch(branch.clone())?;
     project_repository.add_branch_reference(&branch)?;

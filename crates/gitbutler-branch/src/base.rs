@@ -236,6 +236,7 @@ pub fn set_base_branch(
                 id: BranchId::generate(),
                 name: head_name.to_string().replace("refs/heads/", ""),
                 notes: String::new(),
+                source_refname: Some(head_name),
                 upstream,
                 upstream_head,
                 created_timestamp_ms: now_ms,
@@ -252,6 +253,7 @@ pub fn set_base_branch(
                 allow_rebasing: project_repository.project().ok_with_force_push.into(),
                 old_applied: true,
                 in_workspace: true,
+                not_in_workspace_wip_change_id: None,
             };
 
             vb_state.set_branch(branch)?;
