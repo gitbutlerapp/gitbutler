@@ -13,7 +13,6 @@
     clippy::too_many_lines
 )]
 
-pub mod askpass;
 pub mod dedup;
 pub mod error;
 pub mod fs;

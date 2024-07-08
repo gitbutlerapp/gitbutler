@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::Path, sync::Arc};
 use serde::Serialize;
 use tokio::sync::{oneshot, Mutex};
 
-use crate::{id::Id, virtual_branches::BranchId};
+use gitbutler_core::{id::Id, virtual_branches::BranchId};
 
 static mut GLOBAL_ASKPASS_BROKER: Option<AskpassBroker> = None;
 

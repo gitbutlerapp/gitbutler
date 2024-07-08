@@ -8,7 +8,9 @@ use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 use serde::Serialize;
 
 use gitbutler_core::git::{self, CommitExt};
-use gitbutler_core::virtual_branches::{target, Author};
+use gitbutler_core::virtual_branches::target;
+
+use crate::author::Author;
 
 // this struct is a mapping to the view `RemoteBranch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts

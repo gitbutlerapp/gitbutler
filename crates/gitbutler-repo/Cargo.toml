@@ -14,6 +14,8 @@ tokio = { workspace = true, features = [ "rt-multi-thread", "rt", "macros" ] }
 gitbutler-git.workspace = true
 tracing = "0.1.40"
 tempfile = "3.10"
+serde = { workspace = true, features = ["std"]}
+log = "^0.4"
 thiserror.workspace = true
 resolve-path = "0.1.0"
 gitbutler-command-context.workspace = true
