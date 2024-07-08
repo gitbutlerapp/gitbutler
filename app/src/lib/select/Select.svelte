@@ -261,7 +261,7 @@
 			opacity: 0;
 			transform: translateY(-6px);
 		}
-		50% {
+		40% {
 			opacity: 1;
 		}
 		100% {
