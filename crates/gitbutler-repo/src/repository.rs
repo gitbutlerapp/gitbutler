@@ -2,12 +2,12 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
 
+use gitbutler_branch::branch::{Branch, BranchId};
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::{
     error::Code,
     git::{self, CommitHeadersV2},
     ssh,
-    virtual_branches::{Branch, BranchId},
 };
 
 use crate::{askpass, Config};

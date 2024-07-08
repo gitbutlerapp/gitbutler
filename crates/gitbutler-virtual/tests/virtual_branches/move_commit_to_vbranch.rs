@@ -1,4 +1,4 @@
-use gitbutler_core::virtual_branches::{branch, BranchId};
+use gitbutler_branch::branch::{BranchCreateRequest, BranchId};
 
 use super::Test;
 
@@ -29,7 +29,7 @@ async fn no_diffs() {
         .unwrap();
 
     let target_branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -95,7 +95,7 @@ async fn diffs_on_source_branch() {
     .unwrap();
 
     let target_branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -157,7 +157,7 @@ async fn diffs_on_target_branch() {
     let target_branch_id = controller
         .create_virtual_branch(
             project,
-            &branch::BranchCreateRequest {
+            &BranchCreateRequest {
                 selected_for_changes: Some(true),
                 ..Default::default()
             },
@@ -229,7 +229,7 @@ async fn locked_hunks_on_source_branch() {
     std::fs::write(repository.path().join("file.txt"), "locked content").unwrap();
 
     let target_branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -270,7 +270,7 @@ async fn no_commit() {
         .unwrap();
 
     let target_branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 

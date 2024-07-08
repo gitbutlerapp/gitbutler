@@ -2103,10 +2103,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-branch"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "git2",
+ "gitbutler-core",
+ "hex",
+ "itertools 0.13.0",
+ "md5",
+ "serde",
+ "tracing",
+]
+
+[[package]]
 name = "gitbutler-branchstate"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "gitbutler-branch",
  "gitbutler-core",
  "gitbutler-project",
  "itertools 0.13.0",
@@ -2253,6 +2269,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "git2",
+ "gitbutler-branch",
  "gitbutler-branchstate",
  "gitbutler-core",
  "gitbutler-project",
@@ -2293,6 +2310,7 @@ dependencies = [
  "anyhow",
  "bstr",
  "git2",
+ "gitbutler-branch",
  "gitbutler-command-context",
  "gitbutler-config",
  "gitbutler-core",
@@ -2337,6 +2355,7 @@ dependencies = [
  "dirs 5.0.1",
  "futures",
  "git2",
+ "gitbutler-branch",
  "gitbutler-command-context",
  "gitbutler-config",
  "gitbutler-core",
@@ -2414,6 +2433,7 @@ dependencies = [
  "futures",
  "git2",
  "git2-hooks",
+ "gitbutler-branch",
  "gitbutler-branchstate",
  "gitbutler-command-context",
  "gitbutler-core",

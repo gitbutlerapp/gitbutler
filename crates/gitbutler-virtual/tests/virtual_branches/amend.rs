@@ -1,3 +1,5 @@
+use gitbutler_branch::ownership::BranchOwnershipClaims;
+
 use super::*;
 
 #[tokio::test]
@@ -52,7 +54,7 @@ async fn forcepush_allowed() {
     {
         // amend another hunk
         fs::write(repository.path().join("file2.txt"), "content2").unwrap();
-        let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
+        let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         controller
             .amend(project, branch_id, commit_id, &to_amend)
             .await
@@ -118,7 +120,7 @@ async fn forcepush_forbidden() {
 
     {
         fs::write(repository.path().join("file2.txt"), "content2").unwrap();
-        let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
+        let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         assert_eq!(
             controller
                 .amend(project, branch_id, commit_oid, &to_amend)
@@ -171,7 +173,7 @@ async fn non_locked_hunk() {
     {
         // amend another hunk
         fs::write(repository.path().join("file2.txt"), "content2").unwrap();
-        let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
+        let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         controller
             .amend(project, branch_id, commit_oid, &to_amend)
             .await
@@ -236,7 +238,7 @@ async fn locked_hunk() {
     {
         // amend another hunk
         fs::write(repository.path().join("file.txt"), "more content").unwrap();
-        let to_amend: branch::BranchOwnershipClaims = "file.txt:1-2".parse().unwrap();
+        let to_amend: BranchOwnershipClaims = "file.txt:1-2".parse().unwrap();
         controller
             .amend(project, branch_id, commit_oid, &to_amend)
             .await
@@ -301,7 +303,7 @@ async fn non_existing_ownership() {
 
     {
         // amend non existing hunk
-        let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
+        let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         assert_eq!(
             controller
                 .amend(project, branch_id, commit_oid, &to_amend)

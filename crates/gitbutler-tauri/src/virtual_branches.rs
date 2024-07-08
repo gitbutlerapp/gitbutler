@@ -1,12 +1,9 @@
 pub mod commands {
     use crate::error::Error;
     use anyhow::{anyhow, Context};
-    use gitbutler_core::{
-        error::Code,
-        git,
-        types::ReferenceName,
-        virtual_branches::branch::{self, BranchId, BranchOwnershipClaims},
-    };
+    use gitbutler_branch::branch::{BranchCreateRequest, BranchId, BranchUpdateRequest};
+    use gitbutler_branch::ownership::BranchOwnershipClaims;
+    use gitbutler_core::{error::Code, git, types::ReferenceName};
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use gitbutler_virtual::assets;
@@ -63,7 +60,7 @@ pub mod commands {
     pub async fn create_virtual_branch(
         handle: AppHandle,
         project_id: ProjectId,
-        branch: branch::BranchCreateRequest,
+        branch: BranchCreateRequest,
     ) -> Result<BranchId, Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
         let branch_id = handle
@@ -176,7 +173,7 @@ pub mod commands {
     pub async fn update_virtual_branch(
         handle: AppHandle,
         project_id: ProjectId,
-        branch: branch::BranchUpdateRequest,
+        branch: BranchUpdateRequest,
     ) -> Result<(), Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
         handle

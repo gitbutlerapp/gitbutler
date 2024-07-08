@@ -1,9 +1,8 @@
 use std::path;
 
 use anyhow::{anyhow, Context, Result};
+use gitbutler_branch::diff;
 use serde::Serialize;
-
-use gitbutler_core::git::diff;
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

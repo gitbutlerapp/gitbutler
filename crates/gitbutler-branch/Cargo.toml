@@ -1,15 +1,21 @@
 [package]
-name = "gitbutler-branchstate"
+name = "gitbutler-branch"
 version = "0.0.0"
 edition = "2021"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
 [dependencies]
+anyhow = "1.0.86"
+git2.workspace = true
 gitbutler-core.workspace = true
 itertools = "0.13"
-anyhow = "1.0.86"
-toml = "0.8.13"
 serde = { workspace = true, features = ["std"]}
-gitbutler-project.workspace = true
-gitbutler-branch.workspace = true
+bstr = "1.9.1"
+md5 = "0.7.0"
+hex = "0.4.3"
+tracing = "0.1.40"
+
+[[test]]
+name="branch"
+path = "tests/mod.rs"

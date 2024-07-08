@@ -4,7 +4,7 @@ use anyhow::Result;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize, Serializer};
 
-use super::{Branch, OwnershipClaim};
+use crate::{branch::Branch, file_ownership::OwnershipClaim};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BranchOwnershipClaims {

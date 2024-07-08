@@ -1,3 +1,8 @@
+use gitbutler_branch::branch::{self, Branch, BranchCreateRequest, BranchId};
+use gitbutler_branch::diff::{self, diff_files_into_hunks, trees, FileDiff, GitHunk};
+use gitbutler_branch::file_ownership::OwnershipClaim;
+use gitbutler_branch::hunk::{Hunk, HunkHash};
+use gitbutler_branch::ownership::{reconcile_claims, BranchOwnershipClaims};
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_oplog::snapshot::Snapshot;
@@ -28,20 +33,12 @@ use crate::integration::{get_integration_commiter, get_workspace_head};
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
 use gitbutler_core::error::Code;
 use gitbutler_core::error::Marker;
-use gitbutler_core::git::diff::GitHunk;
-use gitbutler_core::git::diff::{diff_files_into_hunks, trees, FileDiff};
 use gitbutler_core::git::{normalize_branch_name, CommitExt, CommitHeadersV2, HasCommitHeaders};
 use gitbutler_core::time::now_since_unix_epoch_ms;
-use gitbutler_core::virtual_branches::branch::HunkHash;
-use gitbutler_core::virtual_branches::{
-    branch::{
-        self, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, Hunk, OwnershipClaim,
-    },
-    target,
-};
+use gitbutler_core::virtual_branches::target;
 use gitbutler_core::{
     dedup::{dedup, dedup_fmt},
-    git::{self, diff, Refname, RemoteRefname},
+    git::{self, Refname, RemoteRefname},
 };
 use gitbutler_repo::rebase::{cherry_rebase, cherry_rebase_group};
 
@@ -88,7 +85,7 @@ pub struct VirtualBranch {
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranches {
     pub branches: Vec<VirtualBranch>,
-    pub skipped_files: Vec<git::diff::FileDiff>,
+    pub skipped_files: Vec<diff::FileDiff>,
 }
 
 // this is the struct that maps to the view `Commit` type in Typescript
@@ -155,7 +152,7 @@ pub struct VirtualBranchHunk {
     pub diff: BString,
     pub modified_at: u128,
     pub file_path: PathBuf,
-    #[serde(serialize_with = "gitbutler_core::serde::hash_to_hex")]
+    #[serde(serialize_with = "gitbutler_branch::serde::hash_to_hex")]
     pub hash: HunkHash,
     pub old_start: u32,
     pub start: u32,
@@ -1259,7 +1256,7 @@ fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> Result<()> {
 fn set_ownership(
     vb_state: &VirtualBranchesHandle,
     target_branch: &mut branch::Branch,
-    ownership: &branch::BranchOwnershipClaims,
+    ownership: &gitbutler_branch::ownership::BranchOwnershipClaims,
 ) -> Result<()> {
     if target_branch.ownership.eq(ownership) {
         // nothing to update
@@ -1270,8 +1267,7 @@ fn set_ownership(
         .list_branches_in_workspace()
         .context("failed to read virtual branches")?;
 
-    let mut claim_outcomes =
-        branch::reconcile_claims(virtual_branches, target_branch, &ownership.claims)?;
+    let mut claim_outcomes = reconcile_claims(virtual_branches, target_branch, &ownership.claims)?;
     for claim_outcome in &mut claim_outcomes {
         if !claim_outcome.removed_claims.is_empty() {
             vb_state
@@ -1998,7 +1994,7 @@ pub fn commit(
     project_repository: &ProjectRepo,
     branch_id: BranchId,
     message: &str,
-    ownership: Option<&branch::BranchOwnershipClaims>,
+    ownership: Option<&gitbutler_branch::ownership::BranchOwnershipClaims>,
     run_hooks: bool,
 ) -> Result<git2::Oid> {
     let mut message_buffer = message.to_owned();
@@ -3469,7 +3465,7 @@ pub fn create_virtual_branch_from_branch(
 
     // assign ownership to the branch
     let ownership = diff.iter().fold(
-        branch::BranchOwnershipClaims::default(),
+        BranchOwnershipClaims::default(),
         |mut ownership, (file_path, file)| {
             for hunk in &file.hunks {
                 ownership.put(

@@ -1,5 +1,3 @@
-pub mod branch;
-pub use branch::{Branch, BranchId};
 pub mod target;
 
 use lazy_static::lazy_static;

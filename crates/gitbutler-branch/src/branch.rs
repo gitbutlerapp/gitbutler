@@ -1,14 +1,13 @@
-mod file_ownership;
-mod hunk;
-mod ownership;
-
 use anyhow::Result;
-pub use file_ownership::OwnershipClaim;
-pub use hunk::{Hunk, HunkHash};
-pub use ownership::{reconcile_claims, BranchOwnershipClaims};
 use serde::{Deserialize, Serialize};
 
-use crate::{git, id::Id};
+use gitbutler_core::{
+    git::{self},
+    id::Id,
+};
+
+use crate::ownership::BranchOwnershipClaims;
+use gitbutler_core::git::normalize_branch_name;
 
 pub type BranchId = Id<Branch>;
 
@@ -24,7 +23,7 @@ pub struct Branch {
     pub source_refname: Option<git::Refname>,
     pub upstream: Option<git::RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
-    #[serde(with = "crate::serde::oid_opt", default)]
+    #[serde(with = "gitbutler_core::serde::oid_opt", default)]
     pub upstream_head: Option<git2::Oid>,
     #[serde(
         serialize_with = "serialize_u128",
@@ -37,10 +36,10 @@ pub struct Branch {
     )]
     pub updated_timestamp_ms: u128,
     /// tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
-    #[serde(with = "crate::serde::oid")]
+    #[serde(with = "gitbutler_core::serde::oid")]
     pub tree: git2::Oid,
     /// head is id of the last "virtual" commit in this branch
-    #[serde(with = "crate::serde::oid")]
+    #[serde(with = "gitbutler_core::serde::oid")]
     pub head: git2::Oid,
     pub ownership: BranchOwnershipClaims,
     // order is the number by which UI should sort branches
@@ -81,6 +80,14 @@ where
 impl Branch {
     pub fn refname(&self) -> git::VirtualRefname {
         self.into()
+    }
+}
+
+impl From<&Branch> for git::VirtualRefname {
+    fn from(value: &Branch) -> Self {
+        Self {
+            branch: normalize_branch_name(&value.name),
+        }
     }
 }
 

@@ -3,25 +3,16 @@ use std::{fmt, str::FromStr};
 use serde::{Deserialize, Serialize};
 
 use super::error::Error;
-use crate::{git::normalize_branch_name, virtual_branches::Branch};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Refname {
     // contains slug of the virtual branch name
-    branch: String,
+    pub branch: String,
 }
 
 impl Refname {
     pub fn branch(&self) -> &str {
         &self.branch
-    }
-}
-
-impl From<&Branch> for Refname {
-    fn from(value: &Branch) -> Self {
-        Self {
-            branch: normalize_branch_name(&value.name),
-        }
     }
 }
 

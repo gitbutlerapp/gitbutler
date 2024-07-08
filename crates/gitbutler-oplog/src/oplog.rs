@@ -1,5 +1,7 @@
 use anyhow::{anyhow, bail, Context};
 use git2::{DiffOptions, FileMode};
+use gitbutler_branch::branch::Branch;
+use gitbutler_branch::diff::{hunks_by_filepath, FileDiff};
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesState};
 use gitbutler_project::Project;
 use gitbutler_repo::RepositoryExt;
@@ -12,10 +14,8 @@ use std::{fs, path::PathBuf};
 use anyhow::Result;
 use tracing::instrument;
 
-use gitbutler_core::git::diff::hunks_by_filepath;
-use gitbutler_core::git::diff::FileDiff;
 use gitbutler_core::virtual_branches::{
-    Branch, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
+    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
 };
 
 use super::{

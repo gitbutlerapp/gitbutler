@@ -1,4 +1,5 @@
 use git::CommitExt;
+use gitbutler_branch::ownership::BranchOwnershipClaims;
 
 use super::*;
 
@@ -39,7 +40,7 @@ async fn move_file_down() {
     let commit2 = repository.find_commit(commit2_id).unwrap();
 
     // amend another hunk
-    let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
+    let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
     controller
         .move_commit_file(project, branch_id, commit2_id, commit1_id, &to_amend)
         .await
@@ -101,7 +102,7 @@ async fn move_file_up() {
         .unwrap();
 
     // amend another hunk
-    let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
+    let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
     controller
         .move_commit_file(project, branch_id, commit1_id, commit2_id, &to_amend)
         .await
