@@ -309,7 +309,7 @@
 
 	.commit-box-actions_expanded {
 		display: flex;
-		animation: expand-actions 0.3s ease forwards;
+		animation: expand-actions 0.2s ease-out forwards;
 		animation-delay: 0.1s;
 	}
 
