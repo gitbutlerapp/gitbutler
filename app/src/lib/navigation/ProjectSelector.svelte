@@ -2,35 +2,26 @@
 	import ProjectAvatar from './ProjectAvatar.svelte';
 	import ProjectsPopup from './ProjectsPopup.svelte';
 	import { Project } from '$lib/backend/projects';
-	import { clickOutside } from '$lib/clickOutside';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 
 	export let isNavCollapsed: boolean;
 
+	let buttonTrigger: HTMLButtonElement;
 	const project = getContext(Project);
 
 	let popup: ProjectsPopup;
-	let visible: boolean = false;
 </script>
 
-<div
-	class="wrapper"
-	use:clickOutside={{
-		handler: () => {
-			popup.hide();
-			visible = false;
-		},
-		enabled: visible
-	}}
->
+<div class="wrapper">
 	<button
+		bind:this={buttonTrigger}
 		class="text-input button"
 		use:tooltip={isNavCollapsed ? project?.title : ''}
 		on:mousedown={(e) => {
-			visible = popup.toggle();
 			e.preventDefault();
+			popup.toggle();
 		}}
 	>
 		<ProjectAvatar name={project?.title} />
@@ -41,7 +32,7 @@
 			</div>
 		{/if}
 	</button>
-	<ProjectsPopup bind:this={popup} {isNavCollapsed} />
+	<ProjectsPopup bind:this={popup} target={buttonTrigger} {isNavCollapsed} />
 </div>
 
 <style lang="postcss">
