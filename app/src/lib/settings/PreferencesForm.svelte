@@ -4,12 +4,12 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import SectionCardDisclaimer from '$lib/components/SectionCardDisclaimer.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
+	import Select from '$lib/select/Select.svelte';
+	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import Link from '$lib/shared/Link.svelte';
-	import Select from '$lib/shared/Select.svelte';
-	import SelectItem from '$lib/shared/SelectItem.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '$lib/utils/context';
@@ -58,11 +58,11 @@
 
 	const signingFormatOptions = [
 		{
-			name: 'GPG',
+			label: 'GPG',
 			value: 'openpgp'
 		},
 		{
-			name: 'SSH',
+			label: 'SSH',
 			value: 'ssh'
 		}
 	];
@@ -152,16 +152,19 @@
 	{#if signCommits}
 		<SectionCard orientation="column">
 			<Select
-				items={signingFormatOptions}
-				bind:selectedItemId={signingFormat}
-				itemId="value"
-				labelId="name"
-				on:select={updateSigningInfo}
+				value={signingFormat}
+				options={signingFormatOptions}
 				label="Signing format"
+				onselect={(value) => {
+					signingFormat = value;
+					updateSigningInfo();
+				}}
 			>
-				<SelectItem slot="template" let:item let:selected {selected} let:highlighted {highlighted}>
-					{item.name}
-				</SelectItem>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === signingFormat} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
 			</Select>
 
 			<TextBox

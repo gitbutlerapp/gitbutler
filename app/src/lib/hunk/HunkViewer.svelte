@@ -10,12 +10,9 @@
 	import { getContext, getContextStoreBySymbol, maybeGetContextStore } from '$lib/utils/context';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type Hunk } from '$lib/vbranches/types';
-	import { mount, onDestroy, unmount } from 'svelte';
 	import type { HunkSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
 
-	export let viewport: HTMLDivElement | undefined = undefined;
-	export let contents: HTMLDivElement | undefined = undefined;
 	export let filePath: string;
 	export let section: HunkSection;
 	export let minWidth: number;
@@ -30,6 +27,11 @@
 	const branch = maybeGetContextStore(Branch);
 	const project = getContext(Project);
 
+	let viewport: HTMLDivElement;
+	let contents: HTMLDivElement;
+	let contextMenu: HunkContextMenu;
+	let alwaysShow = false;
+
 	function onHunkSelected(hunk: Hunk, isSelected: boolean) {
 		if (!selectedOwnership) return;
 		if (isSelected) {
@@ -38,25 +40,16 @@
 			selectedOwnership.update((ownership) => ownership.remove(hunk.filePath, hunk.id));
 		}
 	}
-	function updateContextMenu(filePath: string) {
-		if (popupMenu) unmount(popupMenu);
-		return mount(HunkContextMenu, {
-			target: document.body,
-			props: { projectPath: project.vscodePath, filePath, readonly }
-		});
-	}
-	$: popupMenu = updateContextMenu(filePath);
-
 	$: draggingDisabled = readonly || isUnapplied;
-
-	onDestroy(() => {
-		if (popupMenu) {
-			unmount(popupMenu);
-		}
-	});
-
-	let alwaysShow = false;
 </script>
+
+<HunkContextMenu
+	bind:this={contextMenu}
+	target={viewport}
+	projectPath={project.vscodePath}
+	{filePath}
+	{readonly}
+/>
 
 <div class="scrollable">
 	<div
@@ -93,8 +86,11 @@
 						selected={$selectedOwnership?.contains(hunk.filePath, hunk.id)}
 						on:selected={(e) => onHunkSelected(hunk, e.detail)}
 						sectionType={subsection.sectionType}
+						on:click={() => {
+							contextMenu.close();
+						}}
 						on:lineContextMenu={(e) => {
-							popupMenu.openByMouse(e.detail.event, {
+							contextMenu.open(e.detail.event, {
 								hunk,
 								section: subsection,
 								lineNumber: e.detail.lineNumber

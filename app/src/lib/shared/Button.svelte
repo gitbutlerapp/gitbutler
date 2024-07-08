@@ -6,7 +6,7 @@
 	import type { ComponentColor, ComponentStyleKind } from '$lib/vbranches/types';
 
 	// Interaction props
-	export let element: HTMLAnchorElement | HTMLButtonElement | HTMLElement | null = null;
+	export let el: HTMLAnchorElement | HTMLButtonElement | HTMLElement | null = null;
 	export let disabled = false;
 	export let clickable = true;
 	export let id: string | undefined = undefined;
@@ -52,7 +52,7 @@
 		text: help,
 		delay: helpShowDelay
 	}}
-	bind:this={element}
+	bind:this={el}
 	disabled={disabled || loading}
 	on:click
 	on:mousedown
@@ -84,6 +84,7 @@
 
 <style lang="postcss">
 	.btn {
+		user-select: none;
 		position: relative;
 		display: inline-flex;
 		align-items: center;

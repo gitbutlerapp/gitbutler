@@ -1,7 +1,7 @@
 <script lang="ts">
+	import { autoHeight } from '$lib/utils/autoHeight';
 	import { pxToRem } from '$lib/utils/pxToRem';
-	import { useAutoHeight } from '$lib/utils/useAutoHeight';
-	import { useResize } from '$lib/utils/useResize';
+	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { createEventDispatcher } from 'svelte';
 
 	export let value: string | undefined;
@@ -42,16 +42,16 @@
 		{spellcheck}
 		on:input={(e) => {
 			dispatch('input', e.currentTarget.value);
-			useAutoHeight(e.currentTarget);
+			autoHeight(e.currentTarget);
 		}}
 		on:change={(e) => {
 			dispatch('change', e.currentTarget.value);
-			useAutoHeight(e.currentTarget);
+			autoHeight(e.currentTarget);
 		}}
-		use:useResize={(e) => {
-			useAutoHeight(e.currentTarget as HTMLTextAreaElement);
+		use:resizeObserver={(e) => {
+			autoHeight(e.currentTarget as HTMLTextAreaElement);
 		}}
-		on:focus={(e) => useAutoHeight(e.currentTarget)}
+		on:focus={(e) => autoHeight(e.currentTarget)}
 		style:max-height={maxHeight ? pxToRem(maxHeight) : undefined}
 	></textarea>
 </div>

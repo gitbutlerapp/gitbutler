@@ -1,4 +1,4 @@
-export function useResize(
+export function resizeObserver(
 	element: HTMLElement,
 	callback: (data: { currentTarget: HTMLElement; frame: { width: number; height: number } }) => void
 ) {

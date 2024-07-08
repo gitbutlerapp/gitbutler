@@ -5,10 +5,10 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import Select from '$lib/select/Select.svelte';
+	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
-	import Select from '$lib/shared/Select.svelte';
-	import SelectItem from '$lib/shared/SelectItem.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
@@ -18,7 +18,8 @@
 	import { Branch, type NameConflictResolution } from '$lib/vbranches/types';
 	import { createEventDispatcher } from 'svelte';
 
-	export let visible: boolean;
+	export let contextMenuEl: ContextMenu;
+	export let target: HTMLElement;
 	export let isUnapplied = false;
 
 	const user = getContextStore(User);
@@ -48,10 +49,6 @@
 
 	async function setAIConfigurationValid(user: User | undefined) {
 		aiConfigurationValid = await aiService.validateConfiguration(user?.access_token);
-	}
-
-	function close() {
-		visible = false;
 	}
 
 	let unapplyBranchModal: Modal;
@@ -105,27 +102,47 @@
 			branchController.convertToRealBranch(branch.id);
 		}
 	}
+
+	function setButtonCoppy() {
+		switch (selectedResolution) {
+			case 'overwrite':
+				return 'Overwrite and unapply';
+			case 'suffix':
+				return 'Suffix and unapply';
+			case 'rename':
+				return 'Rename and unapply';
+		}
+	}
 </script>
 
-<Modal bind:this={unapplyBranchModal}>
+<Modal width="small" bind:this={unapplyBranchModal}>
 	<div class="flow">
 		<div class="modal-copy">
-			<p class="text-base-15">There is already branch with the name</p>
-			<Button size="tag" clickable={false}>{normalizeBranchName(branch.name)}</Button>
-			<p class="text-base-15">.</p>
-			<p class="text-base-15">Please choose how you want to resolve this:</p>
+			<p class="text-base-14 text-semibold">
+				"{normalizeBranchName(branch.name)}" branch already exists
+			</p>
+
+			<p class="text-base-body-13 modal-copy-caption">
+				A branch with the same name already exists.
+				<br />
+				Please select a resolution:
+			</p>
 		</div>
 
 		<Select
-			items={resolutions}
-			itemId={'value'}
-			labelId={'label'}
-			bind:selectedItemId={selectedResolution}
+			value={selectedResolution}
+			options={resolutions}
+			onselect={(value) => {
+				selectedResolution = value as ResolutionVariants;
+			}}
 		>
-			<SelectItem slot="template" let:item let:selected {selected}>
-				{item.label}
-			</SelectItem>
+			{#snippet itemSnippet({ item, highlighted })}
+				<SelectItem selected={item.value === selectedResolution} {highlighted}>
+					{item.label}
+				</SelectItem>
+			{/snippet}
 		</Select>
+
 		{#if selectedResolution === 'rename'}
 			<TextBox
 				label="New branch name"
@@ -137,107 +154,112 @@
 	</div>
 	{#snippet controls()}
 		<Button style="ghost" outline on:click={() => unapplyBranchModal.close()}>Cancel</Button>
-		<Button style="pop" kind="solid" grow on:click={unapplyBranchWithSelectedResolution}
-			>Submit</Button
+		<Button
+			style="pop"
+			kind="solid"
+			on:click={unapplyBranchWithSelectedResolution}
+			disabled={!newBranchName && selectedResolution === 'rename'}
 		>
+			{setButtonCoppy()}
+		</Button>
 	{/snippet}
 </Modal>
 
-{#if visible}
-	<ContextMenu>
-		<ContextMenuSection>
-			{#if !isUnapplied}
-				<ContextMenuItem
-					label="Collapse lane"
-					on:click={() => {
-						dispatch('action', 'collapse');
-						close();
-					}}
-				/>
-			{/if}
-		</ContextMenuSection>
-		<ContextMenuSection>
-			{#if !isUnapplied}
-				<ContextMenuItem
-					label="Unapply"
-					on:click={() => {
-						tryUnapplyBranch();
-						close();
-					}}
-				/>
-			{/if}
-
+<ContextMenu bind:this={contextMenuEl} {target}>
+	<ContextMenuSection>
+		{#if !isUnapplied}
 			<ContextMenuItem
-				label="Delete"
-				on:click={async () => {
-					if (
-						branch.name.toLowerCase().includes('virtual branch') &&
-						commits.length === 0 &&
-						branch.files?.length === 0
-					) {
-						await branchController.deleteBranch(branch.id);
-					} else {
-						deleteBranchModal.show(branch);
-					}
-					close();
-				}}
-			/>
-
-			<ContextMenuItem
-				label="Generate branch name"
+				label="Collapse lane"
 				on:click={() => {
-					dispatch('action', 'generate-branch-name');
-					close();
+					dispatch('action', 'collapse');
+					contextMenuEl.close();
 				}}
-				disabled={isUnapplied ||
-					!($aiGenEnabled && aiConfigurationValid) ||
-					branch.files?.length === 0}
 			/>
-		</ContextMenuSection>
-
-		<ContextMenuSection>
+		{/if}
+	</ContextMenuSection>
+	<ContextMenuSection>
+		{#if !isUnapplied}
 			<ContextMenuItem
-				label="Set remote branch name"
-				disabled={isUnapplied}
+				label="Unapply"
 				on:click={() => {
-					newRemoteName = branch.upstreamName || normalizeBranchName(branch.name) || '';
-					close();
-					renameRemoteModal.show(branch);
+					tryUnapplyBranch();
+					contextMenuEl.close();
 				}}
 			/>
-		</ContextMenuSection>
+		{/if}
 
-		<ContextMenuSection>
-			<ContextMenuItem label="Allow rebasing" on:click={toggleAllowRebasing}>
-				<Toggle
-					small
-					slot="control"
-					bind:checked={allowRebasing}
-					on:click={toggleAllowRebasing}
-					help="Having this enabled permits commit amending and reordering after a branch has been pushed, which would subsequently require force pushing"
-				/>
-			</ContextMenuItem>
-		</ContextMenuSection>
+		<ContextMenuItem
+			label="Delete"
+			on:click={async () => {
+				if (
+					branch.name.toLowerCase().includes('virtual branch') &&
+					commits.length === 0 &&
+					branch.files?.length === 0
+				) {
+					await branchController.deleteBranch(branch.id);
+				} else {
+					deleteBranchModal.show(branch);
+				}
+				contextMenuEl.close();
+			}}
+		/>
 
-		<ContextMenuSection>
-			<ContextMenuItem
-				label="Create branch to the left"
-				on:click={() => {
-					branchController.createBranch({ order: branch.order });
-					close();
-				}}
+		<ContextMenuItem
+			label="Generate branch name"
+			on:click={() => {
+				dispatch('action', 'generate-branch-name');
+				contextMenuEl.close();
+			}}
+			disabled={isUnapplied ||
+				!($aiGenEnabled && aiConfigurationValid) ||
+				branch.files?.length === 0}
+		/>
+	</ContextMenuSection>
+
+	<ContextMenuSection>
+		<ContextMenuItem
+			label="Set remote branch name"
+			disabled={isUnapplied}
+			on:click={() => {
+				console.log('Set remote branch name');
+
+				newRemoteName = branch.upstreamName || normalizeBranchName(branch.name) || '';
+				renameRemoteModal.show(branch);
+				contextMenuEl.close();
+			}}
+		/>
+	</ContextMenuSection>
+
+	<ContextMenuSection>
+		<ContextMenuItem label="Allow rebasing" on:click={toggleAllowRebasing}>
+			<Toggle
+				small
+				slot="control"
+				bind:checked={allowRebasing}
+				on:click={toggleAllowRebasing}
+				help="Having this enabled permits commit amending and reordering after a branch has been pushed, which would subsequently require force pushing"
 			/>
+		</ContextMenuItem>
+	</ContextMenuSection>
 
-			<ContextMenuItem
-				label="Create branch to the right"
-				on:click={() => {
-					branchController.createBranch({ order: branch.order + 1 });
-					close();
-				}}
-			/>
-		</ContextMenuSection>
-	</ContextMenu>
-{/if}
+	<ContextMenuSection>
+		<ContextMenuItem
+			label="Create branch to the left"
+			on:click={() => {
+				branchController.createBranch({ order: branch.order });
+				contextMenuEl.close();
+			}}
+		/>
+
+		<ContextMenuItem
+			label="Create branch to the right"
+			on:click={() => {
+				branchController.createBranch({ order: branch.order + 1 });
+				contextMenuEl.close();
+			}}
+		/>
+	</ContextMenuSection>
+</ContextMenu>
 
 <Modal width="small" bind:this={renameRemoteModal}>
 	<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName} focus />
@@ -282,9 +304,14 @@
 		flex-direction: column;
 		gap: 16px;
 	}
+
 	.modal-copy {
-		& > * {
-			display: inline;
-		}
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.modal-copy-caption {
+		color: var(--clr-text-2);
 	}
 </style>

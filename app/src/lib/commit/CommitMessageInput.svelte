@@ -2,7 +2,6 @@
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
-	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import {
@@ -16,11 +15,11 @@
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { User } from '$lib/stores/user';
+	import { autoHeight } from '$lib/utils/autoHeight';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { getContext, getContextStore } from '$lib/utils/context';
+	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { tooltip } from '$lib/utils/tooltip';
-	import { useAutoHeight } from '$lib/utils/useAutoHeight';
-	import { useResize } from '$lib/utils/useResize';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, LocalFile } from '$lib/vbranches/types';
 	import { createEventDispatcher, onMount } from 'svelte';
@@ -115,9 +114,9 @@
 {#if isExpanded}
 	<div
 		class="commit-box__textarea-wrapper text-input"
-		use:useResize={() => {
-			if (titleTextArea) useAutoHeight(titleTextArea);
-			if (descriptionTextArea) useAutoHeight(descriptionTextArea);
+		use:resizeObserver={() => {
+			if (titleTextArea) autoHeight(titleTextArea);
+			if (descriptionTextArea) autoHeight(descriptionTextArea);
 		}}
 	>
 		<textarea
@@ -129,10 +128,10 @@
 			rows="1"
 			bind:this={titleTextArea}
 			use:focusTextAreaOnMount
-			on:focus={(e) => useAutoHeight(e.currentTarget)}
+			on:focus={(e) => autoHeight(e.currentTarget)}
 			on:input={(e) => {
 				commitMessage = concatMessage(e.currentTarget.value, description);
-				useAutoHeight(e.currentTarget);
+				autoHeight(e.currentTarget);
 			}}
 			on:keydown={(e) => {
 				if (commit && (e.ctrlKey || e.metaKey) && e.key === 'Enter') commit();
@@ -152,10 +151,10 @@
 				spellcheck="false"
 				rows="1"
 				bind:this={descriptionTextArea}
-				on:focus={(e) => useAutoHeight(e.currentTarget)}
+				on:focus={(e) => autoHeight(e.currentTarget)}
 				on:input={(e) => {
 					commitMessage = concatMessage(title, e.currentTarget.value);
-					useAutoHeight(e.currentTarget);
+					autoHeight(e.currentTarget);
 				}}
 				on:keydown={(e) => {
 					const value = e.currentTarget.value;
@@ -165,7 +164,7 @@
 							titleTextArea?.focus();
 							titleTextArea.selectionStart = titleTextArea.textLength;
 						}
-						useAutoHeight(e.currentTarget);
+						autoHeight(e.currentTarget);
 					} else if (e.key === 'a' && (e.metaKey || e.ctrlKey) && value.length === 0) {
 						// select previous textarea on cmd+a if this textarea is empty
 						e.preventDefault();
@@ -205,23 +204,22 @@
 				on:click={async () => await generateCommitMessage($branch.files)}
 			>
 				Generate message
-				<ContextMenu slot="context-menu">
-					<ContextMenuSection>
-						<ContextMenuItem
-							label="Extra concise"
-							on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
-						>
-							<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
-						</ContextMenuItem>
 
-						<ContextMenuItem
-							label="Use emojis 😎"
-							on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
-						>
-							<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
-						</ContextMenuItem>
-					</ContextMenuSection>
-				</ContextMenu>
+				<ContextMenuSection slot="context-menu">
+					<ContextMenuItem
+						label="Extra concise"
+						on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+					>
+						<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
+					</ContextMenuItem>
+
+					<ContextMenuItem
+						label="Use emojis 😎"
+						on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+					>
+						<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
+					</ContextMenuItem>
+				</ContextMenuSection>
 			</DropDownButton>
 		</div>
 	</div>

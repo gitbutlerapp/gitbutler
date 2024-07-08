@@ -1,7 +1,8 @@
 <script lang="ts">
-	import Select from '../shared/Select.svelte';
-	import SelectItem from '../shared/SelectItem.svelte';
 	import { ProjectService, Project } from '$lib/backend/projects';
+	import OptionsGroup from '$lib/select/OptionsGroup.svelte';
+	import Select from '$lib/select/Select.svelte';
+	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext, maybeGetContext } from '$lib/utils/context';
 	import { derived } from 'svelte/store';
@@ -10,61 +11,59 @@
 	const projectService = getContext(ProjectService);
 	const project = maybeGetContext(Project);
 
-	type ProjectRecord = {
-		id: string;
-		title: string;
-	};
-
 	const mappedProjects = derived(projectService.projects, (projects) =>
 		projects.map((project) => ({
-			id: project.id,
-			title: project.title
+			value: project.id,
+			label: project.title
 		}))
 	);
 
 	let loading = false;
-	let select: Select<ProjectRecord>;
-	let selectValue: ProjectRecord | undefined = project;
+	let selectedProjectId: string | undefined = project ? project.id : undefined;
 </script>
 
 <div class="project-switcher">
 	<Select
-		id="select-project"
+		value={selectedProjectId}
+		options={$mappedProjects}
 		label="Switch to another project"
-		itemId="id"
-		labelId="title"
-		items={$mappedProjects}
-		placeholder="Select a project..."
 		wide
-		bind:value={selectValue}
-		bind:this={select}
+		onselect={(value) => {
+			selectedProjectId = value;
+		}}
+		searchable
 	>
-		<SelectItem slot="template" let:item let:selected {selected} let:highlighted {highlighted}>
-			{item.title}
-		</SelectItem>
-		<SelectItem
-			slot="append"
-			icon="plus"
-			{loading}
-			on:click={async () => {
-				loading = true;
-				try {
-					await projectService.addProject();
-				} finally {
-					loading = false;
-				}
-			}}
-		>
-			Add new project
-		</SelectItem>
+		{#snippet itemSnippet({ item, highlighted })}
+			<SelectItem selected={item.value === selectedProjectId} {highlighted}>
+				{item.label}
+			</SelectItem>
+		{/snippet}
+
+		<OptionsGroup>
+			<SelectItem
+				icon="plus"
+				{loading}
+				on:click={async () => {
+					loading = true;
+					try {
+						await projectService.addProject();
+					} finally {
+						loading = false;
+					}
+				}}
+			>
+				Add new project
+			</SelectItem>
+		</OptionsGroup>
 	</Select>
+
 	<Button
 		style="pop"
 		kind="solid"
 		icon="chevron-right-small"
-		disabled={selectValue === project}
+		disabled={selectedProjectId === project}
 		on:mousedown={() => {
-			if (selectValue) goto(`/${selectValue.id}/`);
+			if (selectedProjectId) goto(`/${selectedProjectId}/`);
 		}}
 	>
 		Open project

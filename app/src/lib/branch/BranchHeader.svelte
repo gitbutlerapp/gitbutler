@@ -1,11 +1,11 @@
 <script lang="ts">
 	import ActiveBranchStatus from './ActiveBranchStatus.svelte';
 	import BranchLabel from './BranchLabel.svelte';
-	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
+	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
-	import { clickOutside } from '$lib/clickOutside';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { showError } from '$lib/notifications/toasts';
 	import Button from '$lib/shared/Button.svelte';
@@ -33,8 +33,8 @@
 	$: pr$ = githubService.getPr$(branch.upstream?.sha || branch.head);
 	$: hasPullRequest = branch.upstreamName && $pr$;
 
-	let meatballButton: HTMLDivElement;
-	let visible = false;
+	let contextMenu: ContextMenu;
+	let meatballButtonEl: HTMLDivElement;
 	let isApplying = false;
 	let isDeleting = false;
 	let isLoading: boolean;
@@ -263,23 +263,19 @@
 								/>
 							{/if}
 							<Button
-								element={meatballButton}
+								bind:el={meatballButtonEl}
 								style="ghost"
 								outline
 								icon="kebab"
-								on:mousedown={() => {
-									visible = !visible;
+								on:click={() => {
+									contextMenu.toggle();
 								}}
 							/>
-							<div
-								class="branch-popup-menu"
-								use:clickOutside={{
-									trigger: meatballButton,
-									handler: () => (visible = false)
-								}}
-							>
-								<BranchLanePopupMenu {isUnapplied} bind:visible on:action />
-							</div>
+							<BranchLaneContextMenu
+								bind:contextMenuEl={contextMenu}
+								{isUnapplied}
+								target={meatballButtonEl}
+							/>
 						</div>
 					{/if}
 				</div>
@@ -381,13 +377,6 @@
 		&:hover {
 			color: var(--clr-scale-ntrl-40);
 		}
-	}
-
-	.branch-popup-menu {
-		position: absolute;
-		top: calc(100% + 4px);
-		right: 0;
-		z-index: var(--z-floating);
 	}
 
 	.header__remote-branch {

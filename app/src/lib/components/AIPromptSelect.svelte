@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Select from '../shared/Select.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { Project } from '$lib/backend/projects';
-	import SelectItem from '$lib/shared/SelectItem.svelte';
+	import Select from '$lib/select/Select.svelte';
+	import SelectItem from '$lib/select/SelectItem.svelte';
 	import { getContext } from '$lib/utils/context';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
 	import type { Persisted } from '$lib/persisted/persisted';
@@ -24,7 +24,6 @@
 	}
 
 	let userPrompts = prompts.userPrompts;
-
 	let allPrompts: UserPrompt[] = [];
 
 	const defaultId = crypto.randomUUID();
@@ -44,16 +43,19 @@
 </script>
 
 <Select
-	items={allPrompts}
-	bind:selectedItemId={$selectedPromptId}
-	itemId="id"
-	labelId="name"
-	disabled={allPrompts.length === 1}
-	wide={true}
+	value={$selectedPromptId}
+	options={allPrompts.map((p) => ({ label: p.name, value: p.id }))}
 	label={promptUse === 'commits' ? 'Commit message' : 'Branch name'}
+	wide={true}
+	searchable
+	disabled={allPrompts.length === 1}
+	onselect={(value) => {
+		$selectedPromptId = value;
+	}}
 >
-	<SelectItem slot="template" let:item let:selected {selected} let:highlighted {highlighted}>
-		{item.name}
-		{highlighted}
-	</SelectItem>
+	{#snippet itemSnippet({ item, highlighted })}
+		<SelectItem selected={item.value === $selectedPromptId} {highlighted}>
+			{item.label}
+		</SelectItem>
+	{/snippet}
 </Select>

@@ -6,7 +6,6 @@
 </script>
 
 <script lang="ts">
-	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { persisted } from '$lib/persisted/persisted';
@@ -26,7 +25,6 @@
 		'projectDefaultAction_' + projectId
 	);
 
-	let contextMenu: ContextMenu;
 	let dropDown: DropDownButton;
 	let disabled = false;
 
@@ -56,23 +54,21 @@
 	}}
 >
 	{labels[action]}
-	<ContextMenu slot="context-menu" bind:this={contextMenu}>
-		<ContextMenuSection>
-			<ContextMenuItem
-				label={labels[BranchAction.Push]}
-				on:click={() => {
-					$preferredAction = BranchAction.Push;
-					dropDown.close();
-				}}
-			/>
-			<ContextMenuItem
-				label={labels[BranchAction.Integrate]}
-				disabled={!integrate}
-				on:click={() => {
-					$preferredAction = BranchAction.Integrate;
-					dropDown.close();
-				}}
-			/>
-		</ContextMenuSection>
-	</ContextMenu>
+	<ContextMenuSection slot="context-menu">
+		<ContextMenuItem
+			label={labels[BranchAction.Push]}
+			on:click={() => {
+				$preferredAction = BranchAction.Push;
+				dropDown.close();
+			}}
+		/>
+		<ContextMenuItem
+			label={labels[BranchAction.Integrate]}
+			disabled={!integrate}
+			on:click={() => {
+				$preferredAction = BranchAction.Integrate;
+				dropDown.close();
+			}}
+		/>
+	</ContextMenuSection>
 </DropDownButton>

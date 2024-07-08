@@ -1,11 +1,11 @@
 <script lang="ts">
 	import InfoMessage from '../shared/InfoMessage.svelte';
-	import Select from '../shared/Select.svelte';
 	import { Project } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import Select from '$lib/select/Select.svelte';
+	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import Button from '$lib/shared/Button.svelte';
-	import SelectItem from '$lib/shared/SelectItem.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { getRemoteBranches } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -67,47 +67,37 @@
 				</svelte:fragment>
 
 				<Select
-					items={remoteBranches}
-					bind:value={selectedBranch}
-					itemId="name"
-					labelId="name"
-					selectedItemId={$baseBranch.branchName}
+					value={selectedBranch.name}
+					options={remoteBranches.map((b) => ({ label: b.name, value: b.name }))}
+					onselect={(value) => {
+						selectedBranch = { name: value };
+					}}
 					disabled={targetChangeDisabled}
-					wide={true}
 					label="Current target branch"
+					searchable
 				>
-					<SelectItem
-						slot="template"
-						let:item
-						let:selected
-						{selected}
-						let:highlighted
-						{highlighted}
-					>
-						{item.name}
-					</SelectItem>
+					{#snippet itemSnippet({ item, highlighted })}
+						<SelectItem selected={item.value === selectedBranch.name} {highlighted}>
+							{item.label}
+						</SelectItem>
+					{/snippet}
 				</Select>
 
 				{#if uniqueRemotes(remoteBranches).length > 1}
 					<Select
-						items={uniqueRemotes(remoteBranches)}
-						bind:value={selectedRemote}
-						itemId="name"
-						labelId="name"
-						selectedItemId={$baseBranch.actualPushRemoteName()}
+						value={selectedRemote.name}
+						options={uniqueRemotes(remoteBranches).map((r) => ({ label: r.name, value: r.name }))}
+						onselect={(value) => {
+							selectedRemote = { name: value };
+						}}
 						disabled={targetChangeDisabled}
 						label="Create branches on remote"
 					>
-						<SelectItem
-							slot="template"
-							let:item
-							let:selected
-							{selected}
-							let:highlighted
-							{highlighted}
-						>
-							{item.name}
-						</SelectItem>
+						{#snippet itemSnippet({ item, highlighted })}
+							<SelectItem selected={item.value === selectedRemote.name} {highlighted}>
+								{item.label}
+							</SelectItem>
+						{/snippet}
 					</Select>
 				{/if}
 

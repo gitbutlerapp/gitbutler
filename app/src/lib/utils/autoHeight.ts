@@ -1,4 +1,4 @@
-export function useAutoHeight(element: HTMLTextAreaElement) {
+export function autoHeight(element: HTMLTextAreaElement) {
 	if (!element) return;
 
 	const elementBorder =

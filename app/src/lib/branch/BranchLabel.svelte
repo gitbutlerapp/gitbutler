@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { useResize } from '$lib/utils/useResize';
+	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { createEventDispatcher } from 'svelte';
 
 	export let name: string;
@@ -17,7 +17,7 @@
 </script>
 
 <span
-	use:useResize={(e) => {
+	use:resizeObserver={(e) => {
 		inputWidth = `${Math.round(e.frame.width)}px`;
 	}}
 	class="branch-name-mesure-el text-base-14 text-bold"

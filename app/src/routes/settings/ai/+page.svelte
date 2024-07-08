@@ -6,12 +6,12 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import { getSecretsService } from '$lib/secrets/secretsService';
+	import Select from '$lib/select/Select.svelte';
+	import SelectItem from '$lib/select/SelectItem.svelte';
 	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import RadioButton from '$lib/shared/RadioButton.svelte';
-	import Select from '$lib/shared/Select.svelte';
-	import SelectItem from '$lib/shared/SelectItem.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { UserService } from '$lib/stores/user';
@@ -86,45 +86,45 @@
 
 	const keyOptions = [
 		{
-			name: 'Use GitButler API',
+			label: 'Use GitButler API',
 			value: KeyOption.ButlerAPI
 		},
 		{
-			name: 'Your own key',
+			label: 'Your own key',
 			value: KeyOption.BringYourOwn
 		}
 	];
 
 	const openAIModelOptions = [
 		{
-			name: 'GPT 3.5 Turbo',
+			label: 'GPT 3.5 Turbo',
 			value: OpenAIModelName.GPT35Turbo
 		},
 		{
-			name: 'GPT 4',
+			label: 'GPT 4',
 			value: OpenAIModelName.GPT4
 		},
 		{
-			name: 'GPT 4 Turbo',
+			label: 'GPT 4 Turbo',
 			value: OpenAIModelName.GPT4Turbo
 		},
 		{
-			name: 'GPT 4 Omni',
+			label: 'GPT 4 Omni',
 			value: OpenAIModelName.GPT4o
 		}
 	];
 
 	const anthropicModelOptions = [
 		{
-			name: 'Sonnet',
+			label: 'Sonnet',
 			value: AnthropicModelName.Sonnet
 		},
 		{
-			name: 'Opus',
+			label: 'Opus',
 			value: AnthropicModelName.Opus
 		},
 		{
-			name: 'Haiku',
+			label: 'Haiku',
 			value: AnthropicModelName.Haiku
 		}
 	];
@@ -167,22 +167,18 @@
 			<SectionCard roundedTop={false} roundedBottom={false} orientation="row" topDivider>
 				<div class="inputs-group">
 					<Select
-						items={keyOptions}
-						bind:selectedItemId={openAIKeyOption}
-						itemId="value"
-						labelId="name"
+						value={openAIKeyOption}
+						options={keyOptions}
 						label="Do you want to provide your own key?"
+						onselect={(value) => {
+						openAIKeyOption = value as KeyOption;
+					}}
 					>
-						<SelectItem
-							slot="template"
-							let:item
-							let:selected
-							{selected}
-							let:highlighted
-							{highlighted}
-						>
-							{item.name}
-						</SelectItem>
+						{#snippet itemSnippet({ item, highlighted })}
+							<SelectItem selected={item.value === openAIKeyOption} {highlighted}>
+								{item.label}
+							</SelectItem>
+						{/snippet}
 					</Select>
 
 					{#if openAIKeyOption === KeyOption.ButlerAPI}
@@ -197,22 +193,18 @@
 						<TextBox label="API key" bind:value={openAIKey} required placeholder="sk-..." />
 
 						<Select
-							items={openAIModelOptions}
-							bind:selectedItemId={openAIModelName}
-							itemId="value"
-							labelId="name"
+							value={openAIModelName}
+							options={openAIModelOptions}
 							label="Model version"
+							onselect={(value) => {
+							openAIModelName = value as OpenAIModelName;
+						}}
 						>
-							<SelectItem
-								slot="template"
-								let:item
-								let:selected
-								{selected}
-								let:highlighted
-								{highlighted}
-							>
-								{item.name}
-							</SelectItem>
+							{#snippet itemSnippet({ item, highlighted })}
+								<SelectItem selected={item.value === openAIModelName} {highlighted}>
+									{item.label}
+								</SelectItem>
+							{/snippet}
 						</Select>
 					{:else if !$user}
 						<WelcomeSigninAction prompt="A user is required to make use of the GitButler API" />
@@ -237,22 +229,18 @@
 			<SectionCard roundedTop={false} roundedBottom={false} orientation="row" topDivider>
 				<div class="inputs-group">
 					<Select
-						items={keyOptions}
-						bind:selectedItemId={anthropicKeyOption}
-						itemId="value"
-						labelId="name"
+						value={anthropicKeyOption}
+						options={keyOptions}
 						label="Do you want to provide your own key?"
+						onselect={(value) => {
+						anthropicKeyOption = value as KeyOption;
+					}}
 					>
-						<SelectItem
-							slot="template"
-							let:item
-							let:selected
-							{selected}
-							let:highlighted
-							{highlighted}
-						>
-							{item.name}
-						</SelectItem>
+						{#snippet itemSnippet({ item, highlighted })}
+							<SelectItem selected={item.value === anthropicKeyOption} {highlighted}>
+								{item.label}
+							</SelectItem>
+						{/snippet}
 					</Select>
 
 					{#if anthropicKeyOption === KeyOption.ButlerAPI}
@@ -272,22 +260,18 @@
 						/>
 
 						<Select
-							items={anthropicModelOptions}
-							bind:selectedItemId={anthropicModelName}
-							itemId="value"
-							labelId="name"
+							value={anthropicModelName}
+							options={anthropicModelOptions}
 							label="Model version"
+							onselect={(value) => {
+							anthropicModelName = value as AnthropicModelName;
+						}}
 						>
-							<SelectItem
-								slot="template"
-								let:item
-								let:selected
-								{selected}
-								let:highlighted
-								{highlighted}
-							>
-								{item.name}
-							</SelectItem>
+							{#snippet itemSnippet({ item, highlighted })}
+								<SelectItem selected={item.value === anthropicModelName} {highlighted}>
+									{item.label}
+								</SelectItem>
+							{/snippet}
 						</Select>
 					{:else if !$user}
 						<WelcomeSigninAction prompt="A user is required to make use of the GitButler API" />

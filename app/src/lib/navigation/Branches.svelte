@@ -3,7 +3,7 @@
 	import BranchesHeader from './BranchesHeader.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { BranchService } from '$lib/branches/service';
-	import FilterPopupMenu from '$lib/components/FilterPopupMenu.svelte';
+	import FilterButton from '$lib/components/FilterBranchesButton.svelte';
 	import { GitHubService } from '$lib/github/service';
 	import { persisted } from '$lib/persisted/persisted';
 	import { storeToObservable } from '$lib/rxjs/store';
@@ -18,12 +18,12 @@
 	const dispatch = createEventDispatcher<{ scrollbarDragging: boolean }>();
 
 	export let projectId: string;
-
 	export const textFilter$ = new BehaviorSubject<string | undefined>(undefined);
 
 	const branchService = getContext(BranchService);
 	const githubService = getContext(GitHubService);
 
+	// let contextMenu: ContextMenuActions;
 	let includePrs = persisted(true, 'includePrs_' + projectId);
 	let includeRemote = persisted(true, 'includeRemote_' + projectId);
 	let includeStashed = persisted(true, 'includeStashed_' + projectId);
@@ -114,9 +114,9 @@
 		filteredBranchCount={$filteredBranches$?.length}
 		filtersActive={$filtersActive}
 	>
-		{#snippet contextMenu({ visible })}
-			<FilterPopupMenu
-				{visible}
+		{#snippet filterButton()}
+			<FilterButton
+				{filtersActive}
 				{includePrs}
 				{includeRemote}
 				{includeStashed}
