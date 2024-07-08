@@ -4,7 +4,7 @@ declare global {
 	namespace App {
 		interface Error {
 			message: string;
-			errorId: string;
+			errorId?: string;
 		}
 		// interface Locals {}
 		// interface PageData {}
@@ -18,5 +18,3 @@ declare module 'tinykeys';
 interface HTMLElement {
 	scrollIntoViewIfNeeded: (centerIfNeeded?: boolean) => void;
 }
-
-export {};
