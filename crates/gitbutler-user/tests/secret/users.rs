@@ -1,8 +1,11 @@
-use crate::{credentials, credentials::count as count_secrets};
-use gitbutler_core::users::User;
+// use gitbutler_user::{credentials, credentials::count as count_secrets};
+use gitbutler_user::User;
 use serial_test::serial;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
+
+use crate::secret::credentials;
+use crate::secret::credentials::count as count_secrets;
 
 /// Validate that secrets previously stored in plain-text are auto-migrated into the secrets store.
 /// From there, data-structures for use by the frontend need to be 'enriched' with secrets before sending them,
@@ -14,7 +17,7 @@ fn auto_migration_of_secrets_on_when_getting_and_setting_user() -> anyhow::Resul
         credentials::setup();
         let app_data = tempdir()?;
 
-        let users = gitbutler_core::users::Controller::from_path(app_data.path());
+        let users = gitbutler_user::Controller::from_path(app_data.path());
         assert!(
             users.get_user()?.is_none(),
             "Users are bound to logins, so there is none by default"

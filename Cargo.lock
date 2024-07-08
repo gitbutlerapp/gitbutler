@@ -2120,6 +2120,7 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-repo",
  "gitbutler-testsupport",
+ "gitbutler-user",
  "glob",
  "hex",
  "itertools 0.13.0",
@@ -2334,6 +2335,7 @@ dependencies = [
  "gitbutler-git",
  "gitbutler-project",
  "gitbutler-testsupport",
+ "gitbutler-user",
  "resolve-path",
  "serde_json",
  "tempfile",
@@ -2353,6 +2355,7 @@ dependencies = [
  "gitbutler-core",
  "gitbutler-oplog",
  "gitbutler-project",
+ "gitbutler-user",
  "itertools 0.13.0",
  "tracing",
 ]
@@ -2377,6 +2380,7 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-repo",
  "gitbutler-testsupport",
+ "gitbutler-user",
  "gitbutler-watcher",
  "log",
  "nonzero_ext",
@@ -2413,10 +2417,24 @@ dependencies = [
  "gitbutler-core",
  "gitbutler-project",
  "gitbutler-repo",
+ "gitbutler-user",
  "keyring",
  "once_cell",
  "pretty_assertions",
  "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "gitbutler-user"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "gitbutler-core",
+ "keyring",
+ "serde",
+ "serde_json",
+ "serial_test",
  "tempfile",
 ]
 
@@ -2434,6 +2452,7 @@ dependencies = [
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-sync",
+ "gitbutler-user",
  "gix",
  "notify",
  "thiserror",

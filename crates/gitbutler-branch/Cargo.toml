@@ -14,6 +14,7 @@ gitbutler-core.workspace = true
 gitbutler-oplog.workspace = true
 gitbutler-branchstate.workspace = true
 gitbutler-repo.workspace = true
+gitbutler-user.workspace = true
 serde = { workspace = true, features = ["std"]}
 bstr = "1.9.1"
 diffy = "0.3.0"

@@ -6,7 +6,7 @@ use gitbutler_branch::assets;
 use gitbutler_branch::VirtualBranches;
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::error::Marker;
-use gitbutler_core::{git, users};
+use gitbutler_core::git;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     oplog::Oplog,
@@ -14,6 +14,7 @@ use gitbutler_oplog::{
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_sync::cloud::sync_with_gitbutler;
+use gitbutler_user as users;
 use tracing::instrument;
 
 use super::{events, Change};

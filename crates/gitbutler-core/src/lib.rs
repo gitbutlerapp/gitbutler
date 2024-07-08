@@ -29,7 +29,7 @@ pub mod ssh;
 pub mod storage;
 pub mod time;
 pub mod types;
-pub mod users;
+// pub mod users;
 pub mod virtual_branches;
 #[cfg(target_os = "windows")]
 pub mod windows;

@@ -108,10 +108,10 @@ fn main() {
                     let projects_storage_controller = gitbutler_project::storage::Storage::new(storage_controller.clone());
                     app_handle.manage(projects_storage_controller.clone());
 
-                    let users_storage_controller = gitbutler_core::users::storage::Storage::new(storage_controller.clone());
+                    let users_storage_controller = gitbutler_user::storage::Storage::new(storage_controller.clone());
                     app_handle.manage(users_storage_controller.clone());
 
-                    let users_controller = gitbutler_core::users::Controller::new(users_storage_controller.clone());
+                    let users_controller = gitbutler_user::Controller::new(users_storage_controller.clone());
                     app_handle.manage(users_controller.clone());
 
                     let projects_controller = gitbutler_project::Controller::new(

@@ -13,7 +13,7 @@ use crate::{init_opts, init_opts_bare, VAR_NO_CLEANUP};
 pub struct Suite {
     pub local_app_data: Option<TempDir>,
     pub storage: gitbutler_core::storage::Storage,
-    pub users: gitbutler_core::users::Controller,
+    pub users: gitbutler_user::Controller,
     pub projects: gitbutler_project::Controller,
     pub keys: gitbutler_core::keys::Controller,
 }
@@ -30,7 +30,7 @@ impl Default for Suite {
     fn default() -> Self {
         let local_app_data = temp_dir();
         let storage = gitbutler_core::storage::Storage::new(local_app_data.path());
-        let users = gitbutler_core::users::Controller::from_path(local_app_data.path());
+        let users = gitbutler_user::Controller::from_path(local_app_data.path());
         let projects = gitbutler_project::Controller::from_path(local_app_data.path());
         let keys = gitbutler_core::keys::Controller::from_path(local_app_data.path());
         Self {
@@ -47,9 +47,9 @@ impl Suite {
     pub fn local_app_data(&self) -> &Path {
         self.local_app_data.as_ref().unwrap().path()
     }
-    pub fn sign_in(&self) -> gitbutler_core::users::User {
+    pub fn sign_in(&self) -> gitbutler_user::User {
         crate::secrets::setup_blackhole_store();
-        let user: gitbutler_core::users::User =
+        let user: gitbutler_user::User =
             serde_json::from_str(include_str!("fixtures/user/minimal.v1"))
                 .expect("valid v1 user file");
         self.users.set_user(&user).expect("failed to add user");
