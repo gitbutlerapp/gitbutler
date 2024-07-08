@@ -1,11 +1,11 @@
 use anyhow::Result;
 use futures::future::join_all;
-use gitbutler_core::virtual_branches::Author;
 use gitbutler_user as users;
 use std::{collections::HashMap, path, sync, time::Duration};
 use url::Url;
 
 use crate::{
+    author::Author,
     base::BaseBranch,
     remote::{RemoteBranchData, RemoteCommit},
     VirtualBranch, VirtualBranchCommit,

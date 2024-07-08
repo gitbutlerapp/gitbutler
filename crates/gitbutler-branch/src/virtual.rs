@@ -19,10 +19,10 @@ use diffy::{apply_bytes as diffy_apply, Line, Patch};
 use git2::build::TreeUpdateBuilder;
 use git2::ErrorCode;
 use git2_hooks::HookResult;
-use gitbutler_core::virtual_branches::Author;
 use hex::ToHex;
 use serde::{Deserialize, Serialize};
 
+use crate::author::Author;
 use crate::conflicts::{self, RepoConflicts};
 use crate::integration::{get_integration_commiter, get_workspace_head};
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
