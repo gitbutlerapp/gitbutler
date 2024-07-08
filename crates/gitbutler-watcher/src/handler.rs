@@ -2,10 +2,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use gitbutler_branch::VirtualBranches;
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::error::Marker;
-use gitbutler_core::{assets, git, users};
+use gitbutler_core::git;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     oplog::Oplog,
@@ -13,6 +12,9 @@ use gitbutler_oplog::{
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_sync::cloud::sync_with_gitbutler;
+use gitbutler_user as users;
+use gitbutler_virtual::assets;
+use gitbutler_virtual::VirtualBranches;
 use tracing::instrument;
 
 use super::{events, Change};
@@ -29,8 +31,8 @@ pub struct Handler {
     // need extra protection.
     projects: projects::Controller,
     users: users::Controller,
-    vbranch_controller: gitbutler_branch::Controller,
-    assets_proxy: gitbutler_branch::assets::Proxy,
+    vbranch_controller: gitbutler_virtual::Controller,
+    assets_proxy: gitbutler_virtual::assets::Proxy,
 
     /// A function to send events - decoupled from app-handle for testing purposes.
     #[allow(clippy::type_complexity)]
@@ -43,7 +45,7 @@ impl Handler {
     pub fn new(
         projects: projects::Controller,
         users: users::Controller,
-        vbranch_controller: gitbutler_branch::Controller,
+        vbranch_controller: gitbutler_virtual::Controller,
         assets_proxy: assets::Proxy,
         send_event: impl Fn(Change) -> Result<()> + Send + Sync + 'static,
     ) -> Self {
@@ -51,7 +53,7 @@ impl Handler {
             projects,
             users,
             vbranch_controller,
-            assets_proxy: gitbutler_branch::assets::Proxy::new(assets_proxy),
+            assets_proxy,
             send_event: Arc::new(send_event),
         }
     }

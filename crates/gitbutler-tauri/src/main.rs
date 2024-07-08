@@ -13,12 +13,13 @@
     clippy::too_many_lines
 )]
 
-use gitbutler_core::{assets, storage};
+use gitbutler_core::storage;
 use gitbutler_repo::credentials::Helper;
 use gitbutler_tauri::{
     app, askpass, commands, config, github, keys, logs, menu, projects, remotes, repo, secret,
     undo, users, virtual_branches, watcher, zip,
 };
+use gitbutler_virtual::assets;
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
 
@@ -81,7 +82,7 @@ fn main() {
                     // SAFETY(qix-): This is safe because we're initializing the askpass broker here,
                     // SAFETY(qix-): before any other threads would ever access it.
                     unsafe {
-                        gitbutler_core::askpass::init({
+                        gitbutler_repo::askpass::init({
                             let handle = app_handle.clone();
                             move |event| {
                                 handle.emit_all("git_prompt", event).expect("tauri event emission doesn't fail in practice")
@@ -107,10 +108,10 @@ fn main() {
                     let projects_storage_controller = gitbutler_project::storage::Storage::new(storage_controller.clone());
                     app_handle.manage(projects_storage_controller.clone());
 
-                    let users_storage_controller = gitbutler_core::users::storage::Storage::new(storage_controller.clone());
+                    let users_storage_controller = gitbutler_user::storage::Storage::new(storage_controller.clone());
                     app_handle.manage(users_storage_controller.clone());
 
-                    let users_controller = gitbutler_core::users::Controller::new(users_storage_controller.clone());
+                    let users_controller = gitbutler_user::Controller::new(users_storage_controller.clone());
                     app_handle.manage(users_controller.clone());
 
                     let projects_controller = gitbutler_project::Controller::new(
@@ -136,7 +137,7 @@ fn main() {
                     let git_credentials_controller = Helper::default();
                     app_handle.manage(git_credentials_controller.clone());
 
-                    app_handle.manage(gitbutler_branch::controller::Controller::default());
+                    app_handle.manage(gitbutler_virtual::controller::Controller::default());
 
                     let app = app::App::new(
                         projects_controller,

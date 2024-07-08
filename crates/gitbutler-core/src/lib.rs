@@ -13,8 +13,6 @@
     clippy::too_many_lines
 )]
 
-pub mod askpass;
-pub mod assets;
 pub mod dedup;
 pub mod error;
 pub mod fs;
@@ -23,15 +21,12 @@ pub mod id;
 pub mod keys;
 pub mod lock;
 pub mod path;
-pub mod project_repository;
 pub mod secret;
 pub mod serde;
 pub mod ssh;
 pub mod storage;
 pub mod time;
 pub mod types;
-pub mod users;
 pub mod virtual_branches;
 #[cfg(target_os = "windows")]
 pub mod windows;
-pub mod writer;

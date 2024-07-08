@@ -6,12 +6,13 @@ use anyhow::{anyhow, Context, Result};
 use gitbutler_branchstate::VirtualBranchesAccess;
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::error::Code;
+use gitbutler_core::git;
 use gitbutler_core::git::Url;
 use gitbutler_core::id::Id;
-use gitbutler_core::{git, users};
 use gitbutler_oplog::oplog::Oplog;
 use gitbutler_project as projects;
 use gitbutler_project::{CodePushState, Project};
+use gitbutler_user as users;
 use itertools::Itertools;
 
 pub async fn sync_with_gitbutler(

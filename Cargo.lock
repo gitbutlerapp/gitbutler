@@ -2103,39 +2103,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-branch"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "bstr",
- "diffy",
- "futures",
- "git2",
- "git2-hooks",
- "gitbutler-branchstate",
- "gitbutler-command-context",
- "gitbutler-core",
- "gitbutler-git",
- "gitbutler-oplog",
- "gitbutler-project",
- "gitbutler-repo",
- "gitbutler-testsupport",
- "glob",
- "hex",
- "itertools 0.13.0",
- "md5",
- "once_cell",
- "pretty_assertions",
- "regex",
- "serde",
- "serial_test",
- "tempfile",
- "tokio",
- "tracing",
- "url",
-]
-
-[[package]]
 name = "gitbutler-branchstate"
 version = "0.0.0"
 dependencies = [
@@ -2332,7 +2299,10 @@ dependencies = [
  "gitbutler-git",
  "gitbutler-project",
  "gitbutler-testsupport",
+ "gitbutler-user",
+ "log",
  "resolve-path",
+ "serde",
  "serde_json",
  "tempfile",
  "thiserror",
@@ -2351,6 +2321,7 @@ dependencies = [
  "gitbutler-core",
  "gitbutler-oplog",
  "gitbutler-project",
+ "gitbutler-user",
  "itertools 0.13.0",
  "tracing",
 ]
@@ -2366,7 +2337,6 @@ dependencies = [
  "dirs 5.0.1",
  "futures",
  "git2",
- "gitbutler-branch",
  "gitbutler-command-context",
  "gitbutler-config",
  "gitbutler-core",
@@ -2375,6 +2345,8 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-repo",
  "gitbutler-testsupport",
+ "gitbutler-user",
+ "gitbutler-virtual",
  "gitbutler-watcher",
  "log",
  "nonzero_ext",
@@ -2405,17 +2377,67 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "git2",
- "gitbutler-branch",
  "gitbutler-branchstate",
  "gitbutler-command-context",
  "gitbutler-core",
  "gitbutler-project",
  "gitbutler-repo",
+ "gitbutler-user",
+ "gitbutler-virtual",
  "keyring",
  "once_cell",
  "pretty_assertions",
  "serde_json",
  "tempfile",
+]
+
+[[package]]
+name = "gitbutler-user"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "gitbutler-core",
+ "keyring",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "tempfile",
+]
+
+[[package]]
+name = "gitbutler-virtual"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "diffy",
+ "futures",
+ "git2",
+ "git2-hooks",
+ "gitbutler-branchstate",
+ "gitbutler-command-context",
+ "gitbutler-core",
+ "gitbutler-git",
+ "gitbutler-oplog",
+ "gitbutler-project",
+ "gitbutler-repo",
+ "gitbutler-testsupport",
+ "gitbutler-user",
+ "glob",
+ "hex",
+ "itertools 0.13.0",
+ "md5",
+ "once_cell",
+ "pretty_assertions",
+ "regex",
+ "reqwest 0.12.5",
+ "serde",
+ "serial_test",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "url",
+ "urlencoding",
 ]
 
 [[package]]
@@ -2425,13 +2447,14 @@ dependencies = [
  "anyhow",
  "backoff",
  "futures",
- "gitbutler-branch",
  "gitbutler-command-context",
  "gitbutler-core",
  "gitbutler-notify-debouncer",
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-sync",
+ "gitbutler-user",
+ "gitbutler-virtual",
  "gix",
  "notify",
  "thiserror",

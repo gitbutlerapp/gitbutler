@@ -1,7 +1,7 @@
 use super::{storage::Storage, User};
-use crate::secret;
 use anyhow::Context;
 use anyhow::Result;
+use gitbutler_core::secret;
 use std::path::PathBuf;
 
 /// TODO(ST): rename to `Login` - seems more akin to what it does

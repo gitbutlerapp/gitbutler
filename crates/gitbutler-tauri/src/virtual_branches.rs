@@ -1,12 +1,7 @@
 pub mod commands {
     use crate::error::Error;
     use anyhow::{anyhow, Context};
-    use gitbutler_branch::base::BaseBranch;
-    use gitbutler_branch::files::RemoteBranchFile;
-    use gitbutler_branch::remote::{RemoteBranch, RemoteBranchData};
-    use gitbutler_branch::{Controller, NameConflitResolution, VirtualBranches};
     use gitbutler_core::{
-        assets,
         error::Code,
         git,
         types::ReferenceName,
@@ -14,6 +9,11 @@ pub mod commands {
     };
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
+    use gitbutler_virtual::assets;
+    use gitbutler_virtual::base::BaseBranch;
+    use gitbutler_virtual::files::RemoteBranchFile;
+    use gitbutler_virtual::remote::{RemoteBranch, RemoteBranchData};
+    use gitbutler_virtual::{Controller, NameConflitResolution, VirtualBranches};
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
@@ -50,8 +50,7 @@ pub mod commands {
             .list_virtual_branches(&project)
             .await?;
 
-        let proxy =
-            gitbutler_branch::assets::Proxy::new(handle.state::<assets::Proxy>().inner().clone());
+        let proxy = handle.state::<assets::Proxy>().inner().clone();
         let branches = proxy.proxy_virtual_branches(branches).await;
         Ok(VirtualBranches {
             branches,
@@ -119,9 +118,7 @@ pub mod commands {
             .get_base_branch_data(&project)
             .await
         {
-            let proxy = gitbutler_branch::assets::Proxy::new(
-                handle.state::<assets::Proxy>().inner().clone(),
-            );
+            let proxy = handle.state::<assets::Proxy>().inner().clone();
             let base_branch = proxy.proxy_base_branch(base_branch).await;
             return Ok(Some(base_branch));
         }
@@ -145,8 +142,7 @@ pub mod commands {
             .set_base_branch(&project, &branch_name)
             .await?;
 
-        let proxy =
-            gitbutler_branch::assets::Proxy::new(handle.state::<assets::Proxy>().inner().clone());
+        let proxy = handle.state::<assets::Proxy>().inner().clone();
         let base_branch = proxy.proxy_base_branch(base_branch).await;
 
         // if they also sent a different push remote, set that too
@@ -457,8 +453,7 @@ pub mod commands {
             .get_remote_branch_data(&project, &refname)
             .await?;
 
-        let proxy =
-            gitbutler_branch::assets::Proxy::new(handle.state::<assets::Proxy>().inner().clone());
+        let proxy = handle.state::<assets::Proxy>().inner().clone();
         let branch_data = proxy.proxy_remote_branch_data(branch_data).await;
         Ok(branch_data)
     }

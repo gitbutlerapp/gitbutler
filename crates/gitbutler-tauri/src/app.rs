@@ -1,10 +1,10 @@
 use anyhow::{Context, Result};
-use gitbutler_branch::conflicts;
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::{git, virtual_branches::BranchId};
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_repo::{credentials::Helper, RepoActions, RepositoryExt};
+use gitbutler_virtual::conflicts;
 
 #[derive(Clone)]
 pub struct App {
