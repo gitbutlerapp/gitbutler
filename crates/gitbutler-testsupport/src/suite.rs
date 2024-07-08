@@ -4,7 +4,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use gitbutler_core::{git::RepositoryExt, project_repository};
+use gitbutler_core::project_repository;
+use gitbutler_repo::RepositoryExt;
 use tempfile::{tempdir, TempDir};
 
 use crate::{init_opts, init_opts_bare, VAR_NO_CLEANUP};
