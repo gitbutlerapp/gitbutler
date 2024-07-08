@@ -8,6 +8,13 @@ runs:
   using: "composite"
   steps:
     - uses: ./.github/actions/init-env-rust
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2.7.3
+      with:
+        key: ${{ inputs.features }}
+        workspaces: crates
+        cache-all-crates: true
+
 
     - run: |
         printf '%s\n' "$JSON_DOC" > /tmp/features.json
