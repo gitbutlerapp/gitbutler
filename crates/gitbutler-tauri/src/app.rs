@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
 use gitbutler_branch::branch::BranchId;
 use gitbutler_command_context::ProjectRepo;
-use gitbutler_core::git;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
+use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::{credentials::Helper, RepoActions, RepositoryExt};
 use gitbutler_virtual::conflicts;
 
@@ -25,7 +25,7 @@ impl App {
         Ok(())
     }
 
-    pub fn git_remote_branches(&self, project_id: ProjectId) -> Result<Vec<git::RemoteRefname>> {
+    pub fn git_remote_branches(&self, project_id: ProjectId) -> Result<Vec<RemoteRefname>> {
         let project = self.projects.get(project_id)?;
         let project_repository = ProjectRepo::open(&project)?;
         project_repository.repo().remote_branches()

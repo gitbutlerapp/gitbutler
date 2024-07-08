@@ -2110,6 +2110,7 @@ dependencies = [
  "bstr",
  "git2",
  "gitbutler-core",
+ "gitbutler-reference",
  "hex",
  "itertools 0.13.0",
  "lazy_static",
@@ -2126,6 +2127,7 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-core",
  "gitbutler-project",
+ "gitbutler-reference",
  "itertools 0.13.0",
  "serde",
  "toml 0.8.14",
@@ -2305,6 +2307,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-reference"
+version = "0.0.0"
+dependencies = [
+ "git2",
+ "gitbutler-core",
+ "regex",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "gitbutler-repo"
 version = "0.0.0"
 dependencies = [
@@ -2317,6 +2330,7 @@ dependencies = [
  "gitbutler-core",
  "gitbutler-git",
  "gitbutler-project",
+ "gitbutler-reference",
  "gitbutler-testsupport",
  "gitbutler-user",
  "log",
@@ -2341,6 +2355,7 @@ dependencies = [
  "gitbutler-core",
  "gitbutler-oplog",
  "gitbutler-project",
+ "gitbutler-reference",
  "gitbutler-user",
  "itertools 0.13.0",
  "tracing",
@@ -2364,6 +2379,7 @@ dependencies = [
  "gitbutler-feedback",
  "gitbutler-oplog",
  "gitbutler-project",
+ "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-testsupport",
  "gitbutler-user",
@@ -2403,6 +2419,7 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-core",
  "gitbutler-project",
+ "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-user",
  "gitbutler-virtual",
@@ -2415,7 +2432,7 @@ dependencies = [
 
 [[package]]
 name = "gitbutler-user"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "gitbutler-core",
@@ -2443,6 +2460,7 @@ dependencies = [
  "gitbutler-git",
  "gitbutler-oplog",
  "gitbutler-project",
+ "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-testsupport",
  "gitbutler-user",
@@ -2475,6 +2493,7 @@ dependencies = [
  "gitbutler-notify-debouncer",
  "gitbutler-oplog",
  "gitbutler-project",
+ "gitbutler-reference",
  "gitbutler-sync",
  "gitbutler-user",
  "gitbutler-virtual",

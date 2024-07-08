@@ -13,6 +13,7 @@ use gitbutler_oplog::{
     snapshot::Snapshot,
 };
 use gitbutler_project::{FetchResult, Project};
+use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{credentials::Helper, RepoActions, RepositoryExt};
 use std::{path::Path, sync::Arc};
 
@@ -30,7 +31,6 @@ use super::r#virtual as branch;
 
 use crate::files::RemoteBranchFile;
 use gitbutler_branch::target;
-use gitbutler_core::git;
 
 #[derive(Clone)]
 pub struct Controller {
@@ -79,7 +79,7 @@ impl Controller {
     pub async fn can_apply_remote_branch(
         &self,
         project: &Project,
-        branch_name: &git::RemoteRefname,
+        branch_name: &RemoteRefname,
     ) -> Result<bool> {
         let project_repository = ProjectRepo::open(project)?;
         branch::is_remote_branch_mergeable(&project_repository, branch_name).map_err(Into::into)
@@ -110,7 +110,7 @@ impl Controller {
     pub async fn create_virtual_branch_from_branch(
         &self,
         project: &Project,
-        branch: &git::Refname,
+        branch: &Refname,
     ) -> Result<BranchId> {
         self.permit(project.ignore_project_semaphore).await;
 
@@ -136,7 +136,7 @@ impl Controller {
     pub async fn set_base_branch(
         &self,
         project: &Project,
-        target_branch: &git::RemoteRefname,
+        target_branch: &RemoteRefname,
     ) -> Result<BaseBranch> {
         let project_repository = ProjectRepo::open(project)?;
         let _ = project_repository
@@ -397,7 +397,7 @@ impl Controller {
     pub async fn get_remote_branch_data(
         &self,
         project: &Project,
-        refname: &git::Refname,
+        refname: &Refname,
     ) -> Result<RemoteBranchData> {
         let project_repository = ProjectRepo::open(project)?;
         get_branch_data(&project_repository, refname)

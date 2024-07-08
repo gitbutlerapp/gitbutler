@@ -1,5 +1,5 @@
-use gitbutler_core::git;
 use gitbutler_project::ProjectId;
+use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::credentials::Helper;
 use tauri::Manager;
 use tracing::instrument;
@@ -12,7 +12,7 @@ use crate::error::Error;
 pub async fn git_remote_branches(
     handle: tauri::AppHandle,
     project_id: ProjectId,
-) -> Result<Vec<git::RemoteRefname>, Error> {
+) -> Result<Vec<RemoteRefname>, Error> {
     let app = handle.state::<app::App>();
     let branches = app.git_remote_branches(project_id)?;
     Ok(branches)

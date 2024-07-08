@@ -23,6 +23,7 @@ gix = { workspace = true, features = ["excludes"] }
 gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
 gitbutler-user.workspace = true
+gitbutler-reference.workspace = true
 
 
 backoff = "0.4.0"

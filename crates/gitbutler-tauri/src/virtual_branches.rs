@@ -3,9 +3,10 @@ pub mod commands {
     use anyhow::{anyhow, Context};
     use gitbutler_branch::branch::{BranchCreateRequest, BranchId, BranchUpdateRequest};
     use gitbutler_branch::ownership::BranchOwnershipClaims;
-    use gitbutler_core::{error::Code, git, types::ReferenceName};
+    use gitbutler_core::{error::Code, types::ReferenceName};
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
+    use gitbutler_reference::{Refname, RemoteRefname};
     use gitbutler_virtual::assets;
     use gitbutler_virtual::base::BaseBranch;
     use gitbutler_virtual::files::RemoteBranchFile;
@@ -76,7 +77,7 @@ pub mod commands {
     pub async fn create_virtual_branch_from_branch(
         handle: AppHandle,
         project_id: ProjectId,
-        branch: git::Refname,
+        branch: Refname,
     ) -> Result<BranchId, Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
         let branch_id = handle
@@ -278,7 +279,7 @@ pub mod commands {
     pub async fn can_apply_remote_branch(
         handle: AppHandle,
         project_id: ProjectId,
-        branch: git::RemoteRefname,
+        branch: RemoteRefname,
     ) -> Result<bool, Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
         Ok(handle
@@ -442,7 +443,7 @@ pub mod commands {
     pub async fn get_remote_branch_data(
         handle: tauri::AppHandle,
         project_id: ProjectId,
-        refname: git::Refname,
+        refname: Refname,
     ) -> Result<RemoteBranchData, Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
         let branch_data = handle

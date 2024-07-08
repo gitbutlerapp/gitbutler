@@ -4,11 +4,12 @@ use anyhow::{Context, Result};
 use bstr::BString;
 use gitbutler_branchstate::VirtualBranchesHandle;
 use gitbutler_command_context::ProjectRepo;
+use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 use serde::Serialize;
 
 use gitbutler_branch::target;
-use gitbutler_core::git::{self, CommitExt};
+use gitbutler_core::git::CommitExt;
 
 use crate::author::Author;
 
@@ -26,8 +27,8 @@ use crate::author::Author;
 pub struct RemoteBranch {
     #[serde(with = "gitbutler_core::serde::oid")]
     pub sha: git2::Oid,
-    pub name: git::Refname,
-    pub upstream: Option<git::RemoteRefname>,
+    pub name: Refname,
+    pub upstream: Option<RemoteRefname>,
     pub last_commit_timestamp_ms: Option<u128>,
     pub last_commit_author: Option<String>,
 }
@@ -37,8 +38,8 @@ pub struct RemoteBranch {
 pub struct RemoteBranchData {
     #[serde(with = "gitbutler_core::serde::oid")]
     pub sha: git2::Oid,
-    pub name: git::Refname,
-    pub upstream: Option<git::RemoteRefname>,
+    pub name: Refname,
+    pub upstream: Option<RemoteRefname>,
     pub behind: u32,
     pub commits: Vec<RemoteCommit>,
     #[serde(with = "gitbutler_core::serde::oid_opt", default)]
@@ -89,7 +90,7 @@ pub fn list_remote_branches(project_repository: &ProjectRepo) -> Result<Vec<Remo
 
 pub fn get_branch_data(
     project_repository: &ProjectRepo,
-    refname: &git::Refname,
+    refname: &Refname,
 ) -> Result<RemoteBranchData> {
     let default_target = default_target(&project_repository.project().gb_dir())?;
 
@@ -114,7 +115,7 @@ pub fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<RemoteBra
             return Ok(None);
         }
     };
-    let name = git::Refname::try_from(branch).context("could not get branch name");
+    let name = Refname::try_from(branch).context("could not get branch name");
     match name {
         Ok(name) => branch
             .get()
@@ -122,7 +123,7 @@ pub fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<RemoteBra
             .map(|sha| {
                 Ok(RemoteBranch {
                     sha,
-                    upstream: if let git::Refname::Local(local_name) = &name {
+                    upstream: if let Refname::Local(local_name) = &name {
                         local_name.remote().cloned()
                     } else {
                         None
@@ -158,7 +159,7 @@ pub fn branch_to_remote_branch_data(
                 .log(sha, LogUntil::Commit(base))
                 .context("failed to get ahead commits")?;
 
-            let name = git::Refname::try_from(branch).context("could not get branch name")?;
+            let name = Refname::try_from(branch).context("could not get branch name")?;
 
             let count_behind = project_repository
                 .distance(base, sha)
@@ -168,7 +169,7 @@ pub fn branch_to_remote_branch_data(
 
             Ok(RemoteBranchData {
                 sha,
-                upstream: if let git::Refname::Local(local_name) = &name {
+                upstream: if let Refname::Local(local_name) = &name {
                     local_name.remote().cloned()
                 } else {
                     None

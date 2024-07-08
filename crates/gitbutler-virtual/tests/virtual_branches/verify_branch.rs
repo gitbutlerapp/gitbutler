@@ -1,3 +1,5 @@
+use gitbutler_reference::LocalRefname;
+
 use super::*;
 
 // Ensures that `verify_branch` returns an error when not on the integration branch.
@@ -10,7 +12,7 @@ async fn should_fail_on_incorrect_branch() {
         ..
     } = &Test::default();
 
-    let branch_name: git::LocalRefname = "refs/heads/somebranch".parse().unwrap();
+    let branch_name: LocalRefname = "refs/heads/somebranch".parse().unwrap();
     repository.checkout(&branch_name);
     let result = controller.list_virtual_branches(project).await;
 

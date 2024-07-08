@@ -5,6 +5,7 @@ use gitbutler_branch::branch;
 use gitbutler_core::error::Marker;
 use gitbutler_core::git;
 use gitbutler_project::{self as projects, Project, ProjectId};
+use gitbutler_reference::Refname;
 use gitbutler_virtual::Controller;
 use tempfile::TempDir;
 
@@ -131,7 +132,7 @@ async fn resolve_conflict_flow() {
         let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
         assert_eq!(branches.len(), 0);
 
-        git::Refname::from_str(&unapplied_branches[0]).unwrap()
+        Refname::from_str(&unapplied_branches[0]).unwrap()
     };
 
     let branch1_id = {

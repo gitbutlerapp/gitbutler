@@ -7,12 +7,12 @@ use gitbutler_branch::target::Target;
 use gitbutler_branchstate::VirtualBranchesAccess;
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::error::Code;
-use gitbutler_core::git;
 use gitbutler_core::git::Url;
 use gitbutler_core::id::Id;
 use gitbutler_oplog::oplog::Oplog;
 use gitbutler_project as projects;
 use gitbutler_project::{CodePushState, Project};
+use gitbutler_reference::Refname;
 use gitbutler_user as users;
 use itertools::Itertools;
 
@@ -138,7 +138,7 @@ fn batch_rev_walk(
     Ok(oids)
 }
 
-fn collect_refs(project_repository: &ProjectRepo) -> anyhow::Result<Vec<git::Refname>> {
+fn collect_refs(project_repository: &ProjectRepo) -> anyhow::Result<Vec<Refname>> {
     Ok(project_repository
         .repo()
         .references_glob("refs/*")?
@@ -161,7 +161,7 @@ fn push_all_refs(
         .filter(|r| {
             matches!(
                 r,
-                git::Refname::Remote(_) | git::Refname::Virtual(_) | git::Refname::Local(_)
+                Refname::Remote(_) | Refname::Virtual(_) | Refname::Local(_)
             )
         })
         .map(|r| format!("+{}:{}", r, r))

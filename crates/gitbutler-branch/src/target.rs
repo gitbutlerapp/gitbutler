@@ -1,10 +1,9 @@
+use gitbutler_reference::RemoteRefname;
 use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
-
-use gitbutler_core::git;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Target {
-    pub branch: git::RemoteRefname,
+    pub branch: RemoteRefname,
     pub remote_url: String,
     pub sha: git2::Oid,
     pub push_remote_name: Option<String>,
@@ -43,7 +42,7 @@ impl<'de> serde::Deserialize<'de> for Target {
             .map_err(|x| serde::de::Error::custom(x.message()))?;
 
         let target = Target {
-            branch: git::RemoteRefname::new(&target_data.remote_name, &target_data.branch_name),
+            branch: RemoteRefname::new(&target_data.remote_name, &target_data.branch_name),
             remote_url: target_data.remote_url,
             sha,
             push_remote_name: target_data.push_remote_name,
