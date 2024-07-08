@@ -4,12 +4,12 @@ use git2::{BlameOptions, Repository, Tree};
 use std::{path::Path, process::Stdio, str};
 use tracing::instrument;
 
-use crate::{
+use gitbutler_core::{
     config::git::{GbConfig, GitConfig},
     error::Code,
 };
 
-use super::{CommitBuffer, CommitHeadersV2, Refname, RemoteRefname};
+use gitbutler_core::git::{CommitBuffer, CommitHeadersV2, Refname, RemoteRefname};
 use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;

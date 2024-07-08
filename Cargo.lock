@@ -2249,6 +2249,7 @@ dependencies = [
  "git2",
  "gitbutler-branchstate",
  "gitbutler-core",
+ "gitbutler-repo",
  "gix",
  "itertools 0.13.0",
  "pretty_assertions",
@@ -2268,6 +2269,7 @@ dependencies = [
  "git2",
  "gitbutler-core",
  "gitbutler-git",
+ "tempfile",
  "tokio",
  "tracing",
 ]
@@ -2334,6 +2336,7 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-branchstate",
  "gitbutler-core",
+ "gitbutler-repo",
  "keyring",
  "once_cell",
  "pretty_assertions",

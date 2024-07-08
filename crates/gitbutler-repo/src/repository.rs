@@ -2,7 +2,6 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
 
-use gitbutler_core::git::RepositoryExt;
 use gitbutler_core::{
     askpass,
     error::Code,
@@ -13,6 +12,8 @@ use gitbutler_core::{
 };
 
 use gitbutler_core::project_repository::{Config, ProjectRepo};
+
+use crate::RepositoryExt;
 pub trait RepoActions {
     fn fetch(
         &self,

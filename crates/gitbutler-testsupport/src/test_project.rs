@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 use std::{fs, path};
 
-use gitbutler_core::git::{self, RepositoryExt};
+use gitbutler_core::git;
+use gitbutler_repo::RepositoryExt;
 use tempfile::TempDir;
 
 use crate::{init_opts, VAR_NO_CLEANUP};
