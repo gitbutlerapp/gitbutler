@@ -1,4 +1,5 @@
-use gitbutler_core::{git, projects::ProjectId};
+use gitbutler_core::git;
+use gitbutler_project::ProjectId;
 use gitbutler_repo::credentials::Helper;
 use tauri::Manager;
 use tracing::instrument;

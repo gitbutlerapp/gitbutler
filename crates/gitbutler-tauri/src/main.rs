@@ -104,7 +104,7 @@ fn main() {
                     let watcher_controller = watcher::Watchers::new(app_handle.clone());
                     app_handle.manage(watcher_controller.clone());
 
-                    let projects_storage_controller = gitbutler_core::projects::storage::Storage::new(storage_controller.clone());
+                    let projects_storage_controller = gitbutler_project::storage::Storage::new(storage_controller.clone());
                     app_handle.manage(projects_storage_controller.clone());
 
                     let users_storage_controller = gitbutler_core::users::storage::Storage::new(storage_controller.clone());
@@ -113,7 +113,7 @@ fn main() {
                     let users_controller = gitbutler_core::users::Controller::new(users_storage_controller.clone());
                     app_handle.manage(users_controller.clone());
 
-                    let projects_controller = gitbutler_core::projects::Controller::new(
+                    let projects_controller = gitbutler_project::Controller::new(
                         app_data_dir.clone(),
                         projects_storage_controller.clone(),
                         Some(watcher_controller.clone())

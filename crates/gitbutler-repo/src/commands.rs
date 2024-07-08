@@ -1,7 +1,8 @@
 use anyhow::Result;
 use bstr::BString;
 use gitbutler_command_context::ProjectRepo;
-use gitbutler_core::{project_repository::Config, projects::Project};
+use gitbutler_core::project_repository::Config;
+use gitbutler_project::Project;
 
 use crate::RepositoryExt;
 

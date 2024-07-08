@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{id::Id, types::default_true::DefaultTrue};
+use gitbutler_core::{id::Id, types::default_true::DefaultTrue};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -54,7 +54,7 @@ impl FetchResult {
 
 #[derive(Debug, Deserialize, Serialize, Copy, Clone)]
 pub struct CodePushState {
-    #[serde(with = "crate::serde::oid")]
+    #[serde(with = "gitbutler_core::serde::oid")]
     pub id: git2::Oid,
     pub timestamp: time::SystemTime,
 }

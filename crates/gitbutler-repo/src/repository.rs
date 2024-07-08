@@ -7,12 +7,12 @@ use gitbutler_core::{
     askpass,
     error::Code,
     git::{self, CommitHeadersV2},
-    projects::AuthKey,
     ssh,
     virtual_branches::{Branch, BranchId},
 };
 
 use gitbutler_core::project_repository::Config;
+use gitbutler_project::AuthKey;
 
 use crate::{credentials::Helper, RepositoryExt};
 pub trait RepoActions {

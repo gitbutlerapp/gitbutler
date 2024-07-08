@@ -4,9 +4,10 @@ use std::{path::PathBuf, vec};
 use anyhow::Context;
 
 use gitbutler_command_context::ProjectRepo;
-use gitbutler_core::{keys, projects};
+use gitbutler_core::keys;
 
 use gitbutler_core::git::Url;
+use gitbutler_project::AuthKey;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SshCredential {
@@ -104,7 +105,7 @@ impl Helper {
         }
 
         match &project_repository.project().preferred_key {
-            projects::AuthKey::Local { private_key_path } => {
+            AuthKey::Local { private_key_path } => {
                 let ssh_remote = if remote_url.scheme == gitbutler_core::git::Scheme::Ssh {
                     Ok(remote)
                 } else {
@@ -122,7 +123,7 @@ impl Helper {
                     })],
                 )])
             }
-            projects::AuthKey::GitCredentialsHelper => {
+            AuthKey::GitCredentialsHelper => {
                 let https_remote = if remote_url.scheme == gitbutler_core::git::Scheme::Https {
                     Ok(remote)
                 } else {
@@ -135,7 +136,7 @@ impl Helper {
                     .collect::<Vec<_>>();
                 Ok(vec![(https_remote, flow)])
             }
-            projects::AuthKey::SystemExecutable => {
+            AuthKey::SystemExecutable => {
                 tracing::error!("WARNING: FIXME: this codepath should NEVER be hit. Something is seriously wrong.");
                 Ok(vec![])
             }

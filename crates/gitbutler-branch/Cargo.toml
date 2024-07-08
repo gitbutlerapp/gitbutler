@@ -25,6 +25,7 @@ md5 = "0.7.0"
 futures = "0.3"
 itertools = "0.13"
 gitbutler-command-context.workspace = true
+gitbutler-project.workspace = true
 
 [[test]]
 name="branches"

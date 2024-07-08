@@ -3,11 +3,8 @@ use std::{fs, path, str::FromStr};
 
 use gitbutler_branch::Controller;
 use gitbutler_core::error::Marker;
-use gitbutler_core::{
-    git,
-    projects::{self, Project, ProjectId},
-    virtual_branches::branch,
-};
+use gitbutler_core::{git, virtual_branches::branch};
+use gitbutler_project::{self as projects, Project, ProjectId};
 use tempfile::TempDir;
 
 use gitbutler_testsupport::{paths, TestProject, VAR_NO_CLEANUP};

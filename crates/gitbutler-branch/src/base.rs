@@ -4,6 +4,7 @@ use anyhow::{anyhow, Context, Result};
 use git2::Index;
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepo;
+use gitbutler_project::FetchResult;
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 use serde::Serialize;
 
@@ -17,7 +18,6 @@ use gitbutler_core::error::Marker;
 use gitbutler_core::virtual_branches::{branch, target, BranchId, GITBUTLER_INTEGRATION_REFERENCE};
 use gitbutler_core::{
     git::{self, diff},
-    projects::FetchResult,
     virtual_branches::branch::BranchOwnershipClaims,
 };
 use gitbutler_repo::rebase::cherry_rebase;

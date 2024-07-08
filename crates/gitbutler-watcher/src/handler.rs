@@ -5,12 +5,13 @@ use anyhow::{Context, Result};
 use gitbutler_branch::VirtualBranches;
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::error::Marker;
-use gitbutler_core::projects::ProjectId;
-use gitbutler_core::{assets, git, projects, users};
+use gitbutler_core::{assets, git, users};
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     oplog::Oplog,
 };
+use gitbutler_project as projects;
+use gitbutler_project::ProjectId;
 use gitbutler_sync::cloud::sync_with_gitbutler;
 use tracing::instrument;
 

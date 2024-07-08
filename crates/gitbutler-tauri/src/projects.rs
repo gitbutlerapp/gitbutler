@@ -2,7 +2,8 @@ pub mod commands {
     use anyhow::Context;
     use std::path;
 
-    use gitbutler_core::projects::{self, controller::Controller, ProjectId};
+    use gitbutler_project::ProjectId;
+    use gitbutler_project::{self as projects, Controller};
     use tauri::Manager;
     use tracing::instrument;
 

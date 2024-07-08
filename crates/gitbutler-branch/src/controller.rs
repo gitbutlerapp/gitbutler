@@ -1,12 +1,13 @@
 use anyhow::Result;
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepo;
-use gitbutler_core::{git::BranchExt, projects::FetchResult, types::ReferenceName};
+use gitbutler_core::{git::BranchExt, types::ReferenceName};
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     oplog::Oplog,
     snapshot::Snapshot,
 };
+use gitbutler_project::{FetchResult, Project};
 use gitbutler_repo::{credentials::Helper, RepoActions, RepositoryExt};
 use std::{path::Path, sync::Arc};
 
@@ -24,13 +25,10 @@ use super::r#virtual as branch;
 use gitbutler_core::virtual_branches;
 
 use crate::files::RemoteBranchFile;
+use gitbutler_core::git;
 use gitbutler_core::virtual_branches::{
     branch::{BranchId, BranchOwnershipClaims},
     target,
-};
-use gitbutler_core::{
-    git,
-    projects::{self, Project},
 };
 
 #[derive(Clone)]
@@ -450,7 +448,7 @@ impl Controller {
             .collect();
 
         let project_data_last_fetched = if fetch_results.iter().any(Result::is_err) {
-            projects::FetchResult::Error {
+            FetchResult::Error {
                 timestamp: std::time::SystemTime::now(),
                 error: fetch_results
                     .iter()
@@ -462,7 +460,7 @@ impl Controller {
                     .join("\n"),
             }
         } else {
-            projects::FetchResult::Fetched {
+            FetchResult::Fetched {
                 timestamp: std::time::SystemTime::now(),
             }
         };

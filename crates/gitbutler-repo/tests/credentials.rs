@@ -2,7 +2,8 @@ use std::path::PathBuf;
 use std::str;
 
 use gitbutler_command_context::ProjectRepo;
-use gitbutler_core::{projects, users};
+use gitbutler_core::users;
+use gitbutler_project as projects;
 use gitbutler_repo::credentials::{Credential, Helper, SshCredential};
 
 use gitbutler_testsupport::{temp_dir, test_repository};

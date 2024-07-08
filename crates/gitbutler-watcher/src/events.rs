@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::path::PathBuf;
 
 use gitbutler_branch::VirtualBranches;
-use gitbutler_core::projects::ProjectId;
+use gitbutler_project::ProjectId;
 
 /// An event for internal use, as merge between [super::file_monitor::Event] and [Action].
 #[derive(Debug)]

@@ -2,10 +2,9 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use crate::{
-    projects::{project, ProjectId},
-    storage,
-};
+use gitbutler_core::storage;
+
+use crate::{ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectId};
 
 const PROJECTS_FILE: &str = "projects.json";
 
@@ -19,12 +18,12 @@ pub struct UpdateRequest {
     pub id: ProjectId,
     pub title: Option<String>,
     pub description: Option<String>,
-    pub api: Option<project::ApiProject>,
-    pub gitbutler_data_last_fetched: Option<project::FetchResult>,
-    pub preferred_key: Option<project::AuthKey>,
+    pub api: Option<ApiProject>,
+    pub gitbutler_data_last_fetched: Option<FetchResult>,
+    pub preferred_key: Option<AuthKey>,
     pub ok_with_force_push: Option<bool>,
-    pub gitbutler_code_push_state: Option<project::CodePushState>,
-    pub project_data_last_fetched: Option<project::FetchResult>,
+    pub gitbutler_code_push_state: Option<CodePushState>,
+    pub project_data_last_fetched: Option<FetchResult>,
     pub omit_certificate_check: Option<bool>,
     pub use_diff_context: Option<bool>,
     pub snapshot_lines_threshold: Option<usize>,
@@ -41,10 +40,10 @@ impl Storage {
         Self::new(storage::Storage::new(path))
     }
 
-    pub fn list(&self) -> Result<Vec<project::Project>> {
+    pub fn list(&self) -> Result<Vec<Project>> {
         match self.inner.read(PROJECTS_FILE)? {
             Some(projects) => {
-                let all_projects: Vec<project::Project> = serde_json::from_str(&projects)?;
+                let all_projects: Vec<Project> = serde_json::from_str(&projects)?;
                 let mut all_projects: Vec<_> = all_projects
                     .into_iter()
                     .map(|mut p| {
@@ -65,17 +64,17 @@ impl Storage {
         }
     }
 
-    pub fn get(&self, id: ProjectId) -> Result<project::Project> {
+    pub fn get(&self, id: ProjectId) -> Result<Project> {
         self.try_get(id)?
             .with_context(|| format!("project {id} not found"))
     }
 
-    pub fn try_get(&self, id: ProjectId) -> Result<Option<project::Project>> {
+    pub fn try_get(&self, id: ProjectId) -> Result<Option<Project>> {
         let projects = self.list()?;
         Ok(projects.into_iter().find(|p| p.id == id))
     }
 
-    pub fn update(&self, update_request: &UpdateRequest) -> Result<project::Project> {
+    pub fn update(&self, update_request: &UpdateRequest) -> Result<Project> {
         let mut projects = self.list()?;
         let project = projects
             .iter_mut()
@@ -152,7 +151,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn add(&self, project: &project::Project) -> Result<()> {
+    pub fn add(&self, project: &Project) -> Result<()> {
         let mut projects = self.list()?;
         projects.push(project.clone());
         let projects = serde_json::to_string_pretty(&projects)?;
