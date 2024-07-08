@@ -210,7 +210,7 @@ fn create_branch_with_ownership() -> Result<()> {
     virtual_branches::get_status_by_branch(project_repository, None).expect("failed to get status");
 
     let vb_state = project_repository.project().virtual_branches();
-    let branch0 = vb_state.get_branch(branch0.id).unwrap();
+    let branch0 = vb_state.get_branch_in_workspace(branch0.id).unwrap();
 
     let branch1 = create_virtual_branch(
         project_repository,
@@ -453,12 +453,12 @@ fn move_hunks_multiple_sources() -> Result<()> {
     )?;
 
     let vb_state = project.virtual_branches();
-    let mut branch2 = vb_state.get_branch(branch2_id)?;
+    let mut branch2 = vb_state.get_branch_in_workspace(branch2_id)?;
     branch2.ownership = BranchOwnershipClaims {
         claims: vec!["test.txt:1-5".parse()?],
     };
     vb_state.set_branch(branch2.clone())?;
-    let mut branch1 = vb_state.get_branch(branch1_id)?;
+    let mut branch1 = vb_state.get_branch_in_workspace(branch1_id)?;
     branch1.ownership = BranchOwnershipClaims {
         claims: vec!["test.txt:11-15".parse()?],
     };
@@ -1298,7 +1298,7 @@ fn detect_mergeable_branch() -> Result<()> {
 
     let vb_state = project.virtual_branches();
 
-    let mut branch4 = vb_state.get_branch(branch4_id)?;
+    let mut branch4 = vb_state.get_branch_in_workspace(branch4_id)?;
     branch4.ownership = BranchOwnershipClaims {
         claims: vec!["test2.txt:1-6".parse()?],
     };

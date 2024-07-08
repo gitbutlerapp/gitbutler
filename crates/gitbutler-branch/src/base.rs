@@ -398,7 +398,7 @@ pub fn update_base_branch(
                             if non_commited_files.is_empty() {
                                 // if there are no commited files, then the branch is fully merged
                                 // and we can delete it.
-                                vb_state.remove_branch(branch.id)?;
+                                vb_state.mark_as_not_in_workspace(branch.id)?;
                                 project_repository.delete_branch_reference(&branch)?;
                                 Ok(None)
                             } else {

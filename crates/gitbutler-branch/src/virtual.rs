@@ -425,7 +425,7 @@ pub fn convert_to_real_branch(
     }
     let vb_state = project_repository.project().virtual_branches();
 
-    let target_branch = vb_state.get_branch(branch_id)?;
+    let target_branch = vb_state.get_branch_in_workspace(branch_id)?;
 
     // Convert the vbranch to a real branch
     let real_branch =
@@ -481,11 +481,11 @@ fn resolve_old_applied_state(
     let branches = vb_state.list_all_branches()?;
 
     for mut branch in branches {
-        if branch.old_applied {
-            branch.in_workspace = true;
-            vb_state.set_branch(branch)?;
-        } else {
+        if !branch.old_applied && branch.in_workspace {
             convert_to_real_branch(project_repository, branch.id, Default::default())?;
+        } else {
+            branch.old_applied = branch.in_workspace;
+            vb_state.set_branch(branch)?;
         }
     }
 
@@ -889,7 +889,7 @@ pub fn integrate_upstream_commits(
     let project = project_repository.project();
     let vb_state = project.virtual_branches();
 
-    let mut branch = vb_state.get_branch(branch_id)?;
+    let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
     let default_target = vb_state.get_default_target()?;
 
     let upstream_branch = branch.upstream.as_ref().context("upstream not found")?;
@@ -1080,7 +1080,7 @@ pub fn update_branch(
     branch_update: &branch::BranchUpdateRequest,
 ) -> Result<branch::Branch> {
     let vb_state = project_repository.project().virtual_branches();
-    let mut branch = vb_state.get_branch(branch_update.id)?;
+    let mut branch = vb_state.get_branch_in_workspace(branch_update.id)?;
 
     if let Some(ownership) = &branch_update.ownership {
         set_ownership(&vb_state, &mut branch, ownership).context("failed to set ownership")?;
@@ -1156,7 +1156,7 @@ pub fn update_branch(
 
 pub fn delete_branch(project_repository: &ProjectRepo, branch_id: BranchId) -> Result<()> {
     let vb_state = project_repository.project().virtual_branches();
-    let Some(branch) = vb_state.try_branch(branch_id)? else {
+    let Some(branch) = vb_state.try_branch_in_workspace(branch_id)? else {
         return Ok(());
     };
     _ = project_repository
@@ -1208,7 +1208,7 @@ pub fn delete_branch(project_repository: &ProjectRepo, branch_id: BranchId) -> R
         .context("failed to checkout tree")?;
 
     vb_state
-        .remove_branch(branch.id)
+        .mark_as_not_in_workspace(branch.id)
         .context("Failed to remove branch")?;
 
     project_repository.delete_branch_reference(&branch)?;
@@ -1738,7 +1738,7 @@ pub fn reset_branch(
 
     let default_target = vb_state.get_default_target()?;
 
-    let mut branch = vb_state.get_branch(branch_id)?;
+    let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
     if branch.head == target_commit_id {
         // nothing to do
         return Ok(());
@@ -2111,7 +2111,7 @@ pub fn push(
 ) -> Result<()> {
     let vb_state = project_repository.project().virtual_branches();
 
-    let mut vbranch = vb_state.get_branch(branch_id)?;
+    let mut vbranch = vb_state.get_branch_in_workspace(branch_id)?;
     let remote_branch = if let Some(upstream_branch) = &vbranch.upstream {
         upstream_branch.clone()
     } else {
@@ -2285,7 +2285,7 @@ pub fn move_commit_file(
 ) -> Result<git2::Oid> {
     let vb_state = project_repository.project().virtual_branches();
 
-    let Some(mut target_branch) = vb_state.try_branch(branch_id)? else {
+    let Some(mut target_branch) = vb_state.try_branch_in_workspace(branch_id)? else {
         return Ok(to_commit_id); // this is wrong
     };
 
@@ -2661,7 +2661,7 @@ pub fn reorder_commit(
 
     let default_target = vb_state.get_default_target()?;
 
-    let mut branch = vb_state.get_branch(branch_id)?;
+    let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
     // find the commit to offset from
     let commit = project_repository
         .repo()
@@ -2744,7 +2744,7 @@ pub fn insert_blank_commit(
 ) -> Result<()> {
     let vb_state = project_repository.project().virtual_branches();
 
-    let mut branch = vb_state.get_branch(branch_id)?;
+    let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
     // find the commit to offset from
     let mut commit = project_repository
         .repo()
@@ -2797,7 +2797,7 @@ pub fn undo_commit(
 ) -> Result<()> {
     let vb_state = project_repository.project().virtual_branches();
 
-    let mut branch = vb_state.get_branch(branch_id)?;
+    let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
     let commit = project_repository
         .repo()
         .find_commit(commit_oid)
@@ -2849,7 +2849,7 @@ pub fn squash(
     project_repository.assure_resolved()?;
 
     let vb_state = project_repository.project().virtual_branches();
-    let mut branch = vb_state.get_branch(branch_id)?;
+    let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
     let default_target = vb_state.get_default_target()?;
     let branch_commit_oids =
         project_repository.l(branch.head, LogUntil::Commit(default_target.sha))?;
@@ -2944,7 +2944,7 @@ pub fn update_commit_message(
     let vb_state = project_repository.project().virtual_branches();
     let default_target = vb_state.get_default_target()?;
 
-    let mut branch = vb_state.get_branch(branch_id)?;
+    let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
     let branch_commit_oids =
         project_repository.l(branch.head, LogUntil::Commit(default_target.sha))?;
 
@@ -3102,7 +3102,7 @@ pub fn move_commit(
 
     // move the commit to destination branch target branch
     {
-        let mut destination_branch = vb_state.get_branch(target_branch_id)?;
+        let mut destination_branch = vb_state.get_branch_in_workspace(target_branch_id)?;
 
         for ownership in ownerships_to_transfer {
             destination_branch.ownership.put(ownership);
@@ -3153,7 +3153,7 @@ pub fn create_virtual_branch_from_branch(
         let vb_state = project_repository.project().virtual_branches();
         let default_target = vb_state.get_default_target()?;
 
-        let mut branch = vb_state.get_branch(branch_id)?;
+        let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
 
         let target_commit = repo
             .find_commit(default_target.sha)
@@ -3472,23 +3472,35 @@ pub fn create_virtual_branch_from_branch(
         },
     );
 
-    let branch = branch::Branch {
-        id: BranchId::generate(),
-        name: branch_name.clone(),
-        notes: String::new(),
-        upstream_head: upstream_branch.is_some().then_some(head_commit.id()),
-        upstream: upstream_branch,
-        tree: head_commit_tree.id(),
-        head: head_commit.id(),
-        created_timestamp_ms: now,
-        updated_timestamp_ms: now,
-        ownership,
-        order,
-        selected_for_changes,
-        allow_rebasing: project_repository.project().ok_with_force_push.into(),
-        old_applied: true,
-        in_workspace: true,
-    };
+    let branch =
+        if let Ok(Some(mut branch)) = vb_state.find_by_refname_where_not_in_workspace(upstream) {
+            branch.tree = head_commit_tree.id();
+            branch.head = head_commit.id();
+            branch.updated_timestamp_ms = now;
+            branch.order = order;
+            branch.old_applied = true;
+            branch.in_workspace = true;
+
+            branch
+        } else {
+            branch::Branch {
+                id: BranchId::generate(),
+                name: branch_name.clone(),
+                notes: String::new(),
+                upstream_head: upstream_branch.is_some().then_some(head_commit.id()),
+                upstream: upstream_branch,
+                tree: head_commit_tree.id(),
+                head: head_commit.id(),
+                created_timestamp_ms: now,
+                updated_timestamp_ms: now,
+                ownership,
+                order,
+                selected_for_changes,
+                allow_rebasing: project_repository.project().ok_with_force_push.into(),
+                old_applied: true,
+                in_workspace: true,
+            }
+        };
 
     vb_state.set_branch(branch.clone())?;
     project_repository.add_branch_reference(&branch)?;

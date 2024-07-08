@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use gitbutler_core::{error::Code, fs::read_toml_file_or_default, projects::Project};
+use gitbutler_core::{error::Code, fs::read_toml_file_or_default, git::Refname, projects::Project};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -108,14 +108,44 @@ impl VirtualBranchesHandle {
         Ok(())
     }
 
-    /// Removes the given virtual branch.
+    /// Marks a particular branch as not in the workspace
     ///
     /// Errors if the file cannot be read or written.
-    pub fn remove_branch(&self, id: BranchId) -> Result<()> {
-        let mut virtual_branches = self.read_file()?;
-        virtual_branches.branches.remove(&id);
-        self.write_file(&virtual_branches)?;
+    pub fn mark_as_not_in_workspace(&self, id: BranchId) -> Result<()> {
+        let mut branch = self.get_branch(id)?;
+        branch.in_workspace = false;
+        branch.old_applied = false;
+        self.set_branch(branch)?;
         Ok(())
+    }
+
+    pub fn find_by_refname_where_not_in_workspace(
+        &self,
+        refname: &Refname,
+    ) -> Result<Option<Branch>> {
+        self.list_all_branches().map(|branches| {
+            branches.into_iter().find(|branch| {
+                if !branch.in_workspace {
+                    return false;
+                }
+
+                if let (Refname::Remote(remote_refname), Some(upstream_refname)) =
+                    (refname.clone(), branch.upstream.clone())
+                {
+                    return upstream_refname == remote_refname;
+                }
+
+                false
+            })
+        })
+    }
+
+    /// Gets the state of the given virtual branch.
+    ///
+    /// Errors if the file cannot be read or written.
+    pub fn get_branch_in_workspace(&self, id: BranchId) -> Result<Branch> {
+        self.try_branch_in_workspace(id)?
+            .ok_or_else(|| anyhow!("branch with ID {id} not found"))
     }
 
     /// Gets the state of the given virtual branch.
@@ -124,6 +154,20 @@ impl VirtualBranchesHandle {
     pub fn get_branch(&self, id: BranchId) -> Result<Branch> {
         self.try_branch(id)?
             .ok_or_else(|| anyhow!("branch with ID {id} not found"))
+    }
+
+    /// Gets the state of the given virtual branch returning `Some(branch)` or `None`
+    /// if that branch doesn't exist.
+    pub fn try_branch_in_workspace(&self, id: BranchId) -> Result<Option<Branch>> {
+        if let Some(branch) = self.try_branch(id)? {
+            if branch.in_workspace {
+                Ok(Some(branch))
+            } else {
+                Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     /// Gets the state of the given virtual branch returning `Some(branch)` or `None`
