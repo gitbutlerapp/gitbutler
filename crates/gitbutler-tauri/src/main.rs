@@ -82,7 +82,7 @@ fn main() {
                     // SAFETY(qix-): This is safe because we're initializing the askpass broker here,
                     // SAFETY(qix-): before any other threads would ever access it.
                     unsafe {
-                        gitbutler_core::askpass::init({
+                        gitbutler_repo::askpass::init({
                             let handle = app_handle.clone();
                             move |event| {
                                 handle.emit_all("git_prompt", event).expect("tauri event emission doesn't fail in practice")
