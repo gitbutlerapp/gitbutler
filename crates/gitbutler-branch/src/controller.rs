@@ -1,8 +1,7 @@
 use anyhow::Result;
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
-use gitbutler_core::{
-    git::BranchExt, project_repository::ProjectRepo, projects::FetchResult, types::ReferenceName,
-};
+use gitbutler_command_context::ProjectRepo;
+use gitbutler_core::{git::BranchExt, projects::FetchResult, types::ReferenceName};
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     oplog::Oplog,

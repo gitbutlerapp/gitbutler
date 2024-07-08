@@ -2113,6 +2113,7 @@ dependencies = [
  "git2",
  "git2-hooks",
  "gitbutler-branchstate",
+ "gitbutler-command-context",
  "gitbutler-core",
  "gitbutler-git",
  "gitbutler-oplog",
@@ -2154,6 +2155,16 @@ dependencies = [
  "gitbutler-core",
  "gitbutler-oplog",
  "pager",
+]
+
+[[package]]
+name = "gitbutler-command-context"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "git2",
+ "gitbutler-core",
+ "tracing",
 ]
 
 [[package]]
@@ -2267,6 +2278,7 @@ dependencies = [
  "anyhow",
  "bstr",
  "git2",
+ "gitbutler-command-context",
  "gitbutler-core",
  "gitbutler-git",
  "gitbutler-testsupport",
@@ -2285,6 +2297,7 @@ dependencies = [
  "anyhow",
  "git2",
  "gitbutler-branchstate",
+ "gitbutler-command-context",
  "gitbutler-core",
  "gitbutler-oplog",
  "itertools 0.13.0",
@@ -2303,6 +2316,7 @@ dependencies = [
  "futures",
  "git2",
  "gitbutler-branch",
+ "gitbutler-command-context",
  "gitbutler-core",
  "gitbutler-oplog",
  "gitbutler-repo",
@@ -2339,6 +2353,7 @@ dependencies = [
  "git2",
  "gitbutler-branch",
  "gitbutler-branchstate",
+ "gitbutler-command-context",
  "gitbutler-core",
  "gitbutler-repo",
  "keyring",
@@ -2356,6 +2371,7 @@ dependencies = [
  "backoff",
  "futures",
  "gitbutler-branch",
+ "gitbutler-command-context",
  "gitbutler-core",
  "gitbutler-notify-debouncer",
  "gitbutler-oplog",

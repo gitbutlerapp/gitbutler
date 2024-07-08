@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
 
+use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::{
     askpass,
     error::Code,
@@ -11,7 +12,7 @@ use gitbutler_core::{
     virtual_branches::{Branch, BranchId},
 };
 
-use gitbutler_core::project_repository::{Config, ProjectRepo};
+use gitbutler_core::project_repository::Config;
 
 use crate::{credentials::Helper, RepositoryExt};
 pub trait RepoActions {

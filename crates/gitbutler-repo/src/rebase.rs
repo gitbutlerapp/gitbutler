@@ -1,7 +1,8 @@
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
+use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::git::HasCommitHeaders;
-use gitbutler_core::{error::Marker, git::CommitExt, project_repository};
+use gitbutler_core::{error::Marker, git::CommitExt};
 
 use crate::{LogUntil, RepoActions, RepositoryExt};
 
@@ -9,7 +10,7 @@ use crate::{LogUntil, RepoActions, RepositoryExt};
 /// this function takes a commit range and generates a Vector of commit oids
 /// and then passes them to `cherry_rebase_group` to rebase them onto the target commit
 pub fn cherry_rebase(
-    project_repository: &project_repository::ProjectRepo,
+    project_repository: &ProjectRepo,
     target_commit_oid: git2::Oid,
     start_commit_oid: git2::Oid,
     end_commit_oid: git2::Oid,
@@ -33,7 +34,7 @@ pub fn cherry_rebase(
 /// the difference between this and a libgit2 based rebase is that this will successfully
 /// rebase empty commits (two commits with identical trees)
 pub fn cherry_rebase_group(
-    project_repository: &project_repository::ProjectRepo,
+    project_repository: &ProjectRepo,
     target_commit_oid: git2::Oid,
     ids_to_rebase: &mut [git2::Oid],
 ) -> Result<git2::Oid> {

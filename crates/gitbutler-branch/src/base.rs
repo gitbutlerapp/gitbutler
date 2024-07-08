@@ -3,6 +3,7 @@ use std::{path::Path, time};
 use anyhow::{anyhow, Context, Result};
 use git2::Index;
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
+use gitbutler_command_context::ProjectRepo;
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 use serde::Serialize;
 
@@ -16,7 +17,6 @@ use gitbutler_core::error::Marker;
 use gitbutler_core::virtual_branches::{branch, target, BranchId, GITBUTLER_INTEGRATION_REFERENCE};
 use gitbutler_core::{
     git::{self, diff},
-    project_repository,
     projects::FetchResult,
     virtual_branches::branch::BranchOwnershipClaims,
 };
@@ -40,16 +40,14 @@ pub struct BaseBranch {
     pub last_fetched_ms: Option<u128>,
 }
 
-pub fn get_base_branch_data(
-    project_repository: &project_repository::ProjectRepo,
-) -> Result<BaseBranch> {
+pub fn get_base_branch_data(project_repository: &ProjectRepo) -> Result<BaseBranch> {
     let target = default_target(&project_repository.project().gb_dir())?;
     let base = target_to_base_branch(project_repository, &target)?;
     Ok(base)
 }
 
 fn go_back_to_integration(
-    project_repository: &project_repository::ProjectRepo,
+    project_repository: &ProjectRepo,
     default_target: &target::Target,
 ) -> Result<BaseBranch> {
     let statuses = project_repository
@@ -120,7 +118,7 @@ fn go_back_to_integration(
 }
 
 pub fn set_base_branch(
-    project_repository: &project_repository::ProjectRepo,
+    project_repository: &ProjectRepo,
     target_branch_ref: &git::RemoteRefname,
 ) -> Result<BaseBranch> {
     let repo = project_repository.repo();
@@ -273,7 +271,7 @@ pub fn set_base_branch(
 }
 
 pub fn set_target_push_remote(
-    project_repository: &project_repository::ProjectRepo,
+    project_repository: &ProjectRepo,
     push_remote_name: &str,
 ) -> Result<()> {
     let remote = project_repository
@@ -294,7 +292,7 @@ pub fn set_target_push_remote(
     Ok(())
 }
 
-fn set_exclude_decoration(project_repository: &project_repository::ProjectRepo) -> Result<()> {
+fn set_exclude_decoration(project_repository: &ProjectRepo) -> Result<()> {
     let repo = project_repository.repo();
     let mut config = repo.config()?;
     config
@@ -330,7 +328,7 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 // merge the target branch into our current working directory
 // update the target sha
 pub fn update_base_branch(
-    project_repository: &project_repository::ProjectRepo,
+    project_repository: &ProjectRepo,
 ) -> anyhow::Result<Vec<git2::Branch<'_>>> {
     project_repository.assure_resolved()?;
 
@@ -576,7 +574,7 @@ pub fn update_base_branch(
 }
 
 pub fn target_to_base_branch(
-    project_repository: &project_repository::ProjectRepo,
+    project_repository: &ProjectRepo,
     target: &target::Target,
 ) -> Result<BaseBranch> {
     let repo = project_repository.repo();

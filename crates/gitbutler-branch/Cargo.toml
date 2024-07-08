@@ -24,6 +24,7 @@ url = { version = "2.5.2", features = ["serde"] }
 md5 = "0.7.0"
 futures = "0.3"
 itertools = "0.13"
+gitbutler-command-context.workspace = true
 
 [[test]]
 name="branches"
