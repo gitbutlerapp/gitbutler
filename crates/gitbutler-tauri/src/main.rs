@@ -16,8 +16,8 @@
 use gitbutler_core::storage;
 use gitbutler_repo::credentials::Helper;
 use gitbutler_tauri::{
-    app, askpass, commands, config, github, keys, logs, menu, projects, remotes, repo, secret,
-    undo, users, virtual_branches, watcher, zip,
+    app, askpass, commands, config, github, logs, menu, projects, remotes, repo, secret, undo,
+    users, virtual_branches, watcher, zip,
 };
 use gitbutler_virtual::assets;
 use tauri::{generate_context, Manager};
@@ -128,12 +128,6 @@ fn main() {
 
                     app_handle.manage(gitbutler_feedback::controller::Controller::new(app_data_dir.clone(), app_log_dir.clone(), zipper.clone(), projects_controller.clone()));
 
-                    let keys_storage_controller = gitbutler_core::keys::storage::Storage::new(storage_controller.clone());
-                    app_handle.manage(keys_storage_controller.clone());
-
-                    let keys_controller = gitbutler_core::keys::Controller::new(keys_storage_controller.clone());
-                    app_handle.manage(keys_controller.clone());
-
                     let git_credentials_controller = Helper::default();
                     app_handle.manage(git_credentials_controller.clone());
 
@@ -215,7 +209,6 @@ fn main() {
                     config::set_gb_config,
                     menu::menu_item_set_enabled,
                     menu::resolve_vscode_variant,
-                    keys::commands::get_public_key,
                     github::commands::init_device_oauth,
                     github::commands::check_auth_status,
                     askpass::commands::submit_prompt_response,

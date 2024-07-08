@@ -4,7 +4,6 @@ use std::{path::PathBuf, vec};
 use anyhow::Context;
 
 use gitbutler_command_context::ProjectRepo;
-use gitbutler_core::keys;
 
 use gitbutler_core::git::Url;
 use gitbutler_project::AuthKey;
@@ -15,7 +14,6 @@ pub enum SshCredential {
         key_path: PathBuf,
         passphrase: Option<String>,
     },
-    GitButlerKey(Box<keys::PrivateKey>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,12 +47,6 @@ impl From<Credential> for git2::RemoteCallbacks<'_> {
                         key_path.display()
                     );
                     git2::Cred::ssh_key("git", None, &key_path, passphrase.as_deref())
-                });
-            }
-            Credential::Ssh(SshCredential::GitButlerKey(key)) => {
-                remote_callbacks.credentials(move |url, _username_from_url, _allowed_types| {
-                    tracing::info!("authenticating with {} using gitbutler's key", url);
-                    git2::Cred::ssh_key_from_memory("git", None, &key.to_string(), None)
                 });
             }
             Credential::Https(HttpsCredential::CredentialHelper { username, password }) => {

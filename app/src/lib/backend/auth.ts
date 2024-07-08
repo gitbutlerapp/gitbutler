@@ -41,8 +41,4 @@ export class AuthService {
 		if (resp) throw new Error(resp);
 		return { name: 'push', ok: true };
 	}
-
-	async getPublicKey() {
-		return await invoke<string>('get_public_key');
-	}
 }
