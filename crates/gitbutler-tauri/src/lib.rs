@@ -27,6 +27,7 @@ pub mod github;
 pub mod keys;
 pub mod projects;
 pub mod remotes;
+pub mod repo;
 pub mod secret;
 pub mod undo;
 pub mod users;
