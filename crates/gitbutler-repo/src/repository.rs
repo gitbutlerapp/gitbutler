@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
 
+use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::{
     askpass,
     error::Code,
@@ -11,22 +12,18 @@ use gitbutler_core::{
     virtual_branches::{Branch, BranchId},
 };
 
-use gitbutler_core::project_repository::{Config, ProjectRepo};
+use gitbutler_core::project_repository::Config;
 
-use crate::RepositoryExt;
+use crate::{credentials::Helper, RepositoryExt};
 pub trait RepoActions {
-    fn fetch(
-        &self,
-        remote_name: &str,
-        credentials: &git::credentials::Helper,
-        askpass: Option<String>,
-    ) -> Result<()>;
+    fn fetch(&self, remote_name: &str, credentials: &Helper, askpass: Option<String>)
+        -> Result<()>;
     fn push(
         &self,
         head: &git2::Oid,
         branch: &git::RemoteRefname,
         with_force: bool,
-        credentials: &git::credentials::Helper,
+        credentials: &Helper,
         refspec: Option<String>,
         askpass_broker: Option<Option<BranchId>>,
     ) -> Result<()>;
@@ -46,7 +43,7 @@ pub trait RepoActions {
     fn add_branch_reference(&self, branch: &Branch) -> Result<()>;
     fn git_test_push(
         &self,
-        credentials: &git::credentials::Helper,
+        credentials: &Helper,
         remote_name: &str,
         branch_name: &str,
         askpass: Option<Option<BranchId>>,
@@ -56,7 +53,7 @@ pub trait RepoActions {
 impl RepoActions for ProjectRepo {
     fn git_test_push(
         &self,
-        credentials: &git::credentials::Helper,
+        credentials: &Helper,
         remote_name: &str,
         branch_name: &str,
         askpass: Option<Option<BranchId>>,
@@ -254,7 +251,7 @@ impl RepoActions for ProjectRepo {
         head: &git2::Oid,
         branch: &git::RemoteRefname,
         with_force: bool,
-        credentials: &git::credentials::Helper,
+        credentials: &Helper,
         refspec: Option<String>,
         askpass_broker: Option<Option<BranchId>>,
     ) -> Result<()> {
@@ -357,7 +354,7 @@ impl RepoActions for ProjectRepo {
     fn fetch(
         &self,
         remote_name: &str,
-        credentials: &git::credentials::Helper,
+        credentials: &Helper,
         askpass: Option<String>,
     ) -> Result<()> {
         let refspec = format!("+refs/heads/*:refs/remotes/{}/*", remote_name);

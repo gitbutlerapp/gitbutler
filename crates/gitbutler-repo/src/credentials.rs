@@ -3,9 +3,10 @@ use std::{path::PathBuf, vec};
 
 use anyhow::Context;
 
-use crate::{keys, project_repository, projects};
+use gitbutler_command_context::ProjectRepo;
+use gitbutler_core::{keys, projects};
 
-use super::Url;
+use gitbutler_core::git::Url;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SshCredential {
@@ -80,7 +81,7 @@ pub enum HelpError {
     #[error("no url set for remote")]
     NoUrlSet,
     #[error("failed to convert url: {0}")]
-    UrlConvertError(#[from] super::ConvertError),
+    UrlConvertError(#[from] gitbutler_core::git::ConvertError),
     #[error(transparent)]
     Git(#[from] git2::Error),
     #[error(transparent)]
@@ -90,7 +91,7 @@ pub enum HelpError {
 impl Helper {
     pub fn help<'a>(
         &'a self,
-        project_repository: &'a project_repository::ProjectRepo,
+        project_repository: &'a ProjectRepo,
         remote_name: &str,
     ) -> Result<Vec<(git2::Remote, Vec<Credential>)>, HelpError> {
         let remote = project_repository.repo().find_remote(remote_name)?;
@@ -98,13 +99,13 @@ impl Helper {
             .context("failed to parse remote url")?;
 
         // if file, no auth needed.
-        if remote_url.scheme == super::Scheme::File {
+        if remote_url.scheme == gitbutler_core::git::Scheme::File {
             return Ok(vec![(remote, vec![Credential::Noop])]);
         }
 
         match &project_repository.project().preferred_key {
             projects::AuthKey::Local { private_key_path } => {
-                let ssh_remote = if remote_url.scheme == super::Scheme::Ssh {
+                let ssh_remote = if remote_url.scheme == gitbutler_core::git::Scheme::Ssh {
                     Ok(remote)
                 } else {
                     let ssh_url = remote_url.as_ssh()?;
@@ -122,7 +123,7 @@ impl Helper {
                 )])
             }
             projects::AuthKey::GitCredentialsHelper => {
-                let https_remote = if remote_url.scheme == super::Scheme::Https {
+                let https_remote = if remote_url.scheme == gitbutler_core::git::Scheme::Https {
                     Ok(remote)
                 } else {
                     let url = remote_url.as_https()?;
@@ -142,8 +143,8 @@ impl Helper {
     }
 
     fn https_flow(
-        project_repository: &project_repository::ProjectRepo,
-        remote_url: &super::Url,
+        project_repository: &ProjectRepo,
+        remote_url: &gitbutler_core::git::Url,
     ) -> Result<Vec<HttpsCredential>, HelpError> {
         let mut flow = vec![];
 

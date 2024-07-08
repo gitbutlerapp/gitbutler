@@ -13,3 +13,4 @@ git2.workspace = true
 gitbutler-core.workspace = true
 gitbutler-oplog.workspace = true
 gitbutler-branchstate.workspace = true
+gitbutler-command-context.workspace = true

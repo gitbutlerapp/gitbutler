@@ -11,9 +11,10 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
+use gitbutler_command_context::ProjectRepo;
 use itertools::Itertools;
 
-use gitbutler_core::{error::Marker, project_repository::ProjectRepo};
+use gitbutler_core::error::Marker;
 
 pub fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
     repository: &ProjectRepo,

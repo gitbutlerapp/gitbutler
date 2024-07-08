@@ -14,3 +14,14 @@ tokio = { workspace = true, features = [ "rt-multi-thread", "rt", "macros" ] }
 gitbutler-git.workspace = true
 tracing = "0.1.40"
 tempfile = "3.10"
+thiserror.workspace = true
+resolve-path = "0.1.0"
+gitbutler-command-context.workspace = true
+
+[[test]]
+name="repo"
+path = "tests/mod.rs"
+
+[dev-dependencies]
+gitbutler-testsupport.workspace = true
+serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }

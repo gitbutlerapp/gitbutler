@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::projects;
+use gitbutler_core::projects;
 
 pub struct ProjectRepo {
     git_repository: git2::Repository,

@@ -1,9 +1,7 @@
 use anyhow::Result;
 use bstr::BString;
-use gitbutler_core::{
-    project_repository::{self, Config},
-    projects::Project,
-};
+use gitbutler_command_context::ProjectRepo;
+use gitbutler_core::{project_repository::Config, projects::Project};
 
 use crate::RepositoryExt;
 
@@ -17,19 +15,19 @@ pub trait RepoCommands {
 
 impl RepoCommands for Project {
     fn get_local_config(&self, key: &str) -> Result<Option<String>> {
-        let project_repo = project_repository::ProjectRepo::open(self)?;
+        let project_repo = ProjectRepo::open(self)?;
         let config: Config = project_repo.repo().into();
         config.get_local(key)
     }
 
     fn set_local_config(&self, key: &str, value: &str) -> Result<()> {
-        let project_repo = project_repository::ProjectRepo::open(self)?;
+        let project_repo = ProjectRepo::open(self)?;
         let config: Config = project_repo.repo().into();
         config.set_local(key, value)
     }
 
     fn check_signing_settings(&self) -> Result<bool> {
-        let repo = project_repository::ProjectRepo::open(self)?;
+        let repo = ProjectRepo::open(self)?;
         let signed = repo.repo().sign_buffer(&BString::new("test".into()).into());
         match signed {
             Ok(_) => Ok(true),
@@ -38,12 +36,12 @@ impl RepoCommands for Project {
     }
 
     fn remotes(&self) -> Result<Vec<String>> {
-        let project_repository = project_repository::ProjectRepo::open(self)?;
+        let project_repository = ProjectRepo::open(self)?;
         project_repository.repo().remotes_as_string()
     }
 
     fn add_remote(&self, name: &str, url: &str) -> Result<()> {
-        let project_repository = project_repository::ProjectRepo::open(self)?;
+        let project_repository = ProjectRepo::open(self)?;
         project_repository.repo().remote(name, url)?;
         Ok(())
     }

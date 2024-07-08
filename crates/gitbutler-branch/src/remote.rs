@@ -3,14 +3,12 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use bstr::BString;
 use gitbutler_branchstate::VirtualBranchesHandle;
+use gitbutler_command_context::ProjectRepo;
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 use serde::Serialize;
 
+use gitbutler_core::git::{self, CommitExt};
 use gitbutler_core::virtual_branches::{target, Author};
-use gitbutler_core::{
-    git::{self, CommitExt},
-    project_repository,
-};
 
 // this struct is a mapping to the view `RemoteBranch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
@@ -60,9 +58,7 @@ pub struct RemoteCommit {
 
 // for legacy purposes, this is still named "remote" branches, but it's actually
 // a list of all the normal (non-gitbutler) git branches.
-pub fn list_remote_branches(
-    project_repository: &project_repository::ProjectRepo,
-) -> Result<Vec<RemoteBranch>> {
+pub fn list_remote_branches(project_repository: &ProjectRepo) -> Result<Vec<RemoteBranch>> {
     let default_target = default_target(&project_repository.project().gb_dir())?;
 
     let mut remote_branches = vec![];
@@ -90,7 +86,7 @@ pub fn list_remote_branches(
 }
 
 pub fn get_branch_data(
-    project_repository: &project_repository::ProjectRepo,
+    project_repository: &ProjectRepo,
     refname: &git::Refname,
 ) -> Result<RemoteBranchData> {
     let default_target = default_target(&project_repository.project().gb_dir())?;
@@ -148,7 +144,7 @@ pub fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<RemoteBra
 }
 
 pub fn branch_to_remote_branch_data(
-    project_repository: &project_repository::ProjectRepo,
+    project_repository: &ProjectRepo,
     branch: &git2::Branch,
     base: git2::Oid,
 ) -> Result<Option<RemoteBranchData>> {
