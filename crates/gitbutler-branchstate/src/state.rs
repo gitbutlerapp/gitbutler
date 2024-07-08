@@ -9,8 +9,9 @@ use gitbutler_branch::{
     branch::{Branch, BranchId},
     target::Target,
 };
-use gitbutler_core::{error::Code, fs::read_toml_file_or_default, git};
+use gitbutler_core::{error::Code, fs::read_toml_file_or_default};
 use gitbutler_project::Project;
+use gitbutler_reference::Refname;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -125,7 +126,7 @@ impl VirtualBranchesHandle {
 
     pub fn find_by_source_refname_where_not_in_workspace(
         &self,
-        refname: &git::Refname,
+        refname: &Refname,
     ) -> Result<Option<Branch>> {
         self.list_all_branches().map(|branches| {
             branches.into_iter().find(|branch| {

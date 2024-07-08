@@ -1,13 +1,10 @@
 use anyhow::Result;
+use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, VirtualRefname};
 use serde::{Deserialize, Serialize};
 
-use gitbutler_core::{
-    git::{self},
-    id::Id,
-};
+use gitbutler_core::id::Id;
 
 use crate::ownership::BranchOwnershipClaims;
-use gitbutler_core::git::normalize_branch_name;
 
 pub type BranchId = Id<Branch>;
 
@@ -20,8 +17,8 @@ pub struct Branch {
     pub id: BranchId,
     pub name: String,
     pub notes: String,
-    pub source_refname: Option<git::Refname>,
-    pub upstream: Option<git::RemoteRefname>,
+    pub source_refname: Option<Refname>,
+    pub upstream: Option<RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
     #[serde(with = "gitbutler_core::serde::oid_opt", default)]
     pub upstream_head: Option<git2::Oid>,
@@ -78,12 +75,12 @@ where
 }
 
 impl Branch {
-    pub fn refname(&self) -> git::VirtualRefname {
+    pub fn refname(&self) -> VirtualRefname {
         self.into()
     }
 }
 
-impl From<&Branch> for git::VirtualRefname {
+impl From<&Branch> for VirtualRefname {
     fn from(value: &Branch) -> Self {
         Self {
             branch: normalize_branch_name(&value.name),

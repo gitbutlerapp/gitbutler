@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::{fs, path};
 
 use gitbutler_core::git;
+use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_repo::RepositoryExt;
 use tempfile::TempDir;
 
@@ -94,7 +95,7 @@ impl TestProject {
         self.local_repository.workdir().unwrap()
     }
 
-    pub fn push_branch(&self, branch: &git::LocalRefname) {
+    pub fn push_branch(&self, branch: &LocalRefname) {
         let mut origin = self.local_repository.find_remote("origin").unwrap();
         origin.push(&[&format!("{branch}:{branch}")], None).unwrap();
     }
@@ -138,12 +139,10 @@ impl TestProject {
             .unwrap();
     }
 
-    pub fn rebase_and_merge(&self, branch_name: &git::Refname) {
-        let branch_name: git::Refname = match branch_name {
-            git::Refname::Local(local) => format!("refs/heads/{}", local.branch()).parse().unwrap(),
-            git::Refname::Remote(remote) => {
-                format!("refs/heads/{}", remote.branch()).parse().unwrap()
-            }
+    pub fn rebase_and_merge(&self, branch_name: &Refname) {
+        let branch_name: Refname = match branch_name {
+            Refname::Local(local) => format!("refs/heads/{}", local.branch()).parse().unwrap(),
+            Refname::Remote(remote) => format!("refs/heads/{}", remote.branch()).parse().unwrap(),
             _ => "INVALID".parse().unwrap(), // todo
         };
         let branch = self
@@ -153,7 +152,7 @@ impl TestProject {
         let branch_commit = branch.unwrap().get().peel_to_commit().unwrap();
 
         let master_branch = {
-            let name: git::Refname = "refs/heads/master".parse().unwrap();
+            let name: Refname = "refs/heads/master".parse().unwrap();
             self.remote_repository
                 .find_branch_by_refname(&name)
                 .unwrap()
@@ -217,12 +216,10 @@ impl TestProject {
     }
 
     /// works like if we'd open and merge a PR on github. does not update local.
-    pub fn merge(&self, branch_name: &git::Refname) {
-        let branch_name: git::Refname = match branch_name {
-            git::Refname::Local(local) => format!("refs/heads/{}", local.branch()).parse().unwrap(),
-            git::Refname::Remote(remote) => {
-                format!("refs/heads/{}", remote.branch()).parse().unwrap()
-            }
+    pub fn merge(&self, branch_name: &Refname) {
+        let branch_name: Refname = match branch_name {
+            Refname::Local(local) => format!("refs/heads/{}", local.branch()).parse().unwrap(),
+            Refname::Remote(remote) => format!("refs/heads/{}", remote.branch()).parse().unwrap(),
             _ => "INVALID".parse().unwrap(), // todo
         };
         let branch = self
@@ -232,7 +229,7 @@ impl TestProject {
         let branch_commit = branch.as_ref().unwrap().get().peel_to_commit().unwrap();
 
         let master_branch = {
-            let name: git::Refname = "refs/heads/master".parse().unwrap();
+            let name: Refname = "refs/heads/master".parse().unwrap();
             self.remote_repository
                 .find_branch_by_refname(&name)
                 .unwrap()
@@ -295,8 +292,8 @@ impl TestProject {
             .unwrap();
     }
 
-    pub fn checkout(&self, branch: &git::LocalRefname) {
-        let refname: git::Refname = branch.into();
+    pub fn checkout(&self, branch: &LocalRefname) {
+        let refname: Refname = branch.into();
         let head_commit = self
             .local_repository
             .head()
@@ -342,7 +339,7 @@ impl TestProject {
         index.write().expect("failed to write index");
         let oid = index.write_tree().expect("failed to write tree");
         let signature = git2::Signature::now("test", "test@email.com").unwrap();
-        let refname: git::Refname = head.name().unwrap().parse().unwrap();
+        let refname: Refname = head.name().unwrap().parse().unwrap();
         let repo: &git2::Repository = &self.local_repository;
         repo.commit_with_signature(
             Some(&refname),

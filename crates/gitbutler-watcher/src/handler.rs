@@ -4,13 +4,13 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::error::Marker;
-use gitbutler_core::git;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     oplog::Oplog,
 };
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
+use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_sync::cloud::sync_with_gitbutler;
 use gitbutler_user as users;
 use gitbutler_virtual::assets;
@@ -184,11 +184,8 @@ impl Handler {
                     let head_ref_name = head_ref.name().context("failed to get head name")?;
                     if head_ref_name != "refs/heads/gitbutler/integration" {
                         let mut integration_reference = project_repository.repo().find_reference(
-                            &git::Refname::from(git::LocalRefname::new(
-                                "gitbutler/integration",
-                                None,
-                            ))
-                            .to_string(),
+                            &Refname::from(LocalRefname::new("gitbutler/integration", None))
+                                .to_string(),
                         )?;
                         integration_reference.delete()?;
                     }

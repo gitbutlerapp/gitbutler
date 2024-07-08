@@ -48,7 +48,7 @@ mod applied_branch {
             let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
             assert_eq!(branches.len(), 0);
 
-            git::Refname::from_str(unapplied_branches[0].as_str()).unwrap()
+            Refname::from_str(unapplied_branches[0].as_str()).unwrap()
         };
 
         {
@@ -118,7 +118,7 @@ mod applied_branch {
             let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
             assert_eq!(branches.len(), 0);
 
-            git::Refname::from_str(unapplied_branches[0].as_str()).unwrap()
+            Refname::from_str(unapplied_branches[0].as_str()).unwrap()
         };
 
         {
@@ -194,7 +194,7 @@ mod applied_branch {
             let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
             assert_eq!(branches.len(), 0);
 
-            git::Refname::from_str(unapplied_branches[0].as_str()).unwrap()
+            Refname::from_str(unapplied_branches[0].as_str()).unwrap()
         };
 
         {
@@ -267,7 +267,7 @@ mod applied_branch {
             let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
             assert_eq!(branches.len(), 0);
 
-            git::Refname::from_str(unapplied_branches[0].as_str()).unwrap()
+            Refname::from_str(unapplied_branches[0].as_str()).unwrap()
         };
 
         {
@@ -340,7 +340,7 @@ mod applied_branch {
             let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
             assert_eq!(branches.len(), 0);
 
-            git::Refname::from_str(unapplied_branches[0].as_str()).unwrap()
+            Refname::from_str(unapplied_branches[0].as_str()).unwrap()
         };
 
         {
@@ -765,7 +765,7 @@ mod applied_branch {
             controller
                 .create_virtual_branch_from_branch(
                     project,
-                    &git::Refname::from_str(unapplied_refname.as_str()).unwrap(),
+                    &Refname::from_str(unapplied_refname.as_str()).unwrap(),
                 )
                 .await
                 .unwrap();

@@ -373,7 +373,7 @@ async fn applying_first_branch() {
         .convert_to_real_branch(project, branches[0].id, Default::default())
         .await
         .unwrap();
-    let unapplied_branch = git::Refname::from_str(&unapplied_branch).unwrap();
+    let unapplied_branch = Refname::from_str(&unapplied_branch).unwrap();
     controller
         .create_virtual_branch_from_branch(project, &unapplied_branch)
         .await

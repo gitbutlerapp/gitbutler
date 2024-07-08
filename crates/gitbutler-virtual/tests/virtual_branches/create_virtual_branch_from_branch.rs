@@ -1,3 +1,5 @@
+use gitbutler_reference::LocalRefname;
+
 use super::*;
 
 #[tokio::test]
@@ -131,7 +133,7 @@ async fn no_conflicts() {
 
     {
         // create a remote branch
-        let branch_name: git::LocalRefname = "refs/heads/branch".parse().unwrap();
+        let branch_name: LocalRefname = "refs/heads/branch".parse().unwrap();
         repository.checkout(&branch_name);
         fs::write(repository.path().join("file.txt"), "first").unwrap();
         repository.commit_all("first");
@@ -170,7 +172,7 @@ async fn conflicts_with_uncommited() {
 
     {
         // create a remote branch
-        let branch_name: git::LocalRefname = "refs/heads/branch".parse().unwrap();
+        let branch_name: LocalRefname = "refs/heads/branch".parse().unwrap();
         repository.checkout(&branch_name);
         fs::write(repository.path().join("file.txt"), "first").unwrap();
         repository.commit_all("first");
@@ -221,7 +223,7 @@ async fn conflicts_with_commited() {
 
     {
         // create a remote branch
-        let branch_name: git::LocalRefname = "refs/heads/branch".parse().unwrap();
+        let branch_name: LocalRefname = "refs/heads/branch".parse().unwrap();
         repository.checkout(&branch_name);
         fs::write(repository.path().join("file.txt"), "first").unwrap();
         repository.commit_all("first");
@@ -333,7 +335,7 @@ async fn from_state_remote_branch() {
 
     {
         // create a remote branch
-        let branch_name: git::LocalRefname = "refs/heads/branch".parse().unwrap();
+        let branch_name: LocalRefname = "refs/heads/branch".parse().unwrap();
         repository.checkout(&branch_name);
         fs::write(repository.path().join("file.txt"), "branch commit").unwrap();
         repository.commit_all("branch commit");

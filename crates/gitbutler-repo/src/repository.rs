@@ -9,6 +9,7 @@ use gitbutler_core::{
     git::{self, CommitHeadersV2},
     ssh,
 };
+use gitbutler_reference::{Refname, RemoteRefname};
 
 use crate::{askpass, Config};
 use gitbutler_project::AuthKey;
@@ -20,7 +21,7 @@ pub trait RepoActions {
     fn push(
         &self,
         head: &git2::Oid,
-        branch: &git::RemoteRefname,
+        branch: &RemoteRefname,
         with_force: bool,
         credentials: &Helper,
         refspec: Option<String>,
@@ -58,7 +59,7 @@ impl RepoActions for ProjectRepo {
         askpass: Option<Option<BranchId>>,
     ) -> Result<()> {
         let target_branch_refname =
-            git::Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
+            Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
         let branch = self
             .repo()
             .find_branch_by_refname(&target_branch_refname)?
@@ -70,7 +71,7 @@ impl RepoActions for ProjectRepo {
         let branch_name = format!("test-push-{now}");
 
         let refname =
-            git::RemoteRefname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}",))?;
+            RemoteRefname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}",))?;
 
         match self.push(&commit_id, &refname, false, credentials, None, askpass) {
             Ok(()) => Ok(()),
@@ -248,7 +249,7 @@ impl RepoActions for ProjectRepo {
     fn push(
         &self,
         head: &git2::Oid,
-        branch: &git::RemoteRefname,
+        branch: &RemoteRefname,
         with_force: bool,
         credentials: &Helper,
         refspec: Option<String>,

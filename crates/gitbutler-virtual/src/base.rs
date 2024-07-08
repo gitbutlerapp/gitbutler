@@ -9,6 +9,7 @@ use gitbutler_branch::target::Target;
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_project::FetchResult;
+use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 use serde::Serialize;
 
@@ -20,7 +21,6 @@ use crate::remote::{commit_to_remote_commit, RemoteCommit};
 use crate::VirtualBranchHunk;
 use gitbutler_branch::GITBUTLER_INTEGRATION_REFERENCE;
 use gitbutler_core::error::Marker;
-use gitbutler_core::git;
 use gitbutler_repo::rebase::cherry_rebase;
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
@@ -115,7 +115,7 @@ fn go_back_to_integration(
 
 pub fn set_base_branch(
     project_repository: &ProjectRepo,
-    target_branch_ref: &git::RemoteRefname,
+    target_branch_ref: &RemoteRefname,
 ) -> Result<BaseBranch> {
     let repo = project_repository.repo();
 
@@ -174,7 +174,7 @@ pub fn set_base_branch(
     vb_state.set_default_target(target.clone())?;
 
     // TODO: make sure this is a real branch
-    let head_name: git::Refname = current_head
+    let head_name: Refname = current_head
         .name()
         .map(|name| name.parse().expect("libgit2 provides valid refnames"))
         .context("Failed to get HEAD reference name")?;
@@ -208,12 +208,12 @@ pub fn set_base_branch(
 
             let now_ms = gitbutler_core::time::now_ms();
 
-            let (upstream, upstream_head) = if let git::Refname::Local(head_name) = &head_name {
+            let (upstream, upstream_head) = if let Refname::Local(head_name) = &head_name {
                 let upstream_name = target_branch_ref.with_branch(head_name.branch());
                 if upstream_name.eq(target_branch_ref) {
                     (None, None)
                 } else {
-                    match repo.find_reference(&git::Refname::from(&upstream_name).to_string()) {
+                    match repo.find_reference(&Refname::from(&upstream_name).to_string()) {
                         Ok(upstream) => {
                             let head = upstream
                                 .peel_to_commit()

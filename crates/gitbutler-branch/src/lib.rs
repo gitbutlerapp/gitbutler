@@ -8,8 +8,8 @@ pub mod target;
 
 use lazy_static::lazy_static;
 lazy_static! {
-    pub static ref GITBUTLER_INTEGRATION_REFERENCE: gitbutler_core::git::LocalRefname =
-        gitbutler_core::git::LocalRefname::new("gitbutler/integration", None);
+    pub static ref GITBUTLER_INTEGRATION_REFERENCE: gitbutler_reference::LocalRefname =
+        gitbutler_reference::LocalRefname::new("gitbutler/integration", None);
 }
 
 pub const GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME: &str = "GitButler";

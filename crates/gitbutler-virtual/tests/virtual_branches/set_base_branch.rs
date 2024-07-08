@@ -15,6 +15,8 @@ async fn success() {
 }
 
 mod error {
+    use gitbutler_reference::RemoteRefname;
+
     use super::*;
 
     #[tokio::test]
@@ -29,7 +31,7 @@ mod error {
             controller
                 .set_base_branch(
                     project,
-                    &git::RemoteRefname::from_str("refs/remotes/origin/missing").unwrap(),
+                    &RemoteRefname::from_str("refs/remotes/origin/missing").unwrap(),
                 )
                 .await
                 .unwrap_err()

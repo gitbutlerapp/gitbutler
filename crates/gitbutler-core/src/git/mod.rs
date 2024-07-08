@@ -1,6 +1,3 @@
-mod reference;
-pub use reference::*;
-
 mod url;
 pub use self::url::*;
 

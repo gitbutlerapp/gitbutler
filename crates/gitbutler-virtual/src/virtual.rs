@@ -6,6 +6,7 @@ use gitbutler_branch::ownership::{reconcile_claims, BranchOwnershipClaims};
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_oplog::snapshot::Snapshot;
+use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::credentials::Helper;
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 use std::borrow::Borrow;
@@ -32,14 +33,11 @@ use crate::conflicts::{self, RepoConflicts};
 use crate::integration::{get_integration_commiter, get_workspace_head};
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
 use gitbutler_branch::target;
+use gitbutler_core::dedup::{dedup, dedup_fmt};
 use gitbutler_core::error::Code;
 use gitbutler_core::error::Marker;
-use gitbutler_core::git::{normalize_branch_name, CommitExt, CommitHeadersV2, HasCommitHeaders};
+use gitbutler_core::git::{CommitExt, CommitHeadersV2, HasCommitHeaders};
 use gitbutler_core::time::now_since_unix_epoch_ms;
-use gitbutler_core::{
-    dedup::{dedup, dedup_fmt},
-    git::{self, Refname, RemoteRefname},
-};
 use gitbutler_repo::rebase::{cherry_rebase, cherry_rebase_group};
 
 type AppliedStatuses = Vec<(branch::Branch, BranchStatus)>;
@@ -377,7 +375,7 @@ pub fn convert_to_real_branch(
 
         let vb_state = project_repository.project().virtual_branches();
         let branch = repo.branch(&branch_name, &target_commit, true)?;
-        vbranch.source_refname = Some(git::Refname::try_from(&branch)?);
+        vbranch.source_refname = Some(Refname::try_from(&branch)?);
         vb_state.set_branch(vbranch.clone())?;
 
         build_metadata_commit(project_repository, vbranch, &branch)?;
@@ -533,7 +531,7 @@ pub fn list_virtual_branches(
         update_conflict_markers(project_repository, &files)?;
 
         let upstream_branch = match branch.clone().upstream {
-            Some(upstream) => repo.find_branch_by_refname(&git::Refname::from(upstream))?,
+            Some(upstream) => repo.find_branch_by_refname(&Refname::from(upstream))?,
             None => None,
         };
 
@@ -1126,7 +1124,7 @@ pub fn update_branch(
             upstream_remote,
             normalize_branch_name(updated_upstream)
         )
-        .parse::<git::RemoteRefname>()
+        .parse::<RemoteRefname>()
         .unwrap();
         branch.upstream = Some(remote_branch);
     };
@@ -2135,7 +2133,7 @@ pub fn push(
             upstream_remote,
             normalize_branch_name(&vbranch.name)
         )
-        .parse::<git::RemoteRefname>()
+        .parse::<RemoteRefname>()
         .context("failed to parse remote branch name")?;
 
         let remote_branches = project_repository.repo().remote_branches()?;
@@ -2244,7 +2242,7 @@ fn is_commit_integrated(
 
 pub fn is_remote_branch_mergeable(
     project_repository: &ProjectRepo,
-    branch_name: &git::RemoteRefname,
+    branch_name: &RemoteRefname,
 ) -> Result<bool> {
     let vb_state = project_repository.project().virtual_branches();
 
@@ -3152,7 +3150,7 @@ pub fn move_commit(
 
 pub fn create_virtual_branch_from_branch(
     project_repository: &ProjectRepo,
-    upstream: &git::Refname,
+    upstream: &Refname,
 ) -> Result<BranchId> {
     fn apply_branch(project_repository: &ProjectRepo, branch_id: BranchId) -> Result<String> {
         project_repository.assure_resolved()?;
@@ -3395,12 +3393,12 @@ pub fn create_virtual_branch_from_branch(
 
     // only set upstream if it's not the default target
     let upstream_branch = match upstream {
-        git::Refname::Other(_) | git::Refname::Virtual(_) => {
+        Refname::Other(_) | Refname::Virtual(_) => {
             // we only support local or remote branches
             bail!("branch {upstream} must be a local or remote branch");
         }
-        git::Refname::Remote(remote) => Some(remote.clone()),
-        git::Refname::Local(local) => local.remote().cloned(),
+        Refname::Remote(remote) => Some(remote.clone()),
+        Refname::Local(local) => local.remote().cloned(),
     };
 
     let branch_name = upstream
@@ -3416,7 +3414,7 @@ pub fn create_virtual_branch_from_branch(
 
     let default_target = vb_state.get_default_target()?;
 
-    if let git::Refname::Remote(remote_upstream) = upstream {
+    if let Refname::Remote(remote_upstream) = upstream {
         if default_target.branch == *remote_upstream {
             bail!("cannot create a branch from default target")
         }

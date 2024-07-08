@@ -1,3 +1,5 @@
+use gitbutler_reference::Refname;
+
 use super::*;
 
 #[tokio::test]
@@ -67,7 +69,7 @@ async fn rebase_commit() {
         let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
         assert_eq!(branches.len(), 0);
 
-        git::Refname::from_str(&unapplied_branch).unwrap()
+        Refname::from_str(&unapplied_branch).unwrap()
     };
 
     {
@@ -171,7 +173,7 @@ async fn rebase_work() {
         assert!(!repository.path().join("another_file.txt").exists());
         assert!(!repository.path().join("file.txt").exists());
 
-        git::Refname::from_str(&unapplied_branch).unwrap()
+        Refname::from_str(&unapplied_branch).unwrap()
     };
 
     {

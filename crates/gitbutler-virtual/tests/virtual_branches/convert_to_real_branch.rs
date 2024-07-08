@@ -1,3 +1,5 @@
+use gitbutler_reference::Refname;
+
 use super::*;
 
 #[tokio::test]
@@ -73,7 +75,7 @@ async fn conflicting() {
             .await
             .unwrap();
 
-        git::Refname::from_str(&unapplied_branch).unwrap()
+        Refname::from_str(&unapplied_branch).unwrap()
     };
 
     {

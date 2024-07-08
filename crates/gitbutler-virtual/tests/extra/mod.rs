@@ -18,6 +18,7 @@ use gitbutler_branch::{
 };
 use gitbutler_branchstate::VirtualBranchesAccess;
 use gitbutler_core::git::{self, CommitExt};
+use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_virtual::integration;
 use gitbutler_virtual::r#virtual as virtual_branches;
@@ -692,7 +693,7 @@ fn commit_id_can_be_generated_or_specified() -> Result<()> {
     let oid = index.write_tree().expect("failed to write tree");
     let signature = git2::Signature::now("test", "test@email.com").unwrap();
     let head = repository.head().expect("failed to get head");
-    let refname: git::Refname = head.name().unwrap().parse().unwrap();
+    let refname: Refname = head.name().unwrap().parse().unwrap();
     project_repository
         .repo()
         .commit_with_signature(
@@ -789,7 +790,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     // Update integration commit
     integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
-    let remote_branch: git::RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
+    let remote_branch: RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
     let mut branch = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
@@ -886,7 +887,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
         "line1\nline2\nline3\nline4\nupstream\nother side\n",
     )?;
 
-    let remote_branch: git::RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
+    let remote_branch: RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
     let mut branch = create_virtual_branch(project_repository, &BranchCreateRequest::default())
         .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
@@ -1077,7 +1078,7 @@ fn unapply_branch() -> Result<()> {
 
     let branch1_id = virtual_branches::create_virtual_branch_from_branch(
         project_repository,
-        &git::Refname::try_from(&real_branch)?,
+        &Refname::try_from(&real_branch)?,
     )?;
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!(
@@ -1165,7 +1166,7 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
 
     create_virtual_branch_from_branch(
         project_repository,
-        &git::Refname::try_from(&real_branch_2).unwrap(),
+        &Refname::try_from(&real_branch_2).unwrap(),
     )
     .unwrap();
 
@@ -1174,7 +1175,7 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
 
     create_virtual_branch_from_branch(
         project_repository,
-        &git::Refname::try_from(&real_branch_3).unwrap(),
+        &Refname::try_from(&real_branch_3).unwrap(),
     )
     .unwrap();
 
