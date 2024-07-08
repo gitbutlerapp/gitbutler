@@ -18,3 +18,5 @@ declare module 'tinykeys';
 interface HTMLElement {
 	scrollIntoViewIfNeeded: (centerIfNeeded?: boolean) => void;
 }
+
+export {};
