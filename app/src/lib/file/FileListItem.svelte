@@ -225,7 +225,7 @@
 	}
 
 	.file-icon {
-		width: 12px;
+		width: 14px;
 	}
 
 	.name {
