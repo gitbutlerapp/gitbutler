@@ -1,5 +1,6 @@
 use crate::error::Error;
-use gitbutler_core::projects::{self, ProjectId};
+use gitbutler_project as projects;
+use gitbutler_project::ProjectId;
 use gitbutler_repo::RepoCommands;
 use tauri::Manager;
 use tracing::instrument;

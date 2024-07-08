@@ -15,7 +15,6 @@
 
 pub mod askpass;
 pub mod assets;
-pub mod config;
 pub mod dedup;
 pub mod error;
 pub mod fs;
@@ -25,7 +24,6 @@ pub mod keys;
 pub mod lock;
 pub mod path;
 pub mod project_repository;
-pub mod projects;
 pub mod secret;
 pub mod serde;
 pub mod ssh;

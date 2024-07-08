@@ -1,6 +1,7 @@
 use anyhow::{anyhow, bail, Context};
 use git2::{DiffOptions, FileMode};
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesState};
+use gitbutler_project::Project;
 use gitbutler_repo::RepositoryExt;
 use std::collections::HashMap;
 use std::path::Path;
@@ -11,11 +12,11 @@ use std::{fs, path::PathBuf};
 use anyhow::Result;
 use tracing::instrument;
 
+use gitbutler_core::git::diff::hunks_by_filepath;
 use gitbutler_core::git::diff::FileDiff;
 use gitbutler_core::virtual_branches::{
     Branch, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
 };
-use gitbutler_core::{git::diff::hunks_by_filepath, projects::Project};
 
 use super::{
     entry::{OperationKind, Snapshot, SnapshotDetails, Trailer},
@@ -162,10 +163,8 @@ impl Oplog for Project {
         let mut branches_tree_builder = repo.treebuilder(None)?;
         let mut head_tree_ids = Vec::new();
 
-        for branch in vb_state.list_branches()? {
-            if branch.applied {
-                head_tree_ids.push(branch.tree);
-            }
+        for branch in vb_state.list_branches_in_workspace()? {
+            head_tree_ids.push(branch.tree);
 
             // commits in virtual branches (tree and commit data)
             // calculate all the commits between branch.head and the target and codify them
@@ -712,12 +711,9 @@ fn lines_since_snapshot(project: &Project, repo: &git2::Repository) -> Result<us
         return Ok(0);
     };
 
-    let vbranches = project.virtual_branches().list_branches()?;
+    let vbranches = project.virtual_branches().list_branches_in_workspace()?;
     let mut lines_changed = 0;
-    let dirty_branches = vbranches
-        .iter()
-        .filter(|b| b.applied)
-        .filter(|b| !b.ownership.claims.is_empty());
+    let dirty_branches = vbranches.iter().filter(|b| !b.ownership.claims.is_empty());
     for branch in dirty_branches {
         lines_changed += branch_lines_since_snapshot(branch, repo, oplog_commit_id)?;
     }
@@ -811,9 +807,8 @@ fn tree_from_applied_vbranches(
 
     let vbs_from_toml: VirtualBranchesState = toml::from_str(from_utf8(vb_toml_blob.content())?)?;
     let applied_branch_trees: Vec<git2::Oid> = vbs_from_toml
-        .branches
-        .values()
-        .filter(|b| b.applied)
+        .list_branches_in_workspace()?
+        .iter()
         .map(|b| b.tree)
         .collect();
 

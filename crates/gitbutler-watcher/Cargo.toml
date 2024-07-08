@@ -21,6 +21,7 @@ tokio-util = "0.7.11"
 tracing = "0.1.40"
 gix = { workspace = true, features = ["excludes"] }
 gitbutler-command-context.workspace = true
+gitbutler-project.workspace = true
 
 
 backoff = "0.4.0"

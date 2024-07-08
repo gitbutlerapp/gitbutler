@@ -2,14 +2,15 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use futures::executor::block_on;
-use gitbutler_core::projects::{self, Project, ProjectId};
 use gitbutler_core::{assets, users};
+use gitbutler_project as projects;
+use gitbutler_project::{Project, ProjectId};
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
 mod event {
     use anyhow::{Context, Result};
-    use gitbutler_core::projects::ProjectId;
+    use gitbutler_project::ProjectId;
     use gitbutler_watcher::Change;
     use tauri::Manager;
 
@@ -147,7 +148,7 @@ impl Watchers {
 }
 
 #[async_trait::async_trait]
-impl gitbutler_core::projects::Watchers for Watchers {
+impl projects::Watchers for Watchers {
     fn watch(&self, project: &Project) -> Result<()> {
         Watchers::watch(self, project)
     }

@@ -9,10 +9,11 @@ pub mod commands {
         assets,
         error::Code,
         git,
-        projects::{self, ProjectId},
         types::ReferenceName,
         virtual_branches::branch::{self, BranchId, BranchOwnershipClaims},
     };
+    use gitbutler_project as projects;
+    use gitbutler_project::ProjectId;
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 

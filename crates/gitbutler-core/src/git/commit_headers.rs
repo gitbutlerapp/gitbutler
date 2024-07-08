@@ -18,13 +18,9 @@ struct CommitHeadersV1 {
 const V2_HEADERS_VERSION: &str = "2";
 
 const V2_CHANGE_ID_HEADER: &str = "gitbutler-change-id";
-const V2_IS_UNAPPLIED_HEADER_COMMIT_HEADER: &str = "gitbutler-is-unapplied-header-commit";
-const V2_VBRANCH_NAME_HEADER: &str = "gitbutler-vbranch-name";
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CommitHeadersV2 {
     pub change_id: String,
-    pub is_unapplied_header_commit: bool,
-    pub vbranch_name: Option<String>,
 }
 
 impl Default for CommitHeadersV2 {
@@ -32,8 +28,6 @@ impl Default for CommitHeadersV2 {
         CommitHeadersV2 {
             // Change ID using base16 encoding
             change_id: Uuid::new_v4().to_string(),
-            is_unapplied_header_commit: false,
-            vbranch_name: None,
         }
     }
 }
@@ -42,8 +36,6 @@ impl From<CommitHeadersV1> for CommitHeadersV2 {
     fn from(commit_headers_v1: CommitHeadersV1) -> CommitHeadersV2 {
         CommitHeadersV2 {
             change_id: commit_headers_v1.change_id,
-            is_unapplied_header_commit: false,
-            vbranch_name: None,
         }
     }
 }
@@ -63,23 +55,7 @@ impl HasCommitHeaders for git2::Commit<'_> {
                 // We can safely assume that the change id should be UTF8
                 let change_id = change_id.as_str()?.to_string();
 
-                // We can rationalize about is unapplied header commit with a bstring
-                let is_wip_commit = self
-                    .header_field_bytes(V2_IS_UNAPPLIED_HEADER_COMMIT_HEADER)
-                    .ok()?;
-                let is_wip_commit = BString::new(is_wip_commit.to_owned());
-
-                // We can safely assume that the vbranch name should be UTF8
-                let vbranch_name = self
-                    .header_field_bytes(V2_VBRANCH_NAME_HEADER)
-                    .ok()
-                    .and_then(|buffer| Some(buffer.as_str()?.to_string()));
-
-                Some(CommitHeadersV2 {
-                    change_id,
-                    is_unapplied_header_commit: is_wip_commit == "true",
-                    vbranch_name,
-                })
+                Some(CommitHeadersV2 { change_id })
             } else {
                 // Must be for a version we don't recognise
                 None
@@ -100,10 +76,8 @@ impl HasCommitHeaders for git2::Commit<'_> {
 impl CommitHeadersV2 {
     /// Used to create a CommitHeadersV2. This does not allow a change_id to be
     /// provided in order to ensure a consistent format.
-    pub fn new(is_unapplied_header_commit: bool, vbranch_name: Option<String>) -> CommitHeadersV2 {
+    pub fn new() -> CommitHeadersV2 {
         CommitHeadersV2 {
-            is_unapplied_header_commit,
-            vbranch_name,
             ..Default::default()
         }
     }
@@ -115,18 +89,5 @@ impl CommitHeadersV2 {
     pub fn inject_into(&self, commit_buffer: &mut CommitBuffer) {
         commit_buffer.set_header(HEADERS_VERSION_HEADER, V2_HEADERS_VERSION);
         commit_buffer.set_header(V2_CHANGE_ID_HEADER, &self.change_id);
-        let is_unapplied_header_commit = if self.is_unapplied_header_commit {
-            "true"
-        } else {
-            "false"
-        };
-        commit_buffer.set_header(
-            V2_IS_UNAPPLIED_HEADER_COMMIT_HEADER,
-            is_unapplied_header_commit,
-        );
-
-        if let Some(vbranch_name) = &self.vbranch_name {
-            commit_buffer.set_header(V2_VBRANCH_NAME_HEADER, vbranch_name);
-        };
     }
 }

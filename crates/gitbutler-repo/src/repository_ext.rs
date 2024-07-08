@@ -1,13 +1,11 @@
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::BString;
 use git2::{BlameOptions, Repository, Tree};
+use gitbutler_config::git::{GbConfig, GitConfig};
 use std::{path::Path, process::Stdio, str};
 use tracing::instrument;
 
-use gitbutler_core::{
-    config::git::{GbConfig, GitConfig},
-    error::Code,
-};
+use gitbutler_core::error::Code;
 
 use gitbutler_core::git::{CommitBuffer, CommitHeadersV2, Refname, RemoteRefname};
 use std::io::Write;

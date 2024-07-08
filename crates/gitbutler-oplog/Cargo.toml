@@ -17,6 +17,7 @@ strum = { version = "0.26", features = ["derive"] }
 tracing = "0.1.40"
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 toml = "0.8.13"
+gitbutler-project.workspace = true
 
 [[test]]
 name="oplog"

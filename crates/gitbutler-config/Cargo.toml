@@ -1,5 +1,5 @@
 [package]
-name = "gitbutler-feedback"
+name = "gitbutler-config"
 version = "0.0.0"
 edition = "2021"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
@@ -7,15 +7,7 @@ publish = false
 
 [dependencies]
 gitbutler-core.workspace = true
+git2.workspace = true
 anyhow = "1.0.86"
-zip = "0.6.5"
-walkdir = "2.5.0"
-sha2 = "0.10.8"
+serde = { workspace = true, features = ["std"]}
 gitbutler-project.workspace = true
-
-[[test]]
-name="feedback"
-path = "tests/mod.rs"
-
-[dev-dependencies]
-tempfile = "3.10"
