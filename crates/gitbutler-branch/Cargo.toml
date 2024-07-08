@@ -15,6 +15,7 @@ bstr = "1.9.1"
 md5 = "0.7.0"
 hex = "0.4.3"
 tracing = "0.1.40"
+lazy_static = "1.4.0"
 
 [[test]]
 name="branch"

@@ -18,9 +18,9 @@ use crate::conflicts::RepoConflicts;
 use crate::integration::{get_workspace_head, update_gitbutler_integration};
 use crate::remote::{commit_to_remote_commit, RemoteCommit};
 use crate::VirtualBranchHunk;
+use gitbutler_branch::GITBUTLER_INTEGRATION_REFERENCE;
 use gitbutler_core::error::Marker;
 use gitbutler_core::git;
-use gitbutler_core::virtual_branches::GITBUTLER_INTEGRATION_REFERENCE;
 use gitbutler_repo::rebase::cherry_rebase;
 
 #[derive(Debug, Serialize, PartialEq, Clone)]

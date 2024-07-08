@@ -14,7 +14,7 @@ use std::{fs, path::PathBuf};
 use anyhow::Result;
 use tracing::instrument;
 
-use gitbutler_core::virtual_branches::{
+use gitbutler_branch::{
     GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
 };
 
