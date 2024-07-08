@@ -12,7 +12,7 @@ function convertToBase64(iconString: string) {
 	}
 }
 
-export function getVSIFileIcon(fileName: string) {
+export function getFileIcon(fileName: string) {
 	fileName = fileName.toLowerCase();
 	const splitName = fileName.split('.');
 	let iconName: keyof typeof symbolFileNamesToIcons = '';
