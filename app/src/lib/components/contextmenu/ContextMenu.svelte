@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/clickOutsideNew';
+	import { clickOutside } from '$lib/clickOutside';
 	import { portal } from '$lib/utils/portal';
-	import { pxToRem } from '$lib/utils/pxToRem';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { type Snippet } from 'svelte';
 
@@ -27,7 +26,6 @@
 	}: Props = $props();
 
 	// LOCAL VARS
-	let menuMargin = 4;
 
 	// STATES
 	let item = $state<any>();
@@ -71,12 +69,10 @@
 
 	function setVerticalAlign(targetBoundingRect: DOMRect) {
 		if (verticalAlign === 'top') {
-			return targetBoundingRect?.top ? targetBoundingRect.top - contextMenuHeight - menuMargin : 0;
+			return targetBoundingRect?.top ? targetBoundingRect.top - contextMenuHeight : 0;
 		}
 
-		return targetBoundingRect?.top
-			? targetBoundingRect.top + targetBoundingRect.height + menuMargin
-			: 0;
+		return targetBoundingRect?.top ? targetBoundingRect.top + targetBoundingRect.height : 0;
 	}
 
 	function setHorizontalAlign(targetBoundingRect: DOMRect) {
@@ -131,8 +127,10 @@
 		bind:offsetHeight={contextMenuHeight}
 		bind:offsetWidth={contextMenuWidth}
 		class="context-menu"
-		style:top={pxToRem(menuPosition.y)}
-		style:left={pxToRem(menuPosition.x)}
+		class:top-oriented={verticalAlign === 'top'}
+		class:bottom-oriented={verticalAlign === 'bottom'}
+		style:top="{menuPosition.y}px"
+		style:left="{menuPosition.x}px"
 		style:transform-origin={setTransformOrigin()}
 		style:--animation-transform-shift={verticalAlign === 'top' ? '6px' : '-6px'}
 	>
@@ -165,6 +163,14 @@
 		width: 100%;
 		height: 100%;
 		/* background-color: rgba(0, 0, 0, 0.1); */
+	}
+
+	.top-oriented {
+		margin-top: -4px;
+	}
+
+	.bottom-oriented {
+		margin-top: 4px;
 	}
 
 	.context-menu {

@@ -192,7 +192,7 @@ impl Controller {
         let old_branch = project_repository
             .project()
             .virtual_branches()
-            .get_branch(branch_update.id)?;
+            .get_branch_in_workspace(branch_update.id)?;
         let result = branch::update_branch(&project_repository, &branch_update);
         let _ = snapshot_tree.and_then(|snapshot_tree| {
             project_repository.project().snapshot_branch_update(

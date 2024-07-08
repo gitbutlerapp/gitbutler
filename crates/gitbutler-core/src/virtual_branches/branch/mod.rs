@@ -21,7 +21,7 @@ pub struct Branch {
     pub id: BranchId,
     pub name: String,
     pub notes: String,
-    pub applied: bool,
+    pub source_refname: Option<git::Refname>,
     pub upstream: Option<git::RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
     #[serde(with = "crate::serde::oid_opt", default)]
@@ -50,6 +50,12 @@ pub struct Branch {
     pub selected_for_changes: Option<i64>,
     #[serde(default = "default_true")]
     pub allow_rebasing: bool,
+    #[serde(default = "default_true")]
+    pub old_applied: bool,
+    #[serde(default = "default_true")]
+    pub in_workspace: bool,
+    #[serde(default)]
+    pub not_in_workspace_wip_change_id: Option<String>,
 }
 
 fn default_true() -> bool {
