@@ -5,7 +5,7 @@
 	"svelte.enable-ts-plugin": true,
 	"prettier.configPath": ".prettierrc.mjs",
 	"prettier.useEditorConfig": false,
-	"editor.defaultFormatter": "esbenp.prettier-vscode",
+	"editor.defaultFormatter": null,
 	"[rust]": {
 		"editor.defaultFormatter": "rust-lang.rust-analyzer"
 	},

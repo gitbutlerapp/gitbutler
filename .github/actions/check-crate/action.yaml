@@ -1,23 +1,13 @@
 name: check-crate
 description: tests a core lib crate
 inputs:
-  crate:
-    description: "the name of the crate to check"
-    required: true
   features:
     description: "the features to enable (can be an array, or '*' for all, '' for defaults, or [] for none)"
     required: false
-  action:
-    description: "the action to run"
-    required: true
 runs:
   using: "composite"
   steps:
     - uses: ./.github/actions/init-env-rust
-
-    - run: |
-        cargo build --locked -p gitbutler-git --bins
-      shell: bash
 
     - run: |
         printf '%s\n' "$JSON_DOC" > /tmp/features.json
@@ -28,17 +18,13 @@ runs:
       shell: bash
 
     - run: |
-        cargo build -p gitbutler-git --bins
-        cargo test --locked -p ${{ inputs.crate }} --all-targets $(cat /tmp/features)
-      if: inputs.action == 'test'
+        cargo test --locked --all-targets $(cat /tmp/features)
       env:
         GITBUTLER_TESTS_NO_CLEANUP: "1"
       shell: bash
 
-    - run: cargo clippy -p ${{ inputs.crate }} --all-targets $(cat /tmp/features) -- -D warnings
-      if: inputs.action == 'check'
+    - run: cargo clippy --workspace --all-targets $(cat /tmp/features) -- -D warnings
       shell: bash
 
-    - run: cargo clippy -p ${{ inputs.crate }} --all-targets --tests $(cat /tmp/features) -- -D warnings
-      if: inputs.action == 'check-tests'
+    - run: cargo clippy --workspace --all-targets --tests $(cat /tmp/features) -- -D warnings
       shell: bash
