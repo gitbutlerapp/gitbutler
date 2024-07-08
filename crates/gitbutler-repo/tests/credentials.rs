@@ -1,10 +1,8 @@
 use std::path::PathBuf;
 use std::str;
 
-use gitbutler_core::{
-    git::credentials::{Credential, Helper, SshCredential},
-    project_repository, projects, users,
-};
+use gitbutler_core::{project_repository, projects, users};
+use gitbutler_repo::credentials::{Credential, Helper, SshCredential};
 
 use gitbutler_testsupport::{temp_dir, test_repository};
 
@@ -22,9 +20,9 @@ impl TestCase<'_> {
         gitbutler_testsupport::secrets::setup_blackhole_store();
         let users = users::Controller::from_path(local_app_data.path());
         let user: users::User = serde_json::from_str(if self.with_github_login {
-            include_str!("../../tests/fixtures/users/with-github.v1")
+            include_str!("../tests/fixtures/users/with-github.v1")
         } else {
-            include_str!("../../tests/fixtures/users/login-only.v1")
+            include_str!("../tests/fixtures/users/login-only.v1")
         })
         .expect("valid v1 sample user");
         users.set_user(&user).unwrap();

@@ -2269,7 +2269,11 @@ dependencies = [
  "git2",
  "gitbutler-core",
  "gitbutler-git",
+ "gitbutler-testsupport",
+ "resolve-path",
+ "serde_json",
  "tempfile",
+ "thiserror",
  "tokio",
  "tracing",
 ]

@@ -1,17 +1,14 @@
 use anyhow::Result;
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_core::{
-    git::{credentials::Helper, BranchExt},
-    project_repository::ProjectRepo,
-    projects::FetchResult,
-    types::ReferenceName,
+    git::BranchExt, project_repository::ProjectRepo, projects::FetchResult, types::ReferenceName,
 };
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     oplog::Oplog,
     snapshot::Snapshot,
 };
-use gitbutler_repo::{RepoActions, RepositoryExt};
+use gitbutler_repo::{credentials::Helper, RepoActions, RepositoryExt};
 use std::{path::Path, sync::Arc};
 
 use tokio::sync::Semaphore;

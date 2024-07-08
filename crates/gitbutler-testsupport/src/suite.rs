@@ -5,7 +5,7 @@ use std::{
 };
 
 use gitbutler_core::project_repository;
-use gitbutler_repo::RepositoryExt;
+use gitbutler_repo::{credentials::Helper, RepositoryExt};
 use tempfile::{tempdir, TempDir};
 
 use crate::{init_opts, init_opts_bare, VAR_NO_CLEANUP};
@@ -92,7 +92,7 @@ impl Suite {
 pub struct Case {
     pub project: gitbutler_core::projects::Project,
     pub project_repository: gitbutler_core::project_repository::ProjectRepo,
-    pub credentials: gitbutler_core::git::credentials::Helper,
+    pub credentials: Helper,
     /// The directory containing the `project_repository`
     project_tmp: Option<TempDir>,
 }
@@ -113,7 +113,7 @@ impl Case {
     fn new(project: gitbutler_core::projects::Project, project_tmp: TempDir) -> Case {
         let project_repository = gitbutler_core::project_repository::ProjectRepo::open(&project)
             .expect("failed to create project repository");
-        let credentials = gitbutler_core::git::credentials::Helper::default();
+        let credentials = Helper::default();
         Case {
             project,
             project_repository,
@@ -129,7 +129,7 @@ impl Case {
             .expect("failed to get project");
         let project_repository = gitbutler_core::project_repository::ProjectRepo::open(&project)
             .expect("failed to create project repository");
-        let credentials = gitbutler_core::git::credentials::Helper::default();
+        let credentials = Helper::default();
         Self {
             credentials,
             project_repository,

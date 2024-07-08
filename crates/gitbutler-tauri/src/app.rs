@@ -5,7 +5,7 @@ use gitbutler_core::{
     projects::{self, ProjectId},
     virtual_branches::BranchId,
 };
-use gitbutler_repo::{RepoActions, RepositoryExt};
+use gitbutler_repo::{credentials::Helper, RepoActions, RepositoryExt};
 
 #[derive(Clone)]
 pub struct App {
@@ -36,7 +36,7 @@ impl App {
         project_id: ProjectId,
         remote_name: &str,
         branch_name: &str,
-        credentials: &git::credentials::Helper,
+        credentials: &Helper,
         askpass: Option<Option<BranchId>>,
     ) -> Result<()> {
         let project = self.projects.get(project_id)?;
@@ -48,7 +48,7 @@ impl App {
         &self,
         project_id: ProjectId,
         remote_name: &str,
-        credentials: &git::credentials::Helper,
+        credentials: &Helper,
         askpass: Option<String>,
     ) -> Result<()> {
         let project = self.projects.get(project_id)?;

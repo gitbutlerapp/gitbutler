@@ -1,5 +1,6 @@
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_oplog::snapshot::Snapshot;
+use gitbutler_repo::credentials::Helper;
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 use std::borrow::Borrow;
 #[cfg(target_family = "unix")]
@@ -2159,7 +2160,7 @@ pub fn push(
     project_repository: &project_repository::ProjectRepo,
     branch_id: BranchId,
     with_force: bool,
-    credentials: &git::credentials::Helper,
+    credentials: &Helper,
     askpass: Option<Option<BranchId>>,
 ) -> Result<()> {
     let vb_state = project_repository.project().virtual_branches();

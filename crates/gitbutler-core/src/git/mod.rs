@@ -1,4 +1,3 @@
-pub mod credentials;
 pub mod diff;
 
 mod reference;
