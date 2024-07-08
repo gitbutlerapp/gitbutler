@@ -1,11 +1,11 @@
 pub mod commands {
     #![allow(clippy::used_underscore_binding)]
     use anyhow::Context;
+    use gitbutler_feedback::controller;
     use std::path;
 
     use gitbutler_core::error;
     use gitbutler_core::error::Code;
-    use gitbutler_core::zip::controller;
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 

@@ -122,10 +122,10 @@ fn main() {
 
                     app_handle.manage(assets::Proxy::new(app_cache_dir.join("images")));
 
-                    let zipper = gitbutler_core::zip::Zipper::new(&app_cache_dir);
+                    let zipper = gitbutler_feedback::zipper::Zipper::new(&app_cache_dir);
                     app_handle.manage(zipper.clone());
 
-                    app_handle.manage(gitbutler_core::zip::Controller::new(app_data_dir.clone(), app_log_dir.clone(), zipper.clone(), projects_controller.clone()));
+                    app_handle.manage(gitbutler_feedback::controller::Controller::new(app_data_dir.clone(), app_log_dir.clone(), zipper.clone(), projects_controller.clone()));
 
                     let keys_storage_controller = gitbutler_core::keys::storage::Storage::new(storage_controller.clone());
                     app_handle.manage(keys_storage_controller.clone());
