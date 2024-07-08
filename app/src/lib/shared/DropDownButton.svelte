@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/clickOutside';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 	import type { ComponentColor, ComponentStyleKind } from '$lib/vbranches/types';
@@ -13,23 +13,25 @@
 	export let wide = false;
 	export let help = '';
 	export let menuPosition: 'top' | 'bottom' = 'bottom';
+
+	let contextMenu: ContextMenu;
+	let iconEl: HTMLElement;
+
 	let visible = false;
 
 	export function show() {
 		visible = true;
+		contextMenu.open();
 	}
 
 	export function close() {
 		visible = false;
+		contextMenu.close();
 	}
-
-	let container: HTMLDivElement;
-	let contextMenuContainer: HTMLDivElement;
-	let iconEl: HTMLElement;
 </script>
 
 <div class="dropdown-wrapper" class:wide>
-	<div class="dropdown" bind:this={container}>
+	<div class="dropdown">
 		<Button
 			{style}
 			{icon}
@@ -44,7 +46,7 @@
 			<slot />
 		</Button>
 		<Button
-			bind:element={iconEl}
+			bind:el={iconEl}
 			{style}
 			{kind}
 			{help}
@@ -55,23 +57,20 @@
 			isDropdownChild
 			on:click={() => {
 				visible = !visible;
+				contextMenu.toggle();
 			}}
 		/>
 	</div>
-	<div
-		class="context-menu-container"
-		use:clickOutside={{
-			trigger: iconEl,
-			handler: () => (visible = false),
-			enabled: visible
+	<ContextMenu
+		bind:this={contextMenu}
+		target={iconEl}
+		verticalAlign={menuPosition}
+		onclose={() => {
+			visible = false;
 		}}
-		bind:this={contextMenuContainer}
-		style:display={visible ? 'block' : 'none'}
-		class:dropdown-top={menuPosition === 'top'}
-		class:dropdown-bottom={menuPosition === 'bottom'}
 	>
 		<slot name="context-menu" />
-	</div>
+	</ContextMenu>
 </div>
 
 <style lang="postcss">
@@ -85,23 +84,6 @@
 		flex-grow: 1;
 		align-items: center;
 	}
-
-	.context-menu-container {
-		position: absolute;
-		right: 0;
-		z-index: var(--z-floating);
-	}
-
-	.dropdown-top {
-		bottom: 100%;
-		padding-bottom: 4px;
-	}
-
-	.dropdown-bottom {
-		top: 100%;
-		padding-top: 4px;
-	}
-
 	.wide {
 		width: 100%;
 	}

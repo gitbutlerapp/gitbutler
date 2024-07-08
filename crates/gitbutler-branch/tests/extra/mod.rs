@@ -19,9 +19,10 @@ use gitbutler_branch::r#virtual::{
 };
 use gitbutler_branchstate::VirtualBranchesAccess;
 use gitbutler_core::{
-    git::{self, CommitExt, RepositoryExt},
+    git::{self, CommitExt},
     virtual_branches::branch::{BranchCreateRequest, BranchOwnershipClaims, BranchUpdateRequest},
 };
+use gitbutler_repo::RepositoryExt;
 use pretty_assertions::assert_eq;
 
 use gitbutler_testsupport::{commit_all, virtual_branches::set_test_target, Case, Suite};

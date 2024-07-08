@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/clickOutside';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { portal } from '$lib/utils/portal';
 	import type iconsJson from '$lib/icons/icons.json';
@@ -33,16 +32,23 @@
 </script>
 
 {#if open}
-	<div class="modal-container" class:open bind:this={dialog} onclose={close} use:portal={'body'}>
+	<div
+		bind:this={dialog}
+		use:portal={'body'}
+		role="presentation"
+		class="modal-container"
+		class:open
+		onclick={(e) => {
+			// Close the modal if the user clicks outside of it
+			e.target === e.currentTarget && close();
+		}}
+	>
 		<div
 			class="modal-content"
 			class:s-default={width === 'default'}
 			class:s-small={width === 'small'}
 			class:s-large={width === 'large'}
-			use:clickOutside={{
-				trigger: dialog,
-				handler: () => close()
-			}}
+			class:round-top-corners={!title}
 		>
 			{#if title}
 				<div class="modal__header">

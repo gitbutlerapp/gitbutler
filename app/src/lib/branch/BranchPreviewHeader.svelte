@@ -1,7 +1,6 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
 	import { Project } from '$lib/backend/projects';
-	import ViewPrContextMenu from '$lib/components/ViewPrContextMenu.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
@@ -9,7 +8,6 @@
 	import { tooltip } from '$lib/utils/tooltip';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { mount, onDestroy, unmount } from 'svelte';
 	import type { PullRequest } from '$lib/github/types';
 	import type { BaseBranch, RemoteBranch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
@@ -22,22 +20,6 @@
 	const project = getContext(Project);
 
 	let isApplying = false;
-
-	function updateContextMenu(copyablePrUrl: string) {
-		if (popupMenu) unmount(popupMenu);
-		return mount(ViewPrContextMenu, {
-			target: document.body,
-			props: { prUrl: copyablePrUrl }
-		});
-	}
-
-	$: popupMenu = updateContextMenu(pr?.htmlUrl || '');
-
-	onDestroy(() => {
-		if (popupMenu) {
-			unmount(popupMenu);
-		}
-	});
 </script>
 
 <div class="header__wrapper">

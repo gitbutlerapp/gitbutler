@@ -15,8 +15,8 @@
 
 use gitbutler_core::{assets, git, storage};
 use gitbutler_tauri::{
-    app, askpass, commands, config, github, keys, logs, menu, projects, remotes, secret, undo,
-    users, virtual_branches, watcher, zip,
+    app, askpass, commands, config, github, keys, logs, menu, projects, remotes, repo, secret,
+    undo, users, virtual_branches, watcher, zip,
 };
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
@@ -137,12 +137,6 @@ fn main() {
 
                     app_handle.manage(gitbutler_branch::controller::Controller::default());
 
-                    let remotes_controller = gitbutler_core::remotes::controller::Controller::new(
-                        projects_controller.clone(),
-                    );
-
-                    app_handle.manage(remotes_controller.clone());
-
                     let app = app::App::new(
                         projects_controller,
                     );
@@ -179,9 +173,9 @@ fn main() {
                     projects::commands::delete_project,
                     projects::commands::list_projects,
                     projects::commands::set_project_active,
-                    projects::commands::git_get_local_config,
-                    projects::commands::git_set_local_config,
-                    projects::commands::check_signing_settings,
+                    repo::commands::git_get_local_config,
+                    repo::commands::git_set_local_config,
+                    repo::commands::check_signing_settings,
                     virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,
                     virtual_branches::commands::commit_virtual_branch,

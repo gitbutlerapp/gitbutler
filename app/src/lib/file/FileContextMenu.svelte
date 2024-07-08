@@ -5,7 +5,6 @@
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
-	import PopupMenu from '$lib/shared/PopupMenu.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { editor } from '$lib/utils/systemEditor';
@@ -13,15 +12,16 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { LocalFile, type AnyFile } from '$lib/vbranches/types';
 	import { join } from '@tauri-apps/api/path';
-	import { open } from '@tauri-apps/api/shell';
+	import { open as openFile } from '@tauri-apps/api/shell';
 
+	export let target: HTMLElement;
 	export let isUnapplied;
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 
 	let confirmationModal: Modal;
-	let popupMenu: PopupMenu;
+	let contextMenu: ContextMenu;
 
 	function containsBinaryFiles(item: any) {
 		return item.files.some((f: AnyFile) => f.binary);
@@ -31,17 +31,16 @@
 		return item.files.some((f: AnyFile) => computeFileStatus(f) === 'D');
 	}
 
-	export function openByMouse(e: MouseEvent, item: any) {
-		popupMenu.openByMouse(e, item);
+	export function open(e: MouseEvent, item: any) {
+		contextMenu.open(e, item);
 	}
 </script>
 
-<PopupMenu bind:this={popupMenu} let:item let:dismiss>
-	<ContextMenu>
+<ContextMenu bind:this={contextMenu} {target} openByMouse>
+	{#snippet children(item)}
 		<ContextMenuSection>
 			{#if item.files && item.files.length > 0}
 				{@const files = item.files}
-				<!-- TODO: Refactor so we can have types -->
 				{#if files[0] instanceof LocalFile && !isUnapplied}
 					{#if containsBinaryFiles(item)}
 						<ContextMenuItem label="Discard changes (Binary files not yet supported)" disabled />
@@ -50,7 +49,7 @@
 							label="Discard changes"
 							on:click={() => {
 								confirmationModal.show(item);
-								dismiss();
+								contextMenu.close();
 							}}
 						/>
 					{/if}
@@ -63,7 +62,8 @@
 								if (!project) return;
 								const absPath = await join(project.path, item.files[0].path);
 								navigator.clipboard.writeText(absPath);
-								dismiss();
+								contextMenu.close();
+								// dismiss();
 							} catch (err) {
 								console.error('Failed to copy path', err);
 								toasts.error('Failed to copy path');
@@ -76,7 +76,7 @@
 							try {
 								if (!project) return;
 								navigator.clipboard.writeText(item.files[0].path);
-								dismiss();
+								contextMenu.close();
 							} catch (err) {
 								console.error('Failed to copy relative path', err);
 								toasts.error('Failed to copy relative path');
@@ -92,9 +92,9 @@
 							if (!project) return;
 							for (let file of item.files) {
 								const absPath = await join(project.vscodePath, file.path);
-								open(`${editor.get()}://file${absPath}`);
+								openFile(`${editor.get()}://file${absPath}`);
 							}
-							dismiss();
+							contextMenu.close();
 						} catch {
 							console.error('Failed to open in VSCode');
 							toasts.error('Failed to open in VSCode');
@@ -103,8 +103,8 @@
 				/>
 			{/if}
 		</ContextMenuSection>
-	</ContextMenu>
-</PopupMenu>
+	{/snippet}
+</ContextMenu>
 
 <Modal width="small" title="Discard changes" bind:this={confirmationModal}>
 	{#snippet children(item)}

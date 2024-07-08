@@ -5,10 +5,10 @@
 	import Login from '$lib/components/Login.svelte';
 	import SetupFeature from '$lib/components/SetupFeature.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import Select from '$lib/select/Select.svelte';
+	import SelectItem from '$lib/select/SelectItem.svelte';
 	import GithubIntegration from '$lib/settings/GithubIntegration.svelte';
 	import Button from '$lib/shared/Button.svelte';
-	import Select from '$lib/shared/Select.svelte';
-	import SelectItem from '$lib/shared/SelectItem.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
@@ -88,11 +88,22 @@
 
 	<div class="project-setup__fields">
 		<div class="project-setup__field-wrap">
-			<Select items={remoteBranches} bind:value={selectedBranch} itemId="name" labelId="name">
-				<SelectItem slot="template" let:item let:selected {selected} let:highlighted {highlighted}>
-					{item.name}
-				</SelectItem>
+			<Select
+				value={selectedBranch.name}
+				options={remoteBranches.map((b) => ({ label: b.name, value: b.name }))}
+				onselect={(value) => {
+					selectedBranch = { name: value };
+				}}
+				label="Current target branch"
+				searchable
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === selectedBranch.name} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
 			</Select>
+
 			<p class="project-setup__description-text text-base-body-12">
 				This is the branch that you consider "production", normally something like "origin/master"
 				or "upstream/main".
@@ -101,18 +112,21 @@
 
 		{#if remotes.length > 1}
 			<div class="project-setup__field-wrap">
-				<Select items={remotes} bind:value={selectedRemote} itemId="name" labelId="name">
-					<SelectItem
-						slot="template"
-						let:item
-						let:selected
-						{selected}
-						let:highlighted
-						{highlighted}
-					>
-						{item.name}
-					</SelectItem>
+				<Select
+					value={selectedRemote.value}
+					options={remotes.map((r) => ({ label: r.name, value: r.value }))}
+					onselect={(value) => {
+						const newSelectedRemote = remotes.find((r) => r.value === value);
+						selectedRemote = newSelectedRemote || selectedRemote;
+					}}
+				>
+					{#snippet itemSnippet({ item, highlighted })}
+						<SelectItem selected={item.value === selectedRemote.name} {highlighted}>
+							{item.label}
+						</SelectItem>
+					{/snippet}
 				</Select>
+
 				<p class="project-setup__description-text text-base-body-12">
 					You have branches from multiple remotes. If you want to specify a remote for creating
 					branches that is different from the remote that your target branch is on, change it here.

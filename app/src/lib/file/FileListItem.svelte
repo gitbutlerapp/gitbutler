@@ -12,7 +12,6 @@
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { Branch, type AnyFile } from '$lib/vbranches/types';
-	import { mount, onDestroy, unmount } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
 	export let file: AnyFile;
@@ -29,6 +28,7 @@
 	const selectedFiles = fileIdSelection.files;
 
 	let checked = false;
+	let contextMenu: FileContextMenu;
 	let draggableElt: HTMLDivElement;
 	let lastCheckboxDetail = true;
 
@@ -49,24 +49,10 @@
 	$: if ($fileIdSelection && draggableElt && $fileIdSelection.length === 1)
 		updateFocus(draggableElt, file, fileIdSelection, $commit?.id);
 
-	$: popupMenu = updateContextMenu();
-
-	function updateContextMenu() {
-		if (popupMenu) unmount(popupMenu);
-		return mount(FileContextMenu, {
-			target: document.body,
-			props: { isUnapplied }
-		});
-	}
-
-	onDestroy(() => {
-		if (popupMenu) {
-			unmount(popupMenu);
-		}
-	});
-
 	const isDraggable = !readonly && !isUnapplied;
 </script>
+
+<FileContextMenu bind:this={contextMenu} target={draggableElt} {isUnapplied} />
 
 <div
 	bind:this={draggableElt}
@@ -107,15 +93,15 @@
 			draggableElt.classList.remove('locked-file-animation');
 		}
 	}}
-	role="button"
-	tabindex="0"
 	on:contextmenu|preventDefault={async (e) => {
 		if (fileIdSelection.has(file.id, $commit?.id)) {
-			popupMenu.openByMouse(e, { files: await $selectedFiles });
+			contextMenu.open(e, { files: await $selectedFiles });
 		} else {
-			popupMenu.openByMouse(e, { files: [file] });
+			contextMenu.open(e, { files: [file] });
 		}
 	}}
+	role="button"
+	tabindex="0"
 	use:draggableChips={{
 		label: `${file.filename}`,
 		filePath: file.path,

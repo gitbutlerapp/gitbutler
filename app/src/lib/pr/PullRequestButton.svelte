@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { persisted, type Persisted } from '$lib/persisted/persisted';
@@ -40,17 +39,15 @@
 	}}
 >
 	{labels[$action]}
-	<ContextMenu slot="context-menu">
-		<ContextMenuSection>
-			{#each Object.values(Action) as method}
-				<ContextMenuItem
-					label={labels[method]}
-					on:click={() => {
-						$action = method;
-						dropDown.close();
-					}}
-				/>
-			{/each}
-		</ContextMenuSection>
-	</ContextMenu>
+	<ContextMenuSection slot="context-menu">
+		{#each Object.values(Action) as method}
+			<ContextMenuItem
+				label={labels[method]}
+				on:click={() => {
+					$action = method;
+					dropDown.close();
+				}}
+			/>
+		{/each}
+	</ContextMenuSection>
 </DropDownButton>

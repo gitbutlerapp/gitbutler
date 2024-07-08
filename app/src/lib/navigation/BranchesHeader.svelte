@@ -1,26 +1,15 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/clickOutside';
 	import Badge from '$lib/shared/Badge.svelte';
-	import Button from '$lib/shared/Button.svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
 		filteredBranchCount?: number;
 		totalBranchCount: number;
 		filtersActive: boolean;
-		contextMenu: Snippet<[{ visible: boolean }]>;
+		filterButton: Snippet<[filtersActive: boolean]>;
 	}
 
-	const { filteredBranchCount, totalBranchCount, filtersActive, contextMenu }: Props = $props();
-
-	let visible = $state(false);
-	let filterButton = $state<HTMLDivElement>();
-
-	function onFilterClick(e: Event) {
-		visible = !visible;
-		e.preventDefault();
-		e.stopPropagation();
-	}
+	const { filteredBranchCount, totalBranchCount, filtersActive, filterButton }: Props = $props();
 </script>
 
 <div class="header">
@@ -32,22 +21,7 @@
 		{/if}
 	</div>
 	{#if totalBranchCount > 0}
-		<div class="header__filter-btn" bind:this={filterButton}>
-			<Button
-				style="ghost"
-				outline
-				icon={filtersActive ? 'filter-applied-small' : 'filter-small'}
-				on:mousedown={onFilterClick}
-			>
-				Filter
-			</Button>
-			<div
-				class="filter-popup-menu"
-				use:clickOutside={{ trigger: filterButton, handler: () => (visible = false) }}
-			>
-				{@render contextMenu({ visible })}
-			</div>
-		</div>
+		{@render filterButton(filtersActive)}
 	{/if}
 </div>
 
@@ -63,16 +37,6 @@
 		border-bottom: 1px solid transparent;
 		transition: border-bottom var(--transition-fast);
 		position: relative;
-	}
-	.header__filter-btn {
-		position: relative;
-	}
-	.filter-popup-menu {
-		position: absolute;
-		top: calc(var(--size-button) + 4px);
-		right: 0;
-		z-index: var(--z-floating);
-		min-width: 160px;
 	}
 	.branches-title {
 		display: flex;

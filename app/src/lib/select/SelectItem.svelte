@@ -36,6 +36,7 @@
 
 <style lang="postcss">
 	.button {
+		user-select: none;
 		display: flex;
 		align-items: center;
 		color: var(--clr-scale-ntrl-10);
@@ -77,6 +78,6 @@
 	}
 
 	.highlighted {
-		background-color: var(--clr-bg-3);
+		background-color: var(--clr-bg-1-muted);
 	}
 </style>
