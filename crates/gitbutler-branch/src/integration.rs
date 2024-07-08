@@ -5,7 +5,6 @@ use bstr::ByteSlice;
 
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_core::error::Marker;
-use gitbutler_core::git::RepositoryExt;
 use gitbutler_core::virtual_branches::{
     GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
     GITBUTLER_INTEGRATION_REFERENCE,
@@ -13,7 +12,7 @@ use gitbutler_core::virtual_branches::{
 use gitbutler_core::{
     git::CommitExt, project_repository, virtual_branches::branch::BranchCreateRequest,
 };
-use gitbutler_repo::{LogUntil, RepoActions};
+use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 
 use crate::conflicts;
 

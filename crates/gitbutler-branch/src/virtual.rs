@@ -1,6 +1,6 @@
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_oplog::snapshot::Snapshot;
-use gitbutler_repo::{LogUntil, RepoActions};
+use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 use std::borrow::Borrow;
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::PermissionsExt;
@@ -28,9 +28,7 @@ use gitbutler_core::error::Code;
 use gitbutler_core::error::Marker;
 use gitbutler_core::git::diff::GitHunk;
 use gitbutler_core::git::diff::{diff_files_into_hunks, trees, FileDiff};
-use gitbutler_core::git::{
-    normalize_branch_name, CommitExt, CommitHeadersV2, HasCommitHeaders, RepositoryExt,
-};
+use gitbutler_core::git::{normalize_branch_name, CommitExt, CommitHeadersV2, HasCommitHeaders};
 use gitbutler_core::time::now_since_unix_epoch_ms;
 use gitbutler_core::virtual_branches::branch::HunkHash;
 use gitbutler_core::virtual_branches::{

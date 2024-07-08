@@ -3,7 +3,7 @@ use std::{path::Path, time};
 use anyhow::{anyhow, Context, Result};
 use git2::Index;
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
-use gitbutler_repo::{LogUntil, RepoActions};
+use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 use serde::Serialize;
 
 use super::r#virtual as vb;
@@ -12,8 +12,8 @@ use crate::conflicts::RepoConflicts;
 use crate::integration::{get_workspace_head, update_gitbutler_integration};
 use crate::remote::{commit_to_remote_commit, RemoteCommit};
 use crate::VirtualBranchHunk;
+use gitbutler_core::error::Marker;
 use gitbutler_core::virtual_branches::{branch, target, BranchId, GITBUTLER_INTEGRATION_REFERENCE};
-use gitbutler_core::{error::Marker, git::RepositoryExt};
 use gitbutler_core::{
     git::{self, diff},
     project_repository,

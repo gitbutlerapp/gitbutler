@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
 use gitbutler_core::git::HasCommitHeaders;
-use gitbutler_core::{error::Marker, git::CommitExt, git::RepositoryExt, project_repository};
+use gitbutler_core::{error::Marker, git::CommitExt, project_repository};
 
-use crate::{LogUntil, RepoActions};
+use crate::{LogUntil, RepoActions, RepositoryExt};
 
 /// cherry-pick based rebase, which handles empty commits
 /// this function takes a commit range and generates a Vector of commit oids
