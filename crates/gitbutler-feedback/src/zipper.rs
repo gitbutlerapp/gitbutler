@@ -1,4 +1,3 @@
-pub mod controller;
 use std::{
     fs,
     io::{self, Read, Write},
@@ -6,7 +5,6 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-pub use controller::Controller;
 use sha2::{Digest, Sha256};
 use walkdir::{DirEntry, WalkDir};
 use zip::{result::ZipError, write, CompressionMethod, ZipWriter};
