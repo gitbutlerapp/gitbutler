@@ -250,6 +250,8 @@ pub fn set_base_branch(
                 order: 0,
                 selected_for_changes: None,
                 allow_rebasing: project_repository.project().ok_with_force_push.into(),
+                old_applied: true,
+                in_workspace: true,
             };
 
             vb_state.set_branch(branch)?;

@@ -25,9 +25,21 @@ impl VirtualBranches {
     /// Lists all virtual branches that are in the user's workspace.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn list_branches_in_workspace(&self) -> Result<Vec<Branch>> {
+    pub fn list_all_branches(&self) -> Result<Vec<Branch>> {
         let branches: Vec<Branch> = self.branches.values().cloned().collect();
         Ok(branches)
+    }
+
+    /// Lists all virtual branches that are in the user's workspace.
+    ///
+    /// Errors if the file cannot be read or written.
+    pub fn list_branches_in_workspace(&self) -> Result<Vec<Branch>> {
+        self.list_all_branches().map(|branches| {
+            branches
+                .into_iter()
+                .filter(|branch| branch.in_workspace)
+                .collect()
+        })
     }
 }
 
@@ -121,13 +133,25 @@ impl VirtualBranchesHandle {
         Ok(virtual_branches.branches.get(&id).cloned())
     }
 
+    /// Lists all branches in vbranches.toml
+    ///
+    /// Errors if the file cannot be read or written.
+    pub fn list_all_branches(&self) -> Result<Vec<Branch>> {
+        let virtual_branches = self.read_file()?;
+        let branches: Vec<Branch> = virtual_branches.branches.values().cloned().collect();
+        Ok(branches)
+    }
+
     /// Lists all virtual branches that are in the user's workspace.
     ///
     /// Errors if the file cannot be read or written.
     pub fn list_branches_in_workspace(&self) -> Result<Vec<Branch>> {
-        let virtual_branches = self.read_file()?;
-        let branches: Vec<Branch> = virtual_branches.branches.values().cloned().collect();
-        Ok(branches)
+        self.list_all_branches().map(|branches| {
+            branches
+                .into_iter()
+                .filter(|branch| branch.in_workspace)
+                .collect()
+        })
     }
 
     /// Checks if the state file exists.

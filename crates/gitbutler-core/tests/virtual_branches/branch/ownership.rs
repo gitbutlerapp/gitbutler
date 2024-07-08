@@ -39,6 +39,8 @@ fn reconcile_ownership_simple() {
         order: usize::default(),
         selected_for_changes: None,
         allow_rebasing: true,
+        old_applied: true,
+        in_workspace: true,
     };
     let branch_b = Branch {
         name: "b".to_string(),
@@ -64,6 +66,8 @@ fn reconcile_ownership_simple() {
         order: usize::default(),
         selected_for_changes: None,
         allow_rebasing: true,
+        old_applied: true,
+        in_workspace: true,
     };
     let all_branches: Vec<Branch> = vec![branch_a.clone(), branch_b.clone()];
     let claim: Vec<OwnershipClaim> = vec![OwnershipClaim {

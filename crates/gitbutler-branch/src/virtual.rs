@@ -467,12 +467,40 @@ fn find_base_tree<'a>(
     Ok(base_tree)
 }
 
+/// Resolves the "old_applied" state of branches
+///
+/// This should only ever be called by `list_virtual_branches
+///
+/// This checks for the case where !branch.old_applied && branch.in_workspace
+/// If this is the case, we ought to unapply the branch as its been carried
+/// over from the old style of unapplying
+fn resolve_old_applied_state(
+    project_repository: &ProjectRepo,
+    vb_state: &VirtualBranchesHandle,
+) -> Result<()> {
+    let branches = vb_state.list_all_branches()?;
+
+    for mut branch in branches {
+        if branch.old_applied {
+            branch.in_workspace = true;
+            vb_state.set_branch(branch)?;
+        } else {
+            convert_to_real_branch(project_repository, branch.id, Default::default())?;
+        }
+    }
+
+    Ok(())
+}
+
 pub fn list_virtual_branches(
     project_repository: &ProjectRepo,
 ) -> Result<(Vec<VirtualBranch>, Vec<diff::FileDiff>)> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
     let vb_state = project_repository.project().virtual_branches();
+
+    resolve_old_applied_state(project_repository, &vb_state)?;
+
     let default_target = vb_state
         .get_default_target()
         .context("failed to get default target")?;
@@ -812,6 +840,8 @@ pub fn create_virtual_branch(
         order,
         selected_for_changes,
         allow_rebasing: project_repository.project().ok_with_force_push.into(),
+        old_applied: true,
+        in_workspace: true,
     };
 
     if let Some(ownership) = &create.ownership {
@@ -3456,6 +3486,8 @@ pub fn create_virtual_branch_from_branch(
         order,
         selected_for_changes,
         allow_rebasing: project_repository.project().ok_with_force_push.into(),
+        old_applied: true,
+        in_workspace: true,
     };
 
     vb_state.set_branch(branch.clone())?;
