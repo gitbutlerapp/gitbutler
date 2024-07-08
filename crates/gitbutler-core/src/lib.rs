@@ -15,7 +15,6 @@
 
 pub mod askpass;
 pub mod assets;
-pub mod config;
 pub mod dedup;
 pub mod error;
 pub mod fs;

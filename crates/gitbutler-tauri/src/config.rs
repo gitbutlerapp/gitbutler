@@ -1,8 +1,6 @@
 use crate::error::Error;
-use gitbutler_core::{
-    config::git::GbConfig,
-    projects::{self, ProjectId},
-};
+use gitbutler_config::{api::ProjectCommands, git::GbConfig};
+use gitbutler_core::projects::{self, ProjectId};
 use tauri::Manager;
 use tracing::instrument;
 

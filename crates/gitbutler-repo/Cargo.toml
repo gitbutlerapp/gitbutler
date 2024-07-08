@@ -17,6 +17,7 @@ tempfile = "3.10"
 thiserror.workspace = true
 resolve-path = "0.1.0"
 gitbutler-command-context.workspace = true
+gitbutler-config.workspace = true
 
 [[test]]
 name="repo"

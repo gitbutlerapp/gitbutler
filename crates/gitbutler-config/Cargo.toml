@@ -1,0 +1,12 @@
+[package]
+name = "gitbutler-config"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+gitbutler-core.workspace = true
+git2.workspace = true
+anyhow = "1.0.86"
+serde = { workspace = true, features = ["std"]}
