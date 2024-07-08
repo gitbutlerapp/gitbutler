@@ -1,5 +1,5 @@
 import { dropzoneRegistry } from './dropzone';
-import { getVSIFileIcon } from '$lib/ext-icons';
+import { getFileIcon } from '$lib/ext-icons';
 import { pxToRem } from '$lib/utils/pxToRem';
 import { type CommitStatus } from '$lib/vbranches/types';
 import type { Draggable } from './draggables';
@@ -206,12 +206,7 @@ export function createChipsElement(
 	containerEl.appendChild(chipEl);
 
 	if (filePath) {
-		const iconEl = createElement(
-			'img',
-			['draggable-chip-icon'],
-			undefined,
-			getVSIFileIcon(filePath)
-		);
+		const iconEl = createElement('img', ['draggable-chip-icon'], undefined, getFileIcon(filePath));
 		chipEl.appendChild(iconEl);
 	}
 

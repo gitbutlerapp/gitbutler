@@ -3,7 +3,7 @@
 	import FileStatusIcons from './FileStatusIcons.svelte';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { DraggableFile } from '$lib/dragging/draggables';
-	import { getVSIFileIcon } from '$lib/ext-icons';
+	import { getFileIcon } from '$lib/ext-icons';
 	import Checkbox from '$lib/shared/Checkbox.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
@@ -152,7 +152,7 @@
 		/>
 	{/if}
 	<div class="info">
-		<img draggable="false" class="file-icon" src={getVSIFileIcon(file.path)} alt="" />
+		<img draggable="false" class="file-icon" src={getFileIcon(file.path)} alt="" />
 		<span class="text-base-12 name">
 			{file.filename}
 		</span>
@@ -225,7 +225,7 @@
 	}
 
 	.file-icon {
-		width: 12px;
+		width: 14px;
 	}
 
 	.name {
