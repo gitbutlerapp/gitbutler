@@ -2127,12 +2127,14 @@ dependencies = [
  "once_cell",
  "pretty_assertions",
  "regex",
+ "reqwest 0.12.5",
  "serde",
  "serial_test",
  "tempfile",
  "tokio",
  "tracing",
  "url",
+ "urlencoding",
 ]
 
 [[package]]

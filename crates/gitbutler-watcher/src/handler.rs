@@ -2,10 +2,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use gitbutler_branch::assets;
 use gitbutler_branch::VirtualBranches;
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::error::Marker;
-use gitbutler_core::{assets, git, users};
+use gitbutler_core::{git, users};
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     oplog::Oplog,
@@ -51,7 +52,7 @@ impl Handler {
             projects,
             users,
             vbranch_controller,
-            assets_proxy: gitbutler_branch::assets::Proxy::new(assets_proxy),
+            assets_proxy,
             send_event: Arc::new(send_event),
         }
     }

@@ -13,7 +13,8 @@
     clippy::too_many_lines
 )]
 
-use gitbutler_core::{assets, storage};
+use gitbutler_branch::assets;
+use gitbutler_core::storage;
 use gitbutler_repo::credentials::Helper;
 use gitbutler_tauri::{
     app, askpass, commands, config, github, keys, logs, menu, projects, remotes, repo, secret,
