@@ -11,3 +11,4 @@ itertools = "0.13"
 anyhow = "1.0.86"
 toml = "0.8.13"
 serde = { workspace = true, features = ["std"]}
+gitbutler-project.workspace = true

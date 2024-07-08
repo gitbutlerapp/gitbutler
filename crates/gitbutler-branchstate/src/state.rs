@@ -4,7 +4,8 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use gitbutler_core::{error::Code, fs::read_toml_file_or_default, projects::Project};
+use gitbutler_core::{error::Code, fs::read_toml_file_or_default};
+use gitbutler_project::Project;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 

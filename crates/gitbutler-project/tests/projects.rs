@@ -1,4 +1,4 @@
-use gitbutler_core::projects::Controller;
+use gitbutler_project::Controller;
 use tempfile::TempDir;
 
 use gitbutler_testsupport::{self, paths};

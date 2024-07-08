@@ -2117,6 +2117,7 @@ dependencies = [
  "gitbutler-core",
  "gitbutler-git",
  "gitbutler-oplog",
+ "gitbutler-project",
  "gitbutler-repo",
  "gitbutler-testsupport",
  "glob",
@@ -2140,6 +2141,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "gitbutler-core",
+ "gitbutler-project",
  "itertools 0.13.0",
  "serde",
  "toml 0.8.14",
@@ -2154,6 +2156,7 @@ dependencies = [
  "clap",
  "gitbutler-core",
  "gitbutler-oplog",
+ "gitbutler-project",
  "pager",
 ]
 
@@ -2164,6 +2167,7 @@ dependencies = [
  "anyhow",
  "git2",
  "gitbutler-core",
+ "gitbutler-project",
  "tracing",
 ]
 
@@ -2174,6 +2178,7 @@ dependencies = [
  "anyhow",
  "git2",
  "gitbutler-core",
+ "gitbutler-project",
  "serde",
 ]
 
@@ -2233,6 +2238,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "gitbutler-core",
+ "gitbutler-project",
  "sha2",
  "tempfile",
  "walkdir",
@@ -2282,6 +2288,7 @@ dependencies = [
  "git2",
  "gitbutler-branchstate",
  "gitbutler-core",
+ "gitbutler-project",
  "gitbutler-repo",
  "gix",
  "itertools 0.13.0",
@@ -2291,6 +2298,25 @@ dependencies = [
  "tempfile",
  "toml 0.8.14",
  "tracing",
+]
+
+[[package]]
+name = "gitbutler-project"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "git2",
+ "gitbutler-core",
+ "gitbutler-testsupport",
+ "gix",
+ "resolve-path",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -2304,6 +2330,7 @@ dependencies = [
  "gitbutler-config",
  "gitbutler-core",
  "gitbutler-git",
+ "gitbutler-project",
  "gitbutler-testsupport",
  "resolve-path",
  "serde_json",
@@ -2323,6 +2350,7 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-core",
  "gitbutler-oplog",
+ "gitbutler-project",
  "itertools 0.13.0",
  "tracing",
 ]
@@ -2344,6 +2372,7 @@ dependencies = [
  "gitbutler-core",
  "gitbutler-feedback",
  "gitbutler-oplog",
+ "gitbutler-project",
  "gitbutler-repo",
  "gitbutler-testsupport",
  "gitbutler-watcher",
@@ -2380,6 +2409,7 @@ dependencies = [
  "gitbutler-branchstate",
  "gitbutler-command-context",
  "gitbutler-core",
+ "gitbutler-project",
  "gitbutler-repo",
  "keyring",
  "once_cell",
@@ -2400,6 +2430,7 @@ dependencies = [
  "gitbutler-core",
  "gitbutler-notify-debouncer",
  "gitbutler-oplog",
+ "gitbutler-project",
  "gitbutler-sync",
  "gix",
  "notify",

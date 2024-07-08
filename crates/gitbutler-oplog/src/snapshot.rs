@@ -1,11 +1,11 @@
 use anyhow::Result;
+use gitbutler_project::Project;
 use std::vec;
 
 use crate::{
     entry::{OperationKind, SnapshotDetails},
     oplog::Oplog,
 };
-use gitbutler_core::projects::Project;
 use gitbutler_core::virtual_branches::{branch::BranchUpdateRequest, Branch};
 
 use super::entry::Trailer;

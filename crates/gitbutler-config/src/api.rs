@@ -1,5 +1,5 @@
 use anyhow::Result;
-use gitbutler_core::projects::Project;
+use gitbutler_project::Project;
 
 use super::git::{GbConfig, GitConfig};
 

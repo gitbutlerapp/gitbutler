@@ -1,7 +1,3 @@
-mod suite {
-    mod projects;
-}
-
 mod keys;
 mod lock;
 mod types;

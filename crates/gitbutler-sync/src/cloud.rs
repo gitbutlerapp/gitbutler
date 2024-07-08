@@ -8,12 +8,10 @@ use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::error::Code;
 use gitbutler_core::git::Url;
 use gitbutler_core::id::Id;
-use gitbutler_core::{
-    git,
-    projects::{self, CodePushState},
-    users,
-};
+use gitbutler_core::{git, users};
 use gitbutler_oplog::oplog::Oplog;
+use gitbutler_project as projects;
+use gitbutler_project::{CodePushState, Project};
 use itertools::Itertools;
 
 pub async fn sync_with_gitbutler(
@@ -64,7 +62,7 @@ async fn push_target(
     project_repository: &ProjectRepo,
     default_target: &gitbutler_core::virtual_branches::target::Target,
     gb_code_last_commit: Option<git2::Oid>,
-    project_id: Id<projects::Project>,
+    project_id: Id<Project>,
     user: &users::User,
     batch_size: usize,
 ) -> Result<()> {

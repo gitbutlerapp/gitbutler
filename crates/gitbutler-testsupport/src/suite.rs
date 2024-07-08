@@ -15,7 +15,7 @@ pub struct Suite {
     pub local_app_data: Option<TempDir>,
     pub storage: gitbutler_core::storage::Storage,
     pub users: gitbutler_core::users::Controller,
-    pub projects: gitbutler_core::projects::Controller,
+    pub projects: gitbutler_project::Controller,
     pub keys: gitbutler_core::keys::Controller,
 }
 
@@ -32,7 +32,7 @@ impl Default for Suite {
         let local_app_data = temp_dir();
         let storage = gitbutler_core::storage::Storage::new(local_app_data.path());
         let users = gitbutler_core::users::Controller::from_path(local_app_data.path());
-        let projects = gitbutler_core::projects::Controller::from_path(local_app_data.path());
+        let projects = gitbutler_project::Controller::from_path(local_app_data.path());
         let keys = gitbutler_core::keys::Controller::from_path(local_app_data.path());
         Self {
             storage,
@@ -57,7 +57,7 @@ impl Suite {
         user
     }
 
-    fn project(&self, fs: HashMap<PathBuf, &str>) -> (gitbutler_core::projects::Project, TempDir) {
+    fn project(&self, fs: HashMap<PathBuf, &str>) -> (gitbutler_project::Project, TempDir) {
         let (repository, tmp) = test_repository();
         for (path, contents) in fs {
             if let Some(parent) = path.parent() {
@@ -91,7 +91,7 @@ impl Suite {
 }
 
 pub struct Case {
-    pub project: gitbutler_core::projects::Project,
+    pub project: gitbutler_project::Project,
     pub project_repository: ProjectRepo,
     pub credentials: Helper,
     /// The directory containing the `project_repository`
@@ -111,7 +111,7 @@ impl Drop for Case {
 }
 
 impl Case {
-    fn new(project: gitbutler_core::projects::Project, project_tmp: TempDir) -> Case {
+    fn new(project: gitbutler_project::Project, project_tmp: TempDir) -> Case {
         let project_repository =
             ProjectRepo::open(&project).expect("failed to create project repository");
         let credentials = Helper::default();

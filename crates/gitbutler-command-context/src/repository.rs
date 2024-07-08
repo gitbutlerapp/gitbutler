@@ -1,14 +1,13 @@
 use anyhow::Result;
-
-use gitbutler_core::projects;
+use gitbutler_project::Project;
 
 pub struct ProjectRepo {
     git_repository: git2::Repository,
-    project: projects::Project,
+    project: Project,
 }
 
 impl ProjectRepo {
-    pub fn open(project: &projects::Project) -> Result<Self> {
+    pub fn open(project: &Project) -> Result<Self> {
         let repo = git2::Repository::open(&project.path)?;
 
         // XXX(qix-): This is a temporary measure to disable GC on the project repository.
@@ -60,11 +59,11 @@ impl ProjectRepo {
         })
     }
 
-    pub fn set_project(&mut self, project: &projects::Project) {
+    pub fn set_project(&mut self, project: &Project) {
         self.project = project.clone();
     }
 
-    pub fn project(&self) -> &projects::Project {
+    pub fn project(&self) -> &Project {
         &self.project
     }
 
