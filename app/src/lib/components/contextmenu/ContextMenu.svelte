@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/clickOutsideNew';
+	import { clickOutside } from '$lib/clickOutside';
 	import { portal } from '$lib/utils/portal';
-	import { pxToRem } from '$lib/utils/pxToRem';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { type Snippet } from 'svelte';
 
@@ -131,8 +130,8 @@
 		bind:offsetHeight={contextMenuHeight}
 		bind:offsetWidth={contextMenuWidth}
 		class="context-menu"
-		style:top={pxToRem(menuPosition.y)}
-		style:left={pxToRem(menuPosition.x)}
+		style:top="{menuPosition.y}px"
+		style:left="{menuPosition.x}px"
 		style:transform-origin={setTransformOrigin()}
 		style:--animation-transform-shift={verticalAlign === 'top' ? '6px' : '-6px'}
 	>

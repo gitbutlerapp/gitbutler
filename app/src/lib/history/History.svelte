@@ -6,7 +6,7 @@
 	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { Project } from '$lib/backend/projects';
-	import { clickOutside } from '$lib/clickOutsideNew';
+	import { clickOutside } from '$lib/clickOutside';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import SnapshotCard from '$lib/history/SnapshotCard.svelte';
 	import { HistoryService, createdOnDay } from '$lib/history/history';

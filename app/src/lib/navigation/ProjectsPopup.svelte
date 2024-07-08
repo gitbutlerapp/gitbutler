@@ -3,6 +3,8 @@
 	import Icon from '$lib/shared/Icon.svelte';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
+	import { portal } from '$lib/utils/portal';
+	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import type iconsJson from '$lib/icons/icons.json';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -14,21 +16,46 @@
 		onclick: () => void;
 	}
 
-	export let isNavCollapsed: boolean;
+	interface ProjectsPopupProps {
+		target: HTMLButtonElement;
+		isNavCollapsed: boolean;
+	}
+
+	const { target, isNavCollapsed }: ProjectsPopupProps = $props();
 
 	const projectService = getContext(ProjectService);
 	const projects = projectService.projects;
 
-	let hidden = true;
-	let loading = false;
+	let inputBoundingRect: DOMRect | undefined = $state();
+	let optionsEl: HTMLDivElement | undefined = $state();
+	let hidden = $state(true);
+	let loading = $state(false);
 
-	export function toggle() {
-		hidden = !hidden;
-		return !hidden;
+	function getInputBoundingRect() {
+		if (target) {
+			inputBoundingRect = target.getBoundingClientRect();
+		}
+	}
+
+	export function show() {
+		hidden = false;
+		getInputBoundingRect();
 	}
 
 	export function hide() {
 		hidden = true;
+	}
+
+	export function toggle() {
+		if (hidden) {
+			show();
+		} else {
+			hide();
+		}
+	}
+
+	function clickOutside(e: MouseEvent) {
+		if (e.target === e.currentTarget) hide();
 	}
 </script>
 
@@ -37,7 +64,7 @@
 		disabled={props.selected}
 		class="list-item"
 		class:selected={props.selected}
-		on:click={props.onclick}
+		onclick={props.onclick}
 	>
 		<div class="label text-base-14 text-bold">
 			{props.label}
@@ -55,48 +82,75 @@
 {/snippet}
 
 {#if !hidden}
-	<div class="popup" class:collapsed={isNavCollapsed}>
-		{#if $projects.length > 0}
-			<ScrollableContainer maxHeight="20rem">
-				<div class="popup__projects">
-					{#each $projects as project}
-						{@const selected = project.id === $page.params.projectId}
-						{@render itemSnippet({
-							label: project.title,
-							selected,
-							icon: selected ? 'tick' : undefined,
-							onclick: () => {
-								goto(`/${project.id}/`);
-								hide();
-							}
-						})}
-					{/each}
-				</div>
-			</ScrollableContainer>
-		{/if}
-		<div class="popup__actions">
-			{@render itemSnippet({
-				label: 'Add new project',
-				icon: 'plus',
-				onclick: async () => {
-					loading = true;
-					try {
-						await projectService.addProject();
-					} finally {
-						loading = false;
+	<div
+		role="presentation"
+		class="overlay-wrapper"
+		use:resizeObserver={() => {
+			getInputBoundingRect();
+		}}
+		onclick={clickOutside}
+		use:portal={'body'}
+	>
+		<div
+			bind:this={optionsEl}
+			class="popup"
+			class:collapsed={isNavCollapsed}
+			style:width={!isNavCollapsed ? `${inputBoundingRect?.width}px` : undefined}
+			style:top={inputBoundingRect?.top
+				? `${inputBoundingRect.top + inputBoundingRect.height}px`
+				: undefined}
+			style:left={inputBoundingRect?.left ? `${inputBoundingRect.left}px` : undefined}
+		>
+			{#if $projects.length > 0}
+				<ScrollableContainer maxHeight="20rem">
+					<div class="popup__projects">
+						{#each $projects as project}
+							{@const selected = project.id === $page.params.projectId}
+							{@render itemSnippet({
+								label: project.title,
+								selected,
+								icon: selected ? 'tick' : undefined,
+								onclick: () => {
+									goto(`/${project.id}/`);
+									hide();
+								}
+							})}
+						{/each}
+					</div>
+				</ScrollableContainer>
+			{/if}
+			<div class="popup__actions">
+				{@render itemSnippet({
+					label: 'Add new project',
+					icon: 'plus',
+					onclick: async () => {
+						loading = true;
+						try {
+							await projectService.addProject();
+						} finally {
+							loading = false;
+						}
 					}
-				}
-			})}
+				})}
+			</div>
 		</div>
 	</div>
 {/if}
 
 <style lang="postcss">
+	.overlay-wrapper {
+		z-index: var(--z-blocker);
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+	}
+
 	.popup {
 		position: absolute;
 		top: 100%;
 		z-index: var(--z-floating);
-		width: 100%;
 		margin-top: 6px;
 		border-radius: var(--m, 6px);
 		border: 1px solid var(--clr-border-2);
@@ -164,7 +218,6 @@
 		}
 	}
 
-	/* MODIFIERS */
 	.popup.collapsed {
 		width: 240px;
 	}

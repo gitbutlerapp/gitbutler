@@ -85,14 +85,6 @@
 			class:resizer-hovered={isResizerHovered || isResizerDragging}
 			on:mousedown={toggleNavCollapse}
 		>
-			<!-- <svg viewBox="0 0 7 23" fill="none" xmlns="http://www.w3.org/2000/svg">
-				<path
-					d="M6 1L1.81892 9.78026C1.30084 10.8682 1.30084 12.1318 1.81892 13.2197L6 22"
-					stroke-width="1.5"
-					vector-effect="non-scaling-stroke"
-				/>
-			</svg> -->
-
 			<svg viewBox="0 0 6 11" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<path
 					d="M5 1.25L1.59055 5.08564C1.25376 5.46452 1.25376 6.03548 1.59055 6.41436L5 10.25"
