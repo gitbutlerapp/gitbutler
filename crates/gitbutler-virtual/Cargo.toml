@@ -1,5 +1,5 @@
 [package]
-name = "gitbutler-branch"
+name = "gitbutler-virtual"
 version = "0.0.0"
 edition = "2021"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
@@ -31,7 +31,7 @@ urlencoding = "2.1.3"
 reqwest = { version = "0.12.4", features = ["json"] }
 
 [[test]]
-name="branches"
+name="virtual"
 path = "tests/virtual_branches/mod.rs"
 
 [dev-dependencies]

@@ -2103,42 +2103,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-branch"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "bstr",
- "diffy",
- "futures",
- "git2",
- "git2-hooks",
- "gitbutler-branchstate",
- "gitbutler-command-context",
- "gitbutler-core",
- "gitbutler-git",
- "gitbutler-oplog",
- "gitbutler-project",
- "gitbutler-repo",
- "gitbutler-testsupport",
- "gitbutler-user",
- "glob",
- "hex",
- "itertools 0.13.0",
- "md5",
- "once_cell",
- "pretty_assertions",
- "regex",
- "reqwest 0.12.5",
- "serde",
- "serial_test",
- "tempfile",
- "tokio",
- "tracing",
- "url",
- "urlencoding",
-]
-
-[[package]]
 name = "gitbutler-branchstate"
 version = "0.0.0"
 dependencies = [
@@ -2373,7 +2337,6 @@ dependencies = [
  "dirs 5.0.1",
  "futures",
  "git2",
- "gitbutler-branch",
  "gitbutler-command-context",
  "gitbutler-config",
  "gitbutler-core",
@@ -2383,6 +2346,7 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-testsupport",
  "gitbutler-user",
+ "gitbutler-virtual",
  "gitbutler-watcher",
  "log",
  "nonzero_ext",
@@ -2413,13 +2377,13 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "git2",
- "gitbutler-branch",
  "gitbutler-branchstate",
  "gitbutler-command-context",
  "gitbutler-core",
  "gitbutler-project",
  "gitbutler-repo",
  "gitbutler-user",
+ "gitbutler-virtual",
  "keyring",
  "once_cell",
  "pretty_assertions",
@@ -2441,13 +2405,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-virtual"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "diffy",
+ "futures",
+ "git2",
+ "git2-hooks",
+ "gitbutler-branchstate",
+ "gitbutler-command-context",
+ "gitbutler-core",
+ "gitbutler-git",
+ "gitbutler-oplog",
+ "gitbutler-project",
+ "gitbutler-repo",
+ "gitbutler-testsupport",
+ "gitbutler-user",
+ "glob",
+ "hex",
+ "itertools 0.13.0",
+ "md5",
+ "once_cell",
+ "pretty_assertions",
+ "regex",
+ "reqwest 0.12.5",
+ "serde",
+ "serial_test",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "url",
+ "urlencoding",
+]
+
+[[package]]
 name = "gitbutler-watcher"
 version = "0.0.0"
 dependencies = [
  "anyhow",
  "backoff",
  "futures",
- "gitbutler-branch",
  "gitbutler-command-context",
  "gitbutler-core",
  "gitbutler-notify-debouncer",
@@ -2455,6 +2454,7 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-sync",
  "gitbutler-user",
+ "gitbutler-virtual",
  "gix",
  "notify",
  "thiserror",

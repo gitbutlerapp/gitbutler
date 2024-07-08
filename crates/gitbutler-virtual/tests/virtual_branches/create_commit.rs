@@ -1,5 +1,5 @@
-use gitbutler_branch::VirtualBranch;
 use gitbutler_core::{id::Id, virtual_branches::Branch};
+use gitbutler_virtual::VirtualBranch;
 
 use super::*;
 
