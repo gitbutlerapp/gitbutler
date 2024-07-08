@@ -65,10 +65,11 @@
 
 	onMount(() => {
 		if ($page.error?.message) {
-			showError(
-				'There was a problem',
-				`${$page.error.message}\n\nError ID: ${$page.error.errorId}`
-			);
+			let message = $page.error.message;
+			if ($page.error.errorId) {
+				message += `\n\nError ID: ${$page.error.errorId}`;
+			}
+			showError('There was a problem', message);
 		}
 		return unsubscribe(
 			events.on('goto', async (path: string) => await goto(path)),
