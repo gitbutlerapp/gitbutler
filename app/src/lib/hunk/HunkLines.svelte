@@ -1,26 +1,50 @@
 <script lang="ts">
 	import { create } from '$lib/components/Differ/CodeHighlighter';
 	import { SectionType } from '$lib/utils/fileSections';
-	import { createEventDispatcher } from 'svelte';
 	import type { Line } from '$lib/utils/fileSections';
 
-	export let lines: Line[];
-	export let sectionType: SectionType;
-	export let filePath: string;
-	export let minWidth = 1.75;
-	export let selectable: boolean = false;
-	export let selected: boolean = true;
-	export let readonly: boolean = false;
-	export let draggingDisabled: boolean = false;
-	export let tabSize = 4;
-
-	const dispatch = createEventDispatcher<{
-		lineContextMenu: { lineNumber: number | undefined; event: MouseEvent };
-		click: void;
+	interface Props {
+		lines: Line[];
+		sectionType: SectionType;
+		filePath: string;
+		minWidth: number;
+		selectable: boolean;
 		selected: boolean;
-	}>();
+		readonly: boolean;
+		draggingDisabled: boolean;
+		tabSize: number;
+
+		handleSelected: (isSelected: boolean) => void;
+		handleClick: () => void;
+		handleLineContextMenu: ({
+			lineNumber,
+			event
+		}: {
+			lineNumber: number | undefined;
+			event: MouseEvent;
+		}) => void;
+	}
+
+	const {
+		lines,
+		sectionType,
+		filePath,
+		minWidth = 1.75,
+		selectable = false,
+		selected = true,
+		readonly = false,
+		draggingDisabled = false,
+		tabSize = 4,
+
+		handleSelected,
+		handleClick,
+		handleLineContextMenu
+	}: Props = $props();
+
+	$inspect('lines', lines);
 
 	function toTokens(inputLine: string): string[] {
+		// debugger;
 		function sanitize(text: string) {
 			var element = document.createElement('div');
 			element.innerText = text;
@@ -39,7 +63,7 @@
 		return tokens;
 	}
 
-	$: isSelected = selectable && selected;
+	let isSelected = $derived(selectable && selected);
 </script>
 
 <div
@@ -53,22 +77,22 @@
 			tabindex="-1"
 			role="none"
 			class="code-line"
-			on:click={() => dispatch('click')}
-			on:contextmenu={(event) => {
+			onclick={handleClick}
+			oncontextmenu={(event) => {
 				const lineNumber = line.afterLineNumber ? line.afterLineNumber : line.beforeLineNumber;
-				dispatch('lineContextMenu', { event, lineNumber });
+				handleLineContextMenu({ event, lineNumber });
 			}}
 		>
 			<div class="code-line__numbers-line">
 				<button
-					on:click={() => selectable && dispatch('selected', !selected)}
+					onclick={() => selectable && handleSelected(!selected)}
 					class="numbers-line-count"
 					class:selected={isSelected}
 				>
 					{line.beforeLineNumber || ''}
 				</button>
 				<button
-					on:click={() => selectable && dispatch('selected', !selected)}
+					onclick={() => selectable && handleSelected(!selected)}
 					class="numbers-line-count"
 					class:selected={isSelected}
 				>

@@ -83,17 +83,17 @@
 						{selectable}
 						{draggingDisabled}
 						tabSize={$userSettings.tabSize}
-						selected={$selectedOwnership?.contains(hunk.filePath, hunk.id)}
-						on:selected={(e) => onHunkSelected(hunk, e.detail)}
+						selected={$selectedOwnership?.contains(hunk.filePath, hunk.id) ?? false}
 						sectionType={subsection.sectionType}
-						on:click={() => {
+						handleSelected={(isSelected) => onHunkSelected(hunk, isSelected)}
+						handleClick={() => {
 							contextMenu.close();
 						}}
-						on:lineContextMenu={(e) => {
-							contextMenu.open(e.detail.event, {
+						handleLineContextMenu={({ event, lineNumber }) => {
+							contextMenu.open(event, {
 								hunk,
 								section: subsection,
-								lineNumber: e.detail.lineNumber
+								lineNumber: lineNumber
 							});
 						}}
 					/>
