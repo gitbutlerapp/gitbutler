@@ -2,7 +2,6 @@ mod suite {
     mod projects;
 }
 
-mod git;
 mod keys;
 mod lock;
 mod types;

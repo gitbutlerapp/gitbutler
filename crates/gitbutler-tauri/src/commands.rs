@@ -1,4 +1,5 @@
 use gitbutler_core::{git, projects::ProjectId};
+use gitbutler_repo::credentials::Helper;
 use tauri::Manager;
 use tracing::instrument;
 
@@ -25,7 +26,7 @@ pub async fn git_test_push(
     branch_name: &str,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    let helper = handle.state::<gitbutler_core::git::credentials::Helper>();
+    let helper = handle.state::<Helper>();
     Ok(app.git_test_push(
         project_id,
         remote_name,
@@ -45,7 +46,7 @@ pub async fn git_test_fetch(
     action: Option<String>,
 ) -> Result<(), Error> {
     let app = handle.state::<app::App>();
-    let helper = handle.state::<gitbutler_core::git::credentials::Helper>();
+    let helper = handle.state::<Helper>();
     Ok(app.git_test_fetch(
         project_id,
         remote_name,

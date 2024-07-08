@@ -21,3 +21,4 @@ gitbutler-core = { path = "../gitbutler-core" }
 gitbutler-branch = { path = "../gitbutler-branch" }
 gitbutler-repo = { path = "../gitbutler-repo" }
 gitbutler-branchstate = { path = "../gitbutler-branchstate" }
+gitbutler-command-context.workspace = true

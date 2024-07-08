@@ -4,12 +4,12 @@ use std::time;
 
 use anyhow::{anyhow, Context, Result};
 use gitbutler_branchstate::VirtualBranchesAccess;
+use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::error::Code;
 use gitbutler_core::git::Url;
 use gitbutler_core::id::Id;
 use gitbutler_core::{
-    git::{self},
-    project_repository,
+    git,
     projects::{self, CodePushState},
     users,
 };
@@ -17,7 +17,7 @@ use gitbutler_oplog::oplog::Oplog;
 use itertools::Itertools;
 
 pub async fn sync_with_gitbutler(
-    project_repository: &project_repository::ProjectRepo,
+    project_repository: &ProjectRepo,
     user: &users::User,
     projects: &projects::Controller,
 ) -> Result<()> {
@@ -61,7 +61,7 @@ pub async fn sync_with_gitbutler(
 
 async fn push_target(
     projects: &projects::Controller,
-    project_repository: &project_repository::ProjectRepo,
+    project_repository: &ProjectRepo,
     default_target: &gitbutler_core::virtual_branches::target::Target,
     gb_code_last_commit: Option<git2::Oid>,
     project_id: Id<projects::Project>,
@@ -138,9 +138,7 @@ fn batch_rev_walk(
     Ok(oids)
 }
 
-fn collect_refs(
-    project_repository: &project_repository::ProjectRepo,
-) -> anyhow::Result<Vec<git::Refname>> {
+fn collect_refs(project_repository: &ProjectRepo) -> anyhow::Result<Vec<git::Refname>> {
     Ok(project_repository
         .repo()
         .references_glob("refs/*")?
@@ -153,7 +151,7 @@ fn collect_refs(
 }
 
 fn push_all_refs(
-    project_repository: &project_repository::ProjectRepo,
+    project_repository: &ProjectRepo,
     user: &users::User,
     project_id: Id<projects::Project>,
 ) -> Result<()> {
@@ -200,7 +198,7 @@ async fn update_project(
 }
 
 fn push_to_gitbutler_server(
-    project_repo: &project_repository::ProjectRepo,
+    project_repo: &ProjectRepo,
     user: Option<&users::User>,
     ref_specs: &[&str],
 ) -> Result<bool> {

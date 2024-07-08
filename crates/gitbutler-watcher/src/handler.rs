@@ -3,9 +3,10 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use gitbutler_branch::VirtualBranches;
+use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::error::Marker;
 use gitbutler_core::projects::ProjectId;
-use gitbutler_core::{assets, git, project_repository, projects, users};
+use gitbutler_core::{assets, git, projects, users};
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     oplog::Oplog,
@@ -155,7 +156,7 @@ impl Handler {
             .get(project_id)
             .context("failed to get project")?;
         let open_projects_repository = || {
-            project_repository::ProjectRepo::open(&project.clone())
+            ProjectRepo::open(&project.clone())
                 .context("failed to open project repository for project")
         };
 
@@ -211,7 +212,7 @@ impl Handler {
 
         if project.is_sync_enabled() && project.has_code_url() {
             if let Some(user) = self.users.get_user()? {
-                let repository = project_repository::ProjectRepo::open(&project)
+                let repository = ProjectRepo::open(&project)
                     .context("failed to open project repository for project")?;
                 return sync_with_gitbutler(&repository, &user, &self.projects).await;
             }

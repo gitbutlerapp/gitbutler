@@ -19,13 +19,12 @@ pub mod paths {
 
 pub mod virtual_branches {
     use gitbutler_branchstate::VirtualBranchesAccess;
-    use gitbutler_core::{project_repository, virtual_branches};
+    use gitbutler_command_context::ProjectRepo;
+    use gitbutler_core::virtual_branches;
 
     use crate::empty_bare_repository;
 
-    pub fn set_test_target(
-        project_repository: &project_repository::ProjectRepo,
-    ) -> anyhow::Result<()> {
+    pub fn set_test_target(project_repository: &ProjectRepo) -> anyhow::Result<()> {
         let vb_state = project_repository.project().virtual_branches();
         let (remote_repo, _tmp) = empty_bare_repository();
         let mut remote = project_repository
