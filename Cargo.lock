@@ -2218,6 +2218,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-feedback"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gitbutler-core",
+ "sha2",
+ "tempfile",
+ "walkdir",
+ "zip",
+]
+
+[[package]]
 name = "gitbutler-git"
 version = "0.0.0"
 dependencies = [
@@ -2318,6 +2330,7 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-command-context",
  "gitbutler-core",
+ "gitbutler-feedback",
  "gitbutler-oplog",
  "gitbutler-repo",
  "gitbutler-testsupport",

@@ -1,8 +1,9 @@
 use anyhow::Result;
 use std::path;
 
-use super::Zipper;
-use crate::projects::{self, ProjectId};
+use gitbutler_core::projects::{self, ProjectId};
+
+use crate::zipper::Zipper;
 
 #[derive(Clone)]
 pub struct Controller {
