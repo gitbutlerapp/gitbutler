@@ -1,7 +1,7 @@
 <script lang="ts">
 	import SnapshotAttachment from './SnapshotAttachment.svelte';
 	import Icon from '../shared/Icon.svelte';
-	import { getVSIFileIcon } from '$lib/ext-icons';
+	import { getFileIcon } from '$lib/ext-icons';
 	import { createdOnDay } from '$lib/history/history';
 	import Button from '$lib/shared/Button.svelte';
 	import { splitFilePath } from '$lib/utils/filePath';
@@ -217,7 +217,7 @@
 							<img
 								draggable="false"
 								class="files-attacment__file-icon"
-								src={getVSIFileIcon(filePath)}
+								src={getFileIcon(filePath)}
 								alt=""
 							/>
 							<div class="text-base-12 files-attacment__file-path-and-name">
