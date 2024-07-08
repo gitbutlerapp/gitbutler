@@ -13,8 +13,6 @@
 	import type { HunkSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
 
-	export let viewport: HTMLDivElement;
-	export let contents: HTMLDivElement;
 	export let filePath: string;
 	export let section: HunkSection;
 	export let minWidth: number;
@@ -29,6 +27,8 @@
 	const branch = maybeGetContextStore(Branch);
 	const project = getContext(Project);
 
+	let viewport: HTMLDivElement;
+	let contents: HTMLDivElement;
 	let contextMenu: HunkContextMenu;
 	let alwaysShow = false;
 
