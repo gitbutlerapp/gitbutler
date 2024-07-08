@@ -1,5 +1,3 @@
-pub mod target;
-
 use lazy_static::lazy_static;
 lazy_static! {
     pub static ref GITBUTLER_INTEGRATION_REFERENCE: crate::git::LocalRefname =

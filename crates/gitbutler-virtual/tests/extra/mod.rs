@@ -14,6 +14,7 @@ use git2::TreeEntry;
 use gitbutler_branch::{
     branch::{BranchCreateRequest, BranchUpdateRequest},
     ownership::BranchOwnershipClaims,
+    target::Target,
 };
 use gitbutler_branchstate::VirtualBranchesAccess;
 use gitbutler_core::git::{self, CommitExt};
@@ -774,7 +775,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
 
     set_test_target(project_repository)?;
     let vb_state = project.virtual_branches();
-    vb_state.set_default_target(gitbutler_core::virtual_branches::target::Target {
+    vb_state.set_default_target(Target {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: target_oid,
@@ -872,7 +873,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
 
     set_test_target(project_repository)?;
     let vb_state = project.virtual_branches();
-    vb_state.set_default_target(gitbutler_core::virtual_branches::target::Target {
+    vb_state.set_default_target(Target {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
         sha: target_oid,
@@ -1365,7 +1366,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
         "update target",
     )?;
 
-    vb_state.set_default_target(gitbutler_core::virtual_branches::target::Target {
+    vb_state.set_default_target(Target {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "http://origin.com/project".to_string(),
         sha: base_commit,

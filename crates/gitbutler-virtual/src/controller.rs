@@ -29,8 +29,8 @@ use crate::{
 use super::r#virtual as branch;
 
 use crate::files::RemoteBranchFile;
+use gitbutler_branch::target;
 use gitbutler_core::git;
-use gitbutler_core::virtual_branches::target;
 
 #[derive(Clone)]
 pub struct Controller {

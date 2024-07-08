@@ -31,11 +31,11 @@ use crate::author::Author;
 use crate::conflicts::{self, RepoConflicts};
 use crate::integration::{get_integration_commiter, get_workspace_head};
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
+use gitbutler_branch::target;
 use gitbutler_core::error::Code;
 use gitbutler_core::error::Marker;
 use gitbutler_core::git::{normalize_branch_name, CommitExt, CommitHeadersV2, HasCommitHeaders};
 use gitbutler_core::time::now_since_unix_epoch_ms;
-use gitbutler_core::virtual_branches::target;
 use gitbutler_core::{
     dedup::{dedup, dedup_fmt},
     git::{self, Refname, RemoteRefname},

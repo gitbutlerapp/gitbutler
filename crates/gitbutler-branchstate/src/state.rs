@@ -5,13 +5,14 @@ use std::{
 
 use anyhow::{anyhow, Result};
 
-use gitbutler_branch::branch::{Branch, BranchId};
+use gitbutler_branch::{
+    branch::{Branch, BranchId},
+    target::Target,
+};
 use gitbutler_core::{error::Code, fs::read_toml_file_or_default, git};
 use gitbutler_project::Project;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-
-use gitbutler_core::virtual_branches::target::Target;
 
 /// The state of virtual branches data, as persisted in a TOML file.
 #[derive(Serialize, Deserialize, Debug, Default)]
