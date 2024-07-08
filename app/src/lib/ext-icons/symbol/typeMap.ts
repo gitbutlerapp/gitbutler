@@ -188,6 +188,7 @@ export const symbolFileExtensionsToIcons: { [key: string]: string } = {
 	pgf: 'image',
 	pgm: 'image',
 	pgsql: 'database',
+	php: 'php',
 	pic: 'image',
 	pkb: 'database',
 	pkl: 'pkl',
