@@ -5,7 +5,6 @@ use std::{
 };
 
 use gitbutler_command_context::ProjectRepo;
-use gitbutler_core::project_repository;
 use gitbutler_repo::{credentials::Helper, RepositoryExt};
 use tempfile::{tempdir, TempDir};
 
@@ -156,7 +155,7 @@ pub fn test_repository() -> (git2::Repository, TempDir) {
     let tmp = temp_dir();
     let repository =
         git2::Repository::init_opts(&tmp, &init_opts()).expect("failed to init repository");
-    project_repository::Config::from(&repository)
+    gitbutler_repo::Config::from(&repository)
         .set_local("commit.gpgsign", "false")
         .unwrap();
     let mut index = repository.index().expect("failed to get index");

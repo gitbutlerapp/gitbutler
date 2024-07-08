@@ -11,7 +11,7 @@ use gitbutler_core::{
     virtual_branches::{Branch, BranchId},
 };
 
-use gitbutler_core::project_repository::Config;
+use crate::Config;
 use gitbutler_project::AuthKey;
 
 use crate::{credentials::Helper, RepositoryExt};
