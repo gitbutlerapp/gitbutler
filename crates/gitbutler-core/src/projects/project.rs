@@ -5,12 +5,11 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{id::Id, types::default_true::DefaultTrue, virtual_branches::VirtualBranchesHandle};
+use crate::{id::Id, types::default_true::DefaultTrue};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum AuthKey {
-    Generated,
     GitCredentialsHelper,
     Local {
         private_key_path: path::PathBuf,
@@ -91,6 +90,8 @@ pub struct Project {
 
     #[serde(default = "default_true")]
     pub use_new_locking: bool,
+    #[serde(default)]
+    pub ignore_project_semaphore: bool,
 }
 
 fn default_true() -> bool {
@@ -116,12 +117,11 @@ impl Project {
         self.path.join(".git").join("gitbutler")
     }
 
-    /// Returns a handle to the virtual branches manager of the project.
-    pub fn virtual_branches(&self) -> VirtualBranchesHandle {
-        VirtualBranchesHandle::new(self.gb_dir())
-    }
-
     pub fn snapshot_lines_threshold(&self) -> usize {
         self.snapshot_lines_threshold.unwrap_or(20)
+    }
+
+    pub fn worktree_path(&self) -> PathBuf {
+        self.path.clone()
     }
 }

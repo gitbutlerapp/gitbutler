@@ -57,7 +57,13 @@
 			{padding}
 			{shift}
 			{thickness}
-			on:dragging={(e) => dispatch('dragging', e.detail)}
+			on:dragging={(data) => dispatch('dragging', data.detail)}
+			on:scroll={(data) => {
+				const event = data.detail;
+				const target = event.target as HTMLDivElement;
+
+				scrolled = target.scrollTop > 0;
+			}}
 		/>
 	</div>
 </div>
@@ -75,7 +81,9 @@
 		width: 100%;
 	}
 	.contents {
-		display: block;
+		display: flex;
+		flex-direction: column;
+		min-height: 100%;
 		min-width: 100%;
 	}
 	.scrolled {

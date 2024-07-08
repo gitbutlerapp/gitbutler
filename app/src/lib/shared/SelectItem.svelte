@@ -64,6 +64,7 @@
 			height: 16px;
 			text-overflow: ellipsis;
 			overflow-x: hidden;
+			white-space: nowrap;
 		}
 	}
 

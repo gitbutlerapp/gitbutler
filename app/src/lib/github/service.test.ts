@@ -1,4 +1,5 @@
 import { GitHubService } from './service';
+import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { BehaviorSubject } from 'rxjs';
 import { expect, test, describe } from 'vitest';
 
@@ -17,7 +18,8 @@ describe.concurrent('GitHubService', () => {
 			const accessToken$ = new BehaviorSubject<string | undefined>('token');
 			const remoteUrl$ = new BehaviorSubject<string | undefined>(remoteUrl);
 
-			const githubService = new GitHubService(accessToken$, remoteUrl$);
+			const projectMetrics = new ProjectMetrics();
+			const githubService = new GitHubService(projectMetrics, accessToken$, remoteUrl$);
 
 			expect(githubService.owner).toBe('org');
 			expect(githubService.repo).toBe('repo');

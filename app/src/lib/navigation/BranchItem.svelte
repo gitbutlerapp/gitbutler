@@ -9,8 +9,7 @@
 	export let branch: CombinedBranch;
 
 	function getBranchLink(b: CombinedBranch): string | undefined {
-		if (b.vbranch?.active) return `/${projectId}/board/`;
-		if (b.vbranch) return `/${projectId}/stashed/${b.vbranch.id}`;
+		if (b.vbranch) return `/${projectId}/board/`;
 		if (b.remoteBranch) return `/${projectId}/remote/${branch?.remoteBranch?.displayName}`;
 		if (b.pr) return `/${projectId}/pull/${b.pr.number}`;
 	}

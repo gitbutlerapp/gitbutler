@@ -3,7 +3,7 @@ use std::str;
 
 use gitbutler_core::{
     git::credentials::{Credential, Helper, SshCredential},
-    keys, project_repository, projects, users,
+    project_repository, projects, users,
 };
 
 use gitbutler_testsupport::{temp_dir, test_repository};
@@ -29,8 +29,7 @@ impl TestCase<'_> {
         .expect("valid v1 sample user");
         users.set_user(&user).unwrap();
 
-        let keys = keys::Controller::from_path(local_app_data.path());
-        let helper = Helper::new(keys);
+        let helper = Helper::default();
 
         let (repo, _tmp) = test_repository();
         repo.remote("origin", self.remote_url).unwrap();
@@ -39,7 +38,7 @@ impl TestCase<'_> {
             preferred_key: self.preferred_key.clone(),
             ..Default::default()
         };
-        let project_repository = project_repository::Repository::open(&project).unwrap();
+        let project_repository = project_repository::ProjectRepo::open(&project).unwrap();
 
         let flow = helper.help(&project_repository, "origin").unwrap();
         flow.into_iter()

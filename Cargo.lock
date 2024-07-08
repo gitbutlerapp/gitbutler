@@ -2103,6 +2103,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-branch"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "diffy",
+ "futures",
+ "git2",
+ "git2-hooks",
+ "gitbutler-branchstate",
+ "gitbutler-core",
+ "gitbutler-git",
+ "gitbutler-oplog",
+ "gitbutler-repo",
+ "gitbutler-testsupport",
+ "glob",
+ "hex",
+ "itertools 0.13.0",
+ "md5",
+ "once_cell",
+ "pretty_assertions",
+ "regex",
+ "serde",
+ "serial_test",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "gitbutler-branchstate"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gitbutler-core",
+ "itertools 0.13.0",
+ "serde",
+ "toml 0.8.14",
+]
+
+[[package]]
 name = "gitbutler-cli"
 version = "0.0.0"
 dependencies = [
@@ -2110,6 +2152,7 @@ dependencies = [
  "chrono",
  "clap",
  "gitbutler-core",
+ "gitbutler-oplog",
  "pager",
 ]
 
@@ -2199,6 +2242,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-oplog"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "git2",
+ "gitbutler-branchstate",
+ "gitbutler-core",
+ "gix",
+ "itertools 0.13.0",
+ "pretty_assertions",
+ "serde",
+ "strum",
+ "tempfile",
+ "toml 0.8.14",
+ "tracing",
+]
+
+[[package]]
+name = "gitbutler-repo"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "git2",
+ "gitbutler-core",
+ "gitbutler-git",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "gitbutler-sync"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "git2",
+ "gitbutler-branchstate",
+ "gitbutler-core",
+ "gitbutler-oplog",
+ "itertools 0.13.0",
+ "tracing",
+]
+
+[[package]]
 name = "gitbutler-tauri"
 version = "0.0.0"
 dependencies = [
@@ -2209,7 +2296,10 @@ dependencies = [
  "dirs 5.0.1",
  "futures",
  "git2",
+ "gitbutler-branch",
  "gitbutler-core",
+ "gitbutler-oplog",
+ "gitbutler-repo",
  "gitbutler-testsupport",
  "gitbutler-watcher",
  "log",
@@ -2241,6 +2331,8 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "git2",
+ "gitbutler-branch",
+ "gitbutler-branchstate",
  "gitbutler-core",
  "keyring",
  "once_cell",
@@ -2256,8 +2348,11 @@ dependencies = [
  "anyhow",
  "backoff",
  "futures",
+ "gitbutler-branch",
  "gitbutler-core",
  "gitbutler-notify-debouncer",
+ "gitbutler-oplog",
+ "gitbutler-sync",
  "gix",
  "notify",
  "thiserror",

@@ -97,6 +97,7 @@
 </script>
 
 <div
+	data-remove-from-draggable
 	on:mousedown={onMouseDown}
 	on:click|stopPropagation
 	on:dblclick|stopPropagation

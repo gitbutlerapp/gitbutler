@@ -1,10 +1,10 @@
-pub(crate) fn dedup(existing: &[&str], new: &str) -> String {
+pub fn dedup(existing: &[&str], new: &str) -> String {
     dedup_fmt(existing, new, " ")
 }
 
 /// Makes sure that _new_ is not in _existing_ by adding a number to it.
 /// the number is increased until the name is unique.
-pub(crate) fn dedup_fmt(existing: &[&str], new: &str, separator: &str) -> String {
+pub fn dedup_fmt(existing: &[&str], new: &str, separator: &str) -> String {
     existing
         .iter()
         .filter_map(|x| {

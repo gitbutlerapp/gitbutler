@@ -10,8 +10,10 @@ import {
 	combineLatest,
 	mergeWith,
 	shareReplay,
-	switchMap
+	switchMap,
+	tap
 } from 'rxjs';
+import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { Readable } from 'svelte/store';
 
 export class RemoteBranchService {
@@ -22,6 +24,7 @@ export class RemoteBranchService {
 
 	constructor(
 		projectId: string,
+		private projectMetrics: ProjectMetrics,
 		fetches$: Observable<any>,
 		head$: Observable<any>,
 		baseBranch$: Observable<any>
@@ -29,6 +32,9 @@ export class RemoteBranchService {
 		this.branches$ = combineLatest([baseBranch$, head$, fetches$]).pipe(
 			mergeWith(this.reload$),
 			switchMap(async () => await listRemoteBranches(projectId)),
+			tap((branches) => {
+				this.projectMetrics.setMetric('normal_branch_count', branches.length);
+			}),
 			shareReplay(1),
 			catchError((e) => {
 				console.error(e);

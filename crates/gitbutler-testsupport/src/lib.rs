@@ -18,12 +18,13 @@ pub mod paths {
 }
 
 pub mod virtual_branches {
+    use gitbutler_branchstate::VirtualBranchesAccess;
     use gitbutler_core::{project_repository, virtual_branches};
 
     use crate::empty_bare_repository;
 
     pub fn set_test_target(
-        project_repository: &project_repository::Repository,
+        project_repository: &project_repository::ProjectRepo,
     ) -> anyhow::Result<()> {
         let vb_state = project_repository.project().virtual_branches();
         let (remote_repo, _tmp) = empty_bare_repository();
@@ -42,7 +43,7 @@ pub mod virtual_branches {
             })
             .expect("failed to write target");
 
-        virtual_branches::integration::update_gitbutler_integration(&vb_state, project_repository)
+        gitbutler_branch::integration::update_gitbutler_integration(&vb_state, project_repository)
             .expect("failed to update integration");
 
         Ok(())

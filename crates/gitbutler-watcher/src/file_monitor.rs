@@ -4,9 +4,9 @@ use std::time::Duration;
 
 use crate::events::InternalEvent;
 use anyhow::{anyhow, Context, Result};
-use gitbutler_core::ops::OPLOG_FILE_NAME;
 use gitbutler_core::projects::ProjectId;
 use gitbutler_notify_debouncer::{new_debouncer, Debouncer, NoCache};
+use gitbutler_oplog::OPLOG_FILE_NAME;
 use notify::RecommendedWatcher;
 use notify::Watcher;
 use tokio::task;

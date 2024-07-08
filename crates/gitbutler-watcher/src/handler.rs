@@ -2,12 +2,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use gitbutler_branch::VirtualBranches;
 use gitbutler_core::error::Marker;
-use gitbutler_core::ops::entry::{OperationKind, SnapshotDetails};
 use gitbutler_core::projects::ProjectId;
-use gitbutler_core::synchronize::sync_with_gitbutler;
-use gitbutler_core::virtual_branches::VirtualBranches;
-use gitbutler_core::{assets, git, project_repository, projects, users, virtual_branches};
+use gitbutler_core::{assets, git, project_repository, projects, users};
+use gitbutler_oplog::{
+    entry::{OperationKind, SnapshotDetails},
+    oplog::Oplog,
+};
+use gitbutler_sync::cloud::sync_with_gitbutler;
 use tracing::instrument;
 
 use super::{events, Change};
@@ -24,8 +27,8 @@ pub struct Handler {
     // need extra protection.
     projects: projects::Controller,
     users: users::Controller,
-    vbranch_controller: virtual_branches::Controller,
-    assets_proxy: assets::Proxy,
+    vbranch_controller: gitbutler_branch::Controller,
+    assets_proxy: gitbutler_branch::assets::Proxy,
 
     /// A function to send events - decoupled from app-handle for testing purposes.
     #[allow(clippy::type_complexity)]
@@ -38,7 +41,7 @@ impl Handler {
     pub fn new(
         projects: projects::Controller,
         users: users::Controller,
-        vbranch_controller: virtual_branches::Controller,
+        vbranch_controller: gitbutler_branch::Controller,
         assets_proxy: assets::Proxy,
         send_event: impl Fn(Change) -> Result<()> + Send + Sync + 'static,
     ) -> Self {
@@ -46,7 +49,7 @@ impl Handler {
             projects,
             users,
             vbranch_controller,
-            assets_proxy,
+            assets_proxy: gitbutler_branch::assets::Proxy::new(assets_proxy),
             send_event: Arc::new(send_event),
         }
     }
@@ -85,15 +88,19 @@ impl Handler {
 
     #[instrument(skip(self, project_id))]
     async fn calculate_virtual_branches(&self, project_id: ProjectId) -> Result<()> {
+        let project = self
+            .projects
+            .get(project_id)
+            .context("failed to get project")?;
         match self
             .vbranch_controller
-            .list_virtual_branches(project_id)
+            .list_virtual_branches(&project)
             .await
         {
             Ok((branches, skipped_files)) => {
                 let branches = self.assets_proxy.proxy_virtual_branches(branches).await;
                 self.emit_app_event(Change::VirtualBranches {
-                    project_id,
+                    project_id: project.id,
                     virtual_branches: VirtualBranches {
                         branches,
                         skipped_files,
@@ -142,21 +149,13 @@ impl Handler {
         Ok(())
     }
 
-    pub async fn git_file_change(
-        &self,
-        path: impl Into<PathBuf>,
-        project_id: ProjectId,
-    ) -> Result<()> {
-        self.git_files_change(vec![path.into()], project_id).await
-    }
-
     pub async fn git_files_change(&self, paths: Vec<PathBuf>, project_id: ProjectId) -> Result<()> {
         let project = self
             .projects
             .get(project_id)
             .context("failed to get project")?;
         let open_projects_repository = || {
-            project_repository::Repository::open(&project)
+            project_repository::ProjectRepo::open(&project.clone())
                 .context("failed to open project repository for project")
         };
 
@@ -175,7 +174,8 @@ impl Handler {
                 "HEAD" => {
                     let project_repository = open_projects_repository()?;
                     let head_ref = project_repository
-                        .get_head()
+                        .repo()
+                        .head()
                         .context("failed to get head")?;
                     let head_ref_name = head_ref.name().context("failed to get head name")?;
                     if head_ref_name != "refs/heads/gitbutler/integration" {
@@ -211,7 +211,7 @@ impl Handler {
 
         if project.is_sync_enabled() && project.has_code_url() {
             if let Some(user) = self.users.get_user()? {
-                let repository = project_repository::Repository::open(&project)
+                let repository = project_repository::ProjectRepo::open(&project)
                     .context("failed to open project repository for project")?;
                 return sync_with_gitbutler(&repository, &user, &self.projects).await;
             }

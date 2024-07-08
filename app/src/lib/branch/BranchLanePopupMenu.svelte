@@ -191,8 +191,7 @@
 				}}
 				disabled={isUnapplied ||
 					!($aiGenEnabled && aiConfigurationValid) ||
-					branch.files?.length === 0 ||
-					!branch.active}
+					branch.files?.length === 0}
 			/>
 		</ContextMenuSection>
 

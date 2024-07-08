@@ -10,7 +10,7 @@ import type { Branch, RemoteBranch } from '$lib/vbranches/types';
 import type { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 
 export class BranchService {
-	public branches$: Observable<CombinedBranch[]>;
+	readonly branches$: Observable<CombinedBranch[]>;
 
 	constructor(
 		private vbranchService: VirtualBranchService,
@@ -137,7 +137,7 @@ function mergeBranchesAndPrs(
 
 	// This should be everything considered a branch in one list
 	const filtered = contributions
-		.filter((b) => !b.vbranch || !b.vbranch.active)
+		.filter((b) => !b.vbranch)
 		.sort((a, b) => {
 			return (a.modifiedAt || new Date(0)) < (b.modifiedAt || new Date(0)) ? 1 : -1;
 		});

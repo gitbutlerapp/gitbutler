@@ -38,7 +38,14 @@
 		{@render squashDropzone()}
 
 		{#snippet overlay({ hovered, activated })}
-			<CardOverlay {hovered} {activated} label="Amend commit" />
+			<CardOverlay
+				{hovered}
+				{activated}
+				label="Amend commit"
+				extraPaddings={{
+					left: 4
+				}}
+			/>
 		{/snippet}
 	</Dropzone>
 {/snippet}
@@ -48,7 +55,14 @@
 		{@render children()}
 
 		{#snippet overlay({ hovered, activated })}
-			<CardOverlay {hovered} {activated} label="Squash commit" />
+			<CardOverlay
+				{hovered}
+				{activated}
+				label="Squash commit"
+				extraPaddings={{
+					left: 4
+				}}
+			/>
 		{/snippet}
 	</Dropzone>
 {/snippet}
@@ -57,6 +71,5 @@
 	.dropzone-wrapper {
 		position: relative;
 		width: 100%;
-		overflow: hidden;
 	}
 </style>

@@ -1,5 +1,6 @@
 use anyhow::Result;
 use gitbutler_core::projects::Project;
+use gitbutler_oplog::oplog::Oplog;
 
 use clap::{arg, Command};
 #[cfg(not(windows))]

@@ -1,10 +1,9 @@
 use crate::error::Error;
 use anyhow::Context;
 use gitbutler_core::git::diff::FileDiff;
-use gitbutler_core::{
-    ops::entry::Snapshot,
-    projects::{self, ProjectId},
-};
+use gitbutler_core::projects::{self, ProjectId};
+use gitbutler_oplog::entry::Snapshot;
+use gitbutler_oplog::oplog::Oplog;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::Manager;

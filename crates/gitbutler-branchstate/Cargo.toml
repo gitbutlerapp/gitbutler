@@ -1,0 +1,13 @@
+[package]
+name = "gitbutler-branchstate"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+gitbutler-core.workspace = true
+itertools = "0.13"
+anyhow = "1.0.86"
+toml = "0.8.13"
+serde = { workspace = true, features = ["std"]}

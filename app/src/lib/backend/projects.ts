@@ -8,7 +8,7 @@ import { get, writable } from 'svelte/store';
 import type { HttpClient } from './httpClient';
 import { goto } from '$app/navigation';
 
-export type KeyType = 'generated' | 'gitCredentialsHelper' | 'local' | 'systemExecutable';
+export type KeyType = 'gitCredentialsHelper' | 'local' | 'systemExecutable';
 export type LocalKey = {
 	local: { private_key_path: string };
 };
@@ -27,6 +27,7 @@ export class Project {
 	use_diff_context: boolean | undefined;
 	snapshot_lines_threshold!: number | undefined;
 	use_new_locking!: boolean;
+	ignore_project_semaphore!: boolean;
 
 	get vscodePath() {
 		return this.path.includes('\\') ? '/' + this.path.replace('\\', '/') : this.path;

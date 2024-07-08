@@ -3,7 +3,7 @@ use std::{fmt, str::FromStr};
 use serde::{Deserialize, Serialize};
 
 use super::error::Error;
-use crate::virtual_branches::{normalize_branch_name, Branch};
+use crate::{git::normalize_branch_name, virtual_branches::Branch};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Refname {
