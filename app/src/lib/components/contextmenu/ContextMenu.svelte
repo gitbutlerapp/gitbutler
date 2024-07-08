@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/clickOutsideNew';
+	import { clickOutside } from '$lib/clickOutside';
 	import { portal } from '$lib/utils/portal';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
