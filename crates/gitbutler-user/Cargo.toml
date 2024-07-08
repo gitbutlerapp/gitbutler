@@ -1,0 +1,19 @@
+[package]
+name = "gitbutler-user"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+gitbutler-core.workspace = true
+anyhow = "1.0.86"
+serde = { workspace = true, features = ["std"]}
+serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
+
+[[test]]
+name="user"
+path = "tests/mod.rs"
+
+[dev-dependencies]
+serial_test = "3.1.1"
+tempfile = "3.10"
+keyring.workspace = true

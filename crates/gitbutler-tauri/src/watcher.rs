@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use futures::executor::block_on;
-use gitbutler_core::{assets, users};
+use gitbutler_branch::assets;
 use gitbutler_project as projects;
 use gitbutler_project::{Project, ProjectId};
+use gitbutler_user as users;
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 

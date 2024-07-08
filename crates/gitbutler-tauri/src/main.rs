@@ -13,7 +13,8 @@
     clippy::too_many_lines
 )]
 
-use gitbutler_core::{assets, storage};
+use gitbutler_branch::assets;
+use gitbutler_core::storage;
 use gitbutler_repo::credentials::Helper;
 use gitbutler_tauri::{
     app, askpass, commands, config, github, keys, logs, menu, projects, remotes, repo, secret,
@@ -107,10 +108,10 @@ fn main() {
                     let projects_storage_controller = gitbutler_project::storage::Storage::new(storage_controller.clone());
                     app_handle.manage(projects_storage_controller.clone());
 
-                    let users_storage_controller = gitbutler_core::users::storage::Storage::new(storage_controller.clone());
+                    let users_storage_controller = gitbutler_user::storage::Storage::new(storage_controller.clone());
                     app_handle.manage(users_storage_controller.clone());
 
-                    let users_controller = gitbutler_core::users::Controller::new(users_storage_controller.clone());
+                    let users_controller = gitbutler_user::Controller::new(users_storage_controller.clone());
                     app_handle.manage(users_controller.clone());
 
                     let projects_controller = gitbutler_project::Controller::new(

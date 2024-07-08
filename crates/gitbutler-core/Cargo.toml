@@ -6,8 +6,8 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
 [[test]]
-name = "secret"
-path = "tests/secret/mod.rs"
+name = "core"
+path = "tests/core.rs"
 
 [dev-dependencies]
 once_cell = "1.19"
