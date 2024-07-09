@@ -4,7 +4,8 @@ use anyhow::{anyhow, Context, Result};
 
 use gitbutler_branch::branch::{Branch, BranchId};
 use gitbutler_command_context::ProjectRepo;
-use gitbutler_core::git::{self, CommitHeadersV2};
+use gitbutler_commit::commit_headers::CommitHeadersV2;
+use gitbutler_core::git;
 use gitbutler_error::error::Code;
 use gitbutler_reference::{Refname, RemoteRefname};
 

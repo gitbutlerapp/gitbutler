@@ -21,6 +21,7 @@ gitbutler-error.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-id.workspace = true
 gitbutler-time.workspace = true
+gitbutler-commit.workspace = true
 serde = { workspace = true, features = ["std"]}
 bstr = "1.9.1"
 diffy = "0.3.0"

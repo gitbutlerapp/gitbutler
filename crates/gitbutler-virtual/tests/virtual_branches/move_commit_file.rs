@@ -1,5 +1,5 @@
-use git::CommitExt;
 use gitbutler_branch::ownership::BranchOwnershipClaims;
+use gitbutler_commit::commit_ext::CommitExt;
 
 use super::*;
 

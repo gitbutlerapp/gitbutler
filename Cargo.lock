@@ -2152,6 +2152,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-commit"
+version = "0.0.0"
+dependencies = [
+ "bstr",
+ "git2",
+ "uuid",
+]
+
+[[package]]
 name = "gitbutler-config"
 version = "0.0.0"
 dependencies = [
@@ -2347,6 +2356,7 @@ dependencies = [
  "git2",
  "gitbutler-branch",
  "gitbutler-command-context",
+ "gitbutler-commit",
  "gitbutler-config",
  "gitbutler-core",
  "gitbutler-error",
@@ -2521,6 +2531,7 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-branchstate",
  "gitbutler-command-context",
+ "gitbutler-commit",
  "gitbutler-core",
  "gitbutler-error",
  "gitbutler-git",

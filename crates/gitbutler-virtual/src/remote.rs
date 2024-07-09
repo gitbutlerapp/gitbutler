@@ -4,12 +4,12 @@ use anyhow::{Context, Result};
 use bstr::BString;
 use gitbutler_branchstate::VirtualBranchesHandle;
 use gitbutler_command_context::ProjectRepo;
+use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 use serde::Serialize;
 
 use gitbutler_branch::target;
-use gitbutler_core::git::CommitExt;
 
 use crate::author::Author;
 
