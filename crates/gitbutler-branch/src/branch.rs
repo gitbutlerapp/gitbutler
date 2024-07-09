@@ -46,7 +46,7 @@ pub struct Branch {
     pub selected_for_changes: Option<i64>,
     #[serde(default = "default_true")]
     pub allow_rebasing: bool,
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", rename = "applied")]
     pub old_applied: bool,
     #[serde(default = "default_true")]
     pub in_workspace: bool,
