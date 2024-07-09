@@ -171,9 +171,6 @@ importers:
       '@types/marked':
         specifier: ^5.0.2
         version: 5.0.2
-      autoprefixer:
-        specifier: ^10.4.19
-        version: 10.4.19(postcss@8.4.38)
       class-transformer:
         specifier: ^0.5.1
         version: 0.5.1
