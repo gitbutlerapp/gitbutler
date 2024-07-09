@@ -1,0 +1,14 @@
+[package]
+name = "gitbutler-fs"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+serde = { workspace = true, features = ["std"]}
+bstr = "1.9.1"
+anyhow = "1.0.86"
+gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
+walkdir = "2.5.0"
+toml = "0.8.13"

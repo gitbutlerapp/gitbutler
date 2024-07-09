@@ -1,7 +1,7 @@
 use bstr::{BStr, BString, ByteSlice, ByteVec};
 use core::str;
 
-use super::CommitHeadersV2;
+use crate::commit_headers::CommitHeadersV2;
 
 pub struct CommitBuffer {
     heading: Vec<(BString, BString)>,

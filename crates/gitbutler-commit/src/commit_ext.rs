@@ -1,6 +1,6 @@
 use bstr::BStr;
 
-use super::HasCommitHeaders;
+use crate::commit_headers::HasCommitHeaders;
 
 /// Extension trait for `git2::Commit`.
 ///

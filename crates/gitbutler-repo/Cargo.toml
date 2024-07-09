@@ -18,12 +18,16 @@ serde = { workspace = true, features = ["std"]}
 log = "^0.4"
 thiserror.workspace = true
 resolve-path = "0.1.0"
+ssh2 = { version = "0.9.4", features = ["vendored-openssl"] }
 gitbutler-command-context.workspace = true
 gitbutler-config.workspace = true
 gitbutler-project.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-error.workspace = true
+gitbutler-id.workspace = true
+gitbutler-time.workspace = true
+gitbutler-commit.workspace = true
 
 [[test]]
 name="repo"

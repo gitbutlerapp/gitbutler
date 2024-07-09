@@ -2,7 +2,7 @@ use std::{env, fs, path::Path};
 
 use ssh2::{CheckResult, KnownHostFileKind};
 
-use crate::git;
+use gitbutler_core::git;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

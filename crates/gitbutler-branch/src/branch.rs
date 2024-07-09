@@ -2,7 +2,7 @@ use anyhow::Result;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, VirtualRefname};
 use serde::{Deserialize, Serialize};
 
-use gitbutler_core::id::Id;
+use gitbutler_id::id::Id;
 
 use crate::ownership::BranchOwnershipClaims;
 

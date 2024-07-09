@@ -5,6 +5,8 @@ use gitbutler_branch::hunk::{Hunk, HunkHash};
 use gitbutler_branch::ownership::{reconcile_claims, BranchOwnershipClaims};
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepo;
+use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_commit::commit_headers::{CommitHeadersV2, HasCommitHeaders};
 use gitbutler_oplog::snapshot::Snapshot;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::credentials::Helper;
@@ -34,11 +36,10 @@ use crate::dedup::{dedup, dedup_fmt};
 use crate::integration::{get_integration_commiter, get_workspace_head};
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
 use gitbutler_branch::target;
-use gitbutler_core::git::{CommitExt, CommitHeadersV2, HasCommitHeaders};
-use gitbutler_core::time::now_since_unix_epoch_ms;
 use gitbutler_error::error::Code;
 use gitbutler_error::error::Marker;
 use gitbutler_repo::rebase::{cherry_rebase, cherry_rebase_group};
+use gitbutler_time::time::now_since_unix_epoch_ms;
 
 type AppliedStatuses = Vec<(branch::Branch, BranchStatus)>;
 
@@ -830,7 +831,7 @@ pub fn create_virtual_branch(
         }
     }
 
-    let now = gitbutler_core::time::now_ms();
+    let now = gitbutler_time::time::now_ms();
 
     let mut branch = Branch {
         id: BranchId::generate(),
@@ -1764,7 +1765,7 @@ pub fn reset_branch(
     let old_head = get_workspace_head(&vb_state, project_repository)?;
 
     branch.head = target_commit_id;
-    branch.updated_timestamp_ms = gitbutler_core::time::now_ms();
+    branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
     vb_state.set_branch(branch.clone())?;
 
     let updated_head = get_workspace_head(&vb_state, project_repository)?;
@@ -2100,7 +2101,7 @@ pub fn commit(
     let vb_state = project_repository.project().virtual_branches();
     branch.tree = tree_oid;
     branch.head = commit_oid;
-    branch.updated_timestamp_ms = gitbutler_core::time::now_ms();
+    branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
     vb_state.set_branch(branch.clone())?;
 
     crate::integration::update_gitbutler_integration(&vb_state, project_repository)
@@ -2696,7 +2697,7 @@ pub fn reorder_commit(
         let new_head = cherry_rebase_group(project_repository, parent_oid, &mut ids_to_rebase)
             .context("rebase failed")?;
         branch.head = new_head;
-        branch.updated_timestamp_ms = gitbutler_core::time::now_ms();
+        branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
         vb_state.set_branch(branch.clone())?;
 
         crate::integration::update_gitbutler_integration(&vb_state, project_repository)
@@ -2730,7 +2731,7 @@ pub fn reorder_commit(
             .context("rebase failed")?;
 
         branch.head = new_head;
-        branch.updated_timestamp_ms = gitbutler_core::time::now_ms();
+        branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
         vb_state.set_branch(branch.clone())?;
 
         crate::integration::update_gitbutler_integration(&vb_state, project_repository)
@@ -2789,7 +2790,7 @@ pub fn insert_blank_commit(
             }
         }
     }
-    branch.updated_timestamp_ms = gitbutler_core::time::now_ms();
+    branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
     vb_state.set_branch(branch.clone())?;
 
     Ok(())
@@ -2837,7 +2838,7 @@ pub fn undo_commit(
 
     if new_commit_oid != commit_oid {
         branch.head = new_commit_oid;
-        branch.updated_timestamp_ms = gitbutler_core::time::now_ms();
+        branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
         vb_state.set_branch(branch.clone())?;
 
         crate::integration::update_gitbutler_integration(&vb_state, project_repository)
@@ -2925,7 +2926,7 @@ pub fn squash(
         Ok(new_head_id) => {
             // save new branch head
             branch.head = new_head_id;
-            branch.updated_timestamp_ms = gitbutler_core::time::now_ms();
+            branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
             vb_state.set_branch(branch.clone())?;
 
             crate::integration::update_gitbutler_integration(&vb_state, project_repository)
@@ -3002,7 +3003,7 @@ pub fn update_commit_message(
         .map_err(|err| err.context("rebase error"))?;
     // save new branch head
     branch.head = new_head_id;
-    branch.updated_timestamp_ms = gitbutler_core::time::now_ms();
+    branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
     vb_state.set_branch(branch.clone())?;
 
     crate::integration::update_gitbutler_integration(&vb_state, project_repository)
@@ -3447,7 +3448,7 @@ pub fn create_virtual_branch_from_branch(
         .any(|b| b.selected_for_changes.is_some()))
     .then_some(now_since_unix_epoch_ms());
 
-    let now = gitbutler_core::time::now_ms();
+    let now = gitbutler_time::time::now_ms();
 
     // add file ownership based off the diff
     let target_commit = repo.find_commit(default_target.sha)?;

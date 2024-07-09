@@ -1,5 +1,5 @@
 pub mod commands {
-    use gitbutler_core::id::Id;
+    use gitbutler_id::id::Id;
     use gitbutler_repo::askpass::{self, AskpassRequest};
 
     #[tauri::command(async)]

@@ -206,7 +206,7 @@ pub fn set_base_branch(
                 },
             );
 
-            let now_ms = gitbutler_core::time::now_ms();
+            let now_ms = gitbutler_time::time::now_ms();
 
             let (upstream, upstream_head) = if let Refname::Local(head_name) = &head_name {
                 let upstream_name = target_branch_ref.with_branch(head_name.branch());

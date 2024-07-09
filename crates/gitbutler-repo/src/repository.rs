@@ -4,14 +4,12 @@ use anyhow::{anyhow, Context, Result};
 
 use gitbutler_branch::branch::{Branch, BranchId};
 use gitbutler_command_context::ProjectRepo;
-use gitbutler_core::{
-    git::{self, CommitHeadersV2},
-    ssh,
-};
+use gitbutler_commit::commit_headers::CommitHeadersV2;
+use gitbutler_core::git;
 use gitbutler_error::error::Code;
 use gitbutler_reference::{Refname, RemoteRefname};
 
-use crate::{askpass, Config};
+use crate::{askpass, ssh, Config};
 use gitbutler_project::AuthKey;
 
 use crate::{credentials::Helper, RepositoryExt};
@@ -67,7 +65,7 @@ impl RepoActions for ProjectRepo {
 
         let commit_id: git2::Oid = branch.get().peel_to_commit()?.id();
 
-        let now = gitbutler_core::time::now_ms();
+        let now = gitbutler_time::time::now_ms();
         let branch_name = format!("test-push-{now}");
 
         let refname =

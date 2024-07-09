@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::path::PathBuf;
 
-use gitbutler_core::storage as core_storage;
+use gitbutler_storage::storage as core_storage;
 
 use crate::User;
 
