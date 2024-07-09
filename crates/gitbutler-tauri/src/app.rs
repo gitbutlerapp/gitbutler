@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use gitbutler_branch::branch::BranchId;
-use gitbutler_command_context::ProjectRepo;
+use gitbutler_command_context::ProjectRepository;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::RemoteRefname;
@@ -19,7 +19,7 @@ impl App {
 
     pub fn mark_resolved(&self, project_id: ProjectId, path: &str) -> Result<()> {
         let project = self.projects.get(project_id)?;
-        let project_repository = ProjectRepo::open(&project)?;
+        let project_repository = ProjectRepository::open(&project)?;
         // mark file as resolved
         conflicts::resolve(&project_repository, path)?;
         Ok(())
@@ -27,7 +27,7 @@ impl App {
 
     pub fn git_remote_branches(&self, project_id: ProjectId) -> Result<Vec<RemoteRefname>> {
         let project = self.projects.get(project_id)?;
-        let project_repository = ProjectRepo::open(&project)?;
+        let project_repository = ProjectRepository::open(&project)?;
         project_repository.repo().remote_branches()
     }
 
@@ -40,7 +40,7 @@ impl App {
         askpass: Option<Option<BranchId>>,
     ) -> Result<()> {
         let project = self.projects.get(project_id)?;
-        let project_repository = ProjectRepo::open(&project)?;
+        let project_repository = ProjectRepository::open(&project)?;
         project_repository.git_test_push(credentials, remote_name, branch_name, askpass)
     }
 
@@ -52,13 +52,13 @@ impl App {
         askpass: Option<String>,
     ) -> Result<()> {
         let project = self.projects.get(project_id)?;
-        let project_repository = ProjectRepo::open(&project)?;
+        let project_repository = ProjectRepository::open(&project)?;
         project_repository.fetch(remote_name, credentials, askpass)
     }
 
     pub fn git_index_size(&self, project_id: ProjectId) -> Result<usize> {
         let project = self.projects.get(project_id)?;
-        let project_repository = ProjectRepo::open(&project)?;
+        let project_repository = ProjectRepository::open(&project)?;
         let size = project_repository
             .repo()
             .index()
@@ -69,7 +69,7 @@ impl App {
 
     pub fn git_head(&self, project_id: ProjectId) -> Result<String> {
         let project = self.projects.get(project_id)?;
-        let project_repository = ProjectRepo::open(&project)?;
+        let project_repository = ProjectRepository::open(&project)?;
         let head = project_repository
             .repo()
             .head()

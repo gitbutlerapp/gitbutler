@@ -11,13 +11,13 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
-use gitbutler_command_context::ProjectRepo;
+use gitbutler_command_context::ProjectRepository;
 use itertools::Itertools;
 
 use gitbutler_error::error::Marker;
 
 pub fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
-    repository: &ProjectRepo,
+    repository: &ProjectRepository,
     paths: A,
     parent: Option<git2::Oid>,
 ) -> Result<()> {
@@ -43,7 +43,7 @@ pub fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
     Ok(())
 }
 
-pub fn merge_parent(repository: &ProjectRepo) -> Result<Option<git2::Oid>> {
+pub fn merge_parent(repository: &ProjectRepository) -> Result<Option<git2::Oid>> {
     let merge_path = repository.repo().path().join("base_merge_parent");
     if !merge_path.exists() {
         return Ok(None);
@@ -61,7 +61,7 @@ pub fn merge_parent(repository: &ProjectRepo) -> Result<Option<git2::Oid>> {
     }
 }
 
-pub fn resolve<P: AsRef<Path>>(repository: &ProjectRepo, path: P) -> Result<()> {
+pub fn resolve<P: AsRef<Path>>(repository: &ProjectRepository, path: P) -> Result<()> {
     let path = path.as_ref();
     let conflicts_path = repository.repo().path().join("conflicts");
     let file = std::fs::File::open(conflicts_path.clone())?;
@@ -84,7 +84,7 @@ pub fn resolve<P: AsRef<Path>>(repository: &ProjectRepo, path: P) -> Result<()> 
     Ok(())
 }
 
-pub fn conflicting_files(repository: &ProjectRepo) -> Result<Vec<String>> {
+pub fn conflicting_files(repository: &ProjectRepository) -> Result<Vec<String>> {
     let conflicts_path = repository.repo().path().join("conflicts");
     if !conflicts_path.exists() {
         return Ok(vec![]);
@@ -97,7 +97,7 @@ pub fn conflicting_files(repository: &ProjectRepo) -> Result<Vec<String>> {
 
 /// Check if `path` is conflicting in `repository`, or if `None`, check if there is any conflict.
 // TODO(ST): Should this not rather check the conflicting state in the index?
-pub fn is_conflicting(repository: &ProjectRepo, path: Option<&Path>) -> Result<bool> {
+pub fn is_conflicting(repository: &ProjectRepository, path: Option<&Path>) -> Result<bool> {
     let conflicts_path = repository.repo().path().join("conflicts");
     if !conflicts_path.exists() {
         return Ok(false);
@@ -124,11 +124,11 @@ pub fn is_conflicting(repository: &ProjectRepo, path: Option<&Path>) -> Result<b
 
 // is this project still in a resolving conflict state?
 // - could be that there are no more conflicts, but the state is not committed
-pub fn is_resolving(repository: &ProjectRepo) -> bool {
+pub fn is_resolving(repository: &ProjectRepository) -> bool {
     repository.repo().path().join("base_merge_parent").exists()
 }
 
-pub fn clear(repository: &ProjectRepo) -> Result<()> {
+pub fn clear(repository: &ProjectRepository) -> Result<()> {
     let merge_path = repository.repo().path().join("base_merge_parent");
     std::fs::remove_file(merge_path)?;
 
@@ -145,7 +145,7 @@ pub trait RepoConflicts {
     fn is_resolving(&self) -> bool;
 }
 
-impl RepoConflicts for ProjectRepo {
+impl RepoConflicts for ProjectRepository {
     fn is_resolving(&self) -> bool {
         is_resolving(self)
     }

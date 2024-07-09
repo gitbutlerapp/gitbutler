@@ -59,6 +59,9 @@ gitbutler-user.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-error.workspace = true
+gitbutler-secret.workspace = true
+gitbutler-id.workspace = true
+gitbutler-storage.workspace = true
 open = "5"
 
 [dependencies.tauri]

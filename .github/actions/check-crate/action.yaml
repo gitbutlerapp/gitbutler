@@ -11,6 +11,7 @@ runs:
     - name: Rust Cache
       uses: Swatinem/rust-cache@v2.7.3
       with:
+        shared-key: unix-rust-testing
         key: ${{ inputs.features }}
 
 

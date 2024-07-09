@@ -11,6 +11,7 @@ git2.workspace = true
 gitbutler-core.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-serde.workspace = true
+gitbutler-id.workspace = true
 itertools = "0.13"
 serde = { workspace = true, features = ["std"]}
 bstr = "1.9.1"

@@ -1,4 +1,4 @@
-use crate::types::Sensitive;
+use crate::Sensitive;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::ops::{Deref, DerefMut};
 

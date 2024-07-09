@@ -2,7 +2,7 @@ use anyhow::Result;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, VirtualRefname};
 use serde::{Deserialize, Serialize};
 
-use gitbutler_core::id::Id;
+use gitbutler_id::id::Id;
 
 use crate::ownership::BranchOwnershipClaims;
 
@@ -46,7 +46,7 @@ pub struct Branch {
     pub selected_for_changes: Option<i64>,
     #[serde(default = "default_true")]
     pub allow_rebasing: bool,
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", rename = "applied")]
     pub old_applied: bool,
     #[serde(default = "default_true")]
     pub in_workspace: bool,

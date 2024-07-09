@@ -141,6 +141,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.7.3
         with:
+          shared-key: windows-rust-testing
           key: ${{ inputs.features }}
       - name: "cargo check"
         run: cargo check --workspace --bins --examples --features windows

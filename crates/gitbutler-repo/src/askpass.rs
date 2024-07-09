@@ -4,7 +4,7 @@ use gitbutler_branch::branch::BranchId;
 use serde::Serialize;
 use tokio::sync::{oneshot, Mutex};
 
-use gitbutler_core::id::Id;
+use gitbutler_id::id::Id;
 
 static mut GLOBAL_ASKPASS_BROKER: Option<AskpassBroker> = None;
 

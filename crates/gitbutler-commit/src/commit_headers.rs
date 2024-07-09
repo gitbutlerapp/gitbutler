@@ -1,7 +1,7 @@
 use bstr::{BStr, BString};
 use uuid::Uuid;
 
-use super::CommitBuffer;
+use crate::commit_buffer::CommitBuffer;
 
 /// Header used to determine which version of the headers is in use. This should never be changed
 const HEADERS_VERSION_HEADER: &str = "gitbutler-headers-version";

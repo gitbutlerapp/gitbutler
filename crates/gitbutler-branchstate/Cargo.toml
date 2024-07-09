@@ -15,3 +15,4 @@ gitbutler-project.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-error.workspace = true
+gitbutler-fs.workspace = true
