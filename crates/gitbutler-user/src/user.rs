@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
-use gitbutler_core::secret;
-use gitbutler_core::types::Sensitive;
+use gitbutler_secret::secret;
+use gitbutler_secret::Sensitive;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 

@@ -3,7 +3,7 @@
 //! These are stateless and global, while discouraging storing secrets
 //! in memory beyond their use.
 
-use crate::types::Sensitive;
+use crate::Sensitive;
 use anyhow::Result;
 use std::sync::Mutex;
 

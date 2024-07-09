@@ -2346,6 +2346,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-secret"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gix",
+ "keyring",
+ "serde",
+ "tracing",
+]
+
+[[package]]
 name = "gitbutler-serde"
 version = "0.0.0"
 dependencies = [
@@ -2394,6 +2405,7 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
+ "gitbutler-secret",
  "gitbutler-testsupport",
  "gitbutler-user",
  "gitbutler-virtual",
@@ -2449,6 +2461,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "gitbutler-core",
+ "gitbutler-secret",
  "keyring",
  "serde",
  "serde_json",

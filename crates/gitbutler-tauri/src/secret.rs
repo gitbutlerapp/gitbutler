@@ -1,6 +1,6 @@
 use crate::error::Error;
-use gitbutler_core::secret;
-use gitbutler_core::types::Sensitive;
+use gitbutler_secret::secret;
+use gitbutler_secret::Sensitive;
 use std::sync::Mutex;
 use tracing::instrument;
 

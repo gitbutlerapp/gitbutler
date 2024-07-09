@@ -1,5 +1,4 @@
 use gitbutler_core::types::default_true::DefaultTrue;
-use gitbutler_core::types::Sensitive;
 
 #[test]
 #[allow(clippy::bool_assert_comparison)]
@@ -17,10 +16,4 @@ fn default_true() {
     let mut default_true = DefaultTrue::default();
     *default_true = false;
     assert!(!default_true);
-}
-
-#[test]
-fn sensitive_does_not_debug_print_itself() {
-    let s = Sensitive("password");
-    assert_eq!(format!("{s:?}"), "\"<redacted>\"");
 }
