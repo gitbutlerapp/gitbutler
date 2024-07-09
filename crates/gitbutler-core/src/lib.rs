@@ -12,6 +12,3 @@
     clippy::struct_field_names,
     clippy::too_many_lines
 )]
-
-#[cfg(target_os = "windows")]
-pub mod windows;
