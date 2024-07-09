@@ -12,7 +12,7 @@ const config = {
 			mediaQuery: false,
 			minPixelValue: 0
 		}),
-    postcssPresetEnv()
+		postcssPresetEnv()
 	]
 };
 
