@@ -26,7 +26,6 @@ bstr = "1.9.1"
 diffy = "0.3.0"
 dirs = "5.0.1"
 filetime = "0.2.23"
-fslock = "0.2.1"
 futures = "0.3"
 git2.workspace = true
 git2-hooks = "0.3"

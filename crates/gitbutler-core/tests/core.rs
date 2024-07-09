@@ -1,2 +1,1 @@
-mod lock;
 mod types;
