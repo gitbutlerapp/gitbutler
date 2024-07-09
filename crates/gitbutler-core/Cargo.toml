@@ -20,10 +20,10 @@ serial_test = "3.1.1"
 [dependencies]
 toml = "0.8.13"
 anyhow = "1.0.86"
-async-trait = "0.1.80"
+async-trait = "0.1.81"
 backtrace = { version = "0.3.72", optional = true }
 bstr = "1.9.1"
-diffy = "0.3.0"
+diffy = "0.4.0"
 dirs = "5.0.1"
 filetime = "0.2.23"
 futures = "0.3"
