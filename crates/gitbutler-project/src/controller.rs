@@ -8,7 +8,7 @@ use async_trait::async_trait;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
 use crate::AuthKey;
-use gitbutler_core::error;
+use gitbutler_error::error;
 
 #[async_trait]
 pub trait Watchers {

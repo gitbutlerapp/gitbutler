@@ -3,7 +3,8 @@ pub mod commands {
     use anyhow::{anyhow, Context};
     use gitbutler_branch::branch::{BranchCreateRequest, BranchId, BranchUpdateRequest};
     use gitbutler_branch::ownership::BranchOwnershipClaims;
-    use gitbutler_core::{error::Code, types::ReferenceName};
+    use gitbutler_core::types::ReferenceName;
+    use gitbutler_error::error::Code;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use gitbutler_reference::{Refname, RemoteRefname};

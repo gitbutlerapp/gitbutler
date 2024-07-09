@@ -19,7 +19,7 @@
 pub(crate) use frontend::Error;
 
 mod frontend {
-    use gitbutler_core::error::AnyhowContextExt;
+    use gitbutler_error::error::AnyhowContextExt;
     use serde::{ser::SerializeMap, Serialize};
     use std::borrow::Cow;
 
@@ -58,7 +58,7 @@ mod frontend {
     mod tests {
         use super::*;
         use anyhow::anyhow;
-        use gitbutler_core::error::{Code, Context};
+        use gitbutler_error::error::{Code, Context};
 
         fn json(err: anyhow::Error) -> String {
             serde_json::to_string(&Error(err)).unwrap()

@@ -138,5 +138,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/init-env-rust
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.7.3
+        with:
+          key: ${{ inputs.features }}
       - name: "cargo check"
-        run: cargo check --all --bins --examples --features windows
+        run: cargo check --workspace --bins --examples --features windows

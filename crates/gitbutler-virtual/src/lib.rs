@@ -18,3 +18,4 @@ pub mod remote;
 pub mod conflicts;
 
 mod author;
+mod dedup;

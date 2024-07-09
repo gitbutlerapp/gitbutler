@@ -52,7 +52,7 @@ pub struct GitHunk {
     /// The `+`, `-` or ` ` prefixed lines of the diff produced by `git2`, along with their line separator.
     #[serde(
         rename = "diff",
-        serialize_with = "gitbutler_core::serde::as_string_lossy"
+        serialize_with = "gitbutler_serde::serde::as_string_lossy"
     )]
     pub diff_lines: BString,
     pub binary: bool,
@@ -127,7 +127,7 @@ impl GitHunk {
 #[serde(rename_all = "camelCase")]
 pub struct HunkLock {
     pub branch_id: Id<Branch>,
-    #[serde(with = "gitbutler_core::serde::oid")]
+    #[serde(with = "gitbutler_serde::serde::oid")]
     pub commit_id: git2::Oid,
 }
 

@@ -6,7 +6,7 @@ use gitbutler_reference::{Refname, RemoteRefname};
 use std::{path::Path, process::Stdio, str};
 use tracing::instrument;
 
-use gitbutler_core::error::Code;
+use gitbutler_error::error::Code;
 
 use gitbutler_core::git::{CommitBuffer, CommitHeadersV2};
 use std::io::Write;

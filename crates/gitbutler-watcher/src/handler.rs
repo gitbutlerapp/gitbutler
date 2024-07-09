@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use gitbutler_command_context::ProjectRepo;
-use gitbutler_core::error::Marker;
+use gitbutler_error::error::Marker;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     oplog::Oplog,

@@ -9,7 +9,8 @@ use gitbutler_branch::{
     branch::{Branch, BranchId},
     target::Target,
 };
-use gitbutler_core::{error::Code, fs::read_toml_file_or_default};
+use gitbutler_core::fs::read_toml_file_or_default;
+use gitbutler_error::error::Code;
 use gitbutler_project::Project;
 use gitbutler_reference::Refname;
 use itertools::Itertools;

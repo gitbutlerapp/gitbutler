@@ -20,7 +20,7 @@ use crate::integration::{get_workspace_head, update_gitbutler_integration};
 use crate::remote::{commit_to_remote_commit, RemoteCommit};
 use crate::VirtualBranchHunk;
 use gitbutler_branch::GITBUTLER_INTEGRATION_REFERENCE;
-use gitbutler_core::error::Marker;
+use gitbutler_error::error::Marker;
 use gitbutler_repo::rebase::cherry_rebase;
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
@@ -31,9 +31,9 @@ pub struct BaseBranch {
     pub remote_url: String,
     pub push_remote_name: Option<String>,
     pub push_remote_url: String,
-    #[serde(with = "gitbutler_core::serde::oid")]
+    #[serde(with = "gitbutler_serde::serde::oid")]
     pub base_sha: git2::Oid,
-    #[serde(with = "gitbutler_core::serde::oid")]
+    #[serde(with = "gitbutler_serde::serde::oid")]
     pub current_sha: git2::Oid,
     pub behind: usize,
     pub upstream_commits: Vec<RemoteCommit>,

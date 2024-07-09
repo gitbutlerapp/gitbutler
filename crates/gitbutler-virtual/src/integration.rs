@@ -10,8 +10,8 @@ use gitbutler_branch::{
 };
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepo;
-use gitbutler_core::error::Marker;
 use gitbutler_core::git::CommitExt;
+use gitbutler_error::error::Marker;
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 
 use crate::conflicts;
