@@ -195,11 +195,11 @@ if [ "$OS" = "macos" ]; then
 	info "	- $RELEASE_DIR/$(basename "$MACOS_UPDATER")"
 	info "	- $RELEASE_DIR/$(basename "$MACOS_UPDATER_SIG")"
 elif [ "$OS" = "linux" ]; then
-	APPIMAGE="$(find "$BUNDLE_DIR/appimage -name \*.AppImage")"
-	APPIMAGE_UPDATER="$(find "$BUNDLE_DIR/appimage -name \*.AppImage.tar.gz")"
-	APPIMAGE_UPDATER_SIG="$(find "$BUNDLE_DIR/appimage -name \*.AppImage.tar.gz.sig")"
-	DEB="$(find "$BUNDLE_DIR/deb -name \*.deb")"
-	RPM="$(find "$BUNDLE_DIR/rpm -name \*.rpm")"
+	APPIMAGE="$(find "$BUNDLE_DIR/appimage" -name \*.AppImage)"
+	APPIMAGE_UPDATER="$(find "$BUNDLE_DIR/appimage" -name \*.AppImage.tar.gz)"
+	APPIMAGE_UPDATER_SIG="$(find "$BUNDLE_DIR/appimage" -name \*.AppImage.tar.gz.sig)"
+	DEB="$(find "$BUNDLE_DIR/deb" -name \*.deb)"
+	RPM="$(find "$BUNDLE_DIR/rpm" -name \*.rpm)"
 
 	cp "$APPIMAGE" "$RELEASE_DIR"
 	cp "$APPIMAGE_UPDATER" "$RELEASE_DIR"
@@ -214,9 +214,9 @@ elif [ "$OS" = "linux" ]; then
 	info "	- $RELEASE_DIR/$(basename "$DEB")"
 	info "	- $RELEASE_DIR/$(basename "$RPM")"
 elif [ "$OS" = "windows" ]; then
-	WINDOWS_INSTALLER="$(find "$BUNDLE_DIR/msi -name \*.msi")"
-	WINDOWS_UPDATER="$(find "$BUNDLE_DIR/msi -name \*.msi.zip")"
-	WINDOWS_UPDATER_SIG="$(find "$BUNDLE_DIR/msi -name \*.msi.zip.sig")"
+	WINDOWS_INSTALLER="$(find "$BUNDLE_DIR/msi" -name \*.msi)"
+	WINDOWS_UPDATER="$(find "$BUNDLE_DIR/msi" -name \*.msi.zip)"
+	WINDOWS_UPDATER_SIG="$(find "$BUNDLE_DIR/msi" -name \*.msi.zip.sig)"
 
 	cp "$WINDOWS_INSTALLER" "$RELEASE_DIR"
 	cp "$WINDOWS_UPDATER" "$RELEASE_DIR"
