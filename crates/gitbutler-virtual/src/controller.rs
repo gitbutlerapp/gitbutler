@@ -7,14 +7,13 @@ use gitbutler_branch::{
 };
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepository;
-use gitbutler_core::types::ReferenceName;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     oplog::Oplog,
     snapshot::Snapshot,
 };
 use gitbutler_project::{FetchResult, Project};
-use gitbutler_reference::{Refname, RemoteRefname};
+use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
 use gitbutler_repo::{credentials::Helper, RepoActions, RepositoryExt};
 use std::{path::Path, sync::Arc};
 
