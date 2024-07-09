@@ -534,7 +534,7 @@ impl<'l> BranchManager<'l> {
     ) -> Result<ReferenceName> {
         let vb_state = self.project_repository.project().virtual_branches();
 
-        let mut target_branch = vb_state.get_branch_in_workspace(branch_id)?;
+        let mut target_branch = vb_state.get_branch(branch_id)?;
 
         // Convert the vbranch to a real branch
         let real_branch = self.build_real_branch(&mut target_branch, name_conflict_resolution)?;
