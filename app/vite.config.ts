@@ -1,34 +1,30 @@
 import { sentrySvelteKit } from '@sentry/sveltekit';
-import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [
 		sentrySvelteKit({
+			adapter: 'other',
 			autoInstrument: {
 				load: true,
 				serverLoad: false
-			}
-		}),
-		sentryVitePlugin({
-			org: process.env.SENTRY_ORG ?? 'gitbutler',
-			project: process.env.SENTRY_PROJECT ?? 'app-js',
-			authToken: process.env.SENTRY_AUTH_TOKEN,
-			telemetry: false,
-			disable: !process.env.SENTRY_RELEASE,
-			release: {
-				create: true,
-				setCommits: {
-					auto: true,
-					ignoreMissing: true,
-					ignoreEmpty: true
-				},
-				uploadLegacySourcemaps: {
-					paths: ['./build'],
-					ignoreFile: '.gitignore',
-					urlPrefix: 'tauri://localhost/_app/',
-					validate: true
+			},
+			sourceMapsUploadOptions: {
+				org: 'gitbutler',
+				project: 'app-js',
+				authToken: process.env.SENTRY_AUTH_TOKEN,
+				telemetry: false,
+				unstable_sentryVitePluginOptions: {
+					telemetry: false,
+					release: {
+						create: true,
+						setCommits: {
+							auto: true,
+							ignoreMissing: true,
+							ignoreEmpty: true
+						}
+					}
 				}
 			}
 		}),
