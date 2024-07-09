@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use gitbutler_core::types::default_true::DefaultTrue;
+use crate::default_true::DefaultTrue;
 use gitbutler_id::id::Id;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
