@@ -4,28 +4,28 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-PWD="$(dirname $(readlink -f -- $0))"
+PWD="$(dirname "$(readlink -f -- "$0")")"
 
 CHANNEL=""
 DO_SIGN="false"
-DO_BUNDLE_UPDATE="false"
 VERSION=""
 
 function help() {
-	local to="$1"
+	local to
+	to="$1"
 
-	echo "Usage: $0 <flags>" 1>&$to
-	echo 1>&$to
-	echo "flags:" 1>&$to
-	echo "  --version                     release version." 1>&$to
-	echo "  --dist                        path to store artifacts in." 1>&$to
-	echo "  --sign                        if set, will sign the app." 1>&$to
-	echo "  --channel                     the channel to use for the release (release | nightly)." 1>&$to
-	echo "  --help                        display this message." 1>&$to
+	echo "Usage: $0 <flags>" 1>&"$to"
+	echo 1>&"$to"
+	echo "flags:" 1>&"$to"
+	echo "	--version											release version." 1>&"$to"
+	echo "	--dist												path to store artifacts in." 1>&"$to"
+	echo "	--sign												if set, will sign the app." 1>&"$to"
+	echo "	--channel											the channel to use for the release (release | nightly)." 1>&"$to"
+	echo "	--help												display this message." 1>&"$to"
 }
 
 function error() {
-	echo "error: $@" 1>&2
+	echo "error: $*" 1>&2
 	echo 1>&2
 	help 2
 	exit 1
@@ -36,7 +36,8 @@ function info() {
 }
 
 function os() {
-	local os="$(uname -s)"
+	local os
+	os="$(uname -s)"
 	case "$os" in
 	Darwin)
 		echo "macos"
@@ -44,7 +45,7 @@ function os() {
 	Linux)
 		echo "linux"
 		;;
-	Windows|MSYS*|MINGW*)
+	Windows | MSYS* | MINGW*)
 		echo "windows"
 		;;
 	*)
@@ -54,7 +55,8 @@ function os() {
 }
 
 function arch() {
-	local arch="$(uname -m)"
+	local arch
+	arch="$(uname -m)"
 	case "$arch" in
 	arm64 | aarch64)
 		echo "aarch64"
@@ -109,8 +111,8 @@ done
 
 [ -z "${VERSION-}" ] && error "--version is not set"
 
-[ -z "${TAURI_PRIVATE_KEY-}" ] && error '$TAURI_PRIVATE_KEY is not set'
-[ -z "${TAURI_KEY_PASSWORD-}" ] && error '$TAURI_KEY_PASSWORD is not set'
+[ -z "${TAURI_PRIVATE_KEY-}" ] && error "$TAURI_PRIVATE_KEY is not set"
+[ -z "${TAURI_KEY_PASSWORD-}" ] && error "$TAURI_KEY_PASSWORD is not set"
 
 if [ "$CHANNEL" != "release" ] && [ "$CHANNEL" != "nightly" ]; then
 	error "--channel must be either 'release' or 'nightly'"
@@ -121,12 +123,12 @@ export TAURI_KEY_PASSWORD="$TAURI_KEY_PASSWORD"
 
 if [ "$DO_SIGN" = "true" ]; then
 	if [ "$OS" = "macos" ]; then
-		[ -z "${APPLE_CERTIFICATE-}" ] && error '$APPLE_CERTIFICATE is not set'
-		[ -z "${APPLE_CERTIFICATE_PASSWORD-}" ] && error '$APPLE_CERTIFICATE_PASSWORD is not set'
-		[ -z "${APPLE_SIGNING_IDENTITY-}" ] && error '$APPLE_SIGNING_IDENTITY is not set'
-		[ -z "${APPLE_ID-}" ] && error '$APPLE_ID is not set'
-		[ -z "${APPLE_TEAM_ID-}" ] && error '$APPLE_TEAM_ID is not set'
-		[ -z "${APPLE_PASSWORD-}" ] && error '$APPLE_PASSWORD is not set'
+		[ -z "${APPLE_CERTIFICATE-}" ] && error "$APPLE_CERTIFICATE is not set"
+		[ -z "${APPLE_CERTIFICATE_PASSWORD-}" ] && error "$APPLE_CERTIFICATE_PASSWORD is not set"
+		[ -z "${APPLE_SIGNING_IDENTITY-}" ] && error "$APPLE_SIGNING_IDENTITY is not set"
+		[ -z "${APPLE_ID-}" ] && error "$APPLE_ID is not set"
+		[ -z "${APPLE_TEAM_ID-}" ] && error "$APPLE_TEAM_ID is not set"
+		[ -z "${APPLE_PASSWORD-}" ] && error "$APPLE_PASSWORD is not set"
 		export APPLE_CERTIFICATE="$APPLE_CERTIFICATE"
 		export APPLE_CERTIFICATE_PASSWORD="$APPLE_CERTIFICATE_PASSWORD"
 		export APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY"
@@ -134,29 +136,29 @@ if [ "$DO_SIGN" = "true" ]; then
 		export APPLE_TEAM_ID="$APPLE_TEAM_ID"
 		export APPLE_PASSWORD="$APPLE_PASSWORD"
 	elif [ "$OS" == "linux" ]; then
-		[ -z "${APPIMAGE_KEY_ID-}" ] && error '$APPIMAGE_KEY_ID is not set'
-		[ -z "${APPIMAGE_KEY_PASSPHRASE-}" ] && error '$APPIMAGE_KEY_PASSPHRASE is not set'
+		[ -z "${APPIMAGE_KEY_ID-}" ] && error "$APPIMAGE_KEY_ID is not set"
+		[ -z "${APPIMAGE_KEY_PASSPHRASE-}" ] && error "$APPIMAGE_KEY_PASSPHRASE is not set"
 		export SIGN=1
 		export SIGN_KEY="$APPIMAGE_KEY_ID"
 		export APPIMAGETOOL_SIGN_PASSPHRASE="$APPIMAGE_KEY_PASSPHRASE"
 	elif [ "$OS" == "windows" ]; then
-        # Nothing to do on windows
-        :;
+		# Nothing to do on windows
+		:
 	else
 		error "signing is not supported on $(uname -s)"
 	fi
 fi
 
 info "building:"
-info "  channel: $CHANNEL"
-info "  version: $VERSION"
-info "  os: $OS"
-info "  arch: $ARCH"
-info "  dist: $DIST"
-info "  sign: $DO_SIGN"
+info "	channel: $CHANNEL"
+info "	version: $VERSION"
+info "	os: $OS"
+info "	arch: $ARCH"
+info "	dist: $DIST"
+info "	sign: $DO_SIGN"
 
 TMP_DIR="$(mktemp -d)"
-trap "rm -rf '$TMP_DIR'" exit
+trap 'rm -rf "$TMP_DIR"' exit
 
 CONFIG_PATH=$(readlink -f "$PWD/../crates/gitbutler-tauri/tauri.conf.$CHANNEL.json")
 
@@ -164,9 +166,9 @@ CONFIG_PATH=$(readlink -f "$PWD/../crates/gitbutler-tauri/tauri.conf.$CHANNEL.js
 jq '.package.version="'"$VERSION"'"' "$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
 
 if [ "$OS" = "windows" ]; then
-  FEATURES="windows"
+	FEATURES="windows"
 else
-  FEATURES=""
+	FEATURES=""
 fi
 
 # build the app with release config
@@ -189,15 +191,15 @@ if [ "$OS" = "macos" ]; then
 	cp "$MACOS_UPDATER_SIG" "$RELEASE_DIR"
 
 	info "built:"
-	info "  - $RELEASE_DIR/$(basename "$MACOS_DMG")"
-	info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER")"
-	info "  - $RELEASE_DIR/$(basename "$MACOS_UPDATER_SIG")"
+	info "	- $RELEASE_DIR/$(basename "$MACOS_DMG")"
+	info "	- $RELEASE_DIR/$(basename "$MACOS_UPDATER")"
+	info "	- $RELEASE_DIR/$(basename "$MACOS_UPDATER_SIG")"
 elif [ "$OS" = "linux" ]; then
-	APPIMAGE="$(find $BUNDLE_DIR/appimage -name \*.AppImage)"
-	APPIMAGE_UPDATER="$(find $BUNDLE_DIR/appimage -name \*.AppImage.tar.gz)"
-	APPIMAGE_UPDATER_SIG="$(find $BUNDLE_DIR/appimage -name \*.AppImage.tar.gz.sig)"
-	DEB="$(find $BUNDLE_DIR/deb -name \*.deb)"
-	RPM="$(find $BUNDLE_DIR/rpm -name \*.rpm)"
+	APPIMAGE="$(find "$BUNDLE_DIR/appimage" -name \*.AppImage)"
+	APPIMAGE_UPDATER="$(find "$BUNDLE_DIR/appimage" -name \*.AppImage.tar.gz)"
+	APPIMAGE_UPDATER_SIG="$(find "$BUNDLE_DIR/appimage" -name \*.AppImage.tar.gz.sig)"
+	DEB="$(find "$BUNDLE_DIR/deb" -name \*.deb)"
+	RPM="$(find "$BUNDLE_DIR/rpm" -name \*.rpm)"
 
 	cp "$APPIMAGE" "$RELEASE_DIR"
 	cp "$APPIMAGE_UPDATER" "$RELEASE_DIR"
@@ -206,24 +208,24 @@ elif [ "$OS" = "linux" ]; then
 	cp "$RPM" "$RELEASE_DIR"
 
 	info "built:"
-	info "  - $RELEASE_DIR/$(basename "$APPIMAGE")"
-	info "  - $RELEASE_DIR/$(basename "$APPIMAGE_UPDATER")"
-	info "  - $RELEASE_DIR/$(basename "$APPIMAGE_UPDATER_SIG")"
-	info "  - $RELEASE_DIR/$(basename "$DEB")"
-	info "  - $RELEASE_DIR/$(basename "$RPM")"
+	info "	- $RELEASE_DIR/$(basename "$APPIMAGE")"
+	info "	- $RELEASE_DIR/$(basename "$APPIMAGE_UPDATER")"
+	info "	- $RELEASE_DIR/$(basename "$APPIMAGE_UPDATER_SIG")"
+	info "	- $RELEASE_DIR/$(basename "$DEB")"
+	info "	- $RELEASE_DIR/$(basename "$RPM")"
 elif [ "$OS" = "windows" ]; then
-	WINDOWS_INSTALLER="$(find $BUNDLE_DIR/msi -name \*.msi)"
-	WINDOWS_UPDATER="$(find $BUNDLE_DIR/msi -name \*.msi.zip)"
-	WINDOWS_UPDATER_SIG="$(find $BUNDLE_DIR/msi -name \*.msi.zip.sig)"
+	WINDOWS_INSTALLER="$(find "$BUNDLE_DIR/msi" -name \*.msi)"
+	WINDOWS_UPDATER="$(find "$BUNDLE_DIR/msi" -name \*.msi.zip)"
+	WINDOWS_UPDATER_SIG="$(find "$BUNDLE_DIR/msi" -name \*.msi.zip.sig)"
 
 	cp "$WINDOWS_INSTALLER" "$RELEASE_DIR"
 	cp "$WINDOWS_UPDATER" "$RELEASE_DIR"
 	cp "$WINDOWS_UPDATER_SIG" "$RELEASE_DIR"
 
 	info "built:"
-	info "  - $RELEASE_DIR/$(basename "$WINDOWS_INSTALLER")"
-	info "  - $RELEASE_DIR/$(basename "$WINDOWS_UPDATER")"
-	info "  - $RELEASE_DIR/$(basename "$WINDOWS_UPDATER_SIG")"
+	info "	- $RELEASE_DIR/$(basename "$WINDOWS_INSTALLER")"
+	info "	- $RELEASE_DIR/$(basename "$WINDOWS_UPDATER")"
+	info "	- $RELEASE_DIR/$(basename "$WINDOWS_UPDATER_SIG")"
 else
 	error "unsupported os: $OS"
 fi
