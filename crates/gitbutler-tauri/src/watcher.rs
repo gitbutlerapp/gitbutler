@@ -5,7 +5,6 @@ use futures::executor::block_on;
 use gitbutler_project as projects;
 use gitbutler_project::{Project, ProjectId};
 use gitbutler_user as users;
-use gitbutler_virtual::assets;
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
 
@@ -79,13 +78,11 @@ fn handler_from_app(app: &AppHandle) -> anyhow::Result<gitbutler_watcher::Handle
     let projects = app.state::<projects::Controller>().inner().clone();
     let users = app.state::<users::Controller>().inner().clone();
     let vbranches = app.state::<gitbutler_virtual::Controller>().inner().clone();
-    let assets_proxy = app.state::<assets::Proxy>().inner().clone();
 
     Ok(gitbutler_watcher::Handler::new(
         projects,
         users,
         vbranches,
-        assets_proxy,
         {
             let app = app.clone();
             move |change| ChangeForFrontend::from(change).send(&app)

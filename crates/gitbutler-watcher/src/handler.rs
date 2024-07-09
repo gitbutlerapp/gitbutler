@@ -13,7 +13,6 @@ use gitbutler_project::ProjectId;
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_sync::cloud::sync_with_gitbutler;
 use gitbutler_user as users;
-use gitbutler_virtual::assets;
 use gitbutler_virtual::VirtualBranches;
 use tracing::instrument;
 
@@ -32,7 +31,6 @@ pub struct Handler {
     projects: projects::Controller,
     users: users::Controller,
     vbranch_controller: gitbutler_virtual::Controller,
-    assets_proxy: gitbutler_virtual::assets::Proxy,
 
     /// A function to send events - decoupled from app-handle for testing purposes.
     #[allow(clippy::type_complexity)]
@@ -46,14 +44,12 @@ impl Handler {
         projects: projects::Controller,
         users: users::Controller,
         vbranch_controller: gitbutler_virtual::Controller,
-        assets_proxy: assets::Proxy,
         send_event: impl Fn(Change) -> Result<()> + Send + Sync + 'static,
     ) -> Self {
         Handler {
             projects,
             users,
             vbranch_controller,
-            assets_proxy,
             send_event: Arc::new(send_event),
         }
     }
@@ -101,16 +97,13 @@ impl Handler {
             .list_virtual_branches(&project)
             .await
         {
-            Ok((branches, skipped_files)) => {
-                let branches = self.assets_proxy.proxy_virtual_branches(branches).await;
-                self.emit_app_event(Change::VirtualBranches {
-                    project_id: project.id,
-                    virtual_branches: VirtualBranches {
-                        branches,
-                        skipped_files,
-                    },
-                })
-            }
+            Ok((branches, skipped_files)) => self.emit_app_event(Change::VirtualBranches {
+                project_id: project.id,
+                virtual_branches: VirtualBranches {
+                    branches,
+                    skipped_files,
+                },
+            }),
             Err(err)
                 if matches!(
                     err.downcast_ref::<Marker>(),

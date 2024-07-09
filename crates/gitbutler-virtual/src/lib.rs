@@ -7,8 +7,6 @@ pub use r#virtual::*;
 
 pub mod branch_manager;
 
-pub mod assets;
-
 pub mod base;
 
 pub mod integration;
