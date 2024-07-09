@@ -2,7 +2,6 @@ use std::path::PathBuf;
 use std::{fs, path, str::FromStr};
 
 use gitbutler_branch::branch;
-use gitbutler_core::git;
 use gitbutler_error::error::Marker;
 use gitbutler_project::{self as projects, Project, ProjectId};
 use gitbutler_reference::Refname;

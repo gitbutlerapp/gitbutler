@@ -6,13 +6,13 @@ use anyhow::{anyhow, Context, Result};
 use gitbutler_branch::target::Target;
 use gitbutler_branchstate::VirtualBranchesAccess;
 use gitbutler_command_context::ProjectRepository;
-use gitbutler_core::git::Url;
 use gitbutler_error::error::Code;
 use gitbutler_id::id::Id;
 use gitbutler_oplog::oplog::Oplog;
 use gitbutler_project as projects;
 use gitbutler_project::{CodePushState, Project};
 use gitbutler_reference::Refname;
+use gitbutler_url::Url;
 use gitbutler_user as users;
 use itertools::Itertools;
 

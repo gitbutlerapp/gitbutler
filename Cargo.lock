@@ -2367,6 +2367,7 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-testsupport",
  "gitbutler-time",
+ "gitbutler-url",
  "gitbutler-user",
  "log",
  "resolve-path",
@@ -2421,6 +2422,7 @@ dependencies = [
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",
+ "gitbutler-url",
  "gitbutler-user",
  "itertools 0.13.0",
  "tracing",
@@ -2498,6 +2500,7 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-storage",
+ "gitbutler-url",
  "gitbutler-user",
  "gitbutler-virtual",
  "keyring",
@@ -2510,6 +2513,15 @@ dependencies = [
 [[package]]
 name = "gitbutler-time"
 version = "0.0.0"
+
+[[package]]
+name = "gitbutler-url"
+version = "0.0.0"
+dependencies = [
+ "bstr",
+ "thiserror",
+ "url",
+]
 
 [[package]]
 name = "gitbutler-user"
@@ -2551,6 +2563,7 @@ dependencies = [
  "gitbutler-serde",
  "gitbutler-testsupport",
  "gitbutler-time",
+ "gitbutler-url",
  "gitbutler-user",
  "glob",
  "hex",

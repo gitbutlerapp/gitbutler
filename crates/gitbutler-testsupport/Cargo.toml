@@ -27,3 +27,4 @@ gitbutler-user.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-storage.workspace = true
+gitbutler-url.workspace = true
