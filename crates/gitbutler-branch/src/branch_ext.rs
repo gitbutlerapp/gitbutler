@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
-
-use crate::types::ReferenceName;
+use gitbutler_reference::ReferenceName;
 
 pub trait BranchExt {
     fn reference_name(&self) -> Result<ReferenceName>;

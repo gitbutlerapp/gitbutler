@@ -5,7 +5,6 @@ use anyhow::{anyhow, Context, Result};
 use gitbutler_branch::branch::{Branch, BranchId};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
-use gitbutler_core::git;
 use gitbutler_error::error::Code;
 use gitbutler_reference::{Refname, RemoteRefname};
 
@@ -291,7 +290,7 @@ impl RepoActions for ProjectRepository {
         for (mut remote, callbacks) in auth_flows {
             if let Some(url) = remote.url() {
                 if !self.project().omit_certificate_check.unwrap_or(false) {
-                    let git_url = git::Url::from_str(url)?;
+                    let git_url = gitbutler_url::Url::from_str(url)?;
                     ssh::check_known_host(&git_url).context("failed to check known host")?;
                 }
             }
@@ -386,7 +385,7 @@ impl RepoActions for ProjectRepository {
         for (mut remote, callbacks) in auth_flows {
             if let Some(url) = remote.url() {
                 if !self.project().omit_certificate_check.unwrap_or(false) {
-                    let git_url = git::Url::from_str(url)?;
+                    let git_url = gitbutler_url::Url::from_str(url)?;
                     ssh::check_known_host(&git_url).context("failed to check known host")?;
                 }
             }

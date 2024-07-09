@@ -6,7 +6,6 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
 [dependencies]
-gitbutler-core.workspace = true
 itertools = "0.13"
 anyhow = "1.0.86"
 toml = "0.8.13"
