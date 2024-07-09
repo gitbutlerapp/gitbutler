@@ -1,0 +1,14 @@
+name: Trigger Docs Build
+on:
+  release:
+    types: [published]
+
+jobs:
+  vercel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Deploy Hook
+        env:
+          VERCEL_HOOK_URL: ${{ secrets.VERCEL_HOOK_URL }}
+        run: curl -s $VERCEL_HOOK_URL
+
