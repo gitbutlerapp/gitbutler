@@ -8,7 +8,6 @@ pub mod commands {
     use gitbutler_project::ProjectId;
     use gitbutler_reference::{Refname, RemoteRefname};
     use gitbutler_tagged_string::ReferenceName;
-    use gitbutler_virtual::assets;
     use gitbutler_virtual::base::BaseBranch;
     use gitbutler_virtual::files::RemoteBranchFile;
     use gitbutler_virtual::remote::{RemoteBranch, RemoteBranchData};
@@ -49,8 +48,6 @@ pub mod commands {
             .list_virtual_branches(&project)
             .await?;
 
-        let proxy = handle.state::<assets::Proxy>().inner().clone();
-        let branches = proxy.proxy_virtual_branches(branches).await;
         Ok(VirtualBranches {
             branches,
             skipped_files,
@@ -117,11 +114,10 @@ pub mod commands {
             .get_base_branch_data(&project)
             .await
         {
-            let proxy = handle.state::<assets::Proxy>().inner().clone();
-            let base_branch = proxy.proxy_base_branch(base_branch).await;
-            return Ok(Some(base_branch));
+            Ok(Some(base_branch))
+        } else {
+            Ok(None)
         }
-        Ok(None)
     }
 
     #[tauri::command(async)]
@@ -140,9 +136,6 @@ pub mod commands {
             .state::<Controller>()
             .set_base_branch(&project, &branch_name)
             .await?;
-
-        let proxy = handle.state::<assets::Proxy>().inner().clone();
-        let base_branch = proxy.proxy_base_branch(base_branch).await;
 
         // if they also sent a different push remote, set that too
         if let Some(push_remote) = push_remote {
@@ -451,9 +444,6 @@ pub mod commands {
             .state::<Controller>()
             .get_remote_branch_data(&project, &refname)
             .await?;
-
-        let proxy = handle.state::<assets::Proxy>().inner().clone();
-        let branch_data = proxy.proxy_remote_branch_data(branch_data).await;
         Ok(branch_data)
     }
 

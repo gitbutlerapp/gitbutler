@@ -1,6 +1,5 @@
 pub mod commands {
     use gitbutler_user::{controller::Controller, User};
-    use gitbutler_virtual::assets;
     use serde::{Deserialize, Serialize};
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
@@ -11,7 +10,6 @@ pub mod commands {
     #[instrument(skip(handle), err(Debug))]
     pub async fn get_user(handle: AppHandle) -> Result<Option<UserWithSecrets>, Error> {
         let app = handle.state::<Controller>();
-        let proxy = handle.state::<assets::Proxy>();
 
         match app.get_user()? {
             Some(user) => {
@@ -19,7 +17,7 @@ pub mod commands {
                     app.delete_user()?;
                     return Err(err.context("Please login to GitButler again").into());
                 }
-                Ok(Some(proxy.proxy_user(user).await.try_into()?))
+                Ok(Some(user.try_into()?))
             }
             None => Ok(None),
         }
@@ -29,11 +27,9 @@ pub mod commands {
     #[instrument(skip(handle), err(Debug))]
     pub async fn set_user(handle: AppHandle, user: User) -> Result<User, Error> {
         let app = handle.state::<Controller>();
-        let proxy = handle.state::<assets::Proxy>();
 
         app.set_user(&user)?;
-
-        Ok(proxy.proxy_user(user).await)
+        Ok(user)
     }
 
     #[tauri::command(async)]
