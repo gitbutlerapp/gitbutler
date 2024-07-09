@@ -15,6 +15,7 @@ pub fn init(app_handle: &AppHandle) {
     let log_prefix = "GitButler";
     let log_suffix = "log";
     let max_log_files = 14;
+    remove_old_logs(&logs_dir).ok();
     let file_appender = RollingFileAppender::builder()
         .rotation(Rotation::DAILY)
         .max_log_files(max_log_files)
@@ -139,11 +140,43 @@ fn prune_old_logs(
 
     // delete files, so that (n-1) files remain, because we will create another log file
     for (file, _) in files.iter().take(files.len() - (max_files - 1)) {
-        if let Err(error) = fs::remove_file(file.path()) {
+        if let Err(err) = fs::remove_file(file.path()) {
+            tracing::warn!(
+                "Failed to remove extra log file {}: {}",
+                file.path().display(),
+                err,
+            );
+        }
+    }
+
+    Ok(())
+}
+
+#[instrument(err(Debug))]
+fn remove_old_logs(log_directory: &Path) -> anyhow::Result<()> {
+    let dir = fs::read_dir(log_directory)?;
+    let old_log_files = dir.filter_map(|entry| {
+        let entry = entry.ok()?;
+        let metadata = entry.metadata().ok()?;
+
+        if !metadata.is_file() {
+            return None;
+        }
+
+        let filename = entry.file_name();
+        let filename = filename.to_str()?;
+        if !filename.starts_with("GitButler.log") {
+            return None;
+        }
+
+        Some(entry.path())
+    });
+    for file_path in old_log_files {
+        if let Err(err) = fs::remove_file(&file_path) {
             tracing::warn!(
                 "Failed to remove old log file {}: {}",
-                file.path().display(),
-                error,
+                file_path.display(),
+                err,
             );
         }
     }
