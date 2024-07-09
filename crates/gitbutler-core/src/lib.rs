@@ -13,7 +13,6 @@
     clippy::too_many_lines
 )]
 
-pub mod dedup;
 pub mod fs;
 pub mod git;
 pub mod id;
