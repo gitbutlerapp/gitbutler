@@ -1,12 +1,13 @@
 use anyhow::Result;
 use gitbutler_branch::{
     branch::{BranchCreateRequest, BranchId, BranchUpdateRequest},
+    branch_ext::BranchExt,
     diff,
     ownership::BranchOwnershipClaims,
 };
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepository;
-use gitbutler_core::{git::BranchExt, types::ReferenceName};
+use gitbutler_core::types::ReferenceName;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     oplog::Oplog,
