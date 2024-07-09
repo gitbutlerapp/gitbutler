@@ -1,10 +1,8 @@
-const autoprefixer = require('autoprefixer');
 const pxToRem = require('postcss-pxtorem');
+const postcssPresetEnv = require('postcss-preset-env');
 
 const config = {
 	plugins: [
-		//But others, like autoprefixer, need to run after,
-		autoprefixer,
 		pxToRem({
 			rootValue: 16,
 			unitPrecision: 5,
@@ -13,7 +11,8 @@ const config = {
 			replace: true,
 			mediaQuery: false,
 			minPixelValue: 0
-		})
+		}),
+    postcssPresetEnv()
 	]
 };
 
