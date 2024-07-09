@@ -12,18 +12,20 @@ pub fn init(app_handle: &AppHandle) {
         .expect("failed to get logs dir");
     fs::create_dir_all(&logs_dir).expect("failed to create logs dir");
 
-    let log_prefix = "GitButler.log";
+    let log_prefix = "GitButler";
+    let log_suffix = "log";
     let max_log_files = 14;
     let file_appender = RollingFileAppender::builder()
         .rotation(Rotation::DAILY)
         .max_log_files(max_log_files)
         .filename_prefix(log_prefix)
+        .filename_suffix(log_suffix)
         .build(&logs_dir)
         .expect("initializing rolling file appender failed");
     let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
     // As the file-writer only checks `max_log_files` on file rotation, it bascially never happens.
     // Run it now.
-    prune_old_logs(&logs_dir, Some(log_prefix), None, max_log_files).ok();
+    prune_old_logs(&logs_dir, Some(log_prefix), Some(log_suffix), max_log_files).ok();
 
     app_handle.manage(guard); // keep the guard alive for the lifetime of the app
 
