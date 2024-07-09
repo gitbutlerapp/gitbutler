@@ -54,7 +54,7 @@ impl FetchResult {
 
 #[derive(Debug, Deserialize, Serialize, Copy, Clone)]
 pub struct CodePushState {
-    #[serde(with = "gitbutler_core::serde::oid")]
+    #[serde(with = "gitbutler_serde::serde::oid")]
     pub id: git2::Oid,
     pub timestamp: time::SystemTime,
 }

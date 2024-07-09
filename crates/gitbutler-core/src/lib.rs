@@ -18,7 +18,6 @@ pub mod git;
 pub mod id;
 pub mod path;
 pub mod secret;
-pub mod serde;
 pub mod ssh;
 pub mod storage;
 pub mod time;
