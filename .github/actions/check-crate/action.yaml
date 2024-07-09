@@ -8,6 +8,11 @@ runs:
   using: "composite"
   steps:
     - uses: ./.github/actions/init-env-rust
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2.7.3
+      with:
+        key: ${{ inputs.features }}
+
 
     - run: |
         printf '%s\n' "$JSON_DOC" > /tmp/features.json
@@ -18,13 +23,13 @@ runs:
       shell: bash
 
     - run: |
-        cargo test --locked --all-targets $(cat /tmp/features)
+        cargo test --workspace $(cat /tmp/features)
       env:
         GITBUTLER_TESTS_NO_CLEANUP: "1"
       shell: bash
 
-    - run: cargo clippy --workspace --all-targets $(cat /tmp/features) -- -D warnings
+    - run: cargo clippy --workspace $(cat /tmp/features) -- -D warnings
       shell: bash
 
-    - run: cargo clippy --workspace --all-targets --tests $(cat /tmp/features) -- -D warnings
+    - run: cargo clippy --workspace --tests $(cat /tmp/features) -- -D warnings
       shell: bash

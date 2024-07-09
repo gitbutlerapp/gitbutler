@@ -1,8 +1,9 @@
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
 use gitbutler_command_context::ProjectRepo;
+use gitbutler_core::git::CommitExt;
 use gitbutler_core::git::HasCommitHeaders;
-use gitbutler_core::{error::Marker, git::CommitExt};
+use gitbutler_error::error::Marker;
 
 use crate::{LogUntil, RepoActions, RepositoryExt};
 

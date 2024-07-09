@@ -5,10 +5,10 @@ use anyhow::{anyhow, Context, Result};
 use gitbutler_branch::branch::{Branch, BranchId};
 use gitbutler_command_context::ProjectRepo;
 use gitbutler_core::{
-    error::Code,
     git::{self, CommitHeadersV2},
     ssh,
 };
+use gitbutler_error::error::Code;
 use gitbutler_reference::{Refname, RemoteRefname};
 
 use crate::{askpass, Config};
