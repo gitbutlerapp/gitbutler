@@ -14,7 +14,6 @@
 )]
 
 pub mod dedup;
-pub mod error;
 pub mod fs;
 pub mod git;
 pub mod id;
