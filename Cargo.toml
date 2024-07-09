@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "crates/gitbutler-core",
     "crates/gitbutler-tauri",
     "crates/gitbutler-git",
     "crates/gitbutler-watcher",
@@ -43,7 +42,6 @@ tokio = { version = "1.38.0", default-features = false }
 keyring = "2.3.3"
 
 gitbutler-git = { path = "crates/gitbutler-git" }
-gitbutler-core = { path = "crates/gitbutler-core" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }
 gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
 gitbutler-cli ={ path = "crates/gitbutler-cli" }

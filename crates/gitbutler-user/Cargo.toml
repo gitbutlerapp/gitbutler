@@ -6,7 +6,6 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
 [dependencies]
-gitbutler-core.workspace = true
 gitbutler-secret.workspace = true
 gitbutler-storage.workspace = true
 anyhow = "1.0.86"

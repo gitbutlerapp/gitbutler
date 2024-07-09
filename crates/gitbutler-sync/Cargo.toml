@@ -10,7 +10,6 @@ anyhow = "1.0.86"
 tracing = "0.1.40"
 itertools = "0.13"
 git2.workspace = true
-gitbutler-core.workspace = true
 gitbutler-oplog.workspace = true
 gitbutler-branchstate.workspace = true
 gitbutler-command-context.workspace = true
