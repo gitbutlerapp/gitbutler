@@ -33,3 +33,6 @@ pub mod users;
 pub mod virtual_branches;
 
 pub mod zip;
+
+#[cfg(target_os = "windows")]
+pub mod windows;
