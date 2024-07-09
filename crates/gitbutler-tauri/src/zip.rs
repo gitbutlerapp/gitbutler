@@ -4,8 +4,8 @@ pub mod commands {
     use gitbutler_feedback::controller;
     use std::path;
 
-    use gitbutler_core::error;
-    use gitbutler_core::error::Code;
+    use gitbutler_error::error;
+    use gitbutler_error::error::Code;
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 

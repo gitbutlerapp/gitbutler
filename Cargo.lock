@@ -2126,6 +2126,7 @@ dependencies = [
  "anyhow",
  "gitbutler-branch",
  "gitbutler-core",
+ "gitbutler-error",
  "gitbutler-project",
  "gitbutler-reference",
  "itertools 0.13.0",
@@ -2219,6 +2220,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-error"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
 name = "gitbutler-feedback"
 version = "0.0.0"
 dependencies = [
@@ -2295,6 +2303,7 @@ dependencies = [
  "async-trait",
  "git2",
  "gitbutler-core",
+ "gitbutler-error",
  "gitbutler-testsupport",
  "gix",
  "resolve-path",
@@ -2328,6 +2337,7 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-config",
  "gitbutler-core",
+ "gitbutler-error",
  "gitbutler-git",
  "gitbutler-project",
  "gitbutler-reference",
@@ -2353,6 +2363,7 @@ dependencies = [
  "gitbutler-branchstate",
  "gitbutler-command-context",
  "gitbutler-core",
+ "gitbutler-error",
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",
@@ -2376,6 +2387,7 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-config",
  "gitbutler-core",
+ "gitbutler-error",
  "gitbutler-feedback",
  "gitbutler-oplog",
  "gitbutler-project",
@@ -2457,6 +2469,7 @@ dependencies = [
  "gitbutler-branchstate",
  "gitbutler-command-context",
  "gitbutler-core",
+ "gitbutler-error",
  "gitbutler-git",
  "gitbutler-oplog",
  "gitbutler-project",
@@ -2490,6 +2503,7 @@ dependencies = [
  "futures",
  "gitbutler-command-context",
  "gitbutler-core",
+ "gitbutler-error",
  "gitbutler-notify-debouncer",
  "gitbutler-oplog",
  "gitbutler-project",

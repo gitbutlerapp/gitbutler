@@ -1,8 +1,8 @@
 use std::{env, fs};
 
 use anyhow::Context;
-use gitbutler_core::error;
-use gitbutler_core::error::Code;
+use gitbutler_error::error;
+use gitbutler_error::error::Code;
 use serde_json::json;
 
 #[cfg(target_os = "macos")]

@@ -34,10 +34,10 @@ use crate::integration::{get_integration_commiter, get_workspace_head};
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
 use gitbutler_branch::target;
 use gitbutler_core::dedup::{dedup, dedup_fmt};
-use gitbutler_core::error::Code;
-use gitbutler_core::error::Marker;
 use gitbutler_core::git::{CommitExt, CommitHeadersV2, HasCommitHeaders};
 use gitbutler_core::time::now_since_unix_epoch_ms;
+use gitbutler_error::error::Code;
+use gitbutler_error::error::Marker;
 use gitbutler_repo::rebase::{cherry_rebase, cherry_rebase_group};
 
 type AppliedStatuses = Vec<(branch::Branch, BranchStatus)>;
