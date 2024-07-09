@@ -9,5 +9,6 @@ publish = false
 regex = "1.10"
 git2.workspace = true
 gitbutler-core.workspace = true
+gitbutler-tagged-string.workspace = true
 serde = { workspace = true, features = ["std"]}
 thiserror.workspace = true

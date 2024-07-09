@@ -2,8 +2,6 @@ use std::{env, fs, path::Path};
 
 use ssh2::{CheckResult, KnownHostFileKind};
 
-use gitbutler_core::git;
-
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
@@ -16,8 +14,8 @@ pub enum Error {
     Failure,
 }
 
-pub fn check_known_host(remote_url: &git::Url) -> Result<(), Error> {
-    if remote_url.scheme != git::Scheme::Ssh {
+pub fn check_known_host(remote_url: &gitbutler_url::Url) -> Result<(), Error> {
+    if remote_url.scheme != gitbutler_url::Scheme::Ssh {
         return Ok(());
     }
 

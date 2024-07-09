@@ -189,7 +189,8 @@ async fn submodule() {
     } = &Test::default();
 
     let test_project = TestProject::default();
-    let submodule_url: git::Url = test_project.path().display().to_string().parse().unwrap();
+    let submodule_url: gitbutler_url::Url =
+        test_project.path().display().to_string().parse().unwrap();
     repository.add_submodule(&submodule_url, path::Path::new("submodule"));
 
     controller

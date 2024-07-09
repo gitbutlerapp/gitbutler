@@ -1,4 +1,5 @@
 pub mod branch;
+pub mod branch_ext;
 pub mod diff;
 pub mod file_ownership;
 pub mod hunk;

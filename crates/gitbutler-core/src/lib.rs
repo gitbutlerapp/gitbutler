@@ -13,8 +13,5 @@
     clippy::too_many_lines
 )]
 
-pub mod git;
-pub mod path;
-pub mod types;
 #[cfg(target_os = "windows")]
 pub mod windows;

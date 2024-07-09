@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use bstr::ByteSlice;
 pub use convert::ConvertError;
-pub use parse::Error as ParseError;
+// pub use parse::Error as ParseError;
 pub use scheme::Scheme;
 
 #[derive(Default, Clone, Hash, PartialEq, Eq, Debug, thiserror::Error)]

@@ -1,19 +1,19 @@
 use anyhow::Result;
 use gitbutler_branch::{
     branch::{BranchCreateRequest, BranchId, BranchUpdateRequest},
+    branch_ext::BranchExt,
     diff,
     ownership::BranchOwnershipClaims,
 };
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepository;
-use gitbutler_core::{git::BranchExt, types::ReferenceName};
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     oplog::Oplog,
     snapshot::Snapshot,
 };
 use gitbutler_project::{FetchResult, Project};
-use gitbutler_reference::{Refname, RemoteRefname};
+use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
 use gitbutler_repo::{credentials::Helper, RepoActions, RepositoryExt};
 use std::{path::Path, sync::Arc};
 

@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use std::{fs, path};
 
-use gitbutler_core::git;
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_repo::RepositoryExt;
 use tempfile::TempDir;
@@ -371,7 +370,7 @@ impl TestProject {
             .expect("failed to read references")
     }
 
-    pub fn add_submodule(&self, url: &git::Url, path: &path::Path) {
+    pub fn add_submodule(&self, url: &gitbutler_url::Url, path: &path::Path) {
         let mut submodule = self
             .local_repository
             .submodule(&url.to_string(), path.as_ref(), false)
