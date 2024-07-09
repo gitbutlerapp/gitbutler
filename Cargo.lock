@@ -2339,6 +2339,7 @@ dependencies = [
  "resolve-path",
  "serde",
  "serde_json",
+ "ssh2",
  "tempfile",
  "thiserror",
  "tokio",
