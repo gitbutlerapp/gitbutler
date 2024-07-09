@@ -25,7 +25,7 @@ use tauri_plugin_log::LogTarget;
 
 fn main() {
     let tauri_context = generate_context!();
-    gitbutler_core::secret::set_application_namespace(
+    gitbutler_secret::secret::set_application_namespace(
         &tauri_context.config().tauri.bundle.identifier,
     );
 
@@ -76,7 +76,7 @@ fn main() {
                     // This isn't an issue for actual release build (i.e. nightly, production),
                     // hence the specific condition.
                     if cfg!(debug_assertions) && cfg!(target_os = "macos") {
-                        gitbutler_core::secret::git_credentials::setup().ok();
+                        gitbutler_secret::secret::git_credentials::setup().ok();
                     }
 
                     // SAFETY(qix-): This is safe because we're initializing the askpass broker here,

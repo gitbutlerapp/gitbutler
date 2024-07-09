@@ -20,7 +20,8 @@ members = [
     "crates/gitbutler-branch",
     "crates/gitbutler-reference",
     "crates/gitbutler-error",
-    "crates/gitbutler-serde",
+    "crates/gitbutler-serde", 
+    "crates/gitbutler-secret",
 ]
 resolver = "2"
 
@@ -53,6 +54,7 @@ gitbutler-branch = { path = "crates/gitbutler-branch" }
 gitbutler-reference = { path = "crates/gitbutler-reference" }
 gitbutler-error = { path = "crates/gitbutler-error" }
 gitbutler-serde = { path = "crates/gitbutler-serde" }
+gitbutler-secret = { path = "crates/gitbutler-secret" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better

@@ -1,8 +1,8 @@
 //! Note that these tests *must* be run in their own process, as they rely on having a deterministic
 //! credential store. Due to its global nature, tests cannot run in parallel
 //! (or mixed with parallel tests that set their own credential store)
-use gitbutler_core::secret;
-use gitbutler_core::types::Sensitive;
+use gitbutler_secret::secret;
+use gitbutler_secret::Sensitive;
 use serial_test::serial;
 
 #[test]
