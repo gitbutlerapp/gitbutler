@@ -1,7 +1,6 @@
 use anyhow::Result;
 use gitbutler_branch::{
     branch::{BranchCreateRequest, BranchId, BranchUpdateRequest},
-    branch_ext::BranchExt,
     diff,
     ownership::BranchOwnershipClaims,
 };
@@ -13,8 +12,9 @@ use gitbutler_oplog::{
     snapshot::Snapshot,
 };
 use gitbutler_project::{FetchResult, Project};
-use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
+use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{credentials::Helper, RepoActions, RepositoryExt};
+use gitbutler_tagged_string::ReferenceName;
 use std::{path::Path, sync::Arc};
 
 use tokio::sync::Semaphore;
@@ -24,6 +24,7 @@ use crate::{
         get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch,
         BaseBranch,
     },
+    branch_manager::BranchManagerAccess,
     remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
 };
 
@@ -103,19 +104,9 @@ impl Controller {
         self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
-        let branch_id = branch::create_virtual_branch(&project_repository, create)?.id;
+        let branch_manager = project_repository.branch_manager();
+        let branch_id = branch_manager.create_virtual_branch(create)?.id;
         Ok(branch_id)
-    }
-
-    pub async fn create_virtual_branch_from_branch(
-        &self,
-        project: &Project,
-        branch: &Refname,
-    ) -> Result<BranchId> {
-        self.permit(project.ignore_project_semaphore).await;
-
-        let project_repository = open_with_verify(project)?;
-        branch::create_virtual_branch_from_branch(&project_repository, branch).map_err(Into::into)
     }
 
     pub async fn get_base_branch_data(&self, project: &Project) -> Result<BaseBranch> {
@@ -171,14 +162,7 @@ impl Controller {
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::UpdateWorkspaceBase));
-        update_base_branch(&project_repository)
-            .map(|unapplied_branches| {
-                unapplied_branches
-                    .iter()
-                    .filter_map(|unapplied_branch| unapplied_branch.reference_name().ok())
-                    .collect()
-            })
-            .map_err(Into::into)
+        update_base_branch(&project_repository).map_err(Into::into)
     }
 
     pub async fn update_virtual_branch(
@@ -214,7 +198,8 @@ impl Controller {
         self.permit(project.ignore_project_semaphore).await;
 
         let project_repository = open_with_verify(project)?;
-        branch::delete_branch(&project_repository, branch_id)
+        let branch_manager = project_repository.branch_manager();
+        branch_manager.delete_branch(branch_id)
     }
 
     pub async fn unapply_ownership(
@@ -362,18 +347,16 @@ impl Controller {
 
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();
-        let result = branch::convert_to_real_branch(
-            &project_repository,
-            branch_id,
-            name_conflict_resolution,
-        )
-        .map_err(Into::into);
+        let branch_manager = project_repository.branch_manager();
+        let result = branch_manager.convert_to_real_branch(branch_id, name_conflict_resolution);
+
         let _ = snapshot_tree.and_then(|snapshot_tree| {
             project_repository
                 .project()
                 .snapshot_branch_unapplied(snapshot_tree, result.as_ref())
         });
-        result.and_then(|b| b.reference_name())
+
+        result
     }
 
     pub async fn push_virtual_branch(
@@ -492,9 +475,23 @@ impl Controller {
         branch::move_commit(&project_repository, target_branch_id, commit_oid).map_err(Into::into)
     }
 
+    pub async fn create_virtual_branch_from_branch(
+        &self,
+        project: &Project,
+        branch: &Refname,
+    ) -> Result<BranchId> {
+        self.permit(project.ignore_project_semaphore).await;
+
+        let project_repository = open_with_verify(project)?;
+        let branch_manager = project_repository.branch_manager();
+        branch_manager
+            .create_virtual_branch_from_branch(branch)
+            .map_err(Into::into)
+    }
+
     async fn permit(&self, ignore: bool) {
         if !ignore {
-            let _permit = self.semaphore.acquire().await;
+            let _ = self.semaphore.acquire().await.unwrap();
         }
     }
 }

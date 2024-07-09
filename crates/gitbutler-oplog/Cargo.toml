@@ -10,7 +10,7 @@ anyhow = "1.0.86"
 git2.workspace = true
 gitbutler-branchstate.workspace = true
 gitbutler-repo.workspace = true
-serde = { workspace = true, features = ["std"]}
+serde = { workspace = true, features = ["std"] }
 itertools = "0.13"
 strum = { version = "0.26", features = ["derive"] }
 tracing = "0.1.40"
@@ -20,9 +20,10 @@ gitbutler-project.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-fs.workspace = true
+gitbutler-tagged-string.workspace = true
 
 [[test]]
-name="oplog"
+name = "oplog"
 path = "tests/mod.rs"
 
 [dev-dependencies]

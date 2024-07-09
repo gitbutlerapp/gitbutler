@@ -14,6 +14,7 @@ use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_error::error::Marker;
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 
+use crate::branch_manager::BranchManagerAccess;
 use crate::conflicts;
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
@@ -358,16 +359,15 @@ impl Verify for ProjectRepository {
             )
             .context("failed to reset to integration commit")?;
 
-        let mut new_branch = super::create_virtual_branch(
-            self,
-            &BranchCreateRequest {
+        let branch_manager = self.branch_manager();
+        let mut new_branch = branch_manager
+            .create_virtual_branch(&BranchCreateRequest {
                 name: extra_commits
                     .last()
                     .map(|commit| commit.message_bstr().to_string()),
                 ..Default::default()
-            },
-        )
-        .context("failed to create virtual branch")?;
+            })
+            .context("failed to create virtual branch")?;
 
         // rebasing the extra commits onto the new branch
         let vb_state = self.project().virtual_branches();

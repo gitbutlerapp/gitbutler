@@ -11,10 +11,11 @@ use gitbutler_command_context::ProjectRepository;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
+use gitbutler_tagged_string::ReferenceName;
 use serde::Serialize;
 
 use super::r#virtual as vb;
-use super::r#virtual::convert_to_real_branch;
+use crate::branch_manager::BranchManagerAccess;
 use crate::conflicts::RepoConflicts;
 use crate::integration::{get_workspace_head, update_gitbutler_integration};
 use crate::remote::{commit_to_remote_commit, RemoteCommit};
@@ -328,7 +329,7 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 // update the target sha
 pub fn update_base_branch(
     project_repository: &ProjectRepository,
-) -> anyhow::Result<Vec<git2::Branch<'_>>> {
+) -> anyhow::Result<Vec<ReferenceName>> {
     project_repository.assure_resolved()?;
 
     // look up the target and see if there is a new oid
@@ -344,7 +345,7 @@ pub fn update_base_branch(
         .peel_to_commit()
         .context(format!("failed to peel branch {} to commit", target.branch))?;
 
-    let mut unapplied_branch_names: Vec<git2::Branch> = Vec::new();
+    let mut unapplied_branch_names: Vec<ReferenceName> = Vec::new();
 
     if new_target_commit.id() == target.sha {
         return Ok(unapplied_branch_names);
@@ -421,11 +422,9 @@ pub fn update_base_branch(
 
                     if branch_tree_merge_index.has_conflicts() {
                         // branch tree conflicts with new target, unapply branch for now. we'll handle it later, when user applies it back.
-                        let unapplied_real_branch = convert_to_real_branch(
-                            project_repository,
-                            branch.id,
-                            Default::default(),
-                        )?;
+                        let branch_manager = project_repository.branch_manager();
+                        let unapplied_real_branch =
+                            branch_manager.convert_to_real_branch(branch.id, Default::default())?;
 
                         unapplied_branch_names.push(unapplied_real_branch);
 
@@ -457,11 +456,9 @@ pub fn update_base_branch(
                     if branch_head_merge_index.has_conflicts() {
                         // branch commits conflict with new target, make sure the branch is
                         // unapplied. conflicts witll be dealt with when applying it back.
-                        let unapplied_real_branch = convert_to_real_branch(
-                            project_repository,
-                            branch.id,
-                            Default::default(),
-                        )?;
+                        let branch_manager = project_repository.branch_manager();
+                        let unapplied_real_branch =
+                            branch_manager.convert_to_real_branch(branch.id, Default::default())?;
                         unapplied_branch_names.push(unapplied_real_branch);
 
                         return Ok(None);

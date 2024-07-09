@@ -5,6 +5,8 @@ pub use controller::Controller;
 pub mod r#virtual;
 pub use r#virtual::*;
 
+pub mod branch_manager;
+
 pub mod assets;
 
 pub mod base;
@@ -18,4 +20,3 @@ pub mod remote;
 pub mod conflicts;
 
 mod author;
-mod dedup;
