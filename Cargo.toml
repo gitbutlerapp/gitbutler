@@ -25,6 +25,7 @@ members = [
     "crates/gitbutler-id", 
     "crates/gitbutler-storage", 
     "crates/gitbutler-fs",
+    "crates/gitbutler-time",
 ]
 resolver = "2"
 
@@ -61,6 +62,7 @@ gitbutler-secret = { path = "crates/gitbutler-secret" }
 gitbutler-id = { path = "crates/gitbutler-id" }
 gitbutler-storage = { path = "crates/gitbutler-storage" }
 gitbutler-fs = { path = "crates/gitbutler-fs" }
+gitbutler-time = { path = "crates/gitbutler-time" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better

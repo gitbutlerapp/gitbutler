@@ -64,7 +64,7 @@ impl RepoActions for ProjectRepo {
 
         let commit_id: git2::Oid = branch.get().peel_to_commit()?.id();
 
-        let now = gitbutler_core::time::now_ms();
+        let now = gitbutler_time::time::now_ms();
         let branch_name = format!("test-push-{now}");
 
         let refname =

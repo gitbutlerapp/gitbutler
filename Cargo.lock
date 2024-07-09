@@ -2355,6 +2355,7 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-testsupport",
+ "gitbutler-time",
  "gitbutler-user",
  "log",
  "resolve-path",
@@ -2489,6 +2490,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-time"
+version = "0.0.0"
+
+[[package]]
 name = "gitbutler-user"
 version = "0.0.0"
 dependencies = [
@@ -2526,6 +2531,7 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-serde",
  "gitbutler-testsupport",
+ "gitbutler-time",
  "gitbutler-user",
  "glob",
  "hex",
