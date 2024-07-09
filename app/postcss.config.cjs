@@ -1,5 +1,6 @@
 const autoprefixer = require('autoprefixer');
 const pxToRem = require('postcss-pxtorem');
+const postcssNesting = require('postcss-nesting');
 
 const config = {
 	plugins: [
@@ -13,7 +14,8 @@ const config = {
 			replace: true,
 			mediaQuery: false,
 			minPixelValue: 0
-		})
+		}),
+		postcssNesting()
 	]
 };
 
