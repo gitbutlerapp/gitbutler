@@ -1,5 +1,5 @@
 mod refname;
-use gitbutler_core::types::TaggedString;
+use gitbutler_tagged_string::TaggedString;
 pub use refname::{LocalRefname, Refname, RemoteRefname, VirtualRefname};
 use regex::Regex;
 

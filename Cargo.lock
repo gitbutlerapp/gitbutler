@@ -2342,6 +2342,7 @@ version = "0.0.0"
 dependencies = [
  "git2",
  "gitbutler-core",
+ "gitbutler-tagged-string",
  "regex",
  "serde",
  "thiserror",
@@ -2423,6 +2424,13 @@ dependencies = [
  "gitbutler-user",
  "itertools 0.13.0",
  "tracing",
+]
+
+[[package]]
+name = "gitbutler-tagged-string"
+version = "0.0.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
