@@ -7,7 +7,7 @@ use gitbutler_branch::diff;
 use gitbutler_branch::ownership::BranchOwnershipClaims;
 use gitbutler_branch::target::Target;
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
-use gitbutler_command_context::ProjectRepo;
+use gitbutler_command_context::ProjectRepository;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
@@ -41,14 +41,14 @@ pub struct BaseBranch {
     pub last_fetched_ms: Option<u128>,
 }
 
-pub fn get_base_branch_data(project_repository: &ProjectRepo) -> Result<BaseBranch> {
+pub fn get_base_branch_data(project_repository: &ProjectRepository) -> Result<BaseBranch> {
     let target = default_target(&project_repository.project().gb_dir())?;
     let base = target_to_base_branch(project_repository, &target)?;
     Ok(base)
 }
 
 fn go_back_to_integration(
-    project_repository: &ProjectRepo,
+    project_repository: &ProjectRepository,
     default_target: &Target,
 ) -> Result<BaseBranch> {
     let statuses = project_repository
@@ -114,7 +114,7 @@ fn go_back_to_integration(
 }
 
 pub fn set_base_branch(
-    project_repository: &ProjectRepo,
+    project_repository: &ProjectRepository,
     target_branch_ref: &RemoteRefname,
 ) -> Result<BaseBranch> {
     let repo = project_repository.repo();
@@ -270,7 +270,7 @@ pub fn set_base_branch(
 }
 
 pub fn set_target_push_remote(
-    project_repository: &ProjectRepo,
+    project_repository: &ProjectRepository,
     push_remote_name: &str,
 ) -> Result<()> {
     let remote = project_repository
@@ -291,7 +291,7 @@ pub fn set_target_push_remote(
     Ok(())
 }
 
-fn set_exclude_decoration(project_repository: &ProjectRepo) -> Result<()> {
+fn set_exclude_decoration(project_repository: &ProjectRepository) -> Result<()> {
     let repo = project_repository.repo();
     let mut config = repo.config()?;
     config
@@ -327,7 +327,7 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 // merge the target branch into our current working directory
 // update the target sha
 pub fn update_base_branch(
-    project_repository: &ProjectRepo,
+    project_repository: &ProjectRepository,
 ) -> anyhow::Result<Vec<git2::Branch<'_>>> {
     project_repository.assure_resolved()?;
 
@@ -572,7 +572,7 @@ pub fn update_base_branch(
 }
 
 pub fn target_to_base_branch(
-    project_repository: &ProjectRepo,
+    project_repository: &ProjectRepository,
     target: &Target,
 ) -> Result<BaseBranch> {
     let repo = project_repository.repo();

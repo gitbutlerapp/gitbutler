@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::str;
 
-use gitbutler_command_context::ProjectRepo;
+use gitbutler_command_context::ProjectRepository;
 use gitbutler_project as projects;
 use gitbutler_repo::credentials::{Credential, Helper, SshCredential};
 use gitbutler_user as users;
@@ -38,7 +38,7 @@ impl TestCase<'_> {
             preferred_key: self.preferred_key.clone(),
             ..Default::default()
         };
-        let project_repository = ProjectRepo::open(&project).unwrap();
+        let project_repository = ProjectRepository::open(&project).unwrap();
 
         let flow = helper.help(&project_repository, "origin").unwrap();
         flow.into_iter()
