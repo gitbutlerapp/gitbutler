@@ -658,9 +658,15 @@ impl<'l> BranchManager<'l> {
 
     pub fn delete_branch(&self, branch_id: BranchId) -> Result<()> {
         let vb_state = self.project_repository.project().virtual_branches();
-        let Some(branch) = vb_state.try_branch_in_workspace(branch_id)? else {
+        let Some(branch) = vb_state.try_branch(branch_id)? else {
             return Ok(());
         };
+
+        // We don't want to try unapplying branches which are marked as not in workspace by the new metric
+        if !branch.in_workspace {
+            return Ok(());
+        }
+
         _ = self
             .project_repository
             .project()
@@ -674,10 +680,7 @@ impl<'l> BranchManager<'l> {
 
         let virtual_branches = vb_state
             .list_branches_in_workspace()
-            .context("failed to read virtual branches")?
-            .into_iter()
-            .filter(|branch| !branch.is_old_unapplied()) // We don't want branches that are unapplied under the old metric to be passed to get_applied_status
-            .collect();
+            .context("failed to read virtual branches")?;
 
         let (applied_statuses, _) = get_applied_status(
             self.project_repository,

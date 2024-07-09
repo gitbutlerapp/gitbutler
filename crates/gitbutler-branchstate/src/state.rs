@@ -164,7 +164,7 @@ impl VirtualBranchesHandle {
     /// if that branch doesn't exist.
     pub fn try_branch_in_workspace(&self, id: BranchId) -> Result<Option<Branch>> {
         if let Some(branch) = self.try_branch(id)? {
-            if branch.in_workspace {
+            if branch.in_workspace && !branch.is_old_unapplied() {
                 Ok(Some(branch))
             } else {
                 Ok(None)
@@ -197,7 +197,7 @@ impl VirtualBranchesHandle {
         self.list_all_branches().map(|branches| {
             branches
                 .into_iter()
-                .filter(|branch| branch.in_workspace)
+                .filter(|branch| branch.in_workspace && !branch.is_old_unapplied())
                 .collect()
         })
     }
