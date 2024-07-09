@@ -679,7 +679,6 @@ impl<'l> BranchManager<'l> {
         let (applied_statuses, _) = get_applied_status(
             self.project_repository,
             &integration_commit.id(),
-            &target_commit.id(),
             virtual_branches,
         )
         .context("failed to get status by branch")?;

@@ -24,7 +24,6 @@ use std::{
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice, ByteVec};
 use diffy::{apply_bytes as diffy_apply, Line, Patch};
-use git2::ErrorCode;
 use git2_hooks::HookResult;
 use hex::ToHex;
 use serde::{Deserialize, Serialize};
@@ -206,7 +205,6 @@ pub fn unapply_ownership(
     project_repository.assure_resolved()?;
 
     let vb_state = project_repository.project().virtual_branches();
-    let default_target = vb_state.get_default_target()?;
 
     let virtual_branches = vb_state
         .list_branches_in_workspace()
@@ -214,13 +212,9 @@ pub fn unapply_ownership(
 
     let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
 
-    let (applied_statuses, _) = get_applied_status(
-        project_repository,
-        &integration_commit_id,
-        &default_target.sha,
-        virtual_branches,
-    )
-    .context("failed to get status by branch")?;
+    let (applied_statuses, _) =
+        get_applied_status(project_repository, &integration_commit_id, virtual_branches)
+            .context("failed to get status by branch")?;
 
     let hunks_to_unapply = applied_statuses
         .iter()
@@ -1064,7 +1058,6 @@ pub fn get_status_by_branch(
         project_repository,
         // TODO: Keep this optional or update lots of tests?
         integration_commit.unwrap_or(&default_target.sha),
-        &default_target.sha,
         virtual_branches,
     )?;
 
@@ -1144,95 +1137,11 @@ fn new_compute_locks(
     Ok(locked_hunks)
 }
 
-fn compute_merge_base(
-    project_repository: &ProjectRepository,
-    target_sha: &git2::Oid,
-    virtual_branches: &Vec<branch::Branch>,
-) -> Result<git2::Oid> {
-    let repo = project_repository.repo();
-    let mut merge_base = *target_sha;
-    for branch in virtual_branches {
-        if let Some(last) = project_repository
-            .l(branch.head, LogUntil::Commit(*target_sha))?
-            .last()
-            .map(|id| repo.find_commit(id.to_owned()))
-        {
-            if let Ok(parent) = last?.parent(0) {
-                merge_base = repo.merge_base(parent.id(), merge_base)?;
-            }
-        }
-    }
-    Ok(merge_base)
-}
-
-fn compute_locks(
-    project_repository: &ProjectRepository,
-    integration_commit: &git2::Oid,
-    target_sha: &git2::Oid,
-    base_diffs: &BranchStatus,
-    virtual_branches: &Vec<branch::Branch>,
-) -> Result<HashMap<HunkHash, Vec<diff::HunkLock>>> {
-    let merge_base = compute_merge_base(project_repository, target_sha, virtual_branches)?;
-    let mut locked_hunk_map = HashMap::<HunkHash, Vec<diff::HunkLock>>::new();
-
-    let mut commit_to_branch = HashMap::new();
-    for branch in virtual_branches {
-        for commit in project_repository.log(branch.head, LogUntil::Commit(*target_sha))? {
-            commit_to_branch.insert(commit.id(), branch.id);
-        }
-    }
-
-    for (path, hunks) in base_diffs.clone().into_iter() {
-        for hunk in hunks {
-            let blame = match project_repository.repo().blame(
-                &path,
-                hunk.old_start,
-                (hunk.old_start + hunk.old_lines).saturating_sub(1),
-                merge_base,
-                *integration_commit,
-            ) {
-                Ok(blame) => blame,
-                Err(error) => {
-                    if error.code() == ErrorCode::NotFound {
-                        continue;
-                    } else {
-                        return Err(error.into());
-                    }
-                }
-            };
-
-            for blame_hunk in blame.iter() {
-                let commit_id = blame_hunk.orig_commit_id();
-                if commit_id == *integration_commit || commit_id == *target_sha {
-                    continue;
-                }
-                let hash = Hunk::hash_diff(&hunk.diff_lines);
-                let Some(branch_id) = commit_to_branch.get(&commit_id) else {
-                    continue;
-                };
-
-                let hunk_lock = diff::HunkLock {
-                    branch_id: *branch_id,
-                    commit_id,
-                };
-                locked_hunk_map
-                    .entry(hash)
-                    .and_modify(|locks| {
-                        locks.push(hunk_lock);
-                    })
-                    .or_insert(vec![hunk_lock]);
-            }
-        }
-    }
-    Ok(locked_hunk_map)
-}
-
 // Returns branches and their associated file changes, in addition to a list
 // of skipped files.
 pub(crate) fn get_applied_status(
     project_repository: &ProjectRepository,
     integration_commit: &git2::Oid,
-    target_sha: &git2::Oid,
     mut virtual_branches: Vec<branch::Branch>,
 ) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
     let base_file_diffs = diff::workdir(project_repository.repo(), &integration_commit.to_owned())
@@ -1262,17 +1171,7 @@ pub(crate) fn get_applied_status(
         .map(|branch| (branch.id, HashMap::new()))
         .collect();
 
-    let locks = if project_repository.project().use_new_locking {
-        new_compute_locks(project_repository.repo(), &base_diffs, &virtual_branches)?
-    } else {
-        compute_locks(
-            project_repository,
-            integration_commit,
-            target_sha,
-            &base_diffs,
-            &virtual_branches,
-        )?
-    };
+    let locks = new_compute_locks(project_repository.repo(), &base_diffs, &virtual_branches)?;
 
     for branch in &mut virtual_branches {
         let old_claims = branch.ownership.claims.clone();
@@ -1538,7 +1437,7 @@ pub fn write_tree_onto_commit(
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
 ) -> Result<git2::Oid> {
     // read the base sha into an index
-    let git_repository = project_repository.repo();
+    let git_repository: &git2::Repository = project_repository.repo();
 
     let head_commit = git_repository.find_commit(commit_oid)?;
     let base_tree = head_commit.tree()?;
@@ -2248,12 +2147,8 @@ pub fn amend(
     let integration_commit_id =
         crate::integration::get_workspace_head(&vb_state, project_repository)?;
 
-    let (mut applied_statuses, _) = get_applied_status(
-        project_repository,
-        &integration_commit_id,
-        &default_target.sha,
-        virtual_branches,
-    )?;
+    let (mut applied_statuses, _) =
+        get_applied_status(project_repository, &integration_commit_id, virtual_branches)?;
 
     let (ref mut target_branch, target_status) = applied_statuses
         .iter_mut()
@@ -2733,17 +2628,11 @@ pub fn move_commit(
         bail!("branch {target_branch_id} is not among applied branches")
     }
 
-    let default_target = vb_state.get_default_target()?;
-
     let integration_commit_id =
         crate::integration::get_workspace_head(&vb_state, project_repository)?;
 
-    let (mut applied_statuses, _) = get_applied_status(
-        project_repository,
-        &integration_commit_id,
-        &default_target.sha,
-        applied_branches,
-    )?;
+    let (mut applied_statuses, _) =
+        get_applied_status(project_repository, &integration_commit_id, applied_branches)?;
 
     let (ref mut source_branch, source_status) = applied_statuses
         .iter_mut()
