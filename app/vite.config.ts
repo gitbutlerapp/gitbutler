@@ -6,21 +6,29 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
 	plugins: [
 		sentrySvelteKit({
-			autoInstrument: false
+			autoInstrument: {
+				load: true,
+				serverLoad: false
+			}
 		}),
 		sentryVitePlugin({
-			org: 'gitbutler',
-			project: 'app-js',
+			org: process.env.SENTRY_ORG ?? 'gitbutler',
+			project: process.env.SENTRY_PROJECT ?? 'app-js',
 			authToken: process.env.SENTRY_AUTH_TOKEN,
 			telemetry: false,
 			disable: !process.env.SENTRY_RELEASE,
 			release: {
 				create: true,
-				cleanArtifacts: true,
 				setCommits: {
 					auto: true,
 					ignoreMissing: true,
 					ignoreEmpty: true
+				},
+				uploadLegacySourcemaps: {
+					paths: ['./build'],
+					ignoreFile: '.gitignore',
+					urlPrefix: 'tauri://localhost/_app/',
+					validate: true
 				}
 			}
 		}),
