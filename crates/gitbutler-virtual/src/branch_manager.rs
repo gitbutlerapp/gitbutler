@@ -125,7 +125,7 @@ impl<'l> BranchManager<'l> {
             order,
             selected_for_changes,
             allow_rebasing: self.project_repository.project().ok_with_force_push.into(),
-            old_applied: true,
+            applied: true,
             in_workspace: true,
             not_in_workspace_wip_change_id: None,
             source_refname: None,
@@ -243,7 +243,7 @@ impl<'l> BranchManager<'l> {
             branch.order = order;
             branch.selected_for_changes = selected_for_changes;
             branch.allow_rebasing = self.project_repository.project().ok_with_force_push.into();
-            branch.old_applied = true;
+            branch.applied = true;
             branch.in_workspace = true;
 
             branch
@@ -263,7 +263,7 @@ impl<'l> BranchManager<'l> {
                 order,
                 selected_for_changes,
                 allow_rebasing: self.project_repository.project().ok_with_force_push.into(),
-                old_applied: true,
+                applied: true,
                 in_workspace: true,
                 not_in_workspace_wip_change_id: None,
             }
@@ -534,7 +534,7 @@ impl<'l> BranchManager<'l> {
     ) -> Result<ReferenceName> {
         let vb_state = self.project_repository.project().virtual_branches();
 
-        let mut target_branch = vb_state.get_branch_in_workspace(branch_id)?;
+        let mut target_branch = vb_state.get_branch(branch_id)?;
 
         // Convert the vbranch to a real branch
         let real_branch = self.build_real_branch(&mut target_branch, name_conflict_resolution)?;
@@ -658,9 +658,15 @@ impl<'l> BranchManager<'l> {
 
     pub fn delete_branch(&self, branch_id: BranchId) -> Result<()> {
         let vb_state = self.project_repository.project().virtual_branches();
-        let Some(branch) = vb_state.try_branch_in_workspace(branch_id)? else {
+        let Some(branch) = vb_state.try_branch(branch_id)? else {
             return Ok(());
         };
+
+        // We don't want to try unapplying branches which are marked as not in workspace by the new metric
+        if !branch.in_workspace {
+            return Ok(());
+        }
+
         _ = self
             .project_repository
             .project()

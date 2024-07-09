@@ -350,10 +350,10 @@ fn resolve_old_applied_state(
     let branch_manager = project_repository.branch_manager();
 
     for mut branch in branches {
-        if !branch.old_applied && branch.in_workspace {
+        if branch.is_old_unapplied() {
             branch_manager.convert_to_real_branch(branch.id, Default::default())?;
         } else {
-            branch.old_applied = branch.in_workspace;
+            branch.applied = branch.in_workspace;
             vb_state.set_branch(branch)?;
         }
     }
