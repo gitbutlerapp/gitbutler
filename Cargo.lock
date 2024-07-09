@@ -2100,6 +2100,7 @@ dependencies = [
  "bstr",
  "git2",
  "gitbutler-core",
+ "gitbutler-id",
  "gitbutler-reference",
  "gitbutler-serde",
  "hex",
@@ -2247,6 +2248,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-id"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "uuid",
+]
+
+[[package]]
 name = "gitbutler-notify-debouncer"
 version = "0.0.0"
 dependencies = [
@@ -2295,6 +2304,7 @@ dependencies = [
  "git2",
  "gitbutler-core",
  "gitbutler-error",
+ "gitbutler-id",
  "gitbutler-serde",
  "gitbutler-testsupport",
  "gix",
@@ -2331,6 +2341,7 @@ dependencies = [
  "gitbutler-core",
  "gitbutler-error",
  "gitbutler-git",
+ "gitbutler-id",
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-testsupport",
@@ -2377,6 +2388,7 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-core",
  "gitbutler-error",
+ "gitbutler-id",
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",
@@ -2402,6 +2414,7 @@ dependencies = [
  "gitbutler-core",
  "gitbutler-error",
  "gitbutler-feedback",
+ "gitbutler-id",
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",
@@ -2486,6 +2499,7 @@ dependencies = [
  "gitbutler-core",
  "gitbutler-error",
  "gitbutler-git",
+ "gitbutler-id",
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",

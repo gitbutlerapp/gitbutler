@@ -12,6 +12,7 @@ serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
 gitbutler-core.workspace = true
 gitbutler-error.workspace = true
 gitbutler-serde.workspace = true
+gitbutler-id.workspace = true
 git2.workspace = true
 async-trait = "0.1.80"
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }

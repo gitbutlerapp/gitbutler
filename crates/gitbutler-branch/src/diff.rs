@@ -7,7 +7,7 @@ use bstr::{BStr, BString, ByteSlice, ByteVec};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use gitbutler_core::id::Id;
+use gitbutler_id::id::Id;
 
 use crate::branch::Branch;
 

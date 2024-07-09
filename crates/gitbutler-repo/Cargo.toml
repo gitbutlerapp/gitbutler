@@ -25,6 +25,7 @@ gitbutler-project.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-error.workspace = true
+gitbutler-id.workspace = true
 
 [[test]]
 name="repo"
