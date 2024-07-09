@@ -5,7 +5,7 @@ use gitbutler_branch::{
     ownership::BranchOwnershipClaims,
 };
 use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
-use gitbutler_command_context::ProjectRepo;
+use gitbutler_command_context::ProjectRepository;
 use gitbutler_core::{git::BranchExt, types::ReferenceName};
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
@@ -81,7 +81,7 @@ impl Controller {
         project: &Project,
         branch_name: &RemoteRefname,
     ) -> Result<bool> {
-        let project_repository = ProjectRepo::open(project)?;
+        let project_repository = ProjectRepository::open(project)?;
         branch::is_remote_branch_mergeable(&project_repository, branch_name).map_err(Into::into)
     }
 
@@ -119,7 +119,7 @@ impl Controller {
     }
 
     pub async fn get_base_branch_data(&self, project: &Project) -> Result<BaseBranch> {
-        let project_repository = ProjectRepo::open(project)?;
+        let project_repository = ProjectRepository::open(project)?;
         get_base_branch_data(&project_repository)
     }
 
@@ -128,7 +128,7 @@ impl Controller {
         project: &Project,
         commit_oid: git2::Oid,
     ) -> Result<Vec<RemoteBranchFile>> {
-        let project_repository = ProjectRepo::open(project)?;
+        let project_repository = ProjectRepository::open(project)?;
         crate::files::list_remote_commit_files(project_repository.repo(), commit_oid)
             .map_err(Into::into)
     }
@@ -138,7 +138,7 @@ impl Controller {
         project: &Project,
         target_branch: &RemoteRefname,
     ) -> Result<BaseBranch> {
-        let project_repository = ProjectRepo::open(project)?;
+        let project_repository = ProjectRepository::open(project)?;
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::SetBaseBranch));
@@ -146,7 +146,7 @@ impl Controller {
     }
 
     pub async fn set_target_push_remote(&self, project: &Project, push_remote: &str) -> Result<()> {
-        let project_repository = ProjectRepo::open(project)?;
+        let project_repository = ProjectRepository::open(project)?;
         set_target_push_remote(&project_repository, push_remote)
     }
 
@@ -390,7 +390,7 @@ impl Controller {
     }
 
     pub async fn list_remote_branches(&self, project: Project) -> Result<Vec<RemoteBranch>> {
-        let project_repository = ProjectRepo::open(&project)?;
+        let project_repository = ProjectRepository::open(&project)?;
         list_remote_branches(&project_repository)
     }
 
@@ -399,7 +399,7 @@ impl Controller {
         project: &Project,
         refname: &Refname,
     ) -> Result<RemoteBranchData> {
-        let project_repository = ProjectRepo::open(project)?;
+        let project_repository = ProjectRepository::open(project)?;
         get_branch_data(&project_repository, refname)
     }
 
@@ -439,7 +439,7 @@ impl Controller {
         project: &Project,
         askpass: Option<String>,
     ) -> Result<FetchResult> {
-        let project_repository = ProjectRepo::open(project)?;
+        let project_repository = ProjectRepository::open(project)?;
 
         let helper = Helper::default();
         let remotes = project_repository.repo().remotes_as_string()?;
@@ -499,8 +499,8 @@ impl Controller {
     }
 }
 
-fn open_with_verify(project: &Project) -> Result<ProjectRepo> {
-    let project_repository = ProjectRepo::open(project)?;
+fn open_with_verify(project: &Project) -> Result<ProjectRepository> {
+    let project_repository = ProjectRepository::open(project)?;
     crate::integration::verify_branch(&project_repository)?;
     Ok(project_repository)
 }
