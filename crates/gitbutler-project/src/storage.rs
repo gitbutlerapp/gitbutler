@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use gitbutler_core::storage;
+use gitbutler_storage::storage;
 
 use crate::{ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectId};
 

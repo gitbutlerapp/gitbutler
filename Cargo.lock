@@ -2119,6 +2119,7 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-core",
  "gitbutler-error",
+ "gitbutler-fs",
  "gitbutler-project",
  "gitbutler-reference",
  "itertools 0.13.0",
@@ -2231,6 +2232,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-fs"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "gix",
+ "serde",
+ "toml 0.8.14",
+ "walkdir",
+]
+
+[[package]]
 name = "gitbutler-git"
 version = "0.0.0"
 dependencies = [
@@ -2282,6 +2295,7 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-branchstate",
  "gitbutler-core",
+ "gitbutler-fs",
  "gitbutler-project",
  "gitbutler-repo",
  "gitbutler-serde",
@@ -2306,6 +2320,7 @@ dependencies = [
  "gitbutler-error",
  "gitbutler-id",
  "gitbutler-serde",
+ "gitbutler-storage",
  "gitbutler-testsupport",
  "gix",
  "resolve-path",
@@ -2378,6 +2393,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-storage"
+version = "0.0.0"
+dependencies = [
+ "gitbutler-fs",
+]
+
+[[package]]
 name = "gitbutler-sync"
 version = "0.0.0"
 dependencies = [
@@ -2420,6 +2442,7 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-secret",
+ "gitbutler-storage",
  "gitbutler-testsupport",
  "gitbutler-user",
  "gitbutler-virtual",
@@ -2460,6 +2483,7 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
+ "gitbutler-storage",
  "gitbutler-user",
  "gitbutler-virtual",
  "keyring",
@@ -2476,6 +2500,7 @@ dependencies = [
  "anyhow",
  "gitbutler-core",
  "gitbutler-secret",
+ "gitbutler-storage",
  "keyring",
  "serde",
  "serde_json",

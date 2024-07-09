@@ -20,6 +20,7 @@ toml = "0.8.13"
 gitbutler-project.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-serde.workspace = true
+gitbutler-fs.workspace = true
 
 [[test]]
 name="oplog"

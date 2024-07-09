@@ -72,7 +72,7 @@ pub fn write<P: AsRef<Path>>(file_path: P, contents: impl AsRef<[u8]>) -> anyhow
 
 /// Write a single file so that the write either fully succeeds, or fully fails,
 /// and create all leading directories.
-pub(crate) fn create_dirs_then_write<P: AsRef<Path>>(
+pub fn create_dirs_then_write<P: AsRef<Path>>(
     file_path: P,
     contents: impl AsRef<[u8]>,
 ) -> std::io::Result<()> {
