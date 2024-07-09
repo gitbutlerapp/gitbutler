@@ -43,7 +43,7 @@ impl VirtualBranches {
         self.list_all_branches().map(|branches| {
             branches
                 .into_iter()
-                .filter(|branch| branch.in_workspace)
+                .filter(|branch| branch.in_workspace && !branch.is_old_unapplied())
                 .collect()
         })
     }
