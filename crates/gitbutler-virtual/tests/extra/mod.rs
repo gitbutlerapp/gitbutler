@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     io::Write,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 #[cfg(target_family = "unix")]
 use std::{
@@ -20,12 +21,12 @@ use gitbutler_branchstate::VirtualBranchesAccess;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::CommitHeadersV2};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
-use gitbutler_virtual::integration;
 use gitbutler_virtual::r#virtual as virtual_branches;
 use gitbutler_virtual::r#virtual::{
-    commit, create_virtual_branch, create_virtual_branch_from_branch, integrate_upstream_commits,
-    is_remote_branch_mergeable, list_virtual_branches, unapply_ownership, update_branch,
+    commit, integrate_upstream_commits, is_remote_branch_mergeable, list_virtual_branches,
+    unapply_ownership, update_branch,
 };
+use gitbutler_virtual::{branch_manager::BranchManagerAccess, integration};
 use pretty_assertions::assert_eq;
 
 use gitbutler_testsupport::{commit_all, virtual_branches::set_test_target, Case, Suite};
@@ -44,7 +45,9 @@ fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
 
     set_test_target(project_repository)?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch1_id = project_repository
+        .branch_manager()
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -113,7 +116,9 @@ fn track_binary_files() -> Result<()> {
 
     set_test_target(project_repository)?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch1_id = project_repository
+        .branch_manager()
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -207,7 +212,9 @@ fn create_branch_with_ownership() -> Result<()> {
     let file_path = Path::new("test.txt");
     std::fs::write(Path::new(&project.path).join(file_path), "line1\nline2\n").unwrap();
 
-    let branch0 = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch0 = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch");
 
     virtual_branches::get_status_by_branch(project_repository, None).expect("failed to get status");
@@ -215,14 +222,12 @@ fn create_branch_with_ownership() -> Result<()> {
     let vb_state = project_repository.project().virtual_branches();
     let branch0 = vb_state.get_branch_in_workspace(branch0.id).unwrap();
 
-    let branch1 = create_virtual_branch(
-        project_repository,
-        &BranchCreateRequest {
+    let branch1 = branch_manager
+        .create_virtual_branch(&BranchCreateRequest {
             ownership: Some(branch0.ownership),
             ..Default::default()
-        },
-    )
-    .expect("failed to create virtual branch");
+        })
+        .expect("failed to create virtual branch");
 
     let statuses = virtual_branches::get_status_by_branch(project_repository, None)
         .expect("failed to get status")
@@ -249,18 +254,19 @@ fn create_branch_in_the_middle() -> Result<()> {
 
     set_test_target(project_repository)?;
 
-    create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch");
-    create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch");
-    create_virtual_branch(
-        project_repository,
-        &BranchCreateRequest {
+    branch_manager
+        .create_virtual_branch(&BranchCreateRequest {
             order: Some(1),
             ..Default::default()
-        },
-    )
-    .expect("failed to create virtual branch");
+        })
+        .expect("failed to create virtual branch");
 
     let vb_state = project_repository.project().virtual_branches();
     let mut branches = vb_state
@@ -284,7 +290,9 @@ fn create_branch_no_arguments() -> Result<()> {
 
     set_test_target(project_repository)?;
 
-    create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch");
 
     let vb_state = project_repository.project().virtual_branches();
@@ -313,10 +321,13 @@ fn hunk_expantion() -> Result<()> {
     let file_path = Path::new("test.txt");
     std::fs::write(Path::new(&project.path).join(file_path), "line1\nline2\n")?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
-    let branch2_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch2_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -404,10 +415,13 @@ fn get_status_files_by_branch() -> Result<()> {
     let file_path = Path::new("test.txt");
     std::fs::write(Path::new(&project.path).join(file_path), "line1\nline2\n")?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
-    let branch2_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch2_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -440,13 +454,17 @@ fn move_hunks_multiple_sources() -> Result<()> {
 
     set_test_target(project_repository)?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
-    let branch2_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch2_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
-    let branch3_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch3_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -539,11 +557,14 @@ fn move_hunks_partial_explicitly() -> Result<()> {
         "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\n",
     )?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
-    let branch2_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch2_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -621,7 +642,9 @@ fn add_new_hunk_to_the_end() -> Result<()> {
         "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\n",
     )?;
 
-    create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch");
 
     let statuses = virtual_branches::get_status_by_branch(project_repository, None)
@@ -791,7 +814,9 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     let remote_branch: RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
-    let mut branch = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let mut branch = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
     branch.head = last_push;
@@ -888,7 +913,9 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
     )?;
 
     let remote_branch: RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
-    let mut branch = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let mut branch = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
     branch.head = last_push;
@@ -979,7 +1006,9 @@ fn unapply_ownership_partial() -> Result<()> {
         "line1\nline2\nline3\nline4\nbranch1\n",
     )?;
 
-    create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch");
 
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
@@ -1033,10 +1062,13 @@ fn unapply_branch() -> Result<()> {
     let file_path2 = Path::new("test2.txt");
     std::fs::write(Path::new(&project.path).join(file_path2), "line5\nline6\n")?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
-    let branch2_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch2_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -1062,11 +1094,8 @@ fn unapply_branch() -> Result<()> {
     assert_eq!(branch.files.len(), 1);
     assert!(branch.active);
 
-    let real_branch = virtual_branches::convert_to_real_branch(
-        project_repository,
-        branch1_id,
-        Default::default(),
-    )?;
+    let branch_manager = project_repository.branch_manager();
+    let real_branch = branch_manager.convert_to_real_branch(branch1_id, Default::default())?;
 
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!("line1\nline2\nline3\nline4\n", String::from_utf8(contents)?);
@@ -1076,10 +1105,9 @@ fn unapply_branch() -> Result<()> {
     let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
     assert!(!branches.iter().any(|b| b.id == branch1_id));
 
-    let branch1_id = virtual_branches::create_virtual_branch_from_branch(
-        project_repository,
-        &Refname::try_from(&real_branch)?,
-    )?;
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id =
+        branch_manager.create_virtual_branch_from_branch(&Refname::from_str(&real_branch)?)?;
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!(
         "line1\nline2\nline3\nline4\nbranch1\n",
@@ -1120,10 +1148,13 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     let file_path3 = Path::new("test3.txt");
     std::fs::write(Path::new(&project.path).join(file_path3), "file3\n")?;
 
-    let branch2_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch2_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
-    let branch3_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch3_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -1146,38 +1177,27 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
 
     list_virtual_branches(project_repository).unwrap();
 
-    let real_branch_2 = virtual_branches::convert_to_real_branch(
-        project_repository,
-        branch2_id,
-        Default::default(),
-    )?;
+    let branch_manager = project_repository.branch_manager();
+    let real_branch_2 = branch_manager.convert_to_real_branch(branch2_id, Default::default())?;
 
     // check that file2 is back
     let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("file2\n", String::from_utf8(contents)?);
 
-    let real_branch_3 = virtual_branches::convert_to_real_branch(
-        project_repository,
-        branch3_id,
-        Default::default(),
-    )?;
+    let real_branch_3 = branch_manager.convert_to_real_branch(branch3_id, Default::default())?;
     // check that file3 is gone
     assert!(!Path::new(&project.path).join(file_path3).exists());
 
-    create_virtual_branch_from_branch(
-        project_repository,
-        &Refname::try_from(&real_branch_2).unwrap(),
-    )
-    .unwrap();
+    branch_manager
+        .create_virtual_branch_from_branch(&Refname::from_str(&real_branch_2).unwrap())
+        .unwrap();
 
     // check that file2 is gone
     assert!(!Path::new(&project.path).join(file_path2).exists());
 
-    create_virtual_branch_from_branch(
-        project_repository,
-        &Refname::try_from(&real_branch_3).unwrap(),
-    )
-    .unwrap();
+    branch_manager
+        .create_virtual_branch_from_branch(&Refname::from_str(&real_branch_3).unwrap())
+        .unwrap();
 
     // check that file3 is back
     let contents = std::fs::read(Path::new(&project.path).join(file_path3))?;
@@ -1213,10 +1233,13 @@ fn detect_mergeable_branch() -> Result<()> {
     let file_path4 = Path::new("test4.txt");
     std::fs::write(Path::new(&project.path).join(file_path4), "line5\nline6\n")?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
-    let branch2_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch2_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -1231,8 +1254,9 @@ fn detect_mergeable_branch() -> Result<()> {
     .expect("failed to update branch");
 
     // unapply both branches and create some conflicting ones
-    virtual_branches::convert_to_real_branch(project_repository, branch1_id, Default::default())?;
-    virtual_branches::convert_to_real_branch(project_repository, branch2_id, Default::default())?;
+    let branch_manager = project_repository.branch_manager();
+    branch_manager.convert_to_real_branch(branch1_id, Default::default())?;
+    branch_manager.convert_to_real_branch(branch2_id, Default::default())?;
 
     project_repository.repo().set_head("refs/heads/master")?;
     project_repository
@@ -1279,9 +1303,12 @@ fn detect_mergeable_branch() -> Result<()> {
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
 
     // create branches that conflict with our earlier branches
-    create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch");
-    let branch4_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch4_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -1379,13 +1406,17 @@ fn upstream_integrated_vbranch() -> Result<()> {
     integration::update_gitbutler_integration(&vb_state, project_repository)?;
 
     // create vbranches, one integrated, one not
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
-    let branch2_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch2_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
-    let branch3_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch3_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -1479,7 +1510,9 @@ fn commit_same_hunk_twice() -> Result<()> {
 
     set_test_target(project_repository)?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -1570,7 +1603,9 @@ fn commit_same_file_twice() -> Result<()> {
 
     set_test_target(project_repository)?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -1661,7 +1696,9 @@ fn commit_partial_by_hunk() -> Result<()> {
 
     set_test_target(project_repository)?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -1739,7 +1776,9 @@ fn commit_partial_by_file() -> Result<()> {
     let file_path3 = Path::new("test3.txt");
     std::fs::write(Path::new(&project.path).join(file_path3), "file3\n")?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -1797,7 +1836,9 @@ fn commit_add_and_delete_files() -> Result<()> {
     let file_path3 = Path::new("test3.txt");
     std::fs::write(Path::new(&project.path).join(file_path3), "file3\n")?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -1861,7 +1902,9 @@ fn commit_executable_and_symlinks() -> Result<()> {
     let new_permissions = Permissions::from_mode(permissions.mode() | 0o111); // Add execute permission
     std::fs::set_permissions(&exec, new_permissions)?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -2020,7 +2063,9 @@ fn pre_commit_hook_rejection() -> Result<()> {
 
     set_test_target(project_repository)?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -2058,7 +2103,9 @@ fn post_commit_hook() -> Result<()> {
 
     set_test_target(project_repository)?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 
@@ -2107,7 +2154,9 @@ fn commit_msg_hook_rejection() -> Result<()> {
 
     set_test_target(project_repository)?;
 
-    let branch1_id = create_virtual_branch(project_repository, &BranchCreateRequest::default())
+    let branch_manager = project_repository.branch_manager();
+    let branch1_id = branch_manager
+        .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch")
         .id;
 

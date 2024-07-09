@@ -5,46 +5,52 @@ members = [
     "crates/gitbutler-watcher",
     "crates/gitbutler-watcher/vendor/debouncer",
     "crates/gitbutler-testsupport",
-    "crates/gitbutler-cli", 
-    "crates/gitbutler-virtual", 
+    "crates/gitbutler-cli",
+    "crates/gitbutler-virtual",
     "crates/gitbutler-sync",
-    "crates/gitbutler-oplog", 
-    "crates/gitbutler-branchstate", 
+    "crates/gitbutler-oplog",
+    "crates/gitbutler-branchstate",
     "crates/gitbutler-repo",
-    "crates/gitbutler-command-context", 
-    "crates/gitbutler-feedback", 
+    "crates/gitbutler-command-context",
+    "crates/gitbutler-feedback",
     "crates/gitbutler-config",
     "crates/gitbutler-project",
-    "crates/gitbutler-user", 
+    "crates/gitbutler-user",
     "crates/gitbutler-branch",
     "crates/gitbutler-reference",
     "crates/gitbutler-error",
-    "crates/gitbutler-serde", 
-    "crates/gitbutler-secret", 
-    "crates/gitbutler-id", 
-    "crates/gitbutler-storage", 
+    "crates/gitbutler-serde",
+    "crates/gitbutler-secret",
+    "crates/gitbutler-id",
+    "crates/gitbutler-storage",
     "crates/gitbutler-fs",
-    "crates/gitbutler-time", 
-    "crates/gitbutler-commit", 
-    "crates/gitbutler-tagged-string", 
+    "crates/gitbutler-time",
+    "crates/gitbutler-commit",
+    "crates/gitbutler-tagged-string",
     "crates/gitbutler-url",
 ]
 resolver = "2"
 
 [workspace.dependencies]
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
-gix = { git = "https://github.com/Byron/gitoxide", rev = "55cbc1b9d6f210298a86502a7f20f9736c7e963e", default-features = false, features = [] }
-git2 = { version = "0.18.3", features = ["vendored-openssl", "vendored-libgit2"] }
+gix = { git = "https://github.com/Byron/gitoxide", rev = "55cbc1b9d6f210298a86502a7f20f9736c7e963e", default-features = false, features = [
+] }
+git2 = { version = "0.18.3", features = [
+    "vendored-openssl",
+    "vendored-libgit2",
+] }
 uuid = { version = "1.8.0", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0.61"
 tokio = { version = "1.38.0", default-features = false }
 keyring = "2.3.3"
+anyhow = "1.0.86"
 
+gitbutler-id = { path = "crates/gitbutler-id" }
 gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }
 gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
-gitbutler-cli ={ path = "crates/gitbutler-cli" }
+gitbutler-cli = { path = "crates/gitbutler-cli" }
 gitbutler-virtual = { path = "crates/gitbutler-virtual" }
 gitbutler-sync = { path = "crates/gitbutler-sync" }
 gitbutler-oplog = { path = "crates/gitbutler-oplog" }
@@ -60,7 +66,6 @@ gitbutler-reference = { path = "crates/gitbutler-reference" }
 gitbutler-error = { path = "crates/gitbutler-error" }
 gitbutler-serde = { path = "crates/gitbutler-serde" }
 gitbutler-secret = { path = "crates/gitbutler-secret" }
-gitbutler-id = { path = "crates/gitbutler-id" }
 gitbutler-storage = { path = "crates/gitbutler-storage" }
 gitbutler-fs = { path = "crates/gitbutler-fs" }
 gitbutler-time = { path = "crates/gitbutler-time" }

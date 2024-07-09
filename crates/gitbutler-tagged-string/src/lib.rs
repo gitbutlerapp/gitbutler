@@ -54,3 +54,7 @@ impl<T> fmt::Debug for TaggedString<T> {
         self.0.fmt(f)
     }
 }
+
+pub struct _ReferenceName;
+/// The name of a reference ie. `refs/heads/master`
+pub type ReferenceName = TaggedString<_ReferenceName>;
