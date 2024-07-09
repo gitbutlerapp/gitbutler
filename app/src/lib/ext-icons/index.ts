@@ -31,7 +31,7 @@ export function getFileIcon(fileName: string) {
 		splitName.shift();
 	}
 
-	if (iconName === '') iconName = 'file';
+	if (iconName === '') iconName = 'document';
 	const icon = fileIcons[iconName];
 	return `data:image/svg+xml;base64,${convertToBase64(icon)}`;
 }
