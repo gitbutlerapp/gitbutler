@@ -30,10 +30,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::author::Author;
 use crate::conflicts::{self, RepoConflicts};
+use crate::dedup::{dedup, dedup_fmt};
 use crate::integration::{get_integration_commiter, get_workspace_head};
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
 use gitbutler_branch::target;
-use gitbutler_core::dedup::{dedup, dedup_fmt};
 use gitbutler_core::git::{CommitExt, CommitHeadersV2, HasCommitHeaders};
 use gitbutler_core::time::now_since_unix_epoch_ms;
 use gitbutler_error::error::Code;
@@ -69,13 +69,13 @@ pub struct VirtualBranch {
     pub updated_at: u128,
     pub selected_for_changes: bool,
     pub allow_rebasing: bool,
-    #[serde(with = "gitbutler_core::serde::oid")]
+    #[serde(with = "gitbutler_serde::serde::oid")]
     pub head: git2::Oid,
     /// The merge base between the target branch and the virtual branch
-    #[serde(with = "gitbutler_core::serde::oid")]
+    #[serde(with = "gitbutler_serde::serde::oid")]
     pub merge_base: git2::Oid,
     /// The fork point between the target branch and the virtual branch
-    #[serde(with = "gitbutler_core::serde::oid_opt", default)]
+    #[serde(with = "gitbutler_serde::serde::oid_opt", default)]
     pub fork_point: Option<git2::Oid>,
 }
 
@@ -97,16 +97,16 @@ pub struct VirtualBranches {
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchCommit {
-    #[serde(with = "gitbutler_core::serde::oid")]
+    #[serde(with = "gitbutler_serde::serde::oid")]
     pub id: git2::Oid,
-    #[serde(serialize_with = "gitbutler_core::serde::as_string_lossy")]
+    #[serde(serialize_with = "gitbutler_serde::serde::as_string_lossy")]
     pub description: BString,
     pub created_at: u128,
     pub author: Author,
     pub is_remote: bool,
     pub files: Vec<VirtualBranchFile>,
     pub is_integrated: bool,
-    #[serde(with = "gitbutler_core::serde::oid_vec")]
+    #[serde(with = "gitbutler_serde::serde::oid_vec")]
     pub parent_ids: Vec<git2::Oid>,
     pub branch_id: BranchId,
     pub change_id: Option<String>,
@@ -146,7 +146,7 @@ pub struct VirtualBranchFile {
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchHunk {
     pub id: String,
-    #[serde(serialize_with = "gitbutler_core::serde::as_string_lossy")]
+    #[serde(serialize_with = "gitbutler_serde::serde::as_string_lossy")]
     pub diff: BString,
     pub modified_at: u128,
     pub file_path: PathBuf,

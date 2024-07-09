@@ -56,7 +56,7 @@
 //!
 //! ```rust
 //!# use anyhow::{Result, Context};
-//!# use gitbutler_core::error::Code;
+//!# use gitbutler_error::error::Code;
 //!
 //! fn do_io() -> std::io::Result<()> {
 //!     Err(std::io::Error::new(std::io::ErrorKind::Other, "this didn't work"))
@@ -82,7 +82,7 @@
 //!
 //! ```rust
 //!# use anyhow::{Result, Context};
-//!# use gitbutler_core::error;
+//!# use gitbutler_error::error;
 //!
 //! fn do_io() -> std::io::Result<()> {
 //!     Err(std::io::Error::new(std::io::ErrorKind::Other, "this didn't work"))

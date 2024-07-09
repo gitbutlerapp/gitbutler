@@ -17,10 +17,10 @@ use serde::Serialize;
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     /// The id of the commit that represents the snapshot
-    #[serde(rename = "id", with = "gitbutler_core::serde::oid")]
+    #[serde(rename = "id", with = "gitbutler_serde::serde::oid")]
     pub commit_id: git2::Oid,
     /// Snapshot creation time in seconds from Unix epoch seconds, based on a commit as `commit_id`.
-    #[serde(serialize_with = "gitbutler_core::serde::as_time_seconds_from_unix_epoch")]
+    #[serde(serialize_with = "gitbutler_serde::serde::as_time_seconds_from_unix_epoch")]
     pub created_at: git2::Time,
     /// The number of working directory lines added in the snapshot
     pub lines_added: usize,

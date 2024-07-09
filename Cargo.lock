@@ -2101,6 +2101,7 @@ dependencies = [
  "git2",
  "gitbutler-core",
  "gitbutler-reference",
+ "gitbutler-serde",
  "hex",
  "itertools 0.13.0",
  "lazy_static",
@@ -2274,6 +2275,7 @@ dependencies = [
  "gitbutler-core",
  "gitbutler-project",
  "gitbutler-repo",
+ "gitbutler-serde",
  "gix",
  "itertools 0.13.0",
  "pretty_assertions",
@@ -2293,6 +2295,7 @@ dependencies = [
  "git2",
  "gitbutler-core",
  "gitbutler-error",
+ "gitbutler-serde",
  "gitbutler-testsupport",
  "gix",
  "resolve-path",
@@ -2340,6 +2343,15 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "gitbutler-serde"
+version = "0.0.0"
+dependencies = [
+ "bstr",
+ "git2",
+ "serde",
 ]
 
 [[package]]
@@ -2464,6 +2476,7 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
+ "gitbutler-serde",
  "gitbutler-testsupport",
  "gitbutler-user",
  "glob",
