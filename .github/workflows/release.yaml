@@ -1,0 +1,16 @@
+name: Trigger Vercel Docs Build
+on:
+  release:
+    types: [published]
+
+jobs:
+  vercel:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Webhook
+        env:
+          VERCEL_HOOK_URL: ${{ secrets.VERCEL_HOOK_URL }}
+        run: |
+          curl -ks $VERCEL_HOOK_URL
+
