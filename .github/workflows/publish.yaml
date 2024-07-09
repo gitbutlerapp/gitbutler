@@ -81,17 +81,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.PAT_JUNON }} # custom token here so that we can push tags later
-      - uses: ./.github/actions/init-env-rust
-      - uses: ./.github/actions/init-env-node
+      - name: Init Rust Environment
+        uses: ./.github/actions/init-env-rust
+      - name: Init Node Environment
+        uses: ./.github/actions/init-env-node
 
-      - name: Use input params
+      - name: Consume input variables
         shell: bash
         if: ${{ !github.event.workflow_run }}
         run: |
           echo "channel=${{ github.event.inputs.channel || 'nightly' }}" >> $GITHUB_ENV
           echo "bump=${{ github.event.inputs.bump || 'patch' }}" >> $GITHUB_ENV
 
-      - name: Set env variable with version
+      - name: Calculate next version
         shell: bash
         run: |
           CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases/${{ env.channel }}" | jq -r '.version')"
@@ -99,17 +101,28 @@ jobs:
           echo "version=$NEXT_VERSION" >> $GITHUB_ENV
           mkdir -p release && echo "$NEXT_VERSION" > release/version
 
-      - name: import gpg key
+      - name: Import GPG key
         if: runner.os == 'Linux'
         uses: crazy-max/ghaction-import-gpg@v6
         with:
           gpg_private_key: ${{ secrets.APPIMAGE_PRIVATE_KEY }}
           passphrase: ${{ secrets.APPIMAGE_KEY_PASSPHRASE }}
 
-      - name: install linux dependencies
+      - name: Install linux dependencies
         shell: bash
         if: runner.os == 'Linux'
-        run: sudo apt-get update; sudo apt-get install -y libwebkit2gtk-4.0-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+        run: |
+          sudo apt update;
+          sudo apt install -y \
+            libwebkit2gtk-4.0-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev;
 
       - name: Build binary
         shell: bash
@@ -162,7 +175,7 @@ jobs:
         platform:
           - windows-latest # [windows, x64]
     steps:
-      - name: Clear out old artifacts
+      - name: Clean artifact directory
         shell: bash
         run: rm -rf release
       - name: Download unsigned artifacts
@@ -228,7 +241,7 @@ jobs:
           destination_dir: "releases/${{ needs.build-tauri.outputs.channel }}/${{ env.version }}-${{ github.run_number }}"
 
       # tell our server to update with the version number
-      - name: Tell our server to update
+      - name: Notify GitButler API of new release
         shell: bash
         run: |
           curl 'https://app.gitbutler.com/api/releases' \
@@ -238,7 +251,7 @@ jobs:
             --header 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}' \
             --data '{"channel":"${{ needs.build-tauri.outputs.channel }}","version":"${{ env.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}'
 
-      - name: Tag release
+      - name: Create git tag
         shell: bash
         env:
           TAG_NAME: "${{ needs.build-tauri.outputs.channel }}/${{ env.version }}"
