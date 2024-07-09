@@ -120,7 +120,7 @@ impl VirtualBranchesHandle {
     pub fn mark_as_not_in_workspace(&self, id: BranchId) -> Result<()> {
         let mut branch = self.get_branch(id)?;
         branch.in_workspace = false;
-        branch.old_applied = false;
+        branch.applied = false;
         self.set_branch(branch)?;
         Ok(())
     }

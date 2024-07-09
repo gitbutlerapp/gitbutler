@@ -125,7 +125,7 @@ impl<'l> BranchManager<'l> {
             order,
             selected_for_changes,
             allow_rebasing: self.project_repository.project().ok_with_force_push.into(),
-            old_applied: true,
+            applied: true,
             in_workspace: true,
             not_in_workspace_wip_change_id: None,
             source_refname: None,
@@ -243,7 +243,7 @@ impl<'l> BranchManager<'l> {
             branch.order = order;
             branch.selected_for_changes = selected_for_changes;
             branch.allow_rebasing = self.project_repository.project().ok_with_force_push.into();
-            branch.old_applied = true;
+            branch.applied = true;
             branch.in_workspace = true;
 
             branch
@@ -263,7 +263,7 @@ impl<'l> BranchManager<'l> {
                 order,
                 selected_for_changes,
                 allow_rebasing: self.project_repository.project().ok_with_force_push.into(),
-                old_applied: true,
+                applied: true,
                 in_workspace: true,
                 not_in_workspace_wip_change_id: None,
             }
@@ -674,7 +674,10 @@ impl<'l> BranchManager<'l> {
 
         let virtual_branches = vb_state
             .list_branches_in_workspace()
-            .context("failed to read virtual branches")?;
+            .context("failed to read virtual branches")?
+            .into_iter()
+            .filter(|branch| !branch.is_old_unapplied()) // We don't want branches that are unapplied under the old metric to be passed to get_applied_status
+            .collect();
 
         let (applied_statuses, _) = get_applied_status(
             self.project_repository,
