@@ -15,7 +15,7 @@ pub mod commands {
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
-    use crate::watcher;
+    use crate::window;
 
     #[tauri::command(async)]
     #[instrument(skip(handle), err(Debug))]
@@ -511,7 +511,7 @@ pub mod commands {
 
     async fn emit_vbranches(handle: &AppHandle, project_id: projects::ProjectId) {
         if let Err(error) = handle
-            .state::<watcher::Watchers>()
+            .state::<window::WindowState>()
             .post(gitbutler_watcher::Action::CalculateVirtualBranches(
                 project_id,
             ))

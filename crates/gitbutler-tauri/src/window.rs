@@ -64,14 +64,36 @@ mod event {
 }
 use event::ChangeForFrontend;
 
+/// The name of the lock file to signal exclusive access to other windows.
+const WINDOW_LOCK_FILE: &str = "window.lock";
+
+struct State {
+    /// The id of the project displayed by the window.
+    project_id: ProjectId,
+    /// The watcher of the currently active project.
+    watcher: gitbutler_watcher::WatcherHandle,
+    /// An active lock to signal that the entire project is locked for the Window this state belongs to.
+    exclusive_access: fslock::LockFile,
+}
+
+impl Drop for State {
+    fn drop(&mut self) {
+        // We only do this to display an error if it fails - `LockFile` also implements `Drop`.
+        if let Err(err) = self.exclusive_access.unlock() {
+            tracing::error!(err = ?err, "Failed to release the project-wide lock");
+        }
+    }
+}
+
+/// State associated to windows
 /// Note that this type is managed in Tauri and thus needs to be send and sync.
 #[derive(Clone)]
-pub struct Watchers {
+pub struct WindowState {
     /// NOTE: This handle is required for this type to be self-contained as it's used by `core` through a trait.
     app_handle: AppHandle,
-    /// The watcher of the currently active project.
+    /// The state for the main window.
     /// NOTE: This is a `tokio` mutex as this needs to lock the inner option from within async.
-    watcher: Arc<tokio::sync::Mutex<Option<gitbutler_watcher::WatcherHandle>>>,
+    state: Arc<tokio::sync::Mutex<Option<State>>>,
 }
 
 fn handler_from_app(app: &AppHandle) -> anyhow::Result<gitbutler_watcher::Handler> {
@@ -90,68 +112,82 @@ fn handler_from_app(app: &AppHandle) -> anyhow::Result<gitbutler_watcher::Handle
     ))
 }
 
-impl Watchers {
+impl WindowState {
     pub fn new(app_handle: AppHandle) -> Self {
         Self {
             app_handle,
-            watcher: Default::default(),
+            state: Default::default(),
         }
     }
 
+    /// Watch the project and assure no other instance can access it.
     #[instrument(skip(self, project), err(Debug))]
     pub fn watch(&self, project: &projects::Project) -> Result<()> {
+        let mut lock_file =
+            fslock::LockFile::open(project.gb_dir().join(WINDOW_LOCK_FILE).as_os_str())?;
+        lock_file
+            .lock()
+            .context("Another GitButler Window already has the project opened")?;
+
         let handler = handler_from_app(&self.app_handle)?;
-
-        let project_path = project.path.clone();
-
-        let handle = gitbutler_watcher::watch_in_background(handler, project_path, project.id)?;
-        block_on(self.watcher.lock()).replace(handle);
+        let worktree_dir = project.path.clone();
+        let project_id = project.id;
+        let watcher = gitbutler_watcher::watch_in_background(handler, worktree_dir, project_id)?;
+        block_on(self.state.lock()).replace(State {
+            project_id,
+            watcher,
+            exclusive_access: lock_file,
+        });
         Ok(())
     }
 
     pub async fn post(&self, action: gitbutler_watcher::Action) -> Result<()> {
-        let watcher = self.watcher.lock().await;
-        if let Some(handle) = watcher
+        let state = self.state.lock().await;
+        if let Some(state) = state
             .as_ref()
-            .filter(|watcher| watcher.project_id() == action.project_id())
+            .filter(|state| state.project_id == action.project_id())
         {
-            handle.post(action).await.context("failed to post event")
+            state
+                .watcher
+                .post(action)
+                .await
+                .context("failed to post event")
         } else {
             Err(anyhow::anyhow!(
                 "matching watcher to post event not found, wanted {wanted}, got {actual:?}",
                 wanted = action.project_id(),
-                actual = watcher.as_ref().map(|w| w.project_id())
+                actual = state.as_ref().map(|s| s.project_id)
             ))
         }
     }
 
     pub async fn flush(&self) -> Result<()> {
-        let watcher = self.watcher.lock().await;
-        if let Some(handle) = watcher.as_ref() {
-            handle.flush()?;
+        let state = self.state.lock().await;
+        if let Some(state) = state.as_ref() {
+            state.watcher.flush()?;
         }
 
         Ok(())
     }
 
     pub async fn stop(&self, project_id: ProjectId) {
-        let mut handle = self.watcher.lock().await;
-        if handle
+        let mut state = self.state.lock().await;
+        if state
             .as_ref()
-            .map_or(false, |handle| handle.project_id() == project_id)
+            .map_or(false, |state| state.project_id == project_id)
         {
-            handle.take();
+            state.take();
         }
     }
 }
 
 #[async_trait::async_trait]
-impl projects::Watchers for Watchers {
+impl projects::Watchers for WindowState {
     fn watch(&self, project: &Project) -> Result<()> {
-        Watchers::watch(self, project)
+        WindowState::watch(self, project)
     }
 
     async fn stop(&self, id: ProjectId) {
-        Watchers::stop(self, id).await
+        WindowState::stop(self, id).await
     }
 }

@@ -17,7 +17,7 @@ use gitbutler_repo::credentials::Helper;
 use gitbutler_storage::storage;
 use gitbutler_tauri::{
     app, askpass, commands, config, github, logs, menu, projects, remotes, repo, secret, undo,
-    users, virtual_branches, watcher, zip,
+    users, virtual_branches, zip, WindowState,
 };
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
@@ -101,8 +101,8 @@ fn main() {
                     let storage_controller = storage::Storage::new(&app_data_dir);
                     app_handle.manage(storage_controller.clone());
 
-                    let watcher_controller = watcher::Watchers::new(app_handle.clone());
-                    app_handle.manage(watcher_controller.clone());
+                    let windows = WindowState::new(app_handle.clone());
+                    app_handle.manage(windows.clone());
 
                     let projects_storage_controller = gitbutler_project::storage::Storage::new(storage_controller.clone());
                     app_handle.manage(projects_storage_controller.clone());
@@ -116,7 +116,7 @@ fn main() {
                     let projects_controller = gitbutler_project::Controller::new(
                         app_data_dir.clone(),
                         projects_storage_controller.clone(),
-                        Some(watcher_controller.clone())
+                        Some(windows.clone())
                     );
                     app_handle.manage(projects_controller.clone());
 
@@ -217,7 +217,7 @@ fn main() {
                         if *focused {
                             tokio::task::spawn(async move {
                                 let _ = event.window().app_handle()
-                                    .state::<watcher::Watchers>()
+                                    .state::<WindowState>()
                                     .flush().await;
                             });
                         }

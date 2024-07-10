@@ -27,6 +27,7 @@ async-trait = "0.1.80"
 backtrace = { version = "0.3.72", optional = true }
 console-subscriber = "0.2.0"
 dirs = "5.0.1"
+fslock = "0.2.1"
 futures = "0.3"
 git2.workspace = true
 once_cell = "1.19"

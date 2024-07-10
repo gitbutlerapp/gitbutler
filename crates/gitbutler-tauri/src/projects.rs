@@ -8,7 +8,7 @@ pub mod commands {
     use tracing::instrument;
 
     use crate::error::Error;
-    use crate::watcher::Watchers;
+    use crate::window::WindowState;
 
     #[tauri::command(async)]
     #[instrument(skip(controller), err(Debug))]
@@ -52,7 +52,7 @@ pub mod commands {
     #[instrument(skip(controller, watchers), err(Debug))]
     pub async fn set_project_active(
         controller: State<'_, Controller>,
-        watchers: State<'_, Watchers>,
+        watchers: State<'_, WindowState>,
         id: ProjectId,
     ) -> Result<(), Error> {
         let project = controller.get(id).context("project not found")?;
