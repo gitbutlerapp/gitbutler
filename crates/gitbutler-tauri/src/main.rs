@@ -40,21 +40,10 @@ fn main() {
                 .target(LogTarget::LogDir)
                 .level(log::LevelFilter::Error);
 
-            let builder = tauri::Builder::default();
-
-            #[cfg(target_os = "macos")]
-            let builder = builder
-                .on_window_event(|event| {
-                    if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
-                        hide_window(&event.window().app_handle()).expect("Failed to hide window");
-                        api.prevent_close();
-                    }
-                });
-
-            builder
+            tauri::Builder::default()
                 .setup(move |tauri_app| {
                     let window =
-                        create_window(&tauri_app.handle()).expect("Failed to create window");
+                        gitbutler_tauri::window::create(&tauri_app.handle(), "main", "index.html".into()).expect("Failed to create window");
                     #[cfg(debug_assertions)]
                     window.open_devtools();
 
@@ -162,6 +151,7 @@ fn main() {
                     projects::commands::delete_project,
                     projects::commands::list_projects,
                     projects::commands::set_project_active,
+                    projects::commands::open_project_in_window,
                     repo::commands::git_get_local_config,
                     repo::commands::git_set_local_config,
                     repo::commands::check_signing_settings,
@@ -213,6 +203,14 @@ fn main() {
                 .on_window_event(|event| {
                     let window = event.window();
                     match event.event() {
+                        #[cfg(target_os = "macos")]
+                        tauri::WindowEvent::CloseRequested { api, .. } => {
+                            if window.app_handle().windows().len() == 1 {
+                                tracing::debug!("Hiding all application windows and preventing exit");
+                                window.app_handle().hide().ok();
+                                api.prevent_close();
+                            }
+                        }
                         tauri::WindowEvent::Destroyed  => {
                             window.app_handle()
                                 .state::<WindowState>()
@@ -231,7 +229,8 @@ fn main() {
                 .run(|app_handle, event| {
                     #[cfg(target_os = "macos")]
                     if let tauri::RunEvent::ExitRequested { api, .. } = event {
-                        hide_window(app_handle).expect("Failed to hide window");
+                        tracing::debug!("Hiding all windows and preventing exit");
+                        app_handle.hide().ok();
                         api.prevent_exit();
                     }
 
@@ -242,41 +241,4 @@ fn main() {
                     }
                 });
         });
-}
-
-#[cfg(not(target_os = "macos"))]
-fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
-    let app_title = handle.package_info().name.clone();
-    let window =
-        tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
-            .resizable(true)
-            .title(app_title)
-            .disable_file_drop_handler()
-            .min_inner_size(800.0, 600.0)
-            .inner_size(1160.0, 720.0)
-            .build()?;
-    tracing::info!("app window created");
-    Ok(window)
-}
-
-#[cfg(target_os = "macos")]
-fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
-    let window =
-        tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
-            .resizable(true)
-            .title(handle.package_info().name.clone())
-            .min_inner_size(800.0, 600.0)
-            .inner_size(1160.0, 720.0)
-            .hidden_title(true)
-            .disable_file_drop_handler()
-            .title_bar_style(tauri::TitleBarStyle::Overlay)
-            .build()?;
-    tracing::info!("window created");
-    Ok(window)
-}
-
-#[cfg(target_os = "macos")]
-fn hide_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
-    handle.hide()?;
-    Ok(())
 }

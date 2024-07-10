@@ -13,7 +13,7 @@
 		label: string;
 		selected?: boolean;
 		icon?: string;
-		onclick: () => void;
+		onclick: (event?: any) => void;
 	}
 
 	interface ProjectsPopupProps {
@@ -110,8 +110,12 @@
 								label: project.title,
 								selected,
 								icon: selected ? 'tick' : undefined,
-								onclick: () => {
-									goto(`/${project.id}/`);
+								onclick: async (event: any) => {
+									if (event.altKey) {
+										await projectService.openProjectInNewWindow(project.id);
+									} else {
+										goto(`/${project.id}/`);
+									}
 									hide();
 								}
 							})}

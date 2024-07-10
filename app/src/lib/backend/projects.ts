@@ -99,6 +99,10 @@ export class ProjectService {
 		}
 	}
 
+	async openProjectInNewWindow(projectId: string) {
+		await invoke('open_project_in_window', { id: projectId });
+	}
+
 	async addProject() {
 		const path = await this.promptForDirectory();
 		if (!path) return;

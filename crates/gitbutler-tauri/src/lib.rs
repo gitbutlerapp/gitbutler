@@ -18,8 +18,8 @@ pub mod commands;
 
 pub mod logs;
 pub mod menu;
-mod window;
-pub use window::WindowState;
+pub mod window;
+pub use window::state::WindowState;
 
 pub mod askpass;
 pub mod config;

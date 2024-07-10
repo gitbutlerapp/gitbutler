@@ -8,7 +8,7 @@ pub mod commands {
     use tracing::instrument;
 
     use crate::error::Error;
-    use crate::window::WindowState;
+    use crate::{window, WindowState};
 
     #[tauri::command(async)]
     #[instrument(skip(controller), err(Debug))]
@@ -49,15 +49,34 @@ pub mod commands {
     ///
     /// We use it to start watching for filesystem events.
     #[tauri::command(async)]
-    #[instrument(skip(controller, watchers, window), err(Debug))]
+    #[instrument(skip(controller, window_state, window), err(Debug))]
     pub async fn set_project_active(
         controller: State<'_, Controller>,
-        watchers: State<'_, WindowState>,
+        window_state: State<'_, WindowState>,
         window: Window,
         id: ProjectId,
     ) -> Result<(), Error> {
         let project = controller.get(id).context("project not found")?;
-        Ok(watchers.set_project_to_window(window.label(), &project)?)
+        Ok(window_state.set_project_to_window(window.label(), &project)?)
+    }
+
+    /// Open the project with the given ID in a new Window, or focus an existing one.
+    ///
+    /// Note that this command is blocking the main thread just to prevent the chance for races
+    /// without haveing to lock explicitly.
+    #[tauri::command]
+    #[instrument(skip(handle), err(Debug))]
+    pub async fn open_project_in_window(
+        handle: tauri::AppHandle,
+        id: ProjectId,
+    ) -> Result<(), Error> {
+        let label = std::time::UNIX_EPOCH
+            .elapsed()
+            .or_else(|_| std::time::UNIX_EPOCH.duration_since(std::time::SystemTime::now()))
+            .map(|d| d.as_millis().to_string())
+            .context("didn't manage to get any time-based unique ID")?;
+        window::create(&handle, &label, format!("{id}/board")).map_err(anyhow::Error::from)?;
+        Ok(())
     }
 
     #[tauri::command(async)]
