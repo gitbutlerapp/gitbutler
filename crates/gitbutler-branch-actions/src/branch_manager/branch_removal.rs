@@ -132,20 +132,7 @@ impl BranchRemoval for BranchManager<'_> {
     }
 }
 
-trait PrivateBranchRemoval {
-    fn build_metadata_commit(
-        &self,
-        vbranch: &mut branch::Branch,
-        branch: &git2::Branch<'_>,
-    ) -> Result<git2::Oid>;
-    fn build_real_branch(
-        &self,
-        vbranch: &mut branch::Branch,
-        name_conflict_resolution: NameConflitResolution,
-    ) -> Result<git2::Branch<'_>>;
-}
-
-impl PrivateBranchRemoval for BranchManager<'_> {
+impl BranchManager<'_> {
     fn build_real_branch(
         &self,
         vbranch: &mut branch::Branch,
