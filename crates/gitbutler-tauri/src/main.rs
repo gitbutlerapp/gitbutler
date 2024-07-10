@@ -211,14 +211,19 @@ fn main() {
                 .menu(menu::build(tauri_context.package_info()))
                 .on_menu_event(|event|menu::handle_event(&event))
                 .on_window_event(|event| {
-                    if let tauri::WindowEvent::Focused(focused) = event.event() {
-                        if *focused {
-                            tokio::task::spawn(async move {
-                                let _ = event.window().app_handle()
-                                    .state::<WindowState>()
-                                    .flush().await;
-                            });
+                    let window = event.window();
+                    match event.event() {
+                        tauri::WindowEvent::Destroyed  => {
+                            window.app_handle()
+                                .state::<WindowState>()
+                                .remove(window.label());
                         }
+                        tauri::WindowEvent::Focused(focused) if *focused => {
+                            window.app_handle()
+                                .state::<WindowState>()
+                                .flush(window.label()).ok();
+                        },
+                        _ => {}
                     }
                 })
                 .build(tauri_context)

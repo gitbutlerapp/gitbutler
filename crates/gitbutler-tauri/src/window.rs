@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
@@ -14,7 +15,7 @@ mod event {
     use gitbutler_watcher::Change;
     use tauri::Manager;
 
-    /// An change we want to inform the frontend about.
+    /// A change we want to inform the frontend about.
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub(super) struct ChangeForFrontend {
         name: String,
@@ -85,18 +86,21 @@ impl Drop for State {
     }
 }
 
+type WindowLabel = String;
+type WindowLabelRef = str;
+
 /// State associated to windows
-/// Note that this type is managed in Tauri and thus needs to be send and sync.
+/// Note that this type is managed in Tauri and thus needs to be `Send` and `Sync`.
 #[derive(Clone)]
 pub struct WindowState {
     /// NOTE: This handle is required for this type to be self-contained as it's used by `core` through a trait.
     app_handle: AppHandle,
-    /// The state for the main window.
+    /// The state for every open application window.
     /// NOTE: This is a `tokio` mutex as this needs to lock the inner option from within async.
-    state: Arc<tokio::sync::Mutex<Option<State>>>,
+    state: Arc<tokio::sync::Mutex<BTreeMap<WindowLabel, State>>>,
 }
 
-fn handler_from_app(app: &AppHandle) -> anyhow::Result<gitbutler_watcher::Handler> {
+fn handler_from_app(app: &AppHandle) -> Result<gitbutler_watcher::Handler> {
     let projects = app.state::<projects::Controller>().inner().clone();
     let users = app.state::<users::Controller>().inner().clone();
     let vbranches = gitbutler_branch_actions::VirtualBranchActions::default();
@@ -120,9 +124,16 @@ impl WindowState {
         }
     }
 
-    /// Watch the project and assure no other instance can access it.
+    /// Watch the `project`, assure no other instance can access it, and associate it with the window
+    /// uniquely identified by `window`.
+    ///
+    /// Previous state will be removed and its resources cleaned up.
     #[instrument(skip(self, project), err(Debug))]
-    pub fn set_project_to_window(&self, project: &projects::Project) -> Result<()> {
+    pub fn set_project_to_window(
+        &self,
+        window: &WindowLabelRef,
+        project: &projects::Project,
+    ) -> Result<()> {
         let mut lock_file =
             fslock::LockFile::open(project.gb_dir().join(WINDOW_LOCK_FILE).as_os_str())?;
         lock_file
@@ -133,20 +144,25 @@ impl WindowState {
         let worktree_dir = project.path.clone();
         let project_id = project.id;
         let watcher = gitbutler_watcher::watch_in_background(handler, worktree_dir, project_id)?;
-        block_on(self.state.lock()).replace(State {
-            project_id,
-            watcher,
-            exclusive_access: lock_file,
-        });
+        let mut state_by_label = block_on(self.state.lock());
+        state_by_label.insert(
+            window.to_owned(),
+            State {
+                project_id,
+                watcher,
+                exclusive_access: lock_file,
+            },
+        );
+        tracing::debug!("Maintaining {} Windows", state_by_label.len());
         Ok(())
     }
 
     pub async fn post(&self, action: gitbutler_watcher::Action) -> Result<()> {
-        let state = self.state.lock().await;
-        if let Some(state) = state
-            .as_ref()
-            .filter(|state| state.project_id == action.project_id())
-        {
+        let mut state_by_label = self.state.lock().await;
+        let state = state_by_label
+            .values_mut()
+            .find(|state| state.project_id == action.project_id());
+        if let Some(state) = state {
             state
                 .watcher
                 .post(action)
@@ -154,19 +170,26 @@ impl WindowState {
                 .context("failed to post event")
         } else {
             Err(anyhow::anyhow!(
-                "matching watcher to post event not found, wanted {wanted}, got {actual:?}",
+                "matching watcher to post event not found, wanted {wanted}",
                 wanted = action.project_id(),
-                actual = state.as_ref().map(|s| s.project_id)
             ))
         }
     }
 
-    pub async fn flush(&self) -> Result<()> {
-        let state = self.state.lock().await;
-        if let Some(state) = state.as_ref() {
+    /// Flush file-monitor watcher events once the windows regains focus for it to respond instantly
+    /// instead of according to the tick-rate.
+    pub fn flush(&self, window: &WindowLabelRef) -> Result<()> {
+        let state_by_label = block_on(self.state.lock());
+        if let Some(state) = state_by_label.get(window) {
             state.watcher.flush()?;
         }
 
         Ok(())
+    }
+
+    /// Remove the state associated with `window`, typically upon its destruction.
+    pub fn remove(&self, window: &WindowLabelRef) {
+        let mut state_by_label = block_on(self.state.lock());
+        state_by_label.remove(window);
     }
 }

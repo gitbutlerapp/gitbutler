@@ -4,7 +4,7 @@ pub mod commands {
 
     use gitbutler_project::ProjectId;
     use gitbutler_project::{self as projects, Controller};
-    use tauri::State;
+    use tauri::{State, Window};
     use tracing::instrument;
 
     use crate::error::Error;
@@ -49,14 +49,15 @@ pub mod commands {
     ///
     /// We use it to start watching for filesystem events.
     #[tauri::command(async)]
-    #[instrument(skip(controller, watchers), err(Debug))]
+    #[instrument(skip(controller, watchers, window), err(Debug))]
     pub async fn set_project_active(
         controller: State<'_, Controller>,
         watchers: State<'_, WindowState>,
+        window: Window,
         id: ProjectId,
     ) -> Result<(), Error> {
         let project = controller.get(id).context("project not found")?;
-        Ok(watchers.set_project_to_window(&project)?)
+        Ok(watchers.set_project_to_window(window.label(), &project)?)
     }
 
     #[tauri::command(async)]
