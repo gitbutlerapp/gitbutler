@@ -32,9 +32,9 @@ use crate::files::RemoteBranchFile;
 use gitbutler_branch::target;
 
 #[derive(Clone, Default)]
-pub struct Controller {}
+pub struct VirtualBranchActions {}
 
-impl Controller {
+impl VirtualBranchActions {
     pub async fn create_commit(
         &self,
         project: &Project,

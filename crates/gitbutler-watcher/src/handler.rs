@@ -30,7 +30,7 @@ pub struct Handler {
     // need extra protection.
     projects: projects::Controller,
     users: users::Controller,
-    vbranch_controller: gitbutler_virtual::Controller,
+    vbranch_controller: gitbutler_virtual::VirtualBranchActions,
 
     /// A function to send events - decoupled from app-handle for testing purposes.
     #[allow(clippy::type_complexity)]
@@ -43,7 +43,7 @@ impl Handler {
     pub fn new(
         projects: projects::Controller,
         users: users::Controller,
-        vbranch_controller: gitbutler_virtual::Controller,
+        vbranch_controller: gitbutler_virtual::VirtualBranchActions,
         send_event: impl Fn(Change) -> Result<()> + Send + Sync + 'static,
     ) -> Self {
         Handler {
