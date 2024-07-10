@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PAT_JUNON }} # custom token here so that we can push tags later
+          token: ${{ secrets.PAT_JUNON }}
       - name: Consume input variables
         shell: bash
         if: ${{ !github.event.workflow_run }}
