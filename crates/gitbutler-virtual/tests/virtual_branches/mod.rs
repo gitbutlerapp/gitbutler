@@ -40,7 +40,7 @@ impl Default for Test {
         Self {
             repository: test_project,
             project_id: project.id,
-            controller: Controller::default(),
+            controller: Controller {},
             projects,
             project,
             data_dir: Some(data_dir),

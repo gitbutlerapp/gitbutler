@@ -28,8 +28,7 @@ pub mod commands {
         run_hooks: bool,
     ) -> Result<String, Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
-        let oid = handle
-            .state::<Controller>()
+        let oid = Controller::default()
             .create_commit(&project, branch, message, ownership.as_ref(), run_hooks)
             .await?;
         emit_vbranches(&handle, project_id).await;
@@ -43,8 +42,7 @@ pub mod commands {
         project_id: ProjectId,
     ) -> Result<VirtualBranches, Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
-        let (branches, skipped_files) = handle
-            .state::<Controller>()
+        let (branches, skipped_files) = Controller::default()
             .list_virtual_branches(&project)
             .await?;
 
@@ -62,8 +60,7 @@ pub mod commands {
         branch: BranchCreateRequest,
     ) -> Result<BranchId, Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
-        let branch_id = handle
-            .state::<Controller>()
+        let branch_id = Controller::default()
             .create_virtual_branch(&project, &branch)
             .await?;
         emit_vbranches(&handle, project_id).await;
@@ -78,8 +75,7 @@ pub mod commands {
         branch: Refname,
     ) -> Result<BranchId, Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
-        let branch_id = handle
-            .state::<Controller>()
+        let branch_id = Controller::default()
             .create_virtual_branch_from_branch(&project, &branch)
             .await?;
         emit_vbranches(&handle, project_id).await;
@@ -94,8 +90,7 @@ pub mod commands {
         branch: BranchId,
     ) -> Result<(), Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
-        handle
-            .state::<Controller>()
+        Controller::default()
             .integrate_upstream_commits(&project, branch)
             .await?;
         emit_vbranches(&handle, project_id).await;
@@ -109,11 +104,7 @@ pub mod commands {
         project_id: ProjectId,
     ) -> Result<Option<BaseBranch>, Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
-        if let Ok(base_branch) = handle
-            .state::<Controller>()
-            .get_base_branch_data(&project)
-            .await
-        {
+        if let Ok(base_branch) = Controller::default().get_base_branch_data(&project).await {
             Ok(Some(base_branch))
         } else {
             Ok(None)
@@ -132,8 +123,7 @@ pub mod commands {
         let branch_name = format!("refs/remotes/{}", branch)
             .parse()
             .context("Invalid branch name")?;
-        let base_branch = handle
-            .state::<Controller>()
+        let base_branch = Controller::default()
             .set_base_branch(&project, &branch_name)
             .await?;
 
@@ -155,10 +145,7 @@ pub mod commands {
         project_id: ProjectId,
     ) -> Result<Vec<ReferenceName>, Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
-        let unapplied_branches = handle
-            .state::<Controller>()
-            .update_base_branch(&project)
-            .await?;
+        let unapplied_branches = Controller::default().update_base_branch(&project).await?;
         emit_vbranches(&handle, project_id).await;
         Ok(unapplied_branches)
     }
@@ -171,8 +158,7 @@ pub mod commands {
         branch: BranchUpdateRequest,
     ) -> Result<(), Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
-        handle
-            .state::<Controller>()
+        Controller::default()
             .update_virtual_branch(&project, branch)
             .await?;
 
@@ -188,8 +174,7 @@ pub mod commands {
         branch_id: BranchId,
     ) -> Result<(), Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
-        handle
-            .state::<Controller>()
+        Controller::default()
             .delete_virtual_branch(&project, branch_id)
             .await?;
         emit_vbranches(&handle, project_id).await;
@@ -205,8 +190,7 @@ pub mod commands {
         name_conflict_resolution: NameConflitResolution,
     ) -> Result<(), Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
-        handle
-            .state::<Controller>()
+        Controller::default()
             .convert_to_real_branch(&project, branch, name_conflict_resolution)
             .await?;
         emit_vbranches(&handle, project_id).await;
@@ -221,8 +205,7 @@ pub mod commands {
         ownership: BranchOwnershipClaims,
     ) -> Result<(), Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
-        handle
-            .state::<Controller>()
+        Controller::default()
             .unapply_ownership(&project, &ownership)
             .await?;
         emit_vbranches(&handle, project_id).await;
@@ -242,10 +225,7 @@ pub mod commands {
             .split('\n')
             .map(std::string::ToString::to_string)
             .collect::<Vec<String>>();
-        handle
-            .state::<Controller>()
-            .reset_files(&project, &files)
-            .await?;
+        Controller::default().reset_files(&project, &files).await?;
         emit_vbranches(&handle, project_id).await;
         Ok(())
     }
@@ -259,8 +239,7 @@ pub mod commands {
         with_force: bool,
     ) -> Result<(), Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
-        handle
-            .state::<Controller>()
+        Controller::default()
             .push_virtual_branch(&project, branch_id, with_force, Some(Some(branch_id)))
             .await
             .map_err(|err| err.context(Code::Unknown))?;
@@ -276,8 +255,7 @@ pub mod commands {
         branch: RemoteRefname,
     ) -> Result<bool, Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
-        Ok(handle
-            .state::<Controller>()
+        Ok(Controller::default()
             .can_apply_remote_branch(&project, &branch)
             .await?)
     }
@@ -291,8 +269,7 @@ pub mod commands {
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        handle
-            .state::<Controller>()
+        Controller::default()
             .list_remote_commit_files(&project, commit_oid)
             .await
             .map_err(Into::into)
@@ -308,8 +285,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
         let target_commit_oid = git2::Oid::from_str(&target_commit_oid).map_err(|e| anyhow!(e))?;
-        handle
-            .state::<Controller>()
+        Controller::default()
             .reset_virtual_branch(&project, branch_id, target_commit_oid)
             .await?;
         emit_vbranches(&handle, project_id).await;
@@ -327,8 +303,7 @@ pub mod commands {
     ) -> Result<String, Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        let oid = handle
-            .state::<Controller>()
+        let oid = Controller::default()
             .amend(&project, branch_id, commit_oid, &ownership)
             .await?;
         emit_vbranches(&handle, project_id).await;
@@ -348,8 +323,7 @@ pub mod commands {
         let project = handle.state::<projects::Controller>().get(project_id)?;
         let from_commit_oid = git2::Oid::from_str(&from_commit_oid).map_err(|e| anyhow!(e))?;
         let to_commit_oid = git2::Oid::from_str(&to_commit_oid).map_err(|e| anyhow!(e))?;
-        let oid = handle
-            .state::<Controller>()
+        let oid = Controller::default()
             .move_commit_file(
                 &project,
                 branch_id,
@@ -372,8 +346,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        handle
-            .state::<Controller>()
+        Controller::default()
             .undo_commit(&project, branch_id, commit_oid)
             .await?;
         emit_vbranches(&handle, project_id).await;
@@ -391,8 +364,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        handle
-            .state::<Controller>()
+        Controller::default()
             .insert_blank_commit(&project, branch_id, commit_oid, offset)
             .await?;
         emit_vbranches(&handle, project_id).await;
@@ -410,8 +382,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        handle
-            .state::<Controller>()
+        Controller::default()
             .reorder_commit(&project, branch_id, commit_oid, offset)
             .await?;
         emit_vbranches(&handle, project_id).await;
@@ -425,10 +396,7 @@ pub mod commands {
         project_id: ProjectId,
     ) -> Result<Vec<RemoteBranch>, Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
-        let branches = handle
-            .state::<Controller>()
-            .list_remote_branches(project)
-            .await?;
+        let branches = Controller::default().list_remote_branches(project).await?;
         Ok(branches)
     }
 
@@ -440,8 +408,7 @@ pub mod commands {
         refname: Refname,
     ) -> Result<RemoteBranchData, Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
-        let branch_data = handle
-            .state::<Controller>()
+        let branch_data = Controller::default()
             .get_remote_branch_data(&project, &refname)
             .await?;
         Ok(branch_data)
@@ -457,8 +424,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
         let target_commit_oid = git2::Oid::from_str(&target_commit_oid).map_err(|e| anyhow!(e))?;
-        handle
-            .state::<Controller>()
+        Controller::default()
             .squash(&project, branch_id, target_commit_oid)
             .await?;
         emit_vbranches(&handle, project_id).await;
@@ -475,8 +441,7 @@ pub mod commands {
         let projects = handle.state::<projects::Controller>();
         let project = projects.get(project_id)?;
 
-        let project_data_last_fetched = handle
-            .state::<Controller>()
+        let project_data_last_fetched = Controller::default()
             .fetch_from_remotes(
                 &project,
                 Some(action.unwrap_or_else(|| "unknown".to_string())),
@@ -495,10 +460,7 @@ pub mod commands {
             .await
             .context("failed to update project with last fetched timestamp")?;
 
-        let base_branch = handle
-            .state::<Controller>()
-            .get_base_branch_data(&project)
-            .await?;
+        let base_branch = Controller::default().get_base_branch_data(&project).await?;
         Ok(base_branch)
     }
 
@@ -512,8 +474,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        handle
-            .state::<Controller>()
+        Controller::default()
             .move_commit(&project, target_branch_id, commit_oid)
             .await?;
         emit_vbranches(&handle, project_id).await;
@@ -531,8 +492,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = handle.state::<projects::Controller>().get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        handle
-            .state::<Controller>()
+        Controller::default()
             .update_commit_message(&project, branch_id, commit_oid, message)
             .await?;
         emit_vbranches(&handle, project_id).await;
