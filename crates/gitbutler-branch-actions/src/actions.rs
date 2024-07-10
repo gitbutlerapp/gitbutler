@@ -12,9 +12,9 @@ use gitbutler_oplog::{
     snapshot::Snapshot,
 };
 use gitbutler_project::{FetchResult, Project};
+use gitbutler_reference::ReferenceName;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{credentials::Helper, RepoActions, RepositoryExt};
-use gitbutler_tagged_string::ReferenceName;
 use std::path::Path;
 
 use crate::{

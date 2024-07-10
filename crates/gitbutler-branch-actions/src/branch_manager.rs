@@ -18,9 +18,9 @@ use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_headers::{CommitHeadersV2, HasCommitHeaders};
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::snapshot::Snapshot;
+use gitbutler_reference::ReferenceName;
 use gitbutler_reference::{normalize_branch_name, Refname};
 use gitbutler_repo::{rebase::cherry_rebase, RepoActions, RepositoryExt};
-use gitbutler_tagged_string::ReferenceName;
 use gitbutler_time::time::now_since_unix_epoch_ms;
 
 pub struct BranchManager<'l> {

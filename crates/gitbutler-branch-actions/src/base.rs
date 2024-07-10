@@ -9,9 +9,9 @@ use gitbutler_branch::target::Target;
 use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_project::FetchResult;
+use gitbutler_reference::ReferenceName;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
-use gitbutler_tagged_string::ReferenceName;
 use serde::Serialize;
 
 use super::r#virtual as vb;
