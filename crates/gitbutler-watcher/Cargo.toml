@@ -9,7 +9,7 @@ test = false
 doctest = false
 
 [dependencies]
-gitbutler-virtual.workspace = true
+gitbutler-branch-actions.workspace = true
 gitbutler-sync.workspace = true
 gitbutler-oplog.workspace = true
 thiserror.workspace = true
