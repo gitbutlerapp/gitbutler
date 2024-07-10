@@ -308,10 +308,10 @@ This is a list of crates/modules that we want to eliminate or split into smaller
 
 - [gitbutler-reference](crates/gitbutler-reference/) (just bad)
 - [gitbutler-storage](crates/gitbutler-storage/) (legacy way of dealing with files)
-- [gitbutler-virtual](crates/gitbutler-virtual/) (contains functionality outside of the virtual branch domain (e.g. commit actions etc.))
+- [gitbutler-branch-actions](crates/gitbutler-branch-actions/) (contains functionality outside of the virtual branch domain (e.g. commit actions etc.))
 - [gitbutler-repository](crates/gitbutler-repository/)
 - [gitbutler-branch](crates/gitbutler-branch/) (contains `diff` and `branch` contexts due to a cyclic dependency)
 - [gitbutler-url](crates/gitbutler-url/) (this is a huge mess and ideally we need none of it)
 - [gitbutler_repo::config](crates/gitbutler-repo/src/config.rs) (seems like the wrong abstraction)
 - [gitbutler-config](crates/gitbutler-config) (this provides an API for the UI layer to read and write git config and we want none of that)
-- [gitbutler_virtual::assets](crates/gitbutler-virtual/src/assets.rs) (this is a caching of things like favicons and it's clearly a UI concern that doesn't belong here)
+- [gitbutler_virtual::assets](crates/gitbutler-branch-actions/src/assets.rs) (this is a caching of things like favicons and it's clearly a UI concern that doesn't belong here)

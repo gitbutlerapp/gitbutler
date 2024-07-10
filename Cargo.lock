@@ -1980,6 +1980,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-branch-actions"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "diffy",
+ "futures",
+ "git2",
+ "git2-hooks",
+ "gitbutler-branch",
+ "gitbutler-branchstate",
+ "gitbutler-command-context",
+ "gitbutler-commit",
+ "gitbutler-error",
+ "gitbutler-git",
+ "gitbutler-id",
+ "gitbutler-oplog",
+ "gitbutler-project",
+ "gitbutler-reference",
+ "gitbutler-repo",
+ "gitbutler-serde",
+ "gitbutler-tagged-string",
+ "gitbutler-testsupport",
+ "gitbutler-time",
+ "gitbutler-url",
+ "gitbutler-user",
+ "glob",
+ "hex",
+ "itertools 0.13.0",
+ "md5",
+ "once_cell",
+ "pretty_assertions",
+ "regex",
+ "reqwest 0.12.5",
+ "serde",
+ "serial_test",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "url",
+ "urlencoding",
+]
+
+[[package]]
 name = "gitbutler-branchstate"
 version = "0.0.0"
 dependencies = [
@@ -2262,6 +2306,7 @@ dependencies = [
  "futures",
  "git2",
  "gitbutler-branch",
+ "gitbutler-branch-actions",
  "gitbutler-command-context",
  "gitbutler-config",
  "gitbutler-error",
@@ -2276,7 +2321,6 @@ dependencies = [
  "gitbutler-tagged-string",
  "gitbutler-testsupport",
  "gitbutler-user",
- "gitbutler-virtual",
  "gitbutler-watcher",
  "log",
  "once_cell",
@@ -2307,6 +2351,7 @@ dependencies = [
  "anyhow",
  "git2",
  "gitbutler-branch",
+ "gitbutler-branch-actions",
  "gitbutler-branchstate",
  "gitbutler-command-context",
  "gitbutler-project",
@@ -2315,7 +2360,6 @@ dependencies = [
  "gitbutler-storage",
  "gitbutler-url",
  "gitbutler-user",
- "gitbutler-virtual",
  "keyring",
  "once_cell",
  "serde_json",
@@ -2350,56 +2394,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-virtual"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "bstr",
- "diffy",
- "futures",
- "git2",
- "git2-hooks",
- "gitbutler-branch",
- "gitbutler-branchstate",
- "gitbutler-command-context",
- "gitbutler-commit",
- "gitbutler-error",
- "gitbutler-git",
- "gitbutler-id",
- "gitbutler-oplog",
- "gitbutler-project",
- "gitbutler-reference",
- "gitbutler-repo",
- "gitbutler-serde",
- "gitbutler-tagged-string",
- "gitbutler-testsupport",
- "gitbutler-time",
- "gitbutler-url",
- "gitbutler-user",
- "glob",
- "hex",
- "itertools 0.13.0",
- "md5",
- "once_cell",
- "pretty_assertions",
- "regex",
- "reqwest 0.12.5",
- "serde",
- "serial_test",
- "tempfile",
- "tokio",
- "tracing",
- "url",
- "urlencoding",
-]
-
-[[package]]
 name = "gitbutler-watcher"
 version = "0.0.0"
 dependencies = [
  "anyhow",
  "backoff",
  "futures",
+ "gitbutler-branch-actions",
  "gitbutler-command-context",
  "gitbutler-error",
  "gitbutler-notify-debouncer",
@@ -2408,7 +2409,6 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-sync",
  "gitbutler-user",
- "gitbutler-virtual",
  "gix",
  "notify",
  "thiserror",

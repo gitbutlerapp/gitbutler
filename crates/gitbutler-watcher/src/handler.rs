@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use gitbutler_branch_actions::VirtualBranches;
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::{
@@ -13,7 +14,6 @@ use gitbutler_project::ProjectId;
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_sync::cloud::sync_with_gitbutler;
 use gitbutler_user as users;
-use gitbutler_virtual::VirtualBranches;
 use tracing::instrument;
 
 use super::{events, Change};
@@ -30,7 +30,7 @@ pub struct Handler {
     // need extra protection.
     projects: projects::Controller,
     users: users::Controller,
-    vbranch_controller: gitbutler_virtual::VirtualBranchActions,
+    vbranch_controller: gitbutler_branch_actions::VirtualBranchActions,
 
     /// A function to send events - decoupled from app-handle for testing purposes.
     #[allow(clippy::type_complexity)]
@@ -43,7 +43,7 @@ impl Handler {
     pub fn new(
         projects: projects::Controller,
         users: users::Controller,
-        vbranch_controller: gitbutler_virtual::VirtualBranchActions,
+        vbranch_controller: gitbutler_branch_actions::VirtualBranchActions,
         send_event: impl Fn(Change) -> Result<()> + Send + Sync + 'static,
     ) -> Self {
         Handler {

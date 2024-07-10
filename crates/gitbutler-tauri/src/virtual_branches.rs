@@ -3,15 +3,15 @@ pub mod commands {
     use anyhow::{anyhow, Context};
     use gitbutler_branch::branch::{BranchCreateRequest, BranchId, BranchUpdateRequest};
     use gitbutler_branch::ownership::BranchOwnershipClaims;
+    use gitbutler_branch_actions::base::BaseBranch;
+    use gitbutler_branch_actions::files::RemoteBranchFile;
+    use gitbutler_branch_actions::remote::{RemoteBranch, RemoteBranchData};
+    use gitbutler_branch_actions::{NameConflitResolution, VirtualBranchActions, VirtualBranches};
     use gitbutler_error::error::Code;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use gitbutler_reference::{Refname, RemoteRefname};
     use gitbutler_tagged_string::ReferenceName;
-    use gitbutler_virtual::base::BaseBranch;
-    use gitbutler_virtual::files::RemoteBranchFile;
-    use gitbutler_virtual::remote::{RemoteBranch, RemoteBranchData};
-    use gitbutler_virtual::{NameConflitResolution, VirtualBranchActions, VirtualBranches};
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
