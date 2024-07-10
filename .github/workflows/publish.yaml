@@ -30,7 +30,7 @@ on:
           - major
 
 jobs:
-  build-svelte:
+  build-sveltekit:
     runs-on: ubuntu-latest
     env:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -72,6 +72,7 @@ jobs:
           path: ./app/build/
 
   build-tauri:
+    needs: build-sveltekit
     strategy:
       fail-fast: false
       matrix:
