@@ -19,7 +19,9 @@ use gitbutler_repo::{RepoActions, RepositoryExt};
 use super::BranchManager;
 
 pub trait BranchRemoval {
+    /// Perminently deletes a virtual branch
     fn delete_branch(&self, branch_id: BranchId) -> Result<()>;
+    /// Converts a virtual branch into a real branch
     fn convert_to_real_branch(
         &self,
         branch_id: BranchId,

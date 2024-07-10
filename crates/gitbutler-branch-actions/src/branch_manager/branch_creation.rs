@@ -20,7 +20,9 @@ use gitbutler_repo::{rebase::cherry_rebase, RepoActions, RepositoryExt};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 
 pub trait BranchCreation {
+    /// Create an empty virtual branch
     fn create_virtual_branch(&self, create: &BranchCreateRequest) -> Result<branch::Branch>;
+    /// Create a virtual branch from a real branch (whether remote or local)
     fn create_virtual_branch_from_branch(&self, upstream: &Refname) -> Result<BranchId>;
 }
 
