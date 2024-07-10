@@ -101,8 +101,7 @@ fn main() {
                     let storage_controller = storage::Storage::new(&app_data_dir);
                     app_handle.manage(storage_controller.clone());
 
-                    let windows = WindowState::new(app_handle.clone());
-                    app_handle.manage(windows.clone());
+                    app_handle.manage(WindowState::new(app_handle.clone()));
 
                     let projects_storage_controller = gitbutler_project::storage::Storage::new(storage_controller.clone());
                     app_handle.manage(projects_storage_controller.clone());
@@ -115,8 +114,7 @@ fn main() {
 
                     let projects_controller = gitbutler_project::Controller::new(
                         app_data_dir.clone(),
-                        projects_storage_controller.clone(),
-                        Some(windows.clone())
+                        projects_storage_controller.clone()
                     );
                     app_handle.manage(projects_controller.clone());
 

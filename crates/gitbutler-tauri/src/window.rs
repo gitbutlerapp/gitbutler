@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use futures::executor::block_on;
 use gitbutler_project as projects;
-use gitbutler_project::{Project, ProjectId};
+use gitbutler_project::ProjectId;
 use gitbutler_user as users;
 use tauri::{AppHandle, Manager};
 use tracing::instrument;
@@ -122,7 +122,7 @@ impl WindowState {
 
     /// Watch the project and assure no other instance can access it.
     #[instrument(skip(self, project), err(Debug))]
-    pub fn watch(&self, project: &projects::Project) -> Result<()> {
+    pub fn set_project_to_window(&self, project: &projects::Project) -> Result<()> {
         let mut lock_file =
             fslock::LockFile::open(project.gb_dir().join(WINDOW_LOCK_FILE).as_os_str())?;
         lock_file
@@ -168,26 +168,5 @@ impl WindowState {
         }
 
         Ok(())
-    }
-
-    pub async fn stop(&self, project_id: ProjectId) {
-        let mut state = self.state.lock().await;
-        if state
-            .as_ref()
-            .map_or(false, |state| state.project_id == project_id)
-        {
-            state.take();
-        }
-    }
-}
-
-#[async_trait::async_trait]
-impl projects::Watchers for WindowState {
-    fn watch(&self, project: &Project) -> Result<()> {
-        WindowState::watch(self, project)
-    }
-
-    async fn stop(&self, id: ProjectId) {
-        WindowState::stop(self, id).await
     }
 }

@@ -2175,7 +2175,6 @@ name = "gitbutler-project"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "async-trait",
  "git2",
  "gitbutler-error",
  "gitbutler-id",
@@ -2292,7 +2291,6 @@ name = "gitbutler-tauri"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "async-trait",
  "backtrace",
  "console-subscriber",
  "dirs 5.0.1",

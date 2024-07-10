@@ -56,7 +56,7 @@ pub mod commands {
         id: ProjectId,
     ) -> Result<(), Error> {
         let project = controller.get(id).context("project not found")?;
-        Ok(watchers.watch(&project)?)
+        Ok(watchers.set_project_to_window(&project)?)
     }
 
     #[tauri::command(async)]
