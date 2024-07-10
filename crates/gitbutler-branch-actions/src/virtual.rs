@@ -29,6 +29,8 @@ use hex::ToHex;
 use serde::{Deserialize, Serialize};
 
 use crate::author::Author;
+use crate::branch_manager::branch_creation::BranchCreation;
+use crate::branch_manager::branch_removal::BranchRemoval;
 use crate::branch_manager::BranchManagerAccess;
 use crate::conflicts::{self, RepoConflicts};
 use crate::integration::get_workspace_head;
