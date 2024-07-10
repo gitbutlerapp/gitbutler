@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use bstr::BString;
-use gitbutler_branchstate::VirtualBranchesHandle;
+use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::{Refname, RemoteRefname};

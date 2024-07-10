@@ -5,13 +5,13 @@ use std::{
 
 use anyhow::{anyhow, Result};
 
-use gitbutler_branch::{
+use crate::{
     branch::{Branch, BranchId},
     target::Target,
 };
 use gitbutler_error::error::Code;
 use gitbutler_fs::fs::read_toml_file_or_default;
-use gitbutler_project::Project;
+// use gitbutler_project::Project;
 use gitbutler_reference::Refname;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -57,15 +57,15 @@ pub struct VirtualBranchesHandle {
     file_path: PathBuf,
 }
 
-pub trait VirtualBranchesExt {
-    fn virtual_branches(&self) -> VirtualBranchesHandle;
-}
+// pub trait VirtualBranchesExt {
+//     fn virtual_branches(&self) -> VirtualBranchesHandle;
+// }
 
-impl VirtualBranchesExt for Project {
-    fn virtual_branches(&self) -> VirtualBranchesHandle {
-        VirtualBranchesHandle::new(self.gb_dir())
-    }
-}
+// impl VirtualBranchesExt for Project {
+//     fn virtual_branches(&self) -> VirtualBranchesHandle {
+//         VirtualBranchesHandle::new(self.gb_dir())
+//     }
+// }
 
 impl VirtualBranchesHandle {
     /// Creates a new concurrency-safe handle to the state of virtual branches.

@@ -18,3 +18,14 @@ pub mod remote;
 pub mod conflicts;
 
 mod author;
+
+use gitbutler_branch::VirtualBranchesHandle;
+trait VirtualBranchesExt {
+    fn virtual_branches(&self) -> VirtualBranchesHandle;
+}
+
+impl VirtualBranchesExt for gitbutler_project::Project {
+    fn virtual_branches(&self) -> VirtualBranchesHandle {
+        VirtualBranchesHandle::new(self.gb_dir())
+    }
+}
