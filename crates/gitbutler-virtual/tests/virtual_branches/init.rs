@@ -7,7 +7,7 @@ async fn twice() {
 
     let test_project = TestProject::default();
 
-    let controller = Controller::default();
+    let controller = VirtualBranchActions {};
 
     {
         let project = projects

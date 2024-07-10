@@ -77,7 +77,7 @@ pub struct Watchers {
 fn handler_from_app(app: &AppHandle) -> anyhow::Result<gitbutler_watcher::Handler> {
     let projects = app.state::<projects::Controller>().inner().clone();
     let users = app.state::<users::Controller>().inner().clone();
-    let vbranches = app.state::<gitbutler_virtual::Controller>().inner().clone();
+    let vbranches = gitbutler_virtual::VirtualBranchActions::default();
 
     Ok(gitbutler_watcher::Handler::new(
         projects,

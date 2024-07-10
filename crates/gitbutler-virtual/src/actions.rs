@@ -15,9 +15,7 @@ use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{credentials::Helper, RepoActions, RepositoryExt};
 use gitbutler_tagged_string::ReferenceName;
-use std::{path::Path, sync::Arc};
-
-use tokio::sync::Semaphore;
+use std::path::Path;
 
 use crate::{
     base::{
@@ -33,20 +31,10 @@ use super::r#virtual as branch;
 use crate::files::RemoteBranchFile;
 use gitbutler_branch::target;
 
-#[derive(Clone)]
-pub struct Controller {
-    semaphore: Arc<Semaphore>,
-}
+#[derive(Clone, Default)]
+pub struct VirtualBranchActions {}
 
-impl Default for Controller {
-    fn default() -> Self {
-        Self {
-            semaphore: Arc::new(Semaphore::new(1)),
-        }
-    }
-}
-
-impl Controller {
+impl VirtualBranchActions {
     pub async fn create_commit(
         &self,
         project: &Project,
@@ -55,7 +43,6 @@ impl Controller {
         ownership: Option<&BranchOwnershipClaims>,
         run_hooks: bool,
     ) -> Result<git2::Oid> {
-        self.permit(project.ignore_project_semaphore).await;
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();
         let result = branch::commit(
@@ -90,8 +77,6 @@ impl Controller {
         &self,
         project: &Project,
     ) -> Result<(Vec<branch::VirtualBranch>, Vec<diff::FileDiff>)> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         branch::list_virtual_branches(&project_repository).map_err(Into::into)
     }
@@ -101,8 +86,6 @@ impl Controller {
         project: &Project,
         create: &BranchCreateRequest,
     ) -> Result<BranchId> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let branch_manager = project_repository.branch_manager();
         let branch_id = branch_manager.create_virtual_branch(create)?.id;
@@ -146,8 +129,6 @@ impl Controller {
         project: &Project,
         branch_id: BranchId,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -156,8 +137,6 @@ impl Controller {
     }
 
     pub async fn update_base_branch(&self, project: &Project) -> Result<Vec<ReferenceName>> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -170,8 +149,6 @@ impl Controller {
         project: &Project,
         branch_update: BranchUpdateRequest,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();
         let old_branch = project_repository
@@ -195,8 +172,6 @@ impl Controller {
         project: &Project,
         branch_id: BranchId,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let branch_manager = project_repository.branch_manager();
         branch_manager.delete_branch(branch_id)
@@ -207,8 +182,6 @@ impl Controller {
         project: &Project,
         ownership: &BranchOwnershipClaims,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -217,8 +190,6 @@ impl Controller {
     }
 
     pub async fn reset_files(&self, project: &Project, files: &Vec<String>) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -233,8 +204,6 @@ impl Controller {
         commit_oid: git2::Oid,
         ownership: &BranchOwnershipClaims,
     ) -> Result<git2::Oid> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -250,8 +219,6 @@ impl Controller {
         to_commit_oid: git2::Oid,
         ownership: &BranchOwnershipClaims,
     ) -> Result<git2::Oid> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -272,8 +239,6 @@ impl Controller {
         branch_id: BranchId,
         commit_oid: git2::Oid,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();
         let result: Result<()> =
@@ -295,8 +260,6 @@ impl Controller {
         commit_oid: git2::Oid,
         offset: i32,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -312,8 +275,6 @@ impl Controller {
         commit_oid: git2::Oid,
         offset: i32,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -328,8 +289,6 @@ impl Controller {
         branch_id: BranchId,
         target_commit_oid: git2::Oid,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -343,8 +302,6 @@ impl Controller {
         branch_id: BranchId,
         name_conflict_resolution: branch::NameConflitResolution,
     ) -> Result<ReferenceName> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();
         let branch_manager = project_repository.branch_manager();
@@ -366,7 +323,6 @@ impl Controller {
         with_force: bool,
         askpass: Option<Option<BranchId>>,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
         let helper = Helper::default();
         let project_repository = open_with_verify(project)?;
         branch::push(&project_repository, branch_id, with_force, &helper, askpass)
@@ -392,8 +348,6 @@ impl Controller {
         branch_id: BranchId,
         commit_oid: git2::Oid,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -408,7 +362,6 @@ impl Controller {
         commit_oid: git2::Oid,
         message: &str,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -466,8 +419,6 @@ impl Controller {
         target_branch_id: BranchId,
         commit_oid: git2::Oid,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -480,19 +431,11 @@ impl Controller {
         project: &Project,
         branch: &Refname,
     ) -> Result<BranchId> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let branch_manager = project_repository.branch_manager();
         branch_manager
             .create_virtual_branch_from_branch(branch)
             .map_err(Into::into)
-    }
-
-    async fn permit(&self, ignore: bool) {
-        if !ignore {
-            let _ = self.semaphore.acquire().await.unwrap();
-        }
     }
 }
 

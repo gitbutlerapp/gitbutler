@@ -134,7 +134,7 @@ fn commit_and_push_initial(repository: &TestProject) {
 }
 
 async fn get_virtual_branch(
-    controller: &Controller,
+    controller: &VirtualBranchActions,
     project: &Project,
     branch_id: Id<Branch>,
 ) -> VirtualBranch {

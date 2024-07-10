@@ -128,8 +128,6 @@ fn main() {
                     let git_credentials_controller = Helper::default();
                     app_handle.manage(git_credentials_controller.clone());
 
-                    app_handle.manage(gitbutler_virtual::controller::Controller::default());
-
                     let app = app::App::new(
                         projects_controller,
                     );
