@@ -13,7 +13,7 @@ use gitbutler_branch::{
     diff,
     ownership::BranchOwnershipClaims,
 };
-use gitbutler_branchstate::VirtualBranchesAccess;
+use gitbutler_branchstate::VirtualBranchesExt;
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_headers::{CommitHeadersV2, HasCommitHeaders};
 use gitbutler_error::error::Marker;

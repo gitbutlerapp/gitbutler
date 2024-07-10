@@ -4,7 +4,7 @@ use gitbutler_branch::{
     diff,
     ownership::BranchOwnershipClaims,
 };
-use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
+use gitbutler_branchstate::{VirtualBranchesExt, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},

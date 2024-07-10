@@ -4,7 +4,7 @@ use std::time;
 
 use anyhow::{anyhow, Context, Result};
 use gitbutler_branch::target::Target;
-use gitbutler_branchstate::VirtualBranchesAccess;
+use gitbutler_branchstate::VirtualBranchesExt;
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_error::error::Code;
 use gitbutler_id::id::Id;

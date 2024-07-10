@@ -57,11 +57,11 @@ pub struct VirtualBranchesHandle {
     file_path: PathBuf,
 }
 
-pub trait VirtualBranchesAccess {
+pub trait VirtualBranchesExt {
     fn virtual_branches(&self) -> VirtualBranchesHandle;
 }
 
-impl VirtualBranchesAccess for Project {
+impl VirtualBranchesExt for Project {
     fn virtual_branches(&self) -> VirtualBranchesHandle {
         VirtualBranchesHandle::new(self.gb_dir())
     }

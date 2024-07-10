@@ -17,7 +17,7 @@ use gitbutler_branch::{
     ownership::BranchOwnershipClaims,
     target::Target,
 };
-use gitbutler_branchstate::VirtualBranchesAccess;
+use gitbutler_branchstate::VirtualBranchesExt;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::CommitHeadersV2};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
