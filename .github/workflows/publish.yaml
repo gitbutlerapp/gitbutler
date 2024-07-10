@@ -59,6 +59,10 @@ jobs:
           NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
           echo "version=$NEXT_VERSION" >> $GITHUB_ENV
           mkdir -p release && echo "$NEXT_VERSION" > release/version
+      - run: echo ${{ env.version }}
+        name: Debug Version
+      - run: echo "${{ toJSON(env) }}"
+        name: JSON env
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
       - name: Build SvelteKit
@@ -70,6 +74,8 @@ jobs:
         with:
           name: sveltekit-build
           path: ./app/build/
+          retention-days: 1
+          if-no-files-found: error
 
   build-tauri:
     needs: build-sveltekit
