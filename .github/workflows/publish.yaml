@@ -30,7 +30,51 @@ on:
           - major
 
 jobs:
+  build-sveltekit:
+    runs-on: ubuntu-latest
+    env:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_JUNON }}
+      - name: Consume input variables
+        shell: bash
+        if: ${{ !github.event.workflow_run }}
+        run: |
+          VITEMODE=development
+          if [[ "${{ github.event.inputs.channel }}" == "release" ]]; then
+            VITEMODE=production
+          elif [[ "${{ github.event.inputs.channel }}" == "nightly" ]]; then
+            VITEMODE=nightly
+          fi
+
+          echo "vitemode=$VITEMODE" >> $GITHUB_ENV
+          echo "channel=${{ github.event.inputs.channel || 'nightly' }}" >> $GITHUB_ENV
+          echo "bump=${{ github.event.inputs.bump || 'patch' }}" >> $GITHUB_ENV
+      - name: Calculate next version
+        shell: bash
+        run: |
+          CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases/${{ env.channel }}" | jq -r '.version')"
+          NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
+          echo "version=$NEXT_VERSION" >> $GITHUB_ENV
+          mkdir -p release && echo "$NEXT_VERSION" > release/version
+      - name: Init Node Environment
+        uses: ./.github/actions/init-env-node
+      - name: Build SvelteKit
+        run: pnpm build -- --mode ${{ env.vitemode }}
+        env:
+          SENTRY_RELEASE: ${{ env.version }}
+      - uses: actions/upload-artifact@v4
+        name: Upload SvelteKit build output
+        with:
+          name: sveltekit-build
+          path: ./app/build/
+          retention-days: 1
+          if-no-files-found: error
+
   build-tauri:
+    needs: build-sveltekit
     strategy:
       fail-fast: false
       matrix:
@@ -46,9 +90,6 @@ jobs:
     outputs:
       platform: ${{ matrix.platform }}
       channel: ${{ env.channel }}
-
-    env:
-      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
     steps:
        # Because GitHub broke perl installations sometime in 2022 on Windows.
@@ -124,6 +165,10 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev;
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: sveltekit-build
+          path: ./app/build/
       - name: Build binary
         shell: bash
         run: |

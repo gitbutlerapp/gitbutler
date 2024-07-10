@@ -18,6 +18,7 @@ export default defineConfig({
 				unstable_sentryVitePluginOptions: {
 					telemetry: false,
 					release: {
+						name: process.env.SENTRY_RELEASE,
 						create: true,
 						setCommits: {
 							auto: true,

@@ -172,7 +172,7 @@ else
 fi
 
 # build the app with release config
-SENTRY_RELEASE="$VERSION" tauri build \
+tauri build \
 	--verbose \
 	--features "$FEATURES" \
 	--config "$TMP_DIR/tauri.conf.json"
