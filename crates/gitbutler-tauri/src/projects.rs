@@ -4,65 +4,67 @@ pub mod commands {
 
     use gitbutler_project::ProjectId;
     use gitbutler_project::{self as projects, Controller};
-    use tauri::Manager;
+    use tauri::State;
     use tracing::instrument;
 
     use crate::error::Error;
     use crate::watcher::Watchers;
 
     #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
+    #[instrument(skip(controller), err(Debug))]
     pub async fn update_project(
-        handle: tauri::AppHandle,
+        controller: State<'_, Controller>,
         project: projects::UpdateRequest,
     ) -> Result<projects::Project, Error> {
-        Ok(handle.state::<Controller>().update(&project).await?)
+        Ok(controller.update(&project).await?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
+    #[instrument(skip(controller), err(Debug))]
     pub async fn add_project(
-        handle: tauri::AppHandle,
+        controller: State<'_, Controller>,
         path: &path::Path,
     ) -> Result<projects::Project, Error> {
-        Ok(handle.state::<Controller>().add(path)?)
+        Ok(controller.add(path)?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
+    #[instrument(skip(controller), err(Debug))]
     pub async fn get_project(
-        handle: tauri::AppHandle,
+        controller: State<'_, Controller>,
         id: ProjectId,
     ) -> Result<projects::Project, Error> {
-        Ok(handle.state::<Controller>().get(id)?)
+        Ok(controller.get(id)?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
-    pub async fn list_projects(handle: tauri::AppHandle) -> Result<Vec<projects::Project>, Error> {
-        handle.state::<Controller>().list().map_err(Into::into)
+    #[instrument(skip(controller), err(Debug))]
+    pub async fn list_projects(
+        controller: State<'_, Controller>,
+    ) -> Result<Vec<projects::Project>, Error> {
+        controller.list().map_err(Into::into)
     }
 
     /// This trigger is the GUI telling us that the project with `id` is now displayed.
     ///
     /// We use it to start watching for filesystem events.
     #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
-    pub async fn set_project_active(handle: tauri::AppHandle, id: ProjectId) -> Result<(), Error> {
-        let project = handle
-            .state::<Controller>()
-            .get(id)
-            .context("project not found")?;
-        Ok(handle.state::<Watchers>().watch(&project)?)
+    #[instrument(skip(controller, watchers), err(Debug))]
+    pub async fn set_project_active(
+        controller: State<'_, Controller>,
+        watchers: State<'_, Watchers>,
+        id: ProjectId,
+    ) -> Result<(), Error> {
+        let project = controller.get(id).context("project not found")?;
+        Ok(watchers.watch(&project)?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
-    pub async fn delete_project(handle: tauri::AppHandle, id: ProjectId) -> Result<(), Error> {
-        handle
-            .state::<Controller>()
-            .delete(id)
-            .await
-            .map_err(Into::into)
+    #[instrument(skip(controller), err(Debug))]
+    pub async fn delete_project(
+        controller: State<'_, Controller>,
+        id: ProjectId,
+    ) -> Result<(), Error> {
+        controller.delete(id).await.map_err(Into::into)
     }
 }
