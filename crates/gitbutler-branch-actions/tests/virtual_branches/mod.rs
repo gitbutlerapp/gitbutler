@@ -2,10 +2,10 @@ use std::path::PathBuf;
 use std::{fs, path, str::FromStr};
 
 use gitbutler_branch::branch;
+use gitbutler_branch_actions::VirtualBranchActions;
 use gitbutler_error::error::Marker;
 use gitbutler_project::{self as projects, Project, ProjectId};
 use gitbutler_reference::Refname;
-use gitbutler_virtual::VirtualBranchActions;
 use tempfile::TempDir;
 
 use gitbutler_testsupport::{paths, TestProject, VAR_NO_CLEANUP};
