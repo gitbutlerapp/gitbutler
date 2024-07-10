@@ -132,8 +132,7 @@ pub mod commands {
 
         // if they also sent a different push remote, set that too
         if let Some(push_remote) = push_remote {
-            handle
-                .state::<VirtualBranchActions>()
+            VirtualBranchActions::default()
                 .set_target_push_remote(&project, push_remote)
                 .await?;
         }
