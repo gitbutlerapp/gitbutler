@@ -275,11 +275,7 @@ impl BranchCreation for BranchManager<'_> {
 }
 
 /// Holding private methods associated to branch creation
-trait PrivateBranchCreation {
-    fn apply_branch(&self, branch_id: BranchId) -> Result<String>;
-}
-
-impl PrivateBranchCreation for BranchManager<'_> {
+impl BranchManager<'_> {
     fn apply_branch(&self, branch_id: BranchId) -> Result<String> {
         self.project_repository.assure_resolved()?;
         self.project_repository.assure_unconflicted()?;
