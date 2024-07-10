@@ -6,7 +6,7 @@ use gitbutler_branch::branch::{self, BranchId};
 use gitbutler_branch::diff;
 use gitbutler_branch::ownership::BranchOwnershipClaims;
 use gitbutler_branch::target::Target;
-use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
+use gitbutler_branchstate::{VirtualBranchesExt, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
