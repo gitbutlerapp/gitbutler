@@ -3,17 +3,18 @@ use std::{path::PathBuf, vec};
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 
-use gitbutler_branch::branch::BranchCreateRequest;
+use gitbutler_branch::branch::{self, BranchCreateRequest};
 use gitbutler_branch::{
     GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
     GITBUTLER_INTEGRATION_REFERENCE,
 };
-use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
+use gitbutler_branchstate::{VirtualBranchesExt, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_error::error::Marker;
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 
+use crate::branch_manager::BranchManagerAccess;
 use crate::conflicts;
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
@@ -39,7 +40,7 @@ pub fn get_workspace_head(
     let repo: &git2::Repository = project_repo.repo();
     let vb_state = project_repo.project().virtual_branches();
 
-    let virtual_branches = vb_state.list_branches_in_workspace()?;
+    let virtual_branches: Vec<branch::Branch> = vb_state.list_branches_in_workspace()?;
 
     let target_commit = repo.find_commit(target.sha)?;
     let mut workspace_tree = target_commit.tree()?;
@@ -165,7 +166,7 @@ pub fn update_gitbutler_integration(
     let vb_state = project_repository.project().virtual_branches();
 
     // get all virtual branches, we need to try to update them all
-    let virtual_branches = vb_state
+    let virtual_branches: Vec<branch::Branch> = vb_state
         .list_branches_in_workspace()
         .context("failed to list virtual branches")?;
 
@@ -358,16 +359,15 @@ impl Verify for ProjectRepository {
             )
             .context("failed to reset to integration commit")?;
 
-        let mut new_branch = super::create_virtual_branch(
-            self,
-            &BranchCreateRequest {
+        let branch_manager = self.branch_manager();
+        let mut new_branch = branch_manager
+            .create_virtual_branch(&BranchCreateRequest {
                 name: extra_commits
                     .last()
                     .map(|commit| commit.message_bstr().to_string()),
                 ..Default::default()
-            },
-        )
-        .context("failed to create virtual branch")?;
+            })
+            .context("failed to create virtual branch")?;
 
         // rebasing the extra commits onto the new branch
         let vb_state = self.project().virtual_branches();

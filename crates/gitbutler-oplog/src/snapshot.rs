@@ -1,6 +1,7 @@
 use anyhow::Result;
 use gitbutler_branch::branch::{Branch, BranchUpdateRequest};
 use gitbutler_project::Project;
+use gitbutler_tagged_string::ReferenceName;
 use std::vec;
 
 use crate::{
@@ -14,7 +15,7 @@ pub trait Snapshot {
     fn snapshot_branch_unapplied(
         &self,
         snapshot_tree: git2::Oid,
-        result: Result<&git2::Branch, &anyhow::Error>,
+        result: Result<&ReferenceName, &anyhow::Error>,
     ) -> anyhow::Result<()>;
 
     fn snapshot_commit_undo(
@@ -48,9 +49,9 @@ impl Snapshot for Project {
     fn snapshot_branch_unapplied(
         &self,
         snapshot_tree: git2::Oid,
-        result: Result<&git2::Branch, &anyhow::Error>,
+        result: Result<&ReferenceName, &anyhow::Error>,
     ) -> anyhow::Result<()> {
-        let result = result.map(|o| o.name().ok().flatten().map(|s| s.to_string()));
+        let result = result.map(|s| Some(s.to_string()));
         let details = SnapshotDetails::new(OperationKind::UnapplyBranch)
             .with_trailers(result_trailer(result, "name".to_string()));
         self.commit_snapshot(snapshot_tree, details)?;

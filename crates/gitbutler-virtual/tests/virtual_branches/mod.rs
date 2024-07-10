@@ -5,7 +5,7 @@ use gitbutler_branch::branch;
 use gitbutler_error::error::Marker;
 use gitbutler_project::{self as projects, Project, ProjectId};
 use gitbutler_reference::Refname;
-use gitbutler_virtual::Controller;
+use gitbutler_virtual::VirtualBranchActions;
 use tempfile::TempDir;
 
 use gitbutler_testsupport::{paths, TestProject, VAR_NO_CLEANUP};
@@ -15,7 +15,7 @@ struct Test {
     project_id: ProjectId,
     project: Project,
     projects: projects::Controller,
-    controller: Controller,
+    controller: VirtualBranchActions,
     data_dir: Option<TempDir>,
 }
 
@@ -40,7 +40,7 @@ impl Default for Test {
         Self {
             repository: test_project,
             project_id: project.id,
-            controller: Controller::default(),
+            controller: VirtualBranchActions {},
             projects,
             project,
             data_dir: Some(data_dir),

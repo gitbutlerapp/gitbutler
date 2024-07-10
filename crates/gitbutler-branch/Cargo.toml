@@ -9,10 +9,11 @@ publish = false
 anyhow = "1.0.86"
 git2.workspace = true
 gitbutler-reference.workspace = true
+gitbutler-tagged-string.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-id.workspace = true
 itertools = "0.13"
-serde = { workspace = true, features = ["std"]}
+serde = { workspace = true, features = ["std"] }
 bstr = "1.9.1"
 md5 = "0.7.0"
 hex = "0.4.3"
@@ -20,5 +21,5 @@ tracing = "0.1.40"
 lazy_static = "1.4.0"
 
 [[test]]
-name="branch"
+name = "branch"
 path = "tests/mod.rs"

@@ -19,7 +19,6 @@ use gitbutler_tauri::{
     app, askpass, commands, config, github, logs, menu, projects, remotes, repo, secret, undo,
     users, virtual_branches, watcher, zip,
 };
-use gitbutler_virtual::assets;
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
 
@@ -121,8 +120,6 @@ fn main() {
                     );
                     app_handle.manage(projects_controller.clone());
 
-                    app_handle.manage(assets::Proxy::new(app_cache_dir.join("images")));
-
                     let zipper = gitbutler_feedback::zipper::Zipper::new(&app_cache_dir);
                     app_handle.manage(zipper.clone());
 
@@ -130,8 +127,6 @@ fn main() {
 
                     let git_credentials_controller = Helper::default();
                     app_handle.manage(git_credentials_controller.clone());
-
-                    app_handle.manage(gitbutler_virtual::controller::Controller::default());
 
                     let app = app::App::new(
                         projects_controller,

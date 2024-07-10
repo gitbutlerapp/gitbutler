@@ -1,11 +1,10 @@
 use anyhow::Result;
 use gitbutler_branch::{
     branch::{BranchCreateRequest, BranchId, BranchUpdateRequest},
-    branch_ext::BranchExt,
     diff,
     ownership::BranchOwnershipClaims,
 };
-use gitbutler_branchstate::{VirtualBranchesAccess, VirtualBranchesHandle};
+use gitbutler_branchstate::{VirtualBranchesExt, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
@@ -13,17 +12,17 @@ use gitbutler_oplog::{
     snapshot::Snapshot,
 };
 use gitbutler_project::{FetchResult, Project};
-use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
+use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{credentials::Helper, RepoActions, RepositoryExt};
-use std::{path::Path, sync::Arc};
-
-use tokio::sync::Semaphore;
+use gitbutler_tagged_string::ReferenceName;
+use std::path::Path;
 
 use crate::{
     base::{
         get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch,
         BaseBranch,
     },
+    branch_manager::BranchManagerAccess,
     remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
 };
 
@@ -32,20 +31,10 @@ use super::r#virtual as branch;
 use crate::files::RemoteBranchFile;
 use gitbutler_branch::target;
 
-#[derive(Clone)]
-pub struct Controller {
-    semaphore: Arc<Semaphore>,
-}
+#[derive(Clone, Default)]
+pub struct VirtualBranchActions {}
 
-impl Default for Controller {
-    fn default() -> Self {
-        Self {
-            semaphore: Arc::new(Semaphore::new(1)),
-        }
-    }
-}
-
-impl Controller {
+impl VirtualBranchActions {
     pub async fn create_commit(
         &self,
         project: &Project,
@@ -54,7 +43,6 @@ impl Controller {
         ownership: Option<&BranchOwnershipClaims>,
         run_hooks: bool,
     ) -> Result<git2::Oid> {
-        self.permit(project.ignore_project_semaphore).await;
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();
         let result = branch::commit(
@@ -89,8 +77,6 @@ impl Controller {
         &self,
         project: &Project,
     ) -> Result<(Vec<branch::VirtualBranch>, Vec<diff::FileDiff>)> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         branch::list_virtual_branches(&project_repository).map_err(Into::into)
     }
@@ -100,22 +86,10 @@ impl Controller {
         project: &Project,
         create: &BranchCreateRequest,
     ) -> Result<BranchId> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
-        let branch_id = branch::create_virtual_branch(&project_repository, create)?.id;
+        let branch_manager = project_repository.branch_manager();
+        let branch_id = branch_manager.create_virtual_branch(create)?.id;
         Ok(branch_id)
-    }
-
-    pub async fn create_virtual_branch_from_branch(
-        &self,
-        project: &Project,
-        branch: &Refname,
-    ) -> Result<BranchId> {
-        self.permit(project.ignore_project_semaphore).await;
-
-        let project_repository = open_with_verify(project)?;
-        branch::create_virtual_branch_from_branch(&project_repository, branch).map_err(Into::into)
     }
 
     pub async fn get_base_branch_data(&self, project: &Project) -> Result<BaseBranch> {
@@ -155,8 +129,6 @@ impl Controller {
         project: &Project,
         branch_id: BranchId,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -165,20 +137,11 @@ impl Controller {
     }
 
     pub async fn update_base_branch(&self, project: &Project) -> Result<Vec<ReferenceName>> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
             .create_snapshot(SnapshotDetails::new(OperationKind::UpdateWorkspaceBase));
-        update_base_branch(&project_repository)
-            .map(|unapplied_branches| {
-                unapplied_branches
-                    .iter()
-                    .filter_map(|unapplied_branch| unapplied_branch.reference_name().ok())
-                    .collect()
-            })
-            .map_err(Into::into)
+        update_base_branch(&project_repository).map_err(Into::into)
     }
 
     pub async fn update_virtual_branch(
@@ -186,8 +149,6 @@ impl Controller {
         project: &Project,
         branch_update: BranchUpdateRequest,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();
         let old_branch = project_repository
@@ -211,10 +172,9 @@ impl Controller {
         project: &Project,
         branch_id: BranchId,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
-        branch::delete_branch(&project_repository, branch_id)
+        let branch_manager = project_repository.branch_manager();
+        branch_manager.delete_branch(branch_id)
     }
 
     pub async fn unapply_ownership(
@@ -222,8 +182,6 @@ impl Controller {
         project: &Project,
         ownership: &BranchOwnershipClaims,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -232,8 +190,6 @@ impl Controller {
     }
 
     pub async fn reset_files(&self, project: &Project, files: &Vec<String>) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -248,8 +204,6 @@ impl Controller {
         commit_oid: git2::Oid,
         ownership: &BranchOwnershipClaims,
     ) -> Result<git2::Oid> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -265,8 +219,6 @@ impl Controller {
         to_commit_oid: git2::Oid,
         ownership: &BranchOwnershipClaims,
     ) -> Result<git2::Oid> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -287,8 +239,6 @@ impl Controller {
         branch_id: BranchId,
         commit_oid: git2::Oid,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();
         let result: Result<()> =
@@ -310,8 +260,6 @@ impl Controller {
         commit_oid: git2::Oid,
         offset: i32,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -327,8 +275,6 @@ impl Controller {
         commit_oid: git2::Oid,
         offset: i32,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -343,8 +289,6 @@ impl Controller {
         branch_id: BranchId,
         target_commit_oid: git2::Oid,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -358,22 +302,18 @@ impl Controller {
         branch_id: BranchId,
         name_conflict_resolution: branch::NameConflitResolution,
     ) -> Result<ReferenceName> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();
-        let result = branch::convert_to_real_branch(
-            &project_repository,
-            branch_id,
-            name_conflict_resolution,
-        )
-        .map_err(Into::into);
+        let branch_manager = project_repository.branch_manager();
+        let result = branch_manager.convert_to_real_branch(branch_id, name_conflict_resolution);
+
         let _ = snapshot_tree.and_then(|snapshot_tree| {
             project_repository
                 .project()
                 .snapshot_branch_unapplied(snapshot_tree, result.as_ref())
         });
-        result.and_then(|b| b.reference_name())
+
+        result
     }
 
     pub async fn push_virtual_branch(
@@ -383,7 +323,6 @@ impl Controller {
         with_force: bool,
         askpass: Option<Option<BranchId>>,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
         let helper = Helper::default();
         let project_repository = open_with_verify(project)?;
         branch::push(&project_repository, branch_id, with_force, &helper, askpass)
@@ -409,8 +348,6 @@ impl Controller {
         branch_id: BranchId,
         commit_oid: git2::Oid,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -425,7 +362,6 @@ impl Controller {
         commit_oid: git2::Oid,
         message: &str,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -483,8 +419,6 @@ impl Controller {
         target_branch_id: BranchId,
         commit_oid: git2::Oid,
     ) -> Result<()> {
-        self.permit(project.ignore_project_semaphore).await;
-
         let project_repository = open_with_verify(project)?;
         let _ = project_repository
             .project()
@@ -492,10 +426,16 @@ impl Controller {
         branch::move_commit(&project_repository, target_branch_id, commit_oid).map_err(Into::into)
     }
 
-    async fn permit(&self, ignore: bool) {
-        if !ignore {
-            let _permit = self.semaphore.acquire().await;
-        }
+    pub async fn create_virtual_branch_from_branch(
+        &self,
+        project: &Project,
+        branch: &Refname,
+    ) -> Result<BranchId> {
+        let project_repository = open_with_verify(project)?;
+        let branch_manager = project_repository.branch_manager();
+        branch_manager
+            .create_virtual_branch_from_branch(branch)
+            .map_err(Into::into)
     }
 }
 

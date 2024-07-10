@@ -1,11 +1,11 @@
 //! GitButler internal library containing functionaliry related to branches, i.e. the virtual branches implementation
-pub mod controller;
-pub use controller::Controller;
+pub mod actions;
+pub use actions::VirtualBranchActions;
 
 pub mod r#virtual;
 pub use r#virtual::*;
 
-pub mod assets;
+pub mod branch_manager;
 
 pub mod base;
 
@@ -18,4 +18,3 @@ pub mod remote;
 pub mod conflicts;
 
 mod author;
-mod dedup;
