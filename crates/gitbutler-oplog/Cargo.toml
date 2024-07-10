@@ -19,7 +19,7 @@ gitbutler-project.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-fs.workspace = true
-gitbutler-tagged-string.workspace = true
+gitbutler-reference.workspace = true
 
 [[test]]
 name = "oplog"

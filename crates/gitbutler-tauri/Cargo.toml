@@ -60,7 +60,6 @@ gitbutler-error.workspace = true
 gitbutler-secret.workspace = true
 gitbutler-id.workspace = true
 gitbutler-storage.workspace = true
-gitbutler-tagged-string.workspace = true
 open = "5"
 
 [dependencies.tauri]

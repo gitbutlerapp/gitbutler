@@ -10,8 +10,8 @@ pub mod commands {
     use gitbutler_error::error::Code;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
+    use gitbutler_reference::ReferenceName;
     use gitbutler_reference::{Refname, RemoteRefname};
-    use gitbutler_tagged_string::ReferenceName;
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
