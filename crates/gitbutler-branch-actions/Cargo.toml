@@ -11,7 +11,6 @@ anyhow = "1.0.86"
 git2.workspace = true
 tokio.workspace = true
 gitbutler-oplog.workspace = true
-gitbutler-branchstate.workspace = true
 gitbutler-repo.workspace = true
 gitbutler-user.workspace = true
 gitbutler-branch.workspace = true

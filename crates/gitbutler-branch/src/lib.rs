@@ -8,6 +8,10 @@ pub mod ownership;
 pub mod serde;
 pub mod target;
 
+mod state;
+pub use state::VirtualBranches as VirtualBranchesState;
+pub use state::VirtualBranchesHandle;
+
 use lazy_static::lazy_static;
 lazy_static! {
     pub static ref GITBUTLER_INTEGRATION_REFERENCE: gitbutler_reference::LocalRefname =

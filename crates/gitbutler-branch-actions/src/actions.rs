@@ -1,10 +1,10 @@
 use anyhow::Result;
+use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_branch::{
     branch::{BranchCreateRequest, BranchId, BranchUpdateRequest},
     diff,
     ownership::BranchOwnershipClaims,
 };
-use gitbutler_branchstate::{VirtualBranchesExt, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
@@ -24,6 +24,7 @@ use crate::{
     },
     branch_manager::BranchManagerAccess,
     remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
+    VirtualBranchesExt,
 };
 
 use super::r#virtual as branch;

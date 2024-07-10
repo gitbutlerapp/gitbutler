@@ -4,18 +4,18 @@ use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 
 use gitbutler_branch::branch::{self, BranchCreateRequest};
+use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_branch::{
     GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
     GITBUTLER_INTEGRATION_REFERENCE,
 };
-use gitbutler_branchstate::{VirtualBranchesExt, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_error::error::Marker;
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 
 use crate::branch_manager::BranchManagerAccess;
-use crate::conflicts;
+use crate::{conflicts, VirtualBranchesExt};
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
 

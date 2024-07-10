@@ -1,5 +1,5 @@
 use super::*;
-use gitbutler_branchstate::VirtualBranchesExt;
+use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_oplog::oplog::Oplog;
 use itertools::Itertools;
 use std::io::Write;
@@ -262,8 +262,7 @@ async fn restores_gitbutler_integration() -> anyhow::Result<()> {
         .await?;
 
     assert_eq!(
-        project
-            .virtual_branches()
+        VirtualBranchesHandle::new(project.gb_dir())
             .list_branches_in_workspace()?
             .len(),
         0
@@ -272,8 +271,7 @@ async fn restores_gitbutler_integration() -> anyhow::Result<()> {
         .create_virtual_branch(project, &branch::BranchCreateRequest::default())
         .await?;
     assert_eq!(
-        project
-            .virtual_branches()
+        VirtualBranchesHandle::new(project.gb_dir())
             .list_branches_in_workspace()?
             .len(),
         1
@@ -327,7 +325,7 @@ async fn restores_gitbutler_integration() -> anyhow::Result<()> {
         "head now points to the first commit, it's not commit 2 anymore"
     );
 
-    let vbranches = project.virtual_branches().list_branches_in_workspace()?;
+    let vbranches = VirtualBranchesHandle::new(project.gb_dir()).list_branches_in_workspace()?;
     assert_eq!(
         vbranches.len(),
         1,

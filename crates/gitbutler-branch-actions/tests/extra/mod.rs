@@ -12,6 +12,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use git2::TreeEntry;
+use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_branch::{
     branch::{BranchCreateRequest, BranchUpdateRequest},
     ownership::BranchOwnershipClaims,
@@ -23,7 +24,6 @@ use gitbutler_branch_actions::r#virtual::{
     unapply_ownership, update_branch,
 };
 use gitbutler_branch_actions::{branch_manager::BranchManagerAccess, integration};
-use gitbutler_branchstate::VirtualBranchesExt;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::CommitHeadersV2};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
@@ -219,7 +219,7 @@ fn create_branch_with_ownership() -> Result<()> {
 
     virtual_branches::get_status_by_branch(project_repository, None).expect("failed to get status");
 
-    let vb_state = project_repository.project().virtual_branches();
+    let vb_state = VirtualBranchesHandle::new(project_repository.project().gb_dir());
     let branch0 = vb_state.get_branch_in_workspace(branch0.id).unwrap();
 
     let branch1 = branch_manager
@@ -268,7 +268,7 @@ fn create_branch_in_the_middle() -> Result<()> {
         })
         .expect("failed to create virtual branch");
 
-    let vb_state = project_repository.project().virtual_branches();
+    let vb_state = VirtualBranchesHandle::new(project_repository.project().gb_dir());
     let mut branches = vb_state
         .list_branches_in_workspace()
         .expect("failed to read branches");
@@ -295,7 +295,7 @@ fn create_branch_no_arguments() -> Result<()> {
         .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch");
 
-    let vb_state = project_repository.project().virtual_branches();
+    let vb_state = VirtualBranchesHandle::new(project_repository.project().gb_dir());
     let branches = vb_state
         .list_branches_in_workspace()
         .expect("failed to read branches");
@@ -473,7 +473,7 @@ fn move_hunks_multiple_sources() -> Result<()> {
         "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\n",
     )?;
 
-    let vb_state = project.virtual_branches();
+    let vb_state = VirtualBranchesHandle::new(project_repository.project().gb_dir());
     let mut branch2 = vb_state.get_branch_in_workspace(branch2_id)?;
     branch2.ownership = BranchOwnershipClaims {
         claims: vec!["test.txt:1-5".parse()?],
@@ -798,7 +798,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     )?;
 
     set_test_target(project_repository)?;
-    let vb_state = project.virtual_branches();
+    let vb_state = VirtualBranchesHandle::new(project_repository.project().gb_dir());
     vb_state.set_default_target(Target {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
@@ -898,7 +898,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
     )?;
 
     set_test_target(project_repository)?;
-    let vb_state = project.virtual_branches();
+    let vb_state = VirtualBranchesHandle::new(project.gb_dir());
     vb_state.set_default_target(Target {
         branch: "refs/remotes/origin/master".parse().unwrap(),
         remote_url: "origin".to_string(),
@@ -1325,7 +1325,7 @@ fn detect_mergeable_branch() -> Result<()> {
         "line1\nline2\nline3\nline4\nbranch4\n",
     )?;
 
-    let vb_state = project.virtual_branches();
+    let vb_state = VirtualBranchesHandle::new(project.gb_dir());
 
     let mut branch4 = vb_state.get_branch_in_workspace(branch4_id)?;
     branch4.ownership = BranchOwnershipClaims {
@@ -1376,7 +1376,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
         (PathBuf::from("test3.txt"), "file3\n"),
     ]));
 
-    let vb_state = project_repository.project().virtual_branches();
+    let vb_state = VirtualBranchesHandle::new(project.gb_dir());
 
     let base_commit = project_repository.repo().head().unwrap().target().unwrap();
 

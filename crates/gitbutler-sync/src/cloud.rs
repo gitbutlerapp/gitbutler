@@ -4,7 +4,7 @@ use std::time;
 
 use anyhow::{anyhow, Context, Result};
 use gitbutler_branch::target::Target;
-use gitbutler_branchstate::VirtualBranchesExt;
+use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_error::error::Code;
 use gitbutler_id::id::Id;
@@ -22,7 +22,7 @@ pub async fn sync_with_gitbutler(
     projects: &projects::Controller,
 ) -> Result<()> {
     let project = project_repository.project();
-    let vb_state = project.virtual_branches();
+    let vb_state = VirtualBranchesHandle::new(project.gb_dir());
     let default_target = vb_state.get_default_target()?;
     let gb_code_last_commit = project
         .gitbutler_code_push_state

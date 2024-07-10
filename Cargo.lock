@@ -1967,6 +1967,8 @@ dependencies = [
  "anyhow",
  "bstr",
  "git2",
+ "gitbutler-error",
+ "gitbutler-fs",
  "gitbutler-id",
  "gitbutler-reference",
  "gitbutler-serde",
@@ -1976,6 +1978,7 @@ dependencies = [
  "lazy_static",
  "md5",
  "serde",
+ "toml 0.8.14",
  "tracing",
 ]
 
@@ -1990,7 +1993,6 @@ dependencies = [
  "git2",
  "git2-hooks",
  "gitbutler-branch",
- "gitbutler-branchstate",
  "gitbutler-command-context",
  "gitbutler-commit",
  "gitbutler-error",
@@ -2021,21 +2023,6 @@ dependencies = [
  "tracing",
  "url",
  "urlencoding",
-]
-
-[[package]]
-name = "gitbutler-branchstate"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "gitbutler-branch",
- "gitbutler-error",
- "gitbutler-fs",
- "gitbutler-project",
- "gitbutler-reference",
- "itertools 0.13.0",
- "serde",
- "toml 0.8.14",
 ]
 
 [[package]]
@@ -2160,7 +2147,6 @@ dependencies = [
  "anyhow",
  "git2",
  "gitbutler-branch",
- "gitbutler-branchstate",
  "gitbutler-fs",
  "gitbutler-project",
  "gitbutler-repo",
@@ -2274,7 +2260,6 @@ dependencies = [
  "anyhow",
  "git2",
  "gitbutler-branch",
- "gitbutler-branchstate",
  "gitbutler-command-context",
  "gitbutler-error",
  "gitbutler-id",
@@ -2352,7 +2337,6 @@ dependencies = [
  "git2",
  "gitbutler-branch",
  "gitbutler-branch-actions",
- "gitbutler-branchstate",
  "gitbutler-command-context",
  "gitbutler-project",
  "gitbutler-reference",

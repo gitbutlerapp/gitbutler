@@ -2,7 +2,7 @@ use anyhow::{anyhow, bail, Context};
 use git2::{DiffOptions, FileMode};
 use gitbutler_branch::branch::Branch;
 use gitbutler_branch::diff::{hunks_by_filepath, FileDiff};
-use gitbutler_branchstate::{VirtualBranchesExt, VirtualBranchesState};
+use gitbutler_branch::{VirtualBranchesHandle, VirtualBranchesState};
 use gitbutler_project::Project;
 use gitbutler_repo::RepositoryExt;
 use std::collections::HashMap;
@@ -134,7 +134,7 @@ impl Oplog for Project {
         let worktree_dir = self.path.as_path();
         let repo = git2::Repository::open(worktree_dir)?;
 
-        let vb_state = self.virtual_branches();
+        let vb_state = VirtualBranchesHandle::new(self.gb_dir());
 
         // grab the target commit
         let default_target_commit = repo.find_commit(vb_state.get_default_target()?.sha)?;
@@ -279,7 +279,7 @@ impl Oplog for Project {
 
         oplog_state.set_oplog_head(snapshot_commit_id)?;
 
-        let vb_state = self.virtual_branches();
+        let vb_state = VirtualBranchesHandle::new(self.gb_dir());
         let target_commit_id = vb_state.get_default_target()?.sha;
         set_reference_to_oplog(&self.path, target_commit_id, snapshot_commit_id)?;
 
@@ -711,7 +711,7 @@ fn lines_since_snapshot(project: &Project, repo: &git2::Repository) -> Result<us
         return Ok(0);
     };
 
-    let vbranches = project.virtual_branches().list_branches_in_workspace()?;
+    let vbranches = VirtualBranchesHandle::new(project.gb_dir()).list_branches_in_workspace()?;
     let mut lines_changed = 0;
     let dirty_branches = vbranches.iter().filter(|b| !b.ownership.claims.is_empty());
     for branch in dirty_branches {

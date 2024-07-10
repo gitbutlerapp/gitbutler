@@ -4,7 +4,7 @@ use gitbutler_branch::diff::{self, diff_files_into_hunks, trees, FileDiff, GitHu
 use gitbutler_branch::file_ownership::OwnershipClaim;
 use gitbutler_branch::hunk::{Hunk, HunkHash};
 use gitbutler_branch::ownership::{reconcile_claims, BranchOwnershipClaims};
-use gitbutler_branchstate::{VirtualBranchesExt, VirtualBranchesHandle};
+use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_commit::commit_headers::HasCommitHeaders;
@@ -33,6 +33,7 @@ use crate::branch_manager::BranchManagerAccess;
 use crate::conflicts::{self, RepoConflicts};
 use crate::integration::get_workspace_head;
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
+use crate::VirtualBranchesExt;
 use gitbutler_branch::target;
 use gitbutler_error::error::Code;
 use gitbutler_error::error::Marker;

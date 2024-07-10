@@ -12,7 +12,10 @@ gitbutler-reference.workspace = true
 gitbutler-tagged-string.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-id.workspace = true
+gitbutler-error.workspace = true
+gitbutler-fs.workspace = true
 itertools = "0.13"
+toml = "0.8.13"
 serde = { workspace = true, features = ["std"] }
 bstr = "1.9.1"
 md5 = "0.7.0"

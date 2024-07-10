@@ -3,6 +3,7 @@ use crate::{
     ensure_selected_for_changes, get_applied_status,
     integration::{get_integration_commiter, update_gitbutler_integration},
     set_ownership, undo_commit, write_tree, NameConflitResolution, VirtualBranchHunk,
+    VirtualBranchesExt,
 };
 use anyhow::{anyhow, bail, Context, Result};
 use git2::build::TreeUpdateBuilder;
@@ -13,7 +14,6 @@ use gitbutler_branch::{
     diff,
     ownership::BranchOwnershipClaims,
 };
-use gitbutler_branchstate::VirtualBranchesExt;
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_headers::{CommitHeadersV2, HasCommitHeaders};
 use gitbutler_error::error::Marker;
