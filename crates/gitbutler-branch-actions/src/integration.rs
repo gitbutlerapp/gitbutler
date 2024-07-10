@@ -14,6 +14,7 @@ use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_error::error::Marker;
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 
+use crate::branch_manager::branch_creation::BranchCreation;
 use crate::branch_manager::BranchManagerAccess;
 use crate::{conflicts, VirtualBranchesExt};
 

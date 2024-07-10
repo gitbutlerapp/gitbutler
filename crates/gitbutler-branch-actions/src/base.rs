@@ -15,6 +15,7 @@ use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 use serde::Serialize;
 
 use super::r#virtual as vb;
+use crate::branch_manager::branch_removal::BranchRemoval;
 use crate::branch_manager::BranchManagerAccess;
 use crate::conflicts::RepoConflicts;
 use crate::integration::{get_workspace_head, update_gitbutler_integration};
