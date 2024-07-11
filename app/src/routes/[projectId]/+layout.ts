@@ -1,6 +1,5 @@
 import { invoke } from '$lib/backend/ipc';
 import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
-import { BranchService } from '$lib/branches/service';
 import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
 import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 import { HistoryService } from '$lib/history/history';
@@ -20,7 +19,6 @@ export async function load({ params, parent }) {
 	// prettier-ignore
 	const {
         authService,
-        githubService,
         projectService,
 		projectMetrics,
         remoteUrl$,
@@ -63,12 +61,6 @@ export async function load({ params, parent }) {
 		remoteBranchService,
 		baseBranchService
 	);
-	const branchService = new BranchService(
-		vbranchService,
-		remoteBranchService,
-		githubService,
-		branchController
-	);
 	projectMetrics.setProjectId(projectId);
 
 	const branchDragActionsFactory = new BranchDragActionsFactory(branchController);
@@ -79,8 +71,6 @@ export async function load({ params, parent }) {
 		authService,
 		baseBranchService,
 		branchController,
-		branchService,
-		githubService,
 		historyService,
 		projectId,
 		project,

@@ -207,7 +207,7 @@ export class BranchController {
 		}
 	}
 
-	async pushBranch(branchId: string, withForce: boolean): Promise<Branch | undefined> {
+	async pushBranch(branchId: string, withForce: boolean): Promise<Branch> {
 		try {
 			await invoke<void>('push_virtual_branch', {
 				projectId: this.projectId,
@@ -216,7 +216,6 @@ export class BranchController {
 			});
 			posthog.capture('Push Successful');
 			await this.vbranchService.reload();
-			return await this.vbranchService.getById(branchId);
 		} catch (err: any) {
 			console.error(err);
 			posthog.capture('Push Failed', { error: err });
@@ -246,6 +245,9 @@ export class BranchController {
 				});
 			}
 		}
+		const branch = await this.vbranchService.getById(branchId);
+		if (!branch) throw new Error('Pushed branch no longer available');
+		return branch;
 	}
 
 	async deleteBranch(branchId: string) {

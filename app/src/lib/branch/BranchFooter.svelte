@@ -3,6 +3,9 @@
 	import PushButton, { BranchAction } from '../components/PushButton.svelte';
 	import emptyStateImg from '$lib/assets/empty-state/commits-up-to-date.svg?raw';
 	import { PromptService } from '$lib/backend/prompt';
+	import { getHostedGitChecksMonitorStore } from '$lib/hostedServices/interface/hostedGitChecksMonitor';
+	import { getHostedGitListingServiceStore } from '$lib/hostedServices/interface/hostedGitListingService';
+	import { getHostedGitPrMonitorStore } from '$lib/hostedServices/interface/hostedGitPrMonitor';
 	import { project } from '$lib/testing/fixtures';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
@@ -17,6 +20,10 @@
 	const branchController = getContext(BranchController);
 	const promptService = getContext(PromptService);
 	const branch = getContextStore(Branch);
+
+	const listingService = getHostedGitListingServiceStore();
+	const prMonitor = getHostedGitPrMonitorStore();
+	const checksMonitor = getHostedGitChecksMonitorStore();
 
 	const [prompt, promptError] = promptService.reactToPrompt({
 		branchId: $branch.id,
@@ -71,6 +78,9 @@
 					try {
 						if (e.detail.action === BranchAction.Push) {
 							await branchController.pushBranch($branch.id, $branch.requiresForce);
+							$listingService?.reload();
+							$prMonitor?.refresh();
+							$checksMonitor?.refresh();
 						} else if (e.detail.action === BranchAction.Integrate) {
 							await branchController.mergeUpstream($branch.id);
 						}

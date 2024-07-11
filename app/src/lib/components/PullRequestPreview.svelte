@@ -14,7 +14,7 @@
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { marked } from 'marked';
 	import { get } from 'svelte/store';
-	import type { PullRequest } from '$lib/github/types';
+	import type { PullRequest } from '$lib/hostedServices/interface/types';
 	import { goto } from '$app/navigation';
 
 	export let pullrequest: PullRequest;

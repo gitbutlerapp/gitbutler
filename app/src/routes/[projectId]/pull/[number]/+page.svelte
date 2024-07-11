@@ -6,24 +6,20 @@
 	// It may also display details about a cooresponding pr if they exist
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import PullRequestPreview from '$lib/components/PullRequestPreview.svelte';
-	import { GitHubService } from '$lib/github/service';
-	import { getContext } from '$lib/utils/context';
-	import { map } from 'rxjs';
+	import { getHostedGitListingServiceStore } from '$lib/hostedServices/interface/hostedGitListingService';
 	import { page } from '$app/stores';
 
-	const githubService = getContext(GitHubService);
-
-	$: pr$ = githubService.prs$?.pipe(
-		map((prs) => prs.find((b) => b.number.toString() === $page.params.number))
-	);
+	const githubService = getHostedGitListingServiceStore();
+	$: prs = $githubService?.prs;
+	$: pr = $prs?.find((b) => b.number.toString() === $page.params.number);
 </script>
 
 <div class="wrapper">
 	<div class="inner">
-		{#if !$pr$}
+		{#if !pr}
 			<FullviewLoading />
-		{:else if pr$}
-			<PullRequestPreview pullrequest={$pr$} />
+		{:else if pr}
+			<PullRequestPreview pullrequest={pr} />
 		{:else}
 			<p>Branch doesn't seem to exist</p>
 		{/if}

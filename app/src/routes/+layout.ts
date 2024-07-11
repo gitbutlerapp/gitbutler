@@ -7,7 +7,6 @@ import { HttpClient } from '$lib/backend/httpClient';
 import { ProjectService } from '$lib/backend/projects';
 import { PromptService } from '$lib/backend/prompt';
 import { UpdaterService } from '$lib/backend/updater';
-import { GitHubService } from '$lib/github/service';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { RemotesService } from '$lib/remotes/service';
 import { RustSecretService } from '$lib/secrets/secretsService';
@@ -58,7 +57,6 @@ export async function load() {
 	// requires the `projectId` field to be mutable, and be updated when the user loads a new
 	// project.
 	const projectMetrics = new ProjectMetrics();
-	const githubService = new GitHubService(projectMetrics, userService.accessToken$, remoteUrl$);
 
 	const gitConfig = new GitConfigService();
 	const secretsService = new RustSecretService(gitConfig);
@@ -70,7 +68,6 @@ export async function load() {
 	return {
 		authService,
 		cloud: httpClient,
-		githubService,
 		projectService,
 		updaterService,
 		promptService,

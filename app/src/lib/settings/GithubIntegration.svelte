@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { checkAuthStatus, initDeviceOauth } from '$lib/backend/github';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import { GitHubService } from '$lib/github/service';
+	import { getGitHubUserServiceStore } from '$lib/hostedServices/github/githubUserService';
 	import Button from '$lib/shared/Button.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
@@ -15,7 +15,7 @@
 	export let minimal = false;
 	export let disabled = false;
 
-	const githubService = getContext(GitHubService);
+	const githubUserService = getGitHubUserServiceStore();
 	const userService = getContext(UserService);
 	const user = userService.user;
 
@@ -23,7 +23,7 @@
 	let codeCopied = false;
 	let GhActivationLinkPressed = false;
 	let GhActivationPageOpened = false;
-	//
+
 	let loading = false;
 	let userCode = '';
 	let deviceCode = '';
@@ -43,9 +43,9 @@
 		try {
 			const accessToken = await checkAuthStatus({ deviceCode });
 			$user.github_access_token = accessToken;
-			// TODO: Refactor so we don't have to call this twice
 			await userService.setUser($user);
-			$user.github_username = await githubService.fetchGitHubLogin();
+			// TODO: Remove setting of gh username since it isn't used anywhere.
+			$user.github_username = await $githubUserService?.fetchGitHubLogin();
 			userService.setUser($user);
 			toasts.success('GitHub authenticated');
 		} catch (err: any) {
