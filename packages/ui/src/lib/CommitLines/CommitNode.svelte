@@ -34,7 +34,7 @@
 	{#if commitNode.type === 'large' && commitNode.commit}
 		<div class="large-node">
 			<AvatarImage
-				srcUrl={commitNode.commit?.author.gravatarUrl}
+				srcUrl={commitNode.commit?.author.gravatarUrl ?? ''}
 				tooltipText={hoverText}
 				altText={`Gravatar for ${commitNode.commit.author.email}`}
 			/>
