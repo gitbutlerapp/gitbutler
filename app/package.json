@@ -3,12 +3,8 @@
 	"private": true,
 	"version": "0.0.0",
 	"type": "module",
-	"engines": {
-		"node": ">=20.11"
-	},
-	"packageManager": "pnpm@9.2.0",
 	"scripts": {
-		"dev": "vite --clearScreen false --debug hmr",
+		"dev": "vite --clearScreen false",
 		"test": "vitest run --mode development",
 		"test:watch": "vitest --watch --mode development",
 		"test:e2e": "playwright test -c ./playwright.config.ts",
