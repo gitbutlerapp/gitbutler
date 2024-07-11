@@ -73,10 +73,10 @@
 		}
 	): CombinedBranch[] {
 		return branches.filter((b) => {
-			if (params.includePrs && b.pr) {
-				return !params.hideBots || !b.pr.author?.isBot;
+			if (params.includePrs && b.primaryPullRequest) {
+				return !params.hideBots || !b.primaryPullRequest.author?.isBot;
 			}
-			if (params.includeRemote && b.remoteBranch) return true;
+			if (params.includeRemote && b.primaryRemoteBranch) return true;
 			if (params.includeStashed && b.vbranch) return true;
 			return false;
 		});

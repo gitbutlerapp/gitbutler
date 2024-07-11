@@ -1,5 +1,6 @@
 import { capture } from '$lib/analytics/posthog';
 import { CombinedBranch } from '$lib/branches/types';
+import { groupBy } from '$lib/utils/groupBy';
 import { Observable, combineLatest, of } from 'rxjs';
 import { catchError, shareReplay, startWith, switchMap } from 'rxjs/operators';
 import type { GitHubService } from '$lib/github/service';
@@ -100,43 +101,36 @@ export class BranchService {
 }
 
 function mergeBranchesAndPrs(
-	virtualBranches: Branch[] | undefined,
-	pullRequests: PullRequest[] | undefined,
-	remoteBranches: RemoteBranch[] | undefined
+	virtualBranches: Branch[] = [],
+	pullRequests: PullRequest[] = [],
+	remoteBranches: RemoteBranch[] = []
 ): CombinedBranch[] {
-	const contributions: CombinedBranch[] = [];
+	const groupedPullRequests = groupBy(pullRequests, (pullRequest) => pullRequest.sourceBranch);
+	const groupedRemoteBranches = groupBy(remoteBranches, (remoteBranch) => remoteBranch.givenName);
 
-	// Then remote branches that have no virtual branch, combined with pull requests if present
-	if (remoteBranches) {
-		contributions.push(
-			...remoteBranches.map((rb) => {
-				const pr = pullRequests?.find((pr) => pr.sourceBranch === rb.givenName);
-				return new CombinedBranch({ remoteBranch: rb, pr });
-			})
-		);
-	}
+	const branchNames = new Set<string>([
+		...Object.keys(groupedPullRequests),
+		...Object.keys(groupedRemoteBranches)
+	]);
 
-	// And finally pull requests that lack any corresponding branch
-	if (pullRequests) {
-		contributions.push(
-			...pullRequests
-				.filter((pr) => !contributions.some((cb) => pr.sourceBranch === cb.givenName))
-				.map((pr) => {
-					return new CombinedBranch({ pr });
-				})
-		);
-	}
+	const virtualBranchNames = virtualBranches?.map(
+		(virtualBranch) => virtualBranch.upstream?.givenName ?? virtualBranch.name
+	);
 
-	const virtualBranchNames =
-		virtualBranches?.map(
-			(virtualBranch) => virtualBranch.upstream?.givenName ?? virtualBranch.name
-		) || [];
+	// We don't want to list virtual branches so remove their names from the pool of all names
+	virtualBranchNames.forEach((virtualBranchName) => branchNames.delete(virtualBranchName));
 
-	// This should be everything considered a branch in one list
-	const filtered = contributions
-		.filter((combinedBranch) => !virtualBranchNames.includes(combinedBranch.givenName))
-		.sort((a, b) => {
-			return (a.modifiedAt || new Date(0)) < (b.modifiedAt || new Date(0)) ? 1 : -1;
+	const combinedBranches = [...branchNames].map((branchName) => {
+		const pullRequests = groupedPullRequests[branchName] || [];
+		const remoteBranches = groupedRemoteBranches[branchName] || [];
+
+		return new CombinedBranch({
+			primaryPullRequest: pullRequests[0],
+			otherPullRequests: pullRequests.slice(1),
+			primaryRemoteBranch: remoteBranches[0],
+			otherRemoteBranches: remoteBranches.slice(1)
 		});
-	return filtered;
+	});
+
+	return combinedBranches;
 }

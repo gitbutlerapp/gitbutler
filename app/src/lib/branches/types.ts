@@ -2,36 +2,55 @@ import type { PullRequest } from '$lib/github/types';
 import type { Author, RemoteBranch } from '$lib/vbranches/types';
 
 export class CombinedBranch {
-	pr?: PullRequest;
-	remoteBranch?: RemoteBranch;
+	primaryPullRequest?: PullRequest;
+	primaryRemoteBranch?: RemoteBranch;
 
-	constructor({ remoteBranch, pr }: { remoteBranch?: RemoteBranch; pr?: PullRequest }) {
-		this.remoteBranch = remoteBranch;
-		this.pr = pr;
+	otherPullRequests: PullRequest[];
+	otherRemoteBranches: RemoteBranch[];
+
+	constructor({
+		primaryRemoteBranch: remoteBranch,
+		otherRemoteBranches,
+		primaryPullRequest: pr,
+		otherPullRequests
+	}: {
+		primaryRemoteBranch?: RemoteBranch;
+		primaryPullRequest?: PullRequest;
+		otherRemoteBranches: RemoteBranch[];
+		otherPullRequests: PullRequest[];
+	}) {
+		this.primaryRemoteBranch = remoteBranch;
+		this.primaryPullRequest = pr;
+		this.otherPullRequests = otherPullRequests;
+		this.otherRemoteBranches = otherRemoteBranches;
 	}
 
 	get upstreamSha(): string {
-		return this.pr?.sha || this.remoteBranch?.sha || 'unknown';
+		return this.primaryPullRequest?.sha || this.primaryRemoteBranch?.sha || 'unknown';
 	}
 
 	get displayName(): string {
-		console.log(this.pr);
-		console.log(this.remoteBranch);
-		return this.pr?.sourceBranch || this.remoteBranch?.displayName || 'unknown';
+		console.log(this.primaryPullRequest);
+		console.log(this.primaryRemoteBranch);
+		return (
+			this.primaryPullRequest?.sourceBranch || this.primaryRemoteBranch?.displayName || 'unknown'
+		);
 	}
 
 	get givenName(): string {
-		return this.pr?.sourceBranch || this.remoteBranch?.givenName || 'unknown';
+		return (
+			this.primaryPullRequest?.sourceBranch || this.primaryRemoteBranch?.givenName || 'unknown'
+		);
 	}
 
 	get authors(): Author[] {
 		const authors: Author[] = [];
-		if (this.pr?.author) {
-			authors.push(this.pr.author);
+		if (this.primaryPullRequest?.author) {
+			authors.push(this.primaryPullRequest.author);
 		}
-		if (this.remoteBranch) {
-			if (this.remoteBranch.lastCommitAuthor) {
-				authors.push({ name: this.remoteBranch.lastCommitAuthor });
+		if (this.primaryRemoteBranch) {
+			if (this.primaryRemoteBranch.lastCommitAuthor) {
+				authors.push({ name: this.primaryRemoteBranch.lastCommitAuthor });
 			}
 		}
 		return authors;
@@ -50,16 +69,16 @@ export class CombinedBranch {
 
 	// GH colors reference https://github.blog/changelog/2021-06-08-new-issue-and-pull-request-state-icons
 	get color(): 'neutral' | 'success' | 'purple' | undefined {
-		if (this.pr?.mergedAt) return 'purple'; // merged PR
-		if (this.pr) return 'success'; // open PR
+		if (this.primaryPullRequest?.mergedAt) return 'purple'; // merged PR
+		if (this.primaryPullRequest) return 'success'; // open PR
 		// if (this.remoteBranch?.isMergeable) return 'success'; // remote branches
 		return 'neutral';
 	}
 
 	get modifiedAt(): Date | undefined {
-		if (this.remoteBranch) {
-			return this.remoteBranch.lastCommitTimestampMs
-				? new Date(this.remoteBranch.lastCommitTimestampMs)
+		if (this.primaryRemoteBranch) {
+			return this.primaryRemoteBranch.lastCommitTimestampMs
+				? new Date(this.primaryRemoteBranch.lastCommitTimestampMs)
 				: undefined;
 		}
 	}
@@ -83,23 +102,25 @@ export class CombinedBranch {
 	get searchableIdentifiers() {
 		const identifiers = [];
 
-		if (this.pr) {
-			identifiers.push(this.pr.title);
-			identifiers.push(this.pr.sourceBranch);
-			this.pr.author?.email && identifiers.push(this.pr.author.email);
-			this.pr.author?.name && identifiers.push(this.pr.author.name);
+		if (this.primaryPullRequest) {
+			identifiers.push(this.primaryPullRequest.title);
+			identifiers.push(this.primaryPullRequest.sourceBranch);
+			this.primaryPullRequest.author?.email &&
+				identifiers.push(this.primaryPullRequest.author.email);
+			this.primaryPullRequest.author?.name && identifiers.push(this.primaryPullRequest.author.name);
 		}
-		if (this.remoteBranch) {
-			identifiers.push(this.remoteBranch.displayName);
-			this.remoteBranch.lastCommitAuthor && identifiers.push(this.remoteBranch.lastCommitAuthor);
+		if (this.primaryRemoteBranch) {
+			identifiers.push(this.primaryRemoteBranch.displayName);
+			this.primaryRemoteBranch.lastCommitAuthor &&
+				identifiers.push(this.primaryRemoteBranch.lastCommitAuthor);
 		}
 
 		return identifiers.map((identifier) => identifier.toLowerCase());
 	}
 
 	currentState(): BranchState | undefined {
-		if (this.pr) return BranchState.PR;
-		if (this.remoteBranch) return BranchState.RemoteBranch;
+		if (this.primaryPullRequest) return BranchState.PR;
+		if (this.primaryRemoteBranch) return BranchState.RemoteBranch;
 		return undefined;
 	}
 }

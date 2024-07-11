@@ -10,8 +10,9 @@
 
 	function getBranchLink(b: CombinedBranch): string | undefined {
 		if (b.vbranch) return `/${projectId}/board/`;
-		if (b.remoteBranch) return `/${projectId}/remote/${branch?.remoteBranch?.displayName}`;
-		if (b.pr) return `/${projectId}/pull/${b.pr.number}`;
+		if (b.primaryRemoteBranch)
+			return `/${projectId}/remote/${branch?.primaryRemoteBranch?.displayName}`;
+		if (b.primaryPullRequest) return `/${projectId}/pull/${b.primaryPullRequest.number}`;
 	}
 
 	$: href = getBranchLink(branch);
@@ -34,7 +35,7 @@
 				{branch.displayName}
 			</p>
 		</div>
-		{#if branch.remoteBranch || branch.pr}
+		{#if branch.primaryRemoteBranch || branch.primaryPullRequest}
 			<div class="branch__details">
 				<span class="branch__author text-base-11 details truncate">
 					<TimeAgo date={branch.modifiedAt} />
