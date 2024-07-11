@@ -16,10 +16,11 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Branch, type NameConflictResolution } from '$lib/vbranches/types';
-	import { createEventDispatcher } from 'svelte';
 
 	export let contextMenuEl: ContextMenu;
 	export let target: HTMLElement;
+	export let onCollapse: () => void;
+	export let onGenerateBranchName: () => void;
 
 	const user = getContextStore(User);
 	const project = getContext(Project);
@@ -32,10 +33,6 @@
 	let deleteBranchModal: Modal;
 	let renameRemoteModal: Modal;
 	let newRemoteName: string;
-
-	const dispatch = createEventDispatcher<{
-		action: 'expand' | 'collapse' | 'generate-branch-name';
-	}>();
 
 	$: branch = $branchStore;
 	$: commits = branch.commits;
@@ -169,7 +166,7 @@
 		<ContextMenuItem
 			label="Collapse lane"
 			on:click={() => {
-				dispatch('action', 'collapse');
+				onCollapse();
 				contextMenuEl.close();
 			}}
 		/>
@@ -202,7 +199,7 @@
 		<ContextMenuItem
 			label="Generate branch name"
 			on:click={() => {
-				dispatch('action', 'generate-branch-name');
+				onGenerateBranchName();
 				contextMenuEl.close();
 			}}
 			disabled={!($aiGenEnabled && aiConfigurationValid) || branch.files?.length === 0}

@@ -60,7 +60,9 @@
 	}
 
 	async function generateBranchName() {
+		console.log('before');
 		if (!aiGenEnabled) return;
+		console.log('after');
 
 		const hunks = branch.files.flatMap((f) => f.hunks);
 
@@ -96,11 +98,7 @@
 		<BranchHeader
 			uncommittedChanges={branch.files.length}
 			bind:isLaneCollapsed
-			on:action={(e) => {
-				if (e.detail === 'generate-branch-name') {
-					generateBranchName();
-				}
-			}}
+			onGenerateBranchName={generateBranchName}
 		/>
 	</div>
 {:else}
@@ -122,17 +120,7 @@
 					style:width={`${laneWidth || $defaultBranchWidthRem}rem`}
 					class="branch-card__contents"
 				>
-					<BranchHeader
-						bind:isLaneCollapsed
-						on:action={(e) => {
-							if (e.detail === 'generate-branch-name') {
-								generateBranchName();
-							}
-							if (e.detail === 'collapse') {
-								$isLaneCollapsed = true;
-							}
-						}}
-					/>
+					<BranchHeader bind:isLaneCollapsed onGenerateBranchName={generateBranchName} />
 					<PullRequestCard />
 
 					<div class="card">
@@ -165,11 +153,6 @@
 									projectId={project.id}
 									expanded={commitBoxOpen}
 									hasSectionsAfter={branch.commits.length > 0}
-									on:action={(e) => {
-										if (e.detail === 'generate-branch-name') {
-											generateBranchName();
-										}
-									}}
 								/>
 							</div>
 						{:else if branch.commits.length === 0}

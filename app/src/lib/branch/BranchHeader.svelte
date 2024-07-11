@@ -17,6 +17,7 @@
 
 	export let uncommittedChanges = 0;
 	export let isLaneCollapsed: Persisted<boolean>;
+	export let onGenerateBranchName: () => void;
 
 	const branchController = getContext(BranchController);
 	const githubService = getContext(GitHubService);
@@ -41,6 +42,10 @@
 
 	function expandLane() {
 		$isLaneCollapsed = false;
+	}
+
+	function collapseLane() {
+		$isLaneCollapsed = true;
 	}
 
 	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
@@ -213,7 +218,12 @@
 								contextMenu.toggle();
 							}}
 						/>
-						<BranchLaneContextMenu bind:contextMenuEl={contextMenu} target={meatballButtonEl} />
+						<BranchLaneContextMenu
+							bind:contextMenuEl={contextMenu}
+							target={meatballButtonEl}
+							onCollapse={collapseLane}
+							{onGenerateBranchName}
+						/>
 					</div>
 				</div>
 			</div>
