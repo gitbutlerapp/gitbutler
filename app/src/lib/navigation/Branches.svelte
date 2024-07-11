@@ -76,7 +76,7 @@
 			if (params.includePrs && b.primaryPullRequest) {
 				return !params.hideBots || !b.primaryPullRequest.author?.isBot;
 			}
-			if (params.includeRemote && b.primaryRemoteBranch) return true;
+			if (params.includeRemote && b.primaryBranch) return true;
 			if (params.includeStashed && b.vbranch) return true;
 			return false;
 		});

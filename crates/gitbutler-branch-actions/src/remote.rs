@@ -28,10 +28,12 @@ pub struct RemoteBranch {
     #[serde(with = "gitbutler_serde::serde::oid")]
     pub sha: git2::Oid,
     pub name: Refname,
+    /// The name that the user gave the branch (excluding the remote name IE origin)
     pub given_name: String,
     pub upstream: Option<RemoteRefname>,
     pub last_commit_timestamp_ms: Option<u128>,
     pub last_commit_author: Option<String>,
+    pub is_remote: bool,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -147,6 +149,7 @@ pub fn branch_to_remote_branch(
         },
         name,
         given_name: real_name,
+        is_remote: branch.get().is_remote(),
         last_commit_timestamp_ms,
         last_commit_author,
     }))

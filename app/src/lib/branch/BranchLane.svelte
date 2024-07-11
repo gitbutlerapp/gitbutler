@@ -15,20 +15,20 @@
 	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import { RemoteFile, Branch } from '$lib/vbranches/types';
+	import { RemoteFile, VirtualBranch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { setContext } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 
-	export let branch: Branch;
+	export let branch: VirtualBranch;
 
 	const ownershipStore = createContextStore(Ownership, Ownership.fromBranch(branch));
 	// TODO: Update store here rather than reset it
 	$: ownershipStore.set(Ownership.fromBranch(branch));
 
-	const branchStore = createContextStore(Branch, undefined);
+	const branchStore = createContextStore(VirtualBranch, undefined);
 	$: branchStore.set(branch);
 
 	const localCommits = createLocalCommitsContextStore(undefined);

@@ -4,7 +4,7 @@ import {
 	LocalFile,
 	RemoteCommit,
 	RemoteFile,
-	type Branch,
+	type VirtualBranch,
 	type Commit
 } from '$lib/vbranches/types';
 import type { Project } from '$lib/backend/projects';
@@ -14,7 +14,7 @@ class CommitDragActions {
 	constructor(
 		private branchController: BranchController,
 		private project: Project,
-		private branch: Branch,
+		private branch: VirtualBranch,
 		private commit: Commit | RemoteCommit
 	) {}
 
@@ -102,7 +102,7 @@ export class CommitDragActionsFactory {
 		private project: Project
 	) {}
 
-	build(branch: Branch, commit: Commit | RemoteCommit) {
+	build(branch: VirtualBranch, commit: Commit | RemoteCommit) {
 		return new CommitDragActions(this.branchController, this.project, branch, commit);
 	}
 }

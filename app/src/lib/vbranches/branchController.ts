@@ -4,7 +4,7 @@ import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { BaseBranchService } from './baseBranch';
-import type { Branch, Hunk, LocalFile, NameConflictResolution } from './types';
+import type { VirtualBranch, Hunk, LocalFile, NameConflictResolution } from './types';
 import type { VirtualBranchService } from './virtualBranch';
 
 export class BranchController {
@@ -207,7 +207,7 @@ export class BranchController {
 		}
 	}
 
-	async pushBranch(branchId: string, withForce: boolean): Promise<Branch | undefined> {
+	async pushBranch(branchId: string, withForce: boolean): Promise<VirtualBranch | undefined> {
 		try {
 			await invoke<void>('push_virtual_branch', {
 				projectId: this.projectId,
@@ -262,7 +262,7 @@ export class BranchController {
 
 	async updateBaseBranch(): Promise<string | undefined> {
 		try {
-			const stashedConflicting = await invoke<Branch[]>('update_base_branch', {
+			const stashedConflicting = await invoke<VirtualBranch[]>('update_base_branch', {
 				projectId: this.projectId
 			});
 			if (stashedConflicting.length > 0) {

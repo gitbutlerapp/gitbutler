@@ -11,7 +11,7 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranch, Branch } from '$lib/vbranches/types';
+	import { BaseBranch, VirtualBranch } from '$lib/vbranches/types';
 	import type { PullRequest } from '$lib/github/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 
@@ -21,7 +21,7 @@
 
 	const branchController = getContext(BranchController);
 	const githubService = getContext(GitHubService);
-	const branchStore = getContextStore(Branch);
+	const branchStore = getContextStore(VirtualBranch);
 	const branchService = getContext(BranchService);
 	const baseBranch = getContextStore(BaseBranch);
 

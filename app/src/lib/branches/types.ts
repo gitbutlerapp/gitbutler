@@ -1,46 +1,38 @@
 import type { PullRequest } from '$lib/github/types';
-import type { Author, RemoteBranch } from '$lib/vbranches/types';
+import type { Author, Branch } from '$lib/vbranches/types';
 
 export class CombinedBranch {
-	primaryPullRequest?: PullRequest;
-	primaryRemoteBranch?: RemoteBranch;
+	pullRequests: PullRequest[];
+	branches: Branch[];
 
-	otherPullRequests: PullRequest[];
-	otherRemoteBranches: RemoteBranch[];
+	constructor({ pullRequests, branches }: { branches: Branch[]; pullRequests: PullRequest[] }) {
+		// If there are no pull requests or branches passed in, it is an absurd situation so we ought to panic
+		if (pullRequests.length === 0 && branches.length === 0) {
+			throw new Error('Combined branch created without any branches or pull requests attached');
+		}
 
-	constructor({
-		primaryRemoteBranch: remoteBranch,
-		otherRemoteBranches,
-		primaryPullRequest: pr,
-		otherPullRequests
-	}: {
-		primaryRemoteBranch?: RemoteBranch;
-		primaryPullRequest?: PullRequest;
-		otherRemoteBranches: RemoteBranch[];
-		otherPullRequests: PullRequest[];
-	}) {
-		this.primaryRemoteBranch = remoteBranch;
-		this.primaryPullRequest = pr;
-		this.otherPullRequests = otherPullRequests;
-		this.otherRemoteBranches = otherRemoteBranches;
+		this.pullRequests = pullRequests;
+		this.branches = branches;
+	}
+
+	get primaryPullRequest(): PullRequest | undefined {
+		return this.pullRequests[0];
+	}
+
+	get primaryBranch(): Branch | undefined {
+		return this.branches[0];
 	}
 
 	get upstreamSha(): string {
-		return this.primaryPullRequest?.sha || this.primaryRemoteBranch?.sha || 'unknown';
+		return this.primaryPullRequest?.sha || this.primaryBranch?.sha || 'unknown';
 	}
 
 	get displayName(): string {
-		console.log(this.primaryPullRequest);
-		console.log(this.primaryRemoteBranch);
-		return (
-			this.primaryPullRequest?.sourceBranch || this.primaryRemoteBranch?.displayName || 'unknown'
-		);
+		return this.primaryPullRequest?.sourceBranch || this.primaryBranch?.displayName || 'unknown';
 	}
 
 	get givenName(): string {
-		return (
-			this.primaryPullRequest?.sourceBranch || this.primaryRemoteBranch?.givenName || 'unknown'
-		);
+		return this.primaryPullRequest?.sourceBranch || this.primaryBranch?.givenName || 'unknown';
 	}
 
 	get authors(): Author[] {
@@ -48,9 +40,9 @@ export class CombinedBranch {
 		if (this.primaryPullRequest?.author) {
 			authors.push(this.primaryPullRequest.author);
 		}
-		if (this.primaryRemoteBranch) {
-			if (this.primaryRemoteBranch.lastCommitAuthor) {
-				authors.push({ name: this.primaryRemoteBranch.lastCommitAuthor });
+		if (this.primaryBranch) {
+			if (this.primaryBranch.lastCommitAuthor) {
+				authors.push({ name: this.primaryBranch.lastCommitAuthor });
 			}
 		}
 		return authors;
@@ -76,9 +68,9 @@ export class CombinedBranch {
 	}
 
 	get modifiedAt(): Date | undefined {
-		if (this.primaryRemoteBranch) {
-			return this.primaryRemoteBranch.lastCommitTimestampMs
-				? new Date(this.primaryRemoteBranch.lastCommitTimestampMs)
+		if (this.primaryBranch) {
+			return this.primaryBranch.lastCommitTimestampMs
+				? new Date(this.primaryBranch.lastCommitTimestampMs)
 				: undefined;
 		}
 	}
@@ -86,8 +78,6 @@ export class CombinedBranch {
 	get tooltip(): string | undefined {
 		const currentState = this.currentState();
 		switch (currentState) {
-			case BranchState.VirtualBranch:
-				return 'Virtual branch';
 			case BranchState.RemoteBranch:
 				return 'Remote branch';
 			case BranchState.PR:
@@ -109,10 +99,9 @@ export class CombinedBranch {
 				identifiers.push(this.primaryPullRequest.author.email);
 			this.primaryPullRequest.author?.name && identifiers.push(this.primaryPullRequest.author.name);
 		}
-		if (this.primaryRemoteBranch) {
-			identifiers.push(this.primaryRemoteBranch.displayName);
-			this.primaryRemoteBranch.lastCommitAuthor &&
-				identifiers.push(this.primaryRemoteBranch.lastCommitAuthor);
+		if (this.primaryBranch) {
+			identifiers.push(this.primaryBranch.displayName);
+			this.primaryBranch.lastCommitAuthor && identifiers.push(this.primaryBranch.lastCommitAuthor);
 		}
 
 		return identifiers.map((identifier) => identifier.toLowerCase());
@@ -120,7 +109,7 @@ export class CombinedBranch {
 
 	currentState(): BranchState | undefined {
 		if (this.primaryPullRequest) return BranchState.PR;
-		if (this.primaryRemoteBranch) return BranchState.RemoteBranch;
+		if (this.primaryBranch) return BranchState.RemoteBranch;
 		return undefined;
 	}
 }

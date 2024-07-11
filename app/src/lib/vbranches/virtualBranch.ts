@@ -1,4 +1,4 @@
-import { Branch, Commit, RemoteCommit, VirtualBranches, commitCompare } from './types';
+import { VirtualBranch, Commit, RemoteCommit, VirtualBranches, commitCompare } from './types';
 import { invoke, listen } from '$lib/backend/ipc';
 import { observableToStore } from '$lib/rxjs/store';
 import { getRemoteBranchData } from '$lib/stores/remoteBranches';
@@ -24,13 +24,13 @@ import { writable, type Readable } from 'svelte/store';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 
 export class VirtualBranchService {
-	branches$: Observable<Branch[] | undefined>;
-	activeBranches$: Observable<Branch[] | undefined>;
+	branches$: Observable<VirtualBranch[] | undefined>;
+	activeBranches$: Observable<VirtualBranch[] | undefined>;
 	branchesError = writable<any>();
 	private reload$ = new BehaviorSubject<void>(undefined);
 	private fresh$ = new Subject<void>();
 
-	activeBranches: Readable<Branch[] | undefined>;
+	activeBranches: Readable<VirtualBranch[] | undefined>;
 	activeBranchesError: Readable<any>;
 
 	constructor(
@@ -44,7 +44,7 @@ export class VirtualBranchService {
 				gbBranchActive
 					? concat(
 							from(listVirtualBranches({ projectId })),
-							new Observable<Branch[]>((subscriber) => {
+							new Observable<VirtualBranch[]>((subscriber) => {
 								return subscribeToVirtualBranches(projectId, (branches) =>
 									subscriber.next(branches)
 								);
@@ -148,13 +148,16 @@ export class VirtualBranchService {
 	}
 }
 
-function subscribeToVirtualBranches(projectId: string, callback: (branches: Branch[]) => void) {
+function subscribeToVirtualBranches(
+	projectId: string,
+	callback: (branches: VirtualBranch[]) => void
+) {
 	return listen<any>(`project://${projectId}/virtual-branches`, (event) =>
 		callback(plainToInstance(VirtualBranches, event.payload).branches)
 	);
 }
 
-export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
+export async function listVirtualBranches(params: { projectId: string }): Promise<VirtualBranch[]> {
 	return plainToInstance(VirtualBranches, await invoke<any>('list_virtual_branches', params))
 		.branches;
 }

@@ -7,7 +7,7 @@ import type { GitHubService } from '$lib/github/service';
 import type { PullRequest } from '$lib/github/types';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { BranchController } from '$lib/vbranches/branchController';
-import type { Branch, RemoteBranch } from '$lib/vbranches/types';
+import type { VirtualBranch, Branch } from '$lib/vbranches/types';
 import type { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 
 export class BranchService {
@@ -50,14 +50,14 @@ export class BranchService {
 	}
 
 	async createPr(
-		branch: Branch,
+		branch: VirtualBranch,
 		baseBranch: string,
 		draft: boolean
 	): Promise<PullRequest | undefined> {
 		// Using this mutable variable while investigating why branch variable
 		// does not seem to update reliably.
 		// TODO: This needs to be fixed and removed.
-		let newBranch: Branch | undefined;
+		let newBranch: VirtualBranch | undefined;
 
 		// Push if local commits
 		if (branch.commits.some((c) => !c.isRemote)) {
@@ -101,9 +101,9 @@ export class BranchService {
 }
 
 function mergeBranchesAndPrs(
-	virtualBranches: Branch[] = [],
+	virtualBranches: VirtualBranch[] = [],
 	pullRequests: PullRequest[] = [],
-	remoteBranches: RemoteBranch[] = []
+	remoteBranches: Branch[] = []
 ): CombinedBranch[] {
 	const groupedPullRequests = groupBy(pullRequests, (pullRequest) => pullRequest.sourceBranch);
 	const groupedRemoteBranches = groupBy(remoteBranches, (remoteBranch) => remoteBranch.givenName);
@@ -125,10 +125,8 @@ function mergeBranchesAndPrs(
 		const remoteBranches = groupedRemoteBranches[branchName] || [];
 
 		return new CombinedBranch({
-			primaryPullRequest: pullRequests[0],
-			otherPullRequests: pullRequests.slice(1),
-			primaryRemoteBranch: remoteBranches[0],
-			otherRemoteBranches: remoteBranches.slice(1)
+			pullRequests: pullRequests,
+			branches: remoteBranches
 		});
 	});
 

@@ -3,7 +3,7 @@
 	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BaseBranch, Branch } from '$lib/vbranches/types';
+	import { BaseBranch, VirtualBranch } from '$lib/vbranches/types';
 
 	export let isUnapplied = false;
 	export let hasIntegratedCommits = false;
@@ -11,7 +11,7 @@
 	export let remoteExists: boolean;
 
 	const baseBranch = getContextStore(BaseBranch);
-	const branch = getContextStore(Branch);
+	const branch = getContextStore(VirtualBranch);
 </script>
 
 {#if !remoteExists}

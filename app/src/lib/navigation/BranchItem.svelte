@@ -9,10 +9,7 @@
 	export let branch: CombinedBranch;
 
 	function getBranchLink(b: CombinedBranch): string | undefined {
-		if (b.vbranch) return `/${projectId}/board/`;
-		if (b.primaryRemoteBranch)
-			return `/${projectId}/remote/${branch?.primaryRemoteBranch?.displayName}`;
-		if (b.primaryPullRequest) return `/${projectId}/pull/${b.primaryPullRequest.number}`;
+		return `/${projectId}/unapplied/${b.givenName}`;
 	}
 
 	$: href = getBranchLink(branch);
@@ -32,19 +29,17 @@
 	<div class="branch__info">
 		<div class="branch__details">
 			<p class="text-base-13 branch__name">
-				{branch.displayName}
+				{branch.givenName}
 			</p>
 		</div>
-		{#if branch.primaryRemoteBranch || branch.primaryPullRequest}
-			<div class="branch__details">
-				<span class="branch__author text-base-11 details truncate">
-					<TimeAgo date={branch.modifiedAt} />
-					{#if branch.author}
-						by {branch.author?.name ?? 'unknown'}
-					{/if}
-				</span>
-			</div>
-		{/if}
+		<div class="branch__details">
+			<span class="branch__author text-base-11 details truncate">
+				<TimeAgo date={branch.modifiedAt} />
+				{#if branch.author}
+					by {branch.author?.name ?? 'unknown'}
+				{/if}
+			</span>
+		</div>
 	</div>
 </button>
 

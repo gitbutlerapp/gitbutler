@@ -9,7 +9,7 @@
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
-	import { Branch } from '$lib/vbranches/types';
+	import { VirtualBranch } from '$lib/vbranches/types';
 	import { distinctUntilChanged } from 'rxjs';
 	import { derived, type Readable } from 'svelte/store';
 	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
@@ -24,7 +24,7 @@
 		messageStyle?: MessageStyle;
 	};
 
-	const branch = getContextStore(Branch);
+	const branch = getContextStore(VirtualBranch);
 	const baseBranchService = getContext(BaseBranchService);
 	const githubService = getContext(GitHubService);
 	const project = getContext(Project);

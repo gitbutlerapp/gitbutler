@@ -1,7 +1,7 @@
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { observableToStore } from '$lib/rxjs/store';
-import { RemoteBranch, RemoteBranchData } from '$lib/vbranches/types';
+import { Branch, BranchData } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import {
 	Observable,
@@ -17,8 +17,8 @@ import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { Readable } from 'svelte/store';
 
 export class RemoteBranchService {
-	branches: Readable<RemoteBranch[] | undefined>;
-	branches$: Observable<RemoteBranch[]>;
+	branches: Readable<Branch[] | undefined>;
+	branches$: Observable<Branch[]>;
 	error: Readable<string | undefined>;
 	private reload$ = new Subject<void>();
 
@@ -50,21 +50,18 @@ export class RemoteBranchService {
 	}
 }
 
-async function listRemoteBranches(projectId: string): Promise<RemoteBranch[]> {
+async function listRemoteBranches(projectId: string): Promise<Branch[]> {
 	const branches = plainToInstance(
-		RemoteBranch,
+		Branch,
 		await invoke<any[]>('list_remote_branches', { projectId })
 	);
 
 	return branches;
 }
 
-export async function getRemoteBranchData(
-	projectId: string,
-	refname: string
-): Promise<RemoteBranchData> {
+export async function getRemoteBranchData(projectId: string, refname: string): Promise<BranchData> {
 	return plainToInstance(
-		RemoteBranchData,
+		BranchData,
 		await invoke<any>('get_remote_branch_data', { projectId, refname })
 	);
 }

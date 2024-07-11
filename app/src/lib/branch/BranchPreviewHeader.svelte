@@ -9,10 +9,10 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import type { PullRequest } from '$lib/github/types';
-	import type { BaseBranch, RemoteBranch } from '$lib/vbranches/types';
+	import type { BaseBranch, Branch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
-	export let branch: RemoteBranch;
+	export let branch: Branch;
 	export let base: BaseBranch | undefined | null;
 	export let pr: PullRequest | undefined;
 

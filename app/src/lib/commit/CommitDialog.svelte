@@ -7,7 +7,7 @@
 	import { slideFade } from '$lib/utils/svelteTransitions';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import { Branch } from '$lib/vbranches/types';
+	import { VirtualBranch } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let projectId: string;
@@ -16,7 +16,7 @@
 
 	const branchController = getContext(BranchController);
 	const selectedOwnership = getContextStore(Ownership);
-	const branch = getContextStore(Branch);
+	const branch = getContextStore(VirtualBranch);
 
 	const runCommitHooks = projectRunCommitHooks(projectId);
 	const commitMessage = persistedCommitMessage(projectId, $branch.id);

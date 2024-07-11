@@ -89,13 +89,13 @@ export class SkippedFile {
 }
 
 export class VirtualBranches {
-	@Type(() => Branch)
-	branches!: Branch[];
+	@Type(() => VirtualBranch)
+	branches!: VirtualBranch[];
 	@Type(() => SkippedFile)
 	skippedFiles!: SkippedFile[];
 }
 
-export class Branch {
+export class VirtualBranch {
 	id!: string;
 	name!: string;
 	notes!: string;
@@ -107,9 +107,9 @@ export class Branch {
 	description!: string;
 	head!: string;
 	order!: number;
-	@Type(() => RemoteBranch)
-	upstream?: RemoteBranch;
-	upstreamData?: RemoteBranchData;
+	@Type(() => Branch)
+	upstream?: Branch;
+	upstreamData?: BranchData;
 	upstreamName?: string;
 	conflicted!: boolean;
 	// TODO: to be removed from the API
@@ -321,11 +321,12 @@ export interface Author {
 	isBot?: boolean;
 }
 
-export class RemoteBranch {
+export class Branch {
 	sha!: string;
 	name!: string;
 	givenName!: string;
 	upstream?: string;
+	isRemote!: boolean;
 	lastCommitTimestampMs?: number | undefined;
 	lastCommitAuthor?: string | undefined;
 
@@ -334,7 +335,7 @@ export class RemoteBranch {
 	}
 }
 
-export class RemoteBranchData {
+export class BranchData {
 	sha!: string;
 	name!: string;
 	upstream?: string;

@@ -72,6 +72,13 @@ impl ProjectRepository {
         &self.git_repository
     }
 
+    /// Fetches a branches name without the remote name attached
+    ///
+    /// refs/heads/my-branch -> my-branch
+    /// refs/remotes/origin/my-branch -> my-branch
+    ///
+    /// An ideal implementation wouldn't require us to list all the references,
+    /// but there doesn't seem to be a libgit2 solution to this.
     pub fn given_name_for_branch(&self, branch: &git2::Branch) -> Result<String> {
         let reference = branch.get();
         let repo = self.repo();

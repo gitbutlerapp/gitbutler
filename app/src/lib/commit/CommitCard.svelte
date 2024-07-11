@@ -21,13 +21,13 @@
 		RemoteCommit,
 		Commit,
 		RemoteFile,
-		Branch,
+		VirtualBranch,
 		BaseBranch,
 		type CommitStatus
 	} from '$lib/vbranches/types';
 	import { type Snippet } from 'svelte';
 
-	export let branch: Branch | undefined = undefined;
+	export let branch: VirtualBranch | undefined = undefined;
 	export let commit: Commit | RemoteCommit;
 	export let commitUrl: string | undefined = undefined;
 	export let isHeadCommit: boolean = false;
