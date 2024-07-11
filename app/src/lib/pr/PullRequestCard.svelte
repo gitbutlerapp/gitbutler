@@ -2,7 +2,6 @@
 	import MergeButton from './MergeButton.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
-	import { BranchService } from '$lib/branches/service';
 	import { GitHubService } from '$lib/github/service';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
@@ -26,7 +25,6 @@
 	};
 
 	const branch = getContextStore(Branch);
-	const branchService = getContext(BranchService);
 	const baseBranchService = getContext(BaseBranchService);
 	const githubService = getContext(GitHubService);
 	const project = getContext(Project);
@@ -333,7 +331,6 @@
 						} finally {
 							isMerging = false;
 							baseBranchService.fetchFromRemotes();
-							branchService.reloadVirtualBranches();
 							updateDetailsAndChecks();
 						}
 					}}

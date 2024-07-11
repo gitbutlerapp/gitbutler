@@ -1,5 +1,6 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use gitbutler_project::Project;
+use itertools::Itertools;
 
 pub struct ProjectRepository {
     git_repository: git2::Repository,
@@ -69,5 +70,45 @@ impl ProjectRepository {
 
     pub fn repo(&self) -> &git2::Repository {
         &self.git_repository
+    }
+
+    pub fn given_name_for_branch(&self, branch: &git2::Branch) -> Result<String> {
+        let reference = branch.get();
+        let repo = self.repo();
+
+        if reference.is_remote() {
+            let shorthand_name = reference
+                .shorthand()
+                .ok_or(anyhow::anyhow!("Branch name was not utf-8"))
+                .map(String::from)?;
+
+            let remotes = repo
+                .remotes()
+                .context("Failed to get remotes")?
+                .iter()
+                .flatten()
+                .map(String::from)
+                .sorted_by_key(|reference_name| -(reference_name.len() as i32))
+                .collect::<Vec<String>>();
+
+            let longest_remote = remotes
+                .into_iter()
+                .find(|reference_name| shorthand_name.starts_with(reference_name))
+                .ok_or(anyhow::anyhow!(
+                    "Failed to find remote branch's cooresponding remote"
+                ))?;
+
+            let shorthand_name = shorthand_name
+                .chars()
+                .skip(longest_remote.len() + 1)
+                .collect::<String>();
+
+            Ok(shorthand_name)
+        } else {
+            reference
+                .shorthand()
+                .ok_or(anyhow::anyhow!("Branch name was not utf-8"))
+                .map(String::from)
+        }
     }
 }

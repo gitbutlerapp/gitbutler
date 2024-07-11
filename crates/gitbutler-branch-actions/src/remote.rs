@@ -28,6 +28,7 @@ pub struct RemoteBranch {
     #[serde(with = "gitbutler_serde::serde::oid")]
     pub sha: git2::Oid,
     pub name: Refname,
+    pub given_name: String,
     pub upstream: Option<RemoteRefname>,
     pub last_commit_timestamp_ms: Option<u128>,
     pub last_commit_author: Option<String>,
@@ -71,7 +72,7 @@ pub fn list_remote_branches(project_repository: &ProjectRepository) -> Result<Ve
         .context("failed to list remote branches")?
         .flatten()
     {
-        let branch = branch_to_remote_branch(&branch)?;
+        let branch = branch_to_remote_branch(project_repository, &branch)?;
 
         if let Some(branch) = branch {
             let branch_is_trunk = branch.name.branch() == Some(default_target.branch.branch())
@@ -103,7 +104,10 @@ pub fn get_branch_data(
         .context("failed to get branch data")
 }
 
-pub fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<RemoteBranch>> {
+pub fn branch_to_remote_branch(
+    project_repository: &ProjectRepository,
+    branch: &git2::Branch,
+) -> Result<Option<RemoteBranch>> {
     let commit = match branch.get().peel_to_commit() {
         Ok(c) => c,
         Err(err) => {
@@ -116,34 +120,36 @@ pub fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<RemoteBra
         }
     };
     let name = Refname::try_from(branch).context("could not get branch name");
-    match name {
-        Ok(name) => branch
-            .get()
-            .target()
-            .map(|sha| {
-                Ok(RemoteBranch {
-                    sha,
-                    upstream: if let Refname::Local(local_name) = &name {
-                        local_name.remote().cloned()
-                    } else {
-                        None
-                    },
-                    name,
-                    last_commit_timestamp_ms: commit
-                        .time()
-                        .seconds()
-                        .try_into()
-                        .map(|t: u128| t * 1000)
-                        .ok(),
-                    last_commit_author: commit
-                        .author()
-                        .name()
-                        .map(std::string::ToString::to_string),
-                })
-            })
-            .transpose(),
-        Err(_) => Ok(None),
-    }
+    let Ok(name) = name else { return Ok(None) };
+    let Some(sha) = branch.get().target() else {
+        return Ok(None);
+    };
+
+    let real_name = project_repository
+        .given_name_for_branch(branch)
+        .context("Failed to get branch name")?;
+
+    let last_commit_timestamp_ms = commit
+        .time()
+        .seconds()
+        .try_into()
+        .map(|t: u128| t * 1000)
+        .ok();
+
+    let last_commit_author = commit.author().name().map(std::string::ToString::to_string);
+
+    Ok(Some(RemoteBranch {
+        sha,
+        upstream: if let Refname::Local(local_name) = &name {
+            local_name.remote().cloned()
+        } else {
+            None
+        },
+        name,
+        given_name: real_name,
+        last_commit_timestamp_ms,
+        last_commit_author,
+    }))
 }
 
 pub fn branch_to_remote_branch_data(

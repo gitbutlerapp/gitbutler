@@ -1,39 +1,27 @@
 import type { PullRequest } from '$lib/github/types';
-import type { Author, Branch, RemoteBranch } from '$lib/vbranches/types';
+import type { Author, RemoteBranch } from '$lib/vbranches/types';
 
 export class CombinedBranch {
 	pr?: PullRequest;
 	remoteBranch?: RemoteBranch;
-	vbranch?: Branch;
 
-	constructor({
-		vbranch,
-		remoteBranch,
-		pr
-	}: {
-		vbranch?: Branch;
-		remoteBranch?: RemoteBranch;
-		pr?: PullRequest;
-	}) {
-		this.vbranch = vbranch;
+	constructor({ remoteBranch, pr }: { remoteBranch?: RemoteBranch; pr?: PullRequest }) {
 		this.remoteBranch = remoteBranch;
 		this.pr = pr;
 	}
 
 	get upstreamSha(): string {
-		return (
-			this.pr?.sha ||
-			this.remoteBranch?.sha ||
-			this.vbranch?.upstream?.sha ||
-			this.vbranch?.head ||
-			'unknown'
-		);
+		return this.pr?.sha || this.remoteBranch?.sha || 'unknown';
 	}
 
 	get displayName(): string {
-		return (
-			this.pr?.sourceBranch || this.remoteBranch?.displayName || this.vbranch?.name || 'unknown'
-		);
+		console.log(this.pr);
+		console.log(this.remoteBranch);
+		return this.pr?.sourceBranch || this.remoteBranch?.displayName || 'unknown';
+	}
+
+	get givenName(): string {
+		return this.pr?.sourceBranch || this.remoteBranch?.givenName || 'unknown';
 	}
 
 	get authors(): Author[] {
@@ -45,9 +33,6 @@ export class CombinedBranch {
 			if (this.remoteBranch.lastCommitAuthor) {
 				authors.push({ name: this.remoteBranch.lastCommitAuthor });
 			}
-		}
-		if (this.vbranch) {
-			authors.push({ name: 'you', email: 'none', isBot: false });
 		}
 		return authors;
 	}
@@ -72,7 +57,6 @@ export class CombinedBranch {
 	}
 
 	get modifiedAt(): Date | undefined {
-		if (this.vbranch) return this.vbranch.updatedAt;
 		if (this.remoteBranch) {
 			return this.remoteBranch.lastCommitTimestampMs
 				? new Date(this.remoteBranch.lastCommitTimestampMs)
@@ -99,7 +83,6 @@ export class CombinedBranch {
 	get searchableIdentifiers() {
 		const identifiers = [];
 
-		if (this.vbranch) identifiers.push(this.vbranch.name);
 		if (this.pr) {
 			identifiers.push(this.pr.title);
 			identifiers.push(this.pr.sourceBranch);
@@ -117,7 +100,6 @@ export class CombinedBranch {
 	currentState(): BranchState | undefined {
 		if (this.pr) return BranchState.PR;
 		if (this.remoteBranch) return BranchState.RemoteBranch;
-		if (this.vbranch) return BranchState.VirtualBranch;
 		return undefined;
 	}
 }

@@ -324,6 +324,7 @@ export interface Author {
 export class RemoteBranch {
 	sha!: string;
 	name!: string;
+	givenName!: string;
 	upstream?: string;
 	lastCommitTimestampMs?: number | undefined;
 	lastCommitAuthor?: string | undefined;
