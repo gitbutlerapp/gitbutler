@@ -1,14 +1,14 @@
 <script lang="ts">
 	import BranchIcon from '../branch/BranchIcon.svelte';
 	import TimeAgo from '$lib/shared/TimeAgo.svelte';
-	import type { CombinedBranch } from '$lib/branches/types';
+	import type { GivenNameBranchGrouping } from '$lib/branches/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
 	export let projectId: string;
-	export let branch: CombinedBranch;
+	export let branch: GivenNameBranchGrouping;
 
-	function getBranchLink(b: CombinedBranch): string | undefined {
+	function getBranchLink(b: GivenNameBranchGrouping): string | undefined {
 		return `/${projectId}/unapplied/${b.givenName}`;
 	}
 

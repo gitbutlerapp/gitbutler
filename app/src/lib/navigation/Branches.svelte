@@ -13,7 +13,7 @@
 	import { BehaviorSubject, combineLatest } from 'rxjs';
 	import { createEventDispatcher } from 'svelte';
 	import { derived } from 'svelte/store';
-	import type { CombinedBranch } from '$lib/branches/types';
+	import type { GivenNameBranchGrouping } from '$lib/branches/types';
 
 	const dispatch = createEventDispatcher<{ scrollbarDragging: boolean }>();
 
@@ -64,14 +64,14 @@
 	let contents: HTMLElement;
 
 	function filterByType(
-		branches: CombinedBranch[],
+		branches: GivenNameBranchGrouping[],
 		params: {
 			includePrs: boolean;
 			includeRemote: boolean;
 			includeStashed: boolean;
 			hideBots: boolean;
 		}
-	): CombinedBranch[] {
+	): GivenNameBranchGrouping[] {
 		return branches.filter((b) => {
 			if (params.includePrs && b.primaryPullRequest) {
 				return !params.hideBots || !b.primaryPullRequest.author?.isBot;
@@ -82,7 +82,7 @@
 		});
 	}
 
-	function filterByText(branches: CombinedBranch[], search: string | undefined) {
+	function filterByText(branches: GivenNameBranchGrouping[], search: string | undefined) {
 		if (search === undefined) return branches;
 
 		return branches.filter((b) => searchMatchesAnIdentifier(search, b.searchableIdentifiers));
@@ -96,7 +96,7 @@
 		return false;
 	}
 
-	function filterInactive(branches: CombinedBranch[]) {
+	function filterInactive(branches: GivenNameBranchGrouping[]) {
 		const currentTs = new Date().getTime();
 		return branches.filter((b) => {
 			if (!b.modifiedAt) return true; // Keep things that don't have a modified time

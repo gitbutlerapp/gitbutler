@@ -2,11 +2,11 @@
 	import { BranchService } from '$lib/branches/service';
 	import { getContext } from '$lib/utils/context';
 	import { onMount } from 'svelte';
-	import type { CombinedBranch } from '$lib/branches/types';
+	import type { GivenNameBranchGrouping } from '$lib/branches/types';
 	import { page } from '$app/stores';
 
 	// Maintain combined branches as a state variable
-	let combinedBranches: CombinedBranch[] = $state([]);
+	let combinedBranches: GivenNameBranchGrouping[] = $state([]);
 	onMount(() => {
 		branchService.branches$.subscribe((newCombinedBranches) => {
 			combinedBranches = newCombinedBranches;
@@ -17,7 +17,7 @@
 
 	const givenName = $derived($page.params.givenName);
 
-	let combinedBranch: CombinedBranch | undefined = $derived(
+	let combinedBranch: GivenNameBranchGrouping | undefined = $derived(
 		combinedBranches.find((combinedBranch) => combinedBranch.givenName === givenName)
 	);
 

@@ -1,7 +1,16 @@
 import type { PullRequest } from '$lib/github/types';
 import type { Author, Branch } from '$lib/vbranches/types';
 
-export class CombinedBranch {
+/**
+ * A grouping of pull requests and branches based on their given name
+ *
+ * The given name of a branch is the name a user gave it, without the remote
+ * name attached
+ *
+ * IE for refs/heads/my-branch, the given name is my-branch
+ * for refs/remotes/origin/my-branch, the given name is my-branch
+ */
+export class GivenNameBranchGrouping {
 	pullRequests: PullRequest[];
 	branches: Branch[];
 

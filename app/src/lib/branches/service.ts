@@ -1,5 +1,5 @@
 import { capture } from '$lib/analytics/posthog';
-import { CombinedBranch } from '$lib/branches/types';
+import { GivenNameBranchGrouping } from '$lib/branches/types';
 import { groupBy } from '$lib/utils/groupBy';
 import { Observable, combineLatest, of } from 'rxjs';
 import { catchError, shareReplay, startWith, switchMap } from 'rxjs/operators';
@@ -11,7 +11,7 @@ import type { VirtualBranch, Branch } from '$lib/vbranches/types';
 import type { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 
 export class BranchService {
-	readonly branches$: Observable<CombinedBranch[]>;
+	readonly branches$: Observable<GivenNameBranchGrouping[]>;
 
 	constructor(
 		virtualBranchService: VirtualBranchService,
@@ -35,7 +35,7 @@ export class BranchService {
 			prWithEmpty$
 		]).pipe(
 			switchMap(([virtualBranches, remoteBranches, pullRequests]) => {
-				return new Observable<CombinedBranch[]>((observer) => {
+				return new Observable<GivenNameBranchGrouping[]>((observer) => {
 					const contributions = mergeBranchesAndPrs(
 						virtualBranches,
 						pullRequests,
@@ -104,7 +104,7 @@ function mergeBranchesAndPrs(
 	virtualBranches: VirtualBranch[] = [],
 	pullRequests: PullRequest[] = [],
 	remoteBranches: Branch[] = []
-): CombinedBranch[] {
+): GivenNameBranchGrouping[] {
 	const groupedPullRequests = groupBy(pullRequests, (pullRequest) => pullRequest.sourceBranch);
 	const groupedRemoteBranches = groupBy(remoteBranches, (remoteBranch) => remoteBranch.givenName);
 
@@ -124,7 +124,7 @@ function mergeBranchesAndPrs(
 		const pullRequests = groupedPullRequests[branchName] || [];
 		const remoteBranches = groupedRemoteBranches[branchName] || [];
 
-		return new CombinedBranch({
+		return new GivenNameBranchGrouping({
 			pullRequests: pullRequests,
 			branches: remoteBranches
 		});
