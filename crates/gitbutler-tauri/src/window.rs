@@ -2,7 +2,7 @@ pub(super) mod state {
     use std::collections::BTreeMap;
     use std::sync::Arc;
 
-    use anyhow::{Context, Result};
+    use anyhow::{bail, Context, Result};
     use futures::executor::block_on;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
@@ -135,18 +135,29 @@ pub(super) mod state {
             window: &WindowLabelRef,
             project: &projects::Project,
         ) -> Result<()> {
+            let mut state_by_label = block_on(self.state.lock());
+            if let Some(state) = state_by_label.get(window) {
+                if state.project_id == project.id {
+                    return Ok(());
+                }
+            }
             let mut lock_file =
                 fslock::LockFile::open(project.gb_dir().join(WINDOW_LOCK_FILE).as_os_str())?;
-            lock_file
+            let got_lock = lock_file
                 .try_lock()
-                .context("Another GitButler Window already has the project opened")?;
+                .context("Failed to check if lock is taken")?;
+            if !got_lock {
+                bail!(
+                    "Project '{}' is already opened in another window",
+                    project.title
+                );
+            }
 
             let handler = handler_from_app(&self.app_handle)?;
             let worktree_dir = project.path.clone();
             let project_id = project.id;
             let watcher =
                 gitbutler_watcher::watch_in_background(handler, worktree_dir, project_id)?;
-            let mut state_by_label = block_on(self.state.lock());
             state_by_label.insert(
                 window.to_owned(),
                 State {
