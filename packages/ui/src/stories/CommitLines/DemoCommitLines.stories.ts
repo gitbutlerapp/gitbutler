@@ -11,7 +11,7 @@ type Story = StoryObj<typeof meta>;
 
 const caleb: Author = {
 	email: 'hello@calebowens.com',
-	gravatarUrl: new URL('https://gravatar.com/avatar/f43ef760d895a84ca7bb35ff6f4c6b7c')
+	gravatarUrl: 'https://gravatar.com/avatar/f43ef760d895a84ca7bb35ff6f4c6b7c'
 };
 
 function author() {

@@ -1,8 +1,8 @@
 <script lang="ts">
+	import AvatarImage from './AvatarImage.svelte';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { isDefined } from '$lib/utils/typeguards';
 	import type { CommitNodeData, Color } from '$lib/CommitLines/types';
-	import AvatarImage from './AvatarImage.svelte';
 
 	interface Props {
 		commitNode: CommitNodeData;
@@ -34,7 +34,7 @@
 	{#if commitNode.type === 'large' && commitNode.commit}
 		<div class="large-node">
 			<AvatarImage
-				srcUrl={commitNode.commit?.author.gravatarUrl?.toString()}
+				srcUrl={commitNode.commit?.author.gravatarUrl}
 				tooltipText={hoverText}
 				altText={`Gravatar for ${commitNode.commit.author.email}`}
 			/>
