@@ -66,6 +66,7 @@ export default tsEslint.config(
 			'**/postcss.config.cjs',
 			'**/playwright.config.ts',
 			'**/.pnpm-store',
+			'**/vite.config.ts.timestamp-*',
 			'!.storybook',
 			'target/',
 			'crates/'
