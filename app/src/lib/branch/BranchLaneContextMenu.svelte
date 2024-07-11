@@ -16,11 +16,11 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Branch, type NameConflictResolution } from '$lib/vbranches/types';
-	import { createEventDispatcher } from 'svelte';
 
 	export let contextMenuEl: ContextMenu;
 	export let target: HTMLElement;
-	export let isUnapplied = false;
+	export let onCollapse: () => void;
+	export let onGenerateBranchName: () => void;
 
 	const user = getContextStore(User);
 	const project = getContext(Project);
@@ -33,10 +33,6 @@
 	let deleteBranchModal: Modal;
 	let renameRemoteModal: Modal;
 	let newRemoteName: string;
-
-	const dispatch = createEventDispatcher<{
-		action: 'expand' | 'collapse' | 'generate-branch-name';
-	}>();
 
 	$: branch = $branchStore;
 	$: commits = branch.commits;
@@ -167,26 +163,22 @@
 
 <ContextMenu bind:this={contextMenuEl} {target}>
 	<ContextMenuSection>
-		{#if !isUnapplied}
-			<ContextMenuItem
-				label="Collapse lane"
-				on:click={() => {
-					dispatch('action', 'collapse');
-					contextMenuEl.close();
-				}}
-			/>
-		{/if}
+		<ContextMenuItem
+			label="Collapse lane"
+			on:click={() => {
+				onCollapse();
+				contextMenuEl.close();
+			}}
+		/>
 	</ContextMenuSection>
 	<ContextMenuSection>
-		{#if !isUnapplied}
-			<ContextMenuItem
-				label="Unapply"
-				on:click={() => {
-					tryUnapplyBranch();
-					contextMenuEl.close();
-				}}
-			/>
-		{/if}
+		<ContextMenuItem
+			label="Unapply"
+			on:click={() => {
+				tryUnapplyBranch();
+				contextMenuEl.close();
+			}}
+		/>
 
 		<ContextMenuItem
 			label="Delete"
@@ -207,19 +199,16 @@
 		<ContextMenuItem
 			label="Generate branch name"
 			on:click={() => {
-				dispatch('action', 'generate-branch-name');
+				onGenerateBranchName();
 				contextMenuEl.close();
 			}}
-			disabled={isUnapplied ||
-				!($aiGenEnabled && aiConfigurationValid) ||
-				branch.files?.length === 0}
+			disabled={!($aiGenEnabled && aiConfigurationValid) || branch.files?.length === 0}
 		/>
 	</ContextMenuSection>
 
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Set remote branch name"
-			disabled={isUnapplied}
 			on:click={() => {
 				console.log('Set remote branch name');
 

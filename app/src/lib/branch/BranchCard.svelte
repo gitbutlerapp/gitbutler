@@ -30,7 +30,6 @@
 	import type { Persisted } from '$lib/persisted/persisted';
 	import type { Writable } from 'svelte/store';
 
-	export let isUnapplied = false;
 	export let isLaneCollapsed: Persisted<boolean>;
 	export let commitBoxOpen: Writable<boolean>;
 
@@ -61,7 +60,9 @@
 	}
 
 	async function generateBranchName() {
+		console.log('before');
 		if (!aiGenEnabled) return;
+		console.log('after');
 
 		const hunks = branch.files.flatMap((f) => f.hunks);
 
@@ -95,14 +96,9 @@
 {#if $isLaneCollapsed}
 	<div class="collapsed-lane-container">
 		<BranchHeader
-			{isUnapplied}
 			uncommittedChanges={branch.files.length}
 			bind:isLaneCollapsed
-			on:action={(e) => {
-				if (e.detail === 'generate-branch-name') {
-					generateBranchName();
-				}
-			}}
+			onGenerateBranchName={generateBranchName}
 		/>
 	</div>
 {:else}
@@ -124,18 +120,7 @@
 					style:width={`${laneWidth || $defaultBranchWidthRem}rem`}
 					class="branch-card__contents"
 				>
-					<BranchHeader
-						{isUnapplied}
-						bind:isLaneCollapsed
-						on:action={(e) => {
-							if (e.detail === 'generate-branch-name') {
-								generateBranchName();
-							}
-							if (e.detail === 'collapse') {
-								$isLaneCollapsed = true;
-							}
-						}}
-					/>
+					<BranchHeader bind:isLaneCollapsed onGenerateBranchName={generateBranchName} />
 					<PullRequestCard />
 
 					<div class="card">
@@ -143,8 +128,8 @@
 							<div class="branch-card__files">
 								<Dropzones>
 									<BranchFiles
+										isUnapplied={false}
 										files={branch.files}
-										{isUnapplied}
 										showCheckboxes={$commitBoxOpen}
 										allowMultiple
 									/>
@@ -168,11 +153,6 @@
 									projectId={project.id}
 									expanded={commitBoxOpen}
 									hasSectionsAfter={branch.commits.length > 0}
-									on:action={(e) => {
-										if (e.detail === 'generate-branch-name') {
-											generateBranchName();
-										}
-									}}
 								/>
 							</div>
 						{:else if branch.commits.length === 0}
@@ -199,8 +179,8 @@
 						{/if}
 
 						<div class="card-commits">
-							<CommitList {isUnapplied} />
-							<BranchFooter {isUnapplied} />
+							<CommitList isUnapplied={false} />
+							<BranchFooter />
 						</div>
 					</div>
 				</div>

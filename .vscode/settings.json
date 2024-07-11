@@ -6,10 +6,28 @@
 	"prettier.configPath": ".prettierrc.mjs",
 	"prettier.useEditorConfig": false,
 	"editor.defaultFormatter": null,
+	"rust-analyzer.check.command": "clippy",
+	"rust-analyzer.check.allTargets": true,
+	"rust-analyzer.check.features": "all",
 	"[rust]": {
 		"editor.defaultFormatter": "rust-lang.rust-analyzer"
 	},
-	"rust-analyzer.check.command": "clippy",
-	"rust-analyzer.check.allTargets": true,
-	"rust-analyzer.check.features": "all"
+	"[svelte]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"[typescript]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"[javascript]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"[css]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"[html]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"[json]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	}
 }

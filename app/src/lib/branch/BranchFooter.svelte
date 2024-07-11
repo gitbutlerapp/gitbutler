@@ -14,8 +14,6 @@
 	} from '$lib/vbranches/contexts';
 	import { Branch } from '$lib/vbranches/types';
 
-	export let isUnapplied: boolean;
-
 	const branchController = getContext(BranchController);
 	const promptService = getContext(PromptService);
 	const branch = getContextStore(Branch);
@@ -38,7 +36,7 @@
 		$localCommits.length > 0 || $localAndRemoteCommits.length > 0 || $remoteCommits.length > 0;
 </script>
 
-{#if !isUnapplied && hasCommits}
+{#if hasCommits}
 	<div
 		class="actions"
 		class:sticky={canBePushed}
