@@ -7,9 +7,9 @@
 		altText: string;
 	}
 
-	const { srcUrl, tooltipText, altText, ...rest }: Props = $props();
-
 	let isLoaded = $state(false);
+
+	const { srcUrl, tooltipText, altText }: Props = $props();
 </script>
 
 <div class="image-wrapper">
@@ -23,7 +23,6 @@
 		height="100"
 		class:hidden={!isLoaded}
 		use:tooltip={tooltipText}
-		{...rest}
 	/>
 	<img
 		class="avatar"
