@@ -105,7 +105,9 @@
 				<ScrollableContainer maxHeight="20rem">
 					<div class="popup__projects">
 						{#each $projects as project}
-							{@const selected = project.id === $page.params.projectId}
+							{@const selected =
+								project.id === $page.params.projectId ||
+								$projects.some((p) => p.is_open && p.id === project.id)}
 							{@render itemSnippet({
 								label: project.title,
 								selected,

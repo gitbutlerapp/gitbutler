@@ -1,3 +1,5 @@
+use gitbutler_project::Project;
+
 pub mod commands {
     use anyhow::Context;
     use std::path;
@@ -8,6 +10,7 @@ pub mod commands {
     use tracing::instrument;
 
     use crate::error::Error;
+    use crate::projects::ProjectForFrontend;
     use crate::{window, WindowState};
 
     #[tauri::command(async)]
@@ -38,11 +41,21 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(controller), err(Debug))]
+    #[instrument(skip(controller, window_state), err(Debug))]
     pub async fn list_projects(
+        window_state: State<'_, WindowState>,
         controller: State<'_, Controller>,
-    ) -> Result<Vec<projects::Project>, Error> {
-        controller.list().map_err(Into::into)
+    ) -> Result<Vec<ProjectForFrontend>, Error> {
+        let open_projects = window_state.open_projects();
+        controller.list().map_err(Into::into).map(|projects| {
+            projects
+                .into_iter()
+                .map(|project| ProjectForFrontend {
+                    is_open: open_projects.contains(&project.id),
+                    inner: project,
+                })
+                .collect()
+        })
     }
 
     /// This trigger is the GUI telling us that the project with `id` is now displayed.
@@ -87,4 +100,12 @@ pub mod commands {
     ) -> Result<(), Error> {
         controller.delete(id).await.map_err(Into::into)
     }
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct ProjectForFrontend {
+    #[serde(flatten)]
+    pub inner: Project,
+    /// Tell if the project is known to be open in a Window in the frontend.
+    pub is_open: bool,
 }

@@ -29,6 +29,9 @@ export class Project {
 	use_new_locking!: boolean;
 	ignore_project_semaphore!: boolean;
 
+	// Produced just for the frontend
+	is_open!: boolean;
+
 	get vscodePath() {
 		return this.path.includes('\\') ? '/' + this.path.replace('\\', '/') : this.path;
 	}

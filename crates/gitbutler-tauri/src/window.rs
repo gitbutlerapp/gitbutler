@@ -205,6 +205,15 @@ pub(super) mod state {
             let mut state_by_label = block_on(self.state.lock());
             state_by_label.remove(window);
         }
+
+        /// Return the list of project ids that are currently open.
+        pub fn open_projects(&self) -> Vec<ProjectId> {
+            let state_by_label = block_on(self.state.lock());
+            state_by_label
+                .values()
+                .map(|state| state.project_id)
+                .collect()
+        }
     }
 }
 
