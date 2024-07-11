@@ -20,7 +20,6 @@
 
 	export let contextMenuEl: ContextMenu;
 	export let target: HTMLElement;
-	export let isUnapplied = false;
 
 	const user = getContextStore(User);
 	const project = getContext(Project);
@@ -167,26 +166,22 @@
 
 <ContextMenu bind:this={contextMenuEl} {target}>
 	<ContextMenuSection>
-		{#if !isUnapplied}
-			<ContextMenuItem
-				label="Collapse lane"
-				on:click={() => {
-					dispatch('action', 'collapse');
-					contextMenuEl.close();
-				}}
-			/>
-		{/if}
+		<ContextMenuItem
+			label="Collapse lane"
+			on:click={() => {
+				dispatch('action', 'collapse');
+				contextMenuEl.close();
+			}}
+		/>
 	</ContextMenuSection>
 	<ContextMenuSection>
-		{#if !isUnapplied}
-			<ContextMenuItem
-				label="Unapply"
-				on:click={() => {
-					tryUnapplyBranch();
-					contextMenuEl.close();
-				}}
-			/>
-		{/if}
+		<ContextMenuItem
+			label="Unapply"
+			on:click={() => {
+				tryUnapplyBranch();
+				contextMenuEl.close();
+			}}
+		/>
 
 		<ContextMenuItem
 			label="Delete"
@@ -210,16 +205,13 @@
 				dispatch('action', 'generate-branch-name');
 				contextMenuEl.close();
 			}}
-			disabled={isUnapplied ||
-				!($aiGenEnabled && aiConfigurationValid) ||
-				branch.files?.length === 0}
+			disabled={!($aiGenEnabled && aiConfigurationValid) || branch.files?.length === 0}
 		/>
 	</ContextMenuSection>
 
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Set remote branch name"
-			disabled={isUnapplied}
 			on:click={() => {
 				console.log('Set remote branch name');
 

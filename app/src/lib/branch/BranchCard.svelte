@@ -30,7 +30,6 @@
 	import type { Persisted } from '$lib/persisted/persisted';
 	import type { Writable } from 'svelte/store';
 
-	export let isUnapplied = false;
 	export let isLaneCollapsed: Persisted<boolean>;
 	export let commitBoxOpen: Writable<boolean>;
 
@@ -95,7 +94,6 @@
 {#if $isLaneCollapsed}
 	<div class="collapsed-lane-container">
 		<BranchHeader
-			{isUnapplied}
 			uncommittedChanges={branch.files.length}
 			bind:isLaneCollapsed
 			on:action={(e) => {
@@ -125,7 +123,6 @@
 					class="branch-card__contents"
 				>
 					<BranchHeader
-						{isUnapplied}
 						bind:isLaneCollapsed
 						on:action={(e) => {
 							if (e.detail === 'generate-branch-name') {
@@ -143,8 +140,8 @@
 							<div class="branch-card__files">
 								<Dropzones>
 									<BranchFiles
+										isUnapplied={false}
 										files={branch.files}
-										{isUnapplied}
 										showCheckboxes={$commitBoxOpen}
 										allowMultiple
 									/>
@@ -199,8 +196,8 @@
 						{/if}
 
 						<div class="card-commits">
-							<CommitList {isUnapplied} />
-							<BranchFooter {isUnapplied} />
+							<CommitList isUnapplied={false} />
+							<BranchFooter />
 						</div>
 					</div>
 				</div>

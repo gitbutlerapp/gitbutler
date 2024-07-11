@@ -23,7 +23,6 @@
 	import { slide } from 'svelte/transition';
 
 	export let branch: Branch;
-	export let isUnapplied = false;
 
 	const ownershipStore = createContextStore(Ownership, Ownership.fromBranch(branch));
 	// TODO: Update store here rather than reset it
@@ -72,7 +71,7 @@
 </script>
 
 <div class="wrapper" data-tauri-drag-region>
-	<BranchCard {isUnapplied} {commitBoxOpen} bind:isLaneCollapsed />
+	<BranchCard {commitBoxOpen} bind:isLaneCollapsed />
 
 	{#await $selectedFile then selected}
 		{#if selected}
@@ -83,11 +82,11 @@
 				style:width={`${fileWidth || $defaultFileWidthRem}rem`}
 			>
 				<FileCard
+					isUnapplied={false}
 					conflicted={selected.conflicted}
 					file={selected}
-					{isUnapplied}
 					readonly={selected instanceof RemoteFile}
-					selectable={$commitBoxOpen && !isUnapplied}
+					selectable={$commitBoxOpen}
 					on:close={() => {
 						fileIdSelection.clear();
 					}}
