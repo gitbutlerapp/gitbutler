@@ -17,6 +17,7 @@
 		class="avatar"
 		alt={altText}
 		src={srcUrl}
+		loading="lazy"
 		onload={() => (isLoaded = true)}
 		width="100"
 		height="100"
@@ -35,7 +36,7 @@
 	/>
 </div>
 
-<style>
+<style lang="postcss">
 	.image-wrapper {
 		display: grid;
 		place-content: center;
@@ -46,7 +47,7 @@
 		grid-area: 1 / 1;
 	}
 
-	img.hidden {
+	.hidden {
 		opacity: 0;
 	}
 
