@@ -29,7 +29,7 @@ export interface LineGroupData {
 export interface Author {
 	name?: string;
 	email?: string;
-	gravatarUrl?: URL;
+	gravatarUrl?: string;
 }
 
 /**
