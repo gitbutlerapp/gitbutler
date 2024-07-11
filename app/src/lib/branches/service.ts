@@ -1,22 +1,28 @@
-import { capture } from '$lib/analytics/posthog';
 import { CombinedBranch } from '$lib/branches/types';
+import { observableToStore, storeToObservable } from '$lib/rxjs/store';
+import { buildContextStore } from '$lib/utils/context';
 import { Observable, combineLatest, of } from 'rxjs';
 import { catchError, shareReplay, startWith, switchMap } from 'rxjs/operators';
-import type { GitHubService } from '$lib/github/service';
-import type { PullRequest } from '$lib/github/types';
+import type { HostedGitListingService } from '$lib/hostedServices/interface/hostedGitListingService';
+import type { PullRequest } from '$lib/hostedServices/interface/types';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
-import type { BranchController } from '$lib/vbranches/branchController';
 import type { Branch, RemoteBranch } from '$lib/vbranches/types';
 import type { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+import type { Readable } from 'svelte/store';
+
+export const [getBranchServiceStore, createBranchServiceStore] = buildContextStore<
+	BranchService | undefined
+>('branchService');
 
 export class BranchService {
 	readonly branches$: Observable<CombinedBranch[]>;
+	readonly branches: Readable<CombinedBranch[]>;
+	readonly error: Readable<any>;
 
 	constructor(
-		private vbranchService: VirtualBranchService,
+		vbranchService: VirtualBranchService,
 		remoteBranchService: RemoteBranchService,
-		private githubService: GitHubService,
-		private branchController: BranchController
+		hostedGitService: HostedGitListingService | undefined
 	) {
 		const vbranchesWithEmpty$ = vbranchService.branches$.pipe(
 			startWith([]),
@@ -26,7 +32,7 @@ export class BranchService {
 			startWith([]),
 			catchError(() => of(undefined))
 		);
-		const prWithEmpty$ = githubService.prs$.pipe(catchError(() => of(undefined)));
+		const prWithEmpty$ = hostedGitService ? storeToObservable(hostedGitService.prs) : of([]);
 
 		this.branches$ = combineLatest([vbranchesWithEmpty$, branchesWithEmpty$, prWithEmpty$]).pipe(
 			switchMap(([vbranches, remoteBranches, pullRequests]) => {
@@ -38,60 +44,7 @@ export class BranchService {
 			}),
 			shareReplay(1)
 		);
-	}
-
-	async createPr(
-		branch: Branch,
-		baseBranch: string,
-		draft: boolean
-	): Promise<PullRequest | undefined> {
-		// Using this mutable variable while investigating why branch variable
-		// does not seem to update reliably.
-		// TODO: This needs to be fixed and removed.
-		let newBranch: Branch | undefined;
-
-		// Push if local commits
-		if (branch.commits.some((c) => !c.isRemote)) {
-			newBranch = await this.branchController.pushBranch(branch.id, branch.requiresForce);
-		} else {
-			newBranch = branch;
-		}
-
-		if (!newBranch) {
-			const err = 'branch push failed';
-			capture(err, { upstream: branch.upstreamName });
-			throw err;
-		}
-
-		if (!newBranch.upstreamName) {
-			throw 'Cannot create PR without remote branch name';
-		}
-
-		let title = newBranch.name;
-		let body = newBranch.notes;
-
-		// In case of a single commit, use the commit summary and description for the title and
-		// description of the PR
-		if (newBranch.commits.length === 1) {
-			const commit = newBranch.commits[0];
-			if (commit.descriptionTitle) title = commit.descriptionTitle;
-			if (commit.descriptionBody) body = commit.descriptionBody;
-		}
-
-		const resp = await this.githubService.createPullRequest(
-			baseBranch,
-			title,
-			body,
-			newBranch.id,
-			newBranch.upstreamName,
-			draft
-		);
-		if ('pr' in resp) return resp.pr;
-		else throw resp.err;
-	}
-
-	async reloadVirtualBranches() {
-		await this.vbranchService.reload();
+		[this.branches, this.error] = observableToStore(this.branches$);
 	}
 }
 
@@ -106,7 +59,7 @@ function mergeBranchesAndPrs(
 	if (vbranches) {
 		contributions.push(
 			...vbranches.map((vb) => {
-				const pr = pullRequests?.find((pr) => pr.sha === vb.head);
+				const pr = pullRequests?.find((pr) => pr.sourceBranch === vb.upstreamName);
 				return new CombinedBranch({ vbranch: vb, remoteBranch: vb.upstream, pr });
 			})
 		);

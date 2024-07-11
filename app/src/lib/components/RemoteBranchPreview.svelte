@@ -14,7 +14,7 @@
 	import { marked } from 'marked';
 	import { onMount, setContext } from 'svelte';
 	import { writable } from 'svelte/store';
-	import type { PullRequest } from '$lib/github/types';
+	import type { PullRequest } from '$lib/hostedServices/interface/types';
 
 	export let branch: RemoteBranch;
 	export let pr: PullRequest | undefined;

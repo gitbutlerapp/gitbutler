@@ -3,16 +3,18 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
-	import { BranchService } from '$lib/branches/service';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import { GitHubService } from '$lib/github/service';
+	import { getHostedGitListingServiceStore } from '$lib/hostedServices/interface/hostedGitListingService';
+	import { getHostedGitPrMonitorStore } from '$lib/hostedServices/interface/hostedGitPrMonitor';
+	import { getHostedGitPrServiceStore } from '$lib/hostedServices/interface/hostedGitPrService';
+	import { getHostedGitServiceStore } from '$lib/hostedServices/interface/hostedGitService';
 	import Button from '$lib/shared/Button.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranch, Branch } from '$lib/vbranches/types';
-	import type { PullRequest } from '$lib/github/types';
+	import { Branch } from '$lib/vbranches/types';
+	import type { PullRequest } from '$lib/hostedServices/interface/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 
 	export let uncommittedChanges = 0;
@@ -20,14 +22,14 @@
 	export let onGenerateBranchName: () => void;
 
 	const branchController = getContext(BranchController);
-	const githubService = getContext(GitHubService);
+	const githubRepoService = getHostedGitServiceStore();
+	const prService = getHostedGitPrServiceStore();
+	const gitListService = getHostedGitListingServiceStore();
 	const branchStore = getContextStore(Branch);
-	const branchService = getContext(BranchService);
-	const baseBranch = getContextStore(BaseBranch);
+	const prMonitor = getHostedGitPrMonitorStore();
 
 	$: branch = $branchStore;
-	$: pr$ = githubService.getPr$(branch.upstream?.sha || branch.head);
-	$: hasPullRequest = branch.upstreamName && $pr$;
+	$: pr = $prMonitor?.pr;
 
 	let contextMenu: ContextMenu;
 	let meatballButtonEl: HTMLDivElement;
@@ -62,20 +64,32 @@
 
 	async function createPr(createPrOpts: CreatePrOpts): Promise<PullRequest | undefined> {
 		const opts = { ...defaultPrOpts, ...createPrOpts };
-		if (!githubService.isEnabled) {
+		if (!$githubRepoService) {
 			error('Cannot create PR without GitHub credentials');
 			return;
 		}
 
-		if (!$baseBranch?.shortName) {
-			error('Cannot create PR without base branch');
-			return;
+		let title: string;
+		let body: string;
+
+		// In case of a single commit, use the commit summary and description for the title and
+		// description of the PR.
+		if (branch.commits.length === 1) {
+			const commit = branch.commits[0];
+			title = commit.descriptionTitle ?? '';
+			body = commit.descriptionBody ?? '';
+		} else {
+			title = branch.name;
+			body = '';
 		}
 
 		isLoading = true;
 		try {
-			await branchService.createPr(branch, $baseBranch.shortName, opts.draft);
-			await githubService.reload();
+			if (branch.commits.some((c) => !c.isRemote)) {
+				await branchController.pushBranch(branch.id, branch.requiresForce);
+			}
+			await $prService?.createPr(title, body, opts.draft);
+			await $gitListService?.reload();
 		} finally {
 			isLoading = false;
 		}
@@ -203,7 +217,7 @@
 
 				<div class="relative">
 					<div class="header__buttons">
-						{#if !hasPullRequest}
+						{#if !$pr}
 							<PullRequestButton
 								on:exec={async (e) => await createPr({ draft: e.detail.action === 'draft' })}
 								loading={isLoading}

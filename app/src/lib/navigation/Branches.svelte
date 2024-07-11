@@ -2,15 +2,14 @@
 	import BranchItem from './BranchItem.svelte';
 	import BranchesHeader from './BranchesHeader.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
-	import { BranchService } from '$lib/branches/service';
+	import { getBranchServiceStore } from '$lib/branches/service';
 	import FilterButton from '$lib/components/FilterBranchesButton.svelte';
-	import { GitHubService } from '$lib/github/service';
+	import { getHostedGitServiceStore } from '$lib/hostedServices/interface/hostedGitService';
 	import { persisted } from '$lib/persisted/persisted';
 	import { storeToObservable } from '$lib/rxjs/store';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import { getContext } from '$lib/utils/context';
-	import { BehaviorSubject, combineLatest } from 'rxjs';
+	import { BehaviorSubject, combineLatest, of } from 'rxjs';
 	import { createEventDispatcher } from 'svelte';
 	import { derived } from 'svelte/store';
 	import type { CombinedBranch } from '$lib/branches/types';
@@ -20,8 +19,8 @@
 	export let projectId: string;
 	export const textFilter$ = new BehaviorSubject<string | undefined>(undefined);
 
-	const branchService = getContext(BranchService);
-	const githubService = getContext(GitHubService);
+	const branchService = getBranchServiceStore();
+	const githubService = getHostedGitServiceStore();
 
 	// let contextMenu: ContextMenuActions;
 	let includePrs = persisted(true, 'includePrs_' + projectId);
@@ -37,7 +36,7 @@
 		}
 	);
 
-	$: branches$ = branchService.branches$;
+	$: branches$ = $branchService?.branches$ || of([]);
 	$: filteredBranches$ = combineLatest(
 		[
 			branches$,
@@ -110,7 +109,7 @@
 
 <div class="branch-list">
 	<BranchesHeader
-		totalBranchCount={$branches$.length}
+		totalBranchCount={$branches$?.length}
 		filteredBranchCount={$filteredBranches$?.length}
 		filtersActive={$filtersActive}
 	>
@@ -122,7 +121,7 @@
 				{includeStashed}
 				{hideBots}
 				{hideInactive}
-				showPrCheckbox={githubService.isEnabled}
+				showPrCheckbox={!!$githubService}
 				on:action
 			/>
 		{/snippet}

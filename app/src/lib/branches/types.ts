@@ -1,4 +1,4 @@
-import type { PullRequest } from '$lib/github/types';
+import type { PullRequest } from '$lib/hostedServices/interface/types';
 import type { Author, Branch, RemoteBranch } from '$lib/vbranches/types';
 
 export class CombinedBranch {

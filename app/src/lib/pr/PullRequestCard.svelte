@@ -2,21 +2,20 @@
 	import MergeButton from './MergeButton.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
-	import { BranchService } from '$lib/branches/service';
-	import { GitHubService } from '$lib/github/service';
+	import { getHostedGitChecksMonitorStore } from '$lib/hostedServices/interface/hostedGitChecksMonitor';
+	import { getHostedGitListingServiceStore } from '$lib/hostedServices/interface/hostedGitListingService';
+	import { getHostedGitPrMonitorStore } from '$lib/hostedServices/interface/hostedGitPrMonitor';
 	import Button from '$lib/shared/Button.svelte';
-	import { getContext, getContextStore } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import { createTimeAgoStore } from '$lib/utils/timeAgo';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
-	import { Branch } from '$lib/vbranches/types';
-	import { distinctUntilChanged } from 'rxjs';
-	import { derived, type Readable } from 'svelte/store';
-	import type { ChecksStatus, DetailedPullRequest } from '$lib/github/types';
+	import { type ComponentColor } from '$lib/vbranches/types';
+	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import type { ChecksStatus, DetailedPullRequest } from '$lib/hostedServices/interface/types';
 	import type iconsJson from '$lib/icons/icons.json';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
-	import type { ComponentColor } from '$lib/vbranches/types';
 
 	type StatusInfo = {
 		text: string;
@@ -25,111 +24,31 @@
 		messageStyle?: MessageStyle;
 	};
 
-	const branch = getContextStore(Branch);
-	const branchService = getContext(BranchService);
+	const vbranchService = getContext(VirtualBranchService);
 	const baseBranchService = getContext(BaseBranchService);
-	const githubService = getContext(GitHubService);
 	const project = getContext(Project);
 
-	let isMerging = false;
-	let isFetchingChecks = false;
-	let isFetchingDetails = false;
+	const prMonitor = getHostedGitPrMonitorStore();
+	const checksMonitor = getHostedGitChecksMonitorStore();
+	const listingService = getHostedGitListingServiceStore();
+	// This PR has been loaded on demand, and contains more details than the version
+	// obtained when listing them.
+	const pr = $derived($prMonitor?.pr);
+	const checks = $derived($checksMonitor?.result);
+
+	let isMerging = $state(false);
 	let checksError: string | undefined;
 	let detailsError: string | undefined;
-	let detailedPr: DetailedPullRequest | undefined;
-	let mergeableState: string | undefined;
-	let checksStatus: ChecksStatus | null | undefined = undefined;
-	let lastDetailsFetch: Readable<string> | undefined;
 
-	const distinctId = derived([branch], ([branch]) => {
-		return branch.upstream?.sha || branch.head;
-	});
+	const lastFetch = $derived($prMonitor?.lastFetch);
+	const timeAgo = $derived($lastFetch ? createTimeAgoStore($lastFetch) : undefined);
 
-	$: pr$ = githubService.getPr$($distinctId).pipe(
-		// Only emit a new objcect if the modified timestamp has changed.
-		distinctUntilChanged((prev, curr) => {
-			return prev?.modifiedAt.getTime() === curr?.modifiedAt.getTime();
-		})
-	);
-	$: if ($pr$) updateDetailsAndChecks();
+	const mrLoading = $derived($prMonitor?.loading);
+	const checksLoading = $derived($checksMonitor?.loading);
 
-	$: checksTagInfo = getChecksTagInfo(checksStatus, isFetchingChecks);
-	$: infoProps = getInfoMessageInfo(detailedPr, mergeableState, checksStatus, isFetchingChecks);
-	$: prStatusInfo = getPrStatusInfo(detailedPr);
-
-	async function updateDetailsAndChecks() {
-		if (!$pr$) return;
-		if (!isFetchingDetails) await updateDetailedPullRequest($pr$.sha, true);
-		if (!isFetchingChecks) await fetchChecks();
-	}
-
-	async function updateDetailedPullRequest(targetBranchSha: string, skipCache: boolean) {
-		detailsError = undefined;
-		isFetchingDetails = true;
-		try {
-			detailedPr = await githubService.getDetailedPr(targetBranchSha, skipCache);
-			mergeableState = detailedPr?.mergeableState;
-			lastDetailsFetch = createTimeAgoStore(new Date(), true);
-		} catch (err: any) {
-			detailsError = err.message;
-			toasts.error('Failed to fetch PR details');
-			console.error(err);
-		} finally {
-			isFetchingDetails = false;
-		}
-	}
-
-	async function fetchChecks() {
-		checksError = undefined;
-		isFetchingChecks = true;
-
-		try {
-			checksStatus = await githubService.checks($pr$?.sourceBranch);
-		} catch (e: any) {
-			console.error(e);
-			checksError = e.message;
-			if (!e.message.includes('No commit found')) {
-				toasts.error('Failed to fetch checks');
-			}
-		} finally {
-			isFetchingChecks = false;
-		}
-
-		if (checksStatus) scheduleNextUpdate();
-	}
-
-	function scheduleNextUpdate() {
-		if (!checksStatus) return;
-
-		const startedAt = checksStatus.startedAt;
-		if (!startedAt) return;
-
-		const secondsAgo = (Date.now() - startedAt.getTime()) / 1000;
-		// Only stop polling for updates if checks have completed and check suite age is
-		// more than a minute. We do this to work around a bug where just after pushing
-		// to a branch GitHub might not report all the checks that will eventually be
-		// run as part of the suite.
-		if (checksStatus.completed && secondsAgo > 60) return;
-
-		let timeUntilUdate: number | undefined = undefined;
-
-		if (secondsAgo < 60) {
-			timeUntilUdate = 10;
-		} else if (secondsAgo < 600) {
-			timeUntilUdate = 30;
-		} else if (secondsAgo < 1200) {
-			timeUntilUdate = 60;
-		} else if (secondsAgo < 3600) {
-			timeUntilUdate = 120;
-		} else if (secondsAgo < 7200) {
-			// Stop polling after 2h
-			timeUntilUdate = undefined;
-		}
-		if (!timeUntilUdate) {
-			return;
-		}
-		setTimeout(async () => await updateDetailsAndChecks(), timeUntilUdate * 1000);
-	}
+	const checksTagInfo = $derived(getChecksTagInfo($checks, $checksLoading));
+	const infoProps = $derived(getInfoMessageInfo($pr, $checks, $checksLoading));
+	const prStatusInfo = $derived(getPrStatusInfo($pr));
 
 	function getChecksCount(status: ChecksStatus): string {
 		if (!status) return 'Running checks';
@@ -143,7 +62,7 @@
 
 	function getChecksTagInfo(
 		status: ChecksStatus | null | undefined,
-		fetching: boolean
+		fetching: boolean | undefined
 	): StatusInfo {
 		if (checksError || detailsError) {
 			return { style: 'error', icon: 'warning-small', text: 'Failed to load' };
@@ -189,10 +108,10 @@
 
 	function getInfoMessageInfo(
 		pr: DetailedPullRequest | undefined,
-		mergeableState: string | undefined,
 		checksStatus: ChecksStatus | null | undefined,
-		isFetchingChecks: boolean
+		isFetchingChecks: boolean | undefined
 	): StatusInfo | undefined {
+		const mergeableState = pr?.mergeableState;
 		if (mergeableState === 'blocked' && !checksStatus && !isFetchingChecks) {
 			return {
 				icon: 'error',
@@ -201,7 +120,7 @@
 			};
 		}
 
-		if (checksStatus?.completed) {
+		if ($checks?.completed) {
 			if (pr?.draft) {
 				return {
 					icon: 'warning',
@@ -225,7 +144,12 @@
 					text: 'Your PR has conflicts that must be resolved before merging.'
 				};
 			}
-			if (mergeableState === 'blocked' && !isFetchingChecks && checksStatus.failed > 0) {
+			if (
+				mergeableState === 'blocked' &&
+				!isFetchingChecks &&
+				$checks?.failed &&
+				$checks.failed > 0
+			) {
 				return {
 					icon: 'error',
 					messageStyle: 'error',
@@ -236,8 +160,7 @@
 	}
 </script>
 
-{#if $pr$}
-	{@const pr = $pr$}
+{#if $pr}
 	<div class="card pr-card">
 		<div class="floating-button">
 			<Button
@@ -245,16 +168,17 @@
 				size="tag"
 				style="ghost"
 				outline
-				loading={isFetchingDetails || isFetchingChecks}
-				help={$lastDetailsFetch ? 'Updated ' + $lastDetailsFetch : ''}
+				loading={$mrLoading || $checksLoading}
+				help={$timeAgo ? 'Updated ' + $timeAgo : ''}
 				on:click={async () => {
-					await updateDetailsAndChecks();
+					$checksMonitor?.refresh();
+					$prMonitor?.refresh();
 				}}
 			/>
 		</div>
 		<div class="pr-title text-base-13 text-semibold">
-			<span style="color: var(--clr-scale-ntrl-50)">PR #{pr.number}:</span>
-			{pr.title}
+			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.id}:</span>
+			{$pr.title}
 		</div>
 		<div class="pr-tags">
 			<Button
@@ -266,7 +190,7 @@
 			>
 				{prStatusInfo.text}
 			</Button>
-			{#if !detailedPr?.closedAt && checksStatus !== null}
+			{#if !$pr?.closedAt && $checks !== null}
 				<Button
 					size="tag"
 					clickable={false}
@@ -284,7 +208,7 @@
 				outline
 				shrinkable
 				on:click={(e) => {
-					const url = pr?.htmlUrl;
+					const url = $pr.htmlUrl;
 					if (url) openExternalUrl(url);
 					e.preventDefault();
 					e.stopPropagation();
@@ -302,7 +226,7 @@
         determining "no checks will run for this PR" such that we can show the merge button
         immediately.
         -->
-		{#if pr}
+		{#if $pr}
 			<div class="pr-actions">
 				{#if infoProps}
 					<InfoMessage icon={infoProps.icon} filled outlined={false} style={infoProps.messageStyle}>
@@ -315,26 +239,28 @@
 				<MergeButton
 					wide
 					projectId={project.id}
-					disabled={isFetchingChecks ||
-						isFetchingDetails ||
-						pr?.draft ||
-						(mergeableState !== 'clean' && mergeableState !== 'unstable')}
+					disabled={$mrLoading ||
+						$checksLoading ||
+						$pr.draft ||
+						($pr.mergeableState !== 'clean' && $pr.mergeableState !== 'unstable')}
 					loading={isMerging}
 					help="Merge pull request and refresh"
 					on:click={async (e) => {
-						if (!pr) return;
+						if (!$pr) return;
 						isMerging = true;
 						const method = e.detail.method;
 						try {
-							await githubService.merge(pr.number, method);
+							await $prMonitor?.merge(method);
+							$prMonitor?.refresh();
+							$listingService?.reload();
 						} catch (err) {
 							console.error(err);
 							toasts.error('Failed to merge pull request');
 						} finally {
 							isMerging = false;
 							baseBranchService.fetchFromRemotes();
-							branchService.reloadVirtualBranches();
-							updateDetailsAndChecks();
+							vbranchService.reload();
+							// updateDetailsAndChecks();
 						}
 					}}
 				/>

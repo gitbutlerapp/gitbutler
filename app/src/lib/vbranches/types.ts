@@ -4,6 +4,7 @@ import { hashCode } from '$lib/utils/string';
 import { isDefined, notNull } from '$lib/utils/typeguards';
 import { convertRemoteToWebUrl } from '$lib/utils/url';
 import { Type, Transform } from 'class-transformer';
+import type { PullRequest } from '$lib/hostedServices/interface/types';
 
 export type ChangeType =
 	/// Entry does not exist in old version
@@ -129,6 +130,7 @@ export class Branch {
 	/// The fork point between the target branch and the virtual branch
 	forkPoint!: string;
 	allowRebasing!: boolean;
+	pr?: PullRequest;
 
 	get localCommits() {
 		return this.commits.filter((c) => c.status === 'local');

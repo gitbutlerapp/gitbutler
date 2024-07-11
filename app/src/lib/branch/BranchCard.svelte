@@ -27,11 +27,12 @@
 	import { Branch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { onMount } from 'svelte';
-	import type { Persisted } from '$lib/persisted/persisted';
 	import type { Writable } from 'svelte/store';
 
-	export let isLaneCollapsed: Persisted<boolean>;
-	export let commitBoxOpen: Writable<boolean>;
+	const {
+		isLaneCollapsed,
+		commitBoxOpen
+	}: { isLaneCollapsed: Writable<boolean>; commitBoxOpen: Writable<boolean> } = $props();
 
 	const branchController = getContext(BranchController);
 	const fileIdSelection = getContext(FileIdSelection);
@@ -39,7 +40,7 @@
 	const project = getContext(Project);
 	const user = getContextStore(User);
 
-	$: branch = $branchStore;
+	const branch = $derived($branchStore);
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 
@@ -50,14 +51,16 @@
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
 	const laneWidthKey = 'laneWidth_';
 
-	let laneWidth: number;
+	let laneWidth: number | undefined = $state();
 
-	let scrollViewport: HTMLElement;
-	let rsViewport: HTMLElement;
+	let scrollViewport: HTMLElement | undefined = $state();
+	let rsViewport: HTMLElement | undefined = $state();
 
-	$: if ($commitBoxOpen && branch.files.length === 0) {
-		$commitBoxOpen = false;
-	}
+	$effect(() => {
+		if ($commitBoxOpen && branch.files.length === 0) {
+			commitBoxOpen.set(false);
+		}
+	});
 
 	async function generateBranchName() {
 		console.log('before');
@@ -97,8 +100,8 @@
 	<div class="collapsed-lane-container">
 		<BranchHeader
 			uncommittedChanges={branch.files.length}
-			bind:isLaneCollapsed
 			onGenerateBranchName={generateBranchName}
+			{isLaneCollapsed}
 		/>
 	</div>
 {:else}
@@ -120,9 +123,8 @@
 					style:width={`${laneWidth || $defaultBranchWidthRem}rem`}
 					class="branch-card__contents"
 				>
-					<BranchHeader bind:isLaneCollapsed onGenerateBranchName={generateBranchName} />
+					<BranchHeader {isLaneCollapsed} onGenerateBranchName={generateBranchName} />
 					<PullRequestCard />
-
 					<div class="card">
 						{#if branch.files?.length > 0}
 							<div class="branch-card__files">
