@@ -163,7 +163,6 @@ impl Handler {
             match file_name {
                 "FETCH_HEAD" => {
                     self.emit_app_event(Change::GitFetch(project_id))?;
-                    self.calculate_virtual_branches(project_id).await?;
                 }
                 "logs/HEAD" => {
                     self.emit_app_event(Change::GitActivity(project.id))?;
