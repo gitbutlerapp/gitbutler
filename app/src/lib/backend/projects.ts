@@ -29,7 +29,7 @@ export class Project {
 	use_new_locking!: boolean;
 	ignore_project_semaphore!: boolean;
 
-	// Produced just for the frontend
+	// Produced just for the frontend to determine if the project is open in any window.
 	is_open!: boolean;
 
 	get vscodePath() {
