@@ -404,14 +404,6 @@ impl VirtualBranchActions {
             }
         };
 
-        let default_target = default_target(&project_repository.project().gb_dir())?;
-
-        // if we have a push remote, let's fetch from this too
-        if let Some(push_remote) = &default_target.push_remote_name {
-            if let Err(err) = project_repository.fetch(push_remote, &helper, askpass.clone()) {
-                tracing::warn!(?err, "fetch from push-remote failed");
-            }
-        }
         Ok(project_data_last_fetched)
     }
 
