@@ -1,5 +1,6 @@
 name: Trigger Docs Build
 on:
+  workflow_dispatch:
   release:
     types: [published]
 
@@ -7,6 +8,37 @@ jobs:
   vercel:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: gitbutlerapp/gitbutler-docs
+          path: docs
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: "pnpm"
+          cache-dependency-path: |
+            pnpm-lock.yaml
+      - name: Install dependencies
+        run: cd docs && pnpm install
+      - name: Add content
+        run: |
+          NEW_CONTENT=$(cat <<- END
+            <!-- NEW RELEASE -->
+
+            ${{ github.event.release.body }}
+
+          END
+
+          )
+          sed -i "s|<!-- NEW RELEASE -->|${NEW_CONTENT}|"
+      - name: Push changes
+        run: |
+          cd docs
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git commit -am "feat: add release ${{ github.event.release.tag_name }}"
+          git push
       - name: Trigger Vercel Deploy Hook
         env:
           VERCEL_HOOK_URL: ${{ secrets.VERCEL_HOOK_URL }}
