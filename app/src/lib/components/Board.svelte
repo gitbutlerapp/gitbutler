@@ -32,6 +32,10 @@
 	$: if ($activeBranchesError) {
 		$showHistoryView = true;
 	}
+
+	async function openInVSCode() {
+		open(`${editor.get()}://file${project.vscodePath}/?windowId=_blank`);
+	}
 </script>
 
 {#if $activeBranchesError}
@@ -126,13 +130,6 @@
 								Your working directory matches the base branch.
 								<br />
 								Any edits auto-create a virtual branch for easy management.
-								<br />
-								You can also
-								<button
-									class="empty-board__new-branch-button"
-									on:mousedown={async () => await branchController.createBranch({})}
-									>+ create a new branch</button
-								> yourself.
 							</p>
 						</div>
 
@@ -140,6 +137,18 @@
 							<div class="empty-board__suggestions__block">
 								<h3 class="text-base-14 text-bold">Start</h3>
 								<div class="empty-board__suggestions__links">
+									<div
+										class="empty-board__suggestions__link"
+										role="button"
+										tabindex="0"
+										on:keypress={async () => await branchController.createBranch({})}
+										on:click={async () => await branchController.createBranch({})}
+									>
+										<div class="empty-board__suggestions__link__icon">
+											<Icon name="new-branch" />
+										</div>
+										<span class="text-base-12">Create new branch</span>
+									</div>
 									<a
 										class="empty-board__suggestions__link"
 										target="_blank"
@@ -156,10 +165,8 @@
 										class="empty-board__suggestions__link"
 										role="button"
 										tabindex="0"
-										on:keypress={async () =>
-											await open(`${editor.get()}://file${project.vscodePath}/?windowId=_blank`)}
-										on:click={async () =>
-											await open(`${editor.get()}://file${project.vscodePath}/?windowId=_blank`)}
+										on:keypress={async () => await openInVSCode()}
+										on:click={async () => await openInVSCode()}
 									>
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="vscode" />
@@ -314,18 +321,6 @@
 		line-height: 160%;
 	}
 
-	.empty-board__new-branch-button {
-		border: 1px solid var(--clr-border-2);
-		padding: 0 6px;
-		margin: 0 2px;
-		border-radius: var(--radius-m);
-		transition: background-color var(--transition-fast);
-
-		&:hover {
-			background-color: var(--clr-bg-1-muted);
-		}
-	}
-
 	.empty-board__suggestions {
 		display: flex;
 		flex-direction: row;
@@ -336,7 +331,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
-		min-width: 128px;
+		min-width: 160px;
 	}
 
 	.empty-board__suggestions__block h3 {
