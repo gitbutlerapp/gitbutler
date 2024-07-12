@@ -5,6 +5,7 @@
 	import { getHostedGitChecksMonitorStore } from '$lib/hostedServices/interface/hostedGitChecksMonitor';
 	import { getHostedGitListingServiceStore } from '$lib/hostedServices/interface/hostedGitListingService';
 	import { getHostedGitPrMonitorStore } from '$lib/hostedServices/interface/hostedGitPrMonitor';
+	import { getHostedGitPrServiceStore } from '$lib/hostedServices/interface/hostedGitPrService';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { createTimeAgoStore } from '$lib/utils/timeAgo';
@@ -28,6 +29,7 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
 
+	const prService = getHostedGitPrServiceStore();
 	const prMonitor = getHostedGitPrMonitorStore();
 	const checksMonitor = getHostedGitChecksMonitorStore();
 	const listingService = getHostedGitListingServiceStore();
@@ -250,7 +252,7 @@
 						isMerging = true;
 						const method = e.detail.method;
 						try {
-							await $prMonitor?.merge(method);
+							await $prService?.merge(method, $pr.number);
 							$prMonitor?.refresh();
 							$listingService?.reload();
 						} catch (err) {

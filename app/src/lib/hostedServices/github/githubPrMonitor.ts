@@ -1,4 +1,4 @@
-import { MergeMethod, type DetailedPullRequest } from '$lib/hostedServices/interface/types';
+import { type DetailedPullRequest } from '$lib/hostedServices/interface/types';
 import { sleep } from '$lib/utils/sleep';
 import { derived, writable } from 'svelte/store';
 import type { GitHubPrService } from './githubPrService';
@@ -65,9 +65,5 @@ export class GitHubPrMonitor implements HostedGitPrMonitor {
 		}
 		if (!pr) throw 'Failed to fetch pull request details';
 		return pr;
-	}
-
-	async merge(method: MergeMethod) {
-		await this.prService.merge(method, this.prNumber);
 	}
 }

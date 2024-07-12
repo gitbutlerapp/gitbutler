@@ -29,6 +29,7 @@ export interface PullRequest {
 export interface DetailedPullRequest {
 	id: number;
 	title: string;
+	number: number;
 	sourceBranch: string;
 	draft?: boolean;
 	createdAt: Date;
