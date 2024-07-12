@@ -58,9 +58,7 @@
 	const prNumber = $derived(listedPr?.number);
 
 	const hostedGitPrMonitorStore = createHostedGitPrMonitorStore(undefined);
-	const prMonitor = $derived(
-		prNumber && $prService ? $hostedGitService?.prMonitor($prService, prNumber) : undefined
-	);
+	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 	$effect(() => hostedGitPrMonitorStore.set(prMonitor));
 
 	const hostedGitChecksMonitorStore = createHostedGitChecksMonitorStore(undefined);

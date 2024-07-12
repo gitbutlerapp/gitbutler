@@ -1,4 +1,5 @@
 import { buildContextStore } from '$lib/utils/context';
+import type { HostedGitPrMonitor } from './hostedGitPrMonitor';
 import type { DetailedPullRequest, MergeMethod, PullRequest } from './types';
 import type { Writable } from 'svelte/store';
 
@@ -11,4 +12,5 @@ export interface HostedGitPrService {
 	get(prNumber: number): Promise<DetailedPullRequest>;
 	createPr(title: string, body: string, draft: boolean): Promise<PullRequest | undefined>;
 	merge(method: MergeMethod, prNumber: number): Promise<void>;
+	prMonitor(prNumber: number): HostedGitPrMonitor;
 }

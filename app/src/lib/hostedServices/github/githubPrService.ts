@@ -1,10 +1,12 @@
 import { mapErrorToToast } from './errorMap';
+import { GitHubPrMonitor } from './githubPrMonitor';
 import { DEFAULT_HEADERS } from './headers';
 import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
 import { showToast } from '$lib/notifications/toasts';
 import posthog from 'posthog-js';
 import { writable } from 'svelte/store';
 import type { RepoInfo } from '$lib/url/gitUrl';
+import type { HostedGitPrMonitor } from '../interface/hostedGitPrMonitor';
 import type { HostedGitPrService } from '../interface/hostedGitPrService';
 import type { DetailedPullRequest, MergeMethod, PullRequest } from '../interface/types';
 import type { Octokit } from '@octokit/rest';
@@ -63,5 +65,9 @@ export class GitHubPrService implements HostedGitPrService {
 			pull_number: prNumber,
 			merge_method: method
 		});
+	}
+
+	prMonitor(prNumber: number): HostedGitPrMonitor {
+		return new GitHubPrMonitor(this, prNumber);
 	}
 }

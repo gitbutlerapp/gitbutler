@@ -143,7 +143,7 @@ export class GitHubChecksMonitor implements HostedGitChecksMonitor {
 		if (checkSuites.some((suite) => suite.status !== 'completed')) return true;
 	}
 
-	async getCheckSuites(ref: string | undefined): Promise<CheckSuites> {
+	private async getCheckSuites(ref: string | undefined): Promise<CheckSuites> {
 		if (!ref) return null;
 		const resp = await this.octokit.checks.listSuitesForRef({
 			headers: DEFAULT_HEADERS,
@@ -154,7 +154,7 @@ export class GitHubChecksMonitor implements HostedGitChecksMonitor {
 		return { count: resp.data.total_count, items: parseGitHubCheckSuites(resp.data) };
 	}
 
-	async fetchChecks(ref: string) {
+	private async fetchChecks(ref: string) {
 		return await this.octokit.checks.listForRef({
 			headers: DEFAULT_HEADERS,
 			owner: this.repo.owner,
