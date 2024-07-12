@@ -64,7 +64,7 @@ export class GitHubPrService implements HostedGitPrService {
 		throw lastError;
 	}
 
-	async get(prNumber: number): Promise<DetailedPullRequest> {
+	async get(prNumber: number): Promise<DetailedPullRequest | undefined> {
 		const resp = await this.octokit.pulls.get({
 			headers: DEFAULT_HEADERS,
 			owner: this.repo.owner,

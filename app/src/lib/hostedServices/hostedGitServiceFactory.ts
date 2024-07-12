@@ -19,5 +19,6 @@ export class DefaultHostedGitServiceFactory implements HostedGitServiceFactory {
 				if (!this.octokit) throw new Error('Octokit not available');
 				return new GitHubService(new ProjectMetrics(), this.octokit, repo);
 		}
+		throw new Error('');
 	}
 }
