@@ -32,6 +32,10 @@
 	$: if ($activeBranchesError) {
 		$showHistoryView = true;
 	}
+
+	async function openInVSCode() {
+		open(`${editor.get()}://file${project.vscodePath}/?windowId=_blank`);
+	}
 </script>
 
 {#if $activeBranchesError}
@@ -133,6 +137,18 @@
 							<div class="empty-board__suggestions__block">
 								<h3 class="text-base-14 text-bold">Start</h3>
 								<div class="empty-board__suggestions__links">
+									<div
+										class="empty-board__suggestions__link"
+										role="button"
+										tabindex="0"
+										on:keypress={async () => await branchController.createBranch({})}
+										on:click={async () => await branchController.createBranch({})}
+									>
+										<div class="empty-board__suggestions__link__icon">
+											<Icon name="new-branch" />
+										</div>
+										<span class="text-base-12">Create new branch</span>
+									</div>
 									<a
 										class="empty-board__suggestions__link"
 										target="_blank"
@@ -149,10 +165,8 @@
 										class="empty-board__suggestions__link"
 										role="button"
 										tabindex="0"
-										on:keypress={async () =>
-											await open(`${editor.get()}://file${project.vscodePath}/?windowId=_blank`)}
-										on:click={async () =>
-											await open(`${editor.get()}://file${project.vscodePath}/?windowId=_blank`)}
+										on:keypress={async () => await openInVSCode()}
+										on:click={async () => await openInVSCode()}
 									>
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="vscode" />
@@ -304,6 +318,7 @@
 
 	.empty-board__about p {
 		color: var(--clr-scale-ntrl-40);
+		line-height: 160%;
 	}
 
 	.empty-board__suggestions {
@@ -316,7 +331,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
-		min-width: 128px;
+		min-width: 160px;
 	}
 
 	.empty-board__suggestions__block h3 {
