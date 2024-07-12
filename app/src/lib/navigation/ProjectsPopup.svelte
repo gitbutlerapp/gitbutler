@@ -13,7 +13,7 @@
 		label: string;
 		selected?: boolean;
 		icon?: string;
-		onclick: () => void;
+		onclick: (event?: any) => void;
 	}
 
 	interface ProjectsPopupProps {
@@ -105,13 +105,19 @@
 				<ScrollableContainer maxHeight="20rem">
 					<div class="popup__projects">
 						{#each $projects as project}
-							{@const selected = project.id === $page.params.projectId}
+							{@const selected =
+								project.id === $page.params.projectId ||
+								$projects.some((p) => p.is_open && p.id === project.id)}
 							{@render itemSnippet({
 								label: project.title,
 								selected,
 								icon: selected ? 'tick' : undefined,
-								onclick: () => {
-									goto(`/${project.id}/`);
+								onclick: async (event: any) => {
+									if (event.altKey) {
+										await projectService.openProjectInNewWindow(project.id);
+									} else {
+										goto(`/${project.id}/`);
+									}
 									hide();
 								}
 							})}

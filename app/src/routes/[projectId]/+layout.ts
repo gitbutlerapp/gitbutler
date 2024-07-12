@@ -30,10 +30,12 @@ export async function load({ params, parent }) {
 	// Getting the project should be one of few, if not the only await expression in
 	// this function. It delays drawing the page, but currently the benefit from having this
 	// synchronously available are much greater than the cost.
+	// However, what's awaited here is required for proper error handling,
+	// and by now this is fast enough to not be an impediment.
 	let project: Project | undefined = undefined;
 	try {
 		project = await projectService.getProject(projectId);
-		invoke('set_project_active', { id: projectId }).then((_r) => {});
+		await invoke('set_project_active', { id: projectId });
 	} catch (err: any) {
 		throw error(400, {
 			message: err.message

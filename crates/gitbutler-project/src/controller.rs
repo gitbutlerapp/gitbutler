@@ -1,40 +1,22 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
-use async_trait::async_trait;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
 use crate::AuthKey;
 use gitbutler_error::error;
 
-#[async_trait]
-pub trait Watchers {
-    /// Watch for filesystem changes on the given project.
-    fn watch(&self, project: &Project) -> anyhow::Result<()>;
-    /// Stop watching filesystem changes.
-    async fn stop(&self, id: ProjectId);
-}
-
 #[derive(Clone)]
 pub struct Controller {
     local_data_dir: PathBuf,
     projects_storage: storage::Storage,
-    watchers: Option<Arc<dyn Watchers + Send + Sync>>,
 }
 
 impl Controller {
-    pub fn new(
-        local_data_dir: PathBuf,
-        projects_storage: storage::Storage,
-        watchers: Option<impl Watchers + Send + Sync + 'static>,
-    ) -> Self {
+    pub fn new(local_data_dir: PathBuf, projects_storage: storage::Storage) -> Self {
         Self {
             local_data_dir,
             projects_storage,
-            watchers: watchers.map(|w| Arc::new(w) as Arc<_>),
         }
     }
 
@@ -43,7 +25,6 @@ impl Controller {
         Self {
             projects_storage: storage::Storage::from_path(&path),
             local_data_dir: path,
-            watchers: None,
         }
     }
 
@@ -101,10 +82,6 @@ impl Controller {
         // Create a .git/gitbutler directory for app data
         if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
             tracing::error!(project_id = %project.id, ?error, "failed to create {:?} on project add", project.gb_dir());
-        }
-
-        if let Some(watcher) = &self.watchers {
-            watcher.watch(&project)?;
         }
 
         Ok(project)
@@ -182,10 +159,6 @@ impl Controller {
         let Some(project) = self.projects_storage.try_get(id)? else {
             return Ok(());
         };
-
-        if let Some(watchers) = &self.watchers {
-            watchers.stop(id).await;
-        }
 
         self.projects_storage
             .purge(project.id)
