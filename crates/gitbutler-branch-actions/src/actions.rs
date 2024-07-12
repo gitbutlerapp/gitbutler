@@ -1,5 +1,4 @@
 use anyhow::Result;
-use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_branch::{
     branch::{BranchCreateRequest, BranchId, BranchUpdateRequest},
     diff,
@@ -15,7 +14,6 @@ use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::ReferenceName;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{credentials::Helper, RepoActions, RepositoryExt};
-use std::path::Path;
 
 use crate::branch_manager::branch_removal::BranchRemoval;
 use crate::{
@@ -31,7 +29,6 @@ use crate::{
 use super::r#virtual as branch;
 
 use crate::files::RemoteBranchFile;
-use gitbutler_branch::target;
 
 #[derive(Clone, Default)]
 pub struct VirtualBranchActions {}
@@ -404,14 +401,6 @@ impl VirtualBranchActions {
             }
         };
 
-        let default_target = default_target(&project_repository.project().gb_dir())?;
-
-        // if we have a push remote, let's fetch from this too
-        if let Some(push_remote) = &default_target.push_remote_name {
-            if let Err(err) = project_repository.fetch(push_remote, &helper, askpass.clone()) {
-                tracing::warn!(?err, "fetch from push-remote failed");
-            }
-        }
         Ok(project_data_last_fetched)
     }
 
@@ -445,8 +434,4 @@ fn open_with_verify(project: &Project) -> Result<ProjectRepository> {
     let project_repository = ProjectRepository::open(project)?;
     crate::integration::verify_branch(&project_repository)?;
     Ok(project_repository)
-}
-
-fn default_target(base_path: &Path) -> anyhow::Result<target::Target> {
-    VirtualBranchesHandle::new(base_path).get_default_target()
 }
