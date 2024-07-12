@@ -1,19 +1,24 @@
-//! GitButler internal library containing functionaliry related to branches, i.e. the virtual branches implementation
-pub mod actions;
+//! GitButler internal library containing functionality related to branches, i.e. the virtual branches implementation
+mod actions;
 pub use actions::VirtualBranchActions;
 
-pub mod r#virtual;
+mod r#virtual;
 pub use r#virtual::*;
 
-pub mod branch_manager;
+mod branch_manager;
+pub use branch_manager::{BranchManager, BranchManagerExt};
 
-pub mod base;
+mod base;
+pub use base::BaseBranch;
 
-pub mod integration;
+mod integration;
+pub use integration::{update_gitbutler_integration, verify_branch};
 
-pub mod files;
+mod files;
+pub use files::RemoteBranchFile;
 
-pub mod remote;
+mod remote;
+pub use remote::{list_remote_branches, RemoteBranch, RemoteBranchData, RemoteCommit};
 
 pub mod conflicts;
 

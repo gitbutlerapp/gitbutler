@@ -29,8 +29,8 @@ use super::r#virtual as branch;
 
 use crate::files::RemoteBranchFile;
 
-#[derive(Clone, Default)]
-pub struct VirtualBranchActions {}
+#[derive(Clone, Copy, Default)]
+pub struct VirtualBranchActions;
 
 impl VirtualBranchActions {
     pub async fn create_commit(
@@ -298,7 +298,7 @@ impl VirtualBranchActions {
         &self,
         project: &Project,
         branch_id: BranchId,
-        name_conflict_resolution: branch::NameConflitResolution,
+        name_conflict_resolution: branch::NameConflictResolution,
     ) -> Result<ReferenceName> {
         let project_repository = open_with_verify(project)?;
         let snapshot_tree = project_repository.project().prepare_snapshot();

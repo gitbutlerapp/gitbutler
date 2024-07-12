@@ -18,12 +18,12 @@ use gitbutler_branch::{
     ownership::BranchOwnershipClaims,
     target::Target,
 };
-use gitbutler_branch_actions::r#virtual as virtual_branches;
-use gitbutler_branch_actions::r#virtual::{
-    commit, integrate_upstream_commits, is_remote_branch_mergeable, list_virtual_branches,
-    unapply_ownership, update_branch,
+use gitbutler_branch_actions::BranchManagerExt;
+use gitbutler_branch_actions::{
+    commit, get_status_by_branch, integrate_upstream_commits, is_remote_branch_mergeable,
+    list_virtual_branches, unapply_ownership, update_branch, update_gitbutler_integration,
+    verify_branch,
 };
-use gitbutler_branch_actions::{branch_manager::BranchManagerExt, integration};
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::CommitHeadersV2};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
@@ -56,7 +56,7 @@ fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
         "line0\nline1\nline2\nline3\nline4\n",
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.commits.len(), 0);
@@ -65,7 +65,7 @@ fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
     commit(project_repository, branch1_id, "test commit", None, false)?;
 
     // status (no files)
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 0);
     assert_eq!(branch.commits.len(), 1);
@@ -76,7 +76,7 @@ fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
     )?;
 
     // should have just the last change now, the other line is committed
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.commits.len(), 1);
@@ -138,7 +138,7 @@ fn track_binary_files() -> Result<()> {
     let mut file = std::fs::File::create(Path::new(&project.path).join("image.bin"))?;
     file.write_all(&image_data)?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 2);
     let img_file = &branch
@@ -158,7 +158,7 @@ fn track_binary_files() -> Result<()> {
     commit(project_repository, branch1_id, "test commit", None, false)?;
 
     // status (no files)
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository).unwrap();
+    let (branches, _) = list_virtual_branches(project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
     let commit_obj = project_repository
         .repo()
@@ -183,7 +183,7 @@ fn track_binary_files() -> Result<()> {
     // commit
     commit(project_repository, branch1_id, "test commit", None, false)?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository).unwrap();
+    let (branches, _) = list_virtual_branches(project_repository).unwrap();
     let commit_id = &branches[0].commits[0].id;
     // get tree from commit_id
     let commit_obj = project_repository
@@ -217,7 +217,7 @@ fn create_branch_with_ownership() -> Result<()> {
         .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch");
 
-    virtual_branches::get_status_by_branch(project_repository, None).expect("failed to get status");
+    get_status_by_branch(project_repository, None).expect("failed to get status");
 
     let vb_state = VirtualBranchesHandle::new(project_repository.project().gb_dir());
     let branch0 = vb_state.get_branch_in_workspace(branch0.id).unwrap();
@@ -229,7 +229,7 @@ fn create_branch_with_ownership() -> Result<()> {
         })
         .expect("failed to create virtual branch");
 
-    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
+    let statuses = get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
 
@@ -331,7 +331,7 @@ fn hunk_expantion() -> Result<()> {
         .expect("failed to create virtual branch")
         .id;
 
-    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
+    let statuses = get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
 
@@ -368,7 +368,7 @@ fn hunk_expantion() -> Result<()> {
         "line1\nline2\nline3\n",
     )?;
 
-    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
+    let statuses = get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
     let files_by_branch_id = statuses
@@ -392,7 +392,7 @@ fn get_status_files_by_branch_no_hunks_no_branches() -> Result<()> {
 
     set_test_target(project_repository)?;
 
-    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
+    let statuses = get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
 
@@ -425,7 +425,7 @@ fn get_status_files_by_branch() -> Result<()> {
         .expect("failed to create virtual branch")
         .id;
 
-    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
+    let statuses = get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
     let files_by_branch_id = statuses
@@ -485,7 +485,7 @@ fn move_hunks_multiple_sources() -> Result<()> {
     };
     vb_state.set_branch(branch1.clone())?;
 
-    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
+    let statuses = get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
 
@@ -510,7 +510,7 @@ fn move_hunks_multiple_sources() -> Result<()> {
         },
     )?;
 
-    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
+    let statuses = get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
 
@@ -568,7 +568,7 @@ fn move_hunks_partial_explicitly() -> Result<()> {
         .expect("failed to create virtual branch")
         .id;
 
-    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
+    let statuses = get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
     let files_by_branch_id = statuses
@@ -590,7 +590,7 @@ fn move_hunks_partial_explicitly() -> Result<()> {
         },
     )?;
 
-    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
+    let statuses = get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
 
@@ -647,7 +647,7 @@ fn add_new_hunk_to_the_end() -> Result<()> {
         .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch");
 
-    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
+    let statuses = get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
     assert_eq!(
@@ -660,7 +660,7 @@ fn add_new_hunk_to_the_end() -> Result<()> {
         "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\n",
     )?;
 
-    let statuses = virtual_branches::get_status_by_branch(project_repository, None)
+    let statuses = get_status_by_branch(project_repository, None)
         .expect("failed to get status")
         .0;
 
@@ -811,7 +811,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     std::fs::write(Path::new(&project.path).join(file_path2), "file2\n")?;
 
     // Update integration commit
-    integration::update_gitbutler_integration(&vb_state, project_repository)?;
+    update_gitbutler_integration(&vb_state, project_repository)?;
 
     let remote_branch: RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
     let branch_manager = project_repository.branch_manager();
@@ -823,7 +823,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     vb_state.set_branch(branch.clone())?;
 
     // create the branch
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch1 = &branches[0];
     assert_eq!(branch1.files.len(), 1);
     assert_eq!(branch1.commits.len(), 1);
@@ -831,7 +831,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
 
     integrate_upstream_commits(project_repository, branch1.id)?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch1 = &branches[0];
 
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
@@ -932,7 +932,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
     .unwrap();
 
     // create the branch
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch1 = &branches[0];
 
     assert_eq!(branch1.files.len(), 1);
@@ -941,7 +941,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
 
     integrate_upstream_commits(project_repository, branch1.id)?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch1 = &branches[0];
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
 
@@ -961,7 +961,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
     )?;
 
     // make gb see the conflict resolution
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     assert!(branches[0].conflicted);
 
     // commit the merge resolution
@@ -973,7 +973,7 @@ async fn merge_vbranch_upstream_conflict() -> Result<()> {
         false,
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch1 = &branches[0];
     assert!(!branch1.conflicted);
     assert_eq!(branch1.files.len(), 0);
@@ -1011,7 +1011,7 @@ fn unapply_ownership_partial() -> Result<()> {
         .create_virtual_branch(&BranchCreateRequest::default())
         .expect("failed to create virtual branch");
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].ownership.claims.len(), 1);
@@ -1024,7 +1024,7 @@ fn unapply_ownership_partial() -> Result<()> {
 
     unapply_ownership(project_repository, &"test.txt:2-6".parse().unwrap()).unwrap();
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 0);
     assert_eq!(branches[0].ownership.claims.len(), 0);
@@ -1089,7 +1089,7 @@ fn unapply_branch() -> Result<()> {
     let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("line5\nline6\n", String::from_utf8(contents)?);
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
     assert_eq!(branch.files.len(), 1);
     assert!(branch.active);
@@ -1102,7 +1102,7 @@ fn unapply_branch() -> Result<()> {
     let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("line5\nline6\n", String::from_utf8(contents)?);
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     assert!(!branches.iter().any(|b| b.id == branch1_id));
 
     let branch_manager = project_repository.branch_manager();
@@ -1116,7 +1116,7 @@ fn unapply_branch() -> Result<()> {
     let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("line5\nline6\n", String::from_utf8(contents)?);
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
     // TODO: expect there to be 0 branches
     assert_eq!(branch.files.len(), 0);
@@ -1333,7 +1333,7 @@ fn detect_mergeable_branch() -> Result<()> {
     };
     vb_state.set_branch(branch4.clone())?;
 
-    let remotes = gitbutler_branch_actions::remote::list_remote_branches(project_repository)
+    let remotes = gitbutler_branch_actions::list_remote_branches(project_repository)
         .expect("failed to list remotes");
     let _remote1 = &remotes
         .iter()
@@ -1403,7 +1403,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
     project_repository
         .repo()
         .remote("origin", "http://origin.com/project")?;
-    integration::update_gitbutler_integration(&vb_state, project_repository)?;
+    update_gitbutler_integration(&vb_state, project_repository)?;
 
     // create vbranches, one integrated, one not
     let branch_manager = project_repository.branch_manager();
@@ -1476,7 +1476,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
         false,
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
 
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
     assert!(branch1.commits.iter().any(|c| c.is_integrated));
@@ -1521,7 +1521,7 @@ fn commit_same_hunk_twice() -> Result<()> {
         "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1);
@@ -1537,7 +1537,7 @@ fn commit_same_hunk_twice() -> Result<()> {
         false,
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 0, "no files expected");
@@ -1557,7 +1557,7 @@ fn commit_same_hunk_twice() -> Result<()> {
         "line1\nPATCH1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1, "one file should be changed");
@@ -1571,7 +1571,7 @@ fn commit_same_hunk_twice() -> Result<()> {
         false,
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(
@@ -1614,7 +1614,7 @@ fn commit_same_file_twice() -> Result<()> {
         "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1);
@@ -1630,7 +1630,7 @@ fn commit_same_file_twice() -> Result<()> {
         false,
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 0, "no files expected");
@@ -1650,7 +1650,7 @@ fn commit_same_file_twice() -> Result<()> {
         "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\npatch2\nline11\nline12\n",
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1, "one file should be changed");
@@ -1664,7 +1664,7 @@ fn commit_same_file_twice() -> Result<()> {
         false,
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(
@@ -1707,7 +1707,7 @@ fn commit_partial_by_hunk() -> Result<()> {
         "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\npatch2\nline11\nline12\n",
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1);
@@ -1723,7 +1723,7 @@ fn commit_partial_by_hunk() -> Result<()> {
         false,
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1);
@@ -1740,7 +1740,7 @@ fn commit_partial_by_hunk() -> Result<()> {
         false,
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     assert_eq!(branch.files.len(), 0);
@@ -1791,7 +1791,7 @@ fn commit_partial_by_file() -> Result<()> {
         false,
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     // branch one test.txt has just the 1st and 3rd hunks applied
@@ -1851,7 +1851,7 @@ fn commit_add_and_delete_files() -> Result<()> {
         false,
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     // branch one test.txt has just the 1st and 3rd hunks applied
@@ -1917,7 +1917,7 @@ fn commit_executable_and_symlinks() -> Result<()> {
         false,
     )?;
 
-    let (branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (branches, _) = list_virtual_branches(project_repository)?;
     let branch1 = &branches.iter().find(|b| b.id == branch1_id).unwrap();
 
     let commit = &branch1.commits[0].id;
@@ -2003,7 +2003,7 @@ fn verify_branch_commits_to_integration() -> Result<()> {
 
     set_test_target(project_repository)?;
 
-    integration::verify_branch(project_repository).unwrap();
+    verify_branch(project_repository).unwrap();
 
     //  write two commits
     let file_path2 = Path::new("test2.txt");
@@ -2013,10 +2013,10 @@ fn verify_branch_commits_to_integration() -> Result<()> {
     commit_all(project_repository.repo());
 
     // verify puts commits onto the virtual branch
-    integration::verify_branch(project_repository).unwrap();
+    verify_branch(project_repository).unwrap();
 
     // one virtual branch with two commits was created
-    let (virtual_branches, _) = virtual_branches::list_virtual_branches(project_repository)?;
+    let (virtual_branches, _) = list_virtual_branches(project_repository)?;
     assert_eq!(virtual_branches.len(), 1);
 
     let branch = &virtual_branches.first().unwrap();
@@ -2035,11 +2035,11 @@ fn verify_branch_not_integration() -> Result<()> {
 
     set_test_target(project_repository)?;
 
-    integration::verify_branch(project_repository).unwrap();
+    verify_branch(project_repository).unwrap();
 
     project_repository.repo().set_head("refs/heads/master")?;
 
-    let verify_result = integration::verify_branch(project_repository);
+    let verify_result = verify_branch(project_repository);
     assert!(verify_result.is_err());
     assert_eq!(
         format!("{:#}", verify_result.unwrap_err()),

@@ -2,7 +2,7 @@ use crate::{
     conflicts::{self},
     ensure_selected_for_changes, get_applied_status,
     integration::get_integration_commiter,
-    write_tree, NameConflitResolution, VirtualBranchesExt,
+    write_tree, NameConflictResolution, VirtualBranchesExt,
 };
 use anyhow::{anyhow, Context, Result};
 use git2::build::TreeUpdateBuilder;
@@ -23,7 +23,7 @@ impl BranchManager<'_> {
     pub fn convert_to_real_branch(
         &self,
         branch_id: BranchId,
-        name_conflict_resolution: NameConflitResolution,
+        name_conflict_resolution: NameConflictResolution,
     ) -> Result<ReferenceName> {
         let vb_state = self.project_repository.project().virtual_branches();
 
@@ -125,7 +125,7 @@ impl BranchManager<'_> {
     fn build_real_branch(
         &self,
         vbranch: &mut branch::Branch,
-        name_conflict_resolution: NameConflitResolution,
+        name_conflict_resolution: NameConflictResolution,
     ) -> Result<git2::Branch<'_>> {
         let repo = self.project_repository.repo();
         let target_commit = repo.find_commit(vbranch.head)?;
@@ -138,7 +138,7 @@ impl BranchManager<'_> {
             .is_ok()
         {
             match name_conflict_resolution {
-                NameConflitResolution::Suffix => {
+                NameConflictResolution::Suffix => {
                     let mut suffix = 1;
                     loop {
                         let new_branch_name = format!("{}-{}", branch_name, suffix);
@@ -151,7 +151,7 @@ impl BranchManager<'_> {
                         suffix += 1;
                     }
                 }
-                NameConflitResolution::Rename(new_name) => {
+                NameConflictResolution::Rename(new_name) => {
                     if repo
                         .find_branch(new_name.as_str(), git2::BranchType::Local)
                         .is_ok()
@@ -161,7 +161,7 @@ impl BranchManager<'_> {
                         new_name
                     }
                 }
-                NameConflitResolution::Overwrite => branch_name,
+                NameConflictResolution::Overwrite => branch_name,
             }
         } else {
             branch_name

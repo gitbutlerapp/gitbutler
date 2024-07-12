@@ -192,7 +192,7 @@ impl VirtualBranchHunk {
 
 #[derive(Default, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type", content = "value")]
-pub enum NameConflitResolution {
+pub enum NameConflictResolution {
     #[default]
     Suffix,
     Rename(String),
