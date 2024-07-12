@@ -35,6 +35,10 @@
 		[BranchAction.Integrate]: 'Integrate upstream'
 	};
 
+	$: if (requiresForce) {
+		$preferredAction = BranchAction.Integrate;
+	}
+
 	function selectAction(preferredAction: BranchAction) {
 		if (preferredAction === BranchAction.Integrate && integrate) return BranchAction.Integrate;
 		return BranchAction.Push;
