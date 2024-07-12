@@ -1,6 +1,5 @@
 import { GitHubService } from './github/githubService';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
-import { buildContextStore } from '$lib/utils/context';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { HostedGitService } from './interface/hostedGitService';
 import type { Octokit } from '@octokit/rest';
@@ -22,6 +21,3 @@ export class DefaultHostedGitServiceFactory implements HostedGitServiceFactory {
 		}
 	}
 }
-
-export const [getHostedGitServiceFactoryStore, createHostedGitServiceFactoryStore] =
-	buildContextStore<HostedGitServiceFactory | undefined>('HostedGitServiceFactory');
