@@ -2,7 +2,8 @@ import { mapErrorToToast } from './errorMap';
 import { GitHubPrMonitor } from './githubPrMonitor';
 import { DEFAULT_HEADERS } from './headers';
 import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
-import { showToast } from '$lib/notifications/toasts';
+import { showError, showToast } from '$lib/notifications/toasts';
+import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
 import { writable } from 'svelte/store';
 import type { RepoInfo } from '$lib/url/gitUrl';
@@ -23,7 +24,7 @@ export class GitHubPrService implements HostedGitPrService {
 
 	async createPr(title: string, body: string, draft: boolean): Promise<PullRequest | undefined> {
 		this.loading.set(true);
-		try {
+		const request = async () => {
 			const resp = await this.octokit.rest.pulls.create({
 				owner: this.repo.owner,
 				repo: this.repo.name,
@@ -33,19 +34,34 @@ export class GitHubPrService implements HostedGitPrService {
 				body,
 				draft
 			});
-			posthog.capture('PR Successful');
 			return ghResponseToInstance(resp.data);
-		} catch (err: any) {
-			const toast = mapErrorToToast(err);
-			if (toast) {
-				showToast(toast);
-			} else {
-				// Rethrow so that error is retried
-				throw err;
+		};
+
+		let attempts = 0;
+		let lastError: any;
+		let pr: PullRequest | undefined;
+
+		// Use retries since request can fail right after branch push.
+		while (attempts < 4) {
+			try {
+				pr = await request();
+				posthog.capture('PR Successful');
+				return pr;
+			} catch (err: any) {
+				const toast = mapErrorToToast(err);
+				if (toast) {
+					showToast(toast);
+					return;
+				}
+				lastError = err;
+				attempts++;
+				await sleep(500);
+			} finally {
+				this.loading.set(false);
 			}
-		} finally {
-			this.loading.set(false);
 		}
+		showError('Failed to create pull request', lastError);
+		throw lastError;
 	}
 
 	async get(prNumber: number): Promise<DetailedPullRequest> {

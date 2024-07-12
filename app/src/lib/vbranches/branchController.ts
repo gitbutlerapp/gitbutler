@@ -217,7 +217,6 @@ export class BranchController {
 			posthog.capture('Push Successful');
 			await this.vbranchService.reload();
 		} catch (err: any) {
-			console.error(err);
 			posthog.capture('Push Failed', { error: err });
 			if (err.code === 'errors.git.authentication') {
 				showToast({
@@ -244,6 +243,7 @@ export class BranchController {
 					style: 'error'
 				});
 			}
+			throw err;
 		}
 		const branch = await this.vbranchService.getById(branchId);
 		if (!branch) throw new Error('Pushed branch no longer available');
