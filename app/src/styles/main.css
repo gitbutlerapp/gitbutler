@@ -118,8 +118,8 @@ pre {
 .code-string {
 	font-family: 'Spline Sans Mono', monospace;
 	border-radius: var(--radius-s);
-	background: oklch(from var(--clr-scale-ntrl-50) l c h / 0.2);
-	padding: 2px 4px;
+	background: var(--clr-scale-ntrl-80);
+	padding: 1px 4px;
 }
 
 /* TRANSITION ANIMATION */
