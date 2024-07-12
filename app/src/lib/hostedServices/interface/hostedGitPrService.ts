@@ -9,7 +9,7 @@ export const [getHostedGitPrServiceStore, createHostedGitPrServiceStore] = build
 
 export interface HostedGitPrService {
 	loading: Writable<boolean>;
-	get(prNumber: number): Promise<DetailedPullRequest>;
+	get(prNumber: number): Promise<DetailedPullRequest | undefined>;
 	createPr(title: string, body: string, draft: boolean): Promise<PullRequest | undefined>;
 	merge(method: MergeMethod, prNumber: number): Promise<void>;
 	prMonitor(prNumber: number): HostedGitPrMonitor;
