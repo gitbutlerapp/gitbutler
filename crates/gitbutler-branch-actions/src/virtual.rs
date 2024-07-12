@@ -29,10 +29,8 @@ use hex::ToHex;
 use serde::{Deserialize, Serialize};
 
 use crate::author::Author;
-use crate::branch_manager::branch_creation::BranchCreation;
-use crate::branch_manager::branch_removal::BranchRemoval;
-use crate::branch_manager::BranchManagerAccess;
-use crate::conflicts::{self, RepoConflicts};
+use crate::branch_manager::BranchManagerExt;
+use crate::conflicts::{self, RepoConflictsExt};
 use crate::integration::get_workspace_head;
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
 use crate::VirtualBranchesExt;
@@ -165,7 +163,7 @@ pub struct VirtualBranchHunk {
 
 /// Lifecycle
 impl VirtualBranchHunk {
-    pub fn gen_id(new_start: u32, new_lines: u32) -> String {
+    pub(crate) fn gen_id(new_start: u32, new_lines: u32) -> String {
         format!("{}-{}", new_start, new_start + new_lines)
     }
     fn from_git_hunk(
@@ -294,7 +292,10 @@ pub fn unapply_ownership(
 }
 
 // reset a file in the project to the index state
-pub fn reset_files(project_repository: &ProjectRepository, files: &Vec<String>) -> Result<()> {
+pub(crate) fn reset_files(
+    project_repository: &ProjectRepository,
+    files: &Vec<String>,
+) -> Result<()> {
     project_repository.assure_resolved()?;
 
     // for each tree, we need to checkout the entry from the index at that path
@@ -784,7 +785,7 @@ pub fn integrate_upstream_commits(
     Ok(())
 }
 
-pub fn integrate_with_rebase(
+pub(crate) fn integrate_with_rebase(
     project_repository: &ProjectRepository,
     branch: &mut Branch,
     unknown_commits: &mut Vec<git2::Oid>,
@@ -796,7 +797,7 @@ pub fn integrate_with_rebase(
     )
 }
 
-pub fn integrate_with_merge(
+pub(crate) fn integrate_with_merge(
     project_repository: &ProjectRepository,
     branch: &mut Branch,
     upstream_commit: &git2::Commit,
@@ -929,7 +930,7 @@ pub fn update_branch(
     Ok(branch)
 }
 
-pub fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> Result<()> {
+pub(crate) fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> Result<()> {
     let mut virtual_branches = vb_state
         .list_branches_in_workspace()
         .context("failed to list branches")?;
@@ -954,7 +955,7 @@ pub fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> Result<(
     Ok(())
 }
 
-pub fn set_ownership(
+pub(crate) fn set_ownership(
     vb_state: &VirtualBranchesHandle,
     target_branch: &mut branch::Branch,
     ownership: &gitbutler_branch::ownership::BranchOwnershipClaims,
@@ -1029,7 +1030,7 @@ pub(super) fn virtual_hunks_by_git_hunks<'a>(
     })
 }
 
-pub fn virtual_hunks_by_file_diffs<'a>(
+pub(crate) fn virtual_hunks_by_file_diffs<'a>(
     project_path: &'a Path,
     diff: impl IntoIterator<Item = (PathBuf, FileDiff)> + 'a,
 ) -> impl Iterator<Item = (PathBuf, Vec<VirtualBranchHunk>)> + 'a {
@@ -1344,7 +1345,7 @@ fn virtual_hunks_into_virtual_files(
 }
 
 // reset virtual branch to a specific commit
-pub fn reset_branch(
+pub(crate) fn reset_branch(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     target_commit_id: git2::Oid,
@@ -1426,7 +1427,7 @@ fn diffs_into_virtual_files(
 // this function takes a list of file ownership,
 // constructs a tree from those changes on top of the target
 // and writes it as a new tree for storage
-pub fn write_tree(
+pub(crate) fn write_tree(
     project_repository: &ProjectRepository,
     target: &git2::Oid,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
@@ -1434,7 +1435,7 @@ pub fn write_tree(
     write_tree_onto_commit(project_repository, *target, files)
 }
 
-pub fn write_tree_onto_commit(
+pub(crate) fn write_tree_onto_commit(
     project_repository: &ProjectRepository,
     commit_oid: git2::Oid,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
@@ -1448,7 +1449,7 @@ pub fn write_tree_onto_commit(
     write_tree_onto_tree(project_repository, &base_tree, files)
 }
 
-pub fn write_tree_onto_tree(
+pub(crate) fn write_tree_onto_tree(
     project_repository: &ProjectRepository,
     base_tree: &git2::Tree,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
@@ -1717,7 +1718,7 @@ pub fn commit(
     Ok(commit_oid)
 }
 
-pub fn push(
+pub(crate) fn push(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     with_force: bool,
@@ -1891,7 +1892,7 @@ pub fn is_remote_branch_mergeable(
 // and the rebase should be simple. if the "to" commit is above the "from" commit,
 // the changes need to be removed from the "from" commit, everything rebased,
 // then added to the "to" commit and everything above that rebased again.
-pub fn move_commit_file(
+pub(crate) fn move_commit_file(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     from_commit_id: git2::Oid,
@@ -2128,7 +2129,7 @@ pub fn move_commit_file(
 // takes a list of file ownership and a commit oid and rewrites that commit to
 // add the file changes. The branch is then rebased onto the new commit
 // and the respective branch head is updated
-pub fn amend(
+pub(crate) fn amend(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     commit_oid: git2::Oid,
@@ -2262,7 +2263,7 @@ pub fn amend(
 // if the offset is positive, move the commit down one
 // if the offset is negative, move the commit up one
 // rewrites the branch head to the new head commit
-pub fn reorder_commit(
+pub(crate) fn reorder_commit(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     commit_oid: git2::Oid,
@@ -2347,7 +2348,7 @@ pub fn reorder_commit(
 // create and insert a blank commit (no tree change) either above or below a commit
 // if offset is positive, insert below, if negative, insert above
 // return the oid of the new head commit of the branch with the inserted blank commit
-pub fn insert_blank_commit(
+pub(crate) fn insert_blank_commit(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     commit_oid: git2::Oid,
@@ -2401,7 +2402,7 @@ pub fn insert_blank_commit(
 
 // remove a commit in a branch by rebasing all commits _except_ for it onto it's parent
 // if successful, it will update the branch head to the new head commit
-pub fn undo_commit(
+pub(crate) fn undo_commit(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     commit_oid: git2::Oid,
@@ -2452,7 +2453,7 @@ pub fn undo_commit(
 }
 
 /// squashes a commit from a virtual branch into its parent.
-pub fn squash(
+pub(crate) fn squash(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     commit_id: git2::Oid,
@@ -2541,7 +2542,7 @@ pub fn squash(
 }
 
 // changes a commit message for commit_oid, rebases everything above it, updates branch head if successful
-pub fn update_commit_message(
+pub(crate) fn update_commit_message(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     commit_id: git2::Oid,
@@ -2615,7 +2616,7 @@ pub fn update_commit_message(
 }
 
 /// moves commit from the branch it's in to the top of the target branch
-pub fn move_commit(
+pub(crate) fn move_commit(
     project_repository: &ProjectRepository,
     target_branch_id: BranchId,
     commit_id: git2::Oid,
@@ -2747,7 +2748,7 @@ pub fn move_commit(
 }
 
 /// Just like [`diffy::apply()`], but on error it will attach hashes of the input `base_image` and `patch`.
-pub fn apply<S: AsRef<[u8]>>(base_image: S, patch: &Patch<'_, [u8]>) -> Result<BString> {
+pub(crate) fn apply<S: AsRef<[u8]>>(base_image: S, patch: &Patch<'_, [u8]>) -> Result<BString> {
     fn md5_hash_hex(b: impl AsRef<[u8]>) -> String {
         md5::compute(b).encode_hex()
     }

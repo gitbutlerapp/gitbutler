@@ -12,7 +12,7 @@ pub struct RemoteBranchFile {
     pub binary: bool,
 }
 
-pub fn list_remote_commit_files(
+pub(crate) fn list_remote_commit_files(
     repository: &git2::Repository,
     commit_id: git2::Oid,
 ) -> Result<Vec<RemoteBranchFile>> {

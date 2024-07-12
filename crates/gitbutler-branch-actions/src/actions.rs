@@ -15,13 +15,12 @@ use gitbutler_reference::ReferenceName;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{credentials::Helper, RepoActions, RepositoryExt};
 
-use crate::branch_manager::branch_removal::BranchRemoval;
 use crate::{
     base::{
         get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch,
         BaseBranch,
     },
-    branch_manager::{branch_creation::BranchCreation, BranchManagerAccess},
+    branch_manager::BranchManagerExt,
     remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
     VirtualBranchesExt,
 };

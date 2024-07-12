@@ -18,20 +18,9 @@ use gitbutler_repo::{RepoActions, RepositoryExt};
 
 use super::BranchManager;
 
-pub trait BranchRemoval {
-    /// Perminently deletes a virtual branch
-    fn delete_branch(&self, branch_id: BranchId) -> Result<()>;
-    /// Converts a virtual branch into a real branch
-    fn convert_to_real_branch(
-        &self,
-        branch_id: BranchId,
-        name_conflict_resolution: NameConflitResolution,
-    ) -> Result<ReferenceName>;
-}
-
-impl BranchRemoval for BranchManager<'_> {
+impl BranchManager<'_> {
     // to unapply a branch, we need to write the current tree out, then remove those file changes from the wd
-    fn convert_to_real_branch(
+    pub fn convert_to_real_branch(
         &self,
         branch_id: BranchId,
         name_conflict_resolution: NameConflitResolution,
@@ -60,7 +49,7 @@ impl BranchRemoval for BranchManager<'_> {
         real_branch.reference_name()
     }
 
-    fn delete_branch(&self, branch_id: BranchId) -> Result<()> {
+    pub(crate) fn delete_branch(&self, branch_id: BranchId) -> Result<()> {
         let vb_state = self.project_repository.project().virtual_branches();
         let Some(branch) = vb_state.try_branch(branch_id)? else {
             return Ok(());

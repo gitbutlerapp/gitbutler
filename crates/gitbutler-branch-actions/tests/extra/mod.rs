@@ -18,17 +18,12 @@ use gitbutler_branch::{
     ownership::BranchOwnershipClaims,
     target::Target,
 };
-use gitbutler_branch_actions::{
-    branch_manager::branch_creation::BranchCreation, r#virtual as virtual_branches,
+use gitbutler_branch_actions::r#virtual as virtual_branches;
+use gitbutler_branch_actions::r#virtual::{
+    commit, integrate_upstream_commits, is_remote_branch_mergeable, list_virtual_branches,
+    unapply_ownership, update_branch,
 };
-use gitbutler_branch_actions::{
-    branch_manager::branch_removal::BranchRemoval,
-    r#virtual::{
-        commit, integrate_upstream_commits, is_remote_branch_mergeable, list_virtual_branches,
-        unapply_ownership, update_branch,
-    },
-};
-use gitbutler_branch_actions::{branch_manager::BranchManagerAccess, integration};
+use gitbutler_branch_actions::{branch_manager::BranchManagerExt, integration};
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::CommitHeadersV2};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;

@@ -88,7 +88,7 @@ pub fn list_remote_branches(project_repository: &ProjectRepository) -> Result<Ve
     Ok(remote_branches)
 }
 
-pub fn get_branch_data(
+pub(crate) fn get_branch_data(
     project_repository: &ProjectRepository,
     refname: &Refname,
 ) -> Result<RemoteBranchData> {
@@ -103,7 +103,7 @@ pub fn get_branch_data(
         .context("failed to get branch data")
 }
 
-pub fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<RemoteBranch>> {
+pub(crate) fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<RemoteBranch>> {
     let commit = match branch.get().peel_to_commit() {
         Ok(c) => c,
         Err(err) => {
@@ -146,7 +146,7 @@ pub fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<RemoteBra
     }
 }
 
-pub fn branch_to_remote_branch_data(
+pub(crate) fn branch_to_remote_branch_data(
     project_repository: &ProjectRepository,
     branch: &git2::Branch,
     base: git2::Oid,
@@ -186,7 +186,7 @@ pub fn branch_to_remote_branch_data(
         .transpose()
 }
 
-pub fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
+pub(crate) fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
     let parent_ids: Vec<git2::Oid> = commit.parents().map(|c| c.id()).collect::<Vec<_>>();
     RemoteCommit {
         id: commit.id().to_string(),

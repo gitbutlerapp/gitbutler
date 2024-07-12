@@ -15,9 +15,8 @@ use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 use serde::Serialize;
 
 use super::r#virtual as vb;
-use crate::branch_manager::branch_removal::BranchRemoval;
-use crate::branch_manager::BranchManagerAccess;
-use crate::conflicts::RepoConflicts;
+use crate::branch_manager::BranchManagerExt;
+use crate::conflicts::RepoConflictsExt;
 use crate::integration::{get_workspace_head, update_gitbutler_integration};
 use crate::remote::{commit_to_remote_commit, RemoteCommit};
 use crate::{VirtualBranchHunk, VirtualBranchesExt};
@@ -43,7 +42,7 @@ pub struct BaseBranch {
     pub last_fetched_ms: Option<u128>,
 }
 
-pub fn get_base_branch_data(project_repository: &ProjectRepository) -> Result<BaseBranch> {
+pub(crate) fn get_base_branch_data(project_repository: &ProjectRepository) -> Result<BaseBranch> {
     let target = default_target(&project_repository.project().gb_dir())?;
     let base = target_to_base_branch(project_repository, &target)?;
     Ok(base)
@@ -115,7 +114,7 @@ fn go_back_to_integration(
     Ok(base)
 }
 
-pub fn set_base_branch(
+pub(crate) fn set_base_branch(
     project_repository: &ProjectRepository,
     target_branch_ref: &RemoteRefname,
 ) -> Result<BaseBranch> {
@@ -271,7 +270,7 @@ pub fn set_base_branch(
     Ok(base)
 }
 
-pub fn set_target_push_remote(
+pub(crate) fn set_target_push_remote(
     project_repository: &ProjectRepository,
     push_remote_name: &str,
 ) -> Result<()> {
@@ -328,7 +327,7 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 // determine if what the target branch is now pointing to is mergeable with our current working directory
 // merge the target branch into our current working directory
 // update the target sha
-pub fn update_base_branch(
+pub(crate) fn update_base_branch(
     project_repository: &ProjectRepository,
 ) -> anyhow::Result<Vec<ReferenceName>> {
     project_repository.assure_resolved()?;
@@ -569,7 +568,7 @@ pub fn update_base_branch(
     Ok(unapplied_branch_names)
 }
 
-pub fn target_to_base_branch(
+pub(crate) fn target_to_base_branch(
     project_repository: &ProjectRepository,
     target: &Target,
 ) -> Result<BaseBranch> {

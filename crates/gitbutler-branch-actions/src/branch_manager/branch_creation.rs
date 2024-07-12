@@ -1,6 +1,6 @@
-use super::{branch_removal::BranchRemoval, BranchManager};
+use super::BranchManager;
 use crate::{
-    conflicts::{self, RepoConflicts},
+    conflicts::{self, RepoConflictsExt},
     ensure_selected_for_changes,
     integration::update_gitbutler_integration,
     set_ownership, undo_commit, VirtualBranchHunk, VirtualBranchesExt,
@@ -19,15 +19,8 @@ use gitbutler_reference::Refname;
 use gitbutler_repo::{rebase::cherry_rebase, RepoActions, RepositoryExt};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 
-pub trait BranchCreation {
-    /// Create an empty virtual branch
-    fn create_virtual_branch(&self, create: &BranchCreateRequest) -> Result<branch::Branch>;
-    /// Create a virtual branch from a real branch (whether remote or local)
-    fn create_virtual_branch_from_branch(&self, upstream: &Refname) -> Result<BranchId>;
-}
-
-impl BranchCreation for BranchManager<'_> {
-    fn create_virtual_branch(&self, create: &BranchCreateRequest) -> Result<branch::Branch> {
+impl BranchManager<'_> {
+    pub fn create_virtual_branch(&self, create: &BranchCreateRequest) -> Result<branch::Branch> {
         let vb_state = self.project_repository.project().virtual_branches();
 
         let default_target = vb_state.get_default_target()?;
@@ -128,7 +121,7 @@ impl BranchCreation for BranchManager<'_> {
         Ok(branch)
     }
 
-    fn create_virtual_branch_from_branch(&self, upstream: &Refname) -> Result<BranchId> {
+    pub fn create_virtual_branch_from_branch(&self, upstream: &Refname) -> Result<BranchId> {
         // only set upstream if it's not the default target
         let upstream_branch = match upstream {
             Refname::Other(_) | Refname::Virtual(_) => {
