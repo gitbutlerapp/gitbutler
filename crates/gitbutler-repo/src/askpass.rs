@@ -12,7 +12,7 @@ static mut GLOBAL_ASKPASS_BROKER: Option<AskpassBroker> = None;
 ///
 /// # Safety
 /// This function **must** be called **at least once**, from only one thread at a time,
-/// before any other function from this module is called. **Calls to [`get`] before [`init`] will panic.**
+/// before any other function from this module is called. **Calls to [`get_broker`] before [`init`] will panic.**
 ///
 /// This function is **NOT** thread safe.
 pub unsafe fn init(submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 'static) {
