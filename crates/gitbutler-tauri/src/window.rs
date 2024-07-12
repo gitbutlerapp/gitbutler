@@ -104,7 +104,7 @@ pub(super) mod state {
     fn handler_from_app(app: &AppHandle) -> Result<gitbutler_watcher::Handler> {
         let projects = app.state::<projects::Controller>().inner().clone();
         let users = app.state::<users::Controller>().inner().clone();
-        let vbranches = gitbutler_branch_actions::VirtualBranchActions::default();
+        let vbranches = gitbutler_branch_actions::VirtualBranchActions;
 
         Ok(gitbutler_watcher::Handler::new(
             projects,
