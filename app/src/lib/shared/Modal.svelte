@@ -119,7 +119,8 @@
 
 	.modal__body {
 		overflow: auto;
-		padding: 16px;
+		padding: 14px;
+		line-height: 1.4rem;
 	}
 
 	.modal__footer {
