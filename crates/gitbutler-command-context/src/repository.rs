@@ -76,6 +76,7 @@ impl ProjectRepository {
     ///
     /// refs/heads/my-branch -> my-branch
     /// refs/remotes/origin/my-branch -> my-branch
+    /// refs/remotes/Byron/gitbutler/my-branch -> my-branch (where the remote is Byron/gitbutler)
     ///
     /// An ideal implementation wouldn't require us to list all the references,
     /// but there doesn't seem to be a libgit2 solution to this.
@@ -86,31 +87,29 @@ impl ProjectRepository {
         if reference.is_remote() {
             let shorthand_name = reference
                 .shorthand()
-                .ok_or(anyhow::anyhow!("Branch name was not utf-8"))
-                .map(String::from)?;
+                .ok_or(anyhow::anyhow!("Branch name was not utf-8"))?;
 
-            let remotes = repo
-                .remotes()
-                .context("Failed to get remotes")?
-                .iter()
-                .flatten()
-                .map(String::from)
-                .sorted_by_key(|reference_name| -(reference_name.len() as i32))
-                .collect::<Vec<String>>();
+            let remotes = repo.remotes().context("Failed to get remotes")?;
 
             let longest_remote = remotes
-                .into_iter()
+                .iter()
+                .flatten()
+                .sorted_by_key(|remote_name| -(remote_name.len() as i32))
                 .find(|reference_name| shorthand_name.starts_with(reference_name))
                 .ok_or(anyhow::anyhow!(
                     "Failed to find remote branch's cooresponding remote"
                 ))?;
 
             let shorthand_name = shorthand_name
-                .chars()
-                .skip(longest_remote.len() + 1)
-                .collect::<String>();
+                .strip_prefix(longest_remote)
+                .and_then(|str| str.strip_prefix("/"))
+                .ok_or(anyhow::anyhow!(
+                    "Failed to cut remote name {} off of shorthand name {}",
+                    longest_remote,
+                    shorthand_name
+                ))?;
 
-            Ok(shorthand_name)
+            Ok(shorthand_name.to_string())
         } else {
             reference
                 .shorthand()
