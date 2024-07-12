@@ -65,7 +65,7 @@
 
 	const showHistoryView = persisted(false, 'showHistoryView');
 
-	const octokit = $derived(octokitFromAccessToken(accessToken));
+	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
 	const hostedGitServiceFactory = $derived(new DefaultHostedGitServiceFactory(octokit));
 	const repoInfo = $derived(remoteUrl ? parseRemoteUrl(remoteUrl) : undefined);
 	const githubRepoServiceStore = createHostedGitServiceStore(undefined);

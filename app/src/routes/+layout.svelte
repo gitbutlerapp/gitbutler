@@ -62,7 +62,7 @@
 
 	const user = data.userService.user;
 	const accessToken = $derived($user?.github_access_token);
-	const octokit = $derived(octokitFromAccessToken(accessToken));
+	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
 
 	// This store is literally only used once, on GitHub oauth, to set the
 	// gh username on the user object. Furthermore, it isn't used anywhere.
