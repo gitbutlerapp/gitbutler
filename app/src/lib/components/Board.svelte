@@ -126,6 +126,13 @@
 								Your working directory matches the base branch.
 								<br />
 								Any edits auto-create a virtual branch for easy management.
+								<br />
+								You can also
+								<button
+									class="empty-board__new-branch-button"
+									on:mousedown={async () => await branchController.createBranch({})}
+									>+ create a new branch</button
+								> yourself.
 							</p>
 						</div>
 
@@ -304,6 +311,19 @@
 
 	.empty-board__about p {
 		color: var(--clr-scale-ntrl-40);
+		line-height: 160%;
+	}
+
+	.empty-board__new-branch-button {
+		border: 1px solid var(--clr-border-2);
+		padding: 0 6px;
+		margin: 0 2px;
+		border-radius: var(--radius-m);
+		transition: background-color var(--transition-fast);
+
+		&:hover {
+			background-color: var(--clr-bg-1-muted);
+		}
 	}
 
 	.empty-board__suggestions {
