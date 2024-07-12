@@ -10,8 +10,8 @@
 	import { page } from '$app/stores';
 
 	const githubService = getHostedGitListingServiceStore();
-	$: prs = $githubService?.prs;
-	$: pr = $prs?.find((b) => b.number.toString() === $page.params.number);
+	const prs = $derived($githubService?.prs);
+	const pr = $derived($prs?.find((b) => b.number.toString() === $page.params.number));
 </script>
 
 <div class="wrapper">
