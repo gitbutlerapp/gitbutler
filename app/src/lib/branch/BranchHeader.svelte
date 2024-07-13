@@ -13,7 +13,9 @@
 	import Button from '$lib/shared/Button.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
+	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
+	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Branch } from '$lib/vbranches/types';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
@@ -24,11 +26,12 @@
 	export let onGenerateBranchName: () => void;
 
 	const branchController = getContext(BranchController);
-	const githubRepoService = getGitHostServiceStore();
+	const baseBranchService = getContext(BaseBranchService);
 	const prService = getGitHostPrServiceStore();
 	const gitListService = getGitHostListingServiceStore();
 	const branchStore = getContextStore(Branch);
 	const prMonitor = getGitHostPrMonitorStore();
+	const gitHost = getGitHostServiceStore();
 
 	$: branch = $branchStore;
 	$: pr = $prMonitor?.pr;
@@ -66,8 +69,8 @@
 
 	async function createPr(createPrOpts: CreatePrOpts): Promise<PullRequest | undefined> {
 		const opts = { ...defaultPrOpts, ...createPrOpts };
-		if (!$githubRepoService) {
-			error('Cannot create PR without GitHub credentials');
+		if (!$gitHost) {
+			error('Pull request service not available');
 			return;
 		}
 
@@ -88,17 +91,28 @@
 		isLoading = true;
 		try {
 			if (branch.commits.some((c) => !c.isRemote)) {
+				const firstPush = !branch.upstream;
 				await branchController.pushBranch(branch.id, branch.requiresForce);
+				if (firstPush) {
+					// TODO: fix this hack for reactively available prService.
+					await sleep(500);
+				}
 			}
-			await $prService?.createPr(title, body, opts.draft);
-			await $gitListService?.reload();
+			if (!$prService) {
+				error('Pull request service not available');
+				return;
+			}
+			await $prService.createPr(title, body, opts.draft);
 		} catch (err: any) {
+			console.error(err);
 			const toast = mapErrorToToast(err);
 			if (toast) showToast(toast);
 			else showError('Error while creating pull request', err);
 		} finally {
 			isLoading = false;
 		}
+		await $gitListService?.reload();
+		baseBranchService.fetchFromRemotes();
 	}
 </script>
 

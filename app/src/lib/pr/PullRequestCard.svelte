@@ -38,6 +38,12 @@
 	const pr = $derived($prMonitor?.pr);
 	const checks = $derived($checksMonitor?.status);
 
+	// While the pr monitor is set to fetch updates by interval, we want
+	// frequent updates while checks are running.
+	$effect(() => {
+		if ($checks) $prMonitor?.refresh();
+	});
+
 	let isMerging = $state(false);
 	let checksError: string | undefined;
 	let detailsError: string | undefined;
