@@ -42,9 +42,9 @@ mod error {
 }
 
 mod go_back_to_integration {
-    use pretty_assertions::assert_eq;
-
     use super::*;
+    use gitbutler_branch::BranchCreateRequest;
+    use pretty_assertions::assert_eq;
 
     #[tokio::test]
     async fn should_preserve_applied_vbranches() {
@@ -67,7 +67,7 @@ mod go_back_to_integration {
             .unwrap();
 
         let vbranch_id = controller
-            .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(project, &BranchCreateRequest::default())
             .await
             .unwrap();
 

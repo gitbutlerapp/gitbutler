@@ -18,7 +18,7 @@ pub mod paths {
 }
 
 pub mod virtual_branches {
-    use gitbutler_branch::target::Target;
+    use gitbutler_branch::Target;
     use gitbutler_branch::VirtualBranchesHandle;
     use gitbutler_command_context::ProjectRepository;
 

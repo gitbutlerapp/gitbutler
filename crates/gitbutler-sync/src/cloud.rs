@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time;
 
 use anyhow::{anyhow, Context, Result};
-use gitbutler_branch::target::Target;
+use gitbutler_branch::Target;
 use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_error::error::Code;

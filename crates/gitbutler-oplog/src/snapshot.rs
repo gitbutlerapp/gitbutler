@@ -1,5 +1,5 @@
 use anyhow::Result;
-use gitbutler_branch::branch::{Branch, BranchUpdateRequest};
+use gitbutler_branch::{Branch, BranchUpdateRequest};
 use gitbutler_project::Project;
 use gitbutler_reference::ReferenceName;
 use std::vec;

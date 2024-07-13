@@ -1,8 +1,7 @@
 use anyhow::{anyhow, bail, Context};
 use git2::{DiffOptions, FileMode};
-use gitbutler_branch::branch::Branch;
 use gitbutler_branch::diff::{hunks_by_filepath, FileDiff};
-use gitbutler_branch::{VirtualBranchesHandle, VirtualBranchesState};
+use gitbutler_branch::{Branch, VirtualBranchesHandle, VirtualBranchesState};
 use gitbutler_project::Project;
 use gitbutler_repo::RepositoryExt;
 use std::collections::HashMap;

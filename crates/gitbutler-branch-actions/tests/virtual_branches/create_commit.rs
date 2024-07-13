@@ -1,4 +1,4 @@
-use gitbutler_branch::branch::Branch;
+use gitbutler_branch::{Branch, BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::VirtualBranch;
 use gitbutler_id::id::Id;
 
@@ -19,7 +19,7 @@ async fn should_lock_updated_hunks() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -76,14 +76,14 @@ async fn should_reset_into_same_branch() {
         .unwrap();
 
     controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
     let branch_2_id = controller
         .create_virtual_branch(
             project,
-            &branch::BranchCreateRequest {
+            &BranchCreateRequest {
                 selected_for_changes: Some(true),
                 ..Default::default()
             },
@@ -108,7 +108,7 @@ async fn should_reset_into_same_branch() {
     controller
         .update_virtual_branch(
             project,
-            branch::BranchUpdateRequest {
+            BranchUpdateRequest {
                 id: branch_2_id,
                 selected_for_changes: Some(true),
                 ..Default::default()

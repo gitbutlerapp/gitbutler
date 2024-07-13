@@ -1,4 +1,5 @@
 use super::*;
+use gitbutler_branch::BranchCreateRequest;
 
 #[tokio::test]
 async fn detect_upstream_commits() {
@@ -15,7 +16,7 @@ async fn detect_upstream_commits() {
         .unwrap();
 
     let branch1_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -82,7 +83,7 @@ async fn detect_integrated_commits() {
         .unwrap();
 
     let branch1_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 

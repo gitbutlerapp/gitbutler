@@ -6,10 +6,7 @@ use crate::{
 };
 use anyhow::{anyhow, Context, Result};
 use git2::build::TreeUpdateBuilder;
-use gitbutler_branch::{
-    branch::{self, BranchId},
-    branch_ext::BranchExt,
-};
+use gitbutler_branch::{Branch, BranchExt, BranchId};
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oplog::snapshot::Snapshot;
 use gitbutler_reference::ReferenceName;
@@ -124,7 +121,7 @@ impl BranchManager<'_> {
 impl BranchManager<'_> {
     fn build_real_branch(
         &self,
-        vbranch: &mut branch::Branch,
+        vbranch: &mut Branch,
         name_conflict_resolution: NameConflictResolution,
     ) -> Result<git2::Branch<'_>> {
         let repo = self.project_repository.repo();
@@ -179,7 +176,7 @@ impl BranchManager<'_> {
 
     fn build_metadata_commit(
         &self,
-        vbranch: &mut branch::Branch,
+        vbranch: &mut Branch,
         branch: &git2::Branch<'_>,
     ) -> Result<git2::Oid> {
         let repo = self.project_repository.repo();

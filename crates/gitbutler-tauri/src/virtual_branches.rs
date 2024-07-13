@@ -1,8 +1,8 @@
 pub mod commands {
     use crate::error::Error;
     use anyhow::{anyhow, Context};
-    use gitbutler_branch::branch::{BranchCreateRequest, BranchId, BranchUpdateRequest};
-    use gitbutler_branch::ownership::BranchOwnershipClaims;
+    use gitbutler_branch::BranchOwnershipClaims;
+    use gitbutler_branch::{BranchCreateRequest, BranchId, BranchUpdateRequest};
     use gitbutler_branch_actions::BaseBranch;
     use gitbutler_branch_actions::RemoteBranchFile;
     use gitbutler_branch_actions::{NameConflictResolution, VirtualBranchActions, VirtualBranches};

@@ -3,8 +3,8 @@ use std::{path::PathBuf, vec};
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 
-use gitbutler_branch::branch::{self, BranchCreateRequest};
-use gitbutler_branch::VirtualBranchesHandle;
+use gitbutler_branch::{self, BranchCreateRequest};
+use gitbutler_branch::{Branch, VirtualBranchesHandle};
 use gitbutler_branch::{
     GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
     GITBUTLER_INTEGRATION_REFERENCE,
@@ -40,7 +40,7 @@ pub(crate) fn get_workspace_head(
     let repo: &git2::Repository = project_repo.repo();
     let vb_state = project_repo.project().virtual_branches();
 
-    let virtual_branches: Vec<branch::Branch> = vb_state.list_branches_in_workspace()?;
+    let virtual_branches: Vec<Branch> = vb_state.list_branches_in_workspace()?;
 
     let target_commit = repo.find_commit(target.sha)?;
     let mut workspace_tree = target_commit.tree()?;
@@ -166,7 +166,7 @@ pub fn update_gitbutler_integration(
     let vb_state = project_repository.project().virtual_branches();
 
     // get all virtual branches, we need to try to update them all
-    let virtual_branches: Vec<branch::Branch> = vb_state
+    let virtual_branches: Vec<Branch> = vb_state
         .list_branches_in_workspace()
         .context("failed to list virtual branches")?;
 

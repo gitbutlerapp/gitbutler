@@ -14,9 +14,7 @@ use anyhow::{Context, Result};
 use git2::TreeEntry;
 use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_branch::{
-    branch::{BranchCreateRequest, BranchUpdateRequest},
-    ownership::BranchOwnershipClaims,
-    target::Target,
+    BranchOwnershipClaims, Target, {BranchCreateRequest, BranchUpdateRequest},
 };
 use gitbutler_branch_actions::BranchManagerExt;
 use gitbutler_branch_actions::{

@@ -1,10 +1,9 @@
-use gitbutler_branch::branch::{self, Branch, BranchCreateRequest, BranchId};
-use gitbutler_branch::dedup::{dedup, dedup_fmt};
 use gitbutler_branch::diff::{self, diff_files_into_hunks, trees, FileDiff, GitHunk};
-use gitbutler_branch::file_ownership::OwnershipClaim;
-use gitbutler_branch::hunk::{Hunk, HunkHash};
-use gitbutler_branch::ownership::{reconcile_claims, BranchOwnershipClaims};
-use gitbutler_branch::VirtualBranchesHandle;
+use gitbutler_branch::{dedup, BranchUpdateRequest, VirtualBranchesHandle};
+use gitbutler_branch::{dedup_fmt, Branch, BranchCreateRequest, BranchId};
+use gitbutler_branch::{reconcile_claims, BranchOwnershipClaims};
+use gitbutler_branch::{Hunk, HunkHash};
+use gitbutler_branch::{OwnershipClaim, Target};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_commit::commit_headers::HasCommitHeaders;
@@ -34,13 +33,12 @@ use crate::conflicts::{self, RepoConflictsExt};
 use crate::integration::get_workspace_head;
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
 use crate::VirtualBranchesExt;
-use gitbutler_branch::target;
 use gitbutler_error::error::Code;
 use gitbutler_error::error::Marker;
 use gitbutler_repo::rebase::{cherry_rebase, cherry_rebase_group};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 
-type AppliedStatuses = Vec<(branch::Branch, BranchStatus)>;
+type AppliedStatuses = Vec<(Branch, BranchStatus)>;
 
 // this struct is a mapping to the view `Branch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
@@ -543,10 +541,7 @@ fn joined(start_a: u32, end_a: u32, start_b: u32, end_b: u32) -> bool {
         || ((start_b >= start_a && start_b <= end_a) || (end_b >= start_a && end_b <= end_a))
 }
 
-fn is_requires_force(
-    project_repository: &ProjectRepository,
-    branch: &branch::Branch,
-) -> Result<bool> {
+fn is_requires_force(project_repository: &ProjectRepository, branch: &Branch) -> Result<bool> {
     let upstream = if let Some(upstream) = &branch.upstream {
         upstream
     } else {
@@ -594,7 +589,7 @@ fn list_virtual_commit_files(
 
 fn commit_to_vbranch_commit(
     repository: &ProjectRepository,
-    branch: &branch::Branch,
+    branch: &Branch,
     commit: &git2::Commit,
     is_integrated: bool,
     is_remote: bool,
@@ -853,8 +848,8 @@ pub(crate) fn integrate_with_merge(
 
 pub fn update_branch(
     project_repository: &ProjectRepository,
-    branch_update: &branch::BranchUpdateRequest,
-) -> Result<branch::Branch> {
+    branch_update: &BranchUpdateRequest,
+) -> Result<Branch> {
     let vb_state = project_repository.project().virtual_branches();
     let mut branch = vb_state.get_branch_in_workspace(branch_update.id)?;
 
@@ -957,8 +952,8 @@ pub(crate) fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> R
 
 pub(crate) fn set_ownership(
     vb_state: &VirtualBranchesHandle,
-    target_branch: &mut branch::Branch,
-    ownership: &gitbutler_branch::ownership::BranchOwnershipClaims,
+    target_branch: &mut Branch,
+    ownership: &BranchOwnershipClaims,
 ) -> Result<()> {
     if target_branch.ownership.eq(ownership) {
         // nothing to update
@@ -1071,7 +1066,7 @@ pub fn get_status_by_branch(
 fn new_compute_locks(
     repository: &git2::Repository,
     unstaged_hunks_by_path: &HashMap<PathBuf, Vec<diff::GitHunk>>,
-    virtual_branches: &[branch::Branch],
+    virtual_branches: &[Branch],
 ) -> Result<HashMap<HunkHash, Vec<diff::HunkLock>>> {
     // If we cant find the integration commit and subsequently the target commit, we can't find any locks
     let target_tree = repository.target_commit()?.tree()?;
@@ -1096,8 +1091,7 @@ fn new_compute_locks(
         })
         .collect::<Vec<_>>();
 
-    let mut integration_hunks_by_path =
-        HashMap::<PathBuf, Vec<(diff::GitHunk, &branch::Branch)>>::new();
+    let mut integration_hunks_by_path = HashMap::<PathBuf, Vec<(diff::GitHunk, &Branch)>>::new();
 
     for (branch, hunks_by_filepath) in branch_path_diffs {
         for (path, hunks) in hunks_by_filepath {
@@ -1146,7 +1140,7 @@ fn new_compute_locks(
 pub(crate) fn get_applied_status(
     project_repository: &ProjectRepository,
     integration_commit: &git2::Oid,
-    mut virtual_branches: Vec<branch::Branch>,
+    mut virtual_branches: Vec<Branch>,
 ) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
     let base_file_diffs = diff::workdir(project_repository.repo(), &integration_commit.to_owned())
         .context("failed to diff workdir")?;
@@ -1601,7 +1595,7 @@ pub fn commit(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     message: &str,
-    ownership: Option<&gitbutler_branch::ownership::BranchOwnershipClaims>,
+    ownership: Option<&BranchOwnershipClaims>,
     run_hooks: bool,
 ) -> Result<git2::Oid> {
     let mut message_buffer = message.to_owned();
@@ -1787,7 +1781,7 @@ pub(crate) fn push(
 
 fn is_commit_integrated(
     project_repository: &ProjectRepository,
-    target: &target::Target,
+    target: &Target,
     commit: &git2::Commit,
 ) -> Result<bool> {
     let remote_branch = project_repository

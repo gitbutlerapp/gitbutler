@@ -1,8 +1,6 @@
 use anyhow::Result;
 use gitbutler_branch::{
-    branch::{BranchCreateRequest, BranchId, BranchUpdateRequest},
-    diff,
-    ownership::BranchOwnershipClaims,
+    diff, BranchOwnershipClaims, {BranchCreateRequest, BranchId, BranchUpdateRequest},
 };
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_oplog::{

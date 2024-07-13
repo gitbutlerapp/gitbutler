@@ -1,9 +1,8 @@
 use super::*;
 
 mod create_virtual_branch {
-    use branch::BranchCreateRequest;
-
     use super::*;
+    use gitbutler_branch::BranchCreateRequest;
 
     #[tokio::test]
     async fn simple() {
@@ -20,7 +19,7 @@ mod create_virtual_branch {
             .unwrap();
 
         let branch_id = controller
-            .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(project, &BranchCreateRequest::default())
             .await
             .unwrap();
 
@@ -92,6 +91,7 @@ mod create_virtual_branch {
 
 mod update_virtual_branch {
     use super::*;
+    use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 
     #[tokio::test]
     async fn simple() {
@@ -110,7 +110,7 @@ mod update_virtual_branch {
         let branch_id = controller
             .create_virtual_branch(
                 project,
-                &branch::BranchCreateRequest {
+                &BranchCreateRequest {
                     name: Some("name".to_string()),
                     ..Default::default()
                 },
@@ -121,7 +121,7 @@ mod update_virtual_branch {
         controller
             .update_virtual_branch(
                 project,
-                branch::BranchUpdateRequest {
+                BranchUpdateRequest {
                     id: branch_id,
                     name: Some("new name".to_string()),
                     ..Default::default()
@@ -161,7 +161,7 @@ mod update_virtual_branch {
         let branch1_id = controller
             .create_virtual_branch(
                 project,
-                &branch::BranchCreateRequest {
+                &BranchCreateRequest {
                     name: Some("name".to_string()),
                     ..Default::default()
                 },
@@ -172,7 +172,7 @@ mod update_virtual_branch {
         let branch2_id = controller
             .create_virtual_branch(
                 project,
-                &branch::BranchCreateRequest {
+                &BranchCreateRequest {
                     ..Default::default()
                 },
             )
@@ -182,7 +182,7 @@ mod update_virtual_branch {
         controller
             .update_virtual_branch(
                 project,
-                branch::BranchUpdateRequest {
+                BranchUpdateRequest {
                     id: branch2_id,
                     name: Some("name".to_string()),
                     ..Default::default()
@@ -209,8 +209,8 @@ mod update_virtual_branch {
 }
 
 mod push_virtual_branch {
-
     use super::*;
+    use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 
     #[tokio::test]
     async fn simple() {
@@ -229,7 +229,7 @@ mod push_virtual_branch {
         let branch1_id = controller
             .create_virtual_branch(
                 project,
-                &branch::BranchCreateRequest {
+                &BranchCreateRequest {
                     name: Some("name".to_string()),
                     ..Default::default()
                 },
@@ -284,7 +284,7 @@ mod push_virtual_branch {
             let branch1_id = controller
                 .create_virtual_branch(
                     project,
-                    &branch::BranchCreateRequest {
+                    &BranchCreateRequest {
                         name: Some("name".to_string()),
                         ..Default::default()
                     },
@@ -307,7 +307,7 @@ mod push_virtual_branch {
         controller
             .update_virtual_branch(
                 project,
-                branch::BranchUpdateRequest {
+                BranchUpdateRequest {
                     id: branch1_id,
                     name: Some("updated name".to_string()),
                     ..Default::default()
@@ -321,7 +321,7 @@ mod push_virtual_branch {
             let branch2_id = controller
                 .create_virtual_branch(
                     project,
-                    &branch::BranchCreateRequest {
+                    &BranchCreateRequest {
                         name: Some("name".to_string()),
                         ..Default::default()
                     },

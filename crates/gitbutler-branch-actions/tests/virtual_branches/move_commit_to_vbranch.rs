@@ -1,4 +1,4 @@
-use gitbutler_branch::branch::{BranchCreateRequest, BranchId};
+use gitbutler_branch::{BranchCreateRequest, BranchId};
 
 use super::Test;
 

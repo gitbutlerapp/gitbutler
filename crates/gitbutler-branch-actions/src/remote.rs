@@ -2,14 +2,12 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use bstr::BString;
-use gitbutler_branch::VirtualBranchesHandle;
+use gitbutler_branch::{Target, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
 use serde::Serialize;
-
-use gitbutler_branch::target;
 
 use crate::author::Author;
 
@@ -198,6 +196,6 @@ pub(crate) fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
     }
 }
 
-fn default_target(base_path: &Path) -> Result<target::Target> {
+fn default_target(base_path: &Path) -> Result<Target> {
     VirtualBranchesHandle::new(base_path).get_default_target()
 }

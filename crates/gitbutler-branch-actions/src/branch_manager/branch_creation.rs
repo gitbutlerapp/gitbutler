@@ -7,10 +7,7 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::{
-    branch::{self, BranchCreateRequest, BranchId},
-    dedup::dedup,
-    diff,
-    ownership::BranchOwnershipClaims,
+    dedup, diff, Branch, BranchOwnershipClaims, {self, BranchCreateRequest, BranchId},
 };
 use gitbutler_commit::commit_headers::HasCommitHeaders;
 use gitbutler_error::error::Marker;
@@ -20,7 +17,7 @@ use gitbutler_repo::{rebase::cherry_rebase, RepoActions, RepositoryExt};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 
 impl BranchManager<'_> {
-    pub fn create_virtual_branch(&self, create: &BranchCreateRequest) -> Result<branch::Branch> {
+    pub fn create_virtual_branch(&self, create: &BranchCreateRequest) -> Result<Branch> {
         let vb_state = self.project_repository.project().virtual_branches();
 
         let default_target = vb_state.get_default_target()?;
@@ -91,7 +88,7 @@ impl BranchManager<'_> {
 
         let now = gitbutler_time::time::now_ms();
 
-        let mut branch = branch::Branch {
+        let mut branch = Branch {
             id: BranchId::generate(),
             name: name.clone(),
             notes: String::new(),
@@ -170,7 +167,7 @@ impl BranchManager<'_> {
             .list_branches_in_workspace()
             .context("failed to read virtual branches")?
             .into_iter()
-            .collect::<Vec<branch::Branch>>();
+            .collect::<Vec<Branch>>();
 
         let order = vb_state.next_order_index()?;
 
@@ -228,7 +225,7 @@ impl BranchManager<'_> {
 
             branch
         } else {
-            branch::Branch {
+            Branch {
                 id: BranchId::generate(),
                 name: branch_name.clone(),
                 notes: String::new(),

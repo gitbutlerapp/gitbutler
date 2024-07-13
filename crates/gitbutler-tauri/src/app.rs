@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use gitbutler_branch::branch::BranchId;
+use gitbutler_branch::BranchId;
 use gitbutler_branch_actions::conflicts;
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_project as projects;
