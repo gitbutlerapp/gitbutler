@@ -16,8 +16,8 @@
 	import {
 		createGitHubUserServiceStore as createGitHubUserServiceStore,
 		GitHubUserService
-	} from '$lib/hostedServices/github/githubUserService';
-	import { octokitFromAccessToken } from '$lib/hostedServices/github/octokit';
+	} from '$lib/gitHost/github/githubUserService';
+	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
 	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
 	import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import ToastController from '$lib/notifications/ToastController.svelte';

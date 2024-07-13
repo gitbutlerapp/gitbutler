@@ -1,10 +1,10 @@
 import { getBackoffByAge } from '../backoff/backoff';
-import { DEFAULT_HEADERS } from '$lib/hostedServices/github/headers';
-import { parseGitHubCheckSuites } from '$lib/hostedServices/github/types';
+import { DEFAULT_HEADERS } from '$lib/gitHost/github/headers';
+import { parseGitHubCheckSuites } from '$lib/gitHost/github/types';
 import { sleep } from '$lib/utils/sleep';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { writable } from 'svelte/store';
-import type { CheckSuites, ChecksStatus } from '$lib/hostedServices/interface/types';
+import type { CheckSuites, ChecksStatus } from '$lib/gitHost/interface/types';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { HostedGitChecksMonitor } from '../interface/hostedGitChecksMonitor';
 

@@ -2,10 +2,10 @@
 	import MergeButton from './MergeButton.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
-	import { getHostedGitChecksMonitorStore } from '$lib/hostedServices/interface/hostedGitChecksMonitor';
-	import { getHostedGitListingServiceStore } from '$lib/hostedServices/interface/hostedGitListingService';
-	import { getHostedGitPrMonitorStore } from '$lib/hostedServices/interface/hostedGitPrMonitor';
-	import { getHostedGitPrServiceStore } from '$lib/hostedServices/interface/hostedGitPrService';
+	import { getHostedGitChecksMonitorStore } from '$lib/gitHost/interface/hostedGitChecksMonitor';
+	import { getHostedGitListingServiceStore } from '$lib/gitHost/interface/hostedGitListingService';
+	import { getHostedGitPrMonitorStore } from '$lib/gitHost/interface/hostedGitPrMonitor';
+	import { getHostedGitPrServiceStore } from '$lib/gitHost/interface/hostedGitPrService';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { createTimeAgoStore } from '$lib/utils/timeAgo';
@@ -14,7 +14,7 @@
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { type ComponentColor } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import type { ChecksStatus, DetailedPullRequest } from '$lib/hostedServices/interface/types';
+	import type { ChecksStatus, DetailedPullRequest } from '$lib/gitHost/interface/types';
 	import type iconsJson from '$lib/icons/icons.json';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
 

@@ -4,7 +4,7 @@
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { getBranchServiceStore } from '$lib/branches/service';
 	import FilterButton from '$lib/components/FilterBranchesButton.svelte';
-	import { getHostedGitServiceStore } from '$lib/hostedServices/interface/hostedGitService';
+	import { getHostedGitServiceStore } from '$lib/gitHost/interface/hostedGitService';
 	import { persisted } from '$lib/persisted/persisted';
 	import { storeToObservable } from '$lib/rxjs/store';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';

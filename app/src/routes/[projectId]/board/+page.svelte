@@ -2,7 +2,7 @@
 	import { Project } from '$lib/backend/projects';
 	import Board from '$lib/components/Board.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
-	import { getHostedGitServiceStore } from '$lib/hostedServices/interface/hostedGitService';
+	import { getHostedGitServiceStore } from '$lib/gitHost/interface/hostedGitService';
 	import { showToast } from '$lib/notifications/toasts';
 	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { getContext } from '$lib/utils/context';
