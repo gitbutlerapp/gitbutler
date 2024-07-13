@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getHostedGitListingServiceStore } from '$lib/hostedServices/interface/hostedGitListingService';
+	import { getHostedGitListingServiceStore } from '$lib/gitHost/interface/hostedGitListingService';
 	import Button from '$lib/shared/Button.svelte';
 	import TimeAgo from '$lib/shared/TimeAgo.svelte';
 	import { getContext } from '$lib/utils/context';

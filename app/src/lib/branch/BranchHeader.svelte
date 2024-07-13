@@ -4,11 +4,11 @@
 	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import { mapErrorToToast } from '$lib/hostedServices/github/errorMap';
-	import { getHostedGitListingServiceStore } from '$lib/hostedServices/interface/hostedGitListingService';
-	import { getHostedGitPrMonitorStore } from '$lib/hostedServices/interface/hostedGitPrMonitor';
-	import { getHostedGitPrServiceStore } from '$lib/hostedServices/interface/hostedGitPrService';
-	import { getHostedGitServiceStore } from '$lib/hostedServices/interface/hostedGitService';
+	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
+	import { getHostedGitListingServiceStore } from '$lib/gitHost/interface/hostedGitListingService';
+	import { getHostedGitPrMonitorStore } from '$lib/gitHost/interface/hostedGitPrMonitor';
+	import { getHostedGitPrServiceStore } from '$lib/gitHost/interface/hostedGitPrService';
+	import { getHostedGitServiceStore } from '$lib/gitHost/interface/hostedGitService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import Button from '$lib/shared/Button.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
@@ -16,7 +16,7 @@
 	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Branch } from '$lib/vbranches/types';
-	import type { PullRequest } from '$lib/hostedServices/interface/types';
+	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 
 	export let uncommittedChanges = 0;

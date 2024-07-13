@@ -1,4 +1,4 @@
-import { type DetailedPullRequest } from '$lib/hostedServices/interface/types';
+import { type DetailedPullRequest } from '$lib/gitHost/interface/types';
 import { sleep } from '$lib/utils/sleep';
 import { derived, writable } from 'svelte/store';
 import type { GitHubPrService } from './githubPrService';

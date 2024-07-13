@@ -8,7 +8,7 @@
 	import { tooltip } from '$lib/utils/tooltip';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import type { PullRequest } from '$lib/hostedServices/interface/types';
+	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { BaseBranch, RemoteBranch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 

@@ -4,7 +4,7 @@ import { hashCode } from '$lib/utils/string';
 import { isDefined, notNull } from '$lib/utils/typeguards';
 import { convertRemoteToWebUrl } from '$lib/utils/url';
 import { Type, Transform } from 'class-transformer';
-import type { PullRequest } from '$lib/hostedServices/interface/types';
+import type { PullRequest } from '$lib/gitHost/interface/types';
 
 export type ChangeType =
 	/// Entry does not exist in old version

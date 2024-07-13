@@ -3,9 +3,9 @@
 	import PushButton, { BranchAction } from '../components/PushButton.svelte';
 	import emptyStateImg from '$lib/assets/empty-state/commits-up-to-date.svg?raw';
 	import { PromptService } from '$lib/backend/prompt';
-	import { getHostedGitChecksMonitorStore } from '$lib/hostedServices/interface/hostedGitChecksMonitor';
-	import { getHostedGitListingServiceStore } from '$lib/hostedServices/interface/hostedGitListingService';
-	import { getHostedGitPrMonitorStore } from '$lib/hostedServices/interface/hostedGitPrMonitor';
+	import { getHostedGitChecksMonitorStore } from '$lib/gitHost/interface/hostedGitChecksMonitor';
+	import { getHostedGitListingServiceStore } from '$lib/gitHost/interface/hostedGitListingService';
+	import { getHostedGitPrMonitorStore } from '$lib/gitHost/interface/hostedGitPrMonitor';
 	import { project } from '$lib/testing/fixtures';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';

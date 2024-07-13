@@ -3,11 +3,11 @@
 	import { Project } from '$lib/backend/projects';
 	import { projectLaneCollapsed } from '$lib/config/config';
 	import FileCard from '$lib/file/FileCard.svelte';
-	import { createHostedGitChecksMonitorStore } from '$lib/hostedServices/interface/hostedGitChecksMonitor';
-	import { getHostedGitListingServiceStore } from '$lib/hostedServices/interface/hostedGitListingService';
-	import { createHostedGitPrMonitorStore } from '$lib/hostedServices/interface/hostedGitPrMonitor';
-	import { createHostedGitPrServiceStore } from '$lib/hostedServices/interface/hostedGitPrService';
-	import { getHostedGitServiceStore } from '$lib/hostedServices/interface/hostedGitService';
+	import { createHostedGitChecksMonitorStore } from '$lib/gitHost/interface/hostedGitChecksMonitor';
+	import { getHostedGitListingServiceStore } from '$lib/gitHost/interface/hostedGitListingService';
+	import { createHostedGitPrMonitorStore } from '$lib/gitHost/interface/hostedGitPrMonitor';
+	import { createHostedGitPrServiceStore } from '$lib/gitHost/interface/hostedGitPrService';
+	import { getHostedGitServiceStore } from '$lib/gitHost/interface/hostedGitService';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';

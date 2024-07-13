@@ -6,7 +6,7 @@
 	// It may also display details about a cooresponding pr if they exist
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import PullRequestPreview from '$lib/components/PullRequestPreview.svelte';
-	import { getHostedGitListingServiceStore } from '$lib/hostedServices/interface/hostedGitListingService';
+	import { getHostedGitListingServiceStore } from '$lib/gitHost/interface/hostedGitListingService';
 	import { page } from '$app/stores';
 
 	const githubService = getHostedGitListingServiceStore();

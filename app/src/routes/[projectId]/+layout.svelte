@@ -9,12 +9,12 @@
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$lib/components/ProjectSettingsMenuAction.svelte';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
+	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
+	import { DefaultHostedGitServiceFactory } from '$lib/gitHost/hostedGitServiceFactory';
+	import { createHostedGitListingServiceStore } from '$lib/gitHost/interface/hostedGitListingService';
+	import { createHostedGitServiceStore } from '$lib/gitHost/interface/hostedGitService';
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
-	import { octokitFromAccessToken } from '$lib/hostedServices/github/octokit';
-	import { DefaultHostedGitServiceFactory } from '$lib/hostedServices/hostedGitServiceFactory';
-	import { createHostedGitListingServiceStore } from '$lib/hostedServices/interface/hostedGitListingService';
-	import { createHostedGitServiceStore } from '$lib/hostedServices/interface/hostedGitService';
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
