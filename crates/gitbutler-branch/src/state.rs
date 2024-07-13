@@ -31,7 +31,7 @@ impl VirtualBranches {
     /// Lists all virtual branches that are in the user's workspace.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn list_all_branches(&self) -> Result<Vec<Branch>> {
+    pub(crate) fn list_all_branches(&self) -> Result<Vec<Branch>> {
         let branches: Vec<Branch> = self.branches.values().cloned().collect();
         Ok(branches)
     }
@@ -200,13 +200,6 @@ impl VirtualBranchesHandle {
                 .filter(|branch| branch.in_workspace && !branch.is_old_unapplied())
                 .collect()
         })
-    }
-
-    /// Checks if the state file exists.
-    ///
-    /// This would only be false if the application just updated from a very old verion.
-    pub fn file_exists(&self) -> bool {
-        self.file_path.exists()
     }
 
     /// Reads and parses the state file.

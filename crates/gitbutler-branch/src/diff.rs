@@ -94,7 +94,7 @@ impl GitHunk {
 
 /// Access
 impl GitHunk {
-    pub fn contains(&self, line: u32) -> bool {
+    pub(crate) fn contains(&self, line: u32) -> bool {
         self.new_start <= line && self.new_start + self.new_lines >= line
     }
 
