@@ -1,3 +1,4 @@
+import { scurveBackoff } from '$lib/backoff/scurve';
 import { DEFAULT_HEADERS } from '$lib/gitHost/github/headers';
 import { parseGitHubCheckSuites } from '$lib/gitHost/github/types';
 import { sleep } from '$lib/utils/sleep';
@@ -78,9 +79,7 @@ export class GitHubChecksMonitor implements GitHostChecksMonitor {
 		// to a branch GitHub might not report all the checks that will eventually be
 		// run as part of the suite.
 		if (status.completed && ageMs > MIN_COMPLETED_AGE) return;
-
-		const backoff = getBackoffByAge(ageMs);
-		return backoff;
+		return scurveBackoff(ageMs, 10000, 600000);
 	}
 
 	private async fetchChecksWithRetries(ref: string, retries: number, delayMs: number) {
@@ -169,17 +168,4 @@ function parseChecks(
 		skipped,
 		finished
 	};
-}
-
-export function getBackoffByAge(age: number) {
-	if (age < 60000) {
-		return 10000;
-	} else if (age < 600000) {
-		return 30000;
-	} else if (age < 1200000) {
-		return 60000;
-	} else if (age < 3600000) {
-		return 120000;
-	}
-	return;
 }
