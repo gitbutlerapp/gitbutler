@@ -36,7 +36,7 @@
 	// This PR has been loaded on demand, and contains more details than the version
 	// obtained when listing them.
 	const pr = $derived($prMonitor?.pr);
-	const checks = $derived($checksMonitor?.result);
+	const checks = $derived($checksMonitor?.status);
 
 	let isMerging = $state(false);
 	let checksError: string | undefined;
@@ -173,7 +173,7 @@
 				loading={$mrLoading || $checksLoading}
 				help={$timeAgo ? 'Updated ' + $timeAgo : ''}
 				on:click={async () => {
-					$checksMonitor?.refresh();
+					$checksMonitor?.update();
 					$prMonitor?.refresh();
 				}}
 			/>

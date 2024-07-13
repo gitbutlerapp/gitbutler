@@ -2,15 +2,18 @@ import { getBackoffByAge } from '../backoff/backoff';
 import { DEFAULT_HEADERS } from '$lib/hostedServices/github/headers';
 import { parseGitHubCheckSuites } from '$lib/hostedServices/github/types';
 import { sleep } from '$lib/utils/sleep';
-import { get, writable } from 'svelte/store';
+import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
+import { writable } from 'svelte/store';
 import type { CheckSuites, ChecksStatus } from '$lib/hostedServices/interface/types';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { HostedGitChecksMonitor } from '../interface/hostedGitChecksMonitor';
-import type { Octokit } from '@octokit/rest';
+
+export const MIN_COMPLETED_AGE = 20000;
 
 export class GitHubChecksMonitor implements HostedGitChecksMonitor {
-	readonly result = writable<ChecksStatus | undefined | null>(undefined, () => {
-		this.fetch();
+	private _status: ChecksStatus | undefined | null;
+	readonly status = writable<ChecksStatus | undefined | null>(undefined, () => {
+		this.start();
 		return () => {
 			this.stop();
 		};
@@ -19,7 +22,8 @@ export class GitHubChecksMonitor implements HostedGitChecksMonitor {
 	readonly loading = writable(false);
 	readonly error = writable();
 
-	timeout: any;
+	private timeout: any;
+	private hasCheckSuites: boolean | undefined;
 
 	constructor(
 		private octokit: Octokit,
@@ -27,139 +31,143 @@ export class GitHubChecksMonitor implements HostedGitChecksMonitor {
 		private sourceBranch: string
 	) {}
 
-	refresh() {
-		this.fetch();
+	async start() {
+		this.update();
 	}
 
-	private async fetch() {
+	stop() {
+		if (this.timeout) clearTimeout(this.timeout);
+		delete this.timeout;
+	}
+
+	async update() {
 		this.error.set(undefined);
 		this.loading.set(true);
+
 		try {
-			this.result.set(await this.checks(this.sourceBranch));
+			const checks = await this.fetchChecksWithRetries(this.sourceBranch, 5, 2000);
+			const status = parseChecks(checks);
+			this.status.set(status);
+			this._status = status;
 		} catch (e: any) {
 			console.error(e);
 			this.error.set(e.message);
-			if (!e.message.includes('No commit found')) {
+			if (!e.message?.includes('No commit found')) {
 				// toasts.error('Failed to fetch checks');
 			}
 		} finally {
 			this.loading.set(false);
 		}
 
+		if (!this.hasCheckSuites) return;
+
 		const delay = this.getNextDelay();
-		if (delay) this.timeout = setTimeout(async () => await this.fetch(), delay);
+		if (delay) this.timeout = setTimeout(async () => await this.update(), delay);
 	}
 
-	private stop() {
-		if (this.timeout) clearTimeout(this.timeout);
-		delete this.timeout;
+	getLastStatus() {
+		return this._status;
 	}
 
 	private getNextDelay() {
-		const checks = get(this.result);
-		if (!checks || !checks.startedAt) return;
+		const status = this._status;
+		if (!status || !status.startedAt) return;
 
-		const msAgo = Date.now() - checks.startedAt.getTime();
+		const ageMs = Date.now() - status.startedAt.getTime();
 		// Only stop polling for updates if checks have completed and check suite age is
-		// more than a minute. We do this to work around a bug where just after pushing
+		// more than some min age. We do this to work around a bug where just after pushing
 		// to a branch GitHub might not report all the checks that will eventually be
 		// run as part of the suite.
-		if (checks?.completed && msAgo > 60000) return;
+		if (status.completed && ageMs > MIN_COMPLETED_AGE) return;
 
-		const backoff = getBackoffByAge(msAgo);
+		const backoff = getBackoffByAge(ageMs);
 		return backoff;
 	}
 
-	private async checks(ref: string | undefined): Promise<ChecksStatus | null> {
-		if (!ref) return null;
-
-		// Fetch with retries since checks might not be available _right_ after
-		// the pull request has been created.
-		const resp = await this.fetchChecksWithRetries(ref, 5, 2000);
-
-		// If there are no checks then there is no status to report
-		const checks = resp.data.check_runs;
-		if (checks.length === 0) return null;
-
-		// Establish when the first check started running, useful for showing
-		// how long something has been running.
-		const starts = resp.data.check_runs
-			.map((run) => run.started_at)
-			.filter((startedAt) => startedAt !== null) as string[];
-		const startTimes = starts.map((startedAt) => new Date(startedAt));
-
-		const queued = checks.filter((c) => c.status === 'queued').length;
-		const failed = checks.filter((c) => c.conclusion === 'failure').length;
-		const skipped = checks.filter((c) => c.conclusion === 'skipped').length;
-		const succeeded = checks.filter((c) => c.conclusion === 'success').length;
-
-		const firstStart = new Date(Math.min(...startTimes.map((date) => date.getTime())));
-		const completed = checks.every((check) => !!check.completed_at);
-		const totalCount = resp?.data.total_count;
-
-		const success = queued === 0 && failed === 0 && skipped + succeeded === totalCount;
-		const finished = checks.filter(
-			(c) => c.conclusion && ['failure', 'success'].includes(c.conclusion)
-		).length;
-
-		return {
-			startedAt: firstStart,
-			hasChecks: !!totalCount,
-			success,
-			failed,
-			completed,
-			queued,
-			totalCount,
-			skipped,
-			finished
-		};
-	}
-
 	private async fetchChecksWithRetries(ref: string, retries: number, delayMs: number) {
-		let resp = await this.fetchChecks(ref);
-		let retried = 0;
-		let shouldWait: boolean | undefined = undefined;
-
-		while (resp.data.total_count === 0 && retried < retries) {
-			if (shouldWait === undefined && retried === 0) {
-				shouldWait = await this.shouldWaitForChecks(ref);
-				if (!shouldWait) {
-					return resp;
-				}
-			}
-			await sleep(delayMs);
-			resp = await this.fetchChecks(ref);
-			retried++;
+		let checks = await this.fetchChecks(ref);
+		if (checks.total_count > 0) {
+			this.hasCheckSuites = true;
+			return checks;
 		}
-		return resp;
+
+		if (this.hasCheckSuites === undefined) {
+			const suites = await this.getCheckSuites();
+			this.hasCheckSuites = suites.count > 0;
+		}
+
+		if (!this.hasCheckSuites) return checks;
+
+		let attempts = 0;
+		while (checks.total_count === 0 && attempts < retries) {
+			attempts++;
+			await sleep(delayMs);
+			checks = await this.fetchChecks(ref);
+		}
+		return checks;
 	}
 
-	private async shouldWaitForChecks(ref: string) {
-		const resp = await this.getCheckSuites(ref);
-		const checkSuites = resp?.items;
-		if (!checkSuites) return true;
-
-		// Continue waiting if some check suites are in progress
-		if (checkSuites.some((suite) => suite.status !== 'completed')) return true;
-	}
-
-	private async getCheckSuites(ref: string | undefined): Promise<CheckSuites> {
-		if (!ref) return null;
+	private async getCheckSuites(): Promise<CheckSuites> {
 		const resp = await this.octokit.checks.listSuitesForRef({
 			headers: DEFAULT_HEADERS,
 			owner: this.repo.owner,
 			repo: this.repo.name,
-			ref: ref
+			ref: this.sourceBranch
 		});
 		return { count: resp.data.total_count, items: parseGitHubCheckSuites(resp.data) };
 	}
 
 	private async fetchChecks(ref: string) {
-		return await this.octokit.checks.listForRef({
+		const resp = await this.octokit.checks.listForRef({
 			headers: DEFAULT_HEADERS,
 			owner: this.repo.owner,
 			repo: this.repo.name,
 			ref: ref
 		});
+		return resp.data;
 	}
+}
+
+function parseChecks(
+	data: RestEndpointMethodTypes['checks']['listForRef']['response']['data']
+): ChecksStatus | null {
+	// Fetch with retries since checks might not be available _right_ after
+	// the pull request has been created.
+
+	// If there are no checks then there is no status to report
+	const checkRuns = data.check_runs;
+	if (checkRuns.length === 0) return null;
+
+	// Establish when the first check started running, useful for showing
+	// how long something has been running.
+	const starts = checkRuns
+		.map((run) => run.started_at)
+		.filter((startedAt) => startedAt !== null) as string[];
+	const startTimes = starts.map((startedAt) => new Date(startedAt));
+
+	const queued = checkRuns.filter((c) => c.status === 'queued').length;
+	const failed = checkRuns.filter((c) => c.conclusion === 'failure').length;
+	const skipped = checkRuns.filter((c) => c.conclusion === 'skipped').length;
+	const succeeded = checkRuns.filter((c) => c.conclusion === 'success').length;
+
+	const firstStart = new Date(Math.min(...startTimes.map((date) => date.getTime())));
+	const completed = checkRuns.every((check) => !!check.completed_at);
+	const totalCount = data.total_count;
+
+	const success = queued === 0 && failed === 0 && skipped + succeeded === totalCount;
+	const finished = checkRuns.filter(
+		(c) => c.conclusion && ['failure', 'success'].includes(c.conclusion)
+	).length;
+
+	return {
+		startedAt: firstStart,
+		hasChecks: !!totalCount,
+		success,
+		failed,
+		completed,
+		queued,
+		totalCount,
+		skipped,
+		finished
+	};
 }

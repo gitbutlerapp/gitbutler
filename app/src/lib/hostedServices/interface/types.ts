@@ -59,13 +59,10 @@ export enum MergeMethod {
 	Rebase = 'rebase',
 	Squash = 'squash'
 }
-export type CheckSuites =
-	| {
-			count: number;
-			items?: CheckSuite[];
-	  }
-	| null
-	| undefined;
+export type CheckSuites = {
+	count: number;
+	items?: CheckSuite[];
+};
 
 export type CheckSuite = {
 	name?: string;

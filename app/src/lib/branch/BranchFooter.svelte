@@ -80,7 +80,7 @@
 							await branchController.pushBranch($branch.id, $branch.requiresForce);
 							$listingService?.reload();
 							$prMonitor?.refresh();
-							$checksMonitor?.refresh();
+							$checksMonitor?.update();
 						} else if (e.detail.action === BranchAction.Integrate) {
 							await branchController.mergeUpstream($branch.id);
 						}
