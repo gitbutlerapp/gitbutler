@@ -187,7 +187,7 @@ async function brokenLinkChecker(): Promise<void> {
   if (!process.env.GITHUB_TOKEN) {
     throw new Error("GITHUB_TOKEN is required")
   }
-  const siteUrl = process.env.VERCEL_PREVIEW_URL || "https://gitbutler-docs.vercel.app"
+  const siteUrl = process.env.VERCEL_PREVIEW_URL || "https://docs.gitbutler.com"
   const output: Output = {
     errors: [],
     links: [],
@@ -196,7 +196,7 @@ async function brokenLinkChecker(): Promise<void> {
   }
 
   const options = {
-    excludeExternalLinks: true,
+    excludeExternalLinks: false,
     honorRobotExclusions: false,
     filterLevel: 0,
     excludedKeywords: []
@@ -212,10 +212,8 @@ async function brokenLinkChecker(): Promise<void> {
       }
     },
     end: async () => {
+      console.debug("SITECHECKER.END", JSON.stringify(output, 2, null))
       if (output.links.length) {
-        // DEBUG
-        // console.debug(output.links)
-
         // Skip links that returned 308
         const brokenLinksForAttention = output.links.filter(
           (link) => link.broken && !["HTTP_308"].includes(link.brokenReason)
