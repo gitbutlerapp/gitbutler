@@ -25,21 +25,26 @@ pub fn dedup_fmt(existing: &[&str], new: &str, separator: &str) -> String {
         )
 }
 
-#[test]
-fn tests() {
-    for (existing, new, expected) in [
-        (vec!["bar", "baz"], "foo", "foo"),
-        (vec!["foo", "bar", "baz"], "foo", "foo 1"),
-        (vec!["foo", "foo 2"], "foo", "foo 3"),
-        (vec!["foo", "foo 1", "foo 2"], "foo", "foo 3"),
-        (vec!["foo", "foo 1", "foo 2"], "foo 1", "foo 1 1"),
-        (vec!["foo", "foo 1", "foo 2"], "foo 2", "foo 2 1"),
-        (vec!["foo", "foo 1", "foo 2"], "foo 3", "foo 3"),
-        (vec!["foo 2"], "foo", "foo 3"),
-        (vec!["foo", "foo 1", "foo 2", "foo 4"], "foo", "foo 5"),
-        (vec!["foo", "foo 0"], "foo", "foo 1"),
-        (vec!["foo 0"], "foo", "foo 1"),
-    ] {
-        assert_eq!(dedup(&existing, new), expected.to_string());
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_dedup() {
+        for (existing, new, expected) in [
+            (vec!["bar", "baz"], "foo", "foo"),
+            (vec!["foo", "bar", "baz"], "foo", "foo 1"),
+            (vec!["foo", "foo 2"], "foo", "foo 3"),
+            (vec!["foo", "foo 1", "foo 2"], "foo", "foo 3"),
+            (vec!["foo", "foo 1", "foo 2"], "foo 1", "foo 1 1"),
+            (vec!["foo", "foo 1", "foo 2"], "foo 2", "foo 2 1"),
+            (vec!["foo", "foo 1", "foo 2"], "foo 3", "foo 3"),
+            (vec!["foo 2"], "foo", "foo 3"),
+            (vec!["foo", "foo 1", "foo 2", "foo 4"], "foo", "foo 5"),
+            (vec!["foo", "foo 0"], "foo", "foo 1"),
+            (vec!["foo 0"], "foo", "foo 1"),
+        ] {
+            assert_eq!(dedup(&existing, new), expected);
+        }
     }
 }

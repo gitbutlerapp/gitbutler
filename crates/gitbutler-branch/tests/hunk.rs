@@ -1,4 +1,4 @@
-use gitbutler_branch::hunk::Hunk;
+use gitbutler_branch::Hunk;
 
 #[test]
 fn to_from_string() {

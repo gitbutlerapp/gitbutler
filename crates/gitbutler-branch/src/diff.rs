@@ -9,7 +9,7 @@ use tracing::instrument;
 
 use gitbutler_id::id::Id;
 
-use crate::branch::Branch;
+use crate::Branch;
 
 pub type DiffByPathMap = HashMap<PathBuf, FileDiff>;
 
