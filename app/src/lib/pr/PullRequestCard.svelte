@@ -259,6 +259,7 @@
 						const method = e.detail.method;
 						try {
 							await $prService?.merge(method, $pr.number);
+							vbranchService.reload();
 							$prMonitor?.refresh();
 							$listingService?.reload();
 						} catch (err) {

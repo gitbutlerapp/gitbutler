@@ -4,9 +4,11 @@
 	import TimeAgo from '$lib/shared/TimeAgo.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
+	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 
 	const githubService = getGitHostListingServiceStore();
 	const baseBranchService = getContext(BaseBranchService);
+	const vbranchService = getContext(VirtualBranchService);
 	const baseBranch = baseBranchService.base;
 
 	$: baseServiceBusy$ = baseBranchService.busy$;
@@ -25,7 +27,8 @@
 		e.preventDefault();
 		e.stopPropagation();
 		await baseBranchService.fetchFromRemotes('modal');
-		await $githubService?.reload();
+		vbranchService.reload();
+		$githubService?.reload();
 	}}
 >
 	{#if $baseServiceBusy$}
