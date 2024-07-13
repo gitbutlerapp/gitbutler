@@ -154,15 +154,15 @@ const generateOutputMd = (output: Output): string => {
 
 ### ${i + 1}) [${new URL(page).pathname}](${page})
 
-| Target Link | Link Text  |
-|------|------|
+| Target Link | Link Text  |  Reason  |
+|------|------|------|
 `
 
     // @ts-expect-error
     links.forEach((link: TODO) => {
       outputMd += `| [${new URL(link.url.resolved).pathname}](${
         link.url.resolved
-      }) | "${link.html?.text?.trim().replaceAll("\n", "")}" |
+      }) | "${link.html?.text?.trim().replaceAll("\n", "")}" | ${link.brokenReason} |
 `
     })
   })
@@ -212,7 +212,6 @@ async function brokenLinkChecker(): Promise<void> {
       }
     },
     end: async () => {
-      console.debug("SITECHECKER.END", JSON.stringify(output, 2, null))
       if (output.links.length) {
         // Skip links that returned 308
         const brokenLinksForAttention = output.links.filter(
@@ -230,7 +229,8 @@ async function brokenLinkChecker(): Promise<void> {
         // Update GitHub "check" status
         await updateCheckStatus(brokenLinksForAttention.length, commentUrl)
 
-        brokenLinksForAttention.length && setFailed(`Found broken links`)
+        brokenLinksForAttention.length &&
+          setFailed(`Found ${brokenLinksForAttention.length} broken link(s)`)
       }
     }
   })
