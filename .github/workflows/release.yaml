@@ -1,6 +1,5 @@
 name: Trigger Docs Build
 on:
-  workflow_dispatch:
   release:
     types: [published]
 
