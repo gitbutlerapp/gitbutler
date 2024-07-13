@@ -1,22 +1,13 @@
 import { buildContextStore } from '$lib/utils/context';
+import type { ChecksStatus } from './types';
 import type { Readable } from 'svelte/store';
 
-export interface CheckRun {
-	startedAt: Date;
-	completed: boolean;
-	success: boolean;
-	hasChecks: boolean;
-	failed: number;
-	queued: number;
-	totalCount: number;
-	skipped: number;
-	finished: number;
-}
-
 export interface HostedGitChecksMonitor {
-	result: Readable<CheckRun | undefined | null>;
+	status: Readable<ChecksStatus | undefined | null>;
 	loading?: Readable<boolean>;
-	refresh(): void;
+	getLastStatus(): ChecksStatus | undefined | null;
+	update(): Promise<void>;
+	stop(): void;
 }
 
 export const [getHostedGitChecksMonitorStore, createHostedGitChecksMonitorStore] =

@@ -1,8 +1,6 @@
-import { mapErrorToToast } from './errorMap';
 import { GitHubPrMonitor } from './githubPrMonitor';
 import { DEFAULT_HEADERS } from './headers';
 import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
-import { showError, showToast } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
 import { writable } from 'svelte/store';
@@ -22,7 +20,7 @@ export class GitHubPrService implements HostedGitPrService {
 		private upstreamName: string
 	) {}
 
-	async createPr(title: string, body: string, draft: boolean): Promise<PullRequest | undefined> {
+	async createPr(title: string, body: string, draft: boolean): Promise<PullRequest> {
 		this.loading.set(true);
 		const request = async () => {
 			const resp = await this.octokit.rest.pulls.create({
@@ -48,11 +46,6 @@ export class GitHubPrService implements HostedGitPrService {
 				posthog.capture('PR Successful');
 				return pr;
 			} catch (err: any) {
-				const toast = mapErrorToToast(err);
-				if (toast) {
-					showToast(toast);
-					return;
-				}
 				lastError = err;
 				attempts++;
 				await sleep(500);
@@ -60,11 +53,10 @@ export class GitHubPrService implements HostedGitPrService {
 				this.loading.set(false);
 			}
 		}
-		showError('Failed to create pull request', lastError);
 		throw lastError;
 	}
 
-	async get(prNumber: number): Promise<DetailedPullRequest | undefined> {
+	async get(prNumber: number): Promise<DetailedPullRequest> {
 		const resp = await this.octokit.pulls.get({
 			headers: DEFAULT_HEADERS,
 			owner: this.repo.owner,

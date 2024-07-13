@@ -4,9 +4,11 @@ import { derived, writable } from 'svelte/store';
 import type { GitHubPrService } from './githubPrService';
 import type { HostedGitPrMonitor } from '../interface/hostedGitPrMonitor';
 
+export const PR_SERVICE_INTERVAL = 20 * 60 * 1000;
+
 export class GitHubPrMonitor implements HostedGitPrMonitor {
 	readonly pr = writable<DetailedPullRequest | undefined>(undefined, () => {
-		this.fetch();
+		this.start();
 		return () => {
 			this.stop();
 		};
@@ -18,19 +20,26 @@ export class GitHubPrMonitor implements HostedGitPrMonitor {
 	readonly mergeableState = derived(this.pr, (pr) => pr?.mergeableState);
 	readonly lastFetch = writable<Date | undefined>();
 
-	private timeoutId: any;
+	private intervalId: any;
 
 	constructor(
 		private prService: GitHubPrService,
 		private prNumber: number
 	) {}
 
-	async refresh(): Promise<void> {
-		await this.fetch();
+	private start() {
+		this.fetch();
+		this.intervalId = setInterval(() => {
+			this.fetch();
+		}, PR_SERVICE_INTERVAL);
 	}
 
 	private stop() {
-		if (this.timeoutId) clearTimeout(this.timeoutId);
+		if (this.intervalId) clearInterval(this.intervalId);
+	}
+
+	async refresh(): Promise<void> {
+		await this.fetch();
 	}
 
 	private async fetch() {
@@ -47,23 +56,21 @@ export class GitHubPrMonitor implements HostedGitPrMonitor {
 		}
 	}
 
-	async getPrWithRetries(prNumber: number): Promise<DetailedPullRequest | undefined> {
-		// Right after pushing GitHub will respond with status 422, retries are necessary
-		const attempt = 0;
-		const request = async () => {
-			return await this.prService.get(prNumber);
-		};
-		const pr = await request();
-
-		while (!pr && attempt < 3) {
+	// Right after pushing GitHub will respond with status 422, necessatating retries.
+	private async getPrWithRetries(prNumber: number): Promise<DetailedPullRequest> {
+		const request = async () => await this.prService.get(prNumber);
+		let lastError: any;
+		let attempt = 0;
+		while (attempt < 3) {
+			attempt++;
 			try {
 				return await request();
 			} catch (err: any) {
 				if (err.status !== 422) throw err;
+				lastError = err;
 				await sleep(1000);
 			}
 		}
-		if (!pr) throw 'Failed to fetch pull request details';
-		return pr;
+		throw lastError;
 	}
 }

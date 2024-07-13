@@ -4,10 +4,12 @@
 	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
+	import { mapErrorToToast } from '$lib/hostedServices/github/errorMap';
 	import { getHostedGitListingServiceStore } from '$lib/hostedServices/interface/hostedGitListingService';
 	import { getHostedGitPrMonitorStore } from '$lib/hostedServices/interface/hostedGitPrMonitor';
 	import { getHostedGitPrServiceStore } from '$lib/hostedServices/interface/hostedGitPrService';
 	import { getHostedGitServiceStore } from '$lib/hostedServices/interface/hostedGitService';
+	import { showError, showToast } from '$lib/notifications/toasts';
 	import Button from '$lib/shared/Button.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
@@ -90,6 +92,10 @@
 			}
 			await $prService?.createPr(title, body, opts.draft);
 			await $gitListService?.reload();
+		} catch (err: any) {
+			const toast = mapErrorToToast(err);
+			if (toast) showToast(toast);
+			else showError('Error while creating pull request', err);
 		} finally {
 			isLoading = false;
 		}
