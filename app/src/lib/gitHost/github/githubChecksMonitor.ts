@@ -1,4 +1,3 @@
-import { getBackoffByAge } from '../backoff/backoff';
 import { DEFAULT_HEADERS } from '$lib/gitHost/github/headers';
 import { parseGitHubCheckSuites } from '$lib/gitHost/github/types';
 import { sleep } from '$lib/utils/sleep';
@@ -170,4 +169,17 @@ function parseChecks(
 		skipped,
 		finished
 	};
+}
+
+export function getBackoffByAge(age: number) {
+	if (age < 60000) {
+		return 10000;
+	} else if (age < 600000) {
+		return 30000;
+	} else if (age < 1200000) {
+		return 60000;
+	} else if (age < 3600000) {
+		return 120000;
+	}
+	return;
 }
