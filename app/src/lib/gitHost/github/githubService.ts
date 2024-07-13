@@ -4,32 +4,32 @@ import { GitHubPrService } from './githubPrService';
 import { Octokit } from '@octokit/rest';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { HostedGitChecksMonitor } from '../interface/hostedGitChecksMonitor';
-import type { HostedGitListingService } from '../interface/hostedGitListingService';
-import type { HostedGitPrService } from '../interface/hostedGitPrService';
-import type { HostedGitService } from '../interface/hostedGitService';
+import type { GitHostChecksMonitor } from '../interface/gitHostChecksMonitor';
+import type { GitHostListingService } from '../interface/gitHostListingService';
+import type { GitHostPrService } from '../interface/gitHostPrService';
+import type { GitHostService } from '../interface/gitHostService';
 import type { DetailedPullRequest } from '../interface/types';
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };
 export type PrCacheKey = { value: DetailedPullRequest | undefined; fetchedAt: Date };
 
-export class GitHubService implements HostedGitService {
+export class GitHubService implements GitHostService {
 	constructor(
 		private projectMetrics: ProjectMetrics,
 		private octokit: Octokit,
 		private repo: RepoInfo
 	) {}
 
-	listService(): HostedGitListingService {
+	listService(): GitHostListingService {
 		return new GitHubListingService(this.projectMetrics, this.octokit, this.repo);
 	}
 
-	prService(baseBranch: string, upstreamName: string): HostedGitPrService {
+	prService(baseBranch: string, upstreamName: string): GitHostPrService {
 		return new GitHubPrService(this.octokit, this.repo, baseBranch, upstreamName);
 	}
 
-	checksMonitor(sourceBranch: string): HostedGitChecksMonitor {
+	checksMonitor(sourceBranch: string): GitHostChecksMonitor {
 		return new GitHubChecksMonitor(this.octokit, this.repo, sourceBranch);
 	}
 }

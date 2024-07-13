@@ -4,7 +4,7 @@ import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { get } from 'svelte/store';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
-import type { HostedGitChecksMonitor } from '../interface/hostedGitChecksMonitor';
+import type { GitHostChecksMonitor } from '../interface/gitHostChecksMonitor';
 
 type ChecksResponse = RestEndpointMethodTypes['checks']['listForRef']['response'];
 type CheckRuns = RestEndpointMethodTypes['checks']['listForRef']['response']['data']['check_runs'];
@@ -17,7 +17,7 @@ type CheckSuites =
 describe.concurrent('GitHubChecksMonitor', () => {
 	let octokit: Octokit;
 	let gh: GitHubService;
-	let monitor: HostedGitChecksMonitor;
+	let monitor: GitHostChecksMonitor;
 
 	beforeEach(() => {
 		vi.useFakeTimers();

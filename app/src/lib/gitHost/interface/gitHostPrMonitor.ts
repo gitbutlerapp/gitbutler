@@ -4,13 +4,13 @@ import type { Readable } from 'svelte/store';
 
 export const PR_MONITOR = Symbol('PullRequestMonitor');
 
-export interface HostedGitPrMonitor {
+export interface GitHostPrMonitor {
 	pr: Readable<DetailedPullRequest | undefined>;
 	loading?: Readable<boolean>;
 	lastFetch?: Readable<Date | undefined>;
 	refresh(): Promise<void>;
 }
 
-export const [getHostedGitPrMonitorStore, createHostedGitPrMonitorStore] = buildContextStore<
-	HostedGitPrMonitor | undefined
+export const [getGitHostPrMonitorStore, createGitHostPrMonitorStore] = buildContextStore<
+	GitHostPrMonitor | undefined
 >('prMonitor');

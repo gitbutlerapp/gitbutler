@@ -5,12 +5,12 @@ import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
 import { writable } from 'svelte/store';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { HostedGitPrMonitor } from '../interface/hostedGitPrMonitor';
-import type { HostedGitPrService } from '../interface/hostedGitPrService';
+import type { GitHostPrMonitor } from '../interface/gitHostPrMonitor';
+import type { GitHostPrService } from '../interface/gitHostPrService';
 import type { DetailedPullRequest, MergeMethod, PullRequest } from '../interface/types';
 import type { Octokit } from '@octokit/rest';
 
-export class GitHubPrService implements HostedGitPrService {
+export class GitHubPrService implements GitHostPrService {
 	loading = writable(false);
 
 	constructor(
@@ -75,7 +75,7 @@ export class GitHubPrService implements HostedGitPrService {
 		});
 	}
 
-	prMonitor(prNumber: number): HostedGitPrMonitor {
+	prMonitor(prNumber: number): GitHostPrMonitor {
 		return new GitHubPrMonitor(this, prNumber);
 	}
 }

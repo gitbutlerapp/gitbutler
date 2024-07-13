@@ -2,7 +2,7 @@ import { buildContextStore } from '$lib/utils/context';
 import type { ChecksStatus } from './types';
 import type { Readable } from 'svelte/store';
 
-export interface HostedGitChecksMonitor {
+export interface GitHostChecksMonitor {
 	status: Readable<ChecksStatus | undefined | null>;
 	loading?: Readable<boolean>;
 	getLastStatus(): ChecksStatus | undefined | null;
@@ -10,5 +10,6 @@ export interface HostedGitChecksMonitor {
 	stop(): void;
 }
 
-export const [getHostedGitChecksMonitorStore, createHostedGitChecksMonitorStore] =
-	buildContextStore<HostedGitChecksMonitor | undefined>('checksMonitor');
+export const [getGitHostChecksMonitorStore, createGitHostChecksMonitorStore] = buildContextStore<
+	GitHostChecksMonitor | undefined
+>('checksMonitor');

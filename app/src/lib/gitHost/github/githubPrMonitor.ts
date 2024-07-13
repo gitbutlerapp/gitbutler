@@ -2,11 +2,11 @@ import { type DetailedPullRequest } from '$lib/gitHost/interface/types';
 import { sleep } from '$lib/utils/sleep';
 import { derived, writable } from 'svelte/store';
 import type { GitHubPrService } from './githubPrService';
-import type { HostedGitPrMonitor } from '../interface/hostedGitPrMonitor';
+import type { GitHostPrMonitor } from '../interface/gitHostPrMonitor';
 
 export const PR_SERVICE_INTERVAL = 20 * 60 * 1000;
 
-export class GitHubPrMonitor implements HostedGitPrMonitor {
+export class GitHubPrMonitor implements GitHostPrMonitor {
 	readonly pr = writable<DetailedPullRequest | undefined>(undefined, () => {
 		this.start();
 		return () => {

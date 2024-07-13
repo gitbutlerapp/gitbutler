@@ -3,11 +3,11 @@ import { ghResponseToInstance } from './types';
 import { writable } from 'svelte/store';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { HostedGitListingService } from '../interface/hostedGitListingService';
+import type { GitHostListingService } from '../interface/gitHostListingService';
 import type { PullRequest } from '../interface/types';
 import type { Octokit } from '@octokit/rest';
 
-export class GitHubListingService implements HostedGitListingService {
+export class GitHubListingService implements GitHostListingService {
 	readonly prs = writable<PullRequest[]>([], () => {
 		this.fetchPrs();
 	});

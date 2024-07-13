@@ -4,7 +4,7 @@
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { getBranchServiceStore } from '$lib/branches/service';
 	import FilterButton from '$lib/components/FilterBranchesButton.svelte';
-	import { getHostedGitServiceStore } from '$lib/gitHost/interface/hostedGitService';
+	import { getGitHostServiceStore } from '$lib/gitHost/interface/gitHostService';
 	import { persisted } from '$lib/persisted/persisted';
 	import { storeToObservable } from '$lib/rxjs/store';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
@@ -20,7 +20,7 @@
 	export const textFilter$ = new BehaviorSubject<string | undefined>(undefined);
 
 	const branchService = getBranchServiceStore();
-	const githubService = getHostedGitServiceStore();
+	const githubService = getGitHostServiceStore();
 
 	// let contextMenu: ContextMenuActions;
 	let includePrs = persisted(true, 'includePrs_' + projectId);

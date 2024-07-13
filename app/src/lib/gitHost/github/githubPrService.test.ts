@@ -2,13 +2,13 @@ import { GitHubService } from './githubService';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { expect, test, describe, vi, beforeEach } from 'vitest';
-import type { HostedGitPrService } from '../interface/hostedGitPrService';
+import type { GitHostPrService } from '../interface/gitHostPrService';
 
 // TODO: Rewrite this proof-of-concept into something valuable.
 describe.concurrent('GitHubPrService', () => {
 	let octokit: Octokit;
 	let gh: GitHubService;
-	let service: HostedGitPrService;
+	let service: GitHostPrService;
 
 	beforeEach(() => {
 		octokit = new Octokit();
