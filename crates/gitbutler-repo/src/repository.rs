@@ -12,7 +12,7 @@ use crate::{askpass, ssh, Config};
 use gitbutler_project::AuthKey;
 
 use crate::{credentials::Helper, RepositoryExt};
-pub trait RepoActions {
+pub trait RepoActionsExt {
     fn fetch(&self, remote_name: &str, credentials: &Helper, askpass: Option<String>)
         -> Result<()>;
     fn push(
@@ -47,7 +47,7 @@ pub trait RepoActions {
     ) -> Result<()>;
 }
 
-impl RepoActions for ProjectRepository {
+impl RepoActionsExt for ProjectRepository {
     fn git_test_push(
         &self,
         credentials: &Helper,

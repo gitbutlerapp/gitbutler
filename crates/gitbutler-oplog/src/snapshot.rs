@@ -6,12 +6,12 @@ use std::vec;
 
 use crate::{
     entry::{OperationKind, SnapshotDetails},
-    oplog::Oplog,
+    oplog::OplogExt,
 };
 
 use super::entry::Trailer;
 
-pub trait Snapshot {
+pub trait SnapshotExt {
     fn snapshot_branch_unapplied(
         &self,
         snapshot_tree: git2::Oid,
@@ -45,7 +45,7 @@ pub trait Snapshot {
 }
 
 /// Snapshot functionality
-impl Snapshot for Project {
+impl SnapshotExt for Project {
     fn snapshot_branch_unapplied(
         &self,
         snapshot_tree: git2::Oid,

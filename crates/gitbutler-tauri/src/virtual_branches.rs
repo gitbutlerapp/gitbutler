@@ -12,7 +12,7 @@ pub mod commands {
     use gitbutler_project::ProjectId;
     use gitbutler_reference::ReferenceName;
     use gitbutler_reference::{Refname, RemoteRefname};
-    use tauri::{AppHandle, Manager};
+    use tauri::{AppHandle, Manager, State};
     use tracing::instrument;
 
     use crate::WindowState;
@@ -36,19 +36,20 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
+    #[instrument(skip(projects), err(Debug))]
     pub async fn list_virtual_branches(
-        handle: AppHandle,
+        projects: State<'_, projects::Controller>,
         project_id: ProjectId,
     ) -> Result<VirtualBranches, Error> {
-        let project = handle.state::<projects::Controller>().get(project_id)?;
-        let (branches, skipped_files) =
-            VirtualBranchActions.list_virtual_branches(&project).await?;
-
-        Ok(VirtualBranches {
-            branches,
-            skipped_files,
-        })
+        let project = projects.get(project_id)?;
+        VirtualBranchActions
+            .list_virtual_branches(&project)
+            .await
+            .map_err(Into::into)
+            .map(|(branches, skipped_files)| VirtualBranches {
+                branches,
+                skipped_files,
+            })
     }
 
     #[tauri::command(async)]
@@ -97,13 +98,13 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
+    #[instrument(skip(projects), err(Debug))]
     pub async fn get_base_branch_data(
-        handle: AppHandle,
+        projects: State<'_, projects::Controller>,
         project_id: ProjectId,
     ) -> Result<Option<BaseBranch>, Error> {
-        let project = handle.state::<projects::Controller>().get(project_id)?;
-        if let Ok(base_branch) = VirtualBranchActions.get_base_branch_data(&project).await {
+        let project = projects.get(project_id)?;
+        if let Ok(base_branch) = VirtualBranchActions::get_base_branch_data(&project).await {
             Ok(Some(base_branch))
         } else {
             Ok(None)
@@ -388,13 +389,13 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
+    #[instrument(skip(projects), err(Debug))]
     pub async fn list_remote_branches(
-        handle: tauri::AppHandle,
+        projects: State<'_, projects::Controller>,
         project_id: ProjectId,
     ) -> Result<Vec<RemoteBranch>, Error> {
-        let project = handle.state::<projects::Controller>().get(project_id)?;
-        let branches = VirtualBranchActions.list_remote_branches(project).await?;
+        let project = projects.get(project_id)?;
+        let branches = VirtualBranchActions::list_remote_branches(project).await?;
         Ok(branches)
     }
 
@@ -430,13 +431,12 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
+    #[instrument(skip(projects), err(Debug))]
     pub async fn fetch_from_remotes(
-        handle: tauri::AppHandle,
+        projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         action: Option<String>,
     ) -> Result<BaseBranch, Error> {
-        let projects = handle.state::<projects::Controller>();
         let project = projects.get(project_id)?;
 
         let project_data_last_fetched = VirtualBranchActions
@@ -458,7 +458,7 @@ pub mod commands {
             .await
             .context("failed to update project with last fetched timestamp")?;
 
-        let base_branch = VirtualBranchActions.get_base_branch_data(&project).await?;
+        let base_branch = VirtualBranchActions::get_base_branch_data(&project).await?;
         Ok(base_branch)
     }
 

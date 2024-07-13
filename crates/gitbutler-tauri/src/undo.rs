@@ -2,7 +2,7 @@ use crate::error::Error;
 use anyhow::Context;
 use gitbutler_branch::diff::FileDiff;
 use gitbutler_oplog::entry::Snapshot;
-use gitbutler_oplog::oplog::Oplog;
+use gitbutler_oplog::oplog::OplogExt;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use std::collections::HashMap;

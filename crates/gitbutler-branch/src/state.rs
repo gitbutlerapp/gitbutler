@@ -88,8 +88,8 @@ impl VirtualBranchesHandle {
     ///
     /// Errors if the file cannot be read or written.
     pub fn get_default_target(&self) -> Result<Target> {
-        let virtual_branches = self.read_file();
-        virtual_branches?
+        let virtual_branches = self.read_file()?;
+        virtual_branches
             .default_target
             .ok_or(anyhow!("there is no default target").context(Code::DefaultTargetNotFound))
     }

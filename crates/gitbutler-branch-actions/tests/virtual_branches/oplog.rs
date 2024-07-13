@@ -1,6 +1,6 @@
 use super::*;
 use gitbutler_branch::{BranchCreateRequest, VirtualBranchesHandle};
-use gitbutler_oplog::oplog::Oplog;
+use gitbutler_oplog::oplog::OplogExt;
 use itertools::Itertools;
 use std::io::Write;
 use std::path::Path;

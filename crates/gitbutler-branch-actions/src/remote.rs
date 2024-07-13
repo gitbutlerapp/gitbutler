@@ -6,7 +6,7 @@ use gitbutler_branch::{Target, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
+use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 use serde::Serialize;
 
 use crate::author::Author;
@@ -69,7 +69,7 @@ pub fn list_remote_branches(project_repository: &ProjectRepository) -> Result<Ve
         .context("failed to list remote branches")?
         .flatten()
     {
-        let branch = branch_to_remote_branch(&branch)?;
+        let branch = branch_to_remote_branch(&branch);
 
         if let Some(branch) = branch {
             let branch_is_trunk = branch.name.branch() == Some(default_target.branch.branch())
@@ -101,7 +101,7 @@ pub(crate) fn get_branch_data(
         .context("failed to get branch data")
 }
 
-pub(crate) fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<RemoteBranch>> {
+pub(crate) fn branch_to_remote_branch(branch: &git2::Branch) -> Option<RemoteBranch> {
     let commit = match branch.get().peel_to_commit() {
         Ok(c) => c,
         Err(err) => {
@@ -110,38 +110,28 @@ pub(crate) fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<Re
                 "ignoring branch {:?} as peeling failed",
                 branch.name()
             );
-            return Ok(None);
+            return None;
         }
     };
-    let name = Refname::try_from(branch).context("could not get branch name");
-    match name {
-        Ok(name) => branch
-            .get()
-            .target()
-            .map(|sha| {
-                Ok(RemoteBranch {
-                    sha,
-                    upstream: if let Refname::Local(local_name) = &name {
-                        local_name.remote().cloned()
-                    } else {
-                        None
-                    },
-                    name,
-                    last_commit_timestamp_ms: commit
-                        .time()
-                        .seconds()
-                        .try_into()
-                        .map(|t: u128| t * 1000)
-                        .ok(),
-                    last_commit_author: commit
-                        .author()
-                        .name()
-                        .map(std::string::ToString::to_string),
-                })
-            })
-            .transpose(),
-        Err(_) => Ok(None),
-    }
+    let name = Refname::try_from(branch)
+        .context("could not get branch name")
+        .ok()?;
+    branch.get().target().map(|sha| RemoteBranch {
+        sha,
+        upstream: if let Refname::Local(local_name) = &name {
+            local_name.remote().cloned()
+        } else {
+            None
+        },
+        name,
+        last_commit_timestamp_ms: commit
+            .time()
+            .seconds()
+            .try_into()
+            .map(|t: u128| t * 1000)
+            .ok(),
+        last_commit_author: commit.author().name().map(std::string::ToString::to_string),
+    })
 }
 
 pub(crate) fn branch_to_remote_branch_data(
@@ -185,7 +175,7 @@ pub(crate) fn branch_to_remote_branch_data(
 }
 
 pub(crate) fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
-    let parent_ids: Vec<git2::Oid> = commit.parents().map(|c| c.id()).collect::<Vec<_>>();
+    let parent_ids = commit.parents().map(|c| c.id()).collect();
     RemoteCommit {
         id: commit.id().to_string(),
         description: commit.message_bstr().to_owned(),

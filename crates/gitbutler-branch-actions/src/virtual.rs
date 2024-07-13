@@ -9,7 +9,7 @@ use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_commit::commit_headers::HasCommitHeaders;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::credentials::Helper;
-use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
+use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 use std::borrow::Borrow;
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::PermissionsExt;
@@ -364,27 +364,22 @@ fn resolve_old_applied_state(
 }
 
 pub fn list_virtual_branches(
-    project_repository: &ProjectRepository,
+    ctx: &ProjectRepository,
 ) -> Result<(Vec<VirtualBranch>, Vec<diff::FileDiff>)> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
-    let vb_state = project_repository.project().virtual_branches();
+    let vb_state = ctx.project().virtual_branches();
 
-    resolve_old_applied_state(project_repository, &vb_state)?;
+    resolve_old_applied_state(ctx, &vb_state)?;
 
     let default_target = vb_state
         .get_default_target()
         .context("failed to get default target")?;
 
-    let integration_commit_id =
-        crate::integration::get_workspace_head(&vb_state, project_repository)?;
-    let integration_commit = project_repository
-        .repo()
-        .find_commit(integration_commit_id)
-        .unwrap();
+    let integration_commit_id = get_workspace_head(&vb_state, ctx)?;
+    let integration_commit = ctx.repo().find_commit(integration_commit_id).unwrap();
 
-    let (statuses, skipped_files) =
-        get_status_by_branch(project_repository, Some(&integration_commit.id()))?;
+    let (statuses, skipped_files) = get_status_by_branch(ctx, Some(&integration_commit.id()))?;
     let max_selected_for_changes = statuses
         .iter()
         .filter_map(|(branch, _)| branch.selected_for_changes)
@@ -392,8 +387,8 @@ pub fn list_virtual_branches(
         .unwrap_or(-1);
 
     for (branch, files) in statuses {
-        let repo = project_repository.repo();
-        update_conflict_markers(project_repository, &files)?;
+        let repo = ctx.repo();
+        update_conflict_markers(ctx, &files)?;
 
         let upstream_branch = match branch.clone().upstream {
             Some(upstream) => repo.find_branch_by_refname(&Refname::from(upstream))?,
@@ -419,7 +414,7 @@ pub fn list_virtual_branches(
                         upstream.id(),
                         default_target.sha
                     ))?;
-            for oid in project_repository.l(upstream.id(), LogUntil::Commit(merge_base))? {
+            for oid in ctx.l(upstream.id(), LogUntil::Commit(merge_base))? {
                 pushed_commits.insert(oid, true);
             }
         }
@@ -428,7 +423,7 @@ pub fn list_virtual_branches(
         let mut is_remote = false;
 
         // find all commits on head that are not on target.sha
-        let commits = project_repository.log(branch.head, LogUntil::Commit(default_target.sha))?;
+        let commits = ctx.log(branch.head, LogUntil::Commit(default_target.sha))?;
         let vbranch_commits = commits
             .iter()
             .map(|commit| {
@@ -442,16 +437,10 @@ pub fn list_virtual_branches(
                 is_integrated = if is_integrated {
                     is_integrated
                 } else {
-                    is_commit_integrated(project_repository, &default_target, commit)?
+                    is_commit_integrated(ctx, &default_target, commit)?
                 };
 
-                commit_to_vbranch_commit(
-                    project_repository,
-                    &branch,
-                    commit,
-                    is_integrated,
-                    is_remote,
-                )
+                commit_to_vbranch_commit(ctx, &branch, commit, is_integrated, is_remote)
             })
             .collect::<Result<Vec<_>>>()?;
 
@@ -460,12 +449,10 @@ pub fn list_virtual_branches(
             .context("failed to find merge base")?;
         let base_current = true;
 
-        let upstream = upstream_branch
-            .map(|upstream_branch| branch_to_remote_branch(&upstream_branch))
-            .transpose()?
-            .flatten();
+        let upstream =
+            upstream_branch.and_then(|upstream_branch| branch_to_remote_branch(&upstream_branch));
 
-        let mut files = diffs_into_virtual_files(project_repository, files);
+        let mut files = diffs_into_virtual_files(ctx, files);
 
         let path_claim_positions: HashMap<&PathBuf, usize> = branch
             .ownership
@@ -482,7 +469,7 @@ pub fn list_virtual_branches(
                 .cmp(path_claim_positions.get(&b.path).unwrap_or(&usize::MAX))
         });
 
-        let requires_force = is_requires_force(project_repository, &branch)?;
+        let requires_force = is_requires_force(ctx, &branch)?;
 
         let fork_point = commits
             .last()
@@ -502,7 +489,7 @@ pub fn list_virtual_branches(
             upstream_name: branch
                 .upstream
                 .and_then(|r| Refname::from(r).branch().map(Into::into)),
-            conflicted: conflicts::is_resolving(project_repository),
+            conflicted: conflicts::is_resolving(ctx),
             base_current,
             ownership: branch.ownership,
             updated_at: branch.updated_timestamp_ms,

@@ -11,7 +11,7 @@ use gitbutler_command_context::ProjectRepository;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::ReferenceName;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
+use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 use serde::Serialize;
 
 use super::r#virtual as vb;

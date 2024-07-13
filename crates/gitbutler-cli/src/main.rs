@@ -1,5 +1,5 @@
 use anyhow::Result;
-use gitbutler_oplog::oplog::Oplog;
+use gitbutler_oplog::oplog::OplogExt;
 
 use clap::{arg, Command};
 use gitbutler_project::Project;

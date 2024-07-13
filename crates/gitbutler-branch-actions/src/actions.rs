@@ -5,13 +5,14 @@ use gitbutler_branch::{
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
-    oplog::Oplog,
-    snapshot::Snapshot,
+    oplog::OplogExt,
+    snapshot::SnapshotExt,
 };
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::ReferenceName;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{credentials::Helper, RepoActions, RepositoryExt};
+use gitbutler_repo::{credentials::Helper, RepoActionsExt, RepositoryExt};
+use tracing::instrument;
 
 use crate::{
     base::{
@@ -73,8 +74,7 @@ impl VirtualBranchActions {
         &self,
         project: &Project,
     ) -> Result<(Vec<branch::VirtualBranch>, Vec<diff::FileDiff>)> {
-        let project_repository = open_with_verify(project)?;
-        branch::list_virtual_branches(&project_repository).map_err(Into::into)
+        branch::list_virtual_branches(&open_with_verify(project)?).map_err(Into::into)
     }
 
     pub async fn create_virtual_branch(
@@ -88,7 +88,8 @@ impl VirtualBranchActions {
         Ok(branch_id)
     }
 
-    pub async fn get_base_branch_data(&self, project: &Project) -> Result<BaseBranch> {
+    #[instrument(skip(project), err(Debug))]
+    pub async fn get_base_branch_data(project: &Project) -> Result<BaseBranch> {
         let project_repository = ProjectRepository::open(project)?;
         get_base_branch_data(&project_repository)
     }
@@ -324,7 +325,7 @@ impl VirtualBranchActions {
         branch::push(&project_repository, branch_id, with_force, &helper, askpass)
     }
 
-    pub async fn list_remote_branches(&self, project: Project) -> Result<Vec<RemoteBranch>> {
+    pub async fn list_remote_branches(project: Project) -> Result<Vec<RemoteBranch>> {
         let project_repository = ProjectRepository::open(&project)?;
         list_remote_branches(&project_repository)
     }

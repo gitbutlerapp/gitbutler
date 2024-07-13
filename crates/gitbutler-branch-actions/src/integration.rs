@@ -12,7 +12,7 @@ use gitbutler_branch::{
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_error::error::Marker;
-use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
+use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 
 use crate::branch_manager::BranchManagerExt;
 use crate::{conflicts, VirtualBranchesExt};
@@ -92,7 +92,7 @@ pub(crate) fn get_workspace_head(
     }
 
     // TODO: Why does commit only accept a slice of commits? Feels like we
-    // could make use of AsRef with the right traits.
+    //       could make use of AsRef with the right traits.
     let head_refs: Vec<&git2::Commit<'_>> = heads.iter().collect();
 
     let workspace_head_id = repo.commit(

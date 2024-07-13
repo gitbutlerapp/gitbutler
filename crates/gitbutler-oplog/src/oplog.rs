@@ -43,7 +43,7 @@ const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
 /// │       └── tree (subtree)
 /// └── virtual_branches.toml
 /// ```
-pub trait Oplog {
+pub trait OplogExt {
     /// Prepares a snapshot of the current state of the working directory as well as GitButler data.
     /// Returns a tree hash of the snapshot. The snapshot is not discoverable until it is committed with [`commit_snapshot`](Self::commit_snapshot())
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
@@ -128,7 +128,7 @@ pub trait Oplog {
     fn oplog_head(&self) -> Result<Option<git2::Oid>>;
 }
 
-impl Oplog for Project {
+impl OplogExt for Project {
     fn prepare_snapshot(&self) -> Result<git2::Oid> {
         let worktree_dir = self.path.as_path();
         let repo = git2::Repository::open(worktree_dir)?;
