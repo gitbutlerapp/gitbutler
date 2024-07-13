@@ -24,14 +24,14 @@ jobs:
       - name: Add content
         run: |
           NEW_CONTENT=$(cat <<- END
-            <!-- NEW RELEASE -->
+            {/* NEW_RELEASE */}
 
             ${{ github.event.release.body }}
 
           END
 
           )
-          sed -i "s|<!-- NEW RELEASE -->|${NEW_CONTENT}|"
+          sed -i "s|{/* NEW_RELEASE */}|${NEW_CONTENT}|"
       - name: Push changes
         run: |
           cd docs
