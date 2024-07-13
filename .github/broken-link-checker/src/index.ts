@@ -203,11 +203,12 @@ async function brokenLinkChecker(): Promise<void> {
     sites: []
   }
 
+  // Options: https://www.npmjs.com/package/broken-link-checker#options
   const options = {
     excludeExternalLinks: false,
+    excludedKeywords: ["gitlab.com/-", "platform.openai.com"],
     honorRobotExclusions: false,
-    filterLevel: 0,
-    excludedKeywords: []
+    filterLevel: 0
   }
 
   const siteChecker = new blc.SiteChecker(options, {

@@ -3,6 +3,8 @@ import { DocsPage, DocsBody } from "fumadocs-ui/page"
 import { notFound } from "next/navigation"
 import { RollButton } from "fumadocs-ui/components/roll-button"
 import type { Metadata } from "next"
+import { join } from "path"
+import { getGithubLastEdit } from "fumadocs-core/server"
 
 export default async function Page({ params }: { params: { slug?: string[] } }) {
   const page = getPage(params.slug)
@@ -63,12 +65,24 @@ export default async function Page({ params }: { params: { slug?: string[] } }) 
     </>
   )
 
+  const time = await getGithubLastEdit({
+    owner: "gitbutlerapp",
+    repo: "gitbutler-docs",
+    path: join("content/docs/", page.file.path)
+  })
+
   const MDX = page.data.exports.default
+
+  // Remove all lower level headers from the TOC on releases page
+  if (page.file.name === "releases") {
+    page.data.exports.toc = page.data.exports.toc.filter((item) => item.depth <= 2)
+  }
 
   return (
     <DocsPage
       toc={page.data.exports.toc}
       full={page.data.full ?? false}
+      lastUpdate={time ?? undefined}
       tableOfContent={{
         footer
       }}
