@@ -34,9 +34,10 @@ jobs:
           sed -i "s|<!-- NEW RELEASE -->|${NEW_CONTENT}|"
       - name: Push changes
         run: |
+          cd docs
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git commit -am "feat: add release ${{ github.event.release.name }}"
+          git commit -am "feat: add release ${{ github.event.release.tag_name }}"
           git push
       - name: Trigger Vercel Deploy Hook
         env:
