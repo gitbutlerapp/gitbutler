@@ -23,7 +23,8 @@ jobs:
         run: cd docs && pnpm install
       - name: Add content
         run: |
-          NEW_CONTENT=$(cat <<- END
+          VERSION=$(echo ${{ github.event.release.tag_name }} | sed "s|^.*/||" )
+          NEW_RELEASE_BODY=$(cat <<- END
             {/* NEW_RELEASE */}
 
             ${{ github.event.release.body }}
@@ -31,7 +32,11 @@ jobs:
           END
 
           )
-          sed -i "s|{/* NEW_RELEASE */}|${NEW_CONTENT}|"
+
+          ESCAPED_DATA="$(echo "${NEW_RELEASE_BODY}" | sed ':a;N;$!ba;s/\n/\\n/g' | sed 's/\$/\\$/g' | sed 's|<|\\\\<|g')"
+          NEW_CONTENT="$(echo "${ESCAPED_DATA}" | sed "s|## What's Changed|## ${VERSION}|")"
+
+          sed -i "s|{/\* NEW_RELEASE \*/}|${NEW_CONTENT}|"
       - name: Push changes
         run: |
           cd docs
