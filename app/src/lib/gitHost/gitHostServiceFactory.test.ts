@@ -1,11 +1,11 @@
+import { DefaultGitHostServiceFactory } from './gitHostServiceFactory';
 import { GitHubService } from './github/githubService';
-import { DefaultHostedGitServiceFactory } from './hostedGitServiceFactory';
 import { Octokit } from '@octokit/rest';
 import { expect, test, describe } from 'vitest';
 
-describe.concurrent('DefaultHostedGitServiceFactory', () => {
+describe.concurrent('DefaultGitHostServiceFactory', () => {
 	test('Create GitHub service', async () => {
-		const monitorFactory = new DefaultHostedGitServiceFactory(new Octokit());
+		const monitorFactory = new DefaultGitHostServiceFactory(new Octokit());
 		expect(
 			monitorFactory.build({
 				provider: 'github.com',

@@ -3,7 +3,7 @@ import { observableToStore, storeToObservable } from '$lib/rxjs/store';
 import { buildContextStore } from '$lib/utils/context';
 import { Observable, combineLatest, of } from 'rxjs';
 import { catchError, shareReplay, startWith, switchMap } from 'rxjs/operators';
-import type { HostedGitListingService } from '$lib/gitHost/interface/hostedGitListingService';
+import type { GitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 import type { PullRequest } from '$lib/gitHost/interface/types';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { Branch, RemoteBranch } from '$lib/vbranches/types';
@@ -22,7 +22,7 @@ export class BranchService {
 	constructor(
 		vbranchService: VirtualBranchService,
 		remoteBranchService: RemoteBranchService,
-		hostedGitService: HostedGitListingService | undefined
+		gitHostService: GitHostListingService | undefined
 	) {
 		const vbranchesWithEmpty$ = vbranchService.branches$.pipe(
 			startWith([]),
@@ -32,7 +32,7 @@ export class BranchService {
 			startWith([]),
 			catchError(() => of(undefined))
 		);
-		const prWithEmpty$ = hostedGitService ? storeToObservable(hostedGitService.prs) : of([]);
+		const prWithEmpty$ = gitHostService ? storeToObservable(gitHostService.prs) : of([]);
 
 		this.branches$ = combineLatest([vbranchesWithEmpty$, branchesWithEmpty$, prWithEmpty$]).pipe(
 			switchMap(([vbranches, remoteBranches, pullRequests]) => {

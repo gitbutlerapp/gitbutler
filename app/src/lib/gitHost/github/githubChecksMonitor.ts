@@ -6,11 +6,11 @@ import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { writable } from 'svelte/store';
 import type { CheckSuites, ChecksStatus } from '$lib/gitHost/interface/types';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { HostedGitChecksMonitor } from '../interface/hostedGitChecksMonitor';
+import type { GitHostChecksMonitor } from '../interface/gitHostChecksMonitor';
 
 export const MIN_COMPLETED_AGE = 20000;
 
-export class GitHubChecksMonitor implements HostedGitChecksMonitor {
+export class GitHubChecksMonitor implements GitHostChecksMonitor {
 	private _status: ChecksStatus | undefined | null;
 	readonly status = writable<ChecksStatus | undefined | null>(undefined, () => {
 		this.start();

@@ -9,10 +9,10 @@
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$lib/components/ProjectSettingsMenuAction.svelte';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
+	import { DefaultGitHostServiceFactory } from '$lib/gitHost/gitHostServiceFactory';
 	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
-	import { DefaultHostedGitServiceFactory } from '$lib/gitHost/hostedGitServiceFactory';
-	import { createHostedGitListingServiceStore } from '$lib/gitHost/interface/hostedGitListingService';
-	import { createHostedGitServiceStore } from '$lib/gitHost/interface/hostedGitService';
+	import { createGitHostListingServiceStore } from '$lib/gitHost/interface/gitHostListingService';
+	import { createGitHostServiceStore } from '$lib/gitHost/interface/gitHostService';
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
 	import Navigation from '$lib/navigation/Navigation.svelte';
@@ -66,18 +66,18 @@
 	const showHistoryView = persisted(false, 'showHistoryView');
 
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
-	const hostedGitServiceFactory = $derived(new DefaultHostedGitServiceFactory(octokit));
+	const gitHostServiceFactory = $derived(new DefaultGitHostServiceFactory(octokit));
 	const repoInfo = $derived(remoteUrl ? parseRemoteUrl(remoteUrl) : undefined);
-	const githubRepoServiceStore = createHostedGitServiceStore(undefined);
+	const githubRepoServiceStore = createGitHostServiceStore(undefined);
 	const branchServiceStore = createBranchServiceStore(undefined);
-	const listServiceStore = createHostedGitListingServiceStore(undefined);
+	const listServiceStore = createGitHostListingServiceStore(undefined);
 
 	$effect.pre(() => {
 		if (repoInfo) {
-			const hostedGitService = hostedGitServiceFactory.build(repoInfo);
-			const ghListService = hostedGitService?.listService();
+			const gitHostService = gitHostServiceFactory.build(repoInfo);
+			const ghListService = gitHostService?.listService();
 			listServiceStore.set(ghListService);
-			githubRepoServiceStore.set(hostedGitService);
+			githubRepoServiceStore.set(gitHostService);
 
 			branchServiceStore.set(new BranchService(vbranchService, remoteBranchService, ghListService));
 		}

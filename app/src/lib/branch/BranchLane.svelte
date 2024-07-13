@@ -3,11 +3,11 @@
 	import { Project } from '$lib/backend/projects';
 	import { projectLaneCollapsed } from '$lib/config/config';
 	import FileCard from '$lib/file/FileCard.svelte';
-	import { createHostedGitChecksMonitorStore } from '$lib/gitHost/interface/hostedGitChecksMonitor';
-	import { getHostedGitListingServiceStore } from '$lib/gitHost/interface/hostedGitListingService';
-	import { createHostedGitPrMonitorStore } from '$lib/gitHost/interface/hostedGitPrMonitor';
-	import { createHostedGitPrServiceStore } from '$lib/gitHost/interface/hostedGitPrService';
-	import { getHostedGitServiceStore } from '$lib/gitHost/interface/hostedGitService';
+	import { createGitHostChecksMonitorStore } from '$lib/gitHost/interface/gitHostChecksMonitor';
+	import { getGitHostListingServiceStore } from '$lib/gitHost/interface/gitHostListingService';
+	import { createGitHostPrMonitorStore } from '$lib/gitHost/interface/gitHostPrMonitor';
+	import { createGitHostPrServiceStore } from '$lib/gitHost/interface/gitHostPrService';
+	import { getGitHostServiceStore } from '$lib/gitHost/interface/gitHostService';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
@@ -36,36 +36,36 @@
 
 	const baseBranch = getContextStore(BaseBranch);
 
-	const hostedGitService = getHostedGitServiceStore();
+	const gitHostService = getGitHostServiceStore();
 	const baseBranchName = $derived($baseBranch.shortName);
 	const upstreamName = $derived(branch.upstreamName);
 
 	// BRANCH SERVICE
-	const prService = createHostedGitPrServiceStore(undefined);
+	const prService = createGitHostPrServiceStore(undefined);
 	$effect(() =>
 		prService.set(
-			upstreamName ? $hostedGitService?.prService(baseBranchName, upstreamName) : undefined
+			upstreamName ? $gitHostService?.prService(baseBranchName, upstreamName) : undefined
 		)
 	);
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
-	const hostedListingServiceStore = getHostedGitListingServiceStore();
+	const hostedListingServiceStore = getGitHostListingServiceStore();
 	const prs = $derived($hostedListingServiceStore?.prs);
 
 	const listedPr = $derived($prs?.find((pr) => pr.sourceBranch === branch.upstreamName));
 	const sourceBranch = $derived(listedPr?.sourceBranch);
 	const prNumber = $derived(listedPr?.number);
 
-	const hostedGitPrMonitorStore = createHostedGitPrMonitorStore(undefined);
+	const gitHostPrMonitorStore = createGitHostPrMonitorStore(undefined);
 	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
-	$effect(() => hostedGitPrMonitorStore.set(prMonitor));
+	$effect(() => gitHostPrMonitorStore.set(prMonitor));
 
-	const hostedGitChecksMonitorStore = createHostedGitChecksMonitorStore(undefined);
+	const gitHostChecksMonitorStore = createGitHostChecksMonitorStore(undefined);
 	const checksMonitor = $derived(
-		sourceBranch ? $hostedGitService?.checksMonitor(sourceBranch) : undefined
+		sourceBranch ? $gitHostService?.checksMonitor(sourceBranch) : undefined
 	);
-	$effect(() => hostedGitChecksMonitorStore.set(checksMonitor));
+	$effect(() => gitHostChecksMonitorStore.set(checksMonitor));
 
 	// BRANCH
 	const branchStore = createContextStore(Branch, branch);
