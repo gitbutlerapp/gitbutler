@@ -160,7 +160,15 @@ const generateOutputMd = (output: Output): string => {
 
     // @ts-expect-error
     links.forEach((link: TODO) => {
-      outputMd += `| [${new URL(link.url.resolved).pathname}](${
+      const siteUrl = process.env.VERCEL_PREVIEW_URL || "https://docs.gitbutler.com"
+
+      // Show paths for internal links only and include hostnames for external links
+      const targetLinkText =
+        new URL(link.url.resolved).hostname === new URL(siteUrl).hostname
+          ? new URL(link.url.resolved).pathname
+          : link.url.resolved
+
+      outputMd += `| [${targetLinkText}](${
         link.url.resolved
       }) | "${link.html?.text?.trim().replaceAll("\n", "")}" | ${link.brokenReason} |
 `
