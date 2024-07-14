@@ -1,15 +1,17 @@
 <script lang="ts">
-	import { GitHubService } from '$lib/github/service';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import Button from '$lib/shared/Button.svelte';
 	import TimeAgo from '$lib/shared/TimeAgo.svelte';
 	import { getContext } from '$lib/utils/context';
-	import { BaseBranchService } from '$lib/vbranches/baseBranch';
+	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 
-	const githubService = getContext(GitHubService);
+	const gitHostListing = getGitHostListingService();
 	const baseBranchService = getContext(BaseBranchService);
+	const vbranchService = getContext(VirtualBranchService);
 	const baseBranch = baseBranchService.base;
 
-	$: baseServiceBusy$ = baseBranchService.busy$;
+	$: baseServiceBusy$ = baseBranchService.loading;
 </script>
 
 <Button
@@ -25,9 +27,8 @@
 		e.preventDefault();
 		e.stopPropagation();
 		await baseBranchService.fetchFromRemotes('modal');
-		if (githubService.isEnabled) {
-			await githubService.reload();
-		}
+		vbranchService.refresh();
+		$gitHostListing?.refresh();
 	}}
 >
 	{#if $baseServiceBusy$}

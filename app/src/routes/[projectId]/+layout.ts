@@ -1,17 +1,16 @@
 import { invoke } from '$lib/backend/ipc';
+import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
-import { BranchService } from '$lib/branches/service';
 import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
 import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
+import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
+import { HeadService } from '$lib/head/headService';
 import { HistoryService } from '$lib/history/history';
-import { getFetchNotifications } from '$lib/stores/fetches';
-import { getHeads } from '$lib/stores/head';
+import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
-import { BaseBranchService } from '$lib/vbranches/baseBranch';
 import { BranchController } from '$lib/vbranches/branchController';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 import { error } from '@sveltejs/kit';
-import { map } from 'rxjs';
 import type { Project } from '$lib/backend/projects';
 
 export const prerender = false;
@@ -20,10 +19,7 @@ export async function load({ params, parent }) {
 	// prettier-ignore
 	const {
         authService,
-        githubService,
         projectService,
-		projectMetrics,
-        remoteUrl$,
     } = await parent();
 
 	const projectId = params.projectId;
@@ -42,34 +38,23 @@ export async function load({ params, parent }) {
 		});
 	}
 
-	const fetches$ = getFetchNotifications(projectId);
-	const heads$ = getHeads(projectId);
-	const gbBranchActive$ = heads$.pipe(map((head) => head === 'gitbutler/integration'));
+	const projectMetrics = new ProjectMetrics(projectId);
+
+	const headService = new HeadService(projectId);
+	const fetchSignal = new FetchSignal(projectId);
 
 	const historyService = new HistoryService(projectId);
-	const baseBranchService = new BaseBranchService(projectId, remoteUrl$, fetches$, heads$);
-	const vbranchService = new VirtualBranchService(projectId, projectMetrics, gbBranchActive$);
+	const baseBranchService = new BaseBranchService(projectId);
+	const remoteBranchService = new RemoteBranchService(projectId, projectMetrics);
 
-	const remoteBranchService = new RemoteBranchService(
-		projectId,
-		projectMetrics,
-		fetches$,
-		heads$,
-		baseBranchService.base$
-	);
+	const vbranchService = new VirtualBranchService(projectId, projectMetrics, remoteBranchService);
+
 	const branchController = new BranchController(
 		projectId,
 		vbranchService,
 		remoteBranchService,
 		baseBranchService
 	);
-	const branchService = new BranchService(
-		vbranchService,
-		remoteBranchService,
-		githubService,
-		branchController
-	);
-	projectMetrics.setProjectId(projectId);
 
 	const branchDragActionsFactory = new BranchDragActionsFactory(branchController);
 	const commitDragActionsFactory = new CommitDragActionsFactory(branchController, project);
@@ -79,16 +64,16 @@ export async function load({ params, parent }) {
 		authService,
 		baseBranchService,
 		branchController,
-		branchService,
-		githubService,
 		historyService,
 		projectId,
 		project,
 		remoteBranchService,
 		vbranchService,
+		projectMetrics,
+		headService,
+		fetchSignal,
 
 		// These observables are provided for convenience
-		gbBranchActive$,
 		branchDragActionsFactory,
 		commitDragActionsFactory,
 		reorderDropzoneManagerFactory

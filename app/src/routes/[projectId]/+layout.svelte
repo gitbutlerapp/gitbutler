@@ -1,72 +1,122 @@
 <script lang="ts">
 	import { listen } from '$lib/backend/ipc';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
-	import { BranchService } from '$lib/branches/service';
+	import { BranchService, createBranchServiceStore } from '$lib/branches/service';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$lib/components/ProjectSettingsMenuAction.svelte';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
+	import { DefaultGitHostFactory } from '$lib/gitHost/gitHostFactory';
+	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
+	import { createGitHostListingServiceStore } from '$lib/gitHost/interface/gitHostListingService';
+	import { createGitHostStore } from '$lib/gitHost/interface/gitHostService';
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
+	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { persisted } from '$lib/persisted/persisted';
+	import { RemoteBranchService } from '$lib/stores/remoteBranches';
+	import { parseRemoteUrl } from '$lib/url/gitUrl';
+	import { debounce } from '$lib/utils/debounce';
 	import * as events from '$lib/utils/events';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
-	import { BaseBranchService, NoDefaultTarget } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranch } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import { onDestroy, onMount, setContext } from 'svelte';
+	import { onDestroy, onMount, setContext, type Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
-	export let data: LayoutData;
+	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
-	$: ({
+	const {
 		vbranchService,
 		project,
 		projectId,
 		projectService,
+		projectMetrics,
 		baseBranchService,
-		gbBranchActive$,
-		branchService,
-		branchController,
-		branchDragActionsFactory,
-		commitDragActionsFactory,
-		reorderDropzoneManagerFactory
-	} = data);
+		remoteBranchService,
+		headService,
+		userService,
+		fetchSignal
+	} = $derived(data);
 
-	$: branchesError = vbranchService.branchesError;
-	$: baseBranch = baseBranchService.base;
-	$: baseError = baseBranchService.error;
-	$: projectError = projectService.error;
+	const branchesError = $derived(vbranchService.branchesError);
+	const baseBranch = $derived(baseBranchService.base);
+	const remoteUrl = $derived($baseBranch?.remoteUrl);
+	const user = $derived(userService.user);
+	const accessToken = $derived($user?.github_access_token);
+	const baseError = $derived(baseBranchService.error);
+	const projectError = $derived(projectService.error);
 
-	$: setContext(HistoryService, data.historyService);
-	$: setContext(VirtualBranchService, vbranchService);
-	$: setContext(BranchController, branchController);
-	$: setContext(BranchService, branchService);
-	$: setContext(BaseBranchService, baseBranchService);
-	$: setContext(BaseBranch, baseBranch);
-	$: setContext(Project, project);
-	$: setContext(BranchDragActionsFactory, branchDragActionsFactory);
-	$: setContext(CommitDragActionsFactory, commitDragActionsFactory);
-	$: setContext(ReorderDropzoneManagerFactory, reorderDropzoneManagerFactory);
-
-	const showHistoryView = persisted(false, 'showHistoryView');
+	$effect.pre(() => {
+		setContext(HistoryService, data.historyService);
+		setContext(VirtualBranchService, data.vbranchService);
+		setContext(BranchController, data.branchController);
+		setContext(BaseBranchService, data.baseBranchService);
+		setContext(BaseBranch, baseBranch);
+		setContext(Project, project);
+		setContext(BranchDragActionsFactory, data.branchDragActionsFactory);
+		setContext(CommitDragActionsFactory, data.commitDragActionsFactory);
+		setContext(ReorderDropzoneManagerFactory, data.reorderDropzoneManagerFactory);
+		setContext(RemoteBranchService, data.remoteBranchService);
+	});
 
 	let intervalId: any;
 
+	const showHistoryView = persisted(false, 'showHistoryView');
+
+	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
+	const gitHostFactory = $derived(octokit ? new DefaultGitHostFactory(octokit) : undefined);
+	const repoInfo = $derived(remoteUrl ? parseRemoteUrl(remoteUrl) : undefined);
+
+	const listServiceStore = createGitHostListingServiceStore(undefined);
+	const githubRepoServiceStore = createGitHostStore(undefined);
+	const branchServiceStore = createBranchServiceStore(undefined);
+
+	// Refresh base branch if git fetch event is detected.
+	const head = $derived(headService.head);
+	const gbBranchActive = $derived($head === 'gitbutler/integration');
+
+	// We end up with a `state_unsafe_mutation` when switching projects if we
+	// don't use $effect.pre here.
+	// TODO: can we eliminate the need to debounce?
+	const fetch = $derived(fetchSignal.event);
+	$effect.pre(() => {
+		if ($fetch || $head) debounce(() => baseBranchService.refresh(), 500);
+	});
+
+	// TODO: can we eliminate the need to debounce?
+	$effect.pre(() => {
+		if ($baseBranch || $head || $fetch) debounce(() => remoteBranchService.refresh(), 500);
+	});
+
+	$effect.pre(() => {
+		const gitHostService = repoInfo ? gitHostFactory?.build(repoInfo) : undefined;
+		const ghListService = gitHostService?.listService();
+
+		listServiceStore.set(ghListService);
+		githubRepoServiceStore.set(gitHostService);
+		branchServiceStore.set(new BranchService(vbranchService, remoteBranchService, ghListService));
+	});
+
 	// Once on load and every time the project id changes
-	$: if (projectId) setupFetchInterval();
+	$effect(() => {
+		if (projectId) setupFetchInterval();
+	});
 
 	function setupFetchInterval() {
 		baseBranchService.fetchFromRemotes();
 		clearFetchInterval();
 		const intervalMs = 15 * 60 * 1000; // 15 minutes
-		intervalId = setInterval(async () => await baseBranchService.fetchFromRemotes(), intervalMs);
+		intervalId = setInterval(async () => {
+			await baseBranchService.fetchFromRemotes();
+		}, intervalMs);
 	}
 
 	function clearFetchInterval() {
@@ -117,17 +167,18 @@
 		<ProblemLoadingRepo error={$branchesError} />
 	{:else if $projectError}
 		<ProblemLoadingRepo error={$projectError} />
-	{:else if !$gbBranchActive$ && $baseBranch}
+	{:else if !gbBranchActive && $baseBranch}
 		<NotOnGitButlerBranch baseBranch={$baseBranch} />
 	{:else if $baseBranch}
-		<div class="view-wrap" role="group" on:dragover|preventDefault>
+		<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
 			<Navigation />
 			{#if $showHistoryView}
 				<History on:hide={() => ($showHistoryView = false)} />
 			{/if}
-			<slot />
+			{@render children()}
 		</div>
 	{/if}
+	<MetricsReporter {projectMetrics} />
 {/key}
 
 <style>

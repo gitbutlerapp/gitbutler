@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BaseBranch, Branch } from '$lib/vbranches/types';
+	import { Branch } from '$lib/vbranches/types';
 	import { invoke } from '@tauri-apps/api/tauri';
 
 	export let isUnapplied = false;

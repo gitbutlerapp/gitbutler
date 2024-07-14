@@ -1,97 +1,35 @@
-import { capture } from '$lib/analytics/posthog';
 import { CombinedBranch } from '$lib/branches/types';
-import { Observable, combineLatest, of } from 'rxjs';
-import { catchError, shareReplay, startWith, switchMap } from 'rxjs/operators';
-import type { GitHubService } from '$lib/github/service';
-import type { PullRequest } from '$lib/github/types';
+import { buildContextStore } from '$lib/utils/context';
+import { derived, readable, writable, type Readable } from 'svelte/store';
+import type { GitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+import type { PullRequest } from '$lib/gitHost/interface/types';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
-import type { BranchController } from '$lib/vbranches/branchController';
 import type { Branch, RemoteBranch } from '$lib/vbranches/types';
 import type { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 
+export const [getBranchServiceStore, createBranchServiceStore] = buildContextStore<
+	BranchService | undefined
+>('branchService');
+
 export class BranchService {
-	readonly branches$: Observable<CombinedBranch[]>;
+	readonly branches: Readable<CombinedBranch[]>;
+	readonly error = writable();
 
 	constructor(
-		private vbranchService: VirtualBranchService,
+		vbranchService: VirtualBranchService,
 		remoteBranchService: RemoteBranchService,
-		private githubService: GitHubService,
-		private branchController: BranchController
+		gitPrService: GitHostListingService | undefined
 	) {
-		const vbranchesWithEmpty$ = vbranchService.branches$.pipe(
-			startWith([]),
-			catchError(() => of(undefined))
+		const vbranches = vbranchService.branches;
+		const branches = remoteBranchService.branches;
+		const prs = gitPrService ? gitPrService.prs : readable([]);
+
+		this.branches = derived(
+			[vbranches, branches, prs],
+			([vbranches, remoteBranches, pullRequests]) => {
+				return mergeBranchesAndPrs(vbranches, pullRequests, remoteBranches || []);
+			}
 		);
-		const branchesWithEmpty$ = remoteBranchService.branches$.pipe(
-			startWith([]),
-			catchError(() => of(undefined))
-		);
-		const prWithEmpty$ = githubService.prs$.pipe(catchError(() => of(undefined)));
-
-		this.branches$ = combineLatest([vbranchesWithEmpty$, branchesWithEmpty$, prWithEmpty$]).pipe(
-			switchMap(([vbranches, remoteBranches, pullRequests]) => {
-				return new Observable<CombinedBranch[]>((observer) => {
-					const contributions = mergeBranchesAndPrs(vbranches, pullRequests, remoteBranches || []);
-					observer.next(contributions);
-					observer.complete();
-				});
-			}),
-			shareReplay(1)
-		);
-	}
-
-	async createPr(
-		branch: Branch,
-		baseBranch: string,
-		draft: boolean
-	): Promise<PullRequest | undefined> {
-		// Using this mutable variable while investigating why branch variable
-		// does not seem to update reliably.
-		// TODO: This needs to be fixed and removed.
-		let newBranch: Branch | undefined;
-
-		// Push if local commits
-		if (branch.commits.some((c) => !c.isRemote)) {
-			newBranch = await this.branchController.pushBranch(branch.id, branch.requiresForce);
-		} else {
-			newBranch = branch;
-		}
-
-		if (!newBranch) {
-			const err = 'branch push failed';
-			capture(err, { upstream: branch.upstreamName });
-			throw err;
-		}
-
-		if (!newBranch.upstreamName) {
-			throw 'Cannot create PR without remote branch name';
-		}
-
-		let title = newBranch.name;
-		let body = newBranch.notes;
-
-		// In case of a single commit, use the commit summary and description for the title and
-		// description of the PR
-		if (newBranch.commits.length === 1) {
-			const commit = newBranch.commits[0];
-			if (commit.descriptionTitle) title = commit.descriptionTitle;
-			if (commit.descriptionBody) body = commit.descriptionBody;
-		}
-
-		const resp = await this.githubService.createPullRequest(
-			baseBranch,
-			title,
-			body,
-			newBranch.id,
-			newBranch.upstreamName,
-			draft
-		);
-		if ('pr' in resp) return resp.pr;
-		else throw resp.err;
-	}
-
-	async reloadVirtualBranches() {
-		await this.vbranchService.reload();
 	}
 }
 
@@ -106,7 +44,7 @@ function mergeBranchesAndPrs(
 	if (vbranches) {
 		contributions.push(
 			...vbranches.map((vb) => {
-				const pr = pullRequests?.find((pr) => pr.sha === vb.head);
+				const pr = pullRequests?.find((pr) => pr.sourceBranch === vb.upstreamName);
 				return new CombinedBranch({ vbranch: vb, remoteBranch: vb.upstream, pr });
 			})
 		);

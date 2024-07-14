@@ -3,13 +3,10 @@ import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
 import { API_URL, type HttpClient } from '$lib/backend/httpClient';
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
-import { observableToStore } from '$lib/rxjs/store';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
 import { plainToInstance } from 'class-transformer';
-import { Observable, Subject, distinct, map, merge, shareReplay } from 'rxjs';
-import { writable } from 'svelte/store';
-import type { Readable } from 'svelte/motion';
+import { derived, writable } from 'svelte/store';
 
 export type LoginToken = {
 	token: string;
@@ -18,39 +15,34 @@ export type LoginToken = {
 };
 
 export class UserService {
-	private reset$ = new Subject<User | undefined>();
 	readonly loading = writable(false);
 
-	private user$ = merge(
-		new Observable<User | undefined>((subscriber) => {
-			invoke<User | undefined>('get_user').then((userData) => {
-				if (userData) {
-					const user = plainToInstance(User, userData);
-					subscriber.next(user);
-					setPostHogUser(user);
-					setSentryUser(user);
-				}
-			});
-		}),
-		this.reset$
-	).pipe(shareReplay(1));
+	readonly user = writable<User | undefined>(undefined, () => {
+		this.refresh();
+	});
+	readonly error = writable();
 
-	readonly accessToken$ = this.user$.pipe(
-		map((user) => user?.github_access_token),
-		distinct()
-	);
-
-	readonly user: Readable<User | undefined>;
-	readonly error: Readable<string | undefined>;
-
-	constructor(private httpClient: HttpClient) {
-		[this.user, this.error] = observableToStore(this.user$);
+	async refresh() {
+		const userData = await invoke<User | undefined>('get_user');
+		if (userData) {
+			const user = plainToInstance(User, userData);
+			this.user.set(user);
+			setPostHogUser(user);
+			setSentryUser(user);
+			return user;
+		}
+		this.user.set(undefined);
 	}
+	readonly accessToken$ = derived(this.user, (user) => {
+		user?.github_access_token;
+	});
+
+	constructor(private httpClient: HttpClient) {}
 
 	async setUser(user: User | undefined) {
 		if (user) await invoke('set_user', { user });
 		else await this.clearUser();
-		this.reset$.next(user);
+		this.user.set(user);
 	}
 
 	async clearUser() {
@@ -59,7 +51,7 @@ export class UserService {
 
 	async logout() {
 		await this.clearUser();
-		this.reset$.next(undefined);
+		this.user.set(undefined);
 		resetPostHog();
 		resetSentry();
 	}
