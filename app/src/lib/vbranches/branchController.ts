@@ -207,7 +207,7 @@ export class BranchController {
 		}
 	}
 
-	async pushBranch(branchId: string, withForce: boolean): Promise<Branch> {
+	async pushBranch(branchId: string, withForce: boolean): Promise<void> {
 		try {
 			await invoke<void>('push_virtual_branch', {
 				projectId: this.projectId,
@@ -245,9 +245,6 @@ export class BranchController {
 			}
 			throw err;
 		}
-		const branch = await this.vbranchService.getById(branchId);
-		if (!branch) throw new Error('Pushed branch no longer available');
-		return branch;
 	}
 
 	async deleteBranch(branchId: string) {
