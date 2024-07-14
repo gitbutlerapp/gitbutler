@@ -191,7 +191,7 @@ fn main() {
                     config::get_gb_config,
                     config::set_gb_config,
                     menu::menu_item_set_enabled,
-                    menu::resolve_vscode_variant,
+                    menu::get_editor_link_scheme,
                     github::commands::init_device_oauth,
                     github::commands::check_auth_status,
                     askpass::commands::submit_prompt_response,

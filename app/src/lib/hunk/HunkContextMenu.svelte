@@ -2,8 +2,8 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import { editor } from '$lib/editorLink/editorLink';
 	import { getContext } from '$lib/utils/context';
-	import { editor } from '$lib/utils/systemEditor';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { open as openFile } from '@tauri-apps/api/shell';
 
@@ -42,7 +42,7 @@
 					label="Open in VS Code"
 					on:mousedown={() => {
 						projectPath &&
-							openFile(`${editor.get()}://file${projectPath}/${filePath}:${item.lineNumber}`);
+							openFile(`${$editor}://file${projectPath}/${filePath}:${item.lineNumber}`);
 						contextMenu.close();
 					}}
 				/>
