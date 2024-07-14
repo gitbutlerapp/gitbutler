@@ -1,3 +1,7 @@
-export function normalizeBranchName(value: string) {
-	return value.replace(/[^A-Za-z0-9_/.#]+/g, '-');
+export function normalizeBranchName(str: string) {
+	let result = str.replace(/\s+/g, '-');
+
+	result = result.replace(/^[-/]+|[-/]+$/g, '');
+
+	return result;
 }

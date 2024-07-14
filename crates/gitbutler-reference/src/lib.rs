@@ -3,9 +3,16 @@ use gitbutler_tagged_string::TaggedString;
 pub use refname::{LocalRefname, Refname, RemoteRefname, VirtualRefname};
 use regex::Regex;
 
+// ref function normalizeBranchName in branch.ts
 pub fn normalize_branch_name(name: &str) -> String {
-    let pattern = Regex::new("[^A-Za-z0-9_/.#]+").unwrap();
-    pattern.replace_all(name, "-").to_string()
+    let pattern = Regex::new(r"\s+").unwrap();
+    let mut result = pattern.replace_all(name, "-").to_string();
+
+    // Remove leading and trailing hyphens and slashes
+    let trim_pattern = Regex::new(r"^[-/]+|[-/]+$").unwrap();
+    result = trim_pattern.replace_all(&result, "").to_string();
+
+    result
 }
 
 pub struct _ReferenceName;
