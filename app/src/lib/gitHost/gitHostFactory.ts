@@ -19,6 +19,5 @@ export class DefaultGitHostFactory implements GitHostFactory {
 				if (!this.octokit) throw new Error('Octokit not available');
 				return new GitHub(this.octokit, repo, new ProjectMetrics());
 		}
-		throw new Error('');
 	}
 }
