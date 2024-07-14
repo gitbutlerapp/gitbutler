@@ -11,8 +11,7 @@ export class ProjectMetrics {
 		this.metrics[key] = value;
 	}
 
-	getMetrics(): ProjectMetricsReport | undefined {
-		if (!this.projectId) return;
+	getMetrics(): ProjectMetricsReport {
 		return this.metrics;
 	}
 }

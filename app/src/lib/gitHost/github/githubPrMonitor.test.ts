@@ -1,5 +1,4 @@
 import { GitHub } from './github';
-import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
 import type { GitHostPrMonitor } from '../interface/gitHostPrMonitor';
@@ -22,7 +21,7 @@ describe.concurrent('GitHubPrMonitor', () => {
 
 	beforeEach(() => {
 		octokit = new Octokit();
-		gh = new GitHub(new ProjectMetrics(), octokit, {
+		gh = new GitHub(octokit, {
 			provider: 'github.com',
 			name: 'test-repo',
 			owner: 'test-owner'
