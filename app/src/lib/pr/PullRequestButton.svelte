@@ -1,50 +1,44 @@
+<script lang="ts" context="module">
+	export enum Action {
+		Create = 'createPr',
+		CreateDraft = 'createDraftPr'
+	}
+
+	const actions = Object.values(Action);
+	const labels = {
+		[Action.Create]: 'Create PR',
+		[Action.CreateDraft]: 'Create Draft PR'
+	};
+</script>
+
 <script lang="ts">
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
-	import { persisted, type Persisted } from '$lib/persisted/persisted';
+	import { persisted } from '$lib/persisted/persisted';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
-	import { createEventDispatcher } from 'svelte';
 
-	const Action = {
-		Create: 'create',
-		Draft: 'draft'
-	} as const;
+	type Props = { loading: boolean; disabled: boolean; click: (opts: { draft: boolean }) => void };
+	const { loading, disabled, click }: Props = $props();
 
-	type Action = (typeof Action)[keyof typeof Action];
-
-	const dispatch = createEventDispatcher<{ exec: { action: Action } }>();
-	const action = defaultAction();
-
-	export let loading = false;
+	const preferredAction = persisted<Action>(Action.Create, 'projectDefaultPrAction');
 	let dropDown: DropDownButton;
-
-	const labels = {
-		[Action.Create]: 'Create PR',
-		[Action.Draft]: 'Create Draft PR'
-	};
-
-	function defaultAction(): Persisted<Action> {
-		const key = 'projectDefaultPrAction';
-		return persisted<Action>(Action.Create, key);
-	}
 </script>
 
 <DropDownButton
 	style="ghost"
 	outline
+	{disabled}
 	{loading}
 	bind:this={dropDown}
-	on:click={() => {
-		dispatch('exec', { action: $action });
-	}}
+	on:click={() => click({ draft: $preferredAction === Action.CreateDraft })}
 >
-	{labels[$action]}
+	{labels[$preferredAction]}
 	<ContextMenuSection slot="context-menu">
-		{#each Object.values(Action) as method}
+		{#each actions as method}
 			<ContextMenuItem
 				label={labels[method]}
 				on:click={() => {
-					$action = method;
+					preferredAction.set(method);
 					dropDown.close();
 				}}
 			/>
