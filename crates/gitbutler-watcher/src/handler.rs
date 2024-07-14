@@ -7,7 +7,7 @@ use gitbutler_command_context::ProjectRepository;
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
-    oplog::OplogExt,
+    OplogExt,
 };
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;

@@ -2176,6 +2176,7 @@ name = "gitbutler-project"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "fslock",
  "git2",
  "gitbutler-error",
  "gitbutler-id",
@@ -2183,6 +2184,7 @@ dependencies = [
  "gitbutler-storage",
  "gitbutler-testsupport",
  "gix",
+ "parking_lot 0.12.3",
  "resolve-path",
  "serde",
  "serde_json",

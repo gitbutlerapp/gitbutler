@@ -1,7 +1,9 @@
 pub mod entry;
-pub mod oplog;
+mod oplog;
+pub use oplog::OplogExt;
 mod reflog;
-pub mod snapshot;
+mod snapshot;
+pub use snapshot::SnapshotExt;
 mod state;
 
 /// The name of the file holding our state, useful for watching for changes.

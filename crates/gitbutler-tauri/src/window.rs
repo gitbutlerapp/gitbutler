@@ -2,7 +2,7 @@ pub(super) mod state {
     use std::collections::BTreeMap;
     use std::sync::Arc;
 
-    use anyhow::{bail, Context, Result};
+    use anyhow::{Context, Result};
     use futures::executor::block_on;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
@@ -65,9 +65,6 @@ pub(super) mod state {
         }
     }
     use event::ChangeForFrontend;
-
-    /// The name of the lock file to signal exclusive access to other windows.
-    const WINDOW_LOCK_FILE: &str = "window.lock";
 
     struct State {
         /// The id of the project displayed by the window.
@@ -141,18 +138,7 @@ pub(super) mod state {
                     return Ok(());
                 }
             }
-            let mut lock_file =
-                fslock::LockFile::open(project.gb_dir().join(WINDOW_LOCK_FILE).as_os_str())?;
-            let got_lock = lock_file
-                .try_lock()
-                .context("Failed to check if lock is taken")?;
-            if !got_lock {
-                bail!(
-                    "Project '{}' is already opened in another window",
-                    project.title
-                );
-            }
-
+            let exclusive_access = project.try_exclusive_access()?;
             let handler = handler_from_app(&self.app_handle)?;
             let worktree_dir = project.path.clone();
             let project_id = project.id;
@@ -163,7 +149,7 @@ pub(super) mod state {
                 State {
                     project_id,
                     watcher,
-                    exclusive_access: lock_file,
+                    exclusive_access,
                 },
             );
             tracing::debug!("Maintaining {} Windows", state_by_label.len());

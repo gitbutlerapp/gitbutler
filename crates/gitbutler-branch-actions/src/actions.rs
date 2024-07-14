@@ -5,8 +5,7 @@ use gitbutler_branch::{
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
-    oplog::OplogExt,
-    snapshot::SnapshotExt,
+    OplogExt, SnapshotExt,
 };
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::ReferenceName;

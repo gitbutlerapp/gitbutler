@@ -1,5 +1,5 @@
 use anyhow::Result;
-use gitbutler_oplog::oplog::OplogExt;
+use gitbutler_oplog::OplogExt;
 
 use clap::{arg, Command};
 use gitbutler_project::Project;
@@ -63,6 +63,7 @@ fn list_snapshots(repo_dir: &str) -> Result<()> {
 
 fn restore_snapshot(repo_dir: &str, snapshot_id: &str) -> Result<()> {
     let project = project_from_path(repo_dir);
+    let _guard = project.try_exclusive_access()?;
     project.restore_snapshot(snapshot_id.parse()?)?;
     Ok(())
 }

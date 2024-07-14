@@ -11,7 +11,7 @@ use gitbutler_branch::{
 };
 use gitbutler_commit::commit_headers::HasCommitHeaders;
 use gitbutler_error::error::Marker;
-use gitbutler_oplog::snapshot::SnapshotExt;
+use gitbutler_oplog::SnapshotExt;
 use gitbutler_reference::Refname;
 use gitbutler_repo::{rebase::cherry_rebase, RepoActionsExt, RepositoryExt};
 use gitbutler_time::time::now_since_unix_epoch_ms;
