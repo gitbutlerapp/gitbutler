@@ -3,7 +3,6 @@ use gitbutler_tagged_string::TaggedString;
 pub use refname::{LocalRefname, Refname, RemoteRefname, VirtualRefname};
 use regex::Regex;
 
-// ref function normalizeBranchName in branch.ts
 pub fn normalize_branch_name(name: &str) -> String {
     // Remove specific symbols
     let exclude_pattern = Regex::new(r"[|\+^~<>\\*]").unwrap();
