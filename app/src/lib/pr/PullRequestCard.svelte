@@ -8,7 +8,6 @@
 	import { getGitHostPrServiceStore } from '$lib/gitHost/interface/gitHostPrService';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
-	import { sleep } from '$lib/utils/sleep';
 	import { createTimeAgoStore } from '$lib/utils/timeAgo';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -260,7 +259,7 @@
 						const method = e.detail.method;
 						try {
 							await $prService?.merge(method, $pr.number);
-							await sleep(250);
+							await baseBranchService.fetchFromRemotes();
 							await Promise.all([
 								$prMonitor?.refresh(),
 								$listingService?.reload(),
