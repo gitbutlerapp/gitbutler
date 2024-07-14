@@ -5,7 +5,6 @@ import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
 import { writable } from 'svelte/store';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { GitHostPrMonitor } from '../interface/gitHostPrMonitor';
 import type { GitHostPrService } from '../interface/gitHostPrService';
 import type { DetailedPullRequest, MergeMethod, PullRequest } from '../interface/types';
 import type { Octokit } from '@octokit/rest';
@@ -75,7 +74,7 @@ export class GitHubPrService implements GitHostPrService {
 		});
 	}
 
-	prMonitor(prNumber: number): GitHostPrMonitor {
+	prMonitor(prNumber: number): GitHubPrMonitor {
 		return new GitHubPrMonitor(this, prNumber);
 	}
 }

@@ -2,14 +2,14 @@
 	import { Project } from '$lib/backend/projects';
 	import Board from '$lib/components/Board.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
-	import { getGitHostServiceStore } from '$lib/gitHost/interface/gitHostService';
+	import { getGitHost } from '$lib/gitHost/interface/gitHostService';
 	import { showToast } from '$lib/notifications/toasts';
 	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 
 	const project = getContext(Project);
-	const githubService = getGitHostServiceStore();
+	const gitHost = getGitHost();
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
@@ -21,7 +21,7 @@
 	function shouldShowHttpsWarning() {
 		if (httpsWarningBannerDismissed) return false;
 		if (!$baseBranch?.remoteUrl.startsWith('https')) return false;
-		if ($baseBranch?.remoteUrl.includes('github.com') && !!$githubService) return false;
+		if ($baseBranch?.remoteUrl.includes('github.com') && !!$gitHost) return false;
 		return true;
 	}
 

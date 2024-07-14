@@ -3,6 +3,7 @@ import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
 import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 import { HistoryService } from '$lib/history/history';
+import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { getFetchNotifications } from '$lib/stores/fetches';
 import { getHeads } from '$lib/stores/head';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
@@ -20,8 +21,6 @@ export async function load({ params, parent }) {
 	const {
         authService,
         projectService,
-		projectMetrics,
-        remoteUrl$,
     } = await parent();
 
 	const projectId = params.projectId;
@@ -40,12 +39,14 @@ export async function load({ params, parent }) {
 		});
 	}
 
+	const projectMetrics = new ProjectMetrics(projectId);
+
 	const fetches$ = getFetchNotifications(projectId);
 	const heads$ = getHeads(projectId);
 	const gbBranchActive$ = heads$.pipe(map((head) => head === 'gitbutler/integration'));
 
 	const historyService = new HistoryService(projectId);
-	const baseBranchService = new BaseBranchService(projectId, remoteUrl$, fetches$, heads$);
+	const baseBranchService = new BaseBranchService(projectId, fetches$, heads$);
 	const vbranchService = new VirtualBranchService(projectId, projectMetrics, gbBranchActive$);
 
 	const remoteBranchService = new RemoteBranchService(
@@ -61,7 +62,6 @@ export async function load({ params, parent }) {
 		remoteBranchService,
 		baseBranchService
 	);
-	projectMetrics.setProjectId(projectId);
 
 	const branchDragActionsFactory = new BranchDragActionsFactory(branchController);
 	const commitDragActionsFactory = new CommitDragActionsFactory(branchController, project);
@@ -76,6 +76,7 @@ export async function load({ params, parent }) {
 		project,
 		remoteBranchService,
 		vbranchService,
+		projectMetrics,
 
 		// These observables are provided for convenience
 		gbBranchActive$,

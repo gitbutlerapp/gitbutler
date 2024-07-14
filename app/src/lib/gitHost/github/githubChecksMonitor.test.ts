@@ -1,5 +1,5 @@
+import { GitHub } from './github';
 import { MIN_COMPLETED_AGE } from './githubChecksMonitor';
-import { GitHubService } from './githubService';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { get } from 'svelte/store';
@@ -16,7 +16,7 @@ type CheckSuites =
 // TODO: Rewrite this proof-of-concept into something valuable.
 describe.concurrent('GitHubChecksMonitor', () => {
 	let octokit: Octokit;
-	let gh: GitHubService;
+	let gh: GitHub;
 	let monitor: GitHostChecksMonitor;
 
 	beforeEach(() => {
@@ -29,7 +29,7 @@ describe.concurrent('GitHubChecksMonitor', () => {
 
 	beforeEach(() => {
 		octokit = new Octokit();
-		gh = new GitHubService(new ProjectMetrics(), octokit, {
+		gh = new GitHub(new ProjectMetrics(), octokit, {
 			provider: 'github.com',
 			name: 'test-repo',
 			owner: 'test-owner'

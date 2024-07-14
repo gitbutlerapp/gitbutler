@@ -18,8 +18,6 @@
 		GitHubUserService
 	} from '$lib/gitHost/github/githubUserService';
 	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
-	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
-	import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import ToastController from '$lib/notifications/ToastController.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { RemotesService } from '$lib/remotes/service';
@@ -58,7 +56,6 @@
 	setContext(RemotesService, data.remotesService);
 	setContext(AIPromptService, data.aiPromptService);
 	setContext(LineManagerFactory, data.lineManagerFactory);
-	setContext(ProjectMetrics, data.projectMetrics);
 
 	const user = data.userService.user;
 	const accessToken = $derived($user?.github_access_token);
@@ -137,7 +134,6 @@
 <AppUpdater />
 <PromptModal />
 <GlobalSettingsMenuAction />
-<MetricsReporter />
 
 <style lang="postcss">
 	.app-root {

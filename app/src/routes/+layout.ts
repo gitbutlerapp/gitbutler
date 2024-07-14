@@ -7,14 +7,13 @@ import { HttpClient } from '$lib/backend/httpClient';
 import { ProjectService } from '$lib/backend/projects';
 import { PromptService } from '$lib/backend/prompt';
 import { UpdaterService } from '$lib/backend/updater';
-import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { RemotesService } from '$lib/remotes/service';
 import { RustSecretService } from '$lib/secrets/secretsService';
 import { UserService } from '$lib/stores/user';
 import { mockTauri } from '$lib/testing/index';
 import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
 import lscache from 'lscache';
-import { BehaviorSubject, config } from 'rxjs';
+import { config } from 'rxjs';
 import { env } from '$env/dynamic/public';
 
 // call on startup so we don't accumulate old items
@@ -45,19 +44,6 @@ export async function load() {
 	const promptService = new PromptService();
 	const userService = new UserService(httpClient);
 
-	// We're declaring a remoteUrl$ observable here that is written to by `BaseBranchService`. This
-	// is a bit awkard, but `GitHubService` needs to be available at the root scoped layout.ts, such
-	// that we can perform actions related to GitHub that do not depend on repo information.
-	//     We should evaluate whether or not to split this service into two separate services. That
-	// way we would not need `remoteUrl$` for the non-repo service, and therefore the other one
-	// could easily get an observable of the remote url from `BaseBranchService`.
-	const remoteUrl$ = new BehaviorSubject<string | undefined>(undefined);
-	// It feels we should split GitHubService into unauthenticated/authenticated parts so we can
-	// declare project metrics in `/[projectId]/layout.ts` instead of here. The current solution
-	// requires the `projectId` field to be mutable, and be updated when the user loads a new
-	// project.
-	const projectMetrics = new ProjectMetrics();
-
 	const gitConfig = new GitConfigService();
 	const secretsService = new RustSecretService(gitConfig);
 	const aiService = new AIService(gitConfig, secretsService, httpClient);
@@ -72,13 +58,11 @@ export async function load() {
 		updaterService,
 		promptService,
 		userService,
-		remoteUrl$,
 		gitConfig,
 		aiService,
 		remotesService,
 		aiPromptService,
 		lineManagerFactory,
-		secretsService,
-		projectMetrics
+		secretsService
 	};
 }

@@ -2,9 +2,9 @@ import { buildContextStore } from '$lib/utils/context';
 import type { PullRequest } from './types';
 import type { Writable } from 'svelte/store';
 
-export const [getGitHostListingServiceStore, createGitHostListingServiceStore] = buildContextStore<
+export const [getGitHostListingService, createGitHostListingServiceStore] = buildContextStore<
 	GitHostListingService | undefined
->('gitListService');
+>('gitHostListingService');
 
 export interface GitHostListingService {
 	prs: Writable<PullRequest[]>;
