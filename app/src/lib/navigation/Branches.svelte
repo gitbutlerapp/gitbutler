@@ -2,26 +2,23 @@
 	import BranchItem from './BranchItem.svelte';
 	import BranchesHeader from './BranchesHeader.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
-	import { BranchService } from '$lib/branches/service';
+	import { getBranchServiceStore } from '$lib/branches/service';
 	import FilterButton from '$lib/components/FilterBranchesButton.svelte';
-	import { GitHubService } from '$lib/github/service';
+	import { getGitHost } from '$lib/gitHost/interface/gitHostService';
 	import { persisted } from '$lib/persisted/persisted';
-	import { storeToObservable } from '$lib/rxjs/store';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import { getContext } from '$lib/utils/context';
-	import { BehaviorSubject, combineLatest } from 'rxjs';
 	import { createEventDispatcher } from 'svelte';
-	import { derived } from 'svelte/store';
+	import { derived, readable, writable } from 'svelte/store';
 	import type { CombinedBranch } from '$lib/branches/types';
 
 	const dispatch = createEventDispatcher<{ scrollbarDragging: boolean }>();
 
 	export let projectId: string;
-	export const textFilter$ = new BehaviorSubject<string | undefined>(undefined);
+	export const textFilter = writable<string | undefined>(undefined);
 
-	const branchService = getContext(BranchService);
-	const githubService = getContext(GitHubService);
+	const branchService = getBranchServiceStore();
+	const gitHost = getGitHost();
 
 	// let contextMenu: ContextMenuActions;
 	let includePrs = persisted(true, 'includePrs_' + projectId);
@@ -37,28 +34,30 @@
 		}
 	);
 
-	$: branches$ = branchService.branches$;
-	$: filteredBranches$ = combineLatest(
-		[
-			branches$,
-			textFilter$,
-			storeToObservable(includePrs),
-			storeToObservable(includeRemote),
-			storeToObservable(includeStashed),
-			storeToObservable(hideBots),
-			storeToObservable(hideInactive)
-		],
-		(branches, search, includePrs, includeRemote, includeStashed, hideBots, hideInactive) => {
-			const filteredByType = filterByType(branches, {
-				includePrs,
-				includeRemote,
-				includeStashed,
-				hideBots
-			});
-			const filteredBySearch = filterByText(filteredByType, search);
-			return hideInactive ? filterInactive(filteredBySearch) : filteredBySearch;
-		}
-	);
+	$: branches = $branchService?.branches || readable([]);
+	$: filteredBranches = branches
+		? derived(
+				[branches, textFilter, includePrs, includeRemote, includeStashed, hideBots, hideInactive],
+				([
+					branches,
+					textFilter,
+					includePrs,
+					includeRemote,
+					includeStashed,
+					hideBots,
+					hideInactive
+				]) => {
+					const filteredByType = filterByType(branches, {
+						includePrs,
+						includeRemote,
+						includeStashed,
+						hideBots
+					});
+					const filteredBySearch = filterByText(filteredByType, textFilter);
+					return hideInactive ? filterInactive(filteredBySearch) : filteredBySearch;
+				}
+			)
+		: readable([]);
 
 	let viewport: HTMLDivElement;
 	let contents: HTMLElement;
@@ -110,8 +109,8 @@
 
 <div class="branch-list">
 	<BranchesHeader
-		totalBranchCount={$branches$.length}
-		filteredBranchCount={$filteredBranches$?.length}
+		totalBranchCount={$branches.length}
+		filteredBranchCount={$filteredBranches?.length}
 		filtersActive={$filtersActive}
 	>
 		{#snippet filterButton()}
@@ -122,24 +121,24 @@
 				{includeStashed}
 				{hideBots}
 				{hideInactive}
-				showPrCheckbox={githubService.isEnabled}
+				showPrCheckbox={!!$gitHost}
 				on:action
 			/>
 		{/snippet}
 	</BranchesHeader>
-	{#if $branches$?.length > 0}
+	{#if $branches.length > 0}
 		<ScrollableContainer
 			bind:viewport
 			showBorderWhenScrolled
 			on:dragging={(e) => dispatch('scrollbarDragging', e.detail)}
-			fillViewport={$filteredBranches$.length === 0}
+			fillViewport={$filteredBranches.length === 0}
 		>
 			<div class="scroll-container">
-				<TextBox icon="search" placeholder="Search" on:input={(e) => textFilter$.next(e.detail)} />
+				<TextBox icon="search" placeholder="Search" on:input={(e) => textFilter.set(e.detail)} />
 
-				{#if $filteredBranches$.length > 0}
+				{#if $filteredBranches.length > 0}
 					<div bind:this={contents} class="content">
-						{#each $filteredBranches$ as branch}
+						{#each $filteredBranches as branch}
 							<BranchItem {projectId} {branch} />
 						{/each}
 					</div>

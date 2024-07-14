@@ -66,7 +66,6 @@
 		"postcss-pxtorem": "^6.1.0",
 		"posthog-js": "1.136.4",
 		"reflect-metadata": "^0.2.2",
-		"rxjs": "^7.8.1",
 		"svelte": "5.0.0-next.149",
 		"svelte-check": "^3.8.0",
 		"svelte-floating-ui": "^1.5.8",

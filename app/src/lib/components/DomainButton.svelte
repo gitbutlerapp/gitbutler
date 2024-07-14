@@ -1,8 +1,8 @@
 <script lang="ts">
 	import UpdateBaseButton from './UpdateBaseButton.svelte';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { getContextStore } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
-	import { BaseBranch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
