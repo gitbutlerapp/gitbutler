@@ -5,6 +5,7 @@
 	import Login from '$lib/components/Login.svelte';
 	import SetupFeature from '$lib/components/SetupFeature.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { platformName } from '$lib/platform/platform';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import GithubIntegration from '$lib/settings/GithubIntegration.svelte';
@@ -12,8 +13,6 @@
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
-	import { platform } from '@tauri-apps/api/os';
-	import { from } from 'rxjs';
 	import { createEventDispatcher } from 'svelte';
 
 	export let projectName: string;
@@ -22,7 +21,6 @@
 	const project = getContext(Project);
 	const userService = getContext(UserService);
 	const user = userService.user;
-	const platformName = from(platform());
 
 	const dispatch = createEventDispatcher<{
 		branchSelected: string[];

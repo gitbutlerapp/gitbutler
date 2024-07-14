@@ -13,14 +13,10 @@ import { UserService } from '$lib/stores/user';
 import { mockTauri } from '$lib/testing/index';
 import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
 import lscache from 'lscache';
-import { config } from 'rxjs';
 import { env } from '$env/dynamic/public';
 
 // call on startup so we don't accumulate old items
 lscache.flushExpired();
-
-// https://rxjs.dev/api/index/interface/GlobalConfig#properties
-config.onUnhandledError = (err) => console.warn(err);
 
 export const ssr = false;
 export const prerender = false;

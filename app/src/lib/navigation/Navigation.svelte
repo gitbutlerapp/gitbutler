@@ -7,14 +7,12 @@
 	import Resizer from '../shared/Resizer.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { persisted } from '$lib/persisted/persisted';
+	import { platformName } from '$lib/platform/platform';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import { createKeybind } from '$lib/utils/hotkeys';
-	import { platform } from '@tauri-apps/api/os';
-	import { from } from 'rxjs';
 	import { env } from '$env/dynamic/public';
 
-	const platformName = from(platform());
 	const minResizerWidth = 280;
 	const minResizerRatio = 150;
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
