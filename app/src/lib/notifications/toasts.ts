@@ -21,12 +21,20 @@ export function showToast(toast: Toast) {
 	]);
 }
 
-export function showError(title: string, error: any) {
+export function showError(title: string, error: unknown) {
 	// Silence GitHub octokit.js when disconnected
-	if (error.status === 500 && error.message === 'Load failed') return;
-
-	const message = error.message || error.toString();
-	showToast({ title, error: message, style: 'error' });
+	// TODO: Fix this elsewhere.
+	if (error instanceof Object) {
+		if (
+			'status' in error &&
+			'message' in error &&
+			error.status === 500 &&
+			error.message === 'Load failed'
+		)
+			return;
+		const message = 'message' in error ? error.message : String(error);
+		showToast({ title, error: message, style: 'error' });
+	}
 }
 
 export function showInfo(title: string, message: string) {
