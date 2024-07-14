@@ -39,7 +39,7 @@
 		projectMetrics,
 		baseBranchService,
 		remoteBranchService,
-		gbBranchActive$,
+		headService,
 		userService
 	} = $derived(data);
 
@@ -74,6 +74,8 @@
 	const listServiceStore = createGitHostListingServiceStore(undefined);
 	const githubRepoServiceStore = createGitHostStore(undefined);
 	const branchServiceStore = createBranchServiceStore(undefined);
+	const head = $derived(headService.name);
+	const gbBranchActive = $derived($head === 'gitbutler/integration');
 
 	$effect.pre(() => {
 		const gitHostService = repoInfo ? gitHostFactory?.build(repoInfo) : undefined;
@@ -146,7 +148,7 @@
 		<ProblemLoadingRepo error={$branchesError} />
 	{:else if $projectError}
 		<ProblemLoadingRepo error={$projectError} />
-	{:else if !$gbBranchActive$ && $baseBranch}
+	{:else if !gbBranchActive && $baseBranch}
 		<NotOnGitButlerBranch baseBranch={$baseBranch} />
 	{:else if $baseBranch}
 		<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>

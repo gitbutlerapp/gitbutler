@@ -1,6 +1,6 @@
 import { Branch, Commit, RemoteCommit, VirtualBranches, commitCompare } from './types';
 import { invoke, listen } from '$lib/backend/ipc';
-import { observableToStore } from '$lib/rxjs/store';
+import { observableToStore, storeToObservable } from '$lib/rxjs/store';
 import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 import * as toasts from '$lib/utils/toasts';
 import { plainToInstance } from 'class-transformer';
@@ -36,10 +36,10 @@ export class VirtualBranchService {
 	constructor(
 		projectId: string,
 		projectMetrics: ProjectMetrics,
-		gbBranchActive$: Observable<boolean>
+		gbBranchActive: Readable<boolean>
 	) {
 		this.branches$ = this.reload$.pipe(
-			switchMap(() => gbBranchActive$),
+			switchMap(() => storeToObservable(gbBranchActive)),
 			switchMap((gbBranchActive) =>
 				gbBranchActive
 					? concat(

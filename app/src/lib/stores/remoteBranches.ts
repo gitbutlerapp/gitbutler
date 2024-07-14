@@ -1,6 +1,6 @@
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
-import { observableToStore } from '$lib/rxjs/store';
+import { observableToStore, storeToObservable } from '$lib/rxjs/store';
 import { RemoteBranch, RemoteBranchData } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import {
@@ -26,10 +26,10 @@ export class RemoteBranchService {
 		projectId: string,
 		private projectMetrics: ProjectMetrics,
 		fetches$: Observable<any>,
-		head$: Observable<any>,
+		head: Readable<string>,
 		baseBranch$: Observable<any>
 	) {
-		this.branches$ = combineLatest([baseBranch$, head$, fetches$]).pipe(
+		this.branches$ = combineLatest([baseBranch$, storeToObservable(head), fetches$]).pipe(
 			mergeWith(this.reload$),
 			switchMap(async () => await listRemoteBranches(projectId)),
 			tap((branches) => {

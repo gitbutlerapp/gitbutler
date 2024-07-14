@@ -1,7 +1,7 @@
 import { BaseBranch } from './types';
 import { Code, invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
-import { observableToStore } from '$lib/rxjs/store';
+import { observableToStore, storeToObservable } from '$lib/rxjs/store';
 import { plainToInstance } from 'class-transformer';
 import {
 	switchMap,
@@ -33,9 +33,9 @@ export class BaseBranchService {
 	constructor(
 		private readonly projectId: string,
 		fetches$: Observable<unknown>,
-		readonly head$: Observable<string>
+		head: Readable<string>
 	) {
-		this.base$ = combineLatest([fetches$, head$]).pipe(
+		this.base$ = combineLatest([fetches$, storeToObservable(head)]).pipe(
 			mergeWith(this.reload$),
 			debounceTime(100),
 			switchMap(async () => {
