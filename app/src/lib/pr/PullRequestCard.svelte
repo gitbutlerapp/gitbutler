@@ -14,7 +14,7 @@
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { type ComponentColor } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import type { ChecksStatus, DetailedPullRequest } from '$lib/gitHost/interface/types';
+	import type { ChecksStatus } from '$lib/gitHost/interface/types';
 	import type iconsJson from '$lib/icons/icons.json';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
 
@@ -45,8 +45,6 @@
 	});
 
 	let isMerging = $state(false);
-	let checksError: string | undefined;
-	let detailsError: string | undefined;
 
 	const lastFetch = $derived($prMonitor?.lastFetch);
 	const timeAgo = $derived($lastFetch ? createTimeAgoStore($lastFetch) : undefined);
@@ -54,9 +52,8 @@
 	const mrLoading = $derived($prMonitor?.loading);
 	const checksLoading = $derived($checksMonitor?.loading);
 
-	const checksTagInfo = $derived(getChecksTagInfo($checks, $checksLoading));
-	const infoProps = $derived(getInfoMessageInfo($pr, $checks, $checksLoading));
-	const prStatusInfo = $derived(getPrStatusInfo($pr));
+	const checksError = $derived($checksMonitor?.error);
+	const detailsError = $derived($prMonitor?.error);
 
 	function getChecksCount(status: ChecksStatus): string {
 		if (!status) return 'Running checks';
@@ -68,59 +65,54 @@
 		return `Checks completed ${finished}/${total}`;
 	}
 
-	function getChecksTagInfo(
-		status: ChecksStatus | null | undefined,
-		fetching: boolean | undefined
-	): StatusInfo {
-		if (checksError || detailsError) {
+	const checksTagInfo: StatusInfo | undefined = $derived.by(() => {
+		if ($checksError || $detailsError) {
 			return { style: 'error', icon: 'warning-small', text: 'Failed to load' };
 		}
 
-		if (fetching || !status) {
-			return { style: 'neutral', icon: 'spinner', text: 'Checks' };
-		}
-
-		if (status.completed) {
-			const style = status.success ? 'success' : 'error';
-			const icon = status.success ? 'success-small' : 'error-small';
-			const text = status.success ? 'Checks passed' : 'Checks failed';
+		if ($checks) {
+			const style = $checks.completed ? ($checks.success ? 'success' : 'error') : 'warning';
+			const icon =
+				$checks.completed && !$checksLoading
+					? $checks.success
+						? 'success-small'
+						: 'error-small'
+					: 'spinner';
+			const text = $checks.completed
+				? $checks.success
+					? 'Checks passed'
+					: 'Checks failed'
+				: getChecksCount($checks);
 			return { style, icon, text };
 		}
+		if ($checksLoading) {
+			return { style: 'neutral', icon: 'spinner', text: ' Checks' };
+		}
+	});
 
-		return {
-			style: status.failed > 0 ? 'error' : 'warning',
-			icon: 'spinner',
-			text: getChecksCount(status)
-		};
-	}
-
-	function getPrStatusInfo(pr: DetailedPullRequest | undefined): StatusInfo {
-		if (!pr) {
+	const prStatusInfo: StatusInfo = $derived.by(() => {
+		if (!$pr) {
 			return { text: 'Status', icon: 'spinner', style: 'neutral' };
 		}
 
-		if (pr?.mergedAt) {
+		if ($pr?.mergedAt) {
 			return { text: 'Merged', icon: 'merged-pr-small', style: 'purple' };
 		}
 
-		if (pr?.closedAt) {
+		if ($pr?.closedAt) {
 			return { text: 'Closed', icon: 'closed-pr-small', style: 'error' };
 		}
 
-		if (pr?.draft) {
+		if ($pr?.draft) {
 			return { text: 'Draft', icon: 'draft-pr-small', style: 'neutral' };
 		}
 
 		return { text: 'Open', icon: 'pr-small', style: 'success' };
-	}
+	});
 
-	function getInfoMessageInfo(
-		pr: DetailedPullRequest | undefined,
-		checksStatus: ChecksStatus | null | undefined,
-		isFetchingChecks: boolean | undefined
-	): StatusInfo | undefined {
-		const mergeableState = pr?.mergeableState;
-		if (mergeableState === 'blocked' && !checksStatus && !isFetchingChecks) {
+	const infoProps: StatusInfo | undefined = $derived.by(() => {
+		const mergeableState = $pr?.mergeableState;
+		if (mergeableState === 'blocked' && !$checks && !$checksLoading) {
 			return {
 				icon: 'error',
 				messageStyle: 'error',
@@ -129,7 +121,7 @@
 		}
 
 		if ($checks?.completed) {
-			if (pr?.draft) {
+			if ($pr?.draft) {
 				return {
 					icon: 'warning',
 					messageStyle: 'neutral',
@@ -154,7 +146,7 @@
 			}
 			if (
 				mergeableState === 'blocked' &&
-				!isFetchingChecks &&
+				!$checksLoading &&
 				$checks?.failed &&
 				$checks.failed > 0
 			) {
@@ -165,7 +157,7 @@
 				};
 			}
 		}
-	}
+	});
 </script>
 
 {#if $pr}
@@ -198,7 +190,7 @@
 			>
 				{prStatusInfo.text}
 			</Button>
-			{#if !$pr?.closedAt && $checks !== null}
+			{#if !$pr?.closedAt && checksTagInfo}
 				<Button
 					size="tag"
 					clickable={false}

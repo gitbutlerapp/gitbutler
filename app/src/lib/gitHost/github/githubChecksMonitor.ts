@@ -18,9 +18,8 @@ export class GitHubChecksMonitor implements GitHostChecksMonitor {
 			this.stop();
 		};
 	});
-
 	readonly loading = writable(false);
-	readonly error = writable();
+	readonly error = writable<any>();
 
 	private timeout: any;
 	private hasCheckSuites: boolean | undefined;
