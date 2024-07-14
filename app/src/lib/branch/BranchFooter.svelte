@@ -78,7 +78,7 @@
 					try {
 						if (e.detail.action === BranchAction.Push) {
 							await branchController.pushBranch($branch.id, $branch.requiresForce);
-							$listingService?.reload();
+							$listingService?.refresh();
 							$prMonitor?.refresh();
 							$checksMonitor?.update();
 						} else if (e.detail.action === BranchAction.Integrate) {

@@ -28,7 +28,7 @@ export function ghResponseToInstance(
 		| RestEndpointMethodTypes['pulls']['create']['response']['data']
 		| RestEndpointMethodTypes['pulls']['list']['response']['data'][number]
 ): PullRequest {
-	const labels: Label[] = pr.labels.map((label) => ({
+	const labels: Label[] = pr.labels?.map((label) => ({
 		name: label.name,
 		description: label.description || undefined,
 		color: label.color
@@ -51,14 +51,14 @@ export function ghResponseToInstance(
 		draft: pr.draft || false,
 		createdAt: new Date(pr.created_at),
 		modifiedAt: new Date(pr.created_at),
-		sourceBranch: pr.head.ref,
-		targetBranch: pr.base.ref,
-		sha: pr.head.sha,
+		sourceBranch: pr.head?.ref,
+		targetBranch: pr.base?.ref,
+		sha: pr.head?.sha,
 		mergedAt: pr.merged_at ? new Date(pr.merged_at) : undefined,
 		closedAt: pr.closed_at ? new Date(pr.closed_at) : undefined,
-		repoName: pr.head.repo?.full_name,
-		repositorySshUrl: pr.head.repo?.ssh_url,
-		repositoryHttpsUrl: pr.head.repo?.clone_url
+		repoName: pr.head?.repo?.full_name,
+		repositorySshUrl: pr.head?.repo?.ssh_url,
+		repositoryHttpsUrl: pr.head?.repo?.clone_url
 	};
 }
 
