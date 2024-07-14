@@ -190,7 +190,7 @@ export class BranchController {
 				branch: branchId,
 				nameConflictResolution
 			});
-			this.remoteBranchService.reload();
+			this.remoteBranchService.refresh();
 		} catch (err) {
 			showError('Failed to unapply branch', err);
 		}
@@ -258,7 +258,7 @@ export class BranchController {
 		} catch (err) {
 			showError('Failed to delete branch', err);
 		} finally {
-			this.remoteBranchService.reload();
+			this.remoteBranchService.refresh();
 		}
 	}
 
@@ -288,7 +288,7 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 		} catch (err) {
 			showError('Failed to create virtual branch', err);
 		} finally {
-			this.remoteBranchService.reload();
+			this.remoteBranchService.refresh();
 			this.baseBranchService.refresh();
 		}
 	}

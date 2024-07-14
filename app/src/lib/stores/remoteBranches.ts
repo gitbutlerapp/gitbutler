@@ -1,74 +1,37 @@
 import { invoke } from '$lib/backend/ipc';
-import { showError } from '$lib/notifications/toasts';
-import { observableToStore, storeToObservable } from '$lib/rxjs/store';
 import { RemoteBranch, RemoteBranchData } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
-import {
-	Observable,
-	Subject,
-	catchError,
-	combineLatest,
-	mergeWith,
-	shareReplay,
-	switchMap,
-	tap
-} from 'rxjs';
+import { writable } from 'svelte/store';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
-import type { Readable } from 'svelte/store';
 
 export class RemoteBranchService {
-	branches: Readable<RemoteBranch[] | undefined>;
-	branches$: Observable<RemoteBranch[]>;
-	error: Readable<string | undefined>;
-	private reload$ = new Subject<void>();
+	readonly branches = writable<RemoteBranch[]>([], () => {
+		this.refresh();
+	});
+	error = writable();
 
 	constructor(
-		projectId: string,
-		private projectMetrics: ProjectMetrics,
-		fetches: Readable<unknown>,
-		head: Readable<string>,
-		baseBranch: Readable<unknown>
-	) {
-		this.branches$ = combineLatest([
-			storeToObservable(baseBranch),
-			storeToObservable(head),
-			storeToObservable(fetches)
-		]).pipe(
-			mergeWith(this.reload$),
-			switchMap(async () => await listRemoteBranches(projectId)),
-			tap((branches) => {
-				this.projectMetrics.setMetric('normal_branch_count', branches.length);
-			}),
-			shareReplay(1),
-			catchError((e) => {
-				console.error(e);
-				showError('Failed load remote branches', e);
-				throw e;
-			})
+		private projectId: string,
+		private projectMetrics?: ProjectMetrics
+	) {}
+
+	async refresh() {
+		try {
+			const remoteBranches = plainToInstance(
+				RemoteBranch,
+				await invoke<any[]>('list_remote_branches', { projectId: this.projectId })
+			);
+			this.projectMetrics?.setMetric('normal_branch_count', remoteBranches.length);
+			this.branches.set(remoteBranches);
+		} catch (err: any) {
+			this.error.set(err);
+		}
+	}
+
+	async getRemoteBranchData(refname: string): Promise<RemoteBranchData> {
+		return plainToInstance(
+			RemoteBranchData,
+			await invoke<any>('get_remote_branch_data', { projectId: this.projectId, refname })
 		);
-		[this.branches, this.error] = observableToStore(this.branches$, this.reload$);
 	}
-
-	reload() {
-		this.reload$.next();
-	}
-}
-
-async function listRemoteBranches(projectId: string): Promise<RemoteBranch[]> {
-	const branches = plainToInstance(
-		RemoteBranch,
-		await invoke<any[]>('list_remote_branches', { projectId })
-	);
-
-	return branches;
-}
-
-export async function getRemoteBranchData(
-	projectId: string,
-	refname: string
-): Promise<RemoteBranchData> {
-	return plainToInstance(
-		RemoteBranchData,
-		await invoke<any>('get_remote_branch_data', { projectId, refname })
-	);
 }

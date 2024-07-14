@@ -1,7 +1,7 @@
 import { Branch, Commit, RemoteCommit, VirtualBranches, commitCompare } from './types';
 import { invoke, listen } from '$lib/backend/ipc';
 import { observableToStore, storeToObservable } from '$lib/rxjs/store';
-import { getRemoteBranchData } from '$lib/stores/remoteBranches';
+import { RemoteBranchService } from '$lib/stores/remoteBranches';
 import * as toasts from '$lib/utils/toasts';
 import { plainToInstance } from 'class-transformer';
 import {
@@ -36,6 +36,7 @@ export class VirtualBranchService {
 	constructor(
 		projectId: string,
 		projectMetrics: ProjectMetrics,
+		remoteBranchService: RemoteBranchService,
 		gbBranchActive: Readable<boolean>
 	) {
 		this.branches$ = this.reload$.pipe(
@@ -87,7 +88,7 @@ export class VirtualBranchService {
 						const upstreamName = b.upstream?.name;
 						if (upstreamName) {
 							try {
-								const data = await getRemoteBranchData(projectId, upstreamName);
+								const data = await remoteBranchService.getRemoteBranchData(upstreamName);
 								const commits = data.commits;
 								commits.forEach((uc) => {
 									const match = b.commits.find((c) => commitCompare(uc, c));

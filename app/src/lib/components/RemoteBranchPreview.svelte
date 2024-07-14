@@ -7,7 +7,7 @@
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
+	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { type RemoteBranch } from '$lib/vbranches/types';
@@ -21,6 +21,7 @@
 	export let pr: PullRequest | undefined;
 
 	const project = getContext(Project);
+	const remoteBranchService = getContext(RemoteBranchService);
 	const baseBranch = getContextStore(BaseBranch);
 
 	const fileIdSelection = new FileIdSelection(project.id, writable([]));
@@ -65,7 +66,7 @@
 						{/if}
 					</div>
 				{/if}
-				{#await getRemoteBranchData(project.id, branch.name) then branchData}
+				{#await remoteBranchService.getRemoteBranchData(branch.name) then branchData}
 					{#if branchData.commits && branchData.commits.length > 0}
 						<div>
 							{#each branchData.commits as commit, index (commit.id)}

@@ -21,6 +21,7 @@
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
+	import { debounce } from '$lib/utils/debounce';
 	import * as events from '$lib/utils/events';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
@@ -77,16 +78,20 @@
 	const branchServiceStore = createBranchServiceStore(undefined);
 
 	// Refresh base branch if git fetch event is detected.
-	const head = $derived(headService.name);
+	const head = $derived(headService.head);
 	const gbBranchActive = $derived($head === 'gitbutler/integration');
-	$effect(() => {
-		if ($head) baseBranchService.refresh();
+
+	// We end up with a `state_unsafe_mutation` when switching projects if we
+	// don't use $effect.pre here.
+	// TODO: can we eliminate the need to debounce?
+	const fetch = $derived(fetchSignal.event);
+	$effect.pre(() => {
+		if ($fetch || $head) debounce(() => baseBranchService.refresh(), 500);
 	});
 
-	// Refresh base branch if git fetch event is detected.
-	const fetch = $derived(fetchSignal.event);
-	$effect(() => {
-		if ($fetch) baseBranchService.refresh();
+	// TODO: can we eliminate the need to debounce?
+	$effect.pre(() => {
+		if ($baseBranch || $head || $fetch) debounce(() => remoteBranchService.refresh(), 500);
 	});
 
 	$effect.pre(() => {
