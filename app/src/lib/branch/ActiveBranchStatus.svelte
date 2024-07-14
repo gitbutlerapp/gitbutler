@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import Button from '$lib/shared/Button.svelte';
 	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BaseBranch, Branch } from '$lib/vbranches/types';
+	import { Branch } from '$lib/vbranches/types';
 
 	export let isUnapplied = false;
 	export let hasIntegratedCommits = false;

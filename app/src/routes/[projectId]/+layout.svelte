@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { listen } from '$lib/backend/ipc';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { BranchService, createBranchServiceStore } from '$lib/branches/service';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
@@ -22,9 +24,7 @@
 	import * as events from '$lib/utils/events';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
-	import { BaseBranchService, NoDefaultTarget } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranch } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { onDestroy, onMount, setContext, type Snippet } from 'svelte';
 	import type { LayoutData } from './$types';

@@ -1,11 +1,8 @@
-import { BaseBranch } from './types';
+import { BaseBranch, NoDefaultTarget } from './baseBranch';
 import { Code, invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { plainToInstance } from 'class-transformer';
-import { Subject } from 'rxjs';
 import { writable } from 'svelte/store';
-
-export class NoDefaultTarget extends Error {}
 
 export class BaseBranchService {
 	readonly base = writable<BaseBranch | null | undefined>(undefined, () => {
@@ -13,7 +10,6 @@ export class BaseBranchService {
 	});
 	readonly loading = writable(false);
 	readonly error = writable();
-	private readonly reload$ = new Subject<void>();
 
 	constructor(private readonly projectId: string) {}
 

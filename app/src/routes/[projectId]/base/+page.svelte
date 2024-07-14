@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import BaseBranch from '$lib/components/BaseBranch.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
@@ -7,7 +8,6 @@
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
-	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import lscache from 'lscache';
 	import { onMount, setContext } from 'svelte';

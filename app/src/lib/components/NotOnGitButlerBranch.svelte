@@ -11,7 +11,7 @@
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch } from '$lib/vbranches/types';
+	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { goto } from '$app/navigation';
 
 	export let baseBranch: BaseBranch;

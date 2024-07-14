@@ -1,11 +1,11 @@
 <script lang="ts">
 	import SyncButton from '../components/SyncButton.svelte';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Badge from '$lib/shared/Badge.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
-	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 

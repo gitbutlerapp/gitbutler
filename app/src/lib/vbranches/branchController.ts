@@ -2,8 +2,8 @@ import { invoke } from '$lib/backend/ipc';
 import { showError, showToast } from '$lib/notifications/toasts';
 import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
+import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
-import type { BaseBranchService } from './baseBranch';
 import type { Branch, Hunk, LocalFile, NameConflictResolution } from './types';
 import type { VirtualBranchService } from './virtualBranch';
 

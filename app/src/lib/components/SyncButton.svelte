@@ -1,9 +1,9 @@
 <script lang="ts">
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import Button from '$lib/shared/Button.svelte';
 	import TimeAgo from '$lib/shared/TimeAgo.svelte';
 	import { getContext } from '$lib/utils/context';
-	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 
 	const gitHostListing = getGitHostListingService();

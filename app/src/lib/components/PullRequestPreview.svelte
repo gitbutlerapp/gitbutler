@@ -1,6 +1,7 @@
 <script lang="ts">
 	// This is always displayed in the context of not having a cooresponding vbranch or remote
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { RemotesService } from '$lib/remotes/service';
 	import Button from '$lib/shared/Button.svelte';
 	import Link from '$lib/shared/Link.svelte';
@@ -9,7 +10,6 @@
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { remoteUrlIsHttp } from '$lib/utils/url';
-	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { marked } from 'marked';

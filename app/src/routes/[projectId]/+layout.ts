@@ -1,4 +1,5 @@
 import { invoke } from '$lib/backend/ipc';
+import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
 import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
@@ -7,7 +8,6 @@ import { HeadService } from '$lib/head/headService';
 import { HistoryService } from '$lib/history/history';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
-import { BaseBranchService } from '$lib/vbranches/baseBranch';
 import { BranchController } from '$lib/vbranches/branchController';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 import { error } from '@sveltejs/kit';
