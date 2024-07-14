@@ -13,13 +13,13 @@ export type PrCacheKey = { value: DetailedPullRequest | undefined; fetchedAt: Da
 
 export class GitHub implements GitHost {
 	constructor(
-		private projectMetrics: ProjectMetrics,
 		private octokit: Octokit,
-		private repo: RepoInfo
+		private repo: RepoInfo,
+		private projectMetrics?: ProjectMetrics
 	) {}
 
 	listService() {
-		return new GitHubListingService(this.projectMetrics, this.octokit, this.repo);
+		return new GitHubListingService(this.octokit, this.repo, this.projectMetrics);
 	}
 
 	prService(baseBranch: string, upstreamName: string) {

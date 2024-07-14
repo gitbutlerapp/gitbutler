@@ -1,6 +1,5 @@
 import { GitHub } from './github';
 import { MIN_COMPLETED_AGE } from './githubChecksMonitor';
-import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { get } from 'svelte/store';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
@@ -29,7 +28,7 @@ describe.concurrent('GitHubChecksMonitor', () => {
 
 	beforeEach(() => {
 		octokit = new Octokit();
-		gh = new GitHub(new ProjectMetrics(), octokit, {
+		gh = new GitHub(octokit, {
 			provider: 'github.com',
 			name: 'test-repo',
 			owner: 'test-owner'
