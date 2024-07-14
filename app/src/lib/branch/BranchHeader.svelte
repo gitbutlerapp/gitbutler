@@ -111,7 +111,7 @@
 		} finally {
 			isLoading = false;
 		}
-		await $gitListService?.reload();
+		await $gitListService?.refresh();
 		baseBranchService.fetchFromRemotes();
 	}
 </script>

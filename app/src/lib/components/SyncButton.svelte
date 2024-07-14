@@ -28,7 +28,7 @@
 		e.stopPropagation();
 		await baseBranchService.fetchFromRemotes('modal');
 		vbranchService.reload();
-		$gitHostListing?.reload();
+		$gitHostListing?.refresh();
 	}}
 >
 	{#if $baseServiceBusy$}

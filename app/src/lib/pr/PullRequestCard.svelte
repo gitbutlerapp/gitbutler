@@ -254,7 +254,7 @@
 							await baseBranchService.fetchFromRemotes();
 							await Promise.all([
 								$prMonitor?.refresh(),
-								$listingService?.reload(),
+								$listingService?.refresh(),
 								vbranchService.reload()
 							]);
 						} catch (err) {

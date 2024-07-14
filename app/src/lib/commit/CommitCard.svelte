@@ -436,6 +436,8 @@
 	.commit__description {
 		color: var(--clr-text-2);
 		white-space: pre-wrap;
+		user-select: text;
+		cursor: text;
 	}
 
 	.commit__empty-title {

@@ -8,5 +8,6 @@ export const [getGitHostListingService, createGitHostListingServiceStore] = buil
 
 export interface GitHostListingService {
 	prs: Writable<PullRequest[]>;
-	reload(): Promise<void>;
+	fetch(): Promise<PullRequest[]>;
+	refresh(): Promise<void>;
 }

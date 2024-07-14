@@ -8,35 +8,35 @@ import type { PullRequest } from '../interface/types';
 import type { Octokit } from '@octokit/rest';
 
 export class GitHubListingService implements GitHostListingService {
-	readonly prs = writable<PullRequest[]>([], () => {
-		this.fetchPrs();
-	});
+	readonly prs = writable<PullRequest[]>([], () => {});
 
 	private error = writable();
 
 	constructor(
-		private projectMetrics: ProjectMetrics,
 		private octokit: Octokit,
-		private repo: RepoInfo
+		private repo: RepoInfo,
+		private projectMetrics?: ProjectMetrics
 	) {}
 
-	private async fetchPrs() {
+	async fetch() {
+		const rsp = await this.octokit.rest.pulls.list({
+			headers: DEFAULT_HEADERS,
+			owner: this.repo.owner,
+			repo: this.repo.name
+		});
+		const data = rsp.data;
+		const prs = data.map((item) => ghResponseToInstance(item));
+		this.prs.set(prs);
+		this.projectMetrics?.setMetric('pr_count', prs.length);
+		return prs;
+	}
+
+	async refresh(): Promise<void> {
 		try {
-			const rsp = await this.octokit.rest.pulls.list({
-				headers: DEFAULT_HEADERS,
-				owner: this.repo.owner,
-				repo: this.repo.name
-			});
-			const data = rsp.data;
-			this.projectMetrics.setMetric('pr_count', data.length);
-			this.prs.set(data.map(ghResponseToInstance));
+			this.fetch();
 		} catch (e) {
 			this.error.set(e);
 			console.error(e);
 		}
-	}
-
-	async reload(): Promise<void> {
-		return await this.fetchPrs();
 	}
 }
