@@ -239,7 +239,8 @@
 					<div class="header__buttons">
 						{#if !$pr}
 							<PullRequestButton
-								on:exec={async (e) => await createPr({ draft: e.detail.action === 'draft' })}
+								click={async ({ draft }) => await createPr({ draft })}
+								disabled={branch.commits.length === 0}
 								loading={isLoading}
 							/>
 						{/if}
