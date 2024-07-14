@@ -15,7 +15,7 @@ export class GitHubPrMonitor implements GitHostPrMonitor {
 	});
 
 	readonly loading = writable(false);
-	readonly error = writable();
+	readonly error = writable<any>();
 
 	readonly mergeableState = derived(this.pr, (pr) => pr?.mergeableState);
 	readonly lastFetch = writable<Date | undefined>();
