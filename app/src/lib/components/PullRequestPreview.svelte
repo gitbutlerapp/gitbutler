@@ -69,7 +69,7 @@
 			await branchController.createvBranchFromBranch(
 				`refs/remotes/${remoteName}/${pullrequest.sourceBranch}`
 			);
-			await virtualBranchService.reload();
+			await virtualBranchService.refresh();
 
 			// This is a little absurd, but it makes it soundly typed
 			goto(`/${project.id}/board`);

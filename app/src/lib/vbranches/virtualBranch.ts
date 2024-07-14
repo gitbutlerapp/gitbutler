@@ -1,163 +1,97 @@
 import { Branch, Commit, RemoteCommit, VirtualBranches, commitCompare } from './types';
 import { invoke, listen } from '$lib/backend/ipc';
-import { observableToStore, storeToObservable } from '$lib/rxjs/store';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
-import * as toasts from '$lib/utils/toasts';
 import { plainToInstance } from 'class-transformer';
-import {
-	switchMap,
-	Observable,
-	shareReplay,
-	catchError,
-	BehaviorSubject,
-	concat,
-	from,
-	tap,
-	map,
-	firstValueFrom,
-	timeout,
-	of,
-	startWith,
-	Subject
-} from 'rxjs';
-import { writable, type Readable } from 'svelte/store';
+import { writable } from 'svelte/store';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 
 export class VirtualBranchService {
-	branches$: Observable<Branch[] | undefined>;
-	activeBranches$: Observable<Branch[] | undefined>;
-	branchesError = writable<any>();
-	private reload$ = new BehaviorSubject<void>(undefined);
-	private fresh$ = new Subject<void>();
+	private _branches: Branch[] = [];
+	private loading = writable(false);
+	readonly error = writable();
+	readonly branchesError = writable<any>();
 
-	activeBranches: Readable<Branch[] | undefined>;
-	activeBranchesError: Readable<any>;
+	readonly branches = writable<Branch[] | undefined>(undefined, () => {
+		this.refresh();
+		const unsubscribe = this.subscribe(async (branches) => await this.handlePayload(branches));
+		return () => {
+			unsubscribe();
+		};
+	});
 
 	constructor(
-		projectId: string,
-		projectMetrics: ProjectMetrics,
-		remoteBranchService: RemoteBranchService,
-		gbBranchActive: Readable<boolean>
-	) {
-		this.branches$ = this.reload$.pipe(
-			switchMap(() => storeToObservable(gbBranchActive)),
-			switchMap((gbBranchActive) =>
-				gbBranchActive
-					? concat(
-							from(listVirtualBranches({ projectId })),
-							new Observable<Branch[]>((subscriber) => {
-								return subscribeToVirtualBranches(projectId, (branches) =>
-									subscriber.next(branches)
-								);
-							})
-						)
-					: of([])
-			),
-			tap((branches) => {
-				projectMetrics.setMetric('virtual_branch_count', branches.length);
-			}),
-			tap((branches) => {
-				for (let i = 0; i < branches.length; i++) {
-					const branch = branches[i];
-					const commits = branch.commits;
-					linkAsParentChildren(commits);
-				}
-			}),
-			tap((branches) => {
-				branches.forEach((branch) => {
-					branch.files.sort((a) => (a.conflicted ? -1 : 0));
-					// This is always true now
-					branch.isMergeable = Promise.resolve(true);
-				});
-				this.fresh$.next(); // Notification for fresh reload
-			}),
-			startWith(undefined),
-			shareReplay(1)
-		);
+		private projectId: string,
+		private projectMetrics: ProjectMetrics,
+		private remoteBranchService: RemoteBranchService
+	) {}
 
-		// We need upstream data to be part of the branch without delay since the way we render
-		// commits depends on it.
-		// TODO: Move this async behavior into the rust code.
-		this.activeBranches$ = this.branches$.pipe(
-			// Disabling lint since `switchMap` does not work with async functions.
-			// eslint-disable-next-line @typescript-eslint/promise-function-async
-			switchMap((branches) => {
-				if (!branches) return of();
-				return Promise.all(
-					branches.map(async (b) => {
-						const upstreamName = b.upstream?.name;
-						if (upstreamName) {
-							try {
-								const data = await remoteBranchService.getRemoteBranchData(upstreamName);
-								const commits = data.commits;
-								commits.forEach((uc) => {
-									const match = b.commits.find((c) => commitCompare(uc, c));
-									if (match) {
-										match.relatedTo = uc;
-										uc.relatedTo = match;
-									}
-								});
-								linkAsParentChildren(commits);
-								b.upstreamData = data;
-							} catch (e: any) {
-								console.log(e);
-							}
-						}
-						return b;
-					})
-				);
-			})
-		);
-
-		[this.activeBranches, this.activeBranchesError] = observableToStore(this.activeBranches$);
+	async refresh() {
+		this.loading.set(true);
+		try {
+			this.handlePayload(await this.listVirtualBranches());
+		} catch (err: any) {
+			console.error(err);
+			this.error.set(err);
+		} finally {
+			this.loading.set(false);
+		}
 	}
 
-	async reload() {
-		this.branchesError.set(undefined);
-		const fresh = firstValueFrom(
-			this.fresh$.pipe(
-				timeout(30000),
-				catchError(() => {
-					// Observable never errors for any other reasons
-					const err = 'Timed out while reloading virtual branches';
-					console.warn(err);
-					toasts.error(err);
-					return of();
-				})
-			)
+	private async handlePayload(branches: Branch[]) {
+		await Promise.all(
+			branches.map(async (b) => {
+				const upstreamName = b.upstream?.name;
+				if (upstreamName) {
+					try {
+						const data = await this.remoteBranchService.getRemoteBranchData(upstreamName);
+						const commits = data.commits;
+						commits.forEach((uc) => {
+							const match = b.commits.find((c) => commitCompare(uc, c));
+							if (match) {
+								match.relatedTo = uc;
+								uc.relatedTo = match;
+							}
+						});
+						linkAsParentChildren(commits);
+						b.upstreamData = data;
+					} catch (e: any) {
+						console.log(e);
+					}
+				}
+				b.files.sort((a) => (a.conflicted ? -1 : 0));
+				// This is always true now
+				b.isMergeable = Promise.resolve(true);
+				const commits = b.commits;
+				linkAsParentChildren(commits);
+				return b;
+			})
 		);
-		this.reload$.next();
-		return await fresh;
+		this.projectMetrics.setMetric('virtual_branch_count', branches.length);
+		this._branches = branches;
+		this.branches.set(branches);
+		this.branchesError.set(undefined);
+	}
+
+	async listVirtualBranches(): Promise<Branch[]> {
+		return plainToInstance(
+			VirtualBranches,
+			await invoke<any>('list_virtual_branches', { projectId: this.projectId })
+		).branches;
+	}
+
+	private subscribe(callback: (branches: Branch[]) => void) {
+		return listen<any>(`project://${this.projectId}/virtual-branches`, (event) =>
+			callback(plainToInstance(VirtualBranches, event.payload).branches)
+		);
 	}
 
 	async getById(branchId: string) {
-		return await firstValueFrom(
-			this.branches$.pipe(
-				timeout(10000),
-				map((branches) => branches?.find((b) => b.id === branchId && b.upstream))
-			)
-		);
+		return this._branches?.find((b) => b.id === branchId && b.upstream);
 	}
 
 	async getByUpstreamSha(upstreamSha: string) {
-		return await firstValueFrom(
-			this.branches$.pipe(
-				timeout(10000),
-				map((branches) => branches?.find((b) => b.upstream?.sha === upstreamSha))
-			)
-		);
+		return this._branches.map((b) => b.upstream?.sha === upstreamSha);
 	}
-}
-
-function subscribeToVirtualBranches(projectId: string, callback: (branches: Branch[]) => void) {
-	return listen<any>(`project://${projectId}/virtual-branches`, (event) =>
-		callback(plainToInstance(VirtualBranches, event.payload).branches)
-	);
-}
-
-export async function listVirtualBranches(params: { projectId: string }): Promise<Branch[]> {
-	return plainToInstance(VirtualBranches, await invoke<any>('list_virtual_branches', params))
-		.branches;
 }
 
 function linkAsParentChildren(commits: Commit[] | RemoteCommit[]) {

@@ -15,7 +15,7 @@
 	const baseBranch = getContextStore(BaseBranch);
 	const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);
-	const activeBranches = vbranchService.activeBranches;
+	const activeBranches = vbranchService.branches;
 
 	let project = getContext(Project);
 

@@ -1,50 +1,35 @@
 import { CombinedBranch } from '$lib/branches/types';
-import { observableToStore, storeToObservable } from '$lib/rxjs/store';
 import { buildContextStore } from '$lib/utils/context';
-import { Observable, combineLatest, of } from 'rxjs';
-import { catchError, shareReplay, startWith, switchMap } from 'rxjs/operators';
+import { derived, readable, writable, type Readable } from 'svelte/store';
 import type { GitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 import type { PullRequest } from '$lib/gitHost/interface/types';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { Branch, RemoteBranch } from '$lib/vbranches/types';
 import type { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-import type { Readable } from 'svelte/store';
 
 export const [getBranchServiceStore, createBranchServiceStore] = buildContextStore<
 	BranchService | undefined
 >('branchService');
 
 export class BranchService {
-	readonly branches$: Observable<CombinedBranch[]>;
 	readonly branches: Readable<CombinedBranch[]>;
-	readonly error: Readable<any>;
+	readonly error = writable();
 
 	constructor(
 		vbranchService: VirtualBranchService,
 		remoteBranchService: RemoteBranchService,
-		gitHostService: GitHostListingService | undefined
+		gitPrService: GitHostListingService | undefined
 	) {
-		const vbranchesWithEmpty$ = vbranchService.branches$.pipe(
-			startWith([]),
-			catchError(() => of(undefined))
-		);
-		const branchesWithEmpty$ = storeToObservable(remoteBranchService.branches).pipe(
-			startWith([]),
-			catchError(() => of(undefined))
-		);
-		const prWithEmpty$ = gitHostService ? storeToObservable(gitHostService.prs) : of([]);
+		const vbranches = vbranchService.branches;
+		const branches = remoteBranchService.branches;
+		const prs = gitPrService ? gitPrService.prs : readable([]);
 
-		this.branches$ = combineLatest([vbranchesWithEmpty$, branchesWithEmpty$, prWithEmpty$]).pipe(
-			switchMap(([vbranches, remoteBranches, pullRequests]) => {
-				return new Observable<CombinedBranch[]>((observer) => {
-					const contributions = mergeBranchesAndPrs(vbranches, pullRequests, remoteBranches || []);
-					observer.next(contributions);
-					observer.complete();
-				});
-			}),
-			shareReplay(1)
+		this.branches = derived(
+			[vbranches, branches, prs],
+			([vbranches, remoteBranches, pullRequests]) => {
+				return mergeBranchesAndPrs(vbranches, pullRequests, remoteBranches || []);
+			}
 		);
-		[this.branches, this.error] = observableToStore(this.branches$);
 	}
 }
 
