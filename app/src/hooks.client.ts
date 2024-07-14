@@ -8,14 +8,14 @@ export function handleError({
 	error,
 	status
 }: {
-	error: any;
+	error: unknown;
 	status: number;
 }): ReturnType<HandleClientError> {
 	if (status !== 404) {
 		logError(error);
 	}
 	return {
-		message: error.message ?? error.toString()
+		message: String(error)
 	};
 }
 
@@ -24,11 +24,11 @@ window.onunhandledrejection = (e: PromiseRejectionEvent) => {
 	logError(e.reason);
 };
 
-function logError(err: any) {
-	let message = err instanceof Error ? err.message : err.toString();
-	const stack = err instanceof Error ? err.stack : undefined;
+function logError(error: unknown) {
+	let message = error instanceof Error ? error.message : String(error);
+	const stack = error instanceof Error ? error.stack : undefined;
 
-	const id = captureException(err, {
+	const id = captureException(message, {
 		mechanism: {
 			type: 'sveltekit',
 			handled: false
@@ -39,6 +39,6 @@ function logError(err: any) {
 
 	logErrorToFile(message);
 	console.error(message);
-	showError('Something went wrong', err);
+	showError('Something went wrong', message);
 	return id;
 }
