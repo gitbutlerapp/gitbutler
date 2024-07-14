@@ -28,7 +28,7 @@ export class BranchService {
 			startWith([]),
 			catchError(() => of(undefined))
 		);
-		const branchesWithEmpty$ = remoteBranchService.branches$.pipe(
+		const branchesWithEmpty$ = storeToObservable(remoteBranchService.branches).pipe(
 			startWith([]),
 			catchError(() => of(undefined))
 		);

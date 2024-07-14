@@ -1,22 +1,25 @@
 import { invoke, listen } from '$lib/backend/ipc';
-import { derived, readable } from 'svelte/store';
+import { derived, writable } from 'svelte/store';
 
 export class HeadService {
-	constructor(private projectId: string) {}
-
-	readonly name = readable<string>(undefined, (set) => {
-		this.getHead(this.projectId).then((head) => set(head));
-		const unsubscribe = subscribeToHead(this.projectId, (head) => set(head));
+	readonly head = writable<string>(undefined, () => {
+		this.refresh();
+		this.unsubscribe = subscribeToHead(this.projectId, (head) => this.head.set(head));
 		return () => {
-			unsubscribe();
+			this.unsubscribe?.();
 		};
 	});
 
-	readonly gbBranchActive = derived(this.name, (head) => head === 'gitbutler/integration');
+	readonly gbBranchActive = derived(this.head, (head) => head === 'gitbutler/integration');
 
-	private async getHead(projectId: string) {
-		const head = await invoke<string>('git_head', { projectId });
-		return head.replace('refs/heads/', '');
+	unsubscribe?: () => Promise<void>;
+
+	constructor(private projectId: string) {}
+
+	private async refresh() {
+		let head = await invoke<string>('git_head', { projectId: this.projectId });
+		head = head.replace('refs/heads/', '');
+		this.head.set(head);
 	}
 }
 
