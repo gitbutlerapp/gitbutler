@@ -27,7 +27,7 @@
 		e.preventDefault();
 		e.stopPropagation();
 		await baseBranchService.fetchFromRemotes('modal');
-		vbranchService.reload();
+		vbranchService.refresh();
 		$gitHostListing?.refresh();
 	}}
 >

@@ -47,12 +47,7 @@ export async function load({ params, parent }) {
 	const baseBranchService = new BaseBranchService(projectId);
 	const remoteBranchService = new RemoteBranchService(projectId, projectMetrics);
 
-	const vbranchService = new VirtualBranchService(
-		projectId,
-		projectMetrics,
-		remoteBranchService,
-		headService.gbBranchActive
-	);
+	const vbranchService = new VirtualBranchService(projectId, projectMetrics, remoteBranchService);
 
 	const branchController = new BranchController(
 		projectId,

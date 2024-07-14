@@ -24,7 +24,7 @@ export class BranchController {
 			showError('Failed to set base branch', err);
 		} finally {
 			this.baseBranchService.refresh();
-			this.vbranchService.reload();
+			this.vbranchService.refresh();
 		}
 	}
 
@@ -215,7 +215,7 @@ export class BranchController {
 				withForce
 			});
 			posthog.capture('Push Successful');
-			await this.vbranchService.reload();
+			await this.vbranchService.refresh();
 		} catch (err: any) {
 			posthog.capture('Push Failed', { error: err });
 			if (err.code === 'errors.git.authentication') {

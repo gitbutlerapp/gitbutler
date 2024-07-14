@@ -18,8 +18,8 @@
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
-	const activeBranchesError = vbranchService.activeBranchesError;
-	const activeBranches = vbranchService.activeBranches;
+	const error = vbranchService.error;
+	const branches = vbranchService.branches;
 	const showHistoryView = persisted(false, 'showHistoryView');
 
 	let dragged: any;
@@ -29,7 +29,7 @@
 
 	let dragHandle: any;
 	let clone: any;
-	$: if ($activeBranchesError) {
+	$: if ($error) {
 		$showHistoryView = true;
 	}
 
@@ -38,9 +38,9 @@
 	}
 </script>
 
-{#if $activeBranchesError}
+{#if $error}
 	<div class="p-4" data-tauri-drag-region>Something went wrong...</div>
-{:else if !$activeBranches}
+{:else if !$branches}
 	<FullviewLoading />
 {:else}
 	<div
@@ -72,12 +72,12 @@
 		}}
 		on:drop={(e) => {
 			if (!dragged) return;
-			if (!$activeBranches) return;
+			if (!$branches) return;
 			e.preventDefault();
 			if (priorPosition !== dropPosition) {
-				const el = $activeBranches.splice(priorPosition, 1);
-				$activeBranches.splice(dropPosition, 0, ...el);
-				$activeBranches.forEach((branch, i) => {
+				const el = $branches.splice(priorPosition, 1);
+				$branches.splice(dropPosition, 0, ...el);
+				$branches.forEach((branch, i) => {
 					if (branch.order !== i) {
 						branchController.updateBranchOrder(branch.id, i);
 					}
@@ -85,7 +85,7 @@
 			}
 		}}
 	>
-		{#each $activeBranches.sort((a, b) => a.order - b.order) as branch (branch.id)}
+		{#each $branches.sort((a, b) => a.order - b.order) as branch (branch.id)}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div
 				class="branch draggable-branch"
@@ -116,11 +116,11 @@
 			</div>
 		{/each}
 
-		{#if $activeBranches.length === 0}
+		{#if $branches.length === 0}
 			<div
 				data-tauri-drag-region
 				class="empty-board__wrapper"
-				class:transition-fly={$activeBranches.length === 0}
+				class:transition-fly={$branches.length === 0}
 			>
 				<div class="empty-board">
 					<div class="empty-board__content">

@@ -29,14 +29,14 @@
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
 
-	$: error$ = baseBranchService.error;
+	$: error = baseBranchService.error;
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
 	});
 </script>
 
-{#if $error$}
+{#if $error}
 	<p>Error...</p>
 {:else if !$baseBranch}
 	<FullviewLoading />

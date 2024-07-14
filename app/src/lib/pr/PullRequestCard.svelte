@@ -255,7 +255,7 @@
 							await Promise.all([
 								$prMonitor?.refresh(),
 								$listingService?.refresh(),
-								vbranchService.reload()
+								vbranchService.refresh()
 							]);
 						} catch (err) {
 							console.error(err);
@@ -263,7 +263,7 @@
 						} finally {
 							isMerging = false;
 							baseBranchService.fetchFromRemotes();
-							vbranchService.reload();
+							vbranchService.refresh();
 							// updateDetailsAndChecks();
 						}
 					}}
