@@ -255,16 +255,14 @@
 							await Promise.all([
 								$prMonitor?.refresh(),
 								$listingService?.refresh(),
-								vbranchService.refresh()
+								vbranchService.refresh(),
+								baseBranchService.refresh()
 							]);
 						} catch (err) {
 							console.error(err);
 							toasts.error('Failed to merge pull request');
 						} finally {
 							isMerging = false;
-							baseBranchService.fetchFromRemotes();
-							vbranchService.refresh();
-							// updateDetailsAndChecks();
 						}
 					}}
 				/>
