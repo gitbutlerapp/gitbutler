@@ -28,10 +28,10 @@ export class BaseBranchService {
 
 	readonly base: Readable<BaseBranch | null | undefined>;
 	readonly error: Readable<any>;
+	readonly remoteUrl$ = new BehaviorSubject<string | undefined>(undefined);
 
 	constructor(
 		private readonly projectId: string,
-		readonly remoteUrl$: BehaviorSubject<string | undefined>,
 		fetches$: Observable<unknown>,
 		readonly head$: Observable<string>
 	) {

@@ -3,7 +3,7 @@ import type { GitHostPrMonitor } from './gitHostPrMonitor';
 import type { DetailedPullRequest, MergeMethod, PullRequest } from './types';
 import type { Writable } from 'svelte/store';
 
-export const [getGitHostPrServiceStore, createGitHostPrServiceStore] = buildContextStore<
+export const [getGitHostPrService, createGitHostPrServiceStore] = buildContextStore<
 	GitHostPrService | undefined
 >('gitBranchService');
 

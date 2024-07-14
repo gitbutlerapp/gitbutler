@@ -1,18 +1,18 @@
-import { GitHubService } from './githubService';
+import { GitHub } from './github';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { expect, test, describe, vi, beforeEach } from 'vitest';
-import type { GitHostPrService } from '../interface/gitHostPrService';
+import type { GitHostPrService as GitHubPrService } from '../interface/gitHostPrService';
 
 // TODO: Rewrite this proof-of-concept into something valuable.
 describe.concurrent('GitHubPrService', () => {
 	let octokit: Octokit;
-	let gh: GitHubService;
-	let service: GitHostPrService;
+	let gh: GitHub;
+	let service: GitHubPrService;
 
 	beforeEach(() => {
 		octokit = new Octokit();
-		gh = new GitHubService(new ProjectMetrics(), octokit, {
+		gh = new GitHub(new ProjectMetrics(), octokit, {
 			provider: 'github.com',
 			name: 'test-repo',
 			owner: 'test-owner'
@@ -20,7 +20,7 @@ describe.concurrent('GitHubPrService', () => {
 		service = gh.prService('base-branch', 'upstream-branch');
 	});
 
-	test('Test parsing response', async () => {
+	test('test parsing response', async () => {
 		const title = 'PR Title';
 		vi.spyOn(octokit.pulls, 'get').mockReturnValueOnce(
 			Promise.resolve({

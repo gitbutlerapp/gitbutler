@@ -4,10 +4,10 @@
 	import { projectLaneCollapsed } from '$lib/config/config';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import { createGitHostChecksMonitorStore } from '$lib/gitHost/interface/gitHostChecksMonitor';
-	import { getGitHostListingServiceStore } from '$lib/gitHost/interface/gitHostListingService';
+	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { createGitHostPrMonitorStore } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { createGitHostPrServiceStore } from '$lib/gitHost/interface/gitHostPrService';
-	import { getGitHostServiceStore } from '$lib/gitHost/interface/gitHostService';
+	import { getGitHost } from '$lib/gitHost/interface/gitHostService';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
@@ -36,7 +36,7 @@
 
 	const baseBranch = getContextStore(BaseBranch);
 
-	const gitHostService = getGitHostServiceStore();
+	const gitHostService = getGitHost();
 	const baseBranchName = $derived($baseBranch.shortName);
 	const upstreamName = $derived(branch.upstreamName);
 
@@ -50,7 +50,7 @@
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
-	const hostedListingServiceStore = getGitHostListingServiceStore();
+	const hostedListingServiceStore = getGitHostListingService();
 	const prs = $derived($hostedListingServiceStore?.prs);
 
 	const listedPr = $derived($prs?.find((pr) => pr.sourceBranch === branch.upstreamName));

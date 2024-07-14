@@ -5,10 +5,10 @@
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
-	import { getGitHostListingServiceStore } from '$lib/gitHost/interface/gitHostListingService';
-	import { getGitHostPrMonitorStore } from '$lib/gitHost/interface/gitHostPrMonitor';
-	import { getGitHostPrServiceStore } from '$lib/gitHost/interface/gitHostPrService';
-	import { getGitHostServiceStore } from '$lib/gitHost/interface/gitHostService';
+	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
+	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
+	import { getGitHost } from '$lib/gitHost/interface/gitHostService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import Button from '$lib/shared/Button.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
@@ -27,11 +27,11 @@
 
 	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
-	const prService = getGitHostPrServiceStore();
-	const gitListService = getGitHostListingServiceStore();
+	const prService = getGitHostPrService();
+	const gitListService = getGitHostListingService();
 	const branchStore = getContextStore(Branch);
-	const prMonitor = getGitHostPrMonitorStore();
-	const gitHost = getGitHostServiceStore();
+	const prMonitor = getGitHostPrMonitor();
+	const gitHost = getGitHost();
 
 	$: branch = $branchStore;
 	$: pr = $prMonitor?.pr;

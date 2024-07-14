@@ -3,12 +3,12 @@ import type { GitHostChecksMonitor } from './gitHostChecksMonitor';
 import type { GitHostListingService } from './gitHostListingService';
 import type { GitHostPrService } from './gitHostPrService';
 
-export interface GitHostService {
+export interface GitHost {
 	listService(): GitHostListingService;
 	prService(baseBranch: string, upstreamName: string): GitHostPrService;
 	checksMonitor(sourceBranch: string): GitHostChecksMonitor;
 }
 
-export const [getGitHostServiceStore, createGitHostServiceStore] = buildContextStore<
-	GitHostService | undefined
->('githubService');
+export const [getGitHost, createGitHostStore] = buildContextStore<GitHost | undefined>(
+	'githubService'
+);

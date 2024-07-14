@@ -3,9 +3,9 @@
 	import PushButton, { BranchAction } from '../components/PushButton.svelte';
 	import emptyStateImg from '$lib/assets/empty-state/commits-up-to-date.svg?raw';
 	import { PromptService } from '$lib/backend/prompt';
-	import { getGitHostChecksMonitorStore } from '$lib/gitHost/interface/gitHostChecksMonitor';
-	import { getGitHostListingServiceStore } from '$lib/gitHost/interface/gitHostListingService';
-	import { getGitHostPrMonitorStore } from '$lib/gitHost/interface/gitHostPrMonitor';
+	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
+	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { project } from '$lib/testing/fixtures';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
@@ -21,9 +21,9 @@
 	const promptService = getContext(PromptService);
 	const branch = getContextStore(Branch);
 
-	const listingService = getGitHostListingServiceStore();
-	const prMonitor = getGitHostPrMonitorStore();
-	const checksMonitor = getGitHostChecksMonitorStore();
+	const listingService = getGitHostListingService();
+	const prMonitor = getGitHostPrMonitor();
+	const checksMonitor = getGitHostChecksMonitor();
 
 	const [prompt, promptError] = promptService.reactToPrompt({
 		branchId: $branch.id,

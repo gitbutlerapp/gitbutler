@@ -11,6 +11,6 @@ export interface GitHostChecksMonitor {
 	stop(): void;
 }
 
-export const [getGitHostChecksMonitorStore, createGitHostChecksMonitorStore] = buildContextStore<
+export const [getGitHostChecksMonitor, createGitHostChecksMonitorStore] = buildContextStore<
 	GitHostChecksMonitor | undefined
 >('checksMonitor');

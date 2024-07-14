@@ -2,10 +2,10 @@
 	import MergeButton from './MergeButton.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
-	import { getGitHostChecksMonitorStore } from '$lib/gitHost/interface/gitHostChecksMonitor';
-	import { getGitHostListingServiceStore } from '$lib/gitHost/interface/gitHostListingService';
-	import { getGitHostPrMonitorStore } from '$lib/gitHost/interface/gitHostPrMonitor';
-	import { getGitHostPrServiceStore } from '$lib/gitHost/interface/gitHostPrService';
+	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
+	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
+	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { createTimeAgoStore } from '$lib/utils/timeAgo';
@@ -29,10 +29,10 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
 
-	const prService = getGitHostPrServiceStore();
-	const prMonitor = getGitHostPrMonitorStore();
-	const checksMonitor = getGitHostChecksMonitorStore();
-	const listingService = getGitHostListingServiceStore();
+	const prService = getGitHostPrService();
+	const prMonitor = getGitHostPrMonitor();
+	const checksMonitor = getGitHostChecksMonitor();
+	const listingService = getGitHostListingService();
 	// This PR has been loaded on demand, and contains more details than the version
 	// obtained when listing them.
 	const pr = $derived($prMonitor?.pr);

@@ -9,12 +9,13 @@
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$lib/components/ProjectSettingsMenuAction.svelte';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
-	import { DefaultGitHostFactory } from '$lib/gitHost/gitHostServiceFactory';
+	import { DefaultGitHostFactory } from '$lib/gitHost/gitHostFactory';
 	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
 	import { createGitHostListingServiceStore } from '$lib/gitHost/interface/gitHostListingService';
-	import { createGitHostServiceStore } from '$lib/gitHost/interface/gitHostService';
+	import { createGitHostStore } from '$lib/gitHost/interface/gitHostService';
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
+	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
@@ -35,6 +36,7 @@
 		project,
 		projectId,
 		projectService,
+		projectMetrics,
 		baseBranchService,
 		remoteBranchService,
 		gbBranchActive$,
@@ -66,15 +68,15 @@
 	const showHistoryView = persisted(false, 'showHistoryView');
 
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
-	const gitHostServiceFactory = $derived(octokit ? new DefaultGitHostFactory(octokit) : undefined);
+	const gitHostFactory = $derived(octokit ? new DefaultGitHostFactory(octokit) : undefined);
 	const repoInfo = $derived(remoteUrl ? parseRemoteUrl(remoteUrl) : undefined);
 
 	const listServiceStore = createGitHostListingServiceStore(undefined);
-	const githubRepoServiceStore = createGitHostServiceStore(undefined);
+	const githubRepoServiceStore = createGitHostStore(undefined);
 	const branchServiceStore = createBranchServiceStore(undefined);
 
 	$effect.pre(() => {
-		const gitHostService = repoInfo ? gitHostServiceFactory?.build(repoInfo) : undefined;
+		const gitHostService = repoInfo ? gitHostFactory?.build(repoInfo) : undefined;
 		const ghListService = gitHostService?.listService();
 
 		listServiceStore.set(ghListService);
@@ -155,6 +157,7 @@
 			{@render children()}
 		</div>
 	{/if}
+	<MetricsReporter {projectMetrics} />
 {/key}
 
 <style>

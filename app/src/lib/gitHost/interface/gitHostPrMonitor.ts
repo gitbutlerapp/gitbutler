@@ -10,6 +10,6 @@ export interface GitHostPrMonitor {
 	refresh(): Promise<void>;
 }
 
-export const [getGitHostPrMonitorStore, createGitHostPrMonitorStore] = buildContextStore<
+export const [getGitHostPrMonitor, createGitHostPrMonitorStore] = buildContextStore<
 	GitHostPrMonitor | undefined
 >('prMonitor');

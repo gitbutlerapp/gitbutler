@@ -6,11 +6,11 @@
 	// It may also display details about a cooresponding pr if they exist
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import PullRequestPreview from '$lib/components/PullRequestPreview.svelte';
-	import { getGitHostListingServiceStore } from '$lib/gitHost/interface/gitHostListingService';
+	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { page } from '$app/stores';
 
-	const githubService = getGitHostListingServiceStore();
-	const prs = $derived($githubService?.prs);
+	const gitHostListing = getGitHostListingService();
+	const prs = $derived($gitHostListing?.prs);
 	const pr = $derived($prs?.find((b) => b.number.toString() === $page.params.number));
 </script>
 
