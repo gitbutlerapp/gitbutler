@@ -8,6 +8,7 @@
 	import { getGitHostPrServiceStore } from '$lib/gitHost/interface/gitHostPrService';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
+	import { sleep } from '$lib/utils/sleep';
 	import { createTimeAgoStore } from '$lib/utils/timeAgo';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -259,9 +260,12 @@
 						const method = e.detail.method;
 						try {
 							await $prService?.merge(method, $pr.number);
-							vbranchService.reload();
-							$prMonitor?.refresh();
-							$listingService?.reload();
+							await sleep(250);
+							await Promise.all([
+								$prMonitor?.refresh(),
+								$listingService?.reload(),
+								vbranchService.reload()
+							]);
 						} catch (err) {
 							console.error(err);
 							toasts.error('Failed to merge pull request');
