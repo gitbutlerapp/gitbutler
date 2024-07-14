@@ -9,7 +9,7 @@
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$lib/components/ProjectSettingsMenuAction.svelte';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
-	import { DefaultGitHostServiceFactory } from '$lib/gitHost/gitHostServiceFactory';
+	import { DefaultGitHostFactory } from '$lib/gitHost/gitHostServiceFactory';
 	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
 	import { createGitHostListingServiceStore } from '$lib/gitHost/interface/gitHostListingService';
 	import { createGitHostServiceStore } from '$lib/gitHost/interface/gitHostService';
@@ -66,21 +66,20 @@
 	const showHistoryView = persisted(false, 'showHistoryView');
 
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
-	const gitHostServiceFactory = $derived(new DefaultGitHostServiceFactory(octokit));
+	const gitHostServiceFactory = $derived(octokit ? new DefaultGitHostFactory(octokit) : undefined);
 	const repoInfo = $derived(remoteUrl ? parseRemoteUrl(remoteUrl) : undefined);
+
+	const listServiceStore = createGitHostListingServiceStore(undefined);
 	const githubRepoServiceStore = createGitHostServiceStore(undefined);
 	const branchServiceStore = createBranchServiceStore(undefined);
-	const listServiceStore = createGitHostListingServiceStore(undefined);
 
 	$effect.pre(() => {
-		if (repoInfo) {
-			const gitHostService = gitHostServiceFactory.build(repoInfo);
-			const ghListService = gitHostService?.listService();
-			listServiceStore.set(ghListService);
-			githubRepoServiceStore.set(gitHostService);
+		const gitHostService = repoInfo ? gitHostServiceFactory?.build(repoInfo) : undefined;
+		const ghListService = gitHostService?.listService();
 
-			branchServiceStore.set(new BranchService(vbranchService, remoteBranchService, ghListService));
-		}
+		listServiceStore.set(ghListService);
+		githubRepoServiceStore.set(gitHostService);
+		branchServiceStore.set(new BranchService(vbranchService, remoteBranchService, ghListService));
 	});
 
 	// Once on load and every time the project id changes
