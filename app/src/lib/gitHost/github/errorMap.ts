@@ -4,9 +4,11 @@ export function mapErrorToToast(err: any): Toast | undefined {
 	// We expect an object to be thrown by octokit.
 	if (typeof err !== 'object') return;
 
-	const { status, response } = err;
-	const { data } = response;
-	const { message, errors } = data;
+	const status = err?.status;
+	const response = err?.response;
+	const data = response?.data;
+	const message = data?.message;
+	const errors = data?.errors;
 
 	// If this expectation isn't met we must be doing something wrong
 	if (status === undefined || message === undefined) return;
