@@ -20,6 +20,7 @@
 	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { persisted } from '$lib/persisted/persisted';
+	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { debounce } from '$lib/utils/debounce';
 	import * as events from '$lib/utils/events';
@@ -63,6 +64,7 @@
 		setContext(BranchDragActionsFactory, data.branchDragActionsFactory);
 		setContext(CommitDragActionsFactory, data.commitDragActionsFactory);
 		setContext(ReorderDropzoneManagerFactory, data.reorderDropzoneManagerFactory);
+		setContext(RemoteBranchService, data.remoteBranchService);
 	});
 
 	let intervalId: any;
