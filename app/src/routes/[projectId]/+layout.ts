@@ -2,10 +2,10 @@ import { invoke } from '$lib/backend/ipc';
 import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
 import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
+import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
 import { HeadService } from '$lib/head/headService';
 import { HistoryService } from '$lib/history/history';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
-import { getFetchNotifications } from '$lib/stores/fetches';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
 import { BaseBranchService } from '$lib/vbranches/baseBranch';
 import { BranchController } from '$lib/vbranches/branchController';
@@ -41,10 +41,10 @@ export async function load({ params, parent }) {
 	const projectMetrics = new ProjectMetrics(projectId);
 
 	const headService = new HeadService(projectId);
-	const fetches$ = getFetchNotifications(projectId);
+	const fetchSignal = new FetchSignal(projectId);
 
 	const historyService = new HistoryService(projectId);
-	const baseBranchService = new BaseBranchService(projectId, fetches$, headService.name);
+	const baseBranchService = new BaseBranchService(projectId, fetchSignal.event, headService.name);
 	const vbranchService = new VirtualBranchService(
 		projectId,
 		projectMetrics,
@@ -54,7 +54,7 @@ export async function load({ params, parent }) {
 	const remoteBranchService = new RemoteBranchService(
 		projectId,
 		projectMetrics,
-		fetches$,
+		fetchSignal.event,
 		headService.name,
 		baseBranchService.base$
 	);

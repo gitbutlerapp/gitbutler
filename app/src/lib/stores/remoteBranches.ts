@@ -25,11 +25,15 @@ export class RemoteBranchService {
 	constructor(
 		projectId: string,
 		private projectMetrics: ProjectMetrics,
-		fetches$: Observable<any>,
+		fetches: Readable<unknown>,
 		head: Readable<string>,
 		baseBranch$: Observable<any>
 	) {
-		this.branches$ = combineLatest([baseBranch$, storeToObservable(head), fetches$]).pipe(
+		this.branches$ = combineLatest([
+			baseBranch$,
+			storeToObservable(head),
+			storeToObservable(fetches)
+		]).pipe(
 			mergeWith(this.reload$),
 			switchMap(async () => await listRemoteBranches(projectId)),
 			tap((branches) => {

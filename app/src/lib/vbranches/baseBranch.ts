@@ -32,10 +32,10 @@ export class BaseBranchService {
 
 	constructor(
 		private readonly projectId: string,
-		fetches$: Observable<unknown>,
+		fetches: Readable<unknown>,
 		head: Readable<string>
 	) {
-		this.base$ = combineLatest([fetches$, storeToObservable(head)]).pipe(
+		this.base$ = combineLatest([storeToObservable(fetches), storeToObservable(head)]).pipe(
 			mergeWith(this.reload$),
 			debounceTime(100),
 			switchMap(async () => {
