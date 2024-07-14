@@ -8,7 +8,9 @@ import type { PullRequest } from '../interface/types';
 import type { Octokit } from '@octokit/rest';
 
 export class GitHubListingService implements GitHostListingService {
-	readonly prs = writable<PullRequest[]>([], () => {});
+	readonly prs = writable<PullRequest[]>([], () => {
+		this.fetch();
+	});
 
 	private error = writable();
 
