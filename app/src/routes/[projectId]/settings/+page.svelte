@@ -5,6 +5,7 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { featureBaseBranchSwitching } from '$lib/config/uiFeatureFlags';
 	import { showError } from '$lib/notifications/toasts';
+	import { platformName } from '$lib/platform/platform';
 	import CloudForm from '$lib/settings/CloudForm.svelte';
 	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
 	import DetailsForm from '$lib/settings/DetailsForm.svelte';
@@ -13,14 +14,11 @@
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
-	import { platform } from '@tauri-apps/api/os';
-	import { from } from 'rxjs';
 	import { goto } from '$app/navigation';
 
 	const baseBranchSwitching = featureBaseBranchSwitching();
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
-	const platformName = from(platform());
 
 	let deleteConfirmationModal: RemoveProjectButton;
 	let isDeleting = false;
