@@ -11,7 +11,7 @@
 	const vbranchService = getContext(VirtualBranchService);
 	const baseBranch = baseBranchService.base;
 
-	$: baseServiceBusy$ = baseBranchService.busy$;
+	$: baseServiceBusy$ = baseBranchService.loading;
 </script>
 
 <Button

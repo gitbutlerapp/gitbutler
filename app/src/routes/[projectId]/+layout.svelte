@@ -40,7 +40,8 @@
 		baseBranchService,
 		remoteBranchService,
 		headService,
-		userService
+		userService,
+		fetchSignal
 	} = $derived(data);
 
 	const branchesError = $derived(vbranchService.branchesError);
@@ -74,8 +75,19 @@
 	const listServiceStore = createGitHostListingServiceStore(undefined);
 	const githubRepoServiceStore = createGitHostStore(undefined);
 	const branchServiceStore = createBranchServiceStore(undefined);
+
+	// Refresh base branch if git fetch event is detected.
 	const head = $derived(headService.name);
 	const gbBranchActive = $derived($head === 'gitbutler/integration');
+	$effect(() => {
+		if ($head) baseBranchService.refresh();
+	});
+
+	// Refresh base branch if git fetch event is detected.
+	const fetch = $derived(fetchSignal.event);
+	$effect(() => {
+		if ($fetch) baseBranchService.refresh();
+	});
 
 	$effect.pre(() => {
 		const gitHostService = repoInfo ? gitHostFactory?.build(repoInfo) : undefined;

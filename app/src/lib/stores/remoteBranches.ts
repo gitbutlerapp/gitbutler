@@ -27,10 +27,10 @@ export class RemoteBranchService {
 		private projectMetrics: ProjectMetrics,
 		fetches: Readable<unknown>,
 		head: Readable<string>,
-		baseBranch$: Observable<any>
+		baseBranch: Readable<unknown>
 	) {
 		this.branches$ = combineLatest([
-			baseBranch$,
+			storeToObservable(baseBranch),
 			storeToObservable(head),
 			storeToObservable(fetches)
 		]).pipe(

@@ -44,7 +44,7 @@ export async function load({ params, parent }) {
 	const fetchSignal = new FetchSignal(projectId);
 
 	const historyService = new HistoryService(projectId);
-	const baseBranchService = new BaseBranchService(projectId, fetchSignal.event, headService.name);
+	const baseBranchService = new BaseBranchService(projectId);
 	const vbranchService = new VirtualBranchService(
 		projectId,
 		projectMetrics,
@@ -56,7 +56,7 @@ export async function load({ params, parent }) {
 		projectMetrics,
 		fetchSignal.event,
 		headService.name,
-		baseBranchService.base$
+		baseBranchService.base
 	);
 	const branchController = new BranchController(
 		projectId,
@@ -80,6 +80,7 @@ export async function load({ params, parent }) {
 		vbranchService,
 		projectMetrics,
 		headService,
+		fetchSignal,
 
 		// These observables are provided for convenience
 		branchDragActionsFactory,

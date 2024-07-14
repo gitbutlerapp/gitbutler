@@ -12,18 +12,18 @@ export class BranchController {
 		readonly projectId: string,
 		readonly vbranchService: VirtualBranchService,
 		readonly remoteBranchService: RemoteBranchService,
-		readonly targetBranchService: BaseBranchService
+		readonly baseBranchService: BaseBranchService
 	) {}
 
 	async setTarget(branch: string, pushRemote: string | undefined = undefined) {
 		try {
-			await this.targetBranchService.setTarget(branch, pushRemote);
+			await this.baseBranchService.setTarget(branch, pushRemote);
 			return branch;
 			// TODO: Reloading seems to trigger 4 invocations of `list_virtual_branches`
 		} catch (err: any) {
 			showError('Failed to set base branch', err);
 		} finally {
-			this.targetBranchService.reload();
+			this.baseBranchService.refresh();
 			this.vbranchService.reload();
 		}
 	}
@@ -275,7 +275,7 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 				return undefined;
 			}
 		} finally {
-			this.targetBranchService.reload();
+			this.baseBranchService.refresh();
 		}
 	}
 
@@ -289,7 +289,7 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 			showError('Failed to create virtual branch', err);
 		} finally {
 			this.remoteBranchService.reload();
-			this.targetBranchService.reload();
+			this.baseBranchService.refresh();
 		}
 	}
 

@@ -1,70 +1,41 @@
 import { BaseBranch } from './types';
 import { Code, invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
-import { observableToStore, storeToObservable } from '$lib/rxjs/store';
 import { plainToInstance } from 'class-transformer';
-import {
-	switchMap,
-	Observable,
-	shareReplay,
-	catchError,
-	BehaviorSubject,
-	debounceTime,
-	tap,
-	combineLatest,
-	startWith,
-	Subject,
-	mergeWith
-} from 'rxjs';
-import type { Readable } from 'svelte/store';
+import { Subject } from 'rxjs';
+import { writable } from 'svelte/store';
 
 export class NoDefaultTarget extends Error {}
 
 export class BaseBranchService {
-	readonly base$: Observable<BaseBranch | null | undefined>;
-	readonly busy$ = new BehaviorSubject(false);
-	readonly error$ = new BehaviorSubject<any>(undefined);
+	readonly base = writable<BaseBranch | null | undefined>(undefined, () => {
+		this.refresh();
+	});
+	readonly loading = writable(false);
+	readonly error = writable();
 	private readonly reload$ = new Subject<void>();
 
-	readonly base: Readable<BaseBranch | null | undefined>;
-	readonly error: Readable<any>;
-	readonly remoteUrl$ = new BehaviorSubject<string | undefined>(undefined);
+	constructor(private readonly projectId: string) {}
 
-	constructor(
-		private readonly projectId: string,
-		fetches: Readable<unknown>,
-		head: Readable<string>
-	) {
-		this.base$ = combineLatest([storeToObservable(fetches), storeToObservable(head)]).pipe(
-			mergeWith(this.reload$),
-			debounceTime(100),
-			switchMap(async () => {
-				this.busy$.next(true);
-				const baseBranch = await getBaseBranch({ projectId });
-				if (!baseBranch) {
-					throw new NoDefaultTarget();
-				}
-				this.busy$.next(false);
-				return baseBranch;
-			}),
-			tap((baseBranch) => {
-				if (baseBranch?.remoteUrl) this.remoteUrl$.next(baseBranch.remoteUrl);
-			}),
-			catchError((e) => {
-				this.remoteUrl$.next(undefined);
-				this.busy$.next(false);
-				throw e;
-			}),
-			// Start with undefined to prevent delay in updating $baseBranch value in
-			// layout.svelte when navigating between projects.
-			startWith(undefined),
-			shareReplay(1)
-		);
-		[this.base, this.error] = observableToStore(this.base$, this.reload$);
+	async refresh(): Promise<void> {
+		this.loading.set(true);
+		try {
+			const baseBranch = plainToInstance(
+				BaseBranch,
+				await invoke<any>('get_base_branch_data', { projectId: this.projectId })
+			);
+			if (!baseBranch) this.error.set(new NoDefaultTarget());
+			this.base.set(baseBranch);
+		} catch (err: any) {
+			this.error.set(err);
+			throw err;
+		} finally {
+			this.loading.set(false);
+		}
 	}
 
 	async fetchFromRemotes(action: string | undefined = undefined) {
-		this.busy$.next(true);
+		this.loading.set(true);
 		try {
 			// Note that we expect the back end to emit new fetches event, and therefore
 			// trigger a base branch reload. It feels a bit awkward and should be improved.
@@ -83,12 +54,12 @@ export class BaseBranchService {
 			}
 			console.error(err);
 		} finally {
-			this.busy$.next(false);
+			this.loading.set(false);
 		}
 	}
 
 	async setTarget(branch: string, pushRemote: string | undefined = undefined) {
-		this.busy$.next(true);
+		this.loading.set(true);
 		await invoke<BaseBranch>('set_base_branch', {
 			projectId: this.projectId,
 			branch,
@@ -96,15 +67,6 @@ export class BaseBranchService {
 		});
 		await this.fetchFromRemotes();
 	}
-
-	reload() {
-		this.busy$.next(true);
-		this.reload$.next();
-	}
-}
-
-async function getBaseBranch(params: { projectId: string }): Promise<BaseBranch | null> {
-	return plainToInstance(BaseBranch, await invoke<any>('get_base_branch_data', params));
 }
 
 export async function getRemoteBranches(projectId: string | undefined) {
