@@ -1,15 +1,15 @@
 <script lang="ts">
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { getRemoteBranches } from '$lib/baseBranch/baseBranchService';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import { getRemoteBranches } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranch } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 
 	const baseBranch = getContextStore(BaseBranch);

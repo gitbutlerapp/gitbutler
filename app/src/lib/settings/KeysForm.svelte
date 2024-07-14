@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ProjectService, type Key, type KeyType, Project } from '$lib/backend/projects';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import Section from '$lib/settings/Section.svelte';
@@ -9,7 +10,6 @@
 	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import { BaseBranch } from '$lib/vbranches/types';
 	import { onMount } from 'svelte';
 
 	const project = getContext(Project);

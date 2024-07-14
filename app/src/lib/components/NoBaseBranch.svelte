@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
+	import { getRemoteBranches } from '$lib/baseBranch/baseBranchService';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSetup from '$lib/components/ProjectSetup.svelte';
 	import { getContext } from '$lib/utils/context';
-	import { getRemoteBranches } from '$lib/vbranches/baseBranch';
 
 	const project = getContext(Project);
 </script>

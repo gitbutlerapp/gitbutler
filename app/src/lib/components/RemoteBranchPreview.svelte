@@ -3,13 +3,14 @@
 	import Resizer from '../shared/Resizer.svelte';
 	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getRemoteBranchData } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { BaseBranch, type RemoteBranch } from '$lib/vbranches/types';
+	import { type RemoteBranch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
 	import { onMount, setContext } from 'svelte';

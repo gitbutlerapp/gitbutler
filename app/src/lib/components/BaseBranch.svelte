@@ -9,7 +9,7 @@
 	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import type { BaseBranch } from '$lib/vbranches/types';
+	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 
 	export let base: BaseBranch;
 

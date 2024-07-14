@@ -3,6 +3,7 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
@@ -15,7 +16,6 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
-	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Branch } from '$lib/vbranches/types';
 	import type { PullRequest } from '$lib/gitHost/interface/types';

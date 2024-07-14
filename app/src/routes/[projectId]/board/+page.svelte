@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Board from '$lib/components/Board.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import { getGitHost } from '$lib/gitHost/interface/gitHostService';
 	import { showToast } from '$lib/notifications/toasts';
 	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { getContext } from '$lib/utils/context';
-	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 
 	const project = getContext(Project);
 	const gitHost = getGitHost();
