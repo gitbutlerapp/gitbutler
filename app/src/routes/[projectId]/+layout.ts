@@ -2,16 +2,15 @@ import { invoke } from '$lib/backend/ipc';
 import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
 import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
+import { HeadService } from '$lib/head/headService';
 import { HistoryService } from '$lib/history/history';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { getFetchNotifications } from '$lib/stores/fetches';
-import { getHeads } from '$lib/stores/head';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
 import { BaseBranchService } from '$lib/vbranches/baseBranch';
 import { BranchController } from '$lib/vbranches/branchController';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 import { error } from '@sveltejs/kit';
-import { map } from 'rxjs';
 import type { Project } from '$lib/backend/projects';
 
 export const prerender = false;
@@ -41,19 +40,22 @@ export async function load({ params, parent }) {
 
 	const projectMetrics = new ProjectMetrics(projectId);
 
+	const headService = new HeadService(projectId);
 	const fetches$ = getFetchNotifications(projectId);
-	const heads$ = getHeads(projectId);
-	const gbBranchActive$ = heads$.pipe(map((head) => head === 'gitbutler/integration'));
 
 	const historyService = new HistoryService(projectId);
-	const baseBranchService = new BaseBranchService(projectId, fetches$, heads$);
-	const vbranchService = new VirtualBranchService(projectId, projectMetrics, gbBranchActive$);
+	const baseBranchService = new BaseBranchService(projectId, fetches$, headService.name);
+	const vbranchService = new VirtualBranchService(
+		projectId,
+		projectMetrics,
+		headService.gbBranchActive
+	);
 
 	const remoteBranchService = new RemoteBranchService(
 		projectId,
 		projectMetrics,
 		fetches$,
-		heads$,
+		headService.name,
 		baseBranchService.base$
 	);
 	const branchController = new BranchController(
@@ -77,9 +79,9 @@ export async function load({ params, parent }) {
 		remoteBranchService,
 		vbranchService,
 		projectMetrics,
+		headService,
 
 		// These observables are provided for convenience
-		gbBranchActive$,
 		branchDragActionsFactory,
 		commitDragActionsFactory,
 		reorderDropzoneManagerFactory
