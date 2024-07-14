@@ -13,7 +13,9 @@
     clippy::too_many_lines
 )]
 
-pub mod app;
+mod app;
+pub use app::App;
+
 pub mod commands;
 
 pub mod logs;

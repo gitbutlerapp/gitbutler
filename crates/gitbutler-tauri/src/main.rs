@@ -13,11 +13,10 @@
     clippy::too_many_lines
 )]
 
-use gitbutler_repo::credentials::Helper;
-use gitbutler_storage::storage;
+use gitbutler_repo::credentials;
 use gitbutler_tauri::{
-    app, askpass, commands, config, github, logs, menu, projects, remotes, repo, secret, undo,
-    users, virtual_branches, zip, WindowState,
+    askpass, commands, config, github, logs, menu, projects, remotes, repo, secret, undo, users,
+    virtual_branches, zip, App, WindowState,
 };
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
@@ -42,13 +41,18 @@ fn main() {
 
             tauri::Builder::default()
                 .setup(move |tauri_app| {
-                    let window =
-                        gitbutler_tauri::window::create(&tauri_app.handle(), "main", "index.html".into()).expect("Failed to create window");
+                    let window = gitbutler_tauri::window::create(
+                        &tauri_app.handle(),
+                        "main",
+                        "index.html".into(),
+                    )
+                    .expect("Failed to create window");
                     #[cfg(debug_assertions)]
                     window.open_devtools();
 
                     tokio::task::spawn(async move {
-                        let mut six_hours = tokio::time::interval(tokio::time::Duration::new(6 * 60 * 60, 0));
+                        let mut six_hours =
+                            tokio::time::interval(tokio::time::Duration::new(6 * 60 * 60, 0));
                         loop {
                             six_hours.tick().await;
                             _ = window.emit_and_trigger("tauri://update", ());
@@ -73,52 +77,41 @@ fn main() {
                         gitbutler_repo::askpass::init({
                             let handle = app_handle.clone();
                             move |event| {
-                                handle.emit_all("git_prompt", event).expect("tauri event emission doesn't fail in practice")
+                                handle
+                                    .emit_all("git_prompt", event)
+                                    .expect("tauri event emission doesn't fail in practice")
                             }
                         });
                     }
 
-                    let app_data_dir = app_handle.path_resolver().app_data_dir().expect("missing app data dir");
-                    let app_cache_dir = app_handle.path_resolver().app_cache_dir().expect("missing app cache dir");
-                    let app_log_dir = app_handle.path_resolver().app_log_dir().expect("missing app log dir");
-
+                    let (app_data_dir, app_cache_dir, app_log_dir) = {
+                        let paths = app_handle.path_resolver();
+                        (
+                            paths.app_data_dir().expect("missing app data dir"),
+                            paths.app_cache_dir().expect("missing app cache dir"),
+                            paths.app_log_dir().expect("missing app log dir"),
+                        )
+                    };
                     std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
                     std::fs::create_dir_all(&app_cache_dir).expect("failed to create cache dir");
 
-                    tracing::info!(version = %app_handle.package_info().version, name = %app_handle.package_info().name, "starting app");
-
-                    let storage_controller = storage::Storage::new(&app_data_dir);
-                    app_handle.manage(storage_controller.clone());
+                    tracing::info!(version = %app_handle.package_info().version,
+                                   name = %app_handle.package_info().name, "starting app");
 
                     app_handle.manage(WindowState::new(app_handle.clone()));
 
-                    let projects_storage_controller = gitbutler_project::storage::Storage::new(storage_controller.clone());
-                    app_handle.manage(projects_storage_controller.clone());
+                    let app = App {
+                        app_data_dir: app_data_dir.clone(),
+                    };
+                    app_handle.manage(app.users());
+                    app_handle.manage(app.projects());
 
-                    let users_storage_controller = gitbutler_user::storage::Storage::new(storage_controller.clone());
-                    app_handle.manage(users_storage_controller.clone());
-
-                    let users_controller = gitbutler_user::Controller::new(users_storage_controller.clone());
-                    app_handle.manage(users_controller.clone());
-
-                    let projects_controller = gitbutler_project::Controller::new(
-                        app_data_dir.clone(),
-                        projects_storage_controller.clone()
-                    );
-                    app_handle.manage(projects_controller.clone());
-
-                    let zipper = gitbutler_feedback::zipper::Zipper::new(&app_cache_dir);
-                    app_handle.manage(zipper.clone());
-
-                    app_handle.manage(gitbutler_feedback::controller::Controller::new(app_data_dir.clone(), app_log_dir.clone(), zipper.clone(), projects_controller.clone()));
-
-                    let git_credentials_controller = Helper::default();
-                    app_handle.manage(git_credentials_controller.clone());
-
-                    let app = app::App::new(
-                        projects_controller,
-                    );
-
+                    app_handle.manage(gitbutler_feedback::Archival {
+                        cache_dir: app_cache_dir,
+                        logs_dir: app_log_dir,
+                        projects_controller: app.projects(),
+                    });
+                    app_handle.manage(credentials::Helper::default());
                     app_handle.manage(app);
 
                     Ok(())
@@ -199,28 +192,33 @@ fn main() {
                     remotes::add_remote
                 ])
                 .menu(menu::build(tauri_context.package_info()))
-                .on_menu_event(|event|menu::handle_event(&event))
+                .on_menu_event(|event| menu::handle_event(&event))
                 .on_window_event(|event| {
                     let window = event.window();
                     match event.event() {
                         #[cfg(target_os = "macos")]
                         tauri::WindowEvent::CloseRequested { api, .. } => {
                             if window.app_handle().windows().len() == 1 {
-                                tracing::debug!("Hiding all application windows and preventing exit");
+                                tracing::debug!(
+                                    "Hiding all application windows and preventing exit"
+                                );
                                 window.app_handle().hide().ok();
                                 api.prevent_close();
                             }
                         }
-                        tauri::WindowEvent::Destroyed  => {
-                            window.app_handle()
+                        tauri::WindowEvent::Destroyed => {
+                            window
+                                .app_handle()
                                 .state::<WindowState>()
                                 .remove(window.label());
                         }
                         tauri::WindowEvent::Focused(focused) if *focused => {
-                            window.app_handle()
+                            window
+                                .app_handle()
                                 .state::<WindowState>()
-                                .flush(window.label()).ok();
-                        },
+                                .flush(window.label())
+                                .ok();
+                        }
                         _ => {}
                     }
                 })
