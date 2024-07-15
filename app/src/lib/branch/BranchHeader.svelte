@@ -240,7 +240,8 @@
 						{#if !$pr}
 							<PullRequestButton
 								click={async ({ draft }) => await createPr({ draft })}
-								disabled={branch.commits.length === 0}
+								disabled={branch.commits.length === 0 || !$gitHost}
+								help={!$gitHost ? 'You can enable git host integration in the settings' : ''}
 								loading={isLoading}
 							/>
 						{/if}
