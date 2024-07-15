@@ -9,11 +9,11 @@
 <script lang="ts">
 	import OptionsGroup from './OptionsGroup.svelte';
 	import SearchItem from './SearchItem.svelte';
-	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import TextBox from '../shared/TextBox.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { portal } from '$lib/utils/portal';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
+	import ScrollableContainer from '@gitbutler/ui/scrolling/ScrollableContainer.svelte';
 	import type { Snippet } from 'svelte';
 
 	interface SelectProps {

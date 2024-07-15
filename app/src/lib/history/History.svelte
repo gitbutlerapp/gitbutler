@@ -3,7 +3,6 @@
 	import FullviewLoading from '../components/FullviewLoading.svelte';
 	import Icon from '../shared/Icon.svelte';
 	import LazyloadContainer from '../shared/LazyloadContainer.svelte';
-	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import { clickOutside } from '$lib/clickOutside';
@@ -13,6 +12,7 @@
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { RemoteFile } from '$lib/vbranches/types';
+	import ScrollableContainer from '@gitbutler/ui/scrolling/ScrollableContainer.svelte';
 	import { plainToInstance } from 'class-transformer';
 	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDiff } from '$lib/history/types';

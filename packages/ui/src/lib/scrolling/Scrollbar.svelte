@@ -1,14 +1,28 @@
 <script lang="ts" context="module">
 	export type ScrollbarPadding = { top?: number; right?: number; bottom?: number; left?: number };
+	type VisibilityStates = 'default' | 'hover' | 'always';
+	export type ScrollbarSettings = {
+		scrollbarVisibilityState: VisibilityStates;
+	};
+
+	const settingsContextSymbol = Symbol();
+	export function createScrollbarSettingsContextStore(settings: ScrollbarSettings) {
+		const store = writable(settings);
+
+		setContext(settingsContextSymbol, store);
+
+		return store;
+	}
+
+	function getSettingsStore(): Readable<ScrollbarSettings> | undefined {
+		return getContext<Readable<ScrollbarSettings>>(settingsContextSymbol);
+	}
 </script>
 
 <script lang="ts">
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getContextStoreBySymbol } from '$lib/utils/context';
 	import { pxToRem } from '$lib/utils/pxToRem';
-	import { onDestroy, createEventDispatcher } from 'svelte';
-
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	import { onDestroy, createEventDispatcher, setContext, getContext } from 'svelte';
+	import { writable, type Readable } from 'svelte/store';
 
 	export let viewport: Element;
 	export let contents: Element;
@@ -18,6 +32,8 @@
 	export let shift = '0';
 	export let horz = false;
 	export let zIndex = 'var(--z-lifted)';
+	// Override for the context
+	export let scrollbarVisibilityStateOverride: VisibilityStates | undefined = undefined;
 
 	let thumb: Element;
 	let track: Element;
@@ -26,6 +42,16 @@
 	let startY = 0;
 	let startX = 0;
 	let isDragging = false;
+
+	let scrollbarVisibilityState: VisibilityStates = 'default';
+
+	const settingsStore = getSettingsStore();
+
+	$: if (scrollbarVisibilityStateOverride) {
+		scrollbarVisibilityState = scrollbarVisibilityStateOverride;
+	} else if ($settingsStore) {
+		scrollbarVisibilityState = $settingsStore.scrollbarVisibilityState;
+	}
 
 	$: teardownViewport = setupViewport(viewport);
 	$: teardownThumb = setupThumb(thumb);
@@ -54,8 +80,8 @@
 	$: scrollableX = wholeWidth > trackWidth;
 	$: isScrollable = scrollableY || scrollableX;
 	$: shouldShowInitially = initiallyVisible && isScrollable;
-	$: shouldShowOnHover = $userSettings.scrollbarVisibilityState === 'hover' && isScrollable;
-	$: shouldAlwaysShow = $userSettings.scrollbarVisibilityState === 'always' && isScrollable;
+	$: shouldShowOnHover = scrollbarVisibilityState === 'hover' && isScrollable;
+	$: shouldAlwaysShow = scrollbarVisibilityState === 'always' && isScrollable;
 
 	$: visible = shouldShowInitially || (shouldShowOnHover && initiallyVisible) || shouldAlwaysShow;
 

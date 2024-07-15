@@ -4,9 +4,9 @@
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import { GitHubService } from '$lib/github/service';
 	import { showToast } from '$lib/notifications/toasts';
-	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BaseBranchService } from '$lib/vbranches/baseBranch';
+	import Scrollbar from '@gitbutler/ui/scrolling/Scrollbar.svelte';
 
 	const project = getContext(Project);
 	const githubService = getContext(GitHubService);

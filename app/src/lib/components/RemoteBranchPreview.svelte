@@ -1,7 +1,5 @@
 <script lang="ts">
 	import BranchPreviewHeader from '../branch/BranchPreviewHeader.svelte';
-	import Resizer from '../shared/Resizer.svelte';
-	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import { Project } from '$lib/backend/projects';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
@@ -10,6 +8,8 @@
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { BaseBranch, type Branch } from '$lib/vbranches/types';
+	import Resizer from '@gitbutler/ui/resizer/Resizer.svelte';
+	import ScrollableContainer from '@gitbutler/ui/scrolling/ScrollableContainer.svelte';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
 	import { onMount, setContext } from 'svelte';

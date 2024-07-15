@@ -7,9 +7,9 @@
 	import { GitHubService } from '$lib/github/service';
 	import { persisted } from '$lib/persisted/persisted';
 	import { storeToObservable } from '$lib/rxjs/store';
-	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext } from '$lib/utils/context';
+	import ScrollableContainer from '@gitbutler/ui/scrolling/ScrollableContainer.svelte';
 	import { BehaviorSubject, combineLatest } from 'rxjs';
 	import { createEventDispatcher } from 'svelte';
 	import { derived } from 'svelte/store';

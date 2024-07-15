@@ -6,10 +6,10 @@
 	import HunkLines from '$lib/hunk/HunkLines.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
-	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { getContext, getContextStoreBySymbol, maybeGetContextStore } from '$lib/utils/context';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, type Hunk } from '$lib/vbranches/types';
+	import Scrollbar from '@gitbutler/ui/scrolling/Scrollbar.svelte';
 	import type { HunkSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
 

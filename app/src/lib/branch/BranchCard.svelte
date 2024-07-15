@@ -4,7 +4,6 @@
 	import EmptyStatePlaceholder from '../components/EmptyStatePlaceholder.svelte';
 	import PullRequestCard from '../pr/PullRequestCard.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
-	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
@@ -19,12 +18,13 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import { isFailure } from '$lib/result';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import Resizer from '$lib/shared/Resizer.svelte';
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import Resizer from '@gitbutler/ui/resizer/Resizer.svelte';
+	import ScrollableContainer from '@gitbutler/ui/scrolling/ScrollableContainer.svelte';
 	import lscache from 'lscache';
 	import { onMount } from 'svelte';
 	import type { Persisted } from '$lib/persisted/persisted';
