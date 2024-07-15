@@ -17,8 +17,13 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 
-	type Props = { loading: boolean; disabled: boolean; click: (opts: { draft: boolean }) => void };
-	const { loading, disabled, click }: Props = $props();
+	type Props = {
+		loading: boolean;
+		disabled: boolean;
+		help: string;
+		click: (opts: { draft: boolean }) => void;
+	};
+	const { loading, disabled, help, click }: Props = $props();
 
 	const preferredAction = persisted<Action>(Action.Create, 'projectDefaultPrAction');
 	let dropDown: DropDownButton;
@@ -27,6 +32,7 @@
 <DropDownButton
 	style="ghost"
 	outline
+	{help}
 	{disabled}
 	{loading}
 	bind:this={dropDown}
