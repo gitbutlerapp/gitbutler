@@ -14,7 +14,6 @@ gitbutler-serde.workspace = true
 gitbutler-id.workspace = true
 gitbutler-storage.workspace = true
 git2.workspace = true
-async-trait = "0.1.80"
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 uuid.workspace = true
 tracing = "0.1.40"

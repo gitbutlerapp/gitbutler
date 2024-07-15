@@ -114,8 +114,8 @@ pub fn spawn(
 
     let worktree_path = worktree_path.to_owned();
     task::spawn_blocking(move || {
-        tracing::debug!(%project_id, "file watcher started");
         let _runtime = tracing::span!(Level::INFO, "file monitor", %project_id ).entered();
+        tracing::debug!(%project_id, "file watcher started");
 
         'outer: for result in notify_rx {
             let stats = tracing::span!(

@@ -4,26 +4,11 @@ import {
 	checkUpdate,
 	installUpdate,
 	onUpdaterEvent,
-	type UpdateResult,
+	type UpdateManifest,
 	type UpdateStatus
 } from '@tauri-apps/api/updater';
 import posthog from 'posthog-js';
-import {
-	of,
-	tap,
-	map,
-	from,
-	timeout,
-	interval,
-	switchMap,
-	shareReplay,
-	catchError,
-	startWith,
-	combineLatestWith,
-	distinctUntilChanged,
-	Observable,
-	BehaviorSubject
-} from 'rxjs';
+import { derived, writable, type Readable } from 'svelte/store';
 
 // TOOD: Investigate why 'DOWNLOADED' is not in the type provided by Tauri.
 export type Update =
@@ -31,63 +16,57 @@ export type Update =
 	| undefined;
 
 export class UpdaterService {
-	private reload$ = new BehaviorSubject<void>(undefined);
-	private status$ = new BehaviorSubject<UpdateStatus | undefined>(undefined);
+	private status = writable<UpdateStatus>(undefined);
+	private result = writable<UpdateManifest | undefined>(undefined, () => {
+		this.start();
+		return () => {
+			this.stop();
+		};
+	});
 
-	/**
-	 * Example output:
-	 * {version: "0.5.303", date: "2024-02-25 3:09:58.0 +00:00:00", body: "", status: "DOWNLOADED"}
-	 */
-	update$: Observable<Update>;
+	update: Readable<Update | undefined> = derived(
+		[this.status, this.result],
+		([status, update]) => {
+			if (update) return { ...update, status };
+			return undefined;
+		},
+		undefined
+	);
 
-	// We don't ever call this because the class is meant to be used as a singleton
+	readonly version = derived(this.update, (update) => update?.version);
+
+	prev: Update | undefined;
 	unlistenFn: any;
+	intervalId: any;
 
-	constructor() {
-		onUpdaterEvent((status) => {
+	constructor() {}
+
+	private async start() {
+		await this.checkForUpdate();
+		setInterval(async () => await this.checkForUpdate(), 3600000); // hourly
+		this.unlistenFn = await onUpdaterEvent((status) => {
 			const err = status.error;
 			if (err) {
 				showErrorToast(err);
 				posthog.capture('App Update Status Error', { error: err });
 			}
-			this.status$.next(status.status);
-		}).then((unlistenFn) => (this.unlistenFn = unlistenFn));
+			this.status.set(status.status);
+		});
+	}
 
-		this.update$ = this.reload$.pipe(
-			// Now and then every hour indefinitely
-			switchMap(() => interval(60 * 60 * 1000).pipe(startWith(0))),
-			tap(() => this.status$.next(undefined)),
-			// Timeout needed to prevent hanging in dev mode
-			switchMap(() => from(checkUpdate()).pipe(timeout(10000))),
-			// The property `shouldUpdate` seems useless, only indicates presence of manifest
-			map((update: UpdateResult | undefined) => {
-				if (update?.shouldUpdate) return update.manifest;
-			}),
-			// We don't need the stream to emit if the result is the same version
-			distinctUntilChanged((prev, curr) => prev?.version === curr?.version),
-			// Hide offline/timeout errors since no app ever notifies you about this
-			catchError((err) => {
-				if (!isOffline(err) && !isTimeoutError(err)) {
-					posthog.capture('App Update Check Error', { error: err });
-					showErrorToast(err);
-					console.log(err);
-				}
-				return of(undefined);
-			}),
-			// Status is irrelevant without a proposed update so we merge the streams
-			combineLatestWith(this.status$),
-			map(([update, status]) => {
-				if (update) return { ...update, status };
-				return undefined;
-			}),
-			shareReplay(1)
-		);
-		// Use this for testing component manually (until we have actual tests)
-		// this.update$ = new BehaviorSubject({
-		// 	version: '0.5.303',
-		// 	date: '2024-02-25 3:09:58.0 +00:00:00',
-		// 	body: '- Improves the performance of virtual branch operations (quicker and lower CPU usage)\n- Large numbers of hunks for a file will only be rendered in the UI after confirmation'
-		// });
+	private async stop() {
+		this.unlistenFn?.();
+		if (this.intervalId) {
+			clearInterval(this.intervalId);
+			this.intervalId = undefined;
+		}
+	}
+
+	async checkForUpdate() {
+		const update = await checkUpdate();
+		if (update.manifest) {
+			this.result.set(update.manifest);
+		}
 	}
 
 	async installUpdate() {
@@ -107,10 +86,6 @@ export class UpdaterService {
 
 function isOffline(err: any): boolean {
 	return typeof err === 'string' && err.includes('Could not fetch a valid release');
-}
-
-function isTimeoutError(err: any): boolean {
-	return err?.name === 'TimeoutError';
 }
 
 function showErrorToast(err: any) {

@@ -1,26 +1,17 @@
 <script lang="ts">
-	import { BranchService } from '$lib/branches/service';
-	import { getContext } from '$lib/utils/context';
+	import { getBranchServiceStore } from '$lib/branches/service';
 	import BranchCard from '@gitbutler/ui/branch/BranchCard.svelte';
 	import BranchLane from '@gitbutler/ui/branch/BranchLane.svelte';
-	import { onMount } from 'svelte';
 	import type { GivenNameBranchGrouping } from '$lib/branches/types';
 	import { page } from '$app/stores';
 
-	// Maintain combined branches as a state variable
-	let combinedBranches: GivenNameBranchGrouping[] = $state([]);
-	onMount(() => {
-		branchService.branches$.subscribe((newCombinedBranches) => {
-			combinedBranches = newCombinedBranches;
-		});
-	});
-
-	const branchService = getContext(BranchService);
+	const branchServiceStore = getBranchServiceStore();
+	const combinedBranches = $derived($branchServiceStore?.branches);
 
 	const givenName = $derived($page.params.givenName);
 
 	let combinedBranch: GivenNameBranchGrouping | undefined = $derived(
-		combinedBranches.find((combinedBranch) => combinedBranch.givenName === givenName)
+		$combinedBranches?.find((combinedBranch) => combinedBranch.givenName === givenName)
 	);
 
 	// There should only ever be at most 1 local branch

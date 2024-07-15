@@ -1,7 +1,9 @@
+import { showError } from '$lib/notifications/toasts';
 import { captureException } from '@sentry/sveltekit';
 import { error as logErrorToFile } from 'tauri-plugin-log-api';
 import type { HandleClientError } from '@sveltejs/kit';
 
+// SvelteKit error handler.
 export function handleError({
 	error,
 	status
@@ -9,22 +11,34 @@ export function handleError({
 	error: unknown;
 	status: number;
 }): ReturnType<HandleClientError> {
-	let errorId: string = crypto.randomUUID();
-
 	if (status !== 404) {
-		errorId = captureException(error, {
-			mechanism: {
-				type: 'sveltekit',
-				handled: false
-			}
-		});
+		logError(error);
 	}
-
-	logErrorToFile((error as Error).message);
-	console.error(`${errorId}: ${(error as Error).message}\n${(error as Error)?.stack}`);
-
 	return {
-		message: (error as Error).message,
-		errorId
+		message: String(error)
 	};
+}
+
+// Handler for unhandled errors inside promises.
+window.onunhandledrejection = (e: PromiseRejectionEvent) => {
+	logError(e.reason);
+};
+
+function logError(error: unknown) {
+	let message = error instanceof Error ? error.message : String(error);
+	const stack = error instanceof Error ? error.stack : undefined;
+
+	const id = captureException(message, {
+		mechanism: {
+			type: 'sveltekit',
+			handled: false
+		}
+	});
+	message = `${id}: ${message}\n`;
+	if (stack) message = `${message}\n${stack}\n`;
+
+	logErrorToFile(message);
+	console.error(message);
+	showError('Something went wrong', message);
+	return id;
 }

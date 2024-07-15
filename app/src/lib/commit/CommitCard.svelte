@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CommitDragItem from './CommitDragItem.svelte';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggableCommit } from '$lib/dragging/draggable';
@@ -22,7 +23,6 @@
 		Commit,
 		RemoteFile,
 		VirtualBranch,
-		BaseBranch,
 		type CommitStatus
 	} from '$lib/vbranches/types';
 	import { type Snippet } from 'svelte';
@@ -436,6 +436,8 @@
 	.commit__description {
 		color: var(--clr-text-2);
 		white-space: pre-wrap;
+		user-select: text;
+		cursor: text;
 	}
 
 	.commit__empty-title {

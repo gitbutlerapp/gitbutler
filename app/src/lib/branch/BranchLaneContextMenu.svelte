@@ -88,7 +88,7 @@
 		unapplyBranchModal.close();
 	}
 
-	const remoteBranches = branchController.remoteBranchService.branches$;
+	const remoteBranches = branchController.remoteBranchService.branches;
 
 	function tryUnapplyBranch() {
 		if ($remoteBranches.find((b) => b.name.endsWith(normalizeBranchName(branch.name)))) {

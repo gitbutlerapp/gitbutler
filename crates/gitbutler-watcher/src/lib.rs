@@ -112,6 +112,7 @@ pub fn watch_in_background(
                     debounce.flush_nonblocking();
                 }
                 () = cancellation_token.cancelled() => {
+                    tracing::debug!(%project_id, "stopped watcher");
                     break;
                 }
             }

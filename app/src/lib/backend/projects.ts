@@ -29,6 +29,9 @@ export class Project {
 	use_new_locking!: boolean;
 	ignore_project_semaphore!: boolean;
 
+	// Produced just for the frontend to determine if the project is open in any window.
+	is_open!: boolean;
+
 	get vscodePath() {
 		return this.path.includes('\\') ? '/' + this.path.replace('\\', '/') : this.path;
 	}
@@ -97,6 +100,10 @@ export class ProjectService {
 			if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
 			return Array.isArray(selectedPath) ? selectedPath[0] : await selectedPath;
 		}
+	}
+
+	async openProjectInNewWindow(projectId: string) {
+		await invoke('open_project_in_window', { id: projectId });
 	}
 
 	async addProject() {

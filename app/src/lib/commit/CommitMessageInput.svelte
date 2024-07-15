@@ -232,7 +232,7 @@
 		padding: 0 0 48px;
 		flex-direction: column;
 		gap: 4px;
-		animation: expand-box 0.2s ease forwards;
+		animation: expand-box 0.17s ease-out forwards;
 		/* props to animate on mount */
 		max-height: 40px;
 		opacity: 0;
@@ -309,7 +309,7 @@
 
 	.commit-box-actions_expanded {
 		display: flex;
-		animation: expand-actions 0.2s ease-out forwards;
+		animation: expand-actions 0.17s ease-out forwards;
 		animation-delay: 0.1s;
 	}
 

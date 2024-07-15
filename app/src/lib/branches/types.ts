@@ -1,4 +1,4 @@
-import type { PullRequest } from '$lib/github/types';
+import type { PullRequest } from '$lib/gitHost/interface/types';
 import type { Author, Branch } from '$lib/vbranches/types';
 
 /**

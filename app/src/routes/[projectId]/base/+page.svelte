@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import BaseBranch from '$lib/components/BaseBranch.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
-	import { BaseBranchService } from '$lib/vbranches/baseBranch';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import Resizer from '@gitbutler/ui/resizer/Resizer.svelte';
 	import ScrollableContainer from '@gitbutler/ui/scrolling/ScrollableContainer.svelte';
@@ -29,14 +29,14 @@
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
 
-	$: error$ = baseBranchService.error$;
+	$: error = baseBranchService.error;
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
 	});
 </script>
 
-{#if $error$}
+{#if $error}
 	<p>Error...</p>
 {:else if !$baseBranch}
 	<FullviewLoading />
