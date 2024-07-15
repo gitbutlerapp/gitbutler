@@ -1,7 +1,7 @@
 pub mod rebase;
 
 mod repository;
-pub use repository::{LogUntil, RepoActions};
+pub use repository::{LogUntil, RepoActionsExt};
 
 mod commands;
 pub use commands::RepoCommands;

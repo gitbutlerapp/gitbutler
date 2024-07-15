@@ -1,3 +1,4 @@
+use gitbutler_branch::BranchCreateRequest;
 use gitbutler_reference::Refname;
 
 use super::*;
@@ -142,7 +143,7 @@ async fn delete_if_empty() {
         .unwrap();
 
     controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 

@@ -1,3 +1,4 @@
+use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_commit::commit_ext::CommitExt;
 
 use super::*;
@@ -17,7 +18,7 @@ async fn head() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -95,7 +96,7 @@ async fn middle() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -173,7 +174,7 @@ async fn forcepush_allowed() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -228,14 +229,14 @@ async fn forcepush_forbidden() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
     controller
         .update_virtual_branch(
             project,
-            branch::BranchUpdateRequest {
+            BranchUpdateRequest {
                 id: branch_id,
                 allow_rebasing: Some(false),
                 ..Default::default()
@@ -282,7 +283,7 @@ async fn root() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -350,7 +351,7 @@ async fn empty() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 

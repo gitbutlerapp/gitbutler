@@ -1,14 +1,13 @@
 use std::path::PathBuf;
 use std::{fs, path, str::FromStr};
 
-use gitbutler_branch::branch;
+use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::VirtualBranchActions;
 use gitbutler_error::error::Marker;
 use gitbutler_project::{self as projects, Project, ProjectId};
 use gitbutler_reference::Refname;
-use tempfile::TempDir;
-
 use gitbutler_testsupport::{paths, TestProject, VAR_NO_CLEANUP};
+use tempfile::TempDir;
 
 struct Test {
     repository: TestProject,
@@ -111,7 +110,7 @@ async fn resolve_conflict_flow() {
     {
         // make a branch that conflicts with the remote branch, but doesn't know about it yet
         let branch1_id = controller
-            .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(project, &BranchCreateRequest::default())
             .await
             .unwrap();
         fs::write(repository.path().join("file.txt"), "conflict").unwrap();

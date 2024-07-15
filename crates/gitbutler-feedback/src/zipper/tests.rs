@@ -1,6 +1,6 @@
-use std::{fs::File, io::Write};
+use super::*;
 
-use gitbutler_feedback::zipper::Zipper;
+use std::{fs::File, io::Write};
 use tempfile::tempdir;
 use walkdir::WalkDir;
 

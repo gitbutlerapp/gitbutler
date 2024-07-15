@@ -18,7 +18,7 @@ pub mod paths {
 }
 
 pub mod virtual_branches {
-    use gitbutler_branch::target::Target;
+    use gitbutler_branch::Target;
     use gitbutler_branch::VirtualBranchesHandle;
     use gitbutler_command_context::ProjectRepository;
 
@@ -42,11 +42,8 @@ pub mod virtual_branches {
             })
             .expect("failed to write target");
 
-        gitbutler_branch_actions::integration::update_gitbutler_integration(
-            &vb_state,
-            project_repository,
-        )
-        .expect("failed to update integration");
+        gitbutler_branch_actions::update_gitbutler_integration(&vb_state, project_repository)
+            .expect("failed to update integration");
 
         Ok(())
     }

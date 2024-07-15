@@ -3,8 +3,8 @@ use std::{path::PathBuf, vec};
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 
-use gitbutler_branch::branch::{self, BranchCreateRequest};
-use gitbutler_branch::VirtualBranchesHandle;
+use gitbutler_branch::{self, BranchCreateRequest};
+use gitbutler_branch::{Branch, VirtualBranchesHandle};
 use gitbutler_branch::{
     GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
     GITBUTLER_INTEGRATION_REFERENCE,
@@ -12,15 +12,15 @@ use gitbutler_branch::{
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_error::error::Marker;
-use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
+use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 
-use crate::branch_manager::branch_creation::BranchCreation;
-use crate::branch_manager::BranchManagerAccess;
+use crate::branch_manager::BranchManagerExt;
 use crate::{conflicts, VirtualBranchesExt};
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
 
-pub fn get_integration_commiter<'a>() -> Result<git2::Signature<'a>> {
+pub(crate) fn get_integration_commiter<'a>() -> Result<git2::Signature<'a>> {
     Ok(git2::Signature::now(
         GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
         GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
@@ -31,7 +31,7 @@ pub fn get_integration_commiter<'a>() -> Result<git2::Signature<'a>> {
 //
 // This is the base against which we diff the working directory to understand
 // what files have been modified.
-pub fn get_workspace_head(
+pub(crate) fn get_workspace_head(
     vb_state: &VirtualBranchesHandle,
     project_repo: &ProjectRepository,
 ) -> Result<git2::Oid> {
@@ -41,7 +41,7 @@ pub fn get_workspace_head(
     let repo: &git2::Repository = project_repo.repo();
     let vb_state = project_repo.project().virtual_branches();
 
-    let virtual_branches: Vec<branch::Branch> = vb_state.list_branches_in_workspace()?;
+    let virtual_branches: Vec<Branch> = vb_state.list_branches_in_workspace()?;
 
     let target_commit = repo.find_commit(target.sha)?;
     let mut workspace_tree = target_commit.tree()?;
@@ -93,7 +93,7 @@ pub fn get_workspace_head(
     }
 
     // TODO: Why does commit only accept a slice of commits? Feels like we
-    // could make use of AsRef with the right traits.
+    //       could make use of AsRef with the right traits.
     let head_refs: Vec<&git2::Commit<'_>> = heads.iter().collect();
 
     let workspace_head_id = repo.commit(
@@ -167,7 +167,7 @@ pub fn update_gitbutler_integration(
     let vb_state = project_repository.project().virtual_branches();
 
     // get all virtual branches, we need to try to update them all
-    let virtual_branches: Vec<branch::Branch> = vb_state
+    let virtual_branches: Vec<Branch> = vb_state
         .list_branches_in_workspace()
         .context("failed to list virtual branches")?;
 
@@ -282,138 +282,130 @@ pub fn update_gitbutler_integration(
     Ok(final_commit)
 }
 
-pub fn verify_branch(project_repository: &ProjectRepository) -> Result<()> {
-    project_repository
-        .verify_current_branch_name()
-        .and_then(|me| me.verify_head_is_set())
-        .and_then(|me| me.verify_head_is_clean())
+pub fn verify_branch(ctx: &ProjectRepository, perm: &mut WorktreeWritePermission) -> Result<()> {
+    verify_current_branch_name(ctx)
+        .and_then(verify_head_is_set)
+        .and_then(|()| verify_head_is_clean(ctx, perm))
         .context(Marker::VerificationFailure)?;
     Ok(())
 }
 
-pub trait Verify {
-    fn verify_head_is_set(&self) -> Result<&Self>;
-    fn verify_current_branch_name(&self) -> Result<&Self>;
-    fn verify_head_is_clean(&self) -> Result<&Self>;
+fn verify_head_is_set(ctx: &ProjectRepository) -> Result<()> {
+    match ctx.repo().head().context("failed to get head")?.name() {
+        Some(refname) if *refname == GITBUTLER_INTEGRATION_REFERENCE.to_string() => Ok(()),
+        Some(head_name) => Err(invalid_head_err(head_name)),
+        None => Err(anyhow!(
+            "project in detached head state. Please checkout {} to continue",
+            GITBUTLER_INTEGRATION_REFERENCE.branch()
+        )),
+    }
 }
 
-impl Verify for ProjectRepository {
-    fn verify_head_is_set(&self) -> Result<&Self> {
-        match self.repo().head().context("failed to get head")?.name() {
-            Some(refname) if *refname == GITBUTLER_INTEGRATION_REFERENCE.to_string() => Ok(self),
-            Some(head_name) => Err(invalid_head_err(head_name)),
-            None => Err(anyhow!(
-                "project in detached head state. Please checkout {} to continue",
-                GITBUTLER_INTEGRATION_REFERENCE.branch()
-            )),
-        }
-    }
-
-    // Returns an error if repo head is not pointing to the integration branch.
-    fn verify_current_branch_name(&self) -> Result<&Self> {
-        match self.repo().head()?.name() {
-            Some(head) => {
-                let head_name = head.to_string();
-                if head_name != GITBUTLER_INTEGRATION_REFERENCE.to_string() {
-                    return Err(invalid_head_err(&head_name));
-                }
-                Ok(self)
+// Returns an error if repo head is not pointing to the integration branch.
+fn verify_current_branch_name(ctx: &ProjectRepository) -> Result<&ProjectRepository> {
+    match ctx.repo().head()?.name() {
+        Some(head) => {
+            let head_name = head.to_string();
+            if head_name != GITBUTLER_INTEGRATION_REFERENCE.to_string() {
+                return Err(invalid_head_err(&head_name));
             }
-            None => Err(anyhow!("Repo HEAD is unavailable")),
+            Ok(ctx)
         }
+        None => Err(anyhow!("Repo HEAD is unavailable")),
+    }
+}
+
+// TODO(ST): Probably there should not be an implicit vbranch creation here.
+fn verify_head_is_clean(ctx: &ProjectRepository, perm: &mut WorktreeWritePermission) -> Result<()> {
+    let head_commit = ctx
+        .repo()
+        .head()
+        .context("failed to get head")?
+        .peel_to_commit()
+        .context("failed to peel to commit")?;
+
+    let vb_handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let default_target = vb_handle
+        .get_default_target()
+        .context("failed to get default target")?;
+
+    let mut extra_commits = ctx
+        .log(head_commit.id(), LogUntil::Commit(default_target.sha))
+        .context("failed to get log")?;
+
+    let integration_commit = extra_commits.pop();
+
+    if integration_commit.is_none() {
+        // no integration commit found
+        bail!("gibButler's integration commit not found on head");
     }
 
-    fn verify_head_is_clean(&self) -> Result<&Self> {
-        let head_commit = self
-            .repo()
-            .head()
-            .context("failed to get head")?
-            .peel_to_commit()
-            .context("failed to peel to commit")?;
+    if extra_commits.is_empty() {
+        // no extra commits found, so we're good
+        return Ok(());
+    }
 
-        let vb_handle = VirtualBranchesHandle::new(self.project().gb_dir());
-        let default_target = vb_handle
-            .get_default_target()
-            .context("failed to get default target")?;
+    ctx.repo()
+        .reset(
+            integration_commit.as_ref().unwrap().as_object(),
+            git2::ResetType::Soft,
+            None,
+        )
+        .context("failed to reset to integration commit")?;
 
-        let mut extra_commits = self
-            .log(head_commit.id(), LogUntil::Commit(default_target.sha))
-            .context("failed to get log")?;
-
-        let integration_commit = extra_commits.pop();
-
-        if integration_commit.is_none() {
-            // no integration commit found
-            bail!("gibButler's integration commit not found on head");
-        }
-
-        if extra_commits.is_empty() {
-            // no extra commits found, so we're good
-            return Ok(self);
-        }
-
-        self.repo()
-            .reset(
-                integration_commit.as_ref().unwrap().as_object(),
-                git2::ResetType::Soft,
-                None,
-            )
-            .context("failed to reset to integration commit")?;
-
-        let branch_manager = self.branch_manager();
-        let mut new_branch = branch_manager
-            .create_virtual_branch(&BranchCreateRequest {
+    let branch_manager = ctx.branch_manager();
+    let mut new_branch = branch_manager
+        .create_virtual_branch(
+            &BranchCreateRequest {
                 name: extra_commits
                     .last()
                     .map(|commit| commit.message_bstr().to_string()),
                 ..Default::default()
-            })
-            .context("failed to create virtual branch")?;
+            },
+            perm,
+        )
+        .context("failed to create virtual branch")?;
 
-        // rebasing the extra commits onto the new branch
-        let vb_state = self.project().virtual_branches();
-        extra_commits.reverse();
-        let mut head = new_branch.head;
-        for commit in extra_commits {
-            let new_branch_head = self
-                .repo()
-                .find_commit(head)
-                .context("failed to find new branch head")?;
+    // rebasing the extra commits onto the new branch
+    let vb_state = ctx.project().virtual_branches();
+    extra_commits.reverse();
+    let mut head = new_branch.head;
+    for commit in extra_commits {
+        let new_branch_head = ctx
+            .repo()
+            .find_commit(head)
+            .context("failed to find new branch head")?;
 
-            let rebased_commit_oid = self
-                .repo()
-                .commit_with_signature(
-                    None,
-                    &commit.author(),
-                    &commit.committer(),
-                    &commit.message_bstr().to_str_lossy(),
-                    &commit.tree().unwrap(),
-                    &[&new_branch_head],
-                    None,
-                )
-                .context(format!(
-                    "failed to rebase commit {} onto new branch",
-                    commit.id()
-                ))?;
+        let rebased_commit_oid = ctx
+            .repo()
+            .commit_with_signature(
+                None,
+                &commit.author(),
+                &commit.committer(),
+                &commit.message_bstr().to_str_lossy(),
+                &commit.tree().unwrap(),
+                &[&new_branch_head],
+                None,
+            )
+            .context(format!(
+                "failed to rebase commit {} onto new branch",
+                commit.id()
+            ))?;
 
-            let rebased_commit = self
-                .repo()
-                .find_commit(rebased_commit_oid)
-                .context(format!(
-                    "failed to find rebased commit {}",
-                    rebased_commit_oid
-                ))?;
+        let rebased_commit = ctx.repo().find_commit(rebased_commit_oid).context(format!(
+            "failed to find rebased commit {}",
+            rebased_commit_oid
+        ))?;
 
-            new_branch.head = rebased_commit.id();
-            new_branch.tree = rebased_commit.tree_id();
-            vb_state
-                .set_branch(new_branch.clone())
-                .context("failed to write branch")?;
+        new_branch.head = rebased_commit.id();
+        new_branch.tree = rebased_commit.tree_id();
+        vb_state
+            .set_branch(new_branch.clone())
+            .context("failed to write branch")?;
 
-            head = rebased_commit.id();
-        }
-        Ok(self)
+        head = rebased_commit.id();
     }
+    Ok(())
 }
 
 fn invalid_head_err(head_name: &str) -> anyhow::Error {

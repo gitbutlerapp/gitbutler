@@ -1,2 +1,3 @@
-pub mod controller;
-pub mod zipper;
+mod controller;
+pub use controller::Archival;
+mod zipper;

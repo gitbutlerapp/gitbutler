@@ -9,7 +9,7 @@ use tracing::instrument;
 
 use gitbutler_id::id::Id;
 
-use crate::branch::Branch;
+use crate::Branch;
 
 pub type DiffByPathMap = HashMap<PathBuf, FileDiff>;
 
@@ -94,7 +94,7 @@ impl GitHunk {
 
 /// Access
 impl GitHunk {
-    pub fn contains(&self, line: u32) -> bool {
+    pub(crate) fn contains(&self, line: u32) -> bool {
         self.new_start <= line && self.new_start + self.new_lines >= line
     }
 

@@ -1,12 +1,19 @@
-pub mod branch;
-pub mod branch_ext;
-pub mod dedup;
+mod branch;
+pub use branch::{Branch, BranchCreateRequest, BranchId, BranchUpdateRequest};
+mod branch_ext;
+pub use branch_ext::BranchExt;
+mod dedup;
+pub use dedup::{dedup, dedup_fmt};
 pub mod diff;
-pub mod file_ownership;
-pub mod hunk;
-pub mod ownership;
+mod file_ownership;
+pub use file_ownership::OwnershipClaim;
+mod hunk;
+pub use hunk::{Hunk, HunkHash};
+mod ownership;
+pub use ownership::{reconcile_claims, BranchOwnershipClaims, ClaimOutcome};
 pub mod serde;
-pub mod target;
+mod target;
+pub use target::Target;
 
 mod state;
 pub use state::VirtualBranches as VirtualBranchesState;

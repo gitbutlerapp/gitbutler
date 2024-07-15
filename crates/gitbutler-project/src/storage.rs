@@ -2,15 +2,13 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use gitbutler_storage::storage;
-
 use crate::{ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectId};
 
 const PROJECTS_FILE: &str = "projects.json";
 
 #[derive(Debug, Clone)]
-pub struct Storage {
-    inner: storage::Storage,
+pub(crate) struct Storage {
+    inner: gitbutler_storage::Storage,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -31,12 +29,10 @@ pub struct UpdateRequest {
 }
 
 impl Storage {
-    pub fn new(storage: storage::Storage) -> Self {
-        Self { inner: storage }
-    }
-
     pub fn from_path(path: impl Into<PathBuf>) -> Self {
-        Self::new(storage::Storage::new(path))
+        Storage {
+            inner: gitbutler_storage::Storage::new(path),
+        }
     }
 
     pub fn list(&self) -> Result<Vec<Project>> {

@@ -1,4 +1,5 @@
-use gitbutler_branch::ownership::BranchOwnershipClaims;
+use gitbutler_branch::BranchCreateRequest;
+use gitbutler_branch::BranchOwnershipClaims;
 use gitbutler_commit::commit_ext::CommitExt;
 
 use super::*;
@@ -18,7 +19,7 @@ async fn move_file_down() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -82,7 +83,7 @@ async fn move_file_up() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -141,7 +142,7 @@ async fn move_file_up_overlapping_hunks() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -180,7 +181,7 @@ async fn move_file_up_overlapping_hunks() {
         .unwrap();
 
     // move one line from middle commit two up to middle commit one
-    let to_amend: branch::BranchOwnershipClaims = "file2.txt:1-6".parse().unwrap();
+    let to_amend: BranchOwnershipClaims = "file2.txt:1-6".parse().unwrap();
     controller
         .move_commit_file(project, branch_id, commit2_id, commit3_id, &to_amend)
         .await

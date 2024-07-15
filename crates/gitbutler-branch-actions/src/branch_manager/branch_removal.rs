@@ -2,39 +2,27 @@ use crate::{
     conflicts::{self},
     ensure_selected_for_changes, get_applied_status,
     integration::get_integration_commiter,
-    write_tree, NameConflitResolution, VirtualBranchesExt,
+    write_tree, NameConflictResolution, VirtualBranchesExt,
 };
 use anyhow::{anyhow, Context, Result};
 use git2::build::TreeUpdateBuilder;
-use gitbutler_branch::{
-    branch::{self, BranchId},
-    branch_ext::BranchExt,
-};
+use gitbutler_branch::{Branch, BranchExt, BranchId};
 use gitbutler_commit::commit_headers::CommitHeadersV2;
-use gitbutler_oplog::snapshot::Snapshot;
+use gitbutler_oplog::SnapshotExt;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::ReferenceName;
 use gitbutler_reference::{normalize_branch_name, Refname};
-use gitbutler_repo::{RepoActions, RepositoryExt};
+use gitbutler_repo::{RepoActionsExt, RepositoryExt};
 
 use super::BranchManager;
 
-pub trait BranchRemoval {
-    /// Perminently deletes a virtual branch
-    fn delete_branch(&self, branch_id: BranchId) -> Result<()>;
-    /// Converts a virtual branch into a real branch
-    fn convert_to_real_branch(
-        &self,
-        branch_id: BranchId,
-        name_conflict_resolution: NameConflitResolution,
-    ) -> Result<ReferenceName>;
-}
-
-impl BranchRemoval for BranchManager<'_> {
+impl BranchManager<'_> {
     // to unapply a branch, we need to write the current tree out, then remove those file changes from the wd
-    fn convert_to_real_branch(
+    pub fn convert_to_real_branch(
         &self,
         branch_id: BranchId,
-        name_conflict_resolution: NameConflitResolution,
+        name_conflict_resolution: NameConflictResolution,
+        perm: &mut WorktreeWritePermission,
     ) -> Result<ReferenceName> {
         let vb_state = self.project_repository.project().virtual_branches();
 
@@ -43,7 +31,7 @@ impl BranchRemoval for BranchManager<'_> {
         // Convert the vbranch to a real branch
         let real_branch = self.build_real_branch(&mut target_branch, name_conflict_resolution)?;
 
-        self.delete_branch(branch_id)?;
+        self.delete_branch(branch_id, perm)?;
 
         // If we were conflicting, it means that it was the only branch applied. Since we've now unapplied it we can clear all conflicts
         if conflicts::is_conflicting(self.project_repository, None)? {
@@ -60,7 +48,11 @@ impl BranchRemoval for BranchManager<'_> {
         real_branch.reference_name()
     }
 
-    fn delete_branch(&self, branch_id: BranchId) -> Result<()> {
+    pub(crate) fn delete_branch(
+        &self,
+        branch_id: BranchId,
+        perm: &mut WorktreeWritePermission,
+    ) -> Result<()> {
         let vb_state = self.project_repository.project().virtual_branches();
         let Some(branch) = vb_state.try_branch(branch_id)? else {
             return Ok(());
@@ -74,7 +66,7 @@ impl BranchRemoval for BranchManager<'_> {
         _ = self
             .project_repository
             .project()
-            .snapshot_branch_deletion(branch.name.clone());
+            .snapshot_branch_deletion(branch.name.clone(), perm);
 
         let repo = self.project_repository.repo();
 
@@ -90,6 +82,7 @@ impl BranchRemoval for BranchManager<'_> {
             self.project_repository,
             &integration_commit.id(),
             virtual_branches,
+            perm,
         )
         .context("failed to get status by branch")?;
 
@@ -135,8 +128,8 @@ impl BranchRemoval for BranchManager<'_> {
 impl BranchManager<'_> {
     fn build_real_branch(
         &self,
-        vbranch: &mut branch::Branch,
-        name_conflict_resolution: NameConflitResolution,
+        vbranch: &mut Branch,
+        name_conflict_resolution: NameConflictResolution,
     ) -> Result<git2::Branch<'_>> {
         let repo = self.project_repository.repo();
         let target_commit = repo.find_commit(vbranch.head)?;
@@ -149,7 +142,7 @@ impl BranchManager<'_> {
             .is_ok()
         {
             match name_conflict_resolution {
-                NameConflitResolution::Suffix => {
+                NameConflictResolution::Suffix => {
                     let mut suffix = 1;
                     loop {
                         let new_branch_name = format!("{}-{}", branch_name, suffix);
@@ -162,7 +155,7 @@ impl BranchManager<'_> {
                         suffix += 1;
                     }
                 }
-                NameConflitResolution::Rename(new_name) => {
+                NameConflictResolution::Rename(new_name) => {
                     if repo
                         .find_branch(new_name.as_str(), git2::BranchType::Local)
                         .is_ok()
@@ -172,7 +165,7 @@ impl BranchManager<'_> {
                         new_name
                     }
                 }
-                NameConflitResolution::Overwrite => branch_name,
+                NameConflictResolution::Overwrite => branch_name,
             }
         } else {
             branch_name
@@ -190,7 +183,7 @@ impl BranchManager<'_> {
 
     fn build_metadata_commit(
         &self,
-        vbranch: &mut branch::Branch,
+        vbranch: &mut Branch,
         branch: &git2::Branch<'_>,
     ) -> Result<git2::Oid> {
         let repo = self.project_repository.repo();
