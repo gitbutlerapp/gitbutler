@@ -27,6 +27,12 @@
 
 	const preferredAction = persisted<Action>(Action.Create, 'projectDefaultPrAction');
 	let dropDown: DropDownButton;
+
+	$effect(() => {
+		if (!Object.values(Action).includes($preferredAction)) {
+			$preferredAction = Action.Create;
+		}
+	});
 </script>
 
 <DropDownButton
