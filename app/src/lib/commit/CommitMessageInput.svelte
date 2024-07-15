@@ -48,8 +48,8 @@
 	let aiLoading = false;
 	let aiConfigurationValid = false;
 
-	let titleTextArea: HTMLTextAreaElement | undefined;
-	let descriptionTextArea: HTMLTextAreaElement | undefined;
+	let titleTextArea: HTMLTextAreaElement;
+	let descriptionTextArea: HTMLTextAreaElement;
 
 	$: ({ title, description } = splitMessage(commitMessage));
 	$: valid = !!title;
@@ -60,6 +60,11 @@
 
 	function focusTextAreaOnMount(el: HTMLTextAreaElement) {
 		el.focus();
+	}
+
+	function updateFieldsHeight() {
+		if (titleTextArea) autoHeight(titleTextArea);
+		if (descriptionTextArea) autoHeight(descriptionTextArea);
 	}
 
 	async function generateCommitMessage(files: LocalFile[]) {
@@ -104,6 +109,11 @@
 		}
 
 		aiLoading = false;
+
+		// set timeout to update the height of the textareas
+		setTimeout(() => {
+			updateFieldsHeight();
+		}, 0);
 	}
 
 	onMount(async () => {
@@ -112,13 +122,7 @@
 </script>
 
 {#if isExpanded}
-	<div
-		class="commit-box__textarea-wrapper text-input"
-		use:resizeObserver={() => {
-			if (titleTextArea) autoHeight(titleTextArea);
-			if (descriptionTextArea) autoHeight(descriptionTextArea);
-		}}
-	>
+	<div class="commit-box__textarea-wrapper text-input" use:resizeObserver={updateFieldsHeight}>
 		<textarea
 			value={title}
 			placeholder="Commit summary"
