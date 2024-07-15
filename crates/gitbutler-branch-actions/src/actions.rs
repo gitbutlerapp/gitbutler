@@ -1,3 +1,12 @@
+use crate::{
+    base::{
+        get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch,
+        BaseBranch,
+    },
+    branch_manager::BranchManagerExt,
+    remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
+    VirtualBranchesExt,
+};
 use anyhow::Result;
 use gitbutler_branch::{
     diff, BranchOwnershipClaims, {BranchCreateRequest, BranchId, BranchUpdateRequest},
@@ -12,16 +21,6 @@ use gitbutler_reference::ReferenceName;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{credentials::Helper, RepoActionsExt, RepositoryExt};
 use tracing::instrument;
-
-use crate::{
-    base::{
-        get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch,
-        BaseBranch,
-    },
-    branch_manager::BranchManagerExt,
-    remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
-    VirtualBranchesExt,
-};
 
 use super::r#virtual as branch;
 
@@ -50,6 +49,7 @@ impl VirtualBranchActions {
             message,
             ownership,
             run_hooks,
+            guard.write_permission(),
         )
         .map_err(Into::into);
         let _ = snapshot_tree.and_then(|snapshot_tree| {

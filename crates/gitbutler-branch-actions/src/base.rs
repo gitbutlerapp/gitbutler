@@ -367,7 +367,7 @@ pub(crate) fn update_base_branch(
 
     // try to update every branch
     let updated_vbranches =
-        vb::get_status_by_branch(project_repository, Some(&integration_commit))?
+        vb::get_status_by_branch(project_repository, Some(&integration_commit), perm)?
             .0
             .into_iter()
             .map(|(branch, _)| branch)
