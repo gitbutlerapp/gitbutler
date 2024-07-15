@@ -79,13 +79,6 @@
 	});
 
 	onMount(() => {
-		if ($page.error?.message) {
-			let message = $page.error.message;
-			if ($page.error.errorId) {
-				message += `\n\nError ID: ${$page.error.errorId}`;
-			}
-			showError('There was a problem', message);
-		}
 		return unsubscribe(
 			events.on('goto', async (path: string) => await goto(path)),
 			events.on('openSendIssueModal', () => shareIssueModal?.show())
