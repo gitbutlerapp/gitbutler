@@ -19,7 +19,6 @@
 	} from '$lib/gitHost/github/githubUserService';
 	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
 	import ToastController from '$lib/notifications/ToastController.svelte';
-	import { showError } from '$lib/notifications/toasts';
 	import { RemotesService } from '$lib/remotes/service';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
@@ -34,7 +33,6 @@
 	import type { LayoutData } from './$types';
 	import { dev } from '$app/environment';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
