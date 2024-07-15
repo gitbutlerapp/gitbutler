@@ -47,16 +47,6 @@ impl Project {
     /// Return a guard for shared (read) worktree access, and block while waiting for writers to disappear.
     /// There can be multiple readers, but only a single writer. Waiting writers will be handled with priority,
     /// thus block readers to prevent writer starvation.
-    /// The guard can be upgraded to allow for writes, which is useful if a mutation is prepared by various reads
-    /// first, followed by conclusive writes.
-    pub fn shared_upgradable_worktree_access(&self) -> UpgradableWorkspaceReadGuard {
-        let mut map = WORKTREE_LOCKS.lock();
-        UpgradableWorkspaceReadGuard(map.entry(self.id).or_default().upgradable_read_arc())
-    }
-
-    /// Return a guard for shared (read) worktree access, and block while waiting for writers to disappear.
-    /// There can be multiple readers, but only a single writer. Waiting writers will be handled with priority,
-    /// thus block readers to prevent writer starvation.
     pub fn shared_worktree_access(&self) -> WorkspaceReadGuard {
         let mut map = WORKTREE_LOCKS.lock();
         WorkspaceReadGuard(map.entry(self.id).or_default().read_arc())
@@ -79,26 +69,6 @@ impl WriteWorkspaceGuard {
     /// can only be called when the respective protection/permission is present.
     pub fn read_permission(&self) -> &WorktreeReadPermission {
         self.perm.read_permission()
-    }
-}
-
-pub struct UpgradableWorkspaceReadGuard(parking_lot::ArcRwLockUpgradableReadGuard<RawRwLock, ()>);
-
-impl UpgradableWorkspaceReadGuard {
-    /// Wait until a write-lock for exclusive access can be acquired, and return a handle to it.
-    /// It must be kept alive until the write operation completes.
-    pub fn upgrade_to_exclusive_worktree_access(self) -> WriteWorkspaceGuard {
-        WriteWorkspaceGuard {
-            _inner: parking_lot::ArcRwLockUpgradableReadGuard::upgrade(self.0),
-            perm: WorktreeWritePermission(()),
-        }
-    }
-
-    /// Signal that a read-permission is available - useful as API-marker to assure these
-    /// can only be called when the respective protection/permission is present.
-    pub fn read_permission(&self) -> &WorktreeReadPermission {
-        static READ: WorktreeReadPermission = WorktreeReadPermission(());
-        &READ
     }
 }
 

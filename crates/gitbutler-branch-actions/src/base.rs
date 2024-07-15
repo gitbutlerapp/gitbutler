@@ -22,6 +22,7 @@ use crate::remote::{commit_to_remote_commit, RemoteCommit};
 use crate::{VirtualBranchHunk, VirtualBranchesExt};
 use gitbutler_branch::GITBUTLER_INTEGRATION_REFERENCE;
 use gitbutler_error::error::Marker;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::rebase::cherry_rebase;
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
@@ -329,6 +330,7 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 // update the target sha
 pub(crate) fn update_base_branch(
     project_repository: &ProjectRepository,
+    perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<Vec<ReferenceName>> {
     project_repository.assure_resolved()?;
 
@@ -418,8 +420,11 @@ pub(crate) fn update_base_branch(
                 if branch_tree_merge_index.has_conflicts() {
                     // branch tree conflicts with new target, unapply branch for now. we'll handle it later, when user applies it back.
                     let branch_manager = project_repository.branch_manager();
-                    let unapplied_real_branch =
-                        branch_manager.convert_to_real_branch(branch.id, Default::default())?;
+                    let unapplied_real_branch = branch_manager.convert_to_real_branch(
+                        branch.id,
+                        Default::default(),
+                        perm,
+                    )?;
 
                     unapplied_branch_names.push(unapplied_real_branch);
 
@@ -452,8 +457,11 @@ pub(crate) fn update_base_branch(
                     // branch commits conflict with new target, make sure the branch is
                     // unapplied. conflicts witll be dealt with when applying it back.
                     let branch_manager = project_repository.branch_manager();
-                    let unapplied_real_branch =
-                        branch_manager.convert_to_real_branch(branch.id, Default::default())?;
+                    let unapplied_real_branch = branch_manager.convert_to_real_branch(
+                        branch.id,
+                        Default::default(),
+                        perm,
+                    )?;
                     unapplied_branch_names.push(unapplied_real_branch);
 
                     return Ok(None);

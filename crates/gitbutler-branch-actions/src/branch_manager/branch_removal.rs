@@ -9,6 +9,7 @@ use git2::build::TreeUpdateBuilder;
 use gitbutler_branch::{Branch, BranchExt, BranchId};
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oplog::SnapshotExt;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::ReferenceName;
 use gitbutler_reference::{normalize_branch_name, Refname};
 use gitbutler_repo::{RepoActionsExt, RepositoryExt};
@@ -21,6 +22,7 @@ impl BranchManager<'_> {
         &self,
         branch_id: BranchId,
         name_conflict_resolution: NameConflictResolution,
+        perm: &mut WorktreeWritePermission,
     ) -> Result<ReferenceName> {
         let vb_state = self.project_repository.project().virtual_branches();
 
@@ -29,7 +31,7 @@ impl BranchManager<'_> {
         // Convert the vbranch to a real branch
         let real_branch = self.build_real_branch(&mut target_branch, name_conflict_resolution)?;
 
-        self.delete_branch(branch_id)?;
+        self.delete_branch(branch_id, perm)?;
 
         // If we were conflicting, it means that it was the only branch applied. Since we've now unapplied it we can clear all conflicts
         if conflicts::is_conflicting(self.project_repository, None)? {
@@ -46,7 +48,11 @@ impl BranchManager<'_> {
         real_branch.reference_name()
     }
 
-    pub(crate) fn delete_branch(&self, branch_id: BranchId) -> Result<()> {
+    pub(crate) fn delete_branch(
+        &self,
+        branch_id: BranchId,
+        perm: &mut WorktreeWritePermission,
+    ) -> Result<()> {
         let vb_state = self.project_repository.project().virtual_branches();
         let Some(branch) = vb_state.try_branch(branch_id)? else {
             return Ok(());
@@ -60,7 +66,7 @@ impl BranchManager<'_> {
         _ = self
             .project_repository
             .project()
-            .snapshot_branch_deletion(branch.name.clone());
+            .snapshot_branch_deletion(branch.name.clone(), perm);
 
         let repo = self.project_repository.repo();
 
@@ -76,6 +82,7 @@ impl BranchManager<'_> {
             self.project_repository,
             &integration_commit.id(),
             virtual_branches,
+            Some(perm),
         )
         .context("failed to get status by branch")?;
 

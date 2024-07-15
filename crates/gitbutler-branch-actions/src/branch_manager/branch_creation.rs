@@ -12,14 +12,18 @@ use gitbutler_branch::{
 use gitbutler_commit::commit_headers::HasCommitHeaders;
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::SnapshotExt;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::Refname;
 use gitbutler_repo::{rebase::cherry_rebase, RepoActionsExt, RepositoryExt};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 
 impl BranchManager<'_> {
-    pub fn create_virtual_branch(&self, create: &BranchCreateRequest) -> Result<Branch> {
+    pub fn create_virtual_branch(
+        &self,
+        create: &BranchCreateRequest,
+        perm: &mut WorktreeWritePermission,
+    ) -> Result<Branch> {
         let vb_state = self.project_repository.project().virtual_branches();
-
         let default_target = vb_state.get_default_target()?;
 
         let commit = self
@@ -50,7 +54,7 @@ impl BranchManager<'_> {
         _ = self
             .project_repository
             .project()
-            .snapshot_branch_creation(name.clone());
+            .snapshot_branch_creation(name.clone(), perm);
 
         all_virtual_branches.sort_by_key(|branch| branch.order);
 
@@ -118,7 +122,11 @@ impl BranchManager<'_> {
         Ok(branch)
     }
 
-    pub fn create_virtual_branch_from_branch(&self, upstream: &Refname) -> Result<BranchId> {
+    pub fn create_virtual_branch_from_branch(
+        &self,
+        upstream: &Refname,
+        perm: &mut WorktreeWritePermission,
+    ) -> Result<BranchId> {
         // only set upstream if it's not the default target
         let upstream_branch = match upstream {
             Refname::Other(_) | Refname::Virtual(_) => {
@@ -137,7 +145,7 @@ impl BranchManager<'_> {
         let _ = self
             .project_repository
             .project()
-            .snapshot_branch_creation(branch_name.clone());
+            .snapshot_branch_creation(branch_name.clone(), perm);
 
         let vb_state = self.project_repository.project().virtual_branches();
 
@@ -249,7 +257,7 @@ impl BranchManager<'_> {
         vb_state.set_branch(branch.clone())?;
         self.project_repository.add_branch_reference(&branch)?;
 
-        match self.apply_branch(branch.id) {
+        match self.apply_branch(branch.id, perm) {
             Ok(_) => Ok(branch.id),
             Err(err)
                 if err
@@ -266,7 +274,11 @@ impl BranchManager<'_> {
 
 /// Holding private methods associated to branch creation
 impl BranchManager<'_> {
-    fn apply_branch(&self, branch_id: BranchId) -> Result<String> {
+    fn apply_branch(
+        &self,
+        branch_id: BranchId,
+        perm: &mut WorktreeWritePermission,
+    ) -> Result<String> {
         self.project_repository.assure_resolved()?;
         self.project_repository.assure_unconflicted()?;
         let repo = self.project_repository.repo();
@@ -313,7 +325,7 @@ impl BranchManager<'_> {
                     .iter()
                     .filter(|branch| branch.id != branch_id)
                 {
-                    self.convert_to_real_branch(branch.id, Default::default())?;
+                    self.convert_to_real_branch(branch.id, Default::default(), perm)?;
                 }
 
                 // apply the branch

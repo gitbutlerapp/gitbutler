@@ -12,6 +12,7 @@ use gitbutler_branch::{
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_error::error::Marker;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 
 use crate::branch_manager::BranchManagerExt;
@@ -281,17 +282,17 @@ pub fn update_gitbutler_integration(
     Ok(final_commit)
 }
 
-pub fn verify_branch(ctx: &ProjectRepository) -> Result<()> {
+pub fn verify_branch(ctx: &ProjectRepository, perm: &mut WorktreeWritePermission) -> Result<()> {
     verify_current_branch_name(ctx)
         .and_then(verify_head_is_set)
-        .and_then(verify_head_is_clean)
+        .and_then(|()| verify_head_is_clean(ctx, perm))
         .context(Marker::VerificationFailure)?;
     Ok(())
 }
 
-fn verify_head_is_set(ctx: &ProjectRepository) -> Result<&ProjectRepository> {
+fn verify_head_is_set(ctx: &ProjectRepository) -> Result<()> {
     match ctx.repo().head().context("failed to get head")?.name() {
-        Some(refname) if *refname == GITBUTLER_INTEGRATION_REFERENCE.to_string() => Ok(ctx),
+        Some(refname) if *refname == GITBUTLER_INTEGRATION_REFERENCE.to_string() => Ok(()),
         Some(head_name) => Err(invalid_head_err(head_name)),
         None => Err(anyhow!(
             "project in detached head state. Please checkout {} to continue",
@@ -314,7 +315,8 @@ fn verify_current_branch_name(ctx: &ProjectRepository) -> Result<&ProjectReposit
     }
 }
 
-fn verify_head_is_clean(ctx: &ProjectRepository) -> Result<&ProjectRepository> {
+// TODO(ST): Probably there should not be an implicit vbranch creation here.
+fn verify_head_is_clean(ctx: &ProjectRepository, perm: &mut WorktreeWritePermission) -> Result<()> {
     let head_commit = ctx
         .repo()
         .head()
@@ -340,7 +342,7 @@ fn verify_head_is_clean(ctx: &ProjectRepository) -> Result<&ProjectRepository> {
 
     if extra_commits.is_empty() {
         // no extra commits found, so we're good
-        return Ok(ctx);
+        return Ok(());
     }
 
     ctx.repo()
@@ -353,12 +355,15 @@ fn verify_head_is_clean(ctx: &ProjectRepository) -> Result<&ProjectRepository> {
 
     let branch_manager = ctx.branch_manager();
     let mut new_branch = branch_manager
-        .create_virtual_branch(&BranchCreateRequest {
-            name: extra_commits
-                .last()
-                .map(|commit| commit.message_bstr().to_string()),
-            ..Default::default()
-        })
+        .create_virtual_branch(
+            &BranchCreateRequest {
+                name: extra_commits
+                    .last()
+                    .map(|commit| commit.message_bstr().to_string()),
+                ..Default::default()
+            },
+            perm,
+        )
         .context("failed to create virtual branch")?;
 
     // rebasing the extra commits onto the new branch
@@ -400,7 +405,7 @@ fn verify_head_is_clean(ctx: &ProjectRepository) -> Result<&ProjectRepository> {
 
         head = rebased_commit.id();
     }
-    Ok(ctx)
+    Ok(())
 }
 
 fn invalid_head_err(head_name: &str) -> anyhow::Error {

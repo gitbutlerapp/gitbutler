@@ -40,7 +40,10 @@ impl VirtualBranchActions {
         run_hooks: bool,
     ) -> Result<git2::Oid> {
         let project_repository = open_with_verify(project)?;
-        let snapshot_tree = project_repository.project().prepare_snapshot();
+        let mut guard = project.exclusive_worktree_access();
+        let snapshot_tree = project_repository
+            .project()
+            .prepare_snapshot(guard.read_permission());
         let result = branch::commit(
             &project_repository,
             branch_id,
@@ -55,6 +58,7 @@ impl VirtualBranchActions {
                 result.as_ref().err(),
                 message.to_owned(),
                 None,
+                guard.write_permission(),
             )
         });
         result
@@ -73,7 +77,11 @@ impl VirtualBranchActions {
         &self,
         project: &Project,
     ) -> Result<(Vec<branch::VirtualBranch>, Vec<diff::FileDiff>)> {
-        branch::list_virtual_branches(&open_with_verify(project)?).map_err(Into::into)
+        branch::list_virtual_branches(
+            &open_with_verify(project)?,
+            project.exclusive_worktree_access().write_permission(),
+        )
+        .map_err(Into::into)
     }
 
     pub async fn create_virtual_branch(
@@ -82,8 +90,11 @@ impl VirtualBranchActions {
         create: &BranchCreateRequest,
     ) -> Result<BranchId> {
         let project_repository = open_with_verify(project)?;
+        let mut guard = project.exclusive_worktree_access();
         let branch_manager = project_repository.branch_manager();
-        let branch_id = branch_manager.create_virtual_branch(create)?.id;
+        let branch_id = branch_manager
+            .create_virtual_branch(create, guard.write_permission())?
+            .id;
         Ok(branch_id)
     }
 
@@ -109,9 +120,11 @@ impl VirtualBranchActions {
         target_branch: &RemoteRefname,
     ) -> Result<BaseBranch> {
         let project_repository = ProjectRepository::open(project)?;
-        let _ = project_repository
-            .project()
-            .create_snapshot(SnapshotDetails::new(OperationKind::SetBaseBranch));
+        let mut guard = project.exclusive_worktree_access();
+        let _ = project_repository.project().create_snapshot(
+            SnapshotDetails::new(OperationKind::SetBaseBranch),
+            guard.write_permission(),
+        );
         set_base_branch(&project_repository, target_branch)
     }
 
@@ -126,18 +139,22 @@ impl VirtualBranchActions {
         branch_id: BranchId,
     ) -> Result<()> {
         let project_repository = open_with_verify(project)?;
-        let _ = project_repository
-            .project()
-            .create_snapshot(SnapshotDetails::new(OperationKind::MergeUpstream));
+        let mut guard = project.exclusive_worktree_access();
+        let _ = project_repository.project().create_snapshot(
+            SnapshotDetails::new(OperationKind::MergeUpstream),
+            guard.write_permission(),
+        );
         branch::integrate_upstream_commits(&project_repository, branch_id).map_err(Into::into)
     }
 
     pub async fn update_base_branch(&self, project: &Project) -> Result<Vec<ReferenceName>> {
         let project_repository = open_with_verify(project)?;
-        let _ = project_repository
-            .project()
-            .create_snapshot(SnapshotDetails::new(OperationKind::UpdateWorkspaceBase));
-        update_base_branch(&project_repository).map_err(Into::into)
+        let mut guard = project.exclusive_worktree_access();
+        let _ = project_repository.project().create_snapshot(
+            SnapshotDetails::new(OperationKind::UpdateWorkspaceBase),
+            guard.write_permission(),
+        );
+        update_base_branch(&project_repository, guard.write_permission()).map_err(Into::into)
     }
 
     pub async fn update_virtual_branch(
@@ -146,7 +163,10 @@ impl VirtualBranchActions {
         branch_update: BranchUpdateRequest,
     ) -> Result<()> {
         let project_repository = open_with_verify(project)?;
-        let snapshot_tree = project_repository.project().prepare_snapshot();
+        let mut guard = project.exclusive_worktree_access();
+        let snapshot_tree = project_repository
+            .project()
+            .prepare_snapshot(guard.read_permission());
         let old_branch = project_repository
             .project()
             .virtual_branches()
@@ -158,6 +178,7 @@ impl VirtualBranchActions {
                 &old_branch,
                 &branch_update,
                 result.as_ref().err(),
+                guard.write_permission(),
             )
         });
         result?;
@@ -170,7 +191,8 @@ impl VirtualBranchActions {
     ) -> Result<()> {
         let project_repository = open_with_verify(project)?;
         let branch_manager = project_repository.branch_manager();
-        branch_manager.delete_branch(branch_id)
+        let mut guard = project.exclusive_worktree_access();
+        branch_manager.delete_branch(branch_id, guard.write_permission())
     }
 
     pub async fn unapply_ownership(
@@ -179,17 +201,22 @@ impl VirtualBranchActions {
         ownership: &BranchOwnershipClaims,
     ) -> Result<()> {
         let project_repository = open_with_verify(project)?;
-        let _ = project_repository
-            .project()
-            .create_snapshot(SnapshotDetails::new(OperationKind::DiscardHunk));
-        branch::unapply_ownership(&project_repository, ownership).map_err(Into::into)
+        let mut guard = project.exclusive_worktree_access();
+        let _ = project_repository.project().create_snapshot(
+            SnapshotDetails::new(OperationKind::DiscardHunk),
+            guard.write_permission(),
+        );
+        branch::unapply_ownership(&project_repository, ownership, guard.write_permission())
+            .map_err(Into::into)
     }
 
     pub async fn reset_files(&self, project: &Project, files: &Vec<String>) -> Result<()> {
         let project_repository = open_with_verify(project)?;
-        let _ = project_repository
-            .project()
-            .create_snapshot(SnapshotDetails::new(OperationKind::DiscardFile));
+        let mut guard = project.exclusive_worktree_access();
+        let _ = project_repository.project().create_snapshot(
+            SnapshotDetails::new(OperationKind::DiscardFile),
+            guard.write_permission(),
+        );
         branch::reset_files(&project_repository, files).map_err(Into::into)
     }
 
@@ -201,10 +228,18 @@ impl VirtualBranchActions {
         ownership: &BranchOwnershipClaims,
     ) -> Result<git2::Oid> {
         let project_repository = open_with_verify(project)?;
-        let _ = project_repository
-            .project()
-            .create_snapshot(SnapshotDetails::new(OperationKind::AmendCommit));
-        branch::amend(&project_repository, branch_id, commit_oid, ownership)
+        let mut guard = project.exclusive_worktree_access();
+        let _ = project_repository.project().create_snapshot(
+            SnapshotDetails::new(OperationKind::AmendCommit),
+            guard.write_permission(),
+        );
+        branch::amend(
+            &project_repository,
+            branch_id,
+            commit_oid,
+            ownership,
+            guard.write_permission(),
+        )
     }
 
     pub async fn move_commit_file(
@@ -216,9 +251,11 @@ impl VirtualBranchActions {
         ownership: &BranchOwnershipClaims,
     ) -> Result<git2::Oid> {
         let project_repository = open_with_verify(project)?;
-        let _ = project_repository
-            .project()
-            .create_snapshot(SnapshotDetails::new(OperationKind::MoveCommitFile));
+        let mut guard = project.exclusive_worktree_access();
+        let _ = project_repository.project().create_snapshot(
+            SnapshotDetails::new(OperationKind::MoveCommitFile),
+            guard.write_permission(),
+        );
         branch::move_commit_file(
             &project_repository,
             branch_id,
@@ -236,7 +273,10 @@ impl VirtualBranchActions {
         commit_oid: git2::Oid,
     ) -> Result<()> {
         let project_repository = open_with_verify(project)?;
-        let snapshot_tree = project_repository.project().prepare_snapshot();
+        let mut guard = project.exclusive_worktree_access();
+        let snapshot_tree = project_repository
+            .project()
+            .prepare_snapshot(guard.read_permission());
         let result: Result<()> =
             branch::undo_commit(&project_repository, branch_id, commit_oid).map_err(Into::into);
         let _ = snapshot_tree.and_then(|snapshot_tree| {
@@ -244,6 +284,7 @@ impl VirtualBranchActions {
                 snapshot_tree,
                 result.as_ref(),
                 commit_oid,
+                guard.write_permission(),
             )
         });
         result
@@ -257,9 +298,11 @@ impl VirtualBranchActions {
         offset: i32,
     ) -> Result<()> {
         let project_repository = open_with_verify(project)?;
-        let _ = project_repository
-            .project()
-            .create_snapshot(SnapshotDetails::new(OperationKind::InsertBlankCommit));
+        let mut guard = project.exclusive_worktree_access();
+        let _ = project_repository.project().create_snapshot(
+            SnapshotDetails::new(OperationKind::InsertBlankCommit),
+            guard.write_permission(),
+        );
         branch::insert_blank_commit(&project_repository, branch_id, commit_oid, offset)
             .map_err(Into::into)
     }
@@ -272,9 +315,11 @@ impl VirtualBranchActions {
         offset: i32,
     ) -> Result<()> {
         let project_repository = open_with_verify(project)?;
-        let _ = project_repository
-            .project()
-            .create_snapshot(SnapshotDetails::new(OperationKind::ReorderCommit));
+        let mut guard = project.exclusive_worktree_access();
+        let _ = project_repository.project().create_snapshot(
+            SnapshotDetails::new(OperationKind::ReorderCommit),
+            guard.write_permission(),
+        );
         branch::reorder_commit(&project_repository, branch_id, commit_oid, offset)
             .map_err(Into::into)
     }
@@ -286,9 +331,11 @@ impl VirtualBranchActions {
         target_commit_oid: git2::Oid,
     ) -> Result<()> {
         let project_repository = open_with_verify(project)?;
-        let _ = project_repository
-            .project()
-            .create_snapshot(SnapshotDetails::new(OperationKind::UndoCommit));
+        let mut guard = project.exclusive_worktree_access();
+        let _ = project_repository.project().create_snapshot(
+            SnapshotDetails::new(OperationKind::UndoCommit),
+            guard.write_permission(),
+        );
         branch::reset_branch(&project_repository, branch_id, target_commit_oid).map_err(Into::into)
     }
 
@@ -299,14 +346,23 @@ impl VirtualBranchActions {
         name_conflict_resolution: branch::NameConflictResolution,
     ) -> Result<ReferenceName> {
         let project_repository = open_with_verify(project)?;
-        let snapshot_tree = project_repository.project().prepare_snapshot();
+        let mut guard = project.exclusive_worktree_access();
+        let snapshot_tree = project_repository
+            .project()
+            .prepare_snapshot(guard.read_permission());
         let branch_manager = project_repository.branch_manager();
-        let result = branch_manager.convert_to_real_branch(branch_id, name_conflict_resolution);
+        let result = branch_manager.convert_to_real_branch(
+            branch_id,
+            name_conflict_resolution,
+            guard.write_permission(),
+        );
 
         let _ = snapshot_tree.and_then(|snapshot_tree| {
-            project_repository
-                .project()
-                .snapshot_branch_unapplied(snapshot_tree, result.as_ref())
+            project_repository.project().snapshot_branch_unapplied(
+                snapshot_tree,
+                result.as_ref(),
+                guard.write_permission(),
+            )
         });
 
         result
@@ -345,9 +401,11 @@ impl VirtualBranchActions {
         commit_oid: git2::Oid,
     ) -> Result<()> {
         let project_repository = open_with_verify(project)?;
-        let _ = project_repository
-            .project()
-            .create_snapshot(SnapshotDetails::new(OperationKind::SquashCommit));
+        let mut guard = project.exclusive_worktree_access();
+        let _ = project_repository.project().create_snapshot(
+            SnapshotDetails::new(OperationKind::SquashCommit),
+            guard.write_permission(),
+        );
         branch::squash(&project_repository, branch_id, commit_oid).map_err(Into::into)
     }
 
@@ -359,9 +417,11 @@ impl VirtualBranchActions {
         message: &str,
     ) -> Result<()> {
         let project_repository = open_with_verify(project)?;
-        let _ = project_repository
-            .project()
-            .create_snapshot(SnapshotDetails::new(OperationKind::UpdateCommitMessage));
+        let mut guard = project.exclusive_worktree_access();
+        let _ = project_repository.project().create_snapshot(
+            SnapshotDetails::new(OperationKind::UpdateCommitMessage),
+            guard.write_permission(),
+        );
         branch::update_commit_message(&project_repository, branch_id, commit_oid, message)
             .map_err(Into::into)
     }
@@ -408,10 +468,18 @@ impl VirtualBranchActions {
         commit_oid: git2::Oid,
     ) -> Result<()> {
         let project_repository = open_with_verify(project)?;
-        let _ = project_repository
-            .project()
-            .create_snapshot(SnapshotDetails::new(OperationKind::MoveCommit));
-        branch::move_commit(&project_repository, target_branch_id, commit_oid).map_err(Into::into)
+        let mut guard = project.exclusive_worktree_access();
+        let _ = project_repository.project().create_snapshot(
+            SnapshotDetails::new(OperationKind::MoveCommit),
+            guard.write_permission(),
+        );
+        branch::move_commit(
+            &project_repository,
+            target_branch_id,
+            commit_oid,
+            guard.write_permission(),
+        )
+        .map_err(Into::into)
     }
 
     pub async fn create_virtual_branch_from_branch(
@@ -421,14 +489,16 @@ impl VirtualBranchActions {
     ) -> Result<BranchId> {
         let project_repository = open_with_verify(project)?;
         let branch_manager = project_repository.branch_manager();
+        let mut guard = project.exclusive_worktree_access();
         branch_manager
-            .create_virtual_branch_from_branch(branch)
+            .create_virtual_branch_from_branch(branch, guard.write_permission())
             .map_err(Into::into)
     }
 }
 
 fn open_with_verify(project: &Project) -> Result<ProjectRepository> {
     let project_repository = ProjectRepository::open(project)?;
-    crate::integration::verify_branch(&project_repository)?;
+    let mut guard = project.exclusive_worktree_access();
+    crate::integration::verify_branch(&project_repository, guard.write_permission())?;
     Ok(project_repository)
 }

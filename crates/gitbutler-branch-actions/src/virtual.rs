@@ -35,6 +35,7 @@ use crate::remote::{branch_to_remote_branch, RemoteBranch};
 use crate::VirtualBranchesExt;
 use gitbutler_error::error::Code;
 use gitbutler_error::error::Marker;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::rebase::{cherry_rebase, cherry_rebase_group};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 
@@ -200,6 +201,7 @@ pub enum NameConflictResolution {
 pub fn unapply_ownership(
     project_repository: &ProjectRepository,
     ownership: &BranchOwnershipClaims,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     project_repository.assure_resolved()?;
 
@@ -211,9 +213,13 @@ pub fn unapply_ownership(
 
     let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
 
-    let (applied_statuses, _) =
-        get_applied_status(project_repository, &integration_commit_id, virtual_branches)
-            .context("failed to get status by branch")?;
+    let (applied_statuses, _) = get_applied_status(
+        project_repository,
+        &integration_commit_id,
+        virtual_branches,
+        Some(perm),
+    )
+    .context("failed to get status by branch")?;
 
     let hunks_to_unapply = applied_statuses
         .iter()
@@ -346,6 +352,7 @@ fn find_base_tree<'a>(
 fn resolve_old_applied_state(
     project_repository: &ProjectRepository,
     vb_state: &VirtualBranchesHandle,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let branches = vb_state.list_all_branches()?;
 
@@ -353,7 +360,7 @@ fn resolve_old_applied_state(
 
     for mut branch in branches {
         if branch.is_old_unapplied() {
-            branch_manager.convert_to_real_branch(branch.id, Default::default())?;
+            branch_manager.convert_to_real_branch(branch.id, Default::default(), perm)?;
         } else {
             branch.applied = branch.in_workspace;
             vb_state.set_branch(branch)?;
@@ -365,12 +372,15 @@ fn resolve_old_applied_state(
 
 pub fn list_virtual_branches(
     ctx: &ProjectRepository,
+    // TODO(ST): this should really only shared access, but there is some internals
+    //           that conditionally write things.
+    perm: &mut WorktreeWritePermission,
 ) -> Result<(Vec<VirtualBranch>, Vec<diff::FileDiff>)> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
     let vb_state = ctx.project().virtual_branches();
 
-    resolve_old_applied_state(ctx, &vb_state)?;
+    resolve_old_applied_state(ctx, &vb_state, perm)?;
 
     let default_target = vb_state
         .get_default_target()
@@ -1045,6 +1055,7 @@ pub fn get_status_by_branch(
         // TODO: Keep this optional or update lots of tests?
         integration_commit.unwrap_or(&default_target.sha),
         virtual_branches,
+        None,
     )?;
 
     Ok((applied_status, skipped_files))
@@ -1128,6 +1139,7 @@ pub(crate) fn get_applied_status(
     project_repository: &ProjectRepository,
     integration_commit: &git2::Oid,
     mut virtual_branches: Vec<Branch>,
+    perm: Option<&mut WorktreeWritePermission>,
 ) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
     let base_file_diffs = diff::workdir(project_repository.repo(), &integration_commit.to_owned())
         .context("failed to diff workdir")?;
@@ -1146,9 +1158,13 @@ pub(crate) fn get_applied_status(
     let branch_manager = project_repository.branch_manager();
 
     if virtual_branches.is_empty() && !base_diffs.is_empty() {
-        virtual_branches = vec![branch_manager
-            .create_virtual_branch(&BranchCreateRequest::default())
-            .context("failed to create default branch")?];
+        if let Some(perm) = perm {
+            virtual_branches = vec![branch_manager
+                .create_virtual_branch(&BranchCreateRequest::default(), perm)
+                .context("failed to create default branch")?];
+        } else {
+            bail!("Would have wanted to create a virtual branch but wasn't allowed to make changes")
+        }
     }
 
     let mut diffs_by_branch: HashMap<BranchId, BranchStatus> = virtual_branches
@@ -2115,6 +2131,7 @@ pub(crate) fn amend(
     branch_id: BranchId,
     commit_oid: git2::Oid,
     target_ownership: &BranchOwnershipClaims,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<git2::Oid> {
     project_repository.assure_resolved()?;
     let vb_state = project_repository.project().virtual_branches();
@@ -2129,11 +2146,14 @@ pub(crate) fn amend(
 
     let default_target = vb_state.get_default_target()?;
 
-    let integration_commit_id =
-        crate::integration::get_workspace_head(&vb_state, project_repository)?;
+    let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
 
-    let (mut applied_statuses, _) =
-        get_applied_status(project_repository, &integration_commit_id, virtual_branches)?;
+    let (mut applied_statuses, _) = get_applied_status(
+        project_repository,
+        &integration_commit_id,
+        virtual_branches,
+        Some(perm),
+    )?;
 
     let (ref mut target_branch, target_status) = applied_statuses
         .iter_mut()
@@ -2601,6 +2621,7 @@ pub(crate) fn move_commit(
     project_repository: &ProjectRepository,
     target_branch_id: BranchId,
     commit_id: git2::Oid,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     project_repository.assure_resolved()?;
     let vb_state = project_repository.project().virtual_branches();
@@ -2613,11 +2634,14 @@ pub(crate) fn move_commit(
         bail!("branch {target_branch_id} is not among applied branches")
     }
 
-    let integration_commit_id =
-        crate::integration::get_workspace_head(&vb_state, project_repository)?;
+    let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
 
-    let (mut applied_statuses, _) =
-        get_applied_status(project_repository, &integration_commit_id, applied_branches)?;
+    let (mut applied_statuses, _) = get_applied_status(
+        project_repository,
+        &integration_commit_id,
+        applied_branches,
+        Some(perm),
+    )?;
 
     let (ref mut source_branch, source_status) = applied_statuses
         .iter_mut()

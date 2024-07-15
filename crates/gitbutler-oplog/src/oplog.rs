@@ -47,7 +47,7 @@ pub trait OplogExt {
     /// Prepares a snapshot of the current state of the working directory as well as GitButler data.
     /// Returns a tree hash of the snapshot. The snapshot is not discoverable until it is committed with [`commit_snapshot`](Self::commit_snapshot())
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
-    fn prepare_snapshot(&self) -> Result<git2::Oid>;
+    fn prepare_snapshot(&self, perm: &WorktreeReadPermission) -> Result<git2::Oid>;
 
     /// Commits the snapshot tree that is created with the [`prepare_snapshot`](Self::prepare_snapshot) method,
     /// which yielded the `snapshot_tree_id` for the entire snapshot state.
@@ -62,6 +62,7 @@ pub trait OplogExt {
         &self,
         snapshot_tree_id: git2::Oid,
         details: SnapshotDetails,
+        perm: &mut WorktreeWritePermission,
     ) -> Result<Option<git2::Oid>>;
 
     /// Creates a snapshot of the current state of the working directory as well as GitButler data.
@@ -72,7 +73,11 @@ pub trait OplogExt {
     /// commit and the current one (after comparing trees).
     ///
     /// Note that errors in snapshot creation is typically ignored, so we want to learn about them.
-    fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<git2::Oid>>;
+    fn create_snapshot(
+        &self,
+        details: SnapshotDetails,
+        perm: &mut WorktreeWritePermission,
+    ) -> Result<Option<git2::Oid>>;
 
     /// Lists the snapshots that have been created for the given repository, up to the given limit,
     /// and with the most recent snapshot first, and at the end of the vec.
@@ -129,25 +134,27 @@ pub trait OplogExt {
 }
 
 impl OplogExt for Project {
-    fn prepare_snapshot(&self) -> Result<git2::Oid> {
-        let guard = self.shared_worktree_access();
-        prepare_snapshot(self, guard.read_permission())
+    fn prepare_snapshot(&self, perm: &WorktreeReadPermission) -> Result<git2::Oid> {
+        prepare_snapshot(self, perm)
     }
 
     fn commit_snapshot(
         &self,
         snapshot_tree_id: git2::Oid,
         details: SnapshotDetails,
+        perm: &mut WorktreeWritePermission,
     ) -> Result<Option<git2::Oid>> {
-        let mut guard = self.exclusive_worktree_access();
-        commit_snapshot(self, snapshot_tree_id, details, guard.write_permission())
+        commit_snapshot(self, snapshot_tree_id, details, perm)
     }
 
-    #[instrument(skip(details), err(Debug))]
-    fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<git2::Oid>> {
-        let mut guard = self.exclusive_worktree_access();
-        let tree_id = prepare_snapshot(self, guard.read_permission())?;
-        commit_snapshot(self, tree_id, details, guard.write_permission())
+    #[instrument(skip(details, perm), err(Debug))]
+    fn create_snapshot(
+        &self,
+        details: SnapshotDetails,
+        perm: &mut WorktreeWritePermission,
+    ) -> Result<Option<git2::Oid>> {
+        let tree_id = prepare_snapshot(self, perm.read_permission())?;
+        commit_snapshot(self, tree_id, details, perm)
     }
 
     fn list_snapshots(
