@@ -79,7 +79,6 @@ function setupDragHandlers(
 			clone.style.maxHeight = pxToRem(params.maxHeight);
 		}
 
-		// console.log('selectedElements', selectedElements);
 		selectedElements.forEach((el) => el.classList.add('drag-handle'));
 		document.body.appendChild(clone);
 
@@ -101,6 +100,47 @@ function setupDragHandlers(
 		}
 	}
 
+	const viewport = opts.viewportId ? document.getElementById(opts.viewportId) : null;
+	const triggerRange = 150;
+	const timerShutter = 500;
+	let timeoutId: undefined | ReturnType<typeof setTimeout> = undefined;
+
+	function loopScroll(direction: 'left' | 'right', scrollSpeed: number) {
+		if (viewport) {
+			viewport.scrollBy({
+				left: direction === 'left' ? -scrollSpeed : scrollSpeed,
+				behavior: 'smooth'
+			});
+		}
+
+		timeoutId = setTimeout(() => loopScroll(direction, scrollSpeed), timerShutter); // Store the timeout ID
+	}
+
+	function handleDrag(e: DragEvent) {
+		e.preventDefault();
+		const viewport = opts.viewportId ? document.getElementById(opts.viewportId) : null;
+		if (!viewport) return;
+
+		const scrollSpeed = (viewport.clientWidth || 500) / 3; // Adjust this value as needed
+		const viewportWidth = viewport.clientWidth;
+		const relativeX = e.clientX - viewport.getBoundingClientRect().left;
+
+		if (relativeX < triggerRange && viewport.scrollLeft > 0) {
+			if (!timeoutId) {
+				loopScroll('left', scrollSpeed);
+			}
+		} else if (relativeX > viewportWidth - triggerRange) {
+			if (!timeoutId) {
+				loopScroll('right', scrollSpeed);
+			}
+		} else {
+			if (timeoutId) {
+				clearTimeout(timeoutId);
+				timeoutId = undefined;
+			}
+		}
+	}
+
 	function handleDragEnd(e: DragEvent) {
 		e.stopPropagation();
 		if (clone) clone.remove();
@@ -108,20 +148,11 @@ function setupDragHandlers(
 		Array.from(dropzoneRegistry.values()).forEach((dropzone) => {
 			dropzone.unregister();
 		});
-	}
 
-	function handleDrag(e: DragEvent) {
-		e.preventDefault();
-		const viewport = opts.viewportId ? document.getElementById(opts.viewportId) : null;
-		if (!viewport) return;
-		const triggerRange = 150;
-		const scrollSpeed = (viewport.clientWidth || 500) / 2;
-		const viewportWidth = viewport.clientWidth;
-		const relativeX = e.clientX - viewport.getBoundingClientRect().left;
-		if (relativeX < triggerRange) {
-			viewport.scrollBy(-scrollSpeed, 0);
-		} else if (relativeX > viewportWidth - triggerRange) {
-			viewport.scrollBy(scrollSpeed, 0);
+		if (timeoutId) {
+			// Clear the timeout
+			clearTimeout(timeoutId);
+			timeoutId = undefined;
 		}
 	}
 
@@ -129,6 +160,7 @@ function setupDragHandlers(
 		if (newOpts.disabled) return;
 		opts = newOpts;
 		node.draggable = true;
+
 		node.addEventListener('dragstart', handleDragStart);
 		node.addEventListener('drag', handleDrag);
 		node.addEventListener('dragend', handleDragEnd);
