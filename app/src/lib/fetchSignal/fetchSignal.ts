@@ -2,18 +2,17 @@ import { listen } from '$lib/backend/ipc';
 import { readable } from 'svelte/store';
 
 export class FetchSignal {
-	readonly event = readable<number>(undefined, (set) => {
-		const unsubscribe = subscribeToFetches(this.projectId, () => set(this.counter++));
-		return () => {
-			unsubscribe();
-		};
-	});
-
+	// Stores only emit unique values so we use a counter to ensure
+	// derived stores are updated.
 	private counter = 0;
 
-	constructor(private projectId: string) {}
-}
+	// Emits a new value when a fetch was detected by the back end.
+	readonly event = readable<number>(undefined, (set) => {
+		const unsubscribe = listen<any>(`project://${this.projectId}/git/fetch`, () =>
+			set(this.counter++)
+		);
+		return async () => await unsubscribe();
+	});
 
-export function subscribeToFetches(projectId: string, callback: () => Promise<void> | void) {
-	return listen<any>(`project://${projectId}/git/fetch`, callback);
+	constructor(private projectId: string) {}
 }
