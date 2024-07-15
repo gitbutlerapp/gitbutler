@@ -147,7 +147,7 @@
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="new-branch" />
 										</div>
-										<span class="text-base-12">Create new branch</span>
+										<span class="text-base-12">Create a new branch</span>
 									</div>
 									<a
 										class="empty-board__suggestions__link"
@@ -346,7 +346,7 @@
 	}
 
 	.empty-board__suggestions__link {
-		cursor: default;
+		cursor: pointer;
 		display: flex;
 		width: fit-content;
 		max-width: 100%;
