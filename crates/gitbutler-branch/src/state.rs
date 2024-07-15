@@ -10,7 +10,7 @@ use crate::{
     target::Target,
 };
 use gitbutler_error::error::Code;
-use gitbutler_fs::fs::read_toml_file_or_default;
+use gitbutler_fs::read_toml_file_or_default;
 // use gitbutler_project::Project;
 use gitbutler_reference::Refname;
 use itertools::Itertools;
@@ -247,5 +247,5 @@ impl VirtualBranchesHandle {
 }
 
 fn write<P: AsRef<Path>>(file_path: P, virtual_branches: &VirtualBranches) -> Result<()> {
-    gitbutler_fs::fs::write(file_path, toml::to_string(&virtual_branches)?)
+    gitbutler_fs::write(file_path, toml::to_string(&virtual_branches)?)
 }

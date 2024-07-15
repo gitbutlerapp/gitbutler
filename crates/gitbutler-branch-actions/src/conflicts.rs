@@ -1,10 +1,9 @@
-// stuff to manage merge conflict state
-// this is the dumbest possible way to do this, but it is a placeholder
-// conflicts are stored one path per line in .git/conflicts
-// merge parent is stored in .git/base_merge_parent
-// conflicts are removed as they are resolved, the conflicts file is removed when there are no more conflicts
-// the merge parent file is removed when the merge is complete
-
+/// stuff to manage merge conflict state.
+/// This is the dumbest possible way to do this, but it is a placeholder.
+/// Conflicts are stored one path per line in .git/conflicts.
+/// Merge parent is stored in .git/base_merge_parent.
+/// Conflicts are removed as they are resolved, the conflicts file is removed when there are no more conflicts
+/// or when the merge is complete.
 use std::{
     io::{BufRead, Write},
     path::{Path, PathBuf},
@@ -25,19 +24,20 @@ pub(crate) fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
     if paths.is_empty() {
         return Ok(());
     }
-    let conflicts_path = repository.repo().path().join("conflicts");
     // write all the file paths to a file on disk
-    let mut file = std::fs::File::create(conflicts_path)?;
+    let mut buf = Vec::<u8>::with_capacity(512);
     for path in paths {
-        file.write_all(path.as_ref().as_os_str().as_encoded_bytes())?;
-        file.write_all(b"\n")?;
+        buf.write_all(path.as_ref().as_os_str().as_encoded_bytes())?;
+        buf.write_all(b"\n")?;
     }
+    gitbutler_fs::write(repository.repo().path().join("conflicts"), buf)?;
 
     if let Some(parent) = parent {
-        let merge_path = repository.repo().path().join("base_merge_parent");
         // write all the file paths to a file on disk
-        let mut file = std::fs::File::create(merge_path)?;
-        file.write_all(parent.to_string().as_bytes())?;
+        gitbutler_fs::write(
+            repository.repo().path().join("base_merge_parent"),
+            parent.to_string().as_bytes(),
+        )?;
     }
 
     Ok(())
@@ -74,11 +74,10 @@ pub fn resolve<P: AsRef<Path>>(repository: &ProjectRepository, path: P) -> Resul
         }
     }
 
-    // remove file
-    std::fs::remove_file(conflicts_path)?;
-
-    // re-write file if needed
-    if !remaining.is_empty() {
+    // re-write file if needed, otherwise remove file entirely
+    if remaining.is_empty() {
+        std::fs::remove_file(conflicts_path)?;
+    } else {
         mark(repository, &remaining, None)?;
     }
     Ok(())

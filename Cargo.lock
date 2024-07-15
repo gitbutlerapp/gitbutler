@@ -2005,6 +2005,7 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-commit",
  "gitbutler-error",
+ "gitbutler-fs",
  "gitbutler-git",
  "gitbutler-id",
  "gitbutler-oplog",
