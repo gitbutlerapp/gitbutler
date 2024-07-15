@@ -3,11 +3,11 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import { editor } from '$lib/editorLink/editorLink';
 	import Button from '$lib/shared/Button.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
-	import { editor } from '$lib/utils/systemEditor';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { LocalFile, type AnyFile } from '$lib/vbranches/types';
@@ -92,7 +92,7 @@
 							if (!project) return;
 							for (let file of item.files) {
 								const absPath = await join(project.vscodePath, file.path);
-								openFile(`${editor.get()}://file${absPath}`);
+								openFile(`${$editor}://file${absPath}`);
 							}
 							contextMenu.close();
 						} catch {

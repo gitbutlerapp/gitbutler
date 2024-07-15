@@ -12,6 +12,8 @@ jobs:
           repository: gitbutlerapp/gitbutler-docs
           path: docs
       - uses: pnpm/action-setup@v4
+        with:
+          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
@@ -43,8 +45,3 @@ jobs:
           git config user.email github-actions@github.com
           git commit -am "feat: add release ${{ github.event.release.tag_name }}"
           git push
-      - name: Trigger Vercel Deploy Hook
-        env:
-          VERCEL_HOOK_URL: ${{ secrets.VERCEL_HOOK_URL }}
-        run: curl -s $VERCEL_HOOK_URL
-

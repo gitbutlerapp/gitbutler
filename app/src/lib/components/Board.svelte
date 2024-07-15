@@ -6,10 +6,10 @@
 	import BranchDropzone from '$lib/branch/BranchDropzone.svelte';
 	import BranchLane from '$lib/branch/BranchLane.svelte';
 	import { cloneElement } from '$lib/dragging/draggable';
+	import { editor } from '$lib/editorLink/editorLink';
 	import { persisted } from '$lib/persisted/persisted';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import { editor } from '$lib/utils/systemEditor';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { open } from '@tauri-apps/api/shell';
@@ -34,7 +34,7 @@
 	}
 
 	async function openInVSCode() {
-		open(`${editor.get()}://file${project.vscodePath}/?windowId=_blank`);
+		open(`${$editor}://file${project.vscodePath}/?windowId=_blank`);
 	}
 </script>
 
@@ -147,7 +147,7 @@
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="new-branch" />
 										</div>
-										<span class="text-base-12">Create new branch</span>
+										<span class="text-base-12">Create a new branch</span>
 									</div>
 									<a
 										class="empty-board__suggestions__link"
@@ -346,7 +346,7 @@
 	}
 
 	.empty-board__suggestions__link {
-		cursor: default;
+		cursor: pointer;
 		display: flex;
 		width: fit-content;
 		max-width: 100%;

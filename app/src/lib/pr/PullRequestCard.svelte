@@ -177,7 +177,7 @@
 			/>
 		</div>
 		<div class="pr-title text-base-13 text-semibold">
-			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.id}:</span>
+			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.number}:</span>
 			{$pr.title}
 		</div>
 		<div class="pr-tags">

@@ -6,12 +6,13 @@
 	import { getContext } from '$lib/utils/context';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 
-	const gitHostListing = getGitHostListingService();
 	const baseBranchService = getContext(BaseBranchService);
 	const vbranchService = getContext(VirtualBranchService);
 	const baseBranch = baseBranchService.base;
 
-	$: baseServiceBusy$ = baseBranchService.loading;
+	const listingService = getGitHostListingService();
+
+	let loading = $state(false);
 </script>
 
 <Button
@@ -22,16 +23,24 @@
 	outline
 	icon="update-small"
 	help="Last fetch from upstream"
-	loading={$baseServiceBusy$}
+	{loading}
 	on:mousedown={async (e) => {
 		e.preventDefault();
 		e.stopPropagation();
-		await baseBranchService.fetchFromRemotes('modal');
-		vbranchService.refresh();
-		$gitHostListing?.refresh();
+		loading = true;
+		try {
+			await baseBranchService.fetchFromRemotes('modal');
+			await Promise.all([
+				$listingService?.refresh(),
+				vbranchService.refresh(),
+				baseBranchService.refresh()
+			]);
+		} finally {
+			loading = false;
+		}
 	}}
 >
-	{#if $baseServiceBusy$}
+	{#if loading}
 		<div class="sync-btn__busy-label">busy…</div>
 	{:else if $baseBranch?.lastFetched}
 		<TimeAgo date={$baseBranch?.lastFetched} />
