@@ -1,3 +1,4 @@
+use gitbutler_branch::BranchCreateRequest;
 use gitbutler_reference::Refname;
 
 use super::*;
@@ -30,7 +31,7 @@ async fn rebase_commit() {
     let mut branch1_id = {
         // create a branch with some commited work
         let branch1_id = controller
-            .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(project, &BranchCreateRequest::default())
             .await
             .unwrap();
         fs::write(repository.path().join("another_file.txt"), "virtual").unwrap();
@@ -145,7 +146,7 @@ async fn rebase_work() {
     let mut branch1_id = {
         // make a branch with some work
         let branch1_id = controller
-            .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(project, &BranchCreateRequest::default())
             .await
             .unwrap();
         fs::write(repository.path().join("another_file.txt"), "").unwrap();

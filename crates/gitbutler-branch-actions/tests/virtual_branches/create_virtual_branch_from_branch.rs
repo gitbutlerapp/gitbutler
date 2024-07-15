@@ -1,3 +1,4 @@
+use gitbutler_branch::BranchCreateRequest;
 use gitbutler_reference::LocalRefname;
 
 use super::*;
@@ -20,7 +21,7 @@ async fn integration() {
         // make a remote branch
 
         let branch_id = controller
-            .create_virtual_branch(project, &super::branch::BranchCreateRequest::default())
+            .create_virtual_branch(project, &BranchCreateRequest::default())
             .await
             .unwrap();
 

@@ -1,4 +1,5 @@
 use super::*;
+use gitbutler_branch::BranchCreateRequest;
 
 #[tokio::test]
 async fn reorder_commit_down() {
@@ -15,7 +16,7 @@ async fn reorder_commit_down() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -76,7 +77,7 @@ async fn reorder_commit_up() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 

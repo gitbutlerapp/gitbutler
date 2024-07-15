@@ -43,7 +43,7 @@ impl Storage {
     /// Generally, the filesystem is used for synchronization, not in-memory primitives.
     pub fn write(&self, rela_path: impl AsRef<Path>, content: &str) -> std::io::Result<()> {
         let file_path = self.local_data_dir.join(rela_path);
-        gitbutler_fs::fs::create_dirs_then_write(file_path, content)
+        gitbutler_fs::create_dirs_then_write(file_path, content)
     }
 
     /// Delete the file or directory at `rela_path`.

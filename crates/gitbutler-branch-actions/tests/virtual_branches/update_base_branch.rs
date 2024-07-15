@@ -1,8 +1,8 @@
 use super::*;
 
 mod applied_branch {
-
     use super::*;
+    use gitbutler_branch::BranchCreateRequest;
 
     #[tokio::test]
     async fn conflicts_with_uncommitted_work() {
@@ -31,7 +31,7 @@ mod applied_branch {
         {
             // make a branch that conflicts with the remote branch, but doesn't know about it yet
             controller
-                .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+                .create_virtual_branch(project, &BranchCreateRequest::default())
                 .await
                 .unwrap();
 
@@ -97,7 +97,7 @@ mod applied_branch {
             // make a branch with a commit that conflicts with upstream, and work that fixes
             // that conflict
             let branch_id = controller
-                .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+                .create_virtual_branch(project, &BranchCreateRequest::default())
                 .await
                 .unwrap();
 
@@ -168,7 +168,7 @@ mod applied_branch {
             // make a branch with a commit that conflicts with upstream, and work that fixes
             // that conflict
             let branch_id = controller
-                .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+                .create_virtual_branch(project, &BranchCreateRequest::default())
                 .await
                 .unwrap();
 
@@ -244,7 +244,7 @@ mod applied_branch {
             // make a branch with a commit that conflicts with upstream, and work that fixes
             // that conflict
             let branch_id = controller
-                .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+                .create_virtual_branch(project, &BranchCreateRequest::default())
                 .await
                 .unwrap();
 
@@ -317,7 +317,7 @@ mod applied_branch {
             // make a branch with a commit that conflicts with upstream, and work that fixes
             // that conflict
             let branch_id = controller
-                .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+                .create_virtual_branch(project, &BranchCreateRequest::default())
                 .await
                 .unwrap();
 
@@ -364,6 +364,7 @@ mod applied_branch {
 
     mod no_conflicts_pushed {
         use super::*;
+        use gitbutler_branch::BranchUpdateRequest;
 
         #[tokio::test]
         async fn force_push_ok() {
@@ -401,7 +402,7 @@ mod applied_branch {
 
             let branch_id = {
                 let branch_id = controller
-                    .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+                    .create_virtual_branch(project, &BranchCreateRequest::default())
                     .await
                     .unwrap();
 
@@ -467,7 +468,7 @@ mod applied_branch {
 
             let branch_id = {
                 let branch_id = controller
-                    .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+                    .create_virtual_branch(project, &BranchCreateRequest::default())
                     .await
                     .unwrap();
 
@@ -490,7 +491,7 @@ mod applied_branch {
             controller
                 .update_virtual_branch(
                     project,
-                    branch::BranchUpdateRequest {
+                    BranchUpdateRequest {
                         id: branch_id,
                         allow_rebasing: Some(false),
                         ..Default::default()
@@ -547,7 +548,7 @@ mod applied_branch {
 
         let branch_id = {
             let branch_id = controller
-                .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+                .create_virtual_branch(project, &BranchCreateRequest::default())
                 .await
                 .unwrap();
 
@@ -611,7 +612,7 @@ mod applied_branch {
         let branch_id = {
             // make a branch that conflicts with the remote branch, but doesn't know about it yet
             let branch_id = controller
-                .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+                .create_virtual_branch(project, &BranchCreateRequest::default())
                 .await
                 .unwrap();
 
@@ -706,7 +707,7 @@ mod applied_branch {
         // branch has no conflict
         let branch_id = {
             let branch_id = controller
-                .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+                .create_virtual_branch(project, &BranchCreateRequest::default())
                 .await
                 .unwrap();
 
@@ -810,7 +811,7 @@ mod applied_branch {
 
         let branch_id = {
             let branch_id = controller
-                .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+                .create_virtual_branch(project, &BranchCreateRequest::default())
                 .await
                 .unwrap();
 
@@ -872,7 +873,7 @@ mod applied_branch {
         let branch_id = {
             // make a branch that conflicts with the remote branch, but doesn't know about it yet
             let branch_id = controller
-                .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+                .create_virtual_branch(project, &BranchCreateRequest::default())
                 .await
                 .unwrap();
 
@@ -944,7 +945,7 @@ mod applied_branch {
         {
             // make a branch that conflicts with the remote branch, but doesn't know about it yet
             let branch_id = controller
-                .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+                .create_virtual_branch(project, &BranchCreateRequest::default())
                 .await
                 .unwrap();
 
@@ -992,7 +993,7 @@ mod applied_branch {
             .unwrap();
 
         let branch_id = controller
-            .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(project, &BranchCreateRequest::default())
             .await
             .unwrap();
 
@@ -1050,7 +1051,7 @@ mod applied_branch {
             .unwrap();
 
         let branch_1_id = controller
-            .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+            .create_virtual_branch(project, &BranchCreateRequest::default())
             .await
             .unwrap();
 
@@ -1063,7 +1064,7 @@ mod applied_branch {
         let branch_2_id = controller
             .create_virtual_branch(
                 project,
-                &branch::BranchCreateRequest {
+                &BranchCreateRequest {
                     selected_for_changes: Some(true),
                     ..Default::default()
                 },

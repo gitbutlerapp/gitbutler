@@ -1,16 +1,15 @@
-use gitbutler_branch::branch::{self, Branch, BranchCreateRequest, BranchId};
-use gitbutler_branch::dedup::{dedup, dedup_fmt};
 use gitbutler_branch::diff::{self, diff_files_into_hunks, trees, FileDiff, GitHunk};
-use gitbutler_branch::file_ownership::OwnershipClaim;
-use gitbutler_branch::hunk::{Hunk, HunkHash};
-use gitbutler_branch::ownership::{reconcile_claims, BranchOwnershipClaims};
-use gitbutler_branch::VirtualBranchesHandle;
+use gitbutler_branch::{dedup, BranchUpdateRequest, VirtualBranchesHandle};
+use gitbutler_branch::{dedup_fmt, Branch, BranchCreateRequest, BranchId};
+use gitbutler_branch::{reconcile_claims, BranchOwnershipClaims};
+use gitbutler_branch::{Hunk, HunkHash};
+use gitbutler_branch::{OwnershipClaim, Target};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_commit::commit_headers::HasCommitHeaders;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::credentials::Helper;
-use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
+use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 use std::borrow::Borrow;
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::PermissionsExt;
@@ -29,20 +28,18 @@ use hex::ToHex;
 use serde::{Deserialize, Serialize};
 
 use crate::author::Author;
-use crate::branch_manager::branch_creation::BranchCreation;
-use crate::branch_manager::branch_removal::BranchRemoval;
-use crate::branch_manager::BranchManagerAccess;
-use crate::conflicts::{self, RepoConflicts};
+use crate::branch_manager::BranchManagerExt;
+use crate::conflicts::{self, RepoConflictsExt};
 use crate::integration::get_workspace_head;
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
 use crate::VirtualBranchesExt;
-use gitbutler_branch::target;
 use gitbutler_error::error::Code;
 use gitbutler_error::error::Marker;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::rebase::{cherry_rebase, cherry_rebase_group};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 
-type AppliedStatuses = Vec<(branch::Branch, BranchStatus)>;
+type AppliedStatuses = Vec<(Branch, BranchStatus)>;
 
 // this struct is a mapping to the view `Branch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
@@ -165,7 +162,7 @@ pub struct VirtualBranchHunk {
 
 /// Lifecycle
 impl VirtualBranchHunk {
-    pub fn gen_id(new_start: u32, new_lines: u32) -> String {
+    pub(crate) fn gen_id(new_start: u32, new_lines: u32) -> String {
         format!("{}-{}", new_start, new_start + new_lines)
     }
     fn from_git_hunk(
@@ -194,7 +191,7 @@ impl VirtualBranchHunk {
 
 #[derive(Default, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type", content = "value")]
-pub enum NameConflitResolution {
+pub enum NameConflictResolution {
     #[default]
     Suffix,
     Rename(String),
@@ -204,6 +201,7 @@ pub enum NameConflitResolution {
 pub fn unapply_ownership(
     project_repository: &ProjectRepository,
     ownership: &BranchOwnershipClaims,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     project_repository.assure_resolved()?;
 
@@ -215,9 +213,13 @@ pub fn unapply_ownership(
 
     let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
 
-    let (applied_statuses, _) =
-        get_applied_status(project_repository, &integration_commit_id, virtual_branches)
-            .context("failed to get status by branch")?;
+    let (applied_statuses, _) = get_applied_status(
+        project_repository,
+        &integration_commit_id,
+        virtual_branches,
+        perm,
+    )
+    .context("failed to get status by branch")?;
 
     let hunks_to_unapply = applied_statuses
         .iter()
@@ -294,7 +296,10 @@ pub fn unapply_ownership(
 }
 
 // reset a file in the project to the index state
-pub fn reset_files(project_repository: &ProjectRepository, files: &Vec<String>) -> Result<()> {
+pub(crate) fn reset_files(
+    project_repository: &ProjectRepository,
+    files: &Vec<String>,
+) -> Result<()> {
     project_repository.assure_resolved()?;
 
     // for each tree, we need to checkout the entry from the index at that path
@@ -347,6 +352,7 @@ fn find_base_tree<'a>(
 fn resolve_old_applied_state(
     project_repository: &ProjectRepository,
     vb_state: &VirtualBranchesHandle,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let branches = vb_state.list_all_branches()?;
 
@@ -354,7 +360,7 @@ fn resolve_old_applied_state(
 
     for mut branch in branches {
         if branch.is_old_unapplied() {
-            branch_manager.convert_to_real_branch(branch.id, Default::default())?;
+            branch_manager.convert_to_real_branch(branch.id, Default::default(), perm)?;
         } else {
             branch.applied = branch.in_workspace;
             vb_state.set_branch(branch)?;
@@ -365,27 +371,26 @@ fn resolve_old_applied_state(
 }
 
 pub fn list_virtual_branches(
-    project_repository: &ProjectRepository,
+    ctx: &ProjectRepository,
+    // TODO(ST): this should really only shared access, but there is some internals
+    //           that conditionally write things.
+    perm: &mut WorktreeWritePermission,
 ) -> Result<(Vec<VirtualBranch>, Vec<diff::FileDiff>)> {
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
-    let vb_state = project_repository.project().virtual_branches();
+    let vb_state = ctx.project().virtual_branches();
 
-    resolve_old_applied_state(project_repository, &vb_state)?;
+    resolve_old_applied_state(ctx, &vb_state, perm)?;
 
     let default_target = vb_state
         .get_default_target()
         .context("failed to get default target")?;
 
-    let integration_commit_id =
-        crate::integration::get_workspace_head(&vb_state, project_repository)?;
-    let integration_commit = project_repository
-        .repo()
-        .find_commit(integration_commit_id)
-        .unwrap();
+    let integration_commit_id = get_workspace_head(&vb_state, ctx)?;
+    let integration_commit = ctx.repo().find_commit(integration_commit_id).unwrap();
 
     let (statuses, skipped_files) =
-        get_status_by_branch(project_repository, Some(&integration_commit.id()))?;
+        get_status_by_branch(ctx, Some(&integration_commit.id()), perm)?;
     let max_selected_for_changes = statuses
         .iter()
         .filter_map(|(branch, _)| branch.selected_for_changes)
@@ -393,8 +398,8 @@ pub fn list_virtual_branches(
         .unwrap_or(-1);
 
     for (branch, files) in statuses {
-        let repo = project_repository.repo();
-        update_conflict_markers(project_repository, &files)?;
+        let repo = ctx.repo();
+        update_conflict_markers(ctx, &files)?;
 
         let upstream_branch = match branch.clone().upstream {
             Some(upstream) => repo.find_branch_by_refname(&Refname::from(upstream))?,
@@ -420,7 +425,7 @@ pub fn list_virtual_branches(
                         upstream.id(),
                         default_target.sha
                     ))?;
-            for oid in project_repository.l(upstream.id(), LogUntil::Commit(merge_base))? {
+            for oid in ctx.l(upstream.id(), LogUntil::Commit(merge_base))? {
                 pushed_commits.insert(oid, true);
             }
         }
@@ -429,7 +434,7 @@ pub fn list_virtual_branches(
         let mut is_remote = false;
 
         // find all commits on head that are not on target.sha
-        let commits = project_repository.log(branch.head, LogUntil::Commit(default_target.sha))?;
+        let commits = ctx.log(branch.head, LogUntil::Commit(default_target.sha))?;
         let vbranch_commits = commits
             .iter()
             .map(|commit| {
@@ -443,16 +448,10 @@ pub fn list_virtual_branches(
                 is_integrated = if is_integrated {
                     is_integrated
                 } else {
-                    is_commit_integrated(project_repository, &default_target, commit)?
+                    is_commit_integrated(ctx, &default_target, commit)?
                 };
 
-                commit_to_vbranch_commit(
-                    project_repository,
-                    &branch,
-                    commit,
-                    is_integrated,
-                    is_remote,
-                )
+                commit_to_vbranch_commit(ctx, &branch, commit, is_integrated, is_remote)
             })
             .collect::<Result<Vec<_>>>()?;
 
@@ -461,12 +460,10 @@ pub fn list_virtual_branches(
             .context("failed to find merge base")?;
         let base_current = true;
 
-        let upstream = upstream_branch
-            .map(|upstream_branch| branch_to_remote_branch(&upstream_branch))
-            .transpose()?
-            .flatten();
+        let upstream =
+            upstream_branch.and_then(|upstream_branch| branch_to_remote_branch(&upstream_branch));
 
-        let mut files = diffs_into_virtual_files(project_repository, files);
+        let mut files = diffs_into_virtual_files(ctx, files);
 
         let path_claim_positions: HashMap<&PathBuf, usize> = branch
             .ownership
@@ -483,7 +480,7 @@ pub fn list_virtual_branches(
                 .cmp(path_claim_positions.get(&b.path).unwrap_or(&usize::MAX))
         });
 
-        let requires_force = is_requires_force(project_repository, &branch)?;
+        let requires_force = is_requires_force(ctx, &branch)?;
 
         let fork_point = commits
             .last()
@@ -503,7 +500,7 @@ pub fn list_virtual_branches(
             upstream_name: branch
                 .upstream
                 .and_then(|r| Refname::from(r).branch().map(Into::into)),
-            conflicted: conflicts::is_resolving(project_repository),
+            conflicted: conflicts::is_resolving(ctx),
             base_current,
             ownership: branch.ownership,
             updated_at: branch.updated_timestamp_ms,
@@ -542,10 +539,7 @@ fn joined(start_a: u32, end_a: u32, start_b: u32, end_b: u32) -> bool {
         || ((start_b >= start_a && start_b <= end_a) || (end_b >= start_a && end_b <= end_a))
 }
 
-fn is_requires_force(
-    project_repository: &ProjectRepository,
-    branch: &branch::Branch,
-) -> Result<bool> {
+fn is_requires_force(project_repository: &ProjectRepository, branch: &Branch) -> Result<bool> {
     let upstream = if let Some(upstream) = &branch.upstream {
         upstream
     } else {
@@ -593,7 +587,7 @@ fn list_virtual_commit_files(
 
 fn commit_to_vbranch_commit(
     repository: &ProjectRepository,
-    branch: &branch::Branch,
+    branch: &Branch,
     commit: &git2::Commit,
     is_integrated: bool,
     is_remote: bool,
@@ -784,7 +778,7 @@ pub fn integrate_upstream_commits(
     Ok(())
 }
 
-pub fn integrate_with_rebase(
+pub(crate) fn integrate_with_rebase(
     project_repository: &ProjectRepository,
     branch: &mut Branch,
     unknown_commits: &mut Vec<git2::Oid>,
@@ -796,7 +790,7 @@ pub fn integrate_with_rebase(
     )
 }
 
-pub fn integrate_with_merge(
+pub(crate) fn integrate_with_merge(
     project_repository: &ProjectRepository,
     branch: &mut Branch,
     upstream_commit: &git2::Commit,
@@ -852,8 +846,8 @@ pub fn integrate_with_merge(
 
 pub fn update_branch(
     project_repository: &ProjectRepository,
-    branch_update: &branch::BranchUpdateRequest,
-) -> Result<branch::Branch> {
+    branch_update: &BranchUpdateRequest,
+) -> Result<Branch> {
     let vb_state = project_repository.project().virtual_branches();
     let mut branch = vb_state.get_branch_in_workspace(branch_update.id)?;
 
@@ -929,7 +923,7 @@ pub fn update_branch(
     Ok(branch)
 }
 
-pub fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> Result<()> {
+pub(crate) fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> Result<()> {
     let mut virtual_branches = vb_state
         .list_branches_in_workspace()
         .context("failed to list branches")?;
@@ -954,10 +948,10 @@ pub fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> Result<(
     Ok(())
 }
 
-pub fn set_ownership(
+pub(crate) fn set_ownership(
     vb_state: &VirtualBranchesHandle,
-    target_branch: &mut branch::Branch,
-    ownership: &gitbutler_branch::ownership::BranchOwnershipClaims,
+    target_branch: &mut Branch,
+    ownership: &BranchOwnershipClaims,
 ) -> Result<()> {
     if target_branch.ownership.eq(ownership) {
         // nothing to update
@@ -1029,7 +1023,7 @@ pub(super) fn virtual_hunks_by_git_hunks<'a>(
     })
 }
 
-pub fn virtual_hunks_by_file_diffs<'a>(
+pub(crate) fn virtual_hunks_by_file_diffs<'a>(
     project_path: &'a Path,
     diff: impl IntoIterator<Item = (PathBuf, FileDiff)> + 'a,
 ) -> impl Iterator<Item = (PathBuf, Vec<VirtualBranchHunk>)> + 'a {
@@ -1048,6 +1042,7 @@ pub type VirtualBranchHunksByPathMap = HashMap<PathBuf, Vec<VirtualBranchHunk>>;
 pub fn get_status_by_branch(
     project_repository: &ProjectRepository,
     integration_commit: Option<&git2::Oid>,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
     let vb_state = project_repository.project().virtual_branches();
 
@@ -1062,6 +1057,7 @@ pub fn get_status_by_branch(
         // TODO: Keep this optional or update lots of tests?
         integration_commit.unwrap_or(&default_target.sha),
         virtual_branches,
+        perm,
     )?;
 
     Ok((applied_status, skipped_files))
@@ -1070,7 +1066,7 @@ pub fn get_status_by_branch(
 fn new_compute_locks(
     repository: &git2::Repository,
     unstaged_hunks_by_path: &HashMap<PathBuf, Vec<diff::GitHunk>>,
-    virtual_branches: &[branch::Branch],
+    virtual_branches: &[Branch],
 ) -> Result<HashMap<HunkHash, Vec<diff::HunkLock>>> {
     // If we cant find the integration commit and subsequently the target commit, we can't find any locks
     let target_tree = repository.target_commit()?.tree()?;
@@ -1095,8 +1091,7 @@ fn new_compute_locks(
         })
         .collect::<Vec<_>>();
 
-    let mut integration_hunks_by_path =
-        HashMap::<PathBuf, Vec<(diff::GitHunk, &branch::Branch)>>::new();
+    let mut integration_hunks_by_path = HashMap::<PathBuf, Vec<(diff::GitHunk, &Branch)>>::new();
 
     for (branch, hunks_by_filepath) in branch_path_diffs {
         for (path, hunks) in hunks_by_filepath {
@@ -1145,7 +1140,8 @@ fn new_compute_locks(
 pub(crate) fn get_applied_status(
     project_repository: &ProjectRepository,
     integration_commit: &git2::Oid,
-    mut virtual_branches: Vec<branch::Branch>,
+    mut virtual_branches: Vec<Branch>,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
     let base_file_diffs = diff::workdir(project_repository.repo(), &integration_commit.to_owned())
         .context("failed to diff workdir")?;
@@ -1165,7 +1161,7 @@ pub(crate) fn get_applied_status(
 
     if virtual_branches.is_empty() && !base_diffs.is_empty() {
         virtual_branches = vec![branch_manager
-            .create_virtual_branch(&BranchCreateRequest::default())
+            .create_virtual_branch(&BranchCreateRequest::default(), perm)
             .context("failed to create default branch")?];
     }
 
@@ -1344,7 +1340,7 @@ fn virtual_hunks_into_virtual_files(
 }
 
 // reset virtual branch to a specific commit
-pub fn reset_branch(
+pub(crate) fn reset_branch(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     target_commit_id: git2::Oid,
@@ -1426,7 +1422,7 @@ fn diffs_into_virtual_files(
 // this function takes a list of file ownership,
 // constructs a tree from those changes on top of the target
 // and writes it as a new tree for storage
-pub fn write_tree(
+pub(crate) fn write_tree(
     project_repository: &ProjectRepository,
     target: &git2::Oid,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
@@ -1434,7 +1430,7 @@ pub fn write_tree(
     write_tree_onto_commit(project_repository, *target, files)
 }
 
-pub fn write_tree_onto_commit(
+pub(crate) fn write_tree_onto_commit(
     project_repository: &ProjectRepository,
     commit_oid: git2::Oid,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
@@ -1448,7 +1444,7 @@ pub fn write_tree_onto_commit(
     write_tree_onto_tree(project_repository, &base_tree, files)
 }
 
-pub fn write_tree_onto_tree(
+pub(crate) fn write_tree_onto_tree(
     project_repository: &ProjectRepository,
     base_tree: &git2::Tree,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<diff::GitHunk>>)>,
@@ -1600,8 +1596,9 @@ pub fn commit(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     message: &str,
-    ownership: Option<&gitbutler_branch::ownership::BranchOwnershipClaims>,
+    ownership: Option<&BranchOwnershipClaims>,
     run_hooks: bool,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<git2::Oid> {
     let mut message_buffer = message.to_owned();
     let vb_state = project_repository.project().virtual_branches();
@@ -1631,8 +1628,9 @@ pub fn commit(
 
     let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
     // get the files to commit
-    let (statuses, _) = get_status_by_branch(project_repository, Some(&integration_commit_id))
-        .context("failed to get status by branch")?;
+    let (statuses, _) =
+        get_status_by_branch(project_repository, Some(&integration_commit_id), perm)
+            .context("failed to get status by branch")?;
 
     let (ref mut branch, files) = statuses
         .into_iter()
@@ -1717,7 +1715,7 @@ pub fn commit(
     Ok(commit_oid)
 }
 
-pub fn push(
+pub(crate) fn push(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     with_force: bool,
@@ -1786,7 +1784,7 @@ pub fn push(
 
 fn is_commit_integrated(
     project_repository: &ProjectRepository,
-    target: &target::Target,
+    target: &Target,
     commit: &git2::Commit,
 ) -> Result<bool> {
     let remote_branch = project_repository
@@ -1891,7 +1889,7 @@ pub fn is_remote_branch_mergeable(
 // and the rebase should be simple. if the "to" commit is above the "from" commit,
 // the changes need to be removed from the "from" commit, everything rebased,
 // then added to the "to" commit and everything above that rebased again.
-pub fn move_commit_file(
+pub(crate) fn move_commit_file(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     from_commit_id: git2::Oid,
@@ -2128,11 +2126,12 @@ pub fn move_commit_file(
 // takes a list of file ownership and a commit oid and rewrites that commit to
 // add the file changes. The branch is then rebased onto the new commit
 // and the respective branch head is updated
-pub fn amend(
+pub(crate) fn amend(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     commit_oid: git2::Oid,
     target_ownership: &BranchOwnershipClaims,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<git2::Oid> {
     project_repository.assure_resolved()?;
     let vb_state = project_repository.project().virtual_branches();
@@ -2147,11 +2146,14 @@ pub fn amend(
 
     let default_target = vb_state.get_default_target()?;
 
-    let integration_commit_id =
-        crate::integration::get_workspace_head(&vb_state, project_repository)?;
+    let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
 
-    let (mut applied_statuses, _) =
-        get_applied_status(project_repository, &integration_commit_id, virtual_branches)?;
+    let (mut applied_statuses, _) = get_applied_status(
+        project_repository,
+        &integration_commit_id,
+        virtual_branches,
+        perm,
+    )?;
 
     let (ref mut target_branch, target_status) = applied_statuses
         .iter_mut()
@@ -2262,7 +2264,7 @@ pub fn amend(
 // if the offset is positive, move the commit down one
 // if the offset is negative, move the commit up one
 // rewrites the branch head to the new head commit
-pub fn reorder_commit(
+pub(crate) fn reorder_commit(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     commit_oid: git2::Oid,
@@ -2347,7 +2349,7 @@ pub fn reorder_commit(
 // create and insert a blank commit (no tree change) either above or below a commit
 // if offset is positive, insert below, if negative, insert above
 // return the oid of the new head commit of the branch with the inserted blank commit
-pub fn insert_blank_commit(
+pub(crate) fn insert_blank_commit(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     commit_oid: git2::Oid,
@@ -2401,7 +2403,7 @@ pub fn insert_blank_commit(
 
 // remove a commit in a branch by rebasing all commits _except_ for it onto it's parent
 // if successful, it will update the branch head to the new head commit
-pub fn undo_commit(
+pub(crate) fn undo_commit(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     commit_oid: git2::Oid,
@@ -2452,7 +2454,7 @@ pub fn undo_commit(
 }
 
 /// squashes a commit from a virtual branch into its parent.
-pub fn squash(
+pub(crate) fn squash(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     commit_id: git2::Oid,
@@ -2541,7 +2543,7 @@ pub fn squash(
 }
 
 // changes a commit message for commit_oid, rebases everything above it, updates branch head if successful
-pub fn update_commit_message(
+pub(crate) fn update_commit_message(
     project_repository: &ProjectRepository,
     branch_id: BranchId,
     commit_id: git2::Oid,
@@ -2615,10 +2617,11 @@ pub fn update_commit_message(
 }
 
 /// moves commit from the branch it's in to the top of the target branch
-pub fn move_commit(
+pub(crate) fn move_commit(
     project_repository: &ProjectRepository,
     target_branch_id: BranchId,
     commit_id: git2::Oid,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     project_repository.assure_resolved()?;
     let vb_state = project_repository.project().virtual_branches();
@@ -2631,11 +2634,14 @@ pub fn move_commit(
         bail!("branch {target_branch_id} is not among applied branches")
     }
 
-    let integration_commit_id =
-        crate::integration::get_workspace_head(&vb_state, project_repository)?;
+    let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
 
-    let (mut applied_statuses, _) =
-        get_applied_status(project_repository, &integration_commit_id, applied_branches)?;
+    let (mut applied_statuses, _) = get_applied_status(
+        project_repository,
+        &integration_commit_id,
+        applied_branches,
+        perm,
+    )?;
 
     let (ref mut source_branch, source_status) = applied_statuses
         .iter_mut()
@@ -2747,7 +2753,7 @@ pub fn move_commit(
 }
 
 /// Just like [`diffy::apply()`], but on error it will attach hashes of the input `base_image` and `patch`.
-pub fn apply<S: AsRef<[u8]>>(base_image: S, patch: &Patch<'_, [u8]>) -> Result<BString> {
+pub(crate) fn apply<S: AsRef<[u8]>>(base_image: S, patch: &Patch<'_, [u8]>) -> Result<BString> {
     fn md5_hash_hex(b: impl AsRef<[u8]>) -> String {
         md5::compute(b).encode_hex()
     }

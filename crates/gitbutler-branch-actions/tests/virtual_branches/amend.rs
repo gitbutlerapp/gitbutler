@@ -1,4 +1,5 @@
-use gitbutler_branch::ownership::BranchOwnershipClaims;
+use gitbutler_branch::BranchOwnershipClaims;
+use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 
 use super::*;
 
@@ -35,7 +36,7 @@ async fn forcepush_allowed() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -90,14 +91,14 @@ async fn forcepush_forbidden() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
     controller
         .update_virtual_branch(
             project,
-            branch::BranchUpdateRequest {
+            BranchUpdateRequest {
                 id: branch_id,
                 allow_rebasing: Some(false),
                 ..Default::default()
@@ -147,7 +148,7 @@ async fn non_locked_hunk() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -208,7 +209,7 @@ async fn locked_hunk() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -278,7 +279,7 @@ async fn non_existing_ownership() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 

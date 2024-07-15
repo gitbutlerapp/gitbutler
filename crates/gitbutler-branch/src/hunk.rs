@@ -112,7 +112,7 @@ impl Hunk {
         self
     }
 
-    pub fn contains(&self, line: u32) -> bool {
+    pub(crate) fn contains(&self, line: u32) -> bool {
         self.start <= line && self.end >= line
     }
 
@@ -121,10 +121,6 @@ impl Hunk {
             || self.contains(another.new_start + another.new_lines)
             || another.contains(self.start)
             || another.contains(self.end)
-    }
-
-    pub fn shallow_eq(&self, other: &diff::GitHunk) -> bool {
-        self.start == other.new_start && self.end == other.new_start + other.new_lines
     }
 
     /// Produce a hash from `diff` as hex-string, which is **assumed to have a one-line diff header**!

@@ -2,14 +2,12 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use bstr::BString;
-use gitbutler_branch::VirtualBranchesHandle;
+use gitbutler_branch::{Target, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
+use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 use serde::Serialize;
-
-use gitbutler_branch::target;
 
 use crate::author::Author;
 
@@ -71,7 +69,7 @@ pub fn list_remote_branches(project_repository: &ProjectRepository) -> Result<Ve
         .context("failed to list remote branches")?
         .flatten()
     {
-        let branch = branch_to_remote_branch(&branch)?;
+        let branch = branch_to_remote_branch(&branch);
 
         if let Some(branch) = branch {
             let branch_is_trunk = branch.name.branch() == Some(default_target.branch.branch())
@@ -88,7 +86,7 @@ pub fn list_remote_branches(project_repository: &ProjectRepository) -> Result<Ve
     Ok(remote_branches)
 }
 
-pub fn get_branch_data(
+pub(crate) fn get_branch_data(
     project_repository: &ProjectRepository,
     refname: &Refname,
 ) -> Result<RemoteBranchData> {
@@ -103,7 +101,7 @@ pub fn get_branch_data(
         .context("failed to get branch data")
 }
 
-pub fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<RemoteBranch>> {
+pub(crate) fn branch_to_remote_branch(branch: &git2::Branch) -> Option<RemoteBranch> {
     let commit = match branch.get().peel_to_commit() {
         Ok(c) => c,
         Err(err) => {
@@ -112,41 +110,31 @@ pub fn branch_to_remote_branch(branch: &git2::Branch) -> Result<Option<RemoteBra
                 "ignoring branch {:?} as peeling failed",
                 branch.name()
             );
-            return Ok(None);
+            return None;
         }
     };
-    let name = Refname::try_from(branch).context("could not get branch name");
-    match name {
-        Ok(name) => branch
-            .get()
-            .target()
-            .map(|sha| {
-                Ok(RemoteBranch {
-                    sha,
-                    upstream: if let Refname::Local(local_name) = &name {
-                        local_name.remote().cloned()
-                    } else {
-                        None
-                    },
-                    name,
-                    last_commit_timestamp_ms: commit
-                        .time()
-                        .seconds()
-                        .try_into()
-                        .map(|t: u128| t * 1000)
-                        .ok(),
-                    last_commit_author: commit
-                        .author()
-                        .name()
-                        .map(std::string::ToString::to_string),
-                })
-            })
-            .transpose(),
-        Err(_) => Ok(None),
-    }
+    let name = Refname::try_from(branch)
+        .context("could not get branch name")
+        .ok()?;
+    branch.get().target().map(|sha| RemoteBranch {
+        sha,
+        upstream: if let Refname::Local(local_name) = &name {
+            local_name.remote().cloned()
+        } else {
+            None
+        },
+        name,
+        last_commit_timestamp_ms: commit
+            .time()
+            .seconds()
+            .try_into()
+            .map(|t: u128| t * 1000)
+            .ok(),
+        last_commit_author: commit.author().name().map(std::string::ToString::to_string),
+    })
 }
 
-pub fn branch_to_remote_branch_data(
+pub(crate) fn branch_to_remote_branch_data(
     project_repository: &ProjectRepository,
     branch: &git2::Branch,
     base: git2::Oid,
@@ -186,8 +174,8 @@ pub fn branch_to_remote_branch_data(
         .transpose()
 }
 
-pub fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
-    let parent_ids: Vec<git2::Oid> = commit.parents().map(|c| c.id()).collect::<Vec<_>>();
+pub(crate) fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
+    let parent_ids = commit.parents().map(|c| c.id()).collect();
     RemoteCommit {
         id: commit.id().to_string(),
         description: commit.message_bstr().to_owned(),
@@ -198,6 +186,6 @@ pub fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
     }
 }
 
-fn default_target(base_path: &Path) -> Result<target::Target> {
+fn default_target(base_path: &Path) -> Result<Target> {
     VirtualBranchesHandle::new(base_path).get_default_target()
 }

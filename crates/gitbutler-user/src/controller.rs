@@ -17,12 +17,10 @@ pub struct Controller {
 }
 
 impl Controller {
-    pub fn new(storage: Storage) -> Controller {
-        Controller { storage }
-    }
-
     pub fn from_path(path: impl Into<PathBuf>) -> Controller {
-        Controller::new(Storage::from_path(path))
+        Controller {
+            storage: Storage::from_path(path),
+        }
     }
 
     /// Return the current login, or `None` if there is none yet.

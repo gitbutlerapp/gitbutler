@@ -1,52 +1,34 @@
 use anyhow::Result;
-use std::path;
-
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
+use std::path::PathBuf;
 
 use crate::zipper::Zipper;
 
-#[derive(Clone)]
-pub struct Controller {
-    local_data_dir: path::PathBuf,
-    logs_dir: path::PathBuf,
-    zipper: Zipper,
-    #[allow(clippy::struct_field_names)]
-    projects_controller: projects::Controller,
+pub struct Archival {
+    pub cache_dir: PathBuf,
+    pub logs_dir: PathBuf,
+    pub projects_controller: projects::Controller,
 }
 
-impl Controller {
-    pub fn new(
-        local_data_dir: path::PathBuf,
-        logs_dir: path::PathBuf,
-        zipper: Zipper,
-        projects_controller: projects::Controller,
-    ) -> Self {
-        Self {
-            local_data_dir,
-            logs_dir,
-            zipper,
-            projects_controller,
-        }
+impl Archival {
+    fn zipper(&self) -> Zipper {
+        Zipper::new(self.cache_dir.clone())
     }
+}
 
-    pub fn archive(&self, project_id: ProjectId) -> Result<path::PathBuf> {
+impl Archival {
+    pub fn archive(&self, project_id: ProjectId) -> Result<PathBuf> {
         let project = self.projects_controller.get(project_id)?;
-        self.zipper.zip(project.path).map_err(Into::into)
+        self.zipper().zip(project.path).map_err(Into::into)
     }
 
-    pub fn data_archive(&self, project_id: ProjectId) -> Result<path::PathBuf> {
-        let project = self.projects_controller.get(project_id)?;
-        self.zipper
-            .zip(
-                self.local_data_dir
-                    .join("projects")
-                    .join(project.id.to_string()),
-            )
-            .map_err(Into::into)
+    pub fn data_archive(&self, project_id: ProjectId) -> Result<PathBuf> {
+        let dir_to_archive = self.projects_controller.project_metadata_dir(project_id);
+        self.zipper().zip(dir_to_archive).map_err(Into::into)
     }
 
-    pub fn logs_archive(&self) -> Result<path::PathBuf> {
-        self.zipper.zip(&self.logs_dir).map_err(Into::into)
+    pub fn logs_archive(&self) -> Result<PathBuf> {
+        self.zipper().zip(&self.logs_dir).map_err(Into::into)
     }
 }

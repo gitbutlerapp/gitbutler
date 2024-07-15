@@ -159,3 +159,6 @@ fn file_hash<P: AsRef<path::Path>>(digest: &mut Sha256, path: P) -> Result<()> {
     );
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

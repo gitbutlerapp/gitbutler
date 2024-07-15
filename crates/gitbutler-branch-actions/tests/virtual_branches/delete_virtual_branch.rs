@@ -1,4 +1,5 @@
 use super::*;
+use gitbutler_branch::BranchCreateRequest;
 
 #[tokio::test]
 async fn should_unapply_diff() {
@@ -53,7 +54,7 @@ async fn should_remove_reference() {
     let id = controller
         .create_virtual_branch(
             project,
-            &branch::BranchCreateRequest {
+            &BranchCreateRequest {
                 name: Some("name".to_string()),
                 ..Default::default()
             },

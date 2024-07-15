@@ -1,6 +1,7 @@
-pub mod controller;
-pub mod storage;
-mod user;
+mod controller;
 
-pub use controller::*;
+mod storage;
+pub use controller::Controller;
+
+mod user;
 pub use user::User;

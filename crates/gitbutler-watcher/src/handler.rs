@@ -7,7 +7,7 @@ use gitbutler_command_context::ProjectRepository;
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
-    oplog::Oplog,
+    OplogExt,
 };
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
@@ -122,13 +122,8 @@ impl Handler {
         paths: Vec<PathBuf>,
         project_id: ProjectId,
     ) -> Result<()> {
-        // Create a snapshot every time there are more than a configurable number of new lines of code (default 20)
-        let handle_snapshots = tokio::task::spawn_blocking({
-            let this = self.clone();
-            move || this.maybe_create_snapshot(project_id)
-        });
+        self.maybe_create_snapshot(project_id).ok();
         self.calculate_virtual_branches(project_id).await?;
-        let _ = handle_snapshots.await;
         Ok(())
     }
 
@@ -141,7 +136,11 @@ impl Handler {
             .should_auto_snapshot(std::time::Duration::from_secs(300))
             .unwrap_or_default()
         {
-            project.create_snapshot(SnapshotDetails::new(OperationKind::FileChanges))?;
+            let mut guard = project.exclusive_worktree_access();
+            project.create_snapshot(
+                SnapshotDetails::new(OperationKind::FileChanges),
+                guard.write_permission(),
+            )?;
         }
         Ok(())
     }
