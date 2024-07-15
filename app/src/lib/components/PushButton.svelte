@@ -1,4 +1,7 @@
 <script lang="ts" context="module">
+	// Disabled because of eslint complaint.
+	// `BranchAction` is updated, but is not declared with `$state(...)`
+	// eslint-disable-next-line svelte/valid-compile
 	export enum BranchAction {
 		Push = 'push',
 		Integrate = 'integrate'
@@ -10,16 +13,23 @@
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
-	import { createEventDispatcher } from 'svelte';
 
-	export let integrate: boolean; // Integrate upstream option enabled
-	export let projectId: string;
+	const {
+		projectId,
+		requiresForce,
+		isLoading = false,
+		integrate = false,
+		wide = false,
+		trigger
+	}: {
+		projectId: string;
+		requiresForce: boolean;
+		isLoading: boolean;
+		integrate: boolean;
+		wide: boolean;
+		trigger: (action: BranchAction) => void;
+	} = $props();
 
-	export let isLoading = false;
-	export let wide = false;
-	export let requiresForce: boolean;
-
-	const dispatch = createEventDispatcher<{ trigger: { action: BranchAction } }>();
 	const preferredAction = persisted<BranchAction>(
 		BranchAction.Push,
 		'projectDefaultAction_' + projectId
@@ -28,16 +38,16 @@
 	let dropDown: DropDownButton;
 	let disabled = false;
 
-	$: action = selectAction($preferredAction);
-	$: pushLabel = requiresForce ? 'Force push' : 'Push';
-	$: labels = {
+	const action = $derived(selectAction($preferredAction));
+	const pushLabel = $derived(requiresForce ? 'Force push' : 'Push');
+	const labels = $derived({
 		[BranchAction.Push]: pushLabel,
 		[BranchAction.Integrate]: 'Integrate upstream'
-	};
+	});
 
-	$: if (requiresForce) {
-		$preferredAction = BranchAction.Integrate;
-	}
+	$effect(() => {
+		if (requiresForce) $preferredAction = BranchAction.Integrate;
+	});
 
 	function selectAction(preferredAction: BranchAction) {
 		if (preferredAction === BranchAction.Integrate && integrate) return BranchAction.Integrate;
@@ -53,9 +63,7 @@
 	{wide}
 	{disabled}
 	menuPosition="top"
-	on:click={() => {
-		dispatch('trigger', { action });
-	}}
+	on:click={() => trigger(action)}
 >
 	{labels[action]}
 	<ContextMenuSection slot="context-menu">

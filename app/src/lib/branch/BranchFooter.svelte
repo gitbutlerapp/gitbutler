@@ -73,15 +73,15 @@
 				requiresForce={$branch.requiresForce}
 				integrate={hasRemoteCommits}
 				{isLoading}
-				on:trigger={async (e) => {
+				trigger={async (action) => {
 					isLoading = true;
 					try {
-						if (e.detail.action === BranchAction.Push) {
+						if (action === BranchAction.Push) {
 							await branchController.pushBranch($branch.id, $branch.requiresForce);
 							$listingService?.refresh();
 							$prMonitor?.refresh();
 							$checksMonitor?.update();
-						} else if (e.detail.action === BranchAction.Integrate) {
+						} else if (action === BranchAction.Integrate) {
 							await branchController.mergeUpstream($branch.id);
 						}
 					} catch (e) {
