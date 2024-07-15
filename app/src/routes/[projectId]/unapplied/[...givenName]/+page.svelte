@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { BranchService } from '$lib/branches/service';
 	import { getContext } from '$lib/utils/context';
+	import BranchCard from '@gitbutler/ui/branch/BranchCard.svelte';
 	import BranchLane from '@gitbutler/ui/branch/BranchLane.svelte';
 	import { onMount } from 'svelte';
 	import type { GivenNameBranchGrouping } from '$lib/branches/types';
@@ -43,9 +44,19 @@
 	-->
 
 	<div class="board">
-		<BranchLane fileCardExpanded={!!selectedFile} branchCardCollapsed={false}>
+		<BranchLane fileCardExpanded={!!selectedFile} isLaneCollapsed={false}>
 			{#snippet branchCard()}
-				<div>Hi</div>
+				<BranchCard isLaneCollapsed={false}>
+					{#snippet branchHeader()}
+						<p>I'm the header!</p>
+					{/snippet}
+					{#snippet branchFiles()}
+						<p>I'm the branch files!</p>
+					{/snippet}
+					{#snippet branchFooter()}
+						<p>I'm the branch footer!</p>
+					{/snippet}
+				</BranchCard>
 			{/snippet}
 			{#snippet fileCard()}
 				<div>File card</div>

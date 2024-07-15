@@ -9,7 +9,7 @@
 	interface Props {
 		branchId?: string;
 		branchCard: Snippet;
-		branchCardCollapsed: boolean;
+		isLaneCollapsed: boolean;
 		fileCard?: Snippet;
 		fileCardExpanded: boolean;
 	}
@@ -17,7 +17,7 @@
 	const {
 		branchId = 'unset',
 		branchCard,
-		branchCardCollapsed,
+		isLaneCollapsed,
 		fileCard,
 		fileCardExpanded
 	}: Props = $props();
@@ -54,7 +54,7 @@
 	// File card preview should be shown when a file card snippet is provided,
 	// the fileCardExpanded boolean is true, and when the branch card is not
 	// collapsed
-	const showFilePreview = $derived(fileCard && fileCardExpanded && !branchCardCollapsed);
+	const showFilePreview = $derived(fileCard && fileCardExpanded && !isLaneCollapsed);
 </script>
 
 <div class="wrapper">
@@ -65,7 +65,7 @@
 	>
 		{@render branchCard()}
 
-		{#if !branchCardCollapsed}
+		{#if !isLaneCollapsed}
 			<Resizer
 				viewport={branchCardViewport}
 				direction="right"

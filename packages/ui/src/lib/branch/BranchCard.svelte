@@ -1,10 +1,9 @@
 <script lang="ts">
 	import ScrollableContainer from '@gitbutler/ui/scrolling/ScrollableContainer.svelte';
 	import type { Snippet } from 'svelte';
-	import type { Writable } from 'svelte/store';
 
 	interface Props {
-		isLaneCollapsed: Writable<boolean>;
+		isLaneCollapsed: boolean;
 		selectedForChanges?: boolean;
 
 		branchHeader: Snippet;
@@ -26,7 +25,7 @@
 	}: Props = $props();
 </script>
 
-{#if $isLaneCollapsed}
+{#if isLaneCollapsed}
 	<div class="collapsed-lane-container">
 		{@render branchHeader()}
 	</div>
@@ -78,6 +77,8 @@
 		user-select: none;
 		overflow-x: hidden;
 		overflow-y: scroll;
+
+		padding: 12px;
 	}
 
 	.card {
