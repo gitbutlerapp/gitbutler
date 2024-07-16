@@ -27,6 +27,7 @@ pub struct RemoteBranch {
     pub sha: git2::Oid,
     pub name: Refname,
     pub upstream: Option<RemoteRefname>,
+    pub given_name: String,
     pub last_commit_timestamp_ms: Option<u128>,
     pub last_commit_author: Option<String>,
 }
@@ -69,7 +70,7 @@ pub fn list_remote_branches(project_repository: &ProjectRepository) -> Result<Ve
         .context("failed to list remote branches")?
         .flatten()
     {
-        let branch = branch_to_remote_branch(&branch);
+        let branch = branch_to_remote_branch(project_repository, &branch);
 
         if let Some(branch) = branch {
             let branch_is_trunk = branch.name.branch() == Some(default_target.branch.branch())
@@ -87,21 +88,24 @@ pub fn list_remote_branches(project_repository: &ProjectRepository) -> Result<Ve
 }
 
 pub(crate) fn get_branch_data(
-    project_repository: &ProjectRepository,
+    ctx: &ProjectRepository,
     refname: &Refname,
 ) -> Result<RemoteBranchData> {
-    let default_target = default_target(&project_repository.project().gb_dir())?;
+    let default_target = default_target(&ctx.project().gb_dir())?;
 
-    let branch = project_repository
+    let branch = ctx
         .repo()
         .find_branch_by_refname(refname)?
         .ok_or(anyhow::anyhow!("failed to find branch {}", refname))?;
 
-    branch_to_remote_branch_data(project_repository, &branch, default_target.sha)?
+    branch_to_remote_branch_data(ctx, &branch, default_target.sha)?
         .context("failed to get branch data")
 }
 
-pub(crate) fn branch_to_remote_branch(branch: &git2::Branch) -> Option<RemoteBranch> {
+pub(crate) fn branch_to_remote_branch(
+    ctx: &ProjectRepository,
+    branch: &git2::Branch,
+) -> Option<RemoteBranch> {
     let commit = match branch.get().peel_to_commit() {
         Ok(c) => c,
         Err(err) => {
@@ -116,6 +120,9 @@ pub(crate) fn branch_to_remote_branch(branch: &git2::Branch) -> Option<RemoteBra
     let name = Refname::try_from(branch)
         .context("could not get branch name")
         .ok()?;
+
+    let given_name = ctx.given_name_for_branch(branch).ok()?;
+
     branch.get().target().map(|sha| RemoteBranch {
         sha,
         upstream: if let Refname::Local(local_name) = &name {
@@ -124,6 +131,7 @@ pub(crate) fn branch_to_remote_branch(branch: &git2::Branch) -> Option<RemoteBra
             None
         },
         name,
+        given_name,
         last_commit_timestamp_ms: commit
             .time()
             .seconds()

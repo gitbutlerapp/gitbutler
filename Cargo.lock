@@ -2053,6 +2053,7 @@ dependencies = [
  "anyhow",
  "git2",
  "gitbutler-project",
+ "itertools 0.13.0",
  "tracing",
 ]
 
