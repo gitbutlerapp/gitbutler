@@ -15,11 +15,11 @@
 		getLocalAndRemoteCommits,
 		getRemoteCommits
 	} from '$lib/vbranches/contexts';
-	import { Branch } from '$lib/vbranches/types';
+	import { VirtualBranch } from '$lib/vbranches/types';
 
 	const branchController = getContext(BranchController);
 	const promptService = getContext(PromptService);
-	const branch = getContextStore(Branch);
+	const branch = getContextStore(VirtualBranch);
 
 	const listingService = getGitHostListingService();
 	const prMonitor = getGitHostPrMonitor();

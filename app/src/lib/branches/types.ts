@@ -1,17 +1,17 @@
 import type { PullRequest } from '$lib/gitHost/interface/types';
-import type { Author, Branch, RemoteBranch } from '$lib/vbranches/types';
+import type { Author, VirtualBranch, RemoteBranch } from '$lib/vbranches/types';
 
 export class CombinedBranch {
 	pr?: PullRequest;
 	remoteBranch?: RemoteBranch;
-	vbranch?: Branch;
+	vbranch?: VirtualBranch;
 
 	constructor({
 		vbranch,
 		remoteBranch,
 		pr
 	}: {
-		vbranch?: Branch;
+		vbranch?: VirtualBranch;
 		remoteBranch?: RemoteBranch;
 		pr?: PullRequest;
 	}) {

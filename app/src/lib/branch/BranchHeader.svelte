@@ -17,7 +17,7 @@
 	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { Branch } from '$lib/vbranches/types';
+	import { VirtualBranch } from '$lib/vbranches/types';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 
@@ -29,7 +29,7 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const prService = getGitHostPrService();
 	const gitListService = getGitHostListingService();
-	const branchStore = getContextStore(Branch);
+	const branchStore = getContextStore(VirtualBranch);
 	const prMonitor = getGitHostPrMonitor();
 	const gitHost = getGitHost();
 

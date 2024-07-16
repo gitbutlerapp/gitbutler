@@ -19,14 +19,14 @@
 		getLocalAndRemoteCommits,
 		getRemoteCommits
 	} from '$lib/vbranches/contexts';
-	import { Branch } from '$lib/vbranches/types';
+	import { VirtualBranch } from '$lib/vbranches/types';
 	import LineGroup from '@gitbutler/ui/CommitLines/LineGroup.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied: boolean;
 
-	const branch = getContextStore(Branch);
+	const branch = getContextStore(VirtualBranch);
 	const localCommits = getLocalCommits();
 	const localAndRemoteCommits = getLocalAndRemoteCommits();
 	const remoteCommits = getRemoteCommits();

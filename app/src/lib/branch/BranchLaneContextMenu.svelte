@@ -15,7 +15,7 @@
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { Branch, type NameConflictResolution } from '$lib/vbranches/types';
+	import { VirtualBranch, type NameConflictResolution } from '$lib/vbranches/types';
 
 	export let contextMenuEl: ContextMenu;
 	export let target: HTMLElement;
@@ -25,7 +25,7 @@
 	const user = getContextStore(User);
 	const project = getContext(Project);
 	const aiService = getContext(AIService);
-	const branchStore = getContextStore(Branch);
+	const branchStore = getContextStore(VirtualBranch);
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const branchController = getContext(BranchController);
 

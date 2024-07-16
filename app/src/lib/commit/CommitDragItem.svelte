@@ -3,7 +3,7 @@
 	import CardOverlay from '$lib/dropzone/CardOverlay.svelte';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
-	import { RemoteCommit, Branch, Commit } from '$lib/vbranches/types';
+	import { RemoteCommit, VirtualBranch, Commit } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
 
 	const commitDragActionsFactory = getContext(CommitDragActionsFactory);
@@ -15,7 +15,7 @@
 
 	const { commit, children }: Props = $props();
 
-	const branch = maybeGetContextStore(Branch);
+	const branch = maybeGetContextStore(VirtualBranch);
 
 	const actions = $derived.by(() => {
 		if (!$branch) return;

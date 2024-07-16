@@ -11,7 +11,7 @@
 	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import { Branch, type AnyFile } from '$lib/vbranches/types';
+	import { VirtualBranch, type AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	export let file: AnyFile;
@@ -20,7 +20,7 @@
 	export let showCheckbox: boolean = false;
 	export let readonly = false;
 
-	const branch = maybeGetContextStore(Branch);
+	const branch = maybeGetContextStore(VirtualBranch);
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 	const fileIdSelection = getContext(FileIdSelection);
 	const commit = getCommitStore();

@@ -1,4 +1,4 @@
-import { Branch, Commit, RemoteCommit, VirtualBranches, commitCompare } from './types';
+import { VirtualBranch, Commit, RemoteCommit, VirtualBranches, commitCompare } from './types';
 import { invoke, listen } from '$lib/backend/ipc';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
 import { plainToInstance } from 'class-transformer';
@@ -6,12 +6,12 @@ import { writable } from 'svelte/store';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 
 export class VirtualBranchService {
-	private _branches: Branch[] = [];
+	private _branches: VirtualBranch[] = [];
 	private loading = writable(false);
 	readonly error = writable();
 	readonly branchesError = writable<any>();
 
-	readonly branches = writable<Branch[] | undefined>(undefined, () => {
+	readonly branches = writable<VirtualBranch[] | undefined>(undefined, () => {
 		this.refresh();
 		const unsubscribe = this.subscribe(async (branches) => await this.handlePayload(branches));
 		return () => {
@@ -37,7 +37,7 @@ export class VirtualBranchService {
 		}
 	}
 
-	private async handlePayload(branches: Branch[]) {
+	private async handlePayload(branches: VirtualBranch[]) {
 		await Promise.all(
 			branches.map(async (b) => {
 				const upstreamName = b.upstream?.name;
@@ -72,14 +72,14 @@ export class VirtualBranchService {
 		this.branchesError.set(undefined);
 	}
 
-	async listVirtualBranches(): Promise<Branch[]> {
+	async listVirtualBranches(): Promise<VirtualBranch[]> {
 		return plainToInstance(
 			VirtualBranches,
 			await invoke<any>('list_virtual_branches', { projectId: this.projectId })
 		).branches;
 	}
 
-	private subscribe(callback: (branches: Branch[]) => void) {
+	private subscribe(callback: (branches: VirtualBranch[]) => void) {
 		return listen<any>(`project://${this.projectId}/virtual-branches`, (event) =>
 			callback(plainToInstance(VirtualBranches, event.payload).branches)
 		);

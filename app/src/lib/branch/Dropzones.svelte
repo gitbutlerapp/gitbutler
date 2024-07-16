@@ -3,11 +3,11 @@
 	import CardOverlay from '$lib/dropzone/CardOverlay.svelte';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import { Branch } from '$lib/vbranches/types';
+	import { VirtualBranch } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
 
 	const branchDragActionsFactory = getContext(BranchDragActionsFactory);
-	const branch = getContextStore(Branch);
+	const branch = getContextStore(VirtualBranch);
 
 	interface Props {
 		children: Snippet;

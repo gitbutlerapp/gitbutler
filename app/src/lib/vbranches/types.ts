@@ -91,13 +91,13 @@ export class SkippedFile {
 }
 
 export class VirtualBranches {
-	@Type(() => Branch)
-	branches!: Branch[];
+	@Type(() => VirtualBranch)
+	branches!: VirtualBranch[];
 	@Type(() => SkippedFile)
 	skippedFiles!: SkippedFile[];
 }
 
-export class Branch {
+export class VirtualBranch {
 	id!: string;
 	name!: string;
 	notes!: string;
