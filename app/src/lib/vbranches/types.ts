@@ -25,6 +25,8 @@ export class Hunk {
 	locked!: boolean;
 	@Type(() => HunkLock)
 	lockedTo!: HunkLock[];
+	/// Indicates that the hunk depends on multiple branches. In this case the hunk cant be moved or comitted.
+	poisoned!: boolean;
 	changeType!: ChangeType;
 	new_start!: number;
 	new_lines!: number;

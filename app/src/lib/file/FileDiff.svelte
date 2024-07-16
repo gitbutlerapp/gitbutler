@@ -65,6 +65,9 @@
 								<Icon name="locked-small" color="warning" />
 							</div>
 						{/if}
+						{#if section.hunk.poisoned}
+							can not manage this hunk (depends on changes multiple branches)
+						{/if}
 					</div>
 					<HunkViewer
 						{filePath}
