@@ -1560,12 +1560,20 @@ pub(crate) fn write_tree_onto_tree(
                         "failed to apply\n{}\nonto:\n{}",
                         all_diffs.as_bstr(),
                         blob_contents.as_bstr()
-                    ))?;
+                    ));
 
-                    // create a blob
-                    let new_blob_oid = git_repository.blob(&blob_contents)?;
-                    // upsert into the builder
-                    builder.upsert(rel_path, new_blob_oid, filemode);
+                    match blob_contents {
+                        Ok(blob_contents) => {
+                            // create a blob
+                            let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
+                            // upsert into the builder
+                            builder.upsert(rel_path, new_blob_oid, filemode);
+                        }
+                        Err(_) => {
+                            // If the patch failed to apply, do nothing, this is handled elsewhere
+                            continue;
+                        }
+                    }
                 }
             } else if is_submodule {
                 let mut blob_contents = BString::default();
