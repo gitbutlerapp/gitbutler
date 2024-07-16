@@ -4,7 +4,7 @@ use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_error::error::Marker;
 
-use crate::{LogUntil, RepoActions, RepositoryExt};
+use crate::{LogUntil, RepoActionsExt, RepositoryExt};
 
 /// cherry-pick based rebase, which handles empty commits
 /// this function takes a commit range and generates a Vector of commit oids

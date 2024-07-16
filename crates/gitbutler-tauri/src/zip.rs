@@ -1,54 +1,44 @@
 pub mod commands {
     #![allow(clippy::used_underscore_binding)]
     use anyhow::Context;
-    use gitbutler_feedback::controller;
-    use std::path;
-
     use gitbutler_error::error;
     use gitbutler_error::error::Code;
-    use tauri::{AppHandle, Manager};
+    use gitbutler_feedback::Archival;
+    use std::path::PathBuf;
+    use tauri::State;
     use tracing::instrument;
 
     use crate::error::Error;
 
     #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
+    #[instrument(skip(archival), err(Debug))]
     pub async fn get_project_archive_path(
-        handle: AppHandle,
+        archival: State<'_, Archival>,
         project_id: &str,
-    ) -> Result<path::PathBuf, Error> {
+    ) -> Result<PathBuf, Error> {
         let project_id = project_id.parse().context(error::Context::new_static(
             Code::Validation,
             "Malformed project id",
         ))?;
-        handle
-            .state::<controller::Controller>()
-            .archive(project_id)
-            .map_err(Into::into)
+        archival.archive(project_id).map_err(Into::into)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
+    #[instrument(skip(archival), err(Debug))]
     pub async fn get_project_data_archive_path(
-        handle: AppHandle,
+        archival: State<'_, Archival>,
         project_id: &str,
-    ) -> Result<path::PathBuf, Error> {
+    ) -> Result<PathBuf, Error> {
         let project_id = project_id.parse().context(error::Context::new_static(
             Code::Validation,
             "Malformed project id",
         ))?;
-        handle
-            .state::<controller::Controller>()
-            .data_archive(project_id)
-            .map_err(Into::into)
+        archival.data_archive(project_id).map_err(Into::into)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
-    pub async fn get_logs_archive_path(handle: AppHandle) -> Result<path::PathBuf, Error> {
-        handle
-            .state::<controller::Controller>()
-            .logs_archive()
-            .map_err(Into::into)
+    #[instrument(skip(archival), err(Debug))]
+    pub async fn get_logs_archive_path(archival: State<'_, Archival>) -> Result<PathBuf, Error> {
+        archival.logs_archive().map_err(Into::into)
     }
 }

@@ -1,8 +1,7 @@
 use anyhow::{anyhow, bail, Context};
 use git2::{DiffOptions, FileMode};
-use gitbutler_branch::branch::Branch;
 use gitbutler_branch::diff::{hunks_by_filepath, FileDiff};
-use gitbutler_branch::{VirtualBranchesHandle, VirtualBranchesState};
+use gitbutler_branch::{Branch, VirtualBranchesHandle, VirtualBranchesState};
 use gitbutler_project::Project;
 use gitbutler_repo::RepositoryExt;
 use std::collections::HashMap;
@@ -14,15 +13,15 @@ use std::{fs, path::PathBuf};
 use anyhow::Result;
 use tracing::instrument;
 
-use gitbutler_branch::{
-    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
-};
-
 use super::{
     entry::{OperationKind, Snapshot, SnapshotDetails, Trailer},
     reflog::set_reference_to_oplog,
     state::OplogHandle,
 };
+use gitbutler_branch::{
+    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
+};
+use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 
 const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
 
@@ -44,11 +43,11 @@ const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
 /// │       └── tree (subtree)
 /// └── virtual_branches.toml
 /// ```
-pub trait Oplog {
+pub trait OplogExt {
     /// Prepares a snapshot of the current state of the working directory as well as GitButler data.
     /// Returns a tree hash of the snapshot. The snapshot is not discoverable until it is committed with [`commit_snapshot`](Self::commit_snapshot())
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
-    fn prepare_snapshot(&self) -> Result<git2::Oid>;
+    fn prepare_snapshot(&self, perm: &WorktreeReadPermission) -> Result<git2::Oid>;
 
     /// Commits the snapshot tree that is created with the [`prepare_snapshot`](Self::prepare_snapshot) method,
     /// which yielded the `snapshot_tree_id` for the entire snapshot state.
@@ -63,6 +62,7 @@ pub trait Oplog {
         &self,
         snapshot_tree_id: git2::Oid,
         details: SnapshotDetails,
+        perm: &mut WorktreeWritePermission,
     ) -> Result<Option<git2::Oid>>;
 
     /// Creates a snapshot of the current state of the working directory as well as GitButler data.
@@ -73,7 +73,11 @@ pub trait Oplog {
     /// commit and the current one (after comparing trees).
     ///
     /// Note that errors in snapshot creation is typically ignored, so we want to learn about them.
-    fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<git2::Oid>>;
+    fn create_snapshot(
+        &self,
+        details: SnapshotDetails,
+        perm: &mut WorktreeWritePermission,
+    ) -> Result<Option<git2::Oid>>;
 
     /// Lists the snapshots that have been created for the given repository, up to the given limit,
     /// and with the most recent snapshot first, and at the end of the vec.
@@ -129,167 +133,28 @@ pub trait Oplog {
     fn oplog_head(&self) -> Result<Option<git2::Oid>>;
 }
 
-impl Oplog for Project {
-    fn prepare_snapshot(&self) -> Result<git2::Oid> {
-        let worktree_dir = self.path.as_path();
-        let repo = git2::Repository::open(worktree_dir)?;
-
-        let vb_state = VirtualBranchesHandle::new(self.gb_dir());
-
-        // grab the target commit
-        let default_target_commit = repo.find_commit(vb_state.get_default_target()?.sha)?;
-        let target_tree_id = default_target_commit.tree_id();
-
-        // Create a blob out of `.git/gitbutler/virtual_branches.toml`
-        let vb_path = repo.path().join("gitbutler").join("virtual_branches.toml");
-        let vb_content = fs::read(vb_path)?;
-        let vb_blob_id = repo.blob(&vb_content)?;
-
-        // Create a tree out of the conflicts state if present
-        let conflicts_tree_id = write_conflicts_tree(worktree_dir, &repo)?;
-
-        // write out the index as a tree to store
-        let mut index = repo.index()?;
-        let index_tree_oid = index.write_tree()?;
-
-        // start building our snapshot tree
-        let mut tree_builder = repo.treebuilder(None)?;
-        tree_builder.insert("index", index_tree_oid, FileMode::Tree.into())?;
-        tree_builder.insert("target_tree", target_tree_id, FileMode::Tree.into())?;
-        tree_builder.insert("conflicts", conflicts_tree_id, FileMode::Tree.into())?;
-        tree_builder.insert("virtual_branches.toml", vb_blob_id, FileMode::Blob.into())?;
-
-        // go through all virtual branches and create a subtree for each with the tree and any commits encoded
-        let mut branches_tree_builder = repo.treebuilder(None)?;
-        let mut head_tree_ids = Vec::new();
-
-        for branch in vb_state.list_branches_in_workspace()? {
-            head_tree_ids.push(branch.tree);
-
-            // commits in virtual branches (tree and commit data)
-            // calculate all the commits between branch.head and the target and codify them
-            let mut branch_tree_builder = repo.treebuilder(None)?;
-            branch_tree_builder.insert("tree", branch.tree, FileMode::Tree.into())?;
-
-            // let's get all the commits between the branch head and the target
-            let mut revwalk = repo.revwalk()?;
-            revwalk.push(branch.head)?;
-            revwalk.hide(default_target_commit.id())?;
-
-            let mut commits_tree_builder = repo.treebuilder(None)?;
-            for commit_id in revwalk {
-                let commit_id = commit_id?;
-                let commit = repo.find_commit(commit_id)?;
-                let commit_tree = commit.tree()?;
-
-                let mut commit_tree_builder = repo.treebuilder(None)?;
-                let commit_data_blob_id = repo.blob(&serialize_commit(&commit))?;
-                commit_tree_builder.insert("commit", commit_data_blob_id, FileMode::Blob.into())?;
-                commit_tree_builder.insert("tree", commit_tree.id(), FileMode::Tree.into())?;
-                let commit_tree_id = commit_tree_builder.write()?;
-
-                commits_tree_builder.insert(
-                    commit_id.to_string(),
-                    commit_tree_id,
-                    FileMode::Tree.into(),
-                )?;
-            }
-
-            let commits_tree_id = commits_tree_builder.write()?;
-            branch_tree_builder.insert("commits", commits_tree_id, FileMode::Tree.into())?;
-
-            let branch_tree_id = branch_tree_builder.write()?;
-            branches_tree_builder.insert(
-                branch.id.to_string(),
-                branch_tree_id,
-                FileMode::Tree.into(),
-            )?;
-        }
-
-        // also add the gitbutler/integration commit to the branches tree
-        let head = repo.head()?;
-        if head.name() == Some("refs/heads/gitbutler/integration") {
-            let head_commit = head.peel_to_commit()?;
-            let head_tree = head_commit.tree()?;
-
-            let mut head_commit_tree_builder = repo.treebuilder(None)?;
-
-            // convert that data into a blob
-            let commit_data_blob = repo.blob(&serialize_commit(&head_commit))?;
-            head_commit_tree_builder.insert("commit", commit_data_blob, FileMode::Blob.into())?;
-            head_commit_tree_builder.insert("tree", head_tree.id(), FileMode::Tree.into())?;
-
-            let head_commit_tree_id = head_commit_tree_builder.write()?;
-
-            // have to make a subtree to match
-            let mut commits_tree_builder = repo.treebuilder(None)?;
-            commits_tree_builder.insert(
-                head_commit.id().to_string(),
-                head_commit_tree_id,
-                FileMode::Tree.into(),
-            )?;
-            let commits_tree_id = commits_tree_builder.write()?;
-
-            let mut branch_tree_builder = repo.treebuilder(None)?;
-            branch_tree_builder.insert("tree", head_tree.id(), FileMode::Tree.into())?;
-            branch_tree_builder.insert("commits", commits_tree_id, FileMode::Tree.into())?;
-            let branch_tree_id = branch_tree_builder.write()?;
-
-            branches_tree_builder.insert("integration", branch_tree_id, FileMode::Tree.into())?;
-        }
-
-        let branch_tree_id = branches_tree_builder.write()?;
-        tree_builder.insert("virtual_branches", branch_tree_id, FileMode::Tree.into())?;
-
-        let tree_id = tree_builder.write()?;
-        Ok(tree_id)
+impl OplogExt for Project {
+    fn prepare_snapshot(&self, perm: &WorktreeReadPermission) -> Result<git2::Oid> {
+        prepare_snapshot(self, perm)
     }
 
     fn commit_snapshot(
         &self,
         snapshot_tree_id: git2::Oid,
         details: SnapshotDetails,
+        perm: &mut WorktreeWritePermission,
     ) -> Result<Option<git2::Oid>> {
-        let repo = git2::Repository::open(self.path.as_path())?;
-        let snapshot_tree = repo.find_tree(snapshot_tree_id)?;
-
-        let oplog_state = OplogHandle::new(&self.gb_dir());
-        let oplog_head_commit = oplog_state
-            .oplog_head()?
-            .and_then(|head_id| repo.find_commit(head_id).ok());
-
-        // Construct a new commit
-        let signature = git2::Signature::now(
-            GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
-            GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
-        )
-        .unwrap();
-        let parents = oplog_head_commit
-            .as_ref()
-            .map(|head| vec![head])
-            .unwrap_or_default();
-        let snapshot_commit_id = repo.commit(
-            None,
-            &signature,
-            &signature,
-            &details.to_string(),
-            &snapshot_tree,
-            parents.as_slice(),
-        )?;
-
-        oplog_state.set_oplog_head(snapshot_commit_id)?;
-
-        let vb_state = VirtualBranchesHandle::new(self.gb_dir());
-        let target_commit_id = vb_state.get_default_target()?.sha;
-        set_reference_to_oplog(&self.path, target_commit_id, snapshot_commit_id)?;
-
-        Ok(Some(snapshot_commit_id))
+        commit_snapshot(self, snapshot_tree_id, details, perm)
     }
 
-    #[instrument(skip(details), err(Debug))]
-    fn create_snapshot(&self, details: SnapshotDetails) -> Result<Option<git2::Oid>> {
-        let tree_id = self.prepare_snapshot()?;
-        self.commit_snapshot(tree_id, details)
+    #[instrument(skip(details, perm), err(Debug))]
+    fn create_snapshot(
+        &self,
+        details: SnapshotDetails,
+        perm: &mut WorktreeWritePermission,
+    ) -> Result<Option<git2::Oid>> {
+        let tree_id = prepare_snapshot(self, perm.read_permission())?;
+        commit_snapshot(self, tree_id, details, perm)
     }
 
     fn list_snapshots(
@@ -397,153 +262,8 @@ impl Oplog for Project {
     }
 
     fn restore_snapshot(&self, snapshot_commit_id: git2::Oid) -> Result<Option<git2::Oid>> {
-        let worktree_dir = self.path.as_path();
-        let repo = git2::Repository::open(worktree_dir)?;
-
-        let before_restore_snapshot_result = self.prepare_snapshot();
-        let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
-
-        let snapshot_tree = snapshot_commit.tree()?;
-        let vb_toml_entry = snapshot_tree
-            .get_name("virtual_branches.toml")
-            .context("failed to get virtual_branches.toml blob")?;
-        // virtual_branches.toml blob
-        let vb_toml_blob = repo
-            .find_blob(vb_toml_entry.id())
-            .context("failed to convert virtual_branches tree entry to blob")?;
-
-        if let Err(err) = restore_conflicts_tree(&snapshot_tree, &repo) {
-            tracing::warn!("failed to restore conflicts tree - ignoring: {err}")
-        }
-
-        // make sure we reconstitute any commits that were in the snapshot that are not here for some reason
-        // for every entry in the virtual_branches subtree, reconsitute the commits
-        let vb_tree_entry = snapshot_tree
-            .get_name("virtual_branches")
-            .context("failed to get virtual_branches tree entry")?;
-        let vb_tree = repo
-            .find_tree(vb_tree_entry.id())
-            .context("failed to convert virtual_branches tree entry to tree")?;
-
-        // walk through all the entries (branches by id)
-        let walker = vb_tree.iter();
-        for branch_entry in walker {
-            let branch_tree = repo
-                .find_tree(branch_entry.id())
-                .context("failed to convert virtual_branches tree entry to tree")?;
-            let branch_name = branch_entry.name();
-
-            let commits_tree_entry = branch_tree
-                .get_name("commits")
-                .context("failed to get commits tree entry")?;
-            let commits_tree = repo
-                .find_tree(commits_tree_entry.id())
-                .context("failed to convert commits tree entry to tree")?;
-
-            // walk through all the commits in the branch
-            for commit_entry in commits_tree.iter() {
-                // for each commit, recreate the commit from the commit data if it doesn't exist
-                if let Some(commit_id) = commit_entry.name() {
-                    // check for the oid in the repo
-                    let commit_oid = git2::Oid::from_str(commit_id)?;
-                    if repo.find_commit(commit_oid).is_err() {
-                        // commit is not in the repo, let's build it from our data
-                        let new_commit_oid = deserialize_commit(&repo, &commit_entry)?;
-                        if new_commit_oid != commit_oid {
-                            bail!("commit id mismatch: failed to recreate a commit from its parts");
-                        }
-                    }
-
-                    // if branch_name is 'integration', we need to create or update the gitbutler/integration branch
-                    if branch_name == Some("integration") {
-                        // TODO(ST): with `gitoxide`, just update the branch without this dance,
-                        //           similar to `git update-ref`.
-                        //           Then a missing integration branch also doesn't have to be
-                        //           fatal, but we wouldn't want to `set_head()` if we are
-                        //           not already on the integration branch.
-                        let mut integration_ref = repo.integration_ref_from_head()?;
-
-                        // reset the branch if it's there, otherwise bail as we don't meddle with other branches
-                        // need to detach the head for just a moment.
-                        repo.set_head_detached(commit_oid)?;
-                        integration_ref.delete()?;
-
-                        // ok, now we set the branch to what it was and update HEAD
-                        let integration_commit = repo.find_commit(commit_oid)?;
-                        repo.branch("gitbutler/integration", &integration_commit, true)?;
-                        // make sure head is gitbutler/integration
-                        repo.set_head("refs/heads/gitbutler/integration")?;
-                    }
-                }
-            }
-        }
-
-        repo.integration_ref_from_head().context(
-            "We will not change a worktree which for some reason isn't on the integration branch",
-        )?;
-
-        let workdir_tree_id = tree_from_applied_vbranches(&repo, snapshot_commit_id)?;
-        let workdir_tree = repo.find_tree(workdir_tree_id)?;
-
-        // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
-        let files_to_exclude =
-            worktree_files_larger_than_limit_as_git2_ignore_rule(&repo, worktree_dir)?;
-        // In-memory, libgit2 internal ignore rule
-        repo.add_ignore_rule(&files_to_exclude)?;
-
-        // Define the checkout builder
-        let mut checkout_builder = git2::build::CheckoutBuilder::new();
-        checkout_builder.remove_untracked(true);
-        checkout_builder.force();
-        // Checkout the tree
-        repo.checkout_tree(workdir_tree.as_object(), Some(&mut checkout_builder))?;
-
-        // Update virtual_branches.toml with the state from the snapshot
-        fs::write(
-            repo.path().join("gitbutler").join("virtual_branches.toml"),
-            vb_toml_blob.content(),
-        )?;
-
-        // reset the repo index to our index tree
-        let index_tree_entry = snapshot_tree
-            .get_name("index")
-            .context("failed to get virtual_branches.toml blob")?;
-        let index_tree = repo
-            .find_tree(index_tree_entry.id())
-            .context("failed to convert index tree entry to tree")?;
-        let mut index = repo.index()?;
-        index.read_tree(&index_tree)?;
-
-        let restored_operation = snapshot_commit
-            .message()
-            .and_then(|msg| SnapshotDetails::from_str(msg).ok())
-            .map(|d| d.operation.to_string())
-            .unwrap_or_default();
-
-        // create new snapshot
-        let before_restore_snapshot_tree_id = before_restore_snapshot_result?;
-        let restored_date_ms = snapshot_commit.time().seconds() * 1000;
-        let details = SnapshotDetails {
-            version: Default::default(),
-            operation: OperationKind::RestoreFromSnapshot,
-            title: "Restored from snapshot".to_string(),
-            body: None,
-            trailers: vec![
-                Trailer {
-                    key: "restored_from".to_string(),
-                    value: snapshot_commit_id.to_string(),
-                },
-                Trailer {
-                    key: "restored_operation".to_string(),
-                    value: restored_operation,
-                },
-                Trailer {
-                    key: "restored_date".to_string(),
-                    value: restored_date_ms.to_string(),
-                },
-            ],
-        };
-        self.commit_snapshot(before_restore_snapshot_tree_id, details)
+        let mut guard = self.exclusive_worktree_access();
+        restore_snapshot(self, snapshot_commit_id, guard.write_permission())
     }
 
     fn should_auto_snapshot(&self, check_if_last_snapshot_older_than: Duration) -> Result<bool> {
@@ -596,6 +316,321 @@ impl Oplog for Project {
         let oplog_state = OplogHandle::new(&self.gb_dir());
         oplog_state.oplog_head()
     }
+}
+fn prepare_snapshot(ctx: &Project, _shared_access: &WorktreeReadPermission) -> Result<git2::Oid> {
+    let worktree_dir = ctx.path.as_path();
+    let repo = git2::Repository::open(worktree_dir)?;
+
+    let vb_state = VirtualBranchesHandle::new(ctx.gb_dir());
+
+    // grab the target commit
+    let default_target_commit = repo.find_commit(vb_state.get_default_target()?.sha)?;
+    let target_tree_id = default_target_commit.tree_id();
+
+    // Create a blob out of `.git/gitbutler/virtual_branches.toml`
+    let vb_path = repo.path().join("gitbutler").join("virtual_branches.toml");
+    let vb_content = fs::read(vb_path)?;
+    let vb_blob_id = repo.blob(&vb_content)?;
+
+    // Create a tree out of the conflicts state if present
+    let conflicts_tree_id = write_conflicts_tree(worktree_dir, &repo)?;
+
+    // write out the index as a tree to store
+    let mut index = repo.index()?;
+    let index_tree_oid = index.write_tree()?;
+
+    // start building our snapshot tree
+    let mut tree_builder = repo.treebuilder(None)?;
+    tree_builder.insert("index", index_tree_oid, FileMode::Tree.into())?;
+    tree_builder.insert("target_tree", target_tree_id, FileMode::Tree.into())?;
+    tree_builder.insert("conflicts", conflicts_tree_id, FileMode::Tree.into())?;
+    tree_builder.insert("virtual_branches.toml", vb_blob_id, FileMode::Blob.into())?;
+
+    // go through all virtual branches and create a subtree for each with the tree and any commits encoded
+    let mut branches_tree_builder = repo.treebuilder(None)?;
+    let mut head_tree_ids = Vec::new();
+
+    for branch in vb_state.list_branches_in_workspace()? {
+        head_tree_ids.push(branch.tree);
+
+        // commits in virtual branches (tree and commit data)
+        // calculate all the commits between branch.head and the target and codify them
+        let mut branch_tree_builder = repo.treebuilder(None)?;
+        branch_tree_builder.insert("tree", branch.tree, FileMode::Tree.into())?;
+
+        // let's get all the commits between the branch head and the target
+        let mut revwalk = repo.revwalk()?;
+        revwalk.push(branch.head)?;
+        revwalk.hide(default_target_commit.id())?;
+
+        let mut commits_tree_builder = repo.treebuilder(None)?;
+        for commit_id in revwalk {
+            let commit_id = commit_id?;
+            let commit = repo.find_commit(commit_id)?;
+            let commit_tree = commit.tree()?;
+
+            let mut commit_tree_builder = repo.treebuilder(None)?;
+            let commit_data_blob_id = repo.blob(&serialize_commit(&commit))?;
+            commit_tree_builder.insert("commit", commit_data_blob_id, FileMode::Blob.into())?;
+            commit_tree_builder.insert("tree", commit_tree.id(), FileMode::Tree.into())?;
+            let commit_tree_id = commit_tree_builder.write()?;
+
+            commits_tree_builder.insert(
+                commit_id.to_string(),
+                commit_tree_id,
+                FileMode::Tree.into(),
+            )?;
+        }
+
+        let commits_tree_id = commits_tree_builder.write()?;
+        branch_tree_builder.insert("commits", commits_tree_id, FileMode::Tree.into())?;
+
+        let branch_tree_id = branch_tree_builder.write()?;
+        branches_tree_builder.insert(
+            branch.id.to_string(),
+            branch_tree_id,
+            FileMode::Tree.into(),
+        )?;
+    }
+
+    // also add the gitbutler/integration commit to the branches tree
+    let head = repo.head()?;
+    if head.name() == Some("refs/heads/gitbutler/integration") {
+        let head_commit = head.peel_to_commit()?;
+        let head_tree = head_commit.tree()?;
+
+        let mut head_commit_tree_builder = repo.treebuilder(None)?;
+
+        // convert that data into a blob
+        let commit_data_blob = repo.blob(&serialize_commit(&head_commit))?;
+        head_commit_tree_builder.insert("commit", commit_data_blob, FileMode::Blob.into())?;
+        head_commit_tree_builder.insert("tree", head_tree.id(), FileMode::Tree.into())?;
+
+        let head_commit_tree_id = head_commit_tree_builder.write()?;
+
+        // have to make a subtree to match
+        let mut commits_tree_builder = repo.treebuilder(None)?;
+        commits_tree_builder.insert(
+            head_commit.id().to_string(),
+            head_commit_tree_id,
+            FileMode::Tree.into(),
+        )?;
+        let commits_tree_id = commits_tree_builder.write()?;
+
+        let mut branch_tree_builder = repo.treebuilder(None)?;
+        branch_tree_builder.insert("tree", head_tree.id(), FileMode::Tree.into())?;
+        branch_tree_builder.insert("commits", commits_tree_id, FileMode::Tree.into())?;
+        let branch_tree_id = branch_tree_builder.write()?;
+
+        branches_tree_builder.insert("integration", branch_tree_id, FileMode::Tree.into())?;
+    }
+
+    let branch_tree_id = branches_tree_builder.write()?;
+    tree_builder.insert("virtual_branches", branch_tree_id, FileMode::Tree.into())?;
+
+    let tree_id = tree_builder.write()?;
+    Ok(tree_id)
+}
+
+fn commit_snapshot(
+    ctx: &Project,
+    snapshot_tree_id: git2::Oid,
+    details: SnapshotDetails,
+    _exclusive_access: &mut WorktreeWritePermission,
+) -> Result<Option<git2::Oid>> {
+    let repo = git2::Repository::open(ctx.path.as_path())?;
+    let snapshot_tree = repo.find_tree(snapshot_tree_id)?;
+
+    let oplog_state = OplogHandle::new(&ctx.gb_dir());
+    let oplog_head_commit = oplog_state
+        .oplog_head()?
+        .and_then(|head_id| repo.find_commit(head_id).ok());
+
+    // Construct a new commit
+    let signature = git2::Signature::now(
+        GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
+        GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
+    )
+    .unwrap();
+    let parents = oplog_head_commit
+        .as_ref()
+        .map(|head| vec![head])
+        .unwrap_or_default();
+    let snapshot_commit_id = repo.commit(
+        None,
+        &signature,
+        &signature,
+        &details.to_string(),
+        &snapshot_tree,
+        parents.as_slice(),
+    )?;
+
+    oplog_state.set_oplog_head(snapshot_commit_id)?;
+
+    let vb_state = VirtualBranchesHandle::new(ctx.gb_dir());
+    let target_commit_id = vb_state.get_default_target()?.sha;
+    set_reference_to_oplog(&ctx.path, target_commit_id, snapshot_commit_id)?;
+
+    Ok(Some(snapshot_commit_id))
+}
+
+fn restore_snapshot(
+    ctx: &Project,
+    snapshot_commit_id: git2::Oid,
+    exclusive_access: &mut WorktreeWritePermission,
+) -> Result<Option<git2::Oid>> {
+    let worktree_dir = ctx.path.as_path();
+    let repo = git2::Repository::open(worktree_dir)?;
+
+    let before_restore_snapshot_result = prepare_snapshot(ctx, exclusive_access.read_permission());
+    let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
+
+    let snapshot_tree = snapshot_commit.tree()?;
+    let vb_toml_entry = snapshot_tree
+        .get_name("virtual_branches.toml")
+        .context("failed to get virtual_branches.toml blob")?;
+    // virtual_branches.toml blob
+    let vb_toml_blob = repo
+        .find_blob(vb_toml_entry.id())
+        .context("failed to convert virtual_branches tree entry to blob")?;
+
+    if let Err(err) = restore_conflicts_tree(&snapshot_tree, &repo) {
+        tracing::warn!("failed to restore conflicts tree - ignoring: {err}")
+    }
+
+    // make sure we reconstitute any commits that were in the snapshot that are not here for some reason
+    // for every entry in the virtual_branches subtree, reconsitute the commits
+    let vb_tree_entry = snapshot_tree
+        .get_name("virtual_branches")
+        .context("failed to get virtual_branches tree entry")?;
+    let vb_tree = repo
+        .find_tree(vb_tree_entry.id())
+        .context("failed to convert virtual_branches tree entry to tree")?;
+
+    // walk through all the entries (branches by id)
+    let walker = vb_tree.iter();
+    for branch_entry in walker {
+        let branch_tree = repo
+            .find_tree(branch_entry.id())
+            .context("failed to convert virtual_branches tree entry to tree")?;
+        let branch_name = branch_entry.name();
+
+        let commits_tree_entry = branch_tree
+            .get_name("commits")
+            .context("failed to get commits tree entry")?;
+        let commits_tree = repo
+            .find_tree(commits_tree_entry.id())
+            .context("failed to convert commits tree entry to tree")?;
+
+        // walk through all the commits in the branch
+        for commit_entry in commits_tree.iter() {
+            // for each commit, recreate the commit from the commit data if it doesn't exist
+            if let Some(commit_id) = commit_entry.name() {
+                // check for the oid in the repo
+                let commit_oid = git2::Oid::from_str(commit_id)?;
+                if repo.find_commit(commit_oid).is_err() {
+                    // commit is not in the repo, let's build it from our data
+                    let new_commit_oid = deserialize_commit(&repo, &commit_entry)?;
+                    if new_commit_oid != commit_oid {
+                        bail!("commit id mismatch: failed to recreate a commit from its parts");
+                    }
+                }
+
+                // if branch_name is 'integration', we need to create or update the gitbutler/integration branch
+                if branch_name == Some("integration") {
+                    // TODO(ST): with `gitoxide`, just update the branch without this dance,
+                    //           similar to `git update-ref`.
+                    //           Then a missing integration branch also doesn't have to be
+                    //           fatal, but we wouldn't want to `set_head()` if we are
+                    //           not already on the integration branch.
+                    let mut integration_ref = repo.integration_ref_from_head()?;
+
+                    // reset the branch if it's there, otherwise bail as we don't meddle with other branches
+                    // need to detach the head for just a moment.
+                    repo.set_head_detached(commit_oid)?;
+                    integration_ref.delete()?;
+
+                    // ok, now we set the branch to what it was and update HEAD
+                    let integration_commit = repo.find_commit(commit_oid)?;
+                    repo.branch("gitbutler/integration", &integration_commit, true)?;
+                    // make sure head is gitbutler/integration
+                    repo.set_head("refs/heads/gitbutler/integration")?;
+                }
+            }
+        }
+    }
+
+    repo.integration_ref_from_head().context(
+        "We will not change a worktree which for some reason isn't on the integration branch",
+    )?;
+
+    let workdir_tree_id = tree_from_applied_vbranches(&repo, snapshot_commit_id)?;
+    let workdir_tree = repo.find_tree(workdir_tree_id)?;
+
+    // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
+    let files_to_exclude =
+        worktree_files_larger_than_limit_as_git2_ignore_rule(&repo, worktree_dir)?;
+    // In-memory, libgit2 internal ignore rule
+    repo.add_ignore_rule(&files_to_exclude)?;
+
+    // Define the checkout builder
+    let mut checkout_builder = git2::build::CheckoutBuilder::new();
+    checkout_builder.remove_untracked(true);
+    checkout_builder.force();
+    // Checkout the tree
+    repo.checkout_tree(workdir_tree.as_object(), Some(&mut checkout_builder))?;
+
+    // Update virtual_branches.toml with the state from the snapshot
+    fs::write(
+        repo.path().join("gitbutler").join("virtual_branches.toml"),
+        vb_toml_blob.content(),
+    )?;
+
+    // reset the repo index to our index tree
+    let index_tree_entry = snapshot_tree
+        .get_name("index")
+        .context("failed to get virtual_branches.toml blob")?;
+    let index_tree = repo
+        .find_tree(index_tree_entry.id())
+        .context("failed to convert index tree entry to tree")?;
+    let mut index = repo.index()?;
+    index.read_tree(&index_tree)?;
+
+    let restored_operation = snapshot_commit
+        .message()
+        .and_then(|msg| SnapshotDetails::from_str(msg).ok())
+        .map(|d| d.operation.to_string())
+        .unwrap_or_default();
+
+    // create new snapshot
+    let before_restore_snapshot_tree_id = before_restore_snapshot_result?;
+    let restored_date_ms = snapshot_commit.time().seconds() * 1000;
+    let details = SnapshotDetails {
+        version: Default::default(),
+        operation: OperationKind::RestoreFromSnapshot,
+        title: "Restored from snapshot".to_string(),
+        body: None,
+        trailers: vec![
+            Trailer {
+                key: "restored_from".to_string(),
+                value: snapshot_commit_id.to_string(),
+            },
+            Trailer {
+                key: "restored_operation".to_string(),
+                value: restored_operation,
+            },
+            Trailer {
+                key: "restored_date".to_string(),
+                value: restored_date_ms.to_string(),
+            },
+        ],
+    };
+    commit_snapshot(
+        ctx,
+        before_restore_snapshot_tree_id,
+        details,
+        exclusive_access,
+    )
 }
 
 /// Restore the state of .git/base_merge_parent and .git/conflicts from the snapshot

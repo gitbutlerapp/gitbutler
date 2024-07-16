@@ -154,7 +154,7 @@
 	});
 </script>
 
-<Modal bind:this={modal} onclose={close} title="Share debug data with GitButler team for review">
+<Modal bind:this={modal} title="Share debug data with GitButler team for review">
 	<div class="content-wrapper">
 		<p class="content-wrapper__help-text text-base-body-13">
 			If you are having trouble, please share your project and logs with the GitButler team. We will
@@ -214,7 +214,8 @@
 		</div>
 	</div>
 
-	{#snippet controls(close)}
+	<!-- Use our own close function -->
+	{#snippet controls(_close)}
 		<Button style="ghost" outline type="reset" on:click={close}>Close</Button>
 		<Button style="pop" kind="solid" type="submit" on:click={async () => await submit()}>
 			Share with GitButler

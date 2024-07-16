@@ -3,12 +3,12 @@ use std::sync::Arc;
 use std::time;
 
 use anyhow::{anyhow, Context, Result};
-use gitbutler_branch::target::Target;
+use gitbutler_branch::Target;
 use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_error::error::Code;
 use gitbutler_id::id::Id;
-use gitbutler_oplog::oplog::Oplog;
+use gitbutler_oplog::OplogExt;
 use gitbutler_project as projects;
 use gitbutler_project::{CodePushState, Project};
 use gitbutler_reference::Refname;

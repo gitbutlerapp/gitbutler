@@ -14,7 +14,7 @@ mock_instant = ["dep:mock_instant"]
 tracing = "0.1.40"
 
 notify = { version = "6.0.1" }
-parking_lot = "0.12.3"
+parking_lot.workspace = true
 file-id = "0.2.1"
 walkdir = "2.2.2"
 crossbeam-channel = "0.5.13"

@@ -4,7 +4,7 @@ use std::{
     time::SystemTime,
 };
 
-use gitbutler_fs::fs::read_toml_file_or_default;
+use gitbutler_fs::read_toml_file_or_default;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use super::OPLOG_FILE_NAME;
@@ -92,6 +92,6 @@ impl OplogHandle {
 
     fn write_file(&self, mut oplog: Oplog) -> Result<()> {
         oplog.modified_at = SystemTime::now();
-        gitbutler_fs::fs::write(&self.file_path, toml::to_string(&oplog)?)
+        gitbutler_fs::write(&self.file_path, toml::to_string(&oplog)?)
     }
 }

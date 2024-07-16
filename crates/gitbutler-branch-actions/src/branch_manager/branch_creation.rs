@@ -1,35 +1,29 @@
-use super::{branch_removal::BranchRemoval, BranchManager};
+use super::BranchManager;
 use crate::{
-    conflicts::{self, RepoConflicts},
+    conflicts::{self, RepoConflictsExt},
     ensure_selected_for_changes,
     integration::update_gitbutler_integration,
     set_ownership, undo_commit, VirtualBranchHunk, VirtualBranchesExt,
 };
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::{
-    branch::{self, BranchCreateRequest, BranchId},
-    dedup::dedup,
-    diff,
-    ownership::BranchOwnershipClaims,
+    dedup, diff, Branch, BranchOwnershipClaims, {self, BranchCreateRequest, BranchId},
 };
 use gitbutler_commit::commit_headers::HasCommitHeaders;
 use gitbutler_error::error::Marker;
-use gitbutler_oplog::snapshot::Snapshot;
+use gitbutler_oplog::SnapshotExt;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::Refname;
-use gitbutler_repo::{rebase::cherry_rebase, RepoActions, RepositoryExt};
+use gitbutler_repo::{rebase::cherry_rebase, RepoActionsExt, RepositoryExt};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 
-pub trait BranchCreation {
-    /// Create an empty virtual branch
-    fn create_virtual_branch(&self, create: &BranchCreateRequest) -> Result<branch::Branch>;
-    /// Create a virtual branch from a real branch (whether remote or local)
-    fn create_virtual_branch_from_branch(&self, upstream: &Refname) -> Result<BranchId>;
-}
-
-impl BranchCreation for BranchManager<'_> {
-    fn create_virtual_branch(&self, create: &BranchCreateRequest) -> Result<branch::Branch> {
+impl BranchManager<'_> {
+    pub fn create_virtual_branch(
+        &self,
+        create: &BranchCreateRequest,
+        perm: &mut WorktreeWritePermission,
+    ) -> Result<Branch> {
         let vb_state = self.project_repository.project().virtual_branches();
-
         let default_target = vb_state.get_default_target()?;
 
         let commit = self
@@ -60,7 +54,7 @@ impl BranchCreation for BranchManager<'_> {
         _ = self
             .project_repository
             .project()
-            .snapshot_branch_creation(name.clone());
+            .snapshot_branch_creation(name.clone(), perm);
 
         all_virtual_branches.sort_by_key(|branch| branch.order);
 
@@ -98,7 +92,7 @@ impl BranchCreation for BranchManager<'_> {
 
         let now = gitbutler_time::time::now_ms();
 
-        let mut branch = branch::Branch {
+        let mut branch = Branch {
             id: BranchId::generate(),
             name: name.clone(),
             notes: String::new(),
@@ -128,7 +122,11 @@ impl BranchCreation for BranchManager<'_> {
         Ok(branch)
     }
 
-    fn create_virtual_branch_from_branch(&self, upstream: &Refname) -> Result<BranchId> {
+    pub fn create_virtual_branch_from_branch(
+        &self,
+        upstream: &Refname,
+        perm: &mut WorktreeWritePermission,
+    ) -> Result<BranchId> {
         // only set upstream if it's not the default target
         let upstream_branch = match upstream {
             Refname::Other(_) | Refname::Virtual(_) => {
@@ -147,7 +145,7 @@ impl BranchCreation for BranchManager<'_> {
         let _ = self
             .project_repository
             .project()
-            .snapshot_branch_creation(branch_name.clone());
+            .snapshot_branch_creation(branch_name.clone(), perm);
 
         let vb_state = self.project_repository.project().virtual_branches();
 
@@ -177,7 +175,7 @@ impl BranchCreation for BranchManager<'_> {
             .list_branches_in_workspace()
             .context("failed to read virtual branches")?
             .into_iter()
-            .collect::<Vec<branch::Branch>>();
+            .collect::<Vec<Branch>>();
 
         let order = vb_state.next_order_index()?;
 
@@ -235,7 +233,7 @@ impl BranchCreation for BranchManager<'_> {
 
             branch
         } else {
-            branch::Branch {
+            Branch {
                 id: BranchId::generate(),
                 name: branch_name.clone(),
                 notes: String::new(),
@@ -259,7 +257,7 @@ impl BranchCreation for BranchManager<'_> {
         vb_state.set_branch(branch.clone())?;
         self.project_repository.add_branch_reference(&branch)?;
 
-        match self.apply_branch(branch.id) {
+        match self.apply_branch(branch.id, perm) {
             Ok(_) => Ok(branch.id),
             Err(err)
                 if err
@@ -276,7 +274,11 @@ impl BranchCreation for BranchManager<'_> {
 
 /// Holding private methods associated to branch creation
 impl BranchManager<'_> {
-    fn apply_branch(&self, branch_id: BranchId) -> Result<String> {
+    fn apply_branch(
+        &self,
+        branch_id: BranchId,
+        perm: &mut WorktreeWritePermission,
+    ) -> Result<String> {
         self.project_repository.assure_resolved()?;
         self.project_repository.assure_unconflicted()?;
         let repo = self.project_repository.repo();
@@ -323,7 +325,7 @@ impl BranchManager<'_> {
                     .iter()
                     .filter(|branch| branch.id != branch_id)
                 {
-                    self.convert_to_real_branch(branch.id, Default::default())?;
+                    self.convert_to_real_branch(branch.id, Default::default(), perm)?;
                 }
 
                 // apply the branch

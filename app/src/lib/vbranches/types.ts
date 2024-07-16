@@ -25,6 +25,8 @@ export class Hunk {
 	locked!: boolean;
 	@Type(() => HunkLock)
 	lockedTo!: HunkLock[];
+	/// Indicates that the hunk depends on multiple branches. In this case the hunk cant be moved or comitted.
+	poisoned!: boolean;
 	changeType!: ChangeType;
 	new_start!: number;
 	new_lines!: number;
@@ -101,8 +103,8 @@ export class VirtualBranch {
 	notes!: string;
 	@Type(() => LocalFile)
 	files!: LocalFile[];
-	@Type(() => Commit)
-	commits!: Commit[];
+	@Type(() => DetailedCommit)
+	commits!: DetailedCommit[];
 	requiresForce!: boolean;
 	description!: string;
 	head!: string;
@@ -163,7 +165,7 @@ export type ComponentColor =
 	| 'purple';
 export type CommitStatus = 'local' | 'localAndRemote' | 'integrated' | 'remote';
 
-export class Commit {
+export class DetailedCommit {
 	id!: string;
 	author!: Author;
 	description!: string;
@@ -177,14 +179,10 @@ export class Commit {
 	branchId!: string;
 	changeId!: string;
 	isSigned!: boolean;
-	relatedTo?: RemoteCommit;
+	relatedTo?: Commit;
 
-	prev?: Commit;
-	next?: Commit;
-
-	get isLocal() {
-		return !this.isRemote && !this.isIntegrated;
-	}
+	prev?: DetailedCommit;
+	next?: DetailedCommit;
 
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
@@ -201,7 +199,7 @@ export class Commit {
 		return splitMessage(this.description).description || undefined;
 	}
 
-	isParentOf(possibleChild: Commit) {
+	isParentOf(possibleChild: DetailedCommit) {
 		return possibleChild.parentIds.includes(this.id);
 	}
 
@@ -210,11 +208,7 @@ export class Commit {
 	}
 }
 
-export function isLocalCommit(obj: any): obj is Commit {
-	return obj instanceof Commit;
-}
-
-export class RemoteCommit {
+export class Commit {
 	id!: string;
 	author!: Author;
 	description!: string;
@@ -224,13 +218,9 @@ export class RemoteCommit {
 	isSigned!: boolean;
 	parentIds!: string[];
 
-	prev?: RemoteCommit;
-	next?: RemoteCommit;
-	relatedTo?: Commit;
-
-	get isLocal() {
-		return false;
-	}
+	prev?: Commit;
+	next?: Commit;
+	relatedTo?: DetailedCommit;
 
 	get descriptionTitle(): string | undefined {
 		return splitMessage(this.description).title || undefined;
@@ -249,11 +239,7 @@ export class RemoteCommit {
 	}
 }
 
-export function isRemoteCommit(obj: any): obj is RemoteCommit {
-	return obj instanceof RemoteCommit;
-}
-
-export type AnyCommit = Commit | RemoteCommit;
+export type AnyCommit = DetailedCommit | Commit;
 
 export function commitCompare(left: AnyCommit, right: AnyCommit): boolean {
 	if (left.id === right.id) return true;
@@ -341,8 +327,8 @@ export class BranchData {
 	name!: string;
 	upstream?: string;
 	behind!: number;
-	@Type(() => RemoteCommit)
-	commits!: RemoteCommit[];
+	@Type(() => Commit)
+	commits!: Commit[];
 	isMergeable!: boolean | undefined;
 	forkPoint?: string | undefined;
 

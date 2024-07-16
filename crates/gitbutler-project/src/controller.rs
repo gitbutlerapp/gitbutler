@@ -13,13 +13,6 @@ pub struct Controller {
 }
 
 impl Controller {
-    pub fn new(local_data_dir: PathBuf, projects_storage: storage::Storage) -> Self {
-        Self {
-            local_data_dir,
-            projects_storage,
-        }
-    }
-
     pub fn from_path(path: impl Into<PathBuf>) -> Self {
         let path = path.into();
         Self {
@@ -164,11 +157,7 @@ impl Controller {
             .purge(project.id)
             .map_err(anyhow::Error::from)?;
 
-        if let Err(error) = std::fs::remove_dir_all(
-            self.local_data_dir
-                .join("projects")
-                .join(project.id.to_string()),
-        ) {
+        if let Err(error) = std::fs::remove_dir_all(self.project_metadata_dir(project.id)) {
             tracing::error!(project_id = %id, ?error, "failed to remove project data",);
         }
 
@@ -183,5 +172,9 @@ impl Controller {
         }
 
         Ok(())
+    }
+
+    pub fn project_metadata_dir(&self, id: ProjectId) -> PathBuf {
+        self.local_data_dir.join("projects").join(id.to_string())
     }
 }

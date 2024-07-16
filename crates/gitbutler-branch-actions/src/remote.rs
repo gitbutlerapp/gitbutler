@@ -2,14 +2,12 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use bstr::BString;
-use gitbutler_branch::VirtualBranchesHandle;
+use gitbutler_branch::{Target, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{LogUntil, RepoActions, RepositoryExt};
+use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 use serde::Serialize;
-
-use gitbutler_branch::target;
 
 use crate::author::Author;
 
@@ -91,7 +89,7 @@ pub fn list_remote_branches(project_repository: &ProjectRepository) -> Result<Ve
     Ok(remote_branches)
 }
 
-pub fn get_branch_data(
+pub(crate) fn get_branch_data(
     project_repository: &ProjectRepository,
     refname: &Refname,
 ) -> Result<RemoteBranchData> {
@@ -155,7 +153,7 @@ pub fn branch_to_remote_branch(
     }))
 }
 
-pub fn branch_to_remote_branch_data(
+pub(crate) fn branch_to_remote_branch_data(
     project_repository: &ProjectRepository,
     branch: &git2::Branch,
     base: git2::Oid,
@@ -195,8 +193,8 @@ pub fn branch_to_remote_branch_data(
         .transpose()
 }
 
-pub fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
-    let parent_ids: Vec<git2::Oid> = commit.parents().map(|c| c.id()).collect::<Vec<_>>();
+pub(crate) fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
+    let parent_ids = commit.parents().map(|c| c.id()).collect();
     RemoteCommit {
         id: commit.id().to_string(),
         description: commit.message_bstr().to_owned(),
@@ -207,6 +205,6 @@ pub fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
     }
 }
 
-fn default_target(base_path: &Path) -> Result<target::Target> {
+fn default_target(base_path: &Path) -> Result<Target> {
     VirtualBranchesHandle::new(base_path).get_default_target()
 }

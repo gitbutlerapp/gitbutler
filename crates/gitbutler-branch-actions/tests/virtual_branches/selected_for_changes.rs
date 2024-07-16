@@ -1,4 +1,5 @@
 use super::*;
+use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 
 #[tokio::test]
 async fn unapplying_selected_branch_selects_anther() {
@@ -18,13 +19,13 @@ async fn unapplying_selected_branch_selects_anther() {
 
     // first branch should be created as default
     let b_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
     // if default branch exists, new branch should not be created as default
     let b2_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -65,13 +66,13 @@ async fn deleting_selected_branch_selects_anther() {
 
     // first branch should be created as default
     let b_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
     // if default branch exists, new branch should not be created as default
     let b2_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -111,7 +112,7 @@ async fn create_virtual_branch_should_set_selected_for_changes() {
 
     // first branch should be created as default
     let b_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
     let branch = controller
@@ -126,7 +127,7 @@ async fn create_virtual_branch_should_set_selected_for_changes() {
 
     // if default branch exists, new branch should not be created as default
     let b_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
     let branch = controller
@@ -143,7 +144,7 @@ async fn create_virtual_branch_should_set_selected_for_changes() {
     let b_id = controller
         .create_virtual_branch(
             project,
-            &branch::BranchCreateRequest {
+            &BranchCreateRequest {
                 selected_for_changes: Some(false),
                 ..Default::default()
             },
@@ -164,7 +165,7 @@ async fn create_virtual_branch_should_set_selected_for_changes() {
     let b_id = controller
         .create_virtual_branch(
             project,
-            &branch::BranchCreateRequest {
+            &BranchCreateRequest {
                 selected_for_changes: Some(true),
                 ..Default::default()
             },
@@ -196,7 +197,7 @@ async fn update_virtual_branch_should_reset_selected_for_changes() {
         .unwrap();
 
     let b1_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
     let b1 = controller
@@ -210,7 +211,7 @@ async fn update_virtual_branch_should_reset_selected_for_changes() {
     assert!(b1.selected_for_changes);
 
     let b2_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
     let b2 = controller
@@ -226,7 +227,7 @@ async fn update_virtual_branch_should_reset_selected_for_changes() {
     controller
         .update_virtual_branch(
             project,
-            branch::BranchUpdateRequest {
+            BranchUpdateRequest {
                 id: b2_id,
                 selected_for_changes: Some(true),
                 ..Default::default()
@@ -271,7 +272,7 @@ async fn unapply_virtual_branch_should_reset_selected_for_changes() {
         .unwrap();
 
     let b1_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
@@ -287,7 +288,7 @@ async fn unapply_virtual_branch_should_reset_selected_for_changes() {
     assert!(b1.selected_for_changes);
 
     let b2_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 
@@ -337,7 +338,7 @@ async fn hunks_distribution() {
     controller
         .create_virtual_branch(
             project,
-            &branch::BranchCreateRequest {
+            &BranchCreateRequest {
                 selected_for_changes: Some(true),
                 ..Default::default()
             },
@@ -423,7 +424,7 @@ async fn new_locked_hunk_without_modifying_existing() {
     controller
         .create_virtual_branch(
             project,
-            &branch::BranchCreateRequest {
+            &BranchCreateRequest {
                 selected_for_changes: Some(true),
                 ..Default::default()
             },

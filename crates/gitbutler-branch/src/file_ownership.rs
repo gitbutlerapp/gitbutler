@@ -51,26 +51,8 @@ impl<'a> From<&'a OwnershipClaim> for (&'a Path, &'a [Hunk]) {
 }
 
 impl OwnershipClaim {
-    pub fn is_full(&self) -> bool {
+    pub(crate) fn is_full(&self) -> bool {
         self.hunks.is_empty()
-    }
-
-    pub fn contains(&self, another: &OwnershipClaim) -> bool {
-        if !self.file_path.eq(&another.file_path) {
-            return false;
-        }
-
-        if self.hunks.is_empty() {
-            // full ownership contains any partial ownership
-            return true;
-        }
-
-        if another.hunks.is_empty() {
-            // partial ownership contains no full ownership
-            return false;
-        }
-
-        another.hunks.iter().all(|hunk| self.hunks.contains(hunk))
     }
 
     // return a copy of self, with another ranges added

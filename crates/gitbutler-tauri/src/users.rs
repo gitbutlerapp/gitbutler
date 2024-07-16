@@ -1,20 +1,18 @@
 pub mod commands {
-    use gitbutler_user::{controller::Controller, User};
+    use gitbutler_user::{Controller, User};
     use serde::{Deserialize, Serialize};
-    use tauri::{AppHandle, Manager};
+    use tauri::State;
     use tracing::instrument;
 
     use crate::error::Error;
 
     #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
-    pub async fn get_user(handle: AppHandle) -> Result<Option<UserWithSecrets>, Error> {
-        let app = handle.state::<Controller>();
-
-        match app.get_user()? {
+    #[instrument(skip(login), err(Debug))]
+    pub async fn get_user(login: State<'_, Controller>) -> Result<Option<UserWithSecrets>, Error> {
+        match login.get_user()? {
             Some(user) => {
                 if let Err(err) = user.access_token() {
-                    app.delete_user()?;
+                    login.delete_user()?;
                     return Err(err.context("Please login to GitButler again").into());
                 }
                 Ok(Some(user.try_into()?))
@@ -24,21 +22,16 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
-    pub async fn set_user(handle: AppHandle, user: User) -> Result<User, Error> {
-        let app = handle.state::<Controller>();
-
-        app.set_user(&user)?;
+    #[instrument(skip(login), err(Debug))]
+    pub async fn set_user(login: State<'_, Controller>, user: User) -> Result<User, Error> {
+        login.set_user(&user)?;
         Ok(user)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(handle), err(Debug))]
-    pub async fn delete_user(handle: AppHandle) -> Result<(), Error> {
-        let app = handle.state::<Controller>();
-
-        app.delete_user()?;
-
+    #[instrument(skip(login), err(Debug))]
+    pub async fn delete_user(login: State<'_, Controller>) -> Result<(), Error> {
+        login.delete_user()?;
         Ok(())
     }
 

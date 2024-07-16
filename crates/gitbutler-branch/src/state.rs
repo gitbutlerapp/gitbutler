@@ -10,7 +10,7 @@ use crate::{
     target::Target,
 };
 use gitbutler_error::error::Code;
-use gitbutler_fs::fs::read_toml_file_or_default;
+use gitbutler_fs::read_toml_file_or_default;
 // use gitbutler_project::Project;
 use gitbutler_reference::Refname;
 use itertools::Itertools;
@@ -31,7 +31,7 @@ impl VirtualBranches {
     /// Lists all virtual branches that are in the user's workspace.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn list_all_branches(&self) -> Result<Vec<Branch>> {
+    pub(crate) fn list_all_branches(&self) -> Result<Vec<Branch>> {
         let branches: Vec<Branch> = self.branches.values().cloned().collect();
         Ok(branches)
     }
@@ -88,8 +88,8 @@ impl VirtualBranchesHandle {
     ///
     /// Errors if the file cannot be read or written.
     pub fn get_default_target(&self) -> Result<Target> {
-        let virtual_branches = self.read_file();
-        virtual_branches?
+        let virtual_branches = self.read_file()?;
+        virtual_branches
             .default_target
             .ok_or(anyhow!("there is no default target").context(Code::DefaultTargetNotFound))
     }
@@ -202,13 +202,6 @@ impl VirtualBranchesHandle {
         })
     }
 
-    /// Checks if the state file exists.
-    ///
-    /// This would only be false if the application just updated from a very old verion.
-    pub fn file_exists(&self) -> bool {
-        self.file_path.exists()
-    }
-
     /// Reads and parses the state file.
     ///
     /// If the file does not exist, it will be created.
@@ -254,5 +247,5 @@ impl VirtualBranchesHandle {
 }
 
 fn write<P: AsRef<Path>>(file_path: P, virtual_branches: &VirtualBranches) -> Result<()> {
-    gitbutler_fs::fs::write(file_path, toml::to_string(&virtual_branches)?)
+    gitbutler_fs::write(file_path, toml::to_string(&virtual_branches)?)
 }

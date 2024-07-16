@@ -4,7 +4,7 @@ use anyhow::Result;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize, Serializer};
 
-use crate::{branch::Branch, file_ownership::OwnershipClaim};
+use crate::{file_ownership::OwnershipClaim, Branch};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BranchOwnershipClaims {
@@ -49,37 +49,6 @@ impl FromStr for BranchOwnershipClaims {
 }
 
 impl BranchOwnershipClaims {
-    pub fn is_empty(&self) -> bool {
-        self.claims.is_empty()
-    }
-
-    pub fn contains(&self, another: &BranchOwnershipClaims) -> bool {
-        if another.is_empty() {
-            return true;
-        }
-
-        if self.is_empty() {
-            return false;
-        }
-
-        for file_ownership in &another.claims {
-            let mut found = false;
-            for self_file_ownership in &self.claims {
-                if self_file_ownership.file_path == file_ownership.file_path
-                    && self_file_ownership.contains(file_ownership)
-                {
-                    found = true;
-                    break;
-                }
-            }
-            if !found {
-                return false;
-            }
-        }
-
-        true
-    }
-
     pub fn put(&mut self, ownership: OwnershipClaim) {
         let target = self
             .claims

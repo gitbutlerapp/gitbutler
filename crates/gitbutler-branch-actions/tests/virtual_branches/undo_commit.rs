@@ -1,4 +1,5 @@
 use super::*;
+use gitbutler_branch::BranchCreateRequest;
 
 #[tokio::test]
 async fn undo_commit_simple() {
@@ -15,7 +16,7 @@ async fn undo_commit_simple() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await
         .unwrap();
 

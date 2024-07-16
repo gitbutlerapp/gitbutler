@@ -1,6 +1,6 @@
 use super::*;
-use gitbutler_branch::VirtualBranchesHandle;
-use gitbutler_oplog::oplog::Oplog;
+use gitbutler_branch::{BranchCreateRequest, VirtualBranchesHandle};
+use gitbutler_oplog::OplogExt;
 use itertools::Itertools;
 use std::io::Write;
 use std::path::Path;
@@ -31,7 +31,7 @@ async fn workdir_vbranch_restore() -> anyhow::Result<()> {
         let branch_id = controller
             .create_virtual_branch(
                 project,
-                &branch::BranchCreateRequest {
+                &BranchCreateRequest {
                     name: Some(round.to_string()),
                     ..Default::default()
                 },
@@ -113,7 +113,7 @@ async fn basic_oplog() -> anyhow::Result<()> {
         .await?;
 
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await?;
 
     // create commit
@@ -146,7 +146,7 @@ async fn basic_oplog() -> anyhow::Result<()> {
 
     // create state with conflict state
     let _empty_branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await?;
 
     std::fs::remove_file(&base_merge_parent_path)?;
@@ -268,7 +268,7 @@ async fn restores_gitbutler_integration() -> anyhow::Result<()> {
         0
     );
     let branch_id = controller
-        .create_virtual_branch(project, &branch::BranchCreateRequest::default())
+        .create_virtual_branch(project, &BranchCreateRequest::default())
         .await?;
     assert_eq!(
         VirtualBranchesHandle::new(project.gb_dir())

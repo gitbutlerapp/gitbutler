@@ -1,9 +1,8 @@
+use serde::{Deserialize, Serialize};
 use std::{
     path::{self, PathBuf},
     time,
 };
-
-use serde::{Deserialize, Serialize};
 
 use crate::default_true::DefaultTrue;
 use gitbutler_id::id::Id;

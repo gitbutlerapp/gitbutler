@@ -14,40 +14,40 @@ pub mod commands {
     use crate::{window, WindowState};
 
     #[tauri::command(async)]
-    #[instrument(skip(controller), err(Debug))]
+    #[instrument(skip(projects), err(Debug))]
     pub async fn update_project(
-        controller: State<'_, Controller>,
+        projects: State<'_, Controller>,
         project: projects::UpdateRequest,
     ) -> Result<projects::Project, Error> {
-        Ok(controller.update(&project).await?)
+        Ok(projects.update(&project).await?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(controller), err(Debug))]
+    #[instrument(skip(projects), err(Debug))]
     pub async fn add_project(
-        controller: State<'_, Controller>,
+        projects: State<'_, Controller>,
         path: &path::Path,
     ) -> Result<projects::Project, Error> {
-        Ok(controller.add(path)?)
+        Ok(projects.add(path)?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(controller), err(Debug))]
+    #[instrument(skip(projects), err(Debug))]
     pub async fn get_project(
-        controller: State<'_, Controller>,
+        projects: State<'_, Controller>,
         id: ProjectId,
     ) -> Result<projects::Project, Error> {
-        Ok(controller.get(id)?)
+        Ok(projects.get(id)?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(controller, window_state), err(Debug))]
+    #[instrument(skip(projects, window_state), err(Debug))]
     pub async fn list_projects(
         window_state: State<'_, WindowState>,
-        controller: State<'_, Controller>,
+        projects: State<'_, Controller>,
     ) -> Result<Vec<ProjectForFrontend>, Error> {
         let open_projects = window_state.open_projects();
-        controller.list().map_err(Into::into).map(|projects| {
+        projects.list().map_err(Into::into).map(|projects| {
             projects
                 .into_iter()
                 .map(|project| ProjectForFrontend {
@@ -62,14 +62,14 @@ pub mod commands {
     ///
     /// We use it to start watching for filesystem events.
     #[tauri::command(async)]
-    #[instrument(skip(controller, window_state, window), err(Debug))]
+    #[instrument(skip(projects, window_state, window), err(Debug))]
     pub async fn set_project_active(
-        controller: State<'_, Controller>,
+        projects: State<'_, Controller>,
         window_state: State<'_, WindowState>,
         window: Window,
         id: ProjectId,
     ) -> Result<(), Error> {
-        let project = controller.get(id).context("project not found")?;
+        let project = projects.get(id).context("project not found")?;
         Ok(window_state.set_project_to_window(window.label(), &project)?)
     }
 
@@ -93,12 +93,12 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(controller), err(Debug))]
+    #[instrument(skip(projects), err(Debug))]
     pub async fn delete_project(
-        controller: State<'_, Controller>,
+        projects: State<'_, Controller>,
         id: ProjectId,
     ) -> Result<(), Error> {
-        controller.delete(id).await.map_err(Into::into)
+        projects.delete(id).await.map_err(Into::into)
     }
 }
 

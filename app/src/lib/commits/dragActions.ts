@@ -2,10 +2,10 @@ import { DraggableCommit, DraggableFile, DraggableHunk } from '$lib/dragging/dra
 import { filesToOwnership, filesToSimpleOwnership } from '$lib/vbranches/ownership';
 import {
 	LocalFile,
-	RemoteCommit,
+	Commit,
 	RemoteFile,
 	type VirtualBranch,
-	type Commit
+	type DetailedCommit
 } from '$lib/vbranches/types';
 import type { Project } from '$lib/backend/projects';
 import type { BranchController } from '$lib/vbranches/branchController';
@@ -15,11 +15,11 @@ class CommitDragActions {
 		private branchController: BranchController,
 		private project: Project,
 		private branch: VirtualBranch,
-		private commit: Commit | RemoteCommit
+		private commit: DetailedCommit | Commit
 	) {}
 
 	acceptAmend(data: any) {
-		if (this.commit instanceof RemoteCommit) {
+		if (this.commit instanceof Commit) {
 			return false;
 		}
 
@@ -65,7 +65,7 @@ class CommitDragActions {
 	}
 
 	acceptSquash(data: any) {
-		if (this.commit instanceof RemoteCommit) {
+		if (this.commit instanceof Commit) {
 			return false;
 		}
 		if (!(data instanceof DraggableCommit)) return false;
@@ -85,7 +85,7 @@ class CommitDragActions {
 	}
 
 	onSquash(data: any) {
-		if (this.commit instanceof RemoteCommit) {
+		if (this.commit instanceof Commit) {
 			return;
 		}
 		if (data.commit.isParentOf(this.commit)) {
@@ -102,7 +102,7 @@ export class CommitDragActionsFactory {
 		private project: Project
 	) {}
 
-	build(branch: VirtualBranch, commit: Commit | RemoteCommit) {
+	build(branch: VirtualBranch, commit: DetailedCommit | Commit) {
 		return new CommitDragActions(this.branchController, this.project, branch, commit);
 	}
 }
