@@ -1,4 +1,4 @@
-import type { AnyCommit, AnyFile, DetailedCommit, Hunk, RemoteCommit } from '../vbranches/types';
+import type { AnyCommit, AnyFile, DetailedCommit, Hunk, Commit } from '../vbranches/types';
 
 export function nonDraggable() {
 	return {
@@ -39,7 +39,7 @@ export class DraggableCommit {
 export class DraggableRemoteCommit {
 	constructor(
 		public readonly branchId: string,
-		public readonly remoteCommit: RemoteCommit
+		public readonly remoteCommit: Commit
 	) {}
 }
 

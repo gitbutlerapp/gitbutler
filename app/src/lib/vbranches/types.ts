@@ -179,7 +179,7 @@ export class DetailedCommit {
 	branchId!: string;
 	changeId!: string;
 	isSigned!: boolean;
-	relatedTo?: RemoteCommit;
+	relatedTo?: Commit;
 
 	prev?: DetailedCommit;
 	next?: DetailedCommit;
@@ -216,7 +216,7 @@ export function isLocalCommit(obj: any): obj is DetailedCommit {
 	return obj instanceof DetailedCommit;
 }
 
-export class RemoteCommit {
+export class Commit {
 	id!: string;
 	author!: Author;
 	description!: string;
@@ -226,8 +226,8 @@ export class RemoteCommit {
 	isSigned!: boolean;
 	parentIds!: string[];
 
-	prev?: RemoteCommit;
-	next?: RemoteCommit;
+	prev?: Commit;
+	next?: Commit;
 	relatedTo?: DetailedCommit;
 
 	get isLocal() {
@@ -251,11 +251,11 @@ export class RemoteCommit {
 	}
 }
 
-export function isRemoteCommit(obj: any): obj is RemoteCommit {
-	return obj instanceof RemoteCommit;
+export function isRemoteCommit(obj: any): obj is Commit {
+	return obj instanceof Commit;
 }
 
-export type AnyCommit = DetailedCommit | RemoteCommit;
+export type AnyCommit = DetailedCommit | Commit;
 
 export function commitCompare(left: AnyCommit, right: AnyCommit): boolean {
 	if (left.id === right.id) return true;
@@ -341,8 +341,8 @@ export class BranchData {
 	name!: string;
 	upstream?: string;
 	behind!: number;
-	@Type(() => RemoteCommit)
-	commits!: RemoteCommit[];
+	@Type(() => Commit)
+	commits!: Commit[];
 	isMergeable!: boolean | undefined;
 	forkPoint?: string | undefined;
 

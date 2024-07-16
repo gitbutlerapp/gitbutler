@@ -19,7 +19,7 @@
 	import { createCommitStore } from '$lib/vbranches/contexts';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 	import {
-		RemoteCommit,
+		Commit,
 		DetailedCommit,
 		RemoteFile,
 		VirtualBranch,
@@ -28,7 +28,7 @@
 	import { type Snippet } from 'svelte';
 
 	export let branch: VirtualBranch | undefined = undefined;
-	export let commit: DetailedCommit | RemoteCommit;
+	export let commit: DetailedCommit | Commit;
 	export let commitUrl: string | undefined = undefined;
 	export let isHeadCommit: boolean = false;
 	export let isUnapplied = false;
@@ -66,7 +66,7 @@
 		}
 	}
 
-	function undoCommit(commit: DetailedCommit | RemoteCommit) {
+	function undoCommit(commit: DetailedCommit | Commit) {
 		if (!branch || !$baseBranch) {
 			console.error('Unable to undo commit');
 			return;
