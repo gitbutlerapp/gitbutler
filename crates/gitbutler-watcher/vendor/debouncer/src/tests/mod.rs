@@ -29,11 +29,11 @@
 // DEALINGS IN THE SOFTWARE.
 use std::{path::Path, time::Duration};
 
-use mock_instant::Instant;
+use mock_instant::thread_local::Instant;
 
 pub(crate) use schema::TestCase;
 
-use mock_instant::MockClock;
+use mock_instant::thread_local::MockClock;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
