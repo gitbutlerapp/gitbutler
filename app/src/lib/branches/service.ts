@@ -4,7 +4,7 @@ import { derived, readable, writable, type Readable } from 'svelte/store';
 import type { GitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 import type { PullRequest } from '$lib/gitHost/interface/types';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
-import type { VirtualBranch, RemoteBranch } from '$lib/vbranches/types';
+import type { VirtualBranch, Branch } from '$lib/vbranches/types';
 import type { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 
 export const [getBranchServiceStore, createBranchServiceStore] = buildContextStore<
@@ -36,7 +36,7 @@ export class BranchService {
 function mergeBranchesAndPrs(
 	vbranches: VirtualBranch[] | undefined,
 	pullRequests: PullRequest[] | undefined,
-	remoteBranches: RemoteBranch[] | undefined
+	remoteBranches: Branch[] | undefined
 ): CombinedBranch[] {
 	const contributions: CombinedBranch[] = [];
 

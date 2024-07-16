@@ -10,10 +10,10 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
-	import type { RemoteBranch } from '$lib/vbranches/types';
+	import type { Branch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
-	export let branch: RemoteBranch;
+	export let branch: Branch;
 	export let base: BaseBranch | undefined | null;
 	export let pr: PullRequest | undefined;
 

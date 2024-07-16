@@ -109,8 +109,8 @@ export class VirtualBranch {
 	description!: string;
 	head!: string;
 	order!: number;
-	@Type(() => RemoteBranch)
-	upstream?: RemoteBranch;
+	@Type(() => Branch)
+	upstream?: Branch;
 	upstreamData?: RemoteBranchData;
 	upstreamName?: string;
 	conflicted!: boolean;
@@ -324,7 +324,7 @@ export interface Author {
 	isBot?: boolean;
 }
 
-export class RemoteBranch {
+export class Branch {
 	sha!: string;
 	name!: string;
 	upstream?: string;
