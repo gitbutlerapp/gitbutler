@@ -82,7 +82,7 @@ impl BranchManager<'_> {
             self.project_repository,
             &integration_commit.id(),
             virtual_branches,
-            perm,
+            None,
         )
         .context("failed to get status by branch")?;
 

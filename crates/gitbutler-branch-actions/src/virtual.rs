@@ -213,7 +213,7 @@ pub enum NameConflictResolution {
 pub fn unapply_ownership(
     project_repository: &ProjectRepository,
     ownership: &BranchOwnershipClaims,
-    perm: &mut WorktreeWritePermission,
+    _perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     project_repository.assure_resolved()?;
 
@@ -229,7 +229,7 @@ pub fn unapply_ownership(
         project_repository,
         &integration_commit_id,
         virtual_branches,
-        perm,
+        None,
     )
     .context("failed to get status by branch")?;
 
@@ -402,7 +402,7 @@ pub fn list_virtual_branches(
     let integration_commit = ctx.repo().find_commit(integration_commit_id).unwrap();
 
     let (statuses, skipped_files) =
-        get_status_by_branch(ctx, Some(&integration_commit.id()), perm)?;
+        get_status_by_branch(ctx, Some(&integration_commit.id()), Some(perm))?;
     let max_selected_for_changes = statuses
         .iter()
         .filter_map(|(branch, _)| branch.selected_for_changes)
@@ -1054,7 +1054,7 @@ pub type VirtualBranchHunksByPathMap = HashMap<PathBuf, Vec<VirtualBranchHunk>>;
 pub fn get_status_by_branch(
     project_repository: &ProjectRepository,
     integration_commit: Option<&git2::Oid>,
-    perm: &mut WorktreeWritePermission,
+    perm: Option<&mut WorktreeWritePermission>,
 ) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
     let vb_state = project_repository.project().virtual_branches();
 
@@ -1167,7 +1167,7 @@ pub(crate) fn get_applied_status(
     project_repository: &ProjectRepository,
     integration_commit: &git2::Oid,
     mut virtual_branches: Vec<Branch>,
-    perm: &mut WorktreeWritePermission,
+    perm: Option<&mut WorktreeWritePermission>,
 ) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
     let base_file_diffs = diff::workdir(project_repository.repo(), &integration_commit.to_owned())
         .context("failed to diff workdir")?;
@@ -1186,9 +1186,13 @@ pub(crate) fn get_applied_status(
     let branch_manager = project_repository.branch_manager();
 
     if virtual_branches.is_empty() && !base_diffs.is_empty() {
-        virtual_branches = vec![branch_manager
-            .create_virtual_branch(&BranchCreateRequest::default(), perm)
-            .context("failed to create default branch")?];
+        if let Some(perm) = perm {
+            virtual_branches = vec![branch_manager
+                .create_virtual_branch(&BranchCreateRequest::default(), perm)
+                .context("failed to create default branch")?];
+        } else {
+            bail!("Would have to create virtual-branch but write permissions aren't available")
+        }
     }
 
     let mut diffs_by_branch: HashMap<BranchId, BranchStatus> = virtual_branches
@@ -1632,7 +1636,6 @@ pub fn commit(
     message: &str,
     ownership: Option<&BranchOwnershipClaims>,
     run_hooks: bool,
-    perm: &mut WorktreeWritePermission,
 ) -> Result<git2::Oid> {
     let mut message_buffer = message.to_owned();
     let vb_state = project_repository.project().virtual_branches();
@@ -1663,7 +1666,7 @@ pub fn commit(
     let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
     // get the files to commit
     let (statuses, _) =
-        get_status_by_branch(project_repository, Some(&integration_commit_id), perm)
+        get_status_by_branch(project_repository, Some(&integration_commit_id), None)
             .context("failed to get status by branch")?;
 
     let (ref mut branch, files) = statuses
@@ -2165,7 +2168,6 @@ pub(crate) fn amend(
     branch_id: BranchId,
     commit_oid: git2::Oid,
     target_ownership: &BranchOwnershipClaims,
-    perm: &mut WorktreeWritePermission,
 ) -> Result<git2::Oid> {
     project_repository.assure_resolved()?;
     let vb_state = project_repository.project().virtual_branches();
@@ -2186,7 +2188,7 @@ pub(crate) fn amend(
         project_repository,
         &integration_commit_id,
         virtual_branches,
-        perm,
+        None,
     )?;
 
     let (ref mut target_branch, target_status) = applied_statuses
@@ -2655,7 +2657,6 @@ pub(crate) fn move_commit(
     project_repository: &ProjectRepository,
     target_branch_id: BranchId,
     commit_id: git2::Oid,
-    perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     project_repository.assure_resolved()?;
     let vb_state = project_repository.project().virtual_branches();
@@ -2674,7 +2675,7 @@ pub(crate) fn move_commit(
         project_repository,
         &integration_commit_id,
         applied_branches,
-        perm,
+        None,
     )?;
 
     let (ref mut source_branch, source_status) = applied_statuses
