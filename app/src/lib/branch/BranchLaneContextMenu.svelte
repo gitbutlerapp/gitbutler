@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
+	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
@@ -15,7 +16,6 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Branch, type NameConflictResolution } from '$lib/vbranches/types';
-	import { invoke } from '@tauri-apps/api/tauri';
 
 	export let contextMenuEl: ContextMenu;
 	export let target: HTMLElement;
@@ -28,6 +28,8 @@
 	const branchStore = getContextStore(Branch);
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const branchController = getContext(BranchController);
+
+	const nameNormalizationService = getNameNormalizationServiceContext();
 
 	let aiConfigurationValid = false;
 	let deleteBranchModal: Modal;
@@ -110,17 +112,13 @@
 		}
 	}
 
-	// Normalize branch name
-	async function normalizeBranchName() {
-		return await invoke('normalize_branch_name', { name: branch.name });
-	}
-
 	let normalizedBranchName: string;
 
 	$: if (branch.name) {
-		normalizeBranchName()
+		nameNormalizationService
+			.normalize(branch.name)
 			.then((name) => {
-				normalizedBranchName = name as string;
+				normalizedBranchName = name;
 			})
 			.catch((e) => {
 				console.error('Failed to normalize branch name', e);
