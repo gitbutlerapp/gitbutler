@@ -152,7 +152,7 @@ impl IntoRawHandle for Pipe {
 
 impl FromRawHandle for Pipe {
     unsafe fn from_raw_handle(handle: RawHandle) -> Self {
-        let handle = HANDLE(handle as isize);
+        let handle = HANDLE(handle);
         Pipe {
             handle: Handle { inner: handle },
         }
