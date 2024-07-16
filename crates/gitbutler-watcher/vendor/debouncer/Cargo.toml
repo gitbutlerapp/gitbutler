@@ -19,7 +19,7 @@ file-id = "0.2.1"
 walkdir = "2.2.2"
 crossbeam-channel = "0.5.13"
 
-mock_instant = { version = "0.3.2", optional = true }
+mock_instant = { version = "0.5.1", optional = true }
 
 [dev-dependencies]
 gitbutler-notify-debouncer = { path = ".", features = ["mock_instant"] }
