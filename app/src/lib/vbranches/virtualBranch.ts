@@ -1,4 +1,10 @@
-import { VirtualBranch, Commit, RemoteCommit, VirtualBranches, commitCompare } from './types';
+import {
+	VirtualBranch,
+	DetailedCommit,
+	RemoteCommit,
+	VirtualBranches,
+	commitCompare
+} from './types';
 import { invoke, listen } from '$lib/backend/ipc';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
 import { plainToInstance } from 'class-transformer';
@@ -94,14 +100,14 @@ export class VirtualBranchService {
 	}
 }
 
-function linkAsParentChildren(commits: Commit[] | RemoteCommit[]) {
+function linkAsParentChildren(commits: DetailedCommit[] | RemoteCommit[]) {
 	for (let j = 0; j < commits.length; j++) {
 		const commit = commits[j];
 		if (j === 0) {
 			commit.next = undefined;
 		} else {
 			const child = commits[j - 1];
-			if (child instanceof Commit) commit.next = child;
+			if (child instanceof DetailedCommit) commit.next = child;
 			if (child instanceof RemoteCommit) commit.next = child;
 		}
 		if (j !== commits.length - 1) {

@@ -20,7 +20,7 @@
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 	import {
 		RemoteCommit,
-		Commit,
+		DetailedCommit,
 		RemoteFile,
 		VirtualBranch,
 		type CommitStatus
@@ -28,7 +28,7 @@
 	import { type Snippet } from 'svelte';
 
 	export let branch: VirtualBranch | undefined = undefined;
-	export let commit: Commit | RemoteCommit;
+	export let commit: DetailedCommit | RemoteCommit;
 	export let commitUrl: string | undefined = undefined;
 	export let isHeadCommit: boolean = false;
 	export let isUnapplied = false;
@@ -66,7 +66,7 @@
 		}
 	}
 
-	function undoCommit(commit: Commit | RemoteCommit) {
+	function undoCommit(commit: DetailedCommit | RemoteCommit) {
 		if (!branch || !$baseBranch) {
 			console.error('Unable to undo commit');
 			return;
@@ -74,7 +74,7 @@
 		branchController.undoCommit(branch.id, commit.id);
 	}
 
-	let isUndoable = commit instanceof Commit;
+	let isUndoable = commit instanceof DetailedCommit;
 
 	const hasCommitUrl = !commit.isLocal && commitUrl;
 
@@ -192,7 +192,9 @@
 					
 					dragDirection = isTop ? 'up' : 'down';
 				}}
-				use:draggableCommit={commit instanceof Commit && !isUnapplied && type !== 'integrated'
+				use:draggableCommit={commit instanceof DetailedCommit &&
+				!isUnapplied &&
+				type !== 'integrated'
 					? {
 							label: commit.descriptionTitle,
 							sha: commitShortSha,

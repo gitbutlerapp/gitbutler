@@ -5,7 +5,7 @@ import {
 	RemoteCommit,
 	RemoteFile,
 	type VirtualBranch,
-	type Commit
+	type DetailedCommit
 } from '$lib/vbranches/types';
 import type { Project } from '$lib/backend/projects';
 import type { BranchController } from '$lib/vbranches/branchController';
@@ -15,7 +15,7 @@ class CommitDragActions {
 		private branchController: BranchController,
 		private project: Project,
 		private branch: VirtualBranch,
-		private commit: Commit | RemoteCommit
+		private commit: DetailedCommit | RemoteCommit
 	) {}
 
 	acceptAmend(data: any) {
@@ -102,7 +102,7 @@ export class CommitDragActionsFactory {
 		private project: Project
 	) {}
 
-	build(branch: VirtualBranch, commit: Commit | RemoteCommit) {
+	build(branch: VirtualBranch, commit: DetailedCommit | RemoteCommit) {
 		return new CommitDragActions(this.branchController, this.project, branch, commit);
 	}
 }

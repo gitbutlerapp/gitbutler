@@ -103,8 +103,8 @@ export class VirtualBranch {
 	notes!: string;
 	@Type(() => LocalFile)
 	files!: LocalFile[];
-	@Type(() => Commit)
-	commits!: Commit[];
+	@Type(() => DetailedCommit)
+	commits!: DetailedCommit[];
 	requiresForce!: boolean;
 	description!: string;
 	head!: string;
@@ -165,7 +165,7 @@ export type ComponentColor =
 	| 'purple';
 export type CommitStatus = 'local' | 'localAndRemote' | 'integrated' | 'remote';
 
-export class Commit {
+export class DetailedCommit {
 	id!: string;
 	author!: Author;
 	description!: string;
@@ -181,8 +181,8 @@ export class Commit {
 	isSigned!: boolean;
 	relatedTo?: RemoteCommit;
 
-	prev?: Commit;
-	next?: Commit;
+	prev?: DetailedCommit;
+	next?: DetailedCommit;
 
 	get isLocal() {
 		return !this.isRemote && !this.isIntegrated;
@@ -203,7 +203,7 @@ export class Commit {
 		return splitMessage(this.description).description || undefined;
 	}
 
-	isParentOf(possibleChild: Commit) {
+	isParentOf(possibleChild: DetailedCommit) {
 		return possibleChild.parentIds.includes(this.id);
 	}
 
@@ -212,8 +212,8 @@ export class Commit {
 	}
 }
 
-export function isLocalCommit(obj: any): obj is Commit {
-	return obj instanceof Commit;
+export function isLocalCommit(obj: any): obj is DetailedCommit {
+	return obj instanceof DetailedCommit;
 }
 
 export class RemoteCommit {
@@ -228,7 +228,7 @@ export class RemoteCommit {
 
 	prev?: RemoteCommit;
 	next?: RemoteCommit;
-	relatedTo?: Commit;
+	relatedTo?: DetailedCommit;
 
 	get isLocal() {
 		return false;
@@ -255,7 +255,7 @@ export function isRemoteCommit(obj: any): obj is RemoteCommit {
 	return obj instanceof RemoteCommit;
 }
 
-export type AnyCommit = Commit | RemoteCommit;
+export type AnyCommit = DetailedCommit | RemoteCommit;
 
 export function commitCompare(left: AnyCommit, right: AnyCommit): boolean {
 	if (left.id === right.id) return true;

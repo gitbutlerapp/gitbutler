@@ -1,6 +1,6 @@
 import { DraggableCommit } from '$lib/dragging/draggables';
 import type { BranchController } from '$lib/vbranches/branchController';
-import type { VirtualBranch, Commit } from '$lib/vbranches/types';
+import type { VirtualBranch, DetailedCommit } from '$lib/vbranches/types';
 
 // Exported for type access only
 export class ReorderDropzone {
@@ -33,7 +33,7 @@ export class ReorderDropzoneManager {
 	constructor(
 		private branchController: BranchController,
 		private branch: VirtualBranch,
-		commits: Commit[]
+		commits: DetailedCommit[]
 	) {
 		this.indexer = new Indexer(commits);
 	}
@@ -54,7 +54,7 @@ export class ReorderDropzoneManager {
 export class ReorderDropzoneManagerFactory {
 	constructor(private branchController: BranchController) {}
 
-	build(branch: VirtualBranch, commits: Commit[]) {
+	build(branch: VirtualBranch, commits: DetailedCommit[]) {
 		return new ReorderDropzoneManager(this.branchController, branch, commits);
 	}
 }
@@ -64,7 +64,7 @@ class Indexer {
 	private dropzoneIndexes = new Map<string, number>();
 	private commitIndexes = new Map<string, number>();
 
-	constructor(commits: Commit[]) {
+	constructor(commits: DetailedCommit[]) {
 		this.dropzoneIndexes.set('top', 0);
 
 		commits.forEach((commit, index) => {
