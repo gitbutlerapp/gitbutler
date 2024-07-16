@@ -10,6 +10,7 @@ use gitbutler_commit::commit_headers::HasCommitHeaders;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::credentials::Helper;
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
+use itertools::Itertools;
 use std::borrow::Borrow;
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::PermissionsExt;
@@ -158,6 +159,8 @@ pub struct VirtualBranchHunk {
     pub locked: bool,
     pub locked_to: Option<Box<[diff::HunkLock]>>,
     pub change_type: diff::ChangeType,
+    /// Indicates that the hunk depends on multiple branches. In this case the hunk cant be moved or comitted.
+    pub poisoned: bool,
 }
 
 /// Lifecycle
@@ -172,6 +175,14 @@ impl VirtualBranchHunk {
         mtimes: &mut MTimeCache,
     ) -> Self {
         let hash = Hunk::hash_diff(&hunk.diff_lines);
+        // Get the unique branch ids (lock.branch_id) from hunk.locked_to that a hunk is locked to (if any)
+        let branch_deps_count = hunk
+            .locked_to
+            .iter()
+            .map(|lock| lock.branch_id)
+            .unique()
+            .count();
+
         Self {
             id: Self::gen_id(hunk.new_start, hunk.new_lines),
             modified_at: mtimes.mtime_by_path(project_path.join(&file_path)),
@@ -185,6 +196,7 @@ impl VirtualBranchHunk {
             locked: hunk.locked_to.len() > 0,
             locked_to: Some(hunk.locked_to),
             change_type: hunk.change_type,
+            poisoned: branch_deps_count > 1,
         }
     }
 }
@@ -1110,25 +1122,39 @@ fn new_compute_locks(
         .filter_map(|(path, hunks)| {
             let integration_hunks = integration_hunks_by_path.get(path)?;
 
-            let (unapplied_hunk, branch) = hunks.iter().find_map(|unapplied_hunk| {
-                // Find the first intersecting hunk
-                for (integration_hunk, branch) in integration_hunks {
-                    if GitHunk::integration_intersects_unapplied(integration_hunk, unapplied_hunk) {
-                        return Some((unapplied_hunk, branch));
-                    };
+            let (unapplied_hunk, branches) = hunks.iter().find_map(|unapplied_hunk| {
+                // Find all branches that have a hunk that intersects with the unapplied hunk
+                let locked_to = integration_hunks
+                    .iter()
+                    .filter_map(|(integration_hunk, branch)| {
+                        if GitHunk::integration_intersects_unapplied(
+                            integration_hunk,
+                            unapplied_hunk,
+                        ) {
+                            Some(*branch)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                if locked_to.is_empty() {
+                    None
+                } else {
+                    Some((unapplied_hunk, locked_to))
                 }
-
-                None
             })?;
 
             let hash = Hunk::hash_diff(&unapplied_hunk.diff_lines);
-            let lock = diff::HunkLock {
-                branch_id: branch.id,
-                commit_id: branch.head,
-            };
+            let locks = branches
+                .iter()
+                .map(|b| diff::HunkLock {
+                    branch_id: b.id,
+                    commit_id: b.head,
+                })
+                .collect::<Vec<_>>();
 
             // For now we're returning an array of locks to align with the original type, even though this implementation doesn't give multiple locks for the same hunk
-            Some((hash, vec![lock]))
+            Some((hash, locks))
         })
         .collect::<HashMap<_, _>>();
 
@@ -1546,12 +1572,20 @@ pub(crate) fn write_tree_onto_tree(
                         "failed to apply\n{}\nonto:\n{}",
                         all_diffs.as_bstr(),
                         blob_contents.as_bstr()
-                    ))?;
+                    ));
 
-                    // create a blob
-                    let new_blob_oid = git_repository.blob(&blob_contents)?;
-                    // upsert into the builder
-                    builder.upsert(rel_path, new_blob_oid, filemode);
+                    match blob_contents {
+                        Ok(blob_contents) => {
+                            // create a blob
+                            let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
+                            // upsert into the builder
+                            builder.upsert(rel_path, new_blob_oid, filemode);
+                        }
+                        Err(_) => {
+                            // If the patch failed to apply, do nothing, this is handled elsewhere
+                            continue;
+                        }
+                    }
                 }
             } else if is_submodule {
                 let mut blob_contents = BString::default();
