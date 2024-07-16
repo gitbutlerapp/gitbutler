@@ -23,34 +23,24 @@
 	// let contextMenu: ContextMenuActions;
 	let includePrs = persisted(true, 'includePrs_' + projectId);
 	let includeRemote = persisted(true, 'includeRemote_' + projectId);
-	let includeStashed = persisted(true, 'includeStashed_' + projectId);
 	let hideBots = persisted(false, 'hideBots_' + projectId);
 	let hideInactive = persisted(false, 'hideInactive_' + projectId);
 
 	let filtersActive = derived(
-		[includePrs, includeRemote, includeStashed, hideBots, hideInactive],
-		([prs, remote, stashed, bots, inactive]) => {
-			return !prs || !remote || !stashed || bots || inactive;
+		[includePrs, includeRemote, hideBots, hideInactive],
+		([prs, remote, bots, inactive]) => {
+			return !prs || !remote || bots || inactive;
 		}
 	);
 
 	$: branches = $branchService?.branches || readable([]);
 	$: filteredBranches = branches
 		? derived(
-				[branches, textFilter, includePrs, includeRemote, includeStashed, hideBots, hideInactive],
-				([
-					branches,
-					textFilter,
-					includePrs,
-					includeRemote,
-					includeStashed,
-					hideBots,
-					hideInactive
-				]) => {
+				[branches, textFilter, includePrs, includeRemote, hideBots, hideInactive],
+				([branches, textFilter, includePrs, includeRemote, hideBots, hideInactive]) => {
 					const filteredByType = filterByType(branches, {
 						includePrs,
 						includeRemote,
-						includeStashed,
 						hideBots
 					});
 					const filteredBySearch = filterByText(filteredByType, textFilter);
@@ -67,16 +57,17 @@
 		params: {
 			includePrs: boolean;
 			includeRemote: boolean;
-			includeStashed: boolean;
 			hideBots: boolean;
 		}
 	): CombinedBranch[] {
 		return branches.filter((b) => {
 			if (params.includePrs && b.pr) {
 				return !params.hideBots || !b.pr.author?.isBot;
+			} else {
+				if (b.pr) return false;
 			}
+
 			if (params.includeRemote && b.remoteBranch) return true;
-			if (params.includeStashed && b.vbranch) return true;
 			return false;
 		});
 	}
@@ -118,7 +109,6 @@
 				{filtersActive}
 				{includePrs}
 				{includeRemote}
-				{includeStashed}
 				{hideBots}
 				{hideInactive}
 				showPrCheckbox={!!$gitHost}

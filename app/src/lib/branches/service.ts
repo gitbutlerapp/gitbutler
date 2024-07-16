@@ -34,31 +34,19 @@ export class BranchService {
 }
 
 function mergeBranchesAndPrs(
-	vbranches: VirtualBranch[] | undefined,
+	_vbranches: VirtualBranch[] | undefined,
 	pullRequests: PullRequest[] | undefined,
 	remoteBranches: Branch[] | undefined
 ): CombinedBranch[] {
 	const contributions: CombinedBranch[] = [];
 
-	// First we add everything with a virtual branch
-	if (vbranches) {
-		contributions.push(
-			...vbranches.map((vb) => {
-				const pr = pullRequests?.find((pr) => pr.sourceBranch === vb.upstreamName);
-				return new CombinedBranch({ vbranch: vb, remoteBranch: vb.upstream, pr });
-			})
-		);
-	}
-
 	// Then remote branches that have no virtual branch, combined with pull requests if present
 	if (remoteBranches) {
 		contributions.push(
-			...remoteBranches
-				.filter((rb) => !contributions.some((cb) => rb.sha === cb.upstreamSha))
-				.map((rb) => {
-					const pr = pullRequests?.find((pr) => pr.sha === rb.sha);
-					return new CombinedBranch({ remoteBranch: rb, pr });
-				})
+			...remoteBranches.map((rb) => {
+				const pr = pullRequests?.find((pr) => pr.sha === rb.sha);
+				return new CombinedBranch({ remoteBranch: rb, pr });
+			})
 		);
 	}
 
@@ -74,10 +62,8 @@ function mergeBranchesAndPrs(
 	}
 
 	// This should be everything considered a branch in one list
-	const filtered = contributions
-		.filter((b) => !b.vbranch)
-		.sort((a, b) => {
-			return (a.modifiedAt || new Date(0)) < (b.modifiedAt || new Date(0)) ? 1 : -1;
-		});
+	const filtered = contributions.sort((a, b) => {
+		return (a.modifiedAt || new Date(0)) < (b.modifiedAt || new Date(0)) ? 1 : -1;
+	});
 	return filtered;
 }
