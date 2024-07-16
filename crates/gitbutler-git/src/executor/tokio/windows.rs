@@ -20,7 +20,7 @@ impl Socket for BufStream<NamedPipeServer> {
 
     fn pid(&self) -> Result<Pid, Self::Error> {
         let raw_handle = self.get_ref().as_raw_handle();
-        let handle: HANDLE = HANDLE(raw_handle as isize);
+        let handle: HANDLE = HANDLE(raw_handle);
         let mut out_pid: u32 = 0;
 
         #[allow(unsafe_code)]
@@ -35,7 +35,7 @@ impl Socket for BufStream<NamedPipeServer> {
     async fn read_line(&mut self) -> Result<String, Self::Error> {
         let mut buf = String::new();
         <Self as AsyncBufReadExt>::read_line(self, &mut buf).await?;
-        Ok(buf.trim_end_matches(|c| c == '\r' || c == '\n').into())
+        Ok(buf.trim_end_matches(['\r', '\n']).into())
     }
 
     async fn write_line(&mut self, line: &str) -> Result<(), Self::Error> {
