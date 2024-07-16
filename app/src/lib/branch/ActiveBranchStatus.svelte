@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { Branch } from '$lib/vbranches/types';
-	import { invoke } from '@tauri-apps/api/tauri';
 
 	export let isUnapplied = false;
 	export let hasIntegratedCommits = false;
@@ -14,16 +14,15 @@
 	const baseBranch = getContextStore(BaseBranch);
 	const branch = getContextStore(Branch);
 
-	async function normalizeBranchName() {
-		return await invoke('normalize_branch_name', { name: $branch.displayName });
-	}
+	const nameNormalizationService = getNameNormalizationServiceContext();
 
 	let normalizedBranchName: string;
 
 	$: if ($branch.displayName) {
-		normalizeBranchName()
+		nameNormalizationService
+			.normalize($branch.displayName)
 			.then((name) => {
-				normalizedBranchName = name as string;
+				normalizedBranchName = name;
 			})
 			.catch((e) => {
 				console.error('Failed to normalize branch name', e);

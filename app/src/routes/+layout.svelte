@@ -6,9 +6,14 @@
 	import { AuthService } from '$lib/backend/auth';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { HttpClient } from '$lib/backend/httpClient';
+	import { invoke } from '$lib/backend/ipc';
 	import { ProjectService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
+	import {
+		IpcNameNormalizationService,
+		setNameNormalizationServiceContext
+	} from '$lib/branches/nameNormalizationService';
 	import AppUpdater from '$lib/components/AppUpdater.svelte';
 	import GlobalSettingsMenuAction from '$lib/components/GlobalSettingsMenuAction.svelte';
 	import PromptModal from '$lib/components/PromptModal.svelte';
@@ -54,6 +59,7 @@
 	setContext(RemotesService, data.remotesService);
 	setContext(AIPromptService, data.aiPromptService);
 	setContext(LineManagerFactory, data.lineManagerFactory);
+	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 
 	const user = data.userService.user;
 	const accessToken = $derived($user?.github_access_token);
