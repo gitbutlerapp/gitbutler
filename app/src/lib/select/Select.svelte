@@ -14,7 +14,7 @@
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { portal } from '$lib/utils/portal';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
-	import type { Snippet } from 'svelte';
+	import { type Snippet } from 'svelte';
 
 	interface SelectProps {
 		id?: string;
