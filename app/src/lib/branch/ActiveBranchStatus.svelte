@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import Button from '$lib/shared/Button.svelte';
-	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { Branch } from '$lib/vbranches/types';
+	import { invoke } from '@tauri-apps/api/tauri';
 
 	export let isUnapplied = false;
 	export let hasIntegratedCommits = false;
@@ -13,6 +13,22 @@
 
 	const baseBranch = getContextStore(BaseBranch);
 	const branch = getContextStore(Branch);
+
+	async function normalizeBranchName() {
+		return await invoke('normalize_branch_name', { name: $branch.displayName });
+	}
+
+	let normalizedBranchName: string;
+
+	$: if ($branch.displayName) {
+		normalizeBranchName()
+			.then((name) => {
+				normalizedBranchName = name as string;
+			})
+			.catch((e) => {
+				console.error('Failed to normalize branch name', e);
+			});
+	}
 </script>
 
 {#if !remoteExists}
@@ -37,16 +53,18 @@
 		>
 	{/if}
 	{#if !isUnapplied && !isLaneCollapsed}
-		<Button
-			clickable={false}
-			size="tag"
-			style="neutral"
-			shrinkable
-			disabled
-			help="Branch name that will be used when pushing. You can change it from the lane menu."
-		>
-			{normalizeBranchName($branch.displayName)}
-		</Button>
+		{#await normalizedBranchName then name}
+			<Button
+				clickable={false}
+				size="tag"
+				style="neutral"
+				shrinkable
+				disabled
+				help="Branch name that will be used when pushing. You can change it from the lane menu."
+			>
+				{name}
+			</Button>
+		{/await}
 	{/if}
 {:else}
 	<Button

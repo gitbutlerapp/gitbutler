@@ -10,12 +10,19 @@ pub mod commands {
     use gitbutler_error::error::Code;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
+    use gitbutler_reference::normalize_branch_name as normalize_name;
     use gitbutler_reference::ReferenceName;
     use gitbutler_reference::{Refname, RemoteRefname};
     use tauri::State;
     use tracing::instrument;
 
     use crate::WindowState;
+
+    #[tauri::command(async)]
+    #[instrument(err(Debug))]
+    pub async fn normalize_branch_name(name: &str) -> Result<String, Error> {
+        Ok(normalize_name(name))
+    }
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]

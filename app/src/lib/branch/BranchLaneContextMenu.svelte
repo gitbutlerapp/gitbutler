@@ -12,10 +12,10 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
-	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Branch, type NameConflictResolution } from '$lib/vbranches/types';
+	import { invoke } from '@tauri-apps/api/tauri';
 
 	export let contextMenuEl: ContextMenu;
 	export let target: HTMLElement;
@@ -91,7 +91,7 @@
 	const remoteBranches = branchController.remoteBranchService.branches;
 
 	function tryUnapplyBranch() {
-		if ($remoteBranches.find((b) => b.name.endsWith(normalizeBranchName(branch.name)))) {
+		if ($remoteBranches.find((b) => b.name.endsWith(normalizedBranchName))) {
 			unapplyBranchModal.show();
 		} else {
 			// No resolution required
@@ -109,13 +109,30 @@
 				return 'Rename and unapply';
 		}
 	}
+
+	// Normalize branch name
+	async function normalizeBranchName() {
+		return await invoke('normalize_branch_name', { name: branch.name });
+	}
+
+	let normalizedBranchName: string;
+
+	$: if (branch.name) {
+		normalizeBranchName()
+			.then((name) => {
+				normalizedBranchName = name as string;
+			})
+			.catch((e) => {
+				console.error('Failed to normalize branch name', e);
+			});
+	}
 </script>
 
 <Modal width="small" bind:this={unapplyBranchModal}>
 	<div class="flow">
 		<div class="modal-copy">
 			<p class="text-base-14 text-semibold">
-				"{normalizeBranchName(branch.name)}" branch already exists
+				"{normalizedBranchName}" branch already exists
 			</p>
 
 			<p class="text-base-body-13 modal-copy-caption">
@@ -212,7 +229,7 @@
 			on:click={() => {
 				console.log('Set remote branch name');
 
-				newRemoteName = branch.upstreamName || normalizeBranchName(branch.name) || '';
+				newRemoteName = branch.upstreamName || normalizedBranchName || '';
 				renameRemoteModal.show(branch);
 				contextMenuEl.close();
 			}}
