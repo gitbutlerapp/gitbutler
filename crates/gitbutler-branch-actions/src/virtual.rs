@@ -1110,25 +1110,39 @@ fn new_compute_locks(
         .filter_map(|(path, hunks)| {
             let integration_hunks = integration_hunks_by_path.get(path)?;
 
-            let (unapplied_hunk, branch) = hunks.iter().find_map(|unapplied_hunk| {
-                // Find the first intersecting hunk
-                for (integration_hunk, branch) in integration_hunks {
-                    if GitHunk::integration_intersects_unapplied(integration_hunk, unapplied_hunk) {
-                        return Some((unapplied_hunk, branch));
-                    };
+            let (unapplied_hunk, branches) = hunks.iter().find_map(|unapplied_hunk| {
+                // Find all branches that have a hunk that intersects with the unapplied hunk
+                let locked_to = integration_hunks
+                    .iter()
+                    .filter_map(|(integration_hunk, branch)| {
+                        if GitHunk::integration_intersects_unapplied(
+                            integration_hunk,
+                            unapplied_hunk,
+                        ) {
+                            Some(*branch)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                if locked_to.is_empty() {
+                    None
+                } else {
+                    Some((unapplied_hunk, locked_to))
                 }
-
-                None
             })?;
 
             let hash = Hunk::hash_diff(&unapplied_hunk.diff_lines);
-            let lock = diff::HunkLock {
-                branch_id: branch.id,
-                commit_id: branch.head,
-            };
+            let locks = branches
+                .iter()
+                .map(|b| diff::HunkLock {
+                    branch_id: b.id,
+                    commit_id: b.head,
+                })
+                .collect::<Vec<_>>();
 
             // For now we're returning an array of locks to align with the original type, even though this implementation doesn't give multiple locks for the same hunk
-            Some((hash, vec![lock]))
+            Some((hash, locks))
         })
         .collect::<HashMap<_, _>>();
 
