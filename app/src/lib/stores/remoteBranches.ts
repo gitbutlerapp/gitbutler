@@ -1,5 +1,5 @@
 import { invoke } from '$lib/backend/ipc';
-import { Branch, RemoteBranchData } from '$lib/vbranches/types';
+import { Branch, BranchData } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { writable } from 'svelte/store';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
@@ -28,9 +28,9 @@ export class RemoteBranchService {
 		}
 	}
 
-	async getRemoteBranchData(refname: string): Promise<RemoteBranchData> {
+	async getRemoteBranchData(refname: string): Promise<BranchData> {
 		return plainToInstance(
-			RemoteBranchData,
+			BranchData,
 			await invoke<any>('get_remote_branch_data', { projectId: this.projectId, refname })
 		);
 	}

@@ -111,7 +111,7 @@ export class VirtualBranch {
 	order!: number;
 	@Type(() => Branch)
 	upstream?: Branch;
-	upstreamData?: RemoteBranchData;
+	upstreamData?: BranchData;
 	upstreamName?: string;
 	conflicted!: boolean;
 	// TODO: to be removed from the API
@@ -336,7 +336,7 @@ export class Branch {
 	}
 }
 
-export class RemoteBranchData {
+export class BranchData {
 	sha!: string;
 	name!: string;
 	upstream?: string;
