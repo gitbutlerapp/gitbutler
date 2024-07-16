@@ -10,7 +10,7 @@ import {
 import type { Project } from '$lib/backend/projects';
 import type { BranchController } from '$lib/vbranches/branchController';
 
-class CommitDragActions {
+export class CommitDragActions {
 	constructor(
 		private branchController: BranchController,
 		private project: Project,
