@@ -139,7 +139,6 @@
 					first={idx === 0}
 					branch={$branch}
 					last={idx === $localCommits.length - 1}
-					commitUrl={$baseBranch?.commitUrl(commit.id)}
 					isHeadCommit={commit.id === headCommit?.id}
 				>
 					{#snippet lines(topHeightPx)}

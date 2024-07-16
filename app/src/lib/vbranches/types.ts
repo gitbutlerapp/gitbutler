@@ -184,10 +184,6 @@ export class DetailedCommit {
 	prev?: DetailedCommit;
 	next?: DetailedCommit;
 
-	get isLocal() {
-		return !this.isRemote && !this.isIntegrated;
-	}
-
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
 		if (this.isRemote && (!this.relatedTo || this.id === this.relatedTo.id))
@@ -212,10 +208,6 @@ export class DetailedCommit {
 	}
 }
 
-export function isLocalCommit(obj: any): obj is DetailedCommit {
-	return obj instanceof DetailedCommit;
-}
-
 export class Commit {
 	id!: string;
 	author!: Author;
@@ -229,10 +221,6 @@ export class Commit {
 	prev?: Commit;
 	next?: Commit;
 	relatedTo?: DetailedCommit;
-
-	get isLocal() {
-		return false;
-	}
 
 	get descriptionTitle(): string | undefined {
 		return splitMessage(this.description).title || undefined;
@@ -249,10 +237,6 @@ export class Commit {
 	isMergeCommit() {
 		return this.parentIds.length > 1;
 	}
-}
-
-export function isRemoteCommit(obj: any): obj is Commit {
-	return obj instanceof Commit;
 }
 
 export type AnyCommit = DetailedCommit | Commit;

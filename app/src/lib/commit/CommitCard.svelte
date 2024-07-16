@@ -76,8 +76,6 @@
 
 	let isUndoable = commit instanceof DetailedCommit;
 
-	const hasCommitUrl = !commit.isLocal && commitUrl;
-
 	let commitMessageModal: Modal;
 	let commitMessageValid = false;
 	let description = '';
@@ -264,7 +262,7 @@
 							</div>
 						</button>
 
-						{#if showDetails && hasCommitUrl}
+						{#if showDetails && commitUrl}
 							<span class="commit__subtitle-divider">•</span>
 
 							<button
