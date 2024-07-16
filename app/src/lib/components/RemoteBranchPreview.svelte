@@ -10,14 +10,14 @@
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { type RemoteBranch } from '$lib/vbranches/types';
+	import { type Branch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
 	import { onMount, setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 
-	export let branch: RemoteBranch;
+	export let branch: Branch;
 	export let pr: PullRequest | undefined;
 
 	const project = getContext(Project);

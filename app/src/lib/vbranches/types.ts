@@ -91,27 +91,27 @@ export class SkippedFile {
 }
 
 export class VirtualBranches {
-	@Type(() => Branch)
-	branches!: Branch[];
+	@Type(() => VirtualBranch)
+	branches!: VirtualBranch[];
 	@Type(() => SkippedFile)
 	skippedFiles!: SkippedFile[];
 }
 
-export class Branch {
+export class VirtualBranch {
 	id!: string;
 	name!: string;
 	notes!: string;
 	@Type(() => LocalFile)
 	files!: LocalFile[];
-	@Type(() => Commit)
-	commits!: Commit[];
+	@Type(() => DetailedCommit)
+	commits!: DetailedCommit[];
 	requiresForce!: boolean;
 	description!: string;
 	head!: string;
 	order!: number;
-	@Type(() => RemoteBranch)
-	upstream?: RemoteBranch;
-	upstreamData?: RemoteBranchData;
+	@Type(() => Branch)
+	upstream?: Branch;
+	upstreamData?: BranchData;
 	upstreamName?: string;
 	conflicted!: boolean;
 	// TODO: to be removed from the API
@@ -165,7 +165,7 @@ export type ComponentColor =
 	| 'purple';
 export type CommitStatus = 'local' | 'localAndRemote' | 'integrated' | 'remote';
 
-export class Commit {
+export class DetailedCommit {
 	id!: string;
 	author!: Author;
 	description!: string;
@@ -179,14 +179,10 @@ export class Commit {
 	branchId!: string;
 	changeId!: string;
 	isSigned!: boolean;
-	relatedTo?: RemoteCommit;
+	relatedTo?: Commit;
 
-	prev?: Commit;
-	next?: Commit;
-
-	get isLocal() {
-		return !this.isRemote && !this.isIntegrated;
-	}
+	prev?: DetailedCommit;
+	next?: DetailedCommit;
 
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
@@ -203,7 +199,7 @@ export class Commit {
 		return splitMessage(this.description).description || undefined;
 	}
 
-	isParentOf(possibleChild: Commit) {
+	isParentOf(possibleChild: DetailedCommit) {
 		return possibleChild.parentIds.includes(this.id);
 	}
 
@@ -212,11 +208,7 @@ export class Commit {
 	}
 }
 
-export function isLocalCommit(obj: any): obj is Commit {
-	return obj instanceof Commit;
-}
-
-export class RemoteCommit {
+export class Commit {
 	id!: string;
 	author!: Author;
 	description!: string;
@@ -226,13 +218,9 @@ export class RemoteCommit {
 	isSigned!: boolean;
 	parentIds!: string[];
 
-	prev?: RemoteCommit;
-	next?: RemoteCommit;
-	relatedTo?: Commit;
-
-	get isLocal() {
-		return false;
-	}
+	prev?: Commit;
+	next?: Commit;
+	relatedTo?: DetailedCommit;
 
 	get descriptionTitle(): string | undefined {
 		return splitMessage(this.description).title || undefined;
@@ -251,11 +239,7 @@ export class RemoteCommit {
 	}
 }
 
-export function isRemoteCommit(obj: any): obj is RemoteCommit {
-	return obj instanceof RemoteCommit;
-}
-
-export type AnyCommit = Commit | RemoteCommit;
+export type AnyCommit = DetailedCommit | Commit;
 
 export function commitCompare(left: AnyCommit, right: AnyCommit): boolean {
 	if (left.id === right.id) return true;
@@ -324,7 +308,7 @@ export interface Author {
 	isBot?: boolean;
 }
 
-export class RemoteBranch {
+export class Branch {
 	sha!: string;
 	name!: string;
 	upstream?: string;
@@ -336,13 +320,13 @@ export class RemoteBranch {
 	}
 }
 
-export class RemoteBranchData {
+export class BranchData {
 	sha!: string;
 	name!: string;
 	upstream?: string;
 	behind!: number;
-	@Type(() => RemoteCommit)
-	commits!: RemoteCommit[];
+	@Type(() => Commit)
+	commits!: Commit[];
 	isMergeable!: boolean | undefined;
 	forkPoint?: string | undefined;
 

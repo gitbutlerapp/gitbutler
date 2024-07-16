@@ -26,14 +26,14 @@
 	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import { RemoteFile, Branch } from '$lib/vbranches/types';
+	import { RemoteFile, VirtualBranch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { setContext } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 
-	const { branch }: { branch: Branch } = $props();
+	const { branch }: { branch: VirtualBranch } = $props();
 
 	const baseBranch = getContextStore(BaseBranch);
 
@@ -69,7 +69,7 @@
 	$effect(() => gitHostChecksMonitorStore.set(checksMonitor));
 
 	// BRANCH
-	const branchStore = createContextStore(Branch, branch);
+	const branchStore = createContextStore(VirtualBranch, branch);
 	const ownershipStore = createContextStore(Ownership, Ownership.fromBranch(branch));
 	const branchFiles = writable(branch.files);
 

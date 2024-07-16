@@ -21,7 +21,7 @@
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import { Branch, LocalFile } from '$lib/vbranches/types';
+	import { VirtualBranch, LocalFile } from '$lib/vbranches/types';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -33,7 +33,7 @@
 	const user = getContextStore(User);
 	const selectedOwnership = getContextStore(Ownership);
 	const aiService = getContext(AIService);
-	const branch = getContextStore(Branch);
+	const branch = getContextStore(VirtualBranch);
 	const project = getContext(Project);
 	const promptService = getContext(PromptService);
 

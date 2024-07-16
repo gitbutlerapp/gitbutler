@@ -1,5 +1,5 @@
 import { convertRemoteToWebUrl } from '$lib/utils/url';
-import { RemoteCommit } from '$lib/vbranches/types';
+import { Commit } from '$lib/vbranches/types';
 import { Type } from 'class-transformer';
 
 export class NoDefaultTarget extends Error {}
@@ -13,10 +13,10 @@ export class BaseBranch {
 	baseSha!: string;
 	currentSha!: string;
 	behind!: number;
-	@Type(() => RemoteCommit)
-	upstreamCommits!: RemoteCommit[];
-	@Type(() => RemoteCommit)
-	recentCommits!: RemoteCommit[];
+	@Type(() => Commit)
+	upstreamCommits!: Commit[];
+	@Type(() => Commit)
+	recentCommits!: Commit[];
 	lastFetchedMs?: number;
 
 	actualPushRemoteName(): string {

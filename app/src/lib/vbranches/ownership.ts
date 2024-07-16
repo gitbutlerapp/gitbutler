@@ -1,4 +1,4 @@
-import type { Branch, AnyFile, Hunk, RemoteHunk, RemoteFile } from './types';
+import type { VirtualBranch, AnyFile, Hunk, RemoteHunk, RemoteFile } from './types';
 
 export function filesToOwnership(files: AnyFile[]) {
 	return files
@@ -26,7 +26,7 @@ export type FileClaims = Map<FilePath, HunkClaims>;
 export class Ownership {
 	private claims: FileClaims;
 
-	static fromBranch(branch: Branch) {
+	static fromBranch(branch: VirtualBranch) {
 		const files = branch.files.reduce((acc, file) => {
 			const existing = acc.get(file.id);
 			if (existing) {

@@ -4,7 +4,7 @@
 	import Button from '$lib/shared/Button.svelte';
 	import { getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { Branch } from '$lib/vbranches/types';
+	import { VirtualBranch } from '$lib/vbranches/types';
 
 	export let isUnapplied = false;
 	export let hasIntegratedCommits = false;
@@ -12,7 +12,7 @@
 	export let remoteExists: boolean;
 
 	const baseBranch = getContextStore(BaseBranch);
-	const branch = getContextStore(Branch);
+	const branch = getContextStore(VirtualBranch);
 
 	const nameNormalizationService = getNameNormalizationServiceContext();
 

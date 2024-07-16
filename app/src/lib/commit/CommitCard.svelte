@@ -19,16 +19,16 @@
 	import { createCommitStore } from '$lib/vbranches/contexts';
 	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 	import {
-		RemoteCommit,
 		Commit,
+		DetailedCommit,
 		RemoteFile,
-		Branch,
+		VirtualBranch,
 		type CommitStatus
 	} from '$lib/vbranches/types';
 	import { type Snippet } from 'svelte';
 
-	export let branch: Branch | undefined = undefined;
-	export let commit: Commit | RemoteCommit;
+	export let branch: VirtualBranch | undefined = undefined;
+	export let commit: DetailedCommit | Commit;
 	export let commitUrl: string | undefined = undefined;
 	export let isHeadCommit: boolean = false;
 	export let isUnapplied = false;
@@ -66,7 +66,7 @@
 		}
 	}
 
-	function undoCommit(commit: Commit | RemoteCommit) {
+	function undoCommit(commit: DetailedCommit | Commit) {
 		if (!branch || !$baseBranch) {
 			console.error('Unable to undo commit');
 			return;
@@ -74,9 +74,7 @@
 		branchController.undoCommit(branch.id, commit.id);
 	}
 
-	let isUndoable = commit instanceof Commit;
-
-	const hasCommitUrl = !commit.isLocal && commitUrl;
+	let isUndoable = commit instanceof DetailedCommit;
 
 	let commitMessageModal: Modal;
 	let commitMessageValid = false;
@@ -192,7 +190,9 @@
 					
 					dragDirection = isTop ? 'up' : 'down';
 				}}
-				use:draggableCommit={commit instanceof Commit && !isUnapplied && type !== 'integrated'
+				use:draggableCommit={commit instanceof DetailedCommit &&
+				!isUnapplied &&
+				type !== 'integrated'
 					? {
 							label: commit.descriptionTitle,
 							sha: commitShortSha,
@@ -262,7 +262,7 @@
 							</div>
 						</button>
 
-						{#if showDetails && hasCommitUrl}
+						{#if showDetails && commitUrl}
 							<span class="commit__subtitle-divider">•</span>
 
 							<button
