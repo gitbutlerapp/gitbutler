@@ -10,6 +10,7 @@ use gitbutler_commit::commit_headers::HasCommitHeaders;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::credentials::Helper;
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
+use itertools::Itertools;
 use std::borrow::Borrow;
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::PermissionsExt;
@@ -158,6 +159,8 @@ pub struct VirtualBranchHunk {
     pub locked: bool,
     pub locked_to: Option<Box<[diff::HunkLock]>>,
     pub change_type: diff::ChangeType,
+    /// Indicates that the hunk depends on multiple branches. In this case the hunk cant be moved or comitted.
+    pub poisoned: bool,
 }
 
 /// Lifecycle
@@ -172,6 +175,14 @@ impl VirtualBranchHunk {
         mtimes: &mut MTimeCache,
     ) -> Self {
         let hash = Hunk::hash_diff(&hunk.diff_lines);
+        // Get the unique branch ids (lock.branch_id) from hunk.locked_to that a hunk is locked to (if any)
+        let branch_deps_count = hunk
+            .locked_to
+            .iter()
+            .map(|lock| lock.branch_id)
+            .unique()
+            .count();
+
         Self {
             id: Self::gen_id(hunk.new_start, hunk.new_lines),
             modified_at: mtimes.mtime_by_path(project_path.join(&file_path)),
@@ -185,6 +196,7 @@ impl VirtualBranchHunk {
             locked: hunk.locked_to.len() > 0,
             locked_to: Some(hunk.locked_to),
             change_type: hunk.change_type,
+            poisoned: branch_deps_count > 1,
         }
     }
 }
