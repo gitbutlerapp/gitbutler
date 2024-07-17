@@ -1190,6 +1190,7 @@ fn new_compute_locks(
 // Returns branches and their associated file changes, in addition to a list
 // of skipped files.
 // TODO(kv): make this side effect free
+#[allow(clippy::type_complexity)]
 pub(crate) fn get_applied_status(
     project_repository: &ProjectRepository,
     integration_commit: &git2::Oid,
