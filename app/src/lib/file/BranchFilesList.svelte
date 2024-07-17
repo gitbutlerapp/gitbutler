@@ -79,6 +79,7 @@
 			console.log('loading more files...');
 			loadMore();
 		}}
+		role="listbox"
 	>
 		{#each displayedFiles as file (file.id)}
 			<FileListItem
