@@ -20,7 +20,7 @@
 	let project = getContext(Project);
 
 	let selectedBranch = { name: $baseBranch.branchName };
-	let selectedRemote = { name: $baseBranch.actualPushRemoteName() };
+	let selectedRemote = { name: $baseBranch.actualPushRemoteName };
 	let targetChangeDisabled = false;
 
 	if ($activeBranches) {
@@ -119,7 +119,7 @@
 						id="set-base-branch"
 						loading={isSwitching}
 						disabled={(selectedBranch.name === $baseBranch.branchName &&
-							selectedRemote.name === $baseBranch.actualPushRemoteName()) ||
+							selectedRemote.name === $baseBranch.actualPushRemoteName) ||
 							targetChangeDisabled}
 					>
 						{isSwitching ? 'Switching branches...' : 'Update configuration'}

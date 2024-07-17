@@ -369,3 +369,13 @@ export type NameConflictResolution =
 			type: 'rename';
 			value: string;
 	  };
+
+export enum Forge {
+	Unknown,
+	GitHub,
+	GitLab,
+	Bitbucket,
+	AzureDevOps
+}
+
+export type ForgeType = keyof typeof Forge;
