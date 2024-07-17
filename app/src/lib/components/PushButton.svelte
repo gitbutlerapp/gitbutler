@@ -18,14 +18,14 @@
 		projectId,
 		requiresForce,
 		isLoading = false,
-		integrate = false,
+		canIntegrate = false,
 		wide = false,
 		trigger
 	}: {
 		projectId: string;
 		requiresForce: boolean;
 		isLoading: boolean;
-		integrate: boolean;
+		canIntegrate: boolean;
 		wide: boolean;
 		trigger: (action: BranchAction) => void;
 	} = $props();
@@ -46,11 +46,11 @@
 	});
 
 	$effect(() => {
-		if (requiresForce) $preferredAction = BranchAction.Integrate;
+		if (canIntegrate) $preferredAction = BranchAction.Integrate;
 	});
 
 	function selectAction(preferredAction: BranchAction) {
-		if (preferredAction === BranchAction.Integrate && integrate) return BranchAction.Integrate;
+		if (preferredAction === BranchAction.Integrate && canIntegrate) return BranchAction.Integrate;
 		return BranchAction.Push;
 	}
 </script>
@@ -76,7 +76,7 @@
 		/>
 		<ContextMenuItem
 			label={labels[BranchAction.Integrate]}
-			disabled={!integrate}
+			disabled={!canIntegrate}
 			on:click={() => {
 				$preferredAction = BranchAction.Integrate;
 				dropDown.close();

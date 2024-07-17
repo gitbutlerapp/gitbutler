@@ -71,7 +71,7 @@
 				wide
 				projectId={project.id}
 				requiresForce={$branch.requiresForce}
-				integrate={hasRemoteCommits}
+				canIntegrate={hasRemoteCommits}
 				{isLoading}
 				trigger={async (action) => {
 					isLoading = true;
