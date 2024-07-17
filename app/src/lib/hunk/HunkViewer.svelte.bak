@@ -10,8 +10,7 @@
 	import { getContext, getContextStoreBySymbol, maybeGetContextStore } from '$lib/utils/context';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, type Hunk } from '$lib/vbranches/types';
-	import { type HunkSection } from '$lib/utils/fileSections';
-	import { SectionType } from '$lib/utils/fileSections';
+	import type { HunkSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
 
 	interface Props {
@@ -59,8 +58,28 @@
 	}
 </script>
 
+<HunkContextMenu
+	bind:this={contextMenu}
+	target={viewport}
+	projectPath={project.vscodePath}
+	{filePath}
+	{readonly}
+/>
+
 <div class="scrollable">
-	<div bind:this={viewport} tabindex="0" role="cell">
+	<div
+		bind:this={viewport}
+		tabindex="0"
+		role="cell"
+		use:draggableElement={{
+			data: new DraggableHunk($branch?.id || '', section.hunk),
+			disabled: draggingDisabled
+		}}
+		oncontextmenu={(e) => e.preventDefault()}
+		class="hunk hide-native-scrollbar"
+		class:readonly
+		class:opacity-60={section.hunk.locked && !isFileLocked}
+	>
 		<div bind:this={contents} class="hunk__bg-stretch">
 			{#if linesModified > 2500 && !alwaysShow}
 				<LargeDiffMessage
@@ -69,31 +88,35 @@
 					}}
 				/>
 			{:else}
-				{@const hunk = section.hunk}
-				<table data-hunk-hash={hunk.hash} class="table__section">
-					<tbody>
-						<tr>
-							<td colspan="3">{hunk.filePath}</td>
-						</tr>
-						{#each section.subSections as subsection}
-							{#each subsection.lines as line}
-								<tr>
-									<td class="table__numberColumn" align="center">{line.beforeLineNumber ?? ''}</td>
-									<td class="table__numberColumn" align="center">{line.afterLineNumber ?? ''}</td>
-									<td
-										class:diff-line-deletion={subsection.sectionType === SectionType.RemovedLines}
-										class:diff-line-addition={subsection.sectionType === SectionType.AddedLines}
-									>
-										{line.content}
-									</td>
-								</tr>
-							{/each}
-						{/each}
-					</tbody>
-				</table>
+				{#each section.subSections as subsection}
+					{@const hunk = section.hunk}
+					<HunkLines
+						lines={subsection.lines}
+						{filePath}
+						{readonly}
+						{minWidth}
+						{selectable}
+						{draggingDisabled}
+						tabSize={$userSettings.tabSize}
+						selected={$selectedOwnership?.contains(hunk.filePath, hunk.id) ?? false}
+						sectionType={subsection.sectionType}
+						handleSelected={(isSelected) => onHunkSelected(hunk, isSelected)}
+						handleClick={() => {
+							contextMenu?.close();
+						}}
+						handleLineContextMenu={({ event, lineNumber }) => {
+							contextMenu?.open(event, {
+								hunk,
+								section: subsection,
+								lineNumber: lineNumber
+							});
+						}}
+					/>
+				{/each}
 			{/if}
 		</div>
 	</div>
+	<Scrollbar {viewport} {contents} horz />
 </div>
 
 <style lang="postcss">
@@ -120,21 +143,5 @@
 	.hunk__bg-stretch {
 		width: 100%;
 		min-width: max-content;
-	}
-
-	.table__section {
-		width: 100%;
-	}
-
-	.table__numberColumn {
-		width: fit-content;
-	}
-
-	.diff-line-deletion {
-		background-color: #cf8d8e40;
-	}
-
-	.diff-line-addition {
-		background-color: #94cf8d40;
 	}
 </style>
