@@ -1,15 +1,18 @@
 <script lang="ts">
-	import { GitHubService } from '$lib/github/service';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import Button from '$lib/shared/Button.svelte';
 	import TimeAgo from '$lib/shared/TimeAgo.svelte';
 	import { getContext } from '$lib/utils/context';
-	import { BaseBranchService } from '$lib/vbranches/baseBranch';
+	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 
-	const githubService = getContext(GitHubService);
 	const baseBranchService = getContext(BaseBranchService);
+	const vbranchService = getContext(VirtualBranchService);
 	const baseBranch = baseBranchService.base;
 
-	$: baseServiceBusy$ = baseBranchService.busy$;
+	const listingService = getGitHostListingService();
+
+	let loading = $state(false);
 </script>
 
 <Button
@@ -20,17 +23,24 @@
 	outline
 	icon="update-small"
 	help="Last fetch from upstream"
-	loading={$baseServiceBusy$}
+	{loading}
 	on:mousedown={async (e) => {
 		e.preventDefault();
 		e.stopPropagation();
-		await baseBranchService.fetchFromRemotes('modal');
-		if (githubService.isEnabled) {
-			await githubService.reload();
+		loading = true;
+		try {
+			await baseBranchService.fetchFromRemotes('modal');
+			await Promise.all([
+				$listingService?.refresh(),
+				vbranchService.refresh(),
+				baseBranchService.refresh()
+			]);
+		} finally {
+			loading = false;
 		}
 	}}
 >
-	{#if $baseServiceBusy$}
+	{#if loading}
 		<div class="sync-btn__busy-label">busy…</div>
 	{:else if $baseBranch?.lastFetched}
 		<TimeAgo date={$baseBranch?.lastFetched} />

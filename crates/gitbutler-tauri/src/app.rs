@@ -1,34 +1,41 @@
 use anyhow::{Context, Result};
-use gitbutler_branch::conflicts;
-use gitbutler_command_context::ProjectRepo;
-use gitbutler_core::{
-    git,
-    projects::{self, ProjectId},
-    virtual_branches::BranchId,
-};
-use gitbutler_repo::{credentials::Helper, RepoActions, RepositoryExt};
+use gitbutler_branch::BranchId;
+use gitbutler_branch_actions::conflicts;
+use gitbutler_command_context::ProjectRepository;
+use gitbutler_project as projects;
+use gitbutler_project::ProjectId;
+use gitbutler_reference::RemoteRefname;
+use gitbutler_repo::{credentials, RepoActionsExt, RepositoryExt};
+use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct App {
-    projects: projects::Controller,
+    pub app_data_dir: PathBuf,
+}
+
+/// Access to primary categories of data.
+impl App {
+    pub fn projects(&self) -> projects::Controller {
+        projects::Controller::from_path(self.app_data_dir.clone())
+    }
+
+    pub fn users(&self) -> gitbutler_user::Controller {
+        gitbutler_user::Controller::from_path(&self.app_data_dir)
+    }
 }
 
 impl App {
-    pub fn new(projects: projects::Controller) -> Self {
-        Self { projects }
-    }
-
     pub fn mark_resolved(&self, project_id: ProjectId, path: &str) -> Result<()> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = ProjectRepo::open(&project)?;
+        let project = self.projects().get(project_id)?;
+        let project_repository = ProjectRepository::open(&project)?;
         // mark file as resolved
         conflicts::resolve(&project_repository, path)?;
         Ok(())
     }
 
-    pub fn git_remote_branches(&self, project_id: ProjectId) -> Result<Vec<git::RemoteRefname>> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = ProjectRepo::open(&project)?;
+    pub fn git_remote_branches(&self, project_id: ProjectId) -> Result<Vec<RemoteRefname>> {
+        let project = self.projects().get(project_id)?;
+        let project_repository = ProjectRepository::open(&project)?;
         project_repository.repo().remote_branches()
     }
 
@@ -37,11 +44,11 @@ impl App {
         project_id: ProjectId,
         remote_name: &str,
         branch_name: &str,
-        credentials: &Helper,
+        credentials: &credentials::Helper,
         askpass: Option<Option<BranchId>>,
     ) -> Result<()> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = ProjectRepo::open(&project)?;
+        let project = self.projects().get(project_id)?;
+        let project_repository = ProjectRepository::open(&project)?;
         project_repository.git_test_push(credentials, remote_name, branch_name, askpass)
     }
 
@@ -49,17 +56,17 @@ impl App {
         &self,
         project_id: ProjectId,
         remote_name: &str,
-        credentials: &Helper,
+        credentials: &credentials::Helper,
         askpass: Option<String>,
     ) -> Result<()> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = ProjectRepo::open(&project)?;
+        let project = self.projects().get(project_id)?;
+        let project_repository = ProjectRepository::open(&project)?;
         project_repository.fetch(remote_name, credentials, askpass)
     }
 
     pub fn git_index_size(&self, project_id: ProjectId) -> Result<usize> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = ProjectRepo::open(&project)?;
+        let project = self.projects().get(project_id)?;
+        let project_repository = ProjectRepository::open(&project)?;
         let size = project_repository
             .repo()
             .index()
@@ -69,8 +76,8 @@ impl App {
     }
 
     pub fn git_head(&self, project_id: ProjectId) -> Result<String> {
-        let project = self.projects.get(project_id)?;
-        let project_repository = ProjectRepo::open(&project)?;
+        let project = self.projects().get(project_id)?;
+        let project_repository = ProjectRepository::open(&project)?;
         let head = project_repository
             .repo()
             .head()
@@ -105,8 +112,9 @@ impl App {
     }
 
     pub async fn delete_all_data(&self) -> Result<()> {
-        for project in self.projects.list().context("failed to list projects")? {
-            self.projects
+        let controller = self.projects();
+        for project in controller.list().context("failed to list projects")? {
+            controller
                 .delete(project.id)
                 .await
                 .map_err(|err| err.context("failed to delete project"))?;

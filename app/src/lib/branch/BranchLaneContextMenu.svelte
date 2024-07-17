@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
+	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
@@ -12,31 +13,28 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
-	import { normalizeBranchName } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { Branch, type NameConflictResolution } from '$lib/vbranches/types';
-	import { createEventDispatcher } from 'svelte';
+	import { VirtualBranch, type NameConflictResolution } from '$lib/vbranches/types';
 
 	export let contextMenuEl: ContextMenu;
 	export let target: HTMLElement;
-	export let isUnapplied = false;
+	export let onCollapse: () => void;
+	export let onGenerateBranchName: () => void;
 
 	const user = getContextStore(User);
 	const project = getContext(Project);
 	const aiService = getContext(AIService);
-	const branchStore = getContextStore(Branch);
+	const branchStore = getContextStore(VirtualBranch);
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const branchController = getContext(BranchController);
+
+	const nameNormalizationService = getNameNormalizationServiceContext();
 
 	let aiConfigurationValid = false;
 	let deleteBranchModal: Modal;
 	let renameRemoteModal: Modal;
 	let newRemoteName: string;
-
-	const dispatch = createEventDispatcher<{
-		action: 'expand' | 'collapse' | 'generate-branch-name';
-	}>();
 
 	$: branch = $branchStore;
 	$: commits = branch.commits;
@@ -92,10 +90,10 @@
 		unapplyBranchModal.close();
 	}
 
-	const remoteBranches = branchController.remoteBranchService.branches$;
+	const remoteBranches = branchController.remoteBranchService.branches;
 
 	function tryUnapplyBranch() {
-		if ($remoteBranches.find((b) => b.name.endsWith(normalizeBranchName(branch.name)))) {
+		if ($remoteBranches.find((b) => b.name.endsWith(normalizedBranchName))) {
 			unapplyBranchModal.show();
 		} else {
 			// No resolution required
@@ -113,13 +111,26 @@
 				return 'Rename and unapply';
 		}
 	}
+
+	let normalizedBranchName: string;
+
+	$: if (branch.name) {
+		nameNormalizationService
+			.normalize(branch.name)
+			.then((name) => {
+				normalizedBranchName = name;
+			})
+			.catch((e) => {
+				console.error('Failed to normalize branch name', e);
+			});
+	}
 </script>
 
 <Modal width="small" bind:this={unapplyBranchModal}>
 	<div class="flow">
 		<div class="modal-copy">
 			<p class="text-base-14 text-semibold">
-				"{normalizeBranchName(branch.name)}" branch already exists
+				"{normalizedBranchName}" branch already exists
 			</p>
 
 			<p class="text-base-body-13 modal-copy-caption">
@@ -167,26 +178,22 @@
 
 <ContextMenu bind:this={contextMenuEl} {target}>
 	<ContextMenuSection>
-		{#if !isUnapplied}
-			<ContextMenuItem
-				label="Collapse lane"
-				on:click={() => {
-					dispatch('action', 'collapse');
-					contextMenuEl.close();
-				}}
-			/>
-		{/if}
+		<ContextMenuItem
+			label="Collapse lane"
+			on:click={() => {
+				onCollapse();
+				contextMenuEl.close();
+			}}
+		/>
 	</ContextMenuSection>
 	<ContextMenuSection>
-		{#if !isUnapplied}
-			<ContextMenuItem
-				label="Unapply"
-				on:click={() => {
-					tryUnapplyBranch();
-					contextMenuEl.close();
-				}}
-			/>
-		{/if}
+		<ContextMenuItem
+			label="Unapply"
+			on:click={() => {
+				tryUnapplyBranch();
+				contextMenuEl.close();
+			}}
+		/>
 
 		<ContextMenuItem
 			label="Delete"
@@ -207,23 +214,20 @@
 		<ContextMenuItem
 			label="Generate branch name"
 			on:click={() => {
-				dispatch('action', 'generate-branch-name');
+				onGenerateBranchName();
 				contextMenuEl.close();
 			}}
-			disabled={isUnapplied ||
-				!($aiGenEnabled && aiConfigurationValid) ||
-				branch.files?.length === 0}
+			disabled={!($aiGenEnabled && aiConfigurationValid) || branch.files?.length === 0}
 		/>
 	</ContextMenuSection>
 
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Set remote branch name"
-			disabled={isUnapplied}
 			on:click={() => {
 				console.log('Set remote branch name');
 
-				newRemoteName = branch.upstreamName || normalizeBranchName(branch.name) || '';
+				newRemoteName = branch.upstreamName || normalizedBranchName || '';
 				renameRemoteModal.show(branch);
 				contextMenuEl.close();
 			}}

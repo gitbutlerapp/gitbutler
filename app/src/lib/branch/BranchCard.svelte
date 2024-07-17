@@ -24,23 +24,23 @@
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { Branch } from '$lib/vbranches/types';
+	import { VirtualBranch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { onMount } from 'svelte';
-	import type { Persisted } from '$lib/persisted/persisted';
 	import type { Writable } from 'svelte/store';
 
-	export let isUnapplied = false;
-	export let isLaneCollapsed: Persisted<boolean>;
-	export let commitBoxOpen: Writable<boolean>;
+	const {
+		isLaneCollapsed,
+		commitBoxOpen
+	}: { isLaneCollapsed: Writable<boolean>; commitBoxOpen: Writable<boolean> } = $props();
 
 	const branchController = getContext(BranchController);
 	const fileIdSelection = getContext(FileIdSelection);
-	const branchStore = getContextStore(Branch);
+	const branchStore = getContextStore(VirtualBranch);
 	const project = getContext(Project);
 	const user = getContextStore(User);
 
-	$: branch = $branchStore;
+	const branch = $derived($branchStore);
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 
@@ -51,17 +51,21 @@
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
 	const laneWidthKey = 'laneWidth_';
 
-	let laneWidth: number;
+	let laneWidth: number | undefined = $state();
 
-	let scrollViewport: HTMLElement;
-	let rsViewport: HTMLElement;
+	let scrollViewport: HTMLElement | undefined = $state();
+	let rsViewport: HTMLElement | undefined = $state();
 
-	$: if ($commitBoxOpen && branch.files.length === 0) {
-		$commitBoxOpen = false;
-	}
+	$effect(() => {
+		if ($commitBoxOpen && branch.files.length === 0) {
+			commitBoxOpen.set(false);
+		}
+	});
 
 	async function generateBranchName() {
+		console.log('before');
 		if (!aiGenEnabled) return;
+		console.log('after');
 
 		const hunks = branch.files.flatMap((f) => f.hunks);
 
@@ -95,14 +99,9 @@
 {#if $isLaneCollapsed}
 	<div class="collapsed-lane-container">
 		<BranchHeader
-			{isUnapplied}
 			uncommittedChanges={branch.files.length}
-			bind:isLaneCollapsed
-			on:action={(e) => {
-				if (e.detail === 'generate-branch-name') {
-					generateBranchName();
-				}
-			}}
+			onGenerateBranchName={generateBranchName}
+			{isLaneCollapsed}
 		/>
 	</div>
 {:else}
@@ -124,27 +123,15 @@
 					style:width={`${laneWidth || $defaultBranchWidthRem}rem`}
 					class="branch-card__contents"
 				>
-					<BranchHeader
-						{isUnapplied}
-						bind:isLaneCollapsed
-						on:action={(e) => {
-							if (e.detail === 'generate-branch-name') {
-								generateBranchName();
-							}
-							if (e.detail === 'collapse') {
-								$isLaneCollapsed = true;
-							}
-						}}
-					/>
+					<BranchHeader {isLaneCollapsed} onGenerateBranchName={generateBranchName} />
 					<PullRequestCard />
-
 					<div class="card">
 						{#if branch.files?.length > 0}
 							<div class="branch-card__files">
 								<Dropzones>
 									<BranchFiles
+										isUnapplied={false}
 										files={branch.files}
-										{isUnapplied}
 										showCheckboxes={$commitBoxOpen}
 										allowMultiple
 									/>
@@ -168,11 +155,6 @@
 									projectId={project.id}
 									expanded={commitBoxOpen}
 									hasSectionsAfter={branch.commits.length > 0}
-									on:action={(e) => {
-										if (e.detail === 'generate-branch-name') {
-											generateBranchName();
-										}
-									}}
 								/>
 							</div>
 						{:else if branch.commits.length === 0}
@@ -199,8 +181,8 @@
 						{/if}
 
 						<div class="card-commits">
-							<CommitList {isUnapplied} />
-							<BranchFooter {isUnapplied} />
+							<CommitList isUnapplied={false} />
+							<BranchFooter />
 						</div>
 					</div>
 				</div>

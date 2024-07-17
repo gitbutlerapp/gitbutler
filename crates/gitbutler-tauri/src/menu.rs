@@ -1,8 +1,8 @@
 use std::{env, fs};
 
 use anyhow::Context;
-use gitbutler_core::error;
-use gitbutler_core::error::Code;
+use gitbutler_error::error;
+use gitbutler_error::error::Code;
 use serde_json::json;
 
 #[cfg(target_os = "macos")]
@@ -37,7 +37,7 @@ pub async fn menu_item_set_enabled(
 }
 
 #[tauri::command()]
-pub fn resolve_vscode_variant() -> &'static str {
+pub fn get_editor_link_scheme() -> &'static str {
     let vscodium_installed = check_if_installed("codium");
     if vscodium_installed {
         "vscodium"

@@ -6,16 +6,23 @@
 	import { AuthService } from '$lib/backend/auth';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { HttpClient } from '$lib/backend/httpClient';
+	import { invoke } from '$lib/backend/ipc';
 	import { ProjectService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
+	import {
+		IpcNameNormalizationService,
+		setNameNormalizationServiceContext
+	} from '$lib/branches/nameNormalizationService';
 	import AppUpdater from '$lib/components/AppUpdater.svelte';
 	import GlobalSettingsMenuAction from '$lib/components/GlobalSettingsMenuAction.svelte';
 	import PromptModal from '$lib/components/PromptModal.svelte';
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
-	import { GitHubService } from '$lib/github/service';
-	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
-	import { ProjectMetrics } from '$lib/metrics/projectMetrics';
+	import {
+		createGitHubUserServiceStore as createGitHubUserServiceStore,
+		GitHubUserService
+	} from '$lib/gitHost/github/githubUserService';
+	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
 	import ToastController from '$lib/notifications/ToastController.svelte';
 	import { RemotesService } from '$lib/remotes/service';
 	import { setSecretsService } from '$lib/secrets/secretsService';
@@ -26,13 +33,13 @@
 	import { initTheme } from '$lib/utils/theme';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
-	import { onMount, setContext } from 'svelte';
+	import { onMount, setContext, type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
 	import { dev } from '$app/environment';
 	import { goto } from '$app/navigation';
 
-	export let data: LayoutData;
+	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	const userSettings = loadUserSettings();
 	initTheme(userSettings);
@@ -43,7 +50,6 @@
 	setContext(UserService, data.userService);
 	setContext(ProjectService, data.projectService);
 	setContext(UpdaterService, data.updaterService);
-	setContext(GitHubService, data.githubService);
 	setContext(GitConfigService, data.gitConfig);
 	setContext(AIService, data.aiService);
 	setContext(PromptService, data.promptService);
@@ -53,13 +59,28 @@
 	setContext(RemotesService, data.remotesService);
 	setContext(AIPromptService, data.aiPromptService);
 	setContext(LineManagerFactory, data.lineManagerFactory);
-	setContext(ProjectMetrics, data.projectMetrics);
+	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
+
+	const user = data.userService.user;
+	const accessToken = $derived($user?.github_access_token);
+	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
+
+	// This store is literally only used once, on GitHub oauth, to set the
+	// gh username on the user object. Furthermore, it isn't used anywhere.
+	// TODO: Remove the gh username completely?
+	const githubUserService = $derived(octokit ? new GitHubUserService(octokit) : undefined);
+	const ghUserServiceStore = createGitHubUserServiceStore(undefined);
+	$effect(() => {
+		ghUserServiceStore.set(githubUserService);
+	});
 
 	let shareIssueModal: ShareIssueModal;
+	let zoom = $state($userSettings.zoom);
 
-	$: zoom = $userSettings.zoom || 1;
-	$: document.documentElement.style.fontSize = zoom + 'rem';
-	$: userSettings.update((s) => ({ ...s, zoom: zoom }));
+	$effect(() => {
+		document.documentElement.style.fontSize = zoom + 'rem';
+		userSettings.update((s) => ({ ...s, zoom: zoom }));
+	});
 
 	onMount(() => {
 		return unsubscribe(
@@ -100,9 +121,9 @@
 	data-tauri-drag-region
 	class="app-root"
 	role="application"
-	on:contextmenu={(e) => !dev && e.preventDefault()}
+	oncontextmenu={(e) => !dev && e.preventDefault()}
 >
-	<slot />
+	{@render children()}
 </div>
 <Toaster />
 <ShareIssueModal bind:this={shareIssueModal} />
@@ -110,7 +131,6 @@
 <AppUpdater />
 <PromptModal />
 <GlobalSettingsMenuAction />
-<MetricsReporter />
 
 <style lang="postcss">
 	.app-root {

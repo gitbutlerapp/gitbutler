@@ -3,10 +3,11 @@ use std::{path::PathBuf, vec};
 
 use anyhow::Context;
 
-use gitbutler_command_context::ProjectRepo;
-use gitbutler_core::{keys, projects};
+use gitbutler_command_context::ProjectRepository;
 
-use gitbutler_core::git::Url;
+use gitbutler_project::AuthKey;
+
+use gitbutler_url::{ConvertError, Scheme, Url};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SshCredential {
@@ -14,7 +15,6 @@ pub enum SshCredential {
         key_path: PathBuf,
         passphrase: Option<String>,
     },
-    GitButlerKey(Box<keys::PrivateKey>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -50,12 +50,6 @@ impl From<Credential> for git2::RemoteCallbacks<'_> {
                     git2::Cred::ssh_key("git", None, &key_path, passphrase.as_deref())
                 });
             }
-            Credential::Ssh(SshCredential::GitButlerKey(key)) => {
-                remote_callbacks.credentials(move |url, _username_from_url, _allowed_types| {
-                    tracing::info!("authenticating with {} using gitbutler's key", url);
-                    git2::Cred::ssh_key_from_memory("git", None, &key.to_string(), None)
-                });
-            }
             Credential::Https(HttpsCredential::CredentialHelper { username, password }) => {
                 remote_callbacks.credentials(move |url, _username_from_url, _allowed_types| {
                     tracing::info!("authenticating with {url} as '{username}' with password using credential helper");
@@ -81,7 +75,7 @@ pub enum HelpError {
     #[error("no url set for remote")]
     NoUrlSet,
     #[error("failed to convert url: {0}")]
-    UrlConvertError(#[from] gitbutler_core::git::ConvertError),
+    UrlConvertError(#[from] ConvertError),
     #[error(transparent)]
     Git(#[from] git2::Error),
     #[error(transparent)]
@@ -91,7 +85,7 @@ pub enum HelpError {
 impl Helper {
     pub fn help<'a>(
         &'a self,
-        project_repository: &'a ProjectRepo,
+        project_repository: &'a ProjectRepository,
         remote_name: &str,
     ) -> Result<Vec<(git2::Remote, Vec<Credential>)>, HelpError> {
         let remote = project_repository.repo().find_remote(remote_name)?;
@@ -99,13 +93,13 @@ impl Helper {
             .context("failed to parse remote url")?;
 
         // if file, no auth needed.
-        if remote_url.scheme == gitbutler_core::git::Scheme::File {
+        if remote_url.scheme == Scheme::File {
             return Ok(vec![(remote, vec![Credential::Noop])]);
         }
 
         match &project_repository.project().preferred_key {
-            projects::AuthKey::Local { private_key_path } => {
-                let ssh_remote = if remote_url.scheme == gitbutler_core::git::Scheme::Ssh {
+            AuthKey::Local { private_key_path } => {
+                let ssh_remote = if remote_url.scheme == Scheme::Ssh {
                     Ok(remote)
                 } else {
                     let ssh_url = remote_url.as_ssh()?;
@@ -122,8 +116,8 @@ impl Helper {
                     })],
                 )])
             }
-            projects::AuthKey::GitCredentialsHelper => {
-                let https_remote = if remote_url.scheme == gitbutler_core::git::Scheme::Https {
+            AuthKey::GitCredentialsHelper => {
+                let https_remote = if remote_url.scheme == Scheme::Https {
                     Ok(remote)
                 } else {
                     let url = remote_url.as_https()?;
@@ -135,7 +129,7 @@ impl Helper {
                     .collect::<Vec<_>>();
                 Ok(vec![(https_remote, flow)])
             }
-            projects::AuthKey::SystemExecutable => {
+            AuthKey::SystemExecutable => {
                 tracing::error!("WARNING: FIXME: this codepath should NEVER be hit. Something is seriously wrong.");
                 Ok(vec![])
             }
@@ -143,8 +137,8 @@ impl Helper {
     }
 
     fn https_flow(
-        project_repository: &ProjectRepo,
-        remote_url: &gitbutler_core::git::Url,
+        project_repository: &ProjectRepository,
+        remote_url: &Url,
     ) -> Result<Vec<HttpsCredential>, HelpError> {
         let mut flow = vec![];
 

@@ -6,9 +6,9 @@
 		"node": ">=20.11"
 	},
 	"type": "module",
-	"packageManager": "pnpm@9.2.0",
+	"packageManager": "pnpm@9.5.0",
 	"scripts": {
-		"dev": "turbo run --filter @gitbutler/app dev --no-daemon",
+		"dev": "turbo watch --filter @gitbutler/app dev --no-update-notifier",
 		"dev:ui": "pnpm --filter @gitbutler/ui dev",
 		"dev:tauri": "pnpm tauri dev",
 		"test": "pnpm --filter @gitbutler/app run test",
@@ -32,13 +32,13 @@
 		"eslint-config-prettier": "^9.1.0",
 		"eslint-import-resolver-typescript": "^3.6.1",
 		"eslint-plugin-import-x": "^0.5.1",
-		"eslint-plugin-storybook": "0.9.0--canary.156.da7873a.0",
+		"eslint-plugin-storybook": "0.9.0--canary.156.ed236ca.0",
 		"eslint-plugin-svelte": "2.40.0",
 		"globals": "^15.6.0",
 		"prettier": "^3.3.2",
 		"prettier-plugin-svelte": "^3.2.4",
 		"svelte-eslint-parser": "^0.39.2",
-		"turbo": "^2.0.6",
+		"turbo": "2.0.7-canary.1",
 		"typescript": "5.4.5",
 		"typescript-eslint": "^7.13.1"
 	}

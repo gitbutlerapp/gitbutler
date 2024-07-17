@@ -13,18 +13,17 @@
     clippy::too_many_lines
 )]
 
-use gitbutler_core::{assets, storage};
-use gitbutler_repo::credentials::Helper;
+use gitbutler_repo::credentials;
 use gitbutler_tauri::{
-    app, askpass, commands, config, github, keys, logs, menu, projects, remotes, repo, secret,
-    undo, users, virtual_branches, watcher, zip,
+    askpass, commands, config, github, logs, menu, projects, remotes, repo, secret, undo, users,
+    virtual_branches, zip, App, WindowState,
 };
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
 
 fn main() {
     let tauri_context = generate_context!();
-    gitbutler_core::secret::set_application_namespace(
+    gitbutler_secret::secret::set_application_namespace(
         &tauri_context.config().tauri.bundle.identifier,
     );
 
@@ -40,26 +39,20 @@ fn main() {
                 .target(LogTarget::LogDir)
                 .level(log::LevelFilter::Error);
 
-            let builder = tauri::Builder::default();
-
-            #[cfg(target_os = "macos")]
-            let builder = builder
-                .on_window_event(|event| {
-                    if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
-                        hide_window(&event.window().app_handle()).expect("Failed to hide window");
-                        api.prevent_close();
-                    }
-                });
-
-            builder
+            tauri::Builder::default()
                 .setup(move |tauri_app| {
-                    let window =
-                        create_window(&tauri_app.handle()).expect("Failed to create window");
+                    let window = gitbutler_tauri::window::create(
+                        &tauri_app.handle(),
+                        "main",
+                        "index.html".into(),
+                    )
+                    .expect("Failed to create window");
                     #[cfg(debug_assertions)]
                     window.open_devtools();
 
                     tokio::task::spawn(async move {
-                        let mut six_hours = tokio::time::interval(tokio::time::Duration::new(6 * 60 * 60, 0));
+                        let mut six_hours =
+                            tokio::time::interval(tokio::time::Duration::new(6 * 60 * 60, 0));
                         loop {
                             six_hours.tick().await;
                             _ = window.emit_and_trigger("tauri://update", ());
@@ -75,73 +68,50 @@ fn main() {
                     // This isn't an issue for actual release build (i.e. nightly, production),
                     // hence the specific condition.
                     if cfg!(debug_assertions) && cfg!(target_os = "macos") {
-                        gitbutler_core::secret::git_credentials::setup().ok();
+                        gitbutler_secret::secret::git_credentials::setup().ok();
                     }
 
                     // SAFETY(qix-): This is safe because we're initializing the askpass broker here,
                     // SAFETY(qix-): before any other threads would ever access it.
                     unsafe {
-                        gitbutler_core::askpass::init({
+                        gitbutler_repo::askpass::init({
                             let handle = app_handle.clone();
                             move |event| {
-                                handle.emit_all("git_prompt", event).expect("tauri event emission doesn't fail in practice")
+                                handle
+                                    .emit_all("git_prompt", event)
+                                    .expect("tauri event emission doesn't fail in practice")
                             }
                         });
                     }
 
-                    let app_data_dir = app_handle.path_resolver().app_data_dir().expect("missing app data dir");
-                    let app_cache_dir = app_handle.path_resolver().app_cache_dir().expect("missing app cache dir");
-                    let app_log_dir = app_handle.path_resolver().app_log_dir().expect("missing app log dir");
-
+                    let (app_data_dir, app_cache_dir, app_log_dir) = {
+                        let paths = app_handle.path_resolver();
+                        (
+                            paths.app_data_dir().expect("missing app data dir"),
+                            paths.app_cache_dir().expect("missing app cache dir"),
+                            paths.app_log_dir().expect("missing app log dir"),
+                        )
+                    };
                     std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
                     std::fs::create_dir_all(&app_cache_dir).expect("failed to create cache dir");
 
-                    tracing::info!(version = %app_handle.package_info().version, name = %app_handle.package_info().name, "starting app");
+                    tracing::info!(version = %app_handle.package_info().version,
+                                   name = %app_handle.package_info().name, "starting app");
 
-                    let storage_controller = storage::Storage::new(&app_data_dir);
-                    app_handle.manage(storage_controller.clone());
+                    app_handle.manage(WindowState::new(app_handle.clone()));
 
-                    let watcher_controller = watcher::Watchers::new(app_handle.clone());
-                    app_handle.manage(watcher_controller.clone());
+                    let app = App {
+                        app_data_dir: app_data_dir.clone(),
+                    };
+                    app_handle.manage(app.users());
+                    app_handle.manage(app.projects());
 
-                    let projects_storage_controller = gitbutler_core::projects::storage::Storage::new(storage_controller.clone());
-                    app_handle.manage(projects_storage_controller.clone());
-
-                    let users_storage_controller = gitbutler_core::users::storage::Storage::new(storage_controller.clone());
-                    app_handle.manage(users_storage_controller.clone());
-
-                    let users_controller = gitbutler_core::users::Controller::new(users_storage_controller.clone());
-                    app_handle.manage(users_controller.clone());
-
-                    let projects_controller = gitbutler_core::projects::Controller::new(
-                        app_data_dir.clone(),
-                        projects_storage_controller.clone(),
-                        Some(watcher_controller.clone())
-                    );
-                    app_handle.manage(projects_controller.clone());
-
-                    app_handle.manage(assets::Proxy::new(app_cache_dir.join("images")));
-
-                    let zipper = gitbutler_feedback::zipper::Zipper::new(&app_cache_dir);
-                    app_handle.manage(zipper.clone());
-
-                    app_handle.manage(gitbutler_feedback::controller::Controller::new(app_data_dir.clone(), app_log_dir.clone(), zipper.clone(), projects_controller.clone()));
-
-                    let keys_storage_controller = gitbutler_core::keys::storage::Storage::new(storage_controller.clone());
-                    app_handle.manage(keys_storage_controller.clone());
-
-                    let keys_controller = gitbutler_core::keys::Controller::new(keys_storage_controller.clone());
-                    app_handle.manage(keys_controller.clone());
-
-                    let git_credentials_controller = Helper::default();
-                    app_handle.manage(git_credentials_controller.clone());
-
-                    app_handle.manage(gitbutler_branch::controller::Controller::default());
-
-                    let app = app::App::new(
-                        projects_controller,
-                    );
-
+                    app_handle.manage(gitbutler_feedback::Archival {
+                        cache_dir: app_cache_dir,
+                        logs_dir: app_log_dir,
+                        projects_controller: app.projects(),
+                    });
+                    app_handle.manage(credentials::Helper::default());
                     app_handle.manage(app);
 
                     Ok(())
@@ -174,6 +144,7 @@ fn main() {
                     projects::commands::delete_project,
                     projects::commands::list_projects,
                     projects::commands::set_project_active,
+                    projects::commands::open_project_in_window,
                     repo::commands::git_get_local_config,
                     repo::commands::git_set_local_config,
                     repo::commands::check_signing_settings,
@@ -205,6 +176,7 @@ fn main() {
                     virtual_branches::commands::squash_branch_commit,
                     virtual_branches::commands::fetch_from_remotes,
                     virtual_branches::commands::move_commit,
+                    virtual_branches::commands::normalize_branch_name,
                     secret::secret_get_global,
                     secret::secret_set_global,
                     undo::list_snapshots,
@@ -213,8 +185,7 @@ fn main() {
                     config::get_gb_config,
                     config::set_gb_config,
                     menu::menu_item_set_enabled,
-                    menu::resolve_vscode_variant,
-                    keys::commands::get_public_key,
+                    menu::get_editor_link_scheme,
                     github::commands::init_device_oauth,
                     github::commands::check_auth_status,
                     askpass::commands::submit_prompt_response,
@@ -222,16 +193,34 @@ fn main() {
                     remotes::add_remote
                 ])
                 .menu(menu::build(tauri_context.package_info()))
-                .on_menu_event(|event|menu::handle_event(&event))
+                .on_menu_event(|event| menu::handle_event(&event))
                 .on_window_event(|event| {
-                    if let tauri::WindowEvent::Focused(focused) = event.event() {
-                        if *focused {
-                            tokio::task::spawn(async move {
-                                let _ = event.window().app_handle()
-                                    .state::<watcher::Watchers>()
-                                    .flush().await;
-                            });
+                    let window = event.window();
+                    match event.event() {
+                        #[cfg(target_os = "macos")]
+                        tauri::WindowEvent::CloseRequested { api, .. } => {
+                            if window.app_handle().windows().len() == 1 {
+                                tracing::debug!(
+                                    "Hiding all application windows and preventing exit"
+                                );
+                                window.app_handle().hide().ok();
+                                api.prevent_close();
+                            }
                         }
+                        tauri::WindowEvent::Destroyed => {
+                            window
+                                .app_handle()
+                                .state::<WindowState>()
+                                .remove(window.label());
+                        }
+                        tauri::WindowEvent::Focused(focused) if *focused => {
+                            window
+                                .app_handle()
+                                .state::<WindowState>()
+                                .flush(window.label())
+                                .ok();
+                        }
+                        _ => {}
                     }
                 })
                 .build(tauri_context)
@@ -239,7 +228,8 @@ fn main() {
                 .run(|app_handle, event| {
                     #[cfg(target_os = "macos")]
                     if let tauri::RunEvent::ExitRequested { api, .. } = event {
-                        hide_window(app_handle).expect("Failed to hide window");
+                        tracing::debug!("Hiding all windows and preventing exit");
+                        app_handle.hide().ok();
                         api.prevent_exit();
                     }
 
@@ -250,41 +240,4 @@ fn main() {
                     }
                 });
         });
-}
-
-#[cfg(not(target_os = "macos"))]
-fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
-    let app_title = handle.package_info().name.clone();
-    let window =
-        tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
-            .resizable(true)
-            .title(app_title)
-            .disable_file_drop_handler()
-            .min_inner_size(800.0, 600.0)
-            .inner_size(1160.0, 720.0)
-            .build()?;
-    tracing::info!("app window created");
-    Ok(window)
-}
-
-#[cfg(target_os = "macos")]
-fn create_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Window> {
-    let window =
-        tauri::WindowBuilder::new(handle, "main", tauri::WindowUrl::App("index.html".into()))
-            .resizable(true)
-            .title(handle.package_info().name.clone())
-            .min_inner_size(800.0, 600.0)
-            .inner_size(1160.0, 720.0)
-            .hidden_title(true)
-            .disable_file_drop_handler()
-            .title_bar_style(tauri::TitleBarStyle::Overlay)
-            .build()?;
-    tracing::info!("window created");
-    Ok(window)
-}
-
-#[cfg(target_os = "macos")]
-fn hide_window(handle: &tauri::AppHandle) -> tauri::Result<()> {
-    handle.hide()?;
-    Ok(())
 }

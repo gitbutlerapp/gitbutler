@@ -3,40 +3,41 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
-	import { Project } from '$lib/backend/projects';
-	import { BranchService } from '$lib/branches/service';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import { GitHubService } from '$lib/github/service';
-	import { showError } from '$lib/notifications/toasts';
+	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
+	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
+	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
+	import { getGitHost } from '$lib/gitHost/interface/gitHostService';
+	import { showError, showToast } from '$lib/notifications/toasts';
 	import Button from '$lib/shared/Button.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
+	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranch, Branch } from '$lib/vbranches/types';
-	import type { PullRequest } from '$lib/github/types';
+	import { VirtualBranch } from '$lib/vbranches/types';
+	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Persisted } from '$lib/persisted/persisted';
-	import { goto } from '$app/navigation';
 
 	export let uncommittedChanges = 0;
-	export let isUnapplied = false;
 	export let isLaneCollapsed: Persisted<boolean>;
+	export let onGenerateBranchName: () => void;
 
 	const branchController = getContext(BranchController);
-	const githubService = getContext(GitHubService);
-	const branchStore = getContextStore(Branch);
-	const project = getContext(Project);
-	const branchService = getContext(BranchService);
-	const baseBranch = getContextStore(BaseBranch);
+	const baseBranchService = getContext(BaseBranchService);
+	const prService = getGitHostPrService();
+	const gitListService = getGitHostListingService();
+	const branchStore = getContextStore(VirtualBranch);
+	const prMonitor = getGitHostPrMonitor();
+	const gitHost = getGitHost();
 
 	$: branch = $branchStore;
-	$: pr$ = githubService.getPr$(branch.upstream?.sha || branch.head);
-	$: hasPullRequest = branch.upstreamName && $pr$;
+	$: pr = $prMonitor?.pr;
 
 	let contextMenu: ContextMenu;
 	let meatballButtonEl: HTMLDivElement;
-	let isApplying = false;
-	let isDeleting = false;
 	let isLoading: boolean;
 	let isTargetBranchAnimated = false;
 
@@ -48,6 +49,10 @@
 
 	function expandLane() {
 		$isLaneCollapsed = false;
+	}
+
+	function collapseLane() {
+		$isLaneCollapsed = true;
 	}
 
 	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
@@ -64,23 +69,50 @@
 
 	async function createPr(createPrOpts: CreatePrOpts): Promise<PullRequest | undefined> {
 		const opts = { ...defaultPrOpts, ...createPrOpts };
-		if (!githubService.isEnabled) {
-			error('Cannot create PR without GitHub credentials');
+		if (!$gitHost) {
+			error('Pull request service not available');
 			return;
 		}
 
-		if (!$baseBranch?.shortName) {
-			error('Cannot create PR without base branch');
-			return;
+		let title: string;
+		let body: string;
+
+		// In case of a single commit, use the commit summary and description for the title and
+		// description of the PR.
+		if (branch.commits.length === 1) {
+			const commit = branch.commits[0];
+			title = commit.descriptionTitle ?? '';
+			body = commit.descriptionBody ?? '';
+		} else {
+			title = branch.name;
+			body = '';
 		}
 
 		isLoading = true;
 		try {
-			await branchService.createPr(branch, $baseBranch.shortName, opts.draft);
-			await githubService.reload();
+			if (branch.commits.some((c) => !c.isRemote)) {
+				const firstPush = !branch.upstream;
+				await branchController.pushBranch(branch.id, branch.requiresForce);
+				if (firstPush) {
+					// TODO: fix this hack for reactively available prService.
+					await sleep(500);
+				}
+			}
+			if (!$prService) {
+				error('Pull request service not available');
+				return;
+			}
+			await $prService.createPr(title, body, opts.draft);
+		} catch (err: any) {
+			console.error(err);
+			const toast = mapErrorToToast(err);
+			if (toast) showToast(toast);
+			else showError('Error while creating pull request', err);
 		} finally {
 			isLoading = false;
 		}
+		await $gitListService?.refresh();
+		baseBranchService.fetchFromRemotes();
 	}
 </script>
 
@@ -121,7 +153,6 @@
 
 				<div class="collapsed-lane__info__details">
 					<ActiveBranchStatus
-						{isUnapplied}
 						{hasIntegratedCommits}
 						remoteExists={!!branch.upstream}
 						isLaneCollapsed={$isLaneCollapsed}
@@ -143,21 +174,17 @@
 			class:header_target-branch-animation={isTargetBranchAnimated && branch.selectedForChanges}
 		>
 			<div class="header__info-wrapper">
-				{#if !isUnapplied}
-					<div class="draggable" data-drag-handle>
-						<Icon name="draggable" />
-					</div>
-				{/if}
+				<div class="draggable" data-drag-handle>
+					<Icon name="draggable" />
+				</div>
 
 				<div class="header__info">
 					<BranchLabel
 						name={branch.name}
 						on:change={(e) => handleBranchNameChange(e.detail.name)}
-						disabled={isUnapplied}
 					/>
 					<div class="header__remote-branch">
 						<ActiveBranchStatus
-							{isUnapplied}
 							{hasIntegratedCommits}
 							remoteExists={!!branch.upstream}
 							isLaneCollapsed={$isLaneCollapsed}
@@ -189,7 +216,6 @@
 							help="New changes will land here"
 							icon="target"
 							clickable={false}
-							disabled={isUnapplied}
 						>
 							Default branch
 						</Button>
@@ -199,7 +225,6 @@
 							outline
 							help="When selected, new changes will land here"
 							icon="target"
-							disabled={isUnapplied}
 							on:click={async () => {
 								isTargetBranchAnimated = true;
 								await branchController.setSelectedForChanges(branch.id);
@@ -211,73 +236,31 @@
 				</div>
 
 				<div class="relative">
-					{#if isUnapplied}
+					<div class="header__buttons">
+						{#if !$pr}
+							<PullRequestButton
+								click={async ({ draft }) => await createPr({ draft })}
+								disabled={branch.commits.length === 0 || !$gitHost}
+								help={!$gitHost ? 'You can enable git host integration in the settings' : ''}
+								loading={isLoading}
+							/>
+						{/if}
 						<Button
+							bind:el={meatballButtonEl}
 							style="ghost"
 							outline
-							help="Deletes the local virtual branch (only)"
-							icon="bin-small"
-							loading={isDeleting}
-							on:click={async () => {
-								isDeleting = true;
-								try {
-									await branchController.deleteBranch(branch.id);
-									goto(`/${project.id}/board`);
-								} catch (err) {
-									showError('Failed to delete branch', err);
-									console.error(err);
-								} finally {
-									isDeleting = false;
-								}
+							icon="kebab"
+							on:click={() => {
+								contextMenu.toggle();
 							}}
-						>
-							Delete
-						</Button>
-						<Button
-							style="ghost"
-							outline
-							help="Restores these changes into your working directory"
-							icon="plus-small"
-							loading={isApplying}
-							on:click={async () => {
-								isApplying = true;
-								try {
-									await branchController.applyBranch(branch.id);
-									goto(`/${project.id}/board`);
-								} catch (err) {
-									showError('Failed to apply branch', err);
-									console.error(err);
-								} finally {
-									isApplying = false;
-								}
-							}}
-						>
-							Apply
-						</Button>
-					{:else}
-						<div class="header__buttons">
-							{#if !hasPullRequest}
-								<PullRequestButton
-									on:exec={async (e) => await createPr({ draft: e.detail.action === 'draft' })}
-									loading={isLoading}
-								/>
-							{/if}
-							<Button
-								bind:el={meatballButtonEl}
-								style="ghost"
-								outline
-								icon="kebab"
-								on:click={() => {
-									contextMenu.toggle();
-								}}
-							/>
-							<BranchLaneContextMenu
-								bind:contextMenuEl={contextMenu}
-								{isUnapplied}
-								target={meatballButtonEl}
-							/>
-						</div>
-					{/if}
+						/>
+						<BranchLaneContextMenu
+							bind:contextMenuEl={contextMenu}
+							target={meatballButtonEl}
+							onCollapse={collapseLane}
+							{onGenerateBranchName}
+						/>
+					</div>
 				</div>
 			</div>
 		</div>

@@ -1,2 +1,2 @@
 mod repository;
-pub use repository::ProjectRepo;
+pub use repository::ProjectRepository;

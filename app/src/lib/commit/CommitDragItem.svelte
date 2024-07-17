@@ -1,26 +1,27 @@
 <script lang="ts">
-	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
+	import { CommitDragActions, CommitDragActionsFactory } from '$lib/commits/dragActions';
 	import CardOverlay from '$lib/dropzone/CardOverlay.svelte';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
-	import { RemoteCommit, Branch, Commit } from '$lib/vbranches/types';
+	import { Commit, VirtualBranch, DetailedCommit } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
 
 	const commitDragActionsFactory = getContext(CommitDragActionsFactory);
 
 	interface Props {
-		commit: Commit | RemoteCommit;
+		commit: DetailedCommit | Commit;
 		children: Snippet;
 	}
 
 	const { commit, children }: Props = $props();
 
-	const branch = maybeGetContextStore(Branch);
+	const branch = maybeGetContextStore(VirtualBranch);
 
-	const actions = $derived.by(() => {
+	let actions = $state<CommitDragActions>();
+	$effect.pre(() => {
 		if (!$branch) return;
 
-		return commitDragActionsFactory.build($branch, commit);
+		actions = commitDragActionsFactory.build($branch, commit);
 	});
 </script>
 

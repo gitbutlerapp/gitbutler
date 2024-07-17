@@ -1,12 +1,12 @@
 import { DraggableCommit, DraggableHunk, DraggableFile } from '$lib/dragging/draggables';
 import { filesToOwnership } from '$lib/vbranches/ownership';
 import type { BranchController } from '$lib/vbranches/branchController';
-import type { Branch } from '$lib/vbranches/types';
+import type { VirtualBranch } from '$lib/vbranches/types';
 
 class BranchDragActions {
 	constructor(
 		private branchController: BranchController,
-		private branch: Branch
+		private branch: VirtualBranch
 	) {}
 
 	acceptMoveCommit(data: any) {
@@ -47,7 +47,7 @@ class BranchDragActions {
 export class BranchDragActionsFactory {
 	constructor(private branchController: BranchController) {}
 
-	build(branch: Branch) {
+	build(branch: VirtualBranch) {
 		return new BranchDragActions(this.branchController, branch);
 	}
 }

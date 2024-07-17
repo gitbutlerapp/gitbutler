@@ -7,11 +7,11 @@ mod events;
 use events::InternalEvent;
 pub use events::{Action, Change};
 
+use gitbutler_project::ProjectId;
 pub use handler::Handler;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use gitbutler_core::projects::ProjectId;
 use tokio::{
     sync::mpsc::{unbounded_channel, UnboundedSender},
     task,
@@ -112,6 +112,7 @@ pub fn watch_in_background(
                     debounce.flush_nonblocking();
                 }
                 () = cancellation_token.cancelled() => {
+                    tracing::debug!(%project_id, "stopped watcher");
                     break;
                 }
             }

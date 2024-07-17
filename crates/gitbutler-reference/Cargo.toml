@@ -1,0 +1,13 @@
+[package]
+name = "gitbutler-reference"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+regex = "1.10"
+git2.workspace = true
+gitbutler-tagged-string.workspace = true
+serde = { workspace = true, features = ["std"]}
+thiserror.workspace = true

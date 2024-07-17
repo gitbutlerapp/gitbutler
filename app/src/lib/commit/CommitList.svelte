@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CommitCard from './CommitCard.svelte';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
 	import {
@@ -18,14 +19,14 @@
 		getLocalAndRemoteCommits,
 		getRemoteCommits
 	} from '$lib/vbranches/contexts';
-	import { BaseBranch, Branch } from '$lib/vbranches/types';
+	import { VirtualBranch } from '$lib/vbranches/types';
 	import LineGroup from '@gitbutler/ui/CommitLines/LineGroup.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied: boolean;
 
-	const branch = getContextStore(Branch);
+	const branch = getContextStore(VirtualBranch);
 	const localCommits = getLocalCommits();
 	const localAndRemoteCommits = getLocalAndRemoteCommits();
 	const remoteCommits = getRemoteCommits();
@@ -138,7 +139,6 @@
 					first={idx === 0}
 					branch={$branch}
 					last={idx === $localCommits.length - 1}
-					commitUrl={$baseBranch?.commitUrl(commit.id)}
 					isHeadCommit={commit.id === headCommit?.id}
 				>
 					{#snippet lines(topHeightPx)}

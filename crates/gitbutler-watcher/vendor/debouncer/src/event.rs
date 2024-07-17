@@ -31,7 +31,7 @@
 use std::ops::{Deref, DerefMut};
 
 #[cfg(test)]
-use mock_instant::Instant;
+use mock_instant::thread_local::Instant;
 
 #[cfg(not(test))]
 use std::time::Instant;

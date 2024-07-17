@@ -18,14 +18,14 @@ pub mod paths {
 }
 
 pub mod virtual_branches {
-    use gitbutler_branchstate::VirtualBranchesAccess;
-    use gitbutler_command_context::ProjectRepo;
-    use gitbutler_core::virtual_branches;
+    use gitbutler_branch::Target;
+    use gitbutler_branch::VirtualBranchesHandle;
+    use gitbutler_command_context::ProjectRepository;
 
     use crate::empty_bare_repository;
 
-    pub fn set_test_target(project_repository: &ProjectRepo) -> anyhow::Result<()> {
-        let vb_state = project_repository.project().virtual_branches();
+    pub fn set_test_target(project_repository: &ProjectRepository) -> anyhow::Result<()> {
+        let vb_state = VirtualBranchesHandle::new(project_repository.project().gb_dir());
         let (remote_repo, _tmp) = empty_bare_repository();
         let mut remote = project_repository
             .repo()
@@ -34,7 +34,7 @@ pub mod virtual_branches {
         remote.push(&["refs/heads/master:refs/heads/master"], None)?;
 
         vb_state
-            .set_default_target(virtual_branches::target::Target {
+            .set_default_target(Target {
                 branch: "refs/remotes/origin/master".parse().unwrap(),
                 remote_url: remote_repo.path().to_str().unwrap().parse().unwrap(),
                 sha: remote_repo.head().unwrap().target().unwrap(),
@@ -42,7 +42,7 @@ pub mod virtual_branches {
             })
             .expect("failed to write target");
 
-        gitbutler_branch::integration::update_gitbutler_integration(&vb_state, project_repository)
+        gitbutler_branch_actions::update_gitbutler_integration(&vb_state, project_repository)
             .expect("failed to update integration");
 
         Ok(())

@@ -8,18 +8,21 @@ publish = false
 [dependencies]
 anyhow = "1.0.86"
 git2.workspace = true
-gitbutler-core.workspace = true
-gitbutler-branchstate.workspace = true
 gitbutler-repo.workspace = true
-serde = { workspace = true, features = ["std"]}
+serde = { workspace = true, features = ["std"] }
 itertools = "0.13"
 strum = { version = "0.26", features = ["derive"] }
 tracing = "0.1.40"
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 toml = "0.8.13"
+gitbutler-project.workspace = true
+gitbutler-branch.workspace = true
+gitbutler-serde.workspace = true
+gitbutler-fs.workspace = true
+gitbutler-reference.workspace = true
 
 [[test]]
-name="oplog"
+name = "oplog"
 path = "tests/mod.rs"
 
 [dev-dependencies]

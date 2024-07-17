@@ -2,26 +2,23 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
 
-use gitbutler_command_context::ProjectRepo;
-use gitbutler_core::{
-    askpass,
-    error::Code,
-    git::{self, CommitHeadersV2},
-    projects::AuthKey,
-    ssh,
-    virtual_branches::{Branch, BranchId},
-};
+use gitbutler_branch::{Branch, BranchId};
+use gitbutler_command_context::ProjectRepository;
+use gitbutler_commit::commit_headers::CommitHeadersV2;
+use gitbutler_error::error::Code;
+use gitbutler_reference::{Refname, RemoteRefname};
 
-use gitbutler_core::project_repository::Config;
+use crate::{askpass, ssh, Config};
+use gitbutler_project::AuthKey;
 
 use crate::{credentials::Helper, RepositoryExt};
-pub trait RepoActions {
+pub trait RepoActionsExt {
     fn fetch(&self, remote_name: &str, credentials: &Helper, askpass: Option<String>)
         -> Result<()>;
     fn push(
         &self,
         head: &git2::Oid,
-        branch: &git::RemoteRefname,
+        branch: &RemoteRefname,
         with_force: bool,
         credentials: &Helper,
         refspec: Option<String>,
@@ -50,7 +47,7 @@ pub trait RepoActions {
     ) -> Result<()>;
 }
 
-impl RepoActions for ProjectRepo {
+impl RepoActionsExt for ProjectRepository {
     fn git_test_push(
         &self,
         credentials: &Helper,
@@ -59,7 +56,7 @@ impl RepoActions for ProjectRepo {
         askpass: Option<Option<BranchId>>,
     ) -> Result<()> {
         let target_branch_refname =
-            git::Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
+            Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
         let branch = self
             .repo()
             .find_branch_by_refname(&target_branch_refname)?
@@ -67,11 +64,11 @@ impl RepoActions for ProjectRepo {
 
         let commit_id: git2::Oid = branch.get().peel_to_commit()?.id();
 
-        let now = gitbutler_core::time::now_ms();
+        let now = gitbutler_time::time::now_ms();
         let branch_name = format!("test-push-{now}");
 
         let refname =
-            git::RemoteRefname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}",))?;
+            RemoteRefname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}",))?;
 
         match self.push(&commit_id, &refname, false, credentials, None, askpass) {
             Ok(()) => Ok(()),
@@ -249,7 +246,7 @@ impl RepoActions for ProjectRepo {
     fn push(
         &self,
         head: &git2::Oid,
-        branch: &git::RemoteRefname,
+        branch: &RemoteRefname,
         with_force: bool,
         credentials: &Helper,
         refspec: Option<String>,
@@ -293,7 +290,7 @@ impl RepoActions for ProjectRepo {
         for (mut remote, callbacks) in auth_flows {
             if let Some(url) = remote.url() {
                 if !self.project().omit_certificate_check.unwrap_or(false) {
-                    let git_url = git::Url::from_str(url)?;
+                    let git_url = gitbutler_url::Url::from_str(url)?;
                     ssh::check_known_host(&git_url).context("failed to check known host")?;
                 }
             }
@@ -388,7 +385,7 @@ impl RepoActions for ProjectRepo {
         for (mut remote, callbacks) in auth_flows {
             if let Some(url) = remote.url() {
                 if !self.project().omit_certificate_check.unwrap_or(false) {
-                    let git_url = git::Url::from_str(url)?;
+                    let git_url = gitbutler_url::Url::from_str(url)?;
                     ssh::check_known_host(&git_url).context("failed to check known host")?;
                 }
             }
@@ -429,7 +426,7 @@ impl RepoActions for ProjectRepo {
     }
 }
 
-fn signatures(project_repo: &ProjectRepo) -> Result<(git2::Signature, git2::Signature)> {
+fn signatures(project_repo: &ProjectRepository) -> Result<(git2::Signature, git2::Signature)> {
     let config: Config = project_repo.repo().into();
 
     let author = match (config.user_name()?, config.user_email()?) {

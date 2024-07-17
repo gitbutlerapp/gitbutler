@@ -1,6 +1,6 @@
 <script lang="ts">
 	import FileStatusTag from './FileStatusTag.svelte';
-	import { getVSIFileIcon } from '$lib/ext-icons';
+	import { getFileIcon } from '$lib/ext-icons';
 	import Button from '$lib/shared/Button.svelte';
 	import { splitFilePath } from '$lib/utils/filePath';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
@@ -20,7 +20,7 @@
 
 <div class="header">
 	<div class="header__inner">
-		<img src={getVSIFileIcon(file.path)} alt="" class="icon" />
+		<img src={getFileIcon(file.path)} alt="" class="icon" />
 		<div class="header__info truncate">
 			<div class="header__filetitle text-base-13 truncate">
 				<span class="header__filename">{fileTitle.filename}</span>

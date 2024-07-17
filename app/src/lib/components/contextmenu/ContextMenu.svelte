@@ -26,7 +26,6 @@
 	}: Props = $props();
 
 	// LOCAL VARS
-	let menuMargin = 4;
 
 	// STATES
 	let item = $state<any>();
@@ -70,12 +69,10 @@
 
 	function setVerticalAlign(targetBoundingRect: DOMRect) {
 		if (verticalAlign === 'top') {
-			return targetBoundingRect?.top ? targetBoundingRect.top - contextMenuHeight - menuMargin : 0;
+			return targetBoundingRect?.top ? targetBoundingRect.top - contextMenuHeight : 0;
 		}
 
-		return targetBoundingRect?.top
-			? targetBoundingRect.top + targetBoundingRect.height + menuMargin
-			: 0;
+		return targetBoundingRect?.top ? targetBoundingRect.top + targetBoundingRect.height : 0;
 	}
 
 	function setHorizontalAlign(targetBoundingRect: DOMRect) {
@@ -130,6 +127,8 @@
 		bind:offsetHeight={contextMenuHeight}
 		bind:offsetWidth={contextMenuWidth}
 		class="context-menu"
+		class:top-oriented={verticalAlign === 'top'}
+		class:bottom-oriented={verticalAlign === 'bottom'}
 		style:top="{menuPosition.y}px"
 		style:left="{menuPosition.x}px"
 		style:transform-origin={setTransformOrigin()}
@@ -166,6 +165,14 @@
 		/* background-color: rgba(0, 0, 0, 0.1); */
 	}
 
+	.top-oriented {
+		margin-top: -4px;
+	}
+
+	.bottom-oriented {
+		margin-top: 4px;
+	}
+
 	.context-menu {
 		z-index: var(--z-blocker);
 		position: fixed;
@@ -176,7 +183,7 @@
 		border-radius: var(--radius-m);
 		box-shadow: var(--fx-shadow-s);
 
-		animation: fadeIn 0.1s ease-out forwards;
+		animation: fadeIn 0.08s ease-out forwards;
 	}
 
 	@keyframes fadeIn {

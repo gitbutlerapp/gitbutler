@@ -2,15 +2,15 @@
 	import FullviewLoading from './FullviewLoading.svelte';
 	import dzenSvg from '$lib/assets/dzen-pc.svg?raw';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import BranchDropzone from '$lib/branch/BranchDropzone.svelte';
 	import BranchLane from '$lib/branch/BranchLane.svelte';
 	import { cloneElement } from '$lib/dragging/draggable';
+	import { editor } from '$lib/editorLink/editorLink';
 	import { persisted } from '$lib/persisted/persisted';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import { editor } from '$lib/utils/systemEditor';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { BaseBranch } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { open } from '@tauri-apps/api/shell';
 
@@ -18,8 +18,8 @@
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
-	const activeBranchesError = vbranchService.activeBranchesError;
-	const activeBranches = vbranchService.activeBranches;
+	const error = vbranchService.error;
+	const branches = vbranchService.branches;
 	const showHistoryView = persisted(false, 'showHistoryView');
 
 	let dragged: any;
@@ -29,14 +29,18 @@
 
 	let dragHandle: any;
 	let clone: any;
-	$: if ($activeBranchesError) {
+	$: if ($error) {
 		$showHistoryView = true;
+	}
+
+	async function openInVSCode() {
+		open(`${$editor}://file${project.vscodePath}/?windowId=_blank`);
 	}
 </script>
 
-{#if $activeBranchesError}
+{#if $error}
 	<div class="p-4" data-tauri-drag-region>Something went wrong...</div>
-{:else if !$activeBranches}
+{:else if !$branches}
 	<FullviewLoading />
 {:else}
 	<div
@@ -68,12 +72,12 @@
 		}}
 		on:drop={(e) => {
 			if (!dragged) return;
-			if (!$activeBranches) return;
+			if (!$branches) return;
 			e.preventDefault();
 			if (priorPosition !== dropPosition) {
-				const el = $activeBranches.splice(priorPosition, 1);
-				$activeBranches.splice(dropPosition, 0, ...el);
-				$activeBranches.forEach((branch, i) => {
+				const el = $branches.splice(priorPosition, 1);
+				$branches.splice(dropPosition, 0, ...el);
+				$branches.forEach((branch, i) => {
 					if (branch.order !== i) {
 						branchController.updateBranchOrder(branch.id, i);
 					}
@@ -81,7 +85,7 @@
 			}
 		}}
 	>
-		{#each $activeBranches.sort((a, b) => a.order - b.order) as branch (branch.id)}
+		{#each $branches.sort((a, b) => a.order - b.order) as branch (branch.id)}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div
 				class="branch draggable-branch"
@@ -112,11 +116,11 @@
 			</div>
 		{/each}
 
-		{#if $activeBranches.length === 0}
+		{#if $branches.length === 0}
 			<div
 				data-tauri-drag-region
 				class="empty-board__wrapper"
-				class:transition-fly={$activeBranches.length === 0}
+				class:transition-fly={$branches.length === 0}
 			>
 				<div class="empty-board">
 					<div class="empty-board__content">
@@ -133,6 +137,18 @@
 							<div class="empty-board__suggestions__block">
 								<h3 class="text-base-14 text-bold">Start</h3>
 								<div class="empty-board__suggestions__links">
+									<div
+										class="empty-board__suggestions__link"
+										role="button"
+										tabindex="0"
+										on:keypress={async () => await branchController.createBranch({})}
+										on:click={async () => await branchController.createBranch({})}
+									>
+										<div class="empty-board__suggestions__link__icon">
+											<Icon name="new-branch" />
+										</div>
+										<span class="text-base-12">Create a new branch</span>
+									</div>
 									<a
 										class="empty-board__suggestions__link"
 										target="_blank"
@@ -149,10 +165,8 @@
 										class="empty-board__suggestions__link"
 										role="button"
 										tabindex="0"
-										on:keypress={async () =>
-											await open(`${editor.get()}://file${project.vscodePath}/?windowId=_blank`)}
-										on:click={async () =>
-											await open(`${editor.get()}://file${project.vscodePath}/?windowId=_blank`)}
+										on:keypress={async () => await openInVSCode()}
+										on:click={async () => await openInVSCode()}
 									>
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="vscode" />
@@ -304,6 +318,7 @@
 
 	.empty-board__about p {
 		color: var(--clr-scale-ntrl-40);
+		line-height: 160%;
 	}
 
 	.empty-board__suggestions {
@@ -316,7 +331,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
-		min-width: 128px;
+		min-width: 160px;
 	}
 
 	.empty-board__suggestions__block h3 {
@@ -331,7 +346,7 @@
 	}
 
 	.empty-board__suggestions__link {
-		cursor: default;
+		cursor: pointer;
 		display: flex;
 		width: fit-content;
 		max-width: 100%;

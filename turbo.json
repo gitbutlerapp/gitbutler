@@ -6,6 +6,8 @@
 		},
 		"build": {
 			"dependsOn": ["^package"],
+			"passThroughEnv": ["SENTRY_AUTH_TOKEN", "GITHUB_TOKEN"],
+			"env": ["SENTRY_RELEASE"],
 			"cache": false
 		},
 		"dev": {

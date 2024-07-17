@@ -2,24 +2,21 @@
 //!
 //! ## How to use this
 //!
-//! Just make sure this [`Error`] type is used for each provided `tauri` command. The rest happens automatically
-//! such that:
+//! Just make sure this `Error` type is used for each provided `tauri` command. The rest happens automatically
+//! such that [context](gitbutler_error::error::Context) is handled correctly.
 //!
-//! * The frontend shows the root error as string by default…
-//! * …or it shows the provided [`Context`](gitbutler_core::error::Context) as controlled by the `core` crate.
-//!
-//! ### Interfacing with `tauri` using [`Error`]
+//! ### Interfacing with `tauri` using `Error`
 //!
 //! `tauri` serializes backend errors and makes these available as JSON objects to the frontend. The format
-//! is an implementation detail, but here it's implemented to turn each [`Error`] into a dict with `code`
+//! is an implementation detail, but here it's implemented to turn each `Error` into a dict with `code`
 //! and `messsage` fields.
 //!
-//! The values in these fields are controlled by attaching context, please [see the `core` docs](gitbutler_core::error))
+//! The values in these fields are controlled by attaching context, please [see the `error` docs](gitbutler_error::error))
 //! on how to do this.
 pub(crate) use frontend::Error;
 
 mod frontend {
-    use gitbutler_core::error::AnyhowContextExt;
+    use gitbutler_error::error::AnyhowContextExt;
     use serde::{ser::SerializeMap, Serialize};
     use std::borrow::Cow;
 
@@ -58,7 +55,7 @@ mod frontend {
     mod tests {
         use super::*;
         use anyhow::anyhow;
-        use gitbutler_core::error::{Code, Context};
+        use gitbutler_error::error::{Code, Context};
 
         fn json(err: anyhow::Error) -> String {
             serde_json::to_string(&Error(err)).unwrap()

@@ -2,13 +2,13 @@
 	import ProjectSetupTarget from './ProjectSetupTarget.svelte';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { Project, ProjectService } from '$lib/backend/projects';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
+	import { platformName } from '$lib/platform/platform';
 	import KeysForm from '$lib/settings/KeysForm.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { platform } from '@tauri-apps/api/os';
-	import { from } from 'rxjs';
 	import { goto } from '$app/navigation';
 
 	export let remoteBranches: { name: string }[];
@@ -16,7 +16,7 @@
 	const project = getContext(Project);
 	const projectService = getContext(ProjectService);
 	const branchController = getContext(BranchController);
-	const platformName = from(platform());
+	const baseBranchService = getContext(BaseBranchService);
 
 	let selectedBranch = ['', ''];
 	let loading = false;
@@ -28,10 +28,11 @@
 			// TODO: Refactor temporary solution to forcing Windows to use system executable
 			if ($platformName === 'win32') {
 				project.preferred_key = 'systemExecutable';
-				projectService.updateProject(project);
+				await projectService.updateProject(project);
+				await baseBranchService.refresh();
 			}
 			await branchController.setTarget(selectedBranch[0], selectedBranch[1]);
-			goto(`/${project.id}/`);
+			goto(`/${project.id}/`, { invalidateAll: true });
 		} finally {
 			loading = false;
 		}
@@ -52,7 +53,7 @@
 		<ProjectSetupTarget
 			projectName={project.title}
 			{remoteBranches}
-			on:branchSelected={(e) => {
+			on:branchSelected={async (e) => {
 				selectedBranch = e.detail;
 				// TODO: Temporary solution to forcing Windows to use system executable
 				if ($platformName === 'win32') {

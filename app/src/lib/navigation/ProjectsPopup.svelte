@@ -13,7 +13,7 @@
 		label: string;
 		selected?: boolean;
 		icon?: string;
-		onclick: () => void;
+		onclick: (event?: any) => void;
 	}
 
 	interface ProjectsPopupProps {
@@ -105,13 +105,19 @@
 				<ScrollableContainer maxHeight="20rem">
 					<div class="popup__projects">
 						{#each $projects as project}
-							{@const selected = project.id === $page.params.projectId}
+							{@const selected =
+								project.id === $page.params.projectId ||
+								$projects.some((p) => p.is_open && p.id === project.id)}
 							{@render itemSnippet({
 								label: project.title,
 								selected,
 								icon: selected ? 'tick' : undefined,
-								onclick: () => {
-									goto(`/${project.id}/`);
+								onclick: async (event: any) => {
+									if (event.altKey) {
+										await projectService.openProjectInNewWindow(project.id);
+									} else {
+										goto(`/${project.id}/`);
+									}
 									hide();
 								}
 							})}
@@ -129,6 +135,7 @@
 							await projectService.addProject();
 						} finally {
 							loading = false;
+							hide();
 						}
 					}
 				})}
@@ -151,13 +158,13 @@
 		position: absolute;
 		top: 100%;
 		z-index: var(--z-floating);
-		margin-top: 6px;
+		margin-top: 4px;
 		border-radius: var(--m, 6px);
 		border: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
 		/* shadow/s */
 		box-shadow: 0px 7px 14px 0px rgba(0, 0, 0, 0.1);
-		animation: fadeIn 0.2s ease-out forwards;
+		animation: fadeIn 0.17s ease-out forwards;
 	}
 
 	@keyframes fadeIn {
@@ -165,7 +172,7 @@
 			opacity: 0;
 			transform: translateY(-6px);
 		}
-		50% {
+		40% {
 			opacity: 1;
 		}
 		100% {

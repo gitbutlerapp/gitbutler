@@ -2,16 +2,18 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use gitbutler_branch::VirtualBranches;
-use gitbutler_command_context::ProjectRepo;
-use gitbutler_core::error::Marker;
-use gitbutler_core::projects::ProjectId;
-use gitbutler_core::{assets, git, projects, users};
+use gitbutler_branch_actions::VirtualBranches;
+use gitbutler_command_context::ProjectRepository;
+use gitbutler_error::error::Marker;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
-    oplog::Oplog,
+    OplogExt,
 };
+use gitbutler_project as projects;
+use gitbutler_project::ProjectId;
+use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_sync::cloud::sync_with_gitbutler;
+use gitbutler_user as users;
 use tracing::instrument;
 
 use super::{events, Change};
@@ -28,8 +30,7 @@ pub struct Handler {
     // need extra protection.
     projects: projects::Controller,
     users: users::Controller,
-    vbranch_controller: gitbutler_branch::Controller,
-    assets_proxy: gitbutler_branch::assets::Proxy,
+    vbranch_controller: gitbutler_branch_actions::VirtualBranchActions,
 
     /// A function to send events - decoupled from app-handle for testing purposes.
     #[allow(clippy::type_complexity)]
@@ -42,15 +43,13 @@ impl Handler {
     pub fn new(
         projects: projects::Controller,
         users: users::Controller,
-        vbranch_controller: gitbutler_branch::Controller,
-        assets_proxy: assets::Proxy,
+        vbranch_controller: gitbutler_branch_actions::VirtualBranchActions,
         send_event: impl Fn(Change) -> Result<()> + Send + Sync + 'static,
     ) -> Self {
         Handler {
             projects,
             users,
             vbranch_controller,
-            assets_proxy: gitbutler_branch::assets::Proxy::new(assets_proxy),
             send_event: Arc::new(send_event),
         }
     }
@@ -98,16 +97,13 @@ impl Handler {
             .list_virtual_branches(&project)
             .await
         {
-            Ok((branches, skipped_files)) => {
-                let branches = self.assets_proxy.proxy_virtual_branches(branches).await;
-                self.emit_app_event(Change::VirtualBranches {
-                    project_id: project.id,
-                    virtual_branches: VirtualBranches {
-                        branches,
-                        skipped_files,
-                    },
-                })
-            }
+            Ok((branches, skipped_files)) => self.emit_app_event(Change::VirtualBranches {
+                project_id: project.id,
+                virtual_branches: VirtualBranches {
+                    branches,
+                    skipped_files,
+                },
+            }),
             Err(err)
                 if matches!(
                     err.downcast_ref::<Marker>(),
@@ -126,13 +122,8 @@ impl Handler {
         paths: Vec<PathBuf>,
         project_id: ProjectId,
     ) -> Result<()> {
-        // Create a snapshot every time there are more than a configurable number of new lines of code (default 20)
-        let handle_snapshots = tokio::task::spawn_blocking({
-            let this = self.clone();
-            move || this.maybe_create_snapshot(project_id)
-        });
+        self.maybe_create_snapshot(project_id).ok();
         self.calculate_virtual_branches(project_id).await?;
-        let _ = handle_snapshots.await;
         Ok(())
     }
 
@@ -145,7 +136,11 @@ impl Handler {
             .should_auto_snapshot(std::time::Duration::from_secs(300))
             .unwrap_or_default()
         {
-            project.create_snapshot(SnapshotDetails::new(OperationKind::FileChanges))?;
+            let mut guard = project.exclusive_worktree_access();
+            project.create_snapshot(
+                SnapshotDetails::new(OperationKind::FileChanges),
+                guard.write_permission(),
+            )?;
         }
         Ok(())
     }
@@ -156,7 +151,7 @@ impl Handler {
             .get(project_id)
             .context("failed to get project")?;
         let open_projects_repository = || {
-            ProjectRepo::open(&project.clone())
+            ProjectRepository::open(&project.clone())
                 .context("failed to open project repository for project")
         };
 
@@ -167,7 +162,6 @@ impl Handler {
             match file_name {
                 "FETCH_HEAD" => {
                     self.emit_app_event(Change::GitFetch(project_id))?;
-                    self.calculate_virtual_branches(project_id).await?;
                 }
                 "logs/HEAD" => {
                     self.emit_app_event(Change::GitActivity(project.id))?;
@@ -181,11 +175,8 @@ impl Handler {
                     let head_ref_name = head_ref.name().context("failed to get head name")?;
                     if head_ref_name != "refs/heads/gitbutler/integration" {
                         let mut integration_reference = project_repository.repo().find_reference(
-                            &git::Refname::from(git::LocalRefname::new(
-                                "gitbutler/integration",
-                                None,
-                            ))
-                            .to_string(),
+                            &Refname::from(LocalRefname::new("gitbutler/integration", None))
+                                .to_string(),
                         )?;
                         integration_reference.delete()?;
                     }
@@ -212,7 +203,7 @@ impl Handler {
 
         if project.is_sync_enabled() && project.has_code_url() {
             if let Some(user) = self.users.get_user()? {
-                let repository = ProjectRepo::open(&project)
+                let repository = ProjectRepository::open(&project)
                     .context("failed to open project repository for project")?;
                 return sync_with_gitbutler(&repository, &user, &self.projects).await;
             }

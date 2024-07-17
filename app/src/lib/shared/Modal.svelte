@@ -61,7 +61,7 @@
 				</div>
 			{/if}
 
-			<div class="modal__body custom-scrollbar">
+			<div class="modal__body custom-scrollbar text-base-body-13">
 				{@render children(item)}
 			</div>
 
@@ -120,6 +120,12 @@
 	.modal__body {
 		overflow: auto;
 		padding: 16px;
+		line-height: 160%;
+	}
+
+	.modal__body > :global(code),
+	.modal__body > :global(pre) {
+		word-wrap: break-word;
 	}
 
 	.modal__footer {

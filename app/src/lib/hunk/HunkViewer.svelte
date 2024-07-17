@@ -9,7 +9,7 @@
 	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { getContext, getContextStoreBySymbol, maybeGetContextStore } from '$lib/utils/context';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import { Branch, type Hunk } from '$lib/vbranches/types';
+	import { VirtualBranch, type Hunk } from '$lib/vbranches/types';
 	import type { HunkSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
 
@@ -24,7 +24,7 @@
 
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
-	const branch = maybeGetContextStore(Branch);
+	const branch = maybeGetContextStore(VirtualBranch);
 	const project = getContext(Project);
 
 	let viewport: HTMLDivElement;

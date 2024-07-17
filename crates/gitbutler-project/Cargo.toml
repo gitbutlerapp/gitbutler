@@ -1,0 +1,33 @@
+[package]
+name = "gitbutler-project"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+anyhow = "1.0.86"
+parking_lot = { workspace = true, features = ["arc_lock"] }
+serde = { workspace = true, features = ["std"]}
+serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
+gitbutler-error.workspace = true
+gitbutler-serde.workspace = true
+gitbutler-id.workspace = true
+gitbutler-storage.workspace = true
+git2.workspace = true
+gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
+uuid.workspace = true
+tracing = "0.1.40"
+resolve-path = "0.1.0"
+
+# for locking
+fslock.workspace = true
+
+[[test]]
+name="project"
+path = "tests/mod.rs"
+
+[dev-dependencies]
+gitbutler-testsupport.workspace = true
+tempfile = "3.10"
+tokio = { workspace = true, features = [ "rt-multi-thread", "rt", "macros" ] }

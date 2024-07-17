@@ -1,25 +1,44 @@
-import { handleErrorWithSentry } from '@sentry/sveltekit';
+import { showError } from '$lib/notifications/toasts';
+import { captureException } from '@sentry/sveltekit';
 import { error as logErrorToFile } from 'tauri-plugin-log-api';
-import type { NavigationEvent } from '@sveltejs/kit';
+import type { HandleClientError } from '@sveltejs/kit';
 
-function myErrorHandler({ error, event }: { error: any; event: NavigationEvent }) {
-	console.error(error.message + '\n' + error.stack);
-	logErrorToFile(error.toString());
-	console.error('An error occurred on the client side:', error, event);
+// SvelteKit error handler.
+export function handleError({
+	error,
+	status
+}: {
+	error: unknown;
+	status: number;
+}): ReturnType<HandleClientError> {
+	if (status !== 404) {
+		logError(error);
+	}
+	return {
+		message: String(error)
+	};
 }
 
-export const handleError = handleErrorWithSentry(myErrorHandler);
-
-/**
- * This is not an ideal way of handling unhandled errors, but it's what we have at the moment. The
- * main reason for adding this is that it gives us better stack traces when promises throw errors
- * in reactive statements.
- *
- * See: https://github.com/sveltejs/rfcs/pull/46
- */
-const originalUnhandledHandler = window.onunhandledrejection;
-window.onunhandledrejection = (event: PromiseRejectionEvent) => {
-	logErrorToFile('Unhandled exception: ' + event?.reason + ' ' + event?.reason?.sourceURL);
-	console.log('Unhandled exception', event.reason);
-	originalUnhandledHandler?.bind(window)(event);
+// Handler for unhandled errors inside promises.
+window.onunhandledrejection = (e: PromiseRejectionEvent) => {
+	logError(e.reason);
 };
+
+function logError(error: unknown) {
+	let message = error instanceof Error ? error.message : String(error);
+	const stack = error instanceof Error ? error.stack : undefined;
+
+	const id = captureException(message, {
+		mechanism: {
+			type: 'sveltekit',
+			handled: false
+		}
+	});
+	message = `${id}: ${message}\n`;
+	if (stack) message = `${message}\n${stack}\n`;
+
+	logErrorToFile(message);
+	console.error(message);
+	showError('Something went wrong', message);
+	return id;
+}

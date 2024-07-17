@@ -3,27 +3,26 @@
 	import { showToast } from '$lib/notifications/toasts';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
-	import { tap } from 'rxjs';
 	import { fade } from 'svelte/transition';
 
 	const updaterService = getContext(UpdaterService);
+	const update = updaterService.update;
+	const version = updaterService.version;
 
-	$: update$ = updaterService.update$.pipe(
-		// Reset dismissed boolean when a new version becomes available
-		tap(() => (dismissed = false))
-	);
-
-	let dismissed = false;
+	let dismissed = $state(false);
+	$effect(() => {
+		if (version && dismissed) dismissed = false;
+	});
 </script>
 
-{#if $update$?.version && $update$.status !== 'UPTODATE' && !dismissed}
-	<div class="update-banner" class:busy={$update$?.status === 'PENDING'}>
+{#if $update?.version && $update?.status !== 'UPTODATE' && !dismissed}
+	<div class="update-banner" class:busy={$update?.status === 'PENDING'}>
 		<div class="floating-button">
 			<Button icon="cross-small" style="ghost" on:click={() => (dismissed = true)} />
 		</div>
 		<div class="img">
 			<div class="circle-img">
-				{#if $update$?.status !== 'DONE'}
+				{#if $update?.status !== 'DONE'}
 					<svg
 						class="arrow-img"
 						width="12"
@@ -90,15 +89,15 @@
 		</div>
 
 		<h4 class="text-base-13 label">
-			{#if !$update$.status}
+			{#if !$update.status}
 				New version available
-			{:else if $update$.status === 'PENDING'}
+			{:else if $update.status === 'PENDING'}
 				Downloading update...
-			{:else if $update$.status === 'DOWNLOADED'}
+			{:else if $update.status === 'DOWNLOADED'}
 				Installing update...
-			{:else if $update$.status === 'DONE'}
+			{:else if $update.status === 'DONE'}
 				Install complete
-			{:else if $update$.status === 'ERROR'}
+			{:else if $update.status === 'ERROR'}
 				Error occurred...
 			{/if}
 		</h4>
@@ -108,10 +107,10 @@
 				style="ghost"
 				outline
 				on:mousedown={() => {
-					const notes = $update$?.body?.trim() || 'no release notes available';
+					const notes = $update?.body?.trim() || 'no release notes available';
 					showToast({
 						id: 'release-notes',
-						title: `Release notes for ${$update$?.version}`,
+						title: `Release notes for ${$update?.version}`,
 						message: `
                         ${notes}
                 `
@@ -123,7 +122,7 @@
 			<div class="status-section">
 				<div class="sliding-gradient"></div>
 
-				{#if !$update$.status}
+				{#if !$update.status}
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
 						<Button
 							wide
@@ -133,10 +132,10 @@
 								await updaterService.installUpdate();
 							}}
 						>
-							Download {$update$.version}
+							Download {$update.version}
 						</Button>
 					</div>
-				{:else if $update$.status === 'DONE'}
+				{:else if $update.status === 'DONE'}
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
 						<Button style="pop" kind="solid" wide on:click={() => updaterService.relaunchApp()}
 							>Restart</Button

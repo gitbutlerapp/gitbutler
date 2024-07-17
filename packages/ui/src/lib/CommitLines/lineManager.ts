@@ -398,7 +398,7 @@ function generateDifferentForkpoint({
 	].some(
 		({ lineGroup }) =>
 			lineGroup.lines[LEFT_COLUMN_INDEX].top.color !== 'none' ||
-			lineGroup.lines[LEFT_COLUMN_INDEX].top.color !== 'none'
+			lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color !== 'none'
 	);
 
 	if (!hasGhostLine) {

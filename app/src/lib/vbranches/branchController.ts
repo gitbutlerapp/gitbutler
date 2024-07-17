@@ -2,9 +2,9 @@ import { invoke } from '$lib/backend/ipc';
 import { showError, showToast } from '$lib/notifications/toasts';
 import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
+import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
-import type { BaseBranchService } from './baseBranch';
-import type { Branch, Hunk, LocalFile, NameConflictResolution } from './types';
+import type { VirtualBranch, Hunk, LocalFile, NameConflictResolution } from './types';
 import type { VirtualBranchService } from './virtualBranch';
 
 export class BranchController {
@@ -12,19 +12,19 @@ export class BranchController {
 		readonly projectId: string,
 		readonly vbranchService: VirtualBranchService,
 		readonly remoteBranchService: RemoteBranchService,
-		readonly targetBranchService: BaseBranchService
+		readonly baseBranchService: BaseBranchService
 	) {}
 
 	async setTarget(branch: string, pushRemote: string | undefined = undefined) {
 		try {
-			await this.targetBranchService.setTarget(branch, pushRemote);
+			await this.baseBranchService.setTarget(branch, pushRemote);
 			return branch;
 			// TODO: Reloading seems to trigger 4 invocations of `list_virtual_branches`
 		} catch (err: any) {
 			showError('Failed to set base branch', err);
 		} finally {
-			this.targetBranchService.reload();
-			this.vbranchService.reload();
+			this.baseBranchService.refresh();
+			this.vbranchService.refresh();
 		}
 	}
 
@@ -190,7 +190,7 @@ export class BranchController {
 				branch: branchId,
 				nameConflictResolution
 			});
-			this.remoteBranchService.reload();
+			this.remoteBranchService.refresh();
 		} catch (err) {
 			showError('Failed to unapply branch', err);
 		}
@@ -207,7 +207,7 @@ export class BranchController {
 		}
 	}
 
-	async pushBranch(branchId: string, withForce: boolean): Promise<Branch | undefined> {
+	async pushBranch(branchId: string, withForce: boolean): Promise<void> {
 		try {
 			await invoke<void>('push_virtual_branch', {
 				projectId: this.projectId,
@@ -215,10 +215,8 @@ export class BranchController {
 				withForce
 			});
 			posthog.capture('Push Successful');
-			await this.vbranchService.reload();
-			return await this.vbranchService.getById(branchId);
+			await this.vbranchService.refresh();
 		} catch (err: any) {
-			console.error(err);
 			posthog.capture('Push Failed', { error: err });
 			if (err.code === 'errors.git.authentication') {
 				showToast({
@@ -245,6 +243,7 @@ export class BranchController {
 					style: 'error'
 				});
 			}
+			throw err;
 		}
 	}
 
@@ -256,13 +255,13 @@ export class BranchController {
 		} catch (err) {
 			showError('Failed to delete branch', err);
 		} finally {
-			this.remoteBranchService.reload();
+			this.remoteBranchService.refresh();
 		}
 	}
 
 	async updateBaseBranch(): Promise<string | undefined> {
 		try {
-			const stashedConflicting = await invoke<Branch[]>('update_base_branch', {
+			const stashedConflicting = await invoke<VirtualBranch[]>('update_base_branch', {
 				projectId: this.projectId
 			});
 			if (stashedConflicting.length > 0) {
@@ -273,7 +272,7 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 				return undefined;
 			}
 		} finally {
-			this.targetBranchService.reload();
+			this.baseBranchService.refresh();
 		}
 	}
 
@@ -286,8 +285,8 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 		} catch (err) {
 			showError('Failed to create virtual branch', err);
 		} finally {
-			this.remoteBranchService.reload();
-			this.targetBranchService.reload();
+			this.remoteBranchService.refresh();
+			this.baseBranchService.refresh();
 		}
 	}
 

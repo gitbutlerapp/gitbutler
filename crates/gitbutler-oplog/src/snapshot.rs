@@ -1,20 +1,22 @@
-use anyhow::Result;
-use std::vec;
-
 use crate::{
     entry::{OperationKind, SnapshotDetails},
-    oplog::Oplog,
+    oplog::OplogExt,
 };
-use gitbutler_core::projects::Project;
-use gitbutler_core::virtual_branches::{branch::BranchUpdateRequest, Branch};
+use anyhow::Result;
+use gitbutler_branch::{Branch, BranchUpdateRequest};
+use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_project::Project;
+use gitbutler_reference::ReferenceName;
+use std::vec;
 
 use super::entry::Trailer;
 
-pub trait Snapshot {
+pub trait SnapshotExt {
     fn snapshot_branch_unapplied(
         &self,
         snapshot_tree: git2::Oid,
-        result: Result<&git2::Branch, &anyhow::Error>,
+        result: Result<&ReferenceName, &anyhow::Error>,
+        perm: &mut WorktreeWritePermission,
     ) -> anyhow::Result<()>;
 
     fn snapshot_commit_undo(
@@ -22,6 +24,7 @@ pub trait Snapshot {
         snapshot_tree: git2::Oid,
         result: Result<&(), &anyhow::Error>,
         commit_sha: git2::Oid,
+        perm: &mut WorktreeWritePermission,
     ) -> anyhow::Result<()>;
 
     fn snapshot_commit_creation(
@@ -30,30 +33,41 @@ pub trait Snapshot {
         error: Option<&anyhow::Error>,
         commit_message: String,
         sha: Option<git2::Oid>,
+        perm: &mut WorktreeWritePermission,
     ) -> anyhow::Result<()>;
 
-    fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()>;
-    fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()>;
+    fn snapshot_branch_creation(
+        &self,
+        branch_name: String,
+        perm: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<()>;
+    fn snapshot_branch_deletion(
+        &self,
+        branch_name: String,
+        perm: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<()>;
     fn snapshot_branch_update(
         &self,
         snapshot_tree: git2::Oid,
         old_branch: &Branch,
         update: &BranchUpdateRequest,
         error: Option<&anyhow::Error>,
+        perm: &mut WorktreeWritePermission,
     ) -> anyhow::Result<()>;
 }
 
 /// Snapshot functionality
-impl Snapshot for Project {
+impl SnapshotExt for Project {
     fn snapshot_branch_unapplied(
         &self,
         snapshot_tree: git2::Oid,
-        result: Result<&git2::Branch, &anyhow::Error>,
+        result: Result<&ReferenceName, &anyhow::Error>,
+        perm: &mut WorktreeWritePermission,
     ) -> anyhow::Result<()> {
-        let result = result.map(|o| o.name().ok().flatten().map(|s| s.to_string()));
+        let result = result.map(|s| Some(s.to_string()));
         let details = SnapshotDetails::new(OperationKind::UnapplyBranch)
             .with_trailers(result_trailer(result, "name".to_string()));
-        self.commit_snapshot(snapshot_tree, details)?;
+        self.commit_snapshot(snapshot_tree, details, perm)?;
         Ok(())
     }
     fn snapshot_commit_undo(
@@ -61,11 +75,12 @@ impl Snapshot for Project {
         snapshot_tree: git2::Oid,
         result: Result<&(), &anyhow::Error>,
         commit_sha: git2::Oid,
+        perm: &mut WorktreeWritePermission,
     ) -> anyhow::Result<()> {
         let result = result.map(|_| Some(commit_sha.to_string()));
         let details = SnapshotDetails::new(OperationKind::UndoCommit)
             .with_trailers(result_trailer(result, "sha".to_string()));
-        self.commit_snapshot(snapshot_tree, details)?;
+        self.commit_snapshot(snapshot_tree, details, perm)?;
         Ok(())
     }
     fn snapshot_commit_creation(
@@ -74,6 +89,7 @@ impl Snapshot for Project {
         error: Option<&anyhow::Error>,
         commit_message: String,
         sha: Option<git2::Oid>,
+        perm: &mut WorktreeWritePermission,
     ) -> anyhow::Result<()> {
         let details = SnapshotDetails::new(OperationKind::CreateCommit).with_trailers(
             [
@@ -91,26 +107,34 @@ impl Snapshot for Project {
             ]
             .concat(),
         );
-        self.commit_snapshot(snapshot_tree, details)?;
+        self.commit_snapshot(snapshot_tree, details, perm)?;
         Ok(())
     }
-    fn snapshot_branch_creation(&self, branch_name: String) -> anyhow::Result<()> {
+    fn snapshot_branch_creation(
+        &self,
+        branch_name: String,
+        perm: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<()> {
         let details =
             SnapshotDetails::new(OperationKind::CreateBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
                 value: branch_name,
             }]);
-        self.create_snapshot(details)?;
+        self.create_snapshot(details, perm)?;
         Ok(())
     }
-    fn snapshot_branch_deletion(&self, branch_name: String) -> anyhow::Result<()> {
+    fn snapshot_branch_deletion(
+        &self,
+        branch_name: String,
+        perm: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<()> {
         let details =
             SnapshotDetails::new(OperationKind::DeleteBranch).with_trailers(vec![Trailer {
                 key: "name".to_string(),
                 value: branch_name.to_string(),
             }]);
 
-        self.create_snapshot(details)?;
+        self.create_snapshot(details, perm)?;
         Ok(())
     }
     fn snapshot_branch_update(
@@ -119,6 +143,7 @@ impl Snapshot for Project {
         old_branch: &Branch,
         update: &BranchUpdateRequest,
         error: Option<&anyhow::Error>,
+        perm: &mut WorktreeWritePermission,
     ) -> anyhow::Result<()> {
         let details = if update.ownership.is_some() {
             SnapshotDetails::new(OperationKind::MoveHunk).with_trailers(
@@ -211,7 +236,7 @@ impl Snapshot for Project {
         } else {
             SnapshotDetails::new(OperationKind::GenericBranchUpdate)
         };
-        self.commit_snapshot(snapshot_tree, details)?;
+        self.commit_snapshot(snapshot_tree, details, perm)?;
         Ok(())
     }
 }
