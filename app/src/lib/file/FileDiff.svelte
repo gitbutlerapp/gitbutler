@@ -8,23 +8,36 @@
 	import { getLockText } from '$lib/vbranches/tooltip';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
 
-	export let filePath: string;
-	export let isBinary: boolean;
-	export let isLarge: boolean;
-	export let sections: (HunkSection | ContentSection)[];
-	export let isUnapplied: boolean;
-	export let selectable = false;
-	export let isFileLocked = false;
-	export let readonly: boolean = false;
+	interface Props {
+		filePath: string;
+		isBinary: boolean;
+		isLarge: boolean;
+		sections: (HunkSection | ContentSection)[];
+		isUnapplied: boolean;
+		selectable: boolean;
+		isFileLocked: boolean;
+		readonly: boolean;
+	}
 
-	$: maxLineNumber = sections[sections.length - 1]?.maxLineNumber;
-	$: minWidth = getGutterMinWidth(maxLineNumber);
+	let {
+		filePath,
+		isBinary,
+		isLarge,
+		sections,
+		isUnapplied,
+		selectable = false,
+		isFileLocked = false,
+		readonly = false
+	}: Props = $props();
+
+	const maxLineNumber = $derived(sections[sections.length - 1]?.maxLineNumber);
+	const minWidth = $derived(getGutterMinWidth(maxLineNumber));
 
 	const localCommits = isFileLocked ? getLocalCommits() : undefined;
 	const remoteCommits = isFileLocked ? getLocalAndRemoteCommits() : undefined;
 
 	const commits = isFileLocked ? ($localCommits || []).concat($remoteCommits || []) : undefined;
-	let alwaysShow = false;
+	let alwaysShow = $state(false);
 
 	function getGutterMinWidth(max: number) {
 		if (max >= 10000) return 2.5;
