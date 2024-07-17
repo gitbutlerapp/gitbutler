@@ -79,7 +79,6 @@
 			console.log('loading more files...');
 			loadMore();
 		}}
-		role="listbox"
 	>
 		{#each displayedFiles as file (file.id)}
 			<FileListItem
@@ -102,13 +101,6 @@
 						$fileIdSelection,
 						fileIdSelection
 					);
-
-					if (e.key === 'Escape') {
-						fileIdSelection.clear();
-						
-						const targetEl = e.target as HTMLElement;
-						targetEl.blur();
-					}
 				}}
 			/>
 		{/each}
