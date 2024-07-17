@@ -1255,7 +1255,6 @@ pub(crate) fn get_applied_status(
                                     start: git_diff_hunk.new_start,
                                     end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
                                     hash: Some(hash),
-                                    locked_to: git_diff_hunk.locked_to.to_vec(),
                                 };
                                 git_diff_hunks.remove(i);
                                 return Some(updated_hunk);
@@ -1309,22 +1308,22 @@ pub(crate) fn get_applied_status(
                 default_vbranch_pos
             };
 
-            let hash = Hunk::hash_diff(&hunk.diff_lines);
-            let mut new_hunk = Hunk::from(&hunk).with_hash(hash);
-            new_hunk.locked_to = match locked_to {
-                Some(locked_to) => locked_to.clone(),
-                _ => vec![],
-            };
+            // let hash = Hunk::hash_diff(&hunk.diff_lines);
+            // let mut new_hunk = Hunk::from(&hunk).with_hash(hash);
+            // new_hunk.locked_to = match locked_to {
+            //     Some(locked_to) => locked_to.clone(),
+            //     _ => vec![],
+            // };
 
             virtual_branches[vbranch_pos].ownership.put(OwnershipClaim {
                 file_path: filepath.clone(),
                 hunks: vec![Hunk::from(&hunk).with_hash(Hunk::hash_diff(&hunk.diff_lines))],
             });
 
-            let hunk = match locked_to {
-                Some(locks) => hunk.with_locks(locks),
-                _ => hunk,
-            };
+            // let hunk = match locked_to {
+            //     Some(locks) => hunk.with_locks(locks),
+            //     _ => hunk,
+            // };
             diffs_by_branch
                 .entry(virtual_branches[vbranch_pos].id)
                 .or_default()
