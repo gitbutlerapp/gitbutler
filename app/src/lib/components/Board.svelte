@@ -86,10 +86,8 @@
 		}}
 	>
 		{#each $branches.sort((a, b) => a.order - b.order) as branch (branch.id)}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div
-				role="presentation"
-				aria-label="Branch"
-				tabindex="-1"
 				class="branch draggable-branch"
 				draggable="true"
 				on:mousedown={(e) => (dragHandle = e.target)}
