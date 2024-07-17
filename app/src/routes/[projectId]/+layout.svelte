@@ -87,13 +87,15 @@
 	// don't use $effect.pre here.
 	// TODO: can we eliminate the need to debounce?
 	const fetch = $derived(fetchSignal.event);
+	const debouncedBaseBranchResfresh = debounce(() => baseBranchService.refresh(), 500);
 	$effect.pre(() => {
-		if ($fetch || $head) debounce(() => baseBranchService.refresh(), 500);
+		if ($fetch || $head) debouncedBaseBranchResfresh();
 	});
 
 	// TODO: can we eliminate the need to debounce?
+	const debouncedRemoteBranchRefresh = debounce(() => remoteBranchService.refresh(), 500);
 	$effect.pre(() => {
-		if ($baseBranch || $head || $fetch) debounce(() => remoteBranchService.refresh(), 500);
+		if ($baseBranch || $head || $fetch) debouncedRemoteBranchRefresh();
 	});
 
 	$effect.pre(() => {
