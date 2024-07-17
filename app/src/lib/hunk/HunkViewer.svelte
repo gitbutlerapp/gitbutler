@@ -13,24 +13,38 @@
 	import type { HunkSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
 
-	export let filePath: string;
-	export let section: HunkSection;
-	export let minWidth: number;
-	export let selectable = false;
-	export let isUnapplied: boolean;
-	export let isFileLocked: boolean;
-	export let readonly: boolean = false;
-	export let linesModified: number;
+	interface Props {
+		filePath: string;
+		section: HunkSection;
+		minWidth: number;
+		selectable: boolean;
+		isUnapplied: boolean;
+		isFileLocked: boolean;
+		readonly: boolean;
+		linesModified: number;
+	}
+
+	let {
+		filePath,
+		section,
+		minWidth,
+		selectable = false,
+		isUnapplied,
+		isFileLocked,
+		readonly = false,
+		linesModified
+	}: Props = $props();
 
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const branch = maybeGetContextStore(VirtualBranch);
 	const project = getContext(Project);
 
-	let viewport: HTMLDivElement;
-	let contents: HTMLDivElement;
-	let contextMenu: HunkContextMenu;
-	let alwaysShow = false;
+	let contents = $state<HTMLDivElement | undefined>();
+	let viewport = $state<HTMLDivElement | undefined>();
+	let contextMenu = $state<HunkContextMenu | undefined>();
+	let alwaysShow = $state(false);
+	const draggingDisabled = $derived(readonly || isUnapplied);
 
 	function onHunkSelected(hunk: Hunk, isSelected: boolean) {
 		if (!selectedOwnership) return;
@@ -40,7 +54,6 @@
 			selectedOwnership.update((ownership) => ownership.remove(hunk.filePath, hunk.id));
 		}
 	}
-	$: draggingDisabled = readonly || isUnapplied;
 </script>
 
 <HunkContextMenu
