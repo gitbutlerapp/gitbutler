@@ -40,9 +40,9 @@
 	const branch = maybeGetContextStore(VirtualBranch);
 	const project = getContext(Project);
 
-	let contents = $state<HTMLDivElement | undefined>();
-	let viewport = $state<HTMLDivElement | undefined>();
-	let contextMenu = $state<HunkContextMenu | undefined>();
+	let contents = $state<HTMLDivElement>();
+	let viewport = $state<HTMLDivElement>();
+	let contextMenu = $state<HunkContextMenu>();
 	let alwaysShow = $state(false);
 	const draggingDisabled = $derived(readonly || isUnapplied);
 
@@ -73,7 +73,7 @@
 			data: new DraggableHunk($branch?.id || '', section.hunk),
 			disabled: draggingDisabled
 		}}
-		on:contextmenu|preventDefault
+		oncontextmenu={(e) => e.preventDefault()}
 		class="hunk hide-native-scrollbar"
 		class:readonly
 		class:opacity-60={section.hunk.locked && !isFileLocked}
@@ -100,10 +100,10 @@
 						sectionType={subsection.sectionType}
 						handleSelected={(isSelected) => onHunkSelected(hunk, isSelected)}
 						handleClick={() => {
-							contextMenu.close();
+							contextMenu?.close();
 						}}
 						handleLineContextMenu={({ event, lineNumber }) => {
-							contextMenu.open(event, {
+							contextMenu?.open(event, {
 								hunk,
 								section: subsection,
 								lineNumber: lineNumber

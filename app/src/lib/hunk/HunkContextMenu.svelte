@@ -7,7 +7,7 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { open as openFile } from '@tauri-apps/api/shell';
 
-	export let target: HTMLElement;
+	export let target: HTMLElement | undefined;
 	export let filePath: string;
 	export let projectPath: string | undefined;
 	export let readonly: boolean;
