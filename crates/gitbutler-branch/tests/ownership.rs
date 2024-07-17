@@ -1,8 +1,9 @@
 use std::{path::PathBuf, vec};
 
 use gitbutler_branch::{
-    Hunk, OwnershipClaim, {reconcile_claims, BranchOwnershipClaims}, {Branch, BranchId},
+    OwnershipClaim, {reconcile_claims, BranchOwnershipClaims}, {Branch, BranchId},
 };
+use gitbutler_diff::Hunk;
 
 #[test]
 fn reconcile_ownership_simple() {

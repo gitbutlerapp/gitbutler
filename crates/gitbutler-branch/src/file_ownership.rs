@@ -3,7 +3,7 @@ use std::{fmt, path, str::FromStr, vec};
 
 use anyhow::{Context, Result};
 
-use super::hunk::Hunk;
+use gitbutler_diff::Hunk;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct OwnershipClaim {

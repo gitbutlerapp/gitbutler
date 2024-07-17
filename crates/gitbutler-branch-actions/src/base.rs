@@ -2,11 +2,11 @@ use std::{path::Path, time};
 
 use anyhow::{anyhow, Context, Result};
 use git2::Index;
+use gitbutler_branch::Branch;
 use gitbutler_branch::BranchOwnershipClaims;
 use gitbutler_branch::Target;
 use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_branch::{self, BranchId};
-use gitbutler_branch::{diff, Branch};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::ReferenceName;
@@ -187,7 +187,7 @@ pub(crate) fn set_base_branch(
         // if there are any commits on the head branch or uncommitted changes in the working directory, we need to
         // put them into a virtual branch
 
-        let wd_diff = diff::workdir(repo, &current_head_commit.id())?;
+        let wd_diff = gitbutler_diff::workdir(repo, &current_head_commit.id())?;
         if !wd_diff.is_empty() || current_head_commit.id() != target.sha {
             // assign ownership to the branch
             let ownership = wd_diff.iter().fold(
@@ -248,7 +248,7 @@ pub(crate) fn set_base_branch(
                 tree: vb::write_tree_onto_commit(
                     project_repository,
                     current_head_commit.id(),
-                    diff::diff_files_into_hunks(wd_diff),
+                    gitbutler_diff::diff_files_into_hunks(wd_diff),
                 )?,
                 ownership,
                 order: 0,
@@ -394,8 +394,11 @@ pub(crate) fn update_base_branch(
                     branch.upstream = None;
                     branch.upstream_head = None;
 
-                    let non_commited_files =
-                        diff::trees(project_repository.repo(), &branch_head_tree, &branch_tree)?;
+                    let non_commited_files = gitbutler_diff::trees(
+                        project_repository.repo(),
+                        &branch_head_tree,
+                        &branch_tree,
+                    )?;
                     if non_commited_files.is_empty() {
                         // if there are no commited files, then the branch is fully merged
                         // and we can delete it.

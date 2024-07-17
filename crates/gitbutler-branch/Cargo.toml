@@ -13,6 +13,7 @@ gitbutler-serde.workspace = true
 gitbutler-id.workspace = true
 gitbutler-error.workspace = true
 gitbutler-fs.workspace = true
+gitbutler-diff.workspace = true
 itertools = "0.13"
 toml = "0.8.13"
 serde = { workspace = true, features = ["std"] }

@@ -1978,6 +1978,7 @@ dependencies = [
  "anyhow",
  "bstr",
  "git2",
+ "gitbutler-diff",
  "gitbutler-error",
  "gitbutler-fs",
  "gitbutler-id",
@@ -2005,6 +2006,7 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-command-context",
  "gitbutler-commit",
+ "gitbutler-diff",
  "gitbutler-error",
  "gitbutler-fs",
  "gitbutler-git",
@@ -2075,6 +2077,20 @@ dependencies = [
  "git2",
  "gitbutler-project",
  "serde",
+]
+
+[[package]]
+name = "gitbutler-diff"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "git2",
+ "gitbutler-serde",
+ "hex",
+ "md5",
+ "serde",
+ "tracing",
 ]
 
 [[package]]
@@ -2158,6 +2174,7 @@ dependencies = [
  "anyhow",
  "git2",
  "gitbutler-branch",
+ "gitbutler-diff",
  "gitbutler-fs",
  "gitbutler-project",
  "gitbutler-reference",
@@ -2306,6 +2323,7 @@ dependencies = [
  "gitbutler-branch-actions",
  "gitbutler-command-context",
  "gitbutler-config",
+ "gitbutler-diff",
  "gitbutler-error",
  "gitbutler-feedback",
  "gitbutler-id",

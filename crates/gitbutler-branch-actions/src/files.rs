@@ -1,14 +1,13 @@
 use std::path;
 
 use anyhow::{anyhow, Context, Result};
-use gitbutler_branch::diff;
 use serde::Serialize;
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranchFile {
     pub path: path::PathBuf,
-    pub hunks: Vec<diff::GitHunk>,
+    pub hunks: Vec<gitbutler_diff::GitHunk>,
     pub binary: bool,
 }
 
@@ -31,7 +30,7 @@ pub(crate) fn list_remote_commit_files(
     let parent = commit.parent(0).context("failed to get parent commit")?;
     let commit_tree = commit.tree().context("failed to get commit tree")?;
     let parent_tree = parent.tree().context("failed to get parent tree")?;
-    let diff_files = diff::trees(repository, &parent_tree, &commit_tree)?;
+    let diff_files = gitbutler_diff::trees(repository, &parent_tree, &commit_tree)?;
 
     Ok(diff_files
         .into_iter()
