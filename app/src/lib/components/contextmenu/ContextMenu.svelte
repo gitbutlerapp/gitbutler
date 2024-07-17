@@ -4,7 +4,6 @@
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { type Snippet } from 'svelte';
 
-	// TYPES AND INTERFACES
 	interface Props {
 		target?: HTMLElement;
 		openByMouse?: boolean;
@@ -25,16 +24,12 @@
 		onopen
 	}: Props = $props();
 
-	// LOCAL VARS
-
-	// STATES
 	let item = $state<any>();
 	let contextMenuHeight = $state(0);
 	let contextMenuWidth = $state(0);
 	let isVisibile = $state(false);
 	let menuPosition = $state({ x: 0, y: 0 });
 
-	// METHODS
 	export function close() {
 		isVisibile = false;
 		onclose && onclose();
