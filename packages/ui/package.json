@@ -26,14 +26,14 @@
 		"@storybook/blocks": "^8.1.10",
 		"@storybook/svelte": "^8.1.10",
 		"@storybook/sveltekit": "^8.1.10",
-		"@sveltejs/adapter-static": "^3.0.1",
-		"@sveltejs/kit": "^2.5.10",
+		"@sveltejs/adapter-static": "catalog:svelte",
+		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/package": "^2.3.2",
-		"@sveltejs/vite-plugin-svelte": "^3.1.1",
+		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
 		"storybook": "^8.1.10",
-		"svelte": "5.0.0-next.184",
-		"svelte-check": "^3.8.0",
-		"vite": "^5.2.13"
+		"svelte": "catalog:svelte",
+		"svelte-check": "catalog:svelte",
+		"vite": "catalog:"
 	},
 	"peerDependencies": {
 		"svelte": "^4.0.0 || ^5.0.0-0"
