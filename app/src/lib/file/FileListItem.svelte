@@ -56,6 +56,9 @@
 	class:draggable={isDraggable}
 	id={`file-${file.id}`}
 	data-locked={file.locked}
+	role="treeitem"
+	aria-selected={selected}
+	tabindex="-1"
 	on:click
 	on:keydown
 	on:dragstart={async () => {
@@ -95,9 +98,6 @@
 			contextMenu.open(e, { files: [file] });
 		}
 	}}
-	role="treeitem"
-	aria-selected={selected}
-	tabindex="-1"
 	use:draggableChips={{
 		label: `${file.filename}`,
 		filePath: file.path,
