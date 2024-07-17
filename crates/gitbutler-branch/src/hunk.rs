@@ -11,7 +11,6 @@ pub struct Hunk {
     pub hash: Option<HunkHash>,
     pub start: u32,
     pub end: u32,
-    pub locked_to: Vec<diff::HunkLock>,
 }
 
 impl From<&diff::GitHunk> for Hunk {
@@ -20,7 +19,6 @@ impl From<&diff::GitHunk> for Hunk {
             start: hunk.new_start,
             end: hunk.new_start + hunk.new_lines,
             hash: Some(Hunk::hash_diff(&hunk.diff_lines)),
-            locked_to: hunk.locked_to.to_vec(),
         }
     }
 }
@@ -41,7 +39,6 @@ impl From<RangeInclusive<u32>> for Hunk {
             start: *range.start(),
             end: *range.end(),
             hash: None,
-            locked_to: vec![],
         }
     }
 }
@@ -98,12 +95,7 @@ impl Hunk {
         if start > end {
             Err(anyhow!("invalid range: {}-{}", start, end))
         } else {
-            Ok(Hunk {
-                hash,
-                start,
-                end,
-                locked_to: vec![],
-            })
+            Ok(Hunk { hash, start, end })
         }
     }
 

@@ -7,10 +7,6 @@ use bstr::{BStr, BString, ByteSlice, ByteVec};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use gitbutler_id::id::Id;
-
-use crate::Branch;
-
 pub type DiffByPathMap = HashMap<PathBuf, FileDiff>;
 
 /// The type of change
@@ -56,7 +52,6 @@ pub struct GitHunk {
     )]
     pub diff_lines: BString,
     pub binary: bool,
-    pub locked_to: Box<[HunkLock]>,
     pub change_type: ChangeType,
 }
 
@@ -73,7 +68,6 @@ impl GitHunk {
             diff_lines: hex_id.into(),
             binary: true,
             change_type,
-            locked_to: Box::new([]),
         }
     }
 
@@ -87,7 +81,6 @@ impl GitHunk {
             diff_lines: Default::default(),
             binary: false,
             change_type: ChangeType::Modified,
-            locked_to: Box::new([]),
         }
     }
 }
@@ -96,11 +89,6 @@ impl GitHunk {
 impl GitHunk {
     pub(crate) fn contains(&self, line: u32) -> bool {
         self.new_start <= line && self.new_start + self.new_lines >= line
-    }
-
-    pub fn with_locks(mut self, locks: &[HunkLock]) -> Self {
-        self.locked_to = locks.to_owned().into();
-        self
     }
 }
 
@@ -118,17 +106,6 @@ impl GitHunk {
         unapplied_hunk.old_start <= integration_new_end
             && integration_hunk.new_start <= unapplied_old_end
     }
-}
-
-// A hunk is locked when it depends on changes in commits that are in your
-// workspace. A hunk can be locked to more than one branch if it overlaps
-// with more than one committed hunk.
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Copy)]
-#[serde(rename_all = "camelCase")]
-pub struct HunkLock {
-    pub branch_id: Id<Branch>,
-    #[serde(with = "gitbutler_serde::serde::oid")]
-    pub commit_id: git2::Oid,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Default)]
@@ -333,7 +310,6 @@ pub fn hunks_by_filepath(
                                         diff_lines: line.into_owned(),
                                         binary: false,
                                         change_type,
-                                        locked_to: Box::new([]),
                                     }
                                 }
                                 LineOrHexHash::HexHashOfBinaryBlob(id) => {
@@ -440,7 +416,6 @@ pub fn reverse_hunk(hunk: &GitHunk) -> Option<GitHunk> {
             diff_lines: diff,
             binary: hunk.binary,
             change_type: hunk.change_type,
-            locked_to: Box::new([]),
         })
     }
 }

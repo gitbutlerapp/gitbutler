@@ -11,6 +11,7 @@ use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::credentials::Helper;
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 use itertools::Itertools;
+use md5::Digest;
 use std::borrow::Borrow;
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::PermissionsExt;
@@ -113,6 +114,17 @@ pub struct VirtualBranchCommit {
     pub is_signed: bool,
 }
 
+// A hunk is locked when it depends on changes in commits that are in your
+// workspace. A hunk can be locked to more than one branch if it overlaps
+// with more than one committed hunk.
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Copy)]
+#[serde(rename_all = "camelCase")]
+pub struct HunkLock {
+    pub branch_id: BranchId,
+    #[serde(with = "gitbutler_serde::serde::oid")]
+    pub commit_id: git2::Oid,
+}
+
 // this struct is a mapping to the view `File` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
 // it holds a materialized view for presentation purposes of one entry of the
@@ -157,7 +169,7 @@ pub struct VirtualBranchHunk {
     pub end: u32,
     pub binary: bool,
     pub locked: bool,
-    pub locked_to: Option<Box<[diff::HunkLock]>>,
+    pub locked_to: Option<Box<[HunkLock]>>,
     pub change_type: diff::ChangeType,
     /// Indicates that the hunk depends on multiple branches. In this case the hunk cant be moved or comitted.
     pub poisoned: bool,
@@ -173,15 +185,15 @@ impl VirtualBranchHunk {
         file_path: PathBuf,
         hunk: GitHunk,
         mtimes: &mut MTimeCache,
+        locks: &HashMap<Digest, Vec<HunkLock>>,
     ) -> Self {
         let hash = Hunk::hash_diff(&hunk.diff_lines);
+
+        let binding = Vec::new();
+        let locked_to = locks.get(&hash).unwrap_or(&binding);
+
         // Get the unique branch ids (lock.branch_id) from hunk.locked_to that a hunk is locked to (if any)
-        let branch_deps_count = hunk
-            .locked_to
-            .iter()
-            .map(|lock| lock.branch_id)
-            .unique()
-            .count();
+        let branch_deps_count = locked_to.iter().map(|lock| lock.branch_id).unique().count();
 
         Self {
             id: Self::gen_id(hunk.new_start, hunk.new_lines),
@@ -193,8 +205,8 @@ impl VirtualBranchHunk {
             end: hunk.new_start + hunk.new_lines,
             binary: hunk.binary,
             hash,
-            locked: hunk.locked_to.len() > 0,
-            locked_to: Some(hunk.locked_to),
+            locked: !locked_to.is_empty(),
+            locked_to: Some(locked_to.clone().into_boxed_slice()),
             change_type: hunk.change_type,
             poisoned: branch_deps_count > 1,
         }
@@ -225,7 +237,7 @@ pub fn unapply_ownership(
 
     let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
 
-    let (applied_statuses, _) = get_applied_status(
+    let (applied_statuses, _, _) = get_applied_status(
         project_repository,
         &integration_commit_id,
         virtual_branches,
@@ -401,7 +413,7 @@ pub fn list_virtual_branches(
     let integration_commit_id = get_workspace_head(&vb_state, ctx)?;
     let integration_commit = ctx.repo().find_commit(integration_commit_id).unwrap();
 
-    let (statuses, skipped_files) =
+    let (statuses, skipped_files, locks) =
         get_status_by_branch(ctx, Some(&integration_commit.id()), Some(perm))?;
     let max_selected_for_changes = statuses
         .iter()
@@ -475,7 +487,7 @@ pub fn list_virtual_branches(
         let upstream = upstream_branch
             .and_then(|upstream_branch| branch_to_remote_branch(ctx, &upstream_branch));
 
-        let mut files = diffs_into_virtual_files(ctx, files);
+        let mut files = diffs_into_virtual_files(ctx, files, &locks);
 
         let path_claim_positions: HashMap<&PathBuf, usize> = branch
             .ownership
@@ -1022,13 +1034,22 @@ impl MTimeCache {
 pub(super) fn virtual_hunks_by_git_hunks<'a>(
     project_path: &'a Path,
     diff: impl IntoIterator<Item = (PathBuf, Vec<diff::GitHunk>)> + 'a,
+    locks: Option<&'a HashMap<Digest, Vec<HunkLock>>>,
 ) -> impl Iterator<Item = (PathBuf, Vec<VirtualBranchHunk>)> + 'a {
     let mut mtimes = MTimeCache::default();
     diff.into_iter().map(move |(file_path, hunks)| {
+        let binding = HashMap::new();
+        let locks = locks.unwrap_or(&binding);
         let hunks = hunks
             .into_iter()
             .map(|hunk| {
-                VirtualBranchHunk::from_git_hunk(project_path, file_path.clone(), hunk, &mut mtimes)
+                VirtualBranchHunk::from_git_hunk(
+                    project_path,
+                    file_path.clone(),
+                    hunk,
+                    &mut mtimes,
+                    locks,
+                )
             })
             .collect::<Vec<_>>();
         (file_path, hunks)
@@ -1043,6 +1064,7 @@ pub(crate) fn virtual_hunks_by_file_diffs<'a>(
         project_path,
         diff.into_iter()
             .map(move |(file_path, file)| (file_path, file.hunks)),
+        None,
     )
 }
 
@@ -1055,7 +1077,11 @@ pub fn get_status_by_branch(
     project_repository: &ProjectRepository,
     integration_commit: Option<&git2::Oid>,
     perm: Option<&mut WorktreeWritePermission>,
-) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
+) -> Result<(
+    AppliedStatuses,
+    Vec<diff::FileDiff>,
+    HashMap<Digest, Vec<HunkLock>>,
+)> {
     let vb_state = project_repository.project().virtual_branches();
 
     let default_target = vb_state.get_default_target()?;
@@ -1064,7 +1090,7 @@ pub fn get_status_by_branch(
         .list_branches_in_workspace()
         .context("failed to read virtual branches")?;
 
-    let (applied_status, skipped_files) = get_applied_status(
+    let (applied_status, skipped_files, locks) = get_applied_status(
         project_repository,
         // TODO: Keep this optional or update lots of tests?
         integration_commit.unwrap_or(&default_target.sha),
@@ -1072,14 +1098,14 @@ pub fn get_status_by_branch(
         perm,
     )?;
 
-    Ok((applied_status, skipped_files))
+    Ok((applied_status, skipped_files, locks))
 }
 
 fn new_compute_locks(
     repository: &git2::Repository,
     unstaged_hunks_by_path: &HashMap<PathBuf, Vec<diff::GitHunk>>,
     virtual_branches: &[Branch],
-) -> Result<HashMap<HunkHash, Vec<diff::HunkLock>>> {
+) -> Result<HashMap<HunkHash, Vec<HunkLock>>> {
     // If we cant find the integration commit and subsequently the target commit, we can't find any locks
     let target_tree = repository.target_commit()?.tree()?;
 
@@ -1147,7 +1173,7 @@ fn new_compute_locks(
             let hash = Hunk::hash_diff(&unapplied_hunk.diff_lines);
             let locks = branches
                 .iter()
-                .map(|b| diff::HunkLock {
+                .map(|b| HunkLock {
                     branch_id: b.id,
                     commit_id: b.head,
                 })
@@ -1163,12 +1189,18 @@ fn new_compute_locks(
 
 // Returns branches and their associated file changes, in addition to a list
 // of skipped files.
+// TODO(kv): make this side effect free
+#[allow(clippy::type_complexity)]
 pub(crate) fn get_applied_status(
     project_repository: &ProjectRepository,
     integration_commit: &git2::Oid,
     mut virtual_branches: Vec<Branch>,
     perm: Option<&mut WorktreeWritePermission>,
-) -> Result<(AppliedStatuses, Vec<diff::FileDiff>)> {
+) -> Result<(
+    AppliedStatuses,
+    Vec<diff::FileDiff>,
+    HashMap<Digest, Vec<HunkLock>>,
+)> {
     let base_file_diffs = diff::workdir(project_repository.repo(), &integration_commit.to_owned())
         .context("failed to diff workdir")?;
 
@@ -1235,7 +1267,6 @@ pub(crate) fn get_applied_status(
                                     start: git_diff_hunk.new_start,
                                     end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
                                     hash: Some(hash),
-                                    locked_to: git_diff_hunk.locked_to.to_vec(),
                                 };
                                 git_diff_hunks.remove(i);
                                 return Some(updated_hunk);
@@ -1289,22 +1320,22 @@ pub(crate) fn get_applied_status(
                 default_vbranch_pos
             };
 
-            let hash = Hunk::hash_diff(&hunk.diff_lines);
-            let mut new_hunk = Hunk::from(&hunk).with_hash(hash);
-            new_hunk.locked_to = match locked_to {
-                Some(locked_to) => locked_to.clone(),
-                _ => vec![],
-            };
+            // let hash = Hunk::hash_diff(&hunk.diff_lines);
+            // let mut new_hunk = Hunk::from(&hunk).with_hash(hash);
+            // new_hunk.locked_to = match locked_to {
+            //     Some(locked_to) => locked_to.clone(),
+            //     _ => vec![],
+            // };
 
             virtual_branches[vbranch_pos].ownership.put(OwnershipClaim {
                 file_path: filepath.clone(),
                 hunks: vec![Hunk::from(&hunk).with_hash(Hunk::hash_diff(&hunk.diff_lines))],
             });
 
-            let hunk = match locked_to {
-                Some(locks) => hunk.with_locks(locks),
-                _ => hunk,
-            };
+            // let hunk = match locked_to {
+            //     Some(locks) => hunk.with_locks(locks),
+            //     _ => hunk,
+            // };
             diffs_by_branch
                 .entry(virtual_branches[vbranch_pos].id)
                 .or_default()
@@ -1339,7 +1370,7 @@ pub(crate) fn get_applied_status(
         }
     }
 
-    Ok((hunks_by_branch, skipped_files))
+    Ok((hunks_by_branch, skipped_files, locks))
 }
 
 /// NOTE: There is no use returning an iterator here as this acts like the final product.
@@ -1444,8 +1475,10 @@ pub(crate) fn reset_branch(
 fn diffs_into_virtual_files(
     project_repository: &ProjectRepository,
     diffs: BranchStatus,
+    locks: &HashMap<Digest, Vec<HunkLock>>,
 ) -> Vec<VirtualBranchFile> {
-    let hunks_by_filepath = virtual_hunks_by_git_hunks(&project_repository.project().path, diffs);
+    let hunks_by_filepath =
+        virtual_hunks_by_git_hunks(&project_repository.project().path, diffs, Some(locks));
     virtual_hunks_into_virtual_files(project_repository, hunks_by_filepath)
 }
 
@@ -1665,7 +1698,7 @@ pub fn commit(
 
     let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
     // get the files to commit
-    let (statuses, _) =
+    let (statuses, _, _) =
         get_status_by_branch(project_repository, Some(&integration_commit_id), None)
             .context("failed to get status by branch")?;
 
@@ -2184,7 +2217,7 @@ pub(crate) fn amend(
 
     let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
 
-    let (mut applied_statuses, _) = get_applied_status(
+    let (mut applied_statuses, _, _) = get_applied_status(
         project_repository,
         &integration_commit_id,
         virtual_branches,
@@ -2671,7 +2704,7 @@ pub(crate) fn move_commit(
 
     let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
 
-    let (mut applied_statuses, _) = get_applied_status(
+    let (mut applied_statuses, _, _) = get_applied_status(
         project_repository,
         &integration_commit_id,
         applied_branches,

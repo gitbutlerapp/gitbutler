@@ -78,7 +78,7 @@ impl BranchManager<'_> {
             .list_branches_in_workspace()
             .context("failed to read virtual branches")?;
 
-        let (applied_statuses, _) = get_applied_status(
+        let (applied_statuses, _, _) = get_applied_status(
             self.project_repository,
             &integration_commit.id(),
             virtual_branches,
