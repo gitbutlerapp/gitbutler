@@ -1,6 +1,6 @@
 use crate::error::Error;
 use anyhow::Context;
-use gitbutler_branch::diff::FileDiff;
+use gitbutler_diff::FileDiff;
 use gitbutler_oplog::entry::Snapshot;
 use gitbutler_oplog::OplogExt;
 use gitbutler_project as projects;

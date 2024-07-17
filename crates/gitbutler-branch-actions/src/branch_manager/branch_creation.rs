@@ -7,7 +7,7 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::{
-    dedup, diff, Branch, BranchOwnershipClaims, {self, BranchCreateRequest, BranchId},
+    dedup, Branch, BranchOwnershipClaims, {self, BranchCreateRequest, BranchId},
 };
 use gitbutler_commit::commit_headers::HasCommitHeaders;
 use gitbutler_error::error::Marker;
@@ -192,7 +192,7 @@ impl BranchManager<'_> {
         let merge_base_tree = repo.find_commit(merge_base_oid)?.tree()?;
 
         // do a diff between the head of this branch and the target base
-        let diff = diff::trees(
+        let diff = gitbutler_diff::trees(
             self.project_repository.repo(),
             &merge_base_tree,
             &head_commit_tree,

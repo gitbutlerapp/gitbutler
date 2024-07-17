@@ -1,0 +1,20 @@
+[package]
+name = "gitbutler-diff"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+git2.workspace = true
+bstr = "1.9.1"
+md5 = "0.7.0"
+anyhow = "1.0.86"
+hex = "0.4.3"
+tracing = "0.1.40"
+gitbutler-serde.workspace = true
+serde = { workspace = true, features = ["std"]}
+
+[[test]]
+name = "diff"
+path = "tests/mod.rs"

@@ -26,7 +26,8 @@ members = [
     "crates/gitbutler-time",
     "crates/gitbutler-commit",
     "crates/gitbutler-tagged-string",
-    "crates/gitbutler-url",
+    "crates/gitbutler-url", 
+    "crates/gitbutler-diff",
 ]
 resolver = "2"
 
@@ -72,6 +73,7 @@ gitbutler-time = { path = "crates/gitbutler-time" }
 gitbutler-commit = { path = "crates/gitbutler-commit" }
 gitbutler-tagged-string = { path = "crates/gitbutler-tagged-string" }
 gitbutler-url = { path = "crates/gitbutler-url" }
+gitbutler-diff = { path = "crates/gitbutler-diff" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better

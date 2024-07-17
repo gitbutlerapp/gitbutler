@@ -9,7 +9,7 @@ use crate::{
 };
 use anyhow::Result;
 use gitbutler_branch::{
-    diff, BranchOwnershipClaims, {BranchCreateRequest, BranchId, BranchUpdateRequest},
+    BranchOwnershipClaims, {BranchCreateRequest, BranchId, BranchUpdateRequest},
 };
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_oplog::{
@@ -75,7 +75,7 @@ impl VirtualBranchActions {
     pub async fn list_virtual_branches(
         &self,
         project: &Project,
-    ) -> Result<(Vec<branch::VirtualBranch>, Vec<diff::FileDiff>)> {
+    ) -> Result<(Vec<branch::VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
         branch::list_virtual_branches(
             &open_with_verify(project)?,
             project.exclusive_worktree_access().write_permission(),
