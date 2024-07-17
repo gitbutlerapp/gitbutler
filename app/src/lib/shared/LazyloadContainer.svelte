@@ -1,13 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import type { AriaRole } from 'svelte/elements';
 
 	interface Props {
 		children: any;
 		minTriggerCount: number;
+		role?: AriaRole | undefined | null;
 		ontrigger: (lastChild: Element) => void;
 	}
 
-	let { children, minTriggerCount, ontrigger }: Props = $props();
+	let { children, minTriggerCount, role, ontrigger }: Props = $props();
 
 	let lazyContainerEl: HTMLDivElement;
 
@@ -40,7 +42,7 @@
 	});
 </script>
 
-<div class="lazy-container" bind:this={lazyContainerEl}>
+<div class="lazy-container" {role} bind:this={lazyContainerEl}>
 	{@render children()}
 </div>
 

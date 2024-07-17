@@ -7,7 +7,6 @@
 	import Checkbox from '$lib/shared/Checkbox.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
-	import { updateFocus } from '$lib/utils/selection';
 	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
@@ -45,10 +44,6 @@
 			lastCheckboxDetail;
 	}
 
-	// Don't focus if it's multiple selection. Issue #4139
-	$: if ($fileIdSelection && draggableElt && $fileIdSelection.length === 1)
-		updateFocus(draggableElt, file, fileIdSelection, $commit?.id);
-
 	const isDraggable = !readonly && !isUnapplied;
 </script>
 
@@ -61,6 +56,9 @@
 	class:draggable={isDraggable}
 	id={`file-${file.id}`}
 	data-locked={file.locked}
+	role="treeitem"
+	aria-selected={selected}
+	tabindex="-1"
 	on:click
 	on:keydown
 	on:dragstart={async () => {
@@ -100,8 +98,6 @@
 			contextMenu.open(e, { files: [file] });
 		}
 	}}
-	role="button"
-	tabindex="0"
 	use:draggableChips={{
 		label: `${file.filename}`,
 		filePath: file.path,

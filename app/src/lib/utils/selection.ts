@@ -16,25 +16,6 @@ export function getPreviousFile(files: AnyFile[], currentId: string): AnyFile | 
 	return fileIndex > 0 ? files[fileIndex - 1] : undefined;
 }
 
-/**
- * When the selectedFiles store updates we run this function for every rendered file to determine
- * if it is the only selected file. If so we focus the containing element.
- *
- * This has potential to slow things down since it's O(N) wrt to number of files, but it's less
- * prone to breakage than focusing using element ids at a distance.
- */
-export function updateFocus(
-	elt: HTMLElement,
-	file: AnyFile,
-	fileIdSelection: FileIdSelection,
-	commitId?: string
-) {
-	const selected = fileIdSelection.only();
-	if (selected && selected.fileId === file.id && selected.commitId === commitId) {
-		elt.focus();
-	}
-}
-
 export function maybeMoveSelection(
 	allowMultiple: boolean,
 	shiftKey: boolean,
