@@ -7,10 +7,6 @@ use bstr::{BStr, BString, ByteSlice, ByteVec};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use gitbutler_id::id::Id;
-
-use crate::Branch;
-
 pub type DiffByPathMap = HashMap<PathBuf, FileDiff>;
 
 /// The type of change
@@ -110,17 +106,6 @@ impl GitHunk {
         unapplied_hunk.old_start <= integration_new_end
             && integration_hunk.new_start <= unapplied_old_end
     }
-}
-
-// A hunk is locked when it depends on changes in commits that are in your
-// workspace. A hunk can be locked to more than one branch if it overlaps
-// with more than one committed hunk.
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Copy)]
-#[serde(rename_all = "camelCase")]
-pub struct HunkLock {
-    pub branch_id: Id<Branch>,
-    #[serde(with = "gitbutler_serde::serde::oid")]
-    pub commit_id: git2::Oid,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Default)]

@@ -1,4 +1,4 @@
-use gitbutler_branch::diff::{self, diff_files_into_hunks, trees, FileDiff, GitHunk, HunkLock};
+use gitbutler_branch::diff::{self, diff_files_into_hunks, trees, FileDiff, GitHunk};
 use gitbutler_branch::{dedup, BranchUpdateRequest, VirtualBranchesHandle};
 use gitbutler_branch::{dedup_fmt, Branch, BranchCreateRequest, BranchId};
 use gitbutler_branch::{reconcile_claims, BranchOwnershipClaims};
@@ -114,6 +114,17 @@ pub struct VirtualBranchCommit {
     pub is_signed: bool,
 }
 
+// A hunk is locked when it depends on changes in commits that are in your
+// workspace. A hunk can be locked to more than one branch if it overlaps
+// with more than one committed hunk.
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Copy)]
+#[serde(rename_all = "camelCase")]
+pub struct HunkLock {
+    pub branch_id: BranchId,
+    #[serde(with = "gitbutler_serde::serde::oid")]
+    pub commit_id: git2::Oid,
+}
+
 // this struct is a mapping to the view `File` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
 // it holds a materialized view for presentation purposes of one entry of the
@@ -158,7 +169,7 @@ pub struct VirtualBranchHunk {
     pub end: u32,
     pub binary: bool,
     pub locked: bool,
-    pub locked_to: Option<Box<[diff::HunkLock]>>,
+    pub locked_to: Option<Box<[HunkLock]>>,
     pub change_type: diff::ChangeType,
     /// Indicates that the hunk depends on multiple branches. In this case the hunk cant be moved or comitted.
     pub poisoned: bool,
@@ -1094,7 +1105,7 @@ fn new_compute_locks(
     repository: &git2::Repository,
     unstaged_hunks_by_path: &HashMap<PathBuf, Vec<diff::GitHunk>>,
     virtual_branches: &[Branch],
-) -> Result<HashMap<HunkHash, Vec<diff::HunkLock>>> {
+) -> Result<HashMap<HunkHash, Vec<HunkLock>>> {
     // If we cant find the integration commit and subsequently the target commit, we can't find any locks
     let target_tree = repository.target_commit()?.tree()?;
 
@@ -1162,7 +1173,7 @@ fn new_compute_locks(
             let hash = Hunk::hash_diff(&unapplied_hunk.diff_lines);
             let locks = branches
                 .iter()
-                .map(|b| diff::HunkLock {
+                .map(|b| HunkLock {
                     branch_id: b.id,
                     commit_id: b.head,
                 })
