@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
+	import { CommitDragActions, CommitDragActionsFactory } from '$lib/commits/dragActions';
 	import CardOverlay from '$lib/dropzone/CardOverlay.svelte';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
@@ -17,10 +17,11 @@
 
 	const branch = maybeGetContextStore(VirtualBranch);
 
-	const actions = $derived.by(() => {
+	let actions = $state<CommitDragActions>();
+	$effect.pre(() => {
 		if (!$branch) return;
 
-		return commitDragActionsFactory.build($branch, commit);
+		actions = commitDragActionsFactory.build($branch, commit);
 	});
 </script>
 

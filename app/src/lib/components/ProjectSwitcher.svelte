@@ -5,27 +5,28 @@
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContext, maybeGetContext } from '$lib/utils/context';
-	import { derived } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
 	const projectService = getContext(ProjectService);
 	const project = maybeGetContext(Project);
 
-	const mappedProjects = derived(projectService.projects, (projects) =>
-		projects.map((project) => ({
+	const projects = $derived(projectService.projects);
+
+	const mappedProjects = $derived(
+		$projects.map((project) => ({
 			value: project.id,
 			label: project.title
 		}))
 	);
 
-	let loading = false;
-	let selectedProjectId: string | undefined = project ? project.id : undefined;
+	let loading = $state(false);
+	let selectedProjectId: string | undefined = $state(project ? project.id : undefined);
 </script>
 
 <div class="project-switcher">
 	<Select
 		value={selectedProjectId}
-		options={$mappedProjects}
+		options={mappedProjects}
 		label="Switch to another project"
 		wide
 		onselect={(value) => {

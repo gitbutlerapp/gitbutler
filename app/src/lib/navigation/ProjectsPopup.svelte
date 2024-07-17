@@ -135,6 +135,7 @@
 							await projectService.addProject();
 						} finally {
 							loading = false;
+							hide();
 						}
 					}
 				})}

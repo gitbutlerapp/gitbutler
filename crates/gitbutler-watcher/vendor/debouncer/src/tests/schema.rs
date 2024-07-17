@@ -29,7 +29,7 @@
 // DEALINGS IN THE SOFTWARE.
 use crate::{DebounceDataInner, DebouncedEvent};
 use file_id::FileId;
-use mock_instant::Instant;
+use mock_instant::thread_local::Instant;
 use notify::event::{
     AccessKind, AccessMode, CreateKind, DataChange, Flag, MetadataKind, ModifyKind, RemoveKind,
     RenameMode,

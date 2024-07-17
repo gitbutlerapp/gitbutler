@@ -21,7 +21,7 @@
 </script>
 
 <button
-	use:tooltip={isNavCollapsed ? 'Target' : ''}
+	use:tooltip={isNavCollapsed ? 'Trunk' : ''}
 	on:mousedown={async () => await goto(`/${project.id}/base`)}
 	class="base-branch-card"
 	class:selected
@@ -39,10 +39,7 @@
 	{#if !isNavCollapsed}
 		<div class="content">
 			<div class="button-head">
-				<span
-					use:tooltip={'The branch that your Workspace virtual branches are based on and will be merged into.'}
-					class="text-base-14 text-semibold trunk-label">Target</span
-				>
+				<span class="text-base-14 text-semibold trunk-label">Trunk</span>
 				{#if ($base?.behind || 0) > 0}
 					<Badge count={$base?.behind || 0} help="Unmerged upstream commits" />
 				{/if}

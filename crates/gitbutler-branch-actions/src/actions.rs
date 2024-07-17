@@ -49,7 +49,6 @@ impl VirtualBranchActions {
             message,
             ownership,
             run_hooks,
-            guard.write_permission(),
         )
         .map_err(Into::into);
         let _ = snapshot_tree.and_then(|snapshot_tree| {
@@ -233,13 +232,7 @@ impl VirtualBranchActions {
             SnapshotDetails::new(OperationKind::AmendCommit),
             guard.write_permission(),
         );
-        branch::amend(
-            &project_repository,
-            branch_id,
-            commit_oid,
-            ownership,
-            guard.write_permission(),
-        )
+        branch::amend(&project_repository, branch_id, commit_oid, ownership)
     }
 
     pub async fn move_commit_file(
@@ -473,13 +466,7 @@ impl VirtualBranchActions {
             SnapshotDetails::new(OperationKind::MoveCommit),
             guard.write_permission(),
         );
-        branch::move_commit(
-            &project_repository,
-            target_branch_id,
-            commit_oid,
-            guard.write_permission(),
-        )
-        .map_err(Into::into)
+        branch::move_commit(&project_repository, target_branch_id, commit_oid).map_err(Into::into)
     }
 
     pub async fn create_virtual_branch_from_branch(

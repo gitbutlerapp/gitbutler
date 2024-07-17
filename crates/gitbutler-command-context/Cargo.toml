@@ -10,3 +10,4 @@ anyhow = "1.0.86"
 git2.workspace = true
 tracing = "0.1.40"
 gitbutler-project.workspace = true
+itertools = "0.13"

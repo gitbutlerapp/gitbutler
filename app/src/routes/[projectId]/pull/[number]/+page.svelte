@@ -7,11 +7,17 @@
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import PullRequestPreview from '$lib/components/PullRequestPreview.svelte';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+	import type { PullRequest } from '$lib/gitHost/interface/types';
+	import type { Writable } from 'svelte/store';
 	import { page } from '$app/stores';
 
 	const gitHostListing = getGitHostListingService();
-	const prs = $derived($gitHostListing?.prs);
-	const pr = $derived($prs?.find((b) => b.number.toString() === $page.params.number));
+	let prs = $state<Writable<PullRequest[]>>();
+	let pr = $state<PullRequest>();
+	$effect.pre(() => {
+		prs = $gitHostListing?.prs;
+		pr = $prs?.find((b) => b.number.toString() === $page.params.number);
+	});
 </script>
 
 <div class="wrapper">

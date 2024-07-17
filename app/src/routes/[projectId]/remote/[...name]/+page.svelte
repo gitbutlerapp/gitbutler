@@ -9,8 +9,8 @@
 	import { page } from '$app/stores';
 
 	const branchService = getBranchServiceStore();
-	const branches = $branchService?.branches;
-	const error = $branchService?.error;
+	const branches = $derived($branchService?.branches);
+	const error = $derived($branchService?.error);
 	const branch = $derived(
 		$branches?.find((cb) => cb.remoteBranch?.displayName === $page.params.name)
 	);

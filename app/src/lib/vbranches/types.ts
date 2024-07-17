@@ -314,6 +314,7 @@ export class Branch {
 	upstream?: string;
 	lastCommitTimestampMs?: number | undefined;
 	lastCommitAuthor?: string | undefined;
+	givenName!: string;
 
 	get displayName(): string {
 		return this.name.replace('refs/remotes/', '').replace('refs/heads/', '');
