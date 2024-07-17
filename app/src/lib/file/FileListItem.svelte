@@ -7,7 +7,6 @@
 	import Checkbox from '$lib/shared/Checkbox.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
-	import { updateFocus } from '$lib/utils/selection';
 	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
@@ -44,10 +43,6 @@
 			file.hunks.every((hunk) => $selectedOwnership?.contains(file.id, hunk.id)) &&
 			lastCheckboxDetail;
 	}
-
-	// Don't focus if it's multiple selection. Issue #4139
-	$: if ($fileIdSelection && draggableElt && $fileIdSelection.length === 1)
-		updateFocus(draggableElt, file, fileIdSelection, $commit?.id);
 
 	const isDraggable = !readonly && !isUnapplied;
 </script>
