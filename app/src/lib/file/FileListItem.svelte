@@ -100,8 +100,9 @@
 			contextMenu.open(e, { files: [file] });
 		}
 	}}
-	role="button"
-	tabindex="0"
+	role="treeitem"
+	aria-selected={selected}
+	tabindex="-1"
 	use:draggableChips={{
 		label: `${file.filename}`,
 		filePath: file.path,

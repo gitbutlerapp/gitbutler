@@ -101,6 +101,13 @@
 						$fileIdSelection,
 						fileIdSelection
 					);
+
+					if (e.key === 'Escape') {
+						fileIdSelection.clear();
+						
+						const targetEl = e.target as HTMLElement;
+						targetEl.blur();
+					}
 				}}
 			/>
 		{/each}
