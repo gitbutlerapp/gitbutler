@@ -39,5 +39,6 @@ jobs:
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git commit -am "feat: add release ${{ github.event.release.tag_name }}"
+          git remote set-url origin https://x-access-token:${{ secrets.PAT_PUSH }}@github.com/gitbutlerapp/gitbutler-docs
+          git commit -am "[automated]: add release ${{ github.event.release.tag_name }}"
           git push
