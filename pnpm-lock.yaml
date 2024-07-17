@@ -14,8 +14,8 @@ catalogs:
       specifier: 3.0.1
       version: 3.0.1
     '@sveltejs/kit':
-      specifier: 2.5.10
-      version: 2.5.10
+      specifier: 2.5.18
+      version: 2.5.18
     '@sveltejs/vite-plugin-svelte':
       specifier: 3.1.1
       version: 3.1.1
@@ -159,13 +159,13 @@ importers:
         version: 6.0.0(@codemirror/autocomplete@6.16.2(@codemirror/language@6.10.2)(@codemirror/state@6.4.1)(@codemirror/view@6.26.3)(@lezer/common@1.2.1))(@codemirror/lang-css@6.2.1(@codemirror/view@6.26.3))(@codemirror/lang-html@6.4.9)(@codemirror/lang-javascript@6.2.2)(@codemirror/language@6.10.2)(@codemirror/state@6.4.1)(@codemirror/view@6.26.3)(@lezer/common@1.2.1)(@lezer/highlight@1.2.0)(@lezer/javascript@1.4.16)(@lezer/lr@1.4.1)
       '@sentry/sveltekit':
         specifier: ^8.9.2
-        version: 8.9.2(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.52.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.25.0)(@sveltejs/kit@2.5.10(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)
+        version: 8.9.2(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.52.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.25.0)(@sveltejs/kit@2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)
       '@sveltejs/adapter-static':
         specifier: catalog:svelte
-        version: 3.0.1(@sveltejs/kit@2.5.10(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))
+        version: 3.0.1(@sveltejs/kit@2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))
       '@sveltejs/kit':
         specifier: catalog:svelte
-        version: 2.5.10(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9))
+        version: 2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9))
       '@sveltejs/vite-plugin-svelte':
         specifier: catalog:svelte
         version: 3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9))
@@ -297,10 +297,10 @@ importers:
         version: 8.1.10(@babel/core@7.24.7)(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(postcss-load-config@5.1.0(postcss@8.4.38))(postcss@8.4.38)(prettier@3.3.2)(svelte@5.0.0-next.184)(typescript@5.4.5)(vite@5.2.13(@types/node@20.5.9))
       '@sveltejs/adapter-static':
         specifier: catalog:svelte
-        version: 3.0.1(@sveltejs/kit@2.5.10(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))
+        version: 3.0.1(@sveltejs/kit@2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))
       '@sveltejs/kit':
         specifier: catalog:svelte
-        version: 2.5.10(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9))
+        version: 2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9))
       '@sveltejs/package':
         specifier: ^2.3.2
         version: 2.3.2(svelte@5.0.0-next.184)(typescript@5.4.5)
@@ -2183,8 +2183,8 @@ packages:
     peerDependencies:
       '@sveltejs/kit': ^2.0.0
 
-  '@sveltejs/kit@2.5.10':
-    resolution: {integrity: sha512-OqoyTmFG2cYmCFAdBfW+Qxbg8m23H4dv6KqwEt7ofr/ROcfcIl3Z/VT56L22H9f0uNZyr+9Bs1eh2gedOCK9kA==}
+  '@sveltejs/kit@2.5.18':
+    resolution: {integrity: sha512-+g06hvpVAnH7b4CDjhnTDgFWBKBiQJpuSmQeGYOuzbO3SC3tdYjRNlDCrafvDtKbGiT2uxY5Dn9qdEUGVZdWOQ==}
     engines: {node: '>=18.13'}
     hasBin: true
     peerDependencies:
@@ -7919,7 +7919,7 @@ snapshots:
       magic-string: 0.30.10
       svelte: 5.0.0-next.184
 
-  '@sentry/sveltekit@8.9.2(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.52.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.25.0)(@sveltejs/kit@2.5.10(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)':
+  '@sentry/sveltekit@8.9.2(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.52.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.25.0)(@sveltejs/kit@2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)':
     dependencies:
       '@sentry/core': 8.9.2
       '@sentry/node': 8.9.2
@@ -7928,7 +7928,7 @@ snapshots:
       '@sentry/types': 8.9.2
       '@sentry/utils': 8.9.2
       '@sentry/vite-plugin': 2.18.0
-      '@sveltejs/kit': 2.5.10(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9))
+      '@sveltejs/kit': 2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9))
       magic-string: 0.30.7
       magicast: 0.2.8
       sorcery: 0.11.0
@@ -8607,11 +8607,11 @@ snapshots:
       '@types/express': 4.17.21
       file-system-cache: 2.3.0
 
-  '@sveltejs/adapter-static@3.0.1(@sveltejs/kit@2.5.10(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))':
+  '@sveltejs/adapter-static@3.0.1(@sveltejs/kit@2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))':
     dependencies:
-      '@sveltejs/kit': 2.5.10(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9))
+      '@sveltejs/kit': 2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9))
 
-  '@sveltejs/kit@2.5.10(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9))':
+  '@sveltejs/kit@2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9))':
     dependencies:
       '@sveltejs/vite-plugin-svelte': 3.1.1(svelte@5.0.0-next.184)(vite@5.2.13(@types/node@20.5.9))
       '@types/cookie': 0.6.0
