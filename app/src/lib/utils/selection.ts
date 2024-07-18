@@ -16,35 +16,30 @@ export function getPreviousFile(files: AnyFile[], currentId: string): AnyFile | 
 	return fileIndex > 0 ? files[fileIndex - 1] : undefined;
 }
 
-/**
- * When the selectedFiles store updates we run this function for every rendered file to determine
- * if it is the only selected file. If so we focus the containing element.
- *
- * This has potential to slow things down since it's O(N) wrt to number of files, but it's less
- * prone to breakage than focusing using element ids at a distance.
- */
-export function updateFocus(
-	elt: HTMLElement,
-	file: AnyFile,
-	fileIdSelection: FileIdSelection,
-	commitId?: string
-) {
-	const selected = fileIdSelection.only();
-	if (selected && selected.fileId === file.id && selected.commitId === commitId) {
-		elt.focus();
-	}
+interface MoveSelectionParams {
+	allowMultiple: boolean;
+	shiftKey: boolean;
+	key: string;
+	targetElement: HTMLElement;
+	file: AnyFile;
+	files: AnyFile[];
+	selectedFileIds: string[];
+	fileIdSelection: FileIdSelection;
 }
 
-export function maybeMoveSelection(
-	allowMultiple: boolean,
-	shiftKey: boolean,
-	key: string,
-	file: AnyFile,
-	files: AnyFile[],
-	selectedFileIds: string[],
-	fileIdSelection: FileIdSelection
-) {
+export function maybeMoveSelection({
+	allowMultiple,
+	shiftKey,
+	key,
+	targetElement,
+	file,
+	files,
+	selectedFileIds,
+	fileIdSelection
+}: MoveSelectionParams) {
 	if (selectedFileIds.length === 0) return;
+
+	// console.log('targetElement', targetElement, elementIndex);
 
 	const firstFileId = unstringifyFileKey(selectedFileIds[0]);
 	const lastFileId = unstringifyFileKey(selectedFileIds[selectedFileIds.length - 1]);
@@ -89,6 +84,10 @@ export function maybeMoveSelection(
 				}
 				getAndAddFile(getPreviousFile, lastFileId);
 			} else {
+				// focus previous file
+				const previousElement = targetElement.previousElementSibling as HTMLElement;
+				if (previousElement) previousElement.focus();
+
 				// Handle reset of selection
 				if (selectedFileIds.length > 1) {
 					getAndClearAndAddFile(getPreviousFile, lastFileId);
@@ -109,6 +108,10 @@ export function maybeMoveSelection(
 				}
 				getAndAddFile(getNextFile, lastFileId);
 			} else {
+				// focus next file
+				const nextElement = targetElement.nextElementSibling as HTMLElement;
+				if (nextElement) nextElement.focus();
+
 				// Handle reset of selection
 				if (selectedFileIds.length > 1) {
 					getAndClearAndAddFile(getNextFile, lastFileId);

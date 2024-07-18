@@ -79,6 +79,7 @@
 			console.log('loading more files...');
 			loadMore();
 		}}
+		role="listbox"
 	>
 		{#each displayedFiles as file (file.id)}
 			<FileListItem
@@ -93,14 +94,24 @@
 				on:keydown={(e) => {
 					e.preventDefault();
 					maybeMoveSelection(
-						allowMultiple,
-						e.shiftKey,
-						e.key,
-						file,
-						displayedFiles,
-						$fileIdSelection,
-						fileIdSelection
+						{
+							allowMultiple,
+							shiftKey: e.shiftKey,
+							key: e.key,
+							targetElement: e.currentTarget as HTMLElement,
+							file,
+							files: displayedFiles,
+							selectedFileIds: $fileIdSelection,
+							fileIdSelection
+						}
 					);
+
+					if (e.key === 'Escape') {
+						fileIdSelection.clear();
+						
+						const targetEl = e.target as HTMLElement;
+						targetEl.blur();
+					}
 				}}
 			/>
 		{/each}

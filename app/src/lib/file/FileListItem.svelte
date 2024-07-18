@@ -7,7 +7,6 @@
 	import Checkbox from '$lib/shared/Checkbox.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
-	import { updateFocus } from '$lib/utils/selection';
 	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
@@ -31,6 +30,19 @@
 	let contextMenu: FileContextMenu;
 	let draggableElt: HTMLDivElement;
 	let lastCheckboxDetail = true;
+
+	function updateFocus(
+		elt: HTMLElement,
+		file: AnyFile,
+		fileIdSelection: FileIdSelection,
+		commitId?: string
+	) {
+		const selected = fileIdSelection.only();
+		// console.log(selected);
+		if (selected && selected.fileId === file.id && selected.commitId === commitId) {
+			// elt.focus();
+		}
+	}
 
 	$: if (!lastCheckboxDetail) {
 		selectedOwnership?.update((ownership) => {
@@ -61,6 +73,9 @@
 	class:draggable={isDraggable}
 	id={`file-${file.id}`}
 	data-locked={file.locked}
+	role="treeitem"
+	aria-selected={selected}
+	tabindex="-1"
 	on:click
 	on:keydown
 	on:dragstart={async () => {
@@ -100,8 +115,6 @@
 			contextMenu.open(e, { files: [file] });
 		}
 	}}
-	role="button"
-	tabindex="0"
 	use:draggableChips={{
 		label: `${file.filename}`,
 		filePath: file.path,
