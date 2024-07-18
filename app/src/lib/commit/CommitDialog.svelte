@@ -38,7 +38,6 @@
 			$commitMessage = '';
 		} finally {
 			isCommitting = false;
-			$expanded = false;
 		}
 	}
 </script>
