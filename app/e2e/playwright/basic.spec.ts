@@ -9,7 +9,7 @@ test('has empty title', async ({ page }) => {
 test('has text package.json', async ({ page }) => {
 	await page.goto('http://localhost:1420');
 
-	const listBox = page.getByRole('listbox').getByRole('treeitem').first();
+	const listBox = page.getByRole('listbox').getByRole('option').first();
 
 	await expect(listBox).toHaveText('package.json');
 });

@@ -73,7 +73,7 @@
 	class:draggable={isDraggable}
 	id={`file-${file.id}`}
 	data-locked={file.locked}
-	role="treeitem"
+	role="option"
 	aria-selected={selected}
 	tabindex="-1"
 	on:click
