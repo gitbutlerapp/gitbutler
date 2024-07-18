@@ -43,7 +43,7 @@
 		&:hover,
 		&:focus {
 			outline: none;
-			background-color: oklch(from var(--clr-bg-2) l c h / 0.5);
+			background-color: var(--clr-bg-1-muted);
 		}
 	}
 
