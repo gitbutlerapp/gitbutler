@@ -4,7 +4,7 @@ import { GitHubPrService } from './githubPrService';
 import { Octokit } from '@octokit/rest';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { GitHost } from '../interface/gitHostService';
+import type { GitHost } from '../interface/gitHost';
 import type { DetailedPullRequest } from '../interface/types';
 
 export type PrAction = 'creating_pr';

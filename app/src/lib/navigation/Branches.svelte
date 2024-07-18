@@ -4,7 +4,7 @@
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { getBranchServiceStore } from '$lib/branches/service';
 	import FilterButton from '$lib/components/FilterBranchesButton.svelte';
-	import { getGitHost } from '$lib/gitHost/interface/gitHostService';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { persisted } from '$lib/persisted/persisted';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';

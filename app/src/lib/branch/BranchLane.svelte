@@ -4,11 +4,11 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { projectLaneCollapsed } from '$lib/config/config';
 	import FileCard from '$lib/file/FileCard.svelte';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { createGitHostChecksMonitorStore } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { createGitHostPrMonitorStore } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { createGitHostPrServiceStore } from '$lib/gitHost/interface/gitHostPrService';
-	import { getGitHost } from '$lib/gitHost/interface/gitHostService';
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
@@ -37,16 +37,14 @@
 
 	const baseBranch = getContextStore(BaseBranch);
 
-	const gitHostService = getGitHost();
+	const gitHost = getGitHost();
 	const baseBranchName = $derived($baseBranch.shortName);
 	const upstreamName = $derived(branch.upstreamName);
 
 	// BRANCH SERVICE
 	const prService = createGitHostPrServiceStore(undefined);
 	$effect(() =>
-		prService.set(
-			upstreamName ? $gitHostService?.prService(baseBranchName, upstreamName) : undefined
-		)
+		prService.set(upstreamName ? $gitHost?.prService(baseBranchName, upstreamName) : undefined)
 	);
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
@@ -63,9 +61,7 @@
 	$effect(() => gitHostPrMonitorStore.set(prMonitor));
 
 	const gitHostChecksMonitorStore = createGitHostChecksMonitorStore(undefined);
-	const checksMonitor = $derived(
-		sourceBranch ? $gitHostService?.checksMonitor(sourceBranch) : undefined
-	);
+	const checksMonitor = $derived(sourceBranch ? $gitHost?.checksMonitor(sourceBranch) : undefined);
 	$effect(() => gitHostChecksMonitorStore.set(checksMonitor));
 
 	// BRANCH
