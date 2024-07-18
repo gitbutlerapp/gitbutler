@@ -57,7 +57,7 @@
 		tabindex="0"
 		role="cell"
 		use:draggableElement={{
-			data: new DraggableHunk($branch?.id || '', section.hunk),
+			data: new DraggableHunk($branch?.id || '', section.hunk, section.hunk.lockedTo),
 			disabled: draggingDisabled
 		}}
 		on:contextmenu|preventDefault
