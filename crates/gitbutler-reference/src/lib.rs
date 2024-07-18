@@ -5,8 +5,8 @@ use regex::Regex;
 
 pub fn normalize_branch_name(name: &str) -> String {
     // Remove specific symbols
-    let exclude_pattern = Regex::new(r"[|\+^~<>\\*]").unwrap();
-    let mut result = exclude_pattern.replace_all(name, "").to_string();
+    let exclude_pattern = Regex::new(r"[|\+^~<>\\:*]").unwrap();
+    let mut result = exclude_pattern.replace_all(name, "-").to_string();
 
     // Replace spaces with hyphens
     let space_pattern = Regex::new(r"\s+").unwrap();
