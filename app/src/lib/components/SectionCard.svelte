@@ -109,7 +109,7 @@
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
+		gap: 6px;
 		user-select: text;
 	}
 
@@ -132,7 +132,6 @@
 
 	.section-card__icon-side {
 		display: flex;
-		align-items: center;
 	}
 
 	/* MODIFIERS */

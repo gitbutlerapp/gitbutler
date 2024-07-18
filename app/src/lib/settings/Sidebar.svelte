@@ -2,13 +2,8 @@
 	import SupportersBanner from './SupportersBanner.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
-	import { UserService } from '$lib/stores/user';
-	import { getContext } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-
-	const userService = getContext(UserService);
-	const user = userService.user;
 
 	let currentSection: string | undefined;
 	$: currentSection = getPageName($page.url.pathname);
@@ -68,18 +63,16 @@
 					</button>
 				</li>
 
-				{#if $user}
-					<li>
-						<button
-							class="profile-sidebar__menu-item"
-							class:item_selected={currentSection === 'integrations'}
-							on:mousedown={() => onMenuClick('integrations')}
-						>
-							<Icon name="integrations" />
-							<span class="text-base-14 text-semibold">Integrations</span>
-						</button>
-					</li>
-				{/if}
+				<li>
+					<button
+						class="profile-sidebar__menu-item"
+						class:item_selected={currentSection === 'integrations'}
+						on:mousedown={() => onMenuClick('integrations')}
+					>
+						<Icon name="integrations" />
+						<span class="text-base-14 text-semibold">Integrations</span>
+					</button>
+				</li>
 				<li>
 					<button
 						class="profile-sidebar__menu-item"

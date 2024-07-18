@@ -279,7 +279,9 @@
 	/*  */
 
 	.icon-wrapper {
+		align-self: flex-start;
 		position: relative;
+		height: fit-content;
 	}
 
 	.icon-wrapper__tick {
