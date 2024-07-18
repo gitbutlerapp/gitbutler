@@ -3,7 +3,6 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
 	import Link from '$lib/shared/Link.svelte';
-	import Spacer from '$lib/shared/Spacer.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { onMount } from 'svelte';
@@ -40,6 +39,4 @@
 			<Toggle id="committerSigning" checked={annotateCommits} on:click={toggleCommitterSigning} />
 		</svelte:fragment>
 	</SectionCard>
-
-	<Spacer />
 </ContentWrapper>
