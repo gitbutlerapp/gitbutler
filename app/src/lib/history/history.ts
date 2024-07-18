@@ -23,7 +23,7 @@ export class HistoryService {
 
 	async load() {
 		const data = await this.fetch();
-		if (data && data.length) {
+		if (data.length) {
 			this.snapshots.set(data);
 			this.cursor = data[data.length - 1].id;
 		}
