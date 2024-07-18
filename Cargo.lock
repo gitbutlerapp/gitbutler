@@ -2020,6 +2020,7 @@ dependencies = [
  "gitbutler-time",
  "gitbutler-url",
  "gitbutler-user",
+ "gix",
  "glob",
  "hex",
  "itertools 0.13.0",

@@ -12,7 +12,7 @@ use gitbutler_repo::credentials::Helper;
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 use itertools::Itertools;
 use md5::Digest;
-use std::borrow::Borrow;
+use std::borrow::{Borrow, Cow};
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::PermissionsExt;
 use std::time::SystemTime;
@@ -835,8 +835,8 @@ pub(crate) fn integrate_with_merge(
         let merge_conflicts = conflicts
             .flatten()
             .filter_map(|c| c.our)
-            .map(|our| std::string::String::from_utf8_lossy(&our.path).to_string())
-            .collect::<Vec<_>>();
+            .map(|our| gix::path::try_from_bstr(Cow::Owned(our.path.into())))
+            .collect::<Result<Vec<_>, _>>()?;
         conflicts::mark(
             project_repository,
             merge_conflicts,
@@ -1386,7 +1386,7 @@ fn virtual_hunks_into_virtual_files(
         .map(|(path, hunks)| {
             let id = path.display().to_string();
             let conflicted =
-                conflicts::is_conflicting(project_repository, Some(id.as_ref())).unwrap_or(false);
+                conflicts::is_conflicting(project_repository, Some(&path)).unwrap_or(false);
             let binary = hunks.iter().any(|h| h.binary);
             let modified_at = hunks.iter().map(|h| h.modified_at).max().unwrap_or(0);
             debug_assert!(hunks.iter().all(|hunk| hunk.file_path == path));
@@ -2913,7 +2913,7 @@ fn update_conflict_markers(
     let conflicting_files = conflicts::conflicting_files(project_repository)?;
     for (file_path, non_commited_hunks) in files {
         let mut conflicted = false;
-        if conflicting_files.contains(&file_path.display().to_string()) {
+        if conflicting_files.contains(file_path) {
             // check file for conflict markers, resolve the file if there are none in any hunk
             for hunk in non_commited_hunks {
                 if hunk.diff_lines.contains_str(b"<<<<<<< ours") {
@@ -2924,7 +2924,7 @@ fn update_conflict_markers(
                 }
             }
             if !conflicted {
-                conflicts::resolve(project_repository, file_path.display().to_string()).unwrap();
+                conflicts::resolve(project_repository, file_path).unwrap();
             }
         }
     }
