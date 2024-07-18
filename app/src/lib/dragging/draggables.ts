@@ -1,4 +1,11 @@
-import type { AnyCommit, AnyFile, DetailedCommit, Hunk, Commit } from '../vbranches/types';
+import type {
+	AnyCommit,
+	AnyFile,
+	DetailedCommit,
+	Hunk,
+	Commit,
+	HunkLock
+} from '../vbranches/types';
 
 export function nonDraggable() {
 	return {
@@ -10,7 +17,8 @@ export function nonDraggable() {
 export class DraggableHunk {
 	constructor(
 		public readonly branchId: string,
-		public readonly hunk: Hunk
+		public readonly hunk: Hunk,
+		public readonly lockedTo: HunkLock[]
 	) {}
 }
 
