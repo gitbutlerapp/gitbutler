@@ -4,10 +4,10 @@
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import AiPromptEdit from '$lib/components/AIPromptEdit/AIPromptEdit.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import { getSecretsService } from '$lib/secrets/secretsService';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
+	import AuthorizationBanner from '$lib/settings/AuthorizationBanner.svelte';
 	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
@@ -145,12 +145,6 @@
 		configuration.
 	</p>
 
-	{#if !$user}
-		<InfoMessage>
-			<svelte:fragment slot="title">You must be logged in to use the GitButler API</svelte:fragment>
-		</InfoMessage>
-	{/if}
-
 	<form class="git-radio" bind:this={form} on:change={(e) => onFormChange(e.currentTarget)}>
 		<SectionCard
 			roundedBottom={false}
@@ -182,11 +176,15 @@
 					</Select>
 
 					{#if openAIKeyOption === KeyOption.ButlerAPI}
-						<InfoMessage filled outlined={false} style="pop" icon="ai">
-							<svelte:fragment slot="title">
-								GitButler uses OpenAI API for commit messages and branch names
-							</svelte:fragment>
-						</InfoMessage>
+						{#if !$user}
+							<AuthorizationBanner message="Please sign in to use the GitButler API." />
+						{:else}
+							<InfoMessage filled outlined={false} style="pop" icon="ai">
+								<svelte:fragment slot="title">
+									GitButler uses OpenAI API for commit messages and branch names
+								</svelte:fragment>
+							</InfoMessage>
+						{/if}
 					{/if}
 
 					{#if openAIKeyOption === KeyOption.BringYourOwn}
@@ -206,8 +204,6 @@
 								</SelectItem>
 							{/snippet}
 						</Select>
-					{:else if !$user}
-						<WelcomeSigninAction prompt="A user is required to make use of the GitButler API" />
 					{/if}
 				</div>
 			</SectionCard>
@@ -244,11 +240,15 @@
 					</Select>
 
 					{#if anthropicKeyOption === KeyOption.ButlerAPI}
-						<InfoMessage filled outlined={false} style="pop" icon="ai">
-							<svelte:fragment slot="title">
-								GitButler uses Anthropic API for commit messages and branch names
-							</svelte:fragment>
-						</InfoMessage>
+						{#if !$user}
+							<AuthorizationBanner message="Please sign in to use the GitButler API." />
+						{:else}
+							<InfoMessage filled outlined={false} style="pop" icon="ai">
+								<svelte:fragment slot="title">
+									GitButler uses Anthropic API for commit messages and branch names
+								</svelte:fragment>
+							</InfoMessage>
+						{/if}
 					{/if}
 
 					{#if anthropicKeyOption === KeyOption.BringYourOwn}
@@ -273,8 +273,6 @@
 								</SelectItem>
 							{/snippet}
 						</Select>
-					{:else if !$user}
-						<WelcomeSigninAction prompt="A user is required to make use of the GitButler API" />
 					{/if}
 				</div>
 			</SectionCard>
