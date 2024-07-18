@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_error::error::Marker;
@@ -26,7 +26,13 @@ pub(crate) fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
     // write all the file paths to a file on disk
     let mut buf = Vec::<u8>::with_capacity(512);
     for path in paths {
-        buf.write_all(path.as_ref().as_os_str().as_encoded_bytes())?;
+        let path = path.as_ref();
+        let path_bytes = path.as_os_str().as_encoded_bytes();
+        // Have to search for line separators as `ByteSlice::lines()` will recognize both.
+        if path_bytes.find_byte(b'\n').is_some() || path_bytes.find(b"\r\n").is_some() {
+            bail!("Conflicting path {path:?} contains newlines which are illegal in this context")
+        }
+        buf.write_all(path_bytes)?;
         buf.write_all(b"\n")?;
     }
     gitbutler_fs::write(conflicts_path(ctx), &buf)?;
@@ -35,7 +41,6 @@ pub(crate) fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
         // write all the file paths to a file on disk
         gitbutler_fs::write(merge_parent_path(ctx), parent.to_string().as_bytes())?;
     }
-
     Ok(())
 }
 
