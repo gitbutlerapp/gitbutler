@@ -78,6 +78,9 @@ export class CombinedBranch {
 				? new Date(this.remoteBranch.lastCommitTimestampMs)
 				: undefined;
 		}
+		if (this.pr) {
+			return this.pr.modifiedAt ? new Date(this.pr.modifiedAt) : undefined;
+		}
 	}
 
 	get tooltip(): string | undefined {
