@@ -127,14 +127,19 @@ pub(crate) fn is_resolving(ctx: &ProjectRepository) -> bool {
 }
 
 pub(crate) fn clear(ctx: &ProjectRepository) -> Result<()> {
-    let merge_path = merge_parent_path(ctx);
-    std::fs::remove_file(merge_path)?;
-
-    for file in conflicting_files(ctx)? {
-        resolve(ctx, &file)?;
-    }
-
+    remove_file_ignore_missing(merge_parent_path(ctx))?;
+    remove_file_ignore_missing(conflicts_path(ctx))?;
     Ok(())
+}
+
+fn remove_file_ignore_missing(path: impl AsRef<Path>) -> std::io::Result<()> {
+    std::fs::remove_file(path).or_else(|err| {
+        if err.kind() == std::io::ErrorKind::NotFound {
+            Ok(())
+        } else {
+            Err(err)
+        }
+    })
 }
 
 pub(crate) trait RepoConflictsExt {
