@@ -13,8 +13,8 @@
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 	import { DefaultGitHostFactory } from '$lib/gitHost/gitHostFactory';
 	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
+	import { createGitHostStore } from '$lib/gitHost/interface/gitHost';
 	import { createGitHostListingServiceStore } from '$lib/gitHost/interface/gitHostListingService';
-	import { createGitHostStore } from '$lib/gitHost/interface/gitHostService';
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
 	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
@@ -99,11 +99,11 @@
 	});
 
 	$effect.pre(() => {
-		const gitHostService = repoInfo ? gitHostFactory?.build(repoInfo) : undefined;
-		const ghListService = gitHostService?.listService();
+		const gitHost = repoInfo ? gitHostFactory?.build(repoInfo) : undefined;
+		const ghListService = gitHost?.listService();
 
 		listServiceStore.set(ghListService);
-		githubRepoServiceStore.set(gitHostService);
+		githubRepoServiceStore.set(gitHost);
 		branchServiceStore.set(new BranchService(vbranchService, remoteBranchService, ghListService));
 	});
 

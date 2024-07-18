@@ -6,10 +6,10 @@
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
-	import { getGitHost } from '$lib/gitHost/interface/gitHostService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import Button from '$lib/shared/Button.svelte';
 	import Icon from '$lib/shared/Icon.svelte';

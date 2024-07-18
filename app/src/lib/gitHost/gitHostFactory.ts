@@ -1,7 +1,7 @@
 import { GitHub } from './github/github';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { GitHost } from './interface/gitHostService';
+import type { GitHost } from './interface/gitHost';
 import type { Octokit } from '@octokit/rest';
 
 // Used on a branch level to acquire the right kind of merge request / checks
