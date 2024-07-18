@@ -31,6 +31,19 @@
 	let draggableElt: HTMLDivElement;
 	let lastCheckboxDetail = true;
 
+	function updateFocus(
+		elt: HTMLElement,
+		file: AnyFile,
+		fileIdSelection: FileIdSelection,
+		commitId?: string
+	) {
+		const selected = fileIdSelection.only();
+		// console.log(selected);
+		if (selected && selected.fileId === file.id && selected.commitId === commitId) {
+			// elt.focus();
+		}
+	}
+
 	$: if (!lastCheckboxDetail) {
 		selectedOwnership?.update((ownership) => {
 			file.hunks.forEach((h) => ownership.remove(file.id, h.id));
@@ -43,6 +56,10 @@
 			file.hunks.every((hunk) => $selectedOwnership?.contains(file.id, hunk.id)) &&
 			lastCheckboxDetail;
 	}
+
+	// Don't focus if it's multiple selection. Issue #4139
+	$: if ($fileIdSelection && draggableElt && $fileIdSelection.length === 1)
+		updateFocus(draggableElt, file, fileIdSelection, $commit?.id);
 
 	const isDraggable = !readonly && !isUnapplied;
 </script>

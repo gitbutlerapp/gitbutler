@@ -94,13 +94,16 @@
 				on:keydown={(e) => {
 					e.preventDefault();
 					maybeMoveSelection(
-						allowMultiple,
-						e.shiftKey,
-						e.key,
-						file,
-						displayedFiles,
-						$fileIdSelection,
-						fileIdSelection
+						{
+							allowMultiple,
+							shiftKey: e.shiftKey,
+							key: e.key,
+							targetElement: e.currentTarget as HTMLElement,
+							file,
+							files: displayedFiles,
+							selectedFileIds: $fileIdSelection,
+							fileIdSelection
+						}
 					);
 
 					if (e.key === 'Escape') {
