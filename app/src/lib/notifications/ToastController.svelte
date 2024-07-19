@@ -1,14 +1,11 @@
 <script lang="ts">
 	import { dismissToast, toastStore } from '$lib/notifications/toasts';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
+	import { getMarkdownRenderer } from '$lib/utils/markdown';
 	import { marked } from 'marked';
 	import { slide } from 'svelte/transition';
 
-	var renderer = new marked.Renderer();
-	renderer.link = function (href, title, text) {
-		if (!title) title = text;
-		return '<a target="_blank" href="' + href + '" title="' + href + '">' + text + '</a>';
-	};
+	var renderer = getMarkdownRenderer();
 </script>
 
 <div class="toast-controller hide-native-scrollbar">

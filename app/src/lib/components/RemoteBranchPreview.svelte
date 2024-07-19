@@ -9,6 +9,7 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
+	import { getMarkdownRenderer } from '$lib/utils/markdown';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { type Branch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
@@ -40,11 +41,7 @@
 		laneWidth = lscache.get(laneWidthKey);
 	});
 
-	var renderer = new marked.Renderer();
-	renderer.link = function (href, title, text) {
-		if (!title) title = text;
-		return '<a target="_blank" href="' + href + '" title="' + title + '">' + text + '</a>';
-	};
+	const renderer = getMarkdownRenderer();
 </script>
 
 <div class="base">
