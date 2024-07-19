@@ -8,6 +8,7 @@
 	import Modal from '$lib/shared/Modal.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext } from '$lib/utils/context';
+	import { getMarkdownRenderer } from '$lib/utils/markdown';
 	import * as toasts from '$lib/utils/toasts';
 	import { remoteUrlIsHttp } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -24,6 +25,7 @@
 	const remotesService = getContext(RemotesService);
 	const baseBranchService = getContext(BaseBranchService);
 	const virtualBranchService = getContext(VirtualBranchService);
+	const renderer = getMarkdownRenderer();
 
 	let remoteName = structuredClone(pullrequest.repoName) || '';
 	let createRemoteModal: Modal | undefined;
@@ -130,7 +132,7 @@
 			</div>
 			{#if pullrequest.body}
 				<div class="markdown">
-					{@html marked.parse(pullrequest.body)}
+					{@html marked.parse(pullrequest.body, { renderer })}
 				</div>
 			{/if}
 		</div>

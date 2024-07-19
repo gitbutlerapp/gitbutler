@@ -3,6 +3,7 @@
 	import Button from '$lib/shared/Button.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { autoHeight } from '$lib/utils/autoHeight';
+	import { getMarkdownRenderer } from '$lib/utils/markdown';
 	import { marked } from 'marked';
 	import { createEventDispatcher } from 'svelte';
 
@@ -18,6 +19,7 @@
 		addExample: void;
 		input: string;
 	}>();
+	const markedRenderer = getMarkdownRenderer();
 	let textareaElement: HTMLTextAreaElement | undefined;
 
 	function focusTextareaOnMount(
@@ -71,7 +73,7 @@
 			></textarea>
 		{:else}
 			<div class="markdown bubble-message scrollbar text-base-body-13">
-				{@html marked.parse(promptMessage.content)}
+				{@html marked.parse(promptMessage.content, { renderer: markedRenderer })}
 			</div>
 		{/if}
 	</div>
