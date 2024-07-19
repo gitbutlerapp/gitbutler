@@ -224,8 +224,7 @@ impl RepositoryExt for Repository {
         opts.min_line(min_line as usize)
             .max_line(max_line as usize)
             .newest_commit(newest_commit)
-            .oldest_commit(oldest_commit)
-            .first_parent(true);
+            .oldest_commit(oldest_commit);
         self.blame_file(path, Some(&mut opts))
     }
 

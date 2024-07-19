@@ -81,6 +81,7 @@ impl BranchManager<'_> {
         let (applied_statuses, _, _) = get_applied_status(
             self.project_repository,
             &integration_commit.id(),
+            &target_commit.id(),
             virtual_branches,
             None,
         )

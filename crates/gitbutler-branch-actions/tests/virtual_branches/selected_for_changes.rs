@@ -445,3 +445,104 @@ async fn new_locked_hunk_without_modifying_existing() {
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[1].files.len(), 1);
 }
+
+// This is a temporary test to demonstrate a bug in the hunk locking mechanism.
+//
+// The idea is you introduce change A, then you shift it down in a a different
+// (default) branch with commit B, so that new line numbers no longer
+// intersect. If you then change A again you will have a failure to apply
+// the hunk onto head of branch with commit B.
+//
+// The error contains the following descriptive error message.
+//
+// called `Result::unwrap()` on an `Err` value: failed to apply
+// @@ -10,4 +10,4 @@ line 3
+//  line 4
+//  line 5
+//  line 6
+// -modification 1 to line 7
+// \ No newline at end of file
+// +modification 2 to original line 9
+// \ No newline at end of file
+
+// onto:
+// inserted line 0
+// inserted line 1
+// inserted line 2
+// inserted line 3
+// inserted line 4
+// line 0
+// line 1
+// line 2
+// line 3
+// line 4
+// line 5
+// line 6
+// line 7
+#[tokio::test]
+async fn hunk_locking_confused_by_line_number_shift() {
+    let Test {
+        repository,
+        project,
+        controller,
+        ..
+    } = &Test::default();
+
+    let mut lines = repository.gen_file("file.txt", 9);
+    repository.commit_all("first commit");
+    repository.push();
+
+    controller
+        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
+        .await
+        .unwrap();
+
+    lines[8] = "modification 1 to line 8".to_string();
+    repository.write_file("file.txt", &lines);
+
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+    assert_eq!(branches[0].files.len(), 1);
+
+    controller
+        .create_commit(project, branches[0].id, "second commit", None, false)
+        .await
+        .expect("failed to create commit");
+
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+    assert_eq!(branches[0].files.len(), 0);
+    assert_eq!(branches[0].commits.len(), 1);
+
+    controller
+        .create_virtual_branch(
+            project,
+            &BranchCreateRequest {
+                selected_for_changes: Some(true),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+    let new_lines: Vec<_> = (0_i32..5_i32)
+        .map(|i| format!("inserted line {}", i))
+        .collect();
+    lines.splice(0..0, new_lines);
+    repository.write_file("file.txt", &lines);
+
+    // Has to be called before `create_commit`
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+
+    controller
+        .create_commit(project, branches[1].id, "second commit", None, false)
+        .await
+        .expect("failed to create commit");
+
+    assert_eq!(branches[0].commits.len(), 1);
+    assert_eq!(branches[0].commits.len(), 1);
+
+    lines[13] = "modification 2 to original line 8".to_string();
+    repository.write_file("file.txt", &lines);
+
+    // This line makes the test panic.
+    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+}
