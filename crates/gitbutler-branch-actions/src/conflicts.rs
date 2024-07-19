@@ -1,3 +1,8 @@
+use anyhow::{anyhow, bail, Context, Result};
+use bstr::ByteSlice;
+use gitbutler_command_context::ProjectRepository;
+use gitbutler_error::error::Marker;
+use std::ffi::OsStr;
 /// stuff to manage merge conflict state.
 /// This is the dumbest possible way to do this, but it is a placeholder.
 /// Conflicts are stored one path per line in .git/conflicts.
@@ -5,18 +10,12 @@
 /// Conflicts are removed as they are resolved, the conflicts file is removed when there are no more conflicts
 /// or when the merge is complete.
 use std::{
-    io::{BufRead, Write},
+    io::Write,
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Context, Result};
-use gitbutler_command_context::ProjectRepository;
-use itertools::Itertools;
-
-use gitbutler_error::error::Marker;
-
 pub(crate) fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
-    repository: &ProjectRepository,
+    ctx: &ProjectRepository,
     paths: A,
     parent: Option<git2::Oid>,
 ) -> Result<()> {
@@ -27,24 +26,36 @@ pub(crate) fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
     // write all the file paths to a file on disk
     let mut buf = Vec::<u8>::with_capacity(512);
     for path in paths {
-        buf.write_all(path.as_ref().as_os_str().as_encoded_bytes())?;
+        let path = path.as_ref();
+        let path_bytes = path.as_os_str().as_encoded_bytes();
+        // Have to search for line separators as `ByteSlice::lines()` will recognize both.
+        if path_bytes.find_byte(b'\n').is_some() || path_bytes.find(b"\r\n").is_some() {
+            bail!("Conflicting path {path:?} contains newlines which are illegal in this context")
+        }
+        buf.write_all(path_bytes)?;
         buf.write_all(b"\n")?;
     }
-    gitbutler_fs::write(repository.repo().path().join("conflicts"), buf)?;
+    gitbutler_fs::write(conflicts_path(ctx), &buf)?;
 
     if let Some(parent) = parent {
         // write all the file paths to a file on disk
-        gitbutler_fs::write(
-            repository.repo().path().join("base_merge_parent"),
-            parent.to_string().as_bytes(),
-        )?;
+        gitbutler_fs::write(merge_parent_path(ctx), parent.to_string().as_bytes())?;
     }
-
     Ok(())
 }
 
-pub(crate) fn merge_parent(repository: &ProjectRepository) -> Result<Option<git2::Oid>> {
-    let merge_path = repository.repo().path().join("base_merge_parent");
+fn conflicts_path(ctx: &ProjectRepository) -> PathBuf {
+    ctx.repo().path().join("conflicts")
+}
+
+fn merge_parent_path(ctx: &ProjectRepository) -> PathBuf {
+    ctx.repo().path().join("base_merge_parent")
+}
+
+pub(crate) fn merge_parent(ctx: &ProjectRepository) -> Result<Option<git2::Oid>> {
+    use std::io::BufRead;
+
+    let merge_path = merge_parent_path(ctx);
     if !merge_path.exists() {
         return Ok(None);
     }
@@ -61,81 +72,79 @@ pub(crate) fn merge_parent(repository: &ProjectRepository) -> Result<Option<git2
     }
 }
 
-pub fn resolve<P: AsRef<Path>>(repository: &ProjectRepository, path: P) -> Result<()> {
-    let path = path.as_ref();
-    let conflicts_path = repository.repo().path().join("conflicts");
-    let file = std::fs::File::open(conflicts_path.clone())?;
-    let reader = std::io::BufReader::new(file);
-    let mut remaining = Vec::new();
-    for line in reader.lines().map_ok(PathBuf::from) {
-        let line = line?;
-        if line != path {
-            remaining.push(line);
-        }
-    }
+pub fn resolve<P: AsRef<Path>>(ctx: &ProjectRepository, path_to_resolve: P) -> Result<()> {
+    let path_to_resolve = path_to_resolve.as_ref();
+    let path_to_resolve = path_to_resolve.as_os_str().as_encoded_bytes();
+    let conflicts_path = conflicts_path(ctx);
+    let path_per_line = std::fs::read(&conflicts_path)?;
+    let remaining: Vec<_> = path_per_line
+        .lines()
+        .filter(|path| *path != path_to_resolve)
+        .map(|path| unsafe { OsStr::from_encoded_bytes_unchecked(path) })
+        .collect();
 
     // re-write file if needed, otherwise remove file entirely
     if remaining.is_empty() {
         std::fs::remove_file(conflicts_path)?;
     } else {
-        mark(repository, &remaining, None)?;
+        mark(ctx, &remaining, None)?;
     }
     Ok(())
 }
 
-pub(crate) fn conflicting_files(repository: &ProjectRepository) -> Result<Vec<String>> {
-    let conflicts_path = repository.repo().path().join("conflicts");
+pub(crate) fn conflicting_files(ctx: &ProjectRepository) -> Result<Vec<PathBuf>> {
+    let conflicts_path = conflicts_path(ctx);
     if !conflicts_path.exists() {
         return Ok(vec![]);
     }
 
-    let file = std::fs::File::open(conflicts_path)?;
-    let reader = std::io::BufReader::new(file);
-    Ok(reader.lines().map_while(Result::ok).collect())
+    let path_per_line = std::fs::read(conflicts_path)?;
+    Ok(path_per_line
+        .lines()
+        .map(|path| unsafe { OsStr::from_encoded_bytes_unchecked(path) }.into())
+        .collect())
 }
 
 /// Check if `path` is conflicting in `repository`, or if `None`, check if there is any conflict.
 // TODO(ST): Should this not rather check the conflicting state in the index?
 pub(crate) fn is_conflicting(repository: &ProjectRepository, path: Option<&Path>) -> Result<bool> {
-    let conflicts_path = repository.repo().path().join("conflicts");
+    let conflicts_path = conflicts_path(repository);
     if !conflicts_path.exists() {
         return Ok(false);
     }
 
-    let file = std::fs::File::open(conflicts_path)?;
-    let reader = std::io::BufReader::new(file);
-    // TODO(ST): This shouldn't work on UTF8 strings.
-    let mut files = reader.lines().map_ok(PathBuf::from);
-    if let Some(pathname) = path {
-        // check if pathname is one of the lines in conflicts_path file
-        for line in files {
-            let line = line?;
-
-            if line == pathname {
-                return Ok(true);
-            }
-        }
-        Ok(false)
+    let path_per_line = std::fs::read(conflicts_path)?;
+    let mut files = path_per_line
+        .lines()
+        .map(|path| unsafe { OsStr::from_encoded_bytes_unchecked(path) });
+    let is_in_conflicts_file_or_has_conflicts = if let Some(path) = path {
+        files.any(|p| p == path)
     } else {
-        Ok(files.next().transpose().map(|x| x.is_some())?)
-    }
+        files.next().is_some()
+    };
+    Ok(is_in_conflicts_file_or_has_conflicts)
 }
 
 // is this project still in a resolving conflict state?
 // - could be that there are no more conflicts, but the state is not committed
-pub(crate) fn is_resolving(repository: &ProjectRepository) -> bool {
-    repository.repo().path().join("base_merge_parent").exists()
+pub(crate) fn is_resolving(ctx: &ProjectRepository) -> bool {
+    merge_parent_path(ctx).exists()
 }
 
-pub(crate) fn clear(repository: &ProjectRepository) -> Result<()> {
-    let merge_path = repository.repo().path().join("base_merge_parent");
-    std::fs::remove_file(merge_path)?;
-
-    for file in conflicting_files(repository)? {
-        resolve(repository, &file)?;
-    }
-
+pub(crate) fn clear(ctx: &ProjectRepository) -> Result<()> {
+    remove_file_ignore_missing(merge_parent_path(ctx))?;
+    remove_file_ignore_missing(conflicts_path(ctx))?;
     Ok(())
+}
+
+fn remove_file_ignore_missing(path: impl AsRef<Path>) -> std::io::Result<()> {
+    std::fs::remove_file(path).or_else(|err| {
+        if err.kind() == std::io::ErrorKind::NotFound {
+            Ok(())
+        } else {
+            Err(err)
+        }
+    })
 }
 
 pub(crate) trait RepoConflictsExt {

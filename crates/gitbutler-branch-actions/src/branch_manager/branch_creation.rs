@@ -16,6 +16,7 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::Refname;
 use gitbutler_repo::{rebase::cherry_rebase, RepoActionsExt, RepositoryExt};
 use gitbutler_time::time::now_since_unix_epoch_ms;
+use std::borrow::Cow;
 
 impl BranchManager<'_> {
     pub fn create_virtual_branch(
@@ -346,9 +347,7 @@ impl BranchManager<'_> {
                 let mut merge_conflicts = Vec::new();
                 for path in conflicts.flatten() {
                     if let Some(ours) = path.our {
-                        let path = std::str::from_utf8(&ours.path)
-                            .context("failed to convert path to utf8")?
-                            .to_string();
+                        let path = gix::path::try_from_bstr(Cow::Owned(ours.path.into()))?;
                         merge_conflicts.push(path);
                     }
                 }
@@ -472,9 +471,7 @@ impl BranchManager<'_> {
             let mut merge_conflicts = Vec::new();
             for path in conflicts.flatten() {
                 if let Some(ours) = path.our {
-                    let path = std::str::from_utf8(&ours.path)
-                        .context("failed to convert path to utf8")?
-                        .to_string();
+                    let path = gix::path::try_from_bstr(Cow::Owned(ours.path.into()))?;
                     merge_conflicts.push(path);
                 }
             }
