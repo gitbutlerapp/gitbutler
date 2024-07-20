@@ -82,6 +82,7 @@
 					? zip
 							.gitbutlerData({ projectId })
 							.then(async (path) => await readZipFile(path, 'data.zip'))
+							.catch(() => undefined)
 					: undefined,
 				sendProjectRepository
 					? zip
