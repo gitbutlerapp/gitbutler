@@ -1697,18 +1697,23 @@ pub fn commit(
             Some(&["../.husky"]),
             &mut message_buffer,
         )
-        .context("failed to run hook")?;
+        .context("failed to run hook")
+        .context(Code::CommitHookFailed)?;
 
         if let HookResult::RunNotSuccessful { stdout, .. } = hook_result {
-            bail!("commit-msg hook rejected: {}", stdout.trim());
+            return Err(anyhow!("commit-msg hook rejected: {}", stdout.trim())
+                .context(Code::CommitHookFailed));
         }
 
         let hook_result =
             git2_hooks::hooks_pre_commit(project_repository.repo(), Some(&["../.husky"]))
-                .context("failed to run hook")?;
+                .context("failed to run hook")
+                .context(Code::CommitHookFailed)?;
 
         if let HookResult::RunNotSuccessful { stdout, .. } = hook_result {
-            bail!("commit hook rejected: {}", stdout.trim());
+            return Err(
+                anyhow!("commit hook rejected: {}", stdout.trim()).context(Code::CommitHookFailed)
+            );
         }
     }
 
@@ -1725,9 +1730,12 @@ pub fn commit(
         .find(|(branch, _)| branch.id == branch_id)
         .with_context(|| format!("branch {branch_id} not found"))?;
 
-    update_conflict_markers(project_repository, &files)?;
+    update_conflict_markers(project_repository, &files)
+        .context(Code::CommitMergeConflictFailure)?;
 
-    project_repository.assure_unconflicted()?;
+    project_repository
+        .assure_unconflicted()
+        .context(Code::CommitMergeConflictFailure)?;
 
     let tree_oid = if let Some(ownership) = ownership {
         let files = files.into_iter().filter_map(|(filepath, hunks)| {
@@ -1766,8 +1774,9 @@ pub fn commit(
         .context(format!("failed to find tree {:?}", tree_oid))?;
 
     // now write a commit, using a merge parent if it exists
-    let extra_merge_parent =
-        conflicts::merge_parent(project_repository).context("failed to get merge parent")?;
+    let extra_merge_parent = conflicts::merge_parent(project_repository)
+        .context("failed to get merge parent")
+        .context(Code::CommitMergeConflictFailure)?;
 
     let commit_oid = match extra_merge_parent {
         Some(merge_parent) => {
@@ -1780,7 +1789,9 @@ pub fn commit(
                 &[&parent_commit, &merge_parent],
                 None,
             )?;
-            conflicts::clear(project_repository).context("failed to clear conflicts")?;
+            conflicts::clear(project_repository)
+                .context("failed to clear conflicts")
+                .context(Code::CommitMergeConflictFailure)?;
             commit_oid
         }
         None => project_repository.commit(message, &tree, &[&parent_commit], None)?,
@@ -1788,7 +1799,8 @@ pub fn commit(
 
     if run_hooks {
         git2_hooks::hooks_post_commit(project_repository.repo(), Some(&["../.husky"]))
-            .context("failed to run hook")?;
+            .context("failed to run hook")
+            .context(Code::CommitHookFailed)?;
     }
 
     let vb_state = project_repository.project().virtual_branches();

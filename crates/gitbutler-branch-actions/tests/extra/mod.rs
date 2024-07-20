@@ -2163,7 +2163,10 @@ fn pre_commit_hook_rejection() -> Result<()> {
     let res = commit(project_repository, branch1_id, "test commit", None, true);
 
     let err = res.unwrap_err();
-    assert_eq!(err.to_string(), "commit hook rejected: rejected");
+    assert_eq!(
+        err.source().unwrap().to_string(),
+        "commit hook rejected: rejected"
+    );
 
     Ok(())
 }
@@ -2256,7 +2259,10 @@ fn commit_msg_hook_rejection() -> Result<()> {
     let res = commit(project_repository, branch1_id, "test commit", None, true);
 
     let err = res.unwrap_err();
-    assert_eq!(err.to_string(), "commit-msg hook rejected: rejected");
+    assert_eq!(
+        err.source().unwrap().to_string(),
+        "commit-msg hook rejected: rejected"
+    );
 
     Ok(())
 }
