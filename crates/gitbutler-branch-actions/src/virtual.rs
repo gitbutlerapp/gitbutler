@@ -231,19 +231,11 @@ pub fn unapply_ownership(
 
     let vb_state = project_repository.project().virtual_branches();
 
-    let virtual_branches = vb_state
-        .list_branches_in_workspace()
-        .context("failed to read virtual branches")?;
-
     let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
 
-    let (applied_statuses, _, _) = get_applied_status(
-        project_repository,
-        &integration_commit_id,
-        virtual_branches,
-        None,
-    )
-    .context("failed to get status by branch")?;
+    let (applied_statuses, _, _) =
+        get_applied_status(project_repository, &integration_commit_id, None)
+            .context("failed to get status by branch")?;
 
     let hunks_to_unapply = applied_statuses
         .iter()
@@ -1085,15 +1077,10 @@ pub fn get_status_by_branch(
 
     let default_target = vb_state.get_default_target()?;
 
-    let virtual_branches = vb_state
-        .list_branches_in_workspace()
-        .context("failed to read virtual branches")?;
-
     let (applied_status, skipped_files, locks) = get_applied_status(
         project_repository,
         // TODO: Keep this optional or update lots of tests?
         integration_commit.unwrap_or(&default_target.sha),
-        virtual_branches,
         perm,
     )?;
 
@@ -1195,13 +1182,16 @@ fn new_compute_locks(
 pub(crate) fn get_applied_status(
     project_repository: &ProjectRepository,
     integration_commit: &git2::Oid,
-    mut virtual_branches: Vec<Branch>,
     perm: Option<&mut WorktreeWritePermission>,
 ) -> Result<(
     AppliedStatuses,
     Vec<gitbutler_diff::FileDiff>,
     HashMap<Digest, Vec<HunkLock>>,
 )> {
+    let mut virtual_branches = project_repository
+        .project()
+        .virtual_branches()
+        .list_branches_in_workspace()?;
     let base_file_diffs =
         gitbutler_diff::workdir(project_repository.repo(), &integration_commit.to_owned())
             .context("failed to diff workdir")?;
@@ -2253,12 +2243,8 @@ pub(crate) fn amend(
 
     let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
 
-    let (mut applied_statuses, _, _) = get_applied_status(
-        project_repository,
-        &integration_commit_id,
-        virtual_branches,
-        None,
-    )?;
+    let (mut applied_statuses, _, _) =
+        get_applied_status(project_repository, &integration_commit_id, None)?;
 
     let (ref mut target_branch, target_status) = applied_statuses
         .iter_mut()
@@ -2740,12 +2726,8 @@ pub(crate) fn move_commit(
 
     let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
 
-    let (mut applied_statuses, _, _) = get_applied_status(
-        project_repository,
-        &integration_commit_id,
-        applied_branches,
-        None,
-    )?;
+    let (mut applied_statuses, _, _) =
+        get_applied_status(project_repository, &integration_commit_id, None)?;
 
     let (ref mut source_branch, source_status) = applied_statuses
         .iter_mut()

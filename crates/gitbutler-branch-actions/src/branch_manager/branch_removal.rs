@@ -74,17 +74,9 @@ impl BranchManager<'_> {
         let target_commit = repo.target_commit()?;
         let base_tree = target_commit.tree().context("failed to get target tree")?;
 
-        let virtual_branches = vb_state
-            .list_branches_in_workspace()
-            .context("failed to read virtual branches")?;
-
-        let (applied_statuses, _, _) = get_applied_status(
-            self.project_repository,
-            &integration_commit.id(),
-            virtual_branches,
-            None,
-        )
-        .context("failed to get status by branch")?;
+        let (applied_statuses, _, _) =
+            get_applied_status(self.project_repository, &integration_commit.id(), None)
+                .context("failed to get status by branch")?;
 
         // go through the other applied branches and merge them into the final tree
         // then check that out into the working directory
