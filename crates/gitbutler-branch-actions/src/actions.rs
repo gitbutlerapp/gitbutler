@@ -428,26 +428,23 @@ impl VirtualBranchActions {
 
         let helper = Helper::default();
         let remotes = project_repository.repo().remotes_as_string()?;
-        let fetch_results: Vec<Result<(), _>> = remotes
+        let fetch_errors: Vec<_> = remotes
             .iter()
-            .map(|remote| project_repository.fetch(remote, &helper, askpass.clone()))
+            .filter_map(|remote| {
+                project_repository
+                    .fetch(remote, &helper, askpass.clone())
+                    .err()
+                    .map(|err| err.to_string())
+            })
             .collect();
 
-        let project_data_last_fetched = if fetch_results.iter().any(Result::is_err) {
-            FetchResult::Error {
-                timestamp: std::time::SystemTime::now(),
-                error: fetch_results
-                    .iter()
-                    .filter_map(|result| match result {
-                        Ok(_) => None,
-                        Err(error) => Some(error.to_string()),
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-            }
+        let timestamp = std::time::SystemTime::now();
+        let project_data_last_fetched = if fetch_errors.is_empty() {
+            FetchResult::Fetched { timestamp }
         } else {
-            FetchResult::Fetched {
-                timestamp: std::time::SystemTime::now(),
+            FetchResult::Error {
+                timestamp,
+                error: fetch_errors.join("\n"),
             }
         };
 
