@@ -363,7 +363,7 @@ pub(crate) fn update_base_branch(
     ))?;
 
     let vb_state = project_repository.project().virtual_branches();
-    let integration_commit = get_workspace_head(&vb_state, project_repository)?;
+    let integration_commit = get_workspace_head(project_repository)?;
 
     // try to update every branch
     let updated_vbranches =

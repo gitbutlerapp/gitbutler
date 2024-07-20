@@ -231,7 +231,7 @@ pub fn unapply_ownership(
 
     let vb_state = project_repository.project().virtual_branches();
 
-    let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
+    let integration_commit_id = get_workspace_head(project_repository)?;
 
     let (applied_statuses, _, _) =
         get_applied_status(project_repository, &integration_commit_id, None)
@@ -402,7 +402,7 @@ pub fn list_virtual_branches(
         .get_default_target()
         .context("failed to get default target")?;
 
-    let integration_commit_id = get_workspace_head(&vb_state, ctx)?;
+    let integration_commit_id = get_workspace_head(ctx)?;
     let integration_commit = ctx.repo().find_commit(integration_commit_id).unwrap();
 
     let (statuses, skipped_files, locks) =
@@ -769,7 +769,7 @@ pub fn integrate_upstream_commits(
 
     let wd_tree = project_repository.repo().get_wd_tree()?;
     let integration_tree = repo
-        .find_commit(get_workspace_head(&vb_state, project_repository)?)?
+        .find_commit(get_workspace_head(project_repository)?)?
         .tree()?;
 
     let mut merge_index = repo.merge_trees(&integration_tree, &new_head_tree, &wd_tree, None)?;
@@ -1407,13 +1407,13 @@ pub(crate) fn reset_branch(
 
     // Compute the old workspace before resetting, so we can figure out
     // what hunks were released by this reset, and assign them to this branch.
-    let old_head = get_workspace_head(&vb_state, project_repository)?;
+    let old_head = get_workspace_head(project_repository)?;
 
     branch.head = target_commit_id;
     branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
     vb_state.set_branch(branch.clone())?;
 
-    let updated_head = get_workspace_head(&vb_state, project_repository)?;
+    let updated_head = get_workspace_head(project_repository)?;
     let repo = project_repository.repo();
     let diff = trees(
         repo,
@@ -1667,7 +1667,6 @@ pub fn commit(
     run_hooks: bool,
 ) -> Result<git2::Oid> {
     let mut message_buffer = message.to_owned();
-    let vb_state = project_repository.project().virtual_branches();
 
     if run_hooks {
         let hook_result = git2_hooks::hooks_commit_msg(
@@ -1697,7 +1696,7 @@ pub fn commit(
 
     let message = &message_buffer;
 
-    let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
+    let integration_commit_id = get_workspace_head(project_repository)?;
     // get the files to commit
     let (statuses, _, _) =
         get_status_by_branch(project_repository, Some(&integration_commit_id), None)
@@ -2241,7 +2240,7 @@ pub(crate) fn amend(
 
     let default_target = vb_state.get_default_target()?;
 
-    let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
+    let integration_commit_id = get_workspace_head(project_repository)?;
 
     let (mut applied_statuses, _, _) =
         get_applied_status(project_repository, &integration_commit_id, None)?;
@@ -2724,7 +2723,7 @@ pub(crate) fn move_commit(
         bail!("branch {target_branch_id} is not among applied branches")
     }
 
-    let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
+    let integration_commit_id = get_workspace_head(project_repository)?;
 
     let (mut applied_statuses, _, _) =
         get_applied_status(project_repository, &integration_commit_id, None)?;
