@@ -1,6 +1,6 @@
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::BString;
-use git2::{BlameOptions, Repository, Tree};
+use git2::{BlameOptions, Tree};
 use gitbutler_commit::{commit_buffer::CommitBuffer, commit_headers::CommitHeadersV2};
 use gitbutler_config::git::{GbConfig, GitConfig};
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -28,6 +28,10 @@ pub trait RepositoryExt {
     fn in_memory<T, F>(&self, f: F) -> Result<T>
     where
         F: FnOnce(&git2::Repository) -> Result<T>;
+    /// Returns a version of `&self` that writes new objects into memory, allowing to prevent touching
+    /// disk when doing merges.
+    /// Note that these written objects don't persist and will vanish with the returned instance.
+    fn in_memory_repo(&self) -> Result<git2::Repository>;
     /// Fetches the integration commit from the gitbutler/integration branch
     fn integration_commit(&self) -> Result<git2::Commit<'_>>;
     /// Fetches the target commit by finding the parent of the integration commit
@@ -71,17 +75,18 @@ pub trait RepositoryExt {
     ) -> Result<git2::Blame, git2::Error>;
 }
 
-impl RepositoryExt for Repository {
+impl RepositoryExt for git2::Repository {
     fn in_memory<T, F>(&self, f: F) -> Result<T>
     where
         F: FnOnce(&git2::Repository) -> Result<T>,
     {
-        let path = self
-            .workdir()
-            .ok_or(anyhow::anyhow!("Repository is bare"))?;
-        let repo = git2::Repository::open(path)?;
+        f(&self.in_memory_repo()?)
+    }
+
+    fn in_memory_repo(&self) -> Result<git2::Repository> {
+        let repo = git2::Repository::open(self.path())?;
         repo.odb()?.add_new_mempack_backend(999)?;
-        f(&repo)
+        Ok(repo)
     }
 
     fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder {

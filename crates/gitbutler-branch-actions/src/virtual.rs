@@ -459,6 +459,7 @@ pub fn list_virtual_branches(
 
         // find all commits on head that are not on target.sha
         let commits = ctx.log(branch.head, LogUntil::Commit(default_target.sha))?;
+        let check_commit = IsCommitIntegrated::new(ctx, &default_target)?;
         let vbranch_commits = commits
             .iter()
             .map(|commit| {
@@ -469,10 +470,8 @@ pub fn list_virtual_branches(
                 };
 
                 // only check for integration if we haven't already found an integration
-                is_integrated = if is_integrated {
-                    is_integrated
-                } else {
-                    is_commit_integrated(ctx, &default_target, commit)?
+                if !is_integrated {
+                    is_integrated = check_commit.is_integrated(commit)?
                 };
 
                 commit_to_vbranch_commit(ctx, &branch, commit, is_integrated, is_remote)
@@ -1882,68 +1881,86 @@ pub(crate) fn push(
     Ok(())
 }
 
-fn is_commit_integrated(
-    project_repository: &ProjectRepository,
-    target: &Target,
-    commit: &git2::Commit,
-) -> Result<bool> {
-    let remote_branch = project_repository
-        .repo()
-        .find_branch_by_refname(&target.branch.clone().into())?
-        .ok_or(anyhow!("failed to get branch"))?;
-    let remote_head = remote_branch.get().peel_to_commit()?;
-    let upstream_commits = project_repository.l(remote_head.id(), LogUntil::Commit(target.sha))?;
+struct IsCommitIntegrated<'repo> {
+    repo: &'repo git2::Repository,
+    target_commit_id: git2::Oid,
+    remote_head_id: git2::Oid,
+    upstream_commits: Vec<git2::Oid>,
+    /// A repository opened at the same path as `repo`, but with an in-memory ODB attached
+    /// to avoid writing intermediate objects.
+    inmemory_repo: git2::Repository,
+}
 
-    if target.sha.eq(&commit.id()) {
-        // could not be integrated if heads are the same.
-        return Ok(false);
+impl<'repo> IsCommitIntegrated<'repo> {
+    fn new(ctx: &'repo ProjectRepository, target: &Target) -> anyhow::Result<Self> {
+        let remote_branch = ctx
+            .repo()
+            .find_branch_by_refname(&target.branch.clone().into())?
+            .ok_or(anyhow!("failed to get branch"))?;
+        let remote_head = remote_branch.get().peel_to_commit()?;
+        let upstream_commits = ctx.l(remote_head.id(), LogUntil::Commit(target.sha))?;
+        let inmemory_repo = ctx.repo().in_memory_repo()?;
+        Ok(Self {
+            repo: ctx.repo(),
+            target_commit_id: target.sha,
+            remote_head_id: remote_head.id(),
+            upstream_commits,
+            inmemory_repo,
+        })
     }
+}
 
-    if upstream_commits.is_empty() {
-        // could not be integrated - there is nothing new upstream.
-        return Ok(false);
+impl IsCommitIntegrated<'_> {
+    fn is_integrated(&self, commit: &git2::Commit) -> Result<bool> {
+        if self.target_commit_id == commit.id() {
+            // could not be integrated if heads are the same.
+            return Ok(false);
+        }
+
+        if self.upstream_commits.is_empty() {
+            // could not be integrated - there is nothing new upstream.
+            return Ok(false);
+        }
+
+        if self.upstream_commits.contains(&commit.id()) {
+            return Ok(true);
+        }
+
+        let merge_base_id = self.repo.merge_base(self.target_commit_id, commit.id())?;
+        if merge_base_id.eq(&commit.id()) {
+            // if merge branch is the same as branch head and there are upstream commits
+            // then it's integrated
+            return Ok(true);
+        }
+
+        let merge_base = self.repo.find_commit(merge_base_id)?;
+        let merge_base_tree = merge_base.tree()?;
+        let upstream = self.repo.find_commit(self.remote_head_id)?;
+        let upstream_tree = upstream.tree()?;
+
+        if merge_base_tree.id() == upstream_tree.id() {
+            // if merge base is the same as upstream tree, then it's integrated
+            return Ok(true);
+        }
+
+        // try to merge our tree into the upstream tree
+        let mut merge_index = self
+            .repo
+            .merge_trees(&merge_base_tree, &commit.tree()?, &upstream_tree, None)
+            .context("failed to merge trees")?;
+
+        if merge_index.has_conflicts() {
+            return Ok(false);
+        }
+
+        let merge_tree_oid = merge_index
+            .write_tree_to(&self.inmemory_repo)
+            .context("failed to write tree")?;
+
+        // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
+        // then the vbranch is fully merged
+        Ok(merge_tree_oid == upstream_tree.id())
     }
-
-    if upstream_commits.contains(&commit.id()) {
-        return Ok(true);
-    }
-
-    let merge_base_id = project_repository
-        .repo()
-        .merge_base(target.sha, commit.id())?;
-    if merge_base_id.eq(&commit.id()) {
-        // if merge branch is the same as branch head and there are upstream commits
-        // then it's integrated
-        return Ok(true);
-    }
-
-    let merge_base = project_repository.repo().find_commit(merge_base_id)?;
-    let merge_base_tree = merge_base.tree()?;
-    let upstream = project_repository.repo().find_commit(remote_head.id())?;
-    let upstream_tree = upstream.tree()?;
-
-    if merge_base_tree.id() == upstream_tree.id() {
-        // if merge base is the same as upstream tree, then it's integrated
-        return Ok(true);
-    }
-
-    // try to merge our tree into the upstream tree
-    let mut merge_index = project_repository
-        .repo()
-        .merge_trees(&merge_base_tree, &commit.tree()?, &upstream_tree, None)
-        .context("failed to merge trees")?;
-
-    if merge_index.has_conflicts() {
-        return Ok(false);
-    }
-
-    let merge_tree_oid = merge_index
-        .write_tree_to(project_repository.repo())
-        .context("failed to write tree")?;
-
-    // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
-    // then the vbranch is fully merged
-    Ok(merge_tree_oid == upstream_tree.id())
 }
 
 pub fn is_remote_branch_mergeable(
