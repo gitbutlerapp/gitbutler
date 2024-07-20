@@ -45,7 +45,7 @@ export class BaseBranchService {
 				return;
 			} else if (err.code === Code.ProjectsGitAuth) {
 				showError('Failed to authenticate', err);
-			} else {
+			} else if (action !== undefined) {
 				showError('Failed to fetch', err);
 			}
 			console.error(err);

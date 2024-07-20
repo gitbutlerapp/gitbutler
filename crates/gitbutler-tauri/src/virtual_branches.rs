@@ -9,7 +9,7 @@ pub mod commands {
     use gitbutler_branch_actions::{RemoteBranch, RemoteBranchData};
     use gitbutler_error::error::Code;
     use gitbutler_project as projects;
-    use gitbutler_project::ProjectId;
+    use gitbutler_project::{FetchResult, ProjectId};
     use gitbutler_reference::normalize_branch_name as normalize_name;
     use gitbutler_reference::ReferenceName;
     use gitbutler_reference::{Refname, RemoteRefname};
@@ -478,11 +478,15 @@ pub mod commands {
         projects
             .update(&projects::UpdateRequest {
                 id: project.id,
-                project_data_last_fetched: Some(project_data_last_fetched),
+                project_data_last_fetched: Some(project_data_last_fetched.clone()),
                 ..Default::default()
             })
             .await
             .context("failed to update project with last fetched timestamp")?;
+
+        if let FetchResult::Error { error, .. } = project_data_last_fetched {
+            return Err(anyhow!(error).into());
+        }
 
         let base_branch = VirtualBranchActions::get_base_branch_data(&project).await?;
         Ok(base_branch)
