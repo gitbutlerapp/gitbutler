@@ -365,7 +365,7 @@ pub(crate) fn update_base_branch(
     let vb_state = project_repository.project().virtual_branches();
 
     // try to update every branch
-    let updated_vbranches = vb::get_status_by_branch(project_repository, None)?
+    let updated_vbranches = vb::get_applied_status(project_repository, None)?
         .0
         .into_iter()
         .map(|(branch, _)| branch)

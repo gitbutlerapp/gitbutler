@@ -401,7 +401,7 @@ pub fn list_virtual_branches(
         .get_default_target()
         .context("failed to get default target")?;
 
-    let (statuses, skipped_files, locks) = get_status_by_branch(ctx, Some(perm))?;
+    let (statuses, skipped_files, locks) = get_applied_status(ctx, Some(perm))?;
     let max_selected_for_changes = statuses
         .iter()
         .filter_map(|(branch, _)| branch.selected_for_changes)
@@ -1057,21 +1057,6 @@ pub(crate) fn virtual_hunks_by_file_diffs<'a>(
 pub type BranchStatus = HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>;
 pub type VirtualBranchHunksByPathMap = HashMap<PathBuf, Vec<VirtualBranchHunk>>;
 
-// list the virtual branches and their file statuses (statusi?)
-#[allow(clippy::type_complexity)]
-pub fn get_status_by_branch(
-    project_repository: &ProjectRepository,
-    perm: Option<&mut WorktreeWritePermission>,
-) -> Result<(
-    AppliedStatuses,
-    Vec<gitbutler_diff::FileDiff>,
-    HashMap<Digest, Vec<HunkLock>>,
-)> {
-    let (applied_status, skipped_files, locks) = get_applied_status(project_repository, perm)?;
-
-    Ok((applied_status, skipped_files, locks))
-}
-
 fn new_compute_locks(
     repository: &git2::Repository,
     unstaged_hunks_by_path: &HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>,
@@ -1164,7 +1149,7 @@ fn new_compute_locks(
 // of skipped files.
 // TODO(kv): make this side effect free
 #[allow(clippy::type_complexity)]
-pub(crate) fn get_applied_status(
+pub fn get_applied_status(
     project_repository: &ProjectRepository,
     perm: Option<&mut WorktreeWritePermission>,
 ) -> Result<(
@@ -1172,8 +1157,6 @@ pub(crate) fn get_applied_status(
     Vec<gitbutler_diff::FileDiff>,
     HashMap<Digest, Vec<HunkLock>>,
 )> {
-    // let default_target = vb_state.get_default_target()?;
-    // integration_commit.unwrap_or(&default_target.sha), Maybe do this???
     let integration_commit = get_workspace_head(project_repository)?;
     let mut virtual_branches = project_repository
         .project()
@@ -1685,7 +1668,7 @@ pub fn commit(
 
     // get the files to commit
     let (statuses, _, _) =
-        get_status_by_branch(project_repository, None).context("failed to get status by branch")?;
+        get_applied_status(project_repository, None).context("failed to get status by branch")?;
 
     let (ref mut branch, files) = statuses
         .into_iter()
