@@ -65,7 +65,7 @@ pub fn get_applied_status(
             .map(|branch| (branch.id, HashMap::new()))
             .collect();
 
-    let locks = new_compute_locks(project_repository.repo(), &base_diffs, &virtual_branches)?;
+    let locks = compute_locks(project_repository.repo(), &base_diffs, &virtual_branches)?;
 
     for branch in &mut virtual_branches {
         let old_claims = branch.ownership.claims.clone();
@@ -199,7 +199,7 @@ pub fn get_applied_status(
     })
 }
 
-fn new_compute_locks(
+fn compute_locks(
     repository: &git2::Repository,
     unstaged_hunks_by_path: &HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>,
     virtual_branches: &[Branch],
