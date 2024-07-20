@@ -4,6 +4,7 @@ use gitbutler_branch::{Branch, VirtualBranchesHandle, VirtualBranchesState};
 use gitbutler_diff::{hunks_by_filepath, FileDiff};
 use gitbutler_project::Project;
 use gitbutler_repo::RepositoryExt;
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::path::Path;
 use std::str::{from_utf8, FromStr};
@@ -205,10 +206,7 @@ impl OplogExt for Project {
             }
 
             // Get tree id from cache or calculate it
-            let wd_tree_id = wd_trees_cache
-                .entry(commit_id)
-                .or_insert_with(|| tree_from_applied_vbranches(&repo, commit_id).unwrap());
-            let wd_tree = repo.find_tree(wd_tree_id.to_owned())?;
+            let wd_tree = get_workdir_tree(&mut wd_trees_cache, commit_id, &repo)?;
 
             let details = commit
                 .message()
@@ -216,10 +214,7 @@ impl OplogExt for Project {
 
             if let Ok(parent) = commit.parent(0) {
                 // Get tree id from cache or calculate it
-                let parent_wd_tree_id = wd_trees_cache
-                    .entry(parent.id())
-                    .or_insert_with(|| tree_from_applied_vbranches(&repo, parent.id()).unwrap());
-                let parent_tree = repo.find_tree(parent_wd_tree_id.to_owned())?;
+                let parent_tree = get_workdir_tree(&mut wd_trees_cache, parent.id(), &repo)?;
 
                 let mut opts = DiffOptions::new();
                 opts.include_untracked(true);
@@ -317,6 +312,25 @@ impl OplogExt for Project {
         oplog_state.oplog_head()
     }
 }
+
+/// Get a tree of the working dir (applied branches merged)
+fn get_workdir_tree<'a>(
+    wd_trees_cache: &mut HashMap<git2::Oid, git2::Oid>,
+    commit_id: git2::Oid,
+    repo: &'a git2::Repository,
+) -> Result<git2::Tree<'a>, anyhow::Error> {
+    if let Entry::Vacant(e) = wd_trees_cache.entry(commit_id) {
+        if let Ok(wd_tree_id) = tree_from_applied_vbranches(repo, commit_id) {
+            e.insert(wd_tree_id);
+        }
+    }
+    let wd_tree_id = wd_trees_cache.get(&commit_id).ok_or(anyhow!(
+        "Could not get a tree of all applied virtual branches merged"
+    ))?;
+    let wd_tree = repo.find_tree(wd_tree_id.to_owned())?;
+    Ok(wd_tree)
+}
+
 fn prepare_snapshot(ctx: &Project, _shared_access: &WorktreeReadPermission) -> Result<git2::Oid> {
     let worktree_dir = ctx.path.as_path();
     let repo = git2::Repository::open(worktree_dir)?;
@@ -853,10 +867,23 @@ fn tree_from_applied_vbranches(
 
     for branch in applied_branch_trees {
         let branch_tree = repo.find_tree(branch)?;
-        let mut workdir_temp_index =
-            repo.merge_trees(&base_tree, &current_ours, &branch_tree, None)?;
-        workdir_tree_id = workdir_temp_index.write_tree_to(repo)?;
-        current_ours = repo.find_tree(workdir_tree_id)?;
+        let mut merge_options: git2::MergeOptions = git2::MergeOptions::new();
+        merge_options.fail_on_conflict(false);
+        let mut workdir_temp_index = repo.merge_trees(
+            &base_tree,
+            &current_ours,
+            &branch_tree,
+            Some(&merge_options),
+        )?;
+        match workdir_temp_index.write_tree_to(repo) {
+            Ok(id) => {
+                workdir_tree_id = id;
+                current_ours = repo.find_tree(workdir_tree_id)?;
+            }
+            Err(_err) => {
+                tracing::warn!("Failed to merge tree {branch} - this branch is probably applied at a time when it should not be");
+            }
+        }
     }
 
     Ok(workdir_tree_id)
