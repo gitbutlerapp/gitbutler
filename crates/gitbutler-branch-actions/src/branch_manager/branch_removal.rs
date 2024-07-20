@@ -70,13 +70,11 @@ impl BranchManager<'_> {
 
         let repo = self.project_repository.repo();
 
-        let integration_commit = repo.integration_commit()?;
         let target_commit = repo.target_commit()?;
         let base_tree = target_commit.tree().context("failed to get target tree")?;
 
-        let (applied_statuses, _, _) =
-            get_applied_status(self.project_repository, &integration_commit.id(), None)
-                .context("failed to get status by branch")?;
+        let (applied_statuses, _, _) = get_applied_status(self.project_repository, None)
+            .context("failed to get status by branch")?;
 
         // go through the other applied branches and merge them into the final tree
         // then check that out into the working directory
