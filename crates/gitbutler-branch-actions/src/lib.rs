@@ -23,6 +23,8 @@ pub use remote::{list_remote_branches, RemoteBranch, RemoteBranchData, RemoteCom
 pub mod conflicts;
 
 mod author;
+mod status;
+pub use status::get_applied_status;
 
 use gitbutler_branch::VirtualBranchesHandle;
 trait VirtualBranchesExt {

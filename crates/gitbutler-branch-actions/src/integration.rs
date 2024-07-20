@@ -31,15 +31,12 @@ pub(crate) fn get_integration_commiter<'a>() -> Result<git2::Signature<'a>> {
 //
 // This is the base against which we diff the working directory to understand
 // what files have been modified.
-pub(crate) fn get_workspace_head(
-    vb_state: &VirtualBranchesHandle,
-    project_repo: &ProjectRepository,
-) -> Result<git2::Oid> {
+pub(crate) fn get_workspace_head(project_repo: &ProjectRepository) -> Result<git2::Oid> {
+    let vb_state = project_repo.project().virtual_branches();
     let target = vb_state
         .get_default_target()
         .context("failed to get target")?;
     let repo: &git2::Repository = project_repo.repo();
-    let vb_state = project_repo.project().virtual_branches();
 
     let virtual_branches: Vec<Branch> = vb_state.list_branches_in_workspace()?;
 
@@ -171,8 +168,7 @@ pub fn update_gitbutler_integration(
         .list_branches_in_workspace()
         .context("failed to list virtual branches")?;
 
-    let integration_commit =
-        repo.find_commit(get_workspace_head(&vb_state, project_repository)?)?;
+    let integration_commit = repo.find_commit(get_workspace_head(project_repository)?)?;
     let integration_tree = integration_commit.tree()?;
 
     // message that says how to get back to where they were
