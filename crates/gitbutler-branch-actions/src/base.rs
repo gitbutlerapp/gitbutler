@@ -19,6 +19,7 @@ use crate::branch_manager::BranchManagerExt;
 use crate::conflicts::RepoConflictsExt;
 use crate::integration::update_gitbutler_integration;
 use crate::remote::{commit_to_remote_commit, RemoteCommit};
+use crate::status::get_applied_status;
 use crate::{VirtualBranchHunk, VirtualBranchesExt};
 use gitbutler_branch::GITBUTLER_INTEGRATION_REFERENCE;
 use gitbutler_error::error::Marker;
@@ -365,7 +366,7 @@ pub(crate) fn update_base_branch(
     let vb_state = project_repository.project().virtual_branches();
 
     // try to update every branch
-    let updated_vbranches = vb::get_applied_status(project_repository, None)?
+    let updated_vbranches = get_applied_status(project_repository, None)?
         .0
         .into_iter()
         .map(|(branch, _)| branch)
