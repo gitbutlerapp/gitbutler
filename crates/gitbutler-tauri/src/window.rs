@@ -101,17 +101,11 @@ pub(super) mod state {
     fn handler_from_app(app: &AppHandle) -> Result<gitbutler_watcher::Handler> {
         let projects = app.state::<projects::Controller>().inner().clone();
         let users = app.state::<users::Controller>().inner().clone();
-        let vbranches = gitbutler_branch_actions::VirtualBranchActions;
 
-        Ok(gitbutler_watcher::Handler::new(
-            projects,
-            users,
-            vbranches,
-            {
-                let app = app.clone();
-                move |change| ChangeForFrontend::from(change).send(&app)
-            },
-        ))
+        Ok(gitbutler_watcher::Handler::new(projects, users, {
+            let app = app.clone();
+            move |change| ChangeForFrontend::from(change).send(&app)
+        }))
     }
 
     impl WindowState {

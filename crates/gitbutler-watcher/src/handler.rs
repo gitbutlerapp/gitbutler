@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use gitbutler_branch_actions::VirtualBranches;
+use gitbutler_branch_actions::{VirtualBranchActions, VirtualBranches};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::{
@@ -30,7 +30,6 @@ pub struct Handler {
     // need extra protection.
     projects: projects::Controller,
     users: users::Controller,
-    vbranch_controller: gitbutler_branch_actions::VirtualBranchActions,
 
     /// A function to send events - decoupled from app-handle for testing purposes.
     #[allow(clippy::type_complexity)]
@@ -43,13 +42,11 @@ impl Handler {
     pub fn new(
         projects: projects::Controller,
         users: users::Controller,
-        vbranch_controller: gitbutler_branch_actions::VirtualBranchActions,
         send_event: impl Fn(Change) -> Result<()> + Send + Sync + 'static,
     ) -> Self {
         Handler {
             projects,
             users,
-            vbranch_controller,
             send_event: Arc::new(send_event),
         }
     }
@@ -92,11 +89,7 @@ impl Handler {
             .projects
             .get(project_id)
             .context("failed to get project")?;
-        match self
-            .vbranch_controller
-            .list_virtual_branches(&project)
-            .await
-        {
+        match VirtualBranchActions.list_virtual_branches(&project).await {
             Ok((branches, skipped_files)) => self.emit_app_event(Change::VirtualBranches {
                 project_id: project.id,
                 virtual_branches: VirtualBranches {
