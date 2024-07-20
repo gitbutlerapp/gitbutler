@@ -367,7 +367,7 @@ pub(crate) fn update_base_branch(
 
     // try to update every branch
     let updated_vbranches = get_applied_status(project_repository, None)?
-        .0
+        .branches
         .into_iter()
         .map(|(branch, _)| branch)
         .map(|mut branch: Branch| -> Result<Option<Branch>> {

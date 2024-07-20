@@ -73,8 +73,9 @@ impl BranchManager<'_> {
         let target_commit = repo.target_commit()?;
         let base_tree = target_commit.tree().context("failed to get target tree")?;
 
-        let (applied_statuses, _, _) = get_applied_status(self.project_repository, None)
-            .context("failed to get status by branch")?;
+        let applied_statuses = get_applied_status(self.project_repository, None)
+            .context("failed to get status by branch")?
+            .branches;
 
         // go through the other applied branches and merge them into the final tree
         // then check that out into the working directory

@@ -14,21 +14,19 @@ use crate::{
     HunkLock, VirtualBranchesExt,
 };
 
-pub type BranchStatus = HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>;
-type AppliedStatuses = Vec<(Branch, BranchStatus)>;
+pub struct VirtualBranchesStatus {
+    pub branches: Vec<(Branch, HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>)>,
+    pub skipped_files: Vec<gitbutler_diff::FileDiff>,
+    pub locks: HashMap<Digest, Vec<HunkLock>>,
+}
 
 // Returns branches and their associated file changes, in addition to a list
 // of skipped files.
 // TODO(kv): make this side effect free
-#[allow(clippy::type_complexity)]
 pub fn get_applied_status(
     project_repository: &ProjectRepository,
     perm: Option<&mut WorktreeWritePermission>,
-) -> Result<(
-    AppliedStatuses,
-    Vec<gitbutler_diff::FileDiff>,
-    HashMap<Digest, Vec<HunkLock>>,
-)> {
+) -> Result<VirtualBranchesStatus> {
     let integration_commit = get_workspace_head(project_repository)?;
     let mut virtual_branches = project_repository
         .project()
@@ -61,10 +59,11 @@ pub fn get_applied_status(
         }
     }
 
-    let mut diffs_by_branch: HashMap<BranchId, BranchStatus> = virtual_branches
-        .iter()
-        .map(|branch| (branch.id, HashMap::new()))
-        .collect();
+    let mut diffs_by_branch: HashMap<BranchId, HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>> =
+        virtual_branches
+            .iter()
+            .map(|branch| (branch.id, HashMap::new()))
+            .collect();
 
     let locks = new_compute_locks(project_repository.repo(), &base_diffs, &virtual_branches)?;
 
@@ -193,7 +192,11 @@ pub fn get_applied_status(
         }
     }
 
-    Ok((hunks_by_branch, skipped_files, locks))
+    Ok(VirtualBranchesStatus {
+        branches: hunks_by_branch,
+        skipped_files,
+        locks,
+    })
 }
 
 fn new_compute_locks(

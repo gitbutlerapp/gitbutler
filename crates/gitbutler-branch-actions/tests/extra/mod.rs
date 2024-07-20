@@ -237,7 +237,7 @@ fn create_branch_with_ownership() -> Result<()> {
 
     let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
 
     let files_by_branch_id = statuses
         .iter()
@@ -356,7 +356,7 @@ fn hunk_expantion() -> Result<()> {
 
     let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
 
     let files_by_branch_id = statuses
         .iter()
@@ -393,7 +393,7 @@ fn hunk_expantion() -> Result<()> {
 
     let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
     let files_by_branch_id = statuses
         .iter()
         .map(|(branch, files)| (branch.id, files))
@@ -417,7 +417,7 @@ fn get_status_files_by_branch_no_hunks_no_branches() -> Result<()> {
 
     let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
 
     assert_eq!(statuses.len(), 0);
 
@@ -451,7 +451,7 @@ fn get_status_files_by_branch() -> Result<()> {
 
     let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
     let files_by_branch_id = statuses
         .iter()
         .map(|(branch, files)| (branch.id, files))
@@ -512,7 +512,7 @@ fn move_hunks_multiple_sources() -> Result<()> {
 
     let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
 
     let files_by_branch_id = statuses
         .iter()
@@ -537,7 +537,7 @@ fn move_hunks_multiple_sources() -> Result<()> {
 
     let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
 
     let files_by_branch_id = statuses
         .iter()
@@ -596,7 +596,7 @@ fn move_hunks_partial_explicitly() -> Result<()> {
 
     let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
     let files_by_branch_id = statuses
         .iter()
         .map(|(branch, files)| (branch.id, files))
@@ -618,7 +618,7 @@ fn move_hunks_partial_explicitly() -> Result<()> {
 
     let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
 
     let files_by_branch_id = statuses
         .iter()
@@ -676,7 +676,7 @@ fn add_new_hunk_to_the_end() -> Result<()> {
 
     let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
     assert_eq!(
         statuses[0].1[Path::new("test.txt")][0].diff_lines,
         "@@ -11,5 +11,5 @@ line10\n line11\n line12\n line13\n-line13\n line14\n+line15\n"
@@ -689,7 +689,7 @@ fn add_new_hunk_to_the_end() -> Result<()> {
 
     let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
 
     assert_eq!(
         statuses[0].1[Path::new("test.txt")][0].diff_lines,

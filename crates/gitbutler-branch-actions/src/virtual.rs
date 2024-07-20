@@ -232,8 +232,9 @@ pub fn unapply_ownership(
 
     let integration_commit_id = get_workspace_head(project_repository)?;
 
-    let (applied_statuses, _, _) =
-        get_applied_status(project_repository, None).context("failed to get status by branch")?;
+    let applied_statuses = get_applied_status(project_repository, None)
+        .context("failed to get status by branch")?
+        .branches;
 
     let hunks_to_unapply = applied_statuses
         .iter()
@@ -400,14 +401,16 @@ pub fn list_virtual_branches(
         .get_default_target()
         .context("failed to get default target")?;
 
-    let (statuses, skipped_files, locks) = get_applied_status(ctx, Some(perm))?;
-    let max_selected_for_changes = statuses
+    // let (statuses, skipped_files, locks) = get_applied_status(ctx, Some(perm))?;
+    let status = get_applied_status(ctx, Some(perm))?;
+    let max_selected_for_changes = status
+        .branches
         .iter()
         .filter_map(|(branch, _)| branch.selected_for_changes)
         .max()
         .unwrap_or(-1);
 
-    for (branch, files) in statuses {
+    for (branch, files) in status.branches {
         let repo = ctx.repo();
         update_conflict_markers(ctx, &files)?;
 
@@ -472,7 +475,7 @@ pub fn list_virtual_branches(
         let upstream = upstream_branch
             .and_then(|upstream_branch| branch_to_remote_branch(ctx, &upstream_branch));
 
-        let mut files = diffs_into_virtual_files(ctx, files, &locks);
+        let mut files = diffs_into_virtual_files(ctx, files, &status.locks);
 
         let path_claim_positions: HashMap<&PathBuf, usize> = branch
             .ownership
@@ -525,7 +528,7 @@ pub fn list_virtual_branches(
     let mut branches = branches_with_large_files_abridged(branches);
     branches.sort_by(|a, b| a.order.cmp(&b.order));
 
-    Ok((branches, skipped_files))
+    Ok((branches, status.skipped_files))
 }
 
 fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<VirtualBranch> {
@@ -1399,8 +1402,9 @@ pub fn commit(
     let message = &message_buffer;
 
     // get the files to commit
-    let (statuses, _, _) =
-        get_applied_status(project_repository, None).context("failed to get status by branch")?;
+    let statuses = get_applied_status(project_repository, None)
+        .context("failed to get status by branch")?
+        .branches;
 
     let (ref mut branch, files) = statuses
         .into_iter()
@@ -1940,7 +1944,7 @@ pub(crate) fn amend(
 
     let default_target = vb_state.get_default_target()?;
 
-    let (mut applied_statuses, _, _) = get_applied_status(project_repository, None)?;
+    let mut applied_statuses = get_applied_status(project_repository, None)?.branches;
 
     let (ref mut target_branch, target_status) = applied_statuses
         .iter_mut()
@@ -2420,7 +2424,7 @@ pub(crate) fn move_commit(
         bail!("branch {target_branch_id} is not among applied branches")
     }
 
-    let (mut applied_statuses, _, _) = get_applied_status(project_repository, None)?;
+    let mut applied_statuses = get_applied_status(project_repository, None)?.branches;
 
     let (ref mut source_branch, source_status) = applied_statuses
         .iter_mut()
