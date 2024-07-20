@@ -867,10 +867,23 @@ fn tree_from_applied_vbranches(
 
     for branch in applied_branch_trees {
         let branch_tree = repo.find_tree(branch)?;
-        let mut workdir_temp_index =
-            repo.merge_trees(&base_tree, &current_ours, &branch_tree, None)?;
-        workdir_tree_id = workdir_temp_index.write_tree_to(repo)?;
-        current_ours = repo.find_tree(workdir_tree_id)?;
+        let mut merge_options: git2::MergeOptions = git2::MergeOptions::new();
+        merge_options.fail_on_conflict(false);
+        let mut workdir_temp_index = repo.merge_trees(
+            &base_tree,
+            &current_ours,
+            &branch_tree,
+            Some(&merge_options),
+        )?;
+        match workdir_temp_index.write_tree_to(repo) {
+            Ok(id) => {
+                workdir_tree_id = id;
+                current_ours = repo.find_tree(workdir_tree_id)?;
+            }
+            Err(_err) => {
+                tracing::warn!("Failed to merge tree {branch} - this branch is probably applied at a time when it should not be");
+            }
+        }
     }
 
     Ok(workdir_tree_id)
