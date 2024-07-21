@@ -10,9 +10,7 @@ use gitbutler_diff::{Hunk, HunkHash};
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::credentials::Helper;
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
-use std::borrow::{Borrow, Cow};
-#[cfg(target_family = "unix")]
-use std::os::unix::prelude::PermissionsExt;
+use std::borrow::Cow;
 use std::time::SystemTime;
 use std::{
     collections::HashMap,
@@ -21,10 +19,8 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Context, Result};
-use bstr::{BString, ByteSlice, ByteVec};
-use diffy::{apply_bytes as diffy_apply, Line, Patch};
+use bstr::{BString, ByteSlice};
 use git2_hooks::HookResult;
-use hex::ToHex;
 use serde::{Deserialize, Serialize};
 
 use crate::author::Author;
@@ -269,7 +265,11 @@ pub fn unapply_ownership(
         target_commit.tree().context("failed to get target tree"),
         |final_tree, status| {
             let final_tree = final_tree?;
-            let tree_oid = write_tree(project_repository, &integration_commit_id, status.1)?;
+            let tree_oid = gitbutler_diff::write::hunks_onto_oid(
+                project_repository,
+                &integration_commit_id,
+                status.1,
+            )?;
             let branch_tree = repo.find_tree(tree_oid)?;
             let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
             let final_tree_oid = result.write_tree_to(project_repository.repo())?;
@@ -278,7 +278,8 @@ pub fn unapply_ownership(
         },
     )?;
 
-    let final_tree_oid = write_tree_onto_tree(project_repository, &final_tree, diff)?;
+    let final_tree_oid =
+        gitbutler_diff::write::hunks_onto_tree(project_repository, &final_tree, diff)?;
     let final_tree = repo
         .find_tree(final_tree_oid)
         .context("failed to find tree")?;
@@ -1124,195 +1125,6 @@ fn diffs_into_virtual_files(
     virtual_hunks_into_virtual_files(project_repository, hunks_by_filepath)
 }
 
-// this function takes a list of file ownership,
-// constructs a tree from those changes on top of the target
-// and writes it as a new tree for storage
-pub(crate) fn write_tree<T>(
-    project_repository: &ProjectRepository,
-    target: &git2::Oid,
-    files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
-) -> Result<git2::Oid>
-where
-    T: Into<gitbutler_diff::GitHunk> + Clone,
-{
-    write_tree_onto_commit(project_repository, *target, files)
-}
-
-pub(crate) fn write_tree_onto_commit<T>(
-    project_repository: &ProjectRepository,
-    commit_oid: git2::Oid,
-    files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
-) -> Result<git2::Oid>
-where
-    T: Into<gitbutler_diff::GitHunk> + Clone,
-{
-    // read the base sha into an index
-    let git_repository: &git2::Repository = project_repository.repo();
-
-    let head_commit = git_repository.find_commit(commit_oid)?;
-    let base_tree = head_commit.tree()?;
-
-    write_tree_onto_tree(project_repository, &base_tree, files)
-}
-
-pub(crate) fn write_tree_onto_tree<T>(
-    project_repository: &ProjectRepository,
-    base_tree: &git2::Tree,
-    files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
-) -> Result<git2::Oid>
-where
-    T: Into<gitbutler_diff::GitHunk> + Clone,
-{
-    let git_repository = project_repository.repo();
-    let mut builder = git2::build::TreeUpdateBuilder::new();
-    // now update the index with content in the working directory for each file
-    for (rel_path, hunks) in files {
-        let rel_path = rel_path.borrow();
-        let hunks: Vec<GitHunk> = hunks.borrow().iter().map(|h| h.clone().into()).collect();
-        let full_path = project_repository.project().worktree_path().join(rel_path);
-
-        let is_submodule = full_path.is_dir()
-            && hunks.len() == 1
-            && hunks[0].diff_lines.contains_str(b"Subproject commit");
-
-        // if file exists
-        if full_path.exists() {
-            // if file is executable, use 755, otherwise 644
-            let mut filemode = git2::FileMode::Blob;
-            // check if full_path file is executable
-            if let Ok(metadata) = std::fs::symlink_metadata(&full_path) {
-                #[cfg(target_family = "unix")]
-                {
-                    if metadata.permissions().mode() & 0o111 != 0 {
-                        filemode = git2::FileMode::BlobExecutable;
-                    }
-                }
-
-                #[cfg(target_os = "windows")]
-                {
-                    // NOTE: *Keep* the existing executable bit if it was present
-                    //       in the tree already, don't try to derive something from
-                    //       the FS that doesn't exist.
-                    filemode = base_tree
-                        .get_path(rel_path)
-                        .ok()
-                        .and_then(|entry| {
-                            (entry.filemode() & 0o100000 == 0o100000
-                                && entry.filemode() & 0o111 != 0)
-                                .then_some(git2::FileMode::BlobExecutable)
-                        })
-                        .unwrap_or(filemode);
-                }
-
-                if metadata.file_type().is_symlink() {
-                    filemode = git2::FileMode::Link;
-                }
-            }
-
-            // get the blob
-            if filemode == git2::FileMode::Link {
-                // it's a symlink, make the content the path of the link
-                let link_target = std::fs::read_link(&full_path)?;
-
-                // if the link target is inside the project repository, make it relative
-                let link_target = link_target
-                    .strip_prefix(project_repository.project().worktree_path())
-                    .unwrap_or(&link_target);
-
-                let blob_oid = git_repository.blob(
-                    link_target
-                        .to_str()
-                        .ok_or_else(|| {
-                            anyhow!("path contains invalid utf-8 characters: {link_target:?}")
-                        })?
-                        .as_bytes(),
-                )?;
-                builder.upsert(rel_path, blob_oid, filemode);
-            } else if let Ok(tree_entry) = base_tree.get_path(rel_path) {
-                if hunks.len() == 1 && hunks[0].binary {
-                    let new_blob_oid = &hunks[0].diff_lines;
-                    // convert string to Oid
-                    let new_blob_oid = new_blob_oid
-                        .to_str()
-                        .expect("hex-string")
-                        .parse()
-                        .context("failed to diff as oid")?;
-                    builder.upsert(rel_path, new_blob_oid, filemode);
-                } else {
-                    // blob from tree_entry
-                    let blob = tree_entry
-                        .to_object(git_repository)
-                        .unwrap()
-                        .peel_to_blob()
-                        .context("failed to get blob")?;
-
-                    let blob_contents = blob.content();
-
-                    let mut hunks = hunks.iter().collect::<Vec<_>>();
-                    hunks.sort_by_key(|hunk| hunk.new_start);
-                    let mut all_diffs = BString::default();
-                    for hunk in hunks {
-                        all_diffs.push_str(&hunk.diff_lines);
-                    }
-
-                    let patch = Patch::from_bytes(&all_diffs)?;
-                    let blob_contents = apply(blob_contents, &patch).context(format!(
-                        "failed to apply\n{}\nonto:\n{}",
-                        all_diffs.as_bstr(),
-                        blob_contents.as_bstr()
-                    ));
-
-                    match blob_contents {
-                        Ok(blob_contents) => {
-                            // create a blob
-                            let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
-                            // upsert into the builder
-                            builder.upsert(rel_path, new_blob_oid, filemode);
-                        }
-                        Err(_) => {
-                            // If the patch failed to apply, do nothing, this is handled elsewhere
-                            continue;
-                        }
-                    }
-                }
-            } else if is_submodule {
-                let mut blob_contents = BString::default();
-
-                let mut hunks = hunks.iter().collect::<Vec<_>>();
-                hunks.sort_by_key(|hunk| hunk.new_start);
-                let mut all_diffs = BString::default();
-                for hunk in hunks {
-                    all_diffs.push_str(&hunk.diff_lines);
-                }
-                let patch = Patch::from_bytes(&all_diffs)?;
-                blob_contents = apply(&blob_contents, &patch)
-                    .context(format!("failed to apply {}", all_diffs))?;
-
-                // create a blob
-                let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
-                // upsert into the builder
-                builder.upsert(rel_path, new_blob_oid, filemode);
-            } else {
-                // create a git blob from a file on disk
-                let blob_oid = git_repository
-                    .blob_path(&full_path)
-                    .context(format!("failed to create blob from path {:?}", &full_path))?;
-                builder.upsert(rel_path, blob_oid, filemode);
-            }
-        } else if base_tree.get_path(rel_path).is_ok() {
-            // remove file from index if it exists in the base tree
-            builder.remove(rel_path);
-        }
-    }
-
-    // now write out the tree
-    let tree_oid = builder
-        .create_updated(project_repository.repo(), base_tree)
-        .context("failed to write updated tree")?;
-
-    Ok(tree_oid)
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn commit(
     project_repository: &ProjectRepository,
@@ -1392,9 +1204,9 @@ pub fn commit(
                 Some((filepath, hunks))
             }
         });
-        write_tree_onto_commit(project_repository, branch.head, files)?
+        gitbutler_diff::write::hunks_onto_commit(project_repository, branch.head, files)?
     } else {
-        write_tree_onto_commit(project_repository, branch.head, files)?
+        gitbutler_diff::write::hunks_onto_commit(project_repository, branch.head, files)?
     };
 
     let git_repository = project_repository.repo();
@@ -1757,8 +1569,11 @@ pub(crate) fn move_commit_file(
         let repo = project_repository.repo();
 
         // write our new tree and commit for the new "from" commit without the moved changes
-        let new_from_tree_id =
-            write_tree_onto_commit(project_repository, from_parent.id(), &diffs_to_keep)?;
+        let new_from_tree_id = gitbutler_diff::write::hunks_onto_commit(
+            project_repository,
+            from_parent.id(),
+            &diffs_to_keep,
+        )?;
         let new_from_tree = &repo
             .find_tree(new_from_tree_id)
             .with_context(|| "tree {new_from_tree_oid} not found")?;
@@ -1824,7 +1639,11 @@ pub(crate) fn move_commit_file(
 
     // apply diffs_to_amend to the commit tree
     // and write a new commit with the changes we're moving
-    let new_tree_oid = write_tree_onto_commit(project_repository, to_amend_oid, &diffs_to_amend)?;
+    let new_tree_oid = gitbutler_diff::write::hunks_onto_commit(
+        project_repository,
+        to_amend_oid,
+        &diffs_to_amend,
+    )?;
     let new_tree = project_repository
         .repo()
         .find_tree(new_tree_oid)
@@ -1953,7 +1772,8 @@ pub(crate) fn amend(
     }
 
     // apply diffs_to_amend to the commit tree
-    let new_tree_oid = write_tree_onto_commit(project_repository, commit_oid, &diffs_to_amend)?;
+    let new_tree_oid =
+        gitbutler_diff::write::hunks_onto_commit(project_repository, commit_oid, &diffs_to_amend)?;
     let new_tree = project_repository
         .repo()
         .find_tree(new_tree_oid)
@@ -2456,7 +2276,7 @@ pub(crate) fn move_commit(
             destination_branch.ownership.put(ownership);
         }
 
-        let new_destination_tree_oid = write_tree_onto_commit(
+        let new_destination_tree_oid = gitbutler_diff::write::hunks_onto_commit(
             project_repository,
             destination_branch.head,
             branch_head_diff,
@@ -2487,70 +2307,6 @@ pub(crate) fn move_commit(
         .context("failed to update gitbutler integration")?;
 
     Ok(())
-}
-
-/// Just like [`diffy::apply()`], but on error it will attach hashes of the input `base_image` and `patch`.
-pub(crate) fn apply<S: AsRef<[u8]>>(base_image: S, patch: &Patch<'_, [u8]>) -> Result<BString> {
-    fn md5_hash_hex(b: impl AsRef<[u8]>) -> String {
-        md5::compute(b).encode_hex()
-    }
-
-    #[derive(Debug)]
-    #[allow(dead_code)] // Read by Debug auto-impl, which doesn't count
-    pub enum DebugLine {
-        // Note that each of these strings is a hash only
-        Context(String),
-        Delete(String),
-        Insert(String),
-    }
-
-    impl<'a> From<&diffy::Line<'a, [u8]>> for DebugLine {
-        fn from(line: &Line<'a, [u8]>) -> Self {
-            match line {
-                Line::Context(s) => DebugLine::Context(md5_hash_hex(s)),
-                Line::Delete(s) => DebugLine::Delete(md5_hash_hex(s)),
-                Line::Insert(s) => DebugLine::Insert(md5_hash_hex(s)),
-            }
-        }
-    }
-
-    #[derive(Debug)]
-    #[allow(dead_code)] // Read by Debug auto-impl, which doesn't count
-    struct DebugHunk {
-        old_range: diffy::HunkRange,
-        new_range: diffy::HunkRange,
-        lines: Vec<DebugLine>,
-    }
-
-    impl<'a> From<&diffy::Hunk<'a, [u8]>> for DebugHunk {
-        fn from(hunk: &diffy::Hunk<'a, [u8]>) -> Self {
-            Self {
-                old_range: hunk.old_range(),
-                new_range: hunk.new_range(),
-                lines: hunk.lines().iter().map(Into::into).collect(),
-            }
-        }
-    }
-
-    #[derive(Debug)]
-    #[allow(dead_code)] // Read by Debug auto-impl, which doesn't count
-    struct DebugContext {
-        base_image_hash: String,
-        hunks: Vec<DebugHunk>,
-    }
-
-    impl std::fmt::Display for DebugContext {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            std::fmt::Debug::fmt(self, f)
-        }
-    }
-
-    diffy_apply(base_image.as_ref(), patch)
-        .with_context(|| DebugContext {
-            base_image_hash: md5_hash_hex(base_image),
-            hunks: patch.hunks().iter().map(Into::into).collect(),
-        })
-        .map(Into::into)
 }
 
 // Goes through a set of changes and checks if conflicts are present. If no conflicts

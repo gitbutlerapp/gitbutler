@@ -14,7 +14,6 @@ use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 use serde::Serialize;
 
-use super::r#virtual as vb;
 use crate::branch_manager::BranchManagerExt;
 use crate::conflicts::RepoConflictsExt;
 use crate::integration::update_gitbutler_integration;
@@ -246,7 +245,7 @@ pub(crate) fn set_base_branch(
                 created_timestamp_ms: now_ms,
                 updated_timestamp_ms: now_ms,
                 head: current_head_commit.id(),
-                tree: vb::write_tree_onto_commit(
+                tree: gitbutler_diff::write::hunks_onto_commit(
                     project_repository,
                     current_head_commit.id(),
                     gitbutler_diff::diff_files_into_hunks(wd_diff),
