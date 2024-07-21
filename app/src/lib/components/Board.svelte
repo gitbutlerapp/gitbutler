@@ -343,16 +343,17 @@
 	.empty-board__suggestions__links {
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		gap: 3px;
 		margin-left: -4px;
 	}
 
 	.empty-board__suggestions__link {
 		cursor: pointer;
 		display: flex;
+		align-items: center;
 		width: fit-content;
 		max-width: 100%;
-		padding: 2px 6px 2px 4px;
+		padding: 4px 6px 4px 4px;
 		border-radius: var(--radius-s);
 		gap: 10px;
 		transition: background-color var(--transition-fast);
@@ -364,7 +365,6 @@
 
 		& span {
 			color: var(--clr-scale-ntrl-40);
-			margin-top: 3px;
 			white-space: nowrap;
 			text-overflow: ellipsis;
 			overflow: hidden;
