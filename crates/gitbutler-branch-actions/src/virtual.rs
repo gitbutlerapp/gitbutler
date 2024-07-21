@@ -10,8 +10,6 @@ use gitbutler_diff::{Hunk, HunkHash};
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::credentials::Helper;
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
-use itertools::Itertools;
-use md5::Digest;
 use std::borrow::{Borrow, Cow};
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::PermissionsExt;
@@ -34,7 +32,7 @@ use crate::branch_manager::BranchManagerExt;
 use crate::conflicts::{self, RepoConflictsExt};
 use crate::integration::get_workspace_head;
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
-use crate::status::get_applied_status;
+use crate::status::{get_applied_status, virtual_hunks_by_git_hunks};
 use crate::VirtualBranchesExt;
 use gitbutler_error::error::Code;
 use gitbutler_error::error::Marker;
@@ -166,6 +164,8 @@ pub struct VirtualBranchHunk {
     pub old_start: u32,
     pub start: u32,
     pub end: u32,
+    #[serde(skip)]
+    pub old_lines: u32,
     pub binary: bool,
     pub locked: bool,
     pub locked_to: Option<Box<[HunkLock]>>,
@@ -174,41 +174,24 @@ pub struct VirtualBranchHunk {
     pub poisoned: bool,
 }
 
+impl From<VirtualBranchHunk> for GitHunk {
+    fn from(val: VirtualBranchHunk) -> Self {
+        GitHunk {
+            old_start: val.old_start,
+            old_lines: val.old_lines,
+            new_start: val.start,
+            new_lines: val.end - val.start,
+            diff_lines: val.diff,
+            binary: val.binary,
+            change_type: val.change_type,
+        }
+    }
+}
+
 /// Lifecycle
 impl VirtualBranchHunk {
     pub(crate) fn gen_id(new_start: u32, new_lines: u32) -> String {
         format!("{}-{}", new_start, new_start + new_lines)
-    }
-    fn from_git_hunk(
-        project_path: &Path,
-        file_path: PathBuf,
-        hunk: GitHunk,
-        mtimes: &mut MTimeCache,
-        locks: &HashMap<Digest, Vec<HunkLock>>,
-    ) -> Self {
-        let hash = Hunk::hash_diff(&hunk.diff_lines);
-
-        let binding = Vec::new();
-        let locked_to = locks.get(&hash).unwrap_or(&binding);
-
-        // Get the unique branch ids (lock.branch_id) from hunk.locked_to that a hunk is locked to (if any)
-        let branch_deps_count = locked_to.iter().map(|lock| lock.branch_id).unique().count();
-
-        Self {
-            id: Self::gen_id(hunk.new_start, hunk.new_lines),
-            modified_at: mtimes.mtime_by_path(project_path.join(&file_path)),
-            file_path,
-            diff: hunk.diff_lines,
-            old_start: hunk.old_start,
-            start: hunk.new_start,
-            end: hunk.new_start + hunk.new_lines,
-            binary: hunk.binary,
-            hash,
-            locked: !locked_to.is_empty(),
-            locked_to: Some(locked_to.clone().into_boxed_slice()),
-            change_type: hunk.change_type,
-            poisoned: branch_deps_count > 1,
-        }
     }
 }
 
@@ -239,8 +222,8 @@ pub fn unapply_ownership(
     let hunks_to_unapply = applied_statuses
         .iter()
         .map(
-            |(_branch, branch_files)| -> Result<Vec<(PathBuf, &gitbutler_diff::GitHunk)>> {
-                let mut hunks_to_unapply = Vec::new();
+            |(_branch, branch_files)| -> Result<Vec<(PathBuf, gitbutler_diff::GitHunk)>> {
+                let mut hunks_to_unapply: Vec<(PathBuf, GitHunk)> = Vec::new();
                 for (path, hunks) in branch_files {
                     let ownership_hunks: Vec<&Hunk> = ownership
                         .claims
@@ -249,7 +232,8 @@ pub fn unapply_ownership(
                         .flat_map(|f| &f.hunks)
                         .collect();
                     for hunk in hunks {
-                        if ownership_hunks.contains(&&Hunk::from(hunk)) {
+                        let hunk: GitHunk = hunk.clone().into();
+                        if ownership_hunks.contains(&&Hunk::from(&hunk)) {
                             hunks_to_unapply.push((path.clone(), hunk));
                         }
                     }
@@ -267,7 +251,7 @@ pub fn unapply_ownership(
 
     let mut diff = HashMap::new();
     for h in hunks_to_unapply {
-        if let Some(reversed_hunk) = gitbutler_diff::reverse_hunk(h.1) {
+        if let Some(reversed_hunk) = gitbutler_diff::reverse_hunk(&h.1) {
             diff.entry(h.0).or_insert_with(Vec::new).push(reversed_hunk);
         } else {
             bail!("failed to reverse hunk")
@@ -475,7 +459,7 @@ pub fn list_virtual_branches(
         let upstream = upstream_branch
             .and_then(|upstream_branch| branch_to_remote_branch(ctx, &upstream_branch));
 
-        let mut files = diffs_into_virtual_files(ctx, files, &status.locks);
+        let mut files = diffs_into_virtual_files(ctx, files);
 
         let path_claim_positions: HashMap<&PathBuf, usize> = branch
             .ownership
@@ -991,10 +975,10 @@ pub(crate) fn set_ownership(
 }
 
 #[derive(Default)]
-struct MTimeCache(HashMap<PathBuf, u128>);
+pub struct MTimeCache(HashMap<PathBuf, u128>);
 
 impl MTimeCache {
-    fn mtime_by_path<P: AsRef<Path>>(&mut self, path: P) -> u128 {
+    pub fn mtime_by_path<P: AsRef<Path>>(&mut self, path: P) -> u128 {
         let path = path.as_ref();
 
         if let Some(mtime) = self.0.get(path) {
@@ -1019,35 +1003,10 @@ impl MTimeCache {
     }
 }
 
-pub(super) fn virtual_hunks_by_git_hunks<'a>(
-    project_path: &'a Path,
-    diff: impl IntoIterator<Item = (PathBuf, Vec<gitbutler_diff::GitHunk>)> + 'a,
-    locks: Option<&'a HashMap<Digest, Vec<HunkLock>>>,
-) -> impl Iterator<Item = (PathBuf, Vec<VirtualBranchHunk>)> + 'a {
-    let mut mtimes = MTimeCache::default();
-    diff.into_iter().map(move |(file_path, hunks)| {
-        let binding = HashMap::new();
-        let locks = locks.unwrap_or(&binding);
-        let hunks = hunks
-            .into_iter()
-            .map(|hunk| {
-                VirtualBranchHunk::from_git_hunk(
-                    project_path,
-                    file_path.clone(),
-                    hunk,
-                    &mut mtimes,
-                    locks,
-                )
-            })
-            .collect::<Vec<_>>();
-        (file_path, hunks)
-    })
-}
-
 pub(crate) fn virtual_hunks_by_file_diffs<'a>(
     project_path: &'a Path,
     diff: impl IntoIterator<Item = (PathBuf, FileDiff)> + 'a,
-) -> impl Iterator<Item = (PathBuf, Vec<VirtualBranchHunk>)> + 'a {
+) -> HashMap<PathBuf, Vec<VirtualBranchHunk>> {
     virtual_hunks_by_git_hunks(
         project_path,
         diff.into_iter()
@@ -1160,40 +1119,33 @@ pub(crate) fn reset_branch(
 
 fn diffs_into_virtual_files(
     project_repository: &ProjectRepository,
-    diffs: BranchStatus,
-    locks: &HashMap<Digest, Vec<HunkLock>>,
+    hunks_by_filepath: HashMap<PathBuf, Vec<VirtualBranchHunk>>,
 ) -> Vec<VirtualBranchFile> {
-    let hunks_by_filepath =
-        virtual_hunks_by_git_hunks(&project_repository.project().path, diffs, Some(locks));
     virtual_hunks_into_virtual_files(project_repository, hunks_by_filepath)
 }
 
 // this function takes a list of file ownership,
 // constructs a tree from those changes on top of the target
 // and writes it as a new tree for storage
-pub(crate) fn write_tree(
+pub(crate) fn write_tree<T>(
     project_repository: &ProjectRepository,
     target: &git2::Oid,
-    files: impl IntoIterator<
-        Item = (
-            impl Borrow<PathBuf>,
-            impl Borrow<Vec<gitbutler_diff::GitHunk>>,
-        ),
-    >,
-) -> Result<git2::Oid> {
+    files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
+) -> Result<git2::Oid>
+where
+    T: Into<gitbutler_diff::GitHunk> + Clone,
+{
     write_tree_onto_commit(project_repository, *target, files)
 }
 
-pub(crate) fn write_tree_onto_commit(
+pub(crate) fn write_tree_onto_commit<T>(
     project_repository: &ProjectRepository,
     commit_oid: git2::Oid,
-    files: impl IntoIterator<
-        Item = (
-            impl Borrow<PathBuf>,
-            impl Borrow<Vec<gitbutler_diff::GitHunk>>,
-        ),
-    >,
-) -> Result<git2::Oid> {
+    files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
+) -> Result<git2::Oid>
+where
+    T: Into<gitbutler_diff::GitHunk> + Clone,
+{
     // read the base sha into an index
     let git_repository: &git2::Repository = project_repository.repo();
 
@@ -1203,22 +1155,20 @@ pub(crate) fn write_tree_onto_commit(
     write_tree_onto_tree(project_repository, &base_tree, files)
 }
 
-pub(crate) fn write_tree_onto_tree(
+pub(crate) fn write_tree_onto_tree<T>(
     project_repository: &ProjectRepository,
     base_tree: &git2::Tree,
-    files: impl IntoIterator<
-        Item = (
-            impl Borrow<PathBuf>,
-            impl Borrow<Vec<gitbutler_diff::GitHunk>>,
-        ),
-    >,
-) -> Result<git2::Oid> {
+    files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
+) -> Result<git2::Oid>
+where
+    T: Into<gitbutler_diff::GitHunk> + Clone,
+{
     let git_repository = project_repository.repo();
     let mut builder = git2::build::TreeUpdateBuilder::new();
     // now update the index with content in the working directory for each file
     for (rel_path, hunks) in files {
         let rel_path = rel_path.borrow();
-        let hunks = hunks.borrow();
+        let hunks: Vec<GitHunk> = hunks.borrow().iter().map(|h| h.clone().into()).collect();
         let full_path = project_repository.project().worktree_path().join(rel_path);
 
         let is_submodule = full_path.is_dir()
@@ -1423,6 +1373,7 @@ pub fn commit(
             let hunks = hunks
                 .into_iter()
                 .filter(|hunk| {
+                    let hunk: GitHunk = hunk.clone().into();
                     ownership
                         .claims
                         .iter()
@@ -1979,6 +1930,7 @@ pub(crate) fn amend(
                     hunks
                         .iter()
                         .filter(|hunk| {
+                            let hunk: GitHunk = (*hunk).clone().into();
                             file_ownership.hunks.iter().any(|owned_hunk| {
                                 owned_hunk.start == hunk.new_start
                                     && owned_hunk.end == hunk.new_start + hunk.new_lines
@@ -2459,6 +2411,7 @@ pub(crate) fn move_commit(
         .any(|(path, hunks)| {
             branch_head_diff.get(path).map_or(false, |head_diff_hunks| {
                 hunks.iter().any(|hunk| {
+                    let hunk: GitHunk = hunk.clone().into();
                     head_diff_hunks.iter().any(|head_hunk| {
                         joined(
                             head_hunk.new_start,
@@ -2605,7 +2558,7 @@ pub(crate) fn apply<S: AsRef<[u8]>>(base_image: S, patch: &Patch<'_, [u8]>) -> R
 // conflicts file.
 fn update_conflict_markers(
     project_repository: &ProjectRepository,
-    files: &HashMap<PathBuf, Vec<GitHunk>>,
+    files: &HashMap<PathBuf, Vec<impl Into<GitHunk> + Clone>>,
 ) -> Result<()> {
     let conflicting_files = conflicts::conflicting_files(project_repository)?;
     for (file_path, non_commited_hunks) in files {
@@ -2613,6 +2566,7 @@ fn update_conflict_markers(
         if conflicting_files.contains(file_path) {
             // check file for conflict markers, resolve the file if there are none in any hunk
             for hunk in non_commited_hunks {
+                let hunk: GitHunk = hunk.clone().into();
                 if hunk.diff_lines.contains_str(b"<<<<<<< ours") {
                     conflicted = true;
                 }
