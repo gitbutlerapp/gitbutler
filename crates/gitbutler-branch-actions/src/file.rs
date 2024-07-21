@@ -3,13 +3,13 @@ use std::{
     path::{self, Path, PathBuf},
 };
 
-use crate::status::virtual_hunks_by_git_hunks;
+use crate::hunk::{file_hunks_from_diffs, VirtualBranchHunk};
 use anyhow::{anyhow, Context, Result};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_diff::FileDiff;
 use serde::Serialize;
 
-use crate::{conflicts, VirtualBranchHunk};
+use crate::conflicts;
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -92,18 +92,11 @@ pub(crate) fn list_virtual_commit_files(
     ))
 }
 
-pub(crate) fn diffs_into_virtual_files(
-    project_repository: &ProjectRepository,
-    hunks_by_filepath: HashMap<PathBuf, Vec<VirtualBranchHunk>>,
-) -> Vec<VirtualBranchFile> {
-    virtual_hunks_into_virtual_files(project_repository, hunks_by_filepath)
-}
-
 fn virtual_hunks_by_file_diffs<'a>(
     project_path: &'a Path,
     diff: impl IntoIterator<Item = (PathBuf, FileDiff)> + 'a,
 ) -> HashMap<PathBuf, Vec<VirtualBranchHunk>> {
-    virtual_hunks_by_git_hunks(
+    file_hunks_from_diffs(
         project_path,
         diff.into_iter()
             .map(move |(file_path, file)| (file_path, file.hunks)),
@@ -112,7 +105,7 @@ fn virtual_hunks_by_file_diffs<'a>(
 }
 
 /// NOTE: There is no use returning an iterator here as this acts like the final product.
-fn virtual_hunks_into_virtual_files(
+pub(crate) fn virtual_hunks_into_virtual_files(
     project_repository: &ProjectRepository,
     hunks: impl IntoIterator<Item = (PathBuf, Vec<VirtualBranchHunk>)>,
 ) -> Vec<VirtualBranchFile> {

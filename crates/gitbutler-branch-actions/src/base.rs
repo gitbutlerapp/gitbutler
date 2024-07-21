@@ -16,10 +16,11 @@ use serde::Serialize;
 
 use crate::branch_manager::BranchManagerExt;
 use crate::conflicts::RepoConflictsExt;
+use crate::hunk::VirtualBranchHunk;
 use crate::integration::update_gitbutler_integration;
 use crate::remote::{commit_to_remote_commit, RemoteCommit};
 use crate::status::get_applied_status;
-use crate::{VirtualBranchHunk, VirtualBranchesExt};
+use crate::VirtualBranchesExt;
 use gitbutler_branch::GITBUTLER_INTEGRATION_REFERENCE;
 use gitbutler_error::error::Marker;
 use gitbutler_project::access::WorktreeWritePermission;

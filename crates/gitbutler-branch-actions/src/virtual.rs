@@ -5,28 +5,28 @@ use gitbutler_branch::{OwnershipClaim, Target};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_commit::commit_headers::HasCommitHeaders;
+use gitbutler_diff::Hunk;
 use gitbutler_diff::{trees, GitHunk};
-use gitbutler_diff::{Hunk, HunkHash};
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::credentials::Helper;
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 use std::borrow::Cow;
-use std::time::SystemTime;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    time, vec,
+    vec,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
-use bstr::{BString, ByteSlice};
+use bstr::ByteSlice;
 use git2_hooks::HookResult;
 use serde::{Deserialize, Serialize};
 
 use crate::branch_manager::BranchManagerExt;
 use crate::commit::{commit_to_vbranch_commit, VirtualBranchCommit};
 use crate::conflicts::{self, RepoConflictsExt};
-use crate::file::{diffs_into_virtual_files, VirtualBranchFile};
+use crate::file::{virtual_hunks_into_virtual_files, VirtualBranchFile};
+use crate::hunk::VirtualBranchHunk;
 use crate::integration::get_workspace_head;
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
 use crate::status::get_applied_status;
@@ -79,68 +79,6 @@ pub struct VirtualBranch {
 pub struct VirtualBranches {
     pub branches: Vec<VirtualBranch>,
     pub skipped_files: Vec<gitbutler_diff::FileDiff>,
-}
-
-// A hunk is locked when it depends on changes in commits that are in your
-// workspace. A hunk can be locked to more than one branch if it overlaps
-// with more than one committed hunk.
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Copy)]
-#[serde(rename_all = "camelCase")]
-pub struct HunkLock {
-    pub branch_id: BranchId,
-    #[serde(with = "gitbutler_serde::serde::oid")]
-    pub commit_id: git2::Oid,
-}
-// this struct is a mapping to the view `Hunk` type in Typescript
-// found in src-tauri/src/routes/repo/[project_id]/types.ts
-// it holds a materialized view for presentation purposes of one entry of
-// each hunk in one `Branch.ownership` vector entry in Rust.
-// an array of them are returned as part of the `VirtualBranchFile` struct
-//
-// it is not persisted, it is only used for presentation purposes through the ipc
-//
-#[derive(Debug, PartialEq, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VirtualBranchHunk {
-    pub id: String,
-    #[serde(serialize_with = "gitbutler_serde::serde::as_string_lossy")]
-    pub diff: BString,
-    pub modified_at: u128,
-    pub file_path: PathBuf,
-    #[serde(serialize_with = "gitbutler_branch::serde::hash_to_hex")]
-    pub hash: HunkHash,
-    pub old_start: u32,
-    pub start: u32,
-    pub end: u32,
-    #[serde(skip)]
-    pub old_lines: u32,
-    pub binary: bool,
-    pub locked: bool,
-    pub locked_to: Option<Box<[HunkLock]>>,
-    pub change_type: gitbutler_diff::ChangeType,
-    /// Indicates that the hunk depends on multiple branches. In this case the hunk cant be moved or comitted.
-    pub poisoned: bool,
-}
-
-impl From<VirtualBranchHunk> for GitHunk {
-    fn from(val: VirtualBranchHunk) -> Self {
-        GitHunk {
-            old_start: val.old_start,
-            old_lines: val.old_lines,
-            new_start: val.start,
-            new_lines: val.end - val.start,
-            diff_lines: val.diff,
-            binary: val.binary,
-            change_type: val.change_type,
-        }
-    }
-}
-
-/// Lifecycle
-impl VirtualBranchHunk {
-    pub(crate) fn gen_id(new_start: u32, new_lines: u32) -> String {
-        format!("{}-{}", new_start, new_start + new_lines)
-    }
 }
 
 #[derive(Default, Debug, Serialize, Deserialize)]
@@ -412,7 +350,7 @@ pub fn list_virtual_branches(
         let upstream = upstream_branch
             .and_then(|upstream_branch| branch_to_remote_branch(ctx, &upstream_branch));
 
-        let mut files = diffs_into_virtual_files(ctx, files);
+        let mut files = virtual_hunks_into_virtual_files(ctx, files);
 
         let path_claim_positions: HashMap<&PathBuf, usize> = branch
             .ownership
@@ -869,35 +807,6 @@ pub(crate) fn set_ownership(
     target_branch.ownership = ownership.clone();
 
     Ok(())
-}
-
-#[derive(Default)]
-pub struct MTimeCache(HashMap<PathBuf, u128>);
-
-impl MTimeCache {
-    pub fn mtime_by_path<P: AsRef<Path>>(&mut self, path: P) -> u128 {
-        let path = path.as_ref();
-
-        if let Some(mtime) = self.0.get(path) {
-            return *mtime;
-        }
-
-        let mtime = path
-            .metadata()
-            .map_or_else(
-                |_| SystemTime::now(),
-                |metadata| {
-                    metadata
-                        .modified()
-                        .or(metadata.created())
-                        .unwrap_or_else(|_| SystemTime::now())
-                },
-            )
-            .duration_since(time::UNIX_EPOCH)
-            .map_or(0, |d| d.as_millis());
-        self.0.insert(path.into(), mtime);
-        mtime
-    }
 }
 
 pub type BranchStatus = HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>;
