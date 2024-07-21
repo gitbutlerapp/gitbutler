@@ -6,18 +6,22 @@ use gitbutler_command_context::ProjectRepository;
 use gitbutler_diff::{diff_files_into_hunks, GitHunk, Hunk, HunkHash};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::RepositoryExt;
+use itertools::Itertools;
 use md5::Digest;
-use std::{collections::HashMap, path::PathBuf, vec};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    vec,
+};
 
 use crate::{
     conflicts::RepoConflictsExt, integration::get_workspace_head, write_tree, BranchManagerExt,
-    HunkLock, VirtualBranchesExt,
+    HunkLock, MTimeCache, VirtualBranchHunk, VirtualBranchesExt,
 };
 
 pub struct VirtualBranchesStatus {
-    pub branches: Vec<(Branch, HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>)>,
+    pub branches: Vec<(Branch, HashMap<PathBuf, Vec<VirtualBranchHunk>>)>,
     pub skipped_files: Vec<gitbutler_diff::FileDiff>,
-    pub locks: HashMap<Digest, Vec<HunkLock>>,
 }
 
 // Returns branches and their associated file changes, in addition to a list
@@ -191,11 +195,21 @@ pub fn get_applied_status(
                 .context(format!("failed to write virtual branch {}", vbranch.name))?;
         }
     }
+    let hunks_by_branch: Vec<(Branch, HashMap<PathBuf, Vec<VirtualBranchHunk>>)> = hunks_by_branch
+        .iter()
+        .map(|(branch, hunks)| {
+            let hunks = virtual_hunks_by_git_hunks(
+                &project_repository.project().path,
+                hunks.clone(),
+                Some(&locks),
+            );
+            (branch.clone(), hunks)
+        })
+        .collect();
 
     Ok(VirtualBranchesStatus {
         branches: hunks_by_branch,
         skipped_files,
-        locks,
     })
 }
 
@@ -285,4 +299,66 @@ fn compute_locks(
         .collect::<HashMap<_, _>>();
 
     Ok(locked_hunks)
+}
+
+pub(crate) fn virtual_hunks_by_git_hunks<'a>(
+    project_path: &'a Path,
+    diff: impl IntoIterator<Item = (PathBuf, Vec<gitbutler_diff::GitHunk>)> + 'a,
+    locks: Option<&'a HashMap<Digest, Vec<HunkLock>>>,
+) -> HashMap<PathBuf, Vec<VirtualBranchHunk>> {
+    let mut mtimes = MTimeCache::default();
+    diff.into_iter()
+        .map(move |(file_path, hunks)| {
+            let binding = HashMap::new();
+            let locks = locks.unwrap_or(&binding);
+            let hunks = hunks
+                .into_iter()
+                .map(|hunk| {
+                    VirtualBranchHunk::from_diff_hunk(
+                        project_path,
+                        file_path.clone(),
+                        hunk,
+                        &mut mtimes,
+                        locks,
+                    )
+                })
+                .collect::<Vec<_>>();
+            (file_path, hunks)
+        })
+        .collect()
+}
+
+impl VirtualBranchHunk {
+    fn from_diff_hunk(
+        project_path: &Path,
+        file_path: PathBuf,
+        hunk: GitHunk,
+        mtimes: &mut MTimeCache,
+        locks: &HashMap<Digest, Vec<HunkLock>>,
+    ) -> Self {
+        let hash = Hunk::hash_diff(&hunk.diff_lines);
+
+        let binding = Vec::new();
+        let locked_to = locks.get(&hash).unwrap_or(&binding);
+
+        // Get the unique branch ids (lock.branch_id) from hunk.locked_to that a hunk is locked to (if any)
+        let branch_deps_count = locked_to.iter().map(|lock| lock.branch_id).unique().count();
+
+        Self {
+            id: Self::gen_id(hunk.new_start, hunk.new_lines),
+            modified_at: mtimes.mtime_by_path(project_path.join(&file_path)),
+            file_path,
+            diff: hunk.diff_lines,
+            old_start: hunk.old_start,
+            old_lines: hunk.old_lines,
+            start: hunk.new_start,
+            end: hunk.new_start + hunk.new_lines,
+            binary: hunk.binary,
+            hash,
+            locked: !locked_to.is_empty(),
+            locked_to: Some(locked_to.clone().into_boxed_slice()),
+            change_type: hunk.change_type,
+            poisoned: branch_deps_count > 1,
+        }
+    }
 }
