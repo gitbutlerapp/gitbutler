@@ -269,7 +269,8 @@ pub fn unapply_ownership(
         target_commit.tree().context("failed to get target tree"),
         |final_tree, status| {
             let final_tree = final_tree?;
-            let tree_oid = write_tree(project_repository, &integration_commit_id, status.1)?;
+            let tree_oid =
+                write_hunks_onto_oid(project_repository, &integration_commit_id, status.1)?;
             let branch_tree = repo.find_tree(tree_oid)?;
             let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
             let final_tree_oid = result.write_tree_to(project_repository.repo())?;
@@ -278,7 +279,7 @@ pub fn unapply_ownership(
         },
     )?;
 
-    let final_tree_oid = write_tree_onto_tree(project_repository, &final_tree, diff)?;
+    let final_tree_oid = write_hunks_onto_tree(project_repository, &final_tree, diff)?;
     let final_tree = repo
         .find_tree(final_tree_oid)
         .context("failed to find tree")?;
@@ -1127,7 +1128,7 @@ fn diffs_into_virtual_files(
 // this function takes a list of file ownership,
 // constructs a tree from those changes on top of the target
 // and writes it as a new tree for storage
-pub(crate) fn write_tree<T>(
+pub(crate) fn write_hunks_onto_oid<T>(
     project_repository: &ProjectRepository,
     target: &git2::Oid,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
@@ -1135,10 +1136,10 @@ pub(crate) fn write_tree<T>(
 where
     T: Into<gitbutler_diff::GitHunk> + Clone,
 {
-    write_tree_onto_commit(project_repository, *target, files)
+    write_hunks_onto_commit(project_repository, *target, files)
 }
 
-pub(crate) fn write_tree_onto_commit<T>(
+pub(crate) fn write_hunks_onto_commit<T>(
     project_repository: &ProjectRepository,
     commit_oid: git2::Oid,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
@@ -1152,10 +1153,10 @@ where
     let head_commit = git_repository.find_commit(commit_oid)?;
     let base_tree = head_commit.tree()?;
 
-    write_tree_onto_tree(project_repository, &base_tree, files)
+    write_hunks_onto_tree(project_repository, &base_tree, files)
 }
 
-pub(crate) fn write_tree_onto_tree<T>(
+pub(crate) fn write_hunks_onto_tree<T>(
     project_repository: &ProjectRepository,
     base_tree: &git2::Tree,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
@@ -1392,9 +1393,9 @@ pub fn commit(
                 Some((filepath, hunks))
             }
         });
-        write_tree_onto_commit(project_repository, branch.head, files)?
+        write_hunks_onto_commit(project_repository, branch.head, files)?
     } else {
-        write_tree_onto_commit(project_repository, branch.head, files)?
+        write_hunks_onto_commit(project_repository, branch.head, files)?
     };
 
     let git_repository = project_repository.repo();
@@ -1758,7 +1759,7 @@ pub(crate) fn move_commit_file(
 
         // write our new tree and commit for the new "from" commit without the moved changes
         let new_from_tree_id =
-            write_tree_onto_commit(project_repository, from_parent.id(), &diffs_to_keep)?;
+            write_hunks_onto_commit(project_repository, from_parent.id(), &diffs_to_keep)?;
         let new_from_tree = &repo
             .find_tree(new_from_tree_id)
             .with_context(|| "tree {new_from_tree_oid} not found")?;
@@ -1824,7 +1825,7 @@ pub(crate) fn move_commit_file(
 
     // apply diffs_to_amend to the commit tree
     // and write a new commit with the changes we're moving
-    let new_tree_oid = write_tree_onto_commit(project_repository, to_amend_oid, &diffs_to_amend)?;
+    let new_tree_oid = write_hunks_onto_commit(project_repository, to_amend_oid, &diffs_to_amend)?;
     let new_tree = project_repository
         .repo()
         .find_tree(new_tree_oid)
@@ -1953,7 +1954,7 @@ pub(crate) fn amend(
     }
 
     // apply diffs_to_amend to the commit tree
-    let new_tree_oid = write_tree_onto_commit(project_repository, commit_oid, &diffs_to_amend)?;
+    let new_tree_oid = write_hunks_onto_commit(project_repository, commit_oid, &diffs_to_amend)?;
     let new_tree = project_repository
         .repo()
         .find_tree(new_tree_oid)
@@ -2456,7 +2457,7 @@ pub(crate) fn move_commit(
             destination_branch.ownership.put(ownership);
         }
 
-        let new_destination_tree_oid = write_tree_onto_commit(
+        let new_destination_tree_oid = write_hunks_onto_commit(
             project_repository,
             destination_branch.head,
             branch_head_diff,

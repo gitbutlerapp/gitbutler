@@ -2,7 +2,7 @@ use crate::{
     conflicts::{self},
     ensure_selected_for_changes, get_applied_status,
     integration::get_integration_commiter,
-    write_tree, NameConflictResolution, VirtualBranchesExt,
+    write_hunks_onto_oid, NameConflictResolution, VirtualBranchesExt,
 };
 use anyhow::{anyhow, Context, Result};
 use git2::build::TreeUpdateBuilder;
@@ -87,7 +87,8 @@ impl BranchManager<'_> {
                 |final_tree, status| {
                     let final_tree = final_tree?;
                     let branch = status.0;
-                    let tree_oid = write_tree(self.project_repository, &branch.head, status.1)?;
+                    let tree_oid =
+                        write_hunks_onto_oid(self.project_repository, &branch.head, status.1)?;
                     let branch_tree = repo.find_tree(tree_oid)?;
                     let mut result =
                         repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;

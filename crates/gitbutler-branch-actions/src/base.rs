@@ -246,7 +246,7 @@ pub(crate) fn set_base_branch(
                 created_timestamp_ms: now_ms,
                 updated_timestamp_ms: now_ms,
                 head: current_head_commit.id(),
-                tree: vb::write_tree_onto_commit(
+                tree: vb::write_hunks_onto_commit(
                     project_repository,
                     current_head_commit.id(),
                     gitbutler_diff::diff_files_into_hunks(wd_diff),
