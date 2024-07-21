@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 use crate::branch_manager::BranchManagerExt;
 use crate::commit::{commit_to_vbranch_commit, VirtualBranchCommit};
 use crate::conflicts::{self, RepoConflictsExt};
-use crate::files::{diffs_into_virtual_files, VirtualBranchFile};
+use crate::file::{diffs_into_virtual_files, VirtualBranchFile};
 use crate::integration::get_workspace_head;
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
 use crate::status::get_applied_status;

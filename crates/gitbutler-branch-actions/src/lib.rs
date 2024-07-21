@@ -14,8 +14,8 @@ pub use base::BaseBranch;
 mod integration;
 pub use integration::{update_gitbutler_integration, verify_branch};
 
-mod files;
-pub use files::RemoteBranchFile;
+mod file;
+pub use file::RemoteBranchFile;
 
 mod remote;
 pub use remote::{list_remote_branches, RemoteBranch, RemoteBranchData, RemoteCommit};

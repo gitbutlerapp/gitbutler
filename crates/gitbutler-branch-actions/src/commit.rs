@@ -1,6 +1,6 @@
 use crate::{
     author::Author,
-    files::{list_virtual_commit_files, VirtualBranchFile},
+    file::{list_virtual_commit_files, VirtualBranchFile},
 };
 use anyhow::{Context, Result};
 use bstr::BString;

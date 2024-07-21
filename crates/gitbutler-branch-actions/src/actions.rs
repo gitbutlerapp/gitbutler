@@ -24,7 +24,7 @@ use tracing::instrument;
 
 use super::r#virtual as branch;
 
-use crate::files::RemoteBranchFile;
+use crate::file::RemoteBranchFile;
 
 #[derive(Clone, Copy, Default)]
 pub struct VirtualBranchActions;
@@ -109,7 +109,7 @@ impl VirtualBranchActions {
         commit_oid: git2::Oid,
     ) -> Result<Vec<RemoteBranchFile>> {
         let project_repository = ProjectRepository::open(project)?;
-        crate::files::list_remote_commit_files(project_repository.repo(), commit_oid)
+        crate::file::list_remote_commit_files(project_repository.repo(), commit_oid)
             .map_err(Into::into)
     }
 
