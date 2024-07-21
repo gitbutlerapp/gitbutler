@@ -1,6 +1,9 @@
+use std::path::PathBuf;
+
 use crate::{
     conflicts::{self},
     ensure_selected_for_changes, get_applied_status,
+    hunk::VirtualBranchHunk,
     integration::get_integration_commiter,
     NameConflictResolution, VirtualBranchesExt,
 };
@@ -87,10 +90,15 @@ impl BranchManager<'_> {
                 |final_tree, status| {
                     let final_tree = final_tree?;
                     let branch = status.0;
+                    let files = status
+                        .1
+                        .into_iter()
+                        .map(|file| (file.path, file.hunks))
+                        .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
                     let tree_oid = gitbutler_diff::write::hunks_onto_oid(
                         self.project_repository,
                         &branch.head,
-                        status.1,
+                        files,
                     )?;
                     let branch_tree = repo.find_tree(tree_oid)?;
                     let mut result =

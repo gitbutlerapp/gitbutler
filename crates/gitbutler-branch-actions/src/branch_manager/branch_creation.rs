@@ -2,8 +2,9 @@ use super::BranchManager;
 use crate::{
     conflicts::{self, RepoConflictsExt},
     ensure_selected_for_changes,
+    hunk::VirtualBranchHunk,
     integration::update_gitbutler_integration,
-    set_ownership, undo_commit, VirtualBranchHunk, VirtualBranchesExt,
+    set_ownership, undo_commit, VirtualBranchesExt,
 };
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::{

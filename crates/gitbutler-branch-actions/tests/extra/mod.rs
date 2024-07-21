@@ -17,6 +17,7 @@ use gitbutler_branch::{
     BranchOwnershipClaims, Target, {BranchCreateRequest, BranchUpdateRequest},
 };
 use gitbutler_branch_actions::BranchManagerExt;
+use gitbutler_branch_actions::Get;
 use gitbutler_branch_actions::{
     commit, get_applied_status, integrate_upstream_commits, is_remote_branch_mergeable,
     list_virtual_branches, unapply_ownership, update_branch, update_gitbutler_integration,
@@ -549,15 +550,27 @@ fn move_hunks_multiple_sources() -> Result<()> {
     assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
     assert_eq!(files_by_branch_id[&branch3_id].len(), 1);
     assert_eq!(
-        files_by_branch_id[&branch3_id][Path::new("test.txt")].len(),
+        files_by_branch_id[&branch3_id]
+            .get(Path::new("test.txt"))
+            .unwrap()
+            .hunks
+            .len(),
         2
     );
     assert_eq!(
-        files_by_branch_id[&branch3_id][Path::new("test.txt")][0].diff,
+        files_by_branch_id[&branch3_id]
+            .get(Path::new("test.txt"))
+            .unwrap()
+            .hunks[0]
+            .diff,
         "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
     assert_eq!(
-        files_by_branch_id[&branch3_id][Path::new("test.txt")][1].diff,
+        files_by_branch_id[&branch3_id]
+            .get(Path::new("test.txt"))
+            .unwrap()
+            .hunks[1]
+            .diff,
         "@@ -10,3 +11,4 @@ line9\n line10\n line11\n line12\n+line13\n"
     );
     Ok(())
@@ -628,21 +641,37 @@ fn move_hunks_partial_explicitly() -> Result<()> {
     assert_eq!(files_by_branch_id.len(), 2);
     assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
     assert_eq!(
-        files_by_branch_id[&branch1_id][Path::new("test.txt")].len(),
+        files_by_branch_id[&branch1_id]
+            .get(Path::new("test.txt"))
+            .unwrap()
+            .hunks
+            .len(),
         1
     );
     assert_eq!(
-        files_by_branch_id[&branch1_id][Path::new("test.txt")][0].diff,
+        files_by_branch_id[&branch1_id]
+            .get(Path::new("test.txt"))
+            .unwrap()
+            .hunks[0]
+            .diff,
         "@@ -11,3 +12,4 @@ line10\n line11\n line12\n line13\n+line14\n"
     );
 
     assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
     assert_eq!(
-        files_by_branch_id[&branch2_id][Path::new("test.txt")].len(),
+        files_by_branch_id[&branch2_id]
+            .get(Path::new("test.txt"))
+            .unwrap()
+            .hunks
+            .len(),
         1
     );
     assert_eq!(
-        files_by_branch_id[&branch2_id][Path::new("test.txt")][0].diff,
+        files_by_branch_id[&branch2_id]
+            .get(Path::new("test.txt"))
+            .unwrap()
+            .hunks[0]
+            .diff,
         "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
 
@@ -678,7 +707,7 @@ fn add_new_hunk_to_the_end() -> Result<()> {
         .expect("failed to get status")
         .branches;
     assert_eq!(
-        statuses[0].1[Path::new("test.txt")][0].diff,
+        statuses[0].1.get(Path::new("test.txt")).unwrap().hunks[0].diff,
         "@@ -11,5 +11,5 @@ line10\n line11\n line12\n line13\n-line13\n line14\n+line15\n"
     );
 
@@ -692,11 +721,11 @@ fn add_new_hunk_to_the_end() -> Result<()> {
         .branches;
 
     assert_eq!(
-        statuses[0].1[Path::new("test.txt")][0].diff,
+        statuses[0].1.get(Path::new("test.txt")).unwrap().hunks[0].diff,
         "@@ -11,5 +12,5 @@ line10\n line11\n line12\n line13\n-line13\n line14\n+line15\n"
     );
     assert_eq!(
-        statuses[0].1[Path::new("test.txt")][1].diff,
+        statuses[0].1.get(Path::new("test.txt")).unwrap().hunks[1].diff,
         "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
 
