@@ -15,6 +15,7 @@ mod integration;
 pub use integration::{update_gitbutler_integration, verify_branch};
 
 mod file;
+pub use file::Get;
 pub use file::RemoteBranchFile;
 
 mod remote;

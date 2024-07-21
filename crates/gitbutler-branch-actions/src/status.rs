@@ -8,6 +8,7 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::RepositoryExt;
 use std::{collections::HashMap, path::PathBuf, vec};
 
+use crate::file::{virtual_hunks_into_virtual_files, VirtualBranchFile};
 use crate::hunk::file_hunks_from_diffs;
 use crate::{
     conflicts::RepoConflictsExt,
@@ -19,7 +20,7 @@ use crate::{
 /// Represents the uncommitted status of the applied virtual branches in the workspace.
 pub struct VirtualBranchesStatus {
     /// A collection of branches and their associated uncommitted file changes.
-    pub branches: Vec<(Branch, HashMap<PathBuf, Vec<VirtualBranchHunk>>)>,
+    pub branches: Vec<(Branch, Vec<VirtualBranchFile>)>,
     /// A collection of files that were skipped during the diffing process (due to being very large and unprocessable).
     pub skipped_files: Vec<gitbutler_diff::FileDiff>,
 }
@@ -208,8 +209,16 @@ pub fn get_applied_status(
         })
         .collect();
 
+    let files_by_branch: Vec<(Branch, Vec<VirtualBranchFile>)> = hunks_by_branch
+        .iter()
+        .map(|(branch, hunks)| {
+            let files = virtual_hunks_into_virtual_files(project_repository, hunks.clone());
+            (branch.clone(), files)
+        })
+        .collect();
+
     Ok(VirtualBranchesStatus {
-        branches: hunks_by_branch,
+        branches: files_by_branch,
         skipped_files,
     })
 }

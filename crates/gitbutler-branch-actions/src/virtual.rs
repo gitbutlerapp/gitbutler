@@ -25,11 +25,12 @@ use serde::{Deserialize, Serialize};
 use crate::branch_manager::BranchManagerExt;
 use crate::commit::{commit_to_vbranch_commit, VirtualBranchCommit};
 use crate::conflicts::{self, RepoConflictsExt};
-use crate::file::{virtual_hunks_into_virtual_files, VirtualBranchFile};
+use crate::file::VirtualBranchFile;
 use crate::hunk::VirtualBranchHunk;
 use crate::integration::get_workspace_head;
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
 use crate::status::get_applied_status;
+use crate::Get;
 use crate::VirtualBranchesExt;
 use gitbutler_error::error::Code;
 use gitbutler_error::error::Marker;
@@ -110,17 +111,17 @@ pub fn unapply_ownership(
         .map(
             |(_branch, branch_files)| -> Result<Vec<(PathBuf, gitbutler_diff::GitHunk)>> {
                 let mut hunks_to_unapply: Vec<(PathBuf, GitHunk)> = Vec::new();
-                for (path, hunks) in branch_files {
+                for file in branch_files {
                     let ownership_hunks: Vec<&Hunk> = ownership
                         .claims
                         .iter()
-                        .filter(|o| o.file_path == *path)
+                        .filter(|o| o.file_path == file.path)
                         .flat_map(|f| &f.hunks)
                         .collect();
-                    for hunk in hunks {
+                    for hunk in &file.hunks {
                         let hunk: GitHunk = hunk.clone().into();
                         if ownership_hunks.contains(&&Hunk::from(&hunk)) {
-                            hunks_to_unapply.push((path.clone(), hunk));
+                            hunks_to_unapply.push((file.path.clone(), hunk));
                         }
                     }
                 }
@@ -155,10 +156,15 @@ pub fn unapply_ownership(
         target_commit.tree().context("failed to get target tree"),
         |final_tree, status| {
             let final_tree = final_tree?;
+            let files = status
+                .1
+                .into_iter()
+                .map(|file| (file.path, file.hunks))
+                .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
             let tree_oid = gitbutler_diff::write::hunks_onto_oid(
                 project_repository,
                 &integration_commit_id,
-                status.1,
+                files,
             )?;
             let branch_tree = repo.find_tree(tree_oid)?;
             let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
@@ -276,7 +282,6 @@ pub fn list_virtual_branches(
         .get_default_target()
         .context("failed to get default target")?;
 
-    // let (statuses, skipped_files, locks) = get_applied_status(ctx, Some(perm))?;
     let status = get_applied_status(ctx, Some(perm))?;
     let max_selected_for_changes = status
         .branches
@@ -285,9 +290,9 @@ pub fn list_virtual_branches(
         .max()
         .unwrap_or(-1);
 
-    for (branch, files) in status.branches {
+    for (branch, mut files) in status.branches {
         let repo = ctx.repo();
-        update_conflict_markers(ctx, &files)?;
+        update_conflict_markers(ctx, files.clone())?;
 
         let upstream_branch = match branch.clone().upstream {
             Some(upstream) => repo.find_branch_by_refname(&Refname::from(upstream))?,
@@ -349,8 +354,6 @@ pub fn list_virtual_branches(
 
         let upstream = upstream_branch
             .and_then(|upstream_branch| branch_to_remote_branch(ctx, &upstream_branch));
-
-        let mut files = virtual_hunks_into_virtual_files(ctx, files);
 
         let path_claim_positions: HashMap<&PathBuf, usize> = branch
             .ownership
@@ -932,7 +935,7 @@ pub fn commit(
         .find(|(branch, _)| branch.id == branch_id)
         .with_context(|| format!("branch {branch_id} not found"))?;
 
-    update_conflict_markers(project_repository, &files)
+    update_conflict_markers(project_repository, files.clone())
         .context(Code::CommitMergeConflictFailure)?;
 
     project_repository
@@ -940,15 +943,16 @@ pub fn commit(
         .context(Code::CommitMergeConflictFailure)?;
 
     let tree_oid = if let Some(ownership) = ownership {
-        let files = files.into_iter().filter_map(|(filepath, hunks)| {
-            let hunks = hunks
+        let files = files.into_iter().filter_map(|file| {
+            let hunks = file
+                .hunks
                 .into_iter()
                 .filter(|hunk| {
                     let hunk: GitHunk = hunk.clone().into();
                     ownership
                         .claims
                         .iter()
-                        .find(|f| f.file_path.eq(&filepath))
+                        .find(|f| f.file_path.eq(&file.path))
                         .map_or(false, |f| {
                             f.hunks.iter().any(|h| {
                                 h.start == hunk.new_start
@@ -960,11 +964,15 @@ pub fn commit(
             if hunks.is_empty() {
                 None
             } else {
-                Some((filepath, hunks))
+                Some((file.path, hunks))
             }
         });
         gitbutler_diff::write::hunks_onto_commit(project_repository, branch.head, files)?
     } else {
+        let files = files
+            .into_iter()
+            .map(|file| (file.path, file.hunks))
+            .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
         gitbutler_diff::write::hunks_onto_commit(project_repository, branch.head, files)?
     };
 
@@ -1504,8 +1512,8 @@ pub(crate) fn amend(
         .filter_map(|file_ownership| {
             let hunks = target_status
                 .get(&file_ownership.file_path)
-                .map(|hunks| {
-                    hunks
+                .map(|file| {
+                    file.hunks
                         .iter()
                         .filter(|hunk| {
                             let hunk: GitHunk = (*hunk).clone().into();
@@ -1985,11 +1993,11 @@ pub(crate) fn move_commit(
 
     let branch_head_diff: HashMap<_, _> =
         gitbutler_diff::diff_files_into_hunks(branch_head_diff).collect();
-    let is_source_locked = source_branch_non_comitted_files
-        .iter()
-        .any(|(path, hunks)| {
-            branch_head_diff.get(path).map_or(false, |head_diff_hunks| {
-                hunks.iter().any(|hunk| {
+    let is_source_locked = source_branch_non_comitted_files.iter().any(|file| {
+        branch_head_diff
+            .get(&file.path)
+            .map_or(false, |head_diff_hunks| {
+                file.hunks.iter().any(|hunk| {
                     let hunk: GitHunk = hunk.clone().into();
                     head_diff_hunks.iter().any(|head_hunk| {
                         joined(
@@ -2001,7 +2009,7 @@ pub(crate) fn move_commit(
                     })
                 })
             })
-        });
+    });
 
     if is_source_locked {
         bail!("the source branch contains hunks locked to the target commit")
@@ -2073,14 +2081,14 @@ pub(crate) fn move_commit(
 // conflicts file.
 fn update_conflict_markers(
     project_repository: &ProjectRepository,
-    files: &HashMap<PathBuf, Vec<impl Into<GitHunk> + Clone>>,
+    files: Vec<VirtualBranchFile>,
 ) -> Result<()> {
     let conflicting_files = conflicts::conflicting_files(project_repository)?;
-    for (file_path, non_commited_hunks) in files {
+    for file in files {
         let mut conflicted = false;
-        if conflicting_files.contains(file_path) {
+        if conflicting_files.contains(&file.path) {
             // check file for conflict markers, resolve the file if there are none in any hunk
-            for hunk in non_commited_hunks {
+            for hunk in file.hunks {
                 let hunk: GitHunk = hunk.clone().into();
                 if hunk.diff_lines.contains_str(b"<<<<<<< ours") {
                     conflicted = true;
@@ -2090,7 +2098,7 @@ fn update_conflict_markers(
                 }
             }
             if !conflicted {
-                conflicts::resolve(project_repository, file_path).unwrap();
+                conflicts::resolve(project_repository, file.path).unwrap();
             }
         }
     }

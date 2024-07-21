@@ -74,6 +74,15 @@ pub struct VirtualBranchFile {
     pub large: bool,
 }
 
+pub trait Get<T> {
+    fn get(&self, path: &Path) -> Option<T>;
+}
+impl Get<VirtualBranchFile> for Vec<VirtualBranchFile> {
+    fn get(&self, path: &Path) -> Option<VirtualBranchFile> {
+        self.iter().find(|f| f.path == path).cloned()
+    }
+}
+
 pub(crate) fn list_virtual_commit_files(
     project_repository: &ProjectRepository,
     commit: &git2::Commit,
