@@ -2086,7 +2086,9 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "diffy",
  "git2",
+ "gitbutler-command-context",
  "gitbutler-serde",
  "hex",
  "md5",

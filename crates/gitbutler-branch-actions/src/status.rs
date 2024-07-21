@@ -15,8 +15,8 @@ use std::{
 };
 
 use crate::{
-    conflicts::RepoConflictsExt, integration::get_workspace_head, write_hunks_onto_oid,
-    BranchManagerExt, HunkLock, MTimeCache, VirtualBranchHunk, VirtualBranchesExt,
+    conflicts::RepoConflictsExt, integration::get_workspace_head, BranchManagerExt, HunkLock,
+    MTimeCache, VirtualBranchHunk, VirtualBranchesExt,
 };
 
 pub struct VirtualBranchesStatus {
@@ -189,7 +189,8 @@ pub fn get_applied_status(
     if !project_repository.is_resolving() {
         let vb_state = project_repository.project().virtual_branches();
         for (vbranch, files) in &mut hunks_by_branch {
-            vbranch.tree = write_hunks_onto_oid(project_repository, &vbranch.head, files)?;
+            vbranch.tree =
+                gitbutler_diff::write::hunks_onto_oid(project_repository, &vbranch.head, files)?;
             vb_state
                 .set_branch(vbranch.clone())
                 .context(format!("failed to write virtual branch {}", vbranch.name))?;

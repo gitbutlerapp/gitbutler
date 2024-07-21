@@ -13,6 +13,8 @@ anyhow = "1.0.86"
 hex = "0.4.3"
 tracing = "0.1.40"
 gitbutler-serde.workspace = true
+gitbutler-command-context.workspace = true
+diffy = "0.4.0"
 serde = { workspace = true, features = ["std"]}
 
 [[test]]
