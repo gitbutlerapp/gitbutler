@@ -36,3 +36,5 @@ impl VirtualBranchesExt for gitbutler_project::Project {
         VirtualBranchesHandle::new(self.gb_dir())
     }
 }
+
+mod commit;
