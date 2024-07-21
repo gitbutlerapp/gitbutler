@@ -80,6 +80,11 @@ impl BranchManager<'_> {
             .context("failed to get status by branch")?
             .branches;
 
+        // doing this earlier in the flow, in case any of the steps that follow fail
+        vb_state
+            .mark_as_not_in_workspace(branch.id)
+            .context("Failed to remove branch")?;
+
         // go through the other applied branches and merge them into the final tree
         // then check that out into the working directory
         let final_tree = applied_statuses
@@ -115,10 +120,6 @@ impl BranchManager<'_> {
             .remove_untracked()
             .checkout()
             .context("failed to checkout tree")?;
-
-        vb_state
-            .mark_as_not_in_workspace(branch.id)
-            .context("Failed to remove branch")?;
 
         self.project_repository.delete_branch_reference(&branch)?;
 
