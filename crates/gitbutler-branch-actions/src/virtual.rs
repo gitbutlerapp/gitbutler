@@ -5,7 +5,7 @@ use gitbutler_branch::{OwnershipClaim, Target};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_commit::commit_headers::HasCommitHeaders;
-use gitbutler_diff::{trees, FileDiff, GitHunk};
+use gitbutler_diff::{trees, GitHunk};
 use gitbutler_diff::{Hunk, HunkHash};
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::credentials::Helper;
@@ -26,9 +26,10 @@ use serde::{Deserialize, Serialize};
 use crate::author::Author;
 use crate::branch_manager::BranchManagerExt;
 use crate::conflicts::{self, RepoConflictsExt};
+use crate::files::{diffs_into_virtual_files, list_virtual_commit_files, VirtualBranchFile};
 use crate::integration::get_workspace_head;
 use crate::remote::{branch_to_remote_branch, RemoteBranch};
-use crate::status::{get_applied_status, virtual_hunks_by_git_hunks};
+use crate::status::get_applied_status;
 use crate::VirtualBranchesExt;
 use gitbutler_error::error::Code;
 use gitbutler_error::error::Marker;
@@ -117,28 +118,6 @@ pub struct HunkLock {
     #[serde(with = "gitbutler_serde::serde::oid")]
     pub commit_id: git2::Oid,
 }
-
-// this struct is a mapping to the view `File` type in Typescript
-// found in src-tauri/src/routes/repo/[project_id]/types.ts
-// it holds a materialized view for presentation purposes of one entry of the
-// `Branch.ownership` vector in Rust. an array of them are returned as part of
-// the `VirtualBranch` struct, which map to each entry of the `Branch.ownership` vector
-//
-// it is not persisted, it is only used for presentation purposes through the ipc
-//
-#[derive(Debug, PartialEq, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VirtualBranchFile {
-    // TODO(ST): `id` is just `path` as string - UI could adapt and avoid this copy.
-    pub id: String,
-    pub path: PathBuf,
-    pub hunks: Vec<VirtualBranchHunk>,
-    pub modified_at: u128,
-    pub conflicted: bool,
-    pub binary: bool,
-    pub large: bool,
-}
-
 // this struct is a mapping to the view `Hunk` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
 // it holds a materialized view for presentation purposes of one entry of
@@ -564,24 +543,6 @@ fn is_requires_force(project_repository: &ProjectRepository, branch: &Branch) ->
     Ok(merge_base != upstream_commit.id())
 }
 
-fn list_virtual_commit_files(
-    project_repository: &ProjectRepository,
-    commit: &git2::Commit,
-) -> Result<Vec<VirtualBranchFile>> {
-    if commit.parent_count() == 0 {
-        return Ok(vec![]);
-    }
-    let parent = commit.parent(0).context("failed to get parent commit")?;
-    let commit_tree = commit.tree().context("failed to get commit tree")?;
-    let parent_tree = parent.tree().context("failed to get parent tree")?;
-    let diff = gitbutler_diff::trees(project_repository.repo(), &parent_tree, &commit_tree)?;
-    let hunks_by_filepath = virtual_hunks_by_file_diffs(&project_repository.project().path, diff);
-    Ok(virtual_hunks_into_virtual_files(
-        project_repository,
-        hunks_by_filepath,
-    ))
-}
-
 fn commit_to_vbranch_commit(
     repository: &ProjectRepository,
     branch: &Branch,
@@ -1004,47 +965,8 @@ impl MTimeCache {
     }
 }
 
-pub(crate) fn virtual_hunks_by_file_diffs<'a>(
-    project_path: &'a Path,
-    diff: impl IntoIterator<Item = (PathBuf, FileDiff)> + 'a,
-) -> HashMap<PathBuf, Vec<VirtualBranchHunk>> {
-    virtual_hunks_by_git_hunks(
-        project_path,
-        diff.into_iter()
-            .map(move |(file_path, file)| (file_path, file.hunks)),
-        None,
-    )
-}
-
 pub type BranchStatus = HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>;
 pub type VirtualBranchHunksByPathMap = HashMap<PathBuf, Vec<VirtualBranchHunk>>;
-
-/// NOTE: There is no use returning an iterator here as this acts like the final product.
-fn virtual_hunks_into_virtual_files(
-    project_repository: &ProjectRepository,
-    hunks: impl IntoIterator<Item = (PathBuf, Vec<VirtualBranchHunk>)>,
-) -> Vec<VirtualBranchFile> {
-    hunks
-        .into_iter()
-        .map(|(path, hunks)| {
-            let id = path.display().to_string();
-            let conflicted =
-                conflicts::is_conflicting(project_repository, Some(&path)).unwrap_or(false);
-            let binary = hunks.iter().any(|h| h.binary);
-            let modified_at = hunks.iter().map(|h| h.modified_at).max().unwrap_or(0);
-            debug_assert!(hunks.iter().all(|hunk| hunk.file_path == path));
-            VirtualBranchFile {
-                id,
-                path,
-                hunks,
-                binary,
-                large: false,
-                modified_at,
-                conflicted,
-            }
-        })
-        .collect::<Vec<_>>()
-}
 
 // reset virtual branch to a specific commit
 pub(crate) fn reset_branch(
@@ -1116,13 +1038,6 @@ pub(crate) fn reset_branch(
         .context("failed to update gitbutler integration")?;
 
     Ok(())
-}
-
-fn diffs_into_virtual_files(
-    project_repository: &ProjectRepository,
-    hunks_by_filepath: HashMap<PathBuf, Vec<VirtualBranchHunk>>,
-) -> Vec<VirtualBranchFile> {
-    virtual_hunks_into_virtual_files(project_repository, hunks_by_filepath)
 }
 
 #[allow(clippy::too_many_arguments)]
