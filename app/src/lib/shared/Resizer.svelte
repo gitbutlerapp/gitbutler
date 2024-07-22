@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { pxToRem } from '$lib/utils/pxToRem';
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { createEventDispatcher } from 'svelte';
 
 	// The element that is being resized

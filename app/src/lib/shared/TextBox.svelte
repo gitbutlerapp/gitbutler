@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/shared/Icon.svelte';
-	import { pxToRem } from '$lib/utils/pxToRem';
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 

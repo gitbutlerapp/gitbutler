@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Icon from '../shared/Icon.svelte';
-	import { pxToRem } from '$lib/utils/pxToRem';
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { onMount } from 'svelte';
 
 	export let foldable: boolean = false;
