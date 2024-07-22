@@ -31,7 +31,7 @@
 	});
 
 	function filterByText(branches: CombinedBranch[], searchText: string | undefined) {
-		console.log('filterByText', branches, searchText);
+		// console.log('filterByText', branches, searchText);
 		if (searchText === undefined || searchText === '') return branches;
 
 		return branches.filter((b) => searchMatchesAnIdentifier(searchText, b.searchableIdentifiers));

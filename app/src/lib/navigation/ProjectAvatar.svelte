@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { stringToColor } from '$lib/utils/stringToColor';
+	import { stringToColor } from '@gitbutler/ui/utils/stringToColor';
 	export let name: string | undefined;
 
 	function getFirstLetter(name: string | undefined) {

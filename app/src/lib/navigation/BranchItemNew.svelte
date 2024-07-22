@@ -1,7 +1,7 @@
 <script lang="ts">
 	import TimeAgo from '$lib/shared/TimeAgo.svelte';
-	import { stringToColor } from '$lib/utils/stringToColor';
 	import { tooltip } from '$lib/utils/tooltip';
+	import { stringToColor } from '@gitbutler/ui/utils/stringToColor';
 	import type { CombinedBranch } from '$lib/branches/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -18,6 +18,7 @@
 
 	$effect(() => {
 		selected = href ? $page.url.href.endsWith(href) : false;
+		// console.log(branch.authors);
 	});
 
 	function getBranchLink(b: CombinedBranch): string | undefined {
