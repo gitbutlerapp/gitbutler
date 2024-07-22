@@ -13,7 +13,6 @@
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { getTimeAgo } from '$lib/utils/timeAgo';
-	import { tooltip } from '$lib/utils/tooltip';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore } from '$lib/vbranches/contexts';
@@ -25,6 +24,7 @@
 		VirtualBranch,
 		type CommitStatus
 	} from '$lib/vbranches/types';
+	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import { type Snippet } from 'svelte';
 
 	export let branch: VirtualBranch | undefined = undefined;

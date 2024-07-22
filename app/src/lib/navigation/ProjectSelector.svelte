@@ -4,7 +4,7 @@
 	import { Project } from '$lib/backend/projects';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
-	import { tooltip } from '$lib/utils/tooltip';
+	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 
 	export let isNavCollapsed: boolean;
 

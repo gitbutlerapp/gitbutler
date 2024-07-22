@@ -1,5 +1,5 @@
-import { isDefined } from '$lib/utils/typeguards';
 import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { derived, type Readable } from 'svelte/store';
 import type { AnyFile, LocalFile } from '$lib/vbranches/types';
 

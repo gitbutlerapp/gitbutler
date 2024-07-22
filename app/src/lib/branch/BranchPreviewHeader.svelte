@@ -5,9 +5,9 @@
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { error } from '$lib/utils/toasts';
-	import { tooltip } from '$lib/utils/tooltip';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Branch } from '$lib/vbranches/types';

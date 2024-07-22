@@ -5,7 +5,7 @@
 	import Badge from '$lib/shared/Badge.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
-	import { tooltip } from '$lib/utils/tooltip';
+	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 

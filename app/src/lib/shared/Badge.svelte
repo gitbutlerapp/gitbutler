@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tooltip } from '$lib/utils/tooltip';
+	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 
 	export let count: string | number;
 	export let help = '';

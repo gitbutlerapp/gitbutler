@@ -19,9 +19,9 @@
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
-	import { tooltip } from '$lib/utils/tooltip';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, LocalFile } from '$lib/vbranches/types';
+	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 
