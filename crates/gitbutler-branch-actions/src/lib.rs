@@ -38,5 +38,6 @@ impl VirtualBranchesExt for gitbutler_project::Project {
     }
 }
 
+mod branch;
 mod commit;
 mod hunk;
