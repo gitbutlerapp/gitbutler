@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tooltip } from '$lib/utils/tooltip';
+	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 
 	export let name: 'remote-branch' | 'virtual-branch' | 'pr' | 'pr-draft' | 'pr-closed' | undefined;
 	export let help: string | undefined;
