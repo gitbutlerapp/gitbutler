@@ -40,8 +40,19 @@ pub(crate) fn get_workspace_head(project_repo: &ProjectRepository) -> Result<git
 
     let mut virtual_branches: Vec<Branch> = vb_state.list_branches_in_workspace()?;
 
+    let branch_heads = virtual_branches
+        .iter()
+        .map(|b| repo.find_commit(b.head))
+        .collect::<Result<Vec<_>, _>>()?;
+    let branch_head_refs = branch_heads.iter().collect::<Vec<_>>();
+
     let target_commit = repo.find_commit(target.sha)?;
     let mut workspace_tree = target_commit.tree()?;
+
+    // If no branches are applied then the workspace head is the target.
+    if branch_head_refs.is_empty() {
+        return Ok(target_commit.id());
+    }
 
     if conflicts::is_conflicting(project_repo, None)? {
         let merge_parent =
@@ -66,17 +77,6 @@ pub(crate) fn get_workspace_head(project_repo: &ProjectRepository) -> Result<git
                 vb_state.set_branch(branch.clone())?;
             }
         }
-    }
-
-    let branch_heads = virtual_branches
-        .iter()
-        .map(|b| repo.find_commit(b.head))
-        .collect::<Result<Vec<_>, _>>()?;
-    let branch_head_refs = branch_heads.iter().collect::<Vec<_>>();
-
-    // If no branches are applied then the workspace head is the target.
-    if branch_head_refs.is_empty() {
-        return Ok(target_commit.id());
     }
 
     // TODO(mg): Can we make this a constant?
