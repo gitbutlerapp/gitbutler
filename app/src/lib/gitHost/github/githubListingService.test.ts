@@ -47,6 +47,8 @@ describe.concurrent('GitHubListingService', () => {
 		expect(prs[0].title).toEqual(title);
 
 		const metrics = projectMetrics.getMetrics();
-		expect(metrics['pr_count']).toEqual(1);
+		expect(metrics['pr_count']?.value).toEqual(1);
+		expect(metrics['pr_count']?.maxValue).toEqual(1);
+		expect(metrics['pr_count']?.minValue).toEqual(1);
 	});
 });

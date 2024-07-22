@@ -1,30 +1,35 @@
 export type ProjectMetricsReport = {
-	[key: string]: string | number | undefined;
+	[key: string]: ProjectMetric | undefined;
+};
+
+type ProjectMetric = {
+	value: number;
+	minValue: number;
+	maxValue: number;
 };
 
 export class ProjectMetrics {
-	private metrics: { [key: string]: number | undefined } = {};
+	private metrics: { [key: string]: ProjectMetric | undefined } = {};
 
 	constructor(readonly projectId?: string) {}
 
 	setMetric(key: string, value: number) {
 		const oldvalue = this.metrics[key];
-		this.metrics[key] = value;
 
-		const maxKey = key + '-max';
-		const minKey = key + '-min';
-		this.metrics[maxKey] = Math.max(value, oldvalue || value);
-		this.metrics[minKey] = Math.min(value, oldvalue || value);
+		const maxValue = Math.max(value, oldvalue?.maxValue || value);
+		const minValue = Math.min(value, oldvalue?.minValue || value);
+		this.metrics[key] = {
+			value,
+			maxValue,
+			minValue
+		};
 	}
 
 	getMetrics(): ProjectMetricsReport {
 		return this.metrics;
 	}
 
-	resetMinMax(key: string) {
-		const maxKey = key + '-max';
-		const minKey = key + '-min';
-		delete this.metrics[maxKey];
-		delete this.metrics[minKey];
+	resetMetric(key: string) {
+		delete this.metrics[key];
 	}
 }
