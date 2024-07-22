@@ -239,7 +239,11 @@
 				<MergeButton
 					wide
 					projectId={project.id}
-					disabled={$mrLoading || $checksLoading || $pr.draft || !$pr.mergeable}
+					disabled={$mrLoading ||
+						$checksLoading ||
+						$pr.draft ||
+						!$pr.mergeable ||
+						['dirty', 'unknown', 'blocked', 'behind'].includes($pr.mergeableState)}
 					loading={isMerging}
 					help="Merge pull request and refresh"
 					on:click={async (e) => {
