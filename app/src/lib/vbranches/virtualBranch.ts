@@ -6,7 +6,6 @@ import { writable } from 'svelte/store';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 
 export class VirtualBranchService {
-	private _branches: VirtualBranch[] = [];
 	private loading = writable(false);
 	readonly error = writable();
 	readonly branchesError = writable<any>();
@@ -66,13 +65,13 @@ export class VirtualBranchService {
 				return b;
 			})
 		);
-		this.projectMetrics.setMetric('virtual_branch_count', branches.length);
-		this._branches = branches;
+
 		this.branches.set(branches);
 		this.branchesError.set(undefined);
+		this.logMetrics(branches);
 	}
 
-	async listVirtualBranches(): Promise<VirtualBranch[]> {
+	private async listVirtualBranches(): Promise<VirtualBranch[]> {
 		return plainToInstance(
 			VirtualBranches,
 			await invoke<any>('list_virtual_branches', { projectId: this.projectId })
@@ -85,12 +84,16 @@ export class VirtualBranchService {
 		);
 	}
 
-	async getById(branchId: string) {
-		return this._branches?.find((b) => b.id === branchId && b.upstream);
-	}
-
-	async getByUpstreamSha(upstreamSha: string) {
-		return this._branches.map((b) => b.upstream?.sha === upstreamSha);
+	private logMetrics(branches: VirtualBranch[]) {
+		try {
+			const hunks = branches.flatMap((branch) => branch.files).flatMap((file) => file.hunks);
+			const lockedHunks = hunks.filter((hunk) => hunk.locked);
+			this.projectMetrics.setMetric('hunk_count', hunks.length);
+			this.projectMetrics.setMetric('locked_hunk_count', lockedHunks.length);
+			this.projectMetrics.setMetric('virtual_branch_count', branches.length);
+		} catch (err: unknown) {
+			console.error(err);
+		}
 	}
 }
 
