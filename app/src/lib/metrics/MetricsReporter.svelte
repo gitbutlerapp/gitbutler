@@ -34,6 +34,7 @@
 					count: value
 				});
 				lastCapture[metric] = Date.now();
+				projectMetrics.resetMinMax(metric);
 			}
 		}
 		lastReport.set(metrics);
