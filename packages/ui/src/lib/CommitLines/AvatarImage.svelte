@@ -13,7 +13,7 @@
 </script>
 
 <div class="image-wrapper">
-	<img
+	<!-- <img
 		class="avatar"
 		alt={altText}
 		src={srcUrl}
@@ -23,7 +23,7 @@
 		height="100"
 		class:hidden={!isLoaded}
 		use:tooltip={tooltipText}
-	/>
+	/> -->
 	<img
 		class="avatar"
 		class:hidden={isLoaded}
