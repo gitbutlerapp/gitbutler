@@ -1,6 +1,5 @@
 <script lang="ts">
 	import TimeAgo from '$lib/shared/TimeAgo.svelte';
-	import { tooltip } from '$lib/utils/tooltip';
 	import { stringToColor } from '@gitbutler/ui/utils/stringToColor';
 	import type { CombinedBranch } from '$lib/branches/types';
 	import { goto } from '$app/navigation';
@@ -42,11 +41,7 @@
 	<div class="row">
 		<div class="branch-authors">
 			{#each branch.authors as author}
-				<div
-					use:tooltip={author.name}
-					class="author-avatar"
-					style:background-color={stringToColor(author.name)}
-				></div>
+				<div class="author-avatar" style:background-color={stringToColor(author.name)}></div>
 			{/each}
 		</div>
 	</div>
