@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CommitAction from './CommitAction.svelte';
 	import CommitCard from './CommitCard.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
@@ -10,6 +11,10 @@
 	} from '$lib/dragging/reorderDropzoneManager';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import LineOverlay from '$lib/dropzone/LineOverlay.svelte';
+	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
+	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
+	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -22,6 +27,7 @@
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import LineGroup from '@gitbutler/ui/CommitLines/LineGroup.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
+	import is from 'date-fns/locale/is';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied: boolean;
@@ -35,6 +41,10 @@
 	const project = getContext(Project);
 	const branchController = getContext(BranchController);
 	const lineManagerFactory = getContext(LineManagerFactory);
+	//
+	const listingService = getGitHostListingService();
+	const prMonitor = getGitHostPrMonitor();
+	const checksMonitor = getGitHostChecksMonitor();
 
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
 
@@ -68,6 +78,8 @@
 	$: forkPoint = $branch.forkPoint;
 	$: upstreamForkPoint = $branch.upstreamData?.forkPoint;
 	$: isRebased = !!forkPoint && !!upstreamForkPoint && forkPoint !== upstreamForkPoint;
+
+	$: isPushing = false;
 
 	let baseIsUnfolded = false;
 
@@ -123,10 +135,24 @@
 					{/snippet}
 				</CommitCard>
 			{/each}
+
+			<CommitAction>
+				{#snippet lines()}
+					<LineGroup
+						lineGroup={lineManager.get($remoteCommits[$remoteCommits.length - 1].id)}
+						topHeightPx={0}
+						showNode={false}
+					/>
+				{/snippet}
+				{#snippet action()}
+					<Button style="warning" kind="solid">Integrate upstream</Button>
+				{/snippet}
+			</CommitAction>
 		{/if}
-		<InsertEmptyCommitAction isFirst on:click={() => insertBlankCommit($branch.head, 'above')} />
+
 		<!-- LOCAL COMMITS -->
 		{#if $localCommits.length > 0}
+			<InsertEmptyCommitAction isFirst on:click={() => insertBlankCommit($branch.head, 'above')} />
 			{@render reorderDropzone(
 				reorderDropzoneManager.topDropzone,
 				getReorderDropzoneOffset({ isFirst: true })
@@ -160,7 +186,41 @@
 					on:click={() => insertBlankCommit(commit.id, 'below')}
 				/>
 			{/each}
+
+			<CommitAction>
+				{#snippet lines()}
+					<LineGroup
+						lineGroup={lineManager.get($localCommits[$localCommits.length - 1].id)}
+						topHeightPx={0}
+						showNode={false}
+					/>
+				{/snippet}
+				{#snippet action()}
+					<Button
+						style="pop"
+						kind="solid"
+						wide
+						loading={isPushing}
+						on:click={async () => {
+							isPushing = true;
+							try {
+								await branchController.pushBranch($branch.id, $branch.requiresForce);
+								$listingService?.refresh();
+								$prMonitor?.refresh();
+								$checksMonitor?.update();
+							} catch (e) {
+								console.error(e);
+							} finally {
+								isPushing = false;
+							}
+						}}
+					>
+						{$branch.requiresForce ? 'Force push' : 'Push'}
+					</Button>
+				{/snippet}
+			</CommitAction>
 		{/if}
+
 		<!-- LOCAL AND REMOTE COMMITS -->
 		{#if $localAndRemoteCommits.length > 0}
 			{#each $localAndRemoteCommits as commit, idx (commit.id)}
@@ -191,6 +251,7 @@
 				/>
 			{/each}
 		{/if}
+
 		<!-- INTEGRATED COMMITS -->
 		{#if $integratedCommits.length > 0}
 			{#each $integratedCommits as commit, idx (commit.id)}
@@ -210,6 +271,7 @@
 				</CommitCard>
 			{/each}
 		{/if}
+
 		<!-- BASE -->
 		<div class="base-row-container" class:base-row-container_unfolded={baseIsUnfolded}>
 			<div

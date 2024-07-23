@@ -7,10 +7,11 @@
 
 	interface Props {
 		line: LineData;
+		showNode?: boolean;
 		topHeightPx?: number;
 	}
 
-	const { line, topHeightPx = 24 }: Props = $props();
+	const { line, showNode = true, topHeightPx = 24 }: Props = $props();
 </script>
 
 <div class="line">
@@ -21,7 +22,7 @@
 	>
 		<Cell cell={line.top} />
 	</div>
-	{#if line.commitNode}
+	{#if line.commitNode && showNode}
 		<CommitNode commitNode={line.commitNode} color={line.bottom.color} />
 	{:else if line.baseNode}
 		<BaseNode baseNode={line.baseNode} color={line.top.color} />
