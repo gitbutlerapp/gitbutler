@@ -34,7 +34,7 @@
 		}
 	};
 
-	setContext<SegmentContext>('SegmentedControl', context);
+	setContext<SegmentContext>('SegmentControl', context);
 </script>
 
 <div class="wrapper">

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Badge from '$lib/shared/Badge.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import Segment from '@gitbutler/ui/SegmentedControl/Segment.svelte';
-	import SegmentedControl from '@gitbutler/ui/SegmentedControl/SegmentedControl.svelte';
+	import Segment from '@gitbutler/ui/SegmentControl/Segment.svelte';
+	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -33,11 +33,11 @@
 		value={searchValueState}
 	/>
 
-	<SegmentedControl selectedIndex={0}>
+	<SegmentControl selectedIndex={0}>
 		<Segment id="all">All</Segment>
 		<Segment id="mine">PRs</Segment>
 		<Segment id="active">Mine</Segment>
-	</SegmentedControl>
+	</SegmentControl>
 </div>
 
 <style lang="postcss">

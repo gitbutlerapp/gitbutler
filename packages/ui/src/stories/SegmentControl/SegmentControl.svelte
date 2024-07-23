@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Segment from '$lib/SegmentedControl/Segment.svelte';
-	import SegmentedControl from '$lib/SegmentedControl/SegmentedControl.svelte';
+	import Segment from '$lib/SegmentControl/Segment.svelte';
+	import SegmentControl from '$lib/SegmentControl/SegmentControl.svelte';
 
 	interface Props {
 		selectedIndex: number;
@@ -9,7 +9,7 @@
 	const { selectedIndex }: Props = $props();
 </script>
 
-<SegmentedControl
+<SegmentControl
 	{selectedIndex}
 	onselect={(id) => {
 		console.log('Selected index:', id);
@@ -19,4 +19,4 @@
 	<Segment id="second">Second</Segment>
 	<Segment id="third">Third</Segment>
 	<Segment id="fourth">Fourth</Segment>
-</SegmentedControl>
+</SegmentControl>

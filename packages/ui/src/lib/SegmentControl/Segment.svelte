@@ -11,7 +11,7 @@
 
 	const { id, onselect, children }: SegmentProps = $props();
 
-	const context = getContext<SegmentContext>('SegmentedControl');
+	const context = getContext<SegmentContext>('SegmentControl');
 	const index = context.setIndex();
 	const selectedSegmentIndex = context.selectedSegmentIndex;
 
