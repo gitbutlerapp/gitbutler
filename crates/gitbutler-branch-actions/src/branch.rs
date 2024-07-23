@@ -1,8 +1,155 @@
+use std::collections::HashMap;
+use std::vec;
+
+use anyhow::Result;
 use bstr::BString;
+use bstr::ByteSlice;
+use gitbutler_branch::Branch as GitButlerBranch;
 use gitbutler_branch::BranchId;
+use gitbutler_branch::VirtualBranchesHandle;
+use gitbutler_command_context::ProjectRepository;
+
 use serde::Serialize;
 
-use crate::{author::Author, VirtualBranch};
+use crate::{author::Author, VirtualBranch, VirtualBranchesExt};
+
+/// Returns a list of branches associated with this project.
+// TODO: Implement pagination for this thing
+pub fn list_branches(project_repository: &ProjectRepository) -> Result<Vec<Branch>> {
+    let vb_handle = project_repository.project().virtual_branches();
+    // all branches that git knows about
+    let git_branches: Vec<(git2::Branch, git2::BranchType)> = project_repository
+        .repo()
+        .branches(None)?
+        .filter_map(Result::ok)
+        .filter(|(branch, _)| should_list_git_branch(branch, &vb_handle))
+        .collect();
+    // virtual branches from the application state
+    let virtual_branches: Vec<GitButlerBranch> = project_repository
+        .project()
+        .virtual_branches()
+        .list_all_branches()?;
+    combine_branches(git_branches, virtual_branches)
+}
+
+fn combine_branches(
+    git_branches: Vec<(git2::Branch, git2::BranchType)>,
+    virtual_branches: Vec<GitButlerBranch>,
+) -> Result<Vec<Branch>> {
+    let mut group_branches: Vec<GroupBranch> = vec![];
+    for branch in virtual_branches.iter() {
+        group_branches.push(GroupBranch::Virtual(branch));
+    }
+    for branch in git_branches.iter() {
+        group_branches.push(GroupBranch::Git(&branch.0));
+    }
+    // Group branches by identity
+    let mut groups: HashMap<BString, Vec<&GroupBranch>> = HashMap::new();
+    for branch in group_branches.iter() {
+        let identity = branch.identity();
+        if let Some(group) = groups.get_mut(&identity) {
+            group.push(branch);
+        } else {
+            groups.insert(identity, vec![branch]);
+        }
+    }
+    // Convert to Branch entries for the API response
+    let branches: Vec<Branch> = groups
+        .iter()
+        .filter_map(|(identity, group_branches)| {
+            branch_group_to_branch(identity.clone(), group_branches.clone())
+        })
+        .collect();
+    Ok(branches)
+}
+
+fn branch_group_to_branch(identity: BString, group_branches: Vec<&GroupBranch>) -> Option<Branch> {
+    if group_branches.is_empty() {
+        // Nothing to do - this should not be reachable.
+        return None;
+    }
+    // Virtual branch associated with this branch
+    let virtual_branch_reference = group_branches.iter().find_map(|branch| match branch {
+        GroupBranch::Virtual(vb) => Some(VirtualBranchReference {
+            given_name: vb.name.clone(),
+            id: vb.id,
+            in_workspace: vb.in_workspace,
+        }),
+        _ => None,
+    });
+    // List of remotes where this branch is tracked
+    let remotes: Vec<BString> = group_branches
+        .iter()
+        .filter_map(|branch| match branch {
+            GroupBranch::Git(git_branch) => Some(git_branch),
+            _ => None,
+        })
+        .filter(|branch| branch.get().is_remote()) // Is this getting of a ref expensive (e.g. touching the filesystem)?
+        .map(|branch| branch.name_bytes())
+        .filter_map(Result::ok)
+        .filter_map(|name| {
+            BString::from(name)
+                .split_str("/")
+                .map(BString::from)
+                .collect::<Vec<BString>>()
+                .get(2) // This should be the remote name. Is there a better way of getting this? Gitoxide perhaps
+                .cloned()
+        })
+        .collect();
+
+    let branch = Branch {
+        name: identity.to_string(),
+        remotes,
+        virtual_branch: virtual_branch_reference,
+        lines_added: 0,       // TODO
+        lines_removed: 0,     // TODO
+        number_of_commits: 0, // TODO
+        updated_at: 0,        // TODO
+        authors: vec![],      // TODO
+        own_branch: false,    // TODO
+    };
+    Some(branch)
+}
+
+/// A sum type of a branch that can be a plain git branch or a virtual branch
+enum GroupBranch<'a> {
+    Git(&'a git2::Branch<'a>),
+    Virtual(&'a GitButlerBranch),
+}
+
+impl GroupBranch<'_> {
+    /// A name identifier for the branch. When multiple branches (e.g. virtual, local, reomte) have the same identity,
+    /// they are grouped together under the same `Branch` entry.
+    fn identity(&self) -> BString {
+        // TODO: This is a fake implementation
+        match self {
+            GroupBranch::Git(branch) => branch.name_bytes().unwrap().into(),
+            /// TODO: what happens when a user changes the name via "set remote branch name" in the UI?
+            GroupBranch::Virtual(branch) => branch.name.clone().into(),
+        }
+    }
+}
+
+/// Determines if a branch should be listed in the UI.
+/// This excludes the target branch as well as gitbutler specific branches.
+fn should_list_git_branch(branch: &git2::Branch, vb_handle: &VirtualBranchesHandle) -> bool {
+    // Exclude branches that have invalid names
+    if branch.name_bytes().is_err() {
+        return false;
+    }
+    let name: BString = BString::from(branch.name_bytes().unwrap());
+    // Exclude the target branch
+    if let Ok(target) = vb_handle.get_default_target() {
+        if name == target.branch.branch() && name == target.branch.remote() {
+            return false;
+        }
+    }
+    // Exclude gitbutler technical branches (not useful for the user)
+    if name == "gitbutler/integration" || name == "gitbutler/target" {
+        return false;
+    }
+    true
+}
 
 /// Represents a branch that exists for the repository
 /// This also combines the concept of a remote, local and virtual branch in order to provide a unified interface for the UI
@@ -16,7 +163,8 @@ pub struct Branch {
     pub name: String,
     /// This is a list of remote that this branch can be found on (e.g. `origin`, `upstream` etc.).
     /// If this branch is a local branch, this list will be empty.
-    pub remotes: Vec<String>,
+    #[serde(serialize_with = "gitbutler_serde::serde::as_string_lossy_vec")]
+    pub remotes: Vec<BString>,
     /// The branch may or may not have a virtual branch associated with it
     pub virtual_branch: Option<VirtualBranchReference>,
     /// The number of lines added within the branch

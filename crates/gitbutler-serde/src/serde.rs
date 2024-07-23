@@ -8,6 +8,14 @@ where
     v.to_str_lossy().serialize(s)
 }
 
+pub fn as_string_lossy_vec<S>(v: &[BString], s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let vec: Vec<String> = v.iter().map(|v| v.to_string()).collect();
+    vec.serialize(s)
+}
+
 pub fn as_time_seconds_from_unix_epoch<S>(v: &git2::Time, s: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
