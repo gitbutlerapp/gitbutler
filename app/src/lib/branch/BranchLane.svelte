@@ -50,9 +50,10 @@
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
 	const hostedListingServiceStore = getGitHostListingService();
-	const prs = $derived($hostedListingServiceStore?.prs);
+	const prStore = $derived($hostedListingServiceStore?.prs);
+	const prs = $derived(prStore ? $prStore : undefined);
 
-	const listedPr = $derived($prs?.find((pr) => pr.sourceBranch === branch.upstreamName));
+	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === branch.upstreamName));
 	const sourceBranch = $derived(listedPr?.sourceBranch);
 	const prNumber = $derived(listedPr?.number);
 

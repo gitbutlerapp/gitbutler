@@ -1,4 +1,4 @@
-import { pxToRem } from '$lib/utils/pxToRem';
+import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 import { sineInOut } from 'svelte/easing';
 import { slide, type SlideParams, type TransitionConfig } from 'svelte/transition';
 

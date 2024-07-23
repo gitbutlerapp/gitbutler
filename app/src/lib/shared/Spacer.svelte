@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { pxToRem } from '$lib/utils/pxToRem';
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	export let margin: number | undefined = 16;
 	export let noLine = false;
 

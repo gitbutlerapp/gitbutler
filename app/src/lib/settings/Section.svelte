@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Spacer from '$lib/shared/Spacer.svelte';
-	import { pxToRem } from '$lib/utils/pxToRem';
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 
 	export let spacer = false;
 	export let gap = 20;

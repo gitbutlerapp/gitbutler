@@ -19,21 +19,22 @@
 		if (!metrics) return;
 
 		// Capture only individual changes.
-		for (let [metric, value] of Object.entries(metrics)) {
-			const lastCaptureMs = lastCapture[metric];
+		for (let [name, metric] of Object.entries(metrics)) {
+			const lastCaptureMs = lastCapture[name];
 			if (
 				// If no previously recorded value.
-				!$lastReport[metric] ||
+				!$lastReport[name] ||
 				// Or the value has changed.
-				$lastReport[metric] !== value ||
+				$lastReport[name]?.value !== metric?.value ||
 				// Or 24h have passed since metric was last caprured
 				(lastCaptureMs && lastCaptureMs - Date.now() > 24 * hourMs)
 			) {
-				posthog.capture(`metrics:${metric}`, {
+				posthog.capture(`metrics:${name}`, {
 					project_id: projectId,
-					count: value
+					...metric
 				});
-				lastCapture[metric] = Date.now();
+				lastCapture[name] = Date.now();
+				projectMetrics.resetMetric(name);
 			}
 		}
 		lastReport.set(metrics);

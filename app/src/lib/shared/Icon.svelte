@@ -1,5 +1,5 @@
 <script lang="ts" context="module">
-	import { pxToRem } from '$lib/utils/pxToRem';
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import type { ComponentColor } from '$lib/vbranches/types';
 	export type IconColor = ComponentColor | undefined;
 </script>
