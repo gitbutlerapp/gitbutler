@@ -1,0 +1,110 @@
+<script lang="ts">
+	import { getContext, onMount } from 'svelte';
+	import type { SegmentContext } from './segmentTypes';
+	import type { Snippet } from 'svelte';
+
+	interface SegmentProps {
+		id: string;
+		onselect?: (id: string) => void;
+		children: Snippet;
+	}
+
+	const { id, onselect, children }: SegmentProps = $props();
+
+	const context = getContext<SegmentContext>('SegmentedControl');
+	const index = context.setIndex();
+	const selectedSegmentIndex = context.selectedSegmentIndex;
+
+	let elRef = $state<HTMLButtonElement>();
+	let isFocused = $state(false);
+	let isSelected = $state(false);
+
+	$effect(() => {
+		elRef && isFocused && elRef.focus();
+	});
+
+	$effect(() => {
+		isSelected = $selectedSegmentIndex === index;
+	});
+
+	onMount(() => {
+		context.addSegment({ index });
+	});
+</script>
+
+<button
+	bind:this={elRef}
+	{id}
+	class="segment"
+	role="tab"
+	tabindex={isSelected ? -1 : 0}
+	aria-selected={isSelected}
+	onmousedown={() => {
+		if (index !== $selectedSegmentIndex) {
+			context.setSelected({
+				index,
+				id
+			});
+			onselect && onselect(id);
+		}
+	}}
+	onkeydown={({ key }) => {
+		if (key === 'Enter' || key === ' ') {
+			if (index !== $selectedSegmentIndex) {
+				context.setSelected({
+					index,
+					id
+				});
+				onselect && onselect(id);
+			}
+		}
+	}}
+	><span class="text-base-12 label">
+		{@render children()}
+	</span></button
+>
+
+<style lang="postcss">
+	.segment {
+		cursor: pointer;
+		display: inline-flex;
+		flex-grow: 1;
+		flex-basis: 0;
+		align-items: center;
+		justify-content: center;
+		user-select: none;
+		padding: 0 8px;
+		gap: 4px;
+
+		border-top-width: 1px;
+		border-bottom-width: 1px;
+		border-left-width: 1px;
+
+		color: var(--clr-text-1);
+		border-color: var(--clr-border-2);
+		background-color: var(--clr-bg-1);
+		height: var(--size-cta);
+
+		transition: background var(--transition-fast);
+
+		&:first-of-type {
+			border-top-left-radius: var(--radius-m);
+			border-bottom-left-radius: var(--radius-m);
+		}
+
+		&:last-of-type {
+			border-top-right-radius: var(--radius-m);
+			border-bottom-right-radius: var(--radius-m);
+			border-right-width: 1px;
+		}
+
+		&:not([aria-selected='true']):hover {
+			background-color: var(--clr-bg-1-muted);
+		}
+
+		&[aria-selected='true'] {
+			background-color: var(--clr-bg-2);
+			color: var(--clr-text-2);
+		}
+	}
+</style>

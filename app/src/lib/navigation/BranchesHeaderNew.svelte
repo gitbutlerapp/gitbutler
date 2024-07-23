@@ -1,6 +1,8 @@
 <script lang="ts">
 	import Badge from '$lib/shared/Badge.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
+	import Segment from '@gitbutler/ui/SegmentedControl/Segment.svelte';
+	import SegmentedControl from '@gitbutler/ui/SegmentedControl/SegmentedControl.svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -23,10 +25,6 @@
 			<Badge count={filteredBranchCount} />
 		{/if}
 	</div>
-	<!-- 
-	{#if totalBranchCount > 0 && filterButton}
-		{@render filterButton(filtersActive)}
-	{/if} -->
 
 	<TextBox
 		icon="search"
@@ -34,11 +32,18 @@
 		on:input={(e) => onSearch(e.detail)}
 		value={searchValueState}
 	/>
+
+	<SegmentedControl selectedIndex={0}>
+		<Segment id="all">All</Segment>
+		<Segment id="mine">PRs</Segment>
+		<Segment id="active">Mine</Segment>
+	</SegmentedControl>
 </div>
 
 <style lang="postcss">
 	.header {
 		display: flex;
+		flex-direction: column;
 		color: var(--clr-scale-ntrl-0);
 		align-items: center;
 		justify-content: space-between;

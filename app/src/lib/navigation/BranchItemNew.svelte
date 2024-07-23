@@ -46,7 +46,7 @@
 				{#each branch.authors as author}
 					<div
 						use:tooltip={{
-							text: author.name,
+							text: author.name || 'Unknown',
 							delay: 500
 						}}
 						class="author-avatar"
