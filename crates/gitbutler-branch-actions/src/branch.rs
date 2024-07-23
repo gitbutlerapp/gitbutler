@@ -40,8 +40,11 @@ fn combine_branches(
     for branch in virtual_branches.iter() {
         group_branches.push(GroupBranch::Virtual(branch));
     }
-    for branch in git_branches.iter() {
-        group_branches.push(GroupBranch::Git(&branch.0));
+    for (branch, kind) in git_branches.iter() {
+        match kind {
+            git2::BranchType::Local => group_branches.push(GroupBranch::Local(branch)),
+            git2::BranchType::Remote => group_branches.push(GroupBranch::Remote(branch)),
+        }
     }
     // Group branches by identity
     let mut groups: HashMap<BString, Vec<&GroupBranch>> = HashMap::new();
@@ -81,10 +84,9 @@ fn branch_group_to_branch(identity: BString, group_branches: Vec<&GroupBranch>) 
     let remotes: Vec<BString> = group_branches
         .iter()
         .filter_map(|branch| match branch {
-            GroupBranch::Git(git_branch) => Some(git_branch),
+            GroupBranch::Remote(git_branch) => Some(git_branch),
             _ => None,
         })
-        .filter(|branch| branch.get().is_remote()) // Is this getting of a ref expensive (e.g. touching the filesystem)?
         .map(|branch| branch.name_bytes())
         .filter_map(Result::ok)
         .filter_map(|name| {
@@ -113,7 +115,8 @@ fn branch_group_to_branch(identity: BString, group_branches: Vec<&GroupBranch>) 
 
 /// A sum type of a branch that can be a plain git branch or a virtual branch
 enum GroupBranch<'a> {
-    Git(&'a git2::Branch<'a>),
+    Local(&'a git2::Branch<'a>),
+    Remote(&'a git2::Branch<'a>),
     Virtual(&'a GitButlerBranch),
 }
 
@@ -123,8 +126,10 @@ impl GroupBranch<'_> {
     fn identity(&self) -> BString {
         // TODO: This is a fake implementation
         match self {
-            GroupBranch::Git(branch) => branch.name_bytes().unwrap().into(),
-            /// TODO: what happens when a user changes the name via "set remote branch name" in the UI?
+            GroupBranch::Local(branch) => branch.name_bytes().unwrap().into(),
+            GroupBranch::Remote(branch) => branch.name_bytes().unwrap().into(),
+            // TODO: what happens when a user changes the name via "set remote branch name" in the UI?
+            // Seems like the virtual branch will no longer be in the same group as the previous branches, and that is probably the desired behavior.
             GroupBranch::Virtual(branch) => branch.name.clone().into(),
         }
     }
