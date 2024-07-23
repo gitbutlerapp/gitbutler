@@ -76,7 +76,7 @@ function setupDragHandlers(
 			clone.style.width = node.clientWidth + 'px';
 		}
 		if (params.maxHeight) {
-			clone.style.maxHeight = pxToRem(params.maxHeight);
+			clone.style.maxHeight = pxToRem(params.maxHeight) as string;
 		}
 
 		selectedElements.forEach((el) => el.classList.add('drag-handle'));
