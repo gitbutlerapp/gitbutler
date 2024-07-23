@@ -4,13 +4,15 @@
 
 	interface Props {
 		selectedIndex: number;
+		fullWidth?: boolean;
 	}
 
-	const { selectedIndex }: Props = $props();
+	const { selectedIndex, fullWidth }: Props = $props();
 </script>
 
 <SegmentControl
 	{selectedIndex}
+	{fullWidth}
 	onselect={(id) => {
 		console.log('Selected index:', id);
 	}}

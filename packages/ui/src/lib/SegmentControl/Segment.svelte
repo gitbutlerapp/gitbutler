@@ -83,7 +83,7 @@
 		color: var(--clr-text-1);
 		border-color: var(--clr-border-2);
 		background-color: var(--clr-bg-1);
-		height: var(--size-cta);
+		height: var(--size-button);
 
 		transition: background var(--transition-fast);
 

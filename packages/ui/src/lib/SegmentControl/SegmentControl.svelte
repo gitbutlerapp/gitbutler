@@ -6,11 +6,12 @@
 
 	interface SegmentProps {
 		selectedIndex: number;
-		children: Snippet;
+		fullWidth?: boolean;
 		onselect?: (id: string) => void;
+		children: Snippet;
 	}
 
-	const { selectedIndex, children, onselect }: SegmentProps = $props();
+	const { selectedIndex, fullWidth, onselect, children }: SegmentProps = $props();
 
 	let indexesIterator = -1;
 	let segments: SegmentItem[] = [];
@@ -37,12 +38,16 @@
 	setContext<SegmentContext>('SegmentControl', context);
 </script>
 
-<div class="wrapper">
+<div class="wrapper" class:full-width={fullWidth}>
 	{@render children()}
 </div>
 
 <style lang="postcss">
 	.wrapper {
 		display: inline-flex;
+	}
+
+	.wrapper.full-width {
+		width: 100%;
 	}
 </style>

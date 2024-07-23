@@ -33,7 +33,7 @@
 		value={searchValueState}
 	/>
 
-	<SegmentControl selectedIndex={0}>
+	<SegmentControl fullWidth selectedIndex={0}>
 		<Segment id="all">All</Segment>
 		<Segment id="mine">PRs</Segment>
 		<Segment id="active">Mine</Segment>
