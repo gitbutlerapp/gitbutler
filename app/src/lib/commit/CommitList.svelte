@@ -27,7 +27,6 @@
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import LineGroup from '@gitbutler/ui/CommitLines/LineGroup.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
-	import is from 'date-fns/locale/is';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied: boolean;
@@ -79,7 +78,8 @@
 	$: upstreamForkPoint = $branch.upstreamData?.forkPoint;
 	$: isRebased = !!forkPoint && !!upstreamForkPoint && forkPoint !== upstreamForkPoint;
 
-	$: isPushing = false;
+	$: isPushingCommits = false;
+	$: isIntegratingCommits = false;
 
 	let baseIsUnfolded = false;
 
@@ -145,7 +145,21 @@
 					/>
 				{/snippet}
 				{#snippet action()}
-					<Button style="warning" kind="solid">Integrate upstream</Button>
+					<Button
+						style="warning"
+						kind="solid"
+						loading={isIntegratingCommits}
+						on:click={async () => {
+							isIntegratingCommits = true;
+							try {
+								await branchController.mergeUpstream($branch.id);
+							} catch (e) {
+								console.error(e);
+							} finally {
+								isIntegratingCommits = false;
+							}
+						}}>Integrate upstream</Button
+					>
 				{/snippet}
 			</CommitAction>
 		{/if}
@@ -200,9 +214,9 @@
 						style="pop"
 						kind="solid"
 						wide
-						loading={isPushing}
+						loading={isPushingCommits}
 						on:click={async () => {
-							isPushing = true;
+							isPushingCommits = true;
 							try {
 								await branchController.pushBranch($branch.id, $branch.requiresForce);
 								$listingService?.refresh();
@@ -211,7 +225,7 @@
 							} catch (e) {
 								console.error(e);
 							} finally {
-								isPushing = false;
+								isPushingCommits = false;
 							}
 						}}
 					>
