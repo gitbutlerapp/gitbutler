@@ -92,12 +92,12 @@
 
 		<!-- NEED API -->
 		<div class="stats">
-			<div use:tooltip={{ text: 'Number of commits', delay: 500 }} class="branch-tag tag-commits">
+			<div use:tooltip={'Number of commits'} class="branch-tag tag-commits">
 				<span class="text-base-10 text-semibold">34</span>
 				<Icon name="commit" />
 			</div>
 
-			<div use:tooltip={{ text: 'Code changes', delay: 500 }} class="code-changes">
+			<div use:tooltip={'Code changes'} class="code-changes">
 				<span class="text-base-10 text-semibold">+289</span>
 				<span class="text-base-10 text-semibold">-129</span>
 			</div>
