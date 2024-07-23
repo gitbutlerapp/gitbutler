@@ -1,5 +1,6 @@
 <script lang="ts">
 	import MergeButton from './MergeButton.svelte';
+	import ViewPrButton from './ViewPrButton.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
@@ -11,7 +12,6 @@
 	import { getContext } from '$lib/utils/context';
 	import { createTimeAgoStore } from '$lib/utils/timeAgo';
 	import * as toasts from '$lib/utils/toasts';
-	import { openExternalUrl } from '$lib/utils/url';
 	import { type ComponentColor } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import type { ChecksStatus } from '$lib/gitHost/interface/types';
@@ -190,7 +190,7 @@
 			>
 				{prStatusInfo.text}
 			</Button>
-			{#if !$pr?.closedAt && checksTagInfo}
+			{#if !$pr.closedAt && checksTagInfo}
 				<Button
 					size="tag"
 					clickable={false}
@@ -201,21 +201,7 @@
 					{checksTagInfo.text}
 				</Button>
 			{/if}
-			<Button
-				size="tag"
-				icon="open-link"
-				style="ghost"
-				outline
-				shrinkable
-				on:click={(e) => {
-					const url = $pr.htmlUrl;
-					if (url) openExternalUrl(url);
-					e.preventDefault();
-					e.stopPropagation();
-				}}
-			>
-				Open in browser
-			</Button>
+			<ViewPrButton url={$pr.htmlUrl} />
 		</div>
 
 		<!--
