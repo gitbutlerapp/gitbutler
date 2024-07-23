@@ -8,11 +8,12 @@
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
 	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { getContext, getContextStoreBySymbol, maybeGetContextStore } from '$lib/utils/context';
+	import { SectionType } from '$lib/utils/fileSections';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, type Hunk } from '$lib/vbranches/types';
-	import { type HunkSection } from '$lib/utils/fileSections';
-	import { SectionType } from '$lib/utils/fileSections';
+	import { type HunkSection, type ContentSection, type Line } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
+	import ListItem from '$lib/shared/ListItem.svelte';
 
 	interface Props {
 		filePath: string;
@@ -57,6 +58,63 @@
 			selectedOwnership.update((ownership) => ownership.remove(hunk.filePath, hunk.id));
 		}
 	}
+
+	// const subsections = $derived(
+	// 	section.subSections.flatMap((subsection) => {
+	// 		return subsection.lines.flatMap((line) => ({
+	// 			...line,
+	// 			sectionType: subsection.sectionType
+	// 		}));
+	// 	})
+	// );
+
+	// $inspect(subsections);
+
+	function mapLines(subsections: ContentSection[]): ContentSection[] {
+		return subsections.map((nextSection, i) => {
+			const prevSection = subsections[i - 1];
+			if (!prevSection || nextSection.sectionType === SectionType.Context) return nextSection;
+
+			nextSection = calculateWordDiff(prevSection, nextSection);
+
+			return nextSection;
+		});
+	}
+
+	const subSections = $derived(mapLines(section.subSections));
+
+	function calculateWordDiff(
+		prevSection: ContentSection,
+		nextSection: ContentSection
+	): ContentSection {
+		// Skip sections which aren't the same length in lines changed
+		if (prevSection.lines.length !== nextSection.lines.length) return nextSection;
+
+		console.log({ prevSection, nextSection });
+
+		const numberOfLines = nextSection.lines.length;
+
+		for (let i = 0; i < numberOfLines; i++) {
+			const oldLine = prevSection.lines[i];
+			const newLine = nextSection.lines[i];
+			let forwardDiff: number[] = [];
+
+			const wordRegExp = new RegExp(/\w/g);
+
+			const oldWordContent = oldLine.content.match(wordRegExp);
+			const newWordContent = newLine.content.match(wordRegExp);
+
+			oldWordContent?.forEach((char, i) => {
+				if (newWordContent?.[i] !== char) {
+					forwardDiff.push(char);
+				}
+			});
+			prevSection.lines[i].diff = forwardDiff.join('');
+		}
+		console.log({ prevSection, nextSection });
+
+		return nextSection;
+	}
 </script>
 
 <div class="scrollable">
@@ -73,18 +131,21 @@
 				<table data-hunk-hash={hunk.hash} class="table__section">
 					<tbody>
 						<tr>
-							<td colspan="3">{hunk.filePath}</td>
+							<td colspan="3">{filePath}</td>
 						</tr>
-						{#each section.subSections as subsection}
-							{#each subsection.lines as line}
+						{#each subSections as section}
+							{#each section.lines as line}
 								<tr>
-									<td class="table__numberColumn" align="center">{line.beforeLineNumber ?? ''}</td>
-									<td class="table__numberColumn" align="center">{line.afterLineNumber ?? ''}</td>
+									<td class="table__numberColumn" align="center">{line.beforeLineNumber}</td>
+									<td class="table__numberColumn" align="center">{line.afterLineNumber}</td>
 									<td
-										class:diff-line-deletion={subsection.sectionType === SectionType.RemovedLines}
-										class:diff-line-addition={subsection.sectionType === SectionType.AddedLines}
+										class="table__textContent"
+										class:diff-line-deletion={section.sectionType === SectionType.RemovedLines}
+										class:diff-line-addition={section.sectionType === SectionType.AddedLines}
 									>
-										{line.content}
+										<span class="blob-code-content">
+											{@html line.content}
+										</span>
 									</td>
 								</tr>
 							{/each}
@@ -102,7 +163,11 @@
 		flex-direction: column;
 		position: relative;
 		border-radius: var(--radius-s);
-		overflow: hidden;
+		overflow-x: scroll;
+
+		& > div {
+			width: 100%;
+		}
 	}
 
 	.hunk {
@@ -127,7 +192,10 @@
 	}
 
 	.table__numberColumn {
-		width: fit-content;
+		padding-inline: 0.35rem;
+	}
+
+	.table__textContent {
 	}
 
 	.diff-line-deletion {
@@ -136,5 +204,15 @@
 
 	.diff-line-addition {
 		background-color: #94cf8d40;
+	}
+
+	.blob-code-content {
+		font-family: 'monospace';
+		white-space: pre;
+		user-select: text;
+
+		&:hover {
+			cursor: text;
+		}
 	}
 </style>
