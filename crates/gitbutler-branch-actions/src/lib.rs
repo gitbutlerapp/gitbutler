@@ -41,3 +41,5 @@ impl VirtualBranchesExt for gitbutler_project::Project {
 mod branch;
 mod commit;
 mod hunk;
+
+pub use branch::list_branches;

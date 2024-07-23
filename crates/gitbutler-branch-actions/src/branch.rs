@@ -3,7 +3,6 @@ use std::vec;
 
 use anyhow::Result;
 use bstr::BString;
-use bstr::ByteSlice;
 use gitbutler_branch::Branch as GitButlerBranch;
 use gitbutler_branch::BranchId;
 use gitbutler_branch::VirtualBranchesHandle;
@@ -17,34 +16,36 @@ use crate::{author::Author, VirtualBranch, VirtualBranchesExt};
 // TODO: Implement pagination for this thing
 pub fn list_branches(project_repository: &ProjectRepository) -> Result<Vec<Branch>> {
     let vb_handle = project_repository.project().virtual_branches();
+    let repo = gix::open(project_repository.project().path.clone())?;
+    let refs = repo.references()?;
+
     // all branches that git knows about
-    let git_branches: Vec<(git2::Branch, git2::BranchType)> = project_repository
-        .repo()
-        .branches(None)?
+    let branches = refs
+        .local_branches()?
+        .chain(refs.remote_branches()?)
         .filter_map(Result::ok)
-        .filter(|(branch, _)| should_list_git_branch(branch, &vb_handle))
-        .collect();
+        .filter(|branch| should_list_git_branch(branch, &vb_handle));
+
     // virtual branches from the application state
-    let virtual_branches: Vec<GitButlerBranch> = project_repository
+    let virtual_branches = project_repository
         .project()
         .virtual_branches()
-        .list_all_branches()?;
-    combine_branches(git_branches, virtual_branches)
+        .list_all_branches()?
+        .into_iter();
+
+    combine_branches(branches, virtual_branches)
 }
 
-fn combine_branches(
-    git_branches: Vec<(git2::Branch, git2::BranchType)>,
-    virtual_branches: Vec<GitButlerBranch>,
+fn combine_branches<'a>(
+    git_branches: impl Iterator<Item = gix::Reference<'a>>,
+    virtual_branches: impl Iterator<Item = GitButlerBranch>,
 ) -> Result<Vec<Branch>> {
     let mut group_branches: Vec<GroupBranch> = vec![];
-    for branch in virtual_branches.iter() {
+    for branch in virtual_branches {
         group_branches.push(GroupBranch::Virtual(branch));
     }
-    for (branch, kind) in git_branches.iter() {
-        match kind {
-            git2::BranchType::Local => group_branches.push(GroupBranch::Local(branch)),
-            git2::BranchType::Remote => group_branches.push(GroupBranch::Remote(branch)),
-        }
+    for branch in git_branches {
+        group_branches.push(GroupBranch::Git(branch));
     }
     // Group branches by identity
     let mut groups: HashMap<BString, Vec<&GroupBranch>> = HashMap::new();
@@ -80,22 +81,20 @@ fn branch_group_to_branch(identity: BString, group_branches: Vec<&GroupBranch>) 
         }),
         _ => None,
     });
-    // List of remotes where this branch is tracked
     let remotes: Vec<BString> = group_branches
         .iter()
         .filter_map(|branch| match branch {
-            GroupBranch::Remote(git_branch) => Some(git_branch),
+            GroupBranch::Git(git_branch) => Some(git_branch),
             _ => None,
         })
-        .map(|branch| branch.name_bytes())
-        .filter_map(Result::ok)
-        .filter_map(|name| {
-            BString::from(name)
-                .split_str("/")
-                .map(BString::from)
-                .collect::<Vec<BString>>()
-                .get(2) // This should be the remote name. Is there a better way of getting this? Gitoxide perhaps
-                .cloned()
+        .filter(|reference| {
+            reference.remote(gix::remote::Direction::Fetch).is_some()
+                || reference.remote(gix::remote::Direction::Push).is_some()
+        })
+        .map(|reference| {
+            let fetch = reference.remote_name(gix::remote::Direction::Fetch);
+            let push = reference.remote_name(gix::remote::Direction::Push);
+            fetch.unwrap_or(push.unwrap()).as_bstr().into() // Already checked that at least one of them is present
         })
         .collect();
 
@@ -114,35 +113,32 @@ fn branch_group_to_branch(identity: BString, group_branches: Vec<&GroupBranch>) 
 }
 
 /// A sum type of a branch that can be a plain git branch or a virtual branch
+#[allow(clippy::large_enum_variant)]
 enum GroupBranch<'a> {
-    Local(&'a git2::Branch<'a>),
-    Remote(&'a git2::Branch<'a>),
-    Virtual(&'a GitButlerBranch),
+    Git(gix::Reference<'a>),
+    Virtual(GitButlerBranch),
 }
 
 impl GroupBranch<'_> {
     /// A name identifier for the branch. When multiple branches (e.g. virtual, local, reomte) have the same identity,
     /// they are grouped together under the same `Branch` entry.
     fn identity(&self) -> BString {
-        // TODO: This is a fake implementation
         match self {
-            GroupBranch::Local(branch) => branch.name_bytes().unwrap().into(),
-            GroupBranch::Remote(branch) => branch.name_bytes().unwrap().into(),
-            // TODO: what happens when a user changes the name via "set remote branch name" in the UI?
-            // Seems like the virtual branch will no longer be in the same group as the previous branches, and that is probably the desired behavior.
-            GroupBranch::Virtual(branch) => branch.name.clone().into(),
+            GroupBranch::Git(branch) => branch.name().shorten().into(),
+            // When a user changes the remote name via the "set remote branch name" in the UI,
+            // the virtual branch will be in a different group. This is probably the desired behavior.
+            GroupBranch::Virtual(branch) => branch
+                .upstream
+                .clone()
+                .map_or(BString::default(), |x| x.branch().into()),
         }
     }
 }
 
 /// Determines if a branch should be listed in the UI.
 /// This excludes the target branch as well as gitbutler specific branches.
-fn should_list_git_branch(branch: &git2::Branch, vb_handle: &VirtualBranchesHandle) -> bool {
-    // Exclude branches that have invalid names
-    if branch.name_bytes().is_err() {
-        return false;
-    }
-    let name: BString = BString::from(branch.name_bytes().unwrap());
+fn should_list_git_branch(branch: &gix::Reference, vb_handle: &VirtualBranchesHandle) -> bool {
+    let name: BString = branch.name().shorten().into();
     // Exclude the target branch
     if let Ok(target) = vb_handle.get_default_target() {
         if name == target.branch.branch() && name == target.branch.remote() {
