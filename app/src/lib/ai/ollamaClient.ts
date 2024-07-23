@@ -1,7 +1,7 @@
 import { LONG_DEFAULT_BRANCH_TEMPLATE, LONG_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
 import { MessageRole, type PromptMessage, type AIClient, type Prompt } from '$lib/ai/types';
 import { andThen, buildFailureFromAny, ok, wrap, wrapAsync, type Result } from '$lib/result';
-import { isNonEmptyObject } from '$lib/utils/typeguards';
+import { isNonEmptyObject } from '@gitbutler/ui/utils/typeguards';
 import { fetch, Body, Response } from '@tauri-apps/api/http';
 
 export const DEFAULT_OLLAMA_ENDPOINT = 'http://127.0.0.1:11434';

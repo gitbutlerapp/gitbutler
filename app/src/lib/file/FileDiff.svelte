@@ -3,9 +3,9 @@
 	import Icon from '$lib/shared/Icon.svelte';
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
-	import { tooltip } from '$lib/utils/tooltip';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';
+	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
 
 	export let filePath: string;
