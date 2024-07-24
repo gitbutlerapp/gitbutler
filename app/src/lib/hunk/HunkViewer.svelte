@@ -13,8 +13,30 @@
 	import { type HunkSection, type ContentSection } from '$lib/utils/fileSections';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, type Hunk } from '$lib/vbranches/types';
+	import { diff_match_patch } from 'diff-match-patch';
 	import type { Writable } from 'svelte/store';
 	// import ListItem from '$lib/shared/ListItem.svelte';
+
+	const enum RowType {
+		Deletion = 'deletion',
+		Addition = 'addition',
+		Equal = 'equal',
+		Spacer = 'spacer'
+	}
+
+	interface Token {
+		text: string;
+		className: string;
+	}
+
+	interface Row {
+		originalLineNumber?: number;
+		currentLineNumber?: number;
+		tokens: string[];
+		// tokens: Token[];
+		type: SectionType;
+		size: number;
+	}
 
 	interface Props {
 		filePath: string;
@@ -27,15 +49,24 @@
 		linesModified: number;
 	}
 
+	enum Operation {
+		Equal = 0,
+		Insert = 1,
+		Delete = -1,
+		Edit = 2
+	}
+
+	type DiffArray = { 0: Operation; 1: string[] }[];
+
 	let {
 		filePath,
 		section,
-    linesModified,
+		linesModified,
 		minWidth,
 		selectable = false,
 		isUnapplied,
 		isFileLocked,
-		readonly = false,
+		readonly = false
 	}: Props = $props();
 
 	$inspect('section', section);
@@ -45,7 +76,7 @@
 	// const branch = maybeGetContextStore(VirtualBranch);
 	// const project = getContext(Project);
 
-  let alwaysShow = $state(false);
+	let alwaysShow = $state(false);
 	// let contents = $state<HTMLDivElement>();
 	// let viewport = $state<HTMLDivElement>();
 	// let contextMenu = $state<HunkContextMenu>();
@@ -60,27 +91,33 @@
 	// 	}
 	// }
 
-	// const subsections = $derived(
-	// 	section.subSections.flatMap((subsection) => {
-	// 		return subsection.lines.flatMap((line) => ({
-	// 			...line,
-	// 			sectionType: subsection.sectionType
-	// 		}));
-	// 	})
-	// );
+	function charDiff(text1: string, text2: string): { 0: number; 1: string }[] {
+		const differ = new diff_match_patch();
+		const diff = differ.diff_main(text1, text2);
+		// differ.diff_cleanupSemantic(diff);
+		return diff;
+	}
 
-	// $inspect(subsections);
+	function sanitize(text: string) {
+		var element = document.createElement('div');
+		element.innerText = text;
+		return element.innerHTML;
+	}
+
+	function createRowData(section: ContentSection): Row[] {
+		return section.lines.map((line) => {
+			return {
+				originalLineNumber: line.beforeLineNumber,
+				currentLineNumber: line.afterLineNumber,
+				tokens: toTokens(line.content),
+				type: section.sectionType,
+				size: line.content.length
+			};
+		});
+	}
 
 	function toTokens(inputLine: string): string[] {
-		// debugger;
-		function sanitize(text: string) {
-			var element = document.createElement('div');
-			element.innerText = text;
-			return element.innerHTML;
-		}
-
 		let highlighter = create(inputLine, filePath);
-    console.log('HIGHLIGHTER', highlighter)
 		let tokens: string[] = [];
 		highlighter.highlight((text, classNames) => {
 			const token = classNames
@@ -89,67 +126,104 @@
 
 			tokens.push(token);
 		});
+
 		return tokens;
 	}
 
-	function filterSections(subsections: ContentSection[]): ContentSection[] {
-		return subsections.map((nextSection, i) => {
-			const prevSection = subsections[i - 1];
-			if (!prevSection || nextSection.sectionType === SectionType.Context) return nextSection;
-
-			nextSection = calculateWordDiff(prevSection, nextSection);
-
-			return nextSection;
-		});
-	}
-
-	const subSections = $derived(filterSections(section.subSections));
-
-	function calculateWordDiff(
-		prevSection: ContentSection,
-		nextSection: ContentSection
-	): ContentSection {
-		// Skip sections which aren't the same length in lines changed
-		if (prevSection.lines.length !== nextSection.lines.length) return nextSection;
+	function calculateWordDiff(prevSection: ContentSection, nextSection: ContentSection): Row[] {
 		const numberOfLines = nextSection.lines.length;
+		const returnRows: Row[] = [];
 
-    // Loop through every line in the section
-    // We're only bothered with prev/next sections with equal # of lines changes
+		// Loop through every line in the section
+		// We're only bothered with prev/next sections with equal # of lines changes
 		for (let i = 0; i < numberOfLines; i++) {
 			const oldLine = prevSection.lines[i];
 			const newLine = nextSection.lines[i];
-			let forwardRmDiff: string[] = [];
-			let forwardAddDiff: string[] = [];
+			const nextSectionRow = {
+				originalLineNumber: newLine.beforeLineNumber,
+				currentLineNumber: newLine.afterLineNumber,
+				tokens: [] as string[],
+				type: nextSection.sectionType,
+				size: newLine.content.length
+			};
 
-      // Ignore whitespace changes
-			const wordRegExp = new RegExp(/\w/g);
-			const oldWordContent = oldLine.content.match(wordRegExp);
-			const newWordContent = newLine.content.match(wordRegExp);
+			const diff = charDiff(oldLine.content, newLine.content);
+			console.log('differ', { diff });
 
-      // Brute force walk all "word" characters and calculate the 
-      // text difference between line0 and line1
-      // TODO: See if we can merge these loops; save on compute
-			oldWordContent?.forEach((char, i) => {
-				if (newWordContent?.[i] !== char) {
-					forwardRmDiff.push(char);
+			for (const token of diff) {
+				const text = token[1];
+				const type = token[0];
+
+				if (type === Operation.Equal) {
+					nextSectionRow.tokens.push(...toTokens(text));
+				} else if (type === Operation.Insert) {
+					nextSectionRow.tokens.push(`<span class="token-inserted">${text}</span>`);
+				} else if (type === Operation.Delete) {
+					nextSectionRow.tokens.push(`<span class="token-deleted">${text}</span>`);
 				}
-			});
-			newWordContent?.forEach((char, i) => {
-				if (oldWordContent?.[i] !== char) {
-					forwardAddDiff.push(char);
-				}
-			});
+			}
+			returnRows.push(nextSectionRow);
 
-      // @ts-expect-error - TODO: Update data structure / types
-			prevSection.lines[i].diffs = {
-        removed: forwardRmDiff.join(''),
-        added: forwardAddDiff.join('')
-      }
+			// let forwardRmDiff: DiffData[] = [];
+			// let forwardAddDiff: DiffData[] = [];
+			//
+			// // Ignore whitespace changes
+			// const wordRegExp = new RegExp(/\w/g);
+			// const oldWordContent = oldLine.content.match(wordRegExp);
+			// const newWordContent = newLine.content.match(wordRegExp);
+			//
+			// // Brute force walk all "word" characters and calculate the
+			// // text difference between line0 and line1
+			// // TODO: See if we can merge these loops; save on compute
+			// oldWordContent?.forEach((char, i) => {
+			// 	if (newWordContent?.[i] !== char) {
+			// 		forwardRmDiff.push({
+			// 			content: char,
+			// 			start: i
+			// 		});
+			// 	}
+			// });
+			// newWordContent?.forEach((char, i) => {
+			// 	if (oldWordContent?.[i] !== char) {
+			// 		forwardAddDiff.push({
+			// 			content: char,
+			// 			start: i
+			// 		});
+			// 	}
+			// });
+			//
+			// // @ts-expect-error - TODO: Update data structure / types
+			// prevSection.lines[i].diffs = {
+			// 	removed: forwardRmDiff,
+			// 	added: forwardAddDiff
+			// };
+			// // @ts-expect-error - TODO: Update data structure / types
+			// nextSection.lines[i].diffs = {
+			// 	removed: forwardRmDiff,
+			// 	added: forwardAddDiff
+			// };
 		}
-		console.log({ prevSection, nextSection });
+		console.log({ returnRows });
 
-		return nextSection;
+		return returnRows;
 	}
+
+	function filterRows(subsections: ContentSection[]) {
+		// Filter out section for which we don't need to compute word diffs
+		// in order to save on compute
+		return subsections.flatMap((nextSection, i) => {
+			const prevSection = subsections[i - 1];
+			// If there's no prevLine (first line) or the target line is of type Context (not add or rm), skip
+			if (!prevSection || nextSection.sectionType === SectionType.Context)
+				return createRowData(nextSection);
+			// Skip sections which aren't the same length in lines changed
+			if (prevSection.lines.length !== nextSection.lines.length) return createRowData(nextSection);
+
+			return calculateWordDiff(prevSection, nextSection);
+		});
+	}
+
+	const renderRows = $derived(filterRows(section.subSections));
 </script>
 
 <div class="scrollable">
@@ -168,22 +242,20 @@
 						<tr>
 							<td colspan="3">{filePath}</td>
 						</tr>
-						{#each subSections as section}
-							{#each section.lines as line}
-								<tr>
-									<td class="table__numberColumn" align="center">{line.beforeLineNumber}</td>
-									<td class="table__numberColumn" align="center">{line.afterLineNumber}</td>
-									<td
-										class="table__textContent"
-										class:diff-line-deletion={section.sectionType === SectionType.RemovedLines}
-										class:diff-line-addition={section.sectionType === SectionType.AddedLines}
-									>
-										<span class="blob-code-content">
-											{@html toTokens(line.content)}
-										</span>
-									</td>
-								</tr>
-							{/each}
+						{#each renderRows as line}
+							<tr>
+								<td class="table__numberColumn" align="center">{line.originalLineNumber}</td>
+								<td class="table__numberColumn" align="center">{line.currentLineNumber}</td>
+								<td
+									class="table__textContent"
+									class:diff-line-deletion={line.type === SectionType.RemovedLines}
+									class:diff-line-addition={line.type === SectionType.AddedLines}
+								>
+									<span class="blob-code-content">
+										{@html line.tokens.join('')}
+									</span>
+								</td>
+							</tr>
 						{/each}
 					</tbody>
 				</table>
