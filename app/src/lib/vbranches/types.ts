@@ -319,6 +319,10 @@ export class Branch {
 	get displayName(): string {
 		return this.name.replace('refs/remotes/', '').replace('refs/heads/', '');
 	}
+
+	get isRemote() {
+		return !!this.upstream;
+	}
 }
 
 export class BranchData {
