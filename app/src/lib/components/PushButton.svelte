@@ -49,7 +49,7 @@
 	{wide}
 	{disabled}
 	menuPosition="top"
-	on:click={() => {
+	onclick={() => {
 		dispatch('trigger', { action });
 	}}
 >

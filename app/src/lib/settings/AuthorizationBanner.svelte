@@ -34,7 +34,7 @@
 			loading={$loading}
 			style="pop"
 			kind="solid"
-			on:click={async () => {
+			onclick={async () => {
 				await userService.login();
 			}}>Log in or Sign up</Button
 		>

@@ -115,7 +115,7 @@
 						size="cta"
 						style="ghost"
 						outline
-						on:click={onSetBaseBranchClick}
+						onclick={onSetBaseBranchClick}
 						id="set-base-branch"
 						loading={isSwitching}
 						disabled={(selectedBranch.name === $baseBranch.branchName &&

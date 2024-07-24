@@ -42,7 +42,7 @@
 	{disabled}
 	{loading}
 	bind:this={dropDown}
-	on:click={() => click({ draft: $preferredAction === Action.CreateDraft })}
+	onclick={() => click({ draft: $preferredAction === Action.CreateDraft })}
 >
 	{labels[$preferredAction]}
 	<ContextMenuSection slot="context-menu">

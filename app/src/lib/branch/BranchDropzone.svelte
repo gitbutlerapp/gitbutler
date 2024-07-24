@@ -64,7 +64,7 @@
 						style="ghost"
 						outline
 						icon="plus-small"
-						on:mousedown={async () => await branchController.createBranch({})}>New branch</Button
+						onmousedown={async () => await branchController.createBranch({})}>New branch</Button
 					>
 				</div>
 			</div>

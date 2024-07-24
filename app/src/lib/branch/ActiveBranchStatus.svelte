@@ -81,7 +81,7 @@
 		style="ghost"
 		outline
 		shrinkable
-		on:click={(e) => {
+		onclick={(e) => {
 			const url = $baseBranch?.branchUrl($branch.upstream?.name);
 			if (url) openExternalUrl(url);
 			e.preventDefault();

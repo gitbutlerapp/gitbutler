@@ -37,7 +37,7 @@
 	{wide}
 	{help}
 	{disabled}
-	on:click={() => {
+	onclick={() => {
 		dispatch('click', { method: $action });
 	}}
 >

@@ -40,7 +40,7 @@
 					style="ghost"
 					outline
 					shrinkable
-					on:click={(e) => {
+					onclick={(e) => {
 						const url = base?.branchUrl(branch.name);
 						if (url) openExternalUrl(url);
 						e.preventDefault();
@@ -56,7 +56,7 @@
 						icon="pr-small"
 						style="ghost"
 						outline
-						on:click={(e) => {
+						onclick={(e) => {
 							const url = pr?.htmlUrl;
 							if (url) openExternalUrl(url);
 							e.preventDefault();
@@ -76,7 +76,7 @@
 					help="Restores these changes into your working directory"
 					icon="plus-small"
 					loading={isApplying}
-					on:click={async () => {
+					onclick={async () => {
 						isApplying = true;
 						try {
 							await branchController.createvBranchFromBranch(branch.name);

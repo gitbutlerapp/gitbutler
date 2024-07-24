@@ -164,11 +164,11 @@
 		{/if}
 	</div>
 	{#snippet controls()}
-		<Button style="ghost" outline on:click={() => unapplyBranchModal.close()}>Cancel</Button>
+		<Button style="ghost" outline onclick={() => unapplyBranchModal.close()}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
-			on:click={unapplyBranchWithSelectedResolution}
+			onclick={unapplyBranchWithSelectedResolution}
 			disabled={!newBranchName && selectedResolution === 'rename'}
 		>
 			{setButtonCoppy()}
@@ -269,11 +269,11 @@
 	<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName} focus />
 
 	{#snippet controls(close)}
-		<Button style="ghost" outline type="reset" on:click={close}>Cancel</Button>
+		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
-			on:click={() => {
+			onclick={() => {
 				branchController.updateBranchRemoteName(branch.id, newRemoteName);
 				close();
 			}}
@@ -288,11 +288,11 @@
 		Are you sure you want to delete <code class="code-string">{branch.name}</code>?
 	{/snippet}
 	{#snippet controls(close)}
-		<Button style="ghost" outline on:click={close}>Cancel</Button>
+		<Button style="ghost" outline onclick={close}>Cancel</Button>
 		<Button
 			style="error"
 			kind="solid"
-			on:click={async () => {
+			onclick={async () => {
 				await branchController.deleteBranch(branch.id);
 				close();
 			}}

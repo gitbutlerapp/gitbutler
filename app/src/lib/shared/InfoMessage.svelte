@@ -76,12 +76,12 @@
 		{#if primary || secondary}
 			<div class="info-message__actions">
 				{#if secondary}
-					<Button style="ghost" outline on:click={() => dispatch('secondary')}>
+					<Button style="ghost" outline onclick={() => dispatch('secondary')}>
 						{secondary}
 					</Button>
 				{/if}
 				{#if primary}
-					<Button style={primaryButtonMap[style]} kind="solid" on:click={() => dispatch('primary')}>
+					<Button style={primaryButtonMap[style]} kind="solid" onclick={() => dispatch('primary')}>
 						{primary}
 					</Button>
 				{/if}

@@ -125,13 +125,13 @@
 		isExpanded={true}
 	/>
 	{#snippet controls(close)}
-		<Button style="ghost" outline on:click={close}>Cancel</Button>
+		<Button style="ghost" outline onclick={close}>Cancel</Button>
 		<Button
 			style="neutral"
 			kind="solid"
 			grow
 			disabled={!commitMessageValid}
-			on:click={submitCommitMessageModal}
+			onclick={submitCommitMessageModal}
 		>
 			Submit
 		</Button>
@@ -304,7 +304,7 @@
 										style="ghost"
 										outline
 										icon="undo-small"
-										on:click={(e) => {
+										onclick={(e) => {
 											currentCommitMessage.set(commit.description);
 											e.stopPropagation();
 											undoCommit(commit);
@@ -315,7 +315,7 @@
 										style="ghost"
 										outline
 										icon="edit-small"
-										on:click={openCommitMessageModal}>Edit message</Button
+										onclick={openCommitMessageModal}>Edit message</Button
 									>
 								{/if}
 							</div>

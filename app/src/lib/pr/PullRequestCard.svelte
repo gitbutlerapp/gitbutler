@@ -170,7 +170,7 @@
 				outline
 				loading={$mrLoading || $checksLoading}
 				help={$timeAgo ? 'Updated ' + $timeAgo : ''}
-				on:click={async () => {
+				onclick={async () => {
 					$checksMonitor?.update();
 					$prMonitor?.refresh();
 				}}

@@ -107,7 +107,7 @@
 		wide
 		icon="item-tick"
 		disabled={loading}
-		on:click={checkCredentials}
+		onclick={checkCredentials}
 	>
 		{#if loading || checks.length === 0}
 			Test credentials

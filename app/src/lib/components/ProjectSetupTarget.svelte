@@ -253,7 +253,7 @@
 			style="pop"
 			kind="solid"
 			{loading}
-			on:click={onSetTargetClick}
+			onclick={onSetTargetClick}
 			icon="chevron-right-small"
 			id="set-base-branch"
 		>

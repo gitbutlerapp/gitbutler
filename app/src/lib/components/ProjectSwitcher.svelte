@@ -63,7 +63,7 @@
 		kind="solid"
 		icon="chevron-right-small"
 		disabled={selectedProjectId === project?.id}
-		on:mousedown={() => {
+		onmousedown={() => {
 			if (selectedProjectId) goto(`/${selectedProjectId}/`);
 		}}
 	>

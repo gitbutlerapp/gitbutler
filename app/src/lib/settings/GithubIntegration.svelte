@@ -67,7 +67,7 @@
 </script>
 
 {#if minimal}
-	<Button style="pop" kind="solid" {disabled} on:click={gitHubStartOauth}>Authorize</Button>
+	<Button style="pop" kind="solid" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
 {:else}
 	<SectionCard orientation="row">
 		<svelte:fragment slot="iconSide">
@@ -97,11 +97,11 @@
 			Allows you to view and create Pull Requests from GitButler.
 		</svelte:fragment>
 		{#if $user?.github_access_token}
-			<Button style="ghost" outline {disabled} icon="bin-small" on:click={forgetGitHub}
+			<Button style="ghost" outline {disabled} icon="bin-small" onclick={forgetGitHub}
 				>Forget</Button
 			>
 		{:else}
-			<Button style="pop" kind="solid" {disabled} on:click={gitHubStartOauth}>Authorize</Button>
+			<Button style="pop" kind="solid" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
 		{/if}
 	</SectionCard>
 {/if}
@@ -131,7 +131,7 @@
 						kind="soft"
 						icon="copy"
 						disabled={codeCopied}
-						on:click={() => {
+						onclick={() => {
 							copyToClipboard(userCode);
 							codeCopied = true;
 						}}
@@ -154,7 +154,7 @@
 						kind="solid"
 						disabled={GhActivationLinkPressed}
 						icon="open-link"
-						on:click={() => {
+						onclick={() => {
 							openExternalUrl('https://github.com/login/device');
 							GhActivationLinkPressed = true;
 
@@ -179,7 +179,7 @@
 						kind="solid"
 						{loading}
 						disabled={loading}
-						on:click={async () => {
+						onclick={async () => {
 							await gitHubOauthCheckStatus(deviceCode);
 						}}
 					>
