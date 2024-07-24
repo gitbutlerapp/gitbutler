@@ -42,4 +42,4 @@ mod branch;
 mod commit;
 mod hunk;
 
-pub use branch::list_branches;
+pub use branch::{list_branches, BranchListing};

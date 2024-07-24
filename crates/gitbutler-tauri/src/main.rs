@@ -172,6 +172,7 @@ fn main() {
                     virtual_branches::commands::reorder_commit,
                     virtual_branches::commands::update_commit_message,
                     virtual_branches::commands::list_remote_branches,
+                    virtual_branches::commands::list_branches,
                     virtual_branches::commands::get_remote_branch_data,
                     virtual_branches::commands::squash_branch_commit,
                     virtual_branches::commands::fetch_from_remotes,

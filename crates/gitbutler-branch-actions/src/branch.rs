@@ -291,10 +291,13 @@ pub struct BranchListing {
     pub own_branch: bool,
 }
 
+/// Represents a "commit author" or "signature", based on the data from ther git history
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 pub struct Author {
-    name: Option<String>,
-    email: Option<String>,
+    /// The name of the author as configured in the git config
+    pub name: Option<String>,
+    /// The email of the author as configured in the git config
+    pub email: Option<String>,
 }
 
 impl From<git2::Signature<'_>> for Author {
