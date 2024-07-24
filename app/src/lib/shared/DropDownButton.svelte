@@ -13,10 +13,9 @@
 	export let wide = false;
 	export let help = '';
 	export let menuPosition: 'top' | 'bottom' = 'bottom';
+	export let onclick: (e: MouseEvent) => void;
 
 	let contextMenu: ContextMenu;
-	let iconEl: HTMLElement;
-
 	let visible = false;
 
 	export function show() {
@@ -41,12 +40,11 @@
 			reversedDirection
 			disabled={disabled || loading}
 			isDropdownChild
-			on:click
+			{onclick}
 		>
 			<slot />
 		</Button>
 		<Button
-			bind:el={iconEl}
 			{style}
 			{kind}
 			{help}
@@ -55,22 +53,22 @@
 			{loading}
 			disabled={disabled || loading}
 			isDropdownChild
-			on:click={() => {
-				visible = !visible;
-				contextMenu.toggle();
-			}}
-		/>
+		>
+			{#snippet menu(target)}
+				<ContextMenu
+					bind:this={contextMenu}
+					{target}
+					verticalAlign={menuPosition}
+					eventType="mousedown"
+					onclose={() => {
+						visible = false;
+					}}
+				>
+					<slot name="context-menu" />
+				</ContextMenu>
+			{/snippet}
+		</Button>
 	</div>
-	<ContextMenu
-		bind:this={contextMenu}
-		target={iconEl}
-		verticalAlign={menuPosition}
-		onclose={() => {
-			visible = false;
-		}}
-	>
-		<slot name="context-menu" />
-	</ContextMenu>
 </div>
 
 <style lang="postcss">

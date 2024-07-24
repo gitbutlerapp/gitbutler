@@ -15,7 +15,6 @@
 	export let hideBots: Writable<boolean | undefined>;
 	export let hideInactive: Writable<boolean | undefined>;
 
-	let target: HTMLElement;
 	let contextMenu: ContextMenu;
 
 	export function onFilterClick() {
@@ -25,33 +24,34 @@
 
 <div class="header__filter-btn">
 	<Button
-		bind:el={target}
 		style="ghost"
 		outline
 		icon={$filtersActive ? 'filter-applied-small' : 'filter-small'}
-		on:mousedown={onFilterClick}
+		onmousedown={onFilterClick}
 	>
 		Filter
-	</Button>
-	<ContextMenu bind:this={contextMenu} {target}>
-		<ContextMenuSection>
-			{#if showPrCheckbox}
-				<ContextMenuItem label="Pull requests" on:click={() => ($includePrs = !$includePrs)}>
-					<Checkbox small bind:checked={$includePrs} slot="control" />
-				</ContextMenuItem>
-			{/if}
-			<ContextMenuItem label="Branches" on:click={() => ($includeRemote = !$includeRemote)}>
-				<Checkbox small bind:checked={$includeRemote} slot="control" />
-			</ContextMenuItem>
-		</ContextMenuSection>
+		{#snippet menu(target)}
+			<ContextMenu bind:this={contextMenu} {target}>
+				<ContextMenuSection>
+					{#if showPrCheckbox}
+						<ContextMenuItem label="Pull requests" on:click={() => ($includePrs = !$includePrs)}>
+							<Checkbox small bind:checked={$includePrs} slot="control" />
+						</ContextMenuItem>
+					{/if}
+					<ContextMenuItem label="Branches" on:click={() => ($includeRemote = !$includeRemote)}>
+						<Checkbox small bind:checked={$includeRemote} slot="control" />
+					</ContextMenuItem>
+				</ContextMenuSection>
 
-		<ContextMenuSection>
-			<ContextMenuItem label="Hide bots" on:click={() => ($hideBots = !$hideBots)}>
-				<Toggle small slot="control" bind:checked={$hideBots} />
-			</ContextMenuItem>
-			<ContextMenuItem label="Hide inactive" on:click={() => ($hideInactive = !$hideInactive)}>
-				<Toggle small slot="control" bind:checked={$hideInactive} />
-			</ContextMenuItem>
-		</ContextMenuSection>
-	</ContextMenu>
+				<ContextMenuSection>
+					<ContextMenuItem label="Hide bots" on:click={() => ($hideBots = !$hideBots)}>
+						<Toggle small slot="control" bind:checked={$hideBots} />
+					</ContextMenuItem>
+					<ContextMenuItem label="Hide inactive" on:click={() => ($hideInactive = !$hideInactive)}>
+						<Toggle small slot="control" bind:checked={$hideInactive} />
+					</ContextMenuItem>
+				</ContextMenuSection>
+			</ContextMenu>
+		{/snippet}
+	</Button>
 </div>

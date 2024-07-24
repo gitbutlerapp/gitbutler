@@ -205,7 +205,7 @@
 				disabled={!($aiGenEnabled && aiConfigurationValid)}
 				loading={aiLoading}
 				menuPosition="top"
-				on:click={async () => await generateCommitMessage($branch.files)}
+				onclick={async () => await generateCommitMessage($branch.files)}
 			>
 				Generate message
 

@@ -4,7 +4,6 @@
 	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
@@ -36,8 +35,6 @@
 	$: branch = $branchStore;
 	$: pr = $prMonitor?.pr;
 
-	let contextMenu: ContextMenu;
-	let meatballButtonEl: HTMLDivElement;
 	let isLoading: boolean;
 	let isTargetBranchAnimated = false;
 
@@ -245,21 +242,11 @@
 								loading={isLoading}
 							/>
 						{/if}
-						<Button
-							bind:el={meatballButtonEl}
-							style="ghost"
-							outline
-							icon="kebab"
-							on:click={() => {
-								contextMenu.toggle();
-							}}
-						/>
-						<BranchLaneContextMenu
-							bind:contextMenuEl={contextMenu}
-							target={meatballButtonEl}
-							onCollapse={collapseLane}
-							{onGenerateBranchName}
-						/>
+						<Button style="ghost" outline icon="kebab">
+							{#snippet menu(target)}
+								<BranchLaneContextMenu {target} {onGenerateBranchName} onCollapse={collapseLane} />
+							{/snippet}
+						</Button>
 					</div>
 				</div>
 			</div>

@@ -17,7 +17,6 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch, type NameConflictResolution } from '$lib/vbranches/types';
 
-	export let contextMenuEl: ContextMenu;
 	export let target: HTMLElement;
 	export let onCollapse: () => void;
 	export let onGenerateBranchName: () => void;
@@ -32,6 +31,7 @@
 	const nameNormalizationService = getNameNormalizationServiceContext();
 
 	let aiConfigurationValid = false;
+	let contextMenuEl: ContextMenu;
 	let deleteBranchModal: Modal;
 	let renameRemoteModal: Modal;
 	let newRemoteName: string;
@@ -176,7 +176,7 @@
 	{/snippet}
 </Modal>
 
-<ContextMenu bind:this={contextMenuEl} {target}>
+<ContextMenu bind:this={contextMenuEl} {target} eventType="mousedown">
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Collapse lane"

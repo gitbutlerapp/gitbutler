@@ -38,7 +38,6 @@
 		// Event handlers
 		onclick?: (e: MouseEvent) => void;
 		onmousedown?: (e: MouseEvent) => void;
-		oncontextmenu?: (e: MouseEvent) => void;
 	};
 
 	// Interaction props
@@ -68,13 +67,12 @@
 		icon = undefined,
 		help = '',
 		helpShowDelay = 1200,
-		// Optional context menu
+		// Snippets
 		menu,
 		children,
 		// Event handlers
 		onclick,
-		onmousedown,
-		oncontextmenu
+		onmousedown
 	}: Props = $props();
 
 	let el: HTMLElement | undefined = $state();
@@ -102,7 +100,6 @@
 	disabled={disabled || loading}
 	{onclick}
 	{onmousedown}
-	{oncontextmenu}
 	{type}
 	{id}
 	tabindex={clickable ? tabindex : -1}

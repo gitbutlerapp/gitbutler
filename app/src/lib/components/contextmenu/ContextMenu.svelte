@@ -2,7 +2,7 @@
 	import { clickOutside } from '$lib/clickOutside';
 	import { portal } from '$lib/utils/portal';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
-	import { type Snippet } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 
 	// TYPES AND INTERFACES
 	interface Props {
@@ -10,6 +10,7 @@
 		openByMouse?: boolean;
 		verticalAlign?: 'top' | 'bottom';
 		horizontalAlign?: 'left' | 'right';
+		eventType?: 'mousedown' | 'contextmenu';
 		children: Snippet<[item: any]>;
 		onclose?: () => void;
 		onopen?: () => void;
@@ -20,6 +21,7 @@
 		openByMouse,
 		verticalAlign = 'bottom',
 		horizontalAlign = 'right',
+		eventType = 'contextmenu',
 		children,
 		onclose,
 		onopen
@@ -113,6 +115,19 @@
 			return 'top left';
 		}
 	}
+
+	function handleContextMenu(e: MouseEvent) {
+		e.preventDefault();
+		if (!isVisibile) open(e);
+		else close();
+	}
+
+	onMount(() => {
+		target?.addEventListener(eventType, handleContextMenu);
+		return () => {
+			target?.removeEventListener(eventType, handleContextMenu);
+		};
+	});
 </script>
 
 {#snippet contextMenu()}

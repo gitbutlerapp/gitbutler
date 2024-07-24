@@ -4,9 +4,6 @@
 	import { openExternalUrl } from '$lib/utils/url';
 
 	const { url }: { url: string } = $props();
-
-	let copyLinkContextMenu = $state<CopyLinkContextMenu>();
-	let viewPrButton = $state<HTMLElement>();
 </script>
 
 <Button
@@ -15,17 +12,14 @@
 	style="ghost"
 	outline
 	shrinkable
-	bind:el={viewPrButton}
-	on:click={(e) => {
+	onclick={(e) => {
 		openExternalUrl(url);
 		e.preventDefault();
 		e.stopPropagation();
 	}}
-	on:contextmenu={(e) => {
-		e.preventDefault();
-		copyLinkContextMenu?.openByMouse(e);
-	}}
 >
 	Open in browser
+	{#snippet menu(target)}
+		<CopyLinkContextMenu {target} {url} />
+	{/snippet}
 </Button>
-<CopyLinkContextMenu bind:this={copyLinkContextMenu} target={viewPrButton} {url} />
