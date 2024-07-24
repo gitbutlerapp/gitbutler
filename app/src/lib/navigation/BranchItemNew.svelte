@@ -19,7 +19,7 @@
 
 	$effect(() => {
 		selected = href ? $page.url.href.endsWith(href) : false;
-		console.log(branch);
+		// console.log(branch);
 	});
 
 	function getBranchLink(b: CombinedBranch): string | undefined {
