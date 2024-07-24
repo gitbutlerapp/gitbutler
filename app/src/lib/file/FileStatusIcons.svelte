@@ -2,10 +2,10 @@
 	import FileStatusCircle from './FileStatusCircle.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
-	import { tooltip } from '$lib/utils/tooltip';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';
 	import { type AnyFile, LocalFile } from '$lib/vbranches/types';
+	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 
 	export let file: AnyFile;
 

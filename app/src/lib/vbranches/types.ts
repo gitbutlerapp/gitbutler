@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '$lib/utils/string';
-import { isDefined, notNull } from '$lib/utils/typeguards';
+import { isDefined, notNull } from '@gitbutler/ui/utils/typeguards';
 import { Type, Transform } from 'class-transformer';
 import type { PullRequest } from '$lib/gitHost/interface/types';
 

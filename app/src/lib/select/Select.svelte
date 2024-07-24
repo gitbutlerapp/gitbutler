@@ -82,7 +82,6 @@
 	function getInputBoundingRect() {
 		if (selectWrapperEl) {
 			inputBoundingRect = selectWrapperEl.getBoundingClientRect();
-			console.log('inputBoundingRect', inputBoundingRect);
 		}
 	}
 

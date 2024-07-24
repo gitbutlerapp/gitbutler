@@ -4843,6 +4843,10 @@ packages:
     resolution: {integrity: sha512-Wglpdk03BSfXkHoQa3b/oulrotAkwrlLDRSOb9D0bN86FdRyE9lppSp33aHNPgBa0JKCoB+drFLZkQoRRYae5A==}
     engines: {node: ^10 || ^12 || >=14}
 
+  postcss@8.4.39:
+    resolution: {integrity: sha512-0vzE+lAiG7hZl1/9I8yzKLx3aR9Xbof3fBHKunvMfOCYAtMhrsnccJY2iTURb9EZd5+pLuiNV9/c/GZJOHsgIw==}
+    engines: {node: ^10 || ^12 || >=14}
+
   postgres-array@2.0.0:
     resolution: {integrity: sha512-VpZrUqU5A69eQyW2c5CA1jtLecCsN2U/bD6VilrFDWq5+5UIEVO7nazS3TEcHf1zuPYO/sqGvUvW62g86RXZuA==}
     engines: {node: '>=4'}
@@ -5372,6 +5376,15 @@ packages:
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
     peerDependencies:
       svelte: ^3.37.0 || ^4.0.0 || ^5.0.0-next.115
+    peerDependenciesMeta:
+      svelte:
+        optional: true
+
+  svelte-eslint-parser@0.41.0:
+    resolution: {integrity: sha512-L6f4hOL+AbgfBIB52Z310pg1d2QjRqm7wy3kI1W6hhdhX5bvu7+f0R6w4ykp5HoDdzq+vGhIJmsisaiJDGmVfA==}
+    engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+    peerDependencies:
+      svelte: ^3.37.0 || ^4.0.0 || ^5.0.0-next.191
     peerDependenciesMeta:
       svelte:
         optional: true
@@ -11529,6 +11542,14 @@ snapshots:
     optionalDependencies:
       postcss: 8.4.38
 
+  postcss-load-config@5.1.0(postcss@8.4.39):
+    dependencies:
+      lilconfig: 3.1.1
+      yaml: 2.4.2
+    optionalDependencies:
+      postcss: 8.4.39
+    optional: true
+
   postcss-nesting@12.1.5(postcss@8.4.38):
     dependencies:
       '@csstools/selector-resolve-nested': 1.1.0(postcss-selector-parser@6.1.0)
@@ -11548,6 +11569,10 @@ snapshots:
     dependencies:
       postcss: 8.4.38
 
+  postcss-scss@4.0.9(postcss@8.4.39):
+    dependencies:
+      postcss: 8.4.39
+
   postcss-selector-parser@6.1.0:
     dependencies:
       cssesc: 3.0.0
@@ -11559,6 +11584,12 @@ snapshots:
     dependencies:
       nanoid: 3.3.7
       picocolors: 1.0.0
+      source-map-js: 1.2.0
+
+  postcss@8.4.39:
+    dependencies:
+      nanoid: 3.3.7
+      picocolors: 1.0.1
       source-map-js: 1.2.0
 
   postgres-array@2.0.0: {}
@@ -12202,6 +12233,20 @@ snapshots:
       '@babel/core': 7.24.7
       postcss: 8.4.38
       postcss-load-config: 5.1.0(postcss@8.4.38)
+      typescript: 5.4.5
+
+  svelte-preprocess@5.1.3(@babel/core@7.24.7)(postcss-load-config@5.1.0(postcss@8.4.39))(postcss@8.4.39)(svelte@5.0.0-next.191)(typescript@5.4.5):
+    dependencies:
+      '@types/pug': 2.0.6
+      detect-indent: 6.1.0
+      magic-string: 0.30.5
+      sorcery: 0.11.0
+      strip-indent: 3.0.0
+      svelte: 5.0.0-next.191
+    optionalDependencies:
+      '@babel/core': 7.24.7
+      postcss: 8.4.39
+      postcss-load-config: 5.1.0(postcss@8.4.39)
       typescript: 5.4.5
 
   svelte-resize-observer@2.0.0:

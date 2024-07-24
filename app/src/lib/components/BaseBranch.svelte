@@ -7,8 +7,8 @@
 	import Button from '$lib/shared/Button.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
 	import { getContext } from '$lib/utils/context';
-	import { tooltip } from '$lib/utils/tooltip';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 
 	export let base: BaseBranch;

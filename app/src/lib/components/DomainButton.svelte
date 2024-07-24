@@ -2,7 +2,7 @@
 	import UpdateBaseButton from './UpdateBaseButton.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { getContextStore } from '$lib/utils/context';
-	import { tooltip } from '$lib/utils/tooltip';
+	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 

@@ -1,7 +1,7 @@
 import { dropzoneRegistry } from './dropzone';
 import { getFileIcon } from '$lib/ext-icons';
-import { pxToRem } from '$lib/utils/pxToRem';
 import { type CommitStatus } from '$lib/vbranches/types';
+import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 import type { Draggable } from './draggables';
 
 export interface DraggableConfig {
@@ -76,7 +76,7 @@ function setupDragHandlers(
 			clone.style.width = node.clientWidth + 'px';
 		}
 		if (params.maxHeight) {
-			clone.style.maxHeight = pxToRem(params.maxHeight);
+			clone.style.maxHeight = pxToRem(params.maxHeight) as string;
 		}
 
 		selectedElements.forEach((el) => el.classList.add('drag-handle'));
