@@ -7,7 +7,7 @@ export function copyToClipboard(text: string) {
 		navigator.clipboard
 			.writeText(text)
 			.then(function () {
-				toasts.success('Copied to cliboard');
+				toasts.success('Copied to clipboard');
 			})
 			.catch(function () {
 				toasts.error('Failed to copy');
