@@ -207,7 +207,7 @@
 					/>
 				{/each}
 
-				<CommitAction>
+				<CommitAction bottomBorder={hasRemoteCommits}>
 					{#snippet lines()}
 						<LineGroup
 							lineGroup={lineManager.get($localCommits[$localCommits.length - 1].id)}

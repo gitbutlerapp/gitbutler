@@ -3,11 +3,12 @@
 	import { type Snippet } from 'svelte';
 
 	interface Props {
+		bottomBorder?: boolean;
 		lines: Snippet;
 		action: Snippet;
 	}
 
-	const { lines, action }: Props = $props();
+	const { bottomBorder = true, lines, action }: Props = $props();
 
 	let isNotInViewport = $state(false);
 	let containerHeight = $state(0);
@@ -17,6 +18,7 @@
 	class="action-row sticky"
 	class:not-in-viewport={isNotInViewport}
 	class:sticky-z-index={isNotInViewport}
+	class:bottom-border={bottomBorder}
 	bind:offsetHeight={containerHeight}
 	use:intersectionObserver={{
 		callback: (entry) => {
@@ -30,7 +32,7 @@
 		},
 		options: {
 			root: null,
-			rootMargin: `-${containerHeight * 2}px 0`,
+			rootMargin: `-1px 0`,
 			threshold: 0
 		}
 	}}
@@ -47,7 +49,7 @@
 	.action-row {
 		position: relative;
 		display: flex;
-		border-bottom: 1px solid var(--clr-border-2);
+
 		background-color: var(--clr-bg-2);
 		overflow: hidden;
 
@@ -60,10 +62,17 @@
 		width: 100%;
 		padding-top: 10px;
 		padding-right: 14px;
-		padding-bottom: 10px;
 	}
 
 	/* MODIFIERS */
+	.bottom-border {
+		border-bottom: 1px solid var(--clr-border-2);
+
+		& .action {
+			padding-bottom: 10px;
+		}
+	}
+
 	.sticky {
 		position: sticky;
 		bottom: 0;
