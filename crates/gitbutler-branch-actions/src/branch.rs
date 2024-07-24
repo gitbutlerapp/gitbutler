@@ -1,3 +1,4 @@
+use std::any::TypeId;
 use std::cmp::max;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -115,6 +116,7 @@ fn branch_group_to_branch(
             reference.remote(gix::remote::Direction::Fetch).is_some()
                 || reference.remote(gix::remote::Direction::Push).is_some()
         })
+        .filter(|reference| matches!(reference.target(), gix::refs::TargetRef::Peeled(_)))
         .collect();
     let local_branches: Vec<&gix::Reference> = group_branches
         .iter()
@@ -126,6 +128,7 @@ fn branch_group_to_branch(
             reference.remote(gix::remote::Direction::Fetch).is_none()
                 && reference.remote(gix::remote::Direction::Push).is_none()
         })
+        .filter(|reference| matches!(reference.target(), gix::refs::TargetRef::Peeled(_)))
         .collect();
 
     // Virtual branch associated with this branch
@@ -150,9 +153,9 @@ fn branch_group_to_branch(
     let head = if let Some(vbranch) = virtual_branch {
         Some(vbranch.head)
     } else if let Some(reference) = local_branches.first().cloned() {
-        Some(git2::Oid::from_bytes(reference.id().as_bytes())?)
+        Some(git2::Oid::from_bytes(reference.id().as_bytes())?) // We have filtered out symbolic references, which would otherwise panic
     } else if let Some(reference) = remote_branches.first().cloned() {
-        Some(git2::Oid::from_bytes(reference.id().as_bytes())?)
+        Some(git2::Oid::from_bytes(reference.id().as_bytes())?) // We have filtered out symbolic references, which would otherwise panic
     } else {
         None
     }
