@@ -4,16 +4,15 @@
 
 	interface Props {
 		lineGroup: LineGroupData;
-		showNode?: boolean;
 		topHeightPx?: number;
 	}
 
-	const { lineGroup, showNode = true, topHeightPx }: Props = $props();
+	const { lineGroup, topHeightPx }: Props = $props();
 </script>
 
 <div class="line-group">
 	{#each lineGroup.lines as line}
-		<Line {line} {topHeightPx} {showNode} />
+		<Line {line} {topHeightPx} />
 	{/each}
 </div>
 

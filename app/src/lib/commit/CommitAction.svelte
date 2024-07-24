@@ -10,11 +10,14 @@
 	const { lines, action }: Props = $props();
 
 	let isNotInViewport = $state(false);
+	let containerHeight = $state(0);
 </script>
 
 <div
 	class="action-row sticky"
 	class:not-in-viewport={isNotInViewport}
+	class:sticky-z-index={isNotInViewport}
+	bind:offsetHeight={containerHeight}
 	use:intersectionObserver={{
 		callback: (entry) => {
 			if (entry.isIntersecting) {
@@ -27,8 +30,8 @@
 		},
 		options: {
 			root: null,
-			rootMargin: '-1px',
-			threshold: 1
+			rootMargin: `-${containerHeight * 2}px 0`,
+			threshold: 0
 		}
 	}}
 >
@@ -62,12 +65,16 @@
 
 	/* MODIFIERS */
 	.sticky {
-		z-index: var(--z-ground);
 		position: sticky;
 		bottom: 0;
 	}
 
+	.sticky-z-index {
+		z-index: var(--z-lifted);
+	}
+
 	.not-in-viewport {
+		/* background-color: aqua; */
 		box-shadow: 0 0 0 1px var(--clr-border-2);
 	}
 </style>

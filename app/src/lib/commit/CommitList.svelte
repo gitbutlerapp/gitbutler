@@ -144,7 +144,6 @@
 						<LineGroup
 							lineGroup={lineManager.get($remoteCommits[$remoteCommits.length - 1].id)}
 							topHeightPx={0}
-							showNode={false}
 						/>
 					{/snippet}
 					{#snippet action()}
@@ -213,7 +212,6 @@
 						<LineGroup
 							lineGroup={lineManager.get($localCommits[$localCommits.length - 1].id)}
 							topHeightPx={0}
-							showNode={false}
 						/>
 					{/snippet}
 					{#snippet action()}
