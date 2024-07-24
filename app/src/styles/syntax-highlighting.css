@@ -68,10 +68,12 @@
 
 .token-inserted {
 	color: #116329;
+	background-color: #11632960;
 }
 
 .token-deleted {
 	color: #82071e;
+	background-color: #82071e40;
 }
 
 .token-heading {
@@ -167,10 +169,12 @@
 
 	.token-inserted {
 		color: #7ee787;
+		background-color: #7ee78740;
 	}
 
 	.token-deleted {
 		color: #ffa198;
+		background-color: #ffa19840;
 	}
 
 	.token-heading {
