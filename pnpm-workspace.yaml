@@ -1,5 +1,5 @@
 packages:
-  - 'app'
+  - 'apps/*'
   - 'packages/*'
 
 catalog:
