@@ -33,8 +33,8 @@
 	}
 
 	interface Row {
-		originalLineNumber?: number;
-		currentLineNumber?: number;
+		beforeLineNumber?: number;
+		afterLineNumber?: number;
 		tokens: string[];
 		type: SectionType;
 		size: number;
@@ -85,8 +85,8 @@
 	function createRowData(section: ContentSection): Row[] {
 		return section.lines.map((line) => {
 			return {
-				originalLineNumber: line.beforeLineNumber,
-				currentLineNumber: line.afterLineNumber,
+				beforeLineNumber: line.beforeLineNumber,
+				afterLineNumber: line.afterLineNumber,
 				tokens: toTokens(line.content),
 				type: section.sectionType,
 				size: line.content.length
@@ -121,15 +121,15 @@
 			const oldLine = prevSection.lines[i];
 			const newLine = nextSection.lines[i];
 			const prevSectionRow = {
-				originalLineNumber: oldLine.beforeLineNumber,
-				currentLineNumber: oldLine.afterLineNumber,
+				beforeLineNumber: oldLine.beforeLineNumber,
+				afterLineNumber: oldLine.afterLineNumber,
 				tokens: [] as string[],
 				type: prevSection.sectionType,
 				size: oldLine.content.length
 			};
 			const nextSectionRow = {
-				originalLineNumber: newLine.beforeLineNumber,
-				currentLineNumber: newLine.afterLineNumber,
+				beforeLineNumber: newLine.beforeLineNumber,
+				afterLineNumber: newLine.afterLineNumber,
 				tokens: [] as string[],
 				type: nextSection.sectionType,
 				size: newLine.content.length
@@ -189,7 +189,6 @@
 				return acc;
 			}
 
-			console.log({ prevSection, nextSection });
 			const { prevRows, nextRows } = computeWordDiff(prevSection, nextSection);
 
 			// Insert returned row datastructures into the correct place
@@ -197,8 +196,8 @@
 			prevRows.forEach((row) => {
 				const accIndex = acc.findIndex(
 					(accRow) =>
-						accRow.originalLineNumber === row.originalLineNumber &&
-						accRow.currentLineNumber === row.currentLineNumber
+						accRow.beforeLineNumber === row.beforeLineNumber &&
+						accRow.afterLineNumber === row.afterLineNumber
 				);
 				if (!accIndex) return;
 
@@ -231,7 +230,7 @@
 							selectable && handleSelected(hunk, isSelected);
 						}}
 					>
-						{line.originalLineNumber}
+						{line.beforeLineNumber}
 					</td>
 					<td
 						class="table__numberColumn"
@@ -241,7 +240,7 @@
 							selectable && handleSelected(hunk, isSelected);
 						}}
 					>
-						{line.currentLineNumber}
+						{line.afterLineNumber}
 					</td>
 					<td
 						{onclick}
@@ -250,9 +249,9 @@
 						class:diff-line-deletion={line.type === SectionType.RemovedLines}
 						class:diff-line-addition={line.type === SectionType.AddedLines}
 						oncontextmenu={(event) => {
-							const lineNumber = (line.originalLineNumber
-								? line.originalLineNumber
-								: line.currentLineNumber) as number;
+							const lineNumber = (line.beforeLineNumber
+								? line.beforeLineNumber
+								: line.afterLineNumber) as number;
 							handleLineContextMenu({ event, hunk, lineNumber, subsection: subsections[0] });
 						}}
 					>

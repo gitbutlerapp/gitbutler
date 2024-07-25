@@ -38,7 +38,6 @@
 	const project = getContext(Project);
 
 	let alwaysShow = $state(false);
-	// let contents = $state<HTMLDivElement>();
 	let viewport = $state<HTMLDivElement>();
 	let contextMenu = $state<HunkContextMenu>();
 	const draggingDisabled = $derived(readonly || isUnapplied);
