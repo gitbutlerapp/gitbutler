@@ -276,6 +276,12 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 		}
 	}
 
+	/**
+	 *
+	 * @param branch The branch you want to create a virtual branch for. If you
+	 * have a local branch, this should be the branch.
+	 * @param remote Optionally sets another branch as the upstream.
+	 */
 	async createvBranchFromBranch(branch: string, remote: string | undefined = undefined) {
 		try {
 			await invoke<string>('create_virtual_branch_from_branch', {
