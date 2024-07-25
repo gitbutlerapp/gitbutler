@@ -53,7 +53,7 @@
 	const prStore = $derived($hostedListingServiceStore?.prs);
 	const prs = $derived(prStore ? $prStore : undefined);
 
-	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === branch.upstreamName));
+	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === branch.upstream?.givenName));
 	const sourceBranch = $derived(listedPr?.sourceBranch);
 	const prNumber = $derived(listedPr?.number);
 
