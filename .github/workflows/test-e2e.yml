@@ -39,7 +39,7 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm dlx "playwright@$PLAYWRIGHT_VERSION" install --with-deps chromium
       - name: Run Tests
-        run: cd app && pnpm test:e2e
+        run: cd apps/desktop && pnpm test:e2e
         env:
           CI: true
       - name: Upload Artifacts
