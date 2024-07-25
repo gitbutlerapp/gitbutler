@@ -231,9 +231,15 @@ impl GroupBranch<'_> {
         match self {
             GroupBranch::Local(branch) => branch.get().given_name(remotes).ok(),
             GroupBranch::Remote(branch) => branch.get().given_name(remotes).ok(),
-            // When a user changes the remote name via the "set remote branch name" in the UI,
-            // the virtual branch will be in a different group. This is probably the desired behavior.
-            GroupBranch::Virtual(branch) => branch.upstream.clone().map(|x| x.branch().into()),
+            // The identity of a Virtual branch is derived from the source refname, upstream or the branch given name, in that order
+            GroupBranch::Virtual(branch) => {
+                let name_from_source = branch.source_refname.as_ref().and_then(|n| n.branch());
+                let name_from_upstream = branch.upstream.as_ref().map(|n| n.branch());
+                let rich_name = branch.name.clone();
+                let rich_name = &normalize_branch_name(&rich_name);
+                let identity = name_from_source.unwrap_or(name_from_upstream.unwrap_or(rich_name));
+                Some(identity.to_string())
+            }
         }
     }
 }
