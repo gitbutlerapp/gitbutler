@@ -282,12 +282,14 @@ pub struct BranchListing {
     /// The number of lines added within the branch
     /// Since the virtual branch, local branch and the remote one can have different number of lines removed,
     /// the value from the virtual branch (if present) takes the highest precedence,
-    /// followed by the local branch and then the remote branches (taking the max if there are multiple)
+    /// followed by the local branch and then the remote branches (taking the max if there are multiple).
+    /// If this branch has a virutal branch, lines_added does NOT include the uncommitted lines.
     pub lines_added: usize,
     /// The number of lines removed within the branch
     /// Since the virtual branch, local branch and the remote one can have different number of lines removed,
     /// the value from the virtual branch (if present) takes the highest precedence,
     /// followed by the local branch and then the remote branches (taking the max if there are multiple)
+    /// If this branch has a virutal branch, lines_removed does NOT include the uncommitted lines.
     pub lines_removed: usize,
     /// The number of files that were modified within the branch
     /// Since the virtual branch, local branch and the remote one can have different number files modified,
