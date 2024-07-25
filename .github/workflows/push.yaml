@@ -25,7 +25,7 @@ jobs:
               - '.github/actions/**'
             node:
               - *workflows
-              - 'app/**'
+              - 'apps/desktop/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
             common-rust: &rust

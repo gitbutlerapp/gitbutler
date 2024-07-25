@@ -1,27 +1,30 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
+    unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs = {
         nixpkgs.follows = "nixpkgs";
-        flake-utils.follows = "flake-utils";
       };
     };
   };
-  outputs = { self, nixpkgs, flake-utils, rust-overlay }:
+  outputs = { self, nixpkgs, unstable, flake-utils, rust-overlay }:
     flake-utils.lib.eachDefaultSystem
       (system:
         let
           overlays = [ (import rust-overlay) ];
-          pkgs = import nixpkgs {
+          # pkgs = import nixpkgs {
+          #   inherit system overlays;
+          # };
+          unstablePkgs = import unstable {
             inherit system overlays;
           };
 
-          rustToolchain = pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+          rustToolchain = unstablePkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
 
-          common = with pkgs; [
+          common = with unstablePkgs; [
             gtk3
             glib
             glib-networking
@@ -30,15 +33,15 @@
             librsvg
             gettext
             libiconv
+            libsoup
             libsoup_3
             webkitgtk
-            webkitgtk_4_1
             nodejs_20
             corepack_20
           ];
 
           # runtime Deps
-          libraries = with pkgs;[
+          libraries = with unstablePkgs;[
             cairo
             pango
             harfbuzz
@@ -46,25 +49,23 @@
           ] ++ common;
 
           # compile-time deps
-          packages = with pkgs; [
+          packages = with unstablePkgs; [
             curl
             wget
             pkg-config
             rustToolchain
           ] ++ common;
         in
-        with pkgs;
+        with unstablePkgs;
         {
           devShells.default = mkShell {
             nativeBuildInputs = packages;
             buildInputs = libraries;
-
-            shellHook =
-              ''
-                export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath libraries}:$LD_LIBRARY_PATH
-                export XDG_DATA_DIRS=${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:$XDG_DATA_DIRS
-                export GIO_MODULE_DIR="${pkgs.glib-networking}/lib/gio/modules/"
-              '';
+            shellHook = ''
+              export LD_LIBRARY_PATH=${unstablePkgs.lib.makeLibraryPath libraries}:$LD_LIBRARY_PATH
+              export XDG_DATA_DIRS=${unstablePkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${unstablePkgs.gsettings-desktop-schemas.name}:${unstablePkgs.gtk3}/share/gsettings-schemas/${unstablePkgs.gtk3.name}:$XDG_DATA_DIRS
+              export GIO_MODULE_DIR="${unstablePkgs.glib-networking}/lib/gio/modules/"
+            '';
           };
         }
       );
