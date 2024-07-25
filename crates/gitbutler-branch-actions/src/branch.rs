@@ -5,16 +5,13 @@ use std::vec;
 
 use anyhow::Context;
 use anyhow::Result;
-use bstr::BString;
+use bstr::{BString, ByteSlice};
 use gitbutler_branch::Branch as GitButlerBranch;
 use gitbutler_branch::BranchId;
 use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::ProjectRepository;
 
 use gitbutler_reference::normalize_branch_name;
-use gix::config::remote;
-use gix::reference;
-use serde::de;
 use serde::Serialize;
 
 use crate::{VirtualBranch, VirtualBranchesExt};
@@ -146,11 +143,13 @@ fn branch_group_to_branch(
 
     let mut remotes: Vec<BString> = Vec::new();
     for reference in remote_branches.iter() {
-        let fetch = reference.remote_name(gix::remote::Direction::Fetch);
-        let push = reference.remote_name(gix::remote::Direction::Push);
-        if let Some(remote) = fetch.or(push) {
-            remotes.push(remote.as_bstr().into());
-        }
+        let short_name: String = reference.name().shorten().to_str_lossy().to_string();
+        let file_name: String = reference.name().file_name().to_str_lossy().to_string();
+        // remove file_name suffix from short_name and also remote the trailing '/' character
+        let remote_name = short_name
+            .trim_end_matches(&file_name)
+            .trim_end_matches('/');
+        remotes.push(BString::from(remote_name));
     }
 
     // The head commit for which we calculate statistics.
