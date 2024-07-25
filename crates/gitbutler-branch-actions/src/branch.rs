@@ -226,7 +226,7 @@ impl GroupBranch<'_> {
     /// they are grouped together under the same `Branch` entry.
     fn identity(&self) -> Option<BString> {
         match self {
-            GroupBranch::Git(branch) => Some(branch.name().shorten().into()),
+            GroupBranch::Git(branch) => Some(branch.name().file_name().into()),
             // When a user changes the remote name via the "set remote branch name" in the UI,
             // the virtual branch will be in a different group. This is probably the desired behavior.
             GroupBranch::Virtual(branch) => branch.upstream.clone().map(|x| x.branch().into()),
