@@ -1,13 +1,15 @@
 <script lang="ts">
 	import Button from '$lib/shared/Button.svelte';
-	import { createEventDispatcher } from 'svelte';
 
-	export let showFrame = false;
+	interface Props {
+		showFrame?: boolean;
+		handleShow: () => void;
+	}
 
-	const dispatch = createEventDispatcher();
+	const { handleShow, showFrame = false }: Props = $props();
 
 	function show() {
-		dispatch('show');
+		handleShow();
 	}
 </script>
 
