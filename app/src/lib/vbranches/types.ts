@@ -356,17 +356,3 @@ export class BranchData {
 		return this.name.replace('refs/remotes/', '').replace('origin/', '').replace('refs/heads/', '');
 	}
 }
-
-export type NameConflictResolution =
-	| {
-			type: 'suffix';
-			value: undefined;
-	  }
-	| {
-			type: 'overwrite';
-			value: undefined;
-	  }
-	| {
-			type: 'rename';
-			value: string;
-	  };

@@ -54,7 +54,7 @@ async fn rebase_commit() {
     let unapplied_branch = {
         // unapply first vbranch
         let unapplied_branch = controller
-            .convert_to_real_branch(project, branch1_id, Default::default())
+            .convert_to_real_branch(project, branch1_id)
             .await
             .unwrap();
 
@@ -163,7 +163,7 @@ async fn rebase_work() {
     let unapplied_branch = {
         // unapply first vbranch
         let unapplied_branch = controller
-            .convert_to_real_branch(project, branch1_id, Default::default())
+            .convert_to_real_branch(project, branch1_id)
             .await
             .unwrap();
 
