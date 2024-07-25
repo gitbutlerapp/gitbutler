@@ -16,12 +16,12 @@
 				window.location.href = '/';
 			}
 		}
-		if (localStorage.hasOwnProperty('gb_access_token')) {
+		if (localStorage.has('gb_access_token')) {
 			token = localStorage.getItem('gb_access_token');
 		}
 	});
 
-	function logout(event: MouseEvent & { currentTarget: EventTarget & HTMLButtonElement }) {
+	function logout() {
 		localStorage.removeItem('gb_access_token');
 		token = null;
 		window.location.href = PUBLIC_APP_HOST + 'cloud/logout';
@@ -78,10 +78,6 @@
 		justify-content: center;
 		align-items: center;
 		padding: 12px;
-	}
-
-	footer a {
-		font-weight: bold;
 	}
 
 	@media (min-width: 480px) {

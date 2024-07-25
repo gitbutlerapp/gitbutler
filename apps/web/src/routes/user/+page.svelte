@@ -14,7 +14,7 @@
 					'X-AUTH-TOKEN': key || ''
 				}
 			})
-				.then((response) => response.json())
+				.then(async (response) => await response.json())
 				.then((data) => {
 					console.log(data);
 					user = data;
