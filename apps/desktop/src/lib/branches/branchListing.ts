@@ -29,48 +29,48 @@ export class BranchListing {
 	/// If this branch is a local branch, this list will be empty.
 	remotes!: string[];
 	/// The branch may or may not have a virtual branch associated with it
-	virtual_branch?: VirtualBranchReference | undefined;
+	virtualBranch?: VirtualBranchReference | undefined;
 	/// The number of lines added within the branch
 	/// Since the virtual branch, local branch and the remote one can have different number of lines removed,
 	/// the value from the virtual branch (if present) takes the highest precedence,
 	/// followed by the local branch and then the remote branches (taking the max if there are multiple)
-    /// If this branch has a virutal branch, lines_added does NOT include the uncommitted lines.
-	lines_added!: number;
+	/// If this branch has a virutal branch, lines_added does NOT include the uncommitted lines.
+	linesAdded!: number;
 	/// The number of lines removed within the branch
 	/// Since the virtual branch, local branch and the remote one can have different number of lines removed,
 	/// the value from the virtual branch (if present) takes the highest precedence,
 	/// followed by the local branch and then the remote branches (taking the max if there are multiple)
-    /// If this branch has a virutal branch, lines_removed does NOT include the uncommitted lines.
-	lines_removed!: number;
+	/// If this branch has a virutal branch, lines_removed does NOT include the uncommitted lines.
+	linesRemoved!: number;
 	/// The number of files that were modified within the branch
 	/// Since the virtual branch, local branch and the remote one can have different number files modified,
 	/// the value from the virtual branch (if present) takes the highest precedence,
 	/// followed by the local branch and then the remote branches (taking the max if there are multiple)
-	number_of_files!: number;
+	numberOfFiles!: number;
 	/// The number of commits associated with a branch
 	/// Since the virtual branch, local branch and the remote one can have different number of commits,
 	/// the value from the virtual branch (if present) takes the highest precedence,
 	/// followed by the local branch and then the remote branches (taking the max if there are multiple)
-	number_of_commits!: number;
+	numberOfCommits!: number;
 	/// Timestamp in milliseconds since the branch was last updated.
 	/// This includes any commits, uncommited changes or even updates to the branch metadata (e.g. renaming).
-	updated_at!: number;
+	updatedAt!: number;
 	/// A list of authors that have contributes commits to this branch.
 	/// In the case of multiple remote tracking branches, it takes the full list of unique authors.
 	authors!: Author[];
 	/// Determines if the branch is considered one created by the user
 	/// A branch is considered created by the user if they were the author of the first commit in the branch.
-	own_branch!: boolean;
+	ownBranch!: boolean;
 }
 
 /// Represents a reference to an associated virtual branch
 export class VirtualBranchReference {
 	/// A non-normalized name of the branch, set by the user
-	given_name!: string;
+	givenName!: string;
 	/// Virtual Branch UUID identifier
 	id!: string;
 	/// Determines if the virtual branch is applied in the workspace
-	in_workspace!: boolean;
+	inWorkspace!: boolean;
 }
 
 /// Represents a "commit author" or "signature", based on the data from ther git history
