@@ -4,19 +4,23 @@ import type { Author, VirtualBranch, Branch } from '$lib/vbranches/types';
 export class CombinedBranch {
 	pr?: PullRequest;
 	remoteBranch?: Branch;
+	localBranch?: Branch;
 	vbranch?: VirtualBranch;
 
 	constructor({
 		vbranch,
 		remoteBranch,
+		localBranch,
 		pr
 	}: {
 		vbranch?: VirtualBranch;
 		remoteBranch?: Branch;
+		localBranch?: Branch;
 		pr?: PullRequest;
 	}) {
 		this.vbranch = vbranch;
 		this.remoteBranch = remoteBranch;
+		this.localBranch = localBranch;
 		this.pr = pr;
 	}
 
@@ -24,6 +28,7 @@ export class CombinedBranch {
 		return (
 			this.pr?.sha ||
 			this.remoteBranch?.sha ||
+			this.localBranch?.sha ||
 			this.vbranch?.upstream?.sha ||
 			this.vbranch?.head ||
 			'unknown'
@@ -32,7 +37,11 @@ export class CombinedBranch {
 
 	get displayName(): string {
 		return (
-			this.pr?.sourceBranch || this.remoteBranch?.displayName || this.vbranch?.name || 'unknown'
+			this.pr?.sourceBranch ||
+			this.remoteBranch?.displayName ||
+			this.localBranch?.displayName ||
+			this.vbranch?.name ||
+			'unknown'
 		);
 	}
 
@@ -41,9 +50,9 @@ export class CombinedBranch {
 		if (this.pr?.author) {
 			authors.push(this.pr.author);
 		}
-		if (this.remoteBranch) {
-			if (this.remoteBranch.lastCommitAuthor) {
-				authors.push({ name: this.remoteBranch.lastCommitAuthor });
+		if (this.branch) {
+			if (this.branch.lastCommitAuthor) {
+				authors.push({ name: this.branch.lastCommitAuthor });
 			}
 		}
 		if (this.vbranch) {
@@ -59,7 +68,14 @@ export class CombinedBranch {
 		return this.authors[0];
 	}
 
-	get icon(): 'remote-branch' | 'virtual-branch' | 'pr' | 'pr-draft' | 'pr-closed' | undefined {
+	get icon():
+		| 'remote-branch'
+		| 'local-branch'
+		| 'virtual-branch'
+		| 'pr'
+		| 'pr-draft'
+		| 'pr-closed'
+		| undefined {
 		return this.currentState();
 	}
 
@@ -73,9 +89,9 @@ export class CombinedBranch {
 
 	get modifiedAt(): Date | undefined {
 		if (this.vbranch) return this.vbranch.updatedAt;
-		if (this.remoteBranch) {
-			return this.remoteBranch.lastCommitTimestampMs
-				? new Date(this.remoteBranch.lastCommitTimestampMs)
+		if (this.branch) {
+			return this.branch.lastCommitTimestampMs
+				? new Date(this.branch.lastCommitTimestampMs)
 				: undefined;
 		}
 		if (this.pr) {
@@ -90,6 +106,8 @@ export class CombinedBranch {
 				return 'Virtual branch';
 			case BranchState.RemoteBranch:
 				return 'Remote branch';
+			case BranchState.LocalBranch:
+				return 'Local branch';
 			case BranchState.PR:
 				return 'Pull Request';
 			case BranchState.PRClosed:
@@ -109,9 +127,9 @@ export class CombinedBranch {
 			this.pr.author?.email && identifiers.push(this.pr.author.email);
 			this.pr.author?.name && identifiers.push(this.pr.author.name);
 		}
-		if (this.remoteBranch) {
-			identifiers.push(this.remoteBranch.displayName);
-			this.remoteBranch.lastCommitAuthor && identifiers.push(this.remoteBranch.lastCommitAuthor);
+		if (this.branch) {
+			identifiers.push(this.branch.displayName);
+			this.branch.lastCommitAuthor && identifiers.push(this.branch.lastCommitAuthor);
 		}
 
 		return identifiers.map((identifier) => identifier.toLowerCase());
@@ -120,13 +138,21 @@ export class CombinedBranch {
 	currentState(): BranchState | undefined {
 		if (this.pr) return BranchState.PR;
 		if (this.remoteBranch) return BranchState.RemoteBranch;
+		if (this.localBranch) return BranchState.LocalBranch;
 		if (this.vbranch) return BranchState.VirtualBranch;
 		return undefined;
+	}
+
+	get branch() {
+		// Prefer the local branch over the remote branch
+		// We should always have at least one branch
+		return this.localBranch || this.remoteBranch;
 	}
 }
 
 enum BranchState {
 	RemoteBranch = 'remote-branch',
+	LocalBranch = 'local-branch',
 	VirtualBranch = 'virtual-branch',
 	PR = 'pr',
 	PRDraft = 'pr-draft',

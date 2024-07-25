@@ -54,7 +54,7 @@ mod applied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .create_virtual_branch_from_branch(project, &unapplied_branch)
+                .create_virtual_branch_from_branch(project, &unapplied_branch, None)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
@@ -124,7 +124,7 @@ mod applied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .create_virtual_branch_from_branch(project, &unapplied_branch)
+                .create_virtual_branch_from_branch(project, &unapplied_branch, None)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
@@ -200,7 +200,7 @@ mod applied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .create_virtual_branch_from_branch(project, &unapplied_branch)
+                .create_virtual_branch_from_branch(project, &unapplied_branch, None)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
@@ -273,7 +273,7 @@ mod applied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .create_virtual_branch_from_branch(project, &unapplied_branch)
+                .create_virtual_branch_from_branch(project, &unapplied_branch, None)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
@@ -346,7 +346,7 @@ mod applied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .create_virtual_branch_from_branch(project, &unapplied_branch)
+                .create_virtual_branch_from_branch(project, &unapplied_branch, None)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
@@ -767,6 +767,7 @@ mod applied_branch {
                 .create_virtual_branch_from_branch(
                     project,
                     &Refname::from_str(unapplied_refname.as_str()).unwrap(),
+                    None,
                 )
                 .await
                 .unwrap();

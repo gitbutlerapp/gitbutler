@@ -4,6 +4,7 @@
 	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
+	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
 	import { BranchService, createBranchServiceStore } from '$lib/branches/service';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
@@ -32,6 +33,8 @@
 	import type { LayoutData } from './$types';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
+
+	const nameNormalizationService = getNameNormalizationServiceContext();
 
 	const {
 		vbranchService,
@@ -104,7 +107,14 @@
 
 		listServiceStore.set(ghListService);
 		githubRepoServiceStore.set(gitHost);
-		branchServiceStore.set(new BranchService(vbranchService, remoteBranchService, ghListService));
+		branchServiceStore.set(
+			new BranchService(
+				vbranchService,
+				remoteBranchService,
+				ghListService,
+				nameNormalizationService
+			)
+		);
 	});
 
 	// Once on load and every time the project id changes

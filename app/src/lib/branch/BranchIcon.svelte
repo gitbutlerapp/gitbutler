@@ -1,12 +1,19 @@
 <script lang="ts">
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 
-	export let name: 'remote-branch' | 'virtual-branch' | 'pr' | 'pr-draft' | 'pr-closed' | undefined;
+	export let name:
+		| 'remote-branch'
+		| 'local-branch'
+		| 'virtual-branch'
+		| 'pr'
+		| 'pr-draft'
+		| 'pr-closed'
+		| undefined;
 	export let help: string | undefined;
 
 	function getIconColor(name: string | undefined) {
 		if (name === 'remote-branch') return 'neutral';
-		if (name === 'virtual-branch') return 'virtual';
+		if (name === 'virtual-branch' || name === 'local-branch') return 'virtual';
 		if (name === 'pr') return 'success';
 		if (name === 'pr-draft') return 'purple';
 		if (name === 'pr-closed') return 'neutral';
@@ -24,7 +31,7 @@
 			/>
 		</svg>
 	{/if}
-	{#if name === 'remote-branch'}
+	{#if name === 'remote-branch' || name === 'local-branch'}
 		<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 			<path
 				d="M5.75 9.99973V4H4.25V16H5.75V13C5.75 11.7574 6.75736 10.75 8 10.75C10.0711 10.75 11.75 9.07107 11.75 7V4H10.25V7C10.25 8.24264 9.24264 9.25 8 9.25C7.1558 9.25 6.37675 9.52896 5.75 9.99973Z"

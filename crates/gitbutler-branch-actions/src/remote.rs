@@ -30,6 +30,7 @@ pub struct RemoteBranch {
     pub given_name: String,
     pub last_commit_timestamp_ms: Option<u128>,
     pub last_commit_author: Option<String>,
+    pub is_remote: bool,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -139,6 +140,7 @@ pub(crate) fn branch_to_remote_branch(
             .map(|t: u128| t * 1000)
             .ok(),
         last_commit_author: commit.author().name().map(std::string::ToString::to_string),
+        is_remote: branch.get().is_remote(),
     })
 }
 

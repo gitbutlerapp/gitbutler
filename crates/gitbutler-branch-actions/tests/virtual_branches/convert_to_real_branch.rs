@@ -92,7 +92,7 @@ async fn conflicting() {
     let branch_id = {
         // apply branch, it should conflict
         let branch_id = controller
-            .create_virtual_branch_from_branch(project, &unapplied_branch)
+            .create_virtual_branch_from_branch(project, &unapplied_branch, None)
             .await
             .unwrap();
 

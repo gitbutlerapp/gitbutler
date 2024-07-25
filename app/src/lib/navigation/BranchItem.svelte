@@ -10,7 +10,10 @@
 
 	function getBranchLink(b: CombinedBranch): string | undefined {
 		if (b.vbranch) return `/${projectId}/board/`;
-		if (b.remoteBranch) return `/${projectId}/remote/${branch?.remoteBranch?.displayName}`;
+		// Here we specifically want to prefer looking at the remote branch as
+		// the there may be multiple remotes that share the same local branch.
+		if (b.branch)
+			return `/${projectId}/branch/${branch?.remoteBranch?.name || branch?.localBranch?.name}`;
 		if (b.pr) return `/${projectId}/pull/${b.pr.number}`;
 	}
 

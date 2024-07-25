@@ -13,9 +13,12 @@
 	import type { Branch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
-	export let branch: Branch;
+	export let localBranch: Branch | undefined;
+	export let remoteBranch: Branch | undefined;
 	export let base: BaseBranch | undefined | null;
 	export let pr: PullRequest | undefined;
+
+	$: branch = remoteBranch || localBranch!;
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
@@ -26,29 +29,36 @@
 <div class="header__wrapper">
 	<div class="header card">
 		<div class="header__info">
-			<BranchLabel disabled bind:name={branch.name} />
+			<BranchLabel disabled name={branch.name} />
 			<div class="header__remote-branch">
-				<div
-					class="status-tag text-base-11 text-semibold remote"
-					use:tooltip={'At least some of your changes have been pushed'}
-				>
-					<Icon name="remote-branch-small" /> remote
-				</div>
-				<Button
-					size="tag"
-					icon="open-link"
-					style="ghost"
-					outline
-					shrinkable
-					on:click={(e) => {
-						const url = base?.branchUrl(branch.name);
-						if (url) openExternalUrl(url);
-						e.preventDefault();
-						e.stopPropagation();
-					}}
-				>
-					{branch.displayName}
-				</Button>
+				{#if remoteBranch}
+					<div
+						class="status-tag text-base-11 text-semibold remote"
+						use:tooltip={'At least some of your changes have been pushed'}
+					>
+						<Icon name="remote-branch-small" />
+						{localBranch ? 'local and remote' : 'remote'}
+					</div>
+					<Button
+						size="tag"
+						icon="open-link"
+						style="ghost"
+						outline
+						shrinkable
+						on:click={(e) => {
+							const url = base?.branchUrl(branch.name);
+							if (url) openExternalUrl(url);
+							e.preventDefault();
+							e.stopPropagation();
+						}}
+					>
+						{branch.displayName}
+					</Button>
+				{:else}
+					<div class="status-tag text-base-11 text-semibold remote">
+						<Icon name="remote-branch-small" /> local
+					</div>
+				{/if}
 				{#if pr?.htmlUrl}
 					<Button
 						size="tag"
@@ -79,7 +89,11 @@
 					on:click={async () => {
 						isApplying = true;
 						try {
-							await branchController.createvBranchFromBranch(branch.name);
+							if (localBranch) {
+								await branchController.createvBranchFromBranch(localBranch.name, remoteBranch?.name);
+							} else {
+								await branchController.createvBranchFromBranch(remoteBranch!.name);
+							}
 							goto(`/${project.id}/board`);
 						} catch (e) {
 							const err = 'Failed to apply branch';

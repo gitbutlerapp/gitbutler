@@ -94,7 +94,7 @@ async fn rebase_commit() {
     {
         // apply first vbranch again
         branch1_id = controller
-            .create_virtual_branch_from_branch(project, &unapplied_branch)
+            .create_virtual_branch_from_branch(project, &unapplied_branch, None)
             .await
             .unwrap();
 
@@ -192,7 +192,7 @@ async fn rebase_work() {
     {
         // apply first vbranch again
         branch1_id = controller
-            .create_virtual_branch_from_branch(project, &unapplied_branch)
+            .create_virtual_branch_from_branch(project, &unapplied_branch, None)
             .await
             .unwrap();
 

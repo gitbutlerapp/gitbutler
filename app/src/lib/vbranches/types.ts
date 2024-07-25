@@ -315,13 +315,10 @@ export class Branch {
 	lastCommitTimestampMs?: number | undefined;
 	lastCommitAuthor?: string | undefined;
 	givenName!: string;
+	isRemote!: boolean;
 
 	get displayName(): string {
 		return this.name.replace('refs/remotes/', '').replace('refs/heads/', '');
-	}
-
-	get isRemote() {
-		return !!this.upstream;
 	}
 }
 

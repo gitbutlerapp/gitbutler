@@ -136,7 +136,7 @@ async fn resolve_conflict_flow() {
     let branch1_id = {
         // when we apply conflicted branch, it has conflict
         let branch1_id = controller
-            .create_virtual_branch_from_branch(project, &unapplied_branch)
+            .create_virtual_branch_from_branch(project, &unapplied_branch, None)
             .await
             .unwrap();
 

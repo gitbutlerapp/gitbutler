@@ -67,7 +67,7 @@
 				if (b.pr) return false;
 			}
 
-			if (params.includeRemote && b.remoteBranch) return true;
+			if (params.includeRemote && b.branch) return true;
 			return false;
 		});
 	}

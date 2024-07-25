@@ -470,12 +470,13 @@ impl VirtualBranchActions {
         &self,
         project: &Project,
         branch: &Refname,
+        remote: Option<RemoteRefname>,
     ) -> Result<BranchId> {
         let project_repository = open_with_verify(project)?;
         let branch_manager = project_repository.branch_manager();
         let mut guard = project.exclusive_worktree_access();
         branch_manager
-            .create_virtual_branch_from_branch(branch, guard.write_permission())
+            .create_virtual_branch_from_branch(branch, remote, guard.write_permission())
             .map_err(Into::into)
     }
 }
