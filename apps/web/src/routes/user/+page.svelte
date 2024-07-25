@@ -26,14 +26,14 @@
 	});
 </script>
 
-{#if state == 'loading'}
+{#if state === 'loading'}
 	<p>Loading...</p>
-{:else if state == 'unauthorized'}
+{:else if state === 'unauthorized'}
 	<p>Unauthorized</p>
 {:else}
 	{user.name}
 	<div>{user.email}</div>
-	<img width="50" src={user.avatar_url} />
+	<img alt="User Avatar" width="50" src={user.avatar_url} />
 	{user.created_at}
 	{user.supporter}
 {/if}

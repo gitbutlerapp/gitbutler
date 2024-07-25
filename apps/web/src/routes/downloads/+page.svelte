@@ -8,7 +8,7 @@
 
 	onMount(() => {
 		fetch(PUBLIC_APP_HOST + 'api/downloads?limit=40')
-			.then((response) => response.json())
+			.then(async (response) => await response.json())
 			.then((data) => {
 				console.log(data);
 				releases = data.filter((release: any) => release.channel === 'release');

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import '../app.css';
-	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
-	import { redirect } from '@sveltejs/kit';
+	import { page } from '$app/stores';
 	import { PUBLIC_APP_HOST } from '$env/static/public';
+
 	// onMount, check for page params
 	let token: string | null = null;
 	onMount(() => {
