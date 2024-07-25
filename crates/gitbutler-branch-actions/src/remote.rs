@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use bstr::BString;
-use gitbutler_branch::{Target, VirtualBranchesHandle};
+use gitbutler_branch::{ReferenceExt, Target, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -122,7 +122,7 @@ pub(crate) fn branch_to_remote_branch(
         .context("could not get branch name")
         .ok()?;
 
-    let given_name = ctx.given_name_for_branch(branch).ok()?;
+    let given_name = branch.get().given_name(&ctx.repo().remotes().ok()?).ok()?;
 
     branch.get().target().map(|sha| RemoteBranch {
         sha,

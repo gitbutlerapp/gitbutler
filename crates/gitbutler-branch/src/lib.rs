@@ -2,6 +2,8 @@ mod branch;
 pub use branch::{Branch, BranchCreateRequest, BranchId, BranchUpdateRequest};
 mod branch_ext;
 pub use branch_ext::BranchExt;
+mod reference_ext;
+pub use reference_ext::ReferenceExt;
 mod dedup;
 pub use dedup::{dedup, dedup_fmt};
 mod file_ownership;

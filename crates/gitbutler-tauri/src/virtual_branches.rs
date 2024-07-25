@@ -3,10 +3,11 @@ pub mod commands {
     use anyhow::{anyhow, Context};
     use gitbutler_branch::BranchOwnershipClaims;
     use gitbutler_branch::{BranchCreateRequest, BranchId, BranchUpdateRequest};
-    use gitbutler_branch_actions::BaseBranch;
     use gitbutler_branch_actions::RemoteBranchFile;
+    use gitbutler_branch_actions::{BaseBranch, BranchListing};
     use gitbutler_branch_actions::{RemoteBranch, RemoteBranchData};
     use gitbutler_branch_actions::{VirtualBranchActions, VirtualBranches};
+    use gitbutler_command_context::ProjectRepository;
     use gitbutler_error::error::Code;
     use gitbutler_project as projects;
     use gitbutler_project::{FetchResult, ProjectId};
@@ -421,6 +422,17 @@ pub mod commands {
     ) -> Result<Vec<RemoteBranch>, Error> {
         let project = projects.get(project_id)?;
         let branches = VirtualBranchActions::list_remote_branches(project).await?;
+        Ok(branches)
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects), err(Debug))]
+    pub async fn list_branches(
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+    ) -> Result<Vec<BranchListing>, Error> {
+        let ctx = ProjectRepository::open(&projects.get(project_id)?)?;
+        let branches = gitbutler_branch_actions::list_branches(&ctx)?;
         Ok(branches)
     }
 
