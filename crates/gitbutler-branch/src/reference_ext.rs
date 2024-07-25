@@ -10,11 +10,11 @@ pub trait ReferenceExt {
     ///
     /// An ideal implementation wouldn't require us to list all the references,
     /// but there doesn't seem to be a libgit2 solution to this.
-    fn given_name(&self, remotes: git2::string_array::StringArray) -> Result<String>;
+    fn given_name(&self, remotes: &git2::string_array::StringArray) -> Result<String>;
 }
 
 impl<'repo> ReferenceExt for git2::Reference<'repo> {
-    fn given_name(&self, remotes: git2::string_array::StringArray) -> Result<String> {
+    fn given_name(&self, remotes: &git2::string_array::StringArray) -> Result<String> {
         if self.is_remote() {
             let shorthand_name = self
                 .shorthand()
