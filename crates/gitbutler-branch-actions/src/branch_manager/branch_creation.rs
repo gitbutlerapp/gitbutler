@@ -36,7 +36,7 @@ impl BranchManager<'_> {
 
         let tree = commit
             .tree()
-            .context("failed to find defaut target commit tree")?;
+            .context("failed to find default target commit tree")?;
 
         let mut all_virtual_branches = vb_state
             .list_branches_in_workspace()
