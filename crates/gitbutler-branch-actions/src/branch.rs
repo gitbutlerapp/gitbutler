@@ -1,4 +1,3 @@
-use std::any::TypeId;
 use std::cmp::max;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -12,6 +11,7 @@ use gitbutler_branch::BranchId;
 use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::ProjectRepository;
 
+use gitbutler_reference::normalize_branch_name;
 use serde::Serialize;
 
 use crate::{VirtualBranch, VirtualBranchesExt};
@@ -54,7 +54,7 @@ fn combine_branches<'a>(
         group_branches.push(GroupBranch::Git(branch));
     }
     // Group branches by identity
-    let mut groups: HashMap<BString, Vec<&GroupBranch>> = HashMap::new();
+    let mut groups: HashMap<Option<BString>, Vec<&GroupBranch>> = HashMap::new();
     for branch in group_branches.iter() {
         let identity = branch.identity();
         if let Some(group) = groups.get_mut(&identity) {
@@ -94,7 +94,7 @@ fn combine_branches<'a>(
 
 /// Converts a group of branches with the same identity into a single branch entry
 fn branch_group_to_branch(
-    identity: BString,
+    identity: Option<BString>,
     group_branches: Vec<&GroupBranch>,
     repo: &git2::Repository,
     local_author: &Author,
@@ -192,8 +192,15 @@ fn branch_group_to_branch(
         virtual_branch.map_or(0, |x| x.updated_timestamp_ms),
     );
 
+    // If this was a virtual branch and there was never any remote set, use the virtual branch name as the identity
+    let identity = identity.unwrap_or(BString::from(
+        virtual_branch
+            .map(|vb| normalize_branch_name(&vb.name))
+            .unwrap_or_default(),
+    ));
+
     let branch = BranchListing {
-        name: identity.to_string(),
+        name: identity,
         remotes,
         virtual_branch: virtual_branch_reference,
         lines_added: diff_stats.insertions(),
@@ -217,15 +224,12 @@ enum GroupBranch<'a> {
 impl GroupBranch<'_> {
     /// A name identifier for the branch. When multiple branches (e.g. virtual, local, reomte) have the same identity,
     /// they are grouped together under the same `Branch` entry.
-    fn identity(&self) -> BString {
+    fn identity(&self) -> Option<BString> {
         match self {
-            GroupBranch::Git(branch) => branch.name().shorten().into(),
+            GroupBranch::Git(branch) => Some(branch.name().shorten().into()),
             // When a user changes the remote name via the "set remote branch name" in the UI,
             // the virtual branch will be in a different group. This is probably the desired behavior.
-            GroupBranch::Virtual(branch) => branch
-                .upstream
-                .clone()
-                .map_or(BString::default(), |x| x.branch().into()),
+            GroupBranch::Virtual(branch) => branch.upstream.clone().map(|x| x.branch().into()),
         }
     }
 }
@@ -256,7 +260,8 @@ fn should_list_git_branch(branch: &gix::Reference, vb_handle: &VirtualBranchesHa
 #[serde(rename_all = "camelCase")]
 pub struct BranchListing {
     /// The name of the branch (e.g. `main`, `feature/branch`), excluding the remote name
-    pub name: String,
+    #[serde(serialize_with = "gitbutler_serde::serde::as_string_lossy")]
+    pub name: BString,
     /// This is a list of remote that this branch can be found on (e.g. `origin`, `upstream` etc.).
     /// If this branch is a local branch, this list will be empty.
     #[serde(serialize_with = "gitbutler_serde::serde::as_string_lossy_vec")]
