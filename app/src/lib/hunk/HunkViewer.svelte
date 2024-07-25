@@ -65,7 +65,9 @@
 	<div
 		tabindex="0"
 		role="cell"
+		bind:this={viewport}
 		class:opacity-60={section.hunk.locked && !isFileLocked}
+		oncontextmenu={(e) => e.preventDefault()}
 		use:draggableElement={{
 			data: new DraggableHunk($branch?.id || '', section.hunk),
 			disabled: draggingDisabled
@@ -80,16 +82,16 @@
 				/>
 			{:else}
 				<HunkDiff
+					{readonly}
 					{filePath}
 					{selectable}
+					{draggingDisabled}
+					tabSize={$userSettings.tabSize}
 					hunk={section.hunk}
 					subsections={section.subSections}
 					handleSelected={(hunk, isSelected) => onHunkSelected(hunk, isSelected)}
-					handleClick={() => {
-						// TODO: Replace with generic 'clickOutside' on contextMenu
-						contextMenu?.close();
-					}}
 					handleLineContextMenu={({ event, lineNumber, hunk, subsection }) => {
+						console.log('hunkViewer.opening.contextMenu()', { contextMenu });
 						contextMenu?.open(event, {
 							hunk,
 							section: subsection,

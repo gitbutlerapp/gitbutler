@@ -27,11 +27,11 @@
 	let item = $state<any>();
 	let contextMenuHeight = $state(0);
 	let contextMenuWidth = $state(0);
-	let isVisibile = $state(false);
+	let isVisible = $state(false);
 	let menuPosition = $state({ x: 0, y: 0 });
 
 	export function close() {
-		isVisibile = false;
+		isVisible = false;
 		onclose && onclose();
 	}
 
@@ -39,7 +39,7 @@
 		if (!target) return;
 
 		if (newItem) item = newItem;
-		isVisibile = true;
+		isVisible = true;
 		onopen && onopen();
 
 		if (!openByMouse) {
@@ -55,7 +55,7 @@
 	}
 
 	export function toggle(e?: MouseEvent, newItem?: any) {
-		if (!isVisibile) {
+		if (!isVisible) {
 			open(e, newItem);
 		} else {
 			close();
@@ -133,7 +133,7 @@
 	</div>
 {/snippet}
 
-{#if isVisibile}
+{#if isVisible}
 	<div class="portal-wrap" use:portal={'body'}>
 		{#if openByMouse}
 			{@render contextMenu()}
