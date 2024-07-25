@@ -2,6 +2,7 @@
 	import HunkDiff from './HunkDiff.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { draggableElement } from '$lib/dragging/draggable';
+	import { DraggableHunk } from '$lib/dragging/draggables';
 	import HunkContextMenu from '$lib/hunk/HunkContextMenu.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
@@ -10,12 +11,10 @@
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, type Hunk } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
-	import { DraggableHunk } from '$lib/dragging/draggables';
 
 	interface Props {
 		filePath: string;
 		section: HunkSection;
-		minWidth: number;
 		selectable: boolean;
 		isUnapplied: boolean;
 		isFileLocked: boolean;
@@ -27,7 +26,6 @@
 		filePath,
 		section,
 		linesModified,
-		minWidth,
 		selectable = false,
 		isUnapplied,
 		isFileLocked,
@@ -40,7 +38,7 @@
 	const project = getContext(Project);
 
 	let alwaysShow = $state(false);
-	let contents = $state<HTMLDivElement>();
+	// let contents = $state<HTMLDivElement>();
 	let viewport = $state<HTMLDivElement>();
 	let contextMenu = $state<HunkContextMenu>();
 	const draggingDisabled = $derived(readonly || isUnapplied);
@@ -55,6 +53,14 @@
 	}
 </script>
 
+<HunkContextMenu
+	bind:this={contextMenu}
+	target={viewport}
+	projectPath={project.vscodePath}
+	{filePath}
+	{readonly}
+/>
+
 <div class="scrollable">
 	<div
 		tabindex="0"
@@ -68,12 +74,29 @@
 		<div class="hunk__bg-stretch">
 			{#if linesModified > 2500 && !alwaysShow}
 				<LargeDiffMessage
-					on:show={() => {
+					handleShow={() => {
 						alwaysShow = true;
 					}}
 				/>
 			{:else}
-				<HunkDiff hunk={section.hunk} {filePath} subsections={section.subSections} />
+				<HunkDiff
+					{filePath}
+					{selectable}
+					hunk={section.hunk}
+					subsections={section.subSections}
+					handleSelected={(hunk, isSelected) => onHunkSelected(hunk, isSelected)}
+					handleClick={() => {
+						// TODO: Replace with generic 'clickOutside' on contextMenu
+						contextMenu?.close();
+					}}
+					handleLineContextMenu={({ event, lineNumber, hunk, subsection }) => {
+						contextMenu?.open(event, {
+							hunk,
+							section: subsection,
+							lineNumber: lineNumber
+						});
+					}}
+				/>
 			{/if}
 		</div>
 	</div>
@@ -84,7 +107,6 @@
 		display: flex;
 		flex-direction: column;
 		position: relative;
-		border-radius: var(--radius-s);
 		overflow-x: scroll;
 
 		& > div {
@@ -99,7 +121,6 @@
 		user-select: text;
 
 		background: var(--clr-bg-1);
-		border-radius: var(--radius-s);
 		border: 1px solid var(--clr-border-2);
 		transition: border-color var(--transition-fast);
 	}

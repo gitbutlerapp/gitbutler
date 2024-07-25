@@ -4,10 +4,26 @@
 	import diff_match_patch from 'diff-match-patch';
 	import type { Hunk } from '$lib/vbranches/types';
 
+	type HandleLineContextMenuArgs = {
+		event: MouseEvent;
+		lineNumber: number;
+		hunk: Hunk;
+		subsection: ContentSection;
+	};
+
 	interface Props {
 		hunk: Hunk;
 		filePath: string;
+		selectable: boolean;
 		subsections: ContentSection[];
+		handleSelected?: (hunk: Hunk, isSelected: boolean) => void;
+		handleClick?: () => void;
+		handleLineContextMenu?: ({
+			event,
+			lineNumber,
+			hunk,
+			subsection
+		}: HandleLineContextMenuArgs) => void;
 	}
 
 	interface Row {
@@ -27,7 +43,15 @@
 
 	type DiffRows = { prevRows: Row[]; nextRows: Row[] };
 
-	const { hunk, filePath, subsections }: Props = $props();
+	const {
+		hunk,
+		filePath,
+		selectable,
+		subsections,
+		handleSelected,
+		handleClick,
+		handleLineContextMenu
+	}: Props = $props();
 
 	function charDiff(text1: string, text2: string): { 0: number; 1: string }[] {
 		const differ = new diff_match_patch();
@@ -129,24 +153,20 @@
 	function filterRows(subsections: ContentSection[]) {
 		return subsections.reduce((acc, nextSection, i) => {
 			const prevSection = subsections[i - 1];
-			// If there's no prevLine (first line) or the target line is of type Context (not add or rm), skip
 			if (!prevSection || nextSection.sectionType === SectionType.Context) {
 				acc.push(...createRowData(nextSection));
 				return acc;
 			}
 
-			// Skip sections which aren't the same length in lines changed
 			if (prevSection.lines.length !== nextSection.lines.length) {
 				acc.push(...createRowData(nextSection));
 				return acc;
 			}
 
-			// Skip sections where previous line is empty
 			if (isLineEmpty(prevSection.lines)) {
 				return acc;
 			}
 
-			// Calculate word diffs on all remaining sections
 			const { prevRows, nextRows } = computeWordDiff(prevSection, nextSection);
 
 			// Insert returned row datastructures into the correct place
@@ -170,34 +190,61 @@
 	}
 
 	const renderRows = $derived(filterRows(subsections));
+
+	const selected = true;
+	let isSelected = $derived(selectable && selected);
+
+	$inspect('renderRows', renderRows);
 </script>
 
-<table data-hunk-hash={hunk.hash} class="table__section">
-	<tbody>
-		{#each renderRows as line}
-			<tr>
-				<td class="table__numberColumn" align="center">{line.originalLineNumber}</td>
-				<td class="table__numberColumn" align="center">{line.currentLineNumber}</td>
-				<td
-					class="table__textContent"
-					class:diff-line-deletion={line.type === SectionType.RemovedLines}
-					class:diff-line-addition={line.type === SectionType.AddedLines}
-				>
-					<span class="table__codeContent">
-						{@html line.tokens.join('')}
-					</span>
-				</td>
-			</tr>
-		{/each}
-	</tbody>
-</table>
+<div class="table__wrapper">
+	<table data-hunk-id={hunk.id} class="table__section">
+		<tbody>
+			{#each renderRows as line}
+				<tr>
+					<td
+						class="table__numberColumn"
+						align="center"
+						class:selected={isSelected}
+						onclick={() => selectable && handleSelected?.(hunk, true)}
+					>
+						{line.originalLineNumber}
+					</td>
+					<td
+						class="table__numberColumn"
+						align="center"
+						class:selected={isSelected}
+						onclick={(event) => {
+							selectable && handleSelected?.(hunk, true);
+							const lineNumber = (line.originalLineNumber
+								? line.originalLineNumber
+								: line.currentLineNumber) as number;
+							handleLineContextMenu?.({ event, hunk, lineNumber, subsection: subsections[0] });
+						}}
+					>
+						{line.currentLineNumber}
+					</td>
+					<td
+						class="table__textContent"
+						class:diff-line-deletion={line.type === SectionType.RemovedLines}
+						class:diff-line-addition={line.type === SectionType.AddedLines}
+					>
+						{@html line.tokens.join('') + '\n'}
+					</td>
+				</tr>
+			{/each}
+		</tbody>
+	</table>
+</div>
 
 <style>
+	.table__wrapper {
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+	}
 	.table__section {
 		width: 100%;
 		font-family: 'monospace';
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
 	}
 
 	.table__numberColumn {
@@ -215,6 +262,13 @@
 		cursor: var(--cursor);
 	}
 
+	tr:first-of-type .table__numberColumn:first-child {
+		border-radius: var(--radius-m) 0 0 0;
+	}
+	tr:last-of-type .table__numberColumn:first-child {
+		border-radius: 0 0 0 var(--radius-m);
+	}
+
 	.diff-line-deletion {
 		background-color: #cf8d8e20;
 	}
@@ -225,6 +279,7 @@
 
 	.table__textContent {
 		font-size: 12px;
+		padding-left: 4px;
 		line-height: 1.25;
 		tab-size: var(--tab-size);
 		white-space: pre;
