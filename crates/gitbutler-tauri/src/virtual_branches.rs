@@ -5,8 +5,8 @@ pub mod commands {
     use gitbutler_branch::{BranchCreateRequest, BranchId, BranchUpdateRequest};
     use gitbutler_branch_actions::BaseBranch;
     use gitbutler_branch_actions::RemoteBranchFile;
-    use gitbutler_branch_actions::{NameConflictResolution, VirtualBranchActions, VirtualBranches};
     use gitbutler_branch_actions::{RemoteBranch, RemoteBranchData};
+    use gitbutler_branch_actions::{VirtualBranchActions, VirtualBranches};
     use gitbutler_error::error::Code;
     use gitbutler_project as projects;
     use gitbutler_project::{FetchResult, ProjectId};
@@ -203,11 +203,10 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         branch: BranchId,
-        name_conflict_resolution: NameConflictResolution,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         VirtualBranchActions
-            .convert_to_real_branch(&project, branch, name_conflict_resolution)
+            .convert_to_real_branch(&project, branch)
             .await?;
         emit_vbranches(&windows, project_id).await;
         Ok(())

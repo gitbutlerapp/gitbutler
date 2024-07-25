@@ -23,7 +23,7 @@ async fn unapply_with_data() {
     assert_eq!(branches.len(), 1);
 
     controller
-        .convert_to_real_branch(project, branches[0].id, Default::default())
+        .convert_to_real_branch(project, branches[0].id)
         .await
         .unwrap();
 
@@ -72,7 +72,7 @@ async fn conflicting() {
         );
 
         let unapplied_branch = controller
-            .convert_to_real_branch(project, branches[0].id, Default::default())
+            .convert_to_real_branch(project, branches[0].id)
             .await
             .unwrap();
 
@@ -118,7 +118,7 @@ async fn conflicting() {
     {
         // Converting the branch to a real branch should put us back in an unconflicted state
         controller
-            .convert_to_real_branch(project, branch_id, Default::default())
+            .convert_to_real_branch(project, branch_id)
             .await
             .unwrap();
 
@@ -151,7 +151,7 @@ async fn delete_if_empty() {
     assert_eq!(branches.len(), 1);
 
     controller
-        .convert_to_real_branch(project, branches[0].id, Default::default())
+        .convert_to_real_branch(project, branches[0].id)
         .await
         .unwrap();
 

@@ -4,7 +4,7 @@ import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
-import type { VirtualBranch, Hunk, LocalFile, NameConflictResolution } from './types';
+import type { VirtualBranch, Hunk, LocalFile } from './types';
 import type { VirtualBranchService } from './virtualBranch';
 
 export class BranchController {
@@ -180,15 +180,11 @@ export class BranchController {
 		}
 	}
 
-	async convertToRealBranch(
-		branchId: string,
-		nameConflictResolution: NameConflictResolution = { type: 'suffix', value: undefined }
-	) {
+	async convertToRealBranch(branchId: string) {
 		try {
 			await invoke<void>('convert_to_real_branch', {
 				projectId: this.projectId,
-				branch: branchId,
-				nameConflictResolution
+				branch: branchId
 			});
 			this.remoteBranchService.refresh();
 		} catch (err) {

@@ -20,7 +20,7 @@ use std::{
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 use git2_hooks::HookResult;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::branch_manager::BranchManagerExt;
 use crate::commit::{commit_to_vbranch_commit, VirtualBranchCommit};
@@ -80,15 +80,6 @@ pub struct VirtualBranch {
 pub struct VirtualBranches {
     pub branches: Vec<VirtualBranch>,
     pub skipped_files: Vec<gitbutler_diff::FileDiff>,
-}
-
-#[derive(Default, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", tag = "type", content = "value")]
-pub enum NameConflictResolution {
-    #[default]
-    Suffix,
-    Rename(String),
-    Overwrite,
 }
 
 pub fn unapply_ownership(
@@ -256,7 +247,7 @@ fn resolve_old_applied_state(
 
     for mut branch in branches {
         if branch.is_old_unapplied() {
-            branch_manager.convert_to_real_branch(branch.id, Default::default(), perm)?;
+            branch_manager.convert_to_real_branch(branch.id, perm)?;
         } else {
             branch.applied = branch.in_workspace;
             vb_state.set_branch(branch)?;
