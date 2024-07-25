@@ -39,7 +39,7 @@ async fn unapplying_selected_branch_selects_anther() {
     assert!(!b2.selected_for_changes);
 
     controller
-        .convert_to_real_branch(project, b_id, Default::default())
+        .convert_to_real_branch(project, b_id)
         .await
         .unwrap();
 
@@ -303,7 +303,7 @@ async fn unapply_virtual_branch_should_reset_selected_for_changes() {
     assert!(!b2.selected_for_changes);
 
     controller
-        .convert_to_real_branch(project, b1_id, Default::default())
+        .convert_to_real_branch(project, b1_id)
         .await
         .unwrap();
 
@@ -371,7 +371,7 @@ async fn applying_first_branch() {
     assert_eq!(branches.len(), 1);
 
     let unapplied_branch = controller
-        .convert_to_real_branch(project, branches[0].id, Default::default())
+        .convert_to_real_branch(project, branches[0].id)
         .await
         .unwrap();
     let unapplied_branch = Refname::from_str(&unapplied_branch).unwrap();

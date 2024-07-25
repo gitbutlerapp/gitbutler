@@ -6,8 +6,6 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import Select from '$lib/select/Select.svelte';
-	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
@@ -15,7 +13,7 @@
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranch, type NameConflictResolution } from '$lib/vbranches/types';
+	import { VirtualBranch } from '$lib/vbranches/types';
 
 	export let contextMenuEl: ContextMenu;
 	export let target: HTMLElement;
@@ -49,67 +47,8 @@
 		aiConfigurationValid = await aiService.validateConfiguration(user?.access_token);
 	}
 
-	let unapplyBranchModal: Modal;
-
-	type ResolutionVariants = NameConflictResolution['type'];
-
-	const resolutions: { value: ResolutionVariants; label: string }[] = [
-		{
-			value: 'overwrite',
-			label: 'Overwrite the existing branch'
-		},
-		{
-			value: 'suffix',
-			label: 'Suffix the branch name'
-		},
-		{
-			value: 'rename',
-			label: 'Use a new name'
-		}
-	];
-
-	let selectedResolution: ResolutionVariants = resolutions[0].value;
-	let newBranchName = '';
-
-	function unapplyBranchWithSelectedResolution() {
-		let resolution: NameConflictResolution | undefined;
-		if (selectedResolution === 'rename') {
-			resolution = {
-				type: selectedResolution,
-				value: newBranchName
-			};
-		} else {
-			resolution = {
-				type: selectedResolution,
-				value: undefined
-			};
-		}
-
-		branchController.convertToRealBranch(branch.id, resolution);
-
-		unapplyBranchModal.close();
-	}
-
-	const remoteBranches = branchController.remoteBranchService.branches;
-
-	function tryUnapplyBranch() {
-		if ($remoteBranches.find((b) => b.name.endsWith(normalizedBranchName))) {
-			unapplyBranchModal.show();
-		} else {
-			// No resolution required
-			branchController.convertToRealBranch(branch.id);
-		}
-	}
-
-	function setButtonCoppy() {
-		switch (selectedResolution) {
-			case 'overwrite':
-				return 'Overwrite and unapply';
-			case 'suffix':
-				return 'Suffix and unapply';
-			case 'rename':
-				return 'Rename and unapply';
-		}
+	function unapplyBranch() {
+		branchController.convertToRealBranch(branch.id);
 	}
 
 	let normalizedBranchName: string;
@@ -126,56 +65,6 @@
 	}
 </script>
 
-<Modal width="small" bind:this={unapplyBranchModal}>
-	<div class="flow">
-		<div class="modal-copy">
-			<p class="text-base-14 text-semibold">
-				"{normalizedBranchName}" branch already exists
-			</p>
-
-			<p class="text-base-body-13 modal-copy-caption">
-				A branch with the same name already exists.
-				<br />
-				Please select a resolution:
-			</p>
-		</div>
-
-		<Select
-			value={selectedResolution}
-			options={resolutions}
-			onselect={(value) => {
-				selectedResolution = value as ResolutionVariants;
-			}}
-		>
-			{#snippet itemSnippet({ item, highlighted })}
-				<SelectItem selected={item.value === selectedResolution} {highlighted}>
-					{item.label}
-				</SelectItem>
-			{/snippet}
-		</Select>
-
-		{#if selectedResolution === 'rename'}
-			<TextBox
-				label="New branch name"
-				id="newBranchName"
-				bind:value={newBranchName}
-				placeholder="Enter new branch name"
-			/>
-		{/if}
-	</div>
-	{#snippet controls()}
-		<Button style="ghost" outline on:click={() => unapplyBranchModal.close()}>Cancel</Button>
-		<Button
-			style="pop"
-			kind="solid"
-			on:click={unapplyBranchWithSelectedResolution}
-			disabled={!newBranchName && selectedResolution === 'rename'}
-		>
-			{setButtonCoppy()}
-		</Button>
-	{/snippet}
-</Modal>
-
 <ContextMenu bind:this={contextMenuEl} {target}>
 	<ContextMenuSection>
 		<ContextMenuItem
@@ -190,7 +79,7 @@
 		<ContextMenuItem
 			label="Unapply"
 			on:click={() => {
-				tryUnapplyBranch();
+				unapplyBranch();
 				contextMenuEl.close();
 			}}
 		/>
@@ -301,21 +190,3 @@
 		</Button>
 	{/snippet}
 </Modal>
-
-<style lang="postcss">
-	.flow {
-		display: flex;
-		flex-direction: column;
-		gap: 16px;
-	}
-
-	.modal-copy {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-
-	.modal-copy-caption {
-		color: var(--clr-text-2);
-	}
-</style>

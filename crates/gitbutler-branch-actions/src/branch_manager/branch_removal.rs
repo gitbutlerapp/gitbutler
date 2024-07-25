@@ -5,9 +5,9 @@ use crate::{
     ensure_selected_for_changes, get_applied_status,
     hunk::VirtualBranchHunk,
     integration::get_integration_commiter,
-    NameConflictResolution, VirtualBranchesExt,
+    VirtualBranchesExt,
 };
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use gitbutler_branch::{Branch, BranchExt, BranchId};
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oplog::SnapshotExt;
@@ -23,7 +23,6 @@ impl BranchManager<'_> {
     pub fn convert_to_real_branch(
         &self,
         branch_id: BranchId,
-        name_conflict_resolution: NameConflictResolution,
         perm: &mut WorktreeWritePermission,
     ) -> Result<ReferenceName> {
         let vb_state = self.project_repository.project().virtual_branches();
@@ -31,7 +30,7 @@ impl BranchManager<'_> {
         let mut target_branch = vb_state.get_branch(branch_id)?;
 
         // Convert the vbranch to a real branch
-        let real_branch = self.build_real_branch(&mut target_branch, name_conflict_resolution)?;
+        let real_branch = self.build_real_branch(&mut target_branch)?;
 
         self.delete_branch(branch_id, perm)?;
 
@@ -129,50 +128,11 @@ impl BranchManager<'_> {
 }
 
 impl BranchManager<'_> {
-    fn build_real_branch(
-        &self,
-        vbranch: &mut Branch,
-        name_conflict_resolution: NameConflictResolution,
-    ) -> Result<git2::Branch<'_>> {
+    fn build_real_branch(&self, vbranch: &mut Branch) -> Result<git2::Branch<'_>> {
         let repo = self.project_repository.repo();
         let target_commit = repo.find_commit(vbranch.head)?;
         let branch_name = vbranch.name.clone();
         let branch_name = normalize_branch_name(&branch_name);
-
-        // Is there a name conflict?
-        let branch_name = if repo
-            .find_branch(branch_name.as_str(), git2::BranchType::Local)
-            .is_ok()
-        {
-            match name_conflict_resolution {
-                NameConflictResolution::Suffix => {
-                    let mut suffix = 1;
-                    loop {
-                        let new_branch_name = format!("{}-{}", branch_name, suffix);
-                        if repo
-                            .find_branch(new_branch_name.as_str(), git2::BranchType::Local)
-                            .is_err()
-                        {
-                            break new_branch_name;
-                        }
-                        suffix += 1;
-                    }
-                }
-                NameConflictResolution::Rename(new_name) => {
-                    if repo
-                        .find_branch(new_name.as_str(), git2::BranchType::Local)
-                        .is_ok()
-                    {
-                        Err(anyhow!("Branch with name {} already exists", new_name))?
-                    } else {
-                        new_name
-                    }
-                }
-                NameConflictResolution::Overwrite => branch_name,
-            }
-        } else {
-            branch_name
-        };
 
         let vb_state = self.project_repository.project().virtual_branches();
         let branch = repo.branch(&branch_name, &target_commit, true)?;
