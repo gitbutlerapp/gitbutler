@@ -423,7 +423,7 @@ pub(crate) fn update_base_branch(
                 // branch tree conflicts with new target, unapply branch for now. we'll handle it later, when user applies it back.
                 let branch_manager = project_repository.branch_manager();
                 let unapplied_real_branch =
-                    branch_manager.convert_to_real_branch(branch.id, Default::default(), perm)?;
+                    branch_manager.convert_to_real_branch(branch.id, perm)?;
 
                 unapplied_branch_names.push(unapplied_real_branch);
 
@@ -457,7 +457,7 @@ pub(crate) fn update_base_branch(
                 // unapplied. conflicts witll be dealt with when applying it back.
                 let branch_manager = project_repository.branch_manager();
                 let unapplied_real_branch =
-                    branch_manager.convert_to_real_branch(branch.id, Default::default(), perm)?;
+                    branch_manager.convert_to_real_branch(branch.id, perm)?;
                 unapplied_branch_names.push(unapplied_real_branch);
 
                 return Ok(None);

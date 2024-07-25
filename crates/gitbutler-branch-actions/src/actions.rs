@@ -336,7 +336,6 @@ impl VirtualBranchActions {
         &self,
         project: &Project,
         branch_id: BranchId,
-        name_conflict_resolution: branch::NameConflictResolution,
     ) -> Result<ReferenceName> {
         let project_repository = open_with_verify(project)?;
         let mut guard = project.exclusive_worktree_access();
@@ -344,11 +343,7 @@ impl VirtualBranchActions {
             .project()
             .prepare_snapshot(guard.read_permission());
         let branch_manager = project_repository.branch_manager();
-        let result = branch_manager.convert_to_real_branch(
-            branch_id,
-            name_conflict_resolution,
-            guard.write_permission(),
-        );
+        let result = branch_manager.convert_to_real_branch(branch_id, guard.write_permission());
 
         let _ = snapshot_tree.and_then(|snapshot_tree| {
             project_repository.project().snapshot_branch_unapplied(
