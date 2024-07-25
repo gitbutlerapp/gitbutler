@@ -76,7 +76,7 @@ export default tsEslint.config(
 		languageOptions: {
 			parserOptions: {
 				parser: tsEslint.parser,
-				project: ['./packages/**/tsconfig.json', './app/tsconfig.json'],
+				project: ['./packages/**/tsconfig.json', './apps/**/tsconfig.json'],
 				extraFileExtensions: ['.svelte']
 			}
 		},
@@ -144,8 +144,10 @@ export default tsEslint.config(
 			'import-x/resolver': {
 				typescript: {
 					project: [
-						'./app/tsconfig.json',
-						'./app/.svelte-kit/tsconfig.json',
+						'./apps/rust/tsconfig.json',
+						'./apps/rust/.svelte-kit/tsconfig.json',
+						'./apps/cloud/tsconfig.json',
+						'./apps/cloud/.svelte-kit/tsconfig.json',
 						'./packages/**/tsconfig.json',
 						'./packages/ui/.svelte-kit/tsconfig.json'
 					]
