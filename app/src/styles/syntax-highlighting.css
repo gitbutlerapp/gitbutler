@@ -78,7 +78,6 @@
 
 .token-heading {
 	color: var(--color-token-variable-special);
-	font-weight: bold;
 }
 
 .token-link {
@@ -179,7 +178,6 @@
 
 	.token-heading {
 		color: var(--color-token-variable-special);
-		font-weight: bold;
 	}
 
 	.token-link {
