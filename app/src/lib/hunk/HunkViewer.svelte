@@ -88,10 +88,12 @@
 					{draggingDisabled}
 					tabSize={$userSettings.tabSize}
 					hunk={section.hunk}
+					onclick={() => {
+						contextMenu?.close();
+					}}
 					subsections={section.subSections}
 					handleSelected={(hunk, isSelected) => onHunkSelected(hunk, isSelected)}
 					handleLineContextMenu={({ event, lineNumber, hunk, subsection }) => {
-						console.log('hunkViewer.opening.contextMenu()', { contextMenu });
 						contextMenu?.open(event, {
 							hunk,
 							section: subsection,
@@ -114,17 +116,6 @@
 		& > div {
 			width: 100%;
 		}
-	}
-
-	.hunk {
-		display: flex;
-		flex-direction: column;
-		overflow-x: auto;
-		user-select: text;
-
-		background: var(--clr-bg-1);
-		border: 1px solid var(--clr-border-2);
-		transition: border-color var(--transition-fast);
 	}
 
 	.hunk__bg-stretch {

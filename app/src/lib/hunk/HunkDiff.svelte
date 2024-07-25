@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { create } from '$lib/utils/codeHighlight';
+	import { maybeGetContextStore } from '$lib/utils/context';
 	import { type ContentSection, SectionType, type Line } from '$lib/utils/fileSections';
+	import { Ownership } from '$lib/vbranches/ownership';
 	import diff_match_patch from 'diff-match-patch';
 	import type { Hunk } from '$lib/vbranches/types';
+	import type { Writable } from 'svelte/store';
 
 	type HandleLineContextMenuArgs = {
 		event: MouseEvent;
@@ -13,12 +16,15 @@
 
 	interface Props {
 		hunk: Hunk;
+		readonly: boolean;
 		filePath: string;
 		selectable: boolean;
 		subsections: ContentSection[];
-		handleSelected?: (hunk: Hunk, isSelected: boolean) => void;
-		handleClick?: () => void;
-		handleLineContextMenu?: ({
+		tabSize: number;
+		draggingDisabled: boolean;
+		onclick: () => void;
+		handleSelected: (hunk: Hunk, isSelected: boolean) => void;
+		handleLineContextMenu: ({
 			event,
 			lineNumber,
 			hunk,
@@ -45,13 +51,21 @@
 
 	const {
 		hunk,
+		readonly = false,
 		filePath,
 		selectable,
 		subsections,
+		tabSize,
+		draggingDisabled = false,
+		onclick,
 		handleSelected,
-		handleClick,
 		handleLineContextMenu
 	}: Props = $props();
+
+	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
+
+	const selected = $derived($selectedOwnership?.contains(hunk.filePath, hunk.id) ?? false);
+	let isSelected = $derived(selectable && selected);
 
 	function charDiff(text1: string, text2: string): { 0: number; 1: string }[] {
 		const differ = new diff_match_patch();
@@ -190,14 +204,12 @@
 	}
 
 	const renderRows = $derived(filterRows(subsections));
-
-	const selected = true;
-	let isSelected = $derived(selectable && selected);
-
-	$inspect('renderRows', renderRows);
 </script>
 
-<div class="table__wrapper">
+<div
+	class="table__wrapper"
+	style="--tab-size: {tabSize}; --cursor: {draggingDisabled ? 'default' : 'grab'}"
+>
 	<table data-hunk-id={hunk.id} class="table__section">
 		<tbody>
 			{#each renderRows as line}
@@ -206,7 +218,9 @@
 						class="table__numberColumn"
 						align="center"
 						class:selected={isSelected}
-						onclick={() => selectable && handleSelected?.(hunk, true)}
+						onclick={() => {
+							selectable && handleSelected(hunk, isSelected);
+						}}
 					>
 						{line.originalLineNumber}
 					</td>
@@ -214,20 +228,24 @@
 						class="table__numberColumn"
 						align="center"
 						class:selected={isSelected}
-						onclick={(event) => {
-							selectable && handleSelected?.(hunk, true);
-							const lineNumber = (line.originalLineNumber
-								? line.originalLineNumber
-								: line.currentLineNumber) as number;
-							handleLineContextMenu?.({ event, hunk, lineNumber, subsection: subsections[0] });
+						onclick={() => {
+							selectable && handleSelected(hunk, isSelected);
 						}}
 					>
 						{line.currentLineNumber}
 					</td>
 					<td
+						{onclick}
 						class="table__textContent"
+						class:readonly
 						class:diff-line-deletion={line.type === SectionType.RemovedLines}
 						class:diff-line-addition={line.type === SectionType.AddedLines}
+						oncontextmenu={(event) => {
+							const lineNumber = (line.originalLineNumber
+								? line.originalLineNumber
+								: line.currentLineNumber) as number;
+							handleLineContextMenu({ event, hunk, lineNumber, subsection: subsections[0] });
+						}}
 					>
 						{@html line.tokens.join('') + '\n'}
 					</td>
