@@ -245,7 +245,7 @@ impl GroupBranch<'_> {
 /// Determines if a branch should be listed in the UI.
 /// This excludes the target branch as well as gitbutler specific branches.
 fn should_list_git_branch(branch: &gix::Reference, vb_handle: &VirtualBranchesHandle) -> bool {
-    let name: BString = branch.name().shorten().into();
+    let name: BString = branch.name().file_name().into();
     // Exclude the target branch
     if let Ok(target) = vb_handle.get_default_target() {
         if name == target.branch.branch() && name == target.branch.remote() {
