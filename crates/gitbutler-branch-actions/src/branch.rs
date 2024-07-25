@@ -12,6 +12,9 @@ use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::ProjectRepository;
 
 use gitbutler_reference::normalize_branch_name;
+use gix::config::remote;
+use gix::reference;
+use serde::de;
 use serde::Serialize;
 
 use crate::{VirtualBranch, VirtualBranchesExt};
@@ -24,10 +27,12 @@ pub fn list_branches(ctx: &ProjectRepository) -> Result<Vec<BranchListing>> {
     let repo = gix::open(ctx.project().path.clone())?;
     let refs = repo.references()?;
 
-    // all branches that git knows about
-    let branches = refs
+    let local_branches = refs
         .local_branches()?
-        .chain(refs.remote_branches()?)
+        .filter_map(Result::ok)
+        .filter(|branch| should_list_git_branch(branch, &vb_handle));
+    let remote_branches = refs
+        .remote_branches()?
         .filter_map(Result::ok)
         .filter(|branch| should_list_git_branch(branch, &vb_handle));
 
@@ -38,11 +43,17 @@ pub fn list_branches(ctx: &ProjectRepository) -> Result<Vec<BranchListing>> {
         .list_all_branches()?
         .into_iter();
 
-    combine_branches(branches, virtual_branches, ctx.repo())
+    combine_branches(
+        local_branches,
+        remote_branches,
+        virtual_branches,
+        ctx.repo(),
+    )
 }
 
 fn combine_branches<'a>(
-    git_branches: impl Iterator<Item = gix::Reference<'a>>,
+    local_branches: impl Iterator<Item = gix::Reference<'a>>,
+    remote_branches: impl Iterator<Item = gix::Reference<'a>>,
     virtual_branches: impl Iterator<Item = GitButlerBranch>,
     repo: &git2::Repository,
 ) -> Result<Vec<BranchListing>> {
@@ -50,8 +61,11 @@ fn combine_branches<'a>(
     for branch in virtual_branches {
         group_branches.push(GroupBranch::Virtual(branch));
     }
-    for branch in git_branches {
-        group_branches.push(GroupBranch::Git(branch));
+    for branch in local_branches {
+        group_branches.push(GroupBranch::Local(branch));
+    }
+    for branch in remote_branches {
+        group_branches.push(GroupBranch::Remote(branch));
     }
     // Group branches by identity
     let mut groups: HashMap<Option<BString>, Vec<&GroupBranch>> = HashMap::new();
@@ -109,24 +123,16 @@ fn branch_group_to_branch(
     let remote_branches: Vec<&gix::Reference> = group_branches
         .iter()
         .filter_map(|branch| match branch {
-            GroupBranch::Git(gb) => Some(gb),
+            GroupBranch::Remote(gb) => Some(gb),
             _ => None,
-        })
-        .filter(|reference| {
-            reference.remote(gix::remote::Direction::Fetch).is_some()
-                || reference.remote(gix::remote::Direction::Push).is_some()
         })
         .filter(|reference| matches!(reference.target(), gix::refs::TargetRef::Peeled(_)))
         .collect();
     let local_branches: Vec<&gix::Reference> = group_branches
         .iter()
         .filter_map(|branch| match branch {
-            GroupBranch::Git(gb) => Some(gb),
+            GroupBranch::Local(gb) => Some(gb),
             _ => None,
-        })
-        .filter(|reference| {
-            reference.remote(gix::remote::Direction::Fetch).is_none()
-                && reference.remote(gix::remote::Direction::Push).is_none()
         })
         .filter(|reference| matches!(reference.target(), gix::refs::TargetRef::Peeled(_)))
         .collect();
@@ -138,14 +144,14 @@ fn branch_group_to_branch(
         in_workspace: branch.in_workspace,
     });
 
-    let remotes: Vec<BString> = remote_branches
-        .iter()
-        .map(|reference| {
-            let fetch = reference.remote_name(gix::remote::Direction::Fetch);
-            let push = reference.remote_name(gix::remote::Direction::Push);
-            fetch.unwrap_or(push.unwrap()).as_bstr().into() // Already checked that at least one of them is present
-        })
-        .collect();
+    let mut remotes: Vec<BString> = Vec::new();
+    for reference in remote_branches.iter() {
+        let fetch = reference.remote_name(gix::remote::Direction::Fetch);
+        let push = reference.remote_name(gix::remote::Direction::Push);
+        if let Some(remote) = fetch.or(push) {
+            remotes.push(remote.as_bstr().into());
+        }
+    }
 
     // The head commit for which we calculate statistics.
     // If there is a virtual branch let's get it's head. Alternatively, pick the first local branch and use it's head.
@@ -216,8 +222,10 @@ fn branch_group_to_branch(
 
 /// A sum type of a branch that can be a plain git branch or a virtual branch
 #[allow(clippy::large_enum_variant)]
+#[derive(Debug)]
 enum GroupBranch<'a> {
-    Git(gix::Reference<'a>),
+    Local(gix::Reference<'a>),
+    Remote(gix::Reference<'a>),
     Virtual(GitButlerBranch),
 }
 
@@ -226,7 +234,8 @@ impl GroupBranch<'_> {
     /// they are grouped together under the same `Branch` entry.
     fn identity(&self) -> Option<BString> {
         match self {
-            GroupBranch::Git(branch) => Some(branch.name().file_name().into()),
+            GroupBranch::Local(branch) => Some(branch.name().file_name().into()),
+            GroupBranch::Remote(branch) => Some(branch.name().file_name().into()),
             // When a user changes the remote name via the "set remote branch name" in the UI,
             // the virtual branch will be in a different group. This is probably the desired behavior.
             GroupBranch::Virtual(branch) => branch.upstream.clone().map(|x| x.branch().into()),
