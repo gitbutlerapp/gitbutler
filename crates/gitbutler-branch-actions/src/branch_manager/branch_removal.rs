@@ -8,7 +8,6 @@ use crate::{
     NameConflictResolution, VirtualBranchesExt,
 };
 use anyhow::{anyhow, Context, Result};
-use git2::build::TreeUpdateBuilder;
 use gitbutler_branch::{Branch, BranchExt, BranchId};
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oplog::SnapshotExt;
@@ -180,16 +179,16 @@ impl BranchManager<'_> {
         vbranch.source_refname = Some(Refname::try_from(&branch)?);
         vb_state.set_branch(vbranch.clone())?;
 
-        self.build_metadata_commit(vbranch, &branch)?;
+        self.build_wip_commit(vbranch, &branch)?;
 
         Ok(branch)
     }
 
-    fn build_metadata_commit(
+    fn build_wip_commit(
         &self,
         vbranch: &mut Branch,
         branch: &git2::Branch<'_>,
-    ) -> Result<git2::Oid> {
+    ) -> Result<Option<git2::Oid>> {
         let repo = self.project_repository.repo();
 
         // Build wip tree as either any uncommitted changes or an empty tree
@@ -199,7 +198,8 @@ impl BranchManager<'_> {
         let tree = if vbranch_head_tree.id() != vbranch_wip_tree.id() {
             vbranch_wip_tree
         } else {
-            repo.find_tree(TreeUpdateBuilder::new().create_updated(repo, &vbranch_head_tree)?)?
+            // Don't create the wip commit if not required
+            return Ok(None);
         };
 
         // Build commit message
@@ -227,6 +227,6 @@ impl BranchManager<'_> {
         vbranch.not_in_workspace_wip_change_id = Some(commit_headers.change_id);
         vb_state.set_branch(vbranch.clone())?;
 
-        Ok(commit_oid)
+        Ok(Some(commit_oid))
     }
 }
