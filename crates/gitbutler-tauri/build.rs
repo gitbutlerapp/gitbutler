@@ -10,7 +10,8 @@ fn main() {
         .unwrap()
         .parent()
         .unwrap()
-        .join("app")
+        .join("apps")
+        .join("desktop")
         .join("build");
     if !build_dir.exists() {
         // NOTE(qix-): Do not use `create_dir_all` here - the parent directory
