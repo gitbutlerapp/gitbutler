@@ -143,9 +143,9 @@ fn branch_group_to_branch(
     let mut remotes: Vec<BString> = Vec::new();
     for branch in remote_branches.iter() {
         if let Some(name) = branch.get().name() {
-            // TODO: If this works well, use this in reference_ext.rs as well
-            let remote_name = repo.branch_remote_name(name)?;
-            remotes.push(remote_name.as_bstr().into());
+            if let Ok(remote_name) = repo.branch_remote_name(name) {
+                remotes.push(remote_name.as_bstr().into());
+            }
         }
     }
 
@@ -163,55 +163,69 @@ fn branch_group_to_branch(
     }
     .context("Could not get any valid reference in order to build branch stats")?;
 
-    let repo_head = repo.head()?.peel_to_commit()?;
-    let base = repo.merge_base(repo_head.id(), head)?;
-
-    let base_tree = repo.find_commit(base)?.tree()?;
-    let head_tree = repo.find_commit(head)?.tree()?;
-    let diff_stats = repo
-        .diff_tree_to_tree(Some(&base_tree), Some(&head_tree), None)?
-        .stats()?;
-
-    let mut revwalk = repo.revwalk()?;
-    revwalk.push(head)?;
-    revwalk.hide(base)?;
-    let mut commits = Vec::new();
-    let mut authors = HashSet::new();
-    let mut last_commit_time_ms = i64::MIN;
-    for oid in revwalk {
-        let commit = repo.find_commit(oid?)?;
-        last_commit_time_ms = max(last_commit_time_ms, commit.time().seconds() * 1000);
-        authors.insert(commit.author().into());
-        commits.push(commit);
-    }
-
-    let own_branch = commits
-        .last()
-        .map_or(false, |commit| local_author == &commit.author().into());
-
-    let last_modified_ms = max(
-        last_commit_time_ms as u128,
-        virtual_branch.map_or(0, |x| x.updated_timestamp_ms),
-    );
-
     // If this was a virtual branch and there was never any remote set, use the virtual branch name as the identity
     let identity = identity.unwrap_or(
         virtual_branch
             .map(|vb| normalize_branch_name(&vb.name))
             .unwrap_or_default(),
     );
+    let repo_head = repo.head()?.peel_to_commit()?;
+    // If no merge base can be found, return with zero stats
+    let branch = if let Ok(base) = repo.merge_base(repo_head.id(), head) {
+        let base_tree = repo.find_commit(base)?.tree()?;
+        let head_tree = repo.find_commit(head)?.tree()?;
+        let diff_stats = repo
+            .diff_tree_to_tree(Some(&base_tree), Some(&head_tree), None)?
+            .stats()?;
 
-    let branch = BranchListing {
-        name: identity,
-        remotes,
-        virtual_branch: virtual_branch_reference,
-        lines_added: diff_stats.insertions(),
-        lines_removed: diff_stats.deletions(),
-        number_of_files: diff_stats.files_changed(),
-        number_of_commits: commits.len(),
-        updated_at: last_modified_ms,
-        authors: authors.into_iter().collect(),
-        own_branch,
+        let mut revwalk = repo.revwalk()?;
+        revwalk.push(head)?;
+        revwalk.hide(base)?;
+        let mut commits = Vec::new();
+        let mut authors = HashSet::new();
+        let mut last_commit_time_ms = i64::MIN;
+        for oid in revwalk {
+            let commit = repo.find_commit(oid?)?;
+            last_commit_time_ms = max(last_commit_time_ms, commit.time().seconds() * 1000);
+            authors.insert(commit.author().into());
+            commits.push(commit);
+        }
+
+        let own_branch = commits
+            .last()
+            .map_or(false, |commit| local_author == &commit.author().into());
+
+        let last_modified_ms = max(
+            last_commit_time_ms as u128,
+            virtual_branch.map_or(0, |x| x.updated_timestamp_ms),
+        );
+
+        BranchListing {
+            name: identity,
+            remotes,
+            virtual_branch: virtual_branch_reference,
+            lines_added: diff_stats.insertions(),
+            lines_removed: diff_stats.deletions(),
+            number_of_files: diff_stats.files_changed(),
+            number_of_commits: commits.len(),
+            updated_at: last_modified_ms,
+            authors: authors.into_iter().collect(),
+            own_branch,
+        }
+    } else {
+        let last_modified_ms = (repo.find_commit(head)?.time().seconds() * 1000) as u128;
+        BranchListing {
+            name: identity,
+            remotes,
+            virtual_branch: virtual_branch_reference,
+            lines_added: 0,
+            lines_removed: 0,
+            number_of_files: 0,
+            number_of_commits: 0,
+            updated_at: last_modified_ms,
+            authors: Vec::new(),
+            own_branch: false,
+        }
     };
     Ok(branch)
 }
