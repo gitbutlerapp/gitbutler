@@ -42,8 +42,6 @@
 	let localBranchData: BranchData | undefined;
 	let remoteBranchData: BranchData | undefined;
 
-	$: console.log({ localBranch, localBranchData, remoteBranch, remoteBranchData });
-
 	// The remote branch service (which needs to be renamed) is responsible for
 	// fetching local and remote branches.
 	// We must manually set the branch data to undefined as the component
@@ -61,7 +59,7 @@
 			.getRemoteBranchData(remoteBranch.name)
 			.then((branchData) => (remoteBranchData = branchData));
 	} else {
-		localBranchData = undefined;
+		remoteBranchData = undefined;
 	}
 
 	$: remoteCommitShas = new Set(remoteBranchData?.commits.map((commit) => commit.id) || []);

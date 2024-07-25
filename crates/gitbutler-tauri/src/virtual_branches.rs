@@ -83,10 +83,11 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         branch: Refname,
+        remote: Option<RemoteRefname>,
     ) -> Result<BranchId, Error> {
         let project = projects.get(project_id)?;
         let branch_id = VirtualBranchActions
-            .create_virtual_branch_from_branch(&project, &branch)
+            .create_virtual_branch_from_branch(&project, &branch, remote)
             .await?;
         emit_vbranches(&windows, project_id).await;
         Ok(branch_id)

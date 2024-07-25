@@ -276,11 +276,12 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 		}
 	}
 
-	async createvBranchFromBranch(branch: string) {
+	async createvBranchFromBranch(branch: string, remote: string | undefined = undefined) {
 		try {
 			await invoke<string>('create_virtual_branch_from_branch', {
 				projectId: this.projectId,
-				branch
+				branch,
+				remote
 			});
 		} catch (err) {
 			showError('Failed to create virtual branch', err);

@@ -14,7 +14,7 @@ use gitbutler_commit::commit_headers::HasCommitHeaders;
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_reference::Refname;
+use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{rebase::cherry_rebase, RepoActionsExt, RepositoryExt};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use std::borrow::Cow;
@@ -126,20 +126,26 @@ impl BranchManager<'_> {
 
     pub fn create_virtual_branch_from_branch(
         &self,
-        upstream: &Refname,
+        target: &Refname,
+        upstream_branch: Option<RemoteRefname>,
         perm: &mut WorktreeWritePermission,
     ) -> Result<BranchId> {
         // only set upstream if it's not the default target
-        let upstream_branch = match upstream {
-            Refname::Other(_) | Refname::Virtual(_) => {
-                // we only support local or remote branches
-                bail!("branch {upstream} must be a local or remote branch");
+        let upstream_branch = match upstream_branch {
+            Some(upstream_branch) => Some(upstream_branch),
+            None => {
+                match target {
+                    Refname::Other(_) | Refname::Virtual(_) => {
+                        // we only support local or remote branches
+                        bail!("branch {target} must be a local or remote branch");
+                    }
+                    Refname::Remote(remote) => Some(remote.clone()),
+                    Refname::Local(local) => local.remote().cloned(),
+                }
             }
-            Refname::Remote(remote) => Some(remote.clone()),
-            Refname::Local(local) => local.remote().cloned(),
         };
 
-        let branch_name = upstream
+        let branch_name = target
             .branch()
             .expect("always a branch reference")
             .to_string();
@@ -153,21 +159,21 @@ impl BranchManager<'_> {
 
         let default_target = vb_state.get_default_target()?;
 
-        if let Refname::Remote(remote_upstream) = upstream {
+        if let Refname::Remote(remote_upstream) = target {
             if default_target.branch == *remote_upstream {
                 bail!("cannot create a branch from default target")
             }
         }
 
         let repo = self.project_repository.repo();
-        let head_reference =
-            repo.find_reference(&upstream.to_string())
-                .map_err(|err| match err {
-                    err if err.code() == git2::ErrorCode::NotFound => {
-                        anyhow!("branch {upstream} was not found")
-                    }
-                    err => err.into(),
-                })?;
+        let head_reference = repo
+            .find_reference(&target.to_string())
+            .map_err(|err| match err {
+                err if err.code() == git2::ErrorCode::NotFound => {
+                    anyhow!("branch {target} was not found")
+                }
+                err => err.into(),
+            })?;
         let head_commit = head_reference
             .peel_to_commit()
             .context("failed to peel to commit")?;
@@ -220,7 +226,7 @@ impl BranchManager<'_> {
         );
 
         let branch = if let Ok(Some(mut branch)) =
-            vb_state.find_by_source_refname_where_not_in_workspace(upstream)
+            vb_state.find_by_source_refname_where_not_in_workspace(target)
         {
             branch.upstream_head = upstream_branch.is_some().then_some(head_commit.id());
             branch.upstream = upstream_branch;
@@ -239,7 +245,7 @@ impl BranchManager<'_> {
                 id: BranchId::generate(),
                 name: branch_name.clone(),
                 notes: String::new(),
-                source_refname: Some(upstream.clone()),
+                source_refname: Some(target.clone()),
                 upstream_head: upstream_branch.is_some().then_some(head_commit.id()),
                 upstream: upstream_branch,
                 tree: head_commit_tree.id(),

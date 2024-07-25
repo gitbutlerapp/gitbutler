@@ -376,7 +376,7 @@ async fn applying_first_branch() {
         .unwrap();
     let unapplied_branch = Refname::from_str(&unapplied_branch).unwrap();
     controller
-        .create_virtual_branch_from_branch(project, &unapplied_branch)
+        .create_virtual_branch_from_branch(project, &unapplied_branch, None)
         .await
         .unwrap();
 

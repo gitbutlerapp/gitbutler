@@ -89,7 +89,11 @@
 					on:click={async () => {
 						isApplying = true;
 						try {
-							await branchController.createvBranchFromBranch(branch.name);
+							if (localBranch) {
+								await branchController.createvBranchFromBranch(localBranch.name, remoteBranch?.name);
+							} else {
+								await branchController.createvBranchFromBranch(remoteBranch!.name);
+							}
 							goto(`/${project.id}/board`);
 						} catch (e) {
 							const err = 'Failed to apply branch';

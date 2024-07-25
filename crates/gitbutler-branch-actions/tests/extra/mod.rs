@@ -1177,6 +1177,7 @@ fn unapply_branch() -> Result<()> {
     let branch_manager = project_repository.branch_manager();
     let branch1_id = branch_manager.create_virtual_branch_from_branch(
         &Refname::from_str(&real_branch)?,
+        None,
         guard.write_permission(),
     )?;
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
@@ -1271,6 +1272,7 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     branch_manager
         .create_virtual_branch_from_branch(
             &Refname::from_str(&real_branch_2).unwrap(),
+            None,
             guard.write_permission(),
         )
         .unwrap();
@@ -1281,6 +1283,7 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     branch_manager
         .create_virtual_branch_from_branch(
             &Refname::from_str(&real_branch_3).unwrap(),
+            None,
             guard.write_permission(),
         )
         .unwrap();
