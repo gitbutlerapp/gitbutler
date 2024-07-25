@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { PUBLIC_APP_HOST } from '$env/static/public';
+	import { env } from '$env/dynamic/public';
 
 	let state = 'loading';
 	let user: any = {};
@@ -8,7 +8,7 @@
 	onMount(() => {
 		let key = localStorage.getItem('gb_access_token');
 		if (key) {
-			fetch(PUBLIC_APP_HOST + 'api/user', {
+			fetch(env.PUBLIC_APP_HOST + 'api/user', {
 				method: 'GET',
 				headers: {
 					'X-AUTH-TOKEN': key || ''

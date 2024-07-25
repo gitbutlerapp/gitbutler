@@ -2,7 +2,7 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
-	import { PUBLIC_APP_HOST } from '$env/static/public';
+	import { env } from '$env/dynamic/public';
 
 	// onMount, check for page params
 	let token: string | null = null;
@@ -24,7 +24,7 @@
 	function logout() {
 		localStorage.removeItem('gb_access_token');
 		token = null;
-		window.location.href = PUBLIC_APP_HOST + 'cloud/logout';
+		window.location.href = env.PUBLIC_APP_HOST + 'cloud/logout';
 	}
 </script>
 
@@ -40,7 +40,7 @@
 			{#if token}
 				<p><button on:click={logout}>Log Out</button></p>
 			{:else}
-				<p><a href="{PUBLIC_APP_HOST}cloud/login">Log In</a></p>
+				<p><a href={`${env.PUBLIC_APP_HOST}cloud/login`}>Log In</a></p>
 			{/if}
 		</div>
 	</header>

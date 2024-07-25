@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { PUBLIC_APP_HOST } from '$env/static/public';
+	import { env } from '$env/dynamic/public';
 
 	let loading = true;
 	let releases: any[] = [];
 	let nightlies: any[] = [];
 
 	onMount(() => {
-		fetch(PUBLIC_APP_HOST + 'api/downloads?limit=40')
+		fetch(env.PUBLIC_APP_HOST + 'api/downloads?limit=40')
 			.then(async (response) => await response.json())
 			.then((data) => {
 				console.log(data);
