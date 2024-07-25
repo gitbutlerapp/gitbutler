@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/clickOutside';
+	import { createKeybind } from '$lib/utils/hotkeys';
 	import { portal } from '$lib/utils/portal';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { type Snippet } from 'svelte';
@@ -38,7 +39,9 @@
 	export function open(e?: MouseEvent, newItem?: any) {
 		if (!target) return;
 
-		if (newItem) item = newItem;
+		if (newItem) {
+			item = newItem;
+		}
 		isVisible = true;
 		onopen && onopen();
 
@@ -108,7 +111,17 @@
 			return 'top left';
 		}
 	}
+
+	const handleKeyDown = createKeybind({
+		Escape: () => {
+			if (isVisible) {
+				close();
+			}
+		}
+	});
 </script>
+
+<svelte:window on:keydown={handleKeyDown} />
 
 {#snippet contextMenu()}
 	<div
