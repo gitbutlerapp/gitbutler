@@ -111,15 +111,9 @@
 		display: flex;
 		flex-direction: column;
 		position: relative;
-		overflow-x: scroll;
 
 		& > div {
 			width: 100%;
 		}
-	}
-
-	.hunk__bg-stretch {
-		width: 100%;
-		min-width: max-content;
 	}
 </style>

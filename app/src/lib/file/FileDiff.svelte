@@ -30,9 +30,6 @@
 		readonly = false
 	}: Props = $props();
 
-	const maxLineNumber = $derived(sections[sections.length - 1]?.maxLineNumber);
-	const minWidth = $derived(getGutterMinWidth(maxLineNumber));
-
 	const localCommits = isFileLocked ? getLocalCommits() : undefined;
 	const remoteCommits = isFileLocked ? getLocalAndRemoteCommits() : undefined;
 
@@ -88,7 +85,6 @@
 						{selectable}
 						{isUnapplied}
 						{isFileLocked}
-						{minWidth}
 						{readonly}
 						linesModified={added + removed}
 					/>

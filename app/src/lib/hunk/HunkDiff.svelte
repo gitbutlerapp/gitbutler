@@ -70,6 +70,9 @@
 	function charDiff(text1: string, text2: string): { 0: number; 1: string }[] {
 		const differ = new diff_match_patch();
 		const diff = differ.diff_main(text1, text2);
+		// @TODO Decide on cleaned up diffs or not, see netbox `serializers_/cables.py`
+		// https://github.com/google/diff-match-patch/wiki/API
+		differ.diff_cleanupSemantic(diff);
 		return diff;
 	}
 
@@ -172,6 +175,11 @@
 				return acc;
 			}
 
+			if (prevSection.sectionType === SectionType.Context) {
+				acc.push(...createRowData(nextSection));
+				return acc;
+			}
+
 			if (prevSection.lines.length !== nextSection.lines.length) {
 				acc.push(...createRowData(nextSection));
 				return acc;
@@ -181,6 +189,7 @@
 				return acc;
 			}
 
+			console.log({ prevSection, nextSection });
 			const { prevRows, nextRows } = computeWordDiff(prevSection, nextSection);
 
 			// Insert returned row datastructures into the correct place
@@ -258,16 +267,18 @@
 <style>
 	.table__wrapper {
 		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
+		border-radius: var(--radius-s);
+		overflow: hidden;
 	}
 	.table__section {
+		border-spacing: 0;
 		width: 100%;
 		font-family: 'monospace';
 	}
 
 	.table__numberColumn {
 		width: 1%;
-		padding-inline: 0.35rem;
+		max-width: 50px;
 		color: var(--clr-text-3);
 		border-color: var(--clr-border-2);
 		background-color: var(--clr-bg-1-muted);
@@ -276,15 +287,14 @@
 		padding-left: 2px;
 		padding-right: 2px;
 		text-align: right;
-		min-width: var(--minwidth);
 		cursor: var(--cursor);
 	}
 
 	tr:first-of-type .table__numberColumn:first-child {
-		border-radius: var(--radius-m) 0 0 0;
+		border-radius: var(--radius-s) 0 0 0;
 	}
 	tr:last-of-type .table__numberColumn:first-child {
-		border-radius: 0 0 0 var(--radius-m);
+		border-radius: 0 0 0 var(--radius-s);
 	}
 
 	.diff-line-deletion {
@@ -296,6 +306,7 @@
 	}
 
 	.table__textContent {
+		width: 100%;
 		font-size: 12px;
 		padding-left: 4px;
 		line-height: 1.25;
