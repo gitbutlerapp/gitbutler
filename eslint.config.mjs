@@ -144,8 +144,8 @@ export default tsEslint.config(
 			'import-x/resolver': {
 				typescript: {
 					project: [
-						'./apps/rust/tsconfig.json',
-						'./apps/rust/.svelte-kit/tsconfig.json',
+						'./apps/desktop/tsconfig.json',
+						'./apps/desktop/.svelte-kit/tsconfig.json',
 						'./apps/cloud/tsconfig.json',
 						'./apps/cloud/.svelte-kit/tsconfig.json',
 						'./packages/**/tsconfig.json',

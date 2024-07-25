@@ -125,7 +125,7 @@ importers:
         specifier: ^5.0.3
         version: 5.2.13(@types/node@20.5.9)
 
-  apps/rust:
+  apps/desktop:
     dependencies:
       openai:
         specifier: ^4.47.3

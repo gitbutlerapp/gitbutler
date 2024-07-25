@@ -18,7 +18,7 @@ fn main() {
         #[allow(clippy::expect_fun_call, clippy::create_dir)]
         std::fs::create_dir(&build_dir).expect(
             format!(
-                "failed to create apps/rust/build directory: {:?}",
+                "failed to create apps/desktop/build directory: {:?}",
                 build_dir
             )
             .as_str(),
