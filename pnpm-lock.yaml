@@ -82,49 +82,6 @@ importers:
         specifier: ^7.13.1
         version: 7.13.1(eslint@9.5.0)(typescript@5.4.5)
 
-  apps/cloud:
-    dependencies:
-      crypto:
-        specifier: ^1.0.1
-        version: 1.0.1
-    devDependencies:
-      '@fontsource/fira-mono':
-        specifier: ^4.5.10
-        version: 4.5.10
-      '@neoconfetti/svelte':
-        specifier: ^1.0.0
-        version: 1.0.0
-      '@sveltejs/adapter-auto':
-        specifier: ^3.0.0
-        version: 3.2.2(@sveltejs/kit@2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@4.2.18)(vite@5.2.13(@types/node@20.5.9)))(svelte@4.2.18)(vite@5.2.13(@types/node@20.5.9)))
-      '@sveltejs/kit':
-        specifier: ^2.0.0
-        version: 2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@4.2.18)(vite@5.2.13(@types/node@20.5.9)))(svelte@4.2.18)(vite@5.2.13(@types/node@20.5.9))
-      '@sveltejs/vite-plugin-svelte':
-        specifier: ^3.0.0
-        version: 3.1.1(svelte@4.2.18)(vite@5.2.13(@types/node@20.5.9))
-      prettier:
-        specifier: ^3.1.1
-        version: 3.3.2
-      prettier-plugin-svelte:
-        specifier: ^3.1.2
-        version: 3.2.4(prettier@3.3.2)(svelte@4.2.18)
-      svelte:
-        specifier: ^4.2.7
-        version: 4.2.18
-      svelte-check:
-        specifier: ^3.6.0
-        version: 3.8.4(@babel/core@7.24.7)(postcss-load-config@5.1.0(postcss@8.4.39))(postcss@8.4.39)(svelte@4.2.18)
-      tslib:
-        specifier: ^2.4.1
-        version: 2.6.3
-      typescript:
-        specifier: ^5.0.0
-        version: 5.4.5
-      vite:
-        specifier: ^5.0.3
-        version: 5.2.13(@types/node@20.5.9)
-
   apps/desktop:
     dependencies:
       openai:
@@ -317,6 +274,49 @@ importers:
       vitest:
         specifier: ^0.34.6
         version: 0.34.6(playwright@1.44.1)
+
+  apps/web:
+    dependencies:
+      crypto:
+        specifier: ^1.0.1
+        version: 1.0.1
+    devDependencies:
+      '@fontsource/fira-mono':
+        specifier: ^4.5.10
+        version: 4.5.10
+      '@neoconfetti/svelte':
+        specifier: ^1.0.0
+        version: 1.0.0
+      '@sveltejs/adapter-auto':
+        specifier: ^3.0.0
+        version: 3.2.2(@sveltejs/kit@2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@4.2.18)(vite@5.2.13(@types/node@20.5.9)))(svelte@4.2.18)(vite@5.2.13(@types/node@20.5.9)))
+      '@sveltejs/kit':
+        specifier: ^2.0.0
+        version: 2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@4.2.18)(vite@5.2.13(@types/node@20.5.9)))(svelte@4.2.18)(vite@5.2.13(@types/node@20.5.9))
+      '@sveltejs/vite-plugin-svelte':
+        specifier: ^3.0.0
+        version: 3.1.1(svelte@4.2.18)(vite@5.2.13(@types/node@20.5.9))
+      prettier:
+        specifier: ^3.1.1
+        version: 3.3.2
+      prettier-plugin-svelte:
+        specifier: ^3.1.2
+        version: 3.2.4(prettier@3.3.2)(svelte@4.2.18)
+      svelte:
+        specifier: ^4.2.7
+        version: 4.2.18
+      svelte-check:
+        specifier: ^3.6.0
+        version: 3.8.4(@babel/core@7.24.7)(postcss-load-config@5.1.0(postcss@8.4.39))(postcss@8.4.39)(svelte@4.2.18)
+      tslib:
+        specifier: ^2.4.1
+        version: 2.6.3
+      typescript:
+        specifier: ^5.0.0
+        version: 5.4.5
+      vite:
+        specifier: ^5.0.3
+        version: 5.2.13(@types/node@20.5.9)
 
   packages/ui:
     devDependencies:

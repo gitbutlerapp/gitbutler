@@ -146,8 +146,8 @@ export default tsEslint.config(
 					project: [
 						'./apps/desktop/tsconfig.json',
 						'./apps/desktop/.svelte-kit/tsconfig.json',
-						'./apps/cloud/tsconfig.json',
-						'./apps/cloud/.svelte-kit/tsconfig.json',
+						'./apps/web/tsconfig.json',
+						'./apps/web/.svelte-kit/tsconfig.json',
 						'./packages/**/tsconfig.json',
 						'./packages/ui/.svelte-kit/tsconfig.json'
 					]
