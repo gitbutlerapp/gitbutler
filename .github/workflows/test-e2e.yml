@@ -27,7 +27,7 @@ jobs:
         run: cd packages/ui && pnpm package
       - name: Get installed Playwright version
         id: playwright-version
-        run: echo "PLAYWRIGHT_VERSION=$(node -e "console.log(require('./app/package.json').devDependencies['@playwright/test'].substring(1))")" >> $GITHUB_ENV
+        run: echo "PLAYWRIGHT_VERSION=$(node -e "console.log(require('./apps/desktop/package.json').devDependencies['@playwright/test'].substring(1))")" >> $GITHUB_ENV
       - name: Cache playwright binaries
         uses: actions/cache@v4
         id: playwright-cache
@@ -39,7 +39,7 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm dlx "playwright@$PLAYWRIGHT_VERSION" install --with-deps chromium
       - name: Run Tests
-        run: cd app && pnpm test:e2e
+        run: cd apps/desktop && pnpm test:e2e
         env:
           CI: true
       - name: Upload Artifacts
@@ -47,6 +47,6 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
-          path: app/test-results/**/trace.zip
+          path: apps/desktop/test-results/**/trace.zip
           if-no-files-found: ignore
           retention-days: 30
