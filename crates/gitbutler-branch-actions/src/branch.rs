@@ -257,6 +257,7 @@ fn should_list_git_branch(identity: &Option<String>, target: &Option<Target>) ->
     if identity == &Some("gitbutler/integration".to_string())
         || identity == &Some("gitbutler/target".to_string())
         || identity == &Some("gitbutler/oplog".to_string())
+        || identity == &Some("HEAD".to_string())
     {
         return false;
     }
