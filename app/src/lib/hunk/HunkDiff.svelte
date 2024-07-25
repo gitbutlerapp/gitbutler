@@ -67,7 +67,7 @@
 		return tokens;
 	}
 
-	function calculateWordDiff(prevSection: ContentSection, nextSection: ContentSection): DiffRows {
+	function computeWordDiff(prevSection: ContentSection, nextSection: ContentSection): DiffRows {
 		const numberOfLines = nextSection.lines.length;
 		const returnRows: DiffRows = {
 			prevRows: [],
@@ -116,7 +116,7 @@
 		return returnRows;
 	}
 
-	function emptyLines(lines: Line[]) {
+	function isLineEmpty(lines: Line[]) {
 		const whitespaceRegex = new RegExp(/\s/);
 		if (!lines[0].content.match(whitespaceRegex)) {
 			return true;
@@ -142,10 +142,12 @@
 			}
 
 			// Skip sections where previous line is empty
-			if (emptyLines(prevSection.lines)) return acc;
+			if (isLineEmpty(prevSection.lines)) {
+				return acc;
+			}
 
 			// Calculate word diffs on all remaining sections
-			const { prevRows, nextRows } = calculateWordDiff(prevSection, nextSection);
+			const { prevRows, nextRows } = computeWordDiff(prevSection, nextSection);
 
 			// Insert returned row datastructures into the correct place
 			// 1. Find and replace previous rows with tokenized version
@@ -172,9 +174,6 @@
 
 <table data-hunk-hash={hunk.hash} class="table__section">
 	<tbody>
-		<tr>
-			<td colspan="3">{filePath}</td>
-		</tr>
 		{#each renderRows as line}
 			<tr>
 				<td class="table__numberColumn" align="center">{line.originalLineNumber}</td>
@@ -184,7 +183,7 @@
 					class:diff-line-deletion={line.type === SectionType.RemovedLines}
 					class:diff-line-addition={line.type === SectionType.AddedLines}
 				>
-					<span class="blob-code-content">
+					<span class="table__codeContent">
 						{@html line.tokens.join('')}
 					</span>
 				</td>
@@ -196,10 +195,24 @@
 <style>
 	.table__section {
 		width: 100%;
+		font-family: 'monospace';
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
 	}
 
 	.table__numberColumn {
+		width: 1%;
 		padding-inline: 0.35rem;
+		color: var(--clr-text-3);
+		border-color: var(--clr-border-2);
+		background-color: var(--clr-bg-1-muted);
+		font-size: 10px;
+		border-right-width: 1px;
+		padding-left: 2px;
+		padding-right: 2px;
+		text-align: right;
+		min-width: var(--minwidth);
+		cursor: var(--cursor);
 	}
 
 	.diff-line-deletion {
@@ -210,8 +223,10 @@
 		background-color: #94cf8d20;
 	}
 
-	.blob-code-content {
-		font-family: 'monospace';
+	.table__textContent {
+		font-size: 12px;
+		line-height: 1.25;
+		tab-size: var(--tab-size);
 		white-space: pre;
 		user-select: text;
 

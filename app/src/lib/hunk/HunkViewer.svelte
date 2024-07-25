@@ -1,22 +1,16 @@
 <script lang="ts">
+	import HunkDiff from './HunkDiff.svelte';
 	import { Project } from '$lib/backend/projects';
-	// import { draggableElement } from '$lib/dragging/draggable';
-	// import { DraggableHunk } from '$lib/dragging/draggables';
+	import { draggableElement } from '$lib/dragging/draggable';
 	import HunkContextMenu from '$lib/hunk/HunkContextMenu.svelte';
-	// import HunkLines from '$lib/hunk/HunkLines.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
-	// import Scrollbar from '$lib/shared/Scrollbar.svelte';
-	import { create } from '$lib/utils/codeHighlight';
 	import { getContext, getContextStoreBySymbol, maybeGetContextStore } from '$lib/utils/context';
-	import { SectionType, type Line } from '$lib/utils/fileSections';
-	import { type HunkSection, type ContentSection } from '$lib/utils/fileSections';
+	import { type HunkSection } from '$lib/utils/fileSections';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, type Hunk } from '$lib/vbranches/types';
-	import { diff_match_patch } from 'diff-match-patch';
 	import type { Writable } from 'svelte/store';
-	import HunkDiff from './HunkDiff.svelte';
-	// import ListItem from '$lib/shared/ListItem.svelte';
+	import { DraggableHunk } from '$lib/dragging/draggables';
 
 	interface Props {
 		filePath: string;
@@ -40,8 +34,6 @@
 		readonly = false
 	}: Props = $props();
 
-	$inspect('section', section);
-
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const branch = maybeGetContextStore(VirtualBranch);
@@ -64,7 +56,15 @@
 </script>
 
 <div class="scrollable">
-	<div tabindex="0" role="cell">
+	<div
+		tabindex="0"
+		role="cell"
+		class:opacity-60={section.hunk.locked && !isFileLocked}
+		use:draggableElement={{
+			data: new DraggableHunk($branch?.id || '', section.hunk),
+			disabled: draggingDisabled
+		}}
+	>
 		<div class="hunk__bg-stretch">
 			{#if linesModified > 2500 && !alwaysShow}
 				<LargeDiffMessage
