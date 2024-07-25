@@ -13,7 +13,7 @@
 		// Here we specifically want to prefer looking at the remote branch as
 		// the there may be multiple remotes that share the same local branch.
 		if (b.branch)
-			return `/${projectId}/branch/${branch?.remoteBranch?.name || branch?.localBranch?.name}`;
+			return `/${projectId}/branch/${encodeURIComponent(branch?.remoteBranch?.name || branch!.localBranch!.name)}`;
 		if (b.pr) return `/${projectId}/pull/${b.pr.number}`;
 	}
 
