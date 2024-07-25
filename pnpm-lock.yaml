@@ -276,10 +276,6 @@ importers:
         version: 0.34.6(playwright@1.44.1)
 
   apps/web:
-    dependencies:
-      crypto:
-        specifier: ^1.0.1
-        version: 1.0.1
     devDependencies:
       '@fontsource/fira-mono':
         specifier: ^4.5.10
@@ -296,12 +292,6 @@ importers:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^3.0.0
         version: 3.1.1(svelte@4.2.18)(vite@5.2.13(@types/node@20.5.9))
-      prettier:
-        specifier: ^3.1.1
-        version: 3.3.2
-      prettier-plugin-svelte:
-        specifier: ^3.1.2
-        version: 3.2.4(prettier@3.3.2)(svelte@4.2.18)
       svelte:
         specifier: ^4.2.7
         version: 4.2.18
@@ -3062,10 +3052,6 @@ packages:
   crypto-random-string@4.0.0:
     resolution: {integrity: sha512-x8dy3RnvYdlUcPOjkEHqozhiwzKNSq7GcPuXFbnyMOCHxX8V3OgIg/pYuabl2sbUPfIJaeAQB7PMOK8DFIdoRA==}
     engines: {node: '>=12'}
-
-  crypto@1.0.1:
-    resolution: {integrity: sha512-VxBKmeNcqQdiUQUW2Tzq0t377b54N2bMtXO/qiLa+6eRRmmC4qT3D4OnTGoT/U6O9aklQ/jTwbOtRMTTY8G0Ig==}
-    deprecated: This package is no longer supported. It's now a built-in Node module. If you've depended on crypto, you should switch to the one that's built-in.
 
   css-tree@2.3.1:
     resolution: {integrity: sha512-6Fv1DV/TYw//QF5IzQdqsNDjx/wc8TrMBZsqjL9eW01tWb7R7k/mq+/VXfJCl7SoD5emsJop9cOByJZfs8hYIw==}
@@ -9610,8 +9596,6 @@ snapshots:
     dependencies:
       type-fest: 1.4.0
 
-  crypto@1.0.1: {}
-
   css-tree@2.3.1:
     dependencies:
       mdn-data: 2.0.30
@@ -11591,11 +11575,6 @@ snapshots:
   preact@10.19.3: {}
 
   prelude-ls@1.2.1: {}
-
-  prettier-plugin-svelte@3.2.4(prettier@3.3.2)(svelte@4.2.18):
-    dependencies:
-      prettier: 3.3.2
-      svelte: 4.2.18
 
   prettier-plugin-svelte@3.2.4(prettier@3.3.2)(svelte@5.0.0-next.196):
     dependencies:
