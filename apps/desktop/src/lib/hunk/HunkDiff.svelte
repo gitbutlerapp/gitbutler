@@ -266,7 +266,6 @@
 		background-color: var(--clr-bg-1-muted);
 		font-size: 11px;
 		border-right-width: 1px;
-		vertical-align: top;
 		padding-left: 4px;
 		padding-right: 4px;
 		text-align: right;
