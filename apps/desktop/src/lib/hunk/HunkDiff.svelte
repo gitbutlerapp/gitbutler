@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { type Row, Operation, type DiffRows } from './types';
 	import Icon from '$lib/shared/Icon.svelte';
+	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { create } from '$lib/utils/codeHighlight';
 	import { maybeGetContextStore } from '$lib/utils/context';
 	import { type ContentSection, SectionType, type Line } from '$lib/utils/fileSections';
@@ -46,6 +47,9 @@
 		handleSelected,
 		handleLineContextMenu
 	}: Props = $props();
+
+	let viewport = $state<HTMLDivElement>();
+	let contents = $state<HTMLDivElement>();
 
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 
@@ -199,13 +203,14 @@
 </script>
 
 <div
-	class="table__wrapper"
+	class="table__wrapper hide-native-scrollbar"
+	bind:this={viewport}
 	style="--tab-size: {tabSize}; --cursor: {draggingDisabled ? 'default' : 'grab'}"
 >
 	<div class="table__drag-handle">
 		<Icon name="draggable-narrow" />
 	</div>
-	<table data-hunk-id={hunk.id} class="table__section">
+	<table bind:this={contents} data-hunk-id={hunk.id} class="table__section">
 		<tbody>
 			{#each renderRows as line}
 				<tr data-no-drag>
@@ -217,7 +222,7 @@
 							selectable && handleSelected(hunk, isSelected);
 						}}
 					>
-						232{line.beforeLineNumber}
+						{line.beforeLineNumber}
 					</td>
 					<td
 						class="table__numberColumn"
@@ -249,13 +254,14 @@
 			{/each}
 		</tbody>
 	</table>
+	<Scrollbar {viewport} {contents} horz />
 </div>
 
 <style>
 	.table__wrapper {
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-s);
-		overflow: hidden;
+		overflow-x: auto;
 
 		&:hover .table__drag-handle {
 			transform: translateY(0) translateX(0) scale(1);
@@ -283,6 +289,7 @@
 			opacity 0.2s,
 			transform 0.2s;
 	}
+
 	.table__section {
 		border-spacing: 0;
 		width: 100%;
