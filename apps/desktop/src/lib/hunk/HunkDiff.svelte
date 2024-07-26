@@ -92,7 +92,7 @@
 		let tokens: string[] = [];
 		highlighter.highlight((text, classNames) => {
 			const token = classNames
-				? `<span class=${classNames}>${sanitize(text)}</span>`
+				? `<span data-no-drag class=${classNames}>${sanitize(text)}</span>`
 				: sanitize(text);
 
 			tokens.push(token);
@@ -256,7 +256,7 @@
 	.table__section {
 		border-spacing: 0;
 		width: 100%;
-		font-family: 'monospace';
+		font-family: monospace;
 	}
 
 	.table__numberColumn {
