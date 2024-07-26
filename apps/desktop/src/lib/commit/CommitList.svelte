@@ -47,10 +47,19 @@
 
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
 
+	$: mappedRemoteCommits =
+		$remoteCommits.length > 0
+			? [...$remoteCommits.map(transformAnyCommit), { id: 'remote-spacer' }]
+			: [];
+	$: mappedLocalCommits =
+		$localCommits.length > 0
+			? [...$localCommits.map(transformAnyCommit), { id: 'local-spacer' }]
+			: [];
+
 	$: lineManager = lineManagerFactory.build(
 		{
-			remoteCommits: $remoteCommits.map(transformAnyCommit),
-			localCommits: $localCommits.map(transformAnyCommit),
+			remoteCommits: mappedRemoteCommits,
+			localCommits: mappedLocalCommits,
 			localAndRemoteCommits: $localAndRemoteCommits.map(transformAnyCommit),
 			integratedCommits: $integratedCommits.map(transformAnyCommit)
 		},
@@ -141,10 +150,7 @@
 
 				<CommitAction>
 					{#snippet lines()}
-						<LineGroup
-							lineGroup={lineManager.get($remoteCommits[$remoteCommits.length - 1].id)}
-							topHeightPx={0}
-						/>
+						<LineGroup lineGroup={lineManager.get('remote-spacer')} topHeightPx={0} />
 					{/snippet}
 					{#snippet action()}
 						<Button
@@ -209,10 +215,7 @@
 
 				<CommitAction bottomBorder={hasRemoteCommits}>
 					{#snippet lines()}
-						<LineGroup
-							lineGroup={lineManager.get($localCommits[$localCommits.length - 1].id)}
-							topHeightPx={0}
-						/>
+						<LineGroup lineGroup={lineManager.get('local-spacer')} topHeightPx={0} />
 					{/snippet}
 					{#snippet action()}
 						<Button
