@@ -132,6 +132,8 @@ pub enum Code {
     ProjectGitAuth,
     DefaultTargetNotFound,
     CommitSigningFailed,
+    CommitHookFailed,
+    CommitMergeConflictFailure,
 }
 
 impl std::fmt::Display for Code {
@@ -142,6 +144,8 @@ impl std::fmt::Display for Code {
             Code::ProjectGitAuth => "errors.projects.git.auth",
             Code::DefaultTargetNotFound => "errors.projects.default_target.not_found",
             Code::CommitSigningFailed => "errors.commit.signing_failed",
+            Code::CommitHookFailed => "errors.commit.hook_failed",
+            Code::CommitMergeConflictFailure => "errors.commit.merge_conflict_failure",
         };
         f.write_str(code)
     }

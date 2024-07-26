@@ -54,7 +54,7 @@ mod applied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .create_virtual_branch_from_branch(project, &unapplied_branch)
+                .create_virtual_branch_from_branch(project, &unapplied_branch, None)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
@@ -124,7 +124,7 @@ mod applied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .create_virtual_branch_from_branch(project, &unapplied_branch)
+                .create_virtual_branch_from_branch(project, &unapplied_branch, None)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
@@ -132,7 +132,7 @@ mod applied_branch {
             assert!(branches[0].conflicted);
             assert!(branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
-            assert_eq!(branches[0].commits.len(), 2);
+            assert_eq!(branches[0].commits.len(), 1);
             assert_eq!(
                 std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                 "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -200,7 +200,7 @@ mod applied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .create_virtual_branch_from_branch(project, &unapplied_branch)
+                .create_virtual_branch_from_branch(project, &unapplied_branch, None)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
@@ -208,7 +208,7 @@ mod applied_branch {
             assert!(branches[0].conflicted);
             assert!(branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
-            assert_eq!(branches[0].commits.len(), 2);
+            assert_eq!(branches[0].commits.len(), 1);
             assert_eq!(
                 std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
                 "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
@@ -273,7 +273,7 @@ mod applied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .create_virtual_branch_from_branch(project, &unapplied_branch)
+                .create_virtual_branch_from_branch(project, &unapplied_branch, None)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
@@ -346,7 +346,7 @@ mod applied_branch {
         {
             // applying the branch should produce conflict markers
             controller
-                .create_virtual_branch_from_branch(project, &unapplied_branch)
+                .create_virtual_branch_from_branch(project, &unapplied_branch, None)
                 .await
                 .unwrap();
             let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
@@ -767,6 +767,7 @@ mod applied_branch {
                 .create_virtual_branch_from_branch(
                     project,
                     &Refname::from_str(unapplied_refname.as_str()).unwrap(),
+                    None,
                 )
                 .await
                 .unwrap();

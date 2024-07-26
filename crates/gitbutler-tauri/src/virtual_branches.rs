@@ -3,13 +3,14 @@ pub mod commands {
     use anyhow::{anyhow, Context};
     use gitbutler_branch::BranchOwnershipClaims;
     use gitbutler_branch::{BranchCreateRequest, BranchId, BranchUpdateRequest};
-    use gitbutler_branch_actions::BaseBranch;
     use gitbutler_branch_actions::RemoteBranchFile;
-    use gitbutler_branch_actions::{NameConflictResolution, VirtualBranchActions, VirtualBranches};
+    use gitbutler_branch_actions::{BaseBranch, BranchListing};
     use gitbutler_branch_actions::{RemoteBranch, RemoteBranchData};
+    use gitbutler_branch_actions::{VirtualBranchActions, VirtualBranches};
+    use gitbutler_command_context::ProjectRepository;
     use gitbutler_error::error::Code;
     use gitbutler_project as projects;
-    use gitbutler_project::ProjectId;
+    use gitbutler_project::{FetchResult, ProjectId};
     use gitbutler_reference::normalize_branch_name as normalize_name;
     use gitbutler_reference::ReferenceName;
     use gitbutler_reference::{Refname, RemoteRefname};
@@ -83,10 +84,11 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         branch: Refname,
+        remote: Option<RemoteRefname>,
     ) -> Result<BranchId, Error> {
         let project = projects.get(project_id)?;
         let branch_id = VirtualBranchActions
-            .create_virtual_branch_from_branch(&project, &branch)
+            .create_virtual_branch_from_branch(&project, &branch, remote)
             .await?;
         emit_vbranches(&windows, project_id).await;
         Ok(branch_id)
@@ -202,11 +204,10 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         branch: BranchId,
-        name_conflict_resolution: NameConflictResolution,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         VirtualBranchActions
-            .convert_to_real_branch(&project, branch, name_conflict_resolution)
+            .convert_to_real_branch(&project, branch)
             .await?;
         emit_vbranches(&windows, project_id).await;
         Ok(())
@@ -426,6 +427,17 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
+    pub async fn list_branches(
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+    ) -> Result<Vec<BranchListing>, Error> {
+        let ctx = ProjectRepository::open(&projects.get(project_id)?)?;
+        let branches = gitbutler_branch_actions::list_branches(&ctx)?;
+        Ok(branches)
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects), err(Debug))]
     pub async fn get_remote_branch_data(
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
@@ -478,11 +490,15 @@ pub mod commands {
         projects
             .update(&projects::UpdateRequest {
                 id: project.id,
-                project_data_last_fetched: Some(project_data_last_fetched),
+                project_data_last_fetched: Some(project_data_last_fetched.clone()),
                 ..Default::default()
             })
             .await
             .context("failed to update project with last fetched timestamp")?;
+
+        if let FetchResult::Error { error, .. } = project_data_last_fetched {
+            return Err(anyhow!(error).into());
+        }
 
         let base_branch = VirtualBranchActions::get_base_branch_data(&project).await?;
         Ok(base_branch)

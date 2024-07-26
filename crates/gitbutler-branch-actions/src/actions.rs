@@ -9,7 +9,7 @@ use crate::{
 };
 use anyhow::Result;
 use gitbutler_branch::{
-    diff, BranchOwnershipClaims, {BranchCreateRequest, BranchId, BranchUpdateRequest},
+    BranchOwnershipClaims, {BranchCreateRequest, BranchId, BranchUpdateRequest},
 };
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_oplog::{
@@ -24,7 +24,7 @@ use tracing::instrument;
 
 use super::r#virtual as branch;
 
-use crate::files::RemoteBranchFile;
+use crate::file::RemoteBranchFile;
 
 #[derive(Clone, Copy, Default)]
 pub struct VirtualBranchActions;
@@ -75,7 +75,7 @@ impl VirtualBranchActions {
     pub async fn list_virtual_branches(
         &self,
         project: &Project,
-    ) -> Result<(Vec<branch::VirtualBranch>, Vec<diff::FileDiff>)> {
+    ) -> Result<(Vec<branch::VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
         branch::list_virtual_branches(
             &open_with_verify(project)?,
             project.exclusive_worktree_access().write_permission(),
@@ -109,7 +109,7 @@ impl VirtualBranchActions {
         commit_oid: git2::Oid,
     ) -> Result<Vec<RemoteBranchFile>> {
         let project_repository = ProjectRepository::open(project)?;
-        crate::files::list_remote_commit_files(project_repository.repo(), commit_oid)
+        crate::file::list_remote_commit_files(project_repository.repo(), commit_oid)
             .map_err(Into::into)
     }
 
@@ -336,7 +336,6 @@ impl VirtualBranchActions {
         &self,
         project: &Project,
         branch_id: BranchId,
-        name_conflict_resolution: branch::NameConflictResolution,
     ) -> Result<ReferenceName> {
         let project_repository = open_with_verify(project)?;
         let mut guard = project.exclusive_worktree_access();
@@ -344,11 +343,7 @@ impl VirtualBranchActions {
             .project()
             .prepare_snapshot(guard.read_permission());
         let branch_manager = project_repository.branch_manager();
-        let result = branch_manager.convert_to_real_branch(
-            branch_id,
-            name_conflict_resolution,
-            guard.write_permission(),
-        );
+        let result = branch_manager.convert_to_real_branch(branch_id, guard.write_permission());
 
         let _ = snapshot_tree.and_then(|snapshot_tree| {
             project_repository.project().snapshot_branch_unapplied(
@@ -428,26 +423,23 @@ impl VirtualBranchActions {
 
         let helper = Helper::default();
         let remotes = project_repository.repo().remotes_as_string()?;
-        let fetch_results: Vec<Result<(), _>> = remotes
+        let fetch_errors: Vec<_> = remotes
             .iter()
-            .map(|remote| project_repository.fetch(remote, &helper, askpass.clone()))
+            .filter_map(|remote| {
+                project_repository
+                    .fetch(remote, &helper, askpass.clone())
+                    .err()
+                    .map(|err| err.to_string())
+            })
             .collect();
 
-        let project_data_last_fetched = if fetch_results.iter().any(Result::is_err) {
-            FetchResult::Error {
-                timestamp: std::time::SystemTime::now(),
-                error: fetch_results
-                    .iter()
-                    .filter_map(|result| match result {
-                        Ok(_) => None,
-                        Err(error) => Some(error.to_string()),
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-            }
+        let timestamp = std::time::SystemTime::now();
+        let project_data_last_fetched = if fetch_errors.is_empty() {
+            FetchResult::Fetched { timestamp }
         } else {
-            FetchResult::Fetched {
-                timestamp: std::time::SystemTime::now(),
+            FetchResult::Error {
+                timestamp,
+                error: fetch_errors.join("\n"),
             }
         };
 
@@ -473,12 +465,13 @@ impl VirtualBranchActions {
         &self,
         project: &Project,
         branch: &Refname,
+        remote: Option<RemoteRefname>,
     ) -> Result<BranchId> {
         let project_repository = open_with_verify(project)?;
         let branch_manager = project_repository.branch_manager();
         let mut guard = project.exclusive_worktree_access();
         branch_manager
-            .create_virtual_branch_from_branch(branch, guard.write_permission())
+            .create_virtual_branch_from_branch(branch, remote, guard.write_permission())
             .map_err(Into::into)
     }
 }

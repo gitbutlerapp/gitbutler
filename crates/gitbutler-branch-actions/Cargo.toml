@@ -9,6 +9,7 @@ publish = false
 tracing = "0.1.40"
 anyhow = "1.0.86"
 git2.workspace = true
+gix.workspace = true
 tokio.workspace = true
 gitbutler-oplog.workspace = true
 gitbutler-repo.workspace = true
@@ -22,6 +23,7 @@ gitbutler-time.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-url.workspace = true
 gitbutler-fs.workspace = true
+gitbutler-diff.workspace = true
 serde = { workspace = true, features = ["std"] }
 bstr = "1.9.1"
 diffy = "0.4.0"

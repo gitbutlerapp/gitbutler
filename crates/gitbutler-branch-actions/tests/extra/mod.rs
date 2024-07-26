@@ -17,8 +17,9 @@ use gitbutler_branch::{
     BranchOwnershipClaims, Target, {BranchCreateRequest, BranchUpdateRequest},
 };
 use gitbutler_branch_actions::BranchManagerExt;
+use gitbutler_branch_actions::Get;
 use gitbutler_branch_actions::{
-    commit, get_status_by_branch, integrate_upstream_commits, is_remote_branch_mergeable,
+    commit, get_applied_status, integrate_upstream_commits, is_remote_branch_mergeable,
     list_virtual_branches, unapply_ownership, update_branch, update_gitbutler_integration,
     verify_branch,
 };
@@ -220,7 +221,7 @@ fn create_branch_with_ownership() -> Result<()> {
         .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
         .expect("failed to create virtual branch");
 
-    get_status_by_branch(project_repository, None, None).expect("failed to get status");
+    get_applied_status(project_repository, None).expect("failed to get status");
 
     let vb_state = VirtualBranchesHandle::new(project_repository.project().gb_dir());
     let branch0 = vb_state.get_branch_in_workspace(branch0.id).unwrap();
@@ -235,9 +236,9 @@ fn create_branch_with_ownership() -> Result<()> {
         )
         .expect("failed to create virtual branch");
 
-    let statuses = get_status_by_branch(project_repository, None, None)
+    let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
 
     let files_by_branch_id = statuses
         .iter()
@@ -354,9 +355,9 @@ fn hunk_expantion() -> Result<()> {
         .expect("failed to create virtual branch")
         .id;
 
-    let statuses = get_status_by_branch(project_repository, None, None)
+    let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
 
     let files_by_branch_id = statuses
         .iter()
@@ -391,9 +392,9 @@ fn hunk_expantion() -> Result<()> {
         "line1\nline2\nline3\n",
     )?;
 
-    let statuses = get_status_by_branch(project_repository, None, None)
+    let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
     let files_by_branch_id = statuses
         .iter()
         .map(|(branch, files)| (branch.id, files))
@@ -415,9 +416,9 @@ fn get_status_files_by_branch_no_hunks_no_branches() -> Result<()> {
 
     set_test_target(project_repository)?;
 
-    let statuses = get_status_by_branch(project_repository, None, None)
+    let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
 
     assert_eq!(statuses.len(), 0);
 
@@ -449,9 +450,9 @@ fn get_status_files_by_branch() -> Result<()> {
         .expect("failed to create virtual branch")
         .id;
 
-    let statuses = get_status_by_branch(project_repository, None, None)
+    let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
     let files_by_branch_id = statuses
         .iter()
         .map(|(branch, files)| (branch.id, files))
@@ -510,9 +511,9 @@ fn move_hunks_multiple_sources() -> Result<()> {
     };
     vb_state.set_branch(branch1.clone())?;
 
-    let statuses = get_status_by_branch(project_repository, None, None)
+    let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
 
     let files_by_branch_id = statuses
         .iter()
@@ -535,9 +536,9 @@ fn move_hunks_multiple_sources() -> Result<()> {
         },
     )?;
 
-    let statuses = get_status_by_branch(project_repository, None, None)
+    let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
 
     let files_by_branch_id = statuses
         .iter()
@@ -549,15 +550,27 @@ fn move_hunks_multiple_sources() -> Result<()> {
     assert_eq!(files_by_branch_id[&branch2_id].len(), 0);
     assert_eq!(files_by_branch_id[&branch3_id].len(), 1);
     assert_eq!(
-        files_by_branch_id[&branch3_id][Path::new("test.txt")].len(),
+        files_by_branch_id[&branch3_id]
+            .get(Path::new("test.txt"))
+            .unwrap()
+            .hunks
+            .len(),
         2
     );
     assert_eq!(
-        files_by_branch_id[&branch3_id][Path::new("test.txt")][0].diff_lines,
+        files_by_branch_id[&branch3_id]
+            .get(Path::new("test.txt"))
+            .unwrap()
+            .hunks[0]
+            .diff,
         "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
     assert_eq!(
-        files_by_branch_id[&branch3_id][Path::new("test.txt")][1].diff_lines,
+        files_by_branch_id[&branch3_id]
+            .get(Path::new("test.txt"))
+            .unwrap()
+            .hunks[1]
+            .diff,
         "@@ -10,3 +11,4 @@ line9\n line10\n line11\n line12\n+line13\n"
     );
     Ok(())
@@ -594,9 +607,9 @@ fn move_hunks_partial_explicitly() -> Result<()> {
         .expect("failed to create virtual branch")
         .id;
 
-    let statuses = get_status_by_branch(project_repository, None, None)
+    let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
     let files_by_branch_id = statuses
         .iter()
         .map(|(branch, files)| (branch.id, files))
@@ -616,9 +629,9 @@ fn move_hunks_partial_explicitly() -> Result<()> {
         },
     )?;
 
-    let statuses = get_status_by_branch(project_repository, None, None)
+    let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
 
     let files_by_branch_id = statuses
         .iter()
@@ -628,21 +641,37 @@ fn move_hunks_partial_explicitly() -> Result<()> {
     assert_eq!(files_by_branch_id.len(), 2);
     assert_eq!(files_by_branch_id[&branch1_id].len(), 1);
     assert_eq!(
-        files_by_branch_id[&branch1_id][Path::new("test.txt")].len(),
+        files_by_branch_id[&branch1_id]
+            .get(Path::new("test.txt"))
+            .unwrap()
+            .hunks
+            .len(),
         1
     );
     assert_eq!(
-        files_by_branch_id[&branch1_id][Path::new("test.txt")][0].diff_lines,
+        files_by_branch_id[&branch1_id]
+            .get(Path::new("test.txt"))
+            .unwrap()
+            .hunks[0]
+            .diff,
         "@@ -11,3 +12,4 @@ line10\n line11\n line12\n line13\n+line14\n"
     );
 
     assert_eq!(files_by_branch_id[&branch2_id].len(), 1);
     assert_eq!(
-        files_by_branch_id[&branch2_id][Path::new("test.txt")].len(),
+        files_by_branch_id[&branch2_id]
+            .get(Path::new("test.txt"))
+            .unwrap()
+            .hunks
+            .len(),
         1
     );
     assert_eq!(
-        files_by_branch_id[&branch2_id][Path::new("test.txt")][0].diff_lines,
+        files_by_branch_id[&branch2_id]
+            .get(Path::new("test.txt"))
+            .unwrap()
+            .hunks[0]
+            .diff,
         "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
 
@@ -674,11 +703,11 @@ fn add_new_hunk_to_the_end() -> Result<()> {
         .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
         .expect("failed to create virtual branch");
 
-    let statuses = get_status_by_branch(project_repository, None, None)
+    let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
     assert_eq!(
-        statuses[0].1[Path::new("test.txt")][0].diff_lines,
+        statuses[0].1.get(Path::new("test.txt")).unwrap().hunks[0].diff,
         "@@ -11,5 +11,5 @@ line10\n line11\n line12\n line13\n-line13\n line14\n+line15\n"
     );
 
@@ -687,16 +716,16 @@ fn add_new_hunk_to_the_end() -> Result<()> {
         "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\n",
     )?;
 
-    let statuses = get_status_by_branch(project_repository, None, None)
+    let statuses = get_applied_status(project_repository, None)
         .expect("failed to get status")
-        .0;
+        .branches;
 
     assert_eq!(
-        statuses[0].1[Path::new("test.txt")][0].diff_lines,
+        statuses[0].1.get(Path::new("test.txt")).unwrap().hunks[0].diff,
         "@@ -11,5 +12,5 @@ line10\n line11\n line12\n line13\n-line13\n line14\n+line15\n"
     );
     assert_eq!(
-        statuses[0].1[Path::new("test.txt")][1].diff_lines,
+        statuses[0].1.get(Path::new("test.txt")).unwrap().hunks[1].diff,
         "@@ -1,3 +1,4 @@\n+line0\n line1\n line2\n line3\n"
     );
 
@@ -1131,11 +1160,8 @@ fn unapply_branch() -> Result<()> {
     assert!(branch.active);
 
     let branch_manager = project_repository.branch_manager();
-    let real_branch = branch_manager.convert_to_real_branch(
-        branch1_id,
-        Default::default(),
-        guard.write_permission(),
-    )?;
+    let real_branch =
+        branch_manager.convert_to_real_branch(branch1_id, guard.write_permission())?;
 
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!("line1\nline2\nline3\nline4\n", String::from_utf8(contents)?);
@@ -1148,6 +1174,7 @@ fn unapply_branch() -> Result<()> {
     let branch_manager = project_repository.branch_manager();
     let branch1_id = branch_manager.create_virtual_branch_from_branch(
         &Refname::from_str(&real_branch)?,
+        None,
         guard.write_permission(),
     )?;
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
@@ -1221,27 +1248,22 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     list_virtual_branches(project_repository, guard.write_permission()).unwrap();
 
     let branch_manager = project_repository.branch_manager();
-    let real_branch_2 = branch_manager.convert_to_real_branch(
-        branch2_id,
-        Default::default(),
-        guard.write_permission(),
-    )?;
+    let real_branch_2 =
+        branch_manager.convert_to_real_branch(branch2_id, guard.write_permission())?;
 
     // check that file2 is back
     let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("file2\n", String::from_utf8(contents)?);
 
-    let real_branch_3 = branch_manager.convert_to_real_branch(
-        branch3_id,
-        Default::default(),
-        guard.write_permission(),
-    )?;
+    let real_branch_3 =
+        branch_manager.convert_to_real_branch(branch3_id, guard.write_permission())?;
     // check that file3 is gone
     assert!(!Path::new(&project.path).join(file_path3).exists());
 
     branch_manager
         .create_virtual_branch_from_branch(
             &Refname::from_str(&real_branch_2).unwrap(),
+            None,
             guard.write_permission(),
         )
         .unwrap();
@@ -1252,6 +1274,7 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     branch_manager
         .create_virtual_branch_from_branch(
             &Refname::from_str(&real_branch_3).unwrap(),
+            None,
             guard.write_permission(),
         )
         .unwrap();
@@ -1313,16 +1336,8 @@ fn detect_mergeable_branch() -> Result<()> {
 
     // unapply both branches and create some conflicting ones
     let branch_manager = project_repository.branch_manager();
-    branch_manager.convert_to_real_branch(
-        branch1_id,
-        Default::default(),
-        guard.write_permission(),
-    )?;
-    branch_manager.convert_to_real_branch(
-        branch2_id,
-        Default::default(),
-        guard.write_permission(),
-    )?;
+    branch_manager.convert_to_real_branch(branch1_id, guard.write_permission())?;
+    branch_manager.convert_to_real_branch(branch2_id, guard.write_permission())?;
 
     project_repository.repo().set_head("refs/heads/master")?;
     project_repository
@@ -2163,7 +2178,10 @@ fn pre_commit_hook_rejection() -> Result<()> {
     let res = commit(project_repository, branch1_id, "test commit", None, true);
 
     let err = res.unwrap_err();
-    assert_eq!(err.to_string(), "commit hook rejected: rejected");
+    assert_eq!(
+        err.source().unwrap().to_string(),
+        "commit hook rejected: rejected"
+    );
 
     Ok(())
 }
@@ -2256,7 +2274,10 @@ fn commit_msg_hook_rejection() -> Result<()> {
     let res = commit(project_repository, branch1_id, "test commit", None, true);
 
     let err = res.unwrap_err();
-    assert_eq!(err.to_string(), "commit-msg hook rejected: rejected");
+    assert_eq!(
+        err.source().unwrap().to_string(),
+        "commit-msg hook rejected: rejected"
+    );
 
     Ok(())
 }

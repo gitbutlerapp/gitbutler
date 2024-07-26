@@ -56,7 +56,7 @@ async fn integration() {
 
     // checkout a existing remote branch
     let branch_id = controller
-        .create_virtual_branch_from_branch(project, &branch_name)
+        .create_virtual_branch_from_branch(project, &branch_name, None)
         .await
         .unwrap();
 
@@ -151,7 +151,11 @@ async fn no_conflicts() {
     assert!(branches.is_empty());
 
     let branch_id = controller
-        .create_virtual_branch_from_branch(project, &"refs/remotes/origin/branch".parse().unwrap())
+        .create_virtual_branch_from_branch(
+            project,
+            &"refs/remotes/origin/branch".parse().unwrap(),
+            None,
+        )
         .await
         .unwrap();
 
@@ -197,7 +201,11 @@ async fn conflicts_with_uncommited() {
     // branch should be created unapplied, because of the conflict
 
     let new_branch_id = controller
-        .create_virtual_branch_from_branch(project, &"refs/remotes/origin/branch".parse().unwrap())
+        .create_virtual_branch_from_branch(
+            project,
+            &"refs/remotes/origin/branch".parse().unwrap(),
+            None,
+        )
         .await
         .unwrap();
     let new_branch = controller
@@ -253,7 +261,11 @@ async fn conflicts_with_commited() {
     // branch should be created unapplied, because of the conflict
 
     let new_branch_id = controller
-        .create_virtual_branch_from_branch(project, &"refs/remotes/origin/branch".parse().unwrap())
+        .create_virtual_branch_from_branch(
+            project,
+            &"refs/remotes/origin/branch".parse().unwrap(),
+            None,
+        )
         .await
         .unwrap();
     let new_branch = controller
@@ -289,6 +301,7 @@ async fn from_default_target() {
             .create_virtual_branch_from_branch(
                 project,
                 &"refs/remotes/origin/master".parse().unwrap(),
+                None
             )
             .await
             .unwrap_err()
@@ -317,6 +330,7 @@ async fn from_non_existent_branch() {
             .create_virtual_branch_from_branch(
                 project,
                 &"refs/remotes/origin/branch".parse().unwrap(),
+                None
             )
             .await
             .unwrap_err()
@@ -355,7 +369,11 @@ async fn from_state_remote_branch() {
         .unwrap();
 
     let branch_id = controller
-        .create_virtual_branch_from_branch(project, &"refs/remotes/origin/branch".parse().unwrap())
+        .create_virtual_branch_from_branch(
+            project,
+            &"refs/remotes/origin/branch".parse().unwrap(),
+            None,
+        )
         .await
         .unwrap();
 

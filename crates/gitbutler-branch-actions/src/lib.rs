@@ -14,8 +14,9 @@ pub use base::BaseBranch;
 mod integration;
 pub use integration::{update_gitbutler_integration, verify_branch};
 
-mod files;
-pub use files::RemoteBranchFile;
+mod file;
+pub use file::Get;
+pub use file::RemoteBranchFile;
 
 mod remote;
 pub use remote::{list_remote_branches, RemoteBranch, RemoteBranchData, RemoteCommit};
@@ -23,6 +24,8 @@ pub use remote::{list_remote_branches, RemoteBranch, RemoteBranchData, RemoteCom
 pub mod conflicts;
 
 mod author;
+mod status;
+pub use status::get_applied_status;
 
 use gitbutler_branch::VirtualBranchesHandle;
 trait VirtualBranchesExt {
@@ -34,3 +37,9 @@ impl VirtualBranchesExt for gitbutler_project::Project {
         VirtualBranchesHandle::new(self.gb_dir())
     }
 }
+
+mod branch;
+mod commit;
+mod hunk;
+
+pub use branch::{list_branches, BranchListing};

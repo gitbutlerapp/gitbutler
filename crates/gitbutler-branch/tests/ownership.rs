@@ -1,8 +1,9 @@
 use std::{path::PathBuf, vec};
 
 use gitbutler_branch::{
-    Hunk, OwnershipClaim, {reconcile_claims, BranchOwnershipClaims}, {Branch, BranchId},
+    OwnershipClaim, {reconcile_claims, BranchOwnershipClaims}, {Branch, BranchId},
 };
+use gitbutler_diff::Hunk;
 
 #[test]
 fn reconcile_ownership_simple() {
@@ -16,13 +17,11 @@ fn reconcile_ownership_simple() {
                         start: 1,
                         end: 3,
                         hash: Some(Hunk::hash("1,3")),
-                        locked_to: vec![],
                     },
                     Hunk {
                         start: 4,
                         end: 6,
                         hash: Some(Hunk::hash("4,6")),
-                        locked_to: vec![],
                     },
                 ],
             }],
@@ -52,7 +51,6 @@ fn reconcile_ownership_simple() {
                     start: 7,
                     end: 9,
                     hash: Some(Hunk::hash("7,9")),
-                    locked_to: vec![],
                 }],
             }],
         },
@@ -80,13 +78,11 @@ fn reconcile_ownership_simple() {
                 start: 4,
                 end: 6,
                 hash: Some(Hunk::hash("4,6")),
-                locked_to: vec![],
             },
             Hunk {
                 start: 7,
                 end: 9,
                 hash: Some(Hunk::hash("9,7")),
-                locked_to: vec![],
             },
         ],
     }];
@@ -104,7 +100,6 @@ fn reconcile_ownership_simple() {
                     start: 1,
                     end: 3,
                     hash: Some(Hunk::hash("1,3")),
-                    locked_to: vec![],
                 },],
             }],
         }
@@ -120,13 +115,11 @@ fn reconcile_ownership_simple() {
                         start: 4,
                         end: 6,
                         hash: Some(Hunk::hash("4,6")),
-                        locked_to: vec![],
                     },
                     Hunk {
                         start: 7,
                         end: 9,
                         hash: Some(Hunk::hash("9,7")),
-                        locked_to: vec![],
                     },
                 ],
             }],

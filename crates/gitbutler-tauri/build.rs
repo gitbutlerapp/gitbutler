@@ -10,14 +10,20 @@ fn main() {
         .unwrap()
         .parent()
         .unwrap()
-        .join("app")
+        .join("apps")
+        .join("desktop")
         .join("build");
     if !build_dir.exists() {
         // NOTE(qix-): Do not use `create_dir_all` here - the parent directory
         // NOTE(qix-): already exists, and we want to fail if not (for some reason).
         #[allow(clippy::expect_fun_call, clippy::create_dir)]
-        std::fs::create_dir(&build_dir)
-            .expect(format!("failed to create app/build directory: {:?}", build_dir).as_str());
+        std::fs::create_dir(&build_dir).expect(
+            format!(
+                "failed to create apps/desktop/build directory: {:?}",
+                build_dir
+            )
+            .as_str(),
+        );
     }
 
     tauri_build::build();

@@ -54,7 +54,7 @@ async fn rebase_commit() {
     let unapplied_branch = {
         // unapply first vbranch
         let unapplied_branch = controller
-            .convert_to_real_branch(project, branch1_id, Default::default())
+            .convert_to_real_branch(project, branch1_id)
             .await
             .unwrap();
 
@@ -94,7 +94,7 @@ async fn rebase_commit() {
     {
         // apply first vbranch again
         branch1_id = controller
-            .create_virtual_branch_from_branch(project, &unapplied_branch)
+            .create_virtual_branch_from_branch(project, &unapplied_branch, None)
             .await
             .unwrap();
 
@@ -103,8 +103,7 @@ async fn rebase_commit() {
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 0);
-        // TODO: THIS SHOULD BE 1
-        assert_eq!(branches[0].commits.len(), 2);
+        assert_eq!(branches[0].commits.len(), 1);
         assert!(branches[0].active);
         assert!(!branches[0].conflicted);
 
@@ -164,7 +163,7 @@ async fn rebase_work() {
     let unapplied_branch = {
         // unapply first vbranch
         let unapplied_branch = controller
-            .convert_to_real_branch(project, branch1_id, Default::default())
+            .convert_to_real_branch(project, branch1_id)
             .await
             .unwrap();
 
@@ -192,7 +191,7 @@ async fn rebase_work() {
     {
         // apply first vbranch again
         branch1_id = controller
-            .create_virtual_branch_from_branch(project, &unapplied_branch)
+            .create_virtual_branch_from_branch(project, &unapplied_branch, None)
             .await
             .unwrap();
 

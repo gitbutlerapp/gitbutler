@@ -10,7 +10,8 @@
 	"scripts": {
 		"dev": "turbo watch --filter @gitbutler/app dev --no-update-notifier",
 		"dev:ui": "pnpm --filter @gitbutler/ui dev",
-		"dev:tauri": "pnpm tauri dev",
+		"dev:web": "pnpm --filter @gitbutler/cloud dev",
+		"dev:desktop": "pnpm tauri dev",
 		"test": "pnpm --filter @gitbutler/app run test",
 		"test:watch": "pnpm --filter @gitbutler/app run test:watch",
 		"build": "turbo run build --no-daemon",
@@ -37,7 +38,7 @@
 		"globals": "^15.6.0",
 		"prettier": "^3.3.2",
 		"prettier-plugin-svelte": "^3.2.4",
-		"svelte-eslint-parser": "^0.39.2",
+		"svelte-eslint-parser": "^0.41.0",
 		"turbo": "2.0.7-canary.1",
 		"typescript": "5.4.5",
 		"typescript-eslint": "^7.13.1"

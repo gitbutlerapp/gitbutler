@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use bstr::BString;
-use gitbutler_branch::{Target, VirtualBranchesHandle};
+use gitbutler_branch::{ReferenceExt, Target, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -30,6 +30,7 @@ pub struct RemoteBranch {
     pub given_name: String,
     pub last_commit_timestamp_ms: Option<u128>,
     pub last_commit_author: Option<String>,
+    pub is_remote: bool,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -121,7 +122,7 @@ pub(crate) fn branch_to_remote_branch(
         .context("could not get branch name")
         .ok()?;
 
-    let given_name = ctx.given_name_for_branch(branch).ok()?;
+    let given_name = branch.get().given_name(&ctx.repo().remotes().ok()?).ok()?;
 
     branch.get().target().map(|sha| RemoteBranch {
         sha,
@@ -139,6 +140,7 @@ pub(crate) fn branch_to_remote_branch(
             .map(|t: u128| t * 1000)
             .ok(),
         last_commit_author: commit.author().name().map(std::string::ToString::to_string),
+        is_remote: branch.get().is_remote(),
     })
 }
 

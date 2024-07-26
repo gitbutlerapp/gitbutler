@@ -31,20 +31,28 @@ pub(crate) fn get_integration_commiter<'a>() -> Result<git2::Signature<'a>> {
 //
 // This is the base against which we diff the working directory to understand
 // what files have been modified.
-pub(crate) fn get_workspace_head(
-    vb_state: &VirtualBranchesHandle,
-    project_repo: &ProjectRepository,
-) -> Result<git2::Oid> {
+pub(crate) fn get_workspace_head(project_repo: &ProjectRepository) -> Result<git2::Oid> {
+    let vb_state = project_repo.project().virtual_branches();
     let target = vb_state
         .get_default_target()
         .context("failed to get target")?;
     let repo: &git2::Repository = project_repo.repo();
-    let vb_state = project_repo.project().virtual_branches();
 
-    let virtual_branches: Vec<Branch> = vb_state.list_branches_in_workspace()?;
+    let mut virtual_branches: Vec<Branch> = vb_state.list_branches_in_workspace()?;
+
+    let branch_heads = virtual_branches
+        .iter()
+        .map(|b| repo.find_commit(b.head))
+        .collect::<Result<Vec<_>, _>>()?;
+    let branch_head_refs = branch_heads.iter().collect::<Vec<_>>();
 
     let target_commit = repo.find_commit(target.sha)?;
     let mut workspace_tree = target_commit.tree()?;
+
+    // If no branches are applied then the workspace head is the target.
+    if branch_head_refs.is_empty() {
+        return Ok(target_commit.id());
+    }
 
     if conflicts::is_conflicting(project_repo, None)? {
         let merge_parent =
@@ -54,7 +62,7 @@ pub(crate) fn get_workspace_head(
         let merge_base = repo.merge_base(first_branch.head, merge_parent)?;
         workspace_tree = repo.find_commit(merge_base)?.tree()?;
     } else {
-        for branch in &virtual_branches {
+        for branch in virtual_branches.iter_mut() {
             let branch_tree = repo.find_commit(branch.head)?.tree()?;
             let merge_tree = repo.find_commit(target.sha)?.tree()?;
             let mut index = repo.merge_trees(&merge_tree, &workspace_tree, &branch_tree, None)?;
@@ -62,20 +70,13 @@ pub(crate) fn get_workspace_head(
             if !index.has_conflicts() {
                 workspace_tree = repo.find_tree(index.write_tree_to(repo)?)?;
             } else {
-                return Err(anyhow!("Merge conflict between base and {:?}", branch.name));
+                // This branch should have already been unapplied during the "update" command but for some reason that failed
+                tracing::warn!("Merge conflict between base and {:?}", branch.name);
+                branch.applied = false;
+                branch.in_workspace = false;
+                vb_state.set_branch(branch.clone())?;
             }
         }
-    }
-
-    let branch_heads = virtual_branches
-        .iter()
-        .map(|b| repo.find_commit(b.head))
-        .collect::<Result<Vec<_>, _>>()?;
-    let branch_head_refs = branch_heads.iter().collect::<Vec<_>>();
-
-    // If no branches are applied then the workspace head is the target.
-    if branch_head_refs.is_empty() {
-        return Ok(target_commit.id());
     }
 
     // TODO(mg): Can we make this a constant?
@@ -171,8 +172,7 @@ pub fn update_gitbutler_integration(
         .list_branches_in_workspace()
         .context("failed to list virtual branches")?;
 
-    let integration_commit =
-        repo.find_commit(get_workspace_head(&vb_state, project_repository)?)?;
+    let integration_commit = repo.find_commit(get_workspace_head(project_repository)?)?;
     let integration_tree = integration_commit.tree()?;
 
     // message that says how to get back to where they were
