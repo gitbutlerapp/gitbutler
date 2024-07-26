@@ -40,3 +40,6 @@ playwright-report
 # storybook
 *storybook.log
 storybook-static
+
+# Vercel
+.vercel
