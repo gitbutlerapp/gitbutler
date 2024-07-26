@@ -35,14 +35,6 @@
 
 	const commits = isFileLocked ? ($localCommits || []).concat($remoteCommits || []) : undefined;
 	let alwaysShow = $state(false);
-
-	function getGutterMinWidth(max: number) {
-		if (max >= 10000) return 2.5;
-		if (max >= 1000) return 2;
-		if (max >= 100) return 1.5;
-		if (max >= 10) return 1.25;
-		return 1;
-	}
 </script>
 
 <div class="hunks">
@@ -53,7 +45,7 @@
 	{:else if sections.length > 50 && !alwaysShow}
 		<LargeDiffMessage
 			showFrame
-			on:show={() => {
+			handleShow={() => {
 				alwaysShow = true;
 			}}
 		/>

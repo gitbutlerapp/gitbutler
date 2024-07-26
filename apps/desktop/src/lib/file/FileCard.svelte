@@ -11,9 +11,9 @@
 		file: AnyFile;
 		conflicted: boolean;
 		isUnapplied: boolean;
-		selectable: boolean;
-		readonly: boolean;
-		isCard: boolean;
+		selectable?: boolean;
+		readonly?: boolean;
+		isCard?: boolean;
 	}
 
 	let {
