@@ -9,7 +9,12 @@
 	const dispatch = createEventDispatcher<{ click: void }>();
 </script>
 
-<div class="container" class:is-last={isLast} class:is-first={isFirst} class:is-middle={isMiddle}>
+<div
+	class="line-container"
+	class:is-last={isLast}
+	class:is-first={isFirst}
+	class:is-middle={isMiddle}
+>
 	<div class="hover-target">
 		<Button
 			style="ghost"
@@ -26,7 +31,7 @@
 </div>
 
 <style lang="postcss">
-	.container {
+	.line-container {
 		--height: 14px;
 		--container-margin: calc(var(--height) / 2 * -1);
 
@@ -89,15 +94,15 @@
 
 	/* MODIFIERS */
 
-	.container.is-last {
+	.line-container.is-last {
 		transform: translateY(-4px);
 	}
 
-	.container.is-first {
+	.line-container.is-first {
 		transform: translateY(16px);
 	}
 
-	.container.is-middle {
+	.line-container.is-middle {
 		transform: translateY(6px);
 	}
 </style>
