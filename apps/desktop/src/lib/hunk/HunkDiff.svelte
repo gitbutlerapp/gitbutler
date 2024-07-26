@@ -218,7 +218,7 @@
 							selectable && handleSelected(hunk, isSelected);
 						}}
 					>
-						{line.beforeLineNumber}
+						232{line.beforeLineNumber}
 					</td>
 					<td
 						class="table__numberColumn"
@@ -267,15 +267,14 @@
 	}
 
 	.table__numberColumn {
-		width: 1%;
-		max-width: 50px;
+		min-width: 35px;
 		color: var(--clr-text-3);
 		border-color: var(--clr-border-2);
 		background-color: var(--clr-bg-1-muted);
-		font-size: 10px;
+		font-size: 11px;
 		border-right-width: 1px;
-		padding-left: 2px;
-		padding-right: 2px;
+		padding-left: 4px;
+		padding-right: 4px;
 		text-align: right;
 		cursor: var(--cursor);
 		user-select: none;
