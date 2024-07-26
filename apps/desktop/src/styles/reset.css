@@ -30,6 +30,9 @@
 		/* optimise font rendering */
 		-webkit-font-smoothing: antialiased;
 		text-rendering: optimizeLegibility;
+
+		/* prevents background from being selected */
+		user-select: none;
 	}
 
 	/* elements */
