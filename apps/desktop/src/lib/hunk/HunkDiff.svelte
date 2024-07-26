@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { type Row, Operation, type DiffRows } from './types';
+	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { create } from '$lib/utils/codeHighlight';
 	import { maybeGetContextStore } from '$lib/utils/context';
 	import { type ContentSection, SectionType, type Line } from '$lib/utils/fileSections';
@@ -45,6 +46,9 @@
 		handleSelected,
 		handleLineContextMenu
 	}: Props = $props();
+
+	let viewport = $state<HTMLDivElement>();
+	let contents = $state<HTMLDivElement>();
 
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 
@@ -198,10 +202,11 @@
 </script>
 
 <div
-	class="table__wrapper"
+	class="table__wrapper hide-native-scrollbar"
+	bind:this={viewport}
 	style="--tab-size: {tabSize}; --cursor: {draggingDisabled ? 'default' : 'grab'}"
 >
-	<table data-hunk-id={hunk.id} class="table__section">
+	<table bind:this={contents} data-hunk-id={hunk.id} class="table__section">
 		<tbody>
 			{#each renderRows as line}
 				<tr data-no-drag>
@@ -245,14 +250,16 @@
 			{/each}
 		</tbody>
 	</table>
+	<Scrollbar {viewport} {contents} horz />
 </div>
 
 <style>
 	.table__wrapper {
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-s);
-		overflow: hidden;
+		overflow-x: auto;
 	}
+
 	.table__section {
 		border-spacing: 0;
 		width: 100%;

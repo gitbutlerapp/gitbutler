@@ -65,6 +65,7 @@
 		tabindex="0"
 		role="cell"
 		bind:this={viewport}
+		class="hunk"
 		class:opacity-60={section.hunk.locked && !isFileLocked}
 		oncontextmenu={(e) => e.preventDefault()}
 		use:draggableElement={{
@@ -72,36 +73,34 @@
 			disabled: draggingDisabled
 		}}
 	>
-		<div class="hunk__bg-stretch">
-			{#if linesModified > 2500 && !alwaysShow}
-				<LargeDiffMessage
-					handleShow={() => {
-						alwaysShow = true;
-					}}
-				/>
-			{:else}
-				<HunkDiff
-					{readonly}
-					{filePath}
-					{selectable}
-					{draggingDisabled}
-					tabSize={$userSettings.tabSize}
-					hunk={section.hunk}
-					onclick={() => {
-						contextMenu?.close();
-					}}
-					subsections={section.subSections}
-					handleSelected={(hunk, isSelected) => onHunkSelected(hunk, isSelected)}
-					handleLineContextMenu={({ event, lineNumber, hunk, subsection }) => {
-						contextMenu?.open(event, {
-							hunk,
-							section: subsection,
-							lineNumber: lineNumber
-						});
-					}}
-				/>
-			{/if}
-		</div>
+		{#if linesModified > 2500 && !alwaysShow}
+			<LargeDiffMessage
+				handleShow={() => {
+					alwaysShow = true;
+				}}
+			/>
+		{:else}
+			<HunkDiff
+				{readonly}
+				{filePath}
+				{selectable}
+				{draggingDisabled}
+				tabSize={$userSettings.tabSize}
+				hunk={section.hunk}
+				onclick={() => {
+					contextMenu?.close();
+				}}
+				subsections={section.subSections}
+				handleSelected={(hunk, isSelected) => onHunkSelected(hunk, isSelected)}
+				handleLineContextMenu={({ event, lineNumber, hunk, subsection }) => {
+					contextMenu?.open(event, {
+						hunk,
+						section: subsection,
+						lineNumber: lineNumber
+					});
+				}}
+			/>
+		{/if}
 	</div>
 </div>
 
@@ -110,10 +109,11 @@
 		display: flex;
 		flex-direction: column;
 		position: relative;
+	}
 
-		& > div {
-			width: 100%;
-			user-select: text;
-		}
+	.hunk {
+		width: 100%;
+		user-select: text;
+		overflow-x: auto;
 	}
 </style>
