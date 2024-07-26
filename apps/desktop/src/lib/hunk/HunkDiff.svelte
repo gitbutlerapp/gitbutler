@@ -4,8 +4,8 @@
 	import { maybeGetContextStore } from '$lib/utils/context';
 	import { type ContentSection, SectionType, type Line } from '$lib/utils/fileSections';
 	import { Ownership } from '$lib/vbranches/ownership';
+	import { type Hunk } from '$lib/vbranches/types';
 	import diff_match_patch from 'diff-match-patch';
-	import type { Hunk } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	type HandleLineContextMenuArgs = {
@@ -204,7 +204,7 @@
 	<table data-hunk-id={hunk.id} class="table__section">
 		<tbody>
 			{#each renderRows as line}
-				<tr>
+				<tr data-no-drag>
 					<td
 						class="table__numberColumn"
 						align="center"
@@ -229,6 +229,7 @@
 						{onclick}
 						class="table__textContent"
 						class:readonly
+						data-no-drag
 						class:diff-line-deletion={line.type === SectionType.RemovedLines}
 						class:diff-line-addition={line.type === SectionType.AddedLines}
 						oncontextmenu={(event) => {
