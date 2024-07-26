@@ -201,12 +201,6 @@ fn branch_group_to_branch(
     let repo_head = repo.head()?.peel_to_commit()?;
     // If no merge base can be found, return with zero stats
     let branch = if let Ok(base) = repo.merge_base(repo_head.id(), head) {
-        let base_tree = repo.find_commit(base)?.tree()?;
-        let head_tree = repo.find_commit(head)?.tree()?;
-        let diff_stats = repo
-            .diff_tree_to_tree(Some(&base_tree), Some(&head_tree), None)?
-            .stats()?;
-
         let mut revwalk = repo.revwalk()?;
         revwalk.push(head)?;
         revwalk.hide(base)?;
@@ -233,9 +227,6 @@ fn branch_group_to_branch(
             name: identity,
             remotes,
             virtual_branch: virtual_branch_reference,
-            lines_added: diff_stats.insertions(),
-            lines_removed: diff_stats.deletions(),
-            number_of_files: diff_stats.files_changed(),
             number_of_commits: commits.len(),
             updated_at: last_modified_ms,
             authors: authors.into_iter().collect(),
@@ -247,9 +238,6 @@ fn branch_group_to_branch(
             name: identity,
             remotes,
             virtual_branch: virtual_branch_reference,
-            lines_added: 0,
-            lines_removed: 0,
-            number_of_files: 0,
             number_of_commits: 0,
             updated_at: last_modified_ms,
             authors: Vec::new(),
@@ -335,23 +323,6 @@ pub struct BranchListing {
     pub remotes: Vec<BString>,
     /// The branch may or may not have a virtual branch associated with it
     pub virtual_branch: Option<VirtualBranchReference>,
-    /// The number of lines added within the branch
-    /// Since the virtual branch, local branch and the remote one can have different number of lines removed,
-    /// the value from the virtual branch (if present) takes the highest precedence,
-    /// followed by the local branch and then the remote branches (taking the max if there are multiple).
-    /// If this branch has a virutal branch, lines_added does NOT include the uncommitted lines.
-    pub lines_added: usize,
-    /// The number of lines removed within the branch
-    /// Since the virtual branch, local branch and the remote one can have different number of lines removed,
-    /// the value from the virtual branch (if present) takes the highest precedence,
-    /// followed by the local branch and then the remote branches (taking the max if there are multiple)
-    /// If this branch has a virutal branch, lines_removed does NOT include the uncommitted lines.
-    pub lines_removed: usize,
-    /// The number of files that were modified within the branch
-    /// Since the virtual branch, local branch and the remote one can have different number files modified,
-    /// the value from the virtual branch (if present) takes the highest precedence,
-    /// followed by the local branch and then the remote branches (taking the max if there are multiple)
-    pub number_of_files: usize,
     /// The number of commits associated with a branch
     /// Since the virtual branch, local branch and the remote one can have different number of commits,
     /// the value from the virtual branch (if present) takes the highest precedence,
@@ -412,6 +383,23 @@ pub struct BranchData {
     pub remote_branches: Vec<RemoteBranchEntry>,
     /// The virtual branch entry associated with the branch
     pub virtual_branch: Option<VirtualBranch>,
+    /// The number of lines added within the branch
+    /// Since the virtual branch, local branch and the remote one can have different number of lines removed,
+    /// the value from the virtual branch (if present) takes the highest precedence,
+    /// followed by the local branch and then the remote branches (taking the max if there are multiple).
+    /// If this branch has a virutal branch, lines_added does NOT include the uncommitted lines.
+    pub lines_added: usize,
+    /// The number of lines removed within the branch
+    /// Since the virtual branch, local branch and the remote one can have different number of lines removed,
+    /// the value from the virtual branch (if present) takes the highest precedence,
+    /// followed by the local branch and then the remote branches (taking the max if there are multiple)
+    /// If this branch has a virutal branch, lines_removed does NOT include the uncommitted lines.
+    pub lines_removed: usize,
+    /// The number of files that were modified within the branch
+    /// Since the virtual branch, local branch and the remote one can have different number files modified,
+    /// the value from the virtual branch (if present) takes the highest precedence,
+    /// followed by the local branch and then the remote branches (taking the max if there are multiple)
+    pub number_of_files: usize,
 }
 /// Represents a local branch
 #[derive(Debug, Clone, Serialize, PartialEq)]
