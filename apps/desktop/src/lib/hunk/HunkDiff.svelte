@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { type Row, Operation, type DiffRows } from './types';
 	import { create } from '$lib/utils/codeHighlight';
 	import { maybeGetContextStore } from '$lib/utils/context';
 	import { type ContentSection, SectionType, type Line } from '$lib/utils/fileSections';
@@ -32,23 +33,6 @@
 		}: HandleLineContextMenuArgs) => void;
 	}
 
-	interface Row {
-		beforeLineNumber?: number;
-		afterLineNumber?: number;
-		tokens: string[];
-		type: SectionType;
-		size: number;
-	}
-
-	enum Operation {
-		Equal = 0,
-		Insert = 1,
-		Delete = -1,
-		Edit = 2
-	}
-
-	type DiffRows = { prevRows: Row[]; nextRows: Row[] };
-
 	const {
 		hunk,
 		readonly = false,
@@ -80,6 +64,15 @@
 		var element = document.createElement('div');
 		element.innerText = text;
 		return element.innerHTML;
+	}
+
+	function isLineEmpty(lines: Line[]) {
+		const whitespaceRegex = new RegExp(/\s/);
+		if (!lines[0].content.match(whitespaceRegex)) {
+			return true;
+		}
+
+		return false;
 	}
 
 	function createRowData(section: ContentSection): Row[] {
@@ -157,15 +150,6 @@
 		return returnRows;
 	}
 
-	function isLineEmpty(lines: Line[]) {
-		const whitespaceRegex = new RegExp(/\s/);
-		if (!lines[0].content.match(whitespaceRegex)) {
-			return true;
-		}
-
-		return false;
-	}
-
 	// Filter out section for which we don't need to compute word diffs
 	function filterRows(subsections: ContentSection[]) {
 		return subsections.reduce((acc, nextSection, i) => {
@@ -192,7 +176,7 @@
 			const { prevRows, nextRows } = computeWordDiff(prevSection, nextSection);
 
 			// Insert returned row datastructures into the correct place
-			// 1. Find and replace previous rows with tokenized version
+			// Find and replace previous rows with tokenized version
 			prevRows.forEach((row) => {
 				const accIndex = acc.findIndex(
 					(accRow) =>
@@ -204,7 +188,6 @@
 				acc[accIndex] = row;
 			});
 
-			// 2. Push Tokenized nextRows onto end of array
 			acc.push(...nextRows);
 
 			return acc;
