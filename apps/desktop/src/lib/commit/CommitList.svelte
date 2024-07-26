@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CommitAction from './CommitAction.svelte';
 	import CommitCard from './CommitCard.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
@@ -10,6 +11,10 @@
 	} from '$lib/dragging/reorderDropzoneManager';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import LineOverlay from '$lib/dropzone/LineOverlay.svelte';
+	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
+	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
+	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -35,13 +40,26 @@
 	const project = getContext(Project);
 	const branchController = getContext(BranchController);
 	const lineManagerFactory = getContext(LineManagerFactory);
+	//
+	const listingService = getGitHostListingService();
+	const prMonitor = getGitHostPrMonitor();
+	const checksMonitor = getGitHostChecksMonitor();
 
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
 
+	$: mappedRemoteCommits =
+		$remoteCommits.length > 0
+			? [...$remoteCommits.map(transformAnyCommit), { id: 'remote-spacer' }]
+			: [];
+	$: mappedLocalCommits =
+		$localCommits.length > 0
+			? [...$localCommits.map(transformAnyCommit), { id: 'local-spacer' }]
+			: [];
+
 	$: lineManager = lineManagerFactory.build(
 		{
-			remoteCommits: $remoteCommits.map(transformAnyCommit),
-			localCommits: $localCommits.map(transformAnyCommit),
+			remoteCommits: mappedRemoteCommits,
+			localCommits: mappedLocalCommits,
 			localAndRemoteCommits: $localAndRemoteCommits.map(transformAnyCommit),
 			integratedCommits: $integratedCommits.map(transformAnyCommit)
 		},
@@ -68,6 +86,9 @@
 	$: forkPoint = $branch.forkPoint;
 	$: upstreamForkPoint = $branch.upstreamData?.forkPoint;
 	$: isRebased = !!forkPoint && !!upstreamForkPoint && forkPoint !== upstreamForkPoint;
+
+	$: isPushingCommits = false;
+	$: isIntegratingCommits = false;
 
 	let baseIsUnfolded = false;
 
@@ -106,110 +127,177 @@
 {#if hasCommits || hasRemoteCommits}
 	<div class="commits">
 		<!-- UPSTREAM COMMITS -->
+
 		{#if $remoteCommits.length > 0}
-			{#each $remoteCommits as commit, idx (commit.id)}
-				<CommitCard
-					type="remote"
-					branch={$branch}
-					{commit}
-					{isUnapplied}
-					first={idx === 0}
-					last={idx === $remoteCommits.length - 1}
-					commitUrl={$baseBranch?.commitUrl(commit.id)}
-					isHeadCommit={commit.id === headCommit?.id}
-				>
-					{#snippet lines(topHeightPx)}
-						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+			<!-- To make the sticky position work, commits should be wrapped in a div -->
+			<div class="commits-group">
+				{#each $remoteCommits as commit, idx (commit.id)}
+					<CommitCard
+						type="remote"
+						branch={$branch}
+						{commit}
+						{isUnapplied}
+						first={idx === 0}
+						last={idx === $remoteCommits.length - 1}
+						commitUrl={$baseBranch?.commitUrl(commit.id)}
+						isHeadCommit={commit.id === headCommit?.id}
+					>
+						{#snippet lines(topHeightPx)}
+							<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+						{/snippet}
+					</CommitCard>
+				{/each}
+
+				<CommitAction>
+					{#snippet lines()}
+						<LineGroup lineGroup={lineManager.get('remote-spacer')} topHeightPx={0} />
 					{/snippet}
-				</CommitCard>
-			{/each}
+					{#snippet action()}
+						<Button
+							style="warning"
+							kind="solid"
+							loading={isIntegratingCommits}
+							on:click={async () => {
+								isIntegratingCommits = true;
+								try {
+									await branchController.mergeUpstream($branch.id);
+								} catch (e) {
+									console.error(e);
+								} finally {
+									isIntegratingCommits = false;
+								}
+							}}>Integrate upstream</Button
+						>
+					{/snippet}
+				</CommitAction>
+			</div>
 		{/if}
-		<InsertEmptyCommitAction isFirst on:click={() => insertBlankCommit($branch.head, 'above')} />
+
 		<!-- LOCAL COMMITS -->
 		{#if $localCommits.length > 0}
-			{@render reorderDropzone(
-				reorderDropzoneManager.topDropzone,
-				getReorderDropzoneOffset({ isFirst: true })
-			)}
-			{#each $localCommits as commit, idx (commit.id)}
-				<CommitCard
-					{commit}
-					{isUnapplied}
-					type="local"
-					first={idx === 0}
-					branch={$branch}
-					last={idx === $localCommits.length - 1}
-					isHeadCommit={commit.id === headCommit?.id}
-				>
-					{#snippet lines(topHeightPx)}
-						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
-					{/snippet}
-				</CommitCard>
-
-				{@render reorderDropzone(
-					reorderDropzoneManager.dropzoneBelowCommit(commit.id),
-					getReorderDropzoneOffset({
-						isLast: idx + 1 === $localCommits.length,
-						isMiddle: idx + 1 === $localCommits.length
-					})
-				)}
-
+			<div class="commits-group">
 				<InsertEmptyCommitAction
-					isLast={$localAndRemoteCommits.length === 0 && idx + 1 === $localCommits.length}
-					isMiddle={$localAndRemoteCommits.length > 0 && idx + 1 === $localCommits.length}
-					on:click={() => insertBlankCommit(commit.id, 'below')}
+					isFirst
+					on:click={() => insertBlankCommit($branch.head, 'above')}
 				/>
-			{/each}
+				{@render reorderDropzone(
+					reorderDropzoneManager.topDropzone,
+					getReorderDropzoneOffset({ isFirst: true })
+				)}
+				{#each $localCommits as commit, idx (commit.id)}
+					<CommitCard
+						{commit}
+						{isUnapplied}
+						type="local"
+						first={idx === 0}
+						branch={$branch}
+						last={idx === $localCommits.length - 1}
+						isHeadCommit={commit.id === headCommit?.id}
+					>
+						{#snippet lines(topHeightPx)}
+							<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+						{/snippet}
+					</CommitCard>
+
+					{@render reorderDropzone(
+						reorderDropzoneManager.dropzoneBelowCommit(commit.id),
+						getReorderDropzoneOffset({
+							isLast: idx + 1 === $localCommits.length,
+							isMiddle: idx + 1 === $localCommits.length
+						})
+					)}
+
+					<InsertEmptyCommitAction
+						isLast={idx + 1 === $localCommits.length}
+						on:click={() => insertBlankCommit(commit.id, 'below')}
+					/>
+				{/each}
+
+				<CommitAction bottomBorder={hasRemoteCommits}>
+					{#snippet lines()}
+						<LineGroup lineGroup={lineManager.get('local-spacer')} topHeightPx={0} />
+					{/snippet}
+					{#snippet action()}
+						<Button
+							style="pop"
+							kind="solid"
+							wide
+							loading={isPushingCommits}
+							on:click={async () => {
+								isPushingCommits = true;
+								try {
+									await branchController.pushBranch($branch.id, $branch.requiresForce);
+									$listingService?.refresh();
+									$prMonitor?.refresh();
+									$checksMonitor?.update();
+								} catch (e) {
+									console.error(e);
+								} finally {
+									isPushingCommits = false;
+								}
+							}}
+						>
+							{$branch.requiresForce ? 'Force push' : 'Push'}
+						</Button>
+					{/snippet}
+				</CommitAction>
+			</div>
 		{/if}
+
 		<!-- LOCAL AND REMOTE COMMITS -->
 		{#if $localAndRemoteCommits.length > 0}
-			{#each $localAndRemoteCommits as commit, idx (commit.id)}
-				<CommitCard
-					{commit}
-					{isUnapplied}
-					type="localAndRemote"
-					first={idx === 0}
-					branch={$branch}
-					last={idx === $localAndRemoteCommits.length - 1}
-					isHeadCommit={commit.id === headCommit?.id}
-					commitUrl={$baseBranch?.commitUrl(commit.id)}
-				>
-					{#snippet lines(topHeightPx)}
-						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
-					{/snippet}
-				</CommitCard>
-				{@render reorderDropzone(
-					reorderDropzoneManager.dropzoneBelowCommit(commit.id),
-					getReorderDropzoneOffset({
-						isMiddle: idx + 1 === $localAndRemoteCommits.length
-						// isLast: idx + 1 === $localAndRemoteCommits.length
-					})
-				)}
-				<InsertEmptyCommitAction
-					isLast={idx + 1 === $localAndRemoteCommits.length}
-					on:click={() => insertBlankCommit(commit.id, 'below')}
-				/>
-			{/each}
+			<div class="commits-group">
+				{#each $localAndRemoteCommits as commit, idx (commit.id)}
+					<CommitCard
+						{commit}
+						{isUnapplied}
+						type="localAndRemote"
+						first={idx === 0}
+						branch={$branch}
+						last={idx === $localAndRemoteCommits.length - 1}
+						isHeadCommit={commit.id === headCommit?.id}
+						commitUrl={$baseBranch?.commitUrl(commit.id)}
+					>
+						{#snippet lines(topHeightPx)}
+							<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+						{/snippet}
+					</CommitCard>
+					{@render reorderDropzone(
+						reorderDropzoneManager.dropzoneBelowCommit(commit.id),
+						getReorderDropzoneOffset({
+							isMiddle: idx + 1 === $localAndRemoteCommits.length
+						})
+					)}
+					<InsertEmptyCommitAction
+						isLast={idx + 1 === $localAndRemoteCommits.length}
+						on:click={() => insertBlankCommit(commit.id, 'below')}
+					/>
+				{/each}
+			</div>
 		{/if}
+
 		<!-- INTEGRATED COMMITS -->
 		{#if $integratedCommits.length > 0}
-			{#each $integratedCommits as commit, idx (commit.id)}
-				<CommitCard
-					{commit}
-					{isUnapplied}
-					type="integrated"
-					first={idx === 0}
-					branch={$branch}
-					isHeadCommit={commit.id === headCommit?.id}
-					last={idx === $integratedCommits.length - 1}
-					commitUrl={$baseBranch?.commitUrl(commit.id)}
-				>
-					{#snippet lines(topHeightPx)}
-						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
-					{/snippet}
-				</CommitCard>
-			{/each}
+			<div class="commits-group">
+				{#each $integratedCommits as commit, idx (commit.id)}
+					<CommitCard
+						{commit}
+						{isUnapplied}
+						type="integrated"
+						first={idx === 0}
+						branch={$branch}
+						isHeadCommit={commit.id === headCommit?.id}
+						last={idx === $integratedCommits.length - 1}
+						commitUrl={$baseBranch?.commitUrl(commit.id)}
+					>
+						{#snippet lines(topHeightPx)}
+							<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+						{/snippet}
+					</CommitCard>
+				{/each}
+			</div>
 		{/if}
+
 		<!-- BASE -->
 		<div class="base-row-container" class:base-row-container_unfolded={baseIsUnfolded}>
 			<div
@@ -246,7 +334,8 @@
 		flex-direction: column;
 		background-color: var(--clr-bg-2);
 		border-top: 1px solid var(--clr-border-2);
-		/* border-bottom: 1px solid var(--clr-border-2); */
+		border-bottom-left-radius: var(--radius-m);
+		border-bottom-right-radius: var(--radius-m);
 
 		--base-top-margin: 8px;
 		--base-row-height: 20px;
@@ -264,6 +353,8 @@
 		display: flex;
 		flex-direction: column;
 		height: var(--base-row-height);
+		border-bottom-left-radius: var(--radius-m);
+		border-bottom-right-radius: var(--radius-m);
 
 		overflow: hidden;
 		transition: height var(--transition-medium);

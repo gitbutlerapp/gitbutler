@@ -1,5 +1,4 @@
 <script lang="ts">
-	import BranchFooter from './BranchFooter.svelte';
 	import BranchHeader from './BranchHeader.svelte';
 	import EmptyStatePlaceholder from '../components/EmptyStatePlaceholder.svelte';
 	import PullRequestCard from '../pr/PullRequestCard.svelte';
@@ -180,10 +179,7 @@
 							</Dropzones>
 						{/if}
 
-						<div class="card-commits">
-							<CommitList isUnapplied={false} />
-							<BranchFooter />
-						</div>
+						<CommitList isUnapplied={false} />
 					</div>
 				</div>
 			</ScrollableContainer>
