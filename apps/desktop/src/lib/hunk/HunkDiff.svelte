@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { type Row, Operation, type DiffRows } from './types';
+	import Icon from '$lib/shared/Icon.svelte';
 	import { create } from '$lib/utils/codeHighlight';
 	import { maybeGetContextStore } from '$lib/utils/context';
 	import { type ContentSection, SectionType, type Line } from '$lib/utils/fileSections';
@@ -201,6 +202,9 @@
 	class="table__wrapper"
 	style="--tab-size: {tabSize}; --cursor: {draggingDisabled ? 'default' : 'grab'}"
 >
+	<div class="table__drag-handle">
+		<Icon name="draggable-narrow" />
+	</div>
 	<table data-hunk-id={hunk.id} class="table__section">
 		<tbody>
 			{#each renderRows as line}
@@ -252,6 +256,32 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-s);
 		overflow: hidden;
+
+		&:hover .table__drag-handle {
+			transform: translateY(0) translateX(0) scale(1);
+			opacity: 1;
+			pointer-events: auto;
+		}
+	}
+	.table__drag-handle {
+		position: absolute;
+		cursor: grab;
+		top: 6px;
+		right: 6px;
+		background-color: var(--clr-bg-1);
+		border: 1px solid var(--clr-border-2);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		padding: 4px 2px;
+		border-radius: var(--radius-s);
+		opacity: 0;
+		transform: translateY(10%) translateX(-10%) scale(0.9);
+		transform-origin: top right;
+		pointer-events: none;
+		transition:
+			opacity 0.2s,
+			transform 0.2s;
 	}
 	.table__section {
 		border-spacing: 0;
