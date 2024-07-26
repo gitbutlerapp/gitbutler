@@ -16,7 +16,7 @@
 				window.location.href = '/';
 			}
 		}
-		if (localStorage.has('gb_access_token')) {
+		if (localStorage.getItem('gb_access_token')) {
 			token = localStorage.getItem('gb_access_token');
 		}
 	});
