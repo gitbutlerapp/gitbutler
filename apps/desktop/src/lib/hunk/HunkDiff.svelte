@@ -218,7 +218,7 @@
 							selectable && handleSelected(hunk, isSelected);
 						}}
 					>
-						232{line.beforeLineNumber}
+						{line.beforeLineNumber}
 					</td>
 					<td
 						class="table__numberColumn"
