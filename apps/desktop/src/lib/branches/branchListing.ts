@@ -3,11 +3,11 @@ import { plainToInstance } from 'class-transformer';
 
 export class BranchListingService {
 	constructor(private projectId: string) {}
-	async list() {
+	async list(filter: BranchListingFilter | undefined = undefined) {
 		try {
 			const branches = plainToInstance(
 				BranchListing,
-				await invoke<any[]>('list_branches', { projectId: this.projectId })
+				await invoke<any[]>('list_branches', { projectId: this.projectId, filter })
 			);
 			console.log(branches);
 			return branches;
@@ -15,6 +15,16 @@ export class BranchListingService {
 			console.error(err);
 		}
 	}
+}
+
+/// A filter that can be applied to the branch listing
+export class BranchListingFilter {
+    /// If the value is true, the listing will only include branches that have the same author as the current user.
+    /// If the value is false, the listing will include only branches that are not created by the user.
+    ownBranches?: boolean;
+    /// If the value is true, the listing will only include branches that are applied in the workspace.
+    /// If the value is false, the listing will only include branches that are not applied in the workspace.
+    applied?: boolean;
 }
 
 /// Represents a branch that exists for the repository
@@ -30,23 +40,6 @@ export class BranchListing {
 	remotes!: string[];
 	/// The branch may or may not have a virtual branch associated with it
 	virtualBranch?: VirtualBranchReference | undefined;
-	/// The number of lines added within the branch
-	/// Since the virtual branch, local branch and the remote one can have different number of lines removed,
-	/// the value from the virtual branch (if present) takes the highest precedence,
-	/// followed by the local branch and then the remote branches (taking the max if there are multiple)
-	/// If this branch has a virutal branch, lines_added does NOT include the uncommitted lines.
-	linesAdded!: number;
-	/// The number of lines removed within the branch
-	/// Since the virtual branch, local branch and the remote one can have different number of lines removed,
-	/// the value from the virtual branch (if present) takes the highest precedence,
-	/// followed by the local branch and then the remote branches (taking the max if there are multiple)
-	/// If this branch has a virutal branch, lines_removed does NOT include the uncommitted lines.
-	linesRemoved!: number;
-	/// The number of files that were modified within the branch
-	/// Since the virtual branch, local branch and the remote one can have different number files modified,
-	/// the value from the virtual branch (if present) takes the highest precedence,
-	/// followed by the local branch and then the remote branches (taking the max if there are multiple)
-	numberOfFiles!: number;
 	/// The number of commits associated with a branch
 	/// Since the virtual branch, local branch and the remote one can have different number of commits,
 	/// the value from the virtual branch (if present) takes the highest precedence,

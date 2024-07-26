@@ -14,13 +14,17 @@ use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::ProjectRepository;
 
 use gitbutler_reference::normalize_branch_name;
+use serde::Deserialize;
 use serde::Serialize;
 
 use crate::{VirtualBranch, VirtualBranchesExt};
 
 /// Returns a list of branches associated with this project.
 // TODO: Implement pagination for this thing
-pub fn list_branches(ctx: &ProjectRepository) -> Result<Vec<BranchListing>> {
+pub fn list_branches(
+    ctx: &ProjectRepository,
+    filter: Option<BranchListingFilter>,
+) -> Result<Vec<BranchListing>> {
     let vb_handle = ctx.project().virtual_branches();
     let branches = ctx.repo().branches(None)?;
 
@@ -31,7 +35,32 @@ pub fn list_branches(ctx: &ProjectRepository) -> Result<Vec<BranchListing>> {
         .list_all_branches()?
         .into_iter();
 
-    combine_branches(branches, virtual_branches, ctx.repo(), &vb_handle)
+    let branches = combine_branches(branches, virtual_branches, ctx.repo(), &vb_handle)?;
+    // Apply the filter
+    let branches: Vec<BranchListing> = branches
+        .into_iter()
+        .filter(|branch| matches_all(branch, &filter))
+        .collect();
+    Ok(branches)
+}
+
+fn matches_all(branch: &BranchListing, filter: &Option<BranchListingFilter>) -> bool {
+    if let Some(filter) = filter {
+        let mut conditions: Vec<bool> = vec![];
+        if let Some(applied) = filter.applied {
+            if let Some(vb) = branch.virtual_branch.as_ref() {
+                conditions.push(applied == vb.in_workspace);
+            } else {
+                conditions.push(!applied);
+            }
+        }
+        if let Some(own) = filter.own_branches {
+            conditions.push(own == branch.own_branch);
+        }
+        return conditions.iter().all(|&x| x);
+    } else {
+        return true;
+    }
 }
 
 fn combine_branches(
@@ -276,6 +305,18 @@ fn should_list_git_branch(identity: &Option<String>, target: &Option<Target>) ->
         return false;
     }
     true
+}
+
+/// A filter that can be applied to the branch listing
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BranchListingFilter {
+    /// If the value is true, the listing will only include branches that have the same author as the current user.
+    /// If the value is false, the listing will include only branches that are not created by the user.
+    pub own_branches: Option<bool>,
+    /// If the value is true, the listing will only include branches that are applied in the workspace.
+    /// If the value is false, the listing will only include branches that are not applied in the workspace.
+    pub applied: Option<bool>,
 }
 
 /// Represents a branch that exists for the repository

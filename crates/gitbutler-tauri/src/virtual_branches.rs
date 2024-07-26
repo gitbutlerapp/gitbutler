@@ -3,8 +3,8 @@ pub mod commands {
     use anyhow::{anyhow, Context};
     use gitbutler_branch::BranchOwnershipClaims;
     use gitbutler_branch::{BranchCreateRequest, BranchId, BranchUpdateRequest};
-    use gitbutler_branch_actions::RemoteBranchFile;
     use gitbutler_branch_actions::{BaseBranch, BranchListing};
+    use gitbutler_branch_actions::{BranchListingFilter, RemoteBranchFile};
     use gitbutler_branch_actions::{RemoteBranch, RemoteBranchData};
     use gitbutler_branch_actions::{VirtualBranchActions, VirtualBranches};
     use gitbutler_command_context::ProjectRepository;
@@ -430,9 +430,10 @@ pub mod commands {
     pub async fn list_branches(
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
+        filter: Option<BranchListingFilter>,
     ) -> Result<Vec<BranchListing>, Error> {
         let ctx = ProjectRepository::open(&projects.get(project_id)?)?;
-        let branches = gitbutler_branch_actions::list_branches(&ctx)?;
+        let branches = gitbutler_branch_actions::list_branches(&ctx, filter)?;
         Ok(branches)
     }
 
