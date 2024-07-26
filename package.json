@@ -10,7 +10,7 @@
 	"scripts": {
 		"dev": "turbo watch --filter @gitbutler/app dev --no-update-notifier",
 		"dev:ui": "pnpm --filter @gitbutler/ui dev",
-		"dev:web": "pnpm --filter @gitbutler/cloud dev",
+		"dev:web": "pnpm --filter @gitbutler/web dev",
 		"dev:desktop": "pnpm tauri dev",
 		"test": "pnpm --filter @gitbutler/app run test",
 		"test:watch": "pnpm --filter @gitbutler/app run test:watch",

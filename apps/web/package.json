@@ -1,5 +1,5 @@
 {
-	"name": "@gitbutler/cloud",
+	"name": "@gitbutler/web",
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
