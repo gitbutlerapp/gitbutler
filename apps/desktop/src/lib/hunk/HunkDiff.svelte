@@ -271,6 +271,7 @@
 		padding-right: 2px;
 		text-align: right;
 		cursor: var(--cursor);
+		user-select: none;
 	}
 
 	tr:first-of-type .table__numberColumn:first-child {

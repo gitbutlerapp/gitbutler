@@ -113,6 +113,7 @@
 
 		& > div {
 			width: 100%;
+			user-select: text;
 		}
 	}
 </style>
