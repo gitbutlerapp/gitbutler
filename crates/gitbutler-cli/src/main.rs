@@ -1,10 +1,7 @@
-use anyhow::{Context, Result};
-use std::path::PathBuf;
-
-use gitbutler_project::Project;
+use anyhow::Result;
 
 mod args;
-use crate::args::snapshot;
+use crate::args::{project, snapshot, vbranch};
 use args::Args;
 
 mod command;
@@ -12,24 +9,45 @@ mod command;
 fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
 
-    let project = project_from_path(args.current_dir)?;
     match args.cmd {
-        args::Subcommands::Snapshot(snapshot::Platform { cmd }) => match cmd {
-            Some(snapshot::SubCommands::Restore { snapshot_id }) => {
-                command::snapshot::restore(project, snapshot_id)
+        args::Subcommands::Branch(vbranch::Platform { cmd }) => {
+            let project = command::prepare::project_from_path(args.current_dir)?;
+            match cmd {
+                Some(vbranch::SubCommands::Create { name }) => {
+                    command::vbranch::create(project, name)
+                }
+                None => command::vbranch::list(project),
             }
-            None => command::snapshot::list(project),
+        }
+        args::Subcommands::Project(project::Platform {
+            app_data_dir,
+            app_suffix,
+            cmd,
+        }) => match cmd {
+            Some(project::SubCommands::SwitchToIntegration { remote_ref_name }) => {
+                let project = command::prepare::project_from_path(args.current_dir)?;
+                command::project::switch_to_integration(project, remote_ref_name)
+            }
+            Some(project::SubCommands::Add {
+                switch_to_integration,
+                path,
+            }) => {
+                let ctrl = command::prepare::project_controller(app_suffix, app_data_dir)?;
+                command::project::add(ctrl, path, switch_to_integration)
+            }
+            None => {
+                let ctrl = command::prepare::project_controller(app_suffix, app_data_dir)?;
+                command::project::list(ctrl)
+            }
         },
+        args::Subcommands::Snapshot(snapshot::Platform { cmd }) => {
+            let project = command::prepare::project_from_path(args.current_dir)?;
+            match cmd {
+                Some(snapshot::SubCommands::Restore { snapshot_id }) => {
+                    command::snapshot::restore(project, snapshot_id)
+                }
+                None => command::snapshot::list(project),
+            }
+        }
     }
-}
-
-fn project_from_path(path: PathBuf) -> Result<Project> {
-    let worktree_dir = gix::discover(path)?
-        .work_dir()
-        .context("Bare repositories aren't supported")?
-        .to_owned();
-    Ok(Project {
-        path: worktree_dir,
-        ..Default::default()
-    })
 }

@@ -2058,8 +2058,13 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "dirs-next",
+ "futures",
+ "gitbutler-branch",
+ "gitbutler-branch-actions",
  "gitbutler-oplog",
  "gitbutler-project",
+ "gitbutler-reference",
  "gix",
 ]
 

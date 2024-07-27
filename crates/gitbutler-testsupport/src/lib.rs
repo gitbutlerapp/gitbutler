@@ -88,7 +88,9 @@ pub mod read_only {
             path.is_file(),
             "Expecting driver to be located at {path:?} - we also assume a certain crate location"
         );
-        path
+        path.canonicalize().expect(
+            "canonicalization works as the CWD is valid and there are no symlinks to resolve",
+        )
     });
 
     /// Execute the script at `script_name.sh` (assumed to be located in `tests/fixtures/<script_name>`)

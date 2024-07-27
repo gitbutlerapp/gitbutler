@@ -13,8 +13,72 @@ pub struct Args {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
+    /// List and manipulate virtual branches.
+    #[clap(visible_alias = "branches")]
+    Branch(vbranch::Platform),
+    /// List and manipulate projects.
+    #[clap(visible_alias = "projects")]
+    Project(project::Platform),
     /// List and restore snapshots.
+    #[clap(visible_alias = "snapshots")]
     Snapshot(snapshot::Platform),
+}
+
+pub mod vbranch {
+    #[derive(Debug, clap::Parser)]
+    pub struct Platform {
+        #[clap(subcommand)]
+        pub cmd: Option<SubCommands>,
+    }
+
+    #[derive(Debug, clap::Subcommand)]
+    pub enum SubCommands {
+        /// Create a new virtual branch
+        Create {
+            /// The name of the virtual branch to create
+            name: String,
+        },
+    }
+}
+
+pub mod project {
+    use gitbutler_reference::RemoteRefname;
+    use std::path::PathBuf;
+
+    #[derive(Debug, clap::Parser)]
+    pub struct Platform {
+        /// The location of the directory to contain app data.
+        ///
+        /// Defaults to the standard location on this platform if unset.
+        #[clap(short = 'd', long, env = "GITBUTLER_CLI_DATA_DIR")]
+        pub app_data_dir: Option<PathBuf>,
+        /// A suffix like `dev` to refer to projects of the development version of the application.
+        ///
+        /// The production version is used if unset.
+        #[clap(short = 's', long)]
+        pub app_suffix: Option<String>,
+        #[clap(subcommand)]
+        pub cmd: Option<SubCommands>,
+    }
+
+    #[derive(Debug, clap::Subcommand)]
+    pub enum SubCommands {
+        /// Add the given Git repository as project for use with GitButler.
+        Add {
+            /// The long name of the remote reference to track, like `refs/remotes/origin/main`,
+            /// when switching to the integration branch.
+            #[clap(short = 's', long)]
+            switch_to_integration: Option<RemoteRefname>,
+            /// The path at which the repository worktree is located.
+            #[clap(default_value = ".", value_name = "REPOSITORY")]
+            path: PathBuf,
+        },
+        /// Switch back to the integration branch for use of virtual branches.
+        SwitchToIntegration {
+            /// The long name of the remote reference to track, like `refs/remotes/origin/main`.
+            remote_ref_name: RemoteRefname,
+        },
+    }
 }
 
 pub mod snapshot {

@@ -9,7 +9,7 @@ fn on_main_single_branch_no_vbranch() -> Result<()> {
 
     let branch = &list[0];
     assert_eq!(branch.name, "main", "short names are used");
-    assert_eq!(branch.remotes, &["origin"]);
+    assert_eq!(branch.remotes, ["origin"]);
     assert_eq!(branch.virtual_branch, None);
     assert_eq!(
         branch.authors,
@@ -26,8 +26,27 @@ fn on_main_single_branch_no_vbranch_multiple_remotes() -> Result<()> {
 
     let branch = &list[0];
     assert_eq!(branch.name, "main");
-    assert_eq!(branch.remotes, &["other-origin", "origin"]);
+    assert_eq!(branch.remotes, ["other-origin", "origin"]);
     assert_eq!(branch.virtual_branch, None);
+    assert_eq!(branch.authors, []);
+    Ok(())
+}
+
+#[test]
+fn one_vbranch_on_integration() -> Result<()> {
+    let list = list_branches(&project_ctx("one-vbranch-on-integration")?, None)?;
+    assert_eq!(list.len(), 1);
+
+    let branch = &list[0];
+    assert_eq!(branch.name, "virtual");
+    assert!(branch.remotes.is_empty(), "no remote is associated yet");
+    assert_eq!(
+        branch
+            .virtual_branch
+            .as_ref()
+            .map(|v| v.given_name.as_str()),
+        Some("virtual")
+    );
     assert_eq!(branch.authors, []);
     Ok(())
 }

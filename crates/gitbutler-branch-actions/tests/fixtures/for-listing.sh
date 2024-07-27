@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -eu -o pipefail
+CLI=${1:?The first argument is the GitButler CLI}
 
 git init remote
 (cd remote
@@ -15,4 +16,10 @@ git clone remote single-branch-no-vbranch-multi-remote
   git fetch other-origin
 )
 
+export GITBUTLER_CLI_DATA_DIR=./git/gitbutler/app-data
+git clone remote one-vbranch-on-integration
+(cd one-vbranch-on-integration
+  $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name @{u})"
+  $CLI branch create virtual
+)
 

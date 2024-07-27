@@ -12,7 +12,12 @@ path = "src/main.rs"
 [dependencies]
 gitbutler-oplog.workspace = true
 gitbutler-project.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-branch-actions.workspace = true
+gitbutler-branch.workspace = true
 gix.workspace = true
-clap = { version = "4.5.9", features = ["derive"] }
+futures.workspace = true
+dirs-next = "2.0.0"
+clap = { version = "4.5.9", features = ["derive", "env"] }
 anyhow = "1.0.86"
 chrono = "0.4.10"
