@@ -2,27 +2,28 @@
 	"$schema": "https://turborepo.org/schema.json",
 	"tasks": {
 		"package": {
-			"cache": false
+			"outputs": ["dist/**"]
 		},
 		"build": {
-			"dependsOn": ["^package"],
+			"dependsOn": ["^build"],
 			"passThroughEnv": ["SENTRY_AUTH_TOKEN", "GITHUB_TOKEN"],
 			"env": ["SENTRY_RELEASE"],
-			"cache": false
+			"outputs": [".svelte-kit/**", "!.sveltekit/types", "!.sveltekit/*.d.ts"]
 		},
 		"dev": {
-			"dependsOn": ["^package"],
+			"dependsOn": ["@gitbutler/ui#build"],
 			"cache": false,
 			"persistent": true
 		},
 		"check": {
-			"dependsOn": ["^package"],
-			"cache": true
+			"dependsOn": ["@gitbutler/ui#build"]
+		},
+		"test": {
+			"dependsOn": ["@gitbutler/ui#build"]
 		},
 		"//#globallint": {
 			// Root rules require dependencies to manually be listed https://github.com/vercel/turbo/discussions/7481
-			"dependsOn": ["@gitbutler/ui#package"],
-			"cache": true
+			"dependsOn": ["@gitbutler/ui#build"]
 		}
 	}
 }

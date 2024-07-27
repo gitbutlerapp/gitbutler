@@ -36,4 +36,5 @@ runs:
 
     - name: Build UI
       shell: bash
-      run: cd packages/ui && pnpm package
+      run: cd packages/ui && pnpm build
+

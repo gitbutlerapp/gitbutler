@@ -8,12 +8,12 @@
 	"type": "module",
 	"packageManager": "pnpm@9.5.0",
 	"scripts": {
-		"dev": "turbo watch --filter @gitbutler/app dev --no-update-notifier",
-		"dev:ui": "pnpm --filter @gitbutler/ui dev",
-		"dev:web": "pnpm --filter @gitbutler/web dev",
+		"dev:ui": "pnpm --filter @gitbutler/ui storybook",
+		"dev:web": "turbo run --filter @gitbutler/web dev --no-daemon",
 		"dev:desktop": "pnpm tauri dev",
-		"test": "pnpm --filter @gitbutler/app run test",
-		"test:watch": "pnpm --filter @gitbutler/app run test:watch",
+		"dev:internal-tauri": "turbo run --filter @gitbutler/desktop dev --no-daemon",
+		"test": "turbo run test --no-daemon",
+		"test:watch": "pnpm --filter @gitbutler/desktop run test:watch",
 		"build": "turbo run build --no-daemon",
 		"check": "turbo run check --no-daemon",
 		"tauri": "tauri",
@@ -21,7 +21,7 @@
 		"globallint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"fix": "eslint --fix .",
-		"prepare": "pnpm --filter @gitbutler/app run prepare",
+		"prepare": "pnpm --filter @gitbutler/desktop run prepare",
 		"rustfmt": "cargo +nightly fmt -- --config-path rustfmt-nightly.toml"
 	},
 	"devDependencies": {
@@ -39,7 +39,7 @@
 		"prettier": "^3.3.2",
 		"prettier-plugin-svelte": "^3.2.4",
 		"svelte-eslint-parser": "^0.41.0",
-		"turbo": "2.0.7-canary.1",
+		"turbo": "2.0.9",
 		"typescript": "5.4.5",
 		"typescript-eslint": "^7.13.1"
 	}

@@ -1,5 +1,5 @@
 {
-	"name": "@gitbutler/app",
+	"name": "@gitbutler/desktop",
 	"private": true,
 	"version": "0.0.0",
 	"type": "module",
