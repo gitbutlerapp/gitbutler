@@ -10,6 +10,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::{
     dedup, Branch, BranchOwnershipClaims, {self, BranchCreateRequest, BranchId},
 };
+use gitbutler_command_context::{ContextProjectAccess, ContextRepositoryAccess};
 use gitbutler_commit::commit_headers::HasCommitHeaders;
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::SnapshotExt;

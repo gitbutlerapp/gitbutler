@@ -9,6 +9,7 @@ use crate::{
 };
 use anyhow::{Context, Result};
 use gitbutler_branch::{Branch, BranchExt, BranchId};
+use gitbutler_command_context::{ContextProjectAccess, ContextRepositoryAccess};
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::access::WorktreeWritePermission;

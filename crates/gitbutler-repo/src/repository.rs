@@ -3,7 +3,7 @@ use std::str::FromStr;
 use anyhow::{anyhow, Context, Result};
 
 use gitbutler_branch::{Branch, BranchId};
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::{ContextProjectAccess, ContextRepositoryAccess};
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_error::error::Code;
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -47,7 +47,7 @@ pub trait RepoActionsExt {
     ) -> Result<()>;
 }
 
-impl RepoActionsExt for ProjectRepository {
+impl<C: ContextProjectAccess + ContextRepositoryAccess> RepoActionsExt for C {
     fn git_test_push(
         &self,
         credentials: &Helper,
@@ -426,7 +426,9 @@ impl RepoActionsExt for ProjectRepository {
     }
 }
 
-fn signatures(project_repo: &ProjectRepository) -> Result<(git2::Signature, git2::Signature)> {
+fn signatures<C: ContextRepositoryAccess>(
+    project_repo: &C,
+) -> Result<(git2::Signature, git2::Signature)> {
     let config: Config = project_repo.repo().into();
 
     let author = match (config.user_name()?, config.user_email()?) {

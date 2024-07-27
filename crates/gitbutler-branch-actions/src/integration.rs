@@ -9,7 +9,9 @@ use gitbutler_branch::{
     GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
     GITBUTLER_INTEGRATION_REFERENCE,
 };
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::{
+    ContextProjectAccess, ContextRepositoryAccess, OpenWorkspaceContext,
+};
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_error::error::Marker;
 use gitbutler_project::access::WorktreeWritePermission;
@@ -31,7 +33,7 @@ pub(crate) fn get_integration_commiter<'a>() -> Result<git2::Signature<'a>> {
 //
 // This is the base against which we diff the working directory to understand
 // what files have been modified.
-pub(crate) fn get_workspace_head(project_repo: &ProjectRepository) -> Result<git2::Oid> {
+pub(crate) fn get_workspace_head(project_repo: &OpenWorkspaceContext) -> Result<git2::Oid> {
     let vb_state = project_repo.project().virtual_branches();
     let target = vb_state
         .get_default_target()
@@ -138,7 +140,7 @@ fn write_integration_file(head: &git2::Reference, path: PathBuf) -> Result<()> {
 }
 pub fn update_gitbutler_integration(
     vb_state: &VirtualBranchesHandle,
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
 ) -> Result<git2::Oid> {
     let target = vb_state
         .get_default_target()
@@ -282,7 +284,7 @@ pub fn update_gitbutler_integration(
     Ok(final_commit)
 }
 
-pub fn verify_branch(ctx: &ProjectRepository, perm: &mut WorktreeWritePermission) -> Result<()> {
+pub fn verify_branch(ctx: &OpenWorkspaceContext, perm: &mut WorktreeWritePermission) -> Result<()> {
     verify_current_branch_name(ctx)
         .and_then(verify_head_is_set)
         .and_then(|()| verify_head_is_clean(ctx, perm))
@@ -290,7 +292,7 @@ pub fn verify_branch(ctx: &ProjectRepository, perm: &mut WorktreeWritePermission
     Ok(())
 }
 
-fn verify_head_is_set(ctx: &ProjectRepository) -> Result<()> {
+fn verify_head_is_set(ctx: &OpenWorkspaceContext) -> Result<()> {
     match ctx.repo().head().context("failed to get head")?.name() {
         Some(refname) if *refname == GITBUTLER_INTEGRATION_REFERENCE.to_string() => Ok(()),
         Some(head_name) => Err(invalid_head_err(head_name)),
@@ -302,7 +304,7 @@ fn verify_head_is_set(ctx: &ProjectRepository) -> Result<()> {
 }
 
 // Returns an error if repo head is not pointing to the integration branch.
-fn verify_current_branch_name(ctx: &ProjectRepository) -> Result<&ProjectRepository> {
+fn verify_current_branch_name(ctx: &OpenWorkspaceContext) -> Result<&OpenWorkspaceContext> {
     match ctx.repo().head()?.name() {
         Some(head) => {
             let head_name = head.to_string();
@@ -316,7 +318,10 @@ fn verify_current_branch_name(ctx: &ProjectRepository) -> Result<&ProjectReposit
 }
 
 // TODO(ST): Probably there should not be an implicit vbranch creation here.
-fn verify_head_is_clean(ctx: &ProjectRepository, perm: &mut WorktreeWritePermission) -> Result<()> {
+fn verify_head_is_clean(
+    ctx: &OpenWorkspaceContext,
+    perm: &mut WorktreeWritePermission,
+) -> Result<()> {
     let head_commit = ctx
         .repo()
         .head()

@@ -3,7 +3,7 @@ use std::{path::PathBuf, vec};
 
 use anyhow::Context;
 
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::{ContextProjectAccess, ContextRepositoryAccess};
 
 use gitbutler_project::AuthKey;
 
@@ -83,9 +83,9 @@ pub enum HelpError {
 }
 
 impl Helper {
-    pub fn help<'a>(
+    pub fn help<'a, C: ContextProjectAccess + ContextRepositoryAccess>(
         &'a self,
-        project_repository: &'a ProjectRepository,
+        project_repository: &'a C,
         remote_name: &str,
     ) -> Result<Vec<(git2::Remote, Vec<Credential>)>, HelpError> {
         let remote = project_repository.repo().find_remote(remote_name)?;
@@ -136,8 +136,8 @@ impl Helper {
         }
     }
 
-    fn https_flow(
-        project_repository: &ProjectRepository,
+    fn https_flow<C: ContextProjectAccess + ContextRepositoryAccess>(
+        project_repository: &C,
         remote_url: &Url,
     ) -> Result<Vec<HttpsCredential>, HelpError> {
         let mut flow = vec![];

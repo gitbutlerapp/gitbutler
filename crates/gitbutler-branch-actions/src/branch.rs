@@ -11,7 +11,9 @@ use gitbutler_branch::BranchId;
 use gitbutler_branch::ReferenceExt;
 use gitbutler_branch::Target;
 use gitbutler_branch::VirtualBranchesHandle;
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::ContextProjectAccess;
+use gitbutler_command_context::ContextRepositoryAccess;
+use gitbutler_command_context::OpenWorkspaceContext;
 
 use gitbutler_reference::normalize_branch_name;
 use serde::Serialize;
@@ -20,7 +22,7 @@ use crate::{VirtualBranch, VirtualBranchesExt};
 
 /// Returns a list of branches associated with this project.
 // TODO: Implement pagination for this thing
-pub fn list_branches(ctx: &ProjectRepository) -> Result<Vec<BranchListing>> {
+pub fn list_branches(ctx: &OpenWorkspaceContext) -> Result<Vec<BranchListing>> {
     let vb_handle = ctx.project().virtual_branches();
     let branches = ctx.repo().branches(None)?;
 

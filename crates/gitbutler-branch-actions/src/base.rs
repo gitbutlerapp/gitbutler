@@ -7,7 +7,9 @@ use gitbutler_branch::BranchOwnershipClaims;
 use gitbutler_branch::Target;
 use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_branch::{self, BranchId};
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::ContextProjectAccess;
+use gitbutler_command_context::ContextRepositoryAccess;
+use gitbutler_command_context::OpenWorkspaceContext;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::ReferenceName;
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -44,14 +46,16 @@ pub struct BaseBranch {
     pub last_fetched_ms: Option<u128>,
 }
 
-pub(crate) fn get_base_branch_data(project_repository: &ProjectRepository) -> Result<BaseBranch> {
+pub(crate) fn get_base_branch_data(
+    project_repository: &OpenWorkspaceContext,
+) -> Result<BaseBranch> {
     let target = default_target(&project_repository.project().gb_dir())?;
     let base = target_to_base_branch(project_repository, &target)?;
     Ok(base)
 }
 
 fn go_back_to_integration(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     default_target: &Target,
 ) -> Result<BaseBranch> {
     let statuses = project_repository
@@ -117,7 +121,7 @@ fn go_back_to_integration(
 }
 
 pub(crate) fn set_base_branch(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     target_branch_ref: &RemoteRefname,
 ) -> Result<BaseBranch> {
     let repo = project_repository.repo();
@@ -273,7 +277,7 @@ pub(crate) fn set_base_branch(
 }
 
 pub(crate) fn set_target_push_remote(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     push_remote_name: &str,
 ) -> Result<()> {
     let remote = project_repository
@@ -294,7 +298,7 @@ pub(crate) fn set_target_push_remote(
     Ok(())
 }
 
-fn set_exclude_decoration(project_repository: &ProjectRepository) -> Result<()> {
+fn set_exclude_decoration(project_repository: &OpenWorkspaceContext) -> Result<()> {
     let repo = project_repository.repo();
     let mut config = repo.config()?;
     config
@@ -330,7 +334,7 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 // merge the target branch into our current working directory
 // update the target sha
 pub(crate) fn update_base_branch(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<Vec<ReferenceName>> {
     project_repository.assure_resolved()?;
@@ -566,7 +570,7 @@ pub(crate) fn update_base_branch(
 }
 
 pub(crate) fn target_to_base_branch(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     target: &Target,
 ) -> Result<BaseBranch> {
     let repo = project_repository.repo();

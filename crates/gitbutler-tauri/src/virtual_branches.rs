@@ -7,7 +7,7 @@ pub mod commands {
     use gitbutler_branch_actions::{BaseBranch, BranchListing};
     use gitbutler_branch_actions::{RemoteBranch, RemoteBranchData};
     use gitbutler_branch_actions::{VirtualBranchActions, VirtualBranches};
-    use gitbutler_command_context::ProjectRepository;
+    use gitbutler_command_context::RequestContext;
     use gitbutler_error::error::Code;
     use gitbutler_project as projects;
     use gitbutler_project::{FetchResult, ProjectId};
@@ -431,7 +431,7 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
     ) -> Result<Vec<BranchListing>, Error> {
-        let ctx = ProjectRepository::open(&projects.get(project_id)?)?;
+        let ctx = RequestContext::try_create_open_workspace_context(&projects.get(project_id)?)?;
         let branches = gitbutler_branch_actions::list_branches(&ctx)?;
         Ok(branches)
     }

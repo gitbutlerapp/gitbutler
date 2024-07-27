@@ -3,7 +3,9 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use bstr::BString;
 use gitbutler_branch::{ReferenceExt, Target, VirtualBranchesHandle};
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::{
+    ContextProjectAccess, ContextRepositoryAccess, OpenWorkspaceContext,
+};
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
@@ -61,7 +63,9 @@ pub struct RemoteCommit {
 
 // for legacy purposes, this is still named "remote" branches, but it's actually
 // a list of all the normal (non-gitbutler) git branches.
-pub fn list_remote_branches(project_repository: &ProjectRepository) -> Result<Vec<RemoteBranch>> {
+pub fn list_remote_branches(
+    project_repository: &OpenWorkspaceContext,
+) -> Result<Vec<RemoteBranch>> {
     let default_target = default_target(&project_repository.project().gb_dir())?;
 
     let mut remote_branches = vec![];
@@ -89,7 +93,7 @@ pub fn list_remote_branches(project_repository: &ProjectRepository) -> Result<Ve
 }
 
 pub(crate) fn get_branch_data(
-    ctx: &ProjectRepository,
+    ctx: &OpenWorkspaceContext,
     refname: &Refname,
 ) -> Result<RemoteBranchData> {
     let default_target = default_target(&ctx.project().gb_dir())?;
@@ -104,7 +108,7 @@ pub(crate) fn get_branch_data(
 }
 
 pub(crate) fn branch_to_remote_branch(
-    ctx: &ProjectRepository,
+    ctx: &OpenWorkspaceContext,
     branch: &git2::Branch,
 ) -> Option<RemoteBranch> {
     let commit = match branch.get().peel_to_commit() {
@@ -145,7 +149,7 @@ pub(crate) fn branch_to_remote_branch(
 }
 
 pub(crate) fn branch_to_remote_branch_data(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     branch: &git2::Branch,
     base: git2::Oid,
 ) -> Result<Option<RemoteBranchData>> {

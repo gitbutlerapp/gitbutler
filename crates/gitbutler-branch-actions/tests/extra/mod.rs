@@ -23,6 +23,7 @@ use gitbutler_branch_actions::{
     list_virtual_branches, unapply_ownership, update_branch, update_gitbutler_integration,
     verify_branch,
 };
+use gitbutler_command_context::{ContextProjectAccess, ContextRepositoryAccess};
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::CommitHeadersV2};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;

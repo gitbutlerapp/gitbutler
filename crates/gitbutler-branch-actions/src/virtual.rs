@@ -2,7 +2,9 @@ use gitbutler_branch::{dedup, BranchUpdateRequest, VirtualBranchesHandle};
 use gitbutler_branch::{dedup_fmt, Branch, BranchId};
 use gitbutler_branch::{reconcile_claims, BranchOwnershipClaims};
 use gitbutler_branch::{OwnershipClaim, Target};
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::{
+    ContextProjectAccess, ContextRepositoryAccess, OpenWorkspaceContext,
+};
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_commit::commit_headers::HasCommitHeaders;
 use gitbutler_diff::Hunk;
@@ -83,7 +85,7 @@ pub struct VirtualBranches {
 }
 
 pub fn unapply_ownership(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     ownership: &BranchOwnershipClaims,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
@@ -184,7 +186,7 @@ pub fn unapply_ownership(
 
 // reset a file in the project to the index state
 pub(crate) fn reset_files(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     files: &Vec<String>,
 ) -> Result<()> {
     project_repository.assure_resolved()?;
@@ -237,7 +239,7 @@ fn find_base_tree<'a>(
 /// If this is the case, we ought to unapply the branch as its been carried
 /// over from the old style of unapplying
 fn resolve_old_applied_state(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     vb_state: &VirtualBranchesHandle,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
@@ -258,7 +260,7 @@ fn resolve_old_applied_state(
 }
 
 pub fn list_virtual_branches(
-    ctx: &ProjectRepository,
+    ctx: &OpenWorkspaceContext,
     // TODO(ST): this should really only shared access, but there is some internals
     //           that conditionally write things.
     perm: &mut WorktreeWritePermission,
@@ -420,7 +422,7 @@ fn joined(start_a: u32, end_a: u32, start_b: u32, end_b: u32) -> bool {
         || ((start_b >= start_a && start_b <= end_a) || (end_b >= start_a && end_b <= end_a))
 }
 
-fn is_requires_force(project_repository: &ProjectRepository, branch: &Branch) -> Result<bool> {
+fn is_requires_force(project_repository: &OpenWorkspaceContext, branch: &Branch) -> Result<bool> {
     let upstream = if let Some(upstream) = &branch.upstream {
         upstream
     } else {
@@ -474,7 +476,7 @@ fn is_requires_force(project_repository: &ProjectRepository, branch: &Branch) ->
 /// end since there will only be one parent commit.
 ///
 pub fn integrate_upstream_commits(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     branch_id: BranchId,
 ) -> Result<()> {
     conflicts::is_conflicting(project_repository, None)?;
@@ -604,7 +606,7 @@ pub fn integrate_upstream_commits(
 }
 
 pub(crate) fn integrate_with_rebase(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     branch: &mut Branch,
     unknown_commits: &mut Vec<git2::Oid>,
 ) -> Result<git2::Oid> {
@@ -616,7 +618,7 @@ pub(crate) fn integrate_with_rebase(
 }
 
 pub(crate) fn integrate_with_merge(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     branch: &mut Branch,
     upstream_commit: &git2::Commit,
     merge_base: git2::Oid,
@@ -670,7 +672,7 @@ pub(crate) fn integrate_with_merge(
 }
 
 pub fn update_branch(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     branch_update: &BranchUpdateRequest,
 ) -> Result<Branch> {
     let vb_state = project_repository.project().virtual_branches();
@@ -808,7 +810,7 @@ pub type VirtualBranchHunksByPathMap = HashMap<PathBuf, Vec<VirtualBranchHunk>>;
 
 // reset virtual branch to a specific commit
 pub(crate) fn reset_branch(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     branch_id: BranchId,
     target_commit_id: git2::Oid,
 ) -> Result<()> {
@@ -880,7 +882,7 @@ pub(crate) fn reset_branch(
 
 #[allow(clippy::too_many_arguments)]
 pub fn commit(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     branch_id: BranchId,
     message: &str,
     ownership: Option<&BranchOwnershipClaims>,
@@ -1018,7 +1020,7 @@ pub fn commit(
 }
 
 pub(crate) fn push(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     branch_id: BranchId,
     with_force: bool,
     credentials: &Helper,
@@ -1095,7 +1097,7 @@ struct IsCommitIntegrated<'repo> {
 }
 
 impl<'repo> IsCommitIntegrated<'repo> {
-    fn new(ctx: &'repo ProjectRepository, target: &Target) -> anyhow::Result<Self> {
+    fn new(ctx: &'repo OpenWorkspaceContext, target: &Target) -> anyhow::Result<Self> {
         let remote_branch = ctx
             .repo()
             .find_branch_by_refname(&target.branch.clone().into())?
@@ -1167,7 +1169,7 @@ impl IsCommitIntegrated<'_> {
 }
 
 pub fn is_remote_branch_mergeable(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     branch_name: &RemoteRefname,
 ) -> Result<bool> {
     let vb_state = project_repository.project().virtual_branches();
@@ -1210,7 +1212,7 @@ pub fn is_remote_branch_mergeable(
 // the changes need to be removed from the "from" commit, everything rebased,
 // then added to the "to" commit and everything above that rebased again.
 pub(crate) fn move_commit_file(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     branch_id: BranchId,
     from_commit_id: git2::Oid,
     to_commit_id: git2::Oid,
@@ -1454,7 +1456,7 @@ pub(crate) fn move_commit_file(
 // add the file changes. The branch is then rebased onto the new commit
 // and the respective branch head is updated
 pub(crate) fn amend(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     branch_id: BranchId,
     commit_oid: git2::Oid,
     target_ownership: &BranchOwnershipClaims,
@@ -1586,7 +1588,7 @@ pub(crate) fn amend(
 // if the offset is negative, move the commit up one
 // rewrites the branch head to the new head commit
 pub(crate) fn reorder_commit(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     branch_id: BranchId,
     commit_oid: git2::Oid,
     offset: i32,
@@ -1671,7 +1673,7 @@ pub(crate) fn reorder_commit(
 // if offset is positive, insert below, if negative, insert above
 // return the oid of the new head commit of the branch with the inserted blank commit
 pub(crate) fn insert_blank_commit(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     branch_id: BranchId,
     commit_oid: git2::Oid,
     offset: i32,
@@ -1725,7 +1727,7 @@ pub(crate) fn insert_blank_commit(
 // remove a commit in a branch by rebasing all commits _except_ for it onto it's parent
 // if successful, it will update the branch head to the new head commit
 pub(crate) fn undo_commit(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     branch_id: BranchId,
     commit_oid: git2::Oid,
 ) -> Result<()> {
@@ -1776,7 +1778,7 @@ pub(crate) fn undo_commit(
 
 /// squashes a commit from a virtual branch into its parent.
 pub(crate) fn squash(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     branch_id: BranchId,
     commit_id: git2::Oid,
 ) -> Result<()> {
@@ -1865,7 +1867,7 @@ pub(crate) fn squash(
 
 // changes a commit message for commit_oid, rebases everything above it, updates branch head if successful
 pub(crate) fn update_commit_message(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     branch_id: BranchId,
     commit_id: git2::Oid,
     message: &str,
@@ -1939,7 +1941,7 @@ pub(crate) fn update_commit_message(
 
 /// moves commit from the branch it's in to the top of the target branch
 pub(crate) fn move_commit(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     target_branch_id: BranchId,
     commit_id: git2::Oid,
 ) -> Result<()> {
@@ -2071,7 +2073,7 @@ pub(crate) fn move_commit(
 // are present in a file it will be resolved, meaning it will be removed from the
 // conflicts file.
 fn update_conflict_markers(
-    project_repository: &ProjectRepository,
+    project_repository: &OpenWorkspaceContext,
     files: Vec<VirtualBranchFile>,
 ) -> Result<()> {
     let conflicting_files = conflicts::conflicting_files(project_repository)?;
