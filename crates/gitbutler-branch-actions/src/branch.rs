@@ -232,9 +232,13 @@ fn branch_group_to_branch(
             commits.push(commit);
         }
 
-        let own_branch = commits
-            .last()
-            .map_or(false, |commit| local_author == &commit.author().into());
+        let mut own_branch = commits
+            .iter()
+            .any(|commit| local_author == &commit.author().into());
+        // If there are no commits (i.e. virtual branch only) it is considered the users own
+        if commits.is_empty() {
+            own_branch = true;
+        }
 
         let last_modified_ms = max(
             last_commit_time_ms as u128,
@@ -352,8 +356,9 @@ pub struct BranchListing {
     /// A list of authors that have contributes commits to this branch.
     /// In the case of multiple remote tracking branches, it takes the full list of unique authors.
     pub authors: Vec<Author>,
-    /// Determines if the branch is considered one created by the user
-    /// A branch is considered created by the user if they were the author of the first commit in the branch.
+    /// Determines if the current user is involved with this branch.
+    /// Returns true if the author has created a commit on this branch
+    /// If it is a virtual branch, if it has zero commits it is also considered as the user's branch
     pub own_branch: bool,
 }
 
