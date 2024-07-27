@@ -26,7 +26,41 @@ pub fn list_branches(
     filter: Option<BranchListingFilter>,
 ) -> Result<Vec<BranchListing>> {
     let vb_handle = ctx.project().virtual_branches();
-    let branches = ctx.repo().branches(None)?;
+    // The definition of "own_branch" is based if the current user made the first commit on the branch
+    // However, because getting that info is both expensive and also we cant filter ahead of time,
+    // here we assume that all of the "own_branches" will be local.
+    let branch_filter = filter
+        .as_ref()
+        .and_then(|filter| match filter.own_branches {
+            Some(true) => Some(git2::BranchType::Local),
+            _ => None,
+        });
+    let mut git_branches: Vec<GroupBranch> = vec![];
+    for result in ctx.repo().branches(branch_filter)? {
+        match result {
+            Ok((branch, branch_type)) => match branch_type {
+                git2::BranchType::Local => {
+                    if branch_filter
+                        .map(|branch_type| branch_type == git2::BranchType::Local)
+                        .unwrap_or(false)
+                    {
+                        // If we had an "own_branch" filter, we skipped getting the remote branches, however we still want the remote
+                        // tracking branches for the ones that are local
+                        if let Ok(upstream) = branch.upstream() {
+                            git_branches.push(GroupBranch::Remote(upstream));
+                        }
+                    }
+                    git_branches.push(GroupBranch::Local(branch));
+                }
+                git2::BranchType::Remote => {
+                    git_branches.push(GroupBranch::Remote(branch));
+                }
+            },
+            Err(_) => {
+                continue;
+            }
+        }
+    }
 
     // virtual branches from the application state
     let virtual_branches = ctx
@@ -35,7 +69,7 @@ pub fn list_branches(
         .list_all_branches()?
         .into_iter();
 
-    let branches = combine_branches(branches, virtual_branches, ctx.repo(), &vb_handle)?;
+    let branches = combine_branches(git_branches, virtual_branches, ctx.repo(), &vb_handle)?;
     // Apply the filter
     let branches: Vec<BranchListing> = branches
         .into_iter()
@@ -64,29 +98,13 @@ fn matches_all(branch: &BranchListing, filter: &Option<BranchListingFilter>) -> 
 }
 
 fn combine_branches(
-    branches: git2::Branches,
+    mut group_branches: Vec<GroupBranch>,
     virtual_branches: impl Iterator<Item = GitButlerBranch>,
     repo: &git2::Repository,
     vb_handle: &VirtualBranchesHandle,
 ) -> Result<Vec<BranchListing>> {
-    let mut group_branches: Vec<GroupBranch> = vec![];
     for branch in virtual_branches {
         group_branches.push(GroupBranch::Virtual(branch));
-    }
-    for result in branches {
-        match result {
-            Ok((branch, branch_type)) => match branch_type {
-                git2::BranchType::Local => {
-                    group_branches.push(GroupBranch::Local(branch));
-                }
-                git2::BranchType::Remote => {
-                    group_branches.push(GroupBranch::Remote(branch));
-                }
-            },
-            Err(_) => {
-                continue;
-            }
-        }
     }
     let remotes = repo.remotes()?;
     let target_branch = vb_handle.get_default_target().ok();
