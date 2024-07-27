@@ -86,10 +86,12 @@ export class VirtualBranchService {
 
 	private logMetrics(branches: VirtualBranch[]) {
 		try {
-			const hunks = branches.flatMap((branch) => branch.files).flatMap((file) => file.hunks);
+			const files = branches.flatMap((branch) => branch.files);
+			const hunks = files.flatMap((file) => file.hunks);
 			const lockedHunks = hunks.filter((hunk) => hunk.locked);
 			this.projectMetrics.setMetric('hunk_count', hunks.length);
 			this.projectMetrics.setMetric('locked_hunk_count', lockedHunks.length);
+			this.projectMetrics.setMetric('file_count', files.length);
 			this.projectMetrics.setMetric('virtual_branch_count', branches.length);
 		} catch (err: unknown) {
 			console.error(err);
