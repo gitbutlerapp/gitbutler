@@ -398,10 +398,8 @@ pub struct VirtualBranchReference {
 pub struct BranchData {
     /// The branch that this data is associated with
     pub branch: BranchListing,
-    /// Sometimes the app creates additional new branches when unapplying a virtual branch, usually suffixed with a counter.
-    /// This is either done by the user to avoid overriding when unapplying or by the app when dealing with conflicts.
-    /// TODO: In general we should make the app not need these and instead have only one associated local branch at any given time.
-    pub local_branches: Vec<LocalBranchEntry>,
+    /// A local branch entry. At most one
+    pub local_branch: Option<LocalBranchEntry>,
     /// A branch may have multiple remote tracking branches associated with it, from different remotes.
     /// The name of the branch is the same, but the remote could be different as well as the head commit.
     pub remote_branches: Vec<RemoteBranchEntry>,
