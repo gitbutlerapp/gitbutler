@@ -81,7 +81,7 @@
 <div class="project-setup">
 	<div class="project-setup__info">
 		<ProjectNameLabel {projectName} />
-		<h3 class="text-base-body-14 text-bold">Target trunk branch</h3>
+		<h3 class="text-base-body-14 text-bold">Target branch</h3>
 	</div>
 
 	<div class="project-setup__fields">
