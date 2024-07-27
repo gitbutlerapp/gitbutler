@@ -11,7 +11,7 @@
 		"dev:ui": "pnpm --filter @gitbutler/ui storybook",
 		"dev:web": "pnpm --filter @gitbutler/web dev",
 		"dev:desktop": "pnpm tauri dev",
-    "dev:internal-tauri": "turbo watch --filter @gitbutler/app dev --no-update-notifier",
+		"dev:internal-tauri": "turbo run --filter @gitbutler/app dev --no-daemon",
 		"test": "pnpm --filter @gitbutler/app run test",
 		"test:watch": "pnpm --filter @gitbutler/app run test:watch",
 		"build": "turbo run build --no-daemon",
