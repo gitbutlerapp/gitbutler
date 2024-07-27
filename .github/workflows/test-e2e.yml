@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install
       - name: Build @gitbutler/ui
-        run: cd packages/ui && pnpm package
+        run: cd packages/ui && pnpm build
       - name: Get installed Playwright version
         id: playwright-version
         run: echo "PLAYWRIGHT_VERSION=$(node -e "console.log(require('./apps/desktop/package.json').devDependencies['@playwright/test'].substring(1))")" >> $GITHUB_ENV
