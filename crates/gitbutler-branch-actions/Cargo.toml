@@ -39,10 +39,6 @@ gitbutler-project.workspace = true
 urlencoding = "2.1.3"
 reqwest = { version = "0.12.4", features = ["json"] }
 
-[[test]]
-name = "virtual"
-path = "tests/virtual_branches/mod.rs"
-
 [dev-dependencies]
 once_cell = "1.19"
 pretty_assertions = "1.4"
