@@ -12,7 +12,7 @@ GitButler has lots of ways to craft the exact commits that you want to end up wi
 Here are some of the cool things you can do very easily with GitButler.
 
 ## Creating Commits
-Once you have changes on a virtual branch and want to commit them, you can hit the "Start Commit" button, which gives you an editor to write a summary and optional description for your commit message. 
+Once you have changes on a virtual branch and want to commit them, you can hit the "Start Commit" button, which gives you an editor to write a summary and optional description for your commit message.
 
 If you want AI to use your diff to generate a commit message, you can hit the "Generate message" button.
 
@@ -26,7 +26,7 @@ If you want AI to use your diff to generate a commit message, you can hit the "G
 
 ## AI Commit Message Settings
 
-If you want to use AI for generating your commit messages from time to time, you there are quite a few options in your user preferences. You can choose from [OpenAI](https://platform.openai.com/), [Anthropic](https://www.anthropic.com/) or [Ollama](https://www.ollama.com/) as your engine. 
+If you want to use AI for generating your commit messages from time to time, you there are quite a few options in your user preferences. You can choose from [OpenAI](https://platform.openai.com/), [Anthropic](https://www.anthropic.com/) or [Ollama](https://www.ollama.com/) as your engine.
 
 For both OpenAI and Anthropic, you can either use your own API key to directly send your request to their servers, or you can proxy via our server (which you need to be logged in for).
 
@@ -60,9 +60,15 @@ With all of these models, you can also customize the prompt if you want somethin
   src="/img/docs/commits-04.avif"
 />
 
+Custom prompts can contain three variables which we will replace with the appropriate values. Those include:
+
+- `%{emoji_style}` - Instructs the LLM whether or not to make use of [GitMoji](https://gitmoji.dev) in the title prefix, based on your settings.
+- `%{brief_style}` - Instructs the LLM to not exceed 1 sentence when generating the commit message.
+- `%{diff}` - The contents of the diff.
+
 ## Absorbing New Work
 
-If you have a commit and get some feedback on it or find an issue and wish to amend it, you can very easily absorb changes into existing commits. Simply drag the file into the commit you want to absorb that change into and drop it there. 
+If you have a commit and get some feedback on it or find an issue and wish to amend it, you can very easily absorb changes into existing commits. Simply drag the file into the commit you want to absorb that change into and drop it there.
 
 This will both rewrite that commit to include the new changes and also rebase every commit upstream from it automatically.
 
