@@ -28,6 +28,70 @@ For more info, join our Discord [#releases](https://discord.com/channels/1060193
 {/* NEW_RELEASE */}
 
 
+## 0.12.14
+- Fixes an issue where in some cases updating the workspace base causes a "Something went wrong" error, putting the application in a failed state
+
+**Full Changelog**: https://github.com/gitbutlerapp/gitbutler/compare/release/0.12.13...release/0.12.14
+
+### Downloads
+Download bins from https://gitbutler.com/
+
+## 0.12.13
+- Small performance improvements for repositories with larger indexes (many tracked files)
+- Fixes a condition under which fetching from the remote will silently fail
+- Fixes the auto-fetching from remote(s) every 15 mins 
+- Fixes a UI bug where performing commit actions (eg. create/undo) would erroneously scroll into view the last selected file, if it is off screen
+- Fix: correctly handle the case when the project operations log / history has no entries in it
+- UI: The integrations tab in the main settings is enabled even when not logged it
+- Fixes an issue where the UI allows attempting to amend a hunk with a dependency into a commit that is before the commit that it depends on
+- Fixes an issue with the operations log / project history where under some conditions it will fail to open (related to merge conflicts)
+
+### New Contributors
+* @JMonsorno made their first contribution in https://github.com/gitbutlerapp/gitbutler/pull/4428
+
+**Full Changelog**: https://github.com/gitbutlerapp/gitbutler/compare/release/0.12.12...release/0.12.13
+
+### Downloads
+Download bins from https://gitbutler.com/
+
+## 0.12.12
+- Fixes an issue where in some conditions you can get "Something went wrong" screen (Under the hood this improves the handling when there is a hunk which depends on committed changes from multiple branches)
+- Fixes a bug when setting the remote branch name in Chinese the normalized branch name is incorrect
+- Fixes a bug where the app is not correctly auto-fetching from the remote at a 15min interval
+- Fixes a bug that breaks the flow of adding a new repository to the app
+- Fixes a bug that prevents switching between projects
+- Fixes a bug where in some situations, a branch is incorrectly detected to be from a separate fork
+- UI: Fixes a bug where in some cases commit avatar icons are not fetched
+
+**Full Changelog**: https://github.com/gitbutlerapp/gitbutler/compare/release/0.12.11...release/0.12.12
+
+### Downloads
+Download bins from https://gitbutler.com/
+
+## 0.12.11
+- Fixes a UI bug preventing dragging of a file or a diff while scrolling
+- Makes the PR button disabled when no git host integration is available
+- Fixes a bug with the sync button where it was not updating the base branch
+- Fixes a UI bug where the PR numbers are shown incorrectly
+- Fixes a UI bug where the PR button is not showing the correct label
+
+**Full Changelog**: https://github.com/gitbutlerapp/gitbutler/compare/release/0.12.10...release/0.12.11
+
+### Downloads
+Download bins from https://gitbutler.com/
+
+## 0.12.10
+- Performance improvements when fetching from remotes
+- UI: Improves the loading of commit author avatar icons
+- Fixes a bug where the "generate branch name" option was not working
+- Adds a button for creating a virtual branch from the "up to date" state
+- Overhauled GitHub integration - mostly under the hood changes, but also solves bugs where the GitHub state is was synchronized correctly in the app
+
+**Full Changelog**: https://github.com/gitbutlerapp/gitbutler/compare/release/0.12.9...release/0.12.10
+
+### Downloads
+Download bins from https://gitbutler.com/
+
 ## 0.12.9
 #### New
 - Un-applying a virtual branch will now create a regular branch - this makes it easier to switch back and forth between using gitbutler and the git cli
@@ -55,7 +119,7 @@ For more info, join our Discord [#releases](https://discord.com/channels/1060193
 - UI: Select components will now be searchable (e.g. long list of branches to select from)
 - UI: Updated programming language icons used on files
 
-## Downloads
+### Downloads
 Download bins from https://gitbutler.com/
 
 ## New Contributors
