@@ -18,9 +18,9 @@ you right. Let's get started.
   - [Tokio](#tokio)
 - [Building](#building)
   - [Building on Windows](#building-on-windows)
-  - [File permissions](#file-permissions)
-  - [Perl](#perl)
-  - [Crosscompilation](#crosscompilation)
+    - [File permissions](#file-permissions)
+    - [Perl](#perl)
+    - [Crosscompilation](#crosscompilation)
 - [Design](#design)
 - [Contributing](#contributing)
 - [Some Other Random Notes](#some-other-random-notes)
@@ -162,7 +162,22 @@ This will make an asset similar to our nightly build.
 
 Building on Windows is a bit of a tricky process. Here are some helpful tips.
 
-### File permissions
+#### Nightly Compiler
+
+As a few crates require nightly features on Windows, it's easiest to set an override
+to automatically use a nightly compiler.
+
+```shell
+rustup override add nightly-2024-07-01
+```
+
+If a stable nightly isn't desired or necessary, the latest nightly compiler can also be used:
+
+```shell
+rustup override add nightly
+```
+
+#### File permissions
 
 We use `pnpm`, which requires a relatively recent version of Node.js.
 Make sure that the latest stable version of Node.js is installed and
@@ -184,7 +199,7 @@ npm config set prefix $env:APPDATA\npm
 
 Afterwards, add this folder to your PATH.
 
-### Perl
+#### Perl
 
 A Perl interpreter is required to be installed in order to configure the `openssl-sys`
 crate. We've used [Strawberry Perl](https://strawberryperl.com/) without issue.
@@ -196,7 +211,7 @@ Note that it might appear that the build has hung or frozen on the `openssl-sys`
 It's not, it's just that Cargo can't report the status of a C/C++ build happening
 under the hood, and openssl is _large_. It'll take a while to compile.
 
-### Crosscompilation
+#### Crosscompilation
 
 This paragraph is about crosscompilation to x86_64-MSVC from ARM Windows,
 a configuration typical for people with Apple Silicon and Parallels VMs,

@@ -1,5 +1,3 @@
-#![feature(error_generic_member_access)]
-#![cfg_attr(windows, feature(windows_by_handle))]
 #![cfg_attr(
     all(windows, not(test), not(debug_assertions)),
     windows_subsystem = "windows"

@@ -1,7 +1,6 @@
 //! Implement the file-monitoring agent that informs about changes in interesting locations.
 #![deny(unsafe_code, rust_2018_idioms)]
 #![allow(clippy::doc_markdown, clippy::missing_errors_doc)]
-#![feature(slice_as_chunks)]
 
 mod events;
 use events::InternalEvent;

@@ -3,6 +3,16 @@ description: prepare runner for rust related tasks
 runs:
   using: "composite"
   steps:
+    - name: Setup Nightly
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+         mv rust-toolchain.toml.nightly rust-toolchain.toml
+    - name: Setup Stable
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+         mv rust-toolchain.toml.stable rust-toolchain.toml
     - name: Check versions
       shell: bash
       run: |

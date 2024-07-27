@@ -32,7 +32,6 @@ jobs:
               - *workflows
               - 'Cargo.lock'
               - 'Cargo.toml'
-              - 'rust-toolchain.toml'
             rust: &any-rust
               - *rust
               - 'crates/**'
@@ -111,7 +110,6 @@ jobs:
           - [devtools]
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/init-env-rust
       - uses: ./.github/actions/check-crate
         with:
           features: ${{ toJson(matrix.features) }}
