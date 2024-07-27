@@ -10,6 +10,7 @@ use gitbutler_branch::{self, BranchId};
 use gitbutler_command_context::ContextProjectAccess;
 use gitbutler_command_context::ContextRepositoryAccess;
 use gitbutler_command_context::OpenWorkspaceContext;
+use gitbutler_command_context::RequestContext;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::ReferenceName;
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -55,7 +56,7 @@ pub(crate) fn get_base_branch_data(
 }
 
 fn go_back_to_integration(
-    project_repository: &OpenWorkspaceContext,
+    project_repository: &RequestContext,
     default_target: &Target,
 ) -> Result<BaseBranch> {
     let statuses = project_repository
@@ -115,13 +116,15 @@ fn go_back_to_integration(
         .checkout()
         .context("failed to checkout tree")?;
 
-    let base = target_to_base_branch(project_repository, default_target)?;
-    update_gitbutler_integration(&vb_state, project_repository)?;
+    let open_workspace_context =
+        RequestContext::try_create_open_workspace_context(project_repository.project())?;
+    let base = target_to_base_branch(&open_workspace_context, default_target)?;
+    update_gitbutler_integration(&vb_state, &open_workspace_context)?;
     Ok(base)
 }
 
 pub(crate) fn set_base_branch(
-    project_repository: &OpenWorkspaceContext,
+    project_repository: &RequestContext,
     target_branch_ref: &RemoteRefname,
 ) -> Result<BaseBranch> {
     let repo = project_repository.repo();

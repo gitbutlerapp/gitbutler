@@ -1,3 +1,9 @@
+use std::{
+    fmt::{self, Formatter},
+    marker::PhantomData,
+    mem,
+};
+
 use anyhow::{bail, Context, Result};
 use gitbutler_project::Project;
 
@@ -10,17 +16,26 @@ impl RepositoryExt for git2::Repository {
     fn on_integration_branch(&self) -> Result<bool> {
         let head_ref = self.head().context("failed to get head")?;
         let head_ref_name = head_ref.name().context("failed to get head name")?;
-        Ok(head_ref_name != "refs/heads/gitbutler/integration")
+        Ok(dbg!(head_ref_name) == "refs/heads/gitbutler/integration")
     }
 }
 
-#[allow(dead_code)]
 pub enum RequestContext {
     OpenWorkspace(OpenWorkspaceContext),
     OutsideWorkspace(OutsideWorkspaceContext),
 }
 
-#[allow(dead_code)]
+impl fmt::Debug for RequestContext {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::OpenWorkspace(_) => write!(f, "RequestContext::OpenWorkspace"),
+            Self::OutsideWorkspace(_) => write!(f, "RequestContext::OutsideWorkspace"),
+        }?;
+
+        Ok(())
+    }
+}
+
 pub struct OutsideWorkspaceContext {
     git_repository: git2::Repository,
     project: Project,
@@ -92,7 +107,8 @@ impl RequestContext {
     }
 
     pub fn try_create_open_workspace_context(project: &Project) -> Result<OpenWorkspaceContext> {
-        let RequestContext::OpenWorkspace(open_workspace_context) = RequestContext::open(project)?
+        let RequestContext::OpenWorkspace(open_workspace_context) =
+            dbg!(RequestContext::open(project))?
         else {
             bail!("Open workspace required for this action");
         };

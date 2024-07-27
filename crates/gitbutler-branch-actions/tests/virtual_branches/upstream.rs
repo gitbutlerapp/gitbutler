@@ -82,6 +82,8 @@ async fn detect_integrated_commits() {
         .await
         .unwrap();
 
+    println!("testeroni");
+
     let branch1_id = controller
         .create_virtual_branch(project, &BranchCreateRequest::default())
         .await

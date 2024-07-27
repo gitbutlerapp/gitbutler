@@ -120,13 +120,13 @@ impl VirtualBranchActions {
         project: &Project,
         target_branch: &RemoteRefname,
     ) -> Result<BaseBranch> {
-        let open_workspace_context = RequestContext::try_create_open_workspace_context(project)?;
+        let request_context = RequestContext::open(project)?;
         let mut guard = project.exclusive_worktree_access();
-        let _ = open_workspace_context.project().create_snapshot(
+        let _ = request_context.project().create_snapshot(
             SnapshotDetails::new(OperationKind::SetBaseBranch),
             guard.write_permission(),
         );
-        set_base_branch(&open_workspace_context, target_branch)
+        set_base_branch(&request_context, target_branch)
     }
 
     pub async fn set_target_push_remote(&self, project: &Project, push_remote: &str) -> Result<()> {
