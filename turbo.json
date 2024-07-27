@@ -2,13 +2,13 @@
 	"$schema": "https://turborepo.org/schema.json",
 	"tasks": {
 		"package": {
-			"outputs": ["dist"]
+			"outputs": ["dist/**"]
 		},
 		"build": {
 			"dependsOn": ["^build"],
 			"passThroughEnv": ["SENTRY_AUTH_TOKEN", "GITHUB_TOKEN"],
 			"env": ["SENTRY_RELEASE"],
-			"outputs": [".svelte-kit", "!.sveltekit/types", "!.sveltekit/*.d.ts"]
+			"outputs": [".svelte-kit/**", "!.sveltekit/types", "!.sveltekit/*.d.ts"]
 		},
 		"dev": {
 			"dependsOn": ["@gitbutler/ui#build"],
