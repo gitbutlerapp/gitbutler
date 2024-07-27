@@ -14,15 +14,53 @@ use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::ProjectRepository;
 
 use gitbutler_reference::normalize_branch_name;
+use serde::Deserialize;
 use serde::Serialize;
 
 use crate::{VirtualBranch, VirtualBranchesExt};
 
 /// Returns a list of branches associated with this project.
 // TODO: Implement pagination for this thing
-pub fn list_branches(ctx: &ProjectRepository) -> Result<Vec<BranchListing>> {
+pub fn list_branches(
+    ctx: &ProjectRepository,
+    filter: Option<BranchListingFilter>,
+) -> Result<Vec<BranchListing>> {
     let vb_handle = ctx.project().virtual_branches();
-    let branches = ctx.repo().branches(None)?;
+    // The definition of "own_branch" is based if the current user made the first commit on the branch
+    // However, because getting that info is both expensive and also we cant filter ahead of time,
+    // here we assume that all of the "own_branches" will be local.
+    let branch_filter = filter
+        .as_ref()
+        .and_then(|filter| match filter.own_branches {
+            Some(true) => Some(git2::BranchType::Local),
+            _ => None,
+        });
+    let mut git_branches: Vec<GroupBranch> = vec![];
+    for result in ctx.repo().branches(branch_filter)? {
+        match result {
+            Ok((branch, branch_type)) => match branch_type {
+                git2::BranchType::Local => {
+                    if branch_filter
+                        .map(|branch_type| branch_type == git2::BranchType::Local)
+                        .unwrap_or(false)
+                    {
+                        // If we had an "own_branch" filter, we skipped getting the remote branches, however we still want the remote
+                        // tracking branches for the ones that are local
+                        if let Ok(upstream) = branch.upstream() {
+                            git_branches.push(GroupBranch::Remote(upstream));
+                        }
+                    }
+                    git_branches.push(GroupBranch::Local(branch));
+                }
+                git2::BranchType::Remote => {
+                    git_branches.push(GroupBranch::Remote(branch));
+                }
+            },
+            Err(_) => {
+                continue;
+            }
+        }
+    }
 
     // virtual branches from the application state
     let virtual_branches = ctx
@@ -31,33 +69,42 @@ pub fn list_branches(ctx: &ProjectRepository) -> Result<Vec<BranchListing>> {
         .list_all_branches()?
         .into_iter();
 
-    combine_branches(branches, virtual_branches, ctx.repo(), &vb_handle)
+    let branches = combine_branches(git_branches, virtual_branches, ctx.repo(), &vb_handle)?;
+    // Apply the filter
+    let branches: Vec<BranchListing> = branches
+        .into_iter()
+        .filter(|branch| matches_all(branch, &filter))
+        .collect();
+    Ok(branches)
+}
+
+fn matches_all(branch: &BranchListing, filter: &Option<BranchListingFilter>) -> bool {
+    if let Some(filter) = filter {
+        let mut conditions: Vec<bool> = vec![];
+        if let Some(applied) = filter.applied {
+            if let Some(vb) = branch.virtual_branch.as_ref() {
+                conditions.push(applied == vb.in_workspace);
+            } else {
+                conditions.push(!applied);
+            }
+        }
+        if let Some(own) = filter.own_branches {
+            conditions.push(own == branch.own_branch);
+        }
+        return conditions.iter().all(|&x| x);
+    } else {
+        true
+    }
 }
 
 fn combine_branches(
-    branches: git2::Branches,
+    mut group_branches: Vec<GroupBranch>,
     virtual_branches: impl Iterator<Item = GitButlerBranch>,
     repo: &git2::Repository,
     vb_handle: &VirtualBranchesHandle,
 ) -> Result<Vec<BranchListing>> {
-    let mut group_branches: Vec<GroupBranch> = vec![];
     for branch in virtual_branches {
         group_branches.push(GroupBranch::Virtual(branch));
-    }
-    for result in branches {
-        match result {
-            Ok((branch, branch_type)) => match branch_type {
-                git2::BranchType::Local => {
-                    group_branches.push(GroupBranch::Local(branch));
-                }
-                git2::BranchType::Remote => {
-                    group_branches.push(GroupBranch::Remote(branch));
-                }
-            },
-            Err(_) => {
-                continue;
-            }
-        }
     }
     let remotes = repo.remotes()?;
     let target_branch = vb_handle.get_default_target().ok();
@@ -172,12 +219,6 @@ fn branch_group_to_branch(
     let repo_head = repo.head()?.peel_to_commit()?;
     // If no merge base can be found, return with zero stats
     let branch = if let Ok(base) = repo.merge_base(repo_head.id(), head) {
-        let base_tree = repo.find_commit(base)?.tree()?;
-        let head_tree = repo.find_commit(head)?.tree()?;
-        let diff_stats = repo
-            .diff_tree_to_tree(Some(&base_tree), Some(&head_tree), None)?
-            .stats()?;
-
         let mut revwalk = repo.revwalk()?;
         revwalk.push(head)?;
         revwalk.hide(base)?;
@@ -191,9 +232,13 @@ fn branch_group_to_branch(
             commits.push(commit);
         }
 
-        let own_branch = commits
-            .last()
-            .map_or(false, |commit| local_author == &commit.author().into());
+        let mut own_branch = commits
+            .iter()
+            .any(|commit| local_author == &commit.author().into());
+        // If there are no commits (i.e. virtual branch only) it is considered the users own
+        if commits.is_empty() {
+            own_branch = true;
+        }
 
         let last_modified_ms = max(
             last_commit_time_ms as u128,
@@ -204,9 +249,6 @@ fn branch_group_to_branch(
             name: identity,
             remotes,
             virtual_branch: virtual_branch_reference,
-            lines_added: diff_stats.insertions(),
-            lines_removed: diff_stats.deletions(),
-            number_of_files: diff_stats.files_changed(),
             number_of_commits: commits.len(),
             updated_at: last_modified_ms,
             authors: authors.into_iter().collect(),
@@ -218,9 +260,6 @@ fn branch_group_to_branch(
             name: identity,
             remotes,
             virtual_branch: virtual_branch_reference,
-            lines_added: 0,
-            lines_removed: 0,
-            number_of_files: 0,
             number_of_commits: 0,
             updated_at: last_modified_ms,
             authors: Vec::new(),
@@ -278,6 +317,18 @@ fn should_list_git_branch(identity: &Option<String>, target: &Option<Target>) ->
     true
 }
 
+/// A filter that can be applied to the branch listing
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BranchListingFilter {
+    /// If the value is true, the listing will only include branches that have the same author as the current user.
+    /// If the value is false, the listing will include only branches that are not created by the user.
+    pub own_branches: Option<bool>,
+    /// If the value is true, the listing will only include branches that are applied in the workspace.
+    /// If the value is false, the listing will only include branches that are not applied in the workspace.
+    pub applied: Option<bool>,
+}
+
 /// Represents a branch that exists for the repository
 /// This also combines the concept of a remote, local and virtual branch in order to provide a unified interface for the UI
 /// Branch entry is not meant to contain all of the data a branch can have (e.g. full commit history, all files and diffs, etc.).
@@ -294,23 +345,6 @@ pub struct BranchListing {
     pub remotes: Vec<BString>,
     /// The branch may or may not have a virtual branch associated with it
     pub virtual_branch: Option<VirtualBranchReference>,
-    /// The number of lines added within the branch
-    /// Since the virtual branch, local branch and the remote one can have different number of lines removed,
-    /// the value from the virtual branch (if present) takes the highest precedence,
-    /// followed by the local branch and then the remote branches (taking the max if there are multiple).
-    /// If this branch has a virutal branch, lines_added does NOT include the uncommitted lines.
-    pub lines_added: usize,
-    /// The number of lines removed within the branch
-    /// Since the virtual branch, local branch and the remote one can have different number of lines removed,
-    /// the value from the virtual branch (if present) takes the highest precedence,
-    /// followed by the local branch and then the remote branches (taking the max if there are multiple)
-    /// If this branch has a virutal branch, lines_removed does NOT include the uncommitted lines.
-    pub lines_removed: usize,
-    /// The number of files that were modified within the branch
-    /// Since the virtual branch, local branch and the remote one can have different number files modified,
-    /// the value from the virtual branch (if present) takes the highest precedence,
-    /// followed by the local branch and then the remote branches (taking the max if there are multiple)
-    pub number_of_files: usize,
     /// The number of commits associated with a branch
     /// Since the virtual branch, local branch and the remote one can have different number of commits,
     /// the value from the virtual branch (if present) takes the highest precedence,
@@ -322,8 +356,9 @@ pub struct BranchListing {
     /// A list of authors that have contributes commits to this branch.
     /// In the case of multiple remote tracking branches, it takes the full list of unique authors.
     pub authors: Vec<Author>,
-    /// Determines if the branch is considered one created by the user
-    /// A branch is considered created by the user if they were the author of the first commit in the branch.
+    /// Determines if the current user is involved with this branch.
+    /// Returns true if the author has created a commit on this branch
+    /// If it is a virtual branch, if it has zero commits it is also considered as the user's branch
     pub own_branch: bool,
 }
 
@@ -371,6 +406,23 @@ pub struct BranchData {
     pub remote_branches: Vec<RemoteBranchEntry>,
     /// The virtual branch entry associated with the branch
     pub virtual_branch: Option<VirtualBranch>,
+    /// The number of lines added within the branch
+    /// Since the virtual branch, local branch and the remote one can have different number of lines removed,
+    /// the value from the virtual branch (if present) takes the highest precedence,
+    /// followed by the local branch and then the remote branches (taking the max if there are multiple).
+    /// If this branch has a virutal branch, lines_added does NOT include the uncommitted lines.
+    pub lines_added: usize,
+    /// The number of lines removed within the branch
+    /// Since the virtual branch, local branch and the remote one can have different number of lines removed,
+    /// the value from the virtual branch (if present) takes the highest precedence,
+    /// followed by the local branch and then the remote branches (taking the max if there are multiple)
+    /// If this branch has a virutal branch, lines_removed does NOT include the uncommitted lines.
+    pub lines_removed: usize,
+    /// The number of files that were modified within the branch
+    /// Since the virtual branch, local branch and the remote one can have different number files modified,
+    /// the value from the virtual branch (if present) takes the highest precedence,
+    /// followed by the local branch and then the remote branches (taking the max if there are multiple)
+    pub number_of_files: usize,
 }
 /// Represents a local branch
 #[derive(Debug, Clone, Serialize, PartialEq)]
