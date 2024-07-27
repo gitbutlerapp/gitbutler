@@ -15,8 +15,8 @@
 	<SectionCard labelFor="baseBranchSwitching" orientation="row">
 		<svelte:fragment slot="title">Switching the target branch</svelte:fragment>
 		<svelte:fragment slot="caption">
-			This allows changing of the target branch (trunk) after the initial project setup from within
-			the project settings. Not fully tested yet, use with caution.
+			This allows changing of the target branch after the initial project setup from within the
+			project settings. Not fully tested yet, use with caution.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Toggle
