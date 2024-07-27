@@ -39,7 +39,7 @@
 		"prettier": "^3.3.2",
 		"prettier-plugin-svelte": "^3.2.4",
 		"svelte-eslint-parser": "^0.41.0",
-		"turbo": "2.0.7-canary.1",
+		"turbo": "2.0.9",
 		"typescript": "5.4.5",
 		"typescript-eslint": "^7.13.1"
 	}
