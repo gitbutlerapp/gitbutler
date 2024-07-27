@@ -21,6 +21,7 @@ use crate::{VirtualBranch, VirtualBranchesExt};
 
 /// Returns a list of branches associated with this project.
 // TODO: Implement pagination for this thing
+// TODO: The results should be sortedb by updated_at
 pub fn list_branches(
     ctx: &ProjectRepository,
     filter: Option<BranchListingFilter>,
