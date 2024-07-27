@@ -8,10 +8,10 @@
 	"type": "module",
 	"packageManager": "pnpm@9.5.0",
 	"scripts": {
-		"dev": "turbo watch --filter @gitbutler/app dev --no-update-notifier",
-		"dev:ui": "pnpm --filter @gitbutler/ui dev",
+		"dev:ui": "pnpm --filter @gitbutler/ui storybook",
 		"dev:web": "pnpm --filter @gitbutler/web dev",
 		"dev:desktop": "pnpm tauri dev",
+    "dev:internal-tauri": "turbo watch --filter @gitbutler/app dev --no-update-notifier",
 		"test": "pnpm --filter @gitbutler/app run test",
 		"test:watch": "pnpm --filter @gitbutler/app run test:watch",
 		"build": "turbo run build --no-daemon",
