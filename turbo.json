@@ -2,13 +2,13 @@
 	"$schema": "https://turborepo.org/schema.json",
 	"tasks": {
 		"package": {
-			"cache": false
+			"outputs": ["dist"]
 		},
 		"build": {
 			"dependsOn": ["^package"],
 			"passThroughEnv": ["SENTRY_AUTH_TOKEN", "GITHUB_TOKEN"],
 			"env": ["SENTRY_RELEASE"],
-			"cache": false
+			"outputs": [".svelte-kit", "!.sveltekit/types", "!.sveltekit/*.d.ts"]
 		},
 		"dev": {
 			"dependsOn": ["^package"],
