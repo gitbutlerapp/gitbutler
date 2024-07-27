@@ -30,8 +30,8 @@
 	--clr-core-err-90: #fdf1f4;
 	--clr-core-err-95: #fffafc;
 	--clr-core-ntrl-0: #0a0a0a;
-	--clr-core-ntrl-5: #181412;
-	--clr-core-ntrl-10: #25211f;
+	--clr-core-ntrl-5: #1a1614;
+	--clr-core-ntrl-10: #272321;
 	--clr-core-ntrl-20: #302c2b;
 	--clr-core-ntrl-30: #4f4b48;
 	--clr-core-ntrl-40: #67635e;
@@ -43,7 +43,7 @@
 	--clr-core-ntrl-95: #f7f7f6;
 	--clr-core-ntrl-100: #ffffff;
 	--clr-core-pop-5: #0e2a29;
-	--clr-core-pop-10: #133937;
+	--clr-core-pop-10: #174543;
 	--clr-core-pop-20: #1c5451;
 	--clr-core-pop-30: #256f6b;
 	--clr-core-pop-40: #2a928d;
@@ -54,7 +54,7 @@
 	--clr-core-pop-90: #e9f7f6;
 	--clr-core-pop-95: #f4fbfa;
 	--clr-core-purp-5: #281d44;
-	--clr-core-purp-10: #322352;
+	--clr-core-purp-10: #3f2c68;
 	--clr-core-purp-20: #4b3479;
 	--clr-core-purp-30: #5e429a;
 	--clr-core-purp-40: #7657b7;
@@ -65,7 +65,7 @@
 	--clr-core-purp-90: #f2edfc;
 	--clr-core-purp-95: #f9f6fd;
 	--clr-core-succ-5: #0d261a;
-	--clr-core-succ-10: #18392a;
+	--clr-core-succ-10: #1c402f;
 	--clr-core-succ-20: #22533c;
 	--clr-core-succ-30: #2a7e57;
 	--clr-core-succ-40: #469b73;
@@ -349,8 +349,8 @@
 	--clr-theme-purp-element-hover: var(--clr-core-purp-30);
 	--clr-theme-purp-on-element: var(--clr-core-purp-90);
 	--clr-theme-purp-on-soft: var(--clr-core-purp-90);
-	--clr-theme-purp-soft: var(--clr-core-purp-20);
-	--clr-theme-purp-soft-hover: var(--clr-core-purp-10);
+	--clr-theme-purp-soft: var(--clr-core-purp-10);
+	--clr-theme-purp-soft-hover: var(--clr-core-purp-20);
 	--clr-theme-succ-bg: var(--clr-core-succ-10);
 	--clr-theme-succ-element: var(--clr-core-succ-40);
 	--clr-theme-succ-element-hover: var(--clr-core-succ-30);
