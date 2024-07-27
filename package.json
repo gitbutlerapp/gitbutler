@@ -11,9 +11,9 @@
 		"dev:ui": "pnpm --filter @gitbutler/ui storybook",
 		"dev:web": "pnpm --filter @gitbutler/web dev",
 		"dev:desktop": "pnpm tauri dev",
-		"dev:internal-tauri": "turbo run --filter @gitbutler/app dev --no-daemon",
-		"test": "pnpm --filter @gitbutler/app run test",
-		"test:watch": "pnpm --filter @gitbutler/app run test:watch",
+		"dev:internal-tauri": "turbo run --filter @gitbutler/desktop dev --no-daemon",
+		"test": "pnpm --filter @gitbutler/desktop run test",
+		"test:watch": "pnpm --filter @gitbutler/desktop run test:watch",
 		"build": "turbo run build --no-daemon",
 		"check": "turbo run check --no-daemon",
 		"tauri": "tauri",
@@ -21,7 +21,7 @@
 		"globallint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"fix": "eslint --fix .",
-		"prepare": "pnpm --filter @gitbutler/app run prepare",
+		"prepare": "pnpm --filter @gitbutler/desktop run prepare",
 		"rustfmt": "cargo +nightly fmt -- --config-path rustfmt-nightly.toml"
 	},
 	"devDependencies": {
