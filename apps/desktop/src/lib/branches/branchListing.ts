@@ -19,12 +19,12 @@ export class BranchListingService {
 
 /// A filter that can be applied to the branch listing
 export class BranchListingFilter {
-    /// If the value is true, the listing will only include branches that have the same author as the current user.
-    /// If the value is false, the listing will include only branches that are not created by the user.
-    ownBranches?: boolean;
-    /// If the value is true, the listing will only include branches that are applied in the workspace.
-    /// If the value is false, the listing will only include branches that are not applied in the workspace.
-    applied?: boolean;
+	/// If the value is true, the listing will only include branches that have the same author as the current user.
+	/// If the value is false, the listing will include only branches that are not created by the user.
+	ownBranches?: boolean;
+	/// If the value is true, the listing will only include branches that are applied in the workspace.
+	/// If the value is false, the listing will only include branches that are not applied in the workspace.
+	applied?: boolean;
 }
 
 /// Represents a branch that exists for the repository

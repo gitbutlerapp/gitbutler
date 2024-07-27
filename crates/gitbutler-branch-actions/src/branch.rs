@@ -93,7 +93,7 @@ fn matches_all(branch: &BranchListing, filter: &Option<BranchListingFilter>) -> 
         }
         return conditions.iter().all(|&x| x);
     } else {
-        return true;
+        true
     }
 }
 
