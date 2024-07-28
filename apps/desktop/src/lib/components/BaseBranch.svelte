@@ -3,6 +3,7 @@
 	import Spacer from '../shared/Spacer.svelte';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { showInfo } from '$lib/notifications/toasts';
 	import Button from '$lib/shared/Button.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
@@ -14,6 +15,7 @@
 	export let base: BaseBranch;
 
 	const branchController = getContext(BranchController);
+	const gitHost = getGitHost();
 
 	const mergeUpstreamWarningDismissed = projectMergeUpstreamWarningDismissed(
 		branchController.projectId
@@ -61,7 +63,7 @@
 					first={index === 0}
 					last={index === base.upstreamCommits.length - 1}
 					isUnapplied={true}
-					commitUrl={base.commitUrl(commit.id)}
+					commitUrl={$gitHost?.commitUrl(commit.id)}
 					type="remote"
 				/>
 			{/each}
@@ -82,7 +84,7 @@
 				first={index === 0}
 				last={index === base.recentCommits.length - 1}
 				isUnapplied={true}
-				commitUrl={base.commitUrl(commit.id)}
+				commitUrl={$gitHost?.commitUrl(commit.id)}
 				type="localAndRemote"
 			/>
 		{/each}

@@ -8,11 +8,11 @@
 	import PullRequestPreview from '$lib/components/PullRequestPreview.svelte';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
-	import type { Writable } from 'svelte/store';
+	import type { Readable } from 'svelte/store';
 	import { page } from '$app/stores';
 
 	const gitHostListing = getGitHostListingService();
-	let prs = $state<Writable<PullRequest[]>>();
+	let prs = $state<Readable<PullRequest[]> | undefined>();
 	let pr = $state<PullRequest>();
 	$effect.pre(() => {
 		prs = $gitHostListing?.prs;

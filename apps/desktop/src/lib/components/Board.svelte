@@ -7,6 +7,7 @@
 	import BranchLane from '$lib/branch/BranchLane.svelte';
 	import { cloneElement } from '$lib/dragging/draggable';
 	import { editor } from '$lib/editorLink/editorLink';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { persisted } from '$lib/persisted/persisted';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
@@ -21,6 +22,7 @@
 	const error = vbranchService.error;
 	const branches = vbranchService.branches;
 	const showHistoryView = persisted(false, 'showHistoryView');
+	const gitHost = getGitHost();
 
 	let dragged: any;
 	let dropZone: HTMLDivElement;
@@ -184,7 +186,7 @@
 									{#each ($baseBranch?.recentCommits || []).slice(0, 4) as commit}
 										<a
 											class="empty-board__suggestions__link"
-											href={$baseBranch?.commitUrl(commit.id)}
+											href={$gitHost?.commitUrl(commit.id)}
 											target="_blank"
 											rel="noreferrer"
 											title="Open in browser"
