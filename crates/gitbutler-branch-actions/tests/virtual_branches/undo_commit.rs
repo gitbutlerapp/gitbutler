@@ -1,8 +1,8 @@
 use super::*;
 use gitbutler_branch::BranchCreateRequest;
 
-#[tokio::test]
-async fn undo_commit_simple() {
+#[test]
+fn undo_commit_simple() {
     let Test {
         repository,
         project,
@@ -12,19 +12,16 @@ async fn undo_commit_simple() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     let branch_id = controller
         .create_virtual_branch(project, &BranchCreateRequest::default())
-        .await
         .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let _commit1_id = controller
         .create_commit(project, branch_id, "commit one", None, false)
-        .await
         .unwrap();
 
     // create commit
@@ -32,24 +29,20 @@ async fn undo_commit_simple() {
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
     let commit2_id = controller
         .create_commit(project, branch_id, "commit two", None, false)
-        .await
         .unwrap();
 
     // create commit
     fs::write(repository.path().join("file4.txt"), "content4").unwrap();
     let _commit3_id = controller
         .create_commit(project, branch_id, "commit three", None, false)
-        .await
         .unwrap();
 
     controller
         .undo_commit(project, branch_id, commit2_id)
-        .await
         .unwrap();
 
     let branch = controller
         .list_virtual_branches(project)
-        .await
         .unwrap()
         .0
         .into_iter()

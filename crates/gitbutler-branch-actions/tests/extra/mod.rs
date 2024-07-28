@@ -905,8 +905,8 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn merge_vbranch_upstream_conflict() -> Result<()> {
+#[test]
+fn merge_vbranch_upstream_conflict() -> Result<()> {
     let suite = Suite::default();
     let mut case = suite.new_case();
 

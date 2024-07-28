@@ -39,7 +39,7 @@ impl Drop for WatcherHandle {
 
 impl WatcherHandle {
     /// Post an `action` for the watcher to perform.
-    pub async fn post(&self, action: Action) -> Result<()> {
+    pub fn post(&self, action: Action) -> Result<()> {
         self.tx
             .send(action.into())
             .context("failed to send event")?;
@@ -97,7 +97,7 @@ pub fn watch_in_background(
         //       as well, so nothing can really be done here.
         task::spawn_blocking(move || {
             futures::executor::block_on(async move {
-                handler.handle(event).await.ok();
+                handler.handle(event).ok();
             });
         });
         Ok(())

@@ -1,8 +1,8 @@
 use super::*;
 use gitbutler_branch::BranchCreateRequest;
 
-#[tokio::test]
-async fn should_unapply_diff() {
+#[test]
+fn should_unapply_diff() {
     let Test {
         project,
         controller,
@@ -12,20 +12,18 @@ async fn should_unapply_diff() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     // write some
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).unwrap();
 
     controller
         .delete_virtual_branch(project, branches[0].id)
-        .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 0);
     assert!(!repository.path().join("file.txt").exists());
 
@@ -37,8 +35,8 @@ async fn should_unapply_diff() {
     assert!(!refnames.contains(&"refs/gitbutler/name".to_string()));
 }
 
-#[tokio::test]
-async fn should_remove_reference() {
+#[test]
+fn should_remove_reference() {
     let Test {
         project,
         controller,
@@ -48,7 +46,6 @@ async fn should_remove_reference() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     let id = controller
@@ -59,12 +56,11 @@ async fn should_remove_reference() {
                 ..Default::default()
             },
         )
-        .await
         .unwrap();
 
-    controller.delete_virtual_branch(project, id).await.unwrap();
+    controller.delete_virtual_branch(project, id).unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 0);
 
     let refnames = repository

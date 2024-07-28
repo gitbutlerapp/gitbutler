@@ -7,7 +7,7 @@ use tracing::instrument;
 
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
-pub async fn list_remotes(
+pub fn list_remotes(
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
 ) -> Result<Vec<String>, Error> {
@@ -17,7 +17,7 @@ pub async fn list_remotes(
 
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
-pub async fn add_remote(
+pub fn add_remote(
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
     name: &str,

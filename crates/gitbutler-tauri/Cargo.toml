@@ -38,6 +38,7 @@ tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-wo
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-store = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-log = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
+parking_lot.workspace = true
 log = "^0.4"
 thiserror.workspace = true
 # The features here optimize for performance.

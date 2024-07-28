@@ -3,7 +3,6 @@ pub(super) mod state {
     use std::sync::Arc;
 
     use anyhow::{Context, Result};
-    use futures::executor::block_on;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use gitbutler_user as users;
@@ -94,8 +93,7 @@ pub(super) mod state {
         /// NOTE: This handle is required for this type to be self-contained as it's used by `core` through a trait.
         app_handle: AppHandle,
         /// The state for every open application window.
-        /// NOTE: This is a `tokio` mutex as this needs to lock the inner option from within async.
-        state: Arc<tokio::sync::Mutex<BTreeMap<WindowLabel, State>>>,
+        state: Arc<parking_lot::Mutex<BTreeMap<WindowLabel, State>>>,
     }
 
     fn handler_from_app(app: &AppHandle) -> Result<gitbutler_watcher::Handler> {
@@ -126,7 +124,7 @@ pub(super) mod state {
             window: &WindowLabelRef,
             project: &projects::Project,
         ) -> Result<()> {
-            let mut state_by_label = block_on(self.state.lock());
+            let mut state_by_label = self.state.lock();
             if let Some(state) = state_by_label.get(window) {
                 if state.project_id == project.id {
                     return Ok(());
@@ -150,17 +148,13 @@ pub(super) mod state {
             Ok(())
         }
 
-        pub async fn post(&self, action: gitbutler_watcher::Action) -> Result<()> {
-            let mut state_by_label = self.state.lock().await;
+        pub fn post(&self, action: gitbutler_watcher::Action) -> Result<()> {
+            let mut state_by_label = self.state.lock();
             let state = state_by_label
                 .values_mut()
                 .find(|state| state.project_id == action.project_id());
             if let Some(state) = state {
-                state
-                    .watcher
-                    .post(action)
-                    .await
-                    .context("failed to post event")
+                state.watcher.post(action).context("failed to post event")
             } else {
                 Err(anyhow::anyhow!(
                     "matching watcher to post event not found, wanted {wanted}",
@@ -172,7 +166,7 @@ pub(super) mod state {
         /// Flush file-monitor watcher events once the windows regains focus for it to respond instantly
         /// instead of according to the tick-rate.
         pub fn flush(&self, window: &WindowLabelRef) -> Result<()> {
-            let state_by_label = block_on(self.state.lock());
+            let state_by_label = self.state.lock();
             if let Some(state) = state_by_label.get(window) {
                 state.watcher.flush()?;
             }
@@ -182,13 +176,13 @@ pub(super) mod state {
 
         /// Remove the state associated with `window`, typically upon its destruction.
         pub fn remove(&self, window: &WindowLabelRef) {
-            let mut state_by_label = block_on(self.state.lock());
+            let mut state_by_label = self.state.lock();
             state_by_label.remove(window);
         }
 
         /// Return the list of project ids that are currently open.
         pub fn open_projects(&self) -> Vec<ProjectId> {
-            let state_by_label = block_on(self.state.lock());
+            let state_by_label = self.state.lock();
             state_by_label
                 .values()
                 .map(|state| state.project_id)

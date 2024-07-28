@@ -53,26 +53,23 @@ impl Handler {
 
     /// Handle the events that come in from the filesystem, or the public API.
     #[instrument(skip(self), fields(event = %event), err(Debug))]
-    pub(super) async fn handle(&self, event: events::InternalEvent) -> Result<()> {
+    pub(super) fn handle(&self, event: events::InternalEvent) -> Result<()> {
         match event {
             events::InternalEvent::ProjectFilesChange(project_id, path) => {
-                self.recalculate_everything(path, project_id).await
+                self.recalculate_everything(path, project_id)
             }
 
             events::InternalEvent::GitFilesChange(project_id, paths) => self
                 .git_files_change(paths, project_id)
-                .await
                 .context("failed to handle git file change event"),
 
             events::InternalEvent::GitButlerOplogChange(project_id) => self
                 .gitbutler_oplog_change(project_id)
-                .await
                 .context("failed to handle gitbutler oplog change event"),
 
             // This is only produced at the end of mutating Tauri commands to trigger a fresh state being served to the UI.
             events::InternalEvent::CalculateVirtualBranches(project_id) => self
                 .calculate_virtual_branches(project_id)
-                .await
                 .context("failed to handle virtual branch event"),
         }
     }
@@ -84,12 +81,12 @@ impl Handler {
     }
 
     #[instrument(skip(self, project_id))]
-    async fn calculate_virtual_branches(&self, project_id: ProjectId) -> Result<()> {
+    fn calculate_virtual_branches(&self, project_id: ProjectId) -> Result<()> {
         let project = self
             .projects
             .get(project_id)
             .context("failed to get project")?;
-        match VirtualBranchActions.list_virtual_branches(&project).await {
+        match VirtualBranchActions.list_virtual_branches(&project) {
             Ok((branches, skipped_files)) => self.emit_app_event(Change::VirtualBranches {
                 project_id: project.id,
                 virtual_branches: VirtualBranches {
@@ -110,13 +107,9 @@ impl Handler {
     }
 
     #[instrument(skip(self, paths, project_id), fields(paths = paths.len()))]
-    async fn recalculate_everything(
-        &self,
-        paths: Vec<PathBuf>,
-        project_id: ProjectId,
-    ) -> Result<()> {
+    fn recalculate_everything(&self, paths: Vec<PathBuf>, project_id: ProjectId) -> Result<()> {
         self.maybe_create_snapshot(project_id).ok();
-        self.calculate_virtual_branches(project_id).await?;
+        self.calculate_virtual_branches(project_id)?;
         Ok(())
     }
 
@@ -138,7 +131,7 @@ impl Handler {
         Ok(())
     }
 
-    pub async fn git_files_change(&self, paths: Vec<PathBuf>, project_id: ProjectId) -> Result<()> {
+    pub fn git_files_change(&self, paths: Vec<PathBuf>, project_id: ProjectId) -> Result<()> {
         let project = self
             .projects
             .get(project_id)
@@ -188,7 +181,7 @@ impl Handler {
 
     /// Invoked whenever there's a new oplog entry.
     /// If synchronizing with GitButler's servers is enabled it will push Oplog refs
-    async fn gitbutler_oplog_change(&self, project_id: ProjectId) -> Result<()> {
+    fn gitbutler_oplog_change(&self, project_id: ProjectId) -> Result<()> {
         let project = self
             .projects
             .get(project_id)
@@ -198,7 +191,7 @@ impl Handler {
             if let Some(user) = self.users.get_user()? {
                 let repository = ProjectRepository::open(&project)
                     .context("failed to open project repository for project")?;
-                return sync_with_gitbutler(&repository, &user, &self.projects).await;
+                return sync_with_gitbutler(&repository, &user, &self.projects);
             }
         }
         Ok(())

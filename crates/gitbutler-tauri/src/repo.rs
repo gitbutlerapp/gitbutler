@@ -8,7 +8,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
-    pub async fn git_get_local_config(
+    pub fn git_get_local_config(
         projects: State<'_, projects::Controller>,
         id: ProjectId,
         key: &str,
@@ -19,7 +19,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
-    pub async fn git_set_local_config(
+    pub fn git_set_local_config(
         projects: State<'_, projects::Controller>,
         id: ProjectId,
         key: &str,
@@ -31,7 +31,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
-    pub async fn check_signing_settings(
+    pub fn check_signing_settings(
         projects: State<'_, projects::Controller>,
         id: ProjectId,
     ) -> Result<bool, Error> {

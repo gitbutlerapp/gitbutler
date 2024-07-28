@@ -16,7 +16,7 @@ use gitbutler_url::Url;
 use gitbutler_user as users;
 use itertools::Itertools;
 
-pub async fn sync_with_gitbutler(
+pub fn sync_with_gitbutler(
     project_repository: &ProjectRepository,
     user: &users::User,
     projects: &projects::Controller,
@@ -39,8 +39,7 @@ pub async fn sync_with_gitbutler(
         project.id,
         user,
         12,
-    )
-    .await?;
+    )?;
 
     // Push all refs
     push_all_refs(project_repository, user, project.id)?;
@@ -59,7 +58,7 @@ pub async fn sync_with_gitbutler(
     Ok(())
 }
 
-async fn push_target(
+fn push_target(
     projects: &projects::Controller,
     project_repository: &ProjectRepository,
     default_target: &Target,
@@ -86,7 +85,7 @@ async fn push_target(
         let refspec = format!("+{}:refs/push-tmp/{}", id, project_id);
 
         push_to_gitbutler_server(project_repository, Some(user), &[&refspec])?;
-        update_project(projects, project_id, *id).await?;
+        update_project(projects, project_id, *id)?;
 
         tracing::info!(
             %project_id,
@@ -178,7 +177,7 @@ fn push_all_refs(
     }
     Ok(())
 }
-async fn update_project(
+fn update_project(
     projects: &projects::Controller,
     project_id: Id<projects::Project>,
     id: git2::Oid,
@@ -192,7 +191,6 @@ async fn update_project(
             }),
             ..Default::default()
         })
-        .await
         .context("failed to update last push")?;
     Ok(())
 }

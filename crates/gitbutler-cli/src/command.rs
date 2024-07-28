@@ -2,7 +2,6 @@ pub mod vbranch {
     use crate::command::debug_print;
     use anyhow::bail;
     use anyhow::Result;
-    use futures::executor::block_on;
     use gitbutler_branch::{
         Branch, BranchCreateRequest, BranchUpdateRequest, VirtualBranchesHandle,
     };
@@ -26,18 +25,18 @@ pub mod vbranch {
     }
 
     pub fn create(project: Project, branch_name: String) -> Result<()> {
-        debug_print(block_on(VirtualBranchActions.create_virtual_branch(
+        debug_print(VirtualBranchActions.create_virtual_branch(
             &project,
             &BranchCreateRequest {
                 name: Some(branch_name),
                 ..Default::default()
             },
-        ))?)
+        )?)
     }
 
     pub fn set_default(project: Project, branch_name: String) -> Result<()> {
         let branch = branch_by_name(&project, &branch_name)?;
-        block_on(VirtualBranchActions.update_virtual_branch(
+        VirtualBranchActions.update_virtual_branch(
             &project,
             BranchUpdateRequest {
                 id: branch.id,
@@ -49,12 +48,12 @@ pub mod vbranch {
                 selected_for_changes: Some(true),
                 allow_rebasing: None,
             },
-        ))
+        )
     }
 
     pub fn commit(project: Project, branch_name: String, message: String) -> Result<()> {
         let branch = branch_by_name(&project, &branch_name)?;
-        let (info, skipped) = block_on(VirtualBranchActions.list_virtual_branches(&project))?;
+        let (info, skipped) = VirtualBranchActions.list_virtual_branches(&project)?;
 
         if !skipped.is_empty() {
             eprintln!(
@@ -92,13 +91,13 @@ pub mod vbranch {
         }
 
         let run_hooks = false;
-        debug_print(block_on(VirtualBranchActions.create_commit(
+        debug_print(VirtualBranchActions.create_commit(
             &project,
             branch.id,
             &message,
             Some(&populated_branch.ownership),
             run_hooks,
-        ))?)
+        )?)
     }
 
     pub fn branch_by_name(project: &Project, name: &str) -> Result<Branch> {
@@ -119,7 +118,6 @@ pub mod vbranch {
 pub mod project {
     use crate::command::debug_print;
     use anyhow::{Context, Result};
-    use futures::executor::block_on;
     use gitbutler_branch_actions::VirtualBranchActions;
     use gitbutler_project::Project;
     use gitbutler_reference::RemoteRefname;
@@ -149,15 +147,13 @@ pub mod project {
             .canonicalize()?;
         let project = ctrl.add(path)?;
         if let Some(refname) = refname {
-            block_on(VirtualBranchActions.set_base_branch(&project, &refname))?;
+            VirtualBranchActions.set_base_branch(&project, &refname)?;
         };
         debug_print(project)
     }
 
     pub fn switch_to_integration(project: Project, refname: RemoteRefname) -> Result<()> {
-        debug_print(block_on(
-            VirtualBranchActions.set_base_branch(&project, &refname),
-        )?)
+        debug_print(VirtualBranchActions.set_base_branch(&project, &refname)?)
     }
 }
 pub mod snapshot {

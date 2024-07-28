@@ -15,16 +15,16 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
-    pub async fn update_project(
+    pub fn update_project(
         projects: State<'_, Controller>,
         project: projects::UpdateRequest,
     ) -> Result<projects::Project, Error> {
-        Ok(projects.update(&project).await?)
+        Ok(projects.update(&project)?)
     }
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
-    pub async fn add_project(
+    pub fn add_project(
         projects: State<'_, Controller>,
         path: &path::Path,
     ) -> Result<projects::Project, Error> {
@@ -33,7 +33,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
-    pub async fn get_project(
+    pub fn get_project(
         projects: State<'_, Controller>,
         id: ProjectId,
     ) -> Result<projects::Project, Error> {
@@ -42,7 +42,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, window_state), err(Debug))]
-    pub async fn list_projects(
+    pub fn list_projects(
         window_state: State<'_, WindowState>,
         projects: State<'_, Controller>,
     ) -> Result<Vec<ProjectForFrontend>, Error> {
@@ -63,7 +63,7 @@ pub mod commands {
     /// We use it to start watching for filesystem events.
     #[tauri::command(async)]
     #[instrument(skip(projects, window_state, window), err(Debug))]
-    pub async fn set_project_active(
+    pub fn set_project_active(
         projects: State<'_, Controller>,
         window_state: State<'_, WindowState>,
         window: Window,
@@ -79,10 +79,7 @@ pub mod commands {
     /// without haveing to lock explicitly.
     #[tauri::command]
     #[instrument(skip(handle), err(Debug))]
-    pub async fn open_project_in_window(
-        handle: tauri::AppHandle,
-        id: ProjectId,
-    ) -> Result<(), Error> {
+    pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result<(), Error> {
         let label = std::time::UNIX_EPOCH
             .elapsed()
             .or_else(|_| std::time::UNIX_EPOCH.duration_since(std::time::SystemTime::now()))
@@ -94,11 +91,8 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
-    pub async fn delete_project(
-        projects: State<'_, Controller>,
-        id: ProjectId,
-    ) -> Result<(), Error> {
-        projects.delete(id).await.map_err(Into::into)
+    pub fn delete_project(projects: State<'_, Controller>, id: ProjectId) -> Result<(), Error> {
+        projects.delete(id).map_err(Into::into)
     }
 }
 

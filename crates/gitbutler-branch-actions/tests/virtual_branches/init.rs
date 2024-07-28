@@ -1,7 +1,7 @@
 use super::*;
 
-#[tokio::test]
-async fn twice() {
+#[test]
+fn twice() {
     let data_dir = paths::data_dir();
     let projects = projects::Controller::from_path(data_dir.path());
 
@@ -15,40 +15,33 @@ async fn twice() {
             .expect("failed to add project");
         controller
             .set_base_branch(&project, &"refs/remotes/origin/master".parse().unwrap())
-            .await
             .unwrap();
         assert!(controller
             .list_virtual_branches(&project)
-            .await
             .unwrap()
             .0
             .is_empty());
-        projects.delete(project.id).await.unwrap();
-        controller
-            .list_virtual_branches(&project)
-            .await
-            .unwrap_err();
+        projects.delete(project.id).unwrap();
+        controller.list_virtual_branches(&project).unwrap_err();
     }
 
     {
         let project = projects.add(test_project.path()).unwrap();
         controller
             .set_base_branch(&project, &"refs/remotes/origin/master".parse().unwrap())
-            .await
             .unwrap();
 
         // even though project is on gitbutler/integration, we should not import it
         assert!(controller
             .list_virtual_branches(&project)
-            .await
             .unwrap()
             .0
             .is_empty());
     }
 }
 
-#[tokio::test]
-async fn dirty_non_target() {
+#[test]
+fn dirty_non_target() {
     // a situation when you initialize project while being on the local verison of the master
     // that has uncommited changes.
     let Test {
@@ -64,10 +57,9 @@ async fn dirty_non_target() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);
@@ -75,8 +67,8 @@ async fn dirty_non_target() {
     assert_eq!(branches[0].name, "some-feature");
 }
 
-#[tokio::test]
-async fn dirty_target() {
+#[test]
+fn dirty_target() {
     // a situation when you initialize project while being on the local verison of the master
     // that has uncommited changes.
     let Test {
@@ -90,10 +82,9 @@ async fn dirty_target() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);
@@ -101,8 +92,8 @@ async fn dirty_target() {
     assert_eq!(branches[0].name, "master");
 }
 
-#[tokio::test]
-async fn commit_on_non_target_local() {
+#[test]
+fn commit_on_non_target_local() {
     let Test {
         repository,
         project,
@@ -116,10 +107,9 @@ async fn commit_on_non_target_local() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].commits.len(), 1);
@@ -127,8 +117,8 @@ async fn commit_on_non_target_local() {
     assert_eq!(branches[0].name, "some-feature");
 }
 
-#[tokio::test]
-async fn commit_on_non_target_remote() {
+#[test]
+fn commit_on_non_target_remote() {
     let Test {
         repository,
         project,
@@ -143,10 +133,9 @@ async fn commit_on_non_target_remote() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].commits.len(), 1);
@@ -154,8 +143,8 @@ async fn commit_on_non_target_remote() {
     assert_eq!(branches[0].name, "some-feature");
 }
 
-#[tokio::test]
-async fn commit_on_target() {
+#[test]
+fn commit_on_target() {
     let Test {
         repository,
         project,
@@ -168,10 +157,9 @@ async fn commit_on_target() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].commits.len(), 1);
@@ -179,8 +167,8 @@ async fn commit_on_target() {
     assert_eq!(branches[0].name, "master");
 }
 
-#[tokio::test]
-async fn submodule() {
+#[test]
+fn submodule() {
     let Test {
         repository,
         project,
@@ -195,10 +183,9 @@ async fn submodule() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);

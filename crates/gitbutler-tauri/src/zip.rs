@@ -12,7 +12,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(archival), err(Debug))]
-    pub async fn get_project_archive_path(
+    pub fn get_project_archive_path(
         archival: State<'_, Archival>,
         project_id: &str,
     ) -> Result<PathBuf, Error> {
@@ -25,7 +25,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(archival), err(Debug))]
-    pub async fn get_project_data_archive_path(
+    pub fn get_project_data_archive_path(
         archival: State<'_, Archival>,
         project_id: &str,
     ) -> Result<PathBuf, Error> {
@@ -38,7 +38,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(archival), err(Debug))]
-    pub async fn get_logs_archive_path(archival: State<'_, Archival>) -> Result<PathBuf, Error> {
+    pub fn get_logs_archive_path(archival: State<'_, Archival>) -> Result<PathBuf, Error> {
         archival.logs_archive().map_err(Into::into)
     }
 }

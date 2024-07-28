@@ -17,7 +17,7 @@ use crate::error::Error;
 
 #[tauri::command(async)]
 #[instrument(skip(handle), err(Debug))]
-pub async fn menu_item_set_enabled(
+pub fn menu_item_set_enabled(
     handle: AppHandle,
     menu_item_id: &str,
     enabled: bool,

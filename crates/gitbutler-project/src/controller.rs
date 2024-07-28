@@ -80,7 +80,7 @@ impl Controller {
         Ok(project)
     }
 
-    pub async fn update(&self, project: &UpdateRequest) -> Result<Project> {
+    pub fn update(&self, project: &UpdateRequest) -> Result<Project> {
         #[cfg(not(windows))]
         if let Some(AuthKey::Local {
             private_key_path, ..
@@ -148,7 +148,7 @@ impl Controller {
         self.projects_storage.list().map_err(Into::into)
     }
 
-    pub async fn delete(&self, id: ProjectId) -> Result<()> {
+    pub fn delete(&self, id: ProjectId) -> Result<()> {
         let Some(project) = self.projects_storage.try_get(id)? else {
             return Ok(());
         };
