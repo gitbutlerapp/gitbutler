@@ -40,4 +40,7 @@ mod branch;
 mod commit;
 mod hunk;
 
-pub use branch::{list_branches, Author, BranchListing, BranchListingFilter};
+pub use branch::{
+    get_branch_listing_details, list_branches, Author, BranchListing, BranchListingDetails,
+    BranchListingFilter,
+};

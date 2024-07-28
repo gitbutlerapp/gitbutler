@@ -10,7 +10,20 @@ export class BranchListingService {
 				BranchListing,
 				await invoke<any[]>('list_branches', { projectId: this.projectId, filter })
 			);
-			console.log(branches);
+			return branches;
+		} catch (err: any) {
+			console.error(err);
+		}
+	}
+	async get_branch_listing_details(branchNames: string[]) {
+		try {
+			const branches = plainToInstance(
+				BranchListingDetails,
+				await invoke<any[]>('get_branch_listing_details', {
+					projectId: this.projectId,
+					branchNames
+				})
+			);
 			return branches;
 		} catch (err: any) {
 			console.error(err);
@@ -74,4 +87,27 @@ export class Author {
 	name?: string | undefined;
 	/// The email of the author as configured in the git config
 	email?: string | undefined;
+}
+
+/// Represents a fat struct with all the data associated with a branch
+export class BranchListingDetails {
+	/// The name of the branch (e.g. `main`, `feature/branch`), excluding the remote name
+	name!: string;
+	/// The number of lines added within the branch
+	/// Since the virtual branch, local branch and the remote one can have different number of lines removed,
+	/// the value from the virtual branch (if present) takes the highest precedence,
+	/// followed by the local branch and then the remote branches (taking the max if there are multiple).
+	/// If this branch has a virutal branch, lines_added does NOT include the uncommitted lines.
+	lines_added!: number;
+	/// The number of lines removed within the branch
+	/// Since the virtual branch, local branch and the remote one can have different number of lines removed,
+	/// the value from the virtual branch (if present) takes the highest precedence,
+	/// followed by the local branch and then the remote branches (taking the max if there are multiple)
+	/// If this branch has a virutal branch, lines_removed does NOT include the uncommitted lines.
+	lines_removed!: number;
+	/// The number of files that were modified within the branch
+	/// Since the virtual branch, local branch and the remote one can have different number files modified,
+	/// the value from the virtual branch (if present) takes the highest precedence,
+	/// followed by the local branch and then the remote branches (taking the max if there are multiple)
+	number_of_files!: number;
 }
