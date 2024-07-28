@@ -90,12 +90,7 @@
 
 <style lang="postcss">
 	.project-name {
-		display: flex;
-		gap: 8px;
-		align-items: center;
-		line-height: 120%;
-		color: var(--clr-scale-ntrl-30);
-		margin-bottom: 20px;
+		margin-bottom: 12px;
 	}
 
 	.switchrepo__title {
