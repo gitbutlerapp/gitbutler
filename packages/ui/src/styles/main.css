@@ -1,16 +1,27 @@
-@layer reset;
+/* BASE */
+@import './core/reset.css';
+@import './core/tokens.css';
 
-@import './reset.css';
+/* FONTS */
 @import './fonts.css';
-@import './diff.css';
-@import './syntax-highlighting.css';
-@import './tokens.css';
-@import './text-classes.css';
-@import './card.css';
-@import './tooltip.css';
-@import './text-input.css';
-@import './commit-lines.css';
-@import './markdown.css';
+
+/* UTILITY */
+@import './utility/text.css';
+
+/* SHARABLE */
+@import './sharable/card.css';
+@import './sharable/markdown.css';
+@import './sharable/syntax-highlighting.css';
+
+/* COMPONENTS */
+/* @import './components/diff.css';
+@import './components/tooltip.css';
+@import './components/text-input.css';
+@import './components/commit-lines.css';
+@import './components/draggable.css'; */
+
+/* LAYERS PRIORITY */
+@layer reset, sharable;
 
 /* CSS VARIABLES */
 :root {
@@ -106,7 +117,6 @@ pre {
 	0% {
 		outline-offset: 0;
 	}
-
 	100% {
 		outline-offset: 2px;
 		outline: 1px solid var(--focus-color);
@@ -115,10 +125,10 @@ pre {
 
 /* CODE */
 .code-string {
-	font-family: 'Spline Sans Mono', monospace;
+	font-family: 'JetBrains Mono', monospace;
 	border-radius: var(--radius-s);
-	background: oklch(from var(--clr-scale-ntrl-50) l c h / 0.2);
-	padding: 2px 4px;
+	background: var(--clr-scale-ntrl-80);
+	padding: 1px 4px;
 }
 
 /* TRANSITION ANIMATION */
@@ -132,7 +142,6 @@ pre {
 		transform: translateY(6px);
 		opacity: 0;
 	}
-
 	100% {
 		transform: translateY(0);
 		opacity: 1;
@@ -149,19 +158,15 @@ pre {
 	0% {
 		transform: translateX(-3px);
 	}
-
 	25% {
 		transform: translateX(3px);
 	}
-
 	50% {
 		transform: translateX(-2px);
 	}
-
 	75% {
 		transform: translateX(2px);
 	}
-
 	100% {
 		transform: translateX(0);
 	}
@@ -178,26 +183,21 @@ pre {
 		transform: translateX(-3px);
 		background-color: var(--clr-bg-1);
 	}
-
 	10% {
 		transform: translateX(3px);
 		background-color: var(--locked-color);
 	}
-
 	15% {
 		transform: translateX(-3px);
 	}
-
 	25% {
 		transform: translateX(3px);
 		background-color: var(--locked-color);
 	}
-
 	30%,
 	70% {
 		transform: translateX(0);
 	}
-
 	100% {
 		background-color: var(--clr-bg-1);
 	}
