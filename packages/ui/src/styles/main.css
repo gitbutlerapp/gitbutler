@@ -3,7 +3,7 @@
 @import './core/tokens.css';
 
 /* FONTS */
-@import './fonts.css';
+/* @import './fonts.css'; */
 
 /* UTILITY */
 @import './utility/text.css';

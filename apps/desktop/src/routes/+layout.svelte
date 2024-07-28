@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '@gitbutler/ui/fonts.css';
 	import '@gitbutler/ui/main.css';
 
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
