@@ -1,12 +1,12 @@
 pub mod vbranch {
-    use crate::command::debug_print;
-    use anyhow::bail;
-    use anyhow::Result;
+    use anyhow::{bail, Result};
     use gitbutler_branch::{
         Branch, BranchCreateRequest, BranchUpdateRequest, VirtualBranchesHandle,
     };
     use gitbutler_branch_actions::VirtualBranchActions;
     use gitbutler_project::Project;
+
+    use crate::command::debug_print;
 
     pub fn list(project: Project) -> Result<()> {
         let branches = VirtualBranchesHandle::new(project.gb_dir()).list_all_branches()?;
@@ -116,12 +116,14 @@ pub mod vbranch {
 }
 
 pub mod project {
-    use crate::command::debug_print;
+    use std::path::PathBuf;
+
     use anyhow::{Context, Result};
     use gitbutler_branch_actions::VirtualBranchActions;
     use gitbutler_project::Project;
     use gitbutler_reference::RemoteRefname;
-    use std::path::PathBuf;
+
+    use crate::command::debug_print;
 
     pub fn list(ctrl: gitbutler_project::Controller) -> Result<()> {
         for project in ctrl.list()? {
@@ -181,9 +183,10 @@ pub mod snapshot {
 }
 
 pub mod prepare {
+    use std::path::PathBuf;
+
     use anyhow::{bail, Context};
     use gitbutler_project::Project;
-    use std::path::PathBuf;
 
     pub fn project_from_path(path: PathBuf) -> anyhow::Result<Project> {
         let worktree_dir = gix::discover(path)?

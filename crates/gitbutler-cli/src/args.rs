@@ -55,8 +55,9 @@ pub mod vbranch {
 }
 
 pub mod project {
-    use gitbutler_reference::RemoteRefname;
     use std::path::PathBuf;
+
+    use gitbutler_reference::RemoteRefname;
 
     #[derive(Debug, clap::Parser)]
     pub struct Platform {

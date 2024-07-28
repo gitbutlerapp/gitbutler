@@ -15,10 +15,8 @@ mod target;
 pub use target::Target;
 
 mod state;
-pub use state::VirtualBranches as VirtualBranchesState;
-pub use state::VirtualBranchesHandle;
-
 use lazy_static::lazy_static;
+pub use state::{VirtualBranches as VirtualBranchesState, VirtualBranchesHandle};
 lazy_static! {
     pub static ref GITBUTLER_INTEGRATION_REFERENCE: gitbutler_reference::LocalRefname =
         gitbutler_reference::LocalRefname::new("gitbutler/integration", None);

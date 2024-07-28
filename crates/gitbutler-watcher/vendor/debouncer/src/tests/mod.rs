@@ -29,13 +29,10 @@
 // DEALINGS IN THE SOFTWARE.
 use std::{path::Path, time::Duration};
 
-use mock_instant::thread_local::Instant;
-
-pub(crate) use schema::TestCase;
-
-use mock_instant::thread_local::MockClock;
+use mock_instant::thread_local::{Instant, MockClock};
 use pretty_assertions::assert_eq;
 use rstest::rstest;
+pub(crate) use schema::TestCase;
 
 #[rstest]
 fn state(
@@ -165,11 +162,14 @@ fn state(
 
 mod schema;
 mod utils {
-    use crate::FileIdCache;
+    use std::{
+        collections::HashMap,
+        path::{Path, PathBuf},
+    };
 
     use file_id::FileId;
-    use std::collections::HashMap;
-    use std::path::{Path, PathBuf};
+
+    use crate::FileIdCache;
 
     #[derive(Debug, Clone)]
     pub struct TestCache {

@@ -12,23 +12,19 @@ use std::{
 
 use anyhow::{Context, Result};
 use git2::TreeEntry;
-use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_branch::{
-    BranchOwnershipClaims, Target, {BranchCreateRequest, BranchUpdateRequest},
+    BranchCreateRequest, BranchOwnershipClaims, BranchUpdateRequest, Target, VirtualBranchesHandle,
 };
-use gitbutler_branch_actions::BranchManagerExt;
-use gitbutler_branch_actions::Get;
 use gitbutler_branch_actions::{
     commit, get_applied_status, integrate_upstream_commits, is_remote_branch_mergeable,
     list_virtual_branches, unapply_ownership, update_branch, update_gitbutler_integration,
-    verify_branch,
+    verify_branch, BranchManagerExt, Get,
 };
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::CommitHeadersV2};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
-use pretty_assertions::assert_eq;
-
 use gitbutler_testsupport::{commit_all, virtual_branches::set_test_target, Case, Suite};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {

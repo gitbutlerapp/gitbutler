@@ -1,14 +1,14 @@
-use crate::error::Error;
+use std::{collections::HashMap, path::PathBuf};
+
 use anyhow::Context;
 use gitbutler_diff::FileDiff;
-use gitbutler_oplog::entry::Snapshot;
-use gitbutler_oplog::OplogExt;
+use gitbutler_oplog::{entry::Snapshot, OplogExt};
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
-use std::collections::HashMap;
-use std::path::PathBuf;
 use tauri::State;
 use tracing::instrument;
+
+use crate::error::Error;
 
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]

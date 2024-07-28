@@ -1,12 +1,8 @@
-use std::str::FromStr;
-use std::{path::PathBuf, vec};
+use std::{path::PathBuf, str::FromStr, vec};
 
 use anyhow::Context;
-
 use gitbutler_command_context::ProjectRepository;
-
 use gitbutler_project::AuthKey;
-
 use gitbutler_url::{ConvertError, Scheme, Url};
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -1,6 +1,8 @@
-use crate::Sensitive;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::ops::{Deref, DerefMut};
+
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+use crate::Sensitive;
 
 impl<T> Serialize for Sensitive<T>
 where

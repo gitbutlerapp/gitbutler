@@ -1,23 +1,23 @@
 pub mod commands {
-    use crate::error::Error;
     use anyhow::{anyhow, Context};
-    use gitbutler_branch::BranchOwnershipClaims;
-    use gitbutler_branch::{BranchCreateRequest, BranchId, BranchUpdateRequest};
-    use gitbutler_branch_actions::{BaseBranch, BranchListing};
-    use gitbutler_branch_actions::{BranchListingFilter, RemoteBranchFile};
-    use gitbutler_branch_actions::{RemoteBranch, RemoteBranchData};
-    use gitbutler_branch_actions::{VirtualBranchActions, VirtualBranches};
+    use gitbutler_branch::{
+        BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest,
+    };
+    use gitbutler_branch_actions::{
+        BaseBranch, BranchListing, BranchListingFilter, RemoteBranch, RemoteBranchData,
+        RemoteBranchFile, VirtualBranchActions, VirtualBranches,
+    };
     use gitbutler_command_context::ProjectRepository;
     use gitbutler_error::error::Code;
     use gitbutler_project as projects;
     use gitbutler_project::{FetchResult, ProjectId};
-    use gitbutler_reference::normalize_branch_name as normalize_name;
-    use gitbutler_reference::ReferenceName;
-    use gitbutler_reference::{Refname, RemoteRefname};
+    use gitbutler_reference::{
+        normalize_branch_name as normalize_name, ReferenceName, Refname, RemoteRefname,
+    };
     use tauri::State;
     use tracing::instrument;
 
-    use crate::WindowState;
+    use crate::{error::Error, WindowState};
 
     #[tauri::command(async)]
     #[instrument(err(Debug))]

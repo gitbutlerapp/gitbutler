@@ -1,17 +1,5 @@
-use gitbutler_branch::{dedup, BranchUpdateRequest, VirtualBranchesHandle};
-use gitbutler_branch::{dedup_fmt, Branch, BranchId};
-use gitbutler_branch::{reconcile_claims, BranchOwnershipClaims};
-use gitbutler_branch::{OwnershipClaim, Target};
-use gitbutler_command_context::ProjectRepository;
-use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_commit::commit_headers::HasCommitHeaders;
-use gitbutler_diff::Hunk;
-use gitbutler_diff::{trees, GitHunk};
-use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
-use gitbutler_repo::credentials::Helper;
-use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
-use std::borrow::Cow;
 use std::{
+    borrow::Cow,
     collections::HashMap,
     path::{Path, PathBuf},
     vec,
@@ -20,23 +8,35 @@ use std::{
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 use git2_hooks::HookResult;
+use gitbutler_branch::{
+    dedup, dedup_fmt, reconcile_claims, Branch, BranchId, BranchOwnershipClaims,
+    BranchUpdateRequest, OwnershipClaim, Target, VirtualBranchesHandle,
+};
+use gitbutler_command_context::ProjectRepository;
+use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
+use gitbutler_diff::{trees, GitHunk, Hunk};
+use gitbutler_error::error::{Code, Marker};
+use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
+use gitbutler_repo::{
+    credentials::Helper,
+    rebase::{cherry_rebase, cherry_rebase_group},
+    LogUntil, RepoActionsExt, RepositoryExt,
+};
+use gitbutler_time::time::now_since_unix_epoch_ms;
 use serde::Serialize;
 
-use crate::branch_manager::BranchManagerExt;
-use crate::commit::{commit_to_vbranch_commit, VirtualBranchCommit};
-use crate::conflicts::{self, RepoConflictsExt};
-use crate::file::VirtualBranchFile;
-use crate::hunk::VirtualBranchHunk;
-use crate::integration::get_workspace_head;
-use crate::remote::{branch_to_remote_branch, RemoteBranch};
-use crate::status::get_applied_status;
-use crate::Get;
-use crate::VirtualBranchesExt;
-use gitbutler_error::error::Code;
-use gitbutler_error::error::Marker;
-use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_repo::rebase::{cherry_rebase, cherry_rebase_group};
-use gitbutler_time::time::now_since_unix_epoch_ms;
+use crate::{
+    branch_manager::BranchManagerExt,
+    commit::{commit_to_vbranch_commit, VirtualBranchCommit},
+    conflicts::{self, RepoConflictsExt},
+    file::VirtualBranchFile,
+    hunk::VirtualBranchHunk,
+    integration::get_workspace_head,
+    remote::{branch_to_remote_branch, RemoteBranch},
+    status::get_applied_status,
+    Get, VirtualBranchesExt,
+};
 
 // this struct is a mapping to the view `Branch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts

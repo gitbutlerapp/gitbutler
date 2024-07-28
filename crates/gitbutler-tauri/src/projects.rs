@@ -1,17 +1,14 @@
 use gitbutler_project::Project;
 
 pub mod commands {
-    use anyhow::Context;
     use std::path;
 
-    use gitbutler_project::ProjectId;
-    use gitbutler_project::{self as projects, Controller};
+    use anyhow::Context;
+    use gitbutler_project::{self as projects, Controller, ProjectId};
     use tauri::{State, Window};
     use tracing::instrument;
 
-    use crate::error::Error;
-    use crate::projects::ProjectForFrontend;
-    use crate::{window, WindowState};
+    use crate::{error::Error, projects::ProjectForFrontend, window, WindowState};
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]

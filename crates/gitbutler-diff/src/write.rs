@@ -1,11 +1,12 @@
+#[cfg(target_family = "unix")]
+use std::os::unix::prelude::PermissionsExt;
+use std::{borrow::Borrow, path::PathBuf};
+
 use anyhow::{anyhow, Context, Result};
 use bstr::{BString, ByteSlice, ByteVec};
 use diffy::{apply_bytes as diffy_apply, Line, Patch};
 use gitbutler_command_context::ProjectRepository;
 use hex::ToHex;
-#[cfg(target_family = "unix")]
-use std::os::unix::prelude::PermissionsExt;
-use std::{borrow::Borrow, path::PathBuf};
 
 use crate::GitHunk;
 

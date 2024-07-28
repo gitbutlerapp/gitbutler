@@ -1,30 +1,26 @@
-use crate::{
-    base::{
-        get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch,
-        BaseBranch,
-    },
-    branch_manager::BranchManagerExt,
-    remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
-    VirtualBranchesExt,
-};
 use anyhow::Result;
-use gitbutler_branch::{
-    BranchOwnershipClaims, {BranchCreateRequest, BranchId, BranchUpdateRequest},
-};
+use gitbutler_branch::{BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt, SnapshotExt,
 };
 use gitbutler_project::{FetchResult, Project};
-use gitbutler_reference::ReferenceName;
-use gitbutler_reference::{Refname, RemoteRefname};
+use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
 use gitbutler_repo::{credentials::Helper, RepoActionsExt, RepositoryExt};
 use tracing::instrument;
 
 use super::r#virtual as branch;
-
-use crate::file::RemoteBranchFile;
+use crate::{
+    base::{
+        get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch,
+        BaseBranch,
+    },
+    branch_manager::BranchManagerExt,
+    file::RemoteBranchFile,
+    remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
+    VirtualBranchesExt,
+};
 
 #[derive(Clone, Copy, Default)]
 pub struct VirtualBranchActions;

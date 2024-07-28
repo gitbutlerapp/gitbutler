@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     time,
+    time::SystemTime,
 };
 
 use bstr::BString;
@@ -10,7 +11,6 @@ use gitbutler_diff::{GitHunk, Hunk, HunkHash};
 use itertools::Itertools;
 use md5::Digest;
 use serde::Serialize;
-use std::time::SystemTime;
 
 // this struct is a mapping to the view `Hunk` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts

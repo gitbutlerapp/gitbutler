@@ -1,6 +1,9 @@
-use std::borrow::Cow;
-use std::path::{Path, PathBuf};
-use std::{collections::HashMap, str};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    path::{Path, PathBuf},
+    str,
+};
 
 use anyhow::{Context, Result};
 use bstr::{BStr, BString, ByteSlice, ByteVec};

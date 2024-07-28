@@ -1,10 +1,10 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
+use gitbutler_error::error;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
 use crate::AuthKey;
-use gitbutler_error::error;
 
 #[derive(Clone)]
 pub struct Controller {

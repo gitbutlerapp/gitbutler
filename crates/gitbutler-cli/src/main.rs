@@ -1,8 +1,9 @@
 use anyhow::Result;
 
 mod args;
-use crate::args::{project, snapshot, vbranch};
 use args::Args;
+
+use crate::args::{project, snapshot, vbranch};
 
 mod command;
 

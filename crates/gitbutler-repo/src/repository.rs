@@ -9,12 +9,10 @@ use gitbutler_branch::{
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_error::error::Code;
+use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
 
-use crate::{askpass, ssh, Config};
-use gitbutler_project::AuthKey;
-
-use crate::{credentials::Helper, RepositoryExt};
+use crate::{askpass, credentials::Helper, ssh, Config, RepositoryExt};
 pub trait RepoActionsExt {
     fn fetch(&self, remote_name: &str, credentials: &Helper, askpass: Option<String>)
         -> Result<()>;

@@ -1,8 +1,9 @@
 use super::*;
 
 mod create_virtual_branch {
-    use super::*;
     use gitbutler_branch::BranchCreateRequest;
+
+    use super::*;
 
     #[test]
     fn simple() {
@@ -85,8 +86,9 @@ mod create_virtual_branch {
 }
 
 mod update_virtual_branch {
-    use super::*;
     use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
+
+    use super::*;
 
     #[test]
     fn simple() {
@@ -197,8 +199,9 @@ mod update_virtual_branch {
 }
 
 mod push_virtual_branch {
-    use super::*;
     use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
+
+    use super::*;
 
     #[test]
     fn simple() {

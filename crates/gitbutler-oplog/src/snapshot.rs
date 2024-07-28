@@ -1,15 +1,15 @@
+use std::vec;
+
+use anyhow::Result;
+use gitbutler_branch::{Branch, BranchUpdateRequest};
+use gitbutler_project::{access::WorktreeWritePermission, Project};
+use gitbutler_reference::ReferenceName;
+
+use super::entry::Trailer;
 use crate::{
     entry::{OperationKind, SnapshotDetails},
     oplog::OplogExt,
 };
-use anyhow::Result;
-use gitbutler_branch::{Branch, BranchUpdateRequest};
-use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_project::Project;
-use gitbutler_reference::ReferenceName;
-use std::vec;
-
-use super::entry::Trailer;
 
 pub trait SnapshotExt {
     fn snapshot_branch_unapplied(

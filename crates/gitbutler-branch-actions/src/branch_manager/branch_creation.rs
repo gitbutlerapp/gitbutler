@@ -1,3 +1,15 @@
+use std::borrow::Cow;
+
+use anyhow::{anyhow, bail, Context, Result};
+use gitbutler_branch::{self, dedup, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims};
+use gitbutler_commit::commit_headers::HasCommitHeaders;
+use gitbutler_error::error::Marker;
+use gitbutler_oplog::SnapshotExt;
+use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_reference::{Refname, RemoteRefname};
+use gitbutler_repo::{rebase::cherry_rebase, RepoActionsExt, RepositoryExt};
+use gitbutler_time::time::now_since_unix_epoch_ms;
+
 use super::BranchManager;
 use crate::{
     conflicts::{self, RepoConflictsExt},
@@ -6,18 +18,6 @@ use crate::{
     integration::update_gitbutler_integration,
     set_ownership, undo_commit, VirtualBranchesExt,
 };
-use anyhow::{anyhow, bail, Context, Result};
-use gitbutler_branch::{
-    dedup, Branch, BranchOwnershipClaims, {self, BranchCreateRequest, BranchId},
-};
-use gitbutler_commit::commit_headers::HasCommitHeaders;
-use gitbutler_error::error::Marker;
-use gitbutler_oplog::SnapshotExt;
-use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{rebase::cherry_rebase, RepoActionsExt, RepositoryExt};
-use gitbutler_time::time::now_since_unix_epoch_ms;
-use std::borrow::Cow;
 
 impl BranchManager<'_> {
     pub fn create_virtual_branch(

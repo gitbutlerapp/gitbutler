@@ -1,5 +1,4 @@
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Result};
 use gitbutler_branch_actions::{VirtualBranchActions, VirtualBranches};

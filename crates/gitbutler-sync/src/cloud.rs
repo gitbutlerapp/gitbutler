@@ -1,10 +1,10 @@
-use std::sync::atomic::AtomicUsize;
-use std::sync::Arc;
-use std::time;
+use std::{
+    sync::{atomic::AtomicUsize, Arc},
+    time,
+};
 
 use anyhow::{anyhow, Context, Result};
-use gitbutler_branch::Target;
-use gitbutler_branch::VirtualBranchesHandle;
+use gitbutler_branch::{Target, VirtualBranchesHandle};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_error::error::Code;
 use gitbutler_id::id::Id;

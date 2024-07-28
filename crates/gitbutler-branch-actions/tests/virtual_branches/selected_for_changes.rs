@@ -1,5 +1,6 @@
-use super::*;
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
+
+use super::*;
 
 #[test]
 fn unapplying_selected_branch_selects_anther() {

@@ -1,7 +1,6 @@
 use gitbutler_project::Controller;
-use tempfile::TempDir;
-
 use gitbutler_testsupport::{self, paths};
+use tempfile::TempDir;
 
 pub fn new() -> (Controller, TempDir) {
     let data_dir = paths::data_dir();

@@ -1,5 +1,6 @@
-use super::*;
 use gitbutler_branch::BranchCreateRequest;
+
+use super::*;
 
 #[test]
 fn reorder_commit_down() {

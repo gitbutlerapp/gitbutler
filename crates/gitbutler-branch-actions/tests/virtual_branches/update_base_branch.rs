@@ -1,8 +1,9 @@
 use super::*;
 
 mod applied_branch {
-    use super::*;
     use gitbutler_branch::BranchCreateRequest;
+
+    use super::*;
 
     #[test]
     fn conflicts_with_uncommitted_work() {
@@ -343,8 +344,9 @@ mod applied_branch {
     }
 
     mod no_conflicts_pushed {
-        use super::*;
         use gitbutler_branch::BranchUpdateRequest;
+
+        use super::*;
 
         #[test]
         fn force_push_ok() {

@@ -1,5 +1,4 @@
-use gitbutler_branch::BranchOwnershipClaims;
-use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
+use gitbutler_branch::{BranchCreateRequest, BranchOwnershipClaims, BranchUpdateRequest};
 
 use super::*;
 

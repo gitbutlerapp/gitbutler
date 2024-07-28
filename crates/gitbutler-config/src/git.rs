@@ -1,8 +1,6 @@
 use anyhow::Result;
 use git2::ConfigLevel;
-
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]

@@ -1,9 +1,10 @@
-use crate::error::Error;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_repo::RepoCommands;
 use tauri::State;
 use tracing::instrument;
+
+use crate::error::Error;
 
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]

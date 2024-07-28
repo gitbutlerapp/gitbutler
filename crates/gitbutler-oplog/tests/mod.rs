@@ -1,7 +1,8 @@
 mod trailer {
-    use gitbutler_oplog::entry::Trailer;
     // use gitbutler_core::ops::entry::Trailer;
     use std::str::FromStr;
+
+    use gitbutler_oplog::entry::Trailer;
 
     #[test]
     fn display() {
@@ -29,8 +30,9 @@ mod trailer {
 }
 
 mod version {
-    use gitbutler_oplog::entry::{Trailer, Version};
     use std::str::FromStr;
+
+    use gitbutler_oplog::entry::{Trailer, Version};
 
     #[test]
     fn from_trailer() {
@@ -58,8 +60,9 @@ mod version {
 }
 
 mod operation_kind {
-    use gitbutler_oplog::entry::{OperationKind, SnapshotDetails, Trailer, Version};
     use std::str::FromStr;
+
+    use gitbutler_oplog::entry::{OperationKind, SnapshotDetails, Trailer, Version};
 
     #[test]
     fn from_trailer() {
@@ -91,9 +94,9 @@ mod operation_kind {
 }
 
 mod snapshot_details {
+    use std::{path::PathBuf, str::FromStr};
+
     use gitbutler_oplog::entry::{OperationKind, Snapshot, SnapshotDetails, Trailer, Version};
-    use std::path::PathBuf;
-    use std::str::FromStr;
 
     #[test]
     fn new() {

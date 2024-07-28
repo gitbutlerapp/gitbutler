@@ -1,6 +1,5 @@
 pub(super) mod state {
-    use std::collections::BTreeMap;
-    use std::sync::Arc;
+    use std::{collections::BTreeMap, sync::Arc};
 
     use anyhow::{Context, Result};
     use gitbutler_project as projects;

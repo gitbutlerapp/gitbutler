@@ -1,8 +1,9 @@
-use crate::error::Error;
-use gitbutler_secret::secret;
-use gitbutler_secret::Sensitive;
 use std::sync::Mutex;
+
+use gitbutler_secret::{secret, Sensitive};
 use tracing::instrument;
+
+use crate::error::Error;
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]

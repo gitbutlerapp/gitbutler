@@ -1,24 +1,21 @@
-use std::cmp::max;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::vec;
+use std::{
+    cmp::max,
+    collections::{HashMap, HashSet},
+    vec,
+};
 
-use anyhow::Context;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use bstr::{BString, ByteSlice};
-use gitbutler_branch::Branch as GitButlerBranch;
-use gitbutler_branch::BranchId;
-use gitbutler_branch::ReferenceExt;
-use gitbutler_branch::Target;
-use gitbutler_branch::VirtualBranchesHandle;
+use gitbutler_branch::{
+    Branch as GitButlerBranch, BranchId, ReferenceExt, Target, VirtualBranchesHandle,
+};
 use gitbutler_command_context::ProjectRepository;
-
-use crate::{VirtualBranch, VirtualBranchesExt};
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo::RepoActionsExt;
 use itertools::Itertools;
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+
+use crate::{VirtualBranch, VirtualBranchesExt};
 
 /// Returns a list of branches associated with this project.
 pub fn list_branches(

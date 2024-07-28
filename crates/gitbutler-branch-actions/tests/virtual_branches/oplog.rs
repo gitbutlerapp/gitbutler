@@ -1,10 +1,10 @@
-use super::*;
+use std::{io::Write, path::Path, time::Duration};
+
 use gitbutler_branch::{BranchCreateRequest, VirtualBranchesHandle};
 use gitbutler_oplog::OplogExt;
 use itertools::Itertools;
-use std::io::Write;
-use std::path::Path;
-use std::time::Duration;
+
+use super::*;
 
 #[test]
 fn workdir_vbranch_restore() -> anyhow::Result<()> {

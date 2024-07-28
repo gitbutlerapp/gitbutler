@@ -1,5 +1,6 @@
-use bstr::{BStr, BString, ByteSlice, ByteVec};
 use core::str;
+
+use bstr::{BStr, BString, ByteSlice, ByteVec};
 
 use crate::commit_headers::CommitHeadersV2;
 

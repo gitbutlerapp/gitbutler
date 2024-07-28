@@ -15,8 +15,7 @@ mod integration;
 pub use integration::{update_gitbutler_integration, verify_branch};
 
 mod file;
-pub use file::Get;
-pub use file::RemoteBranchFile;
+pub use file::{Get, RemoteBranchFile};
 
 mod remote;
 pub use remote::{list_remote_branches, RemoteBranch, RemoteBranchData, RemoteCommit};
@@ -25,9 +24,8 @@ pub mod conflicts;
 
 mod author;
 mod status;
-pub use status::get_applied_status;
-
 use gitbutler_branch::VirtualBranchesHandle;
+pub use status::get_applied_status;
 trait VirtualBranchesExt {
     fn virtual_branches(&self) -> VirtualBranchesHandle;
 }

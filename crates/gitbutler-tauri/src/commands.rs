@@ -1,10 +1,10 @@
-use crate::error::Error;
-use crate::App;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::credentials;
 use tauri::State;
 use tracing::instrument;
+
+use crate::{error::Error, App};
 
 #[tauri::command(async)]
 #[instrument(skip(app), err(Debug))]

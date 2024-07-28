@@ -1,5 +1,4 @@
-use std::path::PathBuf;
-use std::{fs, path, str::FromStr};
+use std::{fs, path, path::PathBuf, str::FromStr};
 
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::VirtualBranchActions;

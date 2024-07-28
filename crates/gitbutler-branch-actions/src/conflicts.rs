@@ -1,7 +1,3 @@
-use anyhow::{anyhow, bail, Context, Result};
-use bstr::ByteSlice;
-use gitbutler_command_context::ProjectRepository;
-use gitbutler_error::error::Marker;
 use std::ffi::OsStr;
 /// stuff to manage merge conflict state.
 /// This is the dumbest possible way to do this, but it is a placeholder.
@@ -13,6 +9,11 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
 };
+
+use anyhow::{anyhow, bail, Context, Result};
+use bstr::ByteSlice;
+use gitbutler_command_context::ProjectRepository;
+use gitbutler_error::error::Marker;
 
 pub(crate) fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
     ctx: &ProjectRepository,

@@ -1,17 +1,23 @@
-use anyhow::{anyhow, bail, Context};
-use git2::{DiffOptions, FileMode};
-use gitbutler_branch::{Branch, VirtualBranchesHandle, VirtualBranchesState};
-use gitbutler_diff::{hunks_by_filepath, FileDiff};
-use gitbutler_project::Project;
-use gitbutler_repo::RepositoryExt;
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
-use std::path::Path;
-use std::str::{from_utf8, FromStr};
-use std::time::Duration;
-use std::{fs, path::PathBuf};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    fs,
+    path::{Path, PathBuf},
+    str::{from_utf8, FromStr},
+    time::Duration,
+};
 
-use anyhow::Result;
+use anyhow::{anyhow, bail, Context, Result};
+use git2::{DiffOptions, FileMode};
+use gitbutler_branch::{
+    Branch, VirtualBranchesHandle, VirtualBranchesState, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
+    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
+};
+use gitbutler_diff::{hunks_by_filepath, FileDiff};
+use gitbutler_project::{
+    access::{WorktreeReadPermission, WorktreeWritePermission},
+    Project,
+};
+use gitbutler_repo::RepositoryExt;
 use tracing::instrument;
 
 use super::{
@@ -19,10 +25,6 @@ use super::{
     reflog::set_reference_to_oplog,
     state::OplogHandle,
 };
-use gitbutler_branch::{
-    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
-};
-use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 
 const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
 

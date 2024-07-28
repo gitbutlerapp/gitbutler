@@ -1,18 +1,29 @@
-use std::io::{self, Read, Write};
-use std::os::windows::ffi::OsStrExt;
-use std::os::windows::io::{AsRawHandle, FromRawHandle, IntoRawHandle, RawHandle};
-use std::path::Path;
-use windows::core::PWSTR;
-use windows::Win32::Foundation::{
-    CloseHandle, DuplicateHandle, BOOL, DUPLICATE_SAME_ACCESS, ERROR_PIPE_NOT_CONNECTED,
-    GENERIC_READ, GENERIC_WRITE, HANDLE, WIN32_ERROR,
+use std::{
+    io::{self, Read, Write},
+    os::windows::{
+        ffi::OsStrExt,
+        io::{AsRawHandle, FromRawHandle, IntoRawHandle, RawHandle},
+    },
+    path::Path,
 };
-use windows::Win32::Storage::FileSystem::{
-    CreateFileW, FlushFileBuffers, ReadFile, WriteFile, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ,
-    FILE_SHARE_WRITE, OPEN_EXISTING,
+
+use windows::{
+    core::PWSTR,
+    Win32::{
+        Foundation::{
+            CloseHandle, DuplicateHandle, BOOL, DUPLICATE_SAME_ACCESS, ERROR_PIPE_NOT_CONNECTED,
+            GENERIC_READ, GENERIC_WRITE, HANDLE, WIN32_ERROR,
+        },
+        Storage::FileSystem::{
+            CreateFileW, FlushFileBuffers, ReadFile, WriteFile, FILE_ATTRIBUTE_NORMAL,
+            FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
+        },
+        System::{
+            Pipes::{WaitNamedPipeW, NMPWAIT_USE_DEFAULT_WAIT},
+            Threading::GetCurrentProcess,
+        },
+    },
 };
-use windows::Win32::System::Pipes::{WaitNamedPipeW, NMPWAIT_USE_DEFAULT_WAIT};
-use windows::Win32::System::Threading::GetCurrentProcess;
 
 #[derive(Debug)]
 struct Handle {

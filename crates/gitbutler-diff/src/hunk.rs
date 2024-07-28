@@ -1,8 +1,9 @@
 use std::{fmt::Display, ops::RangeInclusive, str::FromStr};
 
-use crate::diff;
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
+
+use crate::diff;
 
 pub type HunkHash = md5::Digest;
 
