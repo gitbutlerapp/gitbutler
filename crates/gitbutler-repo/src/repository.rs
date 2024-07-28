@@ -1,8 +1,11 @@
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
-
-use gitbutler_branch::{Branch, BranchId};
+use bstr::ByteSlice;
+use gitbutler_branch::{
+    Branch, BranchId, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
+    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
+};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_error::error::Code;
@@ -45,6 +48,7 @@ pub trait RepoActionsExt {
         branch_name: &str,
         askpass: Option<Option<BranchId>>,
     ) -> Result<()>;
+    fn signatures(&self) -> Result<(git2::Signature, git2::Signature)>;
 }
 
 impl RepoActionsExt for ProjectRepository {
@@ -229,7 +233,7 @@ impl RepoActionsExt for ProjectRepository {
         parents: &[&git2::Commit],
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid> {
-        let (author, committer) = signatures(self).context("failed to get signatures")?;
+        let (author, committer) = self.signatures().context("failed to get signatures")?;
         self.repo()
             .commit_with_signature(
                 None,
@@ -424,25 +428,43 @@ impl RepoActionsExt for ProjectRepository {
 
         Err(anyhow!("authentication failed")).context(Code::ProjectGitAuth)
     }
+
+    fn signatures(&self) -> Result<(git2::Signature, git2::Signature)> {
+        let repo = gix::open(self.repo().path())?;
+
+        let default_actor = gix::actor::SignatureRef {
+            name: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME.into(),
+            email: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL.into(),
+            time: Default::default(),
+        };
+        let author = repo.author().transpose()?.unwrap_or(default_actor);
+        let config: Config = self.repo().into();
+        let committer = if config.user_real_comitter()? {
+            repo.committer().transpose()?.unwrap_or(default_actor)
+        } else {
+            default_actor
+        };
+
+        Ok((
+            actor_to_git2_signature(author)?,
+            actor_to_git2_signature(committer)?,
+        ))
+    }
 }
 
-fn signatures(project_repo: &ProjectRepository) -> Result<(git2::Signature, git2::Signature)> {
-    let config: Config = project_repo.repo().into();
-
-    let author = match (config.user_name()?, config.user_email()?) {
-        (None, Some(email)) => git2::Signature::now(&email, &email)?,
-        (Some(name), None) => git2::Signature::now(&name, &format!("{}@example.com", &name))?,
-        (Some(name), Some(email)) => git2::Signature::now(&name, &email)?,
-        _ => git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?,
-    };
-
-    let comitter = if config.user_real_comitter()? {
-        author.clone()
-    } else {
-        git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?
-    };
-
-    Ok((author, comitter))
+fn actor_to_git2_signature(
+    actor: gix::actor::SignatureRef<'_>,
+) -> Result<git2::Signature<'static>> {
+    Ok(git2::Signature::now(
+        actor
+            .name
+            .to_str()
+            .with_context(|| format!("Could not process actor name: {}", actor.name))?,
+        actor
+            .email
+            .to_str()
+            .with_context(|| format!("Could not process actor email: {}", actor.email))?,
+    )?)
 }
 
 type OidFilter = dyn Fn(&git2::Commit) -> Result<bool>;

@@ -61,6 +61,8 @@ pub struct VirtualBranch {
     pub upstream: Option<RemoteBranch>, // the upstream branch where this branch pushes to, if any
     pub upstream_name: Option<String>, // the upstream branch where this branch will push to on next push
     pub base_current: bool, // is this vbranch based on the current base branch? if false, this needs to be manually merged with conflicts
+    /// The hunks (as `[(file, [hunks])]`) which are uncommitted but assigned to this branch.
+    /// This makes them committable.
     pub ownership: BranchOwnershipClaims,
     pub updated_at: u128,
     pub selected_for_changes: bool,

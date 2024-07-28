@@ -13,11 +13,11 @@ use gitbutler_branch::Target;
 use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::ProjectRepository;
 
+use crate::{VirtualBranch, VirtualBranchesExt};
 use gitbutler_reference::normalize_branch_name;
+use gitbutler_repo::RepoActionsExt;
 use serde::Deserialize;
 use serde::Serialize;
-
-use crate::{VirtualBranch, VirtualBranchesExt};
 
 /// Returns a list of branches associated with this project.
 // TODO: Implement pagination for this thing
@@ -70,7 +70,7 @@ pub fn list_branches(
         .list_all_branches()?
         .into_iter();
 
-    let branches = combine_branches(git_branches, virtual_branches, ctx.repo(), &vb_handle)?;
+    let branches = combine_branches(git_branches, virtual_branches, ctx, &vb_handle)?;
     // Apply the filter
     let branches: Vec<BranchListing> = branches
         .into_iter()
@@ -101,9 +101,10 @@ fn matches_all(branch: &BranchListing, filter: &Option<BranchListingFilter>) -> 
 fn combine_branches(
     mut group_branches: Vec<GroupBranch>,
     virtual_branches: impl Iterator<Item = GitButlerBranch>,
-    repo: &git2::Repository,
+    ctx: &ProjectRepository,
     vb_handle: &VirtualBranchesHandle,
 ) -> Result<Vec<BranchListing>> {
+    let repo = ctx.repo();
     for branch in virtual_branches {
         group_branches.push(GroupBranch::Virtual(branch));
     }
@@ -123,11 +124,7 @@ fn combine_branches(
             groups.insert(identity, vec![branch]);
         }
     }
-    let config = repo.config()?;
-    let local_author = Author {
-        name: config.get_string("user.name").ok(),
-        email: config.get_string("user.email").ok(),
-    };
+    let (local_author, _committer) = ctx.signatures()?;
 
     // Convert to Branch entries for the API response, filtering out any errors
     let branches: Vec<BranchListing> = groups
@@ -157,7 +154,7 @@ fn branch_group_to_branch(
     identity: Option<String>,
     group_branches: Vec<&GroupBranch>,
     repo: &git2::Repository,
-    local_author: &Author,
+    local_author: &git2::Signature,
 ) -> Result<BranchListing> {
     let virtual_branch = group_branches
         .iter()
@@ -233,13 +230,13 @@ fn branch_group_to_branch(
             commits.push(commit);
         }
 
-        let mut own_branch = commits
-            .iter()
-            .any(|commit| local_author == &commit.author().into());
         // If there are no commits (i.e. virtual branch only) it is considered the users own
-        if commits.is_empty() {
-            own_branch = true;
-        }
+        let own_branch = commits.is_empty()
+            || commits.iter().any(|commit| {
+                let commit_author = commit.author();
+                local_author.name_bytes() == commit_author.name_bytes()
+                    && local_author.email_bytes() == commit_author.email_bytes()
+            });
 
         let last_modified_ms = max(
             last_commit_time_ms as u128,

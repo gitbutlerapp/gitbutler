@@ -1,5 +1,8 @@
 # will have compiled rust files and executables
 target/
+generated-archives/
+generated-do-not-edit/
+
 
 # editors
 .idea

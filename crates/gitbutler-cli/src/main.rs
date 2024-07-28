@@ -1,76 +1,59 @@
 use anyhow::Result;
-use gitbutler_oplog::OplogExt;
 
-use clap::{arg, Command};
-use gitbutler_project::Project;
-#[cfg(not(windows))]
-use pager::Pager;
+mod args;
+use crate::args::{project, snapshot, vbranch};
+use args::Args;
 
-fn cli() -> Command {
-    Command::new("gitbutler-cli")
-        .about("A CLI tool for GitButler")
-        .arg(arg!(-C <path> "Run as if gitbutler-cli was started in <path> instead of the current working directory."))
-        .subcommand_required(true)
-        .arg_required_else_help(true)
-        .allow_external_subcommands(true)
-        .subcommand(
-            Command::new("snapshot")
-                .about("List and restore snapshots.")
-                .subcommand(Command::new("restore")
-                .about("Restores the state of the working direcory as well as virtual branches to a given snapshot.")
-                .arg(arg!(<SNAPSHOT_ID> "The snapshot to restore"))),
-        )
-}
+mod command;
 
 fn main() -> Result<()> {
-    #[cfg(not(windows))]
-    Pager::new().setup();
-    let matches = cli().get_matches();
+    let args: Args = clap::Parser::parse();
 
-    let cwd = std::env::current_dir()?.to_string_lossy().to_string();
-    let repo_dir = matches.get_one::<String>("path").unwrap_or(&cwd);
-
-    match matches.subcommand() {
-        Some(("snapshot", sub_matches)) => match sub_matches.subcommand() {
-            Some(("restore", sub_matches)) => {
-                let snapshot_id = sub_matches
-                    .get_one::<String>("SNAPSHOT_ID")
-                    .expect("required");
-                restore_snapshot(repo_dir, snapshot_id)?;
+    match args.cmd {
+        args::Subcommands::Branch(vbranch::Platform { cmd }) => {
+            let project = command::prepare::project_from_path(args.current_dir)?;
+            match cmd {
+                Some(vbranch::SubCommands::SetDefault { name }) => {
+                    command::vbranch::set_default(project, name)
+                }
+                Some(vbranch::SubCommands::Commit { message, name }) => {
+                    command::vbranch::commit(project, name, message)
+                }
+                Some(vbranch::SubCommands::Create { name }) => {
+                    command::vbranch::create(project, name)
+                }
+                None => command::vbranch::list(project),
             }
-            _ => {
-                list_snapshots(repo_dir)?;
+        }
+        args::Subcommands::Project(project::Platform {
+            app_data_dir,
+            app_suffix,
+            cmd,
+        }) => match cmd {
+            Some(project::SubCommands::SwitchToIntegration { remote_ref_name }) => {
+                let project = command::prepare::project_from_path(args.current_dir)?;
+                command::project::switch_to_integration(project, remote_ref_name)
+            }
+            Some(project::SubCommands::Add {
+                switch_to_integration,
+                path,
+            }) => {
+                let ctrl = command::prepare::project_controller(app_suffix, app_data_dir)?;
+                command::project::add(ctrl, path, switch_to_integration)
+            }
+            None => {
+                let ctrl = command::prepare::project_controller(app_suffix, app_data_dir)?;
+                command::project::list(ctrl)
             }
         },
-        _ => unreachable!(),
-    }
-
-    Ok(())
-}
-
-fn list_snapshots(repo_dir: &str) -> Result<()> {
-    let project = project_from_path(repo_dir);
-    let snapshots = project.list_snapshots(100, None)?;
-    for snapshot in snapshots {
-        let ts = chrono::DateTime::from_timestamp(snapshot.created_at.seconds(), 0);
-        let details = snapshot.details;
-        if let (Some(ts), Some(details)) = (ts, details) {
-            println!("{} {} {}", ts, snapshot.commit_id, details.operation);
+        args::Subcommands::Snapshot(snapshot::Platform { cmd }) => {
+            let project = command::prepare::project_from_path(args.current_dir)?;
+            match cmd {
+                Some(snapshot::SubCommands::Restore { snapshot_id }) => {
+                    command::snapshot::restore(project, snapshot_id)
+                }
+                None => command::snapshot::list(project),
+            }
         }
-    }
-    Ok(())
-}
-
-fn restore_snapshot(repo_dir: &str, snapshot_id: &str) -> Result<()> {
-    let project = project_from_path(repo_dir);
-    let _guard = project.try_exclusive_access()?;
-    project.restore_snapshot(snapshot_id.parse()?)?;
-    Ok(())
-}
-
-fn project_from_path(repo_dir: &str) -> Project {
-    Project {
-        path: std::path::PathBuf::from(repo_dir),
-        ..Default::default()
     }
 }
