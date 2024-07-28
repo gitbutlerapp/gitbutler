@@ -7,7 +7,7 @@ runs:
       if: runner.os == 'Windows'
       shell: bash
       run: |
-         mv rust-toolchain.toml.nightly rust-toolchain.toml
+         mv rust-toolchain.toml.windows rust-toolchain.toml
     - name: Setup Stable
       if: runner.os != 'Windows'
       shell: bash
