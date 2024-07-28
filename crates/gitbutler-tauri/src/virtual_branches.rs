@@ -1,6 +1,7 @@
 pub mod commands {
     use crate::error::Error;
     use anyhow::{anyhow, Context};
+    use futures::executor::block_on;
     use gitbutler_branch::BranchOwnershipClaims;
     use gitbutler_branch::{BranchCreateRequest, BranchId, BranchUpdateRequest};
     use gitbutler_branch_actions::{BaseBranch, BranchListing};
@@ -40,7 +41,7 @@ pub mod commands {
         let oid = VirtualBranchActions
             .create_commit(&project, branch, message, ownership.as_ref(), run_hooks)
             .await?;
-        emit_vbranches(&windows, project_id).await;
+        block_on(emit_vbranches(&windows, project_id));
         Ok(oid.to_string())
     }
 

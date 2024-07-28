@@ -1,11 +1,15 @@
 pub mod vbranch {
     use crate::command::debug_print;
+    use anyhow::bail;
+    use anyhow::Result;
     use futures::executor::block_on;
-    use gitbutler_branch::{BranchCreateRequest, VirtualBranchesHandle};
+    use gitbutler_branch::{
+        Branch, BranchCreateRequest, BranchUpdateRequest, VirtualBranchesHandle,
+    };
     use gitbutler_branch_actions::VirtualBranchActions;
     use gitbutler_project::Project;
 
-    pub fn list(project: Project) -> anyhow::Result<()> {
+    pub fn list(project: Project) -> Result<()> {
         let branches = VirtualBranchesHandle::new(project.gb_dir()).list_all_branches()?;
         for vbranch in branches {
             println!(
@@ -21,7 +25,7 @@ pub mod vbranch {
         Ok(())
     }
 
-    pub fn create(project: Project, branch_name: String) -> anyhow::Result<()> {
+    pub fn create(project: Project, branch_name: String) -> Result<()> {
         debug_print(block_on(VirtualBranchActions.create_virtual_branch(
             &project,
             &BranchCreateRequest {
@@ -29,6 +33,86 @@ pub mod vbranch {
                 ..Default::default()
             },
         ))?)
+    }
+
+    pub fn set_default(project: Project, branch_name: String) -> Result<()> {
+        let branch = branch_by_name(&project, &branch_name)?;
+        block_on(VirtualBranchActions.update_virtual_branch(
+            &project,
+            BranchUpdateRequest {
+                id: branch.id,
+                name: None,
+                notes: None,
+                ownership: None,
+                order: None,
+                upstream: None,
+                selected_for_changes: Some(true),
+                allow_rebasing: None,
+            },
+        ))
+    }
+
+    pub fn commit(project: Project, branch_name: String, message: String) -> Result<()> {
+        let branch = branch_by_name(&project, &branch_name)?;
+        let (info, skipped) = block_on(VirtualBranchActions.list_virtual_branches(&project))?;
+
+        if !skipped.is_empty() {
+            eprintln!(
+                "{} files could not be processed (binary or large size)",
+                skipped.len()
+            )
+        }
+
+        let populated_branch = info
+            .iter()
+            .find(|b| b.id == branch.id)
+            .expect("A populated branch exists for a branch we can list");
+        if populated_branch.ownership.claims.is_empty() {
+            bail!(
+                "Branch '{branch_name}' has no change to commit{hint}",
+                hint = {
+                    let candidate_names = info
+                        .iter()
+                        .filter_map(|b| (!b.ownership.claims.is_empty()).then_some(b.name.as_str()))
+                        .collect::<Vec<_>>();
+                    let mut candidates = candidate_names.join(", ");
+                    if !candidate_names.is_empty() {
+                        candidates = format!(
+                            ". {candidates} {have} changes.",
+                            have = if candidate_names.len() == 1 {
+                                "has"
+                            } else {
+                                "have"
+                            }
+                        )
+                    };
+                    candidates
+                }
+            )
+        }
+
+        let run_hooks = false;
+        debug_print(block_on(VirtualBranchActions.create_commit(
+            &project,
+            branch.id,
+            &message,
+            Some(&populated_branch.ownership),
+            run_hooks,
+        ))?)
+    }
+
+    pub fn branch_by_name(project: &Project, name: &str) -> Result<Branch> {
+        let mut found: Vec<_> = VirtualBranchesHandle::new(project.gb_dir())
+            .list_all_branches()?
+            .into_iter()
+            .filter(|b| b.name == name)
+            .collect();
+        if found.is_empty() {
+            bail!("No virtual branch named '{name}'");
+        } else if found.len() > 1 {
+            bail!("Found more than one virtual branch named '{name}'");
+        }
+        Ok(found.pop().expect("present"))
     }
 }
 

@@ -13,6 +13,12 @@ fn main() -> Result<()> {
         args::Subcommands::Branch(vbranch::Platform { cmd }) => {
             let project = command::prepare::project_from_path(args.current_dir)?;
             match cmd {
+                Some(vbranch::SubCommands::SetDefault { name }) => {
+                    command::vbranch::set_default(project, name)
+                }
+                Some(vbranch::SubCommands::Commit { message, name }) => {
+                    command::vbranch::commit(project, name, message)
+                }
                 Some(vbranch::SubCommands::Create { name }) => {
                     command::vbranch::create(project, name)
                 }

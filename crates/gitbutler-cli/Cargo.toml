@@ -15,6 +15,7 @@ gitbutler-project.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
+gitbutler-diff.workspace = true
 gix.workspace = true
 futures.workspace = true
 dirs-next = "2.0.0"

@@ -33,6 +33,19 @@ pub mod vbranch {
 
     #[derive(Debug, clap::Subcommand)]
     pub enum SubCommands {
+        /// Make the named branch the default so all worktree or index changes are associated with it automatically.
+        SetDefault {
+            /// The name of the new default virtual branch.
+            name: String,
+        },
+        /// Create a new commit to named virtual branch with all changes currently in the worktree or staging area assigned to it.
+        Commit {
+            /// The commit message
+            #[clap(short = 'm', long)]
+            message: String,
+            /// The name of the virtual to commit all staged and unstaged changes to.
+            name: String,
+        },
         /// Create a new virtual branch
         Create {
             /// The name of the virtual branch to create
