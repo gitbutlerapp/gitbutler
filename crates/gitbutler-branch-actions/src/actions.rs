@@ -175,6 +175,25 @@ impl VirtualBranchActions {
         result?;
         Ok(())
     }
+
+    pub fn update_branch_order(
+        &self,
+        project: &Project,
+        branch_updates: Vec<BranchUpdateRequest>,
+    ) -> Result<()> {
+        let project_repository = open_with_verify(project)?;
+        for branch_update in branch_updates {
+            let branch = project_repository
+                .project()
+                .virtual_branches()
+                .get_branch_in_workspace(branch_update.id)?;
+            if branch_update.order != Some(branch.order) {
+                branch::update_branch(&project_repository, &branch_update)?;
+            }
+        }
+        Ok(())
+    }
+
     pub fn delete_virtual_branch(&self, project: &Project, branch_id: BranchId) -> Result<()> {
         let project_repository = open_with_verify(project)?;
         let branch_manager = project_repository.branch_manager();

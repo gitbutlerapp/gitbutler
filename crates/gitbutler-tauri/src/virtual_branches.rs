@@ -175,6 +175,20 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
+    pub fn update_branch_order(
+        windows: State<'_, WindowState>,
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+        branches: Vec<BranchUpdateRequest>,
+    ) -> Result<(), Error> {
+        let project = projects.get(project_id)?;
+        VirtualBranchActions.update_branch_order(&project, branches)?;
+        emit_vbranches(&windows, project_id);
+        Ok(())
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects, windows), err(Debug))]
     pub fn delete_virtual_branch(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
