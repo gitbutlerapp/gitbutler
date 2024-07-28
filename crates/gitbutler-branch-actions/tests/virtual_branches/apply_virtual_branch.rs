@@ -3,8 +3,8 @@ use gitbutler_reference::Refname;
 
 use super::*;
 
-#[tokio::test]
-async fn rebase_commit() {
+#[test]
+fn rebase_commit() {
     let Test {
         repository,
         project,
@@ -25,23 +25,20 @@ async fn rebase_commit() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     let mut branch1_id = {
         // create a branch with some commited work
         let branch1_id = controller
             .create_virtual_branch(project, &BranchCreateRequest::default())
-            .await
             .unwrap();
         fs::write(repository.path().join("another_file.txt"), "virtual").unwrap();
 
         controller
             .create_commit(project, branch1_id, "virtual commit", None, false)
-            .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
@@ -55,7 +52,6 @@ async fn rebase_commit() {
         // unapply first vbranch
         let unapplied_branch = controller
             .convert_to_real_branch(project, branch1_id)
-            .await
             .unwrap();
 
         assert_eq!(
@@ -67,7 +63,7 @@ async fn rebase_commit() {
             "one"
         );
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 0);
 
         Refname::from_str(&unapplied_branch).unwrap()
@@ -75,10 +71,10 @@ async fn rebase_commit() {
 
     {
         // fetch remote
-        controller.update_base_branch(project).await.unwrap();
+        controller.update_base_branch(project).unwrap();
 
         // branch is stil unapplied
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 0);
 
         assert_eq!(
@@ -95,11 +91,10 @@ async fn rebase_commit() {
         // apply first vbranch again
         branch1_id = controller
             .create_virtual_branch_from_branch(project, &unapplied_branch, None)
-            .await
             .unwrap();
 
         // it should be rebased
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 0);
@@ -119,8 +114,8 @@ async fn rebase_commit() {
     }
 }
 
-#[tokio::test]
-async fn rebase_work() {
+#[test]
+fn rebase_work() {
     let Test {
         repository,
         project,
@@ -139,18 +134,16 @@ async fn rebase_work() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     let mut branch1_id = {
         // make a branch with some work
         let branch1_id = controller
             .create_virtual_branch(project, &BranchCreateRequest::default())
-            .await
             .unwrap();
         fs::write(repository.path().join("another_file.txt"), "").unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
@@ -164,10 +157,9 @@ async fn rebase_work() {
         // unapply first vbranch
         let unapplied_branch = controller
             .convert_to_real_branch(project, branch1_id)
-            .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 0);
 
         assert!(!repository.path().join("another_file.txt").exists());
@@ -178,10 +170,10 @@ async fn rebase_work() {
 
     {
         // fetch remote
-        controller.update_base_branch(project).await.unwrap();
+        controller.update_base_branch(project).unwrap();
 
         // first branch is stil unapplied
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 0);
 
         assert!(!repository.path().join("another_file.txt").exists());
@@ -192,11 +184,10 @@ async fn rebase_work() {
         // apply first vbranch again
         branch1_id = controller
             .create_virtual_branch_from_branch(project, &unapplied_branch, None)
-            .await
             .unwrap();
 
         // workdir should be rebased, and work should be restored
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         // TODO: Should be 1

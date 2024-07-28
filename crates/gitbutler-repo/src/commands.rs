@@ -1,10 +1,9 @@
-use crate::Config;
 use anyhow::Result;
 use bstr::BString;
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_project::Project;
 
-use crate::RepositoryExt;
+use crate::{Config, RepositoryExt};
 
 pub trait RepoCommands {
     fn add_remote(&self, name: &str, url: &str) -> Result<()>;

@@ -1,8 +1,9 @@
-use super::*;
 use gitbutler_branch::BranchCreateRequest;
 
-#[tokio::test]
-async fn detect_upstream_commits() {
+use super::*;
+
+#[test]
+fn detect_upstream_commits() {
     let Test {
         repository,
         project,
@@ -12,12 +13,10 @@ async fn detect_upstream_commits() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     let branch1_id = controller
         .create_virtual_branch(project, &BranchCreateRequest::default())
-        .await
         .unwrap();
 
     let oid1 = {
@@ -25,7 +24,6 @@ async fn detect_upstream_commits() {
         fs::write(repository.path().join("file.txt"), "content").unwrap();
         controller
             .create_commit(project, branch1_id, "commit", None, false)
-            .await
             .unwrap()
     };
 
@@ -34,14 +32,12 @@ async fn detect_upstream_commits() {
         fs::write(repository.path().join("file.txt"), "content2").unwrap();
         controller
             .create_commit(project, branch1_id, "commit", None, false)
-            .await
             .unwrap()
     };
 
     // push
     controller
         .push_virtual_branch(project, branch1_id, false, None)
-        .await
         .unwrap();
 
     let oid3 = {
@@ -49,13 +45,12 @@ async fn detect_upstream_commits() {
         fs::write(repository.path().join("file.txt"), "content3").unwrap();
         controller
             .create_commit(project, branch1_id, "commit", None, false)
-            .await
             .unwrap()
     };
 
     {
         // should correctly detect pushed commits
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 3);
@@ -68,8 +63,8 @@ async fn detect_upstream_commits() {
     }
 }
 
-#[tokio::test]
-async fn detect_integrated_commits() {
+#[test]
+fn detect_integrated_commits() {
     let Test {
         repository,
         project,
@@ -79,12 +74,10 @@ async fn detect_integrated_commits() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     let branch1_id = controller
         .create_virtual_branch(project, &BranchCreateRequest::default())
-        .await
         .unwrap();
 
     let oid1 = {
@@ -92,7 +85,6 @@ async fn detect_integrated_commits() {
         fs::write(repository.path().join("file.txt"), "content").unwrap();
         controller
             .create_commit(project, branch1_id, "commit", None, false)
-            .await
             .unwrap()
     };
 
@@ -101,21 +93,18 @@ async fn detect_integrated_commits() {
         fs::write(repository.path().join("file.txt"), "content2").unwrap();
         controller
             .create_commit(project, branch1_id, "commit", None, false)
-            .await
             .unwrap()
     };
 
     // push
     controller
         .push_virtual_branch(project, branch1_id, false, None)
-        .await
         .unwrap();
 
     {
         // merge branch upstream
         let branch = controller
             .list_virtual_branches(project)
-            .await
             .unwrap()
             .0
             .into_iter()
@@ -130,13 +119,12 @@ async fn detect_integrated_commits() {
         fs::write(repository.path().join("file.txt"), "content3").unwrap();
         controller
             .create_commit(project, branch1_id, "commit", None, false)
-            .await
             .unwrap()
     };
 
     {
         // should correctly detect pushed commits
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 3);

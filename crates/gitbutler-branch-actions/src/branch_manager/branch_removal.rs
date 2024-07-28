@@ -1,5 +1,14 @@
 use std::path::PathBuf;
 
+use anyhow::{Context, Result};
+use gitbutler_branch::{Branch, BranchExt, BranchId};
+use gitbutler_commit::commit_headers::CommitHeadersV2;
+use gitbutler_oplog::SnapshotExt;
+use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_reference::{normalize_branch_name, ReferenceName, Refname};
+use gitbutler_repo::{RepoActionsExt, RepositoryExt};
+
+use super::BranchManager;
 use crate::{
     conflicts::{self},
     ensure_selected_for_changes, get_applied_status,
@@ -7,16 +16,6 @@ use crate::{
     integration::get_integration_commiter,
     VirtualBranchesExt,
 };
-use anyhow::{Context, Result};
-use gitbutler_branch::{Branch, BranchExt, BranchId};
-use gitbutler_commit::commit_headers::CommitHeadersV2;
-use gitbutler_oplog::SnapshotExt;
-use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_reference::ReferenceName;
-use gitbutler_reference::{normalize_branch_name, Refname};
-use gitbutler_repo::{RepoActionsExt, RepositoryExt};
-
-use super::BranchManager;
 
 impl BranchManager<'_> {
     // to unapply a branch, we need to write the current tree out, then remove those file changes from the wd

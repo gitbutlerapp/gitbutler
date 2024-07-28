@@ -29,13 +29,11 @@
 // DEALINGS IN THE SOFTWARE.
 
 use std::ops::{Deref, DerefMut};
-
-#[cfg(test)]
-use mock_instant::thread_local::Instant;
-
 #[cfg(not(test))]
 use std::time::Instant;
 
+#[cfg(test)]
+use mock_instant::thread_local::Instant;
 use notify::Event;
 
 /// A debounced event is emitted after a short delay.

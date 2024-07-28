@@ -1,7 +1,8 @@
+use std::path::PathBuf;
+
 use anyhow::Result;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
-use std::path::PathBuf;
 
 use crate::zipper::Zipper;
 

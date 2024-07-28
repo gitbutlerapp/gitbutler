@@ -7,10 +7,10 @@ mod unix;
 #[path = "askpass/windows.rs"]
 mod windows;
 
+use std::io::{BufRead, BufReader, BufWriter, Write};
+
 #[cfg(windows)]
 use self::windows::UnixCompatibility;
-
-use std::io::{BufRead, BufReader, BufWriter, Write};
 
 pub fn main() {
     let pipe_name = std::env::var("GITBUTLER_ASKPASS_PIPE").expect("do not run this binary yourself; it's only meant to be run by GitButler (missing GITBUTLER_ASKPASS_PIPE env var)");

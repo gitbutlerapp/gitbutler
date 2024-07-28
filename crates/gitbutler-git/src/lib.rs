@@ -19,7 +19,6 @@ mod repository;
 
 #[cfg(feature = "tokio")]
 pub use self::executor::tokio;
-
 pub use self::{
     error::Error,
     refspec::{Error as RefSpecError, RefSpec},

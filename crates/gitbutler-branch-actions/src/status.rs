@@ -1,3 +1,5 @@
+use std::{collections::HashMap, path::PathBuf, vec};
+
 use anyhow::{bail, Context, Result};
 use gitbutler_branch::{
     Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, OwnershipClaim,
@@ -6,13 +8,11 @@ use gitbutler_command_context::ProjectRepository;
 use gitbutler_diff::{diff_files_into_hunks, GitHunk, Hunk, HunkHash};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::RepositoryExt;
-use std::{collections::HashMap, path::PathBuf, vec};
 
-use crate::file::{virtual_hunks_into_virtual_files, VirtualBranchFile};
-use crate::hunk::file_hunks_from_diffs;
 use crate::{
     conflicts::RepoConflictsExt,
-    hunk::{HunkLock, VirtualBranchHunk},
+    file::{virtual_hunks_into_virtual_files, VirtualBranchFile},
+    hunk::{file_hunks_from_diffs, HunkLock, VirtualBranchHunk},
     integration::get_workspace_head,
     BranchManagerExt, VirtualBranchesExt,
 };

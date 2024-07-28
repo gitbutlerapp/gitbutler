@@ -4,17 +4,17 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-
-use crate::{
-    branch::{Branch, BranchId},
-    target::Target,
-};
 use gitbutler_error::error::Code;
 use gitbutler_fs::read_toml_file_or_default;
 // use gitbutler_project::Project;
 use gitbutler_reference::Refname;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    branch::{Branch, BranchId},
+    target::Target,
+};
 
 /// The state of virtual branches data, as persisted in a TOML file.
 #[derive(Serialize, Deserialize, Debug, Default)]

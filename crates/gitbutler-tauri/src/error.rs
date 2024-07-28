@@ -16,9 +16,10 @@
 pub(crate) use frontend::Error;
 
 mod frontend {
+    use std::borrow::Cow;
+
     use gitbutler_error::error::AnyhowContextExt;
     use serde::{ser::SerializeMap, Serialize};
-    use std::borrow::Cow;
 
     /// An error type for serialization, dynamically extracting context information during serialization,
     /// meant for consumption by the frontend.
@@ -53,9 +54,10 @@ mod frontend {
 
     #[cfg(test)]
     mod tests {
-        use super::*;
         use anyhow::anyhow;
         use gitbutler_error::error::{Code, Context};
+
+        use super::*;
 
         fn json(err: anyhow::Error) -> String {
             serde_json::to_string(&Error(err)).unwrap()

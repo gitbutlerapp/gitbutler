@@ -1,8 +1,6 @@
 use std::{path::PathBuf, vec};
 
-use gitbutler_branch::{
-    OwnershipClaim, {reconcile_claims, BranchOwnershipClaims}, {Branch, BranchId},
-};
+use gitbutler_branch::{reconcile_claims, Branch, BranchId, BranchOwnershipClaims, OwnershipClaim};
 use gitbutler_diff::Hunk;
 
 #[test]

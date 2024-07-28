@@ -2,29 +2,26 @@ use std::{path::Path, time};
 
 use anyhow::{anyhow, Context, Result};
 use git2::Index;
-use gitbutler_branch::Branch;
-use gitbutler_branch::BranchOwnershipClaims;
-use gitbutler_branch::Target;
-use gitbutler_branch::VirtualBranchesHandle;
-use gitbutler_branch::{self, BranchId};
+use gitbutler_branch::{
+    self, Branch, BranchId, BranchOwnershipClaims, Target, VirtualBranchesHandle,
+    GITBUTLER_INTEGRATION_REFERENCE,
+};
 use gitbutler_command_context::ProjectRepository;
-use gitbutler_project::FetchResult;
-use gitbutler_reference::ReferenceName;
-use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
+use gitbutler_error::error::Marker;
+use gitbutler_project::{access::WorktreeWritePermission, FetchResult};
+use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
+use gitbutler_repo::{rebase::cherry_rebase, LogUntil, RepoActionsExt, RepositoryExt};
 use serde::Serialize;
 
-use crate::branch_manager::BranchManagerExt;
-use crate::conflicts::RepoConflictsExt;
-use crate::hunk::VirtualBranchHunk;
-use crate::integration::update_gitbutler_integration;
-use crate::remote::{commit_to_remote_commit, RemoteCommit};
-use crate::status::get_applied_status;
-use crate::VirtualBranchesExt;
-use gitbutler_branch::GITBUTLER_INTEGRATION_REFERENCE;
-use gitbutler_error::error::Marker;
-use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_repo::rebase::cherry_rebase;
+use crate::{
+    branch_manager::BranchManagerExt,
+    conflicts::RepoConflictsExt,
+    hunk::VirtualBranchHunk,
+    integration::update_gitbutler_integration,
+    remote::{commit_to_remote_commit, RemoteCommit},
+    status::get_applied_status,
+    VirtualBranchesExt,
+};
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]

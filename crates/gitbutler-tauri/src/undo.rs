@@ -1,18 +1,18 @@
-use crate::error::Error;
+use std::{collections::HashMap, path::PathBuf};
+
 use anyhow::Context;
 use gitbutler_diff::FileDiff;
-use gitbutler_oplog::entry::Snapshot;
-use gitbutler_oplog::OplogExt;
+use gitbutler_oplog::{entry::Snapshot, OplogExt};
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
-use std::collections::HashMap;
-use std::path::PathBuf;
 use tauri::State;
 use tracing::instrument;
 
+use crate::error::Error;
+
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
-pub async fn list_snapshots(
+pub fn list_snapshots(
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
     limit: usize,
@@ -29,7 +29,7 @@ pub async fn list_snapshots(
 
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
-pub async fn restore_snapshot(
+pub fn restore_snapshot(
     projects: State<'_, projects::Controller>,
     handle: tauri::AppHandle,
     project_id: ProjectId,
@@ -42,7 +42,7 @@ pub async fn restore_snapshot(
 
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
-pub async fn snapshot_diff(
+pub fn snapshot_diff(
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
     sha: String,

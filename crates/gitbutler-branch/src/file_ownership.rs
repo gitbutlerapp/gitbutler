@@ -1,8 +1,6 @@
-use std::path::Path;
-use std::{fmt, path, str::FromStr, vec};
+use std::{fmt, path, path::Path, str::FromStr, vec};
 
 use anyhow::{Context, Result};
-
 use gitbutler_diff::Hunk;
 
 #[derive(Debug, PartialEq, Eq, Clone)]

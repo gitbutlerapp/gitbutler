@@ -1,36 +1,32 @@
-use crate::{
-    base::{
-        get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch,
-        BaseBranch,
-    },
-    branch_manager::BranchManagerExt,
-    remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
-    VirtualBranchesExt,
-};
 use anyhow::Result;
-use gitbutler_branch::{
-    BranchOwnershipClaims, {BranchCreateRequest, BranchId, BranchUpdateRequest},
-};
+use gitbutler_branch::{BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt, SnapshotExt,
 };
 use gitbutler_project::{FetchResult, Project};
-use gitbutler_reference::ReferenceName;
-use gitbutler_reference::{Refname, RemoteRefname};
+use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
 use gitbutler_repo::{credentials::Helper, RepoActionsExt, RepositoryExt};
 use tracing::instrument;
 
 use super::r#virtual as branch;
-
-use crate::file::RemoteBranchFile;
+use crate::{
+    base::{
+        get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch,
+        BaseBranch,
+    },
+    branch_manager::BranchManagerExt,
+    file::RemoteBranchFile,
+    remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
+    VirtualBranchesExt,
+};
 
 #[derive(Clone, Copy, Default)]
 pub struct VirtualBranchActions;
 
 impl VirtualBranchActions {
-    pub async fn create_commit(
+    pub fn create_commit(
         &self,
         project: &Project,
         branch_id: BranchId,
@@ -63,7 +59,7 @@ impl VirtualBranchActions {
         result
     }
 
-    pub async fn can_apply_remote_branch(
+    pub fn can_apply_remote_branch(
         &self,
         project: &Project,
         branch_name: &RemoteRefname,
@@ -72,7 +68,7 @@ impl VirtualBranchActions {
         branch::is_remote_branch_mergeable(&project_repository, branch_name).map_err(Into::into)
     }
 
-    pub async fn list_virtual_branches(
+    pub fn list_virtual_branches(
         &self,
         project: &Project,
     ) -> Result<(Vec<branch::VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
@@ -83,7 +79,7 @@ impl VirtualBranchActions {
         .map_err(Into::into)
     }
 
-    pub async fn create_virtual_branch(
+    pub fn create_virtual_branch(
         &self,
         project: &Project,
         create: &BranchCreateRequest,
@@ -98,12 +94,12 @@ impl VirtualBranchActions {
     }
 
     #[instrument(skip(project), err(Debug))]
-    pub async fn get_base_branch_data(project: &Project) -> Result<BaseBranch> {
+    pub fn get_base_branch_data(project: &Project) -> Result<BaseBranch> {
         let project_repository = ProjectRepository::open(project)?;
         get_base_branch_data(&project_repository)
     }
 
-    pub async fn list_remote_commit_files(
+    pub fn list_remote_commit_files(
         &self,
         project: &Project,
         commit_oid: git2::Oid,
@@ -113,7 +109,7 @@ impl VirtualBranchActions {
             .map_err(Into::into)
     }
 
-    pub async fn set_base_branch(
+    pub fn set_base_branch(
         &self,
         project: &Project,
         target_branch: &RemoteRefname,
@@ -127,16 +123,12 @@ impl VirtualBranchActions {
         set_base_branch(&project_repository, target_branch)
     }
 
-    pub async fn set_target_push_remote(&self, project: &Project, push_remote: &str) -> Result<()> {
+    pub fn set_target_push_remote(&self, project: &Project, push_remote: &str) -> Result<()> {
         let project_repository = ProjectRepository::open(project)?;
         set_target_push_remote(&project_repository, push_remote)
     }
 
-    pub async fn integrate_upstream_commits(
-        &self,
-        project: &Project,
-        branch_id: BranchId,
-    ) -> Result<()> {
+    pub fn integrate_upstream_commits(&self, project: &Project, branch_id: BranchId) -> Result<()> {
         let project_repository = open_with_verify(project)?;
         let mut guard = project.exclusive_worktree_access();
         let _ = project_repository.project().create_snapshot(
@@ -146,7 +138,7 @@ impl VirtualBranchActions {
         branch::integrate_upstream_commits(&project_repository, branch_id).map_err(Into::into)
     }
 
-    pub async fn update_base_branch(&self, project: &Project) -> Result<Vec<ReferenceName>> {
+    pub fn update_base_branch(&self, project: &Project) -> Result<Vec<ReferenceName>> {
         let project_repository = open_with_verify(project)?;
         let mut guard = project.exclusive_worktree_access();
         let _ = project_repository.project().create_snapshot(
@@ -156,7 +148,7 @@ impl VirtualBranchActions {
         update_base_branch(&project_repository, guard.write_permission()).map_err(Into::into)
     }
 
-    pub async fn update_virtual_branch(
+    pub fn update_virtual_branch(
         &self,
         project: &Project,
         branch_update: BranchUpdateRequest,
@@ -183,18 +175,14 @@ impl VirtualBranchActions {
         result?;
         Ok(())
     }
-    pub async fn delete_virtual_branch(
-        &self,
-        project: &Project,
-        branch_id: BranchId,
-    ) -> Result<()> {
+    pub fn delete_virtual_branch(&self, project: &Project, branch_id: BranchId) -> Result<()> {
         let project_repository = open_with_verify(project)?;
         let branch_manager = project_repository.branch_manager();
         let mut guard = project.exclusive_worktree_access();
         branch_manager.delete_branch(branch_id, guard.write_permission())
     }
 
-    pub async fn unapply_ownership(
+    pub fn unapply_ownership(
         &self,
         project: &Project,
         ownership: &BranchOwnershipClaims,
@@ -209,7 +197,7 @@ impl VirtualBranchActions {
             .map_err(Into::into)
     }
 
-    pub async fn reset_files(&self, project: &Project, files: &Vec<String>) -> Result<()> {
+    pub fn reset_files(&self, project: &Project, files: &Vec<String>) -> Result<()> {
         let project_repository = open_with_verify(project)?;
         let mut guard = project.exclusive_worktree_access();
         let _ = project_repository.project().create_snapshot(
@@ -219,7 +207,7 @@ impl VirtualBranchActions {
         branch::reset_files(&project_repository, files).map_err(Into::into)
     }
 
-    pub async fn amend(
+    pub fn amend(
         &self,
         project: &Project,
         branch_id: BranchId,
@@ -235,7 +223,7 @@ impl VirtualBranchActions {
         branch::amend(&project_repository, branch_id, commit_oid, ownership)
     }
 
-    pub async fn move_commit_file(
+    pub fn move_commit_file(
         &self,
         project: &Project,
         branch_id: BranchId,
@@ -259,7 +247,7 @@ impl VirtualBranchActions {
         .map_err(Into::into)
     }
 
-    pub async fn undo_commit(
+    pub fn undo_commit(
         &self,
         project: &Project,
         branch_id: BranchId,
@@ -283,7 +271,7 @@ impl VirtualBranchActions {
         result
     }
 
-    pub async fn insert_blank_commit(
+    pub fn insert_blank_commit(
         &self,
         project: &Project,
         branch_id: BranchId,
@@ -300,7 +288,7 @@ impl VirtualBranchActions {
             .map_err(Into::into)
     }
 
-    pub async fn reorder_commit(
+    pub fn reorder_commit(
         &self,
         project: &Project,
         branch_id: BranchId,
@@ -317,7 +305,7 @@ impl VirtualBranchActions {
             .map_err(Into::into)
     }
 
-    pub async fn reset_virtual_branch(
+    pub fn reset_virtual_branch(
         &self,
         project: &Project,
         branch_id: BranchId,
@@ -332,7 +320,7 @@ impl VirtualBranchActions {
         branch::reset_branch(&project_repository, branch_id, target_commit_oid).map_err(Into::into)
     }
 
-    pub async fn convert_to_real_branch(
+    pub fn convert_to_real_branch(
         &self,
         project: &Project,
         branch_id: BranchId,
@@ -356,7 +344,7 @@ impl VirtualBranchActions {
         result
     }
 
-    pub async fn push_virtual_branch(
+    pub fn push_virtual_branch(
         &self,
         project: &Project,
         branch_id: BranchId,
@@ -368,12 +356,12 @@ impl VirtualBranchActions {
         branch::push(&project_repository, branch_id, with_force, &helper, askpass)
     }
 
-    pub async fn list_remote_branches(project: Project) -> Result<Vec<RemoteBranch>> {
+    pub fn list_remote_branches(project: Project) -> Result<Vec<RemoteBranch>> {
         let project_repository = ProjectRepository::open(&project)?;
         list_remote_branches(&project_repository)
     }
 
-    pub async fn get_remote_branch_data(
+    pub fn get_remote_branch_data(
         &self,
         project: &Project,
         refname: &Refname,
@@ -382,7 +370,7 @@ impl VirtualBranchActions {
         get_branch_data(&project_repository, refname)
     }
 
-    pub async fn squash(
+    pub fn squash(
         &self,
         project: &Project,
         branch_id: BranchId,
@@ -397,7 +385,7 @@ impl VirtualBranchActions {
         branch::squash(&project_repository, branch_id, commit_oid).map_err(Into::into)
     }
 
-    pub async fn update_commit_message(
+    pub fn update_commit_message(
         &self,
         project: &Project,
         branch_id: BranchId,
@@ -414,7 +402,7 @@ impl VirtualBranchActions {
             .map_err(Into::into)
     }
 
-    pub async fn fetch_from_remotes(
+    pub fn fetch_from_remotes(
         &self,
         project: &Project,
         askpass: Option<String>,
@@ -446,7 +434,7 @@ impl VirtualBranchActions {
         Ok(project_data_last_fetched)
     }
 
-    pub async fn move_commit(
+    pub fn move_commit(
         &self,
         project: &Project,
         target_branch_id: BranchId,
@@ -461,7 +449,7 @@ impl VirtualBranchActions {
         branch::move_commit(&project_repository, target_branch_id, commit_oid).map_err(Into::into)
     }
 
-    pub async fn create_virtual_branch_from_branch(
+    pub fn create_virtual_branch_from_branch(
         &self,
         project: &Project,
         branch: &Refname,

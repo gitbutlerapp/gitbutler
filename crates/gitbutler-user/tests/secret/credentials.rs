@@ -1,8 +1,13 @@
-use keyring::credential::{CredentialApi, CredentialBuilderApi, CredentialPersistence};
-use keyring::Credential;
-use std::any::Any;
-use std::collections::BTreeMap;
-use std::sync::{Arc, Mutex};
+use std::{
+    any::Any,
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
+
+use keyring::{
+    credential::{CredentialApi, CredentialBuilderApi, CredentialPersistence},
+    Credential,
+};
 
 #[derive(Default)]
 pub(super) struct Store(BTreeMap<String, String>);

@@ -3,13 +3,15 @@ use std::{
     path::{self, Path, PathBuf},
 };
 
-use crate::hunk::{file_hunks_from_diffs, VirtualBranchHunk};
 use anyhow::{anyhow, Context, Result};
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_diff::FileDiff;
 use serde::Serialize;
 
-use crate::conflicts;
+use crate::{
+    conflicts,
+    hunk::{file_hunks_from_diffs, VirtualBranchHunk},
+};
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

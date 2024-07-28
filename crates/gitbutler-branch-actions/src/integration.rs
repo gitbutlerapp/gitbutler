@@ -2,10 +2,8 @@ use std::{path::PathBuf, vec};
 
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
-
-use gitbutler_branch::{self, BranchCreateRequest};
-use gitbutler_branch::{Branch, VirtualBranchesHandle};
 use gitbutler_branch::{
+    self, Branch, BranchCreateRequest, VirtualBranchesHandle,
     GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
     GITBUTLER_INTEGRATION_REFERENCE,
 };
@@ -15,8 +13,7 @@ use gitbutler_error::error::Marker;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 
-use crate::branch_manager::BranchManagerExt;
-use crate::{conflicts, VirtualBranchesExt};
+use crate::{branch_manager::BranchManagerExt, conflicts, VirtualBranchesExt};
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
 

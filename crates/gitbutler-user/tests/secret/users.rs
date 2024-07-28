@@ -1,11 +1,11 @@
 // use gitbutler_user::{credentials, credentials::count as count_secrets};
+use std::path::{Path, PathBuf};
+
 use gitbutler_user::User;
 use serial_test::serial;
-use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 
-use crate::secret::credentials;
-use crate::secret::credentials::count as count_secrets;
+use crate::secret::{credentials, credentials::count as count_secrets};
 
 /// Validate that secrets previously stored in plain-text are auto-migrated into the secrets store.
 /// From there, data-structures for use by the frontend need to be 'enriched' with secrets before sending them,

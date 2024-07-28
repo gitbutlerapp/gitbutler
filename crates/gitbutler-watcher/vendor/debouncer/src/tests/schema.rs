@@ -27,20 +27,25 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 // IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
-use crate::{DebounceDataInner, DebouncedEvent};
+use std::{
+    collections::{HashMap, VecDeque},
+    path::PathBuf,
+    time::Duration,
+};
+
 use file_id::FileId;
 use mock_instant::thread_local::Instant;
-use notify::event::{
-    AccessKind, AccessMode, CreateKind, DataChange, Flag, MetadataKind, ModifyKind, RemoveKind,
-    RenameMode,
+use notify::{
+    event::{
+        AccessKind, AccessMode, CreateKind, DataChange, Flag, MetadataKind, ModifyKind, RemoveKind,
+        RenameMode,
+    },
+    ErrorKind, EventKind,
 };
-use notify::{ErrorKind, EventKind};
-use std::collections::{HashMap, VecDeque};
-use std::path::PathBuf;
-use std::time::Duration;
+use serde::Deserialize;
 
 use super::utils::TestCache;
-use serde::Deserialize;
+use crate::{DebounceDataInner, DebouncedEvent};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub(crate) struct Error {

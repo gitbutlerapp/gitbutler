@@ -1,8 +1,9 @@
-use super::*;
-
 use std::{fs::File, io::Write};
+
 use tempfile::tempdir;
 use walkdir::WalkDir;
+
+use super::*;
 
 #[test]
 fn zip_dir() {

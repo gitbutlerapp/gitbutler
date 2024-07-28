@@ -18,8 +18,7 @@ pub mod paths {
 }
 
 pub mod virtual_branches {
-    use gitbutler_branch::Target;
-    use gitbutler_branch::VirtualBranchesHandle;
+    use gitbutler_branch::{Target, VirtualBranchesHandle};
     use gitbutler_command_context::ProjectRepository;
 
     use crate::empty_bare_repository;
@@ -62,12 +61,15 @@ pub fn init_opts_bare() -> git2::RepositoryInitOptions {
 }
 
 pub mod read_only {
+    use std::{
+        collections::BTreeSet,
+        path::{Path, PathBuf},
+    };
+
     use gitbutler_command_context::ProjectRepository;
     use gitbutler_project::{Project, ProjectId};
     use once_cell::sync::Lazy;
     use parking_lot::Mutex;
-    use std::collections::BTreeSet;
-    use std::path::{Path, PathBuf};
 
     static DRIVER: Lazy<PathBuf> = Lazy::new(|| {
         let mut cargo = std::process::Command::new(env!("CARGO"));

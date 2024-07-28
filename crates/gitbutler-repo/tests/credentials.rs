@@ -1,12 +1,10 @@
-use std::path::PathBuf;
-use std::str;
+use std::{path::PathBuf, str};
 
 use gitbutler_command_context::ProjectRepository;
 use gitbutler_project as projects;
 use gitbutler_repo::credentials::{Credential, Helper, SshCredential};
-use gitbutler_user as users;
-
 use gitbutler_testsupport::{temp_dir, test_repository};
+use gitbutler_user as users;
 
 #[derive(Default)]
 struct TestCase<'a> {
