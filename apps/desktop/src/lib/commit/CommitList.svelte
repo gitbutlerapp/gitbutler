@@ -11,6 +11,7 @@
 	} from '$lib/dragging/reorderDropzoneManager';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import LineOverlay from '$lib/dropzone/LineOverlay.svelte';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
@@ -46,6 +47,7 @@
 	const checksMonitor = getGitHostChecksMonitor();
 
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
+	const gitHost = getGitHost();
 
 	$: mappedRemoteCommits =
 		$remoteCommits.length > 0
@@ -139,7 +141,7 @@
 						{isUnapplied}
 						first={idx === 0}
 						last={idx === $remoteCommits.length - 1}
-						commitUrl={$baseBranch?.commitUrl(commit.id)}
+						commitUrl={$gitHost?.commitUrl(commit.id)}
 						isHeadCommit={commit.id === headCommit?.id}
 					>
 						{#snippet lines(topHeightPx)}
@@ -256,7 +258,7 @@
 						branch={$branch}
 						last={idx === $localAndRemoteCommits.length - 1}
 						isHeadCommit={commit.id === headCommit?.id}
-						commitUrl={$baseBranch?.commitUrl(commit.id)}
+						commitUrl={$gitHost?.commitUrl(commit.id)}
 					>
 						{#snippet lines(topHeightPx)}
 							<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
@@ -288,7 +290,7 @@
 						branch={$branch}
 						isHeadCommit={commit.id === headCommit?.id}
 						last={idx === $integratedCommits.length - 1}
-						commitUrl={$baseBranch?.commitUrl(commit.id)}
+						commitUrl={$gitHost?.commitUrl(commit.id)}
 					>
 						{#snippet lines(topHeightPx)}
 							<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />

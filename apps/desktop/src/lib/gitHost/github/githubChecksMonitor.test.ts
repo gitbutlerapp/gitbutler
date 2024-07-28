@@ -16,7 +16,7 @@ type CheckSuites =
 describe.concurrent('GitHubChecksMonitor', () => {
 	let octokit: Octokit;
 	let gh: GitHub;
-	let monitor: GitHostChecksMonitor;
+	let monitor: GitHostChecksMonitor | undefined;
 
 	beforeEach(() => {
 		vi.useFakeTimers();
@@ -28,11 +28,16 @@ describe.concurrent('GitHubChecksMonitor', () => {
 
 	beforeEach(() => {
 		octokit = new Octokit();
-		gh = new GitHub(octokit, {
-			provider: 'github.com',
-			name: 'test-repo',
-			owner: 'test-owner'
-		});
+		gh = new GitHub(
+			{
+				source: 'github.com',
+				name: 'test-repo',
+				owner: 'test-owner'
+			},
+			undefined,
+			undefined,
+			octokit
+		);
 		monitor = gh.checksMonitor('upstream-branch');
 	});
 
@@ -50,11 +55,11 @@ describe.concurrent('GitHubChecksMonitor', () => {
 			} as SuitesResponse)
 		);
 
-		await monitor.update();
+		await monitor?.update();
 		expect(listForRef).toHaveBeenCalledOnce();
 		expect(listSuitesForRef).toHaveBeenCalledOnce();
 
-		const checks = get(monitor.status);
+		const checks = monitor ? get(monitor?.status) : undefined;
 		expect(checks).toBeNull();
 	});
 
@@ -76,10 +81,10 @@ describe.concurrent('GitHubChecksMonitor', () => {
 				}
 			} as ChecksResponse)
 		);
-		await monitor.update();
+		await monitor?.update();
 		expect(mock).toHaveBeenCalledOnce();
 
-		let status = monitor.getLastStatus();
+		let status = monitor?.getLastStatus();
 		expect(status?.finished).toBeFalsy();
 
 		// Verify that checks are re-fetchd after some timeout.
@@ -108,7 +113,7 @@ describe.concurrent('GitHubChecksMonitor', () => {
 		);
 		await vi.runOnlyPendingTimersAsync();
 		expect(mock2).toHaveBeenCalledOnce();
-		status = monitor.getLastStatus();
+		status = monitor?.getLastStatus();
 		expect(status?.completed).toBeTruthy();
 
 		// Set time to be above minimum age for polling to be stopped.

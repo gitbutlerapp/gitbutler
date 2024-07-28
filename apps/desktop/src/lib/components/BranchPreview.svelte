@@ -3,13 +3,13 @@
 	import Resizer from '../shared/Resizer.svelte';
 	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import { Project } from '$lib/backend/projects';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import FileCard from '$lib/file/FileCard.svelte';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
-	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
+	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import { getMarkdownRenderer } from '$lib/utils/markdown';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { BranchData, type Branch } from '$lib/vbranches/types';
@@ -27,7 +27,7 @@
 
 	const project = getContext(Project);
 	const remoteBranchService = getContext(RemoteBranchService);
-	const baseBranch = getContextStore(BaseBranch);
+	const gitHost = getGitHost();
 
 	const fileIdSelection = new FileIdSelection(project.id, writable([]));
 	setContext(FileIdSelection, fileIdSelection);
@@ -105,7 +105,7 @@
 		>
 			<ScrollableContainer wide>
 				<div class="branch-preview">
-					<BranchPreviewHeader base={$baseBranch} {localBranch} {remoteBranch} {pr} />
+					<BranchPreviewHeader {localBranch} {remoteBranch} {pr} />
 					{#if pr}
 						<div class="card">
 							<div class="card__header text-base-body-14 text-semibold">{pr.title}</div>
@@ -123,7 +123,7 @@
 									first={index === 0}
 									last={index === remoteCommits.length - 1}
 									{commit}
-									commitUrl={$baseBranch?.commitUrl(commit.id)}
+									commitUrl={$gitHost?.commitUrl(commit.id)}
 									type="remote"
 								>
 									{#snippet lines(topHeightPx)}
@@ -138,7 +138,7 @@
 									first={index === 0}
 									last={index === localCommits.length - 1}
 									{commit}
-									commitUrl={$baseBranch?.commitUrl(commit.id)}
+									commitUrl={$gitHost?.commitUrl(commit.id)}
 									type="local"
 								>
 									{#snippet lines(topHeightPx)}
@@ -153,7 +153,7 @@
 									first={index === 0}
 									last={index === localAndRemoteCommits.length - 1}
 									{commit}
-									commitUrl={$baseBranch?.commitUrl(commit.id)}
+									commitUrl={$gitHost?.commitUrl(commit.id)}
 									type="localAndRemote"
 								>
 									{#snippet lines(topHeightPx)}

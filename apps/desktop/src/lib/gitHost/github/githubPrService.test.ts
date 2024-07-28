@@ -7,15 +7,20 @@ import type { GitHostPrService as GitHubPrService } from '../interface/gitHostPr
 describe.concurrent('GitHubPrService', () => {
 	let octokit: Octokit;
 	let gh: GitHub;
-	let service: GitHubPrService;
+	let service: GitHubPrService | undefined;
 
 	beforeEach(() => {
 		octokit = new Octokit();
-		gh = new GitHub(octokit, {
-			provider: 'github.com',
-			name: 'test-repo',
-			owner: 'test-owner'
-		});
+		gh = new GitHub(
+			{
+				source: 'github.com',
+				name: 'test-repo',
+				owner: 'test-owner'
+			},
+			'main',
+			undefined,
+			octokit
+		);
 		service = gh.prService('base-branch', 'upstream-branch');
 	});
 
@@ -26,7 +31,7 @@ describe.concurrent('GitHubPrService', () => {
 				data: { title }
 			} as RestEndpointMethodTypes['pulls']['get']['response'])
 		);
-		const pr = await service.get(123);
+		const pr = await service?.get(123);
 		expect(pr?.title).equal(title);
 	});
 });
