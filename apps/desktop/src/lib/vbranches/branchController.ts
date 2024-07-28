@@ -140,11 +140,11 @@ export class BranchController {
 		}
 	}
 
-	async updateBranchOrder(branchId: string, order: number) {
+	async updateBranchOrder(branches: { id: string; order: number }[]) {
 		try {
-			await invoke<void>('update_virtual_branch', {
+			await invoke<void>('update_branch_order', {
 				projectId: this.projectId,
-				branch: { id: branchId, order }
+				branches
 			});
 		} catch (err) {
 			showError('Failed to update branch order', err);
