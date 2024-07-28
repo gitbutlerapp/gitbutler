@@ -15,7 +15,7 @@ use gitbutler_repo::RepoActionsExt;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use crate::{VirtualBranch, VirtualBranchesExt};
+use crate::VirtualBranchesExt;
 
 /// Returns a list of branches associated with this project.
 pub fn list_branches(
@@ -244,6 +244,7 @@ fn branch_group_to_branch(
             updated_at: last_modified_ms,
             authors: authors.into_iter().collect(),
             own_branch,
+            head,
         }
     } else {
         BranchListing {
@@ -254,6 +255,7 @@ fn branch_group_to_branch(
             updated_at: last_modified_ms,
             authors: Vec::new(),
             own_branch: false,
+            head,
         }
     };
     Ok(branch)
@@ -350,6 +352,13 @@ pub struct BranchListing {
     /// Returns true if the author has created a commit on this branch
     /// If it is a virtual branch, if it has zero commits it is also considered as the user's branch
     pub own_branch: bool,
+    /// The head of interest for the branch group, used for calculating branch statistics.
+    /// If there is a virtual branch, a local branch and remote branches, the head is determined in the following order:
+    /// 1. The head of the virtual branch
+    /// 2. The head of the local branch
+    /// 3. The head of the first remote branch
+    #[serde(skip)]
+    head: git2::Oid,
 }
 
 /// Represents a "commit author" or "signature", based on the data from ther git history
@@ -381,19 +390,45 @@ pub struct VirtualBranchReference {
     pub in_workspace: bool,
 }
 
+/// Takes a list of branch names (the given name, as returned by `BranchListing`) and returns
+/// a list of enriched branch data in the form of `BranchData`.
+pub fn get_branch_listing_details(
+    ctx: &ProjectRepository,
+    branch_names: Vec<String>,
+) -> Result<Vec<BranchListingDetails>> {
+    let repo = ctx.repo();
+    // Can we do this in a more efficient way?
+    let branches = list_branches(ctx, None)?
+        .into_iter()
+        .filter(|branch| branch_names.contains(&branch.name))
+        .collect::<Vec<_>>();
+    let repo_head = repo.head()?.peel_to_commit()?;
+    let mut enriched_branches = Vec::new();
+    for branch in branches {
+        if let Ok(base) = repo.merge_base(repo_head.id(), branch.head) {
+            let base_tree = repo.find_commit(base)?.tree()?;
+            let head_tree = repo.find_commit(branch.head)?.tree()?;
+            let diff_stats = repo
+                .diff_tree_to_tree(Some(&base_tree), Some(&head_tree), None)?
+                .stats()?;
+            let branch_data = BranchListingDetails {
+                name: branch.name,
+                lines_added: diff_stats.insertions(),
+                lines_removed: diff_stats.deletions(),
+                number_of_files: diff_stats.files_changed(),
+            };
+            enriched_branches.push(branch_data);
+        }
+    }
+    Ok(enriched_branches)
+}
+
 /// Represents a fat struct with all the data associated with a branch
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct BranchData {
-    /// The branch that this data is associated with
-    pub branch: BranchListing,
-    /// A local branch entry. At most one
-    pub local_branch: Option<LocalBranchEntry>,
-    /// A branch may have multiple remote tracking branches associated with it, from different remotes.
-    /// The name of the branch is the same, but the remote could be different as well as the head commit.
-    pub remote_branches: Vec<RemoteBranchEntry>,
-    /// The virtual branch entry associated with the branch
-    pub virtual_branch: Option<VirtualBranch>,
+pub struct BranchListingDetails {
+    /// The name of the branch (e.g. `main`, `feature/branch`), excluding the remote name
+    pub name: String,
     /// The number of lines added within the branch
     /// Since the virtual branch, local branch and the remote one can have different number of lines removed,
     /// the value from the virtual branch (if present) takes the highest precedence,
