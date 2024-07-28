@@ -1,4 +1,5 @@
 :root {
+	--mono-font-family: 'Geist Mono', monospace;
 	--base-font-family: 'Inter', sans-serif;
 	--serif-font-family: 'PP Editorial New', serif;
 	--base-font-weight: 500;

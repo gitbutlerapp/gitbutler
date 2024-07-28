@@ -14,11 +14,11 @@
 @import './sharable/syntax-highlighting.css';
 
 /* COMPONENTS */
-/* @import './components/diff.css';
+@import './components/diff.css';
 @import './components/tooltip.css';
 @import './components/text-input.css';
 @import './components/commit-lines.css';
-@import './components/draggable.css'; */
+@import './components/draggable.css';
 
 /* LAYERS PRIORITY */
 @layer reset, sharable;
@@ -125,7 +125,7 @@ pre {
 
 /* CODE */
 .code-string {
-	font-family: 'JetBrains Mono', monospace;
+	font-family: var(--mono-font-family);
 	border-radius: var(--radius-s);
 	background: var(--clr-scale-ntrl-80);
 	padding: 1px 4px;
