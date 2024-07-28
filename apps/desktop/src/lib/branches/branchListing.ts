@@ -1,4 +1,5 @@
 import { invoke } from '$lib/backend/ipc';
+import { Transform } from 'class-transformer';
 import { plainToInstance } from 'class-transformer';
 
 export class BranchListingService {
@@ -47,6 +48,7 @@ export class BranchListing {
 	numberOfCommits!: number;
 	/// Timestamp in milliseconds since the branch was last updated.
 	/// This includes any commits, uncommited changes or even updates to the branch metadata (e.g. renaming).
+	@Transform((obj) => new Date(obj.value))
 	updatedAt!: number;
 	/// A list of authors that have contributes commits to this branch.
 	/// In the case of multiple remote tracking branches, it takes the full list of unique authors.

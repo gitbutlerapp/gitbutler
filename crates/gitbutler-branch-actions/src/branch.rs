@@ -16,12 +16,11 @@ use gitbutler_command_context::ProjectRepository;
 use crate::{VirtualBranch, VirtualBranchesExt};
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo::RepoActionsExt;
+use itertools::Itertools;
 use serde::Deserialize;
 use serde::Serialize;
 
 /// Returns a list of branches associated with this project.
-// TODO: Implement pagination for this thing
-// TODO: The results should be sortedb by updated_at
 pub fn list_branches(
     ctx: &ProjectRepository,
     filter: Option<BranchListingFilter>,
@@ -75,6 +74,7 @@ pub fn list_branches(
     let branches: Vec<BranchListing> = branches
         .into_iter()
         .filter(|branch| matches_all(branch, &filter))
+        .sorted_by(|a, b| b.updated_at.cmp(&a.updated_at))
         .collect();
     Ok(branches)
 }
@@ -214,6 +214,10 @@ fn branch_group_to_branch(
             .map(|vb| normalize_branch_name(&vb.name))
             .unwrap_or_default(),
     );
+    let last_modified_ms = max(
+        (repo.find_commit(head)?.time().seconds() * 1000) as u128,
+        virtual_branch.map_or(0, |x| x.updated_timestamp_ms),
+    );
     let repo_head = repo.head()?.peel_to_commit()?;
     // If no merge base can be found, return with zero stats
     let branch = if let Ok(base) = repo.merge_base(repo_head.id(), head) {
@@ -222,14 +226,11 @@ fn branch_group_to_branch(
         revwalk.hide(base)?;
         let mut commits = Vec::new();
         let mut authors = HashSet::new();
-        let mut last_commit_time_ms = i64::MIN;
         for oid in revwalk {
             let commit = repo.find_commit(oid?)?;
-            last_commit_time_ms = max(last_commit_time_ms, commit.time().seconds() * 1000);
             authors.insert(commit.author().into());
             commits.push(commit);
         }
-
         // If there are no commits (i.e. virtual branch only) it is considered the users own
         let own_branch = commits.is_empty()
             || commits.iter().any(|commit| {
@@ -237,11 +238,6 @@ fn branch_group_to_branch(
                 local_author.name_bytes() == commit_author.name_bytes()
                     && local_author.email_bytes() == commit_author.email_bytes()
             });
-
-        let last_modified_ms = max(
-            last_commit_time_ms as u128,
-            virtual_branch.map_or(0, |x| x.updated_timestamp_ms),
-        );
 
         BranchListing {
             name: identity,
@@ -253,7 +249,6 @@ fn branch_group_to_branch(
             own_branch,
         }
     } else {
-        let last_modified_ms = (repo.find_commit(head)?.time().seconds() * 1000) as u128;
         BranchListing {
             name: identity,
             remotes,
