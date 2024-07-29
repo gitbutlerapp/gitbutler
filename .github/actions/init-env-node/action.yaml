@@ -36,5 +36,5 @@ runs:
 
     - name: Build UI
       shell: bash
-      run: cd packages/ui && pnpm build
+      run: pnpm exec turbo run package # build UI package
 

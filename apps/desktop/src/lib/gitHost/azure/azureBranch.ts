@@ -6,7 +6,6 @@ export class AzureBranch implements GitHostBranch {
 		if (fork) {
 			name = `${fork}:${name}`;
 		}
-		this.url = `${baseUrl}/compare/${baseBranch}...${name}`;
-		`${baseUrl}/branchCompare?baseVersion=GB${baseBranch}&targetVersion=GB${name}`;
+		this.url = `${baseUrl}/branchCompare?baseVersion=GB${baseBranch}&targetVersion=GB${name}`;
 	}
 }
