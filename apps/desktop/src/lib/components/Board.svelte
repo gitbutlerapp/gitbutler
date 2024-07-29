@@ -375,7 +375,7 @@
 		overflow: hidden;
 
 		&:hover {
-			background-color: var(--clr-bg-2);
+			background-color: var(--clr-bg-1-muted);
 		}
 
 		& span {

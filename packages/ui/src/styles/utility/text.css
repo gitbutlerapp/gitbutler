@@ -1,4 +1,5 @@
 :root {
+	--mono-font-family: 'Geist Mono', monospace;
 	--base-font-family: 'Inter', sans-serif;
 	--serif-font-family: 'PP Editorial New', serif;
 	--base-font-weight: 500;
@@ -162,12 +163,6 @@
 .text-serif-40 {
 	font-family: var(--serif-font-family);
 	font-size: 2.5rem;
-	line-height: var(--text-body-line-height);
-}
-
-.text-serif-24 {
-	font-family: var(--serif-font-family);
-	font-size: 1.5rem;
 	line-height: var(--text-body-line-height);
 }
 

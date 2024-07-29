@@ -249,8 +249,8 @@
 	--clr-commit-remote: var(--clr-core-ntrl-50);
 	--clr-commit-shadow: var(--clr-core-ntrl-40);
 	--clr-commit-upstream: var(--clr-core-warn-50);
-	--clr-illustration-bg: #174543;
-	--clr-illustration-fill: #adcfb1;
+	--clr-illustration-bg: #214f4d;
+	--clr-illustration-fill: #d8e3c1;
 	--clr-illustration-outline: #142222;
 	--clr-overlay-bg: #00000059;
 	--clr-scale-err-5: var(--clr-core-err-95);

@@ -1,58 +1,61 @@
-.markdown {
-	& p:last-child,
-	& ul:last-child,
-	& ol:last-child,
-	& blockquote:last-child,
-	& pre:last-child,
-	& hr:last-child {
+@layer sharable {
+	.markdown p:last-child,
+	.markdown ul:last-child,
+	.markdown ol:last-child,
+	.markdown blockquote:last-child,
+	.markdown pre:last-child,
+	.markdown hr:last-child {
 		margin-bottom: 0;
 	}
 
-	h1 {
+	.markdown h1 {
 		font-size: 2em;
 		margin-bottom: 0.8em;
 	}
-	h2 {
+
+	.markdown h2 {
 		font-size: 1.5em;
 		margin-bottom: 0.8em;
 	}
-	h3 {
+
+	.markdown h3 {
 		font-size: 1.17em;
 		margin-bottom: 0.8em;
 	}
-	h4 {
+
+	.markdown h4 {
 		font-size: 1em;
 		margin-bottom: 0.8em;
 	}
 
-	p {
+	.markdown p {
 		margin-bottom: 1.2em;
 	}
 
-	ul {
+	.markdown ul {
 		display: block;
 		list-style-type: disc;
 		margin: 1em 0;
 		padding: 0 0 0 2em;
 	}
 
-	ol {
+	.markdown ol {
 		display: block;
 		list-style-type: decimal;
 		margin: 1em 0;
 		padding: 0 0 0 2em;
 	}
 
-	li {
+	.markdown li {
 		margin: 0.5em 0;
 	}
 
-	blockquote {
+	.markdown blockquote {
 		margin: 1em 0;
 		padding: 0 0 0 2em;
 	}
 
-	pre {
+	.markdown pre {
 		margin: 1em 0;
 		padding: 1em;
 		background-color: var(--clr-scale-ntrl-90);
@@ -61,18 +64,18 @@
 		border-radius: var(--radius-m);
 	}
 
-	code {
+	.markdown code {
 		font-family: monospace;
 		background-color: var(--clr-scale-ntrl-90);
 		border: 1px solid var(--clr-scale-ntrl-70);
 		padding: 0 0.5em;
 	}
 
-	a {
+	.markdown a {
 		text-decoration: underline;
 	}
 
-	hr {
+	.markdown hr {
 		box-sizing: content-box;
 		height: 0;
 		overflow: visible;
@@ -80,8 +83,8 @@
 		opacity: 0.2;
 	}
 
-	b,
-	strong {
+	.markdown b,
+	.markdown strong {
 		font-weight: bolder;
 	}
 }

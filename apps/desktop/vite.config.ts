@@ -40,7 +40,7 @@ export default defineConfig({
 		port: 1420,
 		strictPort: true,
 		fs: {
-			allow: ['../../']
+			strict: false
 		}
 	},
 	// to make use of `TAURI_DEBUG` and other env variables
