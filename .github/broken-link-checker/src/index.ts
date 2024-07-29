@@ -206,7 +206,7 @@ async function brokenLinkChecker(): Promise<void> {
   // Options: https://www.npmjs.com/package/broken-link-checker#options
   const options = {
     excludeExternalLinks: false,
-    excludedKeywords: ["gitlab.com/-", "platform.openai.com"],
+    excludedKeywords: ["gitlab.com/-", "platform.openai.com", "https://github.com/gitbutlerapp/gitbutler-docs/blob/main/content/docs", "Edit on GitHub"],
     honorRobotExclusions: false,
     filterLevel: 0
   }
