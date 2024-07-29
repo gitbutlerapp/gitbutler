@@ -2024,6 +2024,7 @@ dependencies = [
  "gitbutler-fs",
  "gitbutler-git",
  "gitbutler-id",
+ "gitbutler-operating-modes",
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",
@@ -2186,6 +2187,16 @@ dependencies = [
  "serde",
  "tracing",
  "walkdir",
+]
+
+[[package]]
+name = "gitbutler-operating-modes"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "git2",
+ "gitbutler-command-context",
+ "serde",
 ]
 
 [[package]]
