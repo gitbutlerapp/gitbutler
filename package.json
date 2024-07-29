@@ -15,6 +15,7 @@
 		"test": "turbo run test --no-daemon",
 		"test:watch": "pnpm --filter @gitbutler/desktop run test:watch",
 		"build": "turbo run build --no-daemon",
+		"build:desktop": "turbo run --filter @gitbutler/desktop build --no-daemon",
 		"check": "turbo run check --no-daemon",
 		"tauri": "tauri",
 		"lint": "turbo run //#globallint --no-daemon",
