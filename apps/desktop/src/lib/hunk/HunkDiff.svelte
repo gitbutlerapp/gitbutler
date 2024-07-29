@@ -245,6 +245,7 @@
 					<td
 						{onclick}
 						class="table__textContent"
+						style="--tab-size: {tabSize};"
 						class:readonly
 						class:diff-line-deletion={line.type === SectionType.RemovedLines}
 						class:diff-line-addition={line.type === SectionType.AddedLines}
@@ -302,9 +303,9 @@
 		width: 100%;
 		font-family: monospace;
 	}
-
 	.table__numberColumn {
-		min-width: 35px;
+		--number-col-width: 35px;
+
 		color: var(--clr-text-3);
 		border-color: var(--clr-border-2);
 		background-color: var(--clr-bg-1-muted);
@@ -315,6 +316,21 @@
 		text-align: right;
 		cursor: var(--cursor);
 		user-select: none;
+
+		position: sticky;
+		width: var(--number-col-width);
+		min-width: var(--number-col-width);
+		max-width: var(--number-col-width);
+		left: var(--number-col-width);
+		border-right-width: 1px;
+		margin-right: -1px;
+	}
+
+	.table__numberColumn:first-of-type {
+		width: var(--number-col-width);
+		min-width: var(--number-col-width);
+		max-width: var(--number-col-width);
+		left: 0px;
 	}
 
 	tr:first-of-type .table__numberColumn:first-child {
