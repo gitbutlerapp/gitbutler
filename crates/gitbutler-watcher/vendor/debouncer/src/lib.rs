@@ -34,6 +34,8 @@ mod event;
 #[cfg(test)]
 mod tests;
 
+#[cfg(not(test))]
+use std::time::Instant;
 use std::{
     collections::{HashMap, VecDeque},
     path::PathBuf,
@@ -46,23 +48,16 @@ use std::{
 
 pub use cache::{FileIdCache, FileIdMap, NoCache};
 pub use event::DebouncedEvent;
-
 pub use file_id;
-
-pub use notify;
-
 use file_id::FileId;
+#[cfg(test)]
+use mock_instant::thread_local::Instant;
+pub use notify;
 use notify::{
     event::{ModifyKind, RemoveKind, RenameMode},
     Error, ErrorKind, Event, EventKind, RecommendedWatcher, Watcher,
 };
 use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
-
-#[cfg(test)]
-use mock_instant::thread_local::Instant;
-
-#[cfg(not(test))]
-use std::time::Instant;
 
 /// The set of requirements for watcher debounce event handling functions.
 ///

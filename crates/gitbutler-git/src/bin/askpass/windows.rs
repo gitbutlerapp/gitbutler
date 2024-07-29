@@ -1,4 +1,5 @@
 use std::{io, time::Duration};
+
 use windows::Win32::System::Pipes::SetNamedPipeHandleState;
 #[path = "windows-pipe.rs"]
 mod windows_pipe;

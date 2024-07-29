@@ -1,9 +1,9 @@
-use anyhow::Result;
 use std::{
     path::{Path, PathBuf},
     time::SystemTime,
 };
 
+use anyhow::Result;
 use gitbutler_fs::read_toml_file_or_default;
 use serde::{Deserialize, Deserializer, Serialize};
 

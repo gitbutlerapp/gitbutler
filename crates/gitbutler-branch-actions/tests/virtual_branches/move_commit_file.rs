@@ -1,11 +1,10 @@
-use gitbutler_branch::BranchCreateRequest;
-use gitbutler_branch::BranchOwnershipClaims;
+use gitbutler_branch::{BranchCreateRequest, BranchOwnershipClaims};
 use gitbutler_commit::commit_ext::CommitExt;
 
 use super::*;
 
-#[tokio::test]
-async fn move_file_down() {
+#[test]
+fn move_file_down() {
     let Test {
         repository,
         project,
@@ -15,19 +14,16 @@ async fn move_file_down() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     let branch_id = controller
         .create_virtual_branch(project, &BranchCreateRequest::default())
-        .await
         .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit1_id = controller
         .create_commit(project, branch_id, "commit one", None, false)
-        .await
         .unwrap();
     let commit1 = repository.find_commit(commit1_id).unwrap();
 
@@ -36,7 +32,6 @@ async fn move_file_down() {
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
     let commit2_id = controller
         .create_commit(project, branch_id, "commit two", None, false)
-        .await
         .unwrap();
     let commit2 = repository.find_commit(commit2_id).unwrap();
 
@@ -44,12 +39,10 @@ async fn move_file_down() {
     let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
     controller
         .move_commit_file(project, branch_id, commit2_id, commit1_id, &to_amend)
-        .await
         .unwrap();
 
     let branch = controller
         .list_virtual_branches(project)
-        .await
         .unwrap()
         .0
         .into_iter()
@@ -68,8 +61,8 @@ async fn move_file_down() {
     assert_eq!(branch.commits[1].files.len(), 2); // this now has both file changes
 }
 
-#[tokio::test]
-async fn move_file_up() {
+#[test]
+fn move_file_up() {
     let Test {
         repository,
         project,
@@ -79,12 +72,10 @@ async fn move_file_up() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     let branch_id = controller
         .create_virtual_branch(project, &BranchCreateRequest::default())
-        .await
         .unwrap();
 
     // create commit
@@ -92,26 +83,22 @@ async fn move_file_up() {
     fs::write(repository.path().join("file2.txt"), "content2").unwrap();
     let commit1_id = controller
         .create_commit(project, branch_id, "commit one", None, false)
-        .await
         .unwrap();
 
     // create commit
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
     let commit2_id = controller
         .create_commit(project, branch_id, "commit two", None, false)
-        .await
         .unwrap();
 
     // amend another hunk
     let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
     controller
         .move_commit_file(project, branch_id, commit1_id, commit2_id, &to_amend)
-        .await
         .unwrap();
 
     let branch = controller
         .list_virtual_branches(project)
-        .await
         .unwrap()
         .0
         .into_iter()
@@ -127,8 +114,8 @@ async fn move_file_up() {
 // This is out of scope for the first release, but should be fixed in the future
 // where you can take overlapping hunks between commits and resolve a move between them
 /*
-#[tokio::test]
-async fn move_file_up_overlapping_hunks() {
+#[test]
+fn move_file_up_overlapping_hunks() {
     let Test {
         repository,
         project_id,
@@ -138,19 +125,19 @@ async fn move_file_up_overlapping_hunks() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
+
         .unwrap();
 
     let branch_id = controller
         .create_virtual_branch(project, &BranchCreateRequest::default())
-        .await
+
         .unwrap();
 
     // create bottom commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let _commit1_id = controller
         .create_commit(project, branch_id, "commit one", None, false)
-        .await
+
         .unwrap();
 
     // create middle commit one
@@ -158,7 +145,7 @@ async fn move_file_up_overlapping_hunks() {
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
     let commit2_id = controller
         .create_commit(project, branch_id, "commit two", None, false)
-        .await
+
         .unwrap();
 
     // create middle commit two
@@ -170,26 +157,26 @@ async fn move_file_up_overlapping_hunks() {
     fs::write(repository.path().join("file4.txt"), "content4").unwrap();
     let commit3_id = controller
         .create_commit(project, branch_id, "commit three", None, false)
-        .await
+
         .unwrap();
 
     // create top commit
     fs::write(repository.path().join("file5.txt"), "content5").unwrap();
     let _commit4_id = controller
         .create_commit(project, branch_id, "commit four", None, false)
-        .await
+
         .unwrap();
 
     // move one line from middle commit two up to middle commit one
     let to_amend: BranchOwnershipClaims = "file2.txt:1-6".parse().unwrap();
     controller
         .move_commit_file(project, branch_id, commit2_id, commit3_id, &to_amend)
-        .await
+
         .unwrap();
 
     let branch = controller
         .list_virtual_branches(project)
-        .await
+
         .unwrap()
         .0
         .into_iter()

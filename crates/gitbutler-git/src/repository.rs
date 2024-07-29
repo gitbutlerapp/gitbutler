@@ -1,8 +1,10 @@
-use super::executor::{AskpassServer, GitExecutor, Pid, Socket};
-use crate::RefSpec;
+use std::{collections::HashMap, path::Path, time::Duration};
+
 use futures::{select, FutureExt};
 use rand::Rng;
-use std::{collections::HashMap, path::Path, time::Duration};
+
+use super::executor::{AskpassServer, GitExecutor, Pid, Socket};
+use crate::RefSpec;
 
 /// The number of characters in the secret used for checking
 /// askpass invocations by ssh/git when connecting to our process.

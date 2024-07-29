@@ -1,13 +1,13 @@
-use super::*;
+use std::{io::Write, path::Path, time::Duration};
+
 use gitbutler_branch::{BranchCreateRequest, VirtualBranchesHandle};
 use gitbutler_oplog::OplogExt;
 use itertools::Itertools;
-use std::io::Write;
-use std::path::Path;
-use std::time::Duration;
 
-#[tokio::test]
-async fn workdir_vbranch_restore() -> anyhow::Result<()> {
+use super::*;
+
+#[test]
+fn workdir_vbranch_restore() -> anyhow::Result<()> {
     let test = Test::default();
     let Test {
         repository,
@@ -18,7 +18,6 @@ async fn workdir_vbranch_restore() -> anyhow::Result<()> {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     let worktree_dir = repository.path();
@@ -28,24 +27,20 @@ async fn workdir_vbranch_restore() -> anyhow::Result<()> {
             worktree_dir.join(format!("file{round}.txt")),
             make_lines(line_count),
         )?;
-        let branch_id = controller
-            .create_virtual_branch(
-                project,
-                &BranchCreateRequest {
-                    name: Some(round.to_string()),
-                    ..Default::default()
-                },
-            )
-            .await?;
-        controller
-            .create_commit(
-                project,
-                branch_id,
-                &format!("commit {round}"),
-                None,
-                false, /* run hook */
-            )
-            .await?;
+        let branch_id = controller.create_virtual_branch(
+            project,
+            &BranchCreateRequest {
+                name: Some(round.to_string()),
+                ..Default::default()
+            },
+        )?;
+        controller.create_commit(
+            project,
+            branch_id,
+            &format!("commit {round}"),
+            None,
+            false, /* run hook */
+        )?;
         assert_eq!(
             wd_file_count(&worktree_dir)?,
             round + 1,
@@ -56,9 +51,7 @@ async fn workdir_vbranch_restore() -> anyhow::Result<()> {
             line_count > 20
         );
     }
-    let _empty = controller
-        .create_virtual_branch(project, &Default::default())
-        .await?;
+    let _empty = controller.create_virtual_branch(project, &Default::default())?;
 
     let snapshots = project.list_snapshots(10, None)?;
     assert_eq!(
@@ -99,8 +92,8 @@ fn make_lines(count: usize) -> Vec<u8> {
     (0..count).map(|n| n.to_string()).join("\n").into()
 }
 
-#[tokio::test]
-async fn basic_oplog() -> anyhow::Result<()> {
+#[test]
+fn basic_oplog() -> anyhow::Result<()> {
     let Test {
         repository,
         controller,
@@ -108,19 +101,13 @@ async fn basic_oplog() -> anyhow::Result<()> {
         ..
     } = &Test::default();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse()?)
-        .await?;
+    controller.set_base_branch(project, &"refs/remotes/origin/master".parse()?)?;
 
-    let branch_id = controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .await?;
+    let branch_id = controller.create_virtual_branch(project, &BranchCreateRequest::default())?;
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content")?;
-    let _commit1_id = controller
-        .create_commit(project, branch_id, "commit one", None, false)
-        .await?;
+    let _commit1_id = controller.create_commit(project, branch_id, "commit one", None, false)?;
 
     // dont store large files
     let file_path = repository.path().join("large.txt");
@@ -134,9 +121,7 @@ async fn basic_oplog() -> anyhow::Result<()> {
     // create commit with large file
     fs::write(repository.path().join("file2.txt"), "content2")?;
     fs::write(repository.path().join("file3.txt"), "content3")?;
-    let commit2_id = controller
-        .create_commit(project, branch_id, "commit two", None, false)
-        .await?;
+    let commit2_id = controller.create_commit(project, branch_id, "commit two", None, false)?;
 
     // Create conflict state
     let conflicts_path = repository.path().join(".git").join("conflicts");
@@ -145,27 +130,23 @@ async fn basic_oplog() -> anyhow::Result<()> {
     std::fs::write(&base_merge_parent_path, "parent A")?;
 
     // create state with conflict state
-    let _empty_branch_id = controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .await?;
+    let _empty_branch_id =
+        controller.create_virtual_branch(project, &BranchCreateRequest::default())?;
 
     std::fs::remove_file(&base_merge_parent_path)?;
     std::fs::remove_file(&conflicts_path)?;
 
     fs::write(repository.path().join("file4.txt"), "content4")?;
-    let _commit3_id = controller
-        .create_commit(project, branch_id, "commit three", None, false)
-        .await?;
+    let _commit3_id = controller.create_commit(project, branch_id, "commit three", None, false)?;
 
     let branch = controller
-        .list_virtual_branches(project)
-        .await?
+        .list_virtual_branches(project)?
         .0
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    let branches = controller.list_virtual_branches(project).await?;
+    let branches = controller.list_virtual_branches(project)?;
     assert_eq!(branches.0.len(), 2);
 
     assert_eq!(branch.commits.len(), 3);
@@ -204,7 +185,7 @@ async fn basic_oplog() -> anyhow::Result<()> {
     project.restore_snapshot(snapshots[2].clone().commit_id)?;
 
     // the restore removed our new branch
-    let branches = controller.list_virtual_branches(project).await?;
+    let branches = controller.list_virtual_branches(project)?;
     assert_eq!(branches.0.len(), 1);
 
     // assert that the conflicts file was removed
@@ -248,8 +229,8 @@ async fn basic_oplog() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn restores_gitbutler_integration() -> anyhow::Result<()> {
+#[test]
+fn restores_gitbutler_integration() -> anyhow::Result<()> {
     let Test {
         repository,
         controller,
@@ -257,9 +238,7 @@ async fn restores_gitbutler_integration() -> anyhow::Result<()> {
         ..
     } = &Test::default();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse()?)
-        .await?;
+    controller.set_base_branch(project, &"refs/remotes/origin/master".parse()?)?;
 
     assert_eq!(
         VirtualBranchesHandle::new(project.gb_dir())
@@ -267,9 +246,7 @@ async fn restores_gitbutler_integration() -> anyhow::Result<()> {
             .len(),
         0
     );
-    let branch_id = controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .await?;
+    let branch_id = controller.create_virtual_branch(project, &BranchCreateRequest::default())?;
     assert_eq!(
         VirtualBranchesHandle::new(project.gb_dir())
             .list_branches_in_workspace()?
@@ -279,9 +256,7 @@ async fn restores_gitbutler_integration() -> anyhow::Result<()> {
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content")?;
-    let _commit1_id = controller
-        .create_commit(project, branch_id, "commit one", None, false)
-        .await?;
+    let _commit1_id = controller.create_commit(project, branch_id, "commit one", None, false)?;
 
     let repo = git2::Repository::open(&project.path)?;
 
@@ -294,9 +269,7 @@ async fn restores_gitbutler_integration() -> anyhow::Result<()> {
 
     // create second commit
     fs::write(repository.path().join("file.txt"), "changed content")?;
-    let _commit2_id = controller
-        .create_commit(project, branch_id, "commit two", None, false)
-        .await?;
+    let _commit2_id = controller.create_commit(project, branch_id, "commit two", None, false)?;
 
     // check the integration commit changed
     let head = repo.head().expect("never unborn");
@@ -370,8 +343,8 @@ async fn restores_gitbutler_integration() -> anyhow::Result<()> {
 }
 
 // test operations-log.toml head is not a commit
-#[tokio::test]
-async fn head_corrupt_is_recreated_automatically() {
+#[test]
+fn head_corrupt_is_recreated_automatically() {
     let Test {
         repository,
         controller,
@@ -381,11 +354,9 @@ async fn head_corrupt_is_recreated_automatically() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     let snapshots = project.list_snapshots(10, None).unwrap();
@@ -405,7 +376,6 @@ async fn head_corrupt_is_recreated_automatically() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .expect("the snapshot doesn't fail despite the corrupt head");
 
     let snapshots = project.list_snapshots(10, None).unwrap();

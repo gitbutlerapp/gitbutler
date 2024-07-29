@@ -1,24 +1,33 @@
 <script lang="ts">
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import Button from '$lib/shared/Button.svelte';
 	import { getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranch } from '$lib/vbranches/types';
 
-	export let isUnapplied = false;
-	export let hasIntegratedCommits = false;
-	export let isLaneCollapsed: boolean;
-	export let remoteExists: boolean;
+	const {
+		isUnapplied = false,
+		hasIntegratedCommits = false,
+		isLaneCollapsed,
+		remoteExists
+	}: {
+		isUnapplied?: boolean;
+		hasIntegratedCommits?: boolean;
+		isLaneCollapsed: boolean;
+		remoteExists: boolean;
+	} = $props();
 
-	const baseBranch = getContextStore(BaseBranch);
 	const branch = getContextStore(VirtualBranch);
+	const upstreamName = $derived($branch.upstreamName);
+	const gitHost = getGitHost();
+	const gitHostBranch = $derived(upstreamName ? $gitHost?.branch(upstreamName) : undefined);
 
 	const nameNormalizationService = getNameNormalizationServiceContext();
 
-	let normalizedBranchName: string;
+	let normalizedBranchName: string | undefined = $state();
 
-	$: if ($branch.displayName) {
+	$effect(() => {
 		nameNormalizationService
 			.normalize($branch.displayName)
 			.then((name) => {
@@ -27,7 +36,7 @@
 			.catch((e) => {
 				console.error('Failed to normalize branch name', e);
 			});
-	}
+	});
 </script>
 
 {#if !remoteExists}
@@ -82,7 +91,7 @@
 		outline
 		shrinkable
 		on:click={(e) => {
-			const url = $baseBranch?.branchUrl($branch.upstream?.name);
+			const url = gitHostBranch?.url;
 			if (url) openExternalUrl(url);
 			e.preventDefault();
 			e.stopPropagation();

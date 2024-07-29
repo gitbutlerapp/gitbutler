@@ -13,7 +13,7 @@
 
 	const hoverText = $derived(
 		[
-			commitNode.commit?.author.name,
+			commitNode.commit?.author?.name,
 			commitNode.commit?.title,
 			commitNode.commit?.id.substring(0, 7)
 		]
@@ -22,27 +22,29 @@
 	);
 </script>
 
-<div
-	class="container"
-	class:none={color === 'none'}
-	class:remote={color === 'remote'}
-	class:local={color === 'local'}
-	class:local-and-remote={color === 'localAndRemote'}
-	class:shadow={color === 'shadow'}
-	class:integrated={color === 'integrated'}
->
-	{#if commitNode.type === 'large' && commitNode.commit}
-		<div class="large-node">
-			<AvatarImage
-				srcUrl={commitNode.commit?.author.gravatarUrl ?? ''}
-				tooltipText={hoverText}
-				altText={`Gravatar for ${commitNode.commit.author.email}`}
-			/>
-		</div>
-	{:else}
-		<div class="small-node" use:tooltip={hoverText}></div>
-	{/if}
-</div>
+{#if commitNode.commit?.author}
+	<div
+		class="container"
+		class:none={color === 'none'}
+		class:remote={color === 'remote'}
+		class:local={color === 'local'}
+		class:local-and-remote={color === 'localAndRemote'}
+		class:shadow={color === 'shadow'}
+		class:integrated={color === 'integrated'}
+	>
+		{#if commitNode.type === 'large' && commitNode.commit}
+			<div class="large-node">
+				<AvatarImage
+					srcUrl={commitNode.commit?.author.gravatarUrl ?? ''}
+					tooltipText={hoverText}
+					altText={`Gravatar for ${commitNode.commit.author.email}`}
+				/>
+			</div>
+		{:else}
+			<div class="small-node" use:tooltip={hoverText}></div>
+		{/if}
+	</div>
+{/if}
 
 <style lang="postcss">
 	.container {

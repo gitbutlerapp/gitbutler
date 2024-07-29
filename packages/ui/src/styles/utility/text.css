@@ -1,0 +1,181 @@
+:root {
+	--mono-font-family: 'Geist Mono', monospace;
+	--base-font-family: 'Inter', sans-serif;
+	--serif-font-family: 'PP Editorial New', serif;
+	--base-font-weight: 500;
+	--semidold-font-weight: 600;
+	--bold-font-weight: 700;
+	--base-line-height: 120%;
+	--text-body-line-height: 150%;
+}
+
+/* text Base Classes */
+.text-base-8 {
+	font-family: var(--base-font-family);
+	font-size: 0.5rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--base-line-height);
+}
+
+.text-base-9 {
+	font-family: var(--base-font-family);
+	font-size: 0.563rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--base-line-height);
+}
+
+.text-base-10 {
+	font-family: var(--base-font-family);
+	font-size: 0.625rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--base-line-height);
+}
+
+.text-base-11 {
+	font-family: var(--base-font-family);
+	font-size: 0.6875rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--base-line-height);
+}
+
+.text-base-12 {
+	font-family: var(--base-font-family);
+	font-size: 0.75rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--base-line-height);
+}
+
+.text-base-13 {
+	font-family: var(--base-font-family);
+	font-size: 0.8125rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--base-line-height);
+}
+
+.text-base-14 {
+	font-family: var(--base-font-family);
+	font-size: 0.875rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--base-line-height);
+}
+
+.text-base-15 {
+	font-family: var(--base-font-family);
+	font-size: 0.938rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--base-line-height);
+}
+
+.text-base-16 {
+	font-family: var(--base-font-family);
+	font-size: 1rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--base-line-height);
+}
+
+.text-base-18 {
+	font-family: var(--base-font-family);
+	font-size: 1.125rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--base-line-height);
+}
+
+/* text Base Body Classes */
+.text-base-body-10 {
+	font-family: var(--base-font-family);
+	font-size: 0.625rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--text-body-line-height);
+}
+
+.text-base-body-11 {
+	font-family: var(--base-font-family);
+	font-size: 0.6875rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--text-body-line-height);
+}
+
+.text-base-body-12 {
+	font-family: var(--base-font-family);
+	font-size: 0.75rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--text-body-line-height);
+}
+
+.text-base-body-13 {
+	font-family: var(--base-font-family);
+	font-size: 0.8125rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--text-body-line-height);
+}
+
+.text-base-body-14 {
+	font-family: var(--base-font-family);
+	font-size: 0.875rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--text-body-line-height);
+}
+
+.text-base-body-15 {
+	font-family: var(--base-font-family);
+	font-size: 0.938rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--text-body-line-height);
+}
+
+.text-base-body-16 {
+	font-family: var(--base-font-family);
+	font-size: 1rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--text-body-line-height);
+}
+
+.text-base-body-18 {
+	font-family: var(--base-font-family);
+	font-size: 1.125rem;
+	font-weight: var(--base-font-weight);
+	line-height: var(--text-body-line-height);
+}
+
+/* text Head Classes */
+.text-head-20 {
+	font-family: var(--base-font-family);
+	font-size: 1.25rem;
+	font-weight: var(--bold-font-weight);
+	line-height: var(--base-line-height);
+}
+
+.text-head-22 {
+	font-family: var(--base-font-family);
+	font-size: 1.375rem;
+	font-weight: var(--bold-font-weight);
+	line-height: var(--base-line-height);
+}
+
+.text-head-24 {
+	font-family: var(--base-font-family);
+	font-size: 1.5rem;
+	font-weight: var(--bold-font-weight);
+	line-height: var(--base-line-height);
+}
+
+/* Serif Classes */
+.text-serif-40 {
+	font-family: var(--serif-font-family);
+	font-size: 2.5rem;
+	line-height: var(--text-body-line-height);
+}
+
+/* modifiers */
+
+.text-light {
+	font-weight: var(--light-font-weight);
+}
+
+.text-semibold {
+	font-weight: var(--semidold-font-weight);
+}
+
+.text-bold {
+	font-weight: var(--bold-font-weight);
+}

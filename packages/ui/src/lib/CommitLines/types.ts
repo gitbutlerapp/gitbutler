@@ -38,6 +38,7 @@ export interface Author {
 export interface CommitData {
 	id: string;
 	title?: string;
-	author: Author;
+	// If an author is not provided, a commit node will not be drawn
+	author?: Author;
 	relatedRemoteCommit?: CommitData;
 }

@@ -1,5 +1,4 @@
-use std::fmt::Display;
-use std::path::PathBuf;
+use std::{fmt::Display, path::PathBuf};
 
 use gitbutler_branch_actions::VirtualBranches;
 use gitbutler_project::ProjectId;

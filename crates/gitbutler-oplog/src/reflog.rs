@@ -1,10 +1,11 @@
+use std::path::Path;
+
 use anyhow::{Context, Result};
 use gitbutler_branch::{
     GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
 };
 use gitbutler_fs::write;
 use gix::config::tree::Key;
-use std::path::Path;
 
 /// Sets a reference to the oplog head commit such that snapshots are reachable and will not be garbage collected.
 /// We want to achieve 2 things:
@@ -147,14 +148,16 @@ fn serialize_line(line: gix::refs::file::log::LineRef<'_>) -> String {
 
 #[cfg(test)]
 mod set_target_ref {
+    use std::path::PathBuf;
+
+    use gix::refs::file::log::LineRef;
+    use pretty_assertions::assert_eq;
+    use tempfile::tempdir;
+
     use super::{
         set_reference_to_oplog, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
         GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
     };
-    use gix::refs::file::log::LineRef;
-    use pretty_assertions::assert_eq;
-    use std::path::PathBuf;
-    use tempfile::tempdir;
 
     #[test]
     fn reflog_present_but_empty() -> anyhow::Result<()> {

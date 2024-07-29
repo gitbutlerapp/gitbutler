@@ -1,16 +1,14 @@
-use std::collections::HashSet;
-use std::path::Path;
-use std::time::Duration;
+use std::{collections::HashSet, path::Path, time::Duration};
 
-use crate::events::InternalEvent;
 use anyhow::{anyhow, Context, Result};
 use gitbutler_notify_debouncer::{new_debouncer, Debouncer, NoCache};
 use gitbutler_oplog::OPLOG_FILE_NAME;
 use gitbutler_project::ProjectId;
-use notify::RecommendedWatcher;
-use notify::Watcher;
+use notify::{RecommendedWatcher, Watcher};
 use tokio::task;
 use tracing::Level;
+
+use crate::events::InternalEvent;
 
 /// We will collect notifications for up to this amount of time at a very
 /// maximum before releasing them. This duration will be hit if e.g. a build

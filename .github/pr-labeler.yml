@@ -4,10 +4,14 @@ rust:
 - changed-files:
   - any-glob-to-any-file: crates/**/*
 
-app:
+"@gitbutler/desktop":
 - changed-files:
-  - any-glob-to-any-file: app/**/*
+  - any-glob-to-any-file: apps/desktop/**/*
 
-ui:
+"@gitbutler/web":
+- changed-files:
+  - any-glob-to-any-file: app/web/**/*
+
+"@gitbutler/ui":
 - changed-files:
   - any-glob-to-any-file: packages/ui/**/*

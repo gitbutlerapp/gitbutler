@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
 	import { Project } from '$lib/backend/projects';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import Button from '$lib/shared/Button.svelte';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
@@ -8,20 +9,21 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
-	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Branch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
 	export let localBranch: Branch | undefined;
 	export let remoteBranch: Branch | undefined;
-	export let base: BaseBranch | undefined | null;
 	export let pr: PullRequest | undefined;
 
 	$: branch = remoteBranch || localBranch!;
+	$: upstream = branch.upstream;
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
+	const gitHost = getGitHost();
+	const gitHostBranch = upstream ? $gitHost?.branch(upstream) : undefined;
 
 	let isApplying = false;
 </script>
@@ -46,7 +48,7 @@
 						outline
 						shrinkable
 						on:click={(e) => {
-							const url = base?.branchUrl(branch.name);
+							const url = gitHostBranch?.url;
 							if (url) openExternalUrl(url);
 							e.preventDefault();
 							e.stopPropagation();

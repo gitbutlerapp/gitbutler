@@ -6,6 +6,7 @@ mod unix;
 mod windows;
 
 use std::{collections::HashMap, path::Path};
+
 use tokio::process::Command;
 
 #[cfg(unix)]
@@ -130,13 +131,12 @@ unsafe impl super::GitExecutor for TokioExecutor {
 }
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use crate::executor::AskpassServer;
-    use crate::executor::GitExecutor;
-    use crate::executor::Socket;
-    use assert_cmd::Command;
     use std::time::Duration;
+
+    use assert_cmd::Command;
+
+    use super::*;
+    use crate::executor::{AskpassServer, GitExecutor, Socket};
 
     // cargo test --package gitbutler-git --lib test_askpass
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

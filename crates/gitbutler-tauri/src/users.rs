@@ -8,7 +8,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(login), err(Debug))]
-    pub async fn get_user(login: State<'_, Controller>) -> Result<Option<UserWithSecrets>, Error> {
+    pub fn get_user(login: State<'_, Controller>) -> Result<Option<UserWithSecrets>, Error> {
         match login.get_user()? {
             Some(user) => {
                 if let Err(err) = user.access_token() {
@@ -23,14 +23,14 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(login), err(Debug))]
-    pub async fn set_user(login: State<'_, Controller>, user: User) -> Result<User, Error> {
+    pub fn set_user(login: State<'_, Controller>, user: User) -> Result<User, Error> {
         login.set_user(&user)?;
         Ok(user)
     }
 
     #[tauri::command(async)]
     #[instrument(skip(login), err(Debug))]
-    pub async fn delete_user(login: State<'_, Controller>) -> Result<(), Error> {
+    pub fn delete_user(login: State<'_, Controller>) -> Result<(), Error> {
         login.delete_user()?;
         Ok(())
     }

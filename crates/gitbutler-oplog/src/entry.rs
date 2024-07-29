@@ -1,15 +1,14 @@
-use anyhow::anyhow;
-use anyhow::Result;
-use itertools::Itertools;
-use serde::Deserialize;
-use std::fmt;
-use std::fmt::Formatter;
-use std::fmt::{Debug, Display};
-use std::path::PathBuf;
-use std::str::FromStr;
-use strum::EnumString;
+use std::{
+    fmt,
+    fmt::{Debug, Display, Formatter},
+    path::PathBuf,
+    str::FromStr,
+};
 
-use serde::Serialize;
+use anyhow::{anyhow, Result};
+use itertools::Itertools;
+use serde::{Deserialize, Serialize};
+use strum::EnumString;
 
 /// A snapshot of the repository and virtual branches state that GitButler can restore to.
 /// It captures the state of the working directory, virtual branches and commits.

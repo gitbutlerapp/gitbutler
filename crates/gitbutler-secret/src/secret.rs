@@ -3,9 +3,11 @@
 //! These are stateless and global, while discouraging storing secrets
 //! in memory beyond their use.
 
-use crate::Sensitive;
-use anyhow::Result;
 use std::sync::Mutex;
+
+use anyhow::Result;
+
+use crate::Sensitive;
 
 /// Determines how a secret's name should be modified to produce a namespace.
 ///
@@ -74,11 +76,13 @@ static NAMESPACE: Mutex<String> = Mutex::new(String::new());
 /// A keystore that uses git-credentials under to hood. It's useful on Systems that nag the user
 /// with popups if the underlying binary changes, and is available if `git` can be found and executed.
 pub mod git_credentials {
+    use std::{any::Any, sync::Arc};
+
     use anyhow::Result;
-    use keyring::credential::{CredentialApi, CredentialBuilderApi, CredentialPersistence};
-    use keyring::Credential;
-    use std::any::Any;
-    use std::sync::Arc;
+    use keyring::{
+        credential::{CredentialApi, CredentialBuilderApi, CredentialPersistence},
+        Credential,
+    };
     use tracing::instrument;
 
     pub(super) struct Store(gix::config::File<'static>);

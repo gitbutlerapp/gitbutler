@@ -7,6 +7,7 @@
 	import BranchLane from '$lib/branch/BranchLane.svelte';
 	import { cloneElement } from '$lib/dragging/draggable';
 	import { editor } from '$lib/editorLink/editorLink';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { persisted } from '$lib/persisted/persisted';
 	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
@@ -21,8 +22,9 @@
 	const error = vbranchService.error;
 	const branches = vbranchService.branches;
 	const showHistoryView = persisted(false, 'showHistoryView');
+	const gitHost = getGitHost();
 
-	let dragged: any;
+	let dragged: HTMLDivElement | undefined;
 	let dropZone: HTMLDivElement;
 	let priorPosition = 0;
 	let dropPosition = 0;
@@ -32,6 +34,7 @@
 	$: if ($error) {
 		$showHistoryView = true;
 	}
+	$: sortedBranches = $branches?.sort((a, b) => a.order - b.order) || [];
 
 	async function openInVSCode() {
 		open(`${$editor}://file${project.vscodePath}/?windowId=_blank`);
@@ -43,57 +46,60 @@
 {:else if !$branches}
 	<FullviewLoading />
 {:else}
-	<div
-		class="board"
-		role="group"
-		data-tauri-drag-region
-		bind:this={dropZone}
-		on:dragover={(e) => {
-			if (!dragged) return;
+	<div class="board">
+		<div
+			role="group"
+			class="branches"
+			data-tauri-drag-region
+			bind:this={dropZone}
+			on:dragover={(e) => {
+				if (!dragged) return;
 
-			e.preventDefault();
-			const children = [...e.currentTarget.children];
-			dropPosition = 0;
-			// We account for the NewBranchDropZone by subtracting 2
-			for (let i = 0; i < children.length - 2; i++) {
-				const pos = children[i].getBoundingClientRect();
-				if (e.clientX > pos.right + dragged.offsetWidth / 2) {
-					dropPosition = i + 1; // Note that this is declared in the <script>
-				} else {
-					break;
-				}
-			}
-			const idx = children.indexOf(dragged);
-			if (idx !== dropPosition) {
-				idx >= dropPosition
-					? children[dropPosition].before(dragged)
-					: children[dropPosition].after(dragged);
-			}
-		}}
-		on:drop={(e) => {
-			if (!dragged) return;
-			if (!$branches) return;
-			e.preventDefault();
-			if (priorPosition !== dropPosition) {
-				const el = $branches.splice(priorPosition, 1);
-				$branches.splice(dropPosition, 0, ...el);
-				$branches.forEach((branch, i) => {
-					if (branch.order !== i) {
-						branchController.updateBranchOrder(branch.id, i);
+				e.preventDefault();
+				const children = [...e.currentTarget.children];
+				dropPosition = 0;
+				// We account for the NewBranchDropZone by subtracting 2
+				for (let i = 0; i < children.length - 1; i++) {
+					const pos = children[i].getBoundingClientRect();
+					if (e.clientX > pos.left + dragged.offsetWidth / 2) {
+						dropPosition = i + 1;
+					} else {
+						break;
 					}
-				});
-			}
-		}}
-	>
-		{#each $branches.sort((a, b) => a.order - b.order) as branch (branch.id)}
-			<div
-				role="presentation"
-				aria-label="Branch"
-				tabindex="-1"
-				class="branch draggable-branch"
-				draggable="true"
-				on:mousedown={(e) => (dragHandle = e.target)}
-				on:dragstart={(e) => {
+				}
+				const idx = children.indexOf(dragged);
+				if (idx !== dropPosition) {
+					if (idx >= dropPosition) {
+						children[dropPosition].before(dragged);
+					} else {
+						children[dropPosition].after(dragged);
+					}
+				}
+			}}
+			on:drop={(e) => {
+				if (!dragged) return;
+				if (!$branches) return;
+				dragged.style.opacity = '1';
+				e.preventDefault();
+				if (priorPosition !== dropPosition) {
+					const el = $branches.splice(priorPosition, 1);
+					$branches.splice(dropPosition, 0, ...el);
+					const updates = $branches.map((b, i) => {
+						return { id: b.id, order: i };
+					});
+					branchController.updateBranchOrder(updates);
+				}
+			}}
+		>
+			{#each sortedBranches as branch (branch.id)}
+				<div
+					role="presentation"
+					aria-label="Branch"
+					tabindex="-1"
+					class="branch draggable-branch"
+					draggable="true"
+					on:mousedown={(e) => (dragHandle = e.target)}
+					on:dragstart={(e) => {
 					if (dragHandle.dataset.dragHandle === undefined) {
 						// We rely on elements with id `drag-handle` to initiate this drag
 						e.preventDefault();
@@ -107,16 +113,18 @@
 					e.dataTransfer?.setData('text/html', 'd'); // cannot be empty string
 					e.dataTransfer?.setDragImage(clone, e.offsetX, e.offsetY); // Adds the padding
 					dragged = e.currentTarget;
+					dragged.style.opacity = "0.6";
 					priorPosition = Array.from(dropZone.children).indexOf(dragged);
 				}}
-				on:dragend={() => {
-					dragged = undefined;
-					clone?.remove();
-				}}
-			>
-				<BranchLane {branch} />
-			</div>
-		{/each}
+					on:dragend={() => {
+						dragged = undefined;
+						clone?.remove();
+					}}
+				>
+					<BranchLane {branch} />
+				</div>
+			{/each}
+		</div>
 
 		{#if $branches.length === 0}
 			<div
@@ -184,7 +192,7 @@
 									{#each ($baseBranch?.recentCommits || []).slice(0, 4) as commit}
 										<a
 											class="empty-board__suggestions__link"
-											href={$baseBranch?.commitUrl(commit.id)}
+											href={$gitHost?.commitUrl(commit.id)}
 											target="_blank"
 											rel="noreferrer"
 											title="Open in browser"
@@ -219,6 +227,13 @@
 		display: flex;
 		flex-grow: 1;
 		flex-shrink: 1;
+		align-items: flex-start;
+		height: 100%;
+	}
+
+	.branches {
+		display: flex;
+		flex-shrink: 0;
 		align-items: flex-start;
 		height: 100%;
 	}
@@ -360,7 +375,7 @@
 		overflow: hidden;
 
 		&:hover {
-			background-color: var(--clr-bg-2);
+			background-color: var(--clr-bg-1-muted);
 		}
 
 		& span {

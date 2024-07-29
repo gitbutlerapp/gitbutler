@@ -3,8 +3,8 @@ use gitbutler_reference::LocalRefname;
 
 use super::*;
 
-#[tokio::test]
-async fn integration() {
+#[test]
+fn integration() {
     let Test {
         repository,
         project,
@@ -14,7 +14,6 @@ async fn integration() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     let branch_name = {
@@ -22,22 +21,18 @@ async fn integration() {
 
         let branch_id = controller
             .create_virtual_branch(project, &BranchCreateRequest::default())
-            .await
             .unwrap();
 
         std::fs::write(repository.path().join("file.txt"), "first\n").unwrap();
         controller
             .create_commit(project, branch_id, "first", None, false)
-            .await
             .unwrap();
         controller
             .push_virtual_branch(project, branch_id, false, None)
-            .await
             .unwrap();
 
         let branch = controller
             .list_virtual_branches(project)
-            .await
             .unwrap()
             .0
             .into_iter()
@@ -48,7 +43,6 @@ async fn integration() {
 
         controller
             .delete_virtual_branch(project, branch_id)
-            .await
             .unwrap();
 
         name
@@ -57,7 +51,6 @@ async fn integration() {
     // checkout a existing remote branch
     let branch_id = controller
         .create_virtual_branch_from_branch(project, &branch_name, None)
-        .await
         .unwrap();
 
     {
@@ -66,7 +59,6 @@ async fn integration() {
 
         controller
             .create_commit(project, branch_id, "second", None, false)
-            .await
             .unwrap();
     }
 
@@ -83,12 +75,10 @@ async fn integration() {
         // merge branch into master
         controller
             .push_virtual_branch(project, branch_id, false, None)
-            .await
             .unwrap();
 
         let branch = controller
             .list_virtual_branches(project)
-            .await
             .unwrap()
             .0
             .into_iter()
@@ -105,11 +95,10 @@ async fn integration() {
 
     {
         // should mark commits as integrated
-        controller.fetch_from_remotes(project, None).await.unwrap();
+        controller.fetch_from_remotes(project, None).unwrap();
 
         let branch = controller
             .list_virtual_branches(project)
-            .await
             .unwrap()
             .0
             .into_iter()
@@ -123,8 +112,8 @@ async fn integration() {
     }
 }
 
-#[tokio::test]
-async fn no_conflicts() {
+#[test]
+fn no_conflicts() {
     let Test {
         repository,
         project,
@@ -144,10 +133,9 @@ async fn no_conflicts() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).unwrap();
     assert!(branches.is_empty());
 
     let branch_id = controller
@@ -156,18 +144,17 @@ async fn no_conflicts() {
             &"refs/remotes/origin/branch".parse().unwrap(),
             None,
         )
-        .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, branch_id);
     assert_eq!(branches[0].commits.len(), 1);
     assert_eq!(branches[0].commits[0].description, "first");
 }
 
-#[tokio::test]
-async fn conflicts_with_uncommited() {
+#[test]
+fn conflicts_with_uncommited() {
     let Test {
         repository,
         project,
@@ -187,14 +174,13 @@ async fn conflicts_with_uncommited() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     // create a local branch that conflicts with remote
     {
         std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
     };
 
@@ -206,11 +192,9 @@ async fn conflicts_with_uncommited() {
             &"refs/remotes/origin/branch".parse().unwrap(),
             None,
         )
-        .await
         .unwrap();
     let new_branch = controller
         .list_virtual_branches(project)
-        .await
         .unwrap()
         .0
         .into_iter()
@@ -221,8 +205,8 @@ async fn conflicts_with_uncommited() {
     assert!(new_branch.upstream.is_some());
 }
 
-#[tokio::test]
-async fn conflicts_with_commited() {
+#[test]
+fn conflicts_with_commited() {
     let Test {
         repository,
         project,
@@ -242,19 +226,17 @@ async fn conflicts_with_commited() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     // create a local branch that conflicts with remote
     {
         std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
 
         controller
             .create_commit(project, branches[0].id, "hej", None, false)
-            .await
             .unwrap();
     };
 
@@ -266,11 +248,9 @@ async fn conflicts_with_commited() {
             &"refs/remotes/origin/branch".parse().unwrap(),
             None,
         )
-        .await
         .unwrap();
     let new_branch = controller
         .list_virtual_branches(project)
-        .await
         .unwrap()
         .0
         .into_iter()
@@ -281,8 +261,8 @@ async fn conflicts_with_commited() {
     assert!(new_branch.upstream.is_some());
 }
 
-#[tokio::test]
-async fn from_default_target() {
+#[test]
+fn from_default_target() {
     let Test {
         project,
         controller,
@@ -291,7 +271,6 @@ async fn from_default_target() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     // branch should be created unapplied, because of the conflict
@@ -303,15 +282,14 @@ async fn from_default_target() {
                 &"refs/remotes/origin/master".parse().unwrap(),
                 None
             )
-            .await
             .unwrap_err()
             .to_string(),
         "cannot create a branch from default target"
     );
 }
 
-#[tokio::test]
-async fn from_non_existent_branch() {
+#[test]
+fn from_non_existent_branch() {
     let Test {
         project,
         controller,
@@ -320,7 +298,6 @@ async fn from_non_existent_branch() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     // branch should be created unapplied, because of the conflict
@@ -332,15 +309,14 @@ async fn from_non_existent_branch() {
                 &"refs/remotes/origin/branch".parse().unwrap(),
                 None
             )
-            .await
             .unwrap_err()
             .to_string(),
         "branch refs/remotes/origin/branch was not found"
     );
 }
 
-#[tokio::test]
-async fn from_state_remote_branch() {
+#[test]
+fn from_state_remote_branch() {
     let Test {
         repository,
         project,
@@ -365,7 +341,6 @@ async fn from_state_remote_branch() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     let branch_id = controller
@@ -374,10 +349,9 @@ async fn from_state_remote_branch() {
             &"refs/remotes/origin/branch".parse().unwrap(),
             None,
         )
-        .await
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+    let (branches, _) = controller.list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, branch_id);
     assert_eq!(branches[0].commits.len(), 1);
