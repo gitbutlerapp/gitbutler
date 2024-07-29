@@ -1,6 +1,6 @@
 use anyhow::Result;
 use gitbutler_branch::{BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest};
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt, SnapshotExt,
@@ -64,7 +64,7 @@ impl VirtualBranchActions {
         project: &Project,
         branch_name: &RemoteRefname,
     ) -> Result<bool> {
-        let project_repository = ProjectRepository::open(project)?;
+        let project_repository = CommandContext::open(project)?;
         branch::is_remote_branch_mergeable(&project_repository, branch_name).map_err(Into::into)
     }
 
@@ -95,7 +95,7 @@ impl VirtualBranchActions {
 
     #[instrument(skip(project), err(Debug))]
     pub fn get_base_branch_data(project: &Project) -> Result<BaseBranch> {
-        let project_repository = ProjectRepository::open(project)?;
+        let project_repository = CommandContext::open(project)?;
         get_base_branch_data(&project_repository)
     }
 
@@ -104,7 +104,7 @@ impl VirtualBranchActions {
         project: &Project,
         commit_oid: git2::Oid,
     ) -> Result<Vec<RemoteBranchFile>> {
-        let project_repository = ProjectRepository::open(project)?;
+        let project_repository = CommandContext::open(project)?;
         crate::file::list_remote_commit_files(project_repository.repo(), commit_oid)
             .map_err(Into::into)
     }
@@ -114,7 +114,7 @@ impl VirtualBranchActions {
         project: &Project,
         target_branch: &RemoteRefname,
     ) -> Result<BaseBranch> {
-        let project_repository = ProjectRepository::open(project)?;
+        let project_repository = CommandContext::open(project)?;
         let mut guard = project.exclusive_worktree_access();
         let _ = project_repository.project().create_snapshot(
             SnapshotDetails::new(OperationKind::SetBaseBranch),
@@ -124,7 +124,7 @@ impl VirtualBranchActions {
     }
 
     pub fn set_target_push_remote(&self, project: &Project, push_remote: &str) -> Result<()> {
-        let project_repository = ProjectRepository::open(project)?;
+        let project_repository = CommandContext::open(project)?;
         set_target_push_remote(&project_repository, push_remote)
     }
 
@@ -376,7 +376,7 @@ impl VirtualBranchActions {
     }
 
     pub fn list_remote_branches(project: Project) -> Result<Vec<RemoteBranch>> {
-        let project_repository = ProjectRepository::open(&project)?;
+        let project_repository = CommandContext::open(&project)?;
         list_remote_branches(&project_repository)
     }
 
@@ -385,7 +385,7 @@ impl VirtualBranchActions {
         project: &Project,
         refname: &Refname,
     ) -> Result<RemoteBranchData> {
-        let project_repository = ProjectRepository::open(project)?;
+        let project_repository = CommandContext::open(project)?;
         get_branch_data(&project_repository, refname)
     }
 
@@ -426,7 +426,7 @@ impl VirtualBranchActions {
         project: &Project,
         askpass: Option<String>,
     ) -> Result<FetchResult> {
-        let project_repository = ProjectRepository::open(project)?;
+        let project_repository = CommandContext::open(project)?;
 
         let helper = Helper::default();
         let remotes = project_repository.repo().remotes_as_string()?;
@@ -483,8 +483,8 @@ impl VirtualBranchActions {
     }
 }
 
-fn open_with_verify(project: &Project) -> Result<ProjectRepository> {
-    let project_repository = ProjectRepository::open(project)?;
+fn open_with_verify(project: &Project) -> Result<CommandContext> {
+    let project_repository = CommandContext::open(project)?;
     let mut guard = project.exclusive_worktree_access();
     crate::integration::verify_branch(&project_repository, guard.write_permission())?;
     Ok(project_repository)

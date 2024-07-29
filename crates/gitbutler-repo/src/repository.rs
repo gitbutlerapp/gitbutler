@@ -6,7 +6,7 @@ use gitbutler_branch::{
     Branch, BranchId, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
     GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
 };
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_error::error::Code;
 use gitbutler_project::AuthKey;
@@ -49,7 +49,7 @@ pub trait RepoActionsExt {
     fn signatures(&self) -> Result<(git2::Signature, git2::Signature)>;
 }
 
-impl RepoActionsExt for ProjectRepository {
+impl RepoActionsExt for CommandContext {
     fn git_test_push(
         &self,
         credentials: &Helper,

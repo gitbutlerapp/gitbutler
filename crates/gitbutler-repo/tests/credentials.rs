@@ -1,6 +1,6 @@
 use std::{path::PathBuf, str};
 
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
 use gitbutler_repo::credentials::{Credential, Helper, SshCredential};
 use gitbutler_testsupport::{temp_dir, test_repository};
@@ -36,7 +36,7 @@ impl TestCase<'_> {
             preferred_key: self.preferred_key.clone(),
             ..Default::default()
         };
-        let project_repository = ProjectRepository::open(&project).unwrap();
+        let project_repository = CommandContext::open(&project).unwrap();
 
         let flow = helper.help(&project_repository, "origin").unwrap();
         flow.into_iter()

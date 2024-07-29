@@ -5,7 +5,7 @@ use std::{borrow::Borrow, path::PathBuf};
 use anyhow::{anyhow, Context, Result};
 use bstr::{BString, ByteSlice, ByteVec};
 use diffy::{apply_bytes as diffy_apply, Line, Patch};
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use hex::ToHex;
 
 use crate::GitHunk;
@@ -14,7 +14,7 @@ use crate::GitHunk;
 // constructs a tree from those changes on top of the target
 // and writes it as a new tree for storage
 pub fn hunks_onto_oid<T>(
-    project_repository: &ProjectRepository,
+    project_repository: &CommandContext,
     target: &git2::Oid,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
 ) -> Result<git2::Oid>
@@ -25,7 +25,7 @@ where
 }
 
 pub fn hunks_onto_commit<T>(
-    project_repository: &ProjectRepository,
+    project_repository: &CommandContext,
     commit_oid: git2::Oid,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
 ) -> Result<git2::Oid>
@@ -42,7 +42,7 @@ where
 }
 
 pub fn hunks_onto_tree<T>(
-    project_repository: &ProjectRepository,
+    project_repository: &CommandContext,
     base_tree: &git2::Tree,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
 ) -> Result<git2::Oid>

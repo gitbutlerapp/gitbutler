@@ -19,11 +19,11 @@ pub mod paths {
 
 pub mod virtual_branches {
     use gitbutler_branch::{Target, VirtualBranchesHandle};
-    use gitbutler_command_context::ProjectRepository;
+    use gitbutler_command_context::CommandContext;
 
     use crate::empty_bare_repository;
 
-    pub fn set_test_target(project_repository: &ProjectRepository) -> anyhow::Result<()> {
+    pub fn set_test_target(project_repository: &CommandContext) -> anyhow::Result<()> {
         let vb_state = VirtualBranchesHandle::new(project_repository.project().gb_dir());
         let (remote_repo, _tmp) = empty_bare_repository();
         let mut remote = project_repository
@@ -66,7 +66,7 @@ pub mod read_only {
         path::{Path, PathBuf},
     };
 
-    use gitbutler_command_context::ProjectRepository;
+    use gitbutler_command_context::CommandContext;
     use gitbutler_project::{Project, ProjectId};
     use once_cell::sync::Lazy;
     use parking_lot::Mutex;
@@ -105,7 +105,7 @@ pub mod read_only {
     pub fn fixture(
         script_name: &str,
         project_directory: &str,
-    ) -> anyhow::Result<ProjectRepository> {
+    ) -> anyhow::Result<CommandContext> {
         static IS_VALID_PROJECT: Lazy<Mutex<BTreeSet<(String, String)>>> =
             Lazy::new(|| Mutex::new(Default::default()));
 
@@ -131,7 +131,7 @@ pub mod read_only {
                 ..Default::default()
             }
         };
-        ProjectRepository::open(&project)
+        CommandContext::open(&project)
     }
 }
 

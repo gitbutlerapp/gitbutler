@@ -1,12 +1,12 @@
 use anyhow::Result;
 use gitbutler_project::Project;
 
-pub struct ProjectRepository {
+pub struct CommandContext {
     git_repository: git2::Repository,
     project: Project,
 }
 
-impl ProjectRepository {
+impl CommandContext {
     pub fn open(project: &Project) -> Result<Self> {
         let repo = git2::Repository::open(&project.path)?;
 

@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use bstr::BString;
 use gitbutler_branch::{Branch, BranchId};
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use serde::Serialize;
 
@@ -38,7 +38,7 @@ pub struct VirtualBranchCommit {
 }
 
 pub(crate) fn commit_to_vbranch_commit(
-    repository: &ProjectRepository,
+    repository: &CommandContext,
     branch: &Branch,
     commit: &git2::Commit,
     is_integrated: bool,

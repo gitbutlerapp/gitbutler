@@ -4,7 +4,7 @@ use anyhow::{bail, Context, Result};
 use gitbutler_branch::{
     Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, OwnershipClaim,
 };
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{diff_files_into_hunks, GitHunk, Hunk, HunkHash};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::RepositoryExt;
@@ -29,7 +29,7 @@ pub struct VirtualBranchesStatus {
 /// of skipped files.
 // TODO(kv): make this side effect free
 pub fn get_applied_status(
-    project_repository: &ProjectRepository,
+    project_repository: &CommandContext,
     perm: Option<&mut WorktreeWritePermission>,
 ) -> Result<VirtualBranchesStatus> {
     let integration_commit = get_workspace_head(project_repository)?;

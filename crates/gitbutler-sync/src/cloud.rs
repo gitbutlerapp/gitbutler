@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use gitbutler_branch::{Target, VirtualBranchesHandle};
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Code;
 use gitbutler_id::id::Id;
 use gitbutler_oplog::OplogExt;
@@ -17,7 +17,7 @@ use gitbutler_user as users;
 use itertools::Itertools;
 
 pub fn sync_with_gitbutler(
-    project_repository: &ProjectRepository,
+    project_repository: &CommandContext,
     user: &users::User,
     projects: &projects::Controller,
 ) -> Result<()> {
@@ -60,7 +60,7 @@ pub fn sync_with_gitbutler(
 
 fn push_target(
     projects: &projects::Controller,
-    project_repository: &ProjectRepository,
+    project_repository: &CommandContext,
     default_target: &Target,
     gb_code_last_commit: Option<git2::Oid>,
     project_id: Id<Project>,
@@ -137,7 +137,7 @@ fn batch_rev_walk(
     Ok(oids)
 }
 
-fn collect_refs(project_repository: &ProjectRepository) -> anyhow::Result<Vec<Refname>> {
+fn collect_refs(project_repository: &CommandContext) -> anyhow::Result<Vec<Refname>> {
     Ok(project_repository
         .repo()
         .references_glob("refs/*")?
@@ -150,7 +150,7 @@ fn collect_refs(project_repository: &ProjectRepository) -> anyhow::Result<Vec<Re
 }
 
 fn push_all_refs(
-    project_repository: &ProjectRepository,
+    project_repository: &CommandContext,
     user: &users::User,
     project_id: Id<projects::Project>,
 ) -> Result<()> {
@@ -196,7 +196,7 @@ fn update_project(
 }
 
 fn push_to_gitbutler_server(
-    project_repo: &ProjectRepository,
+    project_repo: &CommandContext,
     user: Option<&users::User>,
     ref_specs: &[&str],
 ) -> Result<bool> {

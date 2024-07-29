@@ -9,7 +9,7 @@ use bstr::{BString, ByteSlice};
 use gitbutler_branch::{
     Branch as GitButlerBranch, BranchId, ReferenceExt, Target, VirtualBranchesHandle,
 };
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo::RepoActionsExt;
 use itertools::Itertools;
@@ -19,7 +19,7 @@ use crate::VirtualBranchesExt;
 
 /// Returns a list of branches associated with this project.
 pub fn list_branches(
-    ctx: &ProjectRepository,
+    ctx: &CommandContext,
     filter: Option<BranchListingFilter>,
 ) -> Result<Vec<BranchListing>> {
     let vb_handle = ctx.project().virtual_branches();
@@ -98,7 +98,7 @@ fn matches_all(branch: &BranchListing, filter: &Option<BranchListingFilter>) -> 
 fn combine_branches(
     mut group_branches: Vec<GroupBranch>,
     virtual_branches: impl Iterator<Item = GitButlerBranch>,
-    ctx: &ProjectRepository,
+    ctx: &CommandContext,
     vb_handle: &VirtualBranchesHandle,
 ) -> Result<Vec<BranchListing>> {
     let repo = ctx.repo();
@@ -393,7 +393,7 @@ pub struct VirtualBranchReference {
 /// Takes a list of branch names (the given name, as returned by `BranchListing`) and returns
 /// a list of enriched branch data in the form of `BranchData`.
 pub fn get_branch_listing_details(
-    ctx: &ProjectRepository,
+    ctx: &CommandContext,
     branch_names: Vec<String>,
 ) -> Result<Vec<BranchListingDetails>> {
     let repo = ctx.repo();

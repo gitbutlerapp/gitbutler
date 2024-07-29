@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use gitbutler_diff::FileDiff;
 use serde::Serialize;
 
@@ -86,7 +86,7 @@ impl Get<VirtualBranchFile> for Vec<VirtualBranchFile> {
 }
 
 pub(crate) fn list_virtual_commit_files(
-    project_repository: &ProjectRepository,
+    project_repository: &CommandContext,
     commit: &git2::Commit,
 ) -> Result<Vec<VirtualBranchFile>> {
     if commit.parent_count() == 0 {
@@ -117,7 +117,7 @@ fn virtual_hunks_by_file_diffs<'a>(
 
 /// NOTE: There is no use returning an iterator here as this acts like the final product.
 pub(crate) fn virtual_hunks_into_virtual_files(
-    project_repository: &ProjectRepository,
+    project_repository: &CommandContext,
     hunks: impl IntoIterator<Item = (PathBuf, Vec<VirtualBranchHunk>)>,
 ) -> Vec<VirtualBranchFile> {
     hunks
