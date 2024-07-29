@@ -69,7 +69,6 @@
 
 	.token-heading {
 		color: var(--color-token-variable-special);
-		font-weight: bold;
 	}
 
 	.token-link {
@@ -161,7 +160,6 @@
 
 	.dark .token-heading {
 		color: var(--color-token-variable-special);
-		font-weight: bold;
 	}
 
 	.dark .token-link {
