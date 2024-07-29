@@ -13,10 +13,11 @@
 		"dev": "vite dev",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "pnpm check --watch",
-		"package": "svelte-kit sync && svelte-package && pnpm run pack-styles",
+		"package": "pnpm run --sequential '/^package:.*/'",
+    "package:svelte": "svelte-kit sync && svelte-package",
 		"prepublishOnly": "pnpm run package",
 		"prepare": "svelte-kit sync",
-		"pack-styles": "postcss ./src/styles/main.css -o ./dist/styles/main.css && pnpm run copy-fonts",
+		"package:styles": "postcss ./src/styles/main.css -o ./dist/styles/main.css && pnpm run copy-fonts",
 		"storybook": "storybook dev --no-open -p 6006",
 		"storybook:build": "storybook build",
 		"copy-fonts": "postcss ./src/styles/fonts.css -o ./dist/fonts.css && cpy './src/styles/fonts/**/*.woff2' './dist/fonts' --parents"
