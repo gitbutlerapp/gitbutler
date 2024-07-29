@@ -84,7 +84,7 @@ impl Helper {
         ctx: &'a CommandContext,
         remote_name: &str,
     ) -> Result<Vec<(git2::Remote, Vec<Credential>)>, HelpError> {
-        let remote = ctx.repo().find_remote(remote_name)?;
+        let remote = ctx.repository().find_remote(remote_name)?;
         let remote_url = Url::from_str(remote.url().ok_or(HelpError::NoUrlSet)?)
             .context("failed to parse remote url")?;
 
@@ -99,7 +99,7 @@ impl Helper {
                     Ok(remote)
                 } else {
                     let ssh_url = remote_url.as_ssh()?;
-                    ctx.repo().remote_anonymous(&ssh_url.to_string())
+                    ctx.repository().remote_anonymous(&ssh_url.to_string())
                 }?;
 
                 Ok(vec![(
@@ -115,7 +115,7 @@ impl Helper {
                     Ok(remote)
                 } else {
                     let url = remote_url.as_https()?;
-                    ctx.repo().remote_anonymous(&url.to_string())
+                    ctx.repository().remote_anonymous(&url.to_string())
                 }?;
                 let flow = Self::https_flow(ctx, &remote_url)?
                     .into_iter()
@@ -137,7 +137,7 @@ impl Helper {
         let mut flow = vec![];
 
         let mut helper = git2::CredentialHelper::new(&remote_url.to_string());
-        let config = ctx.repo().config()?;
+        let config = ctx.repository().config()?;
         helper.config(&config);
         if let Some((username, password)) = helper.execute() {
             flow.push(HttpsCredential::CredentialHelper { username, password });

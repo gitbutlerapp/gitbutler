@@ -49,7 +49,7 @@ pub(crate) fn get_base_branch_data(ctx: &CommandContext) -> Result<BaseBranch> {
 
 fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Result<BaseBranch> {
     let statuses = ctx
-        .repo()
+        .repository()
         .statuses(Some(
             git2::StatusOptions::new()
                 .show(git2::StatusShow::IndexAndWorkdir)
@@ -66,7 +66,7 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
         .context("failed to read virtual branches")?;
 
     let target_commit = ctx
-        .repo()
+        .repository()
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
 
@@ -79,26 +79,26 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
     for branch in &virtual_branches {
         // merge this branches tree with our tree
         let branch_head = ctx
-            .repo()
+            .repository()
             .find_commit(branch.head)
             .context("failed to find branch head")?;
         let branch_tree = branch_head
             .tree()
             .context("failed to get branch head tree")?;
         let mut result = ctx
-            .repo()
+            .repository()
             .merge_trees(&base_tree, &final_tree, &branch_tree, None)
             .context("failed to merge")?;
         let final_tree_oid = result
-            .write_tree_to(ctx.repo())
+            .write_tree_to(ctx.repository())
             .context("failed to write tree")?;
         final_tree = ctx
-            .repo()
+            .repository()
             .find_tree(final_tree_oid)
             .context("failed to find written tree")?;
     }
 
-    ctx.repo()
+    ctx.repository()
         .checkout_tree_builder(&final_tree)
         .force()
         .checkout()
@@ -113,7 +113,7 @@ pub(crate) fn set_base_branch(
     ctx: &CommandContext,
     target_branch_ref: &RemoteRefname,
 ) -> Result<BaseBranch> {
-    let repo = ctx.repo();
+    let repo = ctx.repository();
 
     // if target exists, and it is the same as the requested branch, we should go back
     if let Ok(target) = default_target(&ctx.project().gb_dir()) {
@@ -267,7 +267,7 @@ pub(crate) fn set_base_branch(
 
 pub(crate) fn set_target_push_remote(ctx: &CommandContext, push_remote_name: &str) -> Result<()> {
     let remote = ctx
-        .repo()
+        .repository()
         .find_remote(push_remote_name)
         .context(format!("failed to find remote {}", push_remote_name))?;
 
@@ -285,7 +285,7 @@ pub(crate) fn set_target_push_remote(ctx: &CommandContext, push_remote_name: &st
 }
 
 fn set_exclude_decoration(ctx: &CommandContext) -> Result<()> {
-    let repo = ctx.repo();
+    let repo = ctx.repository();
     let mut config = repo.config()?;
     config
         .set_multivar("log.excludeDecoration", "refs/gitbutler", "refs/gitbutler")
@@ -327,7 +327,7 @@ pub(crate) fn update_base_branch(
 
     // look up the target and see if there is a new oid
     let target = default_target(&ctx.project().gb_dir())?;
-    let repo = ctx.repo();
+    let repo = ctx.repository();
     let target_branch = repo
         .find_branch_by_refname(&target.branch.clone().into())
         .context(format!("failed to find branch {}", target.branch))?;
@@ -384,7 +384,7 @@ pub(crate) fn update_base_branch(
                 branch.upstream_head = None;
 
                 let non_commited_files =
-                    gitbutler_diff::trees(ctx.repo(), &branch_head_tree, &branch_tree)?;
+                    gitbutler_diff::trees(ctx.repository(), &branch_head_tree, &branch_tree)?;
                 if non_commited_files.is_empty() {
                     // if there are no commited files, then the branch is fully merged
                     // and we can delete it.
@@ -417,7 +417,7 @@ pub(crate) fn update_base_branch(
                 return Ok(None);
             }
 
-            let branch_merge_index_tree_oid = branch_tree_merge_index.write_tree_to(ctx.repo())?;
+            let branch_merge_index_tree_oid = branch_tree_merge_index.write_tree_to(ctx.repository())?;
 
             if branch_merge_index_tree_oid == new_target_tree.id() {
                 return result_integrated_detected(branch);
@@ -451,7 +451,7 @@ pub(crate) fn update_base_branch(
 
             // branch commits do not conflict with new target, so lets merge them
             let branch_head_merge_tree_oid = branch_head_merge_index
-                .write_tree_to(ctx.repo())
+                .write_tree_to(ctx.repository())
                 .context(format!(
                     "failed to write head merge index for {}",
                     branch.id
@@ -552,7 +552,7 @@ pub(crate) fn update_base_branch(
 }
 
 pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Result<BaseBranch> {
-    let repo = ctx.repo();
+    let repo = ctx.repository();
     let branch = repo
         .find_branch_by_refname(&target.branch.clone().into())?
         .ok_or(anyhow!("failed to get branch"))?;

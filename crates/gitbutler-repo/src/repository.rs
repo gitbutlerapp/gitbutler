@@ -60,7 +60,7 @@ impl RepoActionsExt for CommandContext {
         let target_branch_refname =
             Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
         let branch = self
-            .repo()
+            .repository()
             .find_branch_by_refname(&target_branch_refname)?
             .ok_or(anyhow!("failed to find branch {}", target_branch_refname))?;
 
@@ -95,7 +95,7 @@ impl RepoActionsExt for CommandContext {
 
     fn add_branch_reference(&self, branch: &Branch) -> Result<()> {
         let (should_write, with_force) =
-            match self.repo().find_reference(&branch.refname().to_string()) {
+            match self.repository().find_reference(&branch.refname().to_string()) {
                 Ok(reference) => match reference.target() {
                     Some(head_oid) => Ok((head_oid != branch.head, true)),
                     None => Ok((true, true)),
@@ -108,7 +108,7 @@ impl RepoActionsExt for CommandContext {
             .context("failed to lookup reference")?;
 
         if should_write {
-            self.repo()
+            self.repository()
                 .reference(
                     &branch.refname().to_string(),
                     branch.head,
@@ -122,7 +122,7 @@ impl RepoActionsExt for CommandContext {
     }
 
     fn delete_branch_reference(&self, branch: &Branch) -> Result<()> {
-        match self.repo().find_reference(&branch.refname().to_string()) {
+        match self.repository().find_reference(&branch.refname().to_string()) {
             Ok(mut reference) => {
                 reference
                     .delete()
@@ -141,7 +141,7 @@ impl RepoActionsExt for CommandContext {
     fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>> {
         match to {
             LogUntil::Commit(oid) => {
-                let mut revwalk = self.repo().revwalk().context("failed to create revwalk")?;
+                let mut revwalk = self.repository().revwalk().context("failed to create revwalk")?;
                 revwalk
                     .push(from)
                     .context(format!("failed to push {}", from))?;
@@ -153,7 +153,7 @@ impl RepoActionsExt for CommandContext {
                     .collect::<Result<Vec<_>, _>>()
             }
             LogUntil::Take(n) => {
-                let mut revwalk = self.repo().revwalk().context("failed to create revwalk")?;
+                let mut revwalk = self.repository().revwalk().context("failed to create revwalk")?;
                 revwalk
                     .push(from)
                     .context(format!("failed to push {}", from))?;
@@ -163,7 +163,7 @@ impl RepoActionsExt for CommandContext {
                     .collect::<Result<Vec<_>, _>>()
             }
             LogUntil::When(cond) => {
-                let mut revwalk = self.repo().revwalk().context("failed to create revwalk")?;
+                let mut revwalk = self.repository().revwalk().context("failed to create revwalk")?;
                 revwalk
                     .push(from)
                     .context(format!("failed to push {}", from))?;
@@ -173,7 +173,7 @@ impl RepoActionsExt for CommandContext {
                     oids.push(oid);
 
                     let commit = self
-                        .repo()
+                        .repository()
                         .find_commit(oid)
                         .context("failed to find commit")?;
 
@@ -184,7 +184,7 @@ impl RepoActionsExt for CommandContext {
                 Ok(oids)
             }
             LogUntil::End => {
-                let mut revwalk = self.repo().revwalk().context("failed to create revwalk")?;
+                let mut revwalk = self.repository().revwalk().context("failed to create revwalk")?;
                 revwalk
                     .push(from)
                     .context(format!("failed to push {}", from))?;
@@ -205,7 +205,7 @@ impl RepoActionsExt for CommandContext {
         Ok(self
             .list(from, to)?
             .into_iter()
-            .map(|oid| self.repo().find_commit(oid))
+            .map(|oid| self.repository().find_commit(oid))
             .collect::<Result<Vec<_>, _>>()?)
     }
 
@@ -213,7 +213,7 @@ impl RepoActionsExt for CommandContext {
     fn log(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Commit>> {
         self.l(from, to)?
             .into_iter()
-            .map(|oid| self.repo().find_commit(oid))
+            .map(|oid| self.repository().find_commit(oid))
             .collect::<Result<Vec<_>, _>>()
             .context("failed to collect commits")
     }
@@ -232,7 +232,7 @@ impl RepoActionsExt for CommandContext {
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid> {
         let (author, committer) = self.signatures().context("failed to get signatures")?;
-        self.repo()
+        self.repository()
             .commit_with_signature(
                 None,
                 &author,
@@ -428,7 +428,7 @@ impl RepoActionsExt for CommandContext {
     }
 
     fn signatures(&self) -> Result<(git2::Signature, git2::Signature)> {
-        let repo = gix::open(self.repo().path())?;
+        let repo = gix::open(self.repository().path())?;
 
         let default_actor = gix::actor::SignatureRef {
             name: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME.into(),
@@ -436,7 +436,7 @@ impl RepoActionsExt for CommandContext {
             time: Default::default(),
         };
         let author = repo.author().transpose()?.unwrap_or(default_actor);
-        let config: Config = self.repo().into();
+        let config: Config = self.repository().into();
         let committer = if config.user_real_comitter()? {
             repo.committer().transpose()?.unwrap_or(default_actor)
         } else {

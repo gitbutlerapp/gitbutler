@@ -16,19 +16,19 @@ pub trait RepoCommands {
 impl RepoCommands for Project {
     fn get_local_config(&self, key: &str) -> Result<Option<String>> {
         let project_repo = CommandContext::open(self)?;
-        let config: Config = project_repo.repo().into();
+        let config: Config = project_repo.repository().into();
         config.get_local(key)
     }
 
     fn set_local_config(&self, key: &str, value: &str) -> Result<()> {
         let project_repo = CommandContext::open(self)?;
-        let config: Config = project_repo.repo().into();
+        let config: Config = project_repo.repository().into();
         config.set_local(key, value)
     }
 
     fn check_signing_settings(&self) -> Result<bool> {
         let repo = CommandContext::open(self)?;
-        let signed = repo.repo().sign_buffer(&BString::new("test".into()).into());
+        let signed = repo.repository().sign_buffer(&BString::new("test".into()).into());
         match signed {
             Ok(_) => Ok(true),
             Err(e) => Err(e),
@@ -37,12 +37,12 @@ impl RepoCommands for Project {
 
     fn remotes(&self) -> Result<Vec<String>> {
         let ctx = CommandContext::open(self)?;
-        ctx.repo().remotes_as_string()
+        ctx.repository().remotes_as_string()
     }
 
     fn add_remote(&self, name: &str, url: &str) -> Result<()> {
         let ctx = CommandContext::open(self)?;
-        ctx.repo().remote(name, url)?;
+        ctx.repository().remote(name, url)?;
         Ok(())
     }
 }

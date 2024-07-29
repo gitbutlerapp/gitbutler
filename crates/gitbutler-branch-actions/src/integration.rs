@@ -33,7 +33,7 @@ pub(crate) fn get_workspace_head(project_repo: &CommandContext) -> Result<git2::
     let target = vb_state
         .get_default_target()
         .context("failed to get target")?;
-    let repo: &git2::Repository = project_repo.repo();
+    let repo: &git2::Repository = project_repo.repository();
 
     let mut virtual_branches: Vec<Branch> = vb_state.list_branches_in_workspace()?;
 
@@ -141,7 +141,7 @@ pub fn update_gitbutler_integration(
         .get_default_target()
         .context("failed to get target")?;
 
-    let repo: &git2::Repository = ctx.repo();
+    let repo: &git2::Repository = ctx.repository();
 
     // get commit object from target.sha
     let target_commit = repo.find_commit(target.sha)?;
@@ -288,7 +288,7 @@ pub fn verify_branch(ctx: &CommandContext, perm: &mut WorktreeWritePermission) -
 }
 
 fn verify_head_is_set(ctx: &CommandContext) -> Result<()> {
-    match ctx.repo().head().context("failed to get head")?.name() {
+    match ctx.repository().head().context("failed to get head")?.name() {
         Some(refname) if *refname == GITBUTLER_INTEGRATION_REFERENCE.to_string() => Ok(()),
         Some(head_name) => Err(invalid_head_err(head_name)),
         None => Err(anyhow!(
@@ -300,7 +300,7 @@ fn verify_head_is_set(ctx: &CommandContext) -> Result<()> {
 
 // Returns an error if repo head is not pointing to the integration branch.
 fn verify_current_branch_name(ctx: &CommandContext) -> Result<&CommandContext> {
-    match ctx.repo().head()?.name() {
+    match ctx.repository().head()?.name() {
         Some(head) => {
             let head_name = head.to_string();
             if head_name != GITBUTLER_INTEGRATION_REFERENCE.to_string() {
@@ -315,7 +315,7 @@ fn verify_current_branch_name(ctx: &CommandContext) -> Result<&CommandContext> {
 // TODO(ST): Probably there should not be an implicit vbranch creation here.
 fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission) -> Result<()> {
     let head_commit = ctx
-        .repo()
+        .repository()
         .head()
         .context("failed to get head")?
         .peel_to_commit()
@@ -342,7 +342,7 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
         return Ok(());
     }
 
-    ctx.repo()
+    ctx.repository()
         .reset(
             integration_commit.as_ref().unwrap().as_object(),
             git2::ResetType::Soft,
@@ -369,12 +369,12 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
     let mut head = new_branch.head;
     for commit in extra_commits {
         let new_branch_head = ctx
-            .repo()
+            .repository()
             .find_commit(head)
             .context("failed to find new branch head")?;
 
         let rebased_commit_oid = ctx
-            .repo()
+            .repository()
             .commit_with_signature(
                 None,
                 &commit.author(),
@@ -389,7 +389,7 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
                 commit.id()
             ))?;
 
-        let rebased_commit = ctx.repo().find_commit(rebased_commit_oid).context(format!(
+        let rebased_commit = ctx.repository().find_commit(rebased_commit_oid).context(format!(
             "failed to find rebased commit {}",
             rebased_commit_oid
         ))?;

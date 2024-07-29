@@ -40,21 +40,21 @@ pub fn cherry_rebase_group(
     // now, rebase unchanged commits onto the new commit
     let commits_to_rebase = ids_to_rebase
         .iter()
-        .map(|oid| ctx.repo().find_commit(oid.to_owned()))
+        .map(|oid| ctx.repository().find_commit(oid.to_owned()))
         .collect::<Result<Vec<_>, _>>()
         .context("failed to read commits to rebase")?;
 
     let new_head_id = commits_to_rebase
         .into_iter()
         .fold(
-            ctx.repo()
+            ctx.repository()
                 .find_commit(target_commit_oid)
                 .context("failed to find new commit"),
             |head, to_rebase| {
                 let head = head?;
 
                 let mut cherrypick_index = ctx
-                    .repo()
+                    .repository()
                     .cherrypick_commit(&to_rebase, &head, 0, None)
                     .context("failed to cherry pick")?;
 
@@ -63,18 +63,18 @@ pub fn cherry_rebase_group(
                 }
 
                 let merge_tree_oid = cherrypick_index
-                    .write_tree_to(ctx.repo())
+                    .write_tree_to(ctx.repository())
                     .context("failed to write merge tree")?;
 
                 let merge_tree = ctx
-                    .repo()
+                    .repository()
                     .find_tree(merge_tree_oid)
                     .context("failed to find merge tree")?;
 
                 let commit_headers = to_rebase.gitbutler_headers();
 
                 let commit_oid = ctx
-                    .repo()
+                    .repository()
                     .commit_with_signature(
                         None,
                         &to_rebase.author(),
@@ -86,7 +86,7 @@ pub fn cherry_rebase_group(
                     )
                     .context("failed to create commit")?;
 
-                ctx.repo()
+                ctx.repository()
                     .find_commit(commit_oid)
                     .context("failed to find commit")
             },

@@ -37,7 +37,7 @@ pub fn get_applied_status(
         .project()
         .virtual_branches()
         .list_branches_in_workspace()?;
-    let base_file_diffs = gitbutler_diff::workdir(ctx.repo(), &integration_commit.to_owned())
+    let base_file_diffs = gitbutler_diff::workdir(ctx.repository(), &integration_commit.to_owned())
         .context("failed to diff workdir")?;
 
     let mut skipped_files: Vec<gitbutler_diff::FileDiff> = Vec::new();
@@ -69,7 +69,7 @@ pub fn get_applied_status(
             .map(|branch| (branch.id, HashMap::new()))
             .collect();
 
-    let locks = compute_locks(ctx.repo(), &base_diffs, &virtual_branches)?;
+    let locks = compute_locks(ctx.repository(), &base_diffs, &virtual_branches)?;
 
     for branch in &mut virtual_branches {
         let old_claims = branch.ownership.claims.clone();

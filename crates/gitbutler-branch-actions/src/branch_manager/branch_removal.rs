@@ -68,7 +68,7 @@ impl BranchManager<'_> {
             .project()
             .snapshot_branch_deletion(branch.name.clone(), perm);
 
-        let repo = self.ctx.repo();
+        let repo = self.ctx.repository();
 
         let target_commit = repo.target_commit()?;
         let base_tree = target_commit.tree().context("failed to get target tree")?;
@@ -125,7 +125,7 @@ impl BranchManager<'_> {
 
 impl BranchManager<'_> {
     fn build_real_branch(&self, vbranch: &mut Branch) -> Result<git2::Branch<'_>> {
-        let repo = self.ctx.repo();
+        let repo = self.ctx.repository();
         let target_commit = repo.find_commit(vbranch.head)?;
         let branch_name = vbranch.name.clone();
         let branch_name = normalize_branch_name(&branch_name);
@@ -145,7 +145,7 @@ impl BranchManager<'_> {
         vbranch: &mut Branch,
         branch: &git2::Branch<'_>,
     ) -> Result<Option<git2::Oid>> {
-        let repo = self.ctx.repo();
+        let repo = self.ctx.repository();
 
         // Build wip tree as either any uncommitted changes or an empty tree
         let vbranch_wip_tree = repo.find_tree(vbranch.tree)?;

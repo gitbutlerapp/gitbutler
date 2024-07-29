@@ -66,7 +66,7 @@ pub fn list_remote_branches(ctx: &CommandContext) -> Result<Vec<RemoteBranch>> {
 
     let mut remote_branches = vec![];
     for (branch, _) in ctx
-        .repo()
+        .repository()
         .branches(None)
         .context("failed to list remote branches")?
         .flatten()
@@ -92,7 +92,7 @@ pub(crate) fn get_branch_data(ctx: &CommandContext, refname: &Refname) -> Result
     let default_target = default_target(&ctx.project().gb_dir())?;
 
     let branch = ctx
-        .repo()
+        .repository()
         .find_branch_by_refname(refname)?
         .ok_or(anyhow::anyhow!("failed to find branch {}", refname))?;
 
@@ -119,7 +119,7 @@ pub(crate) fn branch_to_remote_branch(
         .context("could not get branch name")
         .ok()?;
 
-    let given_name = branch.get().given_name(&ctx.repo().remotes().ok()?).ok()?;
+    let given_name = branch.get().given_name(&ctx.repository().remotes().ok()?).ok()?;
 
     branch.get().target().map(|sha| RemoteBranch {
         sha,

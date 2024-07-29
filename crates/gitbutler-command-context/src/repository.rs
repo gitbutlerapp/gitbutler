@@ -67,7 +67,7 @@ impl CommandContext {
         &self.project
     }
 
-    pub fn repo(&self) -> &git2::Repository {
+    pub fn repository(&self) -> &git2::Repository {
         &self.git_repository
     }
 }

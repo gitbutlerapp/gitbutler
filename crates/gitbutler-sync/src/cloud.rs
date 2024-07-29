@@ -68,7 +68,7 @@ fn push_target(
     batch_size: usize,
 ) -> Result<()> {
     let ids = batch_rev_walk(
-        ctx.repo(),
+        ctx.repository(),
         batch_size,
         default_target.sha,
         gb_code_last_commit,
@@ -139,7 +139,7 @@ fn batch_rev_walk(
 
 fn collect_refs(ctx: &CommandContext) -> anyhow::Result<Vec<Refname>> {
     Ok(ctx
-        .repo()
+        .repository()
         .references_glob("refs/*")?
         .flatten()
         .filter_map(|r| {
@@ -243,7 +243,7 @@ fn push_to_gitbutler_server(
     let headers = &[auth_header.as_str()];
     push_options.custom_headers(headers);
 
-    let mut remote = project_repo.repo().remote_anonymous(&url.to_string())?;
+    let mut remote = project_repo.repository().remote_anonymous(&url.to_string())?;
 
     remote
         .push(ref_specs, Some(&mut push_options))

@@ -33,7 +33,7 @@ pub fn list_branches(
             _ => None,
         });
     let mut git_branches: Vec<GroupBranch> = vec![];
-    for result in ctx.repo().branches(branch_filter)? {
+    for result in ctx.repository().branches(branch_filter)? {
         match result {
             Ok((branch, branch_type)) => match branch_type {
                 git2::BranchType::Local => {
@@ -101,7 +101,7 @@ fn combine_branches(
     ctx: &CommandContext,
     vb_handle: &VirtualBranchesHandle,
 ) -> Result<Vec<BranchListing>> {
-    let repo = ctx.repo();
+    let repo = ctx.repository();
     for branch in virtual_branches {
         group_branches.push(GroupBranch::Virtual(branch));
     }
@@ -396,7 +396,7 @@ pub fn get_branch_listing_details(
     ctx: &CommandContext,
     branch_names: Vec<String>,
 ) -> Result<Vec<BranchListingDetails>> {
-    let repo = ctx.repo();
+    let repo = ctx.repository();
     // Can we do this in a more efficient way?
     let branches = list_branches(ctx, None)?
         .into_iter()

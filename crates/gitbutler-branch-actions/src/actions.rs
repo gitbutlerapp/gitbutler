@@ -97,7 +97,7 @@ impl VirtualBranchActions {
         commit_oid: git2::Oid,
     ) -> Result<Vec<RemoteBranchFile>> {
         let ctx = CommandContext::open(project)?;
-        crate::file::list_remote_commit_files(ctx.repo(), commit_oid).map_err(Into::into)
+        crate::file::list_remote_commit_files(ctx.repository(), commit_oid).map_err(Into::into)
     }
 
     pub fn set_base_branch(
@@ -404,7 +404,7 @@ impl VirtualBranchActions {
         let ctx = CommandContext::open(project)?;
 
         let helper = Helper::default();
-        let remotes = ctx.repo().remotes_as_string()?;
+        let remotes = ctx.repository().remotes_as_string()?;
         let fetch_errors: Vec<_> = remotes
             .iter()
             .filter_map(|remote| {

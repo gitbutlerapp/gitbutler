@@ -153,10 +153,10 @@ impl Handler {
                 }
                 "HEAD" => {
                     let ctx = open_projects_repository()?;
-                    let head_ref = ctx.repo().head().context("failed to get head")?;
+                    let head_ref = ctx.repository().head().context("failed to get head")?;
                     let head_ref_name = head_ref.name().context("failed to get head name")?;
                     if head_ref_name != "refs/heads/gitbutler/integration" {
-                        let mut integration_reference = ctx.repo().find_reference(
+                        let mut integration_reference = ctx.repository().find_reference(
                             &Refname::from(LocalRefname::new("gitbutler/integration", None))
                                 .to_string(),
                         )?;
