@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: .github/actions/init-env-node
+      - uses: ./.github/actions/init-env-node
       - run: pnpm lint
 
   check-node:
@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: .github/actions/init-env-node
+      - uses: ./.github/actions/init-env-node
       - run: pnpm check
 
   unittest-node:
@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: .github/actions/init-env-node
+      - uses: ./.github/actions/init-env-node
       - run: pnpm test
 
   rust-lint:
@@ -71,7 +71,7 @@ jobs:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
     steps:
       - uses: actions/checkout@v4
-      - uses: .github/actions/init-env-rust
+      - uses: ./.github/actions/init-env-rust
       - run: cargo fmt --check --all
 
   rust-docs:
@@ -82,7 +82,7 @@ jobs:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
     steps:
       - uses: actions/checkout@v4
-      - uses: .github/actions/init-env-rust
+      - uses: ./.github/actions/init-env-rust
       # TODO(qix-): we have to exclude the app here for now because for some
       # TODO(qix-): reason it doesn't build with the docs feature enabled.
       - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-git
@@ -110,7 +110,7 @@ jobs:
           - [devtools]
     steps:
       - uses: actions/checkout@v4
-      - uses: .github/actions/check-crate
+      - uses: ./.github/actions/check-crate
         with:
           features: ${{ toJson(matrix.features) }}
 
@@ -135,7 +135,7 @@ jobs:
     if: ${{ needs.changes.outputs.rust == 'true' }}
     steps:
       - uses: actions/checkout@v3
-      - uses: .github/actions/init-env-rust
+      - uses: ./.github/actions/init-env-rust
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.7.3
         with:
