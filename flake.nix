@@ -22,7 +22,7 @@
             inherit system overlays;
           };
 
-          rustToolchain = "stable";
+          rustToolchain = unstablePkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml.stable;
 
           common = with unstablePkgs; [
             gtk3
