@@ -30,9 +30,9 @@ pub fn in_outside_workspace_mode(ctx: &CommandContext) -> Result<bool> {
 }
 
 pub fn assure_outside_workspace_mode(ctx: &CommandContext) -> Result<()> {
-    if in_open_workspace_mode(ctx)? {
+    if in_outside_workspace_mode(ctx)? {
         Ok(())
     } else {
-        bail!("Unexpected state: cannot perform operation on non-integration branch")
+        bail!("Unexpected state: cannot perform operation on integration branch")
     }
 }
