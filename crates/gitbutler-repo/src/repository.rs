@@ -94,18 +94,20 @@ impl RepoActionsExt for CommandContext {
     }
 
     fn add_branch_reference(&self, branch: &Branch) -> Result<()> {
-        let (should_write, with_force) =
-            match self.repository().find_reference(&branch.refname().to_string()) {
-                Ok(reference) => match reference.target() {
-                    Some(head_oid) => Ok((head_oid != branch.head, true)),
-                    None => Ok((true, true)),
-                },
-                Err(err) => match err.code() {
-                    git2::ErrorCode::NotFound => Ok((true, false)),
-                    _ => Err(err),
-                },
-            }
-            .context("failed to lookup reference")?;
+        let (should_write, with_force) = match self
+            .repository()
+            .find_reference(&branch.refname().to_string())
+        {
+            Ok(reference) => match reference.target() {
+                Some(head_oid) => Ok((head_oid != branch.head, true)),
+                None => Ok((true, true)),
+            },
+            Err(err) => match err.code() {
+                git2::ErrorCode::NotFound => Ok((true, false)),
+                _ => Err(err),
+            },
+        }
+        .context("failed to lookup reference")?;
 
         if should_write {
             self.repository()
@@ -122,7 +124,10 @@ impl RepoActionsExt for CommandContext {
     }
 
     fn delete_branch_reference(&self, branch: &Branch) -> Result<()> {
-        match self.repository().find_reference(&branch.refname().to_string()) {
+        match self
+            .repository()
+            .find_reference(&branch.refname().to_string())
+        {
             Ok(mut reference) => {
                 reference
                     .delete()
@@ -141,7 +146,10 @@ impl RepoActionsExt for CommandContext {
     fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>> {
         match to {
             LogUntil::Commit(oid) => {
-                let mut revwalk = self.repository().revwalk().context("failed to create revwalk")?;
+                let mut revwalk = self
+                    .repository()
+                    .revwalk()
+                    .context("failed to create revwalk")?;
                 revwalk
                     .push(from)
                     .context(format!("failed to push {}", from))?;
@@ -153,7 +161,10 @@ impl RepoActionsExt for CommandContext {
                     .collect::<Result<Vec<_>, _>>()
             }
             LogUntil::Take(n) => {
-                let mut revwalk = self.repository().revwalk().context("failed to create revwalk")?;
+                let mut revwalk = self
+                    .repository()
+                    .revwalk()
+                    .context("failed to create revwalk")?;
                 revwalk
                     .push(from)
                     .context(format!("failed to push {}", from))?;
@@ -163,7 +174,10 @@ impl RepoActionsExt for CommandContext {
                     .collect::<Result<Vec<_>, _>>()
             }
             LogUntil::When(cond) => {
-                let mut revwalk = self.repository().revwalk().context("failed to create revwalk")?;
+                let mut revwalk = self
+                    .repository()
+                    .revwalk()
+                    .context("failed to create revwalk")?;
                 revwalk
                     .push(from)
                     .context(format!("failed to push {}", from))?;
@@ -184,7 +198,10 @@ impl RepoActionsExt for CommandContext {
                 Ok(oids)
             }
             LogUntil::End => {
-                let mut revwalk = self.repository().revwalk().context("failed to create revwalk")?;
+                let mut revwalk = self
+                    .repository()
+                    .revwalk()
+                    .context("failed to create revwalk")?;
                 revwalk
                     .push(from)
                     .context(format!("failed to push {}", from))?;

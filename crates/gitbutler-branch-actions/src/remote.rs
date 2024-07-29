@@ -119,7 +119,10 @@ pub(crate) fn branch_to_remote_branch(
         .context("could not get branch name")
         .ok()?;
 
-    let given_name = branch.get().given_name(&ctx.repository().remotes().ok()?).ok()?;
+    let given_name = branch
+        .get()
+        .given_name(&ctx.repository().remotes().ok()?)
+        .ok()?;
 
     branch.get().target().map(|sha| RemoteBranch {
         sha,

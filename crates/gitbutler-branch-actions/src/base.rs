@@ -417,7 +417,8 @@ pub(crate) fn update_base_branch(
                 return Ok(None);
             }
 
-            let branch_merge_index_tree_oid = branch_tree_merge_index.write_tree_to(ctx.repository())?;
+            let branch_merge_index_tree_oid =
+                branch_tree_merge_index.write_tree_to(ctx.repository())?;
 
             if branch_merge_index_tree_oid == new_target_tree.id() {
                 return result_integrated_detected(branch);

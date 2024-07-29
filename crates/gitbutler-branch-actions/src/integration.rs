@@ -28,12 +28,12 @@ pub(crate) fn get_integration_commiter<'a>() -> Result<git2::Signature<'a>> {
 //
 // This is the base against which we diff the working directory to understand
 // what files have been modified.
-pub(crate) fn get_workspace_head(project_repo: &CommandContext) -> Result<git2::Oid> {
-    let vb_state = project_repo.project().virtual_branches();
+pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
+    let vb_state = ctx.project().virtual_branches();
     let target = vb_state
         .get_default_target()
         .context("failed to get target")?;
-    let repo: &git2::Repository = project_repo.repository();
+    let repo: &git2::Repository = ctx.repository();
 
     let mut virtual_branches: Vec<Branch> = vb_state.list_branches_in_workspace()?;
 
@@ -51,9 +51,8 @@ pub(crate) fn get_workspace_head(project_repo: &CommandContext) -> Result<git2::
         return Ok(target_commit.id());
     }
 
-    if conflicts::is_conflicting(project_repo, None)? {
-        let merge_parent =
-            conflicts::merge_parent(project_repo)?.ok_or(anyhow!("No merge parent"))?;
+    if conflicts::is_conflicting(ctx, None)? {
+        let merge_parent = conflicts::merge_parent(ctx)?.ok_or(anyhow!("No merge parent"))?;
         let first_branch = virtual_branches.first().ok_or(anyhow!("No branches"))?;
 
         let merge_base = repo.merge_base(first_branch.head, merge_parent)?;
@@ -288,7 +287,12 @@ pub fn verify_branch(ctx: &CommandContext, perm: &mut WorktreeWritePermission) -
 }
 
 fn verify_head_is_set(ctx: &CommandContext) -> Result<()> {
-    match ctx.repository().head().context("failed to get head")?.name() {
+    match ctx
+        .repository()
+        .head()
+        .context("failed to get head")?
+        .name()
+    {
         Some(refname) if *refname == GITBUTLER_INTEGRATION_REFERENCE.to_string() => Ok(()),
         Some(head_name) => Err(invalid_head_err(head_name)),
         None => Err(anyhow!(
@@ -389,10 +393,13 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
                 commit.id()
             ))?;
 
-        let rebased_commit = ctx.repository().find_commit(rebased_commit_oid).context(format!(
-            "failed to find rebased commit {}",
-            rebased_commit_oid
-        ))?;
+        let rebased_commit = ctx
+            .repository()
+            .find_commit(rebased_commit_oid)
+            .context(format!(
+                "failed to find rebased commit {}",
+                rebased_commit_oid
+            ))?;
 
         new_branch.head = rebased_commit.id();
         new_branch.tree = rebased_commit.tree_id();

@@ -433,7 +433,9 @@ fn is_requires_force(ctx: &CommandContext, branch: &Branch) -> Result<bool> {
         .find_commit(reference)
         .context("failed to find upstream commit")?;
 
-    let merge_base = ctx.repository().merge_base(upstream_commit.id(), branch.head)?;
+    let merge_base = ctx
+        .repository()
+        .merge_base(upstream_commit.id(), branch.head)?;
 
     Ok(merge_base != upstream_commit.id())
 }
@@ -856,10 +858,13 @@ pub fn commit(
     let mut message_buffer = message.to_owned();
 
     if run_hooks {
-        let hook_result =
-            git2_hooks::hooks_commit_msg(ctx.repository(), Some(&["../.husky"]), &mut message_buffer)
-                .context("failed to run hook")
-                .context(Code::CommitHookFailed)?;
+        let hook_result = git2_hooks::hooks_commit_msg(
+            ctx.repository(),
+            Some(&["../.husky"]),
+            &mut message_buffer,
+        )
+        .context("failed to run hook")
+        .context(Code::CommitHookFailed)?;
 
         if let HookResult::RunNotSuccessful { stdout, .. } = hook_result {
             return Err(anyhow!("commit-msg hook rejected: {}", stdout.trim())
@@ -1248,8 +1253,9 @@ pub(crate) fn move_commit_file(
         // we need to remove the parts of this patch that are in target_ownership (the parts we're moving)
         // and then apply the rest to the parent tree of the "from" commit to
         // create the new "from" commit without the changes we're moving
-        let from_commit_diffs = gitbutler_diff::trees(ctx.repository(), &from_parent_tree, &from_tree)
-            .context("failed to diff trees")?;
+        let from_commit_diffs =
+            gitbutler_diff::trees(ctx.repository(), &from_parent_tree, &from_tree)
+                .context("failed to diff trees")?;
 
         // filter from_commit_diffs to HashMap<filepath, Vec<GitHunk>> only for hunks NOT in target_ownership
         // this is the patch parts we're keeping

@@ -79,7 +79,10 @@ impl App {
     pub fn git_head(&self, project_id: ProjectId) -> Result<String> {
         let project = self.projects().get(project_id)?;
         let ctx = CommandContext::open(&project)?;
-        let head = ctx.repository().head().context("failed to get repository head")?;
+        let head = ctx
+            .repository()
+            .head()
+            .context("failed to get repository head")?;
         Ok(head.name().unwrap().to_string())
     }
 

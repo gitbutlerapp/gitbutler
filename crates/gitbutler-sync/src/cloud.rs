@@ -196,11 +196,11 @@ fn update_project(
 }
 
 fn push_to_gitbutler_server(
-    project_repo: &CommandContext,
+    ctx: &CommandContext,
     user: Option<&users::User>,
     ref_specs: &[&str],
 ) -> Result<bool> {
-    let project = project_repo.project();
+    let project = ctx.project();
     let url = project
         .api
         .as_ref()
@@ -243,7 +243,7 @@ fn push_to_gitbutler_server(
     let headers = &[auth_header.as_str()];
     push_options.custom_headers(headers);
 
-    let mut remote = project_repo.repository().remote_anonymous(&url.to_string())?;
+    let mut remote = ctx.repository().remote_anonymous(&url.to_string())?;
 
     remote
         .push(ref_specs, Some(&mut push_options))
