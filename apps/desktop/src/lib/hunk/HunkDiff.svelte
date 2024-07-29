@@ -82,6 +82,11 @@
 
 	function createRowData(section: ContentSection): Row[] {
 		return section.lines.map((line) => {
+			if (line.content === '') {
+				// Add extra \n for empty lines for correct copy/pasting
+				line.content = '\n';
+			}
+
 			return {
 				beforeLineNumber: line.beforeLineNumber,
 				afterLineNumber: line.afterLineNumber,
@@ -175,6 +180,7 @@
 			}
 
 			if (isLineEmpty(prevSection.lines)) {
+				acc.push(...createRowData(nextSection));
 				return acc;
 			}
 
@@ -238,7 +244,6 @@
 						{onclick}
 						class="table__textContent"
 						class:readonly
-						data-no-drag
 						class:diff-line-deletion={line.type === SectionType.RemovedLines}
 						class:diff-line-addition={line.type === SectionType.AddedLines}
 						oncontextmenu={(event) => {
@@ -248,7 +253,7 @@
 							handleLineContextMenu({ event, hunk, lineNumber, subsection: subsections[0] });
 						}}
 					>
-						{@html line.tokens.join('') + '\n'}
+						{@html line.tokens.join('')}
 					</td>
 				</tr>
 			{/each}
