@@ -1,6 +1,7 @@
 use std::{collections::HashMap, path::PathBuf, vec};
 
 use anyhow::{bail, Context, Result};
+use git2::Tree;
 use gitbutler_branch::{
     Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, OwnershipClaim,
 };
@@ -8,7 +9,6 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{diff_files_into_hunks, GitHunk, Hunk, HunkHash};
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_repo::RepositoryExt;
 
 use crate::{
     conflicts::RepoConflictsExt,
@@ -72,7 +72,12 @@ pub fn get_applied_status(
             .map(|branch| (branch.id, HashMap::new()))
             .collect();
 
-    let locks = compute_locks(ctx.repository(), &base_diffs, &virtual_branches)?;
+    let vb_state = ctx.project().virtual_branches();
+    let base_tree = ctx
+        .repository()
+        .find_commit(vb_state.get_default_target()?.sha)?
+        .tree()?;
+    let locks = compute_locks(ctx.repository(), &base_diffs, &virtual_branches, base_tree)?;
 
     for branch in &mut virtual_branches {
         let old_claims = branch.ownership.claims.clone();
@@ -190,7 +195,6 @@ pub fn get_applied_status(
 
     // write updated state if not resolving
     if !ctx.is_resolving() {
-        let vb_state = ctx.project().virtual_branches();
         for (vbranch, files) in &mut hunks_by_branch {
             vbranch.tree = gitbutler_diff::write::hunks_onto_oid(ctx, &vbranch.head, files)?;
             vb_state
@@ -224,10 +228,8 @@ fn compute_locks(
     repository: &git2::Repository,
     unstaged_hunks_by_path: &HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>,
     virtual_branches: &[Branch],
+    base_tree: Tree,
 ) -> Result<HashMap<HunkHash, Vec<HunkLock>>> {
-    // If we cant find the integration commit and subsequently the target commit, we can't find any locks
-    let target_tree = repository.target_commit()?.tree()?;
-
     let mut diff_opts = git2::DiffOptions::new();
     let opts = diff_opts
         .show_binary(true)
@@ -240,7 +242,7 @@ fn compute_locks(
             let commit = repository.find_commit(branch.head).ok()?;
             let tree = commit.tree().ok()?;
             let diff = repository
-                .diff_tree_to_tree(Some(&target_tree), Some(&tree), Some(opts))
+                .diff_tree_to_tree(Some(&base_tree), Some(&tree), Some(opts))
                 .ok()?;
             let hunks_by_filepath =
                 gitbutler_diff::hunks_by_filepath(Some(repository), &diff).ok()?;
