@@ -102,8 +102,8 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 		tooltip.style.left = `${leftPos}px`;
 	}
 
-	node.addEventListener('pointerenter', onMouseOver);
-	node.addEventListener('pointerleave', onMouseLeave);
+	node.addEventListener('mouseover', onMouseOver);
+	node.addEventListener('mouseleave', onMouseLeave);
 
 	return {
 		update(opts: ToolTipOptions | string | undefined) {
@@ -112,8 +112,8 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 		destroy() {
 			tooltip?.remove();
 			timeoutId && clearTimeout(timeoutId);
-			node.removeEventListener('pointerenter', onMouseOver);
-			node.removeEventListener('pointerleave', onMouseLeave);
+			node.removeEventListener('mouseover', onMouseOver);
+			node.removeEventListener('mouseleave', onMouseLeave);
 		}
 	};
 }

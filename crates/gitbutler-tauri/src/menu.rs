@@ -1,10 +1,8 @@
 use std::{env, fs};
 
 use anyhow::Context;
-use gitbutler_error::error;
-use gitbutler_error::error::Code;
+use gitbutler_error::{error, error::Code};
 use serde_json::json;
-
 #[cfg(target_os = "macos")]
 use tauri::AboutMetadata;
 use tauri::{
@@ -17,7 +15,7 @@ use crate::error::Error;
 
 #[tauri::command(async)]
 #[instrument(skip(handle), err(Debug))]
-pub async fn menu_item_set_enabled(
+pub fn menu_item_set_enabled(
     handle: AppHandle,
     menu_item_id: &str,
     enabled: bool,

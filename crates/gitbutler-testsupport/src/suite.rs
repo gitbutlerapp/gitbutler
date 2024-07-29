@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use gitbutler_repo::{credentials::Helper, RepositoryExt};
 use tempfile::{tempdir, TempDir};
 
@@ -88,9 +88,9 @@ impl Suite {
 
 pub struct Case {
     pub project: gitbutler_project::Project,
-    pub project_repository: ProjectRepository,
+    pub ctx: CommandContext,
     pub credentials: Helper,
-    /// The directory containing the `project_repository`
+    /// The directory containing the `ctx`
     project_tmp: Option<TempDir>,
 }
 
@@ -108,12 +108,11 @@ impl Drop for Case {
 
 impl Case {
     fn new(project: gitbutler_project::Project, project_tmp: TempDir) -> Case {
-        let project_repository =
-            ProjectRepository::open(&project).expect("failed to create project repository");
+        let ctx = CommandContext::open(&project).expect("failed to create project repository");
         let credentials = Helper::default();
         Case {
             project,
-            project_repository,
+            ctx,
             project_tmp: Some(project_tmp),
             credentials,
         }
@@ -124,12 +123,11 @@ impl Case {
             .projects
             .get(self.project.id)
             .expect("failed to get project");
-        let project_repository =
-            ProjectRepository::open(&project).expect("failed to create project repository");
+        let ctx = CommandContext::open(&project).expect("failed to create project repository");
         let credentials = Helper::default();
         Self {
             credentials,
-            project_repository,
+            ctx,
             project,
             project_tmp: self.project_tmp.take(),
         }

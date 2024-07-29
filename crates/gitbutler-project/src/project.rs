@@ -1,11 +1,12 @@
-use serde::{Deserialize, Serialize};
 use std::{
     path::{self, PathBuf},
     time,
 };
 
-use crate::default_true::DefaultTrue;
 use gitbutler_id::id::Id;
+use serde::{Deserialize, Serialize};
+
+use crate::default_true::DefaultTrue;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]

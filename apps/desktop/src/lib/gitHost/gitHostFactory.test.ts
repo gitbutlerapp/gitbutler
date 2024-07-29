@@ -7,11 +7,14 @@ describe.concurrent('DefaultgitHostFactory', () => {
 	test('Create GitHub service', async () => {
 		const monitorFactory = new DefaultGitHostFactory(new Octokit());
 		expect(
-			monitorFactory.build({
-				provider: 'github.com',
-				name: 'test-repo',
-				owner: 'test-owner'
-			})
+			monitorFactory.build(
+				{
+					source: 'github.com',
+					name: 'test-repo',
+					owner: 'test-owner'
+				},
+				'some-base'
+			)
 		).instanceOf(GitHub);
 	});
 });

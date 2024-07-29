@@ -111,8 +111,7 @@
 //! to `anyhow::Error`.
 //!
 //! By default, `thiserror` instances have no context.
-use std::borrow::Cow;
-use std::fmt::Debug;
+use std::{borrow::Cow, fmt::Debug};
 
 /// A unique code that consumers of the API may rely on to identify errors.
 ///

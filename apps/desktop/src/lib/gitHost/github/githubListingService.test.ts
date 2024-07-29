@@ -9,14 +9,14 @@ type PrListResponse = RestEndpointMethodTypes['pulls']['list']['response'];
 
 describe.concurrent('GitHubListingService', () => {
 	const repoInfo = {
-		provider: 'github.com',
+		source: 'github.com',
 		name: 'test-repo',
 		owner: 'test-owner'
 	};
 
 	let octokit: Octokit;
 	let gh: GitHub;
-	let service: GitHostListingService;
+	let service: GitHostListingService | undefined;
 	let projectMetrics: ProjectMetrics;
 
 	beforeEach(() => {
@@ -31,7 +31,7 @@ describe.concurrent('GitHubListingService', () => {
 		octokit = new Octokit();
 		projectMetrics = new ProjectMetrics();
 
-		gh = new GitHub(octokit, repoInfo, projectMetrics);
+		gh = new GitHub(repoInfo, 'some-base', undefined, octokit, projectMetrics);
 		service = gh.listService();
 	});
 
@@ -42,9 +42,9 @@ describe.concurrent('GitHubListingService', () => {
 				data: [{ title, labels: [] as Labels }]
 			} as PrListResponse)
 		);
-		const prs = await service.fetch();
-		expect(prs.length).toEqual(1);
-		expect(prs[0].title).toEqual(title);
+		const prs = await service?.fetch();
+		expect(prs?.length).toEqual(1);
+		expect(prs?.[0].title).toEqual(title);
 
 		const metrics = projectMetrics.getMetrics();
 		expect(metrics['pr_count']?.value).toEqual(1);

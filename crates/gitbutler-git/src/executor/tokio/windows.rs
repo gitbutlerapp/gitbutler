@@ -1,16 +1,18 @@
-use crate::executor::{AskpassServer, FileStat, Pid, Socket};
 use std::{
     cell::RefCell,
     os::windows::{fs::MetadataExt, io::AsRawHandle},
     path::Path,
     time::Duration,
 };
+
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufStream},
     net::windows::named_pipe::{NamedPipeServer, ServerOptions},
     sync::Mutex,
 };
 use windows::Win32::{Foundation::HANDLE, System::Pipes::GetNamedPipeClientProcessId};
+
+use crate::executor::{AskpassServer, FileStat, Pid, Socket};
 
 // Slashes instead of backslashes to prevent any issues with escaping.
 const ASKPASS_PIPE_PREFIX: &str = r"//./pipe/gitbutler-askpass-";

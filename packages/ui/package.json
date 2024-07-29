@@ -13,13 +13,20 @@
 		"dev": "vite dev",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "pnpm check --watch",
-		"package": "svelte-kit sync && svelte-package",
-		"prepublishOnly": "npm run package",
+		"package": "pnpm run --sequential '/^package:.*/'",
+		"package:svelte": "svelte-kit sync && svelte-package",
+		"package:styles": "postcss ./src/styles/main.css -o ./dist/styles/main.css && pnpm run copy-fonts",
+		"copy-fonts": "postcss ./src/styles/fonts.css -o ./dist/fonts.css && cpy './src/styles/fonts/**/*.woff2' './dist/fonts' --parents",
+		"prepublishOnly": "pnpm run package",
 		"prepare": "svelte-kit sync",
 		"storybook": "storybook dev --no-open -p 6006",
 		"storybook:build": "storybook build"
 	},
 	"devDependencies": {
+		"@chromatic-com/storybook": "^1.6.1",
+		"@csstools/postcss-bundler": "^1.0.15",
+		"@csstools/postcss-minify": "^1.1.5",
+		"@storybook/addon-docs": "^8.2.6",
 		"@storybook/addon-essentials": "^8.1.10",
 		"@storybook/addon-interactions": "^8.1.10",
 		"@storybook/addon-links": "^8.1.10",
@@ -30,6 +37,14 @@
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/package": "^2.3.2",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
+		"autoprefixer": "^10.4.19",
+		"cpy-cli": "^5.0.0",
+		"postcss": "^8.4.38",
+		"postcss-cli": "^11.0.0",
+		"postcss-minify": "^1.1.0",
+		"postcss-nesting": "^12.1.5",
+		"postcss-pxtorem": "^6.1.0",
+		"rimraf": "^6.0.1",
 		"storybook": "^8.1.10",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
@@ -46,12 +61,20 @@
 		"./*": {
 			"import": "./dist/*.js",
 			"types": "./dist/*.d.ts"
+		},
+		"./main.css": {
+			"import": "./dist/styles/main.css"
+		},
+		"./fonts.css": {
+			"import": "./dist/fonts.css"
 		}
 	},
 	"files": [
 		"./dist/*.svelte",
 		"./dist/*.js",
 		"./dist/*.d.ts",
-		"!./dist/*.test.*"
+		"!./dist/*.test.*",
+		"./dist/*.css",
+		"./dist/*.woff2"
 	]
 }

@@ -94,7 +94,7 @@
 		display: flex;
 		width: 100%;
 		min-width: max-content;
-		font-family: monospace;
+		font-family: var(--mono-font-family);
 		background-color: var(--clr-bg-1);
 		white-space: pre;
 		tab-size: var(--tab-size);

@@ -1,5 +1,3 @@
-#![feature(error_generic_member_access)]
-#![cfg_attr(windows, feature(windows_by_handle))]
 #![cfg_attr(
     all(windows, not(test), not(debug_assertions)),
     windows_subsystem = "windows"
@@ -156,6 +154,7 @@ fn main() {
                     virtual_branches::commands::update_base_branch,
                     virtual_branches::commands::integrate_upstream_commits,
                     virtual_branches::commands::update_virtual_branch,
+                    virtual_branches::commands::update_branch_order,
                     virtual_branches::commands::delete_virtual_branch,
                     virtual_branches::commands::convert_to_real_branch,
                     virtual_branches::commands::unapply_ownership,
@@ -173,6 +172,7 @@ fn main() {
                     virtual_branches::commands::update_commit_message,
                     virtual_branches::commands::list_remote_branches,
                     virtual_branches::commands::list_branches,
+                    virtual_branches::commands::get_branch_listing_details,
                     virtual_branches::commands::get_remote_branch_data,
                     virtual_branches::commands::squash_branch_commit,
                     virtual_branches::commands::fetch_from_remotes,

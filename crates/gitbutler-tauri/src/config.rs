@@ -1,13 +1,14 @@
-use crate::error::Error;
 use gitbutler_config::{api::ProjectCommands, git::GbConfig};
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use tauri::State;
 use tracing::instrument;
 
+use crate::error::Error;
+
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
-pub async fn get_gb_config(
+pub fn get_gb_config(
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
 ) -> Result<GbConfig, Error> {
@@ -16,7 +17,7 @@ pub async fn get_gb_config(
 
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
-pub async fn set_gb_config(
+pub fn set_gb_config(
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
     config: GbConfig,

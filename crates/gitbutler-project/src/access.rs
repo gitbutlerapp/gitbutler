@@ -1,8 +1,9 @@
-use crate::{Project, ProjectId};
+use std::{collections::BTreeMap, sync::Arc};
+
 use anyhow::{bail, Context};
 use parking_lot::RawRwLock;
-use std::collections::BTreeMap;
-use std::sync::Arc;
+
+use crate::{Project, ProjectId};
 
 /// Access Control
 impl Project {

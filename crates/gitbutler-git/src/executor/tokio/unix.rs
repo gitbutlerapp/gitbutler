@@ -1,14 +1,16 @@
-use crate::executor::{AskpassServer, FileStat, Pid, Socket, Uid};
 use std::{
     fs::Permissions,
     os::unix::fs::{MetadataExt, PermissionsExt},
     path::Path,
     time::Duration,
 };
+
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufStream},
     net::{UnixListener, UnixStream},
 };
+
+use crate::executor::{AskpassServer, FileStat, Pid, Socket, Uid};
 
 impl Socket for BufStream<UnixStream> {
     type Error = std::io::Error;

@@ -1,8 +1,9 @@
-use super::{storage::Storage, User};
-use anyhow::Context;
-use anyhow::Result;
-use gitbutler_secret::secret;
 use std::path::PathBuf;
+
+use anyhow::{Context, Result};
+use gitbutler_secret::secret;
+
+use super::{storage::Storage, User};
 
 /// TODO(ST): rename to `Login` - seems more akin to what it does
 /// This type deals with user-related data which is only known if the user is logged in to GitButler.

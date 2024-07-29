@@ -4,8 +4,8 @@ use gitbutler_branch::BranchCreateRequest;
 
 use super::Test;
 
-#[tokio::test]
-async fn to_head() {
+#[test]
+fn to_head() {
     let Test {
         repository,
         project,
@@ -15,12 +15,10 @@ async fn to_head() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     let branch1_id = controller
         .create_virtual_branch(project, &BranchCreateRequest::default())
-        .await
         .unwrap();
 
     let oid = {
@@ -29,10 +27,9 @@ async fn to_head() {
         // commit changes
         let oid = controller
             .create_commit(project, branch1_id, "commit", None, false)
-            .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -50,10 +47,9 @@ async fn to_head() {
         // reset changes to head
         controller
             .reset_virtual_branch(project, branch1_id, oid)
-            .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -66,8 +62,8 @@ async fn to_head() {
     }
 }
 
-#[tokio::test]
-async fn to_target() {
+#[test]
+fn to_target() {
     let Test {
         repository,
         project,
@@ -77,12 +73,10 @@ async fn to_target() {
 
     let base_branch = controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     let branch1_id = controller
         .create_virtual_branch(project, &BranchCreateRequest::default())
-        .await
         .unwrap();
 
     {
@@ -91,10 +85,9 @@ async fn to_target() {
         // commit changes
         let oid = controller
             .create_commit(project, branch1_id, "commit", None, false)
-            .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -110,10 +103,9 @@ async fn to_target() {
         // reset changes to head
         controller
             .reset_virtual_branch(project, branch1_id, base_branch.base_sha)
-            .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 0);
@@ -125,8 +117,8 @@ async fn to_target() {
     }
 }
 
-#[tokio::test]
-async fn to_commit() {
+#[test]
+fn to_commit() {
     let Test {
         repository,
         project,
@@ -136,12 +128,10 @@ async fn to_commit() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     let branch1_id = controller
         .create_virtual_branch(project, &BranchCreateRequest::default())
-        .await
         .unwrap();
 
     let first_commit_oid = {
@@ -151,10 +141,9 @@ async fn to_commit() {
 
         let oid = controller
             .create_commit(project, branch1_id, "commit", None, false)
-            .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -174,10 +163,9 @@ async fn to_commit() {
 
         let second_commit_oid = controller
             .create_commit(project, branch1_id, "commit", None, false)
-            .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 2);
@@ -194,10 +182,9 @@ async fn to_commit() {
         // reset changes to the first commit
         controller
             .reset_virtual_branch(project, branch1_id, first_commit_oid)
-            .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -210,8 +197,8 @@ async fn to_commit() {
     }
 }
 
-#[tokio::test]
-async fn to_non_existing() {
+#[test]
+fn to_non_existing() {
     let Test {
         repository,
         project,
@@ -221,12 +208,10 @@ async fn to_non_existing() {
 
     controller
         .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .await
         .unwrap();
 
     let branch1_id = controller
         .create_virtual_branch(project, &BranchCreateRequest::default())
-        .await
         .unwrap();
 
     {
@@ -235,10 +220,9 @@ async fn to_non_existing() {
         // commit changes
         let oid = controller
             .create_commit(project, branch1_id, "commit", None, false)
-            .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -259,7 +243,6 @@ async fn to_non_existing() {
                 branch1_id,
                 "fe14df8c66b73c6276f7bb26102ad91da680afcb".parse().unwrap()
             )
-            .await
             .unwrap_err()
             .to_string(),
         "commit fe14df8c66b73c6276f7bb26102ad91da680afcb not in the branch"

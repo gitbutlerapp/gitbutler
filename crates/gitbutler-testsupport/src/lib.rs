@@ -18,17 +18,16 @@ pub mod paths {
 }
 
 pub mod virtual_branches {
-    use gitbutler_branch::Target;
-    use gitbutler_branch::VirtualBranchesHandle;
-    use gitbutler_command_context::ProjectRepository;
+    use gitbutler_branch::{Target, VirtualBranchesHandle};
+    use gitbutler_command_context::CommandContext;
 
     use crate::empty_bare_repository;
 
-    pub fn set_test_target(project_repository: &ProjectRepository) -> anyhow::Result<()> {
-        let vb_state = VirtualBranchesHandle::new(project_repository.project().gb_dir());
+    pub fn set_test_target(ctx: &CommandContext) -> anyhow::Result<()> {
+        let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
         let (remote_repo, _tmp) = empty_bare_repository();
-        let mut remote = project_repository
-            .repo()
+        let mut remote = ctx
+            .repository()
             .remote("origin", remote_repo.path().to_str().unwrap())
             .expect("failed to add remote");
         remote.push(&["refs/heads/master:refs/heads/master"], None)?;
@@ -42,7 +41,7 @@ pub mod virtual_branches {
             })
             .expect("failed to write target");
 
-        gitbutler_branch_actions::update_gitbutler_integration(&vb_state, project_repository)
+        gitbutler_branch_actions::update_gitbutler_integration(&vb_state, ctx)
             .expect("failed to update integration");
 
         Ok(())
@@ -59,6 +58,78 @@ pub fn init_opts_bare() -> git2::RepositoryInitOptions {
     let mut opts = init_opts();
     opts.bare(true);
     opts
+}
+
+pub mod read_only {
+    use std::{
+        collections::BTreeSet,
+        path::{Path, PathBuf},
+    };
+
+    use gitbutler_command_context::CommandContext;
+    use gitbutler_project::{Project, ProjectId};
+    use once_cell::sync::Lazy;
+    use parking_lot::Mutex;
+
+    static DRIVER: Lazy<PathBuf> = Lazy::new(|| {
+        let mut cargo = std::process::Command::new(env!("CARGO"));
+        let res = cargo
+            .args(["build", "-p=gitbutler-cli"])
+            .status()
+            .expect("cargo should run fine");
+        assert!(res.success(), "cargo invocation should be successful");
+
+        let path = Path::new("../../target")
+            .join("debug")
+            .join(if cfg!(windows) {
+                "gitbutler-cli.exe"
+            } else {
+                "gitbutler-cli"
+            });
+        assert!(
+            path.is_file(),
+            "Expecting driver to be located at {path:?} - we also assume a certain crate location"
+        );
+        path.canonicalize().expect(
+            "canonicalization works as the CWD is valid and there are no symlinks to resolve",
+        )
+    });
+
+    /// Execute the script at `script_name.sh` (assumed to be located in `tests/fixtures/<script_name>`)
+    /// and make the command-line application available to it. That way the script can perform GitButler
+    /// operations and leave relevant files around statically.
+    /// Use `project_directory` to define where the project is located within the directory containing
+    /// the output of `script_name`.
+    ///
+    /// Returns the project that is strictly for read-only use.
+    pub fn fixture(script_name: &str, project_directory: &str) -> anyhow::Result<CommandContext> {
+        static IS_VALID_PROJECT: Lazy<Mutex<BTreeSet<(String, String)>>> =
+            Lazy::new(|| Mutex::new(Default::default()));
+
+        let root = gix_testtools::scripted_fixture_read_only_with_args(
+            script_name,
+            Some(DRIVER.display().to_string()),
+        )
+        .expect("script execution always succeeds");
+
+        let mut is_valid_guard = IS_VALID_PROJECT.lock();
+        let was_inserted =
+            is_valid_guard.insert((script_name.to_owned(), project_directory.to_owned()));
+        let project_worktree_dir = root.join(project_directory);
+        // Assure the project is valid the first time.
+        let project = if was_inserted {
+            let tmp = tempfile::TempDir::new()?;
+            gitbutler_project::Controller::from_path(tmp.path()).add(project_worktree_dir)?
+        } else {
+            Project {
+                id: ProjectId::generate(),
+                title: project_directory.to_owned(),
+                path: project_worktree_dir,
+                ..Default::default()
+            }
+        };
+        CommandContext::open(&project)
+    }
 }
 
 /// A secrets store to prevent secrets to be written into the systems own store.

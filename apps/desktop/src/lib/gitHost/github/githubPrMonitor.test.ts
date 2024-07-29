@@ -8,8 +8,8 @@ import type { GitHostPrService } from '../interface/gitHostPrService';
 describe.concurrent('GitHubPrMonitor', () => {
 	let octokit: Octokit;
 	let gh: GitHub;
-	let service: GitHostPrService;
-	let monitor: GitHostPrMonitor;
+	let service: GitHostPrService | undefined;
+	let monitor: GitHostPrMonitor | undefined;
 
 	beforeEach(() => {
 		vi.useFakeTimers();
@@ -21,13 +21,18 @@ describe.concurrent('GitHubPrMonitor', () => {
 
 	beforeEach(() => {
 		octokit = new Octokit();
-		gh = new GitHub(octokit, {
-			provider: 'github.com',
-			name: 'test-repo',
-			owner: 'test-owner'
-		});
+		gh = new GitHub(
+			{
+				source: 'github.com',
+				name: 'test-repo',
+				owner: 'test-owner'
+			},
+			undefined,
+			undefined,
+			octokit
+		);
 		service = gh.prService('base-branch', 'upstream-branch');
-		monitor = service.prMonitor(123);
+		monitor = service?.prMonitor(123);
 	});
 
 	test('should run on set interval', async () => {
@@ -36,13 +41,13 @@ describe.concurrent('GitHubPrMonitor', () => {
 				data: { title: 'PR Title' }
 			} as RestEndpointMethodTypes['pulls']['get']['response'])
 		);
-		const unsubscribe = monitor.pr.subscribe(() => {});
+		const unsubscribe = monitor?.pr.subscribe(() => {});
 		expect(get).toHaveBeenCalledOnce();
 		vi.advanceTimersToNextTimer();
 		expect(get).toHaveBeenCalledTimes(2);
 
 		// Unsubscribing should cancel the interval.
-		unsubscribe();
+		unsubscribe?.();
 		vi.advanceTimersToNextTimer();
 		expect(get).toHaveBeenCalledTimes(2);
 	});

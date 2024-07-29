@@ -1,5 +1,4 @@
-use std::path::PathBuf;
-use std::{fs, path};
+use std::{fs, path, path::PathBuf};
 
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_repo::RepositoryExt;

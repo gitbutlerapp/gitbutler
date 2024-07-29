@@ -1,36 +1,33 @@
+use anyhow::{Context, Result};
+use gitbutler_branch::{BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest};
+use gitbutler_command_context::CommandContext;
+use gitbutler_operating_modes::assure_open_workspace_mode;
+use gitbutler_oplog::{
+    entry::{OperationKind, SnapshotDetails},
+    OplogExt, SnapshotExt,
+};
+use gitbutler_project::{FetchResult, Project};
+use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
+use gitbutler_repo::{credentials::Helper, RepoActionsExt, RepositoryExt};
+use tracing::instrument;
+
+use super::r#virtual as branch;
 use crate::{
     base::{
         get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch,
         BaseBranch,
     },
     branch_manager::BranchManagerExt,
+    file::RemoteBranchFile,
     remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
     VirtualBranchesExt,
 };
-use anyhow::Result;
-use gitbutler_branch::{
-    BranchOwnershipClaims, {BranchCreateRequest, BranchId, BranchUpdateRequest},
-};
-use gitbutler_command_context::ProjectRepository;
-use gitbutler_oplog::{
-    entry::{OperationKind, SnapshotDetails},
-    OplogExt, SnapshotExt,
-};
-use gitbutler_project::{FetchResult, Project};
-use gitbutler_reference::ReferenceName;
-use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{credentials::Helper, RepoActionsExt, RepositoryExt};
-use tracing::instrument;
-
-use super::r#virtual as branch;
-
-use crate::file::RemoteBranchFile;
 
 #[derive(Clone, Copy, Default)]
 pub struct VirtualBranchActions;
 
 impl VirtualBranchActions {
-    pub async fn create_commit(
+    pub fn create_commit(
         &self,
         project: &Project,
         branch_id: BranchId,
@@ -38,21 +35,15 @@ impl VirtualBranchActions {
         ownership: Option<&BranchOwnershipClaims>,
         run_hooks: bool,
     ) -> Result<git2::Oid> {
-        let project_repository = open_with_verify(project)?;
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Creating a commit requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let snapshot_tree = project_repository
-            .project()
-            .prepare_snapshot(guard.read_permission());
-        let result = branch::commit(
-            &project_repository,
-            branch_id,
-            message,
-            ownership,
-            run_hooks,
-        )
-        .map_err(Into::into);
+        let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
+        let result =
+            branch::commit(&ctx, branch_id, message, ownership, run_hooks).map_err(Into::into);
         let _ = snapshot_tree.and_then(|snapshot_tree| {
-            project_repository.project().snapshot_commit_creation(
+            ctx.project().snapshot_commit_creation(
                 snapshot_tree,
                 result.as_ref().err(),
                 message.to_owned(),
@@ -63,34 +54,40 @@ impl VirtualBranchActions {
         result
     }
 
-    pub async fn can_apply_remote_branch(
+    pub fn can_apply_remote_branch(
         &self,
         project: &Project,
         branch_name: &RemoteRefname,
     ) -> Result<bool> {
-        let project_repository = ProjectRepository::open(project)?;
-        branch::is_remote_branch_mergeable(&project_repository, branch_name).map_err(Into::into)
+        let ctx = CommandContext::open(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Testing branch mergability requires open workspace mode")?;
+        branch::is_remote_branch_mergeable(&ctx, branch_name).map_err(Into::into)
     }
 
-    pub async fn list_virtual_branches(
+    pub fn list_virtual_branches(
         &self,
         project: &Project,
     ) -> Result<(Vec<branch::VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
-        branch::list_virtual_branches(
-            &open_with_verify(project)?,
-            project.exclusive_worktree_access().write_permission(),
-        )
-        .map_err(Into::into)
+        let ctx = open_with_verify(project)?;
+
+        assure_open_workspace_mode(&ctx)
+            .context("Listing virtual branches requires open workspace mode")?;
+
+        branch::list_virtual_branches(&ctx, project.exclusive_worktree_access().write_permission())
+            .map_err(Into::into)
     }
 
-    pub async fn create_virtual_branch(
+    pub fn create_virtual_branch(
         &self,
         project: &Project,
         create: &BranchCreateRequest,
     ) -> Result<BranchId> {
-        let project_repository = open_with_verify(project)?;
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Creating a branch requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let branch_manager = project_repository.branch_manager();
+        let branch_manager = ctx.branch_manager();
         let branch_id = branch_manager
             .create_virtual_branch(create, guard.write_permission())?
             .id;
@@ -98,81 +95,80 @@ impl VirtualBranchActions {
     }
 
     #[instrument(skip(project), err(Debug))]
-    pub async fn get_base_branch_data(project: &Project) -> Result<BaseBranch> {
-        let project_repository = ProjectRepository::open(project)?;
-        get_base_branch_data(&project_repository)
+    pub fn get_base_branch_data(project: &Project) -> Result<BaseBranch> {
+        let ctx = CommandContext::open(project)?;
+        get_base_branch_data(&ctx)
     }
 
-    pub async fn list_remote_commit_files(
+    pub fn list_remote_commit_files(
         &self,
         project: &Project,
         commit_oid: git2::Oid,
     ) -> Result<Vec<RemoteBranchFile>> {
-        let project_repository = ProjectRepository::open(project)?;
-        crate::file::list_remote_commit_files(project_repository.repo(), commit_oid)
-            .map_err(Into::into)
+        let ctx = CommandContext::open(project)?;
+        crate::file::list_remote_commit_files(ctx.repository(), commit_oid).map_err(Into::into)
     }
 
-    pub async fn set_base_branch(
+    pub fn set_base_branch(
         &self,
         project: &Project,
         target_branch: &RemoteRefname,
     ) -> Result<BaseBranch> {
-        let project_repository = ProjectRepository::open(project)?;
+        let ctx = CommandContext::open(project)?;
         let mut guard = project.exclusive_worktree_access();
-        let _ = project_repository.project().create_snapshot(
+        let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::SetBaseBranch),
             guard.write_permission(),
         );
-        set_base_branch(&project_repository, target_branch)
+        set_base_branch(&ctx, target_branch)
     }
 
-    pub async fn set_target_push_remote(&self, project: &Project, push_remote: &str) -> Result<()> {
-        let project_repository = ProjectRepository::open(project)?;
-        set_target_push_remote(&project_repository, push_remote)
+    pub fn set_target_push_remote(&self, project: &Project, push_remote: &str) -> Result<()> {
+        let ctx = CommandContext::open(project)?;
+        set_target_push_remote(&ctx, push_remote)
     }
 
-    pub async fn integrate_upstream_commits(
-        &self,
-        project: &Project,
-        branch_id: BranchId,
-    ) -> Result<()> {
-        let project_repository = open_with_verify(project)?;
+    pub fn integrate_upstream_commits(&self, project: &Project, branch_id: BranchId) -> Result<()> {
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Integrating upstream commits requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let _ = project_repository.project().create_snapshot(
+        let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::MergeUpstream),
             guard.write_permission(),
         );
-        branch::integrate_upstream_commits(&project_repository, branch_id).map_err(Into::into)
+        branch::integrate_upstream_commits(&ctx, branch_id).map_err(Into::into)
     }
 
-    pub async fn update_base_branch(&self, project: &Project) -> Result<Vec<ReferenceName>> {
-        let project_repository = open_with_verify(project)?;
+    pub fn update_base_branch(&self, project: &Project) -> Result<Vec<ReferenceName>> {
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Updating base branch requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let _ = project_repository.project().create_snapshot(
+        let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::UpdateWorkspaceBase),
             guard.write_permission(),
         );
-        update_base_branch(&project_repository, guard.write_permission()).map_err(Into::into)
+        update_base_branch(&ctx, guard.write_permission()).map_err(Into::into)
     }
 
-    pub async fn update_virtual_branch(
+    pub fn update_virtual_branch(
         &self,
         project: &Project,
         branch_update: BranchUpdateRequest,
     ) -> Result<()> {
-        let project_repository = open_with_verify(project)?;
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Updating a branch requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let snapshot_tree = project_repository
-            .project()
-            .prepare_snapshot(guard.read_permission());
-        let old_branch = project_repository
+        let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
+        let old_branch = ctx
             .project()
             .virtual_branches()
             .get_branch_in_workspace(branch_update.id)?;
-        let result = branch::update_branch(&project_repository, &branch_update);
+        let result = branch::update_branch(&ctx, &branch_update);
         let _ = snapshot_tree.and_then(|snapshot_tree| {
-            project_repository.project().snapshot_branch_update(
+            ctx.project().snapshot_branch_update(
                 snapshot_tree,
                 &old_branch,
                 &branch_update,
@@ -183,59 +179,82 @@ impl VirtualBranchActions {
         result?;
         Ok(())
     }
-    pub async fn delete_virtual_branch(
+
+    pub fn update_branch_order(
         &self,
         project: &Project,
-        branch_id: BranchId,
+        branch_updates: Vec<BranchUpdateRequest>,
     ) -> Result<()> {
-        let project_repository = open_with_verify(project)?;
-        let branch_manager = project_repository.branch_manager();
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Updating branch order requires open workspace mode")?;
+        for branch_update in branch_updates {
+            let branch = ctx
+                .project()
+                .virtual_branches()
+                .get_branch_in_workspace(branch_update.id)?;
+            if branch_update.order != Some(branch.order) {
+                branch::update_branch(&ctx, &branch_update)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn delete_virtual_branch(&self, project: &Project, branch_id: BranchId) -> Result<()> {
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Deleting a branch order requires open workspace mode")?;
+        let branch_manager = ctx.branch_manager();
         let mut guard = project.exclusive_worktree_access();
         branch_manager.delete_branch(branch_id, guard.write_permission())
     }
 
-    pub async fn unapply_ownership(
+    pub fn unapply_ownership(
         &self,
         project: &Project,
         ownership: &BranchOwnershipClaims,
     ) -> Result<()> {
-        let project_repository = open_with_verify(project)?;
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx).context("Unapply a patch requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let _ = project_repository.project().create_snapshot(
+        let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::DiscardHunk),
             guard.write_permission(),
         );
-        branch::unapply_ownership(&project_repository, ownership, guard.write_permission())
-            .map_err(Into::into)
+        branch::unapply_ownership(&ctx, ownership, guard.write_permission()).map_err(Into::into)
     }
 
-    pub async fn reset_files(&self, project: &Project, files: &Vec<String>) -> Result<()> {
-        let project_repository = open_with_verify(project)?;
+    pub fn reset_files(&self, project: &Project, files: &Vec<String>) -> Result<()> {
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Resetting a file requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let _ = project_repository.project().create_snapshot(
+        let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::DiscardFile),
             guard.write_permission(),
         );
-        branch::reset_files(&project_repository, files).map_err(Into::into)
+        branch::reset_files(&ctx, files).map_err(Into::into)
     }
 
-    pub async fn amend(
+    pub fn amend(
         &self,
         project: &Project,
         branch_id: BranchId,
         commit_oid: git2::Oid,
         ownership: &BranchOwnershipClaims,
     ) -> Result<git2::Oid> {
-        let project_repository = open_with_verify(project)?;
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Amending a commit requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let _ = project_repository.project().create_snapshot(
+        let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::AmendCommit),
             guard.write_permission(),
         );
-        branch::amend(&project_repository, branch_id, commit_oid, ownership)
+        branch::amend(&ctx, branch_id, commit_oid, ownership)
     }
 
-    pub async fn move_commit_file(
+    pub fn move_commit_file(
         &self,
         project: &Project,
         branch_id: BranchId,
@@ -243,37 +262,33 @@ impl VirtualBranchActions {
         to_commit_oid: git2::Oid,
         ownership: &BranchOwnershipClaims,
     ) -> Result<git2::Oid> {
-        let project_repository = open_with_verify(project)?;
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Amending a commit requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let _ = project_repository.project().create_snapshot(
+        let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::MoveCommitFile),
             guard.write_permission(),
         );
-        branch::move_commit_file(
-            &project_repository,
-            branch_id,
-            from_commit_oid,
-            to_commit_oid,
-            ownership,
-        )
-        .map_err(Into::into)
+        branch::move_commit_file(&ctx, branch_id, from_commit_oid, to_commit_oid, ownership)
+            .map_err(Into::into)
     }
 
-    pub async fn undo_commit(
+    pub fn undo_commit(
         &self,
         project: &Project,
         branch_id: BranchId,
         commit_oid: git2::Oid,
     ) -> Result<()> {
-        let project_repository = open_with_verify(project)?;
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Undoing a commit requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let snapshot_tree = project_repository
-            .project()
-            .prepare_snapshot(guard.read_permission());
+        let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
         let result: Result<()> =
-            branch::undo_commit(&project_repository, branch_id, commit_oid).map_err(Into::into);
+            branch::undo_commit(&ctx, branch_id, commit_oid).map_err(Into::into);
         let _ = snapshot_tree.and_then(|snapshot_tree| {
-            project_repository.project().snapshot_commit_undo(
+            ctx.project().snapshot_commit_undo(
                 snapshot_tree,
                 result.as_ref(),
                 commit_oid,
@@ -283,70 +298,74 @@ impl VirtualBranchActions {
         result
     }
 
-    pub async fn insert_blank_commit(
+    pub fn insert_blank_commit(
         &self,
         project: &Project,
         branch_id: BranchId,
         commit_oid: git2::Oid,
         offset: i32,
     ) -> Result<()> {
-        let project_repository = open_with_verify(project)?;
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Inserting a blank commit requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let _ = project_repository.project().create_snapshot(
+        let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::InsertBlankCommit),
             guard.write_permission(),
         );
-        branch::insert_blank_commit(&project_repository, branch_id, commit_oid, offset)
-            .map_err(Into::into)
+        branch::insert_blank_commit(&ctx, branch_id, commit_oid, offset).map_err(Into::into)
     }
 
-    pub async fn reorder_commit(
+    pub fn reorder_commit(
         &self,
         project: &Project,
         branch_id: BranchId,
         commit_oid: git2::Oid,
         offset: i32,
     ) -> Result<()> {
-        let project_repository = open_with_verify(project)?;
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Reordering a commit requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let _ = project_repository.project().create_snapshot(
+        let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::ReorderCommit),
             guard.write_permission(),
         );
-        branch::reorder_commit(&project_repository, branch_id, commit_oid, offset)
-            .map_err(Into::into)
+        branch::reorder_commit(&ctx, branch_id, commit_oid, offset).map_err(Into::into)
     }
 
-    pub async fn reset_virtual_branch(
+    pub fn reset_virtual_branch(
         &self,
         project: &Project,
         branch_id: BranchId,
         target_commit_oid: git2::Oid,
     ) -> Result<()> {
-        let project_repository = open_with_verify(project)?;
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Resetting a branch requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let _ = project_repository.project().create_snapshot(
+        let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::UndoCommit),
             guard.write_permission(),
         );
-        branch::reset_branch(&project_repository, branch_id, target_commit_oid).map_err(Into::into)
+        branch::reset_branch(&ctx, branch_id, target_commit_oid).map_err(Into::into)
     }
 
-    pub async fn convert_to_real_branch(
+    pub fn convert_to_real_branch(
         &self,
         project: &Project,
         branch_id: BranchId,
     ) -> Result<ReferenceName> {
-        let project_repository = open_with_verify(project)?;
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Converting branch to a real branch requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let snapshot_tree = project_repository
-            .project()
-            .prepare_snapshot(guard.read_permission());
-        let branch_manager = project_repository.branch_manager();
+        let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
+        let branch_manager = ctx.branch_manager();
         let result = branch_manager.convert_to_real_branch(branch_id, guard.write_permission());
 
         let _ = snapshot_tree.and_then(|snapshot_tree| {
-            project_repository.project().snapshot_branch_unapplied(
+            ctx.project().snapshot_branch_unapplied(
                 snapshot_tree,
                 result.as_ref(),
                 guard.write_permission(),
@@ -356,7 +375,7 @@ impl VirtualBranchActions {
         result
     }
 
-    pub async fn push_virtual_branch(
+    pub fn push_virtual_branch(
         &self,
         project: &Project,
         branch_id: BranchId,
@@ -364,70 +383,74 @@ impl VirtualBranchActions {
         askpass: Option<Option<BranchId>>,
     ) -> Result<()> {
         let helper = Helper::default();
-        let project_repository = open_with_verify(project)?;
-        branch::push(&project_repository, branch_id, with_force, &helper, askpass)
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Pushing a branch requires open workspace mode")?;
+        branch::push(&ctx, branch_id, with_force, &helper, askpass)
     }
 
-    pub async fn list_remote_branches(project: Project) -> Result<Vec<RemoteBranch>> {
-        let project_repository = ProjectRepository::open(&project)?;
-        list_remote_branches(&project_repository)
+    pub fn list_remote_branches(project: Project) -> Result<Vec<RemoteBranch>> {
+        let ctx = CommandContext::open(&project)?;
+        list_remote_branches(&ctx)
     }
 
-    pub async fn get_remote_branch_data(
+    pub fn get_remote_branch_data(
         &self,
         project: &Project,
         refname: &Refname,
     ) -> Result<RemoteBranchData> {
-        let project_repository = ProjectRepository::open(project)?;
-        get_branch_data(&project_repository, refname)
+        let ctx = CommandContext::open(project)?;
+        get_branch_data(&ctx, refname)
     }
 
-    pub async fn squash(
+    pub fn squash(
         &self,
         project: &Project,
         branch_id: BranchId,
         commit_oid: git2::Oid,
     ) -> Result<()> {
-        let project_repository = open_with_verify(project)?;
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Squashing a commit requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let _ = project_repository.project().create_snapshot(
+        let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::SquashCommit),
             guard.write_permission(),
         );
-        branch::squash(&project_repository, branch_id, commit_oid).map_err(Into::into)
+        branch::squash(&ctx, branch_id, commit_oid).map_err(Into::into)
     }
 
-    pub async fn update_commit_message(
+    pub fn update_commit_message(
         &self,
         project: &Project,
         branch_id: BranchId,
         commit_oid: git2::Oid,
         message: &str,
     ) -> Result<()> {
-        let project_repository = open_with_verify(project)?;
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Updating a commit message requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let _ = project_repository.project().create_snapshot(
+        let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::UpdateCommitMessage),
             guard.write_permission(),
         );
-        branch::update_commit_message(&project_repository, branch_id, commit_oid, message)
-            .map_err(Into::into)
+        branch::update_commit_message(&ctx, branch_id, commit_oid, message).map_err(Into::into)
     }
 
-    pub async fn fetch_from_remotes(
+    pub fn fetch_from_remotes(
         &self,
         project: &Project,
         askpass: Option<String>,
     ) -> Result<FetchResult> {
-        let project_repository = ProjectRepository::open(project)?;
+        let ctx = CommandContext::open(project)?;
 
         let helper = Helper::default();
-        let remotes = project_repository.repo().remotes_as_string()?;
+        let remotes = ctx.repository().remotes_as_string()?;
         let fetch_errors: Vec<_> = remotes
             .iter()
             .filter_map(|remote| {
-                project_repository
-                    .fetch(remote, &helper, askpass.clone())
+                ctx.fetch(remote, &helper, askpass.clone())
                     .err()
                     .map(|err| err.to_string())
             })
@@ -446,29 +469,32 @@ impl VirtualBranchActions {
         Ok(project_data_last_fetched)
     }
 
-    pub async fn move_commit(
+    pub fn move_commit(
         &self,
         project: &Project,
         target_branch_id: BranchId,
         commit_oid: git2::Oid,
     ) -> Result<()> {
-        let project_repository = open_with_verify(project)?;
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx).context("Moving a commit requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
-        let _ = project_repository.project().create_snapshot(
+        let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::MoveCommit),
             guard.write_permission(),
         );
-        branch::move_commit(&project_repository, target_branch_id, commit_oid).map_err(Into::into)
+        branch::move_commit(&ctx, target_branch_id, commit_oid).map_err(Into::into)
     }
 
-    pub async fn create_virtual_branch_from_branch(
+    pub fn create_virtual_branch_from_branch(
         &self,
         project: &Project,
         branch: &Refname,
         remote: Option<RemoteRefname>,
     ) -> Result<BranchId> {
-        let project_repository = open_with_verify(project)?;
-        let branch_manager = project_repository.branch_manager();
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Creating a virtual branch from a branch open workspace mode")?;
+        let branch_manager = ctx.branch_manager();
         let mut guard = project.exclusive_worktree_access();
         branch_manager
             .create_virtual_branch_from_branch(branch, remote, guard.write_permission())
@@ -476,9 +502,9 @@ impl VirtualBranchActions {
     }
 }
 
-fn open_with_verify(project: &Project) -> Result<ProjectRepository> {
-    let project_repository = ProjectRepository::open(project)?;
+fn open_with_verify(project: &Project) -> Result<CommandContext> {
+    let ctx = CommandContext::open(project)?;
     let mut guard = project.exclusive_worktree_access();
-    crate::integration::verify_branch(&project_repository, guard.write_permission())?;
-    Ok(project_repository)
+    crate::integration::verify_branch(&ctx, guard.write_permission())?;
+    Ok(ctx)
 }

@@ -1,12 +1,10 @@
-use std::path::PathBuf;
-use std::str;
+use std::{path::PathBuf, str};
 
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
 use gitbutler_repo::credentials::{Credential, Helper, SshCredential};
-use gitbutler_user as users;
-
 use gitbutler_testsupport::{temp_dir, test_repository};
+use gitbutler_user as users;
 
 #[derive(Default)]
 struct TestCase<'a> {
@@ -38,9 +36,9 @@ impl TestCase<'_> {
             preferred_key: self.preferred_key.clone(),
             ..Default::default()
         };
-        let project_repository = ProjectRepository::open(&project).unwrap();
+        let ctx = CommandContext::open(&project).unwrap();
 
-        let flow = helper.help(&project_repository, "origin").unwrap();
+        let flow = helper.help(&ctx, "origin").unwrap();
         flow.into_iter()
             .map(|(remote, credentials)| (remote.url().as_ref().unwrap().to_string(), credentials))
             .collect::<Vec<_>>()

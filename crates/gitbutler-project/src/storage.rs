@@ -1,6 +1,7 @@
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 use crate::{ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectId};
 

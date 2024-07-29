@@ -1,19 +1,17 @@
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+use std::{io::Write, path::Path, process::Stdio, str};
+
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::BString;
 use git2::{BlameOptions, Tree};
 use gitbutler_commit::{commit_buffer::CommitBuffer, commit_headers::CommitHeadersV2};
 use gitbutler_config::git::{GbConfig, GitConfig};
-use gitbutler_reference::{Refname, RemoteRefname};
-use std::{path::Path, process::Stdio, str};
-use tracing::instrument;
-
 use gitbutler_error::error::Code;
-
-use std::io::Write;
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
+use gitbutler_reference::{Refname, RemoteRefname};
+use tracing::instrument;
 
 /// Extension trait for `git2::Repository`.
 ///

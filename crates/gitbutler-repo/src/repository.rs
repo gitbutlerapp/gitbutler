@@ -1,17 +1,18 @@
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
-
-use gitbutler_branch::{Branch, BranchId};
-use gitbutler_command_context::ProjectRepository;
+use bstr::ByteSlice;
+use gitbutler_branch::{
+    Branch, BranchId, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
+    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
+};
+use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_error::error::Code;
+use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
 
-use crate::{askpass, ssh, Config};
-use gitbutler_project::AuthKey;
-
-use crate::{credentials::Helper, RepositoryExt};
+use crate::{askpass, credentials::Helper, ssh, Config, RepositoryExt};
 pub trait RepoActionsExt {
     fn fetch(&self, remote_name: &str, credentials: &Helper, askpass: Option<String>)
         -> Result<()>;
@@ -45,9 +46,10 @@ pub trait RepoActionsExt {
         branch_name: &str,
         askpass: Option<Option<BranchId>>,
     ) -> Result<()>;
+    fn signatures(&self) -> Result<(git2::Signature, git2::Signature)>;
 }
 
-impl RepoActionsExt for ProjectRepository {
+impl RepoActionsExt for CommandContext {
     fn git_test_push(
         &self,
         credentials: &Helper,
@@ -58,7 +60,7 @@ impl RepoActionsExt for ProjectRepository {
         let target_branch_refname =
             Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
         let branch = self
-            .repo()
+            .repository()
             .find_branch_by_refname(&target_branch_refname)?
             .ok_or(anyhow!("failed to find branch {}", target_branch_refname))?;
 
@@ -92,21 +94,23 @@ impl RepoActionsExt for ProjectRepository {
     }
 
     fn add_branch_reference(&self, branch: &Branch) -> Result<()> {
-        let (should_write, with_force) =
-            match self.repo().find_reference(&branch.refname().to_string()) {
-                Ok(reference) => match reference.target() {
-                    Some(head_oid) => Ok((head_oid != branch.head, true)),
-                    None => Ok((true, true)),
-                },
-                Err(err) => match err.code() {
-                    git2::ErrorCode::NotFound => Ok((true, false)),
-                    _ => Err(err),
-                },
-            }
-            .context("failed to lookup reference")?;
+        let (should_write, with_force) = match self
+            .repository()
+            .find_reference(&branch.refname().to_string())
+        {
+            Ok(reference) => match reference.target() {
+                Some(head_oid) => Ok((head_oid != branch.head, true)),
+                None => Ok((true, true)),
+            },
+            Err(err) => match err.code() {
+                git2::ErrorCode::NotFound => Ok((true, false)),
+                _ => Err(err),
+            },
+        }
+        .context("failed to lookup reference")?;
 
         if should_write {
-            self.repo()
+            self.repository()
                 .reference(
                     &branch.refname().to_string(),
                     branch.head,
@@ -120,7 +124,10 @@ impl RepoActionsExt for ProjectRepository {
     }
 
     fn delete_branch_reference(&self, branch: &Branch) -> Result<()> {
-        match self.repo().find_reference(&branch.refname().to_string()) {
+        match self
+            .repository()
+            .find_reference(&branch.refname().to_string())
+        {
             Ok(mut reference) => {
                 reference
                     .delete()
@@ -139,7 +146,10 @@ impl RepoActionsExt for ProjectRepository {
     fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>> {
         match to {
             LogUntil::Commit(oid) => {
-                let mut revwalk = self.repo().revwalk().context("failed to create revwalk")?;
+                let mut revwalk = self
+                    .repository()
+                    .revwalk()
+                    .context("failed to create revwalk")?;
                 revwalk
                     .push(from)
                     .context(format!("failed to push {}", from))?;
@@ -151,7 +161,10 @@ impl RepoActionsExt for ProjectRepository {
                     .collect::<Result<Vec<_>, _>>()
             }
             LogUntil::Take(n) => {
-                let mut revwalk = self.repo().revwalk().context("failed to create revwalk")?;
+                let mut revwalk = self
+                    .repository()
+                    .revwalk()
+                    .context("failed to create revwalk")?;
                 revwalk
                     .push(from)
                     .context(format!("failed to push {}", from))?;
@@ -161,7 +174,10 @@ impl RepoActionsExt for ProjectRepository {
                     .collect::<Result<Vec<_>, _>>()
             }
             LogUntil::When(cond) => {
-                let mut revwalk = self.repo().revwalk().context("failed to create revwalk")?;
+                let mut revwalk = self
+                    .repository()
+                    .revwalk()
+                    .context("failed to create revwalk")?;
                 revwalk
                     .push(from)
                     .context(format!("failed to push {}", from))?;
@@ -171,7 +187,7 @@ impl RepoActionsExt for ProjectRepository {
                     oids.push(oid);
 
                     let commit = self
-                        .repo()
+                        .repository()
                         .find_commit(oid)
                         .context("failed to find commit")?;
 
@@ -182,7 +198,10 @@ impl RepoActionsExt for ProjectRepository {
                 Ok(oids)
             }
             LogUntil::End => {
-                let mut revwalk = self.repo().revwalk().context("failed to create revwalk")?;
+                let mut revwalk = self
+                    .repository()
+                    .revwalk()
+                    .context("failed to create revwalk")?;
                 revwalk
                     .push(from)
                     .context(format!("failed to push {}", from))?;
@@ -203,7 +222,7 @@ impl RepoActionsExt for ProjectRepository {
         Ok(self
             .list(from, to)?
             .into_iter()
-            .map(|oid| self.repo().find_commit(oid))
+            .map(|oid| self.repository().find_commit(oid))
             .collect::<Result<Vec<_>, _>>()?)
     }
 
@@ -211,7 +230,7 @@ impl RepoActionsExt for ProjectRepository {
     fn log(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Commit>> {
         self.l(from, to)?
             .into_iter()
-            .map(|oid| self.repo().find_commit(oid))
+            .map(|oid| self.repository().find_commit(oid))
             .collect::<Result<Vec<_>, _>>()
             .context("failed to collect commits")
     }
@@ -229,8 +248,8 @@ impl RepoActionsExt for ProjectRepository {
         parents: &[&git2::Commit],
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid> {
-        let (author, committer) = signatures(self).context("failed to get signatures")?;
-        self.repo()
+        let (author, committer) = self.signatures().context("failed to get signatures")?;
+        self.repository()
             .commit_with_signature(
                 None,
                 &author,
@@ -424,25 +443,43 @@ impl RepoActionsExt for ProjectRepository {
 
         Err(anyhow!("authentication failed")).context(Code::ProjectGitAuth)
     }
+
+    fn signatures(&self) -> Result<(git2::Signature, git2::Signature)> {
+        let repo = gix::open(self.repository().path())?;
+
+        let default_actor = gix::actor::SignatureRef {
+            name: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME.into(),
+            email: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL.into(),
+            time: Default::default(),
+        };
+        let author = repo.author().transpose()?.unwrap_or(default_actor);
+        let config: Config = self.repository().into();
+        let committer = if config.user_real_comitter()? {
+            repo.committer().transpose()?.unwrap_or(default_actor)
+        } else {
+            default_actor
+        };
+
+        Ok((
+            actor_to_git2_signature(author)?,
+            actor_to_git2_signature(committer)?,
+        ))
+    }
 }
 
-fn signatures(project_repo: &ProjectRepository) -> Result<(git2::Signature, git2::Signature)> {
-    let config: Config = project_repo.repo().into();
-
-    let author = match (config.user_name()?, config.user_email()?) {
-        (None, Some(email)) => git2::Signature::now(&email, &email)?,
-        (Some(name), None) => git2::Signature::now(&name, &format!("{}@example.com", &name))?,
-        (Some(name), Some(email)) => git2::Signature::now(&name, &email)?,
-        _ => git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?,
-    };
-
-    let comitter = if config.user_real_comitter()? {
-        author.clone()
-    } else {
-        git2::Signature::now("GitButler", "gitbutler@gitbutler.com")?
-    };
-
-    Ok((author, comitter))
+fn actor_to_git2_signature(
+    actor: gix::actor::SignatureRef<'_>,
+) -> Result<git2::Signature<'static>> {
+    Ok(git2::Signature::now(
+        actor
+            .name
+            .to_str()
+            .with_context(|| format!("Could not process actor name: {}", actor.name))?,
+        actor
+            .email
+            .to_str()
+            .with_context(|| format!("Could not process actor email: {}", actor.email))?,
+    )?)
 }
 
 type OidFilter = dyn Fn(&git2::Commit) -> Result<bool>;

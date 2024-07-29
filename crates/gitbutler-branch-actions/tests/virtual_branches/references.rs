@@ -1,11 +1,12 @@
 use super::*;
 
 mod create_virtual_branch {
-    use super::*;
     use gitbutler_branch::BranchCreateRequest;
 
-    #[tokio::test]
-    async fn simple() {
+    use super::*;
+
+    #[test]
+    fn simple() {
         let Test {
             project,
             controller,
@@ -15,15 +16,13 @@ mod create_virtual_branch {
 
         controller
             .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .await
             .unwrap();
 
         let branch_id = controller
             .create_virtual_branch(project, &BranchCreateRequest::default())
-            .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch_id);
         assert_eq!(branches[0].name, "Virtual branch");
@@ -36,8 +35,8 @@ mod create_virtual_branch {
         assert!(refnames.contains(&"refs/gitbutler/Virtual-branch".to_string()));
     }
 
-    #[tokio::test]
-    async fn duplicate_name() {
+    #[test]
+    fn duplicate_name() {
         let Test {
             project,
             controller,
@@ -47,7 +46,6 @@ mod create_virtual_branch {
 
         controller
             .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .await
             .unwrap();
 
         let branch1_id = controller
@@ -58,7 +56,6 @@ mod create_virtual_branch {
                     ..Default::default()
                 },
             )
-            .await
             .unwrap();
 
         let branch2_id = controller
@@ -69,10 +66,9 @@ mod create_virtual_branch {
                     ..Default::default()
                 },
             )
-            .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 2);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].name, "name");
@@ -90,11 +86,12 @@ mod create_virtual_branch {
 }
 
 mod update_virtual_branch {
-    use super::*;
     use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 
-    #[tokio::test]
-    async fn simple() {
+    use super::*;
+
+    #[test]
+    fn simple() {
         let Test {
             project,
             controller,
@@ -104,7 +101,6 @@ mod update_virtual_branch {
 
         controller
             .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .await
             .unwrap();
 
         let branch_id = controller
@@ -115,7 +111,6 @@ mod update_virtual_branch {
                     ..Default::default()
                 },
             )
-            .await
             .unwrap();
 
         controller
@@ -127,10 +122,9 @@ mod update_virtual_branch {
                     ..Default::default()
                 },
             )
-            .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch_id);
         assert_eq!(branches[0].name, "new name");
@@ -144,8 +138,8 @@ mod update_virtual_branch {
         assert!(refnames.contains(&"refs/gitbutler/new-name".to_string()));
     }
 
-    #[tokio::test]
-    async fn duplicate_name() {
+    #[test]
+    fn duplicate_name() {
         let Test {
             project,
             controller,
@@ -155,7 +149,6 @@ mod update_virtual_branch {
 
         controller
             .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .await
             .unwrap();
 
         let branch1_id = controller
@@ -166,7 +159,6 @@ mod update_virtual_branch {
                     ..Default::default()
                 },
             )
-            .await
             .unwrap();
 
         let branch2_id = controller
@@ -176,7 +168,6 @@ mod update_virtual_branch {
                     ..Default::default()
                 },
             )
-            .await
             .unwrap();
 
         controller
@@ -188,10 +179,9 @@ mod update_virtual_branch {
                     ..Default::default()
                 },
             )
-            .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 2);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].name, "name");
@@ -209,11 +199,12 @@ mod update_virtual_branch {
 }
 
 mod push_virtual_branch {
-    use super::*;
     use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 
-    #[tokio::test]
-    async fn simple() {
+    use super::*;
+
+    #[test]
+    fn simple() {
         let Test {
             project,
             controller,
@@ -223,7 +214,6 @@ mod push_virtual_branch {
 
         controller
             .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .await
             .unwrap();
 
         let branch1_id = controller
@@ -234,21 +224,18 @@ mod push_virtual_branch {
                     ..Default::default()
                 },
             )
-            .await
             .unwrap();
 
         fs::write(repository.path().join("file.txt"), "content").unwrap();
 
         controller
             .create_commit(project, branch1_id, "test", None, false)
-            .await
             .unwrap();
         controller
             .push_virtual_branch(project, branch1_id, false, None)
-            .await
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].name, "name");
@@ -265,8 +252,8 @@ mod push_virtual_branch {
         assert!(refnames.contains(&branches[0].upstream.clone().unwrap().name.to_string()));
     }
 
-    #[tokio::test]
-    async fn duplicate_names() {
+    #[test]
+    fn duplicate_names() {
         let Test {
             project,
             controller,
@@ -276,7 +263,6 @@ mod push_virtual_branch {
 
         controller
             .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .await
             .unwrap();
 
         let branch1_id = {
@@ -289,16 +275,13 @@ mod push_virtual_branch {
                         ..Default::default()
                     },
                 )
-                .await
                 .unwrap();
             fs::write(repository.path().join("file.txt"), "content").unwrap();
             controller
                 .create_commit(project, branch1_id, "test", None, false)
-                .await
                 .unwrap();
             controller
                 .push_virtual_branch(project, branch1_id, false, None)
-                .await
                 .unwrap();
             branch1_id
         };
@@ -313,7 +296,6 @@ mod push_virtual_branch {
                     ..Default::default()
                 },
             )
-            .await
             .unwrap();
 
         let branch2_id = {
@@ -326,21 +308,18 @@ mod push_virtual_branch {
                         ..Default::default()
                     },
                 )
-                .await
                 .unwrap();
             fs::write(repository.path().join("file.txt"), "updated content").unwrap();
             controller
                 .create_commit(project, branch2_id, "test", None, false)
-                .await
                 .unwrap();
             controller
                 .push_virtual_branch(project, branch2_id, false, None)
-                .await
                 .unwrap();
             branch2_id
         };
 
-        let (branches, _) = controller.list_virtual_branches(project).await.unwrap();
+        let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 2);
         // first branch is pushing to old ref remotely
         assert_eq!(branches[0].id, branch1_id);

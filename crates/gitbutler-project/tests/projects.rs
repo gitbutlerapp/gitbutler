@@ -1,7 +1,6 @@
 use gitbutler_project::Controller;
-use tempfile::TempDir;
-
 use gitbutler_testsupport::{self, paths};
+use tempfile::TempDir;
 
 pub fn new() -> (Controller, TempDir) {
     let data_dir = paths::data_dir();
@@ -119,14 +118,14 @@ mod add {
 
 mod delete {
     use super::*;
-    #[tokio::test]
-    async fn success() {
+    #[test]
+    fn success() {
         let (controller, _tmp) = new();
         let repository = gitbutler_testsupport::TestProject::default();
         let path = repository.path();
         let project = controller.add(path).unwrap();
-        assert!(controller.delete(project.id).await.is_ok());
-        assert!(controller.delete(project.id).await.is_ok()); // idempotent
+        assert!(controller.delete(project.id).is_ok());
+        assert!(controller.delete(project.id).is_ok()); // idempotent
         assert!(controller.get(project.id).is_err());
         assert!(!project.gb_dir().exists());
         assert!(!project.path.join(".gitbutler.json").exists());
