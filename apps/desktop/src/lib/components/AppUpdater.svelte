@@ -11,11 +11,11 @@
 
 	let dismissed = $state(false);
 	$effect(() => {
-		if (version && dismissed) dismissed = false;
+		if ($version && dismissed) dismissed = false;
 	});
 </script>
 
-{#if $update?.version && $update?.status !== 'UPTODATE' && !dismissed}
+{#if $update?.version && !dismissed}
 	<div class="update-banner" class:busy={$update?.status === 'PENDING'}>
 		<div class="floating-button">
 			<Button icon="cross-small" style="ghost" on:click={() => (dismissed = true)} />
@@ -97,6 +97,8 @@
 				Installing update...
 			{:else if $update.status === 'DONE'}
 				Install complete
+			{:else if $update.status === 'UPTODATE'}
+				You are up-to-date
 			{:else if $update.status === 'ERROR'}
 				Error occurred...
 			{/if}
