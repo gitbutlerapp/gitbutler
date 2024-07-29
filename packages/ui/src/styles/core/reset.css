@@ -24,9 +24,6 @@
 		margin: 0;
 		line-height: inherit;
 
-		color: var(--clr-text-1);
-		background-color: var(--clr-bg-2);
-
 		/* optimise font rendering */
 		-webkit-font-smoothing: antialiased;
 		text-rendering: optimizeLegibility;
