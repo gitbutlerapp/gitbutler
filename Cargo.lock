@@ -2453,6 +2453,7 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-error",
  "gitbutler-notify-debouncer",
+ "gitbutler-operating-modes",
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",
