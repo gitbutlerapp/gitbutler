@@ -81,10 +81,10 @@ pub enum HelpError {
 impl Helper {
     pub fn help<'a>(
         &'a self,
-        project_repository: &'a CommandContext,
+        ctx: &'a CommandContext,
         remote_name: &str,
     ) -> Result<Vec<(git2::Remote, Vec<Credential>)>, HelpError> {
-        let remote = project_repository.repo().find_remote(remote_name)?;
+        let remote = ctx.repo().find_remote(remote_name)?;
         let remote_url = Url::from_str(remote.url().ok_or(HelpError::NoUrlSet)?)
             .context("failed to parse remote url")?;
 
@@ -93,15 +93,13 @@ impl Helper {
             return Ok(vec![(remote, vec![Credential::Noop])]);
         }
 
-        match &project_repository.project().preferred_key {
+        match &ctx.project().preferred_key {
             AuthKey::Local { private_key_path } => {
                 let ssh_remote = if remote_url.scheme == Scheme::Ssh {
                     Ok(remote)
                 } else {
                     let ssh_url = remote_url.as_ssh()?;
-                    project_repository
-                        .repo()
-                        .remote_anonymous(&ssh_url.to_string())
+                    ctx.repo().remote_anonymous(&ssh_url.to_string())
                 }?;
 
                 Ok(vec![(
@@ -117,9 +115,9 @@ impl Helper {
                     Ok(remote)
                 } else {
                     let url = remote_url.as_https()?;
-                    project_repository.repo().remote_anonymous(&url.to_string())
+                    ctx.repo().remote_anonymous(&url.to_string())
                 }?;
-                let flow = Self::https_flow(project_repository, &remote_url)?
+                let flow = Self::https_flow(ctx, &remote_url)?
                     .into_iter()
                     .map(Credential::Https)
                     .collect::<Vec<_>>();
@@ -133,13 +131,13 @@ impl Helper {
     }
 
     fn https_flow(
-        project_repository: &CommandContext,
+        ctx: &CommandContext,
         remote_url: &Url,
     ) -> Result<Vec<HttpsCredential>, HelpError> {
         let mut flow = vec![];
 
         let mut helper = git2::CredentialHelper::new(&remote_url.to_string());
-        let config = project_repository.repo().config()?;
+        let config = ctx.repo().config()?;
         helper.config(&config);
         if let Some((username, password)) = helper.execute() {
             flow.push(HttpsCredential::CredentialHelper { username, password });

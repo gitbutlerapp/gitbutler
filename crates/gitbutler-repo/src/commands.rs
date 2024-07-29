@@ -36,13 +36,13 @@ impl RepoCommands for Project {
     }
 
     fn remotes(&self) -> Result<Vec<String>> {
-        let project_repository = CommandContext::open(self)?;
-        project_repository.repo().remotes_as_string()
+        let ctx = CommandContext::open(self)?;
+        ctx.repo().remotes_as_string()
     }
 
     fn add_remote(&self, name: &str, url: &str) -> Result<()> {
-        let project_repository = CommandContext::open(self)?;
-        project_repository.repo().remote(name, url)?;
+        let ctx = CommandContext::open(self)?;
+        ctx.repo().remote(name, url)?;
         Ok(())
     }
 }

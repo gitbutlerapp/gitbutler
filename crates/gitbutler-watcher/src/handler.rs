@@ -152,14 +152,11 @@ impl Handler {
                     self.emit_app_event(Change::GitActivity(project.id))?;
                 }
                 "HEAD" => {
-                    let project_repository = open_projects_repository()?;
-                    let head_ref = project_repository
-                        .repo()
-                        .head()
-                        .context("failed to get head")?;
+                    let ctx = open_projects_repository()?;
+                    let head_ref = ctx.repo().head().context("failed to get head")?;
                     let head_ref_name = head_ref.name().context("failed to get head name")?;
                     if head_ref_name != "refs/heads/gitbutler/integration" {
-                        let mut integration_reference = project_repository.repo().find_reference(
+                        let mut integration_reference = ctx.repo().find_reference(
                             &Refname::from(LocalRefname::new("gitbutler/integration", None))
                                 .to_string(),
                         )?;

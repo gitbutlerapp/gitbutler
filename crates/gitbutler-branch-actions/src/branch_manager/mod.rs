@@ -4,7 +4,7 @@ mod branch_creation;
 mod branch_removal;
 
 pub struct BranchManager<'l> {
-    project_repository: &'l CommandContext,
+    ctx: &'l CommandContext,
 }
 
 pub trait BranchManagerExt {
@@ -13,8 +13,6 @@ pub trait BranchManagerExt {
 
 impl BranchManagerExt for CommandContext {
     fn branch_manager(&self) -> BranchManager {
-        BranchManager {
-            project_repository: self,
-        }
+        BranchManager { ctx: self }
     }
 }

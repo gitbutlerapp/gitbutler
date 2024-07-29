@@ -36,9 +36,9 @@ impl TestCase<'_> {
             preferred_key: self.preferred_key.clone(),
             ..Default::default()
         };
-        let project_repository = CommandContext::open(&project).unwrap();
+        let ctx = CommandContext::open(&project).unwrap();
 
-        let flow = helper.help(&project_repository, "origin").unwrap();
+        let flow = helper.help(&ctx, "origin").unwrap();
         flow.into_iter()
             .map(|(remote, credentials)| (remote.url().as_ref().unwrap().to_string(), credentials))
             .collect::<Vec<_>>()

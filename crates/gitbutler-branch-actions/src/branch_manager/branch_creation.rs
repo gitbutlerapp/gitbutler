@@ -25,11 +25,11 @@ impl BranchManager<'_> {
         create: &BranchCreateRequest,
         perm: &mut WorktreeWritePermission,
     ) -> Result<Branch> {
-        let vb_state = self.project_repository.project().virtual_branches();
+        let vb_state = self.ctx.project().virtual_branches();
         let default_target = vb_state.get_default_target()?;
 
         let commit = self
-            .project_repository
+            .ctx
             .repo()
             .find_commit(default_target.sha)
             .context("failed to find default target commit")?;
@@ -54,7 +54,7 @@ impl BranchManager<'_> {
         );
 
         _ = self
-            .project_repository
+            .ctx
             .project()
             .snapshot_branch_creation(name.clone(), perm);
 
@@ -107,7 +107,7 @@ impl BranchManager<'_> {
             ownership: BranchOwnershipClaims::default(),
             order,
             selected_for_changes,
-            allow_rebasing: self.project_repository.project().ok_with_force_push.into(),
+            allow_rebasing: self.ctx.project().ok_with_force_push.into(),
             applied: true,
             in_workspace: true,
             not_in_workspace_wip_change_id: None,
@@ -119,7 +119,7 @@ impl BranchManager<'_> {
         }
 
         vb_state.set_branch(branch.clone())?;
-        self.project_repository.add_branch_reference(&branch)?;
+        self.ctx.add_branch_reference(&branch)?;
 
         Ok(branch)
     }
@@ -151,11 +151,11 @@ impl BranchManager<'_> {
             .to_string();
 
         let _ = self
-            .project_repository
+            .ctx
             .project()
             .snapshot_branch_creation(branch_name.clone(), perm);
 
-        let vb_state = self.project_repository.project().virtual_branches();
+        let vb_state = self.ctx.project().virtual_branches();
 
         let default_target = vb_state.get_default_target()?;
 
@@ -165,7 +165,7 @@ impl BranchManager<'_> {
             }
         }
 
-        let repo = self.project_repository.repo();
+        let repo = self.ctx.repo();
         let head_reference = repo
             .find_reference(&target.to_string())
             .map_err(|err| match err {
@@ -200,11 +200,7 @@ impl BranchManager<'_> {
         let merge_base_tree = repo.find_commit(merge_base_oid)?.tree()?;
 
         // do a diff between the head of this branch and the target base
-        let diff = gitbutler_diff::trees(
-            self.project_repository.repo(),
-            &merge_base_tree,
-            &head_commit_tree,
-        )?;
+        let diff = gitbutler_diff::trees(self.ctx.repo(), &merge_base_tree, &head_commit_tree)?;
 
         // assign ownership to the branch
         let ownership = diff.iter().fold(
@@ -235,7 +231,7 @@ impl BranchManager<'_> {
             branch.ownership = ownership;
             branch.order = order;
             branch.selected_for_changes = selected_for_changes;
-            branch.allow_rebasing = self.project_repository.project().ok_with_force_push.into();
+            branch.allow_rebasing = self.ctx.project().ok_with_force_push.into();
             branch.applied = true;
             branch.in_workspace = true;
 
@@ -255,7 +251,7 @@ impl BranchManager<'_> {
                 ownership,
                 order,
                 selected_for_changes,
-                allow_rebasing: self.project_repository.project().ok_with_force_push.into(),
+                allow_rebasing: self.ctx.project().ok_with_force_push.into(),
                 applied: true,
                 in_workspace: true,
                 not_in_workspace_wip_change_id: None,
@@ -263,7 +259,7 @@ impl BranchManager<'_> {
         };
 
         vb_state.set_branch(branch.clone())?;
-        self.project_repository.add_branch_reference(&branch)?;
+        self.ctx.add_branch_reference(&branch)?;
 
         match self.apply_branch(branch.id, perm) {
             Ok(_) => Ok(branch.id),
@@ -287,11 +283,11 @@ impl BranchManager<'_> {
         branch_id: BranchId,
         perm: &mut WorktreeWritePermission,
     ) -> Result<String> {
-        self.project_repository.assure_resolved()?;
-        self.project_repository.assure_unconflicted()?;
-        let repo = self.project_repository.repo();
+        self.ctx.assure_resolved()?;
+        self.ctx.assure_unconflicted()?;
+        let repo = self.ctx.repo();
 
-        let vb_state = self.project_repository.project().virtual_branches();
+        let vb_state = self.ctx.project().virtual_branches();
         let default_target = vb_state.get_default_target()?;
 
         let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
@@ -358,11 +354,7 @@ impl BranchManager<'_> {
                         merge_conflicts.push(path);
                     }
                 }
-                conflicts::mark(
-                    self.project_repository,
-                    &merge_conflicts,
-                    Some(default_target.sha),
-                )?;
+                conflicts::mark(self.ctx, &merge_conflicts, Some(default_target.sha))?;
 
                 return Ok(branch.name);
             }
@@ -372,7 +364,7 @@ impl BranchManager<'_> {
                 .context("failed to find head commit")?;
 
             let merged_branch_tree_oid = merge_index
-                .write_tree_to(self.project_repository.repo())
+                .write_tree_to(self.ctx.repo())
                 .context("failed to write tree")?;
 
             let merged_branch_tree = repo
@@ -384,7 +376,7 @@ impl BranchManager<'_> {
                 // branch was pushed to upstream, and user doesn't like force pushing.
                 // create a merge commit to avoid the need of force pushing then.
 
-                let new_branch_head = self.project_repository.commit(
+                let new_branch_head = self.ctx.commit(
                     format!(
                         "Merged {}/{} into {}",
                         default_target.branch.remote(),
@@ -401,7 +393,7 @@ impl BranchManager<'_> {
                 branch.head = new_branch_head;
             } else {
                 let rebase = cherry_rebase(
-                    self.project_repository,
+                    self.ctx,
                     target_commit.id(),
                     target_commit.id(),
                     branch.head,
@@ -432,7 +424,7 @@ impl BranchManager<'_> {
 
                     // commit the merge tree oid
                     let new_branch_head = self
-                        .project_repository
+                        .ctx
                         .commit(
                             format!(
                                 "Merged {}/{} into {}",
@@ -459,7 +451,7 @@ impl BranchManager<'_> {
             vb_state.set_branch(branch.clone())?;
         }
 
-        let wd_tree = self.project_repository.repo().get_wd_tree()?;
+        let wd_tree = self.ctx.repo().get_wd_tree()?;
 
         let branch_tree = repo
             .find_tree(branch.tree)
@@ -482,11 +474,7 @@ impl BranchManager<'_> {
                     merge_conflicts.push(path);
                 }
             }
-            conflicts::mark(
-                self.project_repository,
-                &merge_conflicts,
-                Some(default_target.sha),
-            )?;
+            conflicts::mark(self.ctx, &merge_conflicts, Some(default_target.sha))?;
         }
 
         // apply the branch
@@ -508,7 +496,7 @@ impl BranchManager<'_> {
 
                 if let Some(headers) = potential_wip_commit.gitbutler_headers() {
                     if headers.change_id == wip_commit_to_unapply {
-                        undo_commit(self.project_repository, branch.id, branch.head)?;
+                        undo_commit(self.ctx, branch.id, branch.head)?;
                     }
                 }
 
@@ -517,7 +505,7 @@ impl BranchManager<'_> {
             }
         }
 
-        update_gitbutler_integration(&vb_state, self.project_repository)?;
+        update_gitbutler_integration(&vb_state, self.ctx)?;
 
         Ok(branch.name)
     }

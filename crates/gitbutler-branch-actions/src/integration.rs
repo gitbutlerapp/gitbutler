@@ -135,13 +135,13 @@ fn write_integration_file(head: &git2::Reference, path: PathBuf) -> Result<()> {
 }
 pub fn update_gitbutler_integration(
     vb_state: &VirtualBranchesHandle,
-    project_repository: &CommandContext,
+    ctx: &CommandContext,
 ) -> Result<git2::Oid> {
     let target = vb_state
         .get_default_target()
         .context("failed to get target")?;
 
-    let repo: &git2::Repository = project_repository.repo();
+    let repo: &git2::Repository = ctx.repo();
 
     // get commit object from target.sha
     let target_commit = repo.find_commit(target.sha)?;
@@ -162,14 +162,14 @@ pub fn update_gitbutler_integration(
         }
     }
 
-    let vb_state = project_repository.project().virtual_branches();
+    let vb_state = ctx.project().virtual_branches();
 
     // get all virtual branches, we need to try to update them all
     let virtual_branches: Vec<Branch> = vb_state
         .list_branches_in_workspace()
         .context("failed to list virtual branches")?;
 
-    let integration_commit = repo.find_commit(get_workspace_head(project_repository)?)?;
+    let integration_commit = repo.find_commit(get_workspace_head(ctx)?)?;
     let integration_tree = integration_commit.tree()?;
 
     // message that says how to get back to where they were

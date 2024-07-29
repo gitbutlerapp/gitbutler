@@ -23,10 +23,10 @@ pub mod virtual_branches {
 
     use crate::empty_bare_repository;
 
-    pub fn set_test_target(project_repository: &CommandContext) -> anyhow::Result<()> {
-        let vb_state = VirtualBranchesHandle::new(project_repository.project().gb_dir());
+    pub fn set_test_target(ctx: &CommandContext) -> anyhow::Result<()> {
+        let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
         let (remote_repo, _tmp) = empty_bare_repository();
-        let mut remote = project_repository
+        let mut remote = ctx
             .repo()
             .remote("origin", remote_repo.path().to_str().unwrap())
             .expect("failed to add remote");
@@ -41,7 +41,7 @@ pub mod virtual_branches {
             })
             .expect("failed to write target");
 
-        gitbutler_branch_actions::update_gitbutler_integration(&vb_state, project_repository)
+        gitbutler_branch_actions::update_gitbutler_integration(&vb_state, ctx)
             .expect("failed to update integration");
 
         Ok(())
@@ -102,10 +102,7 @@ pub mod read_only {
     /// the output of `script_name`.
     ///
     /// Returns the project that is strictly for read-only use.
-    pub fn fixture(
-        script_name: &str,
-        project_directory: &str,
-    ) -> anyhow::Result<CommandContext> {
+    pub fn fixture(script_name: &str, project_directory: &str) -> anyhow::Result<CommandContext> {
         static IS_VALID_PROJECT: Lazy<Mutex<BTreeSet<(String, String)>>> =
             Lazy::new(|| Mutex::new(Default::default()));
 

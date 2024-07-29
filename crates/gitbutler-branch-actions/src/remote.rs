@@ -61,17 +61,17 @@ pub struct RemoteCommit {
 
 // for legacy purposes, this is still named "remote" branches, but it's actually
 // a list of all the normal (non-gitbutler) git branches.
-pub fn list_remote_branches(project_repository: &CommandContext) -> Result<Vec<RemoteBranch>> {
-    let default_target = default_target(&project_repository.project().gb_dir())?;
+pub fn list_remote_branches(ctx: &CommandContext) -> Result<Vec<RemoteBranch>> {
+    let default_target = default_target(&ctx.project().gb_dir())?;
 
     let mut remote_branches = vec![];
-    for (branch, _) in project_repository
+    for (branch, _) in ctx
         .repo()
         .branches(None)
         .context("failed to list remote branches")?
         .flatten()
     {
-        let branch = branch_to_remote_branch(project_repository, &branch);
+        let branch = branch_to_remote_branch(ctx, &branch);
 
         if let Some(branch) = branch {
             let branch_is_trunk = branch.name.branch() == Some(default_target.branch.branch())
@@ -142,7 +142,7 @@ pub(crate) fn branch_to_remote_branch(
 }
 
 pub(crate) fn branch_to_remote_branch_data(
-    project_repository: &CommandContext,
+    ctx: &CommandContext,
     branch: &git2::Branch,
     base: git2::Oid,
 ) -> Result<Option<RemoteBranchData>> {
@@ -150,13 +150,13 @@ pub(crate) fn branch_to_remote_branch_data(
         .get()
         .target()
         .map(|sha| {
-            let ahead = project_repository
+            let ahead = ctx
                 .log(sha, LogUntil::Commit(base))
                 .context("failed to get ahead commits")?;
 
             let name = Refname::try_from(branch).context("could not get branch name")?;
 
-            let count_behind = project_repository
+            let count_behind = ctx
                 .distance(base, sha)
                 .context("failed to get behind count")?;
 

@@ -86,7 +86,7 @@ impl Get<VirtualBranchFile> for Vec<VirtualBranchFile> {
 }
 
 pub(crate) fn list_virtual_commit_files(
-    project_repository: &CommandContext,
+    ctx: &CommandContext,
     commit: &git2::Commit,
 ) -> Result<Vec<VirtualBranchFile>> {
     if commit.parent_count() == 0 {
@@ -95,12 +95,9 @@ pub(crate) fn list_virtual_commit_files(
     let parent = commit.parent(0).context("failed to get parent commit")?;
     let commit_tree = commit.tree().context("failed to get commit tree")?;
     let parent_tree = parent.tree().context("failed to get parent tree")?;
-    let diff = gitbutler_diff::trees(project_repository.repo(), &parent_tree, &commit_tree)?;
-    let hunks_by_filepath = virtual_hunks_by_file_diffs(&project_repository.project().path, diff);
-    Ok(virtual_hunks_into_virtual_files(
-        project_repository,
-        hunks_by_filepath,
-    ))
+    let diff = gitbutler_diff::trees(ctx.repo(), &parent_tree, &commit_tree)?;
+    let hunks_by_filepath = virtual_hunks_by_file_diffs(&ctx.project().path, diff);
+    Ok(virtual_hunks_into_virtual_files(ctx, hunks_by_filepath))
 }
 
 fn virtual_hunks_by_file_diffs<'a>(
@@ -117,15 +114,14 @@ fn virtual_hunks_by_file_diffs<'a>(
 
 /// NOTE: There is no use returning an iterator here as this acts like the final product.
 pub(crate) fn virtual_hunks_into_virtual_files(
-    project_repository: &CommandContext,
+    ctx: &CommandContext,
     hunks: impl IntoIterator<Item = (PathBuf, Vec<VirtualBranchHunk>)>,
 ) -> Vec<VirtualBranchFile> {
     hunks
         .into_iter()
         .map(|(path, hunks)| {
             let id = path.display().to_string();
-            let conflicted =
-                conflicts::is_conflicting(project_repository, Some(&path)).unwrap_or(false);
+            let conflicted = conflicts::is_conflicting(ctx, Some(&path)).unwrap_or(false);
             let binary = hunks.iter().any(|h| h.binary);
             let modified_at = hunks.iter().map(|h| h.modified_at).max().unwrap_or(0);
             debug_assert!(hunks.iter().all(|hunk| hunk.file_path == path));
