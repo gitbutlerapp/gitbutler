@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use gitbutler_branch_actions::{VirtualBranchActions, VirtualBranches};
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
+use gitbutler_operating_modes::in_open_workspace_mode;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt,
@@ -79,8 +80,22 @@ impl Handler {
         (self.send_event)(event).context("failed to send event")
     }
 
+    fn open_command_context(&self, project_id: ProjectId) -> Result<CommandContext> {
+        let project = self
+            .projects
+            .get(project_id)
+            .context("failed to get project")?;
+        CommandContext::open(&project).context("Failed to create a command context")
+    }
+
     #[instrument(skip(self, project_id))]
     fn calculate_virtual_branches(&self, project_id: ProjectId) -> Result<()> {
+        let ctx = self.open_command_context(project_id)?;
+        // Skip if we're not on the open workspace mode
+        if !in_open_workspace_mode(&ctx)? {
+            return Ok(());
+        }
+
         let project = self
             .projects
             .get(project_id)
@@ -107,6 +122,12 @@ impl Handler {
 
     #[instrument(skip(self, paths, project_id), fields(paths = paths.len()))]
     fn recalculate_everything(&self, paths: Vec<PathBuf>, project_id: ProjectId) -> Result<()> {
+        let ctx = self.open_command_context(project_id)?;
+        // Skip if we're not on the open workspace mode
+        if !in_open_workspace_mode(&ctx)? {
+            return Ok(());
+        }
+
         self.maybe_create_snapshot(project_id).ok();
         self.calculate_virtual_branches(project_id)?;
         Ok(())
@@ -135,10 +156,6 @@ impl Handler {
             .projects
             .get(project_id)
             .context("failed to get project")?;
-        let open_projects_repository = || {
-            CommandContext::open(&project.clone())
-                .context("failed to open project repository for project")
-        };
 
         for path in paths {
             let Some(file_name) = path.to_str() else {
@@ -152,16 +169,17 @@ impl Handler {
                     self.emit_app_event(Change::GitActivity(project.id))?;
                 }
                 "HEAD" => {
-                    let ctx = open_projects_repository()?;
-                    let head_ref = ctx.repository().head().context("failed to get head")?;
-                    let head_ref_name = head_ref.name().context("failed to get head name")?;
-                    if head_ref_name != "refs/heads/gitbutler/integration" {
+                    let ctx = CommandContext::open(&project)
+                        .context("Failed to create a command context")?;
+                    if in_open_workspace_mode(&ctx)? {
                         let mut integration_reference = ctx.repository().find_reference(
                             &Refname::from(LocalRefname::new("gitbutler/integration", None))
                                 .to_string(),
                         )?;
                         integration_reference.delete()?;
                     }
+
+                    let head_ref = ctx.repository().head().context("failed to get head")?;
                     if let Some(head) = head_ref.name() {
                         self.emit_app_event(Change::GitHead {
                             project_id,
