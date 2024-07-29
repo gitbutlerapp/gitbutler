@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use gitbutler_branch::{Target, VirtualBranchesHandle};
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Code;
 use gitbutler_id::id::Id;
 use gitbutler_oplog::OplogExt;
@@ -17,11 +17,11 @@ use gitbutler_user as users;
 use itertools::Itertools;
 
 pub fn sync_with_gitbutler(
-    project_repository: &ProjectRepository,
+    ctx: &CommandContext,
     user: &users::User,
     projects: &projects::Controller,
 ) -> Result<()> {
-    let project = project_repository.project();
+    let project = ctx.project();
     let vb_state = VirtualBranchesHandle::new(project.gb_dir());
     let default_target = vb_state.get_default_target()?;
     let gb_code_last_commit = project
@@ -33,7 +33,7 @@ pub fn sync_with_gitbutler(
     // Push target
     push_target(
         projects,
-        project_repository,
+        ctx,
         &default_target,
         gb_code_last_commit,
         project.id,
@@ -42,16 +42,16 @@ pub fn sync_with_gitbutler(
     )?;
 
     // Push all refs
-    push_all_refs(project_repository, user, project.id)?;
+    push_all_refs(ctx, user, project.id)?;
 
     // Push Oplog head
-    let oplog_refspec = project_repository
+    let oplog_refspec = ctx
         .project()
         .oplog_head()?
         .map(|sha| format!("+{}:refs/gitbutler/oplog/oplog", sha));
 
     if let Some(oplog_refspec) = oplog_refspec {
-        let x = push_to_gitbutler_server(project_repository, Some(user), &[&oplog_refspec]);
+        let x = push_to_gitbutler_server(ctx, Some(user), &[&oplog_refspec]);
         println!("\n\n\nHERE: {:?}", x?);
     }
 
@@ -60,7 +60,7 @@ pub fn sync_with_gitbutler(
 
 fn push_target(
     projects: &projects::Controller,
-    project_repository: &ProjectRepository,
+    ctx: &CommandContext,
     default_target: &Target,
     gb_code_last_commit: Option<git2::Oid>,
     project_id: Id<Project>,
@@ -68,7 +68,7 @@ fn push_target(
     batch_size: usize,
 ) -> Result<()> {
     let ids = batch_rev_walk(
-        project_repository.repo(),
+        ctx.repository(),
         batch_size,
         default_target.sha,
         gb_code_last_commit,
@@ -84,7 +84,7 @@ fn push_target(
     for (idx, id) in ids.iter().enumerate().rev() {
         let refspec = format!("+{}:refs/push-tmp/{}", id, project_id);
 
-        push_to_gitbutler_server(project_repository, Some(user), &[&refspec])?;
+        push_to_gitbutler_server(ctx, Some(user), &[&refspec])?;
         update_project(projects, project_id, *id)?;
 
         tracing::info!(
@@ -96,7 +96,7 @@ fn push_target(
     }
 
     push_to_gitbutler_server(
-        project_repository,
+        ctx,
         Some(user),
         &[&format!("+{}:refs/{}", default_target.sha, project_id)],
     )?;
@@ -137,9 +137,9 @@ fn batch_rev_walk(
     Ok(oids)
 }
 
-fn collect_refs(project_repository: &ProjectRepository) -> anyhow::Result<Vec<Refname>> {
-    Ok(project_repository
-        .repo()
+fn collect_refs(ctx: &CommandContext) -> anyhow::Result<Vec<Refname>> {
+    Ok(ctx
+        .repository()
         .references_glob("refs/*")?
         .flatten()
         .filter_map(|r| {
@@ -150,11 +150,11 @@ fn collect_refs(project_repository: &ProjectRepository) -> anyhow::Result<Vec<Re
 }
 
 fn push_all_refs(
-    project_repository: &ProjectRepository,
+    ctx: &CommandContext,
     user: &users::User,
     project_id: Id<projects::Project>,
 ) -> Result<()> {
-    let gb_references = collect_refs(project_repository)?;
+    let gb_references = collect_refs(ctx)?;
     let all_refs: Vec<_> = gb_references
         .iter()
         .filter(|r| {
@@ -168,7 +168,7 @@ fn push_all_refs(
 
     let all_refs: Vec<_> = all_refs.iter().map(String::as_str).collect();
 
-    let anything_pushed = push_to_gitbutler_server(project_repository, Some(user), &all_refs)?;
+    let anything_pushed = push_to_gitbutler_server(ctx, Some(user), &all_refs)?;
     if anything_pushed {
         tracing::info!(
             %project_id,
@@ -196,11 +196,11 @@ fn update_project(
 }
 
 fn push_to_gitbutler_server(
-    project_repo: &ProjectRepository,
+    ctx: &CommandContext,
     user: Option<&users::User>,
     ref_specs: &[&str],
 ) -> Result<bool> {
-    let project = project_repo.project();
+    let project = ctx.project();
     let url = project
         .api
         .as_ref()
@@ -243,7 +243,7 @@ fn push_to_gitbutler_server(
     let headers = &[auth_header.as_str()];
     push_options.custom_headers(headers);
 
-    let mut remote = project_repo.repo().remote_anonymous(&url.to_string())?;
+    let mut remote = ctx.repository().remote_anonymous(&url.to_string())?;
 
     remote
         .push(ref_specs, Some(&mut push_options))

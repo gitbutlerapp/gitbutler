@@ -24,7 +24,7 @@ impl BranchManager<'_> {
         branch_id: BranchId,
         perm: &mut WorktreeWritePermission,
     ) -> Result<ReferenceName> {
-        let vb_state = self.project_repository.project().virtual_branches();
+        let vb_state = self.ctx.project().virtual_branches();
 
         let mut target_branch = vb_state.get_branch(branch_id)?;
 
@@ -34,8 +34,8 @@ impl BranchManager<'_> {
         self.delete_branch(branch_id, perm)?;
 
         // If we were conflicting, it means that it was the only branch applied. Since we've now unapplied it we can clear all conflicts
-        if conflicts::is_conflicting(self.project_repository, None)? {
-            conflicts::clear(self.project_repository)?;
+        if conflicts::is_conflicting(self.ctx, None)? {
+            conflicts::clear(self.ctx)?;
         }
 
         vb_state.update_ordering()?;
@@ -43,7 +43,7 @@ impl BranchManager<'_> {
         // Ensure we still have a default target
         ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
-        crate::integration::update_gitbutler_integration(&vb_state, self.project_repository)?;
+        crate::integration::update_gitbutler_integration(&vb_state, self.ctx)?;
 
         real_branch.reference_name()
     }
@@ -53,7 +53,7 @@ impl BranchManager<'_> {
         branch_id: BranchId,
         perm: &mut WorktreeWritePermission,
     ) -> Result<()> {
-        let vb_state = self.project_repository.project().virtual_branches();
+        let vb_state = self.ctx.project().virtual_branches();
         let Some(branch) = vb_state.try_branch(branch_id)? else {
             return Ok(());
         };
@@ -64,16 +64,16 @@ impl BranchManager<'_> {
         }
 
         _ = self
-            .project_repository
+            .ctx
             .project()
             .snapshot_branch_deletion(branch.name.clone(), perm);
 
-        let repo = self.project_repository.repo();
+        let repo = self.ctx.repository();
 
         let target_commit = repo.target_commit()?;
         let base_tree = target_commit.tree().context("failed to get target tree")?;
 
-        let applied_statuses = get_applied_status(self.project_repository, None)
+        let applied_statuses = get_applied_status(self.ctx, None)
             .context("failed to get status by branch")?
             .branches;
 
@@ -97,11 +97,8 @@ impl BranchManager<'_> {
                         .into_iter()
                         .map(|file| (file.path, file.hunks))
                         .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
-                    let tree_oid = gitbutler_diff::write::hunks_onto_oid(
-                        self.project_repository,
-                        &branch.head,
-                        files,
-                    )?;
+                    let tree_oid =
+                        gitbutler_diff::write::hunks_onto_oid(self.ctx, &branch.head, files)?;
                     let branch_tree = repo.find_tree(tree_oid)?;
                     let mut result =
                         repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
@@ -118,7 +115,7 @@ impl BranchManager<'_> {
             .checkout()
             .context("failed to checkout tree")?;
 
-        self.project_repository.delete_branch_reference(&branch)?;
+        self.ctx.delete_branch_reference(&branch)?;
 
         ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
@@ -128,12 +125,12 @@ impl BranchManager<'_> {
 
 impl BranchManager<'_> {
     fn build_real_branch(&self, vbranch: &mut Branch) -> Result<git2::Branch<'_>> {
-        let repo = self.project_repository.repo();
+        let repo = self.ctx.repository();
         let target_commit = repo.find_commit(vbranch.head)?;
         let branch_name = vbranch.name.clone();
         let branch_name = normalize_branch_name(&branch_name);
 
-        let vb_state = self.project_repository.project().virtual_branches();
+        let vb_state = self.ctx.project().virtual_branches();
         let branch = repo.branch(&branch_name, &target_commit, true)?;
         vbranch.source_refname = Some(Refname::try_from(&branch)?);
         vb_state.set_branch(vbranch.clone())?;
@@ -148,7 +145,7 @@ impl BranchManager<'_> {
         vbranch: &mut Branch,
         branch: &git2::Branch<'_>,
     ) -> Result<Option<git2::Oid>> {
-        let repo = self.project_repository.repo();
+        let repo = self.ctx.repository();
 
         // Build wip tree as either any uncommitted changes or an empty tree
         let vbranch_wip_tree = repo.find_tree(vbranch.tree)?;
@@ -181,7 +178,7 @@ impl BranchManager<'_> {
             Some(commit_headers.clone()),
         )?;
 
-        let vb_state = self.project_repository.project().virtual_branches();
+        let vb_state = self.ctx.project().virtual_branches();
         // vbranch.head = commit_oid;
         vbranch.not_in_workspace_wip_change_id = Some(commit_headers.change_id);
         vb_state.set_branch(vbranch.clone())?;

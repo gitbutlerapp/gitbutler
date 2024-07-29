@@ -3,7 +3,7 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use bstr::BString;
 use gitbutler_branch::{ReferenceExt, Target, VirtualBranchesHandle};
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
@@ -61,17 +61,17 @@ pub struct RemoteCommit {
 
 // for legacy purposes, this is still named "remote" branches, but it's actually
 // a list of all the normal (non-gitbutler) git branches.
-pub fn list_remote_branches(project_repository: &ProjectRepository) -> Result<Vec<RemoteBranch>> {
-    let default_target = default_target(&project_repository.project().gb_dir())?;
+pub fn list_remote_branches(ctx: &CommandContext) -> Result<Vec<RemoteBranch>> {
+    let default_target = default_target(&ctx.project().gb_dir())?;
 
     let mut remote_branches = vec![];
-    for (branch, _) in project_repository
-        .repo()
+    for (branch, _) in ctx
+        .repository()
         .branches(None)
         .context("failed to list remote branches")?
         .flatten()
     {
-        let branch = branch_to_remote_branch(project_repository, &branch);
+        let branch = branch_to_remote_branch(ctx, &branch);
 
         if let Some(branch) = branch {
             let branch_is_trunk = branch.name.branch() == Some(default_target.branch.branch())
@@ -88,14 +88,11 @@ pub fn list_remote_branches(project_repository: &ProjectRepository) -> Result<Ve
     Ok(remote_branches)
 }
 
-pub(crate) fn get_branch_data(
-    ctx: &ProjectRepository,
-    refname: &Refname,
-) -> Result<RemoteBranchData> {
+pub(crate) fn get_branch_data(ctx: &CommandContext, refname: &Refname) -> Result<RemoteBranchData> {
     let default_target = default_target(&ctx.project().gb_dir())?;
 
     let branch = ctx
-        .repo()
+        .repository()
         .find_branch_by_refname(refname)?
         .ok_or(anyhow::anyhow!("failed to find branch {}", refname))?;
 
@@ -104,7 +101,7 @@ pub(crate) fn get_branch_data(
 }
 
 pub(crate) fn branch_to_remote_branch(
-    ctx: &ProjectRepository,
+    ctx: &CommandContext,
     branch: &git2::Branch,
 ) -> Option<RemoteBranch> {
     let commit = match branch.get().peel_to_commit() {
@@ -122,7 +119,10 @@ pub(crate) fn branch_to_remote_branch(
         .context("could not get branch name")
         .ok()?;
 
-    let given_name = branch.get().given_name(&ctx.repo().remotes().ok()?).ok()?;
+    let given_name = branch
+        .get()
+        .given_name(&ctx.repository().remotes().ok()?)
+        .ok()?;
 
     branch.get().target().map(|sha| RemoteBranch {
         sha,
@@ -145,7 +145,7 @@ pub(crate) fn branch_to_remote_branch(
 }
 
 pub(crate) fn branch_to_remote_branch_data(
-    project_repository: &ProjectRepository,
+    ctx: &CommandContext,
     branch: &git2::Branch,
     base: git2::Oid,
 ) -> Result<Option<RemoteBranchData>> {
@@ -153,13 +153,13 @@ pub(crate) fn branch_to_remote_branch_data(
         .get()
         .target()
         .map(|sha| {
-            let ahead = project_repository
+            let ahead = ctx
                 .log(sha, LogUntil::Commit(base))
                 .context("failed to get ahead commits")?;
 
             let name = Refname::try_from(branch).context("could not get branch name")?;
 
-            let count_behind = project_repository
+            let count_behind = ctx
                 .distance(base, sha)
                 .context("failed to get behind count")?;
 

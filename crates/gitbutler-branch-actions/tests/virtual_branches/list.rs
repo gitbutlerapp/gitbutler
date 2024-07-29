@@ -1,6 +1,6 @@
 use anyhow::Result;
 use gitbutler_branch_actions::{list_branches, Author};
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 
 #[test]
 fn on_main_single_branch_no_vbranch() -> Result<()> {
@@ -128,6 +128,6 @@ fn default_author() -> Author {
     }
 }
 
-fn project_ctx(name: &str) -> anyhow::Result<ProjectRepository> {
+fn project_ctx(name: &str) -> anyhow::Result<CommandContext> {
     gitbutler_testsupport::read_only::fixture("for-listing.sh", name)
 }

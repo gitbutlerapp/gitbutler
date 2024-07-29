@@ -5,7 +5,7 @@ use std::{borrow::Borrow, path::PathBuf};
 use anyhow::{anyhow, Context, Result};
 use bstr::{BString, ByteSlice, ByteVec};
 use diffy::{apply_bytes as diffy_apply, Line, Patch};
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use hex::ToHex;
 
 use crate::GitHunk;
@@ -14,18 +14,18 @@ use crate::GitHunk;
 // constructs a tree from those changes on top of the target
 // and writes it as a new tree for storage
 pub fn hunks_onto_oid<T>(
-    project_repository: &ProjectRepository,
+    ctx: &CommandContext,
     target: &git2::Oid,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
 ) -> Result<git2::Oid>
 where
     T: Into<GitHunk> + Clone,
 {
-    hunks_onto_commit(project_repository, *target, files)
+    hunks_onto_commit(ctx, *target, files)
 }
 
 pub fn hunks_onto_commit<T>(
-    project_repository: &ProjectRepository,
+    ctx: &CommandContext,
     commit_oid: git2::Oid,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
 ) -> Result<git2::Oid>
@@ -33,29 +33,29 @@ where
     T: Into<GitHunk> + Clone,
 {
     // read the base sha into an index
-    let git_repository: &git2::Repository = project_repository.repo();
+    let git_repository: &git2::Repository = ctx.repository();
 
     let head_commit = git_repository.find_commit(commit_oid)?;
     let base_tree = head_commit.tree()?;
 
-    hunks_onto_tree(project_repository, &base_tree, files)
+    hunks_onto_tree(ctx, &base_tree, files)
 }
 
 pub fn hunks_onto_tree<T>(
-    project_repository: &ProjectRepository,
+    ctx: &CommandContext,
     base_tree: &git2::Tree,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
 ) -> Result<git2::Oid>
 where
     T: Into<GitHunk> + Clone,
 {
-    let git_repository = project_repository.repo();
+    let git_repository = ctx.repository();
     let mut builder = git2::build::TreeUpdateBuilder::new();
     // now update the index with content in the working directory for each file
     for (rel_path, hunks) in files {
         let rel_path = rel_path.borrow();
         let hunks: Vec<GitHunk> = hunks.borrow().iter().map(|h| h.clone().into()).collect();
-        let full_path = project_repository.project().worktree_path().join(rel_path);
+        let full_path = ctx.project().worktree_path().join(rel_path);
 
         let is_submodule = full_path.is_dir()
             && hunks.len() == 1
@@ -102,7 +102,7 @@ where
 
                 // if the link target is inside the project repository, make it relative
                 let link_target = link_target
-                    .strip_prefix(project_repository.project().worktree_path())
+                    .strip_prefix(ctx.project().worktree_path())
                     .unwrap_or(&link_target);
 
                 let blob_oid = git_repository.blob(
@@ -193,7 +193,7 @@ where
 
     // now write out the tree
     let tree_oid = builder
-        .create_updated(project_repository.repo(), base_tree)
+        .create_updated(ctx.repository(), base_tree)
         .context("failed to write updated tree")?;
 
     Ok(tree_oid)

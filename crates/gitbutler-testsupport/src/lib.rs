@@ -19,15 +19,15 @@ pub mod paths {
 
 pub mod virtual_branches {
     use gitbutler_branch::{Target, VirtualBranchesHandle};
-    use gitbutler_command_context::ProjectRepository;
+    use gitbutler_command_context::CommandContext;
 
     use crate::empty_bare_repository;
 
-    pub fn set_test_target(project_repository: &ProjectRepository) -> anyhow::Result<()> {
-        let vb_state = VirtualBranchesHandle::new(project_repository.project().gb_dir());
+    pub fn set_test_target(ctx: &CommandContext) -> anyhow::Result<()> {
+        let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
         let (remote_repo, _tmp) = empty_bare_repository();
-        let mut remote = project_repository
-            .repo()
+        let mut remote = ctx
+            .repository()
             .remote("origin", remote_repo.path().to_str().unwrap())
             .expect("failed to add remote");
         remote.push(&["refs/heads/master:refs/heads/master"], None)?;
@@ -41,7 +41,7 @@ pub mod virtual_branches {
             })
             .expect("failed to write target");
 
-        gitbutler_branch_actions::update_gitbutler_integration(&vb_state, project_repository)
+        gitbutler_branch_actions::update_gitbutler_integration(&vb_state, ctx)
             .expect("failed to update integration");
 
         Ok(())
@@ -66,7 +66,7 @@ pub mod read_only {
         path::{Path, PathBuf},
     };
 
-    use gitbutler_command_context::ProjectRepository;
+    use gitbutler_command_context::CommandContext;
     use gitbutler_project::{Project, ProjectId};
     use once_cell::sync::Lazy;
     use parking_lot::Mutex;
@@ -102,10 +102,7 @@ pub mod read_only {
     /// the output of `script_name`.
     ///
     /// Returns the project that is strictly for read-only use.
-    pub fn fixture(
-        script_name: &str,
-        project_directory: &str,
-    ) -> anyhow::Result<ProjectRepository> {
+    pub fn fixture(script_name: &str, project_directory: &str) -> anyhow::Result<CommandContext> {
         static IS_VALID_PROJECT: Lazy<Mutex<BTreeSet<(String, String)>>> =
             Lazy::new(|| Mutex::new(Default::default()));
 
@@ -131,7 +128,7 @@ pub mod read_only {
                 ..Default::default()
             }
         };
-        ProjectRepository::open(&project)
+        CommandContext::open(&project)
     }
 }
 

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use gitbutler_branch::BranchId;
 use gitbutler_branch_actions::conflicts;
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::RemoteRefname;
@@ -28,16 +28,16 @@ impl App {
 impl App {
     pub fn mark_resolved(&self, project_id: ProjectId, path: &str) -> Result<()> {
         let project = self.projects().get(project_id)?;
-        let project_repository = ProjectRepository::open(&project)?;
+        let ctx = CommandContext::open(&project)?;
         // mark file as resolved
-        conflicts::resolve(&project_repository, path)?;
+        conflicts::resolve(&ctx, path)?;
         Ok(())
     }
 
     pub fn git_remote_branches(&self, project_id: ProjectId) -> Result<Vec<RemoteRefname>> {
         let project = self.projects().get(project_id)?;
-        let project_repository = ProjectRepository::open(&project)?;
-        project_repository.repo().remote_branches()
+        let ctx = CommandContext::open(&project)?;
+        ctx.repository().remote_branches()
     }
 
     pub fn git_test_push(
@@ -49,8 +49,8 @@ impl App {
         askpass: Option<Option<BranchId>>,
     ) -> Result<()> {
         let project = self.projects().get(project_id)?;
-        let project_repository = ProjectRepository::open(&project)?;
-        project_repository.git_test_push(credentials, remote_name, branch_name, askpass)
+        let ctx = CommandContext::open(&project)?;
+        ctx.git_test_push(credentials, remote_name, branch_name, askpass)
     }
 
     pub fn git_test_fetch(
@@ -61,15 +61,15 @@ impl App {
         askpass: Option<String>,
     ) -> Result<()> {
         let project = self.projects().get(project_id)?;
-        let project_repository = ProjectRepository::open(&project)?;
-        project_repository.fetch(remote_name, credentials, askpass)
+        let ctx = CommandContext::open(&project)?;
+        ctx.fetch(remote_name, credentials, askpass)
     }
 
     pub fn git_index_size(&self, project_id: ProjectId) -> Result<usize> {
         let project = self.projects().get(project_id)?;
-        let project_repository = ProjectRepository::open(&project)?;
-        let size = project_repository
-            .repo()
+        let ctx = CommandContext::open(&project)?;
+        let size = ctx
+            .repository()
             .index()
             .context("failed to get index size")?
             .len();
@@ -78,9 +78,9 @@ impl App {
 
     pub fn git_head(&self, project_id: ProjectId) -> Result<String> {
         let project = self.projects().get(project_id)?;
-        let project_repository = ProjectRepository::open(&project)?;
-        let head = project_repository
-            .repo()
+        let ctx = CommandContext::open(&project)?;
+        let head = ctx
+            .repository()
             .head()
             .context("failed to get repository head")?;
         Ok(head.name().unwrap().to_string())

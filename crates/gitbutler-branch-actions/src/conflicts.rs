@@ -12,11 +12,11 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
 
 pub(crate) fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
-    ctx: &ProjectRepository,
+    ctx: &CommandContext,
     paths: A,
     parent: Option<git2::Oid>,
 ) -> Result<()> {
@@ -45,15 +45,15 @@ pub(crate) fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
     Ok(())
 }
 
-fn conflicts_path(ctx: &ProjectRepository) -> PathBuf {
-    ctx.repo().path().join("conflicts")
+fn conflicts_path(ctx: &CommandContext) -> PathBuf {
+    ctx.repository().path().join("conflicts")
 }
 
-fn merge_parent_path(ctx: &ProjectRepository) -> PathBuf {
-    ctx.repo().path().join("base_merge_parent")
+fn merge_parent_path(ctx: &CommandContext) -> PathBuf {
+    ctx.repository().path().join("base_merge_parent")
 }
 
-pub(crate) fn merge_parent(ctx: &ProjectRepository) -> Result<Option<git2::Oid>> {
+pub(crate) fn merge_parent(ctx: &CommandContext) -> Result<Option<git2::Oid>> {
     use std::io::BufRead;
 
     let merge_path = merge_parent_path(ctx);
@@ -73,7 +73,7 @@ pub(crate) fn merge_parent(ctx: &ProjectRepository) -> Result<Option<git2::Oid>>
     }
 }
 
-pub fn resolve<P: AsRef<Path>>(ctx: &ProjectRepository, path_to_resolve: P) -> Result<()> {
+pub fn resolve<P: AsRef<Path>>(ctx: &CommandContext, path_to_resolve: P) -> Result<()> {
     let path_to_resolve = path_to_resolve.as_ref();
     let path_to_resolve = path_to_resolve.as_os_str().as_encoded_bytes();
     let conflicts_path = conflicts_path(ctx);
@@ -93,7 +93,7 @@ pub fn resolve<P: AsRef<Path>>(ctx: &ProjectRepository, path_to_resolve: P) -> R
     Ok(())
 }
 
-pub(crate) fn conflicting_files(ctx: &ProjectRepository) -> Result<Vec<PathBuf>> {
+pub(crate) fn conflicting_files(ctx: &CommandContext) -> Result<Vec<PathBuf>> {
     let conflicts_path = conflicts_path(ctx);
     if !conflicts_path.exists() {
         return Ok(vec![]);
@@ -108,7 +108,7 @@ pub(crate) fn conflicting_files(ctx: &ProjectRepository) -> Result<Vec<PathBuf>>
 
 /// Check if `path` is conflicting in `repository`, or if `None`, check if there is any conflict.
 // TODO(ST): Should this not rather check the conflicting state in the index?
-pub(crate) fn is_conflicting(repository: &ProjectRepository, path: Option<&Path>) -> Result<bool> {
+pub(crate) fn is_conflicting(repository: &CommandContext, path: Option<&Path>) -> Result<bool> {
     let conflicts_path = conflicts_path(repository);
     if !conflicts_path.exists() {
         return Ok(false);
@@ -128,11 +128,11 @@ pub(crate) fn is_conflicting(repository: &ProjectRepository, path: Option<&Path>
 
 // is this project still in a resolving conflict state?
 // - could be that there are no more conflicts, but the state is not committed
-pub(crate) fn is_resolving(ctx: &ProjectRepository) -> bool {
+pub(crate) fn is_resolving(ctx: &CommandContext) -> bool {
     merge_parent_path(ctx).exists()
 }
 
-pub(crate) fn clear(ctx: &ProjectRepository) -> Result<()> {
+pub(crate) fn clear(ctx: &CommandContext) -> Result<()> {
     remove_file_ignore_missing(merge_parent_path(ctx))?;
     remove_file_ignore_missing(conflicts_path(ctx))?;
     Ok(())
@@ -154,7 +154,7 @@ pub(crate) trait RepoConflictsExt {
     fn is_resolving(&self) -> bool;
 }
 
-impl RepoConflictsExt for ProjectRepository {
+impl RepoConflictsExt for CommandContext {
     fn is_resolving(&self) -> bool {
         is_resolving(self)
     }

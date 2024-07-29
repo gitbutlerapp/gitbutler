@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Result};
 use gitbutler_branch_actions::{VirtualBranchActions, VirtualBranches};
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
@@ -136,7 +136,7 @@ impl Handler {
             .get(project_id)
             .context("failed to get project")?;
         let open_projects_repository = || {
-            ProjectRepository::open(&project.clone())
+            CommandContext::open(&project.clone())
                 .context("failed to open project repository for project")
         };
 
@@ -152,14 +152,11 @@ impl Handler {
                     self.emit_app_event(Change::GitActivity(project.id))?;
                 }
                 "HEAD" => {
-                    let project_repository = open_projects_repository()?;
-                    let head_ref = project_repository
-                        .repo()
-                        .head()
-                        .context("failed to get head")?;
+                    let ctx = open_projects_repository()?;
+                    let head_ref = ctx.repository().head().context("failed to get head")?;
                     let head_ref_name = head_ref.name().context("failed to get head name")?;
                     if head_ref_name != "refs/heads/gitbutler/integration" {
-                        let mut integration_reference = project_repository.repo().find_reference(
+                        let mut integration_reference = ctx.repository().find_reference(
                             &Refname::from(LocalRefname::new("gitbutler/integration", None))
                                 .to_string(),
                         )?;
@@ -188,7 +185,7 @@ impl Handler {
 
         if project.is_sync_enabled() && project.has_code_url() {
             if let Some(user) = self.users.get_user()? {
-                let repository = ProjectRepository::open(&project)
+                let repository = CommandContext::open(&project)
                     .context("failed to open project repository for project")?;
                 return sync_with_gitbutler(&repository, &user, &self.projects);
             }

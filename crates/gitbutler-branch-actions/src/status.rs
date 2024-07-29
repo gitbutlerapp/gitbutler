@@ -4,7 +4,7 @@ use anyhow::{bail, Context, Result};
 use gitbutler_branch::{
     Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, OwnershipClaim,
 };
-use gitbutler_command_context::ProjectRepository;
+use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{diff_files_into_hunks, GitHunk, Hunk, HunkHash};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::RepositoryExt;
@@ -29,17 +29,16 @@ pub struct VirtualBranchesStatus {
 /// of skipped files.
 // TODO(kv): make this side effect free
 pub fn get_applied_status(
-    project_repository: &ProjectRepository,
+    ctx: &CommandContext,
     perm: Option<&mut WorktreeWritePermission>,
 ) -> Result<VirtualBranchesStatus> {
-    let integration_commit = get_workspace_head(project_repository)?;
-    let mut virtual_branches = project_repository
+    let integration_commit = get_workspace_head(ctx)?;
+    let mut virtual_branches = ctx
         .project()
         .virtual_branches()
         .list_branches_in_workspace()?;
-    let base_file_diffs =
-        gitbutler_diff::workdir(project_repository.repo(), &integration_commit.to_owned())
-            .context("failed to diff workdir")?;
+    let base_file_diffs = gitbutler_diff::workdir(ctx.repository(), &integration_commit.to_owned())
+        .context("failed to diff workdir")?;
 
     let mut skipped_files: Vec<gitbutler_diff::FileDiff> = Vec::new();
     for file_diff in base_file_diffs.values() {
@@ -52,7 +51,7 @@ pub fn get_applied_status(
     // sort by order, so that the default branch is first (left in the ui)
     virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));
 
-    let branch_manager = project_repository.branch_manager();
+    let branch_manager = ctx.branch_manager();
 
     if virtual_branches.is_empty() && !base_diffs.is_empty() {
         if let Some(perm) = perm {
@@ -70,7 +69,7 @@ pub fn get_applied_status(
             .map(|branch| (branch.id, HashMap::new()))
             .collect();
 
-    let locks = compute_locks(project_repository.repo(), &base_diffs, &virtual_branches)?;
+    let locks = compute_locks(ctx.repository(), &base_diffs, &virtual_branches)?;
 
     for branch in &mut virtual_branches {
         let old_claims = branch.ownership.claims.clone();
@@ -187,11 +186,10 @@ pub fn get_applied_status(
         .collect::<Vec<_>>();
 
     // write updated state if not resolving
-    if !project_repository.is_resolving() {
-        let vb_state = project_repository.project().virtual_branches();
+    if !ctx.is_resolving() {
+        let vb_state = ctx.project().virtual_branches();
         for (vbranch, files) in &mut hunks_by_branch {
-            vbranch.tree =
-                gitbutler_diff::write::hunks_onto_oid(project_repository, &vbranch.head, files)?;
+            vbranch.tree = gitbutler_diff::write::hunks_onto_oid(ctx, &vbranch.head, files)?;
             vb_state
                 .set_branch(vbranch.clone())
                 .context(format!("failed to write virtual branch {}", vbranch.name))?;
@@ -200,11 +198,7 @@ pub fn get_applied_status(
     let hunks_by_branch: Vec<(Branch, HashMap<PathBuf, Vec<VirtualBranchHunk>>)> = hunks_by_branch
         .iter()
         .map(|(branch, hunks)| {
-            let hunks = file_hunks_from_diffs(
-                &project_repository.project().path,
-                hunks.clone(),
-                Some(&locks),
-            );
+            let hunks = file_hunks_from_diffs(&ctx.project().path, hunks.clone(), Some(&locks));
             (branch.clone(), hunks)
         })
         .collect();
@@ -212,7 +206,7 @@ pub fn get_applied_status(
     let files_by_branch: Vec<(Branch, Vec<VirtualBranchFile>)> = hunks_by_branch
         .iter()
         .map(|(branch, hunks)| {
-            let files = virtual_hunks_into_virtual_files(project_repository, hunks.clone());
+            let files = virtual_hunks_into_virtual_files(ctx, hunks.clone());
             (branch.clone(), files)
         })
         .collect();
