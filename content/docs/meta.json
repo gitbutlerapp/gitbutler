@@ -1,12 +1,17 @@
 {
   "title": "Folder",
+  "root": true,
+  "defaultOpen": false,
   "pages": [
     "index",
+    "---Getting Started---",
     "overview",
     "features",
     "troubleshooting",
     "development",
+    "api-reference",
+    "---Others---",
     "community",
-    "releases"
+    "[Releases](https://github.com/gitbutlerapp/gitbutler/releases)"
   ]
 }

@@ -1,5 +1,6 @@
 {
   "title": "Features",
+  "defaultOpen": true,
   "pages": [
     "virtual-branches",
     "timeline"

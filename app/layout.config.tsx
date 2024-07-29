@@ -28,5 +28,8 @@ export const baseOptions: BaseLayoutProps = {
 // docs layout configuration
 export const docsOptions: DocsLayoutProps = {
   ...baseOptions,
+  sidebar: {
+    defaultOpenLevel: 0
+  },
   tree: pageTree
 }

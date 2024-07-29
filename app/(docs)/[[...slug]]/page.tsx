@@ -73,11 +73,6 @@ export default async function Page({ params }: { params: { slug?: string[] } }) 
 
   const MDX = page.data.exports.default
 
-  // Remove all lower level headers from the TOC on releases page
-  if (page.file.name === "releases") {
-    page.data.exports.toc = page.data.exports.toc.filter((item) => item.depth <= 2)
-  }
-
   return (
     <DocsPage
       toc={page.data.exports.toc}

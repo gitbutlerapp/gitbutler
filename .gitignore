@@ -4,6 +4,9 @@ node_modules
 # generated content
 .map.ts
 .contentlayer
+api-reference.json
+content/docs/api-reference/*.mdx
+!content/docs/api-reference/index.mdx
 
 # test & build
 /coverage
