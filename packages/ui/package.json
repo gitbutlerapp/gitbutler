@@ -23,8 +23,10 @@
 		"storybook:build": "storybook build"
 	},
 	"devDependencies": {
+		"@chromatic-com/storybook": "^1.6.1",
 		"@csstools/postcss-bundler": "^1.0.15",
 		"@csstools/postcss-minify": "^1.1.5",
+		"@storybook/addon-docs": "^8.2.6",
 		"@storybook/addon-essentials": "^8.1.10",
 		"@storybook/addon-interactions": "^8.1.10",
 		"@storybook/addon-links": "^8.1.10",
