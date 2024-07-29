@@ -213,9 +213,11 @@
 	bind:this={viewport}
 	style="--tab-size: {tabSize}; --cursor: {draggingDisabled ? 'default' : 'grab'}"
 >
-	<div class="table__drag-handle">
-		<Icon name="draggable-narrow" />
-	</div>
+	{#if !draggingDisabled}
+		<div class="table__drag-handle">
+			<Icon name="draggable-narrow" />
+		</div>
+	{/if}
 	<table bind:this={contents} data-hunk-id={hunk.id} class="table__section">
 		<tbody>
 			{#each renderRows as line}
