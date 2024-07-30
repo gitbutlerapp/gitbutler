@@ -8,31 +8,46 @@
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
 
-	export let filePath: string;
-	export let isBinary: boolean;
-	export let isLarge: boolean;
-	export let sections: (HunkSection | ContentSection)[];
-	export let isUnapplied: boolean;
-	export let selectable = false;
-	export let isFileLocked = false;
-	export let readonly: boolean = false;
+	interface Props {
+		filePath: string;
+		isBinary: boolean;
+		isLarge: boolean;
+		sections: (HunkSection | ContentSection)[];
+		isUnapplied: boolean;
+		selectable: boolean;
+		isFileLocked: boolean;
+		readonly: boolean;
+	}
 
-	$: maxLineNumber = sections[sections.length - 1]?.maxLineNumber;
-	$: minWidth = getGutterMinWidth(maxLineNumber);
+	let {
+		filePath,
+		isBinary,
+		isLarge,
+		sections,
+		isUnapplied,
+		selectable = false,
+		isFileLocked = false,
+		readonly = false
+	}: Props = $props();
 
+	let alwaysShow = $state(false);
 	const localCommits = isFileLocked ? getLocalCommits() : undefined;
 	const remoteCommits = isFileLocked ? getLocalAndRemoteCommits() : undefined;
 
 	const commits = isFileLocked ? ($localCommits || []).concat($remoteCommits || []) : undefined;
-	let alwaysShow = false;
 
-	function getGutterMinWidth(max: number) {
+	function getGutterMinWidth(max: number | undefined) {
+		if (!max) {
+			return 1;
+		}
 		if (max >= 10000) return 2.5;
 		if (max >= 1000) return 2;
 		if (max >= 100) return 1.5;
 		if (max >= 10) return 1.25;
 		return 1;
 	}
+	const maxLineNumber = $derived(sections.at(-1)?.maxLineNumber);
+	const minWidth = $derived(getGutterMinWidth(maxLineNumber));
 </script>
 
 <div class="hunks">
@@ -43,7 +58,7 @@
 	{:else if sections.length > 50 && !alwaysShow}
 		<LargeDiffMessage
 			showFrame
-			on:show={() => {
+			handleShow={() => {
 				alwaysShow = true;
 			}}
 		/>

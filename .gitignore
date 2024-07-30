@@ -46,3 +46,6 @@ storybook-static
 
 # Vercel
 .vercel
+
+# Rust analyzer
+.rust-analyzer/

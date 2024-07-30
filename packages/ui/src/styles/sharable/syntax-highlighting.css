@@ -61,15 +61,16 @@
 
 	.token-inserted {
 		color: #116329;
+		background-color: #11632960;
 	}
 
 	.token-deleted {
 		color: #82071e;
+		background-color: #82071e40;
 	}
 
 	.token-heading {
 		color: var(--color-token-variable-special);
-		font-weight: bold;
 	}
 
 	.token-link {
@@ -153,15 +154,16 @@
 
 	.dark .token-inserted {
 		color: #7ee787;
+		background-color: #7ee78740;
 	}
 
 	.dark .token-deleted {
 		color: #ffa198;
+		background-color: #ffa19840;
 	}
 
 	.dark .token-heading {
 		color: var(--color-token-variable-special);
-		font-weight: bold;
 	}
 
 	.dark .token-link {

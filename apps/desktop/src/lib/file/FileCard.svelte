@@ -7,16 +7,27 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import type { AnyFile } from '$lib/vbranches/types';
 
-	export let file: AnyFile;
-	export let conflicted: boolean;
-	export let isUnapplied: boolean;
-	export let selectable = false;
-	export let readonly = false;
-	export let isCard = true;
+	interface Props {
+		file: AnyFile;
+		conflicted: boolean;
+		isUnapplied: boolean;
+		selectable?: boolean;
+		readonly?: boolean;
+		isCard?: boolean;
+	}
+
+	let {
+		file,
+		conflicted,
+		isUnapplied,
+		selectable = false,
+		readonly = false,
+		isCard = true
+	}: Props = $props();
 
 	const branchController = getContext(BranchController);
 
-	let sections: (HunkSection | ContentSection)[] = [];
+	let sections: (HunkSection | ContentSection)[] = $state([]);
 
 	function parseFile(file: AnyFile) {
 		// When we toggle expansion status on sections we need to assign
@@ -24,11 +35,13 @@
 		// variable.
 		if (!file.binary && !file.large) sections = parseFileSections(file);
 	}
-	$: parseFile(file);
+	$effect(() => parseFile(file));
 
-	$: isFileLocked = sections
-		.filter((section): section is HunkSection => section instanceof HunkSection)
-		.some((section) => section.hunk.locked);
+	const isFileLocked = $derived(
+		sections
+			.filter((section): section is HunkSection => section instanceof HunkSection)
+			.some((section) => section.hunk.locked)
+	);
 </script>
 
 <div id={`file-${file.id}`} class="file-card" class:card={isCard}>
@@ -37,7 +50,7 @@
 		<div class="mb-2 bg-red-500 px-2 py-0 font-bold text-white">
 			<button
 				class="font-bold text-white"
-				on:click={async () => await branchController.markResolved(file.path)}
+				onclick={async () => await branchController.markResolved(file.path)}
 			>
 				Mark resolved
 			</button>

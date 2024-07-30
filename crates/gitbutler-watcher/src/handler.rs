@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use gitbutler_branch_actions::{VirtualBranchActions, VirtualBranches};
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
-use gitbutler_operating_modes::in_open_workspace_mode;
+use gitbutler_operating_modes::{in_open_workspace_mode, in_outside_workspace_mode};
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt,
@@ -171,7 +171,10 @@ impl Handler {
                 "HEAD" => {
                     let ctx = CommandContext::open(&project)
                         .context("Failed to create a command context")?;
-                    if in_open_workspace_mode(&ctx)? {
+
+                    // If the user has left gitbutler/integration, we want to delete the reference.
+                    // TODO: why do we want to do this?
+                    if in_outside_workspace_mode(&ctx)? {
                         let mut integration_reference = ctx.repository().find_reference(
                             &Refname::from(LocalRefname::new("gitbutler/integration", None))
                                 .to_string(),
