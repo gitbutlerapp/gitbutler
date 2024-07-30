@@ -51,6 +51,9 @@
 	let viewport = $state<HTMLDivElement>();
 	let contents = $state<HTMLDivElement>();
 
+	const WHITESPACE_REGEX = /\s/;
+	const NUMBER_COLUMN_WIDTH_PX = 30;
+
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 
 	const selected = $derived($selectedOwnership?.contains(hunk.filePath, hunk.id) ?? false);
@@ -59,8 +62,6 @@
 	function charDiff(text1: string, text2: string): { 0: number; 1: string }[] {
 		const differ = new diff_match_patch();
 		const diff = differ.diff_main(text1, text2);
-		// @TODO Decide on cleaned up diffs or not, see netbox `serializers_/cables.py`
-		// https://github.com/google/diff-match-patch/wiki/API
 		differ.diff_cleanupSemantic(diff);
 		return diff;
 	}
@@ -72,7 +73,7 @@
 	}
 
 	function isLineEmpty(lines: Line[]) {
-		const whitespaceRegex = new RegExp(/\s/);
+		const whitespaceRegex = new RegExp(WHITESPACE_REGEX);
 		if (!lines[0].content.match(whitespaceRegex)) {
 			return true;
 		}
@@ -83,7 +84,7 @@
 	function createRowData(section: ContentSection): Row[] {
 		return section.lines.map((line) => {
 			if (line.content === '') {
-				// Add extra \n for empty lines for correct copy/pasting
+				// Add extra \n for empty lines for correct copy/pasting output
 				line.content = '\n';
 			}
 
@@ -224,6 +225,7 @@
 				<tr data-no-drag>
 					<td
 						class="table__numberColumn"
+						style="--number-col-width: {NUMBER_COLUMN_WIDTH_PX}px;"
 						align="center"
 						class:selected={isSelected}
 						onclick={() => {
@@ -234,6 +236,7 @@
 					</td>
 					<td
 						class="table__numberColumn"
+						style="--number-col-width: {NUMBER_COLUMN_WIDTH_PX}px;"
 						align="center"
 						class:selected={isSelected}
 						onclick={() => {
@@ -263,7 +266,7 @@
 			{/each}
 		</tbody>
 	</table>
-	<Scrollbar {viewport} {contents} horz />
+	<Scrollbar {viewport} {contents} horz padding={{ left: NUMBER_COLUMN_WIDTH_PX * 2 + 2 }} />
 </div>
 
 <style>
@@ -307,8 +310,6 @@
 	}
 
 	.table__numberColumn {
-		--number-col-width: 30px;
-
 		color: var(--clr-text-3);
 		border-color: var(--clr-border-2);
 		background-color: var(--clr-bg-1-muted);
