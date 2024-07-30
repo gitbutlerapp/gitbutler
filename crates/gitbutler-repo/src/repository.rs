@@ -447,17 +447,18 @@ impl RepoActionsExt for CommandContext {
     fn signatures(&self) -> Result<(git2::Signature, git2::Signature)> {
         let repo = gix::open(self.repository().path())?;
 
-        let default_actor = gix::actor::SignatureRef {
-            name: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME.into(),
-            email: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL.into(),
-            time: Default::default(),
-        };
-        let author = repo.author().transpose()?.unwrap_or(default_actor);
+        let author = repo
+            .author()
+            .transpose()?
+            .unwrap_or_else(|| default_actor_with_commit_time("GIT_AUTHOR_DATE"));
+
         let config: Config = self.repository().into();
         let committer = if config.user_real_comitter()? {
-            repo.committer().transpose()?.unwrap_or(default_actor)
+            repo.committer()
+                .transpose()?
+                .unwrap_or_else(|| default_actor_with_commit_time("GIT_COMMITTER_DATE"))
         } else {
-            default_actor
+            default_actor_with_commit_time("GIT_COMMITTER_DATE")
         };
 
         Ok((
@@ -467,10 +468,28 @@ impl RepoActionsExt for CommandContext {
     }
 }
 
+fn default_actor_with_commit_time(
+    overriding_variable_name: &str,
+) -> gix::actor::SignatureRef<'static> {
+    gix::actor::SignatureRef {
+        name: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME.into(),
+        email: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL.into(),
+        time: std::env::var(overriding_variable_name)
+            .ok()
+            .and_then(|time| gix::date::parse(&time, Some(std::time::SystemTime::now())).ok())
+            .unwrap_or_else(|| gix::date::Time::now_local_or_utc()),
+    }
+}
+
+/// Convert `actor` to a `git2` representation or fail if that's not possible.
+/// Note that the current time as provided by `gix` is also use as it
+/// respects the `GIT_AUTHOR|COMMITTER_DATE` environment variables.
 fn actor_to_git2_signature(
     actor: gix::actor::SignatureRef<'_>,
 ) -> Result<git2::Signature<'static>> {
-    Ok(git2::Signature::now(
+    let offset_in_minutes = actor.time.offset / 60;
+    let time = git2::Time::new(actor.time.seconds, offset_in_minutes);
+    Ok(git2::Signature::new(
         actor
             .name
             .to_str()
@@ -479,6 +498,7 @@ fn actor_to_git2_signature(
             .email
             .to_str()
             .with_context(|| format!("Could not process actor email: {}", actor.email))?,
+        &time,
     )?)
 }
 
