@@ -326,7 +326,7 @@
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
 		left: calc(var(--number-col-width) + 1px);
-		box-shadow: 1px 0px 0px 0px var(--clr-border-2);
+		box-shadow: inset -1px 0 0 0 var(--clr-border-2);
 
 		&.selected {
 			background-color: var(--hunk-line-selected-bg);
