@@ -1,6 +1,7 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use gitbutler_branch::{BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
+use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt, SnapshotExt,
@@ -35,6 +36,8 @@ impl VirtualBranchActions {
         run_hooks: bool,
     ) -> Result<git2::Oid> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Creating a commit requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
         let result =
@@ -57,6 +60,8 @@ impl VirtualBranchActions {
         branch_name: &RemoteRefname,
     ) -> Result<bool> {
         let ctx = CommandContext::open(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Testing branch mergability requires open workspace mode")?;
         branch::is_remote_branch_mergeable(&ctx, branch_name).map_err(Into::into)
     }
 
@@ -64,11 +69,13 @@ impl VirtualBranchActions {
         &self,
         project: &Project,
     ) -> Result<(Vec<branch::VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
-        branch::list_virtual_branches(
-            &open_with_verify(project)?,
-            project.exclusive_worktree_access().write_permission(),
-        )
-        .map_err(Into::into)
+        let ctx = open_with_verify(project)?;
+
+        assure_open_workspace_mode(&ctx)
+            .context("Listing virtual branches requires open workspace mode")?;
+
+        branch::list_virtual_branches(&ctx, project.exclusive_worktree_access().write_permission())
+            .map_err(Into::into)
     }
 
     pub fn create_virtual_branch(
@@ -77,6 +84,8 @@ impl VirtualBranchActions {
         create: &BranchCreateRequest,
     ) -> Result<BranchId> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Creating a branch requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let branch_manager = ctx.branch_manager();
         let branch_id = branch_manager
@@ -121,6 +130,8 @@ impl VirtualBranchActions {
 
     pub fn integrate_upstream_commits(&self, project: &Project, branch_id: BranchId) -> Result<()> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Integrating upstream commits requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::MergeUpstream),
@@ -131,6 +142,8 @@ impl VirtualBranchActions {
 
     pub fn update_base_branch(&self, project: &Project) -> Result<Vec<ReferenceName>> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Updating base branch requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::UpdateWorkspaceBase),
@@ -145,6 +158,8 @@ impl VirtualBranchActions {
         branch_update: BranchUpdateRequest,
     ) -> Result<()> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Updating a branch requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
         let old_branch = ctx
@@ -171,6 +186,8 @@ impl VirtualBranchActions {
         branch_updates: Vec<BranchUpdateRequest>,
     ) -> Result<()> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Updating branch order requires open workspace mode")?;
         for branch_update in branch_updates {
             let branch = ctx
                 .project()
@@ -185,6 +202,8 @@ impl VirtualBranchActions {
 
     pub fn delete_virtual_branch(&self, project: &Project, branch_id: BranchId) -> Result<()> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Deleting a branch order requires open workspace mode")?;
         let branch_manager = ctx.branch_manager();
         let mut guard = project.exclusive_worktree_access();
         branch_manager.delete_branch(branch_id, guard.write_permission())
@@ -196,6 +215,7 @@ impl VirtualBranchActions {
         ownership: &BranchOwnershipClaims,
     ) -> Result<()> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx).context("Unapply a patch requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::DiscardHunk),
@@ -206,6 +226,8 @@ impl VirtualBranchActions {
 
     pub fn reset_files(&self, project: &Project, files: &Vec<String>) -> Result<()> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Resetting a file requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::DiscardFile),
@@ -222,6 +244,8 @@ impl VirtualBranchActions {
         ownership: &BranchOwnershipClaims,
     ) -> Result<git2::Oid> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Amending a commit requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::AmendCommit),
@@ -239,6 +263,8 @@ impl VirtualBranchActions {
         ownership: &BranchOwnershipClaims,
     ) -> Result<git2::Oid> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Amending a commit requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::MoveCommitFile),
@@ -255,6 +281,8 @@ impl VirtualBranchActions {
         commit_oid: git2::Oid,
     ) -> Result<()> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Undoing a commit requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
         let result: Result<()> =
@@ -278,6 +306,8 @@ impl VirtualBranchActions {
         offset: i32,
     ) -> Result<()> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Inserting a blank commit requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::InsertBlankCommit),
@@ -294,6 +324,8 @@ impl VirtualBranchActions {
         offset: i32,
     ) -> Result<()> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Reordering a commit requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::ReorderCommit),
@@ -309,6 +341,8 @@ impl VirtualBranchActions {
         target_commit_oid: git2::Oid,
     ) -> Result<()> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Resetting a branch requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::UndoCommit),
@@ -323,6 +357,8 @@ impl VirtualBranchActions {
         branch_id: BranchId,
     ) -> Result<ReferenceName> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Converting branch to a real branch requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
         let branch_manager = ctx.branch_manager();
@@ -348,6 +384,8 @@ impl VirtualBranchActions {
     ) -> Result<()> {
         let helper = Helper::default();
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Pushing a branch requires open workspace mode")?;
         branch::push(&ctx, branch_id, with_force, &helper, askpass)
     }
 
@@ -372,6 +410,8 @@ impl VirtualBranchActions {
         commit_oid: git2::Oid,
     ) -> Result<()> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Squashing a commit requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::SquashCommit),
@@ -388,6 +428,8 @@ impl VirtualBranchActions {
         message: &str,
     ) -> Result<()> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Updating a commit message requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::UpdateCommitMessage),
@@ -434,6 +476,7 @@ impl VirtualBranchActions {
         commit_oid: git2::Oid,
     ) -> Result<()> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx).context("Moving a commit requires open workspace mode")?;
         let mut guard = project.exclusive_worktree_access();
         let _ = ctx.project().create_snapshot(
             SnapshotDetails::new(OperationKind::MoveCommit),
@@ -449,6 +492,8 @@ impl VirtualBranchActions {
         remote: Option<RemoteRefname>,
     ) -> Result<BranchId> {
         let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx)
+            .context("Creating a virtual branch from a branch open workspace mode")?;
         let branch_manager = ctx.branch_manager();
         let mut guard = project.exclusive_worktree_access();
         branch_manager

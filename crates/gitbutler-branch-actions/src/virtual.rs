@@ -16,6 +16,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_diff::{trees, GitHunk, Hunk};
 use gitbutler_error::error::{Code, Marker};
+use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::{
@@ -258,6 +259,8 @@ pub fn list_virtual_branches(
     //           that conditionally write things.
     perm: &mut WorktreeWritePermission,
 ) -> Result<(Vec<VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
+    assure_open_workspace_mode(ctx)
+        .context("Listing virtual branches requires open workspace mode")?;
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
     let vb_state = ctx.project().virtual_branches();

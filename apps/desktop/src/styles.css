@@ -1,0 +1,119 @@
+.link {
+	text-decoration: underline;
+
+	&:hover {
+		text-decoration: none;
+	}
+}
+
+body {
+	color: var(--clr-text-1);
+	background-color: var(--clr-bg-2);
+}
+
+/**
+ * Prevents elements within drop-zones from firing mouse events, making
+ * it much easier to manage in/out/over/leave events since they fire less
+ * frequently.
+ */
+.drop-zone-hover * {
+	pointer-events: none;
+}
+
+/* FOCUS STATE */
+.focus-state {
+	&:focus-within {
+		outline: 1px solid transaparent;
+		animation: focus-animation var(--transition-fast) forwards;
+	}
+}
+
+@keyframes focus-animation {
+	0% {
+		outline-offset: 0;
+	}
+	100% {
+		outline-offset: 2px;
+		outline: 1px solid var(--focus-color);
+	}
+}
+
+/* CODE */
+.code-string {
+	font-family: var(--mono-font-family);
+	border-radius: var(--radius-s);
+	background: var(--clr-scale-ntrl-80);
+	padding: 1px 4px;
+}
+
+/* TRANSITION ANIMATION */
+
+.transition-fly {
+	animation: transition-fly 0.25s forwards ease-in-out;
+}
+
+@keyframes transition-fly {
+	0% {
+		transform: translateY(6px);
+		opacity: 0;
+	}
+	100% {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}
+
+/* STATES */
+
+.wiggle {
+	animation: wiggle-animation 0.35s forwards;
+}
+
+@keyframes wiggle-animation {
+	0% {
+		transform: translateX(-3px);
+	}
+	25% {
+		transform: translateX(3px);
+	}
+	50% {
+		transform: translateX(-2px);
+	}
+	75% {
+		transform: translateX(2px);
+	}
+	100% {
+		transform: translateX(0);
+	}
+}
+
+.locked-file-animation {
+	--locked-color: oklch(from var(--clr-scale-warn-50) l c h / 0.2);
+	border: 1px solid var(--clr-bg-1);
+	animation: locked-file-animation 1.4s ease-out forwards;
+}
+
+@keyframes locked-file-animation {
+	0% {
+		transform: translateX(-3px);
+		background-color: var(--clr-bg-1);
+	}
+	10% {
+		transform: translateX(3px);
+		background-color: var(--locked-color);
+	}
+	15% {
+		transform: translateX(-3px);
+	}
+	25% {
+		transform: translateX(3px);
+		background-color: var(--locked-color);
+	}
+	30%,
+	70% {
+		transform: translateX(0);
+	}
+	100% {
+		background-color: var(--clr-bg-1);
+	}
+}
