@@ -247,6 +247,7 @@
 						class="table__textContent"
 						style="--tab-size: {tabSize};"
 						class:readonly
+						data-no-drag
 						class:diff-line-deletion={line.type === SectionType.RemovedLines}
 						class:diff-line-addition={line.type === SectionType.AddedLines}
 						oncontextmenu={(event) => {
@@ -304,7 +305,7 @@
 		font-family: monospace;
 	}
 	.table__numberColumn {
-		--number-col-width: 35px;
+		--number-col-width: 30px;
 
 		border-collapse: separate;
 
