@@ -60,11 +60,11 @@
 	}
 
 	.token-inserted {
-		background-color: var(--override-addition-inner-diff-background-color);
+		background-color: var(--override-addition-inner-diff-background);
 	}
 
 	.token-deleted {
-		background-color: var(--override-deletion-inner-diff-background-color);
+		background-color: var(--override-deletion-inner-diff-background);
 	}
 
 	.token-heading {
