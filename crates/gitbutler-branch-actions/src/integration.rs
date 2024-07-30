@@ -38,19 +38,8 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
 
     let mut virtual_branches: Vec<Branch> = vb_state.list_branches_in_workspace()?;
 
-    let branch_heads = virtual_branches
-        .iter()
-        .map(|b| repo.find_commit(b.head))
-        .collect::<Result<Vec<_>, _>>()?;
-    let branch_head_refs = branch_heads.iter().collect::<Vec<_>>();
-
     let target_commit = repo.find_commit(target.sha)?;
     let mut workspace_tree = target_commit.tree()?;
-
-    // If no branches are applied then the workspace head is the target.
-    if branch_head_refs.is_empty() {
-        return Ok(target_commit.id());
-    }
 
     if conflicts::is_conflicting(ctx, None)? {
         let merge_parent = conflicts::merge_parent(ctx)?.ok_or(anyhow!("No merge parent"))?;
@@ -215,13 +204,8 @@ pub fn update_gitbutler_integration(
     // It would be nice if we could pass an `update_ref` parameter to this function, but that
     // requires committing to the tip of the branch, and we're mostly replacing the tip.
 
-    let workspace_head_parents = workspace_head.parents().collect::<Vec<_>>();
+    let parents = workspace_head.parents().collect::<Vec<_>>();
     let workspace_tree = workspace_head.tree()?;
-    let parents = if workspace_head_parents.len() > 1 {
-        workspace_head_parents
-    } else {
-        vec![workspace_head]
-    };
 
     let final_commit = repo.commit(
         None,
