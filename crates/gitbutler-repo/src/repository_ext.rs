@@ -32,8 +32,6 @@ pub trait RepositoryExt {
     fn in_memory_repo(&self) -> Result<git2::Repository>;
     /// Fetches the integration commit from the gitbutler/integration branch
     fn integration_commit(&self) -> Result<git2::Commit<'_>>;
-    /// Fetches the target commit by finding the parent of the integration commit
-    fn target_commit(&self) -> Result<git2::Commit<'_>>;
     /// Takes a CommitBuffer and returns it after being signed by by your git signing configuration
     fn sign_buffer(&self, buffer: &CommitBuffer) -> Result<BString>;
 
@@ -152,10 +150,6 @@ impl RepositoryExt for git2::Repository {
     fn integration_commit(&self) -> Result<git2::Commit<'_>> {
         let integration_ref = self.integration_ref_from_head()?;
         Ok(integration_ref.peel_to_commit()?)
-    }
-
-    fn target_commit(&self) -> Result<git2::Commit<'_>> {
-        Ok(self.integration_commit()?.parent(0)?)
     }
 
     #[allow(clippy::too_many_arguments)]
