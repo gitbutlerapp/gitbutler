@@ -12,7 +12,7 @@ use gitbutler_oplog::{
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::{LocalRefname, Refname};
-use gitbutler_sync::cloud::sync_with_gitbutler;
+use gitbutler_sync::cloud::{push_oplog, push_repo};
 use gitbutler_user as users;
 use tracing::instrument;
 
@@ -204,11 +204,13 @@ impl Handler {
             .get(project_id)
             .context("failed to get project")?;
 
-        if project.is_sync_enabled() && project.has_code_url() {
-            if let Some(user) = self.users.get_user()? {
-                let repository = CommandContext::open(&project)
-                    .context("failed to open project repository for project")?;
-                return sync_with_gitbutler(&repository, &user, &self.projects);
+        if let Some(user) = self.users.get_user()? {
+            let ctx = CommandContext::open(&project)?;
+            if project.oplog_sync_enabled() {
+                push_oplog(&ctx, &user)?;
+            }
+            if project.code_sync_enabled() {
+                push_repo(&ctx, &user, &self.projects)?;
             }
         }
         Ok(())
