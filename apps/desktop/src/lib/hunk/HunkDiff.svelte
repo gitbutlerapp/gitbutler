@@ -274,6 +274,7 @@
 	.table__wrapper {
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-s);
+		background-color: var(--clr-bg-1);
 		overflow-x: auto;
 
 		&:hover .table__drag-handle {
