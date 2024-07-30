@@ -9,6 +9,7 @@
 	const projectService = getContext(ProjectService);
 
 	let newProjectLoading = false;
+	let cloneProjectLoading = false;
 
 	async function onNewProject() {
 		newProjectLoading = true;
@@ -18,12 +19,22 @@
 			newProjectLoading = false;
 		}
 	}
+
+	async function onCloneProject() {
+		cloneProjectLoading = true;
+		try {
+      // TODO: Navigate to new "Clone Repository" route
+		} finally {
+			cloneProjectLoading = false;
+		}
+	}
 </script>
 
 <div class="welcome">
 	<h1 class="welcome-title text-serif-40">Welcome to GitButler</h1>
 	<div class="welcome__actions">
-		<WelcomeAction title="Add new project" loading={newProjectLoading} on:mousedown={onNewProject}>
+    <div class="welcome__actions--repo">
+		<WelcomeAction title="Add local project" loading={newProjectLoading} on:mousedown={onNewProject}>
 			<svelte:fragment slot="icon">
 				{@html newProjectSvg}
 			</svelte:fragment>
@@ -31,6 +42,15 @@
 				Verify valid Git repository in selected folder before importing.
 			</svelte:fragment>
 		</WelcomeAction>
+		<WelcomeAction title="Clone a repository" loading={cloneProjectLoading} on:mousedown={onCloneProject}>
+			<svelte:fragment slot="icon">
+				{@html newProjectSvg}
+			</svelte:fragment>
+			<svelte:fragment slot="message">
+				Verify valid Git repository in selected folder before importing.
+			</svelte:fragment>
+		</WelcomeAction>
+      </div>
 		<!-- Using instance of user here to not hide after login -->
 		<WelcomeSigninAction />
 	</div>
@@ -77,6 +97,11 @@
 		gap: 8px;
 		margin-top: 32px;
 	}
+
+	.welcome__actions--repo {
+    display: flex;
+    gap: 8px;
+  }
 
 	.links {
 		display: flex;
