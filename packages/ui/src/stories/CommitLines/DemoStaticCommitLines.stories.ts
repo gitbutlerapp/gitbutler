@@ -2,6 +2,7 @@ import DemoStaticCommitLines from './DemoStaticCommitLines.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
+	title: 'Commit Lines/ Line group variants',
 	component: DemoStaticCommitLines
 } satisfies Meta<DemoStaticCommitLines>;
 
