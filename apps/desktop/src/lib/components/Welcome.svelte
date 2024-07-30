@@ -5,6 +5,7 @@
 	import { ProjectService } from '$lib/backend/projects';
 	import IconLink from '$lib/shared/IconLink.svelte';
 	import { getContext } from '$lib/utils/context';
+	import { goto } from '$app/navigation';
 
 	const projectService = getContext(ProjectService);
 
@@ -23,7 +24,7 @@
 	async function onCloneProject() {
 		cloneProjectLoading = true;
 		try {
-			// TODO: Navigate to new "Clone Repository" route
+			goto('/onboarding/clone');
 		} finally {
 			cloneProjectLoading = false;
 		}
@@ -37,26 +38,26 @@
 			<WelcomeAction
 				title="Add local project"
 				loading={newProjectLoading}
-				on:mousedown={onNewProject}
+				onmousedown={onNewProject}
 			>
-				<svelte:fragment slot="icon">
+				{#snippet icon()}
 					{@html newProjectSvg}
-				</svelte:fragment>
-				<svelte:fragment slot="message">
-					Verify valid Git repository in selected folder before importing.
-				</svelte:fragment>
+				{/snippet}
+				{#snippet message()}
+					Should be a valid git repository
+				{/snippet}
 			</WelcomeAction>
 			<WelcomeAction
 				title="Clone a repository"
 				loading={cloneProjectLoading}
-				on:mousedown={onCloneProject}
+				onmousedown={onCloneProject}
 			>
-				<svelte:fragment slot="icon">
+				{#snippet icon()}
 					{@html newProjectSvg}
-				</svelte:fragment>
-				<svelte:fragment slot="message">
-					Verify valid Git repository in selected folder before importing.
-				</svelte:fragment>
+				{/snippet}
+				{#snippet message()}
+					Clone a repo using a URL
+				{/snippet}
 			</WelcomeAction>
 		</div>
 		<!-- Using instance of user here to not hide after login -->

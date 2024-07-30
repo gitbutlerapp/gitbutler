@@ -1,34 +1,55 @@
 <script lang="ts">
 	import Icon from '$lib/shared/Icon.svelte';
+	import type { Snippet } from 'svelte';
 
-	export let title: string;
-	export let loading = false;
+	const {
+		title,
+		loading = false,
+		onmousedown,
+		onclick,
+		icon,
+		message
+	}: {
+		title: string;
+		loading: boolean;
+		onmousedown?: (e: MouseEvent) => void;
+		onclick?: (e: MouseEvent) => void;
+		icon: Snippet;
+		message: Snippet;
+	} = $props();
 </script>
 
-<button class="action" class:loading on:click on:mousedown disabled={loading}>
-	<div class="icon">
-		<slot name="icon" />
-	</div>
-	<div class="action__content">
-		<div class="action__title text-base-18 text-bold">{title}</div>
-		<div class="action__message text-base-body-12">
-			<slot name="message" />
+<button class="action" class:loading {onclick} {onmousedown} disabled={loading}>
+	<div class="action__wrapper">
+		<div class="icon">
+			{@render icon()}
 		</div>
-	</div>
-	{#if loading}
-		<div class="action__spinner">
-			<Icon name="spinner" />
+		<div class="action__content">
+			<div class="action__title text-base-18 text-bold">{title}</div>
+			<div class="action__message text-base-body-12">
+				{@render message()}
+			</div>
 		</div>
-	{/if}
+		{#if loading}
+			<div class="action__spinner">
+				<Icon name="spinner" />
+			</div>
+		{/if}
+	</div>
 </button>
 
 <style lang="postcss">
 	.action {
+		container-type: inline-size;
+		width: 100%;
+	}
+	.action__wrapper {
 		position: relative;
+		display: flex;
+		height: 100%;
 		overflow: hidden;
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);
-		display: flex;
 		position: relative;
 		padding: 16px;
 		flex-direction: row;
@@ -47,6 +68,19 @@
 		}
 	}
 
+	@container (width >= 300px) {
+		.action__wrapper {
+			flex-direction: row-reverse;
+		}
+	}
+
+	@container (width <= 300px) {
+		.action__wrapper {
+			flex-direction: column;
+			align-items: start;
+		}
+	}
+
 	.loading {
 		pointer-events: none;
 		background-color: var(--clr-bg-2);
@@ -55,9 +89,7 @@
 	}
 
 	.action__content {
-		flex: 1;
-		position: relative;
-		z-index: 0;
+		width: 100%;
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
