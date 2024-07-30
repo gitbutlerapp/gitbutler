@@ -1,11 +1,35 @@
 :root {
 	--hunk-line-selected-bg: #60a5fa;
 	--hunk-line-selected-border: #2563eb;
+
+	--override-addition-background: #e0fbf0;
+	--override-addition-inner-diff-background: #c5f0dc;
+	--override-addition-counter-background: #c8f3e1;
+	--override-addition-counter-text: #87a89a;
+	--override-addition-counter-border: #aecbb7;
+
+	--override-deletion-background: #fff0f2;
+	--override-deletion-inner-diff-background: #fdd2da;
+	--override-deletion-counter-background: #fcdfe4;
+	--override-deletion-counter-text: #b69292;
+	--override-deletion-counter-border: #e3c1c1;
 }
 
 :root.dark {
 	--hunk-line-selected-bg: #044289;
 	--hunk-line-selected-border: #005cc5;
+
+	--override-addition-background: #0e2f25;
+	--override-addition-inner-diff-background: #075445;
+	--override-addition-counter-background: #0c4538;
+	--override-addition-counter-text: #689e88;
+	--override-addition-counter-border: #2b6e53;
+
+	--override-deletion-background: #3c131b;
+	--override-deletion-inner-diff-background: #78061c;
+	--override-deletion-counter-background: #53131e;
+	--override-deletion-counter-text: #cb7380;
+	--override-deletion-counter-border: #933f3f;
 }
 
 .inner-diff {
@@ -14,28 +38,20 @@
 
 .diff-line-marker-addition,
 .diff-line-addition {
-	--override-addition-background-color: hsl(144deg 55% 49% / 20%);
-
-	background-color: var(--override-addition-background-color);
+	background-color: var(--override-addition-background);
 }
 
 .diff-line-marker-deletion,
 .diff-line-deletion {
-	--override-deletion-background-color: rgba(220, 38, 38, 0.2);
-
-	background-color: var(--override-deletion-background-color);
+	background-color: var(--override-deletion-background);
 }
 
 .diff-line-addition .inner-diff {
-	--override-addition-inner-diff-background-color: hsl(144deg 55% 49% / 60%);
-
-	background-color: var(--override-addition-inner-diff-background-color);
+	background-color: var(--override-addition-inner-diff-background);
 }
 
 .diff-line-deletion .inner-diff {
-	--override-deletion-inner-diff-background-color: rgba(220, 38, 38, 0.3);
-
-	background-color: var(--override-deletion-inner-diff-background-color);
+	background-color: var(--override-deletion-inner-diff-background);
 }
 
 .diff-line-spacer {

@@ -60,13 +60,11 @@
 	}
 
 	.token-inserted {
-		color: #116329;
-		background-color: #11632960;
+		background-color: var(--override-addition-inner-diff-background);
 	}
 
 	.token-deleted {
-		color: #82071e;
-		background-color: #82071e40;
+		background-color: var(--override-deletion-inner-diff-background);
 	}
 
 	.token-heading {
@@ -92,94 +90,86 @@
 
 	/* DARK */
 
-	.dark .token-variable {
-		color: #79c0ff;
-	}
+	.dark {
+		.token-variable {
+			color: #79c0ff;
+		}
 
-	.dark .token-property {
-		color: #79c0ff;
-	}
+		.token-property {
+			color: #79c0ff;
+		}
 
-	.dark .token-type {
-		color: #7ee787;
-	}
+		.token-type {
+			color: #7ee787;
+		}
 
-	.dark .token-variable-special {
-		color: #79c0ff;
-	}
+		.token-variable-special {
+			color: #79c0ff;
+		}
 
-	.dark .token-definition {
-		color: #ffa657;
-	}
+		.token-definition {
+			color: #ffa657;
+		}
 
-	.dark .token-number {
-		color: #a5d6ff;
-	}
+		.token-number {
+			color: #a5d6ff;
+		}
 
-	.dark .token-string {
-		color: #79c0ff;
-	}
+		.token-string {
+			color: #79c0ff;
+		}
 
-	.dark .token-string-special {
-		color: #a5d6ff;
-	}
+		.token-string-special {
+			color: #a5d6ff;
+		}
 
-	.dark .token-keyword {
-		color: #ff7b72;
-	}
+		.token-keyword {
+			color: #ff7b72;
+		}
 
-	.dark .token-comment {
-		color: #8b949e;
-	}
+		.token-comment {
+			color: #8b949e;
+		}
 
-	.dark .token-meta {
-		color: #ffa657;
-	}
+		.token-meta {
+			color: #ffa657;
+		}
 
-	.dark .token-invalid {
-		color: #ffa198;
-	}
+		.token-invalid {
+			color: #ffa198;
+		}
 
-	.dark .token-tag {
-		color: #7ee787;
-	}
+		.token-tag {
+			color: #7ee787;
+		}
 
-	.dark .token-attribute {
-		color: #e6edf3;
-	}
+		.token-attribute {
+			color: #e6edf3;
+		}
 
-	.dark .token-attribute-value {
-		color: var(--color-token-attribute-value);
-	}
+		.token-attribute-value {
+			color: var(--color-token-attribute-value);
+		}
 
-	.dark .token-inserted {
-		color: #7ee787;
-		background-color: #7ee78740;
-	}
+		.token-heading {
+			color: var(--color-token-variable-special);
+		}
 
-	.dark .token-deleted {
-		color: #ffa198;
-		background-color: #ffa19840;
-	}
+		.token-link {
+			color: var(--color-token-variable-special);
+			text-decoration: underline;
+		}
 
-	.dark .token-heading {
-		color: var(--color-token-variable-special);
-	}
+		.token-strikethrough {
+			text-decoration: strike-through;
+		}
 
-	.dark .token-link {
-		color: var(--color-token-variable-special);
-		text-decoration: underline;
-	}
+		.token-strong {
+			font-weight: bold;
+		}
 
-	.dark .token-strikethrough {
-		text-decoration: strike-through;
-	}
-
-	.dark .token-strong {
-		font-weight: bold;
-	}
-
-	.dark .token-emphasis {
-		font-style: italic;
+		.token-emphasis {
+			font-style: italic;
+		}
 	}
 }
