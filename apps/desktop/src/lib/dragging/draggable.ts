@@ -51,7 +51,6 @@ function setupDragHandlers(
 	function handleDragStart(e: DragEvent) {
 		e.stopPropagation();
 
-		console.log(dragHandle, dragHandle?.dataset);
 		if (dragHandle && dragHandle.dataset.noDrag !== undefined) {
 			e.preventDefault();
 			return false;
