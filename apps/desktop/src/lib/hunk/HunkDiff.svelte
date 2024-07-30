@@ -351,14 +351,6 @@
 		border-radius: 0 0 0 var(--radius-s);
 	}
 
-	.diff-line-deletion {
-		background-color: #cf8d8e20;
-	}
-
-	.diff-line-addition {
-		background-color: #94cf8d20;
-	}
-
 	.table__textContent {
 		width: 100%;
 		font-size: 12px;
