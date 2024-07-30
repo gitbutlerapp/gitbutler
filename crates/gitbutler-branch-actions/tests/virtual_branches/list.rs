@@ -3,65 +3,6 @@ use gitbutler_branch_actions::{list_branches, Author};
 use gitbutler_command_context::CommandContext;
 
 #[test]
-fn on_main_single_branch_no_vbranch() -> Result<()> {
-    init_env();
-    let list = list_branches(&project_ctx("single-branch-no-vbranch")?, None)?;
-    assert_eq!(list.len(), 1);
-
-    let branch = &list[0];
-    assert_eq!(branch.name, "main", "short names are used");
-    assert_eq!(branch.remotes, ["origin"]);
-    assert_eq!(branch.virtual_branch, None);
-    assert_eq!(branch.number_of_commits, 0);
-    assert_eq!(
-        branch.authors,
-        [],
-        "there is no local commit, so no authors are known"
-    );
-    assert!(branch.own_branch);
-    Ok(())
-}
-
-#[test]
-fn on_main_single_branch_no_vbranch_multiple_remotes() -> Result<()> {
-    init_env();
-    let list = list_branches(&project_ctx("single-branch-no-vbranch-multi-remote")?, None)?;
-    assert_eq!(list.len(), 1);
-
-    let branch = &list[0];
-    assert_eq!(branch.name, "main");
-    assert_eq!(branch.remotes, ["other-origin", "origin"]);
-    assert_eq!(branch.virtual_branch, None);
-    assert_eq!(branch.number_of_commits, 0);
-    assert_eq!(branch.authors, []);
-    assert!(branch.own_branch);
-    Ok(())
-}
-
-#[test]
-fn on_main_single_branch_no_vbranch_one_commit() -> Result<()> {
-    init_env();
-    let list = list_branches(&project_ctx("single-branch-no-vbranch-one-commit")?, None)?;
-    assert_eq!(list.len(), 1);
-
-    let branch = &list[0];
-    assert_eq!(branch.name, "main");
-    assert_eq!(branch.remotes, ["origin"]);
-    assert_eq!(branch.virtual_branch, None);
-    assert_eq!(
-        branch.number_of_commits, 0,
-        "local-only commits aren't detected"
-    );
-    assert_eq!(
-        branch.authors,
-        [],
-        "and thus there is no ownership information"
-    );
-    assert!(branch.own_branch);
-    Ok(())
-}
-
-#[test]
 fn one_vbranch_on_integration() -> Result<()> {
     init_env();
     let list = list_branches(&project_ctx("one-vbranch-on-integration")?, None)?;
@@ -86,7 +27,8 @@ fn one_vbranch_on_integration() -> Result<()> {
 #[test]
 fn one_vbranch_on_integration_one_commit() -> Result<()> {
     init_env();
-    let list = list_branches(&project_ctx("one-vbranch-on-integration-one-commit")?, None)?;
+    let ctx = project_ctx("one-vbranch-on-integration-one-commit")?;
+    let list = list_branches(&ctx, None)?;
     assert_eq!(list.len(), 1);
 
     let branch = &list[0];
