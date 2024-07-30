@@ -31,7 +31,7 @@
 			project.api.repository_id
 		);
 		if (cloudProject === project.api) return;
-		project.api = { ...cloudProject, sync: project.api.sync };
+		project.api = { ...cloudProject, sync: project.api.sync, sync_code: project.api.sync_code };
 		projectService.updateProject(project);
 	});
 
@@ -45,7 +45,25 @@
 					description: project.description,
 					uid: project.id
 				}));
-			project.api = { ...cloudProject, sync };
+			project.api = { ...cloudProject, sync, sync_code: project.api?.sync_code };
+			projectService.updateProject(project);
+		} catch (error) {
+			console.error(`Failed to update project sync status: ${error}`);
+			toasts.error('Failed to update project sync status');
+		}
+	}
+	// These functions are disgusting
+	async function onSyncCodeChange(sync_code: boolean) {
+		if (!$user) return;
+		try {
+			const cloudProject =
+				project.api ??
+				(await projectService.createCloudProject($user.access_token, {
+					name: project.title,
+					description: project.description,
+					uid: project.id
+				}));
+			project.api = { ...cloudProject, sync: project.api?.sync || false, sync_code: sync_code };
 			projectService.updateProject(project);
 		} catch (error) {
 			console.error(`Failed to update project sync status: ${error}`);
@@ -110,13 +128,26 @@
 
 		<SectionCard labelFor="historySync" orientation="row">
 			<svelte:fragment slot="caption">
-				Sync my history, repository and branch data for backup, sharing and team features.
+				Sync this project's operations log with GitButler Web services. The operations log includes
+				snapshots of the repository state, including non-committed code changes.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<Toggle
 					id="historySync"
 					checked={project.api?.sync || false}
 					on:click={async (e) => await onSyncChange(!!e.detail)}
+				/>
+			</svelte:fragment>
+		</SectionCard>
+		<SectionCard labelFor="historySync" orientation="row">
+			<svelte:fragment slot="caption">
+				Sync this repository's branches with the GitButler Remote.
+			</svelte:fragment>
+			<svelte:fragment slot="actions">
+				<Toggle
+					id="historySync"
+					checked={project.api?.sync_code || false}
+					on:click={async (e) => await onSyncCodeChange(!!e.detail)}
 				/>
 			</svelte:fragment>
 		</SectionCard>
