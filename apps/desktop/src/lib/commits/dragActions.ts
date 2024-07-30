@@ -31,9 +31,17 @@ export class CommitDragActions {
 			return false;
 		}
 
-		if (data instanceof DraggableHunk && data.branchId === this.branch.id) {
+		if (
+			data instanceof DraggableHunk &&
+			data.branchId === this.branch.id &&
+			data.commitId !== this.commit.id
+		) {
 			return true;
-		} else if (data instanceof DraggableFile && data.branchId === this.branch.id) {
+		} else if (
+			data instanceof DraggableFile &&
+			data.branchId === this.branch.id &&
+			data.commit?.id !== this.commit.id
+		) {
 			return true;
 		} else {
 			return false;

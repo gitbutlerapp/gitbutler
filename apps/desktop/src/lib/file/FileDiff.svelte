@@ -17,6 +17,7 @@
 		selectable: boolean;
 		isFileLocked: boolean;
 		readonly: boolean;
+		commitId?: string;
 	}
 
 	let {
@@ -25,6 +26,7 @@
 		isLarge,
 		sections,
 		isUnapplied,
+		commitId,
 		selectable = false,
 		isFileLocked = false,
 		readonly = false
@@ -92,6 +94,7 @@
 						{isFileLocked}
 						{minWidth}
 						{readonly}
+						{commitId}
 						linesModified={added + removed}
 					/>
 				</div>

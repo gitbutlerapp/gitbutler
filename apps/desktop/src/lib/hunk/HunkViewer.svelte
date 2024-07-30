@@ -21,6 +21,7 @@
 		readonly: boolean;
 		minWidth: number;
 		linesModified: number;
+		commitId?: string | undefined;
 	}
 
 	let {
@@ -31,6 +32,7 @@
 		isUnapplied,
 		isFileLocked,
 		minWidth,
+		commitId,
 		readonly = false
 	}: Props = $props();
 
@@ -42,7 +44,7 @@
 	let alwaysShow = $state(false);
 	let viewport = $state<HTMLDivElement>();
 	let contextMenu = $state<HunkContextMenu>();
-	const draggingDisabled = $derived(readonly || isUnapplied);
+	const draggingDisabled = $derived(isUnapplied);
 
 	function onHunkSelected(hunk: Hunk, isSelected: boolean) {
 		if (!selectedOwnership) return;
@@ -71,7 +73,7 @@
 		class:opacity-60={section.hunk.locked && !isFileLocked}
 		oncontextmenu={(e) => e.preventDefault()}
 		use:draggableElement={{
-			data: new DraggableHunk($branch?.id || '', section.hunk, section.hunk.lockedTo),
+			data: new DraggableHunk($branch?.id || '', section.hunk, section.hunk.lockedTo, commitId),
 			disabled: draggingDisabled
 		}}
 	>

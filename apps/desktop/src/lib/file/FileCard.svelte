@@ -14,12 +14,14 @@
 		selectable?: boolean;
 		readonly?: boolean;
 		isCard?: boolean;
+		commitId?: string;
 	}
 
 	let {
 		file,
 		conflicted,
 		isUnapplied,
+		commitId,
 		selectable = false,
 		readonly = false,
 		isCard = true
@@ -67,6 +69,7 @@
 			{isFileLocked}
 			{isUnapplied}
 			{selectable}
+			{commitId}
 		/>
 	</ScrollableContainer>
 </div>
