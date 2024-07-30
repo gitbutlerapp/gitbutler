@@ -7,6 +7,10 @@
 }
 
 body {
+	height: 100vh;
+	width: 100vw;
+	overflow-y: hidden;
+
 	color: var(--clr-text-1);
 	background-color: var(--clr-bg-2);
 }

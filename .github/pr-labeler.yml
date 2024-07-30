@@ -15,3 +15,7 @@ rust:
 "@gitbutler/ui":
 - changed-files:
   - any-glob-to-any-file: packages/ui/**/*
+
+"@gitbutler/design-tokens":
+- changed-files:
+  - any-glob-to-any-file: packages/design-tokens/**/*

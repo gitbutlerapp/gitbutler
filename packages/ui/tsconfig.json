@@ -12,6 +12,5 @@
 		"sourceMap": true,
 		"strict": true,
 		"experimentalDecorators": true
-		// 		"types": ["vitest/importMeta"]
 	}
 }
