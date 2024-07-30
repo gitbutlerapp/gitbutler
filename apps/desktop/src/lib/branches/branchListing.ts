@@ -5,29 +5,21 @@ import { plainToInstance } from 'class-transformer';
 export class BranchListingService {
 	constructor(private projectId: string) {}
 	async list(filter: BranchListingFilter | undefined = undefined) {
-		try {
-			const branches = plainToInstance(
-				BranchListing,
-				await invoke<any[]>('list_branches', { projectId: this.projectId, filter })
-			);
-			return branches;
-		} catch (err: any) {
-			console.error(err);
-		}
+		const branches = plainToInstance(
+			BranchListing,
+			await invoke<any[]>('list_branches', { projectId: this.projectId, filter })
+		);
+		return branches;
 	}
 	async get_branch_listing_details(branchNames: string[]) {
-		try {
-			const branches = plainToInstance(
-				BranchListingDetails,
-				await invoke<any[]>('get_branch_listing_details', {
-					projectId: this.projectId,
-					branchNames
-				})
-			);
-			return branches;
-		} catch (err: any) {
-			console.error(err);
-		}
+		const branches = plainToInstance(
+			BranchListingDetails,
+			await invoke<any[]>('get_branch_listing_details', {
+				projectId: this.projectId,
+				branchNames
+			})
+		);
+		return branches;
 	}
 }
 
