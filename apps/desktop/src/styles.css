@@ -13,6 +13,7 @@ body {
 
 	color: var(--clr-text-1);
 	background-color: var(--clr-bg-2);
+	user-select: none;
 }
 
 /**
