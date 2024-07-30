@@ -28,7 +28,13 @@
 		return null;
 	});
 
-	$: if ($redirect) goto(`/${$redirect}/`);
+	$: {
+    if ($redirect) {
+      goto(`/${$redirect}/`);
+    } else if ($redirect === null) {
+      goto('/onboarding')
+    }
+  }
 </script>
 
 {#if $redirect === undefined}
@@ -36,9 +42,5 @@
 {:else if !$analyticsConfirmed}
 	<DecorativeSplitView img={analyticsSvg}>
 		<AnalyticsConfirmation {analyticsConfirmed} />
-	</DecorativeSplitView>
-{:else if $redirect === null}
-	<DecorativeSplitView img={newProjectSvg} showLinks={false}>
-		<Welcome />
 	</DecorativeSplitView>
 {/if}
