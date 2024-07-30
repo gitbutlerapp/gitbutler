@@ -32,17 +32,8 @@ export class CommitDragActions {
 		}
 
 		if (data instanceof DraggableHunk && data.branchId === this.branch.id) {
-			if (data.lockedTo.length > 0) {
-				return !!data.lockedTo.find((lock) => lock.commitId === this.commit.id);
-			}
 			return true;
 		} else if (data instanceof DraggableFile && data.branchId === this.branch.id) {
-			const someLock = data.files.some((file) => file.lockedIds.length > 0);
-			if (someLock) {
-				return data.files.every((file) =>
-					file.lockedIds.find((lock) => lock.commitId === this.commit.id)
-				);
-			}
 			return true;
 		} else {
 			return false;
