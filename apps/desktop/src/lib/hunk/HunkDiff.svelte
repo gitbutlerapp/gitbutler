@@ -325,7 +325,6 @@
 		position: sticky;
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
-		max-width: var(--number-col-width);
 		left: calc(var(--number-col-width) + 1px);
 		box-shadow: 1px 0px 0px 0px var(--clr-border-2);
 
@@ -339,7 +338,6 @@
 	.table__numberColumn:first-of-type {
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
-		max-width: var(--number-col-width);
 		left: 0px;
 	}
 
