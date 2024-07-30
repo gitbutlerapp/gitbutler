@@ -22,7 +22,7 @@
 						description: project.description
 					})
 				: undefined;
-		project.api = api ? { ...api, sync: true } : undefined;
+		project.api = api ? { ...api, sync: false, sync_code: undefined } : undefined;
 		projectService.updateProject(project);
 	}
 </script>
