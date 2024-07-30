@@ -12,10 +12,12 @@ import { BranchController } from '$lib/vbranches/branchController';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 import { error } from '@sveltejs/kit';
 import type { Project } from '$lib/backend/projects';
+import type { LayoutLoad } from './$types';
 
 export const prerender = false;
 
-export async function load({ params, parent }) {
+// eslint-disable-next-line
+export const load: LayoutLoad = async ({ params, parent }) => {
 	// prettier-ignore
 	const {
         authService,
@@ -78,4 +80,4 @@ export async function load({ params, parent }) {
 		commitDragActionsFactory,
 		reorderDropzoneManagerFactory
 	};
-}
+};
