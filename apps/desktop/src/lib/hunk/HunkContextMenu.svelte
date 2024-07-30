@@ -7,10 +7,14 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { open as openFile } from '@tauri-apps/api/shell';
 
-	export let target: HTMLElement;
-	export let filePath: string;
-	export let projectPath: string | undefined;
-	export let readonly: boolean;
+	interface Props {
+		target: HTMLElement | undefined;
+		filePath: string;
+		projectPath: string | undefined;
+		readonly: boolean;
+	}
+
+	let { target, filePath, projectPath, readonly }: Props = $props();
 
 	const branchController = getContext(BranchController);
 
