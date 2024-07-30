@@ -35,6 +35,9 @@ jobs:
     env:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
     steps:
+      - name: Trigger Sentry Cron - In Progress
+        if: ${{ github.event_name == 'schedule' }}
+        run: curl "${SENTRY_CRONS}?status=in_progress"
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.PAT_JUNON }}
@@ -296,6 +299,15 @@ jobs:
             --header 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}' \
             --data '{"channel":"${{ needs.build-tauri.outputs.channel }}","version":"${{ env.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}'
 
+  create-git-tag:
+    needs: [publish-tauri, build-tauri]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract version
+        shell: bash
+        run: |
+          VERSION="$(cat release/version)"
+          echo "version=$VERSION" >> $GITHUB_ENV
       - name: Create git tag
         shell: bash
         env:
@@ -320,3 +332,6 @@ jobs:
             delete_tag "$TAG_NAME"
           fi
           create_tag "$TAG_NAME"
+      - name: Trigger Sentry Cron - Complete
+        if: ${{ github.event_name == 'schedule' }}
+        run: curl "${SENTRY_CRONS}?status=ok"
