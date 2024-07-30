@@ -4,6 +4,28 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    vite:
+      specifier: 5.2.13
+      version: 5.2.13
+  svelte:
+    '@sveltejs/adapter-static':
+      specifier: 3.0.2
+      version: 3.0.2
+    '@sveltejs/kit':
+      specifier: 2.5.18
+      version: 2.5.18
+    '@sveltejs/vite-plugin-svelte':
+      specifier: 3.1.1
+      version: 3.1.1
+    svelte:
+      specifier: 5.0.0-next.196
+      version: 5.0.0-next.196
+    svelte-check:
+      specifier: 3.8.4
+      version: 3.8.4
+
 importers:
 
   .:
@@ -327,6 +349,9 @@ importers:
       '@storybook/sveltekit':
         specifier: ^8.2.6
         version: 8.2.6(@babel/core@7.24.7)(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9)))(postcss-load-config@5.1.0(postcss@8.4.39))(postcss@8.4.39)(storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(svelte@5.0.0-next.196)(typescript@5.4.5)(vite@5.2.13(@types/node@20.5.9))
+      '@storybook/theming':
+        specifier: ^8.2.6
+        version: 8.2.6(storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7)))
       '@sveltejs/adapter-static':
         specifier: catalog:svelte
         version: 3.0.2(@sveltejs/kit@2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9)))
@@ -366,6 +391,9 @@ importers:
       storybook:
         specifier: ^8.2.6
         version: 8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7))
+      storybook-dark-mode:
+        specifier: ^4.0.2
+        version: 4.0.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7)))
       svelte:
         specifier: catalog:svelte
         version: 5.0.0-next.196
@@ -1978,6 +2006,11 @@ packages:
 
   '@storybook/components@8.2.6':
     resolution: {integrity: sha512-H8ckH1AnLkHtMtvJ3J8LxnmDtHxkJ7NJacGctHMRrsBIvdKTVwlT4su5nAVVJlan/PrEou+jESfw+OjjBYE5PA==}
+    peerDependencies:
+      storybook: ^8.2.6
+
+  '@storybook/core-events@8.2.6':
+    resolution: {integrity: sha512-bmtm7sHBExKCSGiCIyhwfHKFIsdrRQqd8ZEb/iNWsR93AxHszcf/adYAVynencdWKipw1haIWBNaiDhnsOBVPA==}
     peerDependencies:
       storybook: ^8.2.6
 
@@ -5031,6 +5064,9 @@ packages:
     resolution: {integrity: sha512-iCGQj+0l0HOdZ2AEeBADlsRC+vsnDsZsbdSiH1yNSjcfKM7fdpCMfqAL/dwF5BLiw/XhRft/Wax6zQbhq2BcjQ==}
     engines: {node: '>= 0.4'}
 
+  storybook-dark-mode@4.0.2:
+    resolution: {integrity: sha512-zjcwwQ01R5t1VsakA6alc2JDIRVtavryW8J3E3eKLDIlAMcvsgtpxlelWkZs2cuNspk6Z10XzhQVrUWtYc3F0w==}
+
   storybook@8.2.6:
     resolution: {integrity: sha512-8j30wDxQmkcqI0fWcSYFsUCjErsY1yTWbTW+yjbwM8DyW18Cud6CwbFRCxjFsH+2M0CjP6Pqs/m1PGI0vcQscQ==}
     hasBin: true
@@ -5698,28 +5734,6 @@ packages:
 
   zimmerframe@1.1.2:
     resolution: {integrity: sha512-rAbqEGa8ovJy4pyBxZM70hg4pE6gDgaQ0Sl9M3enG3I0d6H4XSAM3GeNGLKnsBpuijUow064sf7ww1nutC5/3w==}
-
-catalogs:
-  default:
-    vite:
-      specifier: 5.2.13
-      version: 5.2.13
-  svelte:
-    '@sveltejs/adapter-static':
-      specifier: 3.0.2
-      version: 3.0.2
-    '@sveltejs/kit':
-      specifier: 2.5.18
-      version: 2.5.18
-    '@sveltejs/vite-plugin-svelte':
-      specifier: 3.1.1
-      version: 3.1.1
-    svelte:
-      specifier: 5.0.0-next.196
-      version: 5.0.0-next.196
-    svelte-check:
-      specifier: 3.8.4
-      version: 3.8.4
 
 snapshots:
 
@@ -7772,6 +7786,10 @@ snapshots:
       - utf-8-validate
 
   '@storybook/components@8.2.6(storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7)))':
+    dependencies:
+      storybook: 8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7))
+
+  '@storybook/core-events@8.2.6(storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7)))':
     dependencies:
       storybook: 8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7))
 
@@ -11185,6 +11203,21 @@ snapshots:
   stop-iteration-iterator@1.0.0:
     dependencies:
       internal-slot: 1.0.7
+
+  storybook-dark-mode@4.0.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7))):
+    dependencies:
+      '@storybook/components': 8.2.6(storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7)))
+      '@storybook/core-events': 8.2.6(storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7)))
+      '@storybook/global': 5.0.0
+      '@storybook/icons': 1.2.9(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@storybook/manager-api': 8.2.6(storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7)))
+      '@storybook/theming': 8.2.6(storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7)))
+      fast-deep-equal: 3.1.3
+      memoizerific: 1.11.3
+    transitivePeerDependencies:
+      - react
+      - react-dom
+      - storybook
 
   storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7)):
     dependencies:

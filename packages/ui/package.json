@@ -25,6 +25,9 @@
 	},
 	"devDependencies": {
 		"@chromatic-com/storybook": "^1.6.1",
+		"@cobalt-ui/cli": "^1.8.0",
+		"@cobalt-ui/plugin-css": "^1.7.3",
+		"@cobalt-ui/plugin-js": "^1.4.3",
 		"@csstools/postcss-bundler": "^1.0.15",
 		"@csstools/postcss-minify": "^1.1.5",
 		"@storybook/addon-docs": "^8.2.6",
@@ -34,6 +37,7 @@
 		"@storybook/blocks": "^8.2.6",
 		"@storybook/svelte": "^8.2.6",
 		"@storybook/sveltekit": "^8.2.6",
+		"@storybook/theming": "^8.2.6",
 		"@sveltejs/adapter-static": "catalog:svelte",
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/package": "^2.3.2",
@@ -47,12 +51,10 @@
 		"postcss-pxtorem": "^6.1.0",
 		"rimraf": "^6.0.1",
 		"storybook": "^8.2.6",
+		"storybook-dark-mode": "^4.0.2",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
-		"vite": "catalog:",
-		"@cobalt-ui/cli": "^1.8.0",
-		"@cobalt-ui/plugin-css": "^1.7.3",
-		"@cobalt-ui/plugin-js": "^1.4.3"
+		"vite": "catalog:"
 	},
 	"peerDependencies": {
 		"svelte": "^4.0.0 || ^5.0.0-0"
