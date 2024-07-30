@@ -21,7 +21,7 @@ git init remote
   git add . && git commit -m "init"
 )
 
-export GITBUTLER_CLI_DATA_DIR=./user/gitbutler/app-data
+export GITBUTLER_CLI_DATA_DIR=../user/gitbutler/app-data
 git clone remote one-vbranch-on-integration
 (cd one-vbranch-on-integration
   $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name @{u})"
@@ -38,3 +38,26 @@ git clone remote one-vbranch-on-integration-one-commit
   $CLI branch commit virtual -m "virtual branch change in index and worktree"
 )
 
+git clone remote two-vbranches-on-integration-one-applied
+(cd two-vbranches-on-integration-one-applied
+  $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name @{u})"
+  $CLI branch create virtual
+  echo change >> file
+  echo in-index > new && git add new
+  tick
+  $CLI branch commit virtual -m "commit in initially applied virtual branch"
+
+  $CLI branch create --set-default other
+  echo new > new-file
+  $CLI branch unapply virtual
+)
+
+git clone remote a-vbranch-named-like-target-branch-short-name
+(cd a-vbranch-named-like-target-branch-short-name
+  $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name @{u})"
+  $CLI branch create --set-default main
+  echo change >> file
+  echo in-index > new && git add new
+  tick
+  $CLI branch commit main -m "virtual branch change in index and worktree"
+)

@@ -2014,7 +2014,6 @@ dependencies = [
  "anyhow",
  "bstr",
  "diffy",
- "futures",
  "git2",
  "git2-hooks",
  "gitbutler-branch",
@@ -2451,7 +2450,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backoff",
- "futures",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
  "gitbutler-error",

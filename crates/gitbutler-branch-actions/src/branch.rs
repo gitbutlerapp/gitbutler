@@ -6,13 +6,10 @@ use std::{
 
 use anyhow::{Context, Result};
 use bstr::{BString, ByteSlice};
-use gitbutler_branch::{
-    Branch as GitButlerBranch, BranchId, ReferenceExt, Target, VirtualBranchesHandle,
-};
+use gitbutler_branch::{Branch as GitButlerBranch, BranchId, ReferenceExt, Target};
 use gitbutler_command_context::CommandContext;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo::RepoActionsExt;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::VirtualBranchesExt;
@@ -22,147 +19,120 @@ pub fn list_branches(
     ctx: &CommandContext,
     filter: Option<BranchListingFilter>,
 ) -> Result<Vec<BranchListing>> {
+    let has_filter = filter.is_some();
+    let filter = filter.unwrap_or_default();
     let vb_handle = ctx.project().virtual_branches();
-    // The definition of "own_branch" is based if the current user made the first commit on the branch
-    // However, because getting that info is both expensive and also we cant filter ahead of time,
-    // here we assume that all of the "own_branches" will be local.
-    let branch_filter = filter
-        .as_ref()
-        .and_then(|filter| match filter.own_branches {
-            Some(true) => Some(git2::BranchType::Local),
-            _ => None,
-        });
-    let mut git_branches: Vec<GroupBranch> = vec![];
-    for result in ctx.repository().branches(branch_filter)? {
-        match result {
-            Ok((branch, branch_type)) => match branch_type {
-                git2::BranchType::Local => {
-                    if branch_filter
-                        .map(|branch_type| branch_type == git2::BranchType::Local)
-                        .unwrap_or(false)
-                    {
-                        // If we had an "own_branch" filter, we skipped getting the remote branches, however we still want the remote
-                        // tracking branches for the ones that are local
-                        if let Ok(upstream) = branch.upstream() {
-                            git_branches.push(GroupBranch::Remote(upstream));
-                        }
+    let own_branches = filter.own_branches.unwrap_or_default();
+    let mut branches: Vec<GroupBranch> = vec![];
+    for (branch, branch_type) in ctx
+        .repository()
+        .branches(own_branches.then_some(git2::BranchType::Local))?
+        .filter_map(Result::ok)
+    {
+        match branch_type {
+            git2::BranchType::Local => {
+                if own_branches {
+                    // If we had an "own_branch" filter, we skipped getting the remote branches, however we still want the remote
+                    // tracking branches for the ones that are local
+                    if let Ok(upstream) = branch.upstream() {
+                        branches.push(GroupBranch::Remote(upstream));
                     }
-                    git_branches.push(GroupBranch::Local(branch));
                 }
-                git2::BranchType::Remote => {
-                    git_branches.push(GroupBranch::Remote(branch));
-                }
-            },
-            Err(_) => {
-                continue;
+                branches.push(GroupBranch::Local(branch));
             }
-        }
+            git2::BranchType::Remote => {
+                branches.push(GroupBranch::Remote(branch));
+            }
+        };
     }
 
-    // virtual branches from the application state
-    let virtual_branches = ctx
-        .project()
-        .virtual_branches()
-        .list_all_branches()?
-        .into_iter();
+    for branch in vb_handle.list_all_branches()? {
+        branches.push(GroupBranch::Virtual(branch));
+    }
+    let mut branches = combine_branches(branches, ctx, vb_handle.get_default_target()?)?;
 
-    let branches = combine_branches(git_branches, virtual_branches, ctx, &vb_handle)?;
     // Apply the filter
-    let branches: Vec<BranchListing> = branches
-        .into_iter()
-        .filter(|branch| matches_all(branch, &filter))
-        .sorted_by(|a, b| b.updated_at.cmp(&a.updated_at))
-        .collect();
+    branches.retain(|branch| !has_filter || matches_all(branch, filter));
+    branches.sort_by(|a, b| a.updated_at.cmp(&b.updated_at).reverse());
+
     Ok(branches)
 }
 
-fn matches_all(branch: &BranchListing, filter: &Option<BranchListingFilter>) -> bool {
-    if let Some(filter) = filter {
-        let mut conditions: Vec<bool> = vec![];
-        if let Some(applied) = filter.applied {
-            if let Some(vb) = branch.virtual_branch.as_ref() {
-                conditions.push(applied == vb.in_workspace);
-            } else {
-                conditions.push(!applied);
-            }
+fn matches_all(branch: &BranchListing, filter: BranchListingFilter) -> bool {
+    let mut conditions = vec![];
+    if let Some(applied) = filter.applied {
+        if let Some(vb) = branch.virtual_branch.as_ref() {
+            conditions.push(applied == vb.in_workspace);
+        } else {
+            conditions.push(!applied);
         }
-        if let Some(own) = filter.own_branches {
-            conditions.push(own == branch.own_branch);
-        }
-        return conditions.iter().all(|&x| x);
-    } else {
-        true
     }
+    if let Some(own) = filter.own_branches {
+        conditions.push(own == branch.own_branch);
+    }
+    return conditions.iter().all(|&x| x);
 }
 
 fn combine_branches(
-    mut group_branches: Vec<GroupBranch>,
-    virtual_branches: impl Iterator<Item = GitButlerBranch>,
+    group_branches: Vec<GroupBranch>,
     ctx: &CommandContext,
-    vb_handle: &VirtualBranchesHandle,
+    target_branch: Target,
 ) -> Result<Vec<BranchListing>> {
     let repo = ctx.repository();
-    for branch in virtual_branches {
-        group_branches.push(GroupBranch::Virtual(branch));
-    }
     let remotes = repo.remotes()?;
-    let target_branch = vb_handle.get_default_target()?;
 
     // Group branches by identity
-    let mut groups: HashMap<Option<String>, Vec<&GroupBranch>> = HashMap::new();
-    for branch in group_branches.iter() {
-        let identity = branch.identity(&remotes);
+    let mut groups: HashMap<String, Vec<GroupBranch>> = HashMap::new();
+    for branch in group_branches {
+        let Some(identity) = branch.identity(&remotes) else {
+            continue;
+        };
         // Skip branches that should not be listed, e.g. the target 'main' or the gitbutler technical branches like 'gitbutler/integration'
         if !should_list_git_branch(&identity, &target_branch) {
             continue;
         }
-        if let Some(group) = groups.get_mut(&identity) {
-            group.push(branch);
-        } else {
-            groups.insert(identity, vec![branch]);
-        }
+        groups.entry(identity).or_default().push(branch);
     }
     let (local_author, _committer) = ctx.signatures()?;
 
     // Convert to Branch entries for the API response, filtering out any errors
-    let branches: Vec<BranchListing> = groups
-        .iter()
+    Ok(groups
+        .into_iter()
         .filter_map(|(identity, group_branches)| {
-            let branch_entry = branch_group_to_branch(
-                identity.clone(),
-                group_branches.clone(),
+            let res = branch_group_to_branch(
+                &identity,
+                group_branches,
                 repo,
                 &local_author,
                 target_branch.sha,
             );
-            if branch_entry.is_err() {
-                tracing::warn!(
-                    "Failed to process branch group {:?} to branch entry: {:?}",
-                    identity,
-                    branch_entry
-                );
+            match res {
+                Ok(branch_entry) => Some(branch_entry),
+                Err(err) => {
+                    tracing::warn!(
+                        "Failed to process branch group {:?} to branch entry: {}",
+                        identity,
+                        err
+                    );
+                    None
+                }
             }
-            branch_entry.ok()
         })
-        .collect();
-    Ok(branches)
+        .collect())
 }
 
 /// Converts a group of branches with the same identity into a single branch entry
 fn branch_group_to_branch(
-    identity: Option<String>,
-    group_branches: Vec<&GroupBranch>,
+    identity: &str,
+    group_branches: Vec<GroupBranch>,
     repo: &git2::Repository,
     local_author: &git2::Signature,
     target_sha: git2::Oid,
 ) -> Result<BranchListing> {
-    let virtual_branch = group_branches
-        .iter()
-        .filter_map(|branch| match branch {
-            GroupBranch::Virtual(vb) => Some(vb),
-            _ => None,
-        })
-        .next();
+    let virtual_branch = group_branches.iter().find_map(|branch| match branch {
+        GroupBranch::Virtual(vb) => Some(vb),
+        _ => None,
+    });
     let remote_branches: Vec<&git2::Branch> = group_branches
         .iter()
         .filter_map(|branch| match branch {
@@ -209,12 +179,6 @@ fn branch_group_to_branch(
     .context("Could not get any valid reference in order to build branch stats")?;
 
     // If this was a virtual branch and there was never any remote set, use the virtual branch name as the identity
-    let identity = identity.unwrap_or(
-        virtual_branch
-            .map(|vb| normalize_branch_name(&vb.name))
-            .transpose()?
-            .unwrap_or_default(),
-    );
     let last_modified_ms = max(
         (repo.find_commit(head)?.time().seconds() * 1000) as u128,
         virtual_branch.map_or(0, |x| x.updated_timestamp_ms),
@@ -240,7 +204,7 @@ fn branch_group_to_branch(
             });
 
         BranchListing {
-            name: identity,
+            name: identity.to_owned(),
             remotes,
             virtual_branch: virtual_branch_reference,
             number_of_commits: commits.len(),
@@ -251,7 +215,7 @@ fn branch_group_to_branch(
         }
     } else {
         BranchListing {
-            name: identity,
+            name: identity.to_owned(),
             remotes,
             virtual_branch: virtual_branch_reference,
             number_of_commits: 0,
@@ -264,7 +228,7 @@ fn branch_group_to_branch(
     Ok(branch)
 }
 
-/// A sum type of a branch that can be a plain git branch or a virtual branch
+/// A sum type of branch that can be a plain git branch or a virtual branch
 #[allow(clippy::large_enum_variant)]
 enum GroupBranch<'a> {
     Local(git2::Branch<'a>),
@@ -273,8 +237,9 @@ enum GroupBranch<'a> {
 }
 
 impl GroupBranch<'_> {
-    /// A name identifier for the branch. When multiple branches (e.g. virtual, local, reomte) have the same identity,
+    /// A name identifier for the branch. When multiple branches (e.g. virtual, local, remote) have the same identity,
     /// they are grouped together under the same `Branch` entry.
+    /// `None` means an identity could not be obtained, which makes this branch odd enough to ignore.
     fn identity(&self, remotes: &git2::string_array::StringArray) -> Option<String> {
         match self {
             GroupBranch::Local(branch) => branch.get().given_name(remotes).ok(),
@@ -284,8 +249,8 @@ impl GroupBranch<'_> {
                 let name_from_source = branch.source_refname.as_ref().and_then(|n| n.branch());
                 let name_from_upstream = branch.upstream.as_ref().map(|n| n.branch());
                 let rich_name = branch.name.clone();
-                let rich_name = &normalize_branch_name(&rich_name).ok()?;
-                let identity = name_from_source.unwrap_or(name_from_upstream.unwrap_or(rich_name));
+                let rich_name = normalize_branch_name(&rich_name).ok()?;
+                let identity = name_from_source.unwrap_or(name_from_upstream.unwrap_or(&rich_name));
                 Some(identity.to_string())
             }
         }
@@ -294,24 +259,23 @@ impl GroupBranch<'_> {
 
 /// Determines if a branch should be listed in the UI.
 /// This excludes the target branch as well as gitbutler specific branches.
-fn should_list_git_branch(identity: &Option<String>, target: &Target) -> bool {
-    // Exclude the target branch
-    if identity == &Some(target.branch.branch().to_owned()) {
+fn should_list_git_branch(identity: &str, target: &Target) -> bool {
+    if identity == target.branch.branch() {
         return false;
     }
     // Exclude gitbutler technical branches (not useful for the user)
-    if identity == &Some("gitbutler/integration".to_string())
-        || identity == &Some("gitbutler/target".to_string())
-        || identity == &Some("gitbutler/oplog".to_string())
-        || identity == &Some("HEAD".to_string())
-    {
-        return false;
-    }
-    true
+    let is_technical = [
+        "gitbutler/integration",
+        "gitbutler/target",
+        "gitbutler/oplog",
+        "HEAD",
+    ]
+    .contains(&identity);
+    !is_technical
 }
 
 /// A filter that can be applied to the branch listing
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Default, Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BranchListingFilter {
     /// If the value is true, the listing will only include branches that have the same author as the current user.
