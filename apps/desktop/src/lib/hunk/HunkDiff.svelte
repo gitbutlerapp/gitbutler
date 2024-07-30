@@ -278,6 +278,7 @@
 			pointer-events: auto;
 		}
 	}
+
 	.table__drag-handle {
 		position: absolute;
 		cursor: grab;
@@ -304,6 +305,7 @@
 		width: 100%;
 		font-family: monospace;
 	}
+
 	.table__numberColumn {
 		--number-col-width: 30px;
 
@@ -341,6 +343,7 @@
 	tr:first-of-type .table__numberColumn:first-child {
 		border-radius: var(--radius-s) 0 0 0;
 	}
+
 	tr:last-of-type .table__numberColumn:first-child {
 		border-radius: 0 0 0 var(--radius-s);
 	}
