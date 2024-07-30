@@ -3,6 +3,7 @@ import type { Author, CommitData } from '$lib/CommitLines/types';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
+	title: 'Commit Lines/ Variants',
 	component: DemoCommitLines
 } satisfies Meta<DemoCommitLines>;
 

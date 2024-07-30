@@ -15,11 +15,7 @@
 
 	body {
 		font-family: 'Inter', sans-serif;
-		font-size: 13px;
 		line-height: inherit;
-		height: 100vh;
-		width: 100vw;
-		overflow-y: hidden;
 		padding: 0;
 		margin: 0;
 		line-height: inherit;
@@ -48,7 +44,6 @@
 	h5,
 	h6 {
 		font-size: inherit;
-		font-weight: inherit;
 	}
 
 	a {

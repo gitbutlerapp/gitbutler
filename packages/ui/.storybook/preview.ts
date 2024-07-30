@@ -1,5 +1,6 @@
 import type { Preview } from '@storybook/svelte';
 import '../src/styles/main.css';
+import './stories-styles.css';
 
 const preview: Preview = {
 	parameters: {
@@ -8,6 +9,9 @@ const preview: Preview = {
 				color: /(background|color)$/i,
 				date: /Date$/i
 			}
+		},
+		darkMode: {
+			stylePreview: true
 		}
 	}
 };
