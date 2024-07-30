@@ -17,7 +17,7 @@
 	<div class="analytics-settings__content">
 		<p class="text-base-body-13 analytics-settings__text">
 			GitButler uses telemetry strictly to help us improve the client. We do not collect any
-			personal information (<Link
+			personal information, unless explicitly allowed below (<Link
 				target="_blank"
 				rel="noreferrer"
 				href="https://gitbutler.com/privacy"
