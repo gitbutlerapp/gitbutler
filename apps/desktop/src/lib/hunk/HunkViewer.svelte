@@ -115,5 +115,6 @@
 		width: 100%;
 		user-select: text;
 		overflow-x: auto;
+		will-change: transform;
 	}
 </style>
