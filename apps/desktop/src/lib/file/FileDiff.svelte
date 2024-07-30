@@ -30,11 +30,24 @@
 		readonly = false
 	}: Props = $props();
 
+	let alwaysShow = $state(false);
 	const localCommits = isFileLocked ? getLocalCommits() : undefined;
 	const remoteCommits = isFileLocked ? getLocalAndRemoteCommits() : undefined;
 
 	const commits = isFileLocked ? ($localCommits || []).concat($remoteCommits || []) : undefined;
-	let alwaysShow = $state(false);
+
+	function getGutterMinWidth(max: number | undefined) {
+		if (!max) {
+			return 1;
+		}
+		if (max >= 10000) return 2.5;
+		if (max >= 1000) return 2;
+		if (max >= 100) return 1.5;
+		if (max >= 10) return 1.25;
+		return 1;
+	}
+	const maxLineNumber = $derived(sections.at(-1)?.maxLineNumber);
+	const minWidth = $derived(getGutterMinWidth(maxLineNumber));
 </script>
 
 <div class="hunks">
@@ -77,6 +90,7 @@
 						{selectable}
 						{isUnapplied}
 						{isFileLocked}
+						{minWidth}
 						{readonly}
 						linesModified={added + removed}
 					/>

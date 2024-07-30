@@ -19,6 +19,7 @@
 		isUnapplied: boolean;
 		isFileLocked: boolean;
 		readonly: boolean;
+		minWidth: number;
 		linesModified: number;
 	}
 
@@ -29,6 +30,7 @@
 		selectable = false,
 		isUnapplied,
 		isFileLocked,
+		minWidth,
 		readonly = false
 	}: Props = $props();
 
@@ -83,6 +85,7 @@
 			<HunkDiff
 				{readonly}
 				{filePath}
+				{minWidth}
 				{selectable}
 				{draggingDisabled}
 				tabSize={$userSettings.tabSize}

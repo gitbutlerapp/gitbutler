@@ -24,6 +24,7 @@
 		selectable: boolean;
 		subsections: ContentSection[];
 		tabSize: number;
+		minWidth: number;
 		draggingDisabled: boolean;
 		onclick: () => void;
 		handleSelected: (hunk: Hunk, isSelected: boolean) => void;
@@ -42,6 +43,7 @@
 		selectable,
 		subsections,
 		tabSize,
+		minWidth,
 		draggingDisabled = false,
 		onclick,
 		handleSelected,
@@ -52,7 +54,7 @@
 	let contents = $state<HTMLDivElement>();
 
 	const WHITESPACE_REGEX = /\s/;
-	const NUMBER_COLUMN_WIDTH_PX = 30;
+	const NUMBER_COLUMN_WIDTH_PX = minWidth * 16;
 
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 
