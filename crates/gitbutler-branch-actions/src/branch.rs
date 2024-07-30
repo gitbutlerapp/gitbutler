@@ -211,10 +211,14 @@ fn branch_group_to_branch(
             .map(|vb| normalize_branch_name(&vb.name))
             .unwrap_or_default(),
     );
+    let head_commit = repo
+        .find_commit(head)
+        .context("Failed to find head commit")?;
     let last_modified_ms = max(
-        (repo.find_commit(head)?.time().seconds() * 1000) as u128,
+        (head_commit.time().seconds() * 1000) as u128,
         virtual_branch.map_or(0, |x| x.updated_timestamp_ms),
     );
+    let last_commiter = head_commit.author().into();
     let repo_head = repo.head()?.peel_to_commit()?;
     // If no merge base can be found, return with zero stats
     let branch = if let Ok(base) = repo.merge_base(repo_head.id(), head) {
@@ -242,6 +246,7 @@ fn branch_group_to_branch(
             virtual_branch: virtual_branch_reference,
             number_of_commits: commits.len(),
             updated_at: last_modified_ms,
+            last_commiter,
             authors: authors.into_iter().collect(),
             own_branch,
             head,
@@ -253,6 +258,7 @@ fn branch_group_to_branch(
             virtual_branch: virtual_branch_reference,
             number_of_commits: 0,
             updated_at: last_modified_ms,
+            last_commiter,
             authors: Vec::new(),
             own_branch: false,
             head,
@@ -345,6 +351,8 @@ pub struct BranchListing {
     /// Timestamp in milliseconds since the branch was last updated.
     /// This includes any commits, uncommited changes or even updates to the branch metadata (e.g. renaming).
     pub updated_at: u128,
+    /// The person who commited the head commit.
+    pub last_commiter: Author,
     /// A list of authors that have contributes commits to this branch.
     /// In the case of multiple remote tracking branches, it takes the full list of unique authors.
     pub authors: Vec<Author>,
