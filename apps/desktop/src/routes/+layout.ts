@@ -13,6 +13,7 @@ import { UserService } from '$lib/stores/user';
 import { mockTauri } from '$lib/testing/index';
 import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
 import lscache from 'lscache';
+import type { LayoutLoad } from './$types';
 import { env } from '$env/dynamic/public';
 
 // call on startup so we don't accumulate old items
@@ -22,7 +23,8 @@ export const ssr = false;
 export const prerender = false;
 export const csr = true;
 
-export async function load() {
+// eslint-disable-next-line
+export const load: LayoutLoad = async () => {
 	// Mock Tauri API during E2E tests
 	if (env.PUBLIC_TESTING) {
 		mockTauri();
@@ -61,4 +63,4 @@ export async function load() {
 		lineManagerFactory,
 		secretsService
 	};
-}
+};
