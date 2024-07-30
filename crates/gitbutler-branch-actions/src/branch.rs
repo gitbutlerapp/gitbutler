@@ -212,6 +212,7 @@ fn branch_group_to_branch(
     let identity = identity.unwrap_or(
         virtual_branch
             .map(|vb| normalize_branch_name(&vb.name))
+            .transpose()?
             .unwrap_or_default(),
     );
     let last_modified_ms = max(
@@ -283,7 +284,7 @@ impl GroupBranch<'_> {
                 let name_from_source = branch.source_refname.as_ref().and_then(|n| n.branch());
                 let name_from_upstream = branch.upstream.as_ref().map(|n| n.branch());
                 let rich_name = branch.name.clone();
-                let rich_name = &normalize_branch_name(&rich_name);
+                let rich_name = &normalize_branch_name(&rich_name).ok()?;
                 let identity = name_from_source.unwrap_or(name_from_upstream.unwrap_or(rich_name));
                 Some(identity.to_string())
             }

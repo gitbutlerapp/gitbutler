@@ -82,8 +82,8 @@ where
 }
 
 impl Branch {
-    pub fn refname(&self) -> VirtualRefname {
-        self.into()
+    pub fn refname(&self) -> anyhow::Result<VirtualRefname> {
+        self.try_into()
     }
 
     /// self.applied and self.in_workspace are kept in sync by the application
@@ -100,11 +100,13 @@ impl Branch {
     }
 }
 
-impl From<&Branch> for VirtualRefname {
-    fn from(value: &Branch) -> Self {
-        Self {
-            branch: normalize_branch_name(&value.name),
-        }
+impl TryFrom<&Branch> for VirtualRefname {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &Branch) -> std::result::Result<Self, Self::Error> {
+        Ok(Self {
+            branch: normalize_branch_name(&value.name)?,
+        })
     }
 }
 

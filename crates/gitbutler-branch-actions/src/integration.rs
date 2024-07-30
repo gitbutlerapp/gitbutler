@@ -165,7 +165,7 @@ pub fn update_gitbutler_integration(
     for branch in &virtual_branches {
         message.push_str(" - ");
         message.push_str(branch.name.as_str());
-        message.push_str(format!(" ({})", &branch.refname()).as_str());
+        message.push_str(format!(" ({})", &branch.refname()?).as_str());
         message.push('\n');
 
         if branch.head != target.sha {
@@ -250,7 +250,7 @@ pub fn update_gitbutler_integration(
         }
 
         repo.reference(
-            &branch.refname().to_string(),
+            &branch.refname()?.to_string(),
             branch_head.id(),
             true,
             "update virtual branch",

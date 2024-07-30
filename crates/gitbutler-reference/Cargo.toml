@@ -7,7 +7,9 @@ publish = false
 
 [dependencies]
 regex = "1.10"
+anyhow.workspace = true
 git2.workspace = true
+gix.workspace = true
 gitbutler-tagged-string.workspace = true
 serde = { workspace = true, features = ["std"]}
 thiserror.workspace = true

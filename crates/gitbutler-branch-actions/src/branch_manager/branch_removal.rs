@@ -132,7 +132,7 @@ impl BranchManager<'_> {
         let repo = self.ctx.repository();
         let target_commit = repo.find_commit(vbranch.head)?;
         let branch_name = vbranch.name.clone();
-        let branch_name = normalize_branch_name(&branch_name);
+        let branch_name = normalize_branch_name(&branch_name)?;
 
         let vb_state = self.ctx.project().virtual_branches();
         let branch = repo.branch(&branch_name, &target_commit, true)?;

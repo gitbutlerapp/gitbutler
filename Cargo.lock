@@ -2250,8 +2250,10 @@ dependencies = [
 name = "gitbutler-reference"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
  "git2",
  "gitbutler-tagged-string",
+ "gix",
  "regex",
  "serde",
  "thiserror",

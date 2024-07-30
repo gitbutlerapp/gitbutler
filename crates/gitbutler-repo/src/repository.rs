@@ -92,7 +92,7 @@ impl RepoActionsExt for CommandContext {
     fn add_branch_reference(&self, branch: &Branch) -> Result<()> {
         let (should_write, with_force) = match self
             .repository()
-            .find_reference(&branch.refname().to_string())
+            .find_reference(&branch.refname()?.to_string())
         {
             Ok(reference) => match reference.target() {
                 Some(head_oid) => Ok((head_oid != branch.head, true)),
@@ -108,7 +108,7 @@ impl RepoActionsExt for CommandContext {
         if should_write {
             self.repository()
                 .reference(
-                    &branch.refname().to_string(),
+                    &branch.refname()?.to_string(),
                     branch.head,
                     with_force,
                     "new vbranch",
@@ -122,7 +122,7 @@ impl RepoActionsExt for CommandContext {
     fn delete_branch_reference(&self, branch: &Branch) -> Result<()> {
         match self
             .repository()
-            .find_reference(&branch.refname().to_string())
+            .find_reference(&branch.refname()?.to_string())
         {
             Ok(mut reference) => {
                 reference
