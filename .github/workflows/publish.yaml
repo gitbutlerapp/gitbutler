@@ -37,7 +37,8 @@ jobs:
     steps:
       - name: Trigger Sentry Cron - In Progress
         if: ${{ github.event_name == 'schedule' }}
-        run: curl "${SENTRY_CRONS}?status=in_progress"
+        shell: bash
+        run: curl "${{ secrets.SENTRY_CRONS }}?status=in_progress"
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.PAT_JUNON }}
@@ -248,6 +249,8 @@ jobs:
   publish-tauri:
     needs: [sign-tauri, build-tauri]
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ env.version }}
     strategy:
       fail-fast: false
       matrix:
@@ -303,15 +306,13 @@ jobs:
     needs: [publish-tauri, build-tauri]
     runs-on: ubuntu-latest
     steps:
-      - name: Extract version
-        shell: bash
-        run: |
-          VERSION="$(cat release/version)"
-          echo "version=$VERSION" >> $GITHUB_ENV
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_JUNON }} # custom token here so that we can push tags later
       - name: Create git tag
         shell: bash
         env:
-          TAG_NAME: "${{ needs.build-tauri.outputs.channel }}/${{ env.version }}"
+          TAG_NAME: "${{ needs.build-tauri.outputs.channel }}/${{ needs.publish-tauri.outputs.version }}"
         run: |
           function tag_exists() {
             git tag --list | grep -q "^$1$"
@@ -334,4 +335,5 @@ jobs:
           create_tag "$TAG_NAME"
       - name: Trigger Sentry Cron - Complete
         if: ${{ github.event_name == 'schedule' }}
-        run: curl "${SENTRY_CRONS}?status=ok"
+        shell: bash
+        run: curl "${{ secrets.SENTRY_CRONS }}?status=ok"
