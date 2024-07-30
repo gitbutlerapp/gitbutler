@@ -1997,6 +1997,7 @@ dependencies = [
  "gitbutler-id",
  "gitbutler-reference",
  "gitbutler-serde",
+ "gix",
  "hex",
  "itertools 0.13.0",
  "lazy_static",

@@ -3,8 +3,7 @@ use std::{path::PathBuf, vec};
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
 use gitbutler_branch::{
-    self, Branch, BranchCreateRequest, VirtualBranchesHandle,
-    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
+    self, Branch, BranchCreateRequest, SignaturePurpose, VirtualBranchesHandle,
     GITBUTLER_INTEGRATION_REFERENCE,
 };
 use gitbutler_command_context::CommandContext;
@@ -17,13 +16,6 @@ use crate::{branch_manager::BranchManagerExt, conflicts, VirtualBranchesExt};
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
 const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
-
-pub(crate) fn get_integration_commiter<'a>() -> Result<git2::Signature<'a>> {
-    Ok(git2::Signature::now(
-        GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
-        GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
-    )?)
-}
 
 // Creates and returns a merge commit of all active branch heads.
 //
@@ -65,9 +57,8 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
         }
     }
 
-    // TODO(mg): Can we make this a constant?
-    let committer = get_integration_commiter()?;
-
+    let committer = gitbutler_branch::signature(SignaturePurpose::Committer)?;
+    let author = gitbutler_branch::signature(SignaturePurpose::Author)?;
     let mut heads: Vec<git2::Commit<'_>> = virtual_branches
         .iter()
         .filter(|b| b.head != target.sha)
@@ -85,7 +76,7 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
 
     let workspace_head_id = repo.commit(
         None,
-        &committer,
+        &author,
         &committer,
         WORKSPACE_HEAD,
         &workspace_tree,
@@ -199,7 +190,8 @@ pub fn update_gitbutler_integration(
     message.push_str("For more information about what we're doing here, check out our docs:\n");
     message.push_str("https://docs.gitbutler.com/features/virtual-branches/integration-branch\n");
 
-    let committer = get_integration_commiter()?;
+    let committer = gitbutler_branch::signature(SignaturePurpose::Committer)?;
+    let author = gitbutler_branch::signature(SignaturePurpose::Author)?;
 
     // It would be nice if we could pass an `update_ref` parameter to this function, but that
     // requires committing to the tip of the branch, and we're mostly replacing the tip.
@@ -209,7 +201,7 @@ pub fn update_gitbutler_integration(
 
     let final_commit = repo.commit(
         None,
-        &committer,
+        &author,
         &committer,
         &message,
         &workspace_tree,

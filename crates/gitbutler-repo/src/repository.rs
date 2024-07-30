@@ -1,11 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
-use bstr::ByteSlice;
-use gitbutler_branch::{
-    Branch, BranchId, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
-    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
-};
+use gitbutler_branch::{gix_to_git2_signature, Branch, BranchId, SignaturePurpose};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_error::error::Code;
@@ -450,56 +446,21 @@ impl RepoActionsExt for CommandContext {
         let author = repo
             .author()
             .transpose()?
-            .unwrap_or_else(|| default_actor_with_commit_time("GIT_AUTHOR_DATE"));
+            .map(gitbutler_branch::gix_to_git2_signature)
+            .unwrap_or_else(|| gitbutler_branch::signature(SignaturePurpose::Author))?;
 
         let config: Config = self.repository().into();
         let committer = if config.user_real_comitter()? {
             repo.committer()
                 .transpose()?
-                .unwrap_or_else(|| default_actor_with_commit_time("GIT_COMMITTER_DATE"))
+                .map(gix_to_git2_signature)
+                .unwrap_or_else(|| gitbutler_branch::signature(SignaturePurpose::Committer))
         } else {
-            default_actor_with_commit_time("GIT_COMMITTER_DATE")
-        };
+            gitbutler_branch::signature(SignaturePurpose::Committer)
+        }?;
 
-        Ok((
-            actor_to_git2_signature(author)?,
-            actor_to_git2_signature(committer)?,
-        ))
+        Ok((author, committer))
     }
-}
-
-fn default_actor_with_commit_time(
-    overriding_variable_name: &str,
-) -> gix::actor::SignatureRef<'static> {
-    gix::actor::SignatureRef {
-        name: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME.into(),
-        email: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL.into(),
-        time: std::env::var(overriding_variable_name)
-            .ok()
-            .and_then(|time| gix::date::parse(&time, Some(std::time::SystemTime::now())).ok())
-            .unwrap_or_else(|| gix::date::Time::now_local_or_utc()),
-    }
-}
-
-/// Convert `actor` to a `git2` representation or fail if that's not possible.
-/// Note that the current time as provided by `gix` is also use as it
-/// respects the `GIT_AUTHOR|COMMITTER_DATE` environment variables.
-fn actor_to_git2_signature(
-    actor: gix::actor::SignatureRef<'_>,
-) -> Result<git2::Signature<'static>> {
-    let offset_in_minutes = actor.time.offset / 60;
-    let time = git2::Time::new(actor.time.seconds, offset_in_minutes);
-    Ok(git2::Signature::new(
-        actor
-            .name
-            .to_str()
-            .with_context(|| format!("Could not process actor name: {}", actor.name))?,
-        actor
-            .email
-            .to_str()
-            .with_context(|| format!("Could not process actor email: {}", actor.email))?,
-        &time,
-    )?)
 }
 
 type OidFilter = dyn Fn(&git2::Commit) -> Result<bool>;
