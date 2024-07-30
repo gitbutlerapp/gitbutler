@@ -10,13 +10,6 @@
 	import diff_match_patch from 'diff-match-patch';
 	import type { Writable } from 'svelte/store';
 
-	type HandleLineContextMenuArgs = {
-		event: MouseEvent;
-		lineNumber: number;
-		hunk: Hunk;
-		subsection: ContentSection;
-	};
-
 	interface Props {
 		hunk: Hunk;
 		readonly: boolean;
@@ -33,7 +26,12 @@
 			lineNumber,
 			hunk,
 			subsection
-		}: HandleLineContextMenuArgs) => void;
+		}: {
+			event: MouseEvent;
+			lineNumber: number;
+			hunk: Hunk;
+			subsection: ContentSection;
+		}) => void;
 	}
 
 	const {
@@ -68,12 +66,6 @@
 		return diff;
 	}
 
-	function sanitize(text: string) {
-		var element = document.createElement('div');
-		element.innerText = text;
-		return element.innerHTML;
-	}
-
 	function isLineEmpty(lines: Line[]) {
 		const whitespaceRegex = new RegExp(WHITESPACE_REGEX);
 		if (!lines[0].content.match(whitespaceRegex)) {
@@ -101,6 +93,12 @@
 	}
 
 	function toTokens(inputLine: string): string[] {
+		function sanitize(text: string) {
+			var element = document.createElement('div');
+			element.innerText = text;
+			return element.innerHTML;
+		}
+
 		let highlighter = create(inputLine, filePath);
 		let tokens: string[] = [];
 		highlighter.highlight((text, classNames) => {
@@ -151,9 +149,9 @@
 					prevSectionRow.tokens.push(...toTokens(text));
 					nextSectionRow.tokens.push(...toTokens(text));
 				} else if (type === Operation.Insert) {
-					nextSectionRow.tokens.push(`<span class="token-inserted">${text}</span>`);
+					nextSectionRow.tokens.push(`<span data-no-drag class="token-inserted">${text}</span>`);
 				} else if (type === Operation.Delete) {
-					prevSectionRow.tokens.push(`<span class="token-deleted">${text}</span>`);
+					prevSectionRow.tokens.push(`<span data-no-drag class="token-deleted">${text}</span>`);
 				}
 			}
 			returnRows.nextRows.push(nextSectionRow);
@@ -163,10 +161,11 @@
 		return returnRows;
 	}
 
-	// Filter out section for which we don't need to compute word diffs
-	function filterRows(subsections: ContentSection[]) {
+	function generateRows(subsections: ContentSection[]) {
 		return subsections.reduce((acc, nextSection, i) => {
 			const prevSection = subsections[i - 1];
+
+			// Filter out section for which we don't need to compute word diffs
 			if (!prevSection || nextSection.sectionType === SectionType.Context) {
 				acc.push(...createRowData(nextSection));
 				return acc;
@@ -208,7 +207,7 @@
 		}, [] as Row[]);
 	}
 
-	const renderRows = $derived(filterRows(subsections));
+	const renderRows = $derived(generateRows(subsections));
 </script>
 
 <div
