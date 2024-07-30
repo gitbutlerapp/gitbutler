@@ -227,7 +227,7 @@
 						align="center"
 						class:selected={isSelected}
 						onclick={() => {
-							selectable && handleSelected(hunk, isSelected);
+							selectable && handleSelected(hunk, !isSelected);
 						}}
 					>
 						{line.beforeLineNumber}
@@ -237,7 +237,7 @@
 						align="center"
 						class:selected={isSelected}
 						onclick={() => {
-							selectable && handleSelected(hunk, isSelected);
+							selectable && handleSelected(hunk, !isSelected);
 						}}
 					>
 						{line.afterLineNumber}
@@ -327,6 +327,12 @@
 		left: var(--number-col-width);
 		border-right-width: 1px;
 		margin-right: -1px;
+
+		&.selected {
+			background-color: var(--hunk-line-selected-bg);
+			border-color: var(--hunk-line-selected-border);
+			color: white;
+		}
 	}
 
 	.table__numberColumn:first-of-type {
