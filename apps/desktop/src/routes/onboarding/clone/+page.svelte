@@ -4,6 +4,8 @@
 	import Button from '$lib/shared/Button.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
+	import Segment from '@gitbutler/ui/SegmentControl/Segment.svelte';
+	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
 
 	const RemoteType = {
 		url: 'url',
@@ -15,18 +17,8 @@
 	let completed = $state(false);
 	let repositoryUrl = $state('');
 	let filePath = $state('');
-	let remoteType = $state<keyof typeof RemoteType>();
-
-	const remoteTypes = [
-		{
-			value: 'url',
-			label: 'URL'
-		},
-		{
-			value: 'ssh',
-			label: 'SSH'
-		}
-	];
+	// TODO: Fix types
+	let remoteType = $state<string | keyof typeof RemoteType>(RemoteType.url);
 
 	function cloneRepository() {
 		console.log({ repositoryUrl, filePath });
@@ -38,39 +30,36 @@
 	<Section spacer>
 		<div class="clone__remoteType">
 			<fieldset name="remoteType" class="remoteType-group">
-				{#each remoteTypes as type}
-					<label class:selected={type.value === remoteType} for="remoteType-{type.value}">
-						<input
-							type="radio"
-							id="remoteType-{type.value}"
-							name="remoteType"
-							value={remoteType || RemoteType.url}
-							checked={type.value === remoteType}
-						/>
-						<span class="text-base-12 text-semibold">{type.label}</span>
-					</label>
-				{/each}
+				<SegmentControl fullWidth selectedIndex={0} onselect={(id) => (remoteType = id)}>
+					<Segment id="url">URL</Segment>
+					<Segment id="ssh">SSH</Segment>
+				</SegmentControl>
 			</fieldset>
 		</div>
-		<div class="clone__repositoryUrl">
+		<div class="clone__field repositoryUrl">
 			<TextBox
 				bind:value={repositoryUrl}
 				required
 				on:change={(e) => (repositoryUrl = e.detail)}
-				placeholder="https://"
+				placeholder={remoteType === 'url' ? 'https://..' : 'git@github.com:..'}
 			/>
+			<div class="text-base-11 clone__field--label">Clone using the web URL</div>
 		</div>
-		<div class="clone__repositoryTargetPath">
+		<div class="clone__field repositoryTargetPath">
+			<div class="text-base-13 text-semibold clone__field--label">Where to clone</div>
 			<TextBox
 				bind:value={filePath}
 				required
 				on:change={(e) => (filePath = e.detail)}
-				placeholder="/Users/tipsy/Documents"
+				placeholder={'/Users/tipsy/Documents'}
 			/>
+			<Button style="ghost" outline kind="solid" disabled={loading}>Choose..</Button>
 		</div>
 	</Section>
 	<div class="clone__actions">
-		<Button style="ghost" kind="solid" disabled={loading} on:click={cloneRepository}>Cancel</Button>
+		<Button style="ghost" outline kind="solid" disabled={loading} on:click={cloneRepository}
+			>Cancel</Button
+		>
 		<Button
 			style="pop"
 			kind="solid"
@@ -116,10 +105,22 @@
 	.clone-title {
 		color: var(--clr-scale-ntrl-0);
 		line-height: 1;
+		margin-bottom: 16px;
+	}
+
+	.clone__field {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.clone__field--label {
+		color: var(--clr-scale-ntrl-50);
 	}
 
 	.clone__actions {
 		display: flex;
+		gap: 8px;
 		justify-content: end;
 	}
 </style>
