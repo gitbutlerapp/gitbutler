@@ -82,6 +82,8 @@
 		</div>
 	</Section>
 
+	<Spacer />
+
 	{#if errors.length || completed}
 		<div class="clone__info-message">
 			<InfoMessage
@@ -109,7 +111,6 @@
 		</div>
 	{/if}
 
-	<Spacer />
 	<div class="clone__actions">
 		<Button style="ghost" outline kind="solid" disabled={loading} on:click={handleCancel}>
 			Cancel
