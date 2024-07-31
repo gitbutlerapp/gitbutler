@@ -5,14 +5,13 @@
 	import InfoMessage, { type MessageStyle } from '$lib/shared/InfoMessage.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
+	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import Segment from '@gitbutler/ui/SegmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
 	import { open } from '@tauri-apps/api/dialog';
-	import { readDir } from '@tauri-apps/api/fs';
 	import { Command } from '@tauri-apps/api/shell';
 	import { getContext } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { parseRemoteUrl } from '$lib/url/gitUrl';
 
 	const projectService = getContext(ProjectService);
 	const SSH_URL_PLACEHOLDER = 'git@github.com:';
@@ -67,7 +66,7 @@
 		}
 	}
 
-	function handleRemoteTypeToggle(id: keyof typeof RemoteType) {
+	function handleRemoteTypeToggle(id: keyof typeof RemoteType | string) {
 		function isEmpty(value: string) {
 			if (!value) return true;
 			if ([SSH_URL_PLACEHOLDER, HTTP_URL_PLACEHOLDER].includes(value)) return true;
@@ -87,9 +86,6 @@
 	}
 
 	function clearNotifications() {
-		if (warnings.length) {
-			warnings = [];
-		}
 		if (errors.length) {
 			errors = [];
 		}
@@ -146,6 +142,7 @@
 		kind="solid"
 		icon={errors.length > 0 ? 'update-small' : 'chevron-right-small'}
 		disabled={loading}
+		{loading}
 		on:click={cloneRepository}
 	>
 		{#if loading}
