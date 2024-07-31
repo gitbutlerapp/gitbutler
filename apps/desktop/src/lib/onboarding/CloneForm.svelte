@@ -139,7 +139,7 @@
 	</div>
 </Section>
 
-<Spacer />
+<Spacer dotted margin={24} />
 
 {#if completed}
 	{@render Notification({ title: 'Success', style: 'success' })}
