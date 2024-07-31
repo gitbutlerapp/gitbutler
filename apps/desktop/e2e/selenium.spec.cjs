@@ -19,10 +19,10 @@ let driver;
 let tauriDriver;
 
 before(async function () {
-	// set timeout to 2 minutes
-	this.timeout(120000);
+	// set timeout to 2 minutes to cover build
+	this.timeout(60000 * 2);
 
-	// ensure the program has been built
+	// For CI(?) - ensure the program has been built
 	// spawnSync("cargo", ["build", "--release"]);
 
 	tauriDriver = spawn(path.resolve(os.homedir(), '.cargo', 'bin', 'tauri-driver'), [], {
@@ -41,6 +41,7 @@ before(async function () {
 
 after(async function () {
 	console.log('\n\nCALLING AFTER CLEANING FNs');
+
 	// stop the webdriver session
 	await driver?.quit();
 
@@ -49,36 +50,18 @@ after(async function () {
 });
 
 console.log('\n\nSTARTING TEST');
+
 describe('GitButler Startup', () => {
 	console.log('\n\nSTARTING DESCRIBE');
+
 	it('should have gray background', async () => {
 		console.log('\n\nIT_SHOULD_HAVE_GRAY_BACKGROUND');
-		const text = await driver.findElement(By.css('body')).getCssValue('background-color');
 
+		const text = await driver.findElement(By.css('body')).getCssValue('background-color');
 		expect(text).to.match(/#000/);
 	});
+
 	console.log('\n\nFINISHING DSECRIBE');
 });
-console.log('\n\nFINISHING TEST');
-// describe('foo', (_) => {
-//
-// 	it('should be cordial', () => {
-// 		console.log('\n\nDRIVAH', driver);
-// 		// await driver.get('http://localhost:1420');
-// 		const text = driver.findElement(By.css('body > h1')).getText();
-// 		expect(text).to.match(/^[hH]ello/);
-// 		// done();
-// 	});
-//
-// });
 
-// describe('Hello Tauri', () => {
-// 	console.log('\n\nHELLO TAURI');
-//
-// 	it('should be cordial', async () => {
-// 		console.log('\n\nSHOULD BE CORDIAL');
-//
-// 		const text = await driver.findElement(By.css('body > h1')).getText();
-// 		expect(text).to.match(/^[hH]ello/);
-// 	});
-// });
+console.log('\n\nFINISHING TEST');
