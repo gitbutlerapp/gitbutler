@@ -269,29 +269,18 @@ impl RepoActionsExt for CommandContext {
             }
         });
 
-        // NOTE(qix-): This is a nasty hack, however the codebase isn't structured
-        // NOTE(qix-): in a way that allows us to really incorporate new backends
-        // NOTE(qix-): without a lot of work. This is a temporary measure to
-        // NOTE(qix-): work around a time-sensitive change that was necessary
-        // NOTE(qix-): without having to refactor a large portion of the codebase.
         if self.project().preferred_key == AuthKey::SystemExecutable {
             let path = self.project().worktree_path();
             let remote = branch.remote().to_string();
-            return std::thread::spawn(move || {
-                tokio::runtime::Runtime::new()
-                    .unwrap()
-                    .block_on(gitbutler_git::push(
-                        path,
-                        gitbutler_git::tokio::TokioExecutor,
-                        &remote,
-                        gitbutler_git::RefSpec::parse(refspec).unwrap(),
-                        with_force,
-                        handle_git_prompt_push,
-                        askpass_broker,
-                    ))
-            })
-            .join()
-            .unwrap()
+            return futures::executor::block_on(gitbutler_git::push(
+                path,
+                gitbutler_git::tokio::TokioExecutor,
+                &remote,
+                gitbutler_git::RefSpec::parse(refspec).unwrap(),
+                with_force,
+                handle_git_prompt_push,
+                askpass_broker,
+            ))
             .map_err(Into::into);
         }
 
@@ -365,28 +354,17 @@ impl RepoActionsExt for CommandContext {
     ) -> Result<()> {
         let refspec = format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
 
-        // NOTE(qix-): This is a nasty hack, however the codebase isn't structured
-        // NOTE(qix-): in a way that allows us to really incorporate new backends
-        // NOTE(qix-): without a lot of work. This is a temporary measure to
-        // NOTE(qix-): work around a time-sensitive change that was necessary
-        // NOTE(qix-): without having to refactor a large portion of the codebase.
         if self.project().preferred_key == AuthKey::SystemExecutable {
             let path = self.project().worktree_path();
             let remote = remote_name.to_string();
-            return std::thread::spawn(move || {
-                tokio::runtime::Runtime::new()
-                    .unwrap()
-                    .block_on(gitbutler_git::fetch(
-                        path,
-                        gitbutler_git::tokio::TokioExecutor,
-                        &remote,
-                        gitbutler_git::RefSpec::parse(refspec).unwrap(),
-                        handle_git_prompt_fetch,
-                        askpass,
-                    ))
-            })
-            .join()
-            .unwrap()
+            return futures::executor::block_on(gitbutler_git::fetch(
+                path,
+                gitbutler_git::tokio::TokioExecutor,
+                &remote,
+                gitbutler_git::RefSpec::parse(refspec).unwrap(),
+                handle_git_prompt_fetch,
+                askpass,
+            ))
             .map_err(Into::into);
         }
 

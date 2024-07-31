@@ -2264,6 +2264,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "futures",
  "git2",
  "gitbutler-branch",
  "gitbutler-command-context",
