@@ -41,7 +41,7 @@
 
 		targetDirPath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
 		const targetDirContents = await readDir(targetDirPath);
-		console.log('readDir.res', targetDirContents);
+
 		if (targetDirContents.length !== 0) {
 			warnings.push({
 				label: `Your selected <code>${targetDirPath}</code> is not empty, however, we will still clone the repository there if you'd like to continue.`
@@ -50,9 +50,8 @@
 	}
 
 	async function cloneRepository() {
+		loading = true;
 		clearNotifications();
-
-		console.log({ repositoryUrl, filePath: targetDirPath });
 
 		if (!repositoryUrl || !targetDirPath) {
 			errors.push({
@@ -60,11 +59,17 @@
 			});
 		}
 
-		// TODO: Get rust folks to implement a 'clone' fn to invoke :)
-		await new Command('git', ['clone', repositoryUrl, targetDirPath]).execute();
-
-		// 2. Add Project
-		await projectService.addProject(targetDirPath);
+		try {
+			// TODO: Get rust folks to implement a 'clone' fn to invoke :)
+			await new Command('git', ['clone', repositoryUrl, targetDirPath]).execute();
+			await projectService.addProject(targetDirPath);
+		} catch (e) {
+			errors.push({
+				label: String(e)
+			});
+		} finally {
+			loading = false;
+		}
 	}
 
 	function handleRemoteTypeToggle(id: keyof typeof RemoteType) {
