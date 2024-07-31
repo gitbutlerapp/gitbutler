@@ -1,30 +1,57 @@
 import { invoke } from '$lib/backend/ipc';
+import { persisted } from '$lib/persisted/persisted';
 import { Transform, Type } from 'class-transformer';
 import { plainToInstance } from 'class-transformer';
+import { derived, writable, type Readable } from 'svelte/store';
 
+const FILTER_STORAGE_KEY = 'branchListingService-selectedFilter';
 export class BranchListingService {
-	constructor(private projectId: string) {}
-	async list(filter: BranchListingFilter | undefined = undefined) {
+	private refreshMarker = writable(0);
+	private selectedFilter = persisted<BranchListingFilter>(
+		{ ownBranches: false, applied: false },
+		FILTER_STORAGE_KEY
+	);
+
+	branchListings: Readable<BranchListing[]>;
+
+	constructor(private projectId: string) {
+		this.branchListings = derived(
+			[this.refreshMarker, this.selectedFilter],
+			([_, selectedFilter], set) => {
+				// You're not supposed to have an async return type, so we can't use an async function
+				this.list(selectedFilter).then((listedValues) => {
+					set(listedValues);
+				});
+			}
+		);
+	}
+
+	refresh() {
+		this.refreshMarker.set(Date.now());
+	}
+
+	private async list(filter: BranchListingFilter | undefined = undefined) {
 		const branches = plainToInstance(
 			BranchListing,
 			await invoke<any[]>('list_branches', { projectId: this.projectId, filter })
 		);
 		return branches;
 	}
-	async get_branch_listing_details(branchNames: string[]) {
+
+	async getBranchListingDetails(branchName: string): Promise<BranchListingDetails | undefined> {
 		const branches = plainToInstance(
 			BranchListingDetails,
 			await invoke<any[]>('get_branch_listing_details', {
 				projectId: this.projectId,
-				branchNames
+				branchNames: [branchName]
 			})
 		);
-		return branches;
+		return branches[0];
 	}
 }
 
 /** A filter that can be applied to the branch listing */
-export class BranchListingFilter {
+export interface BranchListingFilter {
 	/**
 	 * If the value is true, the listing will only include branches that have the same author as the current user.
 	 * If the value is false, the listing will include only branches that are not created by the user.
