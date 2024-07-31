@@ -27,7 +27,7 @@
 	});
 
 	const handleKeyDown = createKeybind({
-		'Shift+O': async () => {
+		'$mod+O': async () => {
 			await projectService.addProject();
 		},
 		'$mod+Shift+O': async () => {

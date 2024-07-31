@@ -84,11 +84,15 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
 
     let mut file_menu = Menu::new();
 
-    file_menu = file_menu.add_item(CustomMenuItem::new(
-        "file/add-local-repo",
-        "Add Local Repository…",
-    ));
-    file_menu = file_menu.add_item(CustomMenuItem::new("file/clone-repo", "Clone Repository…"));
+    file_menu = file_menu.add_item(
+        CustomMenuItem::new("file/add-local-repo", "Add Local Repository…")
+            .accelerator("CmdOrCtrl+O"),
+    );
+
+    file_menu = file_menu.add_item(
+        CustomMenuItem::new("file/clone-repo", "Clone Repository…")
+            .accelerator("CmdOrCtrl+Shift+O"),
+    );
 
     #[cfg(target_os = "macos")]
     {
