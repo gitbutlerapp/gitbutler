@@ -31,7 +31,6 @@ pub trait RepoActionsExt {
     fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32>;
     fn log(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Commit>>;
     fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>>;
-    fn list(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Oid>>;
     fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>>;
     fn delete_branch_reference(&self, branch: &Branch) -> Result<()>;
     fn add_branch_reference(&self, branch: &Branch) -> Result<()>;
@@ -209,14 +208,9 @@ impl RepoActionsExt for CommandContext {
         .context("failed to collect oids")
     }
 
-    // returns a list of oids from the first oid to the second oid
-    fn list(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Oid>> {
-        self.l(from, LogUntil::Commit(to))
-    }
-
     fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>> {
         Ok(self
-            .list(from, to)?
+            .l(from, LogUntil::Commit(to))?
             .into_iter()
             .map(|oid| self.repository().find_commit(oid))
             .collect::<Result<Vec<_>, _>>()?)
