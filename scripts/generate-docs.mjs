@@ -8,13 +8,11 @@ const gitButlerSwaggerConverted = `https://converter.swagger.io/api/convert?url=
 const swaggerResponse = await fetch(gitButlerSwaggerConverted)
 const swaggerContent = await swaggerResponse.json()
 
-// Modify a few entries to avoid parsing bugs and polish up the displaying
+console.log('DEBUG.OPENAPI_RESPONSE')
+console.log(JSON.stringify(swaggerContent, null, 2))
+
 if (swaggerContent.servers?.[0]?.url === "//app.gitbutler.com/api") {
   swaggerContent.servers[0].url = "https://app.gitbutler.com/api"
-}
-
-if (swaggerContent.info.title === "API title") {
-  swaggerContent.info.title = "GitButler API"
 }
 
 await writeFile("./api-reference.json", JSON.stringify(swaggerContent, null, 2))
