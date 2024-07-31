@@ -2,8 +2,8 @@
 	import Modal from '../shared/Modal.svelte';
 	import TextBox from '../shared/TextBox.svelte';
 	import { PromptService } from '$lib/backend/prompt';
-	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 
 	const promptService = getContext(PromptService);
 	const [prompt, error] = promptService.reactToPrompt({ timeoutMs: 30000 });

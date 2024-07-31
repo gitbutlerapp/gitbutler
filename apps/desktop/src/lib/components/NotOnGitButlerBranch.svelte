@@ -7,10 +7,10 @@
 	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import { ProjectService, Project } from '$lib/backend/projects';
 	import { showError } from '$lib/notifications/toasts';
-	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { goto } from '$app/navigation';
 

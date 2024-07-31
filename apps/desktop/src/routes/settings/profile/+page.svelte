@@ -11,7 +11,6 @@
 		type Settings,
 		type ScrollbarVisilitySettings
 	} from '$lib/settings/userSettings';
-	import Button from '$lib/shared/Button.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
 	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
@@ -19,6 +18,7 @@
 	import { UserService } from '$lib/stores/user';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
 

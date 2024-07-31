@@ -1,13 +1,14 @@
 import type { StorybookConfig } from '@storybook/sveltekit';
 
 const config: StorybookConfig = {
-	stories: ['../src/stories/**/*.mdx', '../src/stories/**/*.stories.@(js|jsx|mjs|ts|tsx)'],
+	stories: ['../src/stories/**/*.mdx', '../src/stories/**/*.stories.@(js|jsx|mjs|ts|tsx|svelte)'],
 	addons: [
 		'@storybook/addon-links',
 		'@storybook/addon-essentials',
 		'@chromatic-com/storybook',
 		'@storybook/addon-interactions',
-		'storybook-dark-mode'
+		'storybook-dark-mode',
+		'@storybook/addon-svelte-csf'
 	],
 	framework: {
 		name: '@storybook/sveltekit',

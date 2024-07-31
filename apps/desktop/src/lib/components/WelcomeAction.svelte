@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '$lib/shared/Icon.svelte';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 
 	export let title: string;
 	export let loading = false;

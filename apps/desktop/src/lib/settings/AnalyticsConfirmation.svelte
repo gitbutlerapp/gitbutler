@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 	import AnalyticsSettings from '$lib/settings/AnalyticsSettings.svelte';
-	import Button from '$lib/shared/Button.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import type { Writable } from 'svelte/store';
 
 	export let analyticsConfirmed: Writable<boolean>;

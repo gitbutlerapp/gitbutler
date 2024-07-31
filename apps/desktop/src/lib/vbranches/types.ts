@@ -154,15 +154,7 @@ export class VirtualBranch {
 
 // Used for dependency injection
 export const BRANCH = Symbol('branch');
-export type ComponentStyleKind = 'solid' | 'soft';
-export type ComponentColor =
-	| 'neutral'
-	| 'ghost'
-	| 'pop'
-	| 'success'
-	| 'error'
-	| 'warning'
-	| 'purple';
+
 export type CommitStatus = 'local' | 'localAndRemote' | 'integrated' | 'remote';
 
 export class DetailedCommit {

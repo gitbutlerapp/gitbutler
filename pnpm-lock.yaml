@@ -340,6 +340,9 @@ importers:
       '@storybook/addon-links':
         specifier: ^8.2.6
         version: 8.2.6(react@18.3.1)(storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7)))
+      '@storybook/addon-svelte-csf':
+        specifier: 4.1.4
+        version: 4.1.4(@storybook/svelte@8.2.6(storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(svelte@5.0.0-next.196))(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9))
       '@storybook/blocks':
         specifier: ^8.2.6
         version: 8.2.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7)))
@@ -1963,6 +1966,22 @@ packages:
     peerDependencies:
       storybook: ^8.2.6
 
+  '@storybook/addon-svelte-csf@4.1.4':
+    resolution: {integrity: sha512-3OUrhEFmsiINuDSy8omb/0ZG6FOoEb19sSpKJrA5sUdAD66kKlmcuAogoVMN7F5T6o9ABcVGtkmVDvlqiMg7cg==}
+    peerDependencies:
+      '@storybook/svelte': ^7.0.0 || ^8.0.0 || ^8.0.0-beta.0 || ^8.2.0-beta.0
+      '@sveltejs/vite-plugin-svelte': ^2.0.0 || ^3.0.0
+      svelte: ^4.0.0
+      svelte-loader: ^3.1.2
+      vite: ^4.0.0 || ^5.0.0
+    peerDependenciesMeta:
+      '@sveltejs/vite-plugin-svelte':
+        optional: true
+      svelte-loader:
+        optional: true
+      vite:
+        optional: true
+
   '@storybook/addon-toolbars@8.2.6':
     resolution: {integrity: sha512-0JmRirMpxHS6VZzBk0kY871xWTpkk3TN4S1sxoFf5fcnCfVTHDjEJ5Ws/QWru1RJlIZHuJKRdQIA6Vuq5X+KfQ==}
     peerDependencies:
@@ -3005,6 +3024,14 @@ packages:
 
   dedent-js@1.0.1:
     resolution: {integrity: sha512-OUepMozQULMLUmhxS95Vudo0jb0UchLimi3+pQ2plj61Fcy8axbP9hbiD4Sz6DPqn6XG3kfmziVfQ1rSys5AJQ==}
+
+  dedent@1.5.3:
+    resolution: {integrity: sha512-NHQtfOOW68WD8lgypbLA5oT+Bt0xXJhiYvoR6SmmNXZfpzOGXwdKWmcwG8N7PwVVWV3eF/68nmD9BaJSsTBhyQ==}
+    peerDependencies:
+      babel-plugin-macros: ^3.1.0
+    peerDependenciesMeta:
+      babel-plugin-macros:
+        optional: true
 
   deep-eql@4.1.3:
     resolution: {integrity: sha512-WaEtAOpRA1MQ0eohqZjpGD8zdI0Ovsm8mmFhaDN8dvDZzyoUMcYDnf5Y6iu7HTXxf8JDS23qWa4a+hKCDyOPzw==}
@@ -4123,10 +4150,6 @@ packages:
 
   magic-string@0.30.10:
     resolution: {integrity: sha512-iIRwTIf0QKV3UAnYK4PU8uiEc4SRh5jX0mwpIwETPpHdhVM4f53RSwS/vXvN1JhGX+Cs7B8qIq3d6AH49O5fAQ==}
-
-  magic-string@0.30.5:
-    resolution: {integrity: sha512-7xlpfBaQaP/T6Vh8MO/EqXSW5En6INHEvEXQiuff7Gku0PWjU3uf6w/j9o7O+SpB5fOAkrI5HeoNgwjEO0pFsA==}
-    engines: {node: '>=12'}
 
   magic-string@0.30.7:
     resolution: {integrity: sha512-8vBuFF/I/+OSLRmdf2wwFCJCz+nSn0m6DPvGH1fS/KiQoSaR+sETbov0eIk9KhEKy8CYqIkIAnbohxT/4H0kuA==}
@@ -7717,6 +7740,19 @@ snapshots:
       storybook: 8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7))
       ts-dedent: 2.2.0
 
+  '@storybook/addon-svelte-csf@4.1.4(@storybook/svelte@8.2.6(storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(svelte@5.0.0-next.196))(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9))':
+    dependencies:
+      '@babel/runtime': 7.22.15
+      '@storybook/svelte': 8.2.6(storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(svelte@5.0.0-next.196)
+      dedent: 1.5.3
+      magic-string: 0.30.10
+      svelte: 5.0.0-next.196
+    optionalDependencies:
+      '@sveltejs/vite-plugin-svelte': 3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9))
+      vite: 5.2.13(@types/node@20.5.9)
+    transitivePeerDependencies:
+      - babel-plugin-macros
+
   '@storybook/addon-toolbars@8.2.6(storybook@8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7)))':
     dependencies:
       storybook: 8.2.6(@babel/preset-env@7.24.7(@babel/core@7.24.7))
@@ -8940,6 +8976,8 @@ snapshots:
       ms: 2.1.2
 
   dedent-js@1.0.1: {}
+
+  dedent@1.5.3: {}
 
   deep-eql@4.1.3:
     dependencies:
@@ -10284,10 +10322,6 @@ snapshots:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.4.15
 
-  magic-string@0.30.5:
-    dependencies:
-      '@jridgewell/sourcemap-codec': 1.4.15
-
   magic-string@0.30.7:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.4.15
@@ -11388,7 +11422,7 @@ snapshots:
     dependencies:
       '@types/pug': 2.0.6
       detect-indent: 6.1.0
-      magic-string: 0.30.5
+      magic-string: 0.30.10
       sorcery: 0.11.0
       strip-indent: 3.0.0
       svelte: 5.0.0-next.196

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CopyLinkContextMenu from './CopyLinkContextMenu.svelte';
-	import Button from '$lib/shared/Button.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 
 	const { url }: { url: string } = $props();
 

@@ -3,7 +3,6 @@
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { RemotesService } from '$lib/remotes/service';
-	import Button from '$lib/shared/Button.svelte';
 	import Link from '$lib/shared/Link.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
@@ -13,6 +12,7 @@
 	import { remoteUrlIsHttp } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { marked } from 'marked';
 	import { get } from 'svelte/store';
 	import type { PullRequest } from '$lib/gitHost/interface/types';

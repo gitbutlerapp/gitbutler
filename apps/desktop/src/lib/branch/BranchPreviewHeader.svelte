@@ -2,12 +2,12 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import Button from '$lib/shared/Button.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Branch } from '$lib/vbranches/types';

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Icon from '$lib/shared/Icon.svelte';
 	import TimeAgo from '$lib/shared/TimeAgo.svelte';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 	import { stringToColor } from '@gitbutler/ui/utils/stringToColor';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import type { CombinedBranch } from '$lib/branches/types';

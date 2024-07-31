@@ -1,8 +1,8 @@
 <script lang="ts">
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import Button from '$lib/shared/Button.svelte';
-	import type iconsJson from '$lib/icons/icons.json';
-	import type { ComponentColor, ComponentStyleKind } from '$lib/vbranches/types';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import type iconsJson from '@gitbutler/ui/icon/icons.json';
+	import type { ComponentColor, ComponentStyleKind } from '@gitbutler/ui/utils/colorTypes';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let style: ComponentColor = 'neutral';

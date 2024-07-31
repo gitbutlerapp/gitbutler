@@ -1,9 +1,9 @@
 <script lang="ts">
-	import Icon from '$lib/shared/Icon.svelte';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { tooltip } from '@gitbutler/ui/utils/tooltip';
-	import type iconsJson from '$lib/icons/icons.json';
-	import type { ComponentColor, ComponentStyleKind } from '$lib/vbranches/types';
+	import Icon from '$lib/icon/Icon.svelte';
+	import { pxToRem } from '$lib/utils/pxToRem';
+	import { tooltip } from '$lib/utils/tooltip';
+	import type iconsJson from '$lib/icon/icons.json';
+	import type { ComponentColor, ComponentStyleKind } from '$lib/utils/colorTypes';
 
 	// Interaction props
 	export let el: HTMLAnchorElement | HTMLButtonElement | HTMLElement | null = null;

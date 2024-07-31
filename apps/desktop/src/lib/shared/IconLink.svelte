@@ -1,7 +1,7 @@
 <script lang="ts">
 	export let href: string;
-	import Icon from '$lib/shared/Icon.svelte';
-	import type iconsJson from '$lib/icons/icons.json';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import type iconsJson from '@gitbutler/ui/icon/icons.json';
 
 	export let iconOpacity: number = 0.7;
 	export let icon: keyof typeof iconsJson;

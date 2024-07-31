@@ -1,11 +1,11 @@
 <script lang="ts" context="module">
-	import type { ComponentColor } from '$lib/vbranches/types';
+	import type { ComponentColor } from '@gitbutler/ui/utils/colorTypes';
 	export type MessageStyle = Exclude<ComponentColor, 'ghost' | 'purple'>;
 </script>
 
 <script lang="ts">
-	import Button from '$lib/shared/Button.svelte';
-	import Icon, { type IconColor } from '$lib/shared/Icon.svelte';
+	import Icon, { type IconColor } from '@gitbutler/ui/icon/Icon.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '../icons/icons.json';
 

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Icon from '$lib/shared/Icon.svelte';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 	import { createEventDispatcher, getContext, onMount } from 'svelte';
-	import type iconsJson from '$lib/icons/icons.json';
 	import type { SegmentContext } from './segment';
+	import type iconsJson from '@gitbutler/ui/icon/icons.json';
 
 	export let id: string;
 	export let disabled = false;

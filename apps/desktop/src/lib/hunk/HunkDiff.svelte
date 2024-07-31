@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { type Row, Operation, type DiffRows } from './types';
-	import Icon from '$lib/shared/Icon.svelte';
 	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { create } from '$lib/utils/codeHighlight';
 	import { maybeGetContextStore } from '$lib/utils/context';
 	import { type ContentSection, SectionType, type Line } from '$lib/utils/fileSections';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { type Hunk } from '$lib/vbranches/types';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 	import diff_match_patch from 'diff-match-patch';
 	import type { Writable } from 'svelte/store';
 

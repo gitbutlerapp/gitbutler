@@ -34,6 +34,7 @@
 		"@storybook/addon-essentials": "^8.2.6",
 		"@storybook/addon-interactions": "^8.2.6",
 		"@storybook/addon-links": "^8.2.6",
+		"@storybook/addon-svelte-csf": "4.1.4",
 		"@storybook/blocks": "^8.2.6",
 		"@storybook/svelte": "^8.2.6",
 		"@storybook/sveltekit": "^8.2.6",
@@ -73,10 +74,15 @@
 		},
 		"./fonts.css": {
 			"import": "./dist/fonts.css"
+		},
+		"./*.json": {
+			"import": "./dist/*.json",
+			"types": "./dist/*.json"
 		}
 	},
 	"files": [
 		"./dist/*.svelte",
+		"./dist/*.json",
 		"./dist/*.js",
 		"./dist/*.d.ts",
 		"!./dist/*.test.*",

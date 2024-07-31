@@ -3,9 +3,9 @@
 	import Link from './Link.svelte';
 	import { AuthService } from '$lib/backend/auth';
 	import SectionCardDisclaimer from '$lib/components/SectionCardDisclaimer.svelte';
-	import Button from '$lib/shared/Button.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { slide } from 'svelte/transition';
 
 	export let projectId: string;
