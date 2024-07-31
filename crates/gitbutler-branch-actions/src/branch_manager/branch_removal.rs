@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
+use git2::Commit;
 use gitbutler_branch::{Branch, BranchExt, BranchId};
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oplog::SnapshotExt;
@@ -25,13 +26,17 @@ impl BranchManager<'_> {
         perm: &mut WorktreeWritePermission,
     ) -> Result<ReferenceName> {
         let vb_state = self.ctx.project().virtual_branches();
+        let target_commit = self
+            .ctx
+            .repository()
+            .find_commit(vb_state.get_default_target()?.sha)?;
 
         let mut target_branch = vb_state.get_branch(branch_id)?;
 
         // Convert the vbranch to a real branch
         let real_branch = self.build_real_branch(&mut target_branch)?;
 
-        self.delete_branch(branch_id, perm)?;
+        self.delete_branch(branch_id, perm, &target_commit)?;
 
         // If we were conflicting, it means that it was the only branch applied. Since we've now unapplied it we can clear all conflicts
         if conflicts::is_conflicting(self.ctx, None)? {
@@ -52,6 +57,7 @@ impl BranchManager<'_> {
         &self,
         branch_id: BranchId,
         perm: &mut WorktreeWritePermission,
+        target_commit: &Commit,
     ) -> Result<()> {
         let vb_state = self.ctx.project().virtual_branches();
         let Some(branch) = vb_state.try_branch(branch_id)? else {
@@ -70,7 +76,6 @@ impl BranchManager<'_> {
 
         let repo = self.ctx.repository();
 
-        let target_commit = repo.target_commit()?;
         let base_tree = target_commit.tree().context("failed to get target tree")?;
 
         let applied_statuses = get_applied_status(self.ctx, None)

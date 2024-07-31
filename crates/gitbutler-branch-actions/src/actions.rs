@@ -206,7 +206,9 @@ impl VirtualBranchActions {
             .context("Deleting a branch order requires open workspace mode")?;
         let branch_manager = ctx.branch_manager();
         let mut guard = project.exclusive_worktree_access();
-        branch_manager.delete_branch(branch_id, guard.write_permission())
+        let default_target = ctx.project().virtual_branches().get_default_target()?;
+        let target_commit = ctx.repository().find_commit(default_target.sha)?;
+        branch_manager.delete_branch(branch_id, guard.write_permission(), &target_commit)
     }
 
     pub fn unapply_ownership(

@@ -63,13 +63,14 @@
 			/>
 		</div>
 		<div class="base__right">
-			{#await $selectedFile then selected}
+			{#await $selectedFile then [commitId, selected]}
 				{#if selected}
 					<FileCard
 						conflicted={selected.conflicted}
 						file={selected}
 						isUnapplied={false}
 						readonly={true}
+						{commitId}
 						on:close={() => {
 							fileIdSelection.clear();
 						}}

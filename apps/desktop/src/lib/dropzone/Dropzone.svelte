@@ -53,6 +53,7 @@
 		target: '.dropzone-target'
 	}}
 	class:fill-height={fillHeight}
+	class="dropzone-container"
 >
 	{@render overlay({ hovered, activated })}
 
@@ -66,5 +67,9 @@
 		display: flex;
 		flex-direction: column;
 		flex-grow: 1;
+	}
+
+	.dropzone-container {
+		position: relative;
 	}
 </style>

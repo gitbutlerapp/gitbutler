@@ -18,7 +18,8 @@ export class DraggableHunk {
 	constructor(
 		public readonly branchId: string,
 		public readonly hunk: Hunk,
-		public readonly lockedTo: HunkLock[]
+		public readonly lockedTo: HunkLock[],
+		public readonly commitId: string | undefined
 	) {}
 }
 
