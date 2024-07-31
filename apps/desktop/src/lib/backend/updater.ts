@@ -34,7 +34,7 @@ export class UpdaterService {
 		undefined
 	);
 
-	private currentVersion = writable<string | undefined>(undefined);
+	currentVersion = writable<string | undefined>(undefined);
 	readonly version = derived(this.update, (update) => update?.version);
 
 	prev: Update | undefined;
