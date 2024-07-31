@@ -1,5 +1,5 @@
 <script lang="ts">
-	import clonninRepoSvg from '$lib/assets/illustrations/clonnin-repo.svg?raw';
+	import cloningRepoSvg from '$lib/assets/illustrations/cloning-repo.svg?raw';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import Button from '$lib/shared/Button.svelte';
@@ -70,7 +70,7 @@
 	}
 </script>
 
-<DecorativeSplitView img={clonninRepoSvg}>
+<DecorativeSplitView img={cloningRepoSvg}>
 	<h1 class="clone-title text-serif-40">Clone a repository</h1>
 	<Section>
 		<div class="clone__remoteType">
