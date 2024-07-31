@@ -129,19 +129,18 @@ impl VirtualBranchesHandle {
         &self,
         refname: &Refname,
     ) -> Result<Option<Branch>> {
-        self.list_all_branches().map(|branches| {
-            branches.into_iter().find(|branch| {
-                if branch.in_workspace {
-                    return false;
-                }
+        let branches = self.list_all_branches()?;
+        Ok(branches.into_iter().find(|branch| {
+            if branch.in_workspace {
+                return false;
+            }
 
-                if let Some(source_refname) = branch.source_refname.clone() {
-                    return source_refname.to_string() == refname.to_string();
-                }
+            if let Some(source_refname) = branch.source_refname.as_ref() {
+                return source_refname.to_string() == refname.to_string();
+            }
 
-                false
-            })
-        })
+            false
+        }))
     }
 
     /// Gets the state of the given virtual branch.
@@ -163,15 +162,9 @@ impl VirtualBranchesHandle {
     /// Gets the state of the given virtual branch returning `Some(branch)` or `None`
     /// if that branch doesn't exist.
     pub fn try_branch_in_workspace(&self, id: BranchId) -> Result<Option<Branch>> {
-        if let Some(branch) = self.try_branch(id)? {
-            if branch.in_workspace && !branch.is_old_unapplied() {
-                Ok(Some(branch))
-            } else {
-                Ok(None)
-            }
-        } else {
-            Ok(None)
-        }
+        Ok(self
+            .try_branch(id)?
+            .filter(|branch| branch.in_workspace && !branch.is_old_unapplied()))
     }
 
     /// Gets the state of the given virtual branch returning `Some(branch)` or `None`
@@ -181,7 +174,7 @@ impl VirtualBranchesHandle {
         Ok(virtual_branches.branches.get(&id).cloned())
     }
 
-    /// Lists all branches in vbranches.toml
+    /// Lists all branches in `virtual_branches.toml`.
     ///
     /// Errors if the file cannot be read or written.
     pub fn list_all_branches(&self) -> Result<Vec<Branch>> {

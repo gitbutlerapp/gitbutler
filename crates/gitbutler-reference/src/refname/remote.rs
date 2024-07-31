@@ -67,6 +67,11 @@ impl FromStr for Refname {
         //           Alternatively, `git2` also has support for respecting refspecs.
         let value = value.strip_prefix("refs/remotes/").unwrap();
 
+        // TODO(ST): the remote name cannot be assumed to *not* contain slashes, but the refspec
+        //           would be '+refs/heads/*:refs/remotes/multi/slash/remote/*' which allows to extract
+        //           the right remote name. However, for that we need the local branch, which
+        //           has the remote name configured in plain text. Technically, it doesn't even have
+        //           to match the refspec, so this abstraction is very dangerous.
         if let Some((remote, branch)) = value.split_once('/') {
             Ok(Self {
                 remote: remote.to_string(),

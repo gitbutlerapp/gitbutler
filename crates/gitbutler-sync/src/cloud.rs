@@ -16,7 +16,8 @@ use gitbutler_url::Url;
 use gitbutler_user as users;
 use itertools::Itertools;
 
-pub fn sync_with_gitbutler(
+/// Pushes the repository to the GitButler remote
+pub fn push_repo(
     ctx: &CommandContext,
     user: &users::User,
     projects: &projects::Controller,
@@ -43,18 +44,25 @@ pub fn sync_with_gitbutler(
 
     // Push all refs
     push_all_refs(ctx, user, project.id)?;
+    Ok(())
+}
 
+/// Pushes the Oplog head to GitButler server
+pub fn push_oplog(ctx: &CommandContext, user: &users::User) -> Result<()> {
     // Push Oplog head
     let oplog_refspec = ctx
         .project()
         .oplog_head()?
-        .map(|sha| format!("+{}:refs/gitbutler/oplog/oplog", sha));
+        .map(|sha| format!("+{}:refs/gitbutler/oplog", sha));
 
     if let Some(oplog_refspec) = oplog_refspec {
-        let x = push_to_gitbutler_server(ctx, Some(user), &[&oplog_refspec]);
-        println!("\n\n\nHERE: {:?}", x?);
+        push_to_gitbutler_server(
+            ctx,
+            Some(user),
+            &[&oplog_refspec],
+            remote(ctx, RemoteKind::Oplog)?,
+        )?;
     }
-
     Ok(())
 }
 
@@ -80,11 +88,12 @@ fn push_target(
         "batches left to push",
     );
 
+    let remote = remote(ctx, RemoteKind::Code)?;
     let id_count = ids.len();
     for (idx, id) in ids.iter().enumerate().rev() {
         let refspec = format!("+{}:refs/push-tmp/{}", id, project_id);
 
-        push_to_gitbutler_server(ctx, Some(user), &[&refspec])?;
+        push_to_gitbutler_server(ctx, Some(user), &[&refspec], remote.clone())?;
         update_project(projects, project_id, *id)?;
 
         tracing::info!(
@@ -99,6 +108,7 @@ fn push_target(
         ctx,
         Some(user),
         &[&format!("+{}:refs/{}", default_target.sha, project_id)],
+        remote.clone(),
     )?;
 
     //TODO: remove push-tmp ref
@@ -168,7 +178,8 @@ fn push_all_refs(
 
     let all_refs: Vec<_> = all_refs.iter().map(String::as_str).collect();
 
-    let anything_pushed = push_to_gitbutler_server(ctx, Some(user), &all_refs)?;
+    let anything_pushed =
+        push_to_gitbutler_server(ctx, Some(user), &all_refs, remote(ctx, RemoteKind::Code)?)?;
     if anything_pushed {
         tracing::info!(
             %project_id,
@@ -199,23 +210,9 @@ fn push_to_gitbutler_server(
     ctx: &CommandContext,
     user: Option<&users::User>,
     ref_specs: &[&str],
+    mut remote: git2::Remote,
 ) -> Result<bool> {
     let project = ctx.project();
-    let url = project
-        .api
-        .as_ref()
-        .context("api not set")?
-        .code_git_url
-        .as_ref()
-        .context("code_git_url not set")?
-        .as_str()
-        .parse::<Url>()?;
-
-    tracing::debug!(
-        project_id = %project.id,
-        %url,
-        "pushing code to gb repo",
-    );
 
     let user = user
         .context("need user to push to gitbutler")
@@ -243,8 +240,6 @@ fn push_to_gitbutler_server(
     let headers = &[auth_header.as_str()];
     push_options.custom_headers(headers);
 
-    let mut remote = ctx.repository().remote_anonymous(&url.to_string())?;
-
     remote
         .push(ref_specs, Some(&mut push_options))
         .map_err(|err| match err.class() {
@@ -269,4 +264,25 @@ fn push_to_gitbutler_server(
     );
 
     Ok(total_objects_pushed > 0)
+}
+
+enum RemoteKind {
+    Code,
+    Oplog,
+}
+fn remote(ctx: &CommandContext, kind: RemoteKind) -> Result<git2::Remote> {
+    let api_project = ctx.project().api.as_ref().context("api not set")?;
+    let url = match kind {
+        RemoteKind::Code => {
+            let url = api_project
+                .code_git_url
+                .as_ref()
+                .context("code_git_url not set")?;
+            url.as_str().parse::<Url>()
+        }
+        RemoteKind::Oplog => api_project.git_url.as_str().parse::<Url>(),
+    }?;
+    ctx.repository()
+        .remote_anonymous(&url.to_string())
+        .map_err(Into::into)
 }

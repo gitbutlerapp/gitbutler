@@ -20,7 +20,7 @@ export class Project {
 	title!: string;
 	description?: string;
 	path!: string;
-	api?: CloudProject & { sync: boolean };
+	api?: CloudProject & { sync: boolean; sync_code: boolean | undefined };
 	preferred_key!: Key;
 	ok_with_force_push!: boolean;
 	omit_certificate_check: boolean | undefined;

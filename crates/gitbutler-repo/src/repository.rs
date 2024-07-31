@@ -1,11 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
-use bstr::ByteSlice;
-use gitbutler_branch::{
-    Branch, BranchId, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
-    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
-};
+use gitbutler_branch::{gix_to_git2_signature, Branch, BranchId, SignaturePurpose};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_error::error::Code;
@@ -35,7 +31,6 @@ pub trait RepoActionsExt {
     fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32>;
     fn log(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Commit>>;
     fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>>;
-    fn list(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Oid>>;
     fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>>;
     fn delete_branch_reference(&self, branch: &Branch) -> Result<()>;
     fn add_branch_reference(&self, branch: &Branch) -> Result<()>;
@@ -96,7 +91,7 @@ impl RepoActionsExt for CommandContext {
     fn add_branch_reference(&self, branch: &Branch) -> Result<()> {
         let (should_write, with_force) = match self
             .repository()
-            .find_reference(&branch.refname().to_string())
+            .find_reference(&branch.refname()?.to_string())
         {
             Ok(reference) => match reference.target() {
                 Some(head_oid) => Ok((head_oid != branch.head, true)),
@@ -112,7 +107,7 @@ impl RepoActionsExt for CommandContext {
         if should_write {
             self.repository()
                 .reference(
-                    &branch.refname().to_string(),
+                    &branch.refname()?.to_string(),
                     branch.head,
                     with_force,
                     "new vbranch",
@@ -126,7 +121,7 @@ impl RepoActionsExt for CommandContext {
     fn delete_branch_reference(&self, branch: &Branch) -> Result<()> {
         match self
             .repository()
-            .find_reference(&branch.refname().to_string())
+            .find_reference(&branch.refname()?.to_string())
         {
             Ok(mut reference) => {
                 reference
@@ -213,14 +208,9 @@ impl RepoActionsExt for CommandContext {
         .context("failed to collect oids")
     }
 
-    // returns a list of oids from the first oid to the second oid
-    fn list(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Oid>> {
-        self.l(from, LogUntil::Commit(to))
-    }
-
     fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>> {
         Ok(self
-            .list(from, to)?
+            .l(from, LogUntil::Commit(to))?
             .into_iter()
             .map(|oid| self.repository().find_commit(oid))
             .collect::<Result<Vec<_>, _>>()?)
@@ -447,39 +437,24 @@ impl RepoActionsExt for CommandContext {
     fn signatures(&self) -> Result<(git2::Signature, git2::Signature)> {
         let repo = gix::open(self.repository().path())?;
 
-        let default_actor = gix::actor::SignatureRef {
-            name: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME.into(),
-            email: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL.into(),
-            time: Default::default(),
-        };
-        let author = repo.author().transpose()?.unwrap_or(default_actor);
+        let author = repo
+            .author()
+            .transpose()?
+            .map(gitbutler_branch::gix_to_git2_signature)
+            .unwrap_or_else(|| gitbutler_branch::signature(SignaturePurpose::Author))?;
+
         let config: Config = self.repository().into();
         let committer = if config.user_real_comitter()? {
-            repo.committer().transpose()?.unwrap_or(default_actor)
+            repo.committer()
+                .transpose()?
+                .map(gix_to_git2_signature)
+                .unwrap_or_else(|| gitbutler_branch::signature(SignaturePurpose::Committer))
         } else {
-            default_actor
-        };
+            gitbutler_branch::signature(SignaturePurpose::Committer)
+        }?;
 
-        Ok((
-            actor_to_git2_signature(author)?,
-            actor_to_git2_signature(committer)?,
-        ))
+        Ok((author, committer))
     }
-}
-
-fn actor_to_git2_signature(
-    actor: gix::actor::SignatureRef<'_>,
-) -> Result<git2::Signature<'static>> {
-    Ok(git2::Signature::now(
-        actor
-            .name
-            .to_str()
-            .with_context(|| format!("Could not process actor name: {}", actor.name))?,
-        actor
-            .email
-            .to_str()
-            .with_context(|| format!("Could not process actor email: {}", actor.email))?,
-    )?)
 }
 
 type OidFilter = dyn Fn(&git2::Commit) -> Result<bool>;

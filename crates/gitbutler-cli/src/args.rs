@@ -38,6 +38,11 @@ pub mod vbranch {
             /// The name of the new default virtual branch.
             name: String,
         },
+        /// Remove a branch from the workspace.
+        Unapply {
+            /// The name of the virtual branch to unapply.
+            name: String,
+        },
         /// Create a new commit to named virtual branch with all changes currently in the worktree or staging area assigned to it.
         Commit {
             /// The commit message
@@ -48,6 +53,9 @@ pub mod vbranch {
         },
         /// Create a new virtual branch
         Create {
+            /// Also make this branch the default branch, so it is considered the owner of new edits.
+            #[clap(short = 'd', long)]
+            set_default: bool,
             /// The name of the virtual branch to create
             name: String,
         },
