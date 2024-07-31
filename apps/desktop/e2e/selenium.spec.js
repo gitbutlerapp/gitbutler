@@ -31,7 +31,7 @@ before(async function () {
 
 	const capabilities = new Capabilities();
 	capabilities.set('tauri:options', { application });
-	capabilities.setBrowserName('');
+	capabilities.setBrowserName(''); // Setting this to 'wry' triggers the "Capabilities do not match" error
 
 	driver = await new Builder()
 		.withCapabilities(capabilities)
