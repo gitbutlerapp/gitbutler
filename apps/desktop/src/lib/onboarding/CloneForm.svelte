@@ -12,6 +12,7 @@
 	import { Command } from '@tauri-apps/api/shell';
 	import { getContext } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { parseRemoteUrl } from '$lib/url/gitUrl';
 
 	const projectService = getContext(ProjectService);
 	const SSH_URL_PLACEHOLDER = 'git@github.com:';
@@ -24,7 +25,6 @@
 
 	let loading = $state(false);
 	let errors = $state<{ label: string }[]>([]);
-	let warnings = $state<{ label: string }[]>([]);
 	let completed = $state(false);
 	let repositoryUrl = $state('');
 	let targetDirPath = $state('');
@@ -40,13 +40,6 @@
 		if (!selectedPath) return;
 
 		targetDirPath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
-		const targetDirContents = await readDir(targetDirPath);
-
-		if (targetDirContents.length !== 0) {
-			warnings.push({
-				label: `Your selected <code>${targetDirPath}</code> is not empty, however, we will still clone the repository there if you'd like to continue.`
-			});
-		}
 	}
 
 	async function cloneRepository() {
@@ -59,9 +52,11 @@
 			});
 		}
 
+		const { name } = parseRemoteUrl(repositoryUrl);
 		try {
 			// TODO: Get rust folks to implement a 'clone' fn to invoke :)
-			await new Command('git', ['clone', repositoryUrl, targetDirPath]).execute();
+			await new Command('git', ['clone', repositoryUrl, `${targetDirPath}/${name}`]).execute();
+
 			await projectService.addProject(targetDirPath);
 		} catch (e) {
 			errors.push({
@@ -137,9 +132,6 @@
 
 {#if completed}
 	{@render Notification({ title: 'Success', style: 'success' })}
-{/if}
-{#if warnings.length}
-	{@render Notification({ title: 'Warning', items: warnings, style: 'warning' })}
 {/if}
 {#if errors.length}
 	{@render Notification({ title: 'Error', items: errors, style: 'error' })}
