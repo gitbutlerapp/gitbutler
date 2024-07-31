@@ -118,7 +118,7 @@
 <div class="wrapper" data-tauri-drag-region>
 	<BranchCard {commitBoxOpen} {isLaneCollapsed} />
 
-	{#await $selectedFile then selected}
+	{#await $selectedFile then [commitId, selected]}
 		{#if selected}
 			<div
 				class="file-preview"
@@ -132,6 +132,7 @@
 					file={selected}
 					readonly={selected instanceof RemoteFile}
 					selectable={$commitBoxOpen}
+					{commitId}
 					on:close={() => {
 						fileIdSelection.clear();
 					}}

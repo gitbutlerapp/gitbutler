@@ -17,6 +17,7 @@
 		selectable: boolean;
 		isFileLocked: boolean;
 		readonly: boolean;
+		commitId?: string;
 	}
 
 	let {
@@ -25,6 +26,7 @@
 		isLarge,
 		sections,
 		isUnapplied,
+		commitId,
 		selectable = false,
 		isFileLocked = false,
 		readonly = false
@@ -67,9 +69,12 @@
 			{@const { added, removed } = computeAddedRemovedByHunk(section)}
 			{#if 'hunk' in section}
 				<div class="hunk-wrapper">
-					<div class="indicators text-base-11">
-						<span class="added">+{added}</span>
-						<span class="removed">-{removed}</span>
+					<div class="indicators text-base-11 text-semibold">
+						<div class="text-base-10 semibold added-removed">
+							<span class="added">+{added}</span>
+							<span class="removed">-{removed}</span>
+						</div>
+
 						{#if section.hunk.lockedTo && section.hunk.lockedTo.length > 0 && commits}
 							<div
 								use:tooltip={{
@@ -92,6 +97,7 @@
 						{isFileLocked}
 						{minWidth}
 						{readonly}
+						{commitId}
 						linesModified={added + removed}
 					/>
 				</div>
@@ -120,10 +126,25 @@
 		align-items: center;
 		gap: 2px;
 	}
-	.added {
-		color: #45b156;
+
+	.added-removed {
+		display: flex;
+		border-radius: var(--radius-s);
+		overflow: hidden;
 	}
+
+	.removed,
+	.added {
+		padding: 2px 4px;
+	}
+
+	.added {
+		color: var(--clr-scale-succ-30);
+		background-color: var(--clr-theme-succ-bg);
+	}
+
 	.removed {
-		color: #ff3e00;
+		color: var(--clr-scale-err-30);
+		background-color: var(--clr-theme-err-bg);
 	}
 </style>

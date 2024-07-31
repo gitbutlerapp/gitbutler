@@ -8,19 +8,6 @@ git init remote
   git add . && git commit -m "init"
 )
 
-git clone remote single-branch-no-vbranch
-
-git clone remote single-branch-no-vbranch-one-commit
-(cd single-branch-no-vbranch-one-commit
-  echo change >> file && git add . && git commit -m "local change"
-)
-
-git clone remote single-branch-no-vbranch-multi-remote
-(cd single-branch-no-vbranch-multi-remote
-  git remote add other-origin ../remote
-  git fetch other-origin
-)
-
 export GITBUTLER_CLI_DATA_DIR=./git/gitbutler/app-data
 git clone remote one-vbranch-on-integration
 (cd one-vbranch-on-integration

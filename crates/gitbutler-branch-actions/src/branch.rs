@@ -106,7 +106,8 @@ fn combine_branches(
         group_branches.push(GroupBranch::Virtual(branch));
     }
     let remotes = repo.remotes()?;
-    let target_branch = vb_handle.get_default_target().ok();
+    let target_branch = vb_handle.get_default_target()?;
+
     // Group branches by identity
     let mut groups: HashMap<Option<String>, Vec<&GroupBranch>> = HashMap::new();
     for branch in group_branches.iter() {
@@ -132,6 +133,7 @@ fn combine_branches(
                 group_branches.clone(),
                 repo,
                 &local_author,
+                target_branch.sha,
             );
             if branch_entry.is_err() {
                 tracing::warn!(
@@ -152,6 +154,7 @@ fn branch_group_to_branch(
     group_branches: Vec<&GroupBranch>,
     repo: &git2::Repository,
     local_author: &git2::Signature,
+    target_sha: git2::Oid,
 ) -> Result<BranchListing> {
     let virtual_branch = group_branches
         .iter()
@@ -219,9 +222,8 @@ fn branch_group_to_branch(
         virtual_branch.map_or(0, |x| x.updated_timestamp_ms),
     );
     let last_commiter = head_commit.author().into();
-    let repo_head = repo.head()?.peel_to_commit()?;
     // If no merge base can be found, return with zero stats
-    let branch = if let Ok(base) = repo.merge_base(repo_head.id(), head) {
+    let branch = if let Ok(base) = repo.merge_base(target_sha, head) {
         let mut revwalk = repo.revwalk()?;
         revwalk.push(head)?;
         revwalk.hide(base)?;
@@ -297,12 +299,10 @@ impl GroupBranch<'_> {
 
 /// Determines if a branch should be listed in the UI.
 /// This excludes the target branch as well as gitbutler specific branches.
-fn should_list_git_branch(identity: &Option<String>, target: &Option<Target>) -> bool {
+fn should_list_git_branch(identity: &Option<String>, target: &Target) -> bool {
     // Exclude the target branch
-    if let Some(target) = target {
-        if identity == &Some(target.branch.branch().to_owned()) {
-            return false;
-        }
+    if identity == &Some(target.branch.branch().to_owned()) {
+        return false;
     }
     // Exclude gitbutler technical branches (not useful for the user)
     if identity == &Some("gitbutler/integration".to_string())

@@ -24,13 +24,12 @@
 		--dropzone-overlap: calc(var(--dropzone-height) / 2);
 		--dropzone-height: 16px;
 
+		position: absolute;
+		top: var(--y-offset);
+
 		height: var(--dropzone-height);
 		margin-top: calc(var(--dropzone-overlap) * -1);
-		margin-bottom: calc(var(--dropzone-overlap) * -1);
-		/* background-color: rgba(0, 0, 0, 0.1); */
 		width: 100%;
-		position: relative;
-		top: var(--y-offset);
 
 		display: flex;
 		align-items: center;

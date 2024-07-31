@@ -23,9 +23,10 @@
 	.large-diff-message {
 		display: flex;
 		padding: 12px;
-		gap: 8px;
+		gap: 12px;
 		flex-direction: column;
-		background-color: var(--clr-bg-1);
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
 	}
 
 	.frame-box {

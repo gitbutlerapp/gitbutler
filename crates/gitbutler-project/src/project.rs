@@ -26,11 +26,17 @@ pub struct ApiProject {
     pub name: String,
     pub description: Option<String>,
     pub repository_id: String,
+    /// The "gitbuler data, i.e. oplog" URL
     pub git_url: String,
+    /// The "project" git URL
     pub code_git_url: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    /// Determines if the project Operations log will be synched with the GitButHub
     pub sync: bool,
+    /// Determines if the project code will be synched with the GitButHub
+    #[serde(default)]
+    pub sync_code: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -93,8 +99,23 @@ pub struct Project {
 }
 
 impl Project {
-    pub fn is_sync_enabled(&self) -> bool {
-        self.api.as_ref().map(|api| api.sync).unwrap_or_default()
+    /// Determines if the project Operations log will be synched with the GitButHub
+    pub fn oplog_sync_enabled(&self) -> bool {
+        let has_url = self.api.as_ref().map(|api| api.git_url.clone()).is_some();
+        self.api.as_ref().map(|api| api.sync).unwrap_or_default() && has_url
+    }
+    /// Determines if the project code will be synched with the GitButHub
+    pub fn code_sync_enabled(&self) -> bool {
+        let has_code_url = self
+            .api
+            .as_ref()
+            .and_then(|api| api.code_git_url.clone())
+            .is_some();
+        self.api
+            .as_ref()
+            .map(|api| api.sync_code)
+            .unwrap_or_default()
+            && has_code_url
     }
 
     pub fn has_code_url(&self) -> bool {

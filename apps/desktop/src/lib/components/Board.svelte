@@ -358,7 +358,7 @@
 	.empty-board__suggestions__links {
 		display: flex;
 		flex-direction: column;
-		gap: 3px;
+		gap: 2px;
 		margin-left: -4px;
 	}
 
@@ -368,7 +368,7 @@
 		align-items: center;
 		width: fit-content;
 		max-width: 100%;
-		padding: 4px 6px 4px 4px;
+		padding: 6px;
 		border-radius: var(--radius-s);
 		gap: 10px;
 		transition: background-color var(--transition-fast);
@@ -387,6 +387,7 @@
 	}
 
 	.empty-board__suggestions__link__icon {
+		display: flex;
 		color: var(--clr-scale-ntrl-50);
 	}
 </style>

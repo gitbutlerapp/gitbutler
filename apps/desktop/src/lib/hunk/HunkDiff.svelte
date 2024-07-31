@@ -52,7 +52,7 @@
 	let contents = $state<HTMLDivElement>();
 
 	const WHITESPACE_REGEX = /\s/;
-	const NUMBER_COLUMN_WIDTH_PX = minWidth * 16;
+	const NUMBER_COLUMN_WIDTH_PX = minWidth * 20;
 
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 
@@ -210,6 +210,22 @@
 	const renderRows = $derived(generateRows(subsections));
 </script>
 
+{#snippet countColumn(count: number | undefined, lineType: SectionType)}
+	<td
+		class="table__numberColumn"
+		class:diff-line-deletion={lineType === SectionType.RemovedLines}
+		class:diff-line-addition={lineType === SectionType.AddedLines}
+		style="--number-col-width: {NUMBER_COLUMN_WIDTH_PX}px;"
+		align="center"
+		class:selected={isSelected}
+		onclick={() => {
+			selectable && handleSelected(hunk, !isSelected);
+		}}
+	>
+		{count}
+	</td>
+{/snippet}
+
 <div
 	class="table__wrapper hide-native-scrollbar"
 	bind:this={viewport}
@@ -224,28 +240,8 @@
 		<tbody>
 			{#each renderRows as line}
 				<tr data-no-drag>
-					<td
-						class="table__numberColumn"
-						style="--number-col-width: {NUMBER_COLUMN_WIDTH_PX}px;"
-						align="center"
-						class:selected={isSelected}
-						onclick={() => {
-							selectable && handleSelected(hunk, !isSelected);
-						}}
-					>
-						{line.beforeLineNumber}
-					</td>
-					<td
-						class="table__numberColumn"
-						style="--number-col-width: {NUMBER_COLUMN_WIDTH_PX}px;"
-						align="center"
-						class:selected={isSelected}
-						onclick={() => {
-							selectable && handleSelected(hunk, !isSelected);
-						}}
-					>
-						{line.afterLineNumber}
-					</td>
+					{@render countColumn(line.beforeLineNumber, line.type)}
+					{@render countColumn(line.afterLineNumber, line.type)}
 					<td
 						{onclick}
 						class="table__textContent"
@@ -274,6 +270,7 @@
 	.table__wrapper {
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-s);
+		background-color: var(--clr-bg-1);
 		overflow-x: auto;
 
 		&:hover .table__drag-handle {
@@ -311,51 +308,46 @@
 	}
 
 	.table__numberColumn {
-		color: var(--clr-text-3);
+		color: color-mix(in srgb, var(--clr-text-1), transparent 60%);
 		border-color: var(--clr-border-2);
 		background-color: var(--clr-bg-1-muted);
 		font-size: 11px;
-		padding-left: 4px;
-		padding-right: 4px;
+		text-align: center;
+		padding: 0 4px;
 		text-align: right;
 		cursor: var(--cursor);
 		user-select: none;
 
 		position: sticky;
+		left: calc(var(--number-col-width));
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
-		max-width: var(--number-col-width);
-		left: calc(var(--number-col-width) + 1px);
-		box-shadow: 1px 0px 0px 0px var(--clr-border-2);
+
+		box-shadow: inset -1px 0 0 0 var(--clr-border-2);
+
+		&.diff-line-addition {
+			background-color: var(--override-addition-counter-background);
+			color: var(--override-addition-counter-text);
+			box-shadow: inset -1px 0 0 0 var(--override-addition-counter-border);
+		}
+
+		&.diff-line-deletion {
+			background-color: var(--override-deletion-counter-background);
+			color: var(--override-deletion-counter-text);
+			box-shadow: inset -1px 0 0 0 var(--override-deletion-counter-border);
+		}
 
 		&.selected {
 			background-color: var(--hunk-line-selected-bg);
-			border-color: var(--hunk-line-selected-border);
-			color: white;
+			box-shadow: inset -1px 0 0 0 var(--hunk-line-selected-border);
+			color: rgba(255, 255, 255, 0.9);
 		}
 	}
 
 	.table__numberColumn:first-of-type {
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
-		max-width: var(--number-col-width);
 		left: 0px;
-	}
-
-	tr:first-of-type .table__numberColumn:first-child {
-		border-radius: var(--radius-s) 0 0 0;
-	}
-
-	tr:last-of-type .table__numberColumn:first-child {
-		border-radius: 0 0 0 var(--radius-s);
-	}
-
-	.diff-line-deletion {
-		background-color: #cf8d8e20;
-	}
-
-	.diff-line-addition {
-		background-color: #94cf8d20;
 	}
 
 	.table__textContent {

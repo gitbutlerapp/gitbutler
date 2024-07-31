@@ -8,10 +8,13 @@
 	const updaterService = getContext(UpdaterService);
 	const update = updaterService.update;
 	const version = updaterService.version;
+	const currentVersion = updaterService.currentVersion;
 
 	let dismissed = $state(false);
 	$effect(() => {
-		if (version && dismissed) dismissed = false;
+		if ($version !== $currentVersion && dismissed) {
+			dismissed = false;
+		}
 	});
 </script>
 
@@ -120,9 +123,8 @@
 				Release notes
 			</Button>
 			<div class="status-section">
-				<div class="sliding-gradient"></div>
-
 				{#if !$update.status}
+					<div class="sliding-gradient"></div>
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
 						<Button
 							wide
@@ -136,6 +138,7 @@
 						</Button>
 					</div>
 				{:else if $update.status === 'DONE'}
+					<div class="sliding-gradient"></div>
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
 						<Button style="pop" kind="solid" wide on:click={() => updaterService.relaunchApp()}
 							>Restart</Button
@@ -190,7 +193,6 @@
 		flex-direction: column;
 		align-items: center;
 
-		height: var(--size-button);
 		width: 100%;
 		border-radius: var(--radius-m);
 

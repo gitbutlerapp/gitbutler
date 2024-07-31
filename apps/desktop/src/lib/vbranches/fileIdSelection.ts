@@ -95,14 +95,15 @@ export class FileIdSelection {
 		return fileKey;
 	}
 
-	#selectedFile: Readable<Promise<AnyFile | undefined>> | undefined;
+	#selectedFile: Readable<Promise<[string | undefined, AnyFile | undefined]>> | undefined;
 	get selectedFile() {
 		this.#selectedFile ||= derived(
 			[this as Readable<string[]>, this.localFiles],
-			async ([selection, localFiles]): Promise<AnyFile | undefined> => {
-				if (selection.length !== 1) return;
+			async ([selection, localFiles]): Promise<[string | undefined, AnyFile | undefined]> => {
+				if (selection.length !== 1) return [undefined, undefined];
 				const fileKey = parseFileKey(selection[0]);
-				return await findFileByKey(localFiles, this.projectId, fileKey);
+				const file = await findFileByKey(localFiles, this.projectId, fileKey);
+				return [fileKey.commitId, file];
 			}
 		);
 

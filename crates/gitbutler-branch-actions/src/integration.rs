@@ -1,6 +1,6 @@
 use std::{path::PathBuf, vec};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
 use gitbutler_branch::{
     self, Branch, BranchCreateRequest, VirtualBranchesHandle,
@@ -16,6 +16,7 @@ use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 use crate::{branch_manager::BranchManagerExt, conflicts, VirtualBranchesExt};
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
+const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
 
 pub(crate) fn get_integration_commiter<'a>() -> Result<git2::Signature<'a>> {
     Ok(git2::Signature::now(
@@ -37,19 +38,8 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
 
     let mut virtual_branches: Vec<Branch> = vb_state.list_branches_in_workspace()?;
 
-    let branch_heads = virtual_branches
-        .iter()
-        .map(|b| repo.find_commit(b.head))
-        .collect::<Result<Vec<_>, _>>()?;
-    let branch_head_refs = branch_heads.iter().collect::<Vec<_>>();
-
     let target_commit = repo.find_commit(target.sha)?;
     let mut workspace_tree = target_commit.tree()?;
-
-    // If no branches are applied then the workspace head is the target.
-    if branch_head_refs.is_empty() {
-        return Ok(target_commit.id());
-    }
 
     if conflicts::is_conflicting(ctx, None)? {
         let merge_parent = conflicts::merge_parent(ctx)?.ok_or(anyhow!("No merge parent"))?;
@@ -142,9 +132,6 @@ pub fn update_gitbutler_integration(
 
     let repo: &git2::Repository = ctx.repository();
 
-    // get commit object from target.sha
-    let target_commit = repo.find_commit(target.sha)?;
-
     // get current repo head for reference
     let head_ref = repo.head()?;
     let integration_filepath = repo.path().join("integration");
@@ -168,11 +155,10 @@ pub fn update_gitbutler_integration(
         .list_branches_in_workspace()
         .context("failed to list virtual branches")?;
 
-    let integration_commit = repo.find_commit(get_workspace_head(ctx)?)?;
-    let integration_tree = integration_commit.tree()?;
+    let workspace_head = repo.find_commit(get_workspace_head(ctx)?)?;
 
     // message that says how to get back to where they were
-    let mut message = "GitButler Integration Commit".to_string();
+    let mut message = GITBUTLER_INTEGRATION_COMMIT_TITLE.to_string();
     message.push_str("\n\n");
     message.push_str(
         "This is an integration commit for the virtual branches that GitButler is tracking.\n\n",
@@ -217,13 +203,17 @@ pub fn update_gitbutler_integration(
 
     // It would be nice if we could pass an `update_ref` parameter to this function, but that
     // requires committing to the tip of the branch, and we're mostly replacing the tip.
+
+    let parents = workspace_head.parents().collect::<Vec<_>>();
+    let workspace_tree = workspace_head.tree()?;
+
     let final_commit = repo.commit(
         None,
         &committer,
         &committer,
         &message,
-        &integration_commit.tree()?,
-        &[&target_commit],
+        &workspace_tree,
+        parents.iter().collect::<Vec<_>>().as_slice(),
     )?;
 
     // Create or replace the integration branch reference, then set as HEAD.
@@ -236,7 +226,7 @@ pub fn update_gitbutler_integration(
     repo.set_head(&GITBUTLER_INTEGRATION_REFERENCE.clone().to_string())?;
 
     let mut index = repo.index()?;
-    index.read_tree(&integration_tree)?;
+    index.read_tree(&workspace_tree)?;
     index.write()?;
 
     // finally, update the refs/gitbutler/ heads to the states of the current virtual branches
@@ -330,16 +320,21 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
         .get_default_target()
         .context("failed to get default target")?;
 
-    let mut extra_commits = ctx
+    let commits = ctx
         .log(head_commit.id(), LogUntil::Commit(default_target.sha))
         .context("failed to get log")?;
 
-    let integration_commit = extra_commits.pop();
-
-    if integration_commit.is_none() {
-        // no integration commit found
-        bail!("gibButler's integration commit not found on head");
-    }
+    let integration_index = commits
+        .iter()
+        .position(|commit| {
+            commit
+                .message()
+                .is_some_and(|message| message.starts_with(GITBUTLER_INTEGRATION_COMMIT_TITLE))
+        })
+        .context("GitButler integration commit not found")?;
+    let integration_commit = &commits[integration_index];
+    let mut extra_commits = commits[..integration_index].to_vec();
+    extra_commits.reverse();
 
     if extra_commits.is_empty() {
         // no extra commits found, so we're good
@@ -347,11 +342,7 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
     }
 
     ctx.repository()
-        .reset(
-            integration_commit.as_ref().unwrap().as_object(),
-            git2::ResetType::Soft,
-            None,
-        )
+        .reset(integration_commit.as_object(), git2::ResetType::Soft, None)
         .context("failed to reset to integration commit")?;
 
     let branch_manager = ctx.branch_manager();
@@ -369,7 +360,7 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
 
     // rebasing the extra commits onto the new branch
     let vb_state = ctx.project().virtual_branches();
-    extra_commits.reverse();
+    // let mut head = new_branch.head;
     let mut head = new_branch.head;
     for commit in extra_commits {
         let new_branch_head = ctx
