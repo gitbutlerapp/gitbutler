@@ -13,6 +13,7 @@
 		"allowlist": {
 			"fs": {
 				"readFile": true,
+				"readDir": true,
 				"scope": ["$APPCACHE/archives/*", "$RESOURCE/_up_/scripts/*"]
 			},
 			"shell": {
