@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ProjectService } from '$lib/backend/projects';
+	import { persisted } from '$lib/persisted/persisted';
 	import Section from '$lib/settings/Section.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import InfoMessage, { type MessageStyle } from '$lib/shared/InfoMessage.svelte';
@@ -30,17 +31,21 @@
 	let targetDirPath = $state('');
 	// TODO: Fix types
 	let remoteType = $state<string | keyof typeof RemoteType>(RemoteType.url);
+	let savedTargetDirPath = persisted('', 'clone_targetDirPath');
 
 	onMount(async () => {
-		const documentDirPath = await documentDir();
-		targetDirPath = documentDirPath;
+		if ($savedTargetDirPath) {
+			targetDirPath = $savedTargetDirPath;
+		} else {
+			targetDirPath = await documentDir();
+		}
 	});
 
 	async function handleCloneTargetSelect() {
 		const selectedPath = await open({
 			directory: true,
 			recursive: true,
-			title: 'Target Directory'
+			title: 'Target Clone Directory'
 		});
 		if (!selectedPath) return;
 
@@ -49,12 +54,15 @@
 
 	async function cloneRepository() {
 		loading = true;
+		savedTargetDirPath.set(targetDirPath);
 		clearNotifications();
 
 		if (!repositoryUrl || !targetDirPath) {
 			errors.push({
 				label: 'You must add both a repository URL and target directory.'
 			});
+			loading = false;
+			return;
 		}
 
 		const { name } = parseRemoteUrl(repositoryUrl);
@@ -80,6 +88,7 @@
 		}
 
 		remoteType = id;
+
 		if (id === RemoteType.ssh && isEmpty(repositoryUrl)) {
 			repositoryUrl = SSH_URL_PLACEHOLDER;
 		} else if (id === RemoteType.url && isEmpty(repositoryUrl)) {
