@@ -3,6 +3,8 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { Builder, By, Capabilities } = require('selenium-webdriver');
 
+// See: https://tauri.app/v1/guides/testing/webdriver/example/selenium/
+
 const application = path.resolve(
 	__dirname,
 	'..',
