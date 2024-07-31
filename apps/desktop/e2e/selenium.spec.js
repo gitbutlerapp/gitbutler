@@ -1,12 +1,12 @@
-const os = require('os');
-const path = require('path');
-const { spawn } = require('child_process');
-const { Builder, By, Capabilities } = require('selenium-webdriver');
+import os from 'node:os';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { Builder, By, Capabilities } from 'selenium-webdriver';
 
 // See: https://tauri.app/v1/guides/testing/webdriver/example/selenium/
 
 const application = path.resolve(
-	__dirname,
+	import.meta.dirname,
 	'..',
 	'..',
 	'..',
