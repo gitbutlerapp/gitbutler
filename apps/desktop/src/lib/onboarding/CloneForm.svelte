@@ -97,7 +97,11 @@
 	}
 
 	function handleCancel() {
-		goto('/onboarding');
+		if (history.length > 0) {
+			history.back();
+		} else {
+			goto('/');
+		}
 	}
 
 	function clearNotifications() {
