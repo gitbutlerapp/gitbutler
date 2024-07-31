@@ -1,5 +1,6 @@
 <script lang="ts">
 	import cloningRepoSvg from '$lib/assets/illustrations/cloning-repo.svg?raw';
+	import { ProjectService } from '$lib/backend/projects';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import Button from '$lib/shared/Button.svelte';
@@ -10,7 +11,11 @@
 	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
 	import { open } from '@tauri-apps/api/dialog';
 	import { readDir } from '@tauri-apps/api/fs';
+	import { Command } from '@tauri-apps/api/shell';
+	import { getContext } from 'svelte';
 	import { goto } from '$app/navigation';
+
+	const projectService = getContext(ProjectService);
 
 	const RemoteType = {
 		url: 'url',
@@ -44,7 +49,7 @@
 		}
 	}
 
-	function cloneRepository() {
+	async function cloneRepository() {
 		clearNotifications();
 
 		console.log({ repositoryUrl, filePath: targetDirPath });
@@ -54,6 +59,12 @@
 				label: 'You must add both a repository URL and target directory.'
 			});
 		}
+
+		// TODO: Get rust folks to implement a 'clone' fn to invoke :)
+		await new Command('git', ['clone', repositoryUrl, targetDirPath]).execute();
+
+		// 2. Add Project
+		await projectService.addProject(targetDirPath);
 	}
 
 	function handleCancel() {

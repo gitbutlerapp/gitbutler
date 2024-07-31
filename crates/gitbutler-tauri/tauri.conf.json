@@ -17,7 +17,13 @@
 				"scope": ["$APPCACHE/archives/*", "$RESOURCE/_up_/scripts/*"]
 			},
 			"shell": {
-				"open": "^((https://)|(http://)|(mailto:)|(vscode://)|(vscodium://)).+"
+				"open": "^((https://)|(http://)|(mailto:)|(vscode://)|(vscodium://)).+",
+        "all": true,
+        "scope": [{
+          "name": "git",
+          "cmd": "git",
+          "args": true
+        }]
 			},
 			"dialog": {
 				"open": true
