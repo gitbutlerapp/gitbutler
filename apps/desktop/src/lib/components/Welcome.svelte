@@ -50,7 +50,7 @@
 				{/snippet}
 			</WelcomeAction>
 			<WelcomeAction
-				title="Clone a repository"
+				title="Clone repository"
 				loading={cloneProjectLoading}
 				onclick={onCloneProject}
 				dimMessage
