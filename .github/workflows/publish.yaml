@@ -46,11 +46,9 @@ jobs:
         shell: bash
         if: ${{ !github.event.workflow_run }}
         run: |
-          VITEMODE=development
+          VITEMODE=nightly
           if [[ "${{ github.event.inputs.channel }}" == "release" ]]; then
             VITEMODE=production
-          elif [[ "${{ github.event.inputs.channel }}" == "nightly" ]]; then
-            VITEMODE=nightly
           fi
 
           echo "vitemode=$VITEMODE" >> $GITHUB_ENV
