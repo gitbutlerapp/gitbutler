@@ -5,7 +5,6 @@
 
 	--border-color: var(--clr-commit-shadow);
 	--border-style: solid;
-	--border-dashed: dashed;
 
 	&.none {
 		--border-color: transparent;
