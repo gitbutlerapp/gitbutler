@@ -9,10 +9,7 @@
 	const analyticsConfirmed = appAnalyticsConfirmed();
 </script>
 
-<DecorativeSplitView
-	img={$analyticsConfirmed ? newProjectSvg : analyticsSvg}
-	showLinks={$analyticsConfirmed ? false : true}
->
+<DecorativeSplitView img={$analyticsConfirmed ? newProjectSvg : analyticsSvg}>
 	{#if $analyticsConfirmed}
 		<Welcome />
 	{:else}

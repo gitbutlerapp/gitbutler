@@ -1,7 +1,8 @@
 <script lang="ts">
 	import WelcomeAction from './WelcomeAction.svelte';
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
-	import newProjectSvg from '$lib/assets/no-projects/new-project.svg?raw';
+	import cloneRepoSvg from '$lib/assets/welcome/clone-repo.svg?raw';
+	import newProjectSvg from '$lib/assets/welcome/new-local-project.svg?raw';
 	import { ProjectService } from '$lib/backend/projects';
 	import IconLink from '$lib/shared/IconLink.svelte';
 	import { getContext } from '$lib/utils/context';
@@ -38,7 +39,8 @@
 			<WelcomeAction
 				title="Add local project"
 				loading={newProjectLoading}
-				onmousedown={onNewProject}
+				onclick={onNewProject}
+				dimMessage
 			>
 				{#snippet icon()}
 					{@html newProjectSvg}
@@ -50,10 +52,11 @@
 			<WelcomeAction
 				title="Clone a repository"
 				loading={cloneProjectLoading}
-				onmousedown={onCloneProject}
+				onclick={onCloneProject}
+				dimMessage
 			>
 				{#snippet icon()}
-					{@html newProjectSvg}
+					{@html cloneRepoSvg}
 				{/snippet}
 				{#snippet message()}
 					Clone a repo using a URL
@@ -85,6 +88,7 @@
 				<IconLink icon="discord" href="https://discord.gg/MmFkmaJ42D">Discord</IconLink>
 				<IconLink icon="x" href="https://twitter.com/gitbutler">X</IconLink>
 				<IconLink icon="instagram" href="https://www.instagram.com/gitbutler/">Instagram</IconLink>
+				<IconLink icon="youtube" href="https://www.youtube.com/@gitbutlerapp">YouTube</IconLink>
 			</div>
 		</div>
 	</div>
@@ -116,7 +120,7 @@
 		display: flex;
 		gap: 56px;
 		padding: 28px;
-		background: var(--clr-bg-2);
+		background: var(--clr-bg-1-muted);
 		border-radius: var(--radius-m);
 		margin-top: 20px;
 	}
@@ -136,11 +140,13 @@
 	}
 
 	.community-links {
-		display: flex;
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
 		column-gap: 12px;
 		row-gap: 4px;
 		max-width: 192px;
 		margin-left: -6px;
 	}
+
+	/* SMALL ILLUSTRATIONS */
 </style>
