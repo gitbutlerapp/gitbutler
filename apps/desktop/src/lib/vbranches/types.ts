@@ -311,7 +311,6 @@ export interface Author {
 export class Branch {
 	sha!: string;
 	name!: string;
-	upstream?: string;
 	lastCommitTimestampMs?: number | undefined;
 	lastCommitAuthor?: string | undefined;
 	givenName!: string;
@@ -325,7 +324,6 @@ export class Branch {
 export class BranchData {
 	sha!: string;
 	name!: string;
-	upstream?: string;
 	behind!: number;
 	@Type(() => Commit)
 	commits!: Commit[];

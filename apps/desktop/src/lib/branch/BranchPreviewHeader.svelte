@@ -17,13 +17,13 @@
 	export let remoteBranch: Branch | undefined;
 	export let pr: PullRequest | undefined;
 
-	$: branch = remoteBranch || localBranch!;
-	$: upstream = branch.upstream;
-
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 	const gitHost = getGitHost();
-	const gitHostBranch = upstream ? $gitHost?.branch(upstream) : undefined;
+
+	$: branch = remoteBranch || localBranch!;
+	$: givenName = branch.givenName;
+	$: gitHostBranch = givenName ? $gitHost?.branch(givenName) : undefined;
 
 	let isApplying = false;
 </script>
