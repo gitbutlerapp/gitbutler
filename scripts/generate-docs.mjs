@@ -8,9 +8,6 @@ const gitButlerSwaggerConverted = `https://converter.swagger.io/api/convert?url=
 const swaggerResponse = await fetch(gitButlerSwaggerConverted)
 const swaggerContent = await swaggerResponse.json()
 
-console.log('DEBUG.OPENAPI_RESPONSE')
-console.log(JSON.stringify(swaggerContent, null, 2))
-
 if (swaggerContent.servers?.[0]?.url === "//app.gitbutler.com/api") {
   swaggerContent.servers[0].url = "https://app.gitbutler.com/api"
 }
