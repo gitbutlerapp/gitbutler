@@ -9,12 +9,13 @@
 	import Segment from '@gitbutler/ui/SegmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
 	import { open } from '@tauri-apps/api/dialog';
+	import { documentDir } from '@tauri-apps/api/path';
 	import { Command } from '@tauri-apps/api/shell';
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
 	const projectService = getContext(ProjectService);
-	const SSH_URL_PLACEHOLDER = 'git@github.com:';
+	const SSH_URL_PLACEHOLDER = 'ssh://';
 	const HTTP_URL_PLACEHOLDER = 'https://';
 
 	const RemoteType = {
@@ -29,6 +30,11 @@
 	let targetDirPath = $state('');
 	// TODO: Fix types
 	let remoteType = $state<string | keyof typeof RemoteType>(RemoteType.url);
+
+	onMount(async () => {
+		const documentDirPath = await documentDir();
+		targetDirPath = documentDirPath;
+	});
 
 	async function handleCloneTargetSelect() {
 		const selectedPath = await open({
