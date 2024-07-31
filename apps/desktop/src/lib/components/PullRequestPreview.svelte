@@ -4,7 +4,7 @@
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { RemotesService } from '$lib/remotes/service';
 	import Link from '$lib/shared/Link.svelte';
-	import Modal from '$lib/shared/Modal.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { getMarkdownRenderer } from '$lib/utils/markdown';

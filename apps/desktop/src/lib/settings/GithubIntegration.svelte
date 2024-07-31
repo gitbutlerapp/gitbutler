@@ -2,7 +2,7 @@
 	import { checkAuthStatus, initDeviceOauth } from '$lib/backend/github';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { getGitHubUserServiceStore } from '$lib/gitHost/github/githubUserService';
-	import Modal from '$lib/shared/Modal.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext } from '$lib/utils/context';

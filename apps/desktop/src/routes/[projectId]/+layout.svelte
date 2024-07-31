@@ -71,7 +71,7 @@
 		setContext(CommitDragActionsFactory, data.commitDragActionsFactory);
 		setContext(ReorderDropzoneManagerFactory, data.reorderDropzoneManagerFactory);
 		setContext(RemoteBranchService, data.remoteBranchService);
-		setContext(branchListingService, branchListingService);
+		setContext(BranchListingService, branchListingService);
 	});
 
 	let intervalId: any;

@@ -94,7 +94,7 @@ export class BranchListing {
 	 * This includes any commits, uncommited changes or even updates to the branch metadata (e.g. renaming).
 	 */
 	@Transform((obj) => new Date(obj.value))
-	updatedAt!: number;
+	updatedAt!: Date;
 	/** The person who commited the head commit */
 	@Type(() => Author)
 	lastCommiter!: Author;

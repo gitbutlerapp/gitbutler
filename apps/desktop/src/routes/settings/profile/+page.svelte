@@ -11,7 +11,7 @@
 		type Settings,
 		type ScrollbarVisilitySettings
 	} from '$lib/settings/userSettings';
-	import Modal from '$lib/shared/Modal.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';

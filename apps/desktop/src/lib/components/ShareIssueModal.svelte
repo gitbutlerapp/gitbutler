@@ -4,7 +4,7 @@
 	import { HttpClient } from '$lib/backend/httpClient';
 	import { invoke, listen } from '$lib/backend/ipc';
 	import * as zip from '$lib/backend/zip';
-	import Modal from '$lib/shared/Modal.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';

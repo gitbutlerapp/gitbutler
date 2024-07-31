@@ -7,7 +7,7 @@
 	import Icon, { type IconColor } from '@gitbutler/ui/icon/Icon.svelte';
 	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { createEventDispatcher } from 'svelte';
-	import type iconsJson from '../icons/icons.json';
+	import type iconsJson from '@gitbutler/ui/icon/icons.json';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let style: MessageStyle = 'neutral';

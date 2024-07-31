@@ -1,7 +1,7 @@
 <script lang="ts">
+	import Icon from '$lib/icon/Icon.svelte';
 	import { portal } from '$lib/utils/portal';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
-	import type iconsJson from '@gitbutler/ui/icon/icons.json';
+	import type iconsJson from '$lib/icon/icons.json';
 	import type { Snippet } from 'svelte';
 
 	interface Props {

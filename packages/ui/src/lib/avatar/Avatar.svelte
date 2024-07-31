@@ -6,14 +6,15 @@
 		srcUrl: string;
 		tooltipText: string;
 		altText: string;
+		size?: 'small' | 'medium';
 	}
 
 	let isLoaded = $state(false);
 
-	const { srcUrl, tooltipText, altText }: Props = $props();
+	const { srcUrl, tooltipText, altText, size = 'small' }: Props = $props();
 </script>
 
-<div class="image-wrapper" style:background-color={stringToColor(altText)}>
+<div class="image-wrapper {size}" style:background-color={stringToColor(altText)}>
 	<img
 		class="avatar"
 		alt={altText}
@@ -33,6 +34,18 @@
 		border-radius: 6px;
 		width: 12px;
 		height: 12px;
+
+		&.small {
+			border-radius: 6px;
+			width: 12px;
+			height: 12px;
+		}
+
+		&.medium {
+			border-radius: 8px;
+			width: 16px;
+			height: 16px;
+		}
 	}
 
 	.image-wrapper > * {

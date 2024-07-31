@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Modal from '$lib/shared/Modal.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 	import Button from '@gitbutler/ui/inputs/Button.svelte';
 
 	export let projectTitle: string = '#';

@@ -1,41 +1,18 @@
 <script lang="ts">
-	import BranchItemNew from './BranchItemNew.svelte';
+	// import BranchItemNew from './BranchItemNew.svelte';
 	import BranchesHeaderNew from './BranchesHeaderNew.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
-	import { getBranchServiceStore } from '$lib/branches/service';
-	// import FilterButton from '$lib/components/FilterBranchesButton.svelte';
-	// import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	// import { persisted } from '$lib/persisted/persisted';
+	import { BranchListing, BranchListingService } from '$lib/branches/branchListing';
+	import SmartSidebarEntry from '$lib/navigation/SmartSidebarEntry.svelte';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
-	import { readable } from 'svelte/store';
-	import type { CombinedBranch } from '$lib/branches/types';
+	import { getContext } from '$lib/utils/context';
 
-	interface Props {
-		projectId: string;
-	}
+	const branchListingService = getContext(BranchListingService);
+	// const gitHostListingService = getGitHostListingService();
 
-	const { projectId }: Props = $props();
-
-	const branchService = getBranchServiceStore();
-
-	let searchValue = $state<undefined | string>();
-	let branches = $state($branchService?.branches || readable([]));
-	let searchedBranches = $derived(filterByText($branches, searchValue));
-	let groupedBranches = $derived(groupByDate(searchedBranches));
-
-	let viewport = $state<HTMLDivElement>();
-	let contents = $state<HTMLElement>();
-
-	$effect(() => {
-		branches = $branchService?.branches || readable([]);
-	});
-
-	function filterByText(branches: CombinedBranch[], searchText: string | undefined) {
-		// console.log('filterByText', branches, searchText);
-		if (searchText === undefined || searchText === '') return branches;
-
-		return branches.filter((b) => searchMatchesAnIdentifier(searchText, b.searchableIdentifiers));
-	}
+	const branchesStore = branchListingService.branchListings;
+	const branches = $derived($branchesStore || []);
+	const searchedBranches = $derived(branches);
 
 	function searchMatchesAnIdentifier(search: string, identifiers: string[]) {
 		for (const identifier of identifiers) {
@@ -45,32 +22,30 @@
 		return false;
 	}
 
-	function groupByDate(branches: CombinedBranch[]) {
-		const grouped: Record<string, CombinedBranch[]> = {
+	const oneDay = 1000 * 60 * 60 * 24;
+	function groupByDate(branches: BranchListing[]) {
+		const grouped: Record<'today' | 'yesterday' | 'lastWeek' | 'older', BranchListing[]> = {
 			today: [],
 			yesterday: [],
 			lastWeek: [],
 			older: []
 		};
 
-		const currentTs = new Date().getTime();
+		const now = Date.now();
 
-		const remoteBranches = branches.filter((b) => b.remoteBranch);
-
-		remoteBranches.forEach((b) => {
-			if (!b.modifiedAt) {
+		branches.forEach((b) => {
+			if (!b.updatedAt) {
 				grouped.older.push(b);
 				return;
 			}
 
-			const modifiedAt = b.modifiedAt?.getTime();
-			const ms = currentTs - modifiedAt;
+			const msSinceLastCommit = now - b.updatedAt.getTime();
 
-			if (ms < 86400 * 1000) {
+			if (msSinceLastCommit < oneDay) {
 				grouped.today.push(b);
-			} else if (ms < 2 * 86400 * 1000) {
+			} else if (msSinceLastCommit < 2 * oneDay) {
 				grouped.yesterday.push(b);
-			} else if (ms < 7 * 86400 * 1000) {
+			} else if (msSinceLastCommit < 7 * oneDay) {
 				grouped.lastWeek.push(b);
 			} else {
 				grouped.older.push(b);
@@ -79,18 +54,22 @@
 
 		return grouped;
 	}
+
+	const groupedBranches = $derived(groupByDate(searchedBranches));
+
+	let viewport = $state<HTMLDivElement>();
+	let contents = $state<HTMLDivElement>();
 </script>
 
 {#snippet branchGroup(props: {
 	title: string,
-	children: CombinedBranch[]
-
+	children: BranchListing[]
 })}
 	{#if props.children.length > 0}
 		<div class="group">
 			<h3 class="text-base-12 text-semibold group-header">{props.title}</h3>
-			{#each props.children as branch}
-				<BranchItemNew {projectId} {branch} />
+			{#each props.children as branchListing}
+				<SmartSidebarEntry {branchListing} />
 			{/each}
 		</div>
 	{/if}
@@ -98,7 +77,7 @@
 
 <div class="branches">
 	<BranchesHeaderNew
-		totalBranchCount={$branches.length}
+		totalBranchCount={branches.length}
 		filteredBranchCount={searchedBranches?.length}
 		onSearch={(value) => (searchValue = value)}
 	>
@@ -114,10 +93,11 @@
 			/>
 		{/snippet} -->
 	</BranchesHeaderNew>
-	{#if $branches.length > 0}
+	{#if branches.length > 0}
 		{#if searchedBranches.length > 0}
 			<ScrollableContainer
 				bind:viewport
+				bind:contents
 				showBorderWhenScrolled
 				fillViewport={searchedBranches.length === 0}
 			>

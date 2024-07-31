@@ -12,7 +12,7 @@
 	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import TextBox from '../shared/TextBox.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
-	import { portal } from '$lib/utils/portal';
+	import { portal } from '@gitbutler/ui/utils/portal';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { type Snippet } from 'svelte';
 

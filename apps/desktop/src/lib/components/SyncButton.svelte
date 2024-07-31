@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import TimeAgo from '$lib/shared/TimeAgo.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import TimeAgo from '@gitbutler/ui/timeAgo/TimeAgo.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
 
 	const baseBranchService = getContext(BaseBranchService);
 	const vbranchService = getContext(VirtualBranchService);

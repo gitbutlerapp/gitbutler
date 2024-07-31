@@ -45,6 +45,7 @@
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
 		"autoprefixer": "^10.4.19",
 		"cpy-cli": "^5.0.0",
+		"date-fns": "^2.30.0",
 		"postcss": "^8.4.38",
 		"postcss-cli": "^11.0.0",
 		"postcss-minify": "^1.1.0",

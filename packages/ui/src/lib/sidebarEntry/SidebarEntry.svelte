@@ -1,106 +1,114 @@
 <script lang="ts">
-	import TimeAgo from '$lib/shared/TimeAgo.svelte';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
-	import { stringToColor } from '@gitbutler/ui/utils/stringToColor';
-	import { tooltip } from '@gitbutler/ui/utils/tooltip';
-	import type { CombinedBranch } from '$lib/branches/types';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import Icon from '$lib/icon/Icon.svelte';
+	import TimeAgo from '$lib/timeAgo/TimeAgo.svelte';
+	import { tooltip } from '$lib/utils/tooltip';
+	import { onMount, type Snippet } from 'svelte';
 
 	interface Props {
-		projectId: string;
-		branch: CombinedBranch;
+		onMouseDown?: () => void;
+		onFirstSeen?: () => void;
+		selected?: boolean;
+		title: string;
+		applied?: boolean;
+		pullRequestDetails?: { title: string };
+		lastCommitDetails?: { authorName: string; lastCommitAt: Date };
+		branchDetails?: { commitCount: number; linesAdded: number; linesRemoved: number };
+		remotes?: string[];
+		local?: boolean;
+
+		authorAvatars: Snippet;
 	}
 
-	const { projectId, branch }: Props = $props();
+	const {
+		onMouseDown = () => {},
+		onFirstSeen = () => {},
+		selected = false,
+		applied = false,
+		title,
+		pullRequestDetails,
+		lastCommitDetails,
+		branchDetails,
+		remotes = [],
+		local = false,
 
-	let href = $derived(getBranchLink(branch));
-	let selected = $state(false);
+		authorAvatars
+	}: Props = $props();
+
+	let intersectionTarget = $state<HTMLButtonElement>();
+
+	const observer = new IntersectionObserver(onFirstSeen);
 
 	$effect(() => {
-		selected = href ? $page.url.href.endsWith(href) : false;
-		// console.log(branch);
+		if (intersectionTarget) {
+			observer.observe(intersectionTarget);
+		}
 	});
 
-	function getBranchLink(b: CombinedBranch): string | undefined {
-		if (b.vbranch) return `/${projectId}/board/`;
-		if (b.remoteBranch) return `/${projectId}/remote/${branch?.remoteBranch?.displayName}`;
-		if (b.pr) return `/${projectId}/pull/${b.pr.number}`;
-	}
+	onMount(() => {
+		return () => {
+			observer.disconnect();
+		};
+	});
 </script>
 
-<button
-	class="branch"
-	class:selected
-	onmousedown={() => {
-		if (href) goto(href);
-	}}
->
+<button class="branch" class:selected onmousedown={onMouseDown} bind:this={intersectionTarget}>
 	<h4 class="text-base-13 text-semibold branch-name">
-		{branch.displayName}
+		{title}
 	</h4>
 
 	<div class="row">
 		<div class="row-group">
-			<div class="branch-authors">
-				{#each branch.authors as author}
-					<div
-						use:tooltip={{
-							text: author.name || 'Unknown',
-							delay: 500
-						}}
-						class="author-avatar"
-						style:background-color={stringToColor(author.name)}
-						style:background-image="url({author.gravatarUrl})"
-					></div>
-				{/each}
-			</div>
+			{@render authorAvatars()}
 			<div class="branch-remotes">
 				<!-- NEED API -->
-				{#if branch.remoteBranch}
+				{#each remotes as remote}
 					<div class="branch-tag tag-remote">
-						<span class="text-base-10 text-semibold">origin</span>
+						<span class="text-base-10 text-semibold">{remote}</span>
 					</div>
-					<!-- <div class="branch-tag tag-local">
+				{/each}
+				{#if local}
+					<div class="branch-tag tag-local">
 						<span class="text-base-10 text-semibold">local</span>
-					</div> -->
+					</div>
 				{/if}
 			</div>
 		</div>
 
 		<div class="row-group">
-			{#if branch.pr}
-				<div use:tooltip={{ text: branch.pr.title, delay: 500 }} class="branch-tag tag-pr">
+			{#if pullRequestDetails}
+				<div use:tooltip={{ text: pullRequestDetails.title, delay: 500 }} class="branch-tag tag-pr">
 					<span class="text-base-10 text-semibold">PR</span>
 					<Icon name="pr-small" />
 				</div>
 			{/if}
-			<!-- NEED API -->
-			<!-- <div class="branch-tag tag-applied">
-				<span class="text-base-10 text-semibold">applied</span>
-			</div> -->
+			{#if applied}
+				<div class="branch-tag tag-applied">
+					<span class="text-base-10 text-semibold">applied</span>
+				</div>
+			{/if}
 		</div>
 	</div>
 
 	<div class="row">
 		<span class="branch-time text-base-11 details truncate">
-			<TimeAgo date={branch.modifiedAt} />
-			{#if branch.author?.name}
-				by {branch.author?.name}
+			{#if lastCommitDetails}
+				<TimeAgo date={lastCommitDetails.lastCommitAt} />
+				by {lastCommitDetails.authorName}
 			{/if}
 		</span>
 
-		<!-- NEED API -->
 		<div class="stats">
-			<div use:tooltip={'Number of commits'} class="branch-tag tag-commits">
-				<span class="text-base-10 text-semibold">34</span>
-				<Icon name="commit" />
-			</div>
+			{#if branchDetails}
+				<div use:tooltip={'Number of commits'} class="branch-tag tag-commits">
+					<span class="text-base-10 text-semibold">{branchDetails.commitCount}</span>
+					<Icon name="commit" />
+				</div>
 
-			<div use:tooltip={'Code changes'} class="code-changes">
-				<span class="text-base-10 text-semibold">+289</span>
-				<span class="text-base-10 text-semibold">-129</span>
-			</div>
+				<div use:tooltip={'Code changes'} class="code-changes">
+					<span class="text-base-10 text-semibold">+{branchDetails.linesAdded}</span>
+					<span class="text-base-10 text-semibold">-{branchDetails.linesRemoved}</span>
+				</div>
+			{/if}
 		</div>
 	</div>
 </button>
@@ -134,26 +142,6 @@
 	.row-group {
 		display: flex;
 		align-items: center;
-	}
-
-	/* AUTHORS */
-
-	.branch-authors {
-		display: flex;
-		margin-right: 6px;
-	}
-
-	.author-avatar {
-		width: 16px;
-		height: 16px;
-		border-radius: 50%;
-		margin-left: -4px;
-		background-color: var(--clr-scale-ntrl-50);
-		background-size: cover;
-
-		&:first-child {
-			margin-left: 0;
-		}
 	}
 
 	/* TAG */
@@ -229,8 +217,9 @@
 	}
 
 	.branch-remotes {
+		margin-left: 6px;
 		display: flex;
-		gap: 2px;
+		gap: 6px;
 	}
 
 	.branch-name {

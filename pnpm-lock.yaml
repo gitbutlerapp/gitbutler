@@ -373,6 +373,9 @@ importers:
       cpy-cli:
         specifier: ^5.0.0
         version: 5.0.0
+      date-fns:
+        specifier: ^2.30.0
+        version: 2.30.0
       postcss:
         specifier: ^8.4.38
         version: 8.4.39

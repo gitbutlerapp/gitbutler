@@ -9,7 +9,7 @@
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import { getContext } from '$lib/utils/context';
-	import { createTimeAgoStore } from '$lib/utils/timeAgo';
+	import { createTimeAgoStore } from '@gitbutler/ui/timeAgo/timeAgo';
 	import * as toasts from '$lib/utils/toasts';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import Button from '@gitbutler/ui/inputs/Button.svelte';

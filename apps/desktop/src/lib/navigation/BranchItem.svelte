@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BranchIcon from '../branch/BranchIcon.svelte';
-	import TimeAgo from '$lib/shared/TimeAgo.svelte';
+	import TimeAgo from '@gitbutler/ui/timeAgo/TimeAgo.svelte';
 	import type { CombinedBranch } from '$lib/branches/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
