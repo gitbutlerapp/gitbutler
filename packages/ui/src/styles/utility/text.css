@@ -164,6 +164,7 @@
 	font-family: var(--serif-font-family);
 	font-size: 2.5rem;
 	line-height: var(--text-body-line-height);
+	font-weight: 400;
 }
 
 /* modifiers */
