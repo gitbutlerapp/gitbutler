@@ -164,8 +164,10 @@ Building on Windows is a bit of a tricky process. Here are some helpful tips.
 
 #### Nightly Compiler
 
-As a few crates require nightly features on Windows, it's easiest to set an override
-to automatically use a nightly compiler.
+As a few crates require nightly features on Windows, a `rust-toolchain.toml` is provided
+to have rustup use the right compiler version.
+
+If for some reason this cannot be used or doesn't kick-in, one can also set an override.
 
 ```shell
 rustup override add nightly-2024-07-01
