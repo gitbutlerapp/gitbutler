@@ -95,9 +95,7 @@ pub fn watch_in_background(
         //       across await points. Further, there is a fair share of `sync` IO happening
         //       as well, so nothing can really be done here.
         task::spawn_blocking(move || {
-            futures::executor::block_on(async move {
-                handler.handle(event).ok();
-            });
+            handler.handle(event).ok();
         });
         Ok(())
     };

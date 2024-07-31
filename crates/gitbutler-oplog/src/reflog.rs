@@ -1,9 +1,7 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use gitbutler_branch::{
-    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
-};
+use gitbutler_branch::{GITBUTLER_COMMIT_AUTHOR_EMAIL, GITBUTLER_COMMIT_AUTHOR_NAME};
 use gitbutler_fs::write;
 use gix::config::tree::Key;
 
@@ -83,8 +81,8 @@ fn branch_creation_message(commit_id_hex: &str) -> String {
 
 fn standard_signature() -> gix::actor::SignatureRef<'static> {
     gix::actor::SignatureRef {
-        name: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME.into(),
-        email: GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL.into(),
+        name: GITBUTLER_COMMIT_AUTHOR_NAME.into(),
+        email: GITBUTLER_COMMIT_AUTHOR_EMAIL.into(),
         time: gix::date::Time::now_local_or_utc(),
     }
 }
@@ -155,8 +153,7 @@ mod set_target_ref {
     use tempfile::tempdir;
 
     use super::{
-        set_reference_to_oplog, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
-        GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
+        set_reference_to_oplog, GITBUTLER_COMMIT_AUTHOR_EMAIL, GITBUTLER_COMMIT_AUTHOR_NAME,
     };
 
     #[test]
@@ -352,8 +349,8 @@ mod set_target_ref {
     }
 
     fn assert_signature(sig: gix::actor::SignatureRef<'_>) {
-        assert_eq!(sig.name, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME);
-        assert_eq!(sig.email, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL);
+        assert_eq!(sig.name, GITBUTLER_COMMIT_AUTHOR_NAME);
+        assert_eq!(sig.email, GITBUTLER_COMMIT_AUTHOR_EMAIL);
         assert_ne!(
             sig.time.seconds, 0,
             "we don't accidentally use the default time as it would caues GC as well"

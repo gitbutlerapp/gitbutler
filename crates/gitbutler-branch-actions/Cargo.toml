@@ -33,7 +33,6 @@ regex = "1.10"
 git2-hooks = "0.3"
 url = { version = "2.5.2", features = ["serde"] }
 md5 = "0.7.0"
-futures.workspace = true
 itertools = "0.13"
 gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
