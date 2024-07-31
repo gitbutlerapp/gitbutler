@@ -71,6 +71,7 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
                 ))
                 .add_native_item(MenuItem::Separator)
                 .add_item(CustomMenuItem::new("global/settings", "Settings").accelerator("Cmd+,"))
+                .add_item(CustomMenuItem::new("global/update", "Check for updates"))
                 .add_native_item(MenuItem::Separator)
                 .add_native_item(MenuItem::Services)
                 .add_native_item(MenuItem::Separator)
@@ -229,6 +230,11 @@ pub fn handle_event<R: Runtime>(event: &WindowMenuEvent<R>) {
 
     if event.menu_item_id() == "global/settings" {
         emit(event.window(), "menu://global/settings/clicked");
+        return;
+    }
+
+    if event.menu_item_id() == "global/update" {
+        emit(event.window(), "menu://global/update/clicked");
         return;
     }
 
