@@ -1,4 +1,5 @@
 import { showToast } from '$lib/notifications/toasts';
+import { getVersion } from '@tauri-apps/api/app';
 import { relaunch } from '@tauri-apps/api/process';
 import {
 	checkUpdate,
@@ -10,7 +11,7 @@ import {
 import posthog from 'posthog-js';
 import { derived, writable, type Readable } from 'svelte/store';
 
-// TOOD: Investigate why 'DOWNLOADED' is not in the type provided by Tauri.
+// TODO: Investigate why 'DOWNLOADED' is not in the type provided by Tauri.
 export type Update =
 	| { version?: string; status?: UpdateStatus | 'DOWNLOADED'; body?: string }
 	| undefined;
@@ -33,6 +34,7 @@ export class UpdaterService {
 		undefined
 	);
 
+	currentVersion = writable<string | undefined>(undefined);
 	readonly version = derived(this.update, (update) => update?.version);
 
 	prev: Update | undefined;
@@ -42,6 +44,8 @@ export class UpdaterService {
 	constructor() {}
 
 	private async start() {
+		const currentVersion = await getVersion();
+		this.currentVersion.set(currentVersion);
 		await this.checkForUpdate();
 		setInterval(async () => await this.checkForUpdate(), 3600000); // hourly
 		this.unlistenFn = await onUpdaterEvent((status) => {
