@@ -63,8 +63,8 @@
 			<TextBox
 				bind:value={repositoryUrl}
 				placeholder={remoteType === 'url' ? 'https://..' : 'git@github.com:..'}
+				helperText={remoteType === 'url' ? 'Clone using the web URL' : 'Clone using the SSH URL'}
 			/>
-			<div class="text-base-11 clone__field--label">Clone using the web URL</div>
 		</div>
 		<div class="clone__field repositoryTargetPath">
 			<div class="text-base-13 text-semibold clone__field--label">Where to clone</div>
