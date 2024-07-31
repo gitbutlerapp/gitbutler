@@ -1,7 +1,5 @@
 <script lang="ts">
-	import cloningRepoSvg from '$lib/assets/illustrations/cloning-repo.svg?raw';
 	import { ProjectService } from '$lib/backend/projects';
-	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import Button from '$lib/shared/Button.svelte';
 	import InfoMessage, { type MessageStyle } from '$lib/shared/InfoMessage.svelte';
@@ -16,6 +14,8 @@
 	import { goto } from '$app/navigation';
 
 	const projectService = getContext(ProjectService);
+	const SSH_URL_PLACEHOLDER = 'git@github.com:';
+	const HTTP_URL_PLACEHOLDER = 'https://';
 
 	const RemoteType = {
 		url: 'url',
@@ -67,6 +67,21 @@
 		await projectService.addProject(targetDirPath);
 	}
 
+	function handleRemoteTypeToggle(id: keyof typeof RemoteType) {
+		function isEmpty(value: string) {
+			if (!value) return true;
+			if ([SSH_URL_PLACEHOLDER, HTTP_URL_PLACEHOLDER].includes(value)) return true;
+			return false;
+		}
+
+		remoteType = id;
+		if (id === RemoteType.ssh && isEmpty(repositoryUrl)) {
+			repositoryUrl = SSH_URL_PLACEHOLDER;
+		} else if (id === RemoteType.url && isEmpty(repositoryUrl)) {
+			repositoryUrl = HTTP_URL_PLACEHOLDER;
+		}
+	}
+
 	function handleCancel() {
 		goto('/onboarding');
 	}
@@ -81,72 +96,70 @@
 	}
 </script>
 
-<DecorativeSplitView img={cloningRepoSvg}>
-	<h1 class="clone-title text-serif-40">Clone a repository</h1>
-	<Section>
-		<div class="clone__remoteType">
-			<fieldset name="remoteType" class="remoteType-group">
-				<SegmentControl fullWidth defaultIndex={0} onselect={(id) => (remoteType = id)}>
-					<Segment id="url">URL</Segment>
-					<Segment id="ssh">SSH</Segment>
-				</SegmentControl>
-			</fieldset>
-		</div>
-		<div class="clone__field repositoryUrl">
-			<TextBox
-				bind:value={repositoryUrl}
-				placeholder={remoteType === 'url' ? 'https://..' : 'git@github.com:..'}
-				helperText={remoteType === 'url' ? 'Clone using the web URL' : 'Clone using the SSH URL'}
-			/>
-		</div>
-		<div class="clone__field repositoryTargetPath">
-			<div class="text-base-13 text-semibold clone__field--label">Where to clone</div>
-			<TextBox bind:value={targetDirPath} placeholder={'/Users/tipsy/Documents'} />
-			<Button
-				style="ghost"
-				outline
-				kind="solid"
-				disabled={loading}
-				on:click={handleCloneTargetSelect}
-			>
-				Choose..
-			</Button>
-		</div>
-	</Section>
-
-	<Spacer />
-
-	{#if completed}
-		{@render Notification({ title: 'Success', style: 'success' })}
-	{/if}
-	{#if warnings.length}
-		{@render Notification({ title: 'Warning', items: warnings, style: 'warning' })}
-	{/if}
-	{#if errors.length}
-		{@render Notification({ title: 'Error', items: errors, style: 'error' })}
-	{/if}
-
-	<div class="clone__actions">
-		<Button style="ghost" outline kind="solid" disabled={loading} on:click={handleCancel}>
-			Cancel
-		</Button>
+<h1 class="clone-title text-serif-40">Clone a repository</h1>
+<Section>
+	<div class="clone__remoteType">
+		<fieldset name="remoteType" class="remoteType-group">
+			<SegmentControl fullWidth defaultIndex={0} onselect={handleRemoteTypeToggle}>
+				<Segment id="url">URL</Segment>
+				<Segment id="ssh">SSH</Segment>
+			</SegmentControl>
+		</fieldset>
+	</div>
+	<div class="clone__field repositoryUrl">
+		<TextBox
+			bind:value={repositoryUrl}
+			placeholder={remoteType === 'url' ? HTTP_URL_PLACEHOLDER : SSH_URL_PLACEHOLDER}
+			helperText={remoteType === 'url' ? 'Clone using the web URL' : 'Clone using the SSH URL'}
+		/>
+	</div>
+	<div class="clone__field repositoryTargetPath">
+		<div class="text-base-13 text-semibold clone__field--label">Where to clone</div>
+		<TextBox bind:value={targetDirPath} placeholder={'/Users/tipsy/Documents'} />
 		<Button
-			style="pop"
+			style="ghost"
+			outline
 			kind="solid"
-			icon={errors.length > 0 ? 'update-small' : 'chevron-right-small'}
 			disabled={loading}
-			on:click={cloneRepository}
+			on:click={handleCloneTargetSelect}
 		>
-			{#if loading}
-				Cloning..
-			{:else if errors.length > 0}
-				Retry clone
-			{:else}
-				Clone
-			{/if}
+			Choose..
 		</Button>
 	</div>
-</DecorativeSplitView>
+</Section>
+
+<Spacer />
+
+{#if completed}
+	{@render Notification({ title: 'Success', style: 'success' })}
+{/if}
+{#if warnings.length}
+	{@render Notification({ title: 'Warning', items: warnings, style: 'warning' })}
+{/if}
+{#if errors.length}
+	{@render Notification({ title: 'Error', items: errors, style: 'error' })}
+{/if}
+
+<div class="clone__actions">
+	<Button style="ghost" outline kind="solid" disabled={loading} on:click={handleCancel}>
+		Cancel
+	</Button>
+	<Button
+		style="pop"
+		kind="solid"
+		icon={errors.length > 0 ? 'update-small' : 'chevron-right-small'}
+		disabled={loading}
+		on:click={cloneRepository}
+	>
+		{#if loading}
+			Cloning..
+		{:else if errors.length > 0}
+			Retry clone
+		{:else}
+			Clone
+		{/if}
+	</Button>
+</div>
 
 {#snippet Notification({ title, items, style }: { title: string, items?: any[], style: MessageStyle})}
 	<div class="clone__info-message">
