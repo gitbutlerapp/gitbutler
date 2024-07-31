@@ -3,12 +3,13 @@
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import Button from '$lib/shared/Button.svelte';
-	import InfoMessage from '$lib/shared/InfoMessage.svelte';
+	import InfoMessage, { type MessageStyle } from '$lib/shared/InfoMessage.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Segment from '@gitbutler/ui/SegmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
 	import { open } from '@tauri-apps/api/dialog';
+	import { readDir } from '@tauri-apps/api/fs';
 	import { goto } from '$app/navigation';
 
 	const RemoteType = {
@@ -18,34 +19,54 @@
 
 	let loading = $state(false);
 	let errors = $state<{ label: string }[]>([]);
+	let warnings = $state<{ label: string }[]>([]);
 	let completed = $state(false);
 	let repositoryUrl = $state('');
-	let filePath = $state('');
+	let targetDirPath = $state('');
 	// TODO: Fix types
 	let remoteType = $state<string | keyof typeof RemoteType>(RemoteType.url);
 
 	async function handleCloneTargetSelect() {
-		const selectedPath = await open({ directory: true, recursive: true });
+		const selectedPath = await open({
+			directory: true,
+			recursive: true,
+			title: 'Target Directory'
+		});
 		if (!selectedPath) return;
 
-		filePath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
+		targetDirPath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
+		const targetDirContents = await readDir(targetDirPath);
+		console.log('readDir.res', targetDirContents);
+		if (targetDirContents.length !== 0) {
+			warnings.push({
+				label: `Your selected <code>${targetDirPath}</code> is not empty, however, we will still clone the repository there if you'd like to continue.`
+			});
+		}
 	}
 
 	function cloneRepository() {
-		if (errors.length) {
-			errors = [];
-		}
-		console.log({ repositoryUrl, filePath });
+		clearNotifications();
 
-		if (!repositoryUrl || !filePath) {
+		console.log({ repositoryUrl, filePath: targetDirPath });
+
+		if (!repositoryUrl || !targetDirPath) {
 			errors.push({
-				label: 'You must add both a repository URL and target file path.'
+				label: 'You must add both a repository URL and target directory.'
 			});
 		}
 	}
 
 	function handleCancel() {
 		goto('/onboarding');
+	}
+
+	function clearNotifications() {
+		if (warnings.length) {
+			warnings = [];
+		}
+		if (errors.length) {
+			errors = [];
+		}
 	}
 </script>
 
@@ -69,7 +90,7 @@
 		</div>
 		<div class="clone__field repositoryTargetPath">
 			<div class="text-base-13 text-semibold clone__field--label">Where to clone</div>
-			<TextBox bind:value={filePath} placeholder={'/Users/tipsy/Documents'} />
+			<TextBox bind:value={targetDirPath} placeholder={'/Users/tipsy/Documents'} />
 			<Button
 				style="ghost"
 				outline
@@ -84,31 +105,14 @@
 
 	<Spacer />
 
-	{#if errors.length || completed}
-		<div class="clone__info-message">
-			<InfoMessage
-				style={errors.length > 0 ? 'warning' : loading ? 'neutral' : 'success'}
-				filled
-				outlined={false}
-			>
-				<svelte:fragment slot="title">
-					{#if errors.length > 0}
-						There was a problem cloning your repository
-					{:else}
-						Clone success
-					{/if}
-				</svelte:fragment>
-				<svelte:fragment slot="content">
-					{#if errors.length > 0}
-						{#each errors as error}
-							{error.label}
-						{/each}
-					{:else}
-						Repository XYZ has been cloned successfully
-					{/if}
-				</svelte:fragment>
-			</InfoMessage>
-		</div>
+	{#if completed}
+		{@render Notification({ title: 'Success', style: 'success' })}
+	{/if}
+	{#if warnings.length}
+		{@render Notification({ title: 'Warning', items: warnings, style: 'warning' })}
+	{/if}
+	{#if errors.length}
+		{@render Notification({ title: 'Error', items: errors, style: 'error' })}
 	{/if}
 
 	<div class="clone__actions">
@@ -132,6 +136,23 @@
 		</Button>
 	</div>
 </DecorativeSplitView>
+
+{#snippet Notification({ title, items, style }: { title: string, items?: any[], style: MessageStyle})}
+	<div class="clone__info-message">
+		<InfoMessage {style} filled outlined={false}>
+			<svelte:fragment slot="title">
+				{title}
+			</svelte:fragment>
+			<svelte:fragment slot="content">
+				{#if items && items.length > 0}
+					{#each items as item}
+						{@html item.label}
+					{/each}
+				{/if}
+			</svelte:fragment>
+		</InfoMessage>
+	</div>
+{/snippet}
 
 <style>
 	.clone-title {
