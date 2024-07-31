@@ -28,8 +28,8 @@
 	--override-deletion-background: #3c131b;
 	--override-deletion-inner-diff-background: #78061c;
 	--override-deletion-counter-background: #53131e;
-	--override-deletion-counter-text: #cb7380;
-	--override-deletion-counter-border: #933f3f;
+	--override-deletion-counter-text: #b36773;
+	--override-deletion-counter-border: #8e3c3c;
 }
 
 .inner-diff {
