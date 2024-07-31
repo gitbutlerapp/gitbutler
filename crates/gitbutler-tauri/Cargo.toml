@@ -67,7 +67,6 @@ open = "5"
 [dependencies.tauri]
 version = "1.7.0"
 features = [ "shell-all",
-    "fs-read-dir",
     "http-all",
     "os-all",
     "dialog-open",
