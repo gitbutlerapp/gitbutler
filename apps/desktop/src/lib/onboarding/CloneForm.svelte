@@ -56,7 +56,7 @@
 			// TODO: Get rust folks to implement a 'clone' fn to invoke :)
 			await new Command('git', ['clone', repositoryUrl, `${targetDirPath}/${name}`]).execute();
 
-			await projectService.addProject(targetDirPath);
+			await projectService.addProject(`${targetDirPath}/${name}`);
 		} catch (e) {
 			errors.push({
 				label: String(e)
