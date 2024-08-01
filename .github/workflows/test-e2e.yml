@@ -34,6 +34,8 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: pnpm install
+      - name: Build SvelteKit
+        run: pnpm build:desktop -- --mode development
       - name: Build Tauri
         run: pnpm build:test
       - name: Install tauri-driver
