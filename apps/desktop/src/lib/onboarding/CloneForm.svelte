@@ -19,6 +19,7 @@
 
 	const projectService = getContext(ProjectService);
 
+	/* eslint-disable-next-line */
 	enum RemoteType {
 		http = 'http',
 		ssh = 'ssh'
