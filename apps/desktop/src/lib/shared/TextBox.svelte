@@ -11,6 +11,7 @@
 	export let width: number | undefined = undefined;
 	export let textAlign: 'left' | 'center' | 'right' = 'left';
 	export let placeholder: string | undefined = undefined;
+	export let helperText: string | undefined = undefined;
 	export let label: string | undefined = undefined;
 	export let reversedDirection: boolean = false;
 	export let wide: boolean = false;
@@ -139,6 +140,10 @@
 				<Icon name={showPassword ? 'eye-shown' : 'eye-hidden'} />
 			</button>
 		{/if}
+
+		{#if helperText}
+			<p class="text-base-body-11 textbox__helper-text">{helperText}</p>
+		{/if}
 	</div>
 </div>
 
@@ -176,6 +181,11 @@
 
 	.textbox__label {
 		color: var(--clr-scale-ntrl-50);
+	}
+
+	.textbox__helper-text {
+		color: var(--clr-scale-ntrl-50);
+		margin-top: 6px;
 	}
 
 	.textbox__icon {

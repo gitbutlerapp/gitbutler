@@ -83,14 +83,27 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
     }
 
     let mut file_menu = Menu::new();
+
+    file_menu = file_menu.add_item(
+        CustomMenuItem::new("file/add-local-repo", "Add Local Repository…")
+            .accelerator("CmdOrCtrl+O"),
+    );
+
+    file_menu = file_menu.add_item(
+        CustomMenuItem::new("file/clone-repo", "Clone Repository…")
+            .accelerator("CmdOrCtrl+Shift+O"),
+    );
+
     #[cfg(target_os = "macos")]
     {
         // NB: macOS has the concept of having an app running but its
         // window closed, but other platforms do not
+        file_menu = file_menu.add_native_item(MenuItem::Separator);
         file_menu = file_menu.add_native_item(MenuItem::CloseWindow);
     }
     #[cfg(not(target_os = "macos"))]
     {
+        file_menu = file_menu.add_native_item(MenuItem::Separator);
         file_menu = file_menu.add_native_item(MenuItem::Quit);
     }
 
@@ -199,6 +212,16 @@ fn disabled_menu_item(id: &str, title: &str) -> CustomMenuItem {
 }
 
 pub fn handle_event<R: Runtime>(event: &WindowMenuEvent<R>) {
+    if event.menu_item_id() == "file/add-local-repo" {
+        emit(event.window(), "menu://file/add-local-repo/clicked");
+        return;
+    }
+
+    if event.menu_item_id() == "file/clone-repo" {
+        emit(event.window(), "menu://file/clone-repo/clicked");
+        return;
+    }
+
     #[cfg(any(debug_assertions, feature = "devtools"))]
     {
         if event.menu_item_id() == "view/devtools" {

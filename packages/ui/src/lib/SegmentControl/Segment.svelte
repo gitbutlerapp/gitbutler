@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import { getContext, onMount } from 'svelte';
 	import type { SegmentContext } from './segmentTypes';
 	import type { Snippet } from 'svelte';
@@ -6,10 +7,12 @@
 	interface SegmentProps {
 		id: string;
 		onselect?: (id: string) => void;
+		disabled?: boolean;
+		tooltipText?: string;
 		children: Snippet;
 	}
 
-	const { id, onselect, children }: SegmentProps = $props();
+	const { id, onselect, children, tooltipText, disabled = false }: SegmentProps = $props();
 
 	const context = getContext<SegmentContext>('SegmentControl');
 	const index = context.setIndex();
@@ -37,6 +40,7 @@
 	{id}
 	class="segment"
 	role="tab"
+	{disabled}
 	tabindex={isSelected ? -1 : 0}
 	aria-selected={isSelected}
 	onmousedown={() => {
@@ -59,10 +63,15 @@
 			}
 		}
 	}}
-	><span class="text-base-12 label">
-		{@render children()}
-	</span></button
+	use:tooltip={{
+		text: tooltipText ? tooltipText : '',
+		delay: 1000
+	}}
 >
+	<span class="text-base-12 label">
+		{@render children()}
+	</span>
+</button>
 
 <style lang="postcss">
 	.segment {
@@ -105,6 +114,11 @@
 		&[aria-selected='true'] {
 			background-color: var(--clr-bg-2);
 			color: var(--clr-text-2);
+		}
+
+		&:disabled {
+			cursor: default;
+			opacity: 0.5;
 		}
 	}
 </style>

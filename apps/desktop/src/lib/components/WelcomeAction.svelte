@@ -1,18 +1,46 @@
 <script lang="ts">
 	import Icon from '$lib/shared/Icon.svelte';
+	import type { Snippet } from 'svelte';
 
-	export let title: string;
-	export let loading = false;
+	const {
+		title,
+		loading = false,
+		onmousedown,
+		onclick,
+		icon,
+		message,
+		dimMessage,
+		row,
+		rowReverse
+	}: {
+		title: string;
+		loading: boolean;
+		onmousedown?: (e: MouseEvent) => void;
+		onclick?: (e: MouseEvent) => void;
+		icon: Snippet;
+		message: Snippet;
+		dimMessage?: boolean;
+		row?: boolean;
+		rowReverse?: boolean;
+	} = $props();
 </script>
 
-<button class="action" class:loading on:click on:mousedown disabled={loading}>
+<button
+	class="action__wrapper"
+	class:loading
+	class:row
+	class:row-reverse={rowReverse}
+	{onclick}
+	{onmousedown}
+	disabled={loading}
+>
 	<div class="icon">
-		<slot name="icon" />
+		{@render icon()}
 	</div>
 	<div class="action__content">
 		<div class="action__title text-base-18 text-bold">{title}</div>
-		<div class="action__message text-base-body-12">
-			<slot name="message" />
+		<div class="action__message text-base-body-12" class:dim-message={dimMessage}>
+			{@render message()}
 		</div>
 	</div>
 	{#if loading}
@@ -23,17 +51,19 @@
 </button>
 
 <style lang="postcss">
-	.action {
+	.action__wrapper {
+		width: 100%;
+		height: auto;
 		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
 		overflow: hidden;
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);
-		display: flex;
 		position: relative;
 		padding: 16px;
-		flex-direction: row;
-		gap: 20px;
-		align-items: center;
+
 		text-align: left;
 		transition:
 			background-color var(--transition-fast),
@@ -47,6 +77,14 @@
 		}
 	}
 
+	.action__wrapper.row {
+		flex-direction: row;
+	}
+
+	.action__wrapper.row-reverse {
+		flex-direction: row-reverse;
+	}
+
 	.loading {
 		pointer-events: none;
 		background-color: var(--clr-bg-2);
@@ -55,12 +93,10 @@
 	}
 
 	.action__content {
-		flex: 1;
-		position: relative;
-		z-index: 0;
+		width: 100%;
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+		gap: 8px;
 		transition: opacity var(--transition-slow);
 	}
 
@@ -76,19 +112,17 @@
 	}
 
 	.action__message {
-		color: var(--clr-scale-ntrl-30);
-		max-width: 80%;
+		color: var(--clr-text-2);
+		max-width: 90%;
+	}
+
+	.dim-message {
+		color: var(--clr-text-3);
 	}
 
 	.icon {
-		opacity: 0.8;
 		display: flex;
 		align-items: center;
-		justify-content: center;
 		flex-shrink: 0;
-		width: 80px;
-		height: 80px;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-illustration-bg);
 	}
 </style>

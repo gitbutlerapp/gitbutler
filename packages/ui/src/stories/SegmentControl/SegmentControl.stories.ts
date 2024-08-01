@@ -10,7 +10,7 @@ type Story = StoryObj<typeof meta>;
 
 export const SegmentControlStory: Story = {
 	args: {
-		selectedIndex: 1,
+		defaultIndex: 1,
 		fullWidth: false
 	}
 };
