@@ -8,10 +8,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use git2::{DiffOptions, FileMode};
-use gitbutler_branch::{
-    Branch, VirtualBranchesHandle, VirtualBranchesState, GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
-    GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
-};
+use gitbutler_branch::{Branch, SignaturePurpose, VirtualBranchesHandle, VirtualBranchesState};
 use gitbutler_diff::{hunks_by_filepath, FileDiff};
 use gitbutler_project::{
     access::{WorktreeReadPermission, WorktreeWritePermission},
@@ -463,19 +460,16 @@ fn commit_snapshot(
         .and_then(|head_id| repo.find_commit(head_id).ok());
 
     // Construct a new commit
-    let signature = git2::Signature::now(
-        GITBUTLER_INTEGRATION_COMMIT_AUTHOR_NAME,
-        GITBUTLER_INTEGRATION_COMMIT_AUTHOR_EMAIL,
-    )
-    .unwrap();
+    let committer = gitbutler_branch::signature(SignaturePurpose::Committer)?;
+    let author = gitbutler_branch::signature(SignaturePurpose::Author)?;
     let parents = oplog_head_commit
         .as_ref()
         .map(|head| vec![head])
         .unwrap_or_default();
     let snapshot_commit_id = repo.commit(
         None,
-        &signature,
-        &signature,
+        &author,
+        &committer,
         &details.to_string(),
         &snapshot_tree,
         parents.as_slice(),

@@ -386,7 +386,7 @@ pub(crate) fn update_base_branch(
                 let non_commited_files =
                     gitbutler_diff::trees(ctx.repository(), &branch_head_tree, &branch_tree)?;
                 if non_commited_files.is_empty() {
-                    // if there are no commited files, then the branch is fully merged
+                    // if there are no commited files, then the branch is fully merged,
                     // and we can delete it.
                     vb_state.mark_as_not_in_workspace(branch.id)?;
                     ctx.delete_branch_reference(&branch)?;

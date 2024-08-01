@@ -22,7 +22,7 @@ pub mod commands {
     #[tauri::command(async)]
     #[instrument(err(Debug))]
     pub fn normalize_branch_name(name: &str) -> Result<String, Error> {
-        Ok(normalize_name(name))
+        Ok(normalize_name(name)?)
     }
 
     #[tauri::command(async)]
