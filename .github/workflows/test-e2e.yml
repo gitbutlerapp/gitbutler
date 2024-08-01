@@ -1,4 +1,4 @@
-name: Run E2E Tests
+name: E2E Tests
 on:
 
   schedule:
@@ -11,11 +11,11 @@ on:
 
 jobs:
   test:
-    name: WebDriverIO Test Runner
+    name: Run webdriver-io tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Insatll Tauri OS dependencies
+      - name: Install Tauri OS dependencies
         run: |
           sudo apt update && sudo apt install -y \
             libgtk-3-dev \
