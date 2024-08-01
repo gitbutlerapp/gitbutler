@@ -3,15 +3,15 @@
 	import SegmentControl from '$lib/SegmentControl/SegmentControl.svelte';
 
 	interface Props {
-		selectedIndex: number;
+		defaultIndex: number;
 		fullWidth?: boolean;
 	}
 
-	const { selectedIndex, fullWidth }: Props = $props();
+	const { defaultIndex, fullWidth }: Props = $props();
 </script>
 
 <SegmentControl
-	{selectedIndex}
+	{defaultIndex}
 	{fullWidth}
 	onselect={(id) => {
 		console.log('Selected index:', id);
