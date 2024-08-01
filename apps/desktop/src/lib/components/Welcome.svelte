@@ -23,12 +23,7 @@
 	}
 
 	async function onCloneProject() {
-		cloneProjectLoading = true;
-		try {
-			goto('/onboarding/clone');
-		} finally {
-			cloneProjectLoading = false;
-		}
+		goto('/onboarding/clone');
 	}
 </script>
 
