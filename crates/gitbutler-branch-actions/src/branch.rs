@@ -88,7 +88,7 @@ fn combine_branches(
             continue;
         };
         // Skip branches that should not be listed, e.g. the target 'main' or the gitbutler technical branches like 'gitbutler/integration'
-        if !should_list_git_branch(&identity, &target_branch, &branch) {
+        if !should_list_git_branch(&identity) {
             continue;
         }
         groups.entry(identity).or_default().push(branch);
@@ -103,11 +103,12 @@ fn combine_branches(
                 &identity,
                 group_branches,
                 repo,
+                &remotes,
                 &local_author,
-                target_branch.sha,
+                &target_branch,
             );
             match res {
-                Ok(branch_entry) => Some(branch_entry),
+                Ok(branch_entry) => branch_entry,
                 Err(err) => {
                     tracing::warn!(
                         "Failed to process branch group {:?} to branch entry: {}",
@@ -126,9 +127,10 @@ fn branch_group_to_branch(
     identity: &str,
     group_branches: Vec<GroupBranch>,
     repo: &git2::Repository,
+    remotes: &git2::string_array::StringArray,
     local_author: &git2::Signature,
-    target_sha: git2::Oid,
-) -> Result<BranchListing> {
+    target: &Target,
+) -> Result<Option<BranchListing>> {
     let virtual_branch = group_branches.iter().find_map(|branch| match branch {
         GroupBranch::Virtual(vb) => Some(vb),
         _ => None,
@@ -147,6 +149,14 @@ fn branch_group_to_branch(
             _ => None,
         })
         .collect();
+
+    if virtual_branch.is_none()
+        && local_branches
+            .iter()
+            .any(|b| b.get().given_name(remotes).as_deref().ok() == Some(target.branch.branch()))
+    {
+        return Ok(None);
+    }
 
     // Virtual branch associated with this branch
     let virtual_branch_reference = virtual_branch.map(|branch| VirtualBranchReference {
@@ -184,7 +194,7 @@ fn branch_group_to_branch(
         virtual_branch.map_or(0, |x| x.updated_timestamp_ms),
     );
     // If no merge base can be found, return with zero stats
-    let branch = if let Ok(base) = repo.merge_base(target_sha, head) {
+    let branch = if let Ok(base) = repo.merge_base(target.sha, head) {
         let mut revwalk = repo.revwalk()?;
         revwalk.push(head)?;
         revwalk.hide(base)?;
@@ -225,7 +235,7 @@ fn branch_group_to_branch(
             head,
         }
     };
-    Ok(branch)
+    Ok(Some(branch))
 }
 
 /// A sum type of branch that can be a plain git branch or a virtual branch
@@ -255,19 +265,11 @@ impl GroupBranch<'_> {
             }
         }
     }
-
-    /// Returns true if this is a virtual branch.
-    fn is_virtual(&self) -> bool {
-        matches!(self, Self::Virtual(_))
-    }
 }
 
 /// Determines if a branch should be listed in the UI.
 /// This excludes the target branch as well as gitbutler specific branches.
-fn should_list_git_branch(identity: &str, target: &Target, branch: &GroupBranch) -> bool {
-    if !branch.is_virtual() && identity == target.branch.branch() {
-        return false;
-    }
+fn should_list_git_branch(identity: &str) -> bool {
     // Exclude gitbutler technical branches (not useful for the user)
     let is_technical = [
         "gitbutler/integration",

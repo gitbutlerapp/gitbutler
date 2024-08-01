@@ -100,8 +100,7 @@ fn one_feature_branch_and_one_vbranch_on_integration_one_commit() -> Result<()> 
         &list[0],
         ExpectedBranchListing {
             identity: "main",
-            remotes: vec![],
-            // remotes: vec!["origin"], // TODO: should be this
+            remotes: vec!["origin"],
             virtual_branch_given_name: Some("main"),
             virtual_branch_in_workspace: true,
             number_of_commits: 1,
