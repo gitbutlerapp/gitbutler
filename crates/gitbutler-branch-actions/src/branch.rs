@@ -88,7 +88,7 @@ fn combine_branches(
             continue;
         };
         // Skip branches that should not be listed, e.g. the target 'main' or the gitbutler technical branches like 'gitbutler/integration'
-        if !should_list_git_branch(&identity, &target_branch) {
+        if !should_list_git_branch(&identity, &target_branch, &branch) {
             continue;
         }
         groups.entry(identity).or_default().push(branch);
@@ -255,12 +255,17 @@ impl GroupBranch<'_> {
             }
         }
     }
+
+    /// Returns true if this is a virtual branch.
+    fn is_virtual(&self) -> bool {
+        matches!(self, Self::Virtual(_))
+    }
 }
 
 /// Determines if a branch should be listed in the UI.
 /// This excludes the target branch as well as gitbutler specific branches.
-fn should_list_git_branch(identity: &str, target: &Target) -> bool {
-    if identity == target.branch.branch() {
+fn should_list_git_branch(identity: &str, target: &Target, branch: &GroupBranch) -> bool {
+    if !branch.is_virtual() && identity == target.branch.branch() {
         return false;
     }
     // Exclude gitbutler technical branches (not useful for the user)

@@ -116,9 +116,8 @@ fn one_feature_branch_and_one_vbranch_on_integration_one_commit() -> Result<()> 
     let list = list_branches(&ctx, None)?;
     assert_eq!(
         list.len(),
-        0,
-        "Strange, one is definitely there and it seems valid to name vbranches\
-            after the target branch but it's filtered out here"
+        1,
+        "it finds our single virtual branch despit it having the same 'identity' as the target branch: 'main'"
     );
 
     Ok(())
