@@ -32,7 +32,7 @@
 
 		output.push(
 			...pullRequests
-				.filter((pullRequest) => branchListingNames.has(pullRequest.sourceBranch))
+				.filter((pullRequest) => !branchListingNames.has(pullRequest.sourceBranch))
 				.map((pullRequest): SidebarEntrySubject => ({ type: 'pullRequest', subject: pullRequest }))
 		);
 
@@ -43,7 +43,7 @@
 		);
 
 		output.sort((a, b) => {
-			return getEntryUpdatedDate(a).getTime() - getEntryUpdatedDate(b).getTime();
+			return getEntryUpdatedDate(b).getTime() - getEntryUpdatedDate(a).getTime();
 		});
 
 		sidebarEntries = output;
