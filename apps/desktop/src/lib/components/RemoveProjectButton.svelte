@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 
 	export let projectTitle: string = '#';
 	export let isDeleting = false;

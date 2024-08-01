@@ -4,11 +4,11 @@
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { showInfo } from '$lib/notifications/toasts';
-	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import Checkbox from '@gitbutler/ui/inputs/Checkbox.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 

@@ -9,10 +9,10 @@
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import { getContext } from '$lib/utils/context';
-	import { createTimeAgoStore } from '@gitbutler/ui/timeAgo/timeAgo';
 	import * as toasts from '$lib/utils/toasts';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import { createTimeAgoStore } from '@gitbutler/ui/timeAgo/timeAgo';
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
 	import type { ChecksStatus } from '$lib/gitHost/interface/types';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
