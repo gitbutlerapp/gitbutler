@@ -26,10 +26,7 @@ jobs:
       - name: Rust stable
         uses: dtolnay/rust-toolchain@stable
       - name: Cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release
+        run: pnpm exec tauri build --config crates/gitbutler-tauri/tauri.conf.json
       - name: Node
         uses: actions/setup-node@v4
         with:

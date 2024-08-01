@@ -7,7 +7,7 @@
 		"dev": "vite --clearScreen false",
 		"test": "vitest run --mode development",
 		"test:mocha": "mocha ./e2e/selenium.spec.js",
-		"test:wdio": "E2E_TAURI_ENABLED=true wdio run wdio.conf.js",
+		"test:wdio": "wdio run wdio.conf.js",
 		"test:watch": "vitest --watch --mode development",
 		"test:e2e": "playwright test -c ./playwright.config.ts",
 		"test:e2e:watch": "playwright test -c ./playwright.config.ts --ui",

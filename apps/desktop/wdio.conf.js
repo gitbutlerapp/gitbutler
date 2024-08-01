@@ -7,23 +7,20 @@ import path from 'node:path';
 let tauriDriver;
 
 export const config = {
-	hostname: 'localhost',
+	hostname: '127.0.0.1',
 	port: 4444,
 	specs: ['./e2e/wdio/**/*.js'],
 	maxInstances: 1,
 	capabilities: [
 		{
-			maxInstances: 1,
 			'tauri:options': {
-				application: '../../target/release/git-butler-dev',
-				webviewOptions: {} // Windows only
+				application: '../../target/release/git-butler-dev'
 			}
 		}
 	],
 	reporters: ['spec'],
 	framework: 'mocha',
 	mochaOpts: {
-		bail: true,
 		ui: 'bdd',
 		timeout: 60000
 	},
