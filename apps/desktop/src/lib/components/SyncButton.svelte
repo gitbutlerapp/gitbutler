@@ -1,14 +1,16 @@
 <script lang="ts">
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BranchListingService } from '$lib/branches/branchListing';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
-	import TimeAgo from '@gitbutler/ui/timeAgo/TimeAgo.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import TimeAgo from '@gitbutler/ui/timeAgo/TimeAgo.svelte';
 
 	const baseBranchService = getContext(BaseBranchService);
 	const vbranchService = getContext(VirtualBranchService);
 	const baseBranch = baseBranchService.base;
+	const branchListingService = getContext(BranchListingService);
 
 	const listingService = getGitHostListingService();
 
@@ -33,7 +35,8 @@
 			await Promise.all([
 				$listingService?.refresh(),
 				vbranchService.refresh(),
-				baseBranchService.refresh()
+				baseBranchService.refresh(),
+				branchListingService.refresh()
 			]);
 		} finally {
 			loading = false;

@@ -3,28 +3,55 @@
 	import BranchesHeaderNew from './BranchesHeaderNew.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { BranchListing, BranchListingService } from '$lib/branches/branchListing';
-	import SmartSidebarEntry from '$lib/navigation/SmartSidebarEntry.svelte';
+	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+	import SmartSidebarEntry from '$lib/navigation/BranchListingSidebarEntry.svelte';
+	import { getEntryUpdatedDate, type SidebarEntrySubject } from '$lib/navigation/types';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
+	import PullRequestSidebarEntry from '$lib/navigation/PullRequestSidebarEntry.svelte';
 
 	const branchListingService = getContext(BranchListingService);
-	// const gitHostListingService = getGitHostListingService();
+	const gitHostListingService = getGitHostListingService();
+	const pullRequestsStore = $derived($gitHostListingService?.prs);
 
 	const branchesStore = branchListingService.branchListings;
-	const branches = $derived($branchesStore || []);
-	const searchedBranches = $derived(branches);
+	$inspect($branchesStore);
+	const branchListings = $derived($branchesStore || []);
 
-	function searchMatchesAnIdentifier(search: string, identifiers: string[]) {
-		for (const identifier of identifiers) {
-			if (identifier.includes(search.toLowerCase())) return true;
-		}
+	let sidebarEntries = $state<SidebarEntrySubject[]>([]);
+	let searchedBranches = $derived(sidebarEntries);
 
-		return false;
-	}
+	$effect(() => {
+		const pullRequests = $pullRequestsStore || [];
+
+		const branchListingNames = new Set<string>(
+			branchListings.map((branchListing) => branchListing.name)
+		);
+
+		let output: SidebarEntrySubject[] = [];
+
+		output.push(
+			...pullRequests
+				.filter((pullRequest) => branchListingNames.has(pullRequest.sourceBranch))
+				.map((pullRequest): SidebarEntrySubject => ({ type: 'pullRequest', subject: pullRequest }))
+		);
+
+		output.push(
+			...branchListings.map(
+				(branchListing): SidebarEntrySubject => ({ type: 'branchListing', subject: branchListing })
+			)
+		);
+
+		output.sort((a, b) => {
+			return getEntryUpdatedDate(a).getTime() - getEntryUpdatedDate(b).getTime();
+		});
+
+		sidebarEntries = output;
+	});
 
 	const oneDay = 1000 * 60 * 60 * 24;
-	function groupByDate(branches: BranchListing[]) {
-		const grouped: Record<'today' | 'yesterday' | 'lastWeek' | 'older', BranchListing[]> = {
+	function groupByDate(branches: SidebarEntrySubject[]) {
+		const grouped: Record<'today' | 'yesterday' | 'lastWeek' | 'older', SidebarEntrySubject[]> = {
 			today: [],
 			yesterday: [],
 			lastWeek: [],
@@ -34,12 +61,12 @@
 		const now = Date.now();
 
 		branches.forEach((b) => {
-			if (!b.updatedAt) {
+			if (!getEntryUpdatedDate(b)) {
 				grouped.older.push(b);
 				return;
 			}
 
-			const msSinceLastCommit = now - b.updatedAt.getTime();
+			const msSinceLastCommit = now - getEntryUpdatedDate(b).getTime();
 
 			if (msSinceLastCommit < oneDay) {
 				grouped.today.push(b);
@@ -63,13 +90,17 @@
 
 {#snippet branchGroup(props: {
 	title: string,
-	children: BranchListing[]
+	children: SidebarEntrySubject[]
 })}
 	{#if props.children.length > 0}
 		<div class="group">
 			<h3 class="text-base-12 text-semibold group-header">{props.title}</h3>
-			{#each props.children as branchListing}
-				<SmartSidebarEntry {branchListing} />
+			{#each props.children as sidebarEntrySubject}
+				{#if sidebarEntrySubject.type === 'branchListing'}
+					<SmartSidebarEntry branchListing={sidebarEntrySubject.subject} />
+				{:else}
+					<PullRequestSidebarEntry pullRequest={sidebarEntrySubject.subject} />
+				{/if}
 			{/each}
 		</div>
 	{/if}
@@ -77,7 +108,7 @@
 
 <div class="branches">
 	<BranchesHeaderNew
-		totalBranchCount={branches.length}
+		totalBranchCount={branchListings.length}
 		filteredBranchCount={searchedBranches?.length}
 		onSearch={(value) => (searchValue = value)}
 	>
@@ -93,7 +124,7 @@
 			/>
 		{/snippet} -->
 	</BranchesHeaderNew>
-	{#if branches.length > 0}
+	{#if branchListings.length > 0}
 		{#if searchedBranches.length > 0}
 			<ScrollableContainer
 				bind:viewport

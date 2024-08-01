@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Project } from '$lib/backend/projects';
 	import {
 		BranchListingDetails,
 		BranchListingService,
@@ -10,6 +11,8 @@
 	import AvatarGrouping from '@gitbutler/ui/avatar/AvatarGrouping.svelte';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 	import SidebarEntry from '@gitbutler/ui/sidebarEntry/SidebarEntry.svelte';
+	import type { Readable } from 'svelte/store';
+	import { goto } from '$app/navigation';
 
 	interface Props {
 		branchListing: BranchListing;
@@ -19,17 +22,22 @@
 
 	const gitHostListingService = getGitHostListingService();
 	const branchListingService = getContext(BranchListingService);
+	const project = getContext(Project);
 
 	const prs = $derived($gitHostListingService?.prs);
 	const pr = $derived($prs?.find((pr) => pr.sourceBranch === branchListing.name));
 
-	let branchListingDetails = $state<BranchListingDetails>();
+	let branchListingDetails = $state<Readable<BranchListingDetails | undefined>>();
 
-	async function onFirstSeen() {
+	function onFirstSeen() {
 		if (!branchListingDetails) {
-			console.log('doing the math');
-			branchListingDetails = await branchListingService.getBranchListingDetails(branchListing.name);
+			console.log('hi');
+			branchListingDetails = branchListingService.getBranchListingDetails(branchListing.name);
 		}
+	}
+
+	function onMouseDown() {
+		goto(`/${project.id}/branch/${encodeURIComponent(branchListing.name)}`);
 	}
 </script>
 
@@ -45,12 +53,13 @@
 	pullRequestDetails={pr && {
 		title: pr.title
 	}}
-	branchDetails={branchListingDetails && {
+	branchDetails={$branchListingDetails && {
 		commitCount: branchListing.numberOfCommits,
-		linesAdded: branchListingDetails.linesAdded,
-		linesRemoved: branchListingDetails.linesRemoved
+		linesAdded: $branchListingDetails.linesAdded,
+		linesRemoved: $branchListingDetails.linesRemoved
 	}}
 	{onFirstSeen}
+	{onMouseDown}
 >
 	{#snippet authorAvatars()}
 		<AvatarGrouping>

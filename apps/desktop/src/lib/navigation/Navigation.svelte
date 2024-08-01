@@ -1,8 +1,8 @@
 <script lang="ts">
-	import BaseBranchCard from './BaseBranchCard.svelte';
 	import BranchesNew from './BranchesNew.svelte';
 	import Footer from './Footer.svelte';
 	import ProjectSelector from './ProjectSelector.svelte';
+	import TargetCard from './TargetCard.svelte';
 	import DomainButton from '../components/DomainButton.svelte';
 	import Resizer from '../shared/Resizer.svelte';
 	import { Project } from '$lib/backend/projects';
@@ -108,7 +108,7 @@
 				{/if}
 				<ProjectSelector isNavCollapsed={$isNavCollapsed} />
 				<div class="domains">
-					<BaseBranchCard isNavCollapsed={$isNavCollapsed} />
+					<TargetCard isNavCollapsed={$isNavCollapsed} />
 					<DomainButton
 						href={`/${project.id}/board`}
 						domain="workspace"

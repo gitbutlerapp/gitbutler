@@ -2,7 +2,7 @@ import { invoke } from '$lib/backend/ipc';
 import { persisted } from '$lib/persisted/persisted';
 import { Transform, Type } from 'class-transformer';
 import { plainToInstance } from 'class-transformer';
-import { derived, writable, type Readable } from 'svelte/store';
+import { derived, writable, type Readable, type Writable } from 'svelte/store';
 
 const FILTER_STORAGE_KEY = 'branchListingService-selectedFilter';
 export class BranchListingService {
@@ -28,25 +28,58 @@ export class BranchListingService {
 
 	refresh() {
 		this.refreshMarker.set(Date.now());
+
+		const branchNames = Array.from(this.branchListingDetails.keys());
+		this.updateBranchListingDetails(branchNames);
 	}
 
 	private async list(filter: BranchListingFilter | undefined = undefined) {
-		const branches = plainToInstance(
-			BranchListing,
-			await invoke<any[]>('list_branches', { projectId: this.projectId, filter })
-		);
-		return branches;
+		console.log('a');
+		try {
+			const foo = await invoke<any[]>('list_branches', { projectId: this.projectId, filter });
+			console.log(foo);
+			const branches = plainToInstance(BranchListing, foo);
+			console.log('b');
+			return branches;
+		} catch (e: unknown) {
+			console.log(e);
+		}
 	}
 
-	async getBranchListingDetails(branchName: string): Promise<BranchListingDetails | undefined> {
-		const branches = plainToInstance(
-			BranchListingDetails,
-			await invoke<any[]>('get_branch_listing_details', {
-				projectId: this.projectId,
-				branchNames: [branchName]
-			})
-		);
-		return branches[0];
+	private branchListingDetails = new Map<string, Writable<BranchListingDetails | undefined>>();
+	/**
+	 * Fetches the details for a particular branch.
+	 *
+	 * A store is returned so the result can be refreshed when needed
+	 */
+	getBranchListingDetails(branchName: string): Readable<BranchListingDetails | undefined> {
+		if (this.branchListingDetails.has(branchName)) {
+			return this.branchListingDetails.get(branchName)!;
+		}
+
+		const store = writable<BranchListingDetails | undefined>();
+		this.branchListingDetails.set(branchName, store);
+
+		this.updateBranchListingDetails([branchName]);
+
+		return store;
+	}
+
+	private async updateBranchListingDetails(branchNames: string[]) {
+		const plainDetails = await invoke<unknown[]>('get_branch_listing_details', {
+			projectId: this.projectId,
+			branchNames
+		});
+
+		const branchListingDetails = plainToInstance(BranchListingDetails, plainDetails);
+
+		branchListingDetails.forEach((branchListingDetails) => {
+			let store = this.branchListingDetails.get(branchListingDetails.name);
+
+			store ??= writable();
+
+			store.set(branchListingDetails);
+		});
 	}
 }
 

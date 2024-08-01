@@ -123,6 +123,8 @@
 		text-align: left;
 		border-bottom: 1px solid var(--clr-border-3);
 		transition: background-color var(--transition-fast);
+		/* Using a fixed height to prevent content-shift when loading in */
+		height: 84px;
 
 		&:last-child {
 			border-bottom: none;
