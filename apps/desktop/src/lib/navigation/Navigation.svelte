@@ -120,7 +120,7 @@
 			</div>
 
 			{#if !$isNavCollapsed}
-				<BranchesNew projectId={project.id} />
+				<BranchesNew />
 			{/if}
 			<Footer projectId={project.id} isNavCollapsed={$isNavCollapsed} />
 		{/if}

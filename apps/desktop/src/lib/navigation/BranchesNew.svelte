@@ -1,5 +1,4 @@
 <script lang="ts">
-	import BranchesHeaderNew from './BranchesHeaderNew.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { BranchListingService } from '$lib/branches/branchListing';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
@@ -106,12 +105,7 @@
 {/snippet}
 
 <div class="branches">
-	<BranchesHeaderNew
-		totalBranchCount={$branchListings.length}
-		filteredBranchCount={searchedBranches?.length}
-		onSearch={(value) => (searchValue = value)}
-	></BranchesHeaderNew>
-	<SegmentControl fullWidth selectedIndex={0}>
+	<SegmentControl fullWidth defaultIndex={0}>
 		<Segment id="all">All</Segment>
 		<Segment id="mine">PRs</Segment>
 		<Segment id="active">Mine</Segment>

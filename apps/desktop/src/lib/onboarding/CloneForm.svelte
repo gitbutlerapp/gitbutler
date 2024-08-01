@@ -3,7 +3,6 @@
 	import { ProjectService } from '$lib/backend/projects';
 	import { persisted } from '$lib/persisted/persisted';
 	import Section from '$lib/settings/Section.svelte';
-	import Button from '$lib/shared/Button.svelte';
 	import InfoMessage, { type MessageStyle } from '$lib/shared/InfoMessage.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
@@ -11,6 +10,7 @@
 	import { getContext } from '$lib/utils/context';
 	import Segment from '@gitbutler/ui/SegmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { open } from '@tauri-apps/api/dialog';
 	import { documentDir } from '@tauri-apps/api/path';
 	import { join } from '@tauri-apps/api/path';

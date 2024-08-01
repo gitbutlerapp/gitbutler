@@ -58,16 +58,16 @@ export const ButtonDefalut: Story = {
 };
 
 export const ButtonWithIcon: Story = {
-    args: {
-        contents: "Testeroni",
-        size: "button",
-        disabled: false,
-        clickable: true,
-        loading: false,
-        style: "pop",
-        kind: "solid",
-        outline: false,
-        dashed: false,
-        icon: "ai-small"
-    }
+	args: {
+		contents: 'Testeroni',
+		size: 'button',
+		disabled: false,
+		clickable: true,
+		loading: false,
+		style: 'pop',
+		kind: 'solid',
+		outline: false,
+		dashed: false,
+		icon: 'ai-small'
+	}
 };
