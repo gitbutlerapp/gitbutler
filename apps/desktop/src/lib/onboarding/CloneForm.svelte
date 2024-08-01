@@ -7,15 +7,17 @@
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
+	import { getContext } from '$lib/utils/context';
 	import Segment from '@gitbutler/ui/SegmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
 	import { open } from '@tauri-apps/api/dialog';
 	import { documentDir } from '@tauri-apps/api/path';
 	import { Command } from '@tauri-apps/api/shell';
-	import { getContext, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
 	const projectService = getContext(ProjectService);
+
 	const SSH_URL_PLACEHOLDER = 'ssh://';
 	const HTTP_URL_PLACEHOLDER = 'https://';
 
