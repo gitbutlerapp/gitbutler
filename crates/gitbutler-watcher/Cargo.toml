@@ -14,7 +14,6 @@ gitbutler-sync.workspace = true
 gitbutler-oplog.workspace = true
 thiserror.workspace = true
 anyhow = "1.0.86"
-futures.workspace = true
 tokio = { workspace = true, features = ["macros"] }
 tokio-util = "0.7.11"
 tracing = "0.1.40"

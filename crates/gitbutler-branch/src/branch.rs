@@ -14,9 +14,14 @@ pub type BranchId = Id<Branch>;
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Branch {
     pub id: BranchId,
+    /// A user-specified name with no restrictions.
+    /// It will be normalized except to be a valid [ref-name](Branch::refname()) if named `refs/gitbutler/<normalize(name)>`.
     pub name: String,
     pub notes: String,
+    /// If set, this means this virtual branch was originally created from `Some(branch)`.
+    /// It can be *any* branch.
     pub source_refname: Option<Refname>,
+    /// The local tracking branch, holding the state of the remote.
     pub upstream: Option<RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
     #[serde(with = "gitbutler_serde::serde::oid_opt", default)]
@@ -54,7 +59,8 @@ pub struct Branch {
     /// but the old `applied` property will have remained false.
     #[serde(default = "default_true")]
     pub applied: bool,
-    /// This is the new metric for determining whether the branch is in the workspace
+    /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
+    /// and its effects are available to the user.
     #[serde(default = "default_true")]
     pub in_workspace: bool,
     #[serde(default)]
@@ -82,8 +88,8 @@ where
 }
 
 impl Branch {
-    pub fn refname(&self) -> VirtualRefname {
-        self.into()
+    pub fn refname(&self) -> anyhow::Result<VirtualRefname> {
+        self.try_into()
     }
 
     /// self.applied and self.in_workspace are kept in sync by the application
@@ -100,11 +106,13 @@ impl Branch {
     }
 }
 
-impl From<&Branch> for VirtualRefname {
-    fn from(value: &Branch) -> Self {
-        Self {
-            branch: normalize_branch_name(&value.name),
-        }
+impl TryFrom<&Branch> for VirtualRefname {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &Branch) -> std::result::Result<Self, Self::Error> {
+        Ok(Self {
+            branch: normalize_branch_name(&value.name)?,
+        })
     }
 }
 

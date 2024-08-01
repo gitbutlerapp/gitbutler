@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use git2::Commit;
-use gitbutler_branch::{Branch, BranchExt, BranchId};
+use gitbutler_branch::{Branch, BranchExt, BranchId, SignaturePurpose};
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::access::WorktreeWritePermission;
@@ -14,7 +14,6 @@ use crate::{
     conflicts::{self},
     ensure_selected_for_changes, get_applied_status,
     hunk::VirtualBranchHunk,
-    integration::get_integration_commiter,
     VirtualBranchesExt,
 };
 
@@ -133,7 +132,7 @@ impl BranchManager<'_> {
         let repo = self.ctx.repository();
         let target_commit = repo.find_commit(vbranch.head)?;
         let branch_name = vbranch.name.clone();
-        let branch_name = normalize_branch_name(&branch_name);
+        let branch_name = normalize_branch_name(&branch_name)?;
 
         let vb_state = self.ctx.project().virtual_branches();
         let branch = repo.branch(&branch_name, &target_commit, true)?;
@@ -168,14 +167,15 @@ impl BranchManager<'_> {
         message.push_str("\n\n");
 
         // Commit wip commit
-        let committer = get_integration_commiter()?;
+        let committer = gitbutler_branch::signature(SignaturePurpose::Committer)?;
+        let author = gitbutler_branch::signature(SignaturePurpose::Author)?;
         let parent = branch.get().peel_to_commit()?;
 
         let commit_headers = CommitHeadersV2::new();
 
         let commit_oid = repo.commit_with_signature(
             Some(&branch.try_into()?),
-            &committer,
+            &author,
             &committer,
             &message,
             &tree,

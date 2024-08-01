@@ -12,32 +12,47 @@ pub mod vbranch {
         let branches = VirtualBranchesHandle::new(project.gb_dir()).list_all_branches()?;
         for vbranch in branches {
             println!(
-                "{active} {id} {name} {upstream}",
+                "{active} {id} {name} {upstream} {default}",
                 active = if vbranch.applied { "✔️" } else { "⛌" },
                 id = vbranch.id,
                 name = vbranch.name,
                 upstream = vbranch
                     .upstream
-                    .map_or_else(Default::default, |b| b.to_string())
+                    .map_or_else(Default::default, |b| b.to_string()),
+                default = if vbranch.in_workspace { "🌟" } else { "" }
             );
         }
         Ok(())
     }
 
-    pub fn create(project: Project, branch_name: String) -> Result<()> {
-        debug_print(VirtualBranchActions.create_virtual_branch(
+    pub fn unapply(project: Project, branch_name: String) -> Result<()> {
+        let branch = branch_by_name(&project, &branch_name)?;
+        debug_print(VirtualBranchActions.convert_to_real_branch(&project, branch.id)?)
+    }
+
+    pub fn create(project: Project, branch_name: String, set_default: bool) -> Result<()> {
+        let new = VirtualBranchActions.create_virtual_branch(
             &project,
             &BranchCreateRequest {
                 name: Some(branch_name),
                 ..Default::default()
             },
-        )?)
+        )?;
+        if set_default {
+            let new = VirtualBranchesHandle::new(project.gb_dir()).get_branch(new)?;
+            set_default_branch(&project, &new)?;
+        }
+        debug_print(new)
     }
 
     pub fn set_default(project: Project, branch_name: String) -> Result<()> {
         let branch = branch_by_name(&project, &branch_name)?;
+        set_default_branch(&project, &branch)
+    }
+
+    fn set_default_branch(project: &Project, branch: &Branch) -> Result<()> {
         VirtualBranchActions.update_virtual_branch(
-            &project,
+            project,
             BranchUpdateRequest {
                 id: branch.id,
                 name: None,

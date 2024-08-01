@@ -6,7 +6,9 @@ use super::error::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Refname {
-    // contains slug of the virtual branch name
+    /// contains slug of the virtual branch name.
+    /// Note that `Display` is implemented to put `refs/gitbutler/` in front of `branch`
+    /// so it's assume to be a valid branch name otherwise.
     pub branch: String,
 }
 
