@@ -46,4 +46,3 @@ jobs:
       # application to run headless without any changes to the code
       - name: WebdriverIO
         run: xvfb-run pnpm test:wdio
-        working-directory: webdriver/webdriverio
