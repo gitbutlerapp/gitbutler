@@ -4,7 +4,7 @@ use std::{
     vec,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use bstr::{BString, ByteSlice};
 use gitbutler_branch::{Branch as GitButlerBranch, BranchId, ReferenceExt, Target};
 use gitbutler_command_context::CommandContext;
@@ -88,7 +88,7 @@ fn combine_branches(
             continue;
         };
         // Skip branches that should not be listed, e.g. the target 'main' or the gitbutler technical branches like 'gitbutler/integration'
-        if !should_list_git_branch(&identity, &target_branch) {
+        if !should_list_git_branch(&identity) {
             continue;
         }
         groups.entry(identity).or_default().push(branch);
@@ -103,11 +103,12 @@ fn combine_branches(
                 &identity,
                 group_branches,
                 repo,
+                &remotes,
                 &local_author,
-                target_branch.sha,
+                &target_branch,
             );
             match res {
-                Ok(branch_entry) => Some(branch_entry),
+                Ok(branch_entry) => branch_entry,
                 Err(err) => {
                     tracing::warn!(
                         "Failed to process branch group {:?} to branch entry: {}",
@@ -126,13 +127,18 @@ fn branch_group_to_branch(
     identity: &str,
     group_branches: Vec<GroupBranch>,
     repo: &git2::Repository,
+    remotes: &git2::string_array::StringArray,
     local_author: &git2::Signature,
-    target_sha: git2::Oid,
-) -> Result<BranchListing> {
-    let virtual_branch = group_branches.iter().find_map(|branch| match branch {
+    target: &Target,
+) -> Result<Option<BranchListing>> {
+    let mut vbranches = group_branches.iter().filter_map(|branch| match branch {
         GroupBranch::Virtual(vb) => Some(vb),
         _ => None,
     });
+    let virtual_branch = vbranches.next();
+    if vbranches.next().is_some() {
+        bail!("Found more than one virtual branch with the same identity - this shouldn't be possible")
+    }
     let remote_branches: Vec<&git2::Branch> = group_branches
         .iter()
         .filter_map(|branch| match branch {
@@ -147,6 +153,14 @@ fn branch_group_to_branch(
             _ => None,
         })
         .collect();
+
+    if virtual_branch.is_none()
+        && local_branches
+            .iter()
+            .any(|b| b.get().given_name(remotes).as_deref().ok() == Some(target.branch.branch()))
+    {
+        return Ok(None);
+    }
 
     // Virtual branch associated with this branch
     let virtual_branch_reference = virtual_branch.map(|branch| VirtualBranchReference {
@@ -184,7 +198,7 @@ fn branch_group_to_branch(
         virtual_branch.map_or(0, |x| x.updated_timestamp_ms),
     );
     // If no merge base can be found, return with zero stats
-    let branch = if let Ok(base) = repo.merge_base(target_sha, head) {
+    let branch = if let Ok(base) = repo.merge_base(target.sha, head) {
         let mut revwalk = repo.revwalk()?;
         revwalk.push(head)?;
         revwalk.hide(base)?;
@@ -196,7 +210,7 @@ fn branch_group_to_branch(
             commits.push(commit);
         }
         // If there are no commits (i.e. virtual branch only) it is considered the users own
-        let own_branch = commits.is_empty()
+        let own_branch = (virtual_branch.is_some() && commits.is_empty())
             || commits.iter().any(|commit| {
                 let commit_author = commit.author();
                 local_author.name_bytes() == commit_author.name_bytes()
@@ -225,7 +239,7 @@ fn branch_group_to_branch(
             head,
         }
     };
-    Ok(branch)
+    Ok(Some(branch))
 }
 
 /// A sum type of branch that can be a plain git branch or a virtual branch
@@ -259,10 +273,7 @@ impl GroupBranch<'_> {
 
 /// Determines if a branch should be listed in the UI.
 /// This excludes the target branch as well as gitbutler specific branches.
-fn should_list_git_branch(identity: &str, target: &Target) -> bool {
-    if identity == target.branch.branch() {
-        return false;
-    }
+fn should_list_git_branch(identity: &str) -> bool {
     // Exclude gitbutler technical branches (not useful for the user)
     let is_technical = [
         "gitbutler/integration",
@@ -294,10 +305,10 @@ pub struct BranchListingFilter {
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BranchListing {
-    /// The name of the branch (e.g. `main`, `feature/branch`), excluding the remote name
+    /// The `identity` of the branch (e.g. `main`, `feature/branch`), excluding the remote name.
     pub name: String,
-    /// This is a list of remote that this branch can be found on (e.g. `origin`, `upstream` etc.).
-    /// If this branch is a local branch, this list will be empty.
+    /// This is a list of remotes that this branch can be found on (e.g. `origin`, `upstream` etc.),
+    /// by collecting remotes from all local branches with the same identity that have a tracking setup.
     #[serde(serialize_with = "gitbutler_serde::serde::as_string_lossy_vec")]
     pub remotes: Vec<BString>,
     /// The branch may or may not have a virtual branch associated with it
@@ -311,7 +322,8 @@ pub struct BranchListing {
     /// This includes any commits, uncommited changes or even updates to the branch metadata (e.g. renaming).
     pub updated_at: u128,
     /// A list of authors that have contributes commits to this branch.
-    /// In the case of multiple remote tracking branches, it takes the full list of unique authors.
+    /// In the case of multiple remote tracking branches, or branches whose commits are evaluated,
+    /// it takes the full list of unique authors, without applying a mailmap.
     pub authors: Vec<Author>,
     /// Determines if the current user is involved with this branch.
     /// Returns true if the author has created a commit on this branch
@@ -323,10 +335,10 @@ pub struct BranchListing {
     /// 2. The head of the local branch
     /// 3. The head of the first remote branch
     #[serde(skip)]
-    head: git2::Oid,
+    pub head: git2::Oid,
 }
 
-/// Represents a "commit author" or "signature", based on the data from ther git history
+/// Represents a "commit author" or "signature", based on the data from the git history
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 pub struct Author {
     /// The name of the author as configured in the git config
