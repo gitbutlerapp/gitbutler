@@ -13,26 +13,23 @@
 	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
 	import { open } from '@tauri-apps/api/dialog';
 	import { documentDir } from '@tauri-apps/api/path';
+	import { join } from '@tauri-apps/api/path';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
 	const projectService = getContext(ProjectService);
 
-	const SSH_URL_PLACEHOLDER = 'ssh://';
-	const HTTP_URL_PLACEHOLDER = 'https://';
-
-	const RemoteType = {
-		url: 'url',
-		ssh: 'ssh'
-	} as const;
+	enum RemoteType {
+		url = 'url',
+		ssh = 'ssh'
+	}
 
 	let loading = $state(false);
 	let errors = $state<{ label: string }[]>([]);
 	let completed = $state(false);
 	let repositoryUrl = $state('');
 	let targetDirPath = $state('');
-	// TODO: Fix types
-	let remoteType = $state<string | keyof typeof RemoteType>(RemoteType.url);
+	let selectedRemoteType = $state<keyof typeof RemoteType>(RemoteType.url);
 	let savedTargetDirPath = persisted('', 'clone_targetDirPath');
 
 	onMount(async () => {
@@ -57,7 +54,9 @@
 	async function cloneRepository() {
 		loading = true;
 		savedTargetDirPath.set(targetDirPath);
-		clearNotifications();
+		if (errors.length) {
+			errors = [];
+		}
 
 		if (!repositoryUrl || !targetDirPath) {
 			errors.push({
@@ -67,12 +66,15 @@
 			return;
 		}
 
-		const { name } = parseRemoteUrl(repositoryUrl);
+		const { name, protocol } = parseRemoteUrl(repositoryUrl);
 
-		// TODO: Ensure this works on all platforms
-		const targetDir = `${targetDirPath}/${name}`;
+		const targetDir = await join(targetDirPath, name);
 
 		try {
+			// NOTE: Temporary until 'ssh' support is implemented
+			if (protocol !== 'https') {
+				return;
+			}
 			await invoke('git_clone_repository', {
 				repositoryUrl,
 				targetDir
@@ -88,33 +90,11 @@
 		}
 	}
 
-	function handleRemoteTypeToggle(id: keyof typeof RemoteType | string) {
-		function isEmpty(value: string) {
-			if (!value) return true;
-			if ([SSH_URL_PLACEHOLDER, HTTP_URL_PLACEHOLDER].includes(value)) return true;
-			return false;
-		}
-
-		remoteType = id;
-
-		if (id === RemoteType.ssh && isEmpty(repositoryUrl)) {
-			repositoryUrl = SSH_URL_PLACEHOLDER;
-		} else if (id === RemoteType.url && isEmpty(repositoryUrl)) {
-			repositoryUrl = HTTP_URL_PLACEHOLDER;
-		}
-	}
-
 	function handleCancel() {
 		if (history.length > 0) {
 			history.back();
 		} else {
 			goto('/');
-		}
-	}
-
-	function clearNotifications() {
-		if (errors.length) {
-			errors = [];
 		}
 	}
 </script>
@@ -123,17 +103,19 @@
 <Section>
 	<div class="clone__remoteType">
 		<fieldset name="remoteType" class="remoteType-group">
-			<SegmentControl fullWidth defaultIndex={0} onselect={handleRemoteTypeToggle}>
+			<SegmentControl fullWidth defaultIndex={0} onselect={(id) => (selectedRemoteType = id)}>
 				<Segment id="url">URL</Segment>
-				<Segment id="ssh">SSH</Segment>
+				<Segment disabled tooltipText="Coming Soon" id="ssh">SSH</Segment>
 			</SegmentControl>
 		</fieldset>
 	</div>
 	<div class="clone__field repositoryUrl">
 		<TextBox
 			bind:value={repositoryUrl}
-			placeholder={remoteType === 'url' ? HTTP_URL_PLACEHOLDER : SSH_URL_PLACEHOLDER}
-			helperText={remoteType === 'url' ? 'Clone using the web URL' : 'Clone using the SSH URL'}
+			placeholder={selectedRemoteType === RemoteType.url ? 'https://' : 'ssh://'}
+			helperText={selectedRemoteType === RemoteType.url
+				? 'Clone using the web URL'
+				: 'Clone using the SSH URL'}
 		/>
 	</div>
 	<div class="clone__field repositoryTargetPath">
