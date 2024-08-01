@@ -1,11 +1,16 @@
 <script lang="ts">
 	import WelcomeAction from './WelcomeAction.svelte';
-	import signinSvg from '$lib/assets/no-projects/signin.svg?raw';
+	import signinSvg from '$lib/assets/signin.svg?raw';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 
-	export let prompt: string =
-		'Enable GitButler features like automatic branch and commit message generation.';
+	const {
+		dimMessage,
+		prompt = 'Enable GitButler features like automatic branch and commit message generation.'
+	}: {
+		dimMessage?: boolean;
+		prompt?: string;
+	} = $props();
 
 	const userService = getContext(UserService);
 	const loading = userService.loading;
@@ -16,13 +21,17 @@
 	<WelcomeAction
 		title="Log in or Sign up"
 		loading={$loading}
-		on:mousedown={async () => {
+		onclick={async () => {
 			await userService.login();
 		}}
+		rowReverse
+		{dimMessage}
 	>
-		<svelte:fragment slot="icon">
+		{#snippet icon()}
 			{@html signinSvg}
-		</svelte:fragment>
-		<svelte:fragment slot="message">{prompt}</svelte:fragment>
+		{/snippet}
+		{#snippet message()}
+			{prompt}
+		{/snippet}
 	</WelcomeAction>
 {/if}

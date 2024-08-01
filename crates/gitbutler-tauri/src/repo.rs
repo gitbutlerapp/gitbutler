@@ -1,7 +1,10 @@
 pub mod commands {
+    use anyhow::{Context, Result};
+    use git2::{self};
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use gitbutler_repo::RepoCommands;
+    use std::path::Path;
     use tauri::State;
     use tracing::instrument;
 
@@ -38,5 +41,11 @@ pub mod commands {
     ) -> Result<bool, Error> {
         let project = projects.get(id)?;
         project.check_signing_settings().map_err(Into::into)
+    }
+
+    #[tauri::command(async)]
+    pub fn git_clone_repository(repository_url: &str, target_dir: &Path) -> Result<(), Error> {
+        git2::Repository::clone(repository_url, target_dir).context("Cloning failed")?;
+        Ok(())
     }
 }

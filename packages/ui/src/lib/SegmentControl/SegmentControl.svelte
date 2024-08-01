@@ -5,18 +5,18 @@
 	import type { Snippet } from 'svelte';
 
 	interface SegmentProps {
-		selectedIndex: number;
+		defaultIndex: number;
 		fullWidth?: boolean;
 		onselect?: (id: string) => void;
 		children: Snippet;
 	}
 
-	const { selectedIndex, fullWidth, onselect, children }: SegmentProps = $props();
+	const { defaultIndex, fullWidth, onselect, children }: SegmentProps = $props();
 
 	let indexesIterator = -1;
 	let segments: SegmentItem[] = [];
 
-	let selectedSegmentIndex = writable(selectedIndex);
+	let selectedSegmentIndex = writable(defaultIndex);
 
 	const context: SegmentContext = {
 		selectedSegmentIndex,

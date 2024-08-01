@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	export let margin: number | undefined = 16;
-	export let noLine = false;
+
+	interface SpacerProps {
+		margin?: number;
+		noLine?: boolean;
+		dotted?: boolean;
+	}
+
+	const { margin = 16, noLine = false, dotted = false }: SpacerProps = $props();
 
 	function getMargins() {
 		if (margin === undefined) {
@@ -12,7 +18,12 @@
 	}
 </script>
 
-<div class="divider" style={getMargins()} class:line={!noLine}></div>
+<div
+	class="divider"
+	style={getMargins()}
+	class:line={!noLine && !dotted}
+	class:dotted={!noLine && dotted}
+></div>
 
 <style lang="postcss">
 	.divider {
@@ -22,6 +33,16 @@
 	}
 
 	.divider.line {
-		border-bottom: 1px solid var(--clr-scale-ntrl-0);
+		background-color: var(--clr-scale-ntrl-0);
+	}
+
+	.divider.dotted {
+		background: repeating-linear-gradient(
+			90deg,
+			transparent,
+			transparent 2px,
+			var(--clr-scale-ntrl-0) 2px,
+			var(--clr-scale-ntrl-0) 4px
+		);
 	}
 </style>
