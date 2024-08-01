@@ -14,6 +14,7 @@
 		"dev:internal-tauri": "turbo watch --filter @gitbutler/desktop dev",
 		"test": "turbo run test --no-daemon",
 		"test:watch": "pnpm --filter @gitbutler/desktop run test:watch",
+		"test:wdio": "pnpm --filter @gitbutler/desktop run test:wdio",
 		"build": "turbo run build --no-daemon",
 		"build:desktop": "turbo run --filter @gitbutler/desktop build --no-daemon",
 		"check": "turbo run check --no-daemon",

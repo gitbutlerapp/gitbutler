@@ -1,5 +1,6 @@
-name: Playwright Tests
+name: Run E2E Tests
 on:
+
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
@@ -9,34 +10,49 @@ on:
     branches: [master]
 
 jobs:
-  playwright:
-    timeout-minutes: 60
+  test:
+    name: WebDriverIO Test Runner
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/init-env-node
-      - name: Get installed Playwright version
-        id: playwright-version
-        run: echo "PLAYWRIGHT_VERSION=$(node -e "console.log(require('./apps/desktop/package.json').devDependencies['@playwright/test'].substring(1))")" >> $GITHUB_ENV
-      - name: Cache playwright binaries
-        uses: actions/cache@v4
-        id: playwright-cache
+      - uses: actions/checkout@v2
+      - name: Tauri dependencies
+        run: |
+          sudo apt update && sudo apt install -y \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            libwebkit2gtk-4.0-dev \
+            webkit2gtk-driver \
+            xvfb
+      - name: Rust stable
+        uses: actions-rs/toolchain@v1
         with:
-          path: |
-            ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}
-      - name: Install Playwright Browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm dlx "playwright@$PLAYWRIGHT_VERSION" install --with-deps chromium
-      - name: Run Tests
-        run: cd apps/desktop && pnpm test:e2e
-        env:
-          CI: true
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
+          toolchain: stable
+      - name: Cargo test
+        uses: actions-rs/cargo@v1
         with:
-          name: playwright-report
-          path: apps/desktop/test-results/**/trace.zip
-          if-no-files-found: ignore
-          retention-days: 30
+          command: test
+      - name: Cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: latest
+      - uses: pnpm/action-setup@v4
+        name: Setup pnpm
+      - name: Install dependencies
+        shell: bash
+        run: pnpm install
+      - name: Install tauri-driver
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: tauri-driver
+
+      # Run it through `xvfb-run` to have a fake display server which allows our
+      # application to run headless without any changes to the code
+      - name: WebdriverIO
+        run: xvfb-run pnpm test:wdio
+        working-directory: webdriver/webdriverio
