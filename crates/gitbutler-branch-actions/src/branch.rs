@@ -4,7 +4,7 @@ use std::{
     vec,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use bstr::{BString, ByteSlice};
 use gitbutler_branch::{Branch as GitButlerBranch, BranchId, ReferenceExt, Target};
 use gitbutler_command_context::CommandContext;
@@ -131,10 +131,14 @@ fn branch_group_to_branch(
     local_author: &git2::Signature,
     target: &Target,
 ) -> Result<Option<BranchListing>> {
-    let virtual_branch = group_branches.iter().find_map(|branch| match branch {
+    let mut vbranches = group_branches.iter().filter_map(|branch| match branch {
         GroupBranch::Virtual(vb) => Some(vb),
         _ => None,
     });
+    let virtual_branch = vbranches.next();
+    if vbranches.next().is_some() {
+        bail!("Found more than one virtual branch with the same identity - this shouldn't be possible")
+    }
     let remote_branches: Vec<&git2::Branch> = group_branches
         .iter()
         .filter_map(|branch| match branch {
@@ -206,7 +210,7 @@ fn branch_group_to_branch(
             commits.push(commit);
         }
         // If there are no commits (i.e. virtual branch only) it is considered the users own
-        let own_branch = commits.is_empty()
+        let own_branch = (virtual_branch.is_some() && commits.is_empty())
             || commits.iter().any(|commit| {
                 let commit_author = commit.author();
                 local_author.name_bytes() == commit_author.name_bytes()

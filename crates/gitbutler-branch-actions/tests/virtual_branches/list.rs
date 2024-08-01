@@ -1,5 +1,5 @@
 use anyhow::Result;
-use gitbutler_branch_actions::{list_branches, BranchListingFilter};
+use gitbutler_branch_actions::BranchListingFilter;
 
 #[test]
 fn one_vbranch_on_integration() -> Result<()> {
@@ -94,7 +94,7 @@ fn one_feature_branch_and_one_vbranch_on_integration_one_commit() -> Result<()> 
     assert_eq!(
         list.len(),
         1,
-        "it finds our single virtual branch despit it having the same 'identity' as the target branch: 'main'"
+        "it finds our single virtual branch despite it having the same 'identity' as the target branch: 'main'"
     );
     assert_equal(
         &list[0],
@@ -114,20 +114,60 @@ fn one_feature_branch_and_one_vbranch_on_integration_one_commit() -> Result<()> 
 }
 
 #[test]
-#[ignore = "TBD"]
-fn push_to_two_remotes() -> Result<()> {
+fn one_branch_on_integration_multiple_remotes() -> Result<()> {
+    init_env();
+    let ctx = project_ctx("one-vbranch-on-integration-two-remotes")?;
+    let list = list_branches(&ctx, None)?;
+    assert_eq!(list.len(), 1, "a single virtual branch");
+
+    assert_equal(
+        &list[0],
+        ExpectedBranchListing {
+            identity: "main",
+            remotes: vec!["other-remote", "origin"],
+            virtual_branch_given_name: Some("main"),
+            virtual_branch_in_workspace: true,
+            ..Default::default()
+        },
+        "multiple remotes are detected",
+    );
     Ok(())
 }
 
 #[test]
-#[ignore = "TBD"]
-fn own_branch_without_virtual_branch() -> Result<()> {
+fn own_branch_one_commit_other_branch_without_commit_without_virtual_branch() -> Result<()> {
+    init_env();
+    let ctx = project_ctx("one-branch-one-commit-other-branch-without-commit")?;
+    let list = list_branches(&ctx, None)?;
+    assert_eq!(list.len(), 2, "two local branches");
+
+    assert_equal(
+        &list[0],
+        ExpectedBranchListing {
+            identity: "feature",
+            number_of_commits: 1,
+            own_branch: true,
+            ..Default::default()
+        },
+        "a local ref can be owned if there are commits",
+    );
+    assert_equal(
+        &list[1],
+        ExpectedBranchListing {
+            identity: "other-feature",
+            number_of_commits: 0,
+            own_branch: false,
+            ..Default::default()
+        },
+        "a local ref is not owned without commits",
+    );
     Ok(())
 }
 
 mod util {
+    use anyhow::Result;
     use bstr::BString;
-    use gitbutler_branch_actions::{Author, BranchListing};
+    use gitbutler_branch_actions::{Author, BranchListing, BranchListingFilter};
     use gitbutler_command_context::CommandContext;
 
     /// A flattened and simplified mirror of `BranchListing` for comparing the actual and expected data.
@@ -156,7 +196,7 @@ mod util {
         mut expected: ExpectedBranchListing,
         msg: &str,
     ) {
-        assert_eq!(*name, expected.identity, "{msg}");
+        assert_eq!(*name, expected.identity, "identity: {msg}");
         assert_eq!(
             *remotes,
             expected
@@ -164,23 +204,26 @@ mod util {
                 .into_iter()
                 .map(BString::from)
                 .collect::<Vec<_>>(),
-            "{msg}"
+            "remotes: {msg}"
         );
         assert_eq!(
             virtual_branch.as_ref().map(|b| b.given_name.as_str()),
             expected.virtual_branch_given_name,
-            "{msg}"
+            "virtual-branch-name: {msg}"
         );
         assert_eq!(
             virtual_branch.as_ref().map_or(false, |b| b.in_workspace),
             expected.virtual_branch_in_workspace,
-            "{msg}"
+            "virtual-branch-in-workspace: {msg}"
         );
-        assert_eq!(*number_of_commits, expected.number_of_commits, "{msg}");
+        assert_eq!(
+            *number_of_commits, expected.number_of_commits,
+            "number-of-commits: {msg}"
+        );
         if expected.number_of_commits > 0 && expected.authors.is_empty() {
             expected.authors = vec![default_author()];
         }
-        assert_eq!(*authors, expected.authors, "{msg}");
+        assert_eq!(*authors, expected.authors, "authors: {msg}");
         if expected.virtual_branch_given_name.is_some() {
             expected.own_branch = true;
         }
@@ -211,8 +254,17 @@ mod util {
         }
     }
 
-    pub fn project_ctx(name: &str) -> anyhow::Result<CommandContext> {
+    pub fn project_ctx(name: &str) -> Result<CommandContext> {
         gitbutler_testsupport::read_only::fixture("for-listing.sh", name)
     }
+
+    pub fn list_branches(
+        ctx: &CommandContext,
+        filter: Option<BranchListingFilter>,
+    ) -> Result<Vec<BranchListing>> {
+        let mut branches = gitbutler_branch_actions::list_branches(ctx, filter)?;
+        branches.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(branches)
+    }
 }
-use util::{assert_equal, init_env, project_ctx, ExpectedBranchListing};
+use util::{assert_equal, init_env, list_branches, project_ctx, ExpectedBranchListing};
