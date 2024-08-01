@@ -247,8 +247,8 @@
 			</svelte:fragment>
 		</SetupFeature>
 	</div>
-	<div class="floating-buttons">
-		<BackButton>Back</BackButton>
+	<div class="action-buttons">
+		<BackButton>Cancel</BackButton>
 		<Button
 			style="pop"
 			kind="solid"
@@ -300,7 +300,7 @@
 		gap: 12px;
 	}
 
-	.floating-buttons {
+	.action-buttons {
 		display: flex;
 		justify-content: flex-end;
 		width: 100%;

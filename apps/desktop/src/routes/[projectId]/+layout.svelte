@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { listen } from '$lib/backend/ipc';
 	import { Project } from '$lib/backend/projects';
+	import FileMenuAction from '$lib/barmenuActions/FileMenuAction.svelte';
+	import ProjectSettingsMenuAction from '$lib/barmenuActions/ProjectSettingsMenuAction.svelte';
 	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { BranchListingService } from '$lib/branches/branchListing';
@@ -11,7 +12,6 @@
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
-	import ProjectSettingsMenuAction from '$lib/components/ProjectSettingsMenuAction.svelte';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 	import { DefaultGitHostFactory } from '$lib/gitHost/gitHostFactory';
 	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
@@ -25,13 +25,11 @@
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { debounce } from '$lib/utils/debounce';
-	import * as events from '$lib/utils/events';
-	import { createKeybind } from '$lib/utils/hotkeys';
-	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import { onDestroy, onMount, setContext, type Snippet } from 'svelte';
+	import { onDestroy, setContext, type Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
+	import { goto } from '$app/navigation';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -128,7 +126,11 @@
 
 	// Once on load and every time the project id changes
 	$effect(() => {
-		if (projectId) setupFetchInterval();
+		if (projectId) {
+			setupFetchInterval();
+		} else {
+			goto('/onboarding');
+		}
 	});
 
 	function setupFetchInterval() {
@@ -144,43 +146,20 @@
 		if (intervalId) clearInterval(intervalId);
 	}
 
-	onMount(() => {
-		const unsubscribe = listen<string>('menu://project/history/clicked', () => {
-			$showHistoryView = !$showHistoryView;
-		});
-
-		return async () => {
-			unsubscribe();
-		};
-	});
-
-	const handleKeyDown = createKeybind({
-		'$mod+Shift+H': () => {
-			$showHistoryView = !$showHistoryView;
-		}
-	});
-
-	onMount(() => {
-		return unsubscribe(
-			events.on('openHistory', () => {
-				$showHistoryView = true;
-			})
-		);
-	});
-
 	onDestroy(() => clearFetchInterval());
 </script>
 
-<svelte:window on:keydown={handleKeyDown} />
-
 <!-- forces components to be recreated when projectId changes -->
 {#key projectId}
-	<ProjectSettingsMenuAction />
+	<ProjectSettingsMenuAction
+		showHistory={$showHistoryView}
+		onHistoryShow={(show) => ($showHistoryView = show)}
+	/>
+	<FileMenuAction />
 
 	{#if !project}
 		<p>Project not found!</p>
 	{:else if $baseError instanceof NoDefaultTarget}
-		<!-- Note that this requires the redirect above to work -->
 		<NoBaseBranch />
 	{:else if $baseError}
 		<ProblemLoadingRepo error={$baseError} />

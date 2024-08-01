@@ -61,3 +61,24 @@ git clone remote a-vbranch-named-like-target-branch-short-name
   tick
   $CLI branch commit main -m "virtual branch change in index and worktree"
 )
+
+git clone remote one-vbranch-on-integration-two-remotes
+(cd one-vbranch-on-integration-two-remotes
+  $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name @{u})"
+  $CLI branch create main
+
+  git remote add other-remote ../remote
+  git fetch other-remote
+)
+
+git clone remote one-branch-one-commit-other-branch-without-commit
+(cd one-branch-one-commit-other-branch-without-commit
+  local_tracking_ref="$(git rev-parse --symbolic-full-name @{u})";
+
+  git checkout -b feature main
+  echo change >> file
+  git add . && git commit -m "change standard git feature branch"
+
+  git checkout -b other-feature main
+  $CLI project add --switch-to-integration "$local_tracking_ref"
+)

@@ -32,14 +32,14 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 
 	setOpts(optsOrString);
 
-	function onMouseOver() {
+	function onPointerEnter() {
 		// If tooltip is displayed we clear hide timeout
 		if (tooltip && timeoutId) clearTimeout(timeoutId);
 		// If no tooltip and no timeout id we set a show timeout
 		else if (!tooltip && !timeoutId) timeoutId = setTimeout(() => show(), delay);
 	}
 
-	function onMouseLeave() {
+	function onPointerLeave() {
 		// If tooltip shown when mouse out then we hide after delay
 		if (tooltip) hide();
 		// But if we mouse out before tooltip is shown, we cancel the show timer
@@ -102,8 +102,8 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 		tooltip.style.left = `${leftPos}px`;
 	}
 
-	node.addEventListener('mouseover', onMouseOver);
-	node.addEventListener('mouseleave', onMouseLeave);
+	node.addEventListener('pointerenter', onPointerEnter);
+	node.addEventListener('pointerleave', onPointerLeave);
 
 	return {
 		update(opts: ToolTipOptions | string | undefined) {
@@ -112,8 +112,8 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 		destroy() {
 			tooltip?.remove();
 			timeoutId && clearTimeout(timeoutId);
-			node.removeEventListener('mouseover', onMouseOver);
-			node.removeEventListener('mouseleave', onMouseLeave);
+			node.removeEventListener('pointerenter', onPointerEnter);
+			node.removeEventListener('pointerleave', onPointerLeave);
 		}
 	};
 }

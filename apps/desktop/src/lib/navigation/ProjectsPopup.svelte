@@ -13,6 +13,7 @@
 		label: string;
 		selected?: boolean;
 		icon?: string;
+		loading?: boolean;
 		onclick: (event?: any) => void;
 	}
 
@@ -29,7 +30,9 @@
 	let inputBoundingRect: DOMRect | undefined = $state();
 	let optionsEl: HTMLDivElement | undefined = $state();
 	let hidden = $state(true);
-	let loading = $state(false);
+
+	let newProjectLoading = $state(false);
+	let cloneProjectLoading = $state(false);
 
 	function getInputBoundingRect() {
 		if (target) {
@@ -72,7 +75,7 @@
 		{#if props.icon || props.selected}
 			<div class="icon">
 				{#if props.icon}
-					<Icon name={loading ? 'spinner' : props.icon as keyof typeof iconsJson} />
+					<Icon name={props.loading ? 'spinner' : props.icon as keyof typeof iconsJson} />
 				{:else}
 					<Icon name="tick" />
 				{/if}
@@ -127,14 +130,29 @@
 			{/if}
 			<div class="popup__actions">
 				{@render itemSnippet({
-					label: 'Add new project',
+					label: 'Add local repository',
 					icon: 'plus',
+					loading: newProjectLoading,
 					onclick: async () => {
-						loading = true;
+						newProjectLoading = true;
 						try {
 							await projectService.addProject();
 						} finally {
-							loading = false;
+							newProjectLoading = false;
+							hide();
+						}
+					}
+				})}
+				{@render itemSnippet({
+					label: 'Clone repository',
+					icon: 'clone',
+					loading: cloneProjectLoading,
+					onclick: async () => {
+						cloneProjectLoading = true;
+						try {
+							goto('/onboarding/clone');
+						} finally {
+							cloneProjectLoading = false;
 							hide();
 						}
 					}

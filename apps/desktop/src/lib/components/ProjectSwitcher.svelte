@@ -19,8 +19,10 @@
 		}))
 	);
 
-	let loading = $state(false);
 	let selectedProjectId: string | undefined = $state(project ? project.id : undefined);
+
+	let newProjectLoading = $state(false);
+	let cloneProjectLoading = $state(false);
 </script>
 
 <div class="project-switcher">
@@ -43,17 +45,31 @@
 		<OptionsGroup>
 			<SelectItem
 				icon="plus"
-				{loading}
+				loading={newProjectLoading}
 				on:click={async () => {
-					loading = true;
+					newProjectLoading = true;
 					try {
 						await projectService.addProject();
 					} finally {
-						loading = false;
+						newProjectLoading = false;
 					}
 				}}
 			>
-				Add new project
+				Add local repository
+			</SelectItem>
+			<SelectItem
+				icon="clone"
+				loading={cloneProjectLoading}
+				on:click={async () => {
+					cloneProjectLoading = true;
+					try {
+						goto('/onboarding/clone');
+					} finally {
+						cloneProjectLoading = false;
+					}
+				}}
+			>
+				Clone repository
 			</SelectItem>
 		</OptionsGroup>
 	</Select>

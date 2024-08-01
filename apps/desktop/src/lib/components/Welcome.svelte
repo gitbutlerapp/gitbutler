@@ -1,14 +1,17 @@
 <script lang="ts">
 	import WelcomeAction from './WelcomeAction.svelte';
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
-	import newProjectSvg from '$lib/assets/no-projects/new-project.svg?raw';
+	import cloneRepoSvg from '$lib/assets/welcome/clone-repo.svg?raw';
+	import newProjectSvg from '$lib/assets/welcome/new-local-project.svg?raw';
 	import { ProjectService } from '$lib/backend/projects';
 	import IconLink from '$lib/shared/IconLink.svelte';
 	import { getContext } from '$lib/utils/context';
+	import { goto } from '$app/navigation';
 
 	const projectService = getContext(ProjectService);
 
 	let newProjectLoading = false;
+	let cloneProjectLoading = false;
 
 	async function onNewProject() {
 		newProjectLoading = true;
@@ -18,19 +21,43 @@
 			newProjectLoading = false;
 		}
 	}
+
+	async function onCloneProject() {
+		goto('/onboarding/clone');
+	}
 </script>
 
 <div class="welcome">
 	<h1 class="welcome-title text-serif-40">Welcome to GitButler</h1>
 	<div class="welcome__actions">
-		<WelcomeAction title="Add new project" loading={newProjectLoading} on:mousedown={onNewProject}>
-			<svelte:fragment slot="icon">
-				{@html newProjectSvg}
-			</svelte:fragment>
-			<svelte:fragment slot="message">
-				Verify valid Git repository in selected folder before importing.
-			</svelte:fragment>
-		</WelcomeAction>
+		<div class="welcome__actions--repo">
+			<WelcomeAction
+				title="Add local project"
+				loading={newProjectLoading}
+				onclick={onNewProject}
+				dimMessage
+			>
+				{#snippet icon()}
+					{@html newProjectSvg}
+				{/snippet}
+				{#snippet message()}
+					Should be a valid git repository
+				{/snippet}
+			</WelcomeAction>
+			<WelcomeAction
+				title="Clone repository"
+				loading={cloneProjectLoading}
+				onclick={onCloneProject}
+				dimMessage
+			>
+				{#snippet icon()}
+					{@html cloneRepoSvg}
+				{/snippet}
+				{#snippet message()}
+					Clone a repo using a URL
+				{/snippet}
+			</WelcomeAction>
+		</div>
 		<!-- Using instance of user here to not hide after login -->
 		<WelcomeSigninAction />
 	</div>
@@ -56,6 +83,7 @@
 				<IconLink icon="discord" href="https://discord.gg/MmFkmaJ42D">Discord</IconLink>
 				<IconLink icon="x" href="https://twitter.com/gitbutler">X</IconLink>
 				<IconLink icon="instagram" href="https://www.instagram.com/gitbutler/">Instagram</IconLink>
+				<IconLink icon="youtube" href="https://www.youtube.com/@gitbutlerapp">YouTube</IconLink>
 			</div>
 		</div>
 	</div>
@@ -78,11 +106,16 @@
 		margin-top: 32px;
 	}
 
+	.welcome__actions--repo {
+		display: flex;
+		gap: 8px;
+	}
+
 	.links {
 		display: flex;
 		gap: 56px;
 		padding: 28px;
-		background: var(--clr-bg-2);
+		background: var(--clr-bg-1-muted);
 		border-radius: var(--radius-m);
 		margin-top: 20px;
 	}
@@ -102,11 +135,13 @@
 	}
 
 	.community-links {
-		display: flex;
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
 		column-gap: 12px;
 		row-gap: 4px;
 		max-width: 192px;
 		margin-left: -6px;
 	}
+
+	/* SMALL ILLUSTRATIONS */
 </style>
