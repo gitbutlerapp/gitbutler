@@ -20,7 +20,7 @@
 	const projectService = getContext(ProjectService);
 
 	enum RemoteType {
-		url = 'url',
+		http = 'http',
 		ssh = 'ssh'
 	}
 
@@ -29,7 +29,7 @@
 	let completed = $state(false);
 	let repositoryUrl = $state('');
 	let targetDirPath = $state('');
-	let selectedRemoteType = $state<keyof typeof RemoteType>(RemoteType.url);
+	let selectedRemoteType = $state<keyof typeof RemoteType>(RemoteType.http);
 	let savedTargetDirPath = persisted('', 'clone_targetDirPath');
 
 	onMount(async () => {
@@ -66,13 +66,16 @@
 			return;
 		}
 
-		const { name, protocol } = parseRemoteUrl(repositoryUrl);
-
-		const targetDir = await join(targetDirPath, name);
-
 		try {
+			const { name, protocol } = parseRemoteUrl(repositoryUrl);
+
+			const targetDir = await join(targetDirPath, name);
+
 			// TODO: Remove once 'ssh' clone support is implemented
 			if (protocol !== 'https') {
+				errors.push({
+					label: 'Only HTTP Remote URLs allowed'
+				});
 				return;
 			}
 
@@ -111,7 +114,7 @@
 					selectedRemoteType = id as keyof typeof RemoteType;
 				}}
 			>
-				<Segment id="url">URL</Segment>
+				<Segment id="http">HTTP</Segment>
 				<Segment disabled tooltipText="Coming Soon" id="ssh">SSH</Segment>
 			</SegmentControl>
 		</fieldset>
@@ -119,8 +122,8 @@
 	<div class="clone__field repositoryUrl">
 		<TextBox
 			bind:value={repositoryUrl}
-			placeholder={selectedRemoteType === RemoteType.url ? 'https://' : 'ssh://'}
-			helperText={selectedRemoteType === RemoteType.url
+			placeholder={selectedRemoteType === RemoteType.http ? 'https://' : 'ssh://'}
+			helperText={selectedRemoteType === RemoteType.http
 				? 'Clone using the web URL'
 				: 'Clone using the SSH URL'}
 		/>
