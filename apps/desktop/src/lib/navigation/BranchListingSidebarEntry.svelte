@@ -20,10 +20,10 @@
 
 	const { branchListing }: Props = $props();
 
-	const gitHostListingService = getGitHostListingService();
 	const branchListingService = getContext(BranchListingService);
 	const project = getContext(Project);
 
+	const gitHostListingService = getGitHostListingService();
 	const prs = $derived($gitHostListingService?.prs);
 	const pr = $derived($prs?.find((pr) => pr.sourceBranch === branchListing.name));
 

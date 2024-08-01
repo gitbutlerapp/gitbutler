@@ -1,22 +1,21 @@
 <script lang="ts">
-	// import BranchItemNew from './BranchItemNew.svelte';
 	import BranchesHeaderNew from './BranchesHeaderNew.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
-	import { BranchListing, BranchListingService } from '$lib/branches/branchListing';
+	import { BranchListingService } from '$lib/branches/branchListing';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import SmartSidebarEntry from '$lib/navigation/BranchListingSidebarEntry.svelte';
+	import PullRequestSidebarEntry from '$lib/navigation/PullRequestSidebarEntry.svelte';
 	import { getEntryUpdatedDate, type SidebarEntrySubject } from '$lib/navigation/types';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
-	import PullRequestSidebarEntry from '$lib/navigation/PullRequestSidebarEntry.svelte';
+	import Segment from '@gitbutler/ui/SegmentControl/Segment.svelte';
+	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
 
-	const branchListingService = getContext(BranchListingService);
 	const gitHostListingService = getGitHostListingService();
 	const pullRequestsStore = $derived($gitHostListingService?.prs);
 
-	const branchesStore = branchListingService.branchListings;
-	$inspect($branchesStore);
-	const branchListings = $derived($branchesStore || []);
+	const branchListingService = getContext(BranchListingService);
+	const branchListings = branchListingService.branchListings;
 
 	let sidebarEntries = $state<SidebarEntrySubject[]>([]);
 	let searchedBranches = $derived(sidebarEntries);
@@ -25,7 +24,7 @@
 		const pullRequests = $pullRequestsStore || [];
 
 		const branchListingNames = new Set<string>(
-			branchListings.map((branchListing) => branchListing.name)
+			$branchListings.map((branchListing) => branchListing.name)
 		);
 
 		let output: SidebarEntrySubject[] = [];
@@ -37,7 +36,7 @@
 		);
 
 		output.push(
-			...branchListings.map(
+			...$branchListings.map(
 				(branchListing): SidebarEntrySubject => ({ type: 'branchListing', subject: branchListing })
 			)
 		);
@@ -108,23 +107,16 @@
 
 <div class="branches">
 	<BranchesHeaderNew
-		totalBranchCount={branchListings.length}
+		totalBranchCount={$branchListings.length}
 		filteredBranchCount={searchedBranches?.length}
 		onSearch={(value) => (searchValue = value)}
-	>
-		<!-- {#snippet filterButton()}
-			<FilterButton
-				{filtersActive}
-				{includePrs}
-				{includeRemote}
-				{hideBots}
-				{hideInactive}
-				showPrCheckbox={!!$gitHost}
-				on:action
-			/>
-		{/snippet} -->
-	</BranchesHeaderNew>
-	{#if branchListings.length > 0}
+	></BranchesHeaderNew>
+	<SegmentControl fullWidth selectedIndex={0}>
+		<Segment id="all">All</Segment>
+		<Segment id="mine">PRs</Segment>
+		<Segment id="active">Mine</Segment>
+	</SegmentControl>
+	{#if $branchListings.length > 0}
 		{#if searchedBranches.length > 0}
 			<ScrollableContainer
 				bind:viewport

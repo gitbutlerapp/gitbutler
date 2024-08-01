@@ -1,7 +1,9 @@
+// Class transformers will bust a gut if this isn't imported first
+import 'reflect-metadata';
+
 import { invoke } from '$lib/backend/ipc';
 import { persisted } from '$lib/persisted/persisted';
-import { Transform, Type } from 'class-transformer';
-import { plainToInstance } from 'class-transformer';
+import { Transform, Type, plainToInstance } from 'class-transformer';
 import { derived, writable, type Readable, type Writable } from 'svelte/store';
 
 const FILTER_STORAGE_KEY = 'branchListingService-selectedFilter';
@@ -20,9 +22,10 @@ export class BranchListingService {
 			([_, selectedFilter], set) => {
 				// You're not supposed to have an async return type, so we can't use an async function
 				this.list(selectedFilter).then((listedValues) => {
-					set(listedValues);
+					set(listedValues || []);
 				});
-			}
+			},
+			[] as BranchListing[]
 		);
 	}
 
