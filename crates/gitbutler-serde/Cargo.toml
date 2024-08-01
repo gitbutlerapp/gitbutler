@@ -8,4 +8,4 @@ publish = false
 [dependencies]
 git2.workspace = true
 serde = { workspace = true, features = ["std"]}
-bstr = "1.9.1"
+bstr = "1.10.0"

@@ -58,7 +58,7 @@ windows = { version = "0.58.0", features = [
 tokio = { workspace = true, optional = true, features = ["sync"] }
 
 [dev-dependencies]
-assert_cmd = "2.0.14"
+assert_cmd = "2.0.15"
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [lints.clippy]
