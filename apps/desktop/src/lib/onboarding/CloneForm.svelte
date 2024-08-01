@@ -71,10 +71,11 @@
 		const targetDir = await join(targetDirPath, name);
 
 		try {
-			// NOTE: Temporary until 'ssh' support is implemented
+			// TODO: Remove once 'ssh' clone support is implemented
 			if (protocol !== 'https') {
 				return;
 			}
+
 			await invoke('git_clone_repository', {
 				repositoryUrl,
 				targetDir
@@ -103,7 +104,13 @@
 <Section>
 	<div class="clone__remoteType">
 		<fieldset name="remoteType" class="remoteType-group">
-			<SegmentControl fullWidth defaultIndex={0} onselect={(id) => (selectedRemoteType = id)}>
+			<SegmentControl
+				fullWidth
+				defaultIndex={0}
+				onselect={(id) => {
+					selectedRemoteType = id as keyof typeof RemoteType;
+				}}
+			>
 				<Segment id="url">URL</Segment>
 				<Segment disabled tooltipText="Coming Soon" id="ssh">SSH</Segment>
 			</SegmentControl>
