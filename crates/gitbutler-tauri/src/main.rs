@@ -146,6 +146,7 @@ fn main() {
                     repo::commands::git_get_local_config,
                     repo::commands::git_set_local_config,
                     repo::commands::check_signing_settings,
+                    repo::commands::git_clone_repository,
                     virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,
                     virtual_branches::commands::commit_virtual_branch,

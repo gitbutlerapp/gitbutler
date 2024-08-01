@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { invoke } from '$lib/backend/ipc';
 	import { ProjectService } from '$lib/backend/projects';
 	import { persisted } from '$lib/persisted/persisted';
 	import Section from '$lib/settings/Section.svelte';
@@ -69,8 +70,10 @@
 
 		const { name } = parseRemoteUrl(repositoryUrl);
 		try {
-			// TODO: Get rust folks to implement a 'clone' fn to invoke :)
-			await new Command('git', ['clone', repositoryUrl, `${targetDirPath}/${name}`]).execute();
+			await invoke('git_clone_repository', {
+				repositoryUrl,
+				targetDir: `${targetDirPath}/${name}`
+			});
 
 			await projectService.addProject(`${targetDirPath}/${name}`);
 		} catch (e) {
