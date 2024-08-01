@@ -13,7 +13,6 @@
 	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
 	import { open } from '@tauri-apps/api/dialog';
 	import { documentDir } from '@tauri-apps/api/path';
-	import { Command } from '@tauri-apps/api/shell';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
@@ -69,13 +68,17 @@
 		}
 
 		const { name } = parseRemoteUrl(repositoryUrl);
+
+		// TODO: Ensure this works on all platforms
+		const targetDir = `${targetDirPath}/${name}`;
+
 		try {
 			await invoke('git_clone_repository', {
 				repositoryUrl,
-				targetDir: `${targetDirPath}/${name}`
+				targetDir
 			});
 
-			await projectService.addProject(`${targetDirPath}/${name}`);
+			await projectService.addProject(targetDir);
 		} catch (e) {
 			errors.push({
 				label: String(e)
