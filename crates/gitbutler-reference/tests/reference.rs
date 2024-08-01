@@ -37,6 +37,15 @@ mod normalize_branch_name {
             normalize_branch_name("#[test]").unwrap_err().to_string(),
             "Could not turn \"#[test]\" into a valid reference name"
         );
+
+        let input = r#"Revert "GitButler Integration Commit"
+
+This reverts commit d6efa5fd96d36da445d5d1345b84163f05f5f229."#;
+        let err = normalize_branch_name(input).unwrap_err().to_string();
+        assert_eq!(
+            err,
+            "Could not turn \"Revert-\\\"GitButler-Integration-Commit\\\"-This-reverts-commit-d6efa5fd96d36da445d5d1345b84163f05f5f229.\" into a valid reference name"
+        );
     }
 
     #[test]
