@@ -119,6 +119,17 @@
 	onMount(async () => {
 		aiConfigurationValid = await aiService.validateConfiguration($user?.access_token);
 	});
+
+	function generateAiTooltip() {
+		if ($aiGenEnabled && aiConfigurationValid) {
+			return '';
+		} else if (!aiConfigurationValid && $aiGenEnabled) {
+			return 'You must be logged in or have provided your own API key and have summary generation enabled to use this feature';
+		} else if (!$aiGenEnabled && aiConfigurationValid) {
+			return 'AI Commit and Branch Name generation disabled';
+		}
+		return '';
+	}
 </script>
 
 {#if isExpanded}
@@ -194,9 +205,7 @@
 		<div
 			class="commit-box__texarea-actions"
 			class:commit-box-actions_expanded={isExpanded}
-			use:tooltip={$aiGenEnabled && aiConfigurationValid
-				? ''
-				: 'You must be logged in or have provided your own API key and have summary generation enabled to use this feature'}
+			use:tooltip={generateAiTooltip()}
 		>
 			<DropDownButton
 				style="ghost"
