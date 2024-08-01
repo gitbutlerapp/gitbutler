@@ -14,6 +14,7 @@
 	import { open } from '@tauri-apps/api/dialog';
 	import { documentDir } from '@tauri-apps/api/path';
 	import { join } from '@tauri-apps/api/path';
+	import { posthog } from 'posthog-js';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
@@ -85,6 +86,7 @@
 				targetDir
 			});
 
+			posthog.capture('Repository Cloned', { protocol });
 			await projectService.addProject(targetDir);
 		} catch (e) {
 			errors.push({
