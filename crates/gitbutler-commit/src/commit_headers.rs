@@ -27,6 +27,9 @@ impl Default for CommitHeadersV2 {
     fn default() -> Self {
         CommitHeadersV2 {
             // Change ID using base16 encoding
+            // NOTE(ST): Ideally, this could be a computed hash based on the patch applied, similar
+            //           to what would happen during a rebase (if that is even the intention).
+            //           That way, they would be stable, so tests could have reproducible hashes as well.
             change_id: Uuid::new_v4().to_string(),
         }
     }
