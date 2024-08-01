@@ -11,7 +11,7 @@ on:
 
 jobs:
   test:
-    name: Run webdriver-io tests
+    name: Run WebdriverIO Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,10 +34,8 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: pnpm install
-      - name: Build SvelteKit
-        run: pnpm build:desktop
-      - name: Cargo build
-        run: pnpm exec tauri build --config crates/gitbutler-tauri/tauri.conf.json
+      - name: Build Tauri
+        run: pnpm build:test
       - name: Install tauri-driver
         run: cargo install tauri-driver
 

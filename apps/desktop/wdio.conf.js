@@ -1,9 +1,8 @@
 import { spawn } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-// import { spawn, spawnSync } from 'node:child_process';
+// import { browser } from "@wdio/globals";
 
-// keep track of the `tauri-driver` child process
 let tauriDriver;
 
 export const config = {
@@ -13,6 +12,7 @@ export const config = {
 	maxInstances: 1,
 	capabilities: [
 		{
+			// browserName: 'wry',
 			'tauri:options': {
 				application: '../../target/release/git-butler-dev'
 			}
@@ -24,7 +24,13 @@ export const config = {
 		ui: 'bdd',
 		timeout: 60000
 	},
+
+	// Level of logging verbosity: trace | debug | info | warn | error | silent
 	logLevel: 'trace',
+
+	waitforTimeout: 10000,
+	connectionRetryTimeout: 120000,
+	connectionRetryCount: 3,
 
 	// ensure the rust project is built since we expect this binary to exist for the webdriver sessions
 	// onPrepare: () => spawnSync('cargo', ['build', '--release']),
