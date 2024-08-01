@@ -28,6 +28,7 @@
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { onDestroy, setContext, type Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
+	import { goto } from '$app/navigation';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -122,7 +123,11 @@
 
 	// Once on load and every time the project id changes
 	$effect(() => {
-		if (projectId) setupFetchInterval();
+		if (projectId) {
+			setupFetchInterval();
+		} else {
+			goto('/onboarding');
+		}
 	});
 
 	function setupFetchInterval() {
@@ -152,7 +157,6 @@
 	{#if !project}
 		<p>Project not found!</p>
 	{:else if $baseError instanceof NoDefaultTarget}
-		<!-- Note that this requires the redirect above to work -->
 		<NoBaseBranch />
 	{:else if $baseError}
 		<ProblemLoadingRepo error={$baseError} />
