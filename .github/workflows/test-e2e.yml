@@ -14,7 +14,7 @@ jobs:
     name: WebDriverIO Test Runner
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Tauri dependencies
         run: |
           sudo apt update && sudo apt install -y \
@@ -24,9 +24,7 @@ jobs:
             webkit2gtk-driver \
             xvfb
       - name: Rust stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
+        uses: dtolnay/rust-toolchain@stable
       - name: Cargo build
         uses: actions-rs/cargo@v1
         with:
@@ -42,10 +40,7 @@ jobs:
         shell: bash
         run: pnpm install
       - name: Install tauri-driver
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: tauri-driver
+        run: cargo install tauri-driver
 
       # Run it through `xvfb-run` to have a fake display server which allows our
       # application to run headless without any changes to the code
