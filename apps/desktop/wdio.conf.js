@@ -27,6 +27,7 @@ export const config = {
 		ui: 'bdd',
 		timeout: 60000
 	},
+	logLevel: 'trace',
 
 	// ensure the rust project is built since we expect this binary to exist for the webdriver sessions
 	// onPrepare: () => spawnSync('cargo', ['build', '--release']),
@@ -36,6 +37,12 @@ export const config = {
 		(tauriDriver = spawn(path.resolve(os.homedir(), '.cargo', 'bin', 'tauri-driver'), [], {
 			stdio: [null, process.stdout, process.stderr]
 		})),
+
+	// afterTest: function (test, context, { error, result, duration, passed, retries }) {
+	// 	if (error) {
+	// 		browser.takeScreenshot();
+	// 	}
+	// },
 
 	// clean up the `tauri-driver` process we spawned at the start of the session
 	afterSession: () => tauriDriver.kill()

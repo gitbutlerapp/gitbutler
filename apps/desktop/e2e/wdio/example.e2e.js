@@ -3,10 +3,10 @@
 console.log('\n\nRUNNING WDIO SPEC FILE\n\n');
 
 describe('GitButler', () => {
-	it('should render', async () => {
-		const header = await $('body > h1');
-		const text = await header.getText();
-		expect(text).toMatch(/^[hH]ello/);
+	it('should have the root element', async () => {
+		console.log('\n\nSHOULD.HAVE ROOT\n\n');
+		const element = await $('body.text-base');
+		expect(element).toExist();
 	});
 });
 
