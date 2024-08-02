@@ -43,4 +43,4 @@ jobs:
       # Run it through `xvfb-run` to have a fake display server which allows our
       # application to run headless without any changes to the code
       - name: WebdriverIO
-        run: xvfb-run pnpm test:wdio
+        run: xvfb-run pnpm test:e2e
