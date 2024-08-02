@@ -1,17 +1,19 @@
-import { spawn } from 'node:child_process';
+import { spawn, ChildProcess } from 'node:child_process';
+import type { Options } from '@wdio/types';
 import os from 'node:os';
 import path from 'node:path';
 import { browser } from '@wdio/globals';
 
-let tauriDriver;
+let tauriDriver: ChildProcess;
 
-export const config = {
+export const config: Options.WebdriverIO = {
 	hostname: '127.0.0.1',
 	port: 4444,
 	specs: ['./e2e/wdio/**/*.js'],
 	maxInstances: 1,
 	capabilities: [
 		{
+			// @ts-expect-error custom tauri capabilities
 			'tauri:options': {
 				application: '/opt/gitbutler/gitbutler/target/release/git-butler-dev'
 			}
@@ -31,9 +33,6 @@ export const config = {
 		}
 	},
 
-	// Level of logging verbosity: trace | debug | info | warn | error | silent
-	logLevel: 'trace',
-
 	waitforTimeout: 10000,
 	connectionRetryTimeout: 120000,
 	connectionRetryCount: 3,
@@ -44,12 +43,11 @@ export const config = {
 			stdio: [null, process.stdout, process.stderr]
 		})),
 
-	afterTest: function (test, context, { error, result, duration, passed, retries }) {
+	afterTest: function ({ error }: { error: Error }) {
 		if (error) {
 			browser.takeScreenshot();
 		}
 	},
 
-	// clean up the `tauri-driver` process we spawned at the start of the session
 	afterSession: () => tauriDriver.kill()
 };
