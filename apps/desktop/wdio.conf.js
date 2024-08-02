@@ -12,9 +12,8 @@ export const config = {
 	maxInstances: 1,
 	capabilities: [
 		{
-			// browserName: 'wry',
 			'tauri:options': {
-				application: '../../target/release/git-butler-dev'
+				application: '/opt/gitbutler/gitbutler/target/release/git-butler-dev'
 			}
 		}
 	],
@@ -32,20 +31,17 @@ export const config = {
 	connectionRetryTimeout: 120000,
 	connectionRetryCount: 3,
 
-	// ensure the rust project is built since we expect this binary to exist for the webdriver sessions
-	// onPrepare: () => spawnSync('cargo', ['build', '--release']),
-
 	// ensure we are running `tauri-driver` before the session starts so that we can proxy the webdriver requests
 	beforeSession: () =>
 		(tauriDriver = spawn(path.resolve(os.homedir(), '.cargo', 'bin', 'tauri-driver'), [], {
 			stdio: [null, process.stdout, process.stderr]
 		})),
 
-	// afterTest: function (test, context, { error, result, duration, passed, retries }) {
-	// 	if (error) {
-	// 		browser.takeScreenshot();
-	// 	}
-	// },
+	afterTest: function (test, context, { error, result, duration, passed, retries }) {
+		if (error) {
+			browser.takeScreenshot();
+		}
+	},
 
 	// clean up the `tauri-driver` process we spawned at the start of the session
 	afterSession: () => tauriDriver.kill()
