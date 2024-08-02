@@ -14,7 +14,7 @@
 		"dev:internal-tauri": "turbo watch --filter @gitbutler/desktop dev",
 		"test": "turbo run test --no-daemon",
 		"test:watch": "pnpm --filter @gitbutler/desktop run test:watch",
-		"test:wdio": "pnpm --filter @gitbutler/desktop run test:wdio",
+		"test:e2e": "pnpm --filter @gitbutler/desktop run test:e2e",
 		"build": "turbo run build --no-daemon",
 		"build:desktop": "turbo run --filter @gitbutler/desktop build --no-daemon",
 		"build:test": "pnpm exec tauri build --config crates/gitbutler-tauri/tauri.conf.test.json",
