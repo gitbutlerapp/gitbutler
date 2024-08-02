@@ -14,8 +14,8 @@ pub fn normalize_branch_name(name: &str) -> anyhow::Result<String> {
     let space_pattern = Regex::new(r"\s+").unwrap();
     result = space_pattern.replace_all(&result, "-").to_string();
 
-    // Remove leading and trailing hyphens and slashes
-    let trim_pattern = Regex::new(r"^[-/]+|[-/]+$").unwrap();
+    // Remove leading and trailing hyphens and slashes and dots
+    let trim_pattern = Regex::new(r"^[-/\.]+|[-/\.]+$").unwrap();
     result = trim_pattern.replace_all(&result, "").to_string();
 
     let refname = format!("refs/gitbutler/{result}");
