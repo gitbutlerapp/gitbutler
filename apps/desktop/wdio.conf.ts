@@ -15,7 +15,7 @@ export const config: Options.WebdriverIO = {
 		{
 			// @ts-expect-error custom tauri capabilities
 			'tauri:options': {
-				application: '/opt/gitbutler/gitbutler/target/release/git-butler-dev'
+				application: '../../target/release/git-butler-dev'
 			}
 		}
 	],
