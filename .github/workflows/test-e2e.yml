@@ -44,3 +44,9 @@ jobs:
       # application to run headless without any changes to the code
       - name: WebdriverIO
         run: xvfb-run pnpm test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: Screenshots
+          path: ./apps/desktop/e2e/screenshots

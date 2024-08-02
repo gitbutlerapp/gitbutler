@@ -1,8 +1,9 @@
 import { browser } from '@wdio/globals';
 import { spawn, ChildProcess } from 'node:child_process';
+import { writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import type { Options } from '@wdio/types';
+import type { Options, Frameworks } from '@wdio/types';
 
 let tauriDriver: ChildProcess;
 
@@ -43,10 +44,17 @@ export const config: Options.WebdriverIO = {
 			stdio: [null, process.stdout, process.stderr]
 		})),
 
-	afterTest: function ({ error }: { error: Error }) {
-		if (error) {
-			browser.takeScreenshot();
+	afterTest: async function (test: Frameworks.Test, result: Frameworks.TestResult) {
+		if (result.error) {
+			console.log('ERROR', result.error);
 		}
+
+		const screenshot = await browser.takeScreenshot();
+		await writeFile(
+			`./e2e/screenshots/${test.title}_${new Date().getTime()}.png`,
+			screenshot,
+			'base64'
+		);
 	},
 
 	afterSession: () => tauriDriver.kill()
