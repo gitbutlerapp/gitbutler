@@ -15,7 +15,7 @@
 		"types": ["vitest/importMeta"]
 	},
 	"include": [
-    "wdio.conf.ts",
+		"wdio.conf.ts",
 		"./svelte-kit/ambient.d.ts",
 		"./svelte-kit/non-ambient.d.ts",
 		"./svelte-kit/types/**/$types.d.ts",
