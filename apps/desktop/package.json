@@ -6,7 +6,7 @@
 	"scripts": {
 		"dev": "vite --clearScreen false",
 		"test": "vitest run --mode development",
-		"test:mocha": "mocha ./e2e/selenium.spec.js",
+		"test:selenium": "mocha ./e2e/selenium.spec.js",
 		"test:wdio": "wdio run wdio.conf.js",
 		"test:watch": "vitest --watch --mode development",
 		"test:e2e": "playwright test -c ./playwright.config.ts",
