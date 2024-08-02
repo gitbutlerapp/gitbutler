@@ -7,7 +7,7 @@ function pxToRem(token) {
 }
 
 export default {
-	tokens: './design-tokens.json',
+	tokens: './src/lib/design-tokens.json',
 	outDir: './src/styles/core',
 	plugins: [
 		pluginCSS({
