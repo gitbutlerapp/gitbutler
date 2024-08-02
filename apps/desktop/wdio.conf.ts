@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-// import { browser } from "@wdio/globals";
+import { browser } from '@wdio/globals';
 
 let tauriDriver;
 
@@ -22,6 +22,13 @@ export const config = {
 	mochaOpts: {
 		ui: 'bdd',
 		timeout: 60000
+	},
+	autoCompileOpts: {
+		autoCompile: true,
+		tsNodeOpts: {
+			project: './tsconfig.json',
+			transpileOnly: true
+		}
 	},
 
 	// Level of logging verbosity: trace | debug | info | warn | error | silent
