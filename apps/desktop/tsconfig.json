@@ -27,5 +27,5 @@
 		"tests/**/*.js",
 		"tests/**/*.ts",
 		"tests/**/*.svelte"
-	],
+	]
 }
