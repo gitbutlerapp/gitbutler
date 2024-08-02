@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tooltip } from '@gitbutler/ui/utils/tooltip';
+	import { tooltip } from '$lib/utils/tooltip';
 	import { getContext, onMount } from 'svelte';
 	import type { SegmentContext } from './segmentTypes';
 	import type { Snippet } from 'svelte';
