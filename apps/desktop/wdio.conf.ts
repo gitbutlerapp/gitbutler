@@ -1,8 +1,8 @@
+import { browser } from '@wdio/globals';
 import { spawn, ChildProcess } from 'node:child_process';
-import type { Options } from '@wdio/types';
 import os from 'node:os';
 import path from 'node:path';
-import { browser } from '@wdio/globals';
+import type { Options } from '@wdio/types';
 
 let tauriDriver: ChildProcess;
 
