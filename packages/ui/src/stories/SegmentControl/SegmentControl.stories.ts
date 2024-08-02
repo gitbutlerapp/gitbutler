@@ -2,6 +2,7 @@ import SegmentControl from './SegmentControl.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
+	title: 'Controls / Segment Control',
 	component: SegmentControl
 } satisfies Meta<SegmentControl>;
 

@@ -22,6 +22,7 @@ mod normalize_branch_name {
             ("/a/", "a"),
             ("-/a/-", "a"),
             ("/-a-/", "a"),
+            (".a.", "a"),
         ] {
             assert_eq!(normalize_branch_name(input).expect("valid"), expected);
         }
@@ -44,6 +45,10 @@ mod normalize_branch_name {
         assert_eq!(normalize_branch_name("feature/branch")?, "feature/branch");
         assert_eq!(normalize_branch_name("foo#branch")?, "foo#branch");
         assert_eq!(normalize_branch_name("foo!branch")?, "foo!branch");
+        let input = r#"Revert "GitButler Integration Commit"
+
+This reverts commit d6efa5fd96d36da445d5d1345b84163f05f5f229."#;
+        assert_eq!(normalize_branch_name(input)?, "Revert-\"GitButler-Integration-Commit\"-This-reverts-commit-d6efa5fd96d36da445d5d1345b84163f05f5f229");
         Ok(())
     }
 }
