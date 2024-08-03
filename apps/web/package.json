@@ -22,5 +22,8 @@
 		"tslib": "^2.4.1",
 		"typescript": "^5.0.0",
 		"vite": "catalog:"
+	},
+	"dependencies": {
+		"@sentry/sveltekit": "^8.9.2"
 	}
 }

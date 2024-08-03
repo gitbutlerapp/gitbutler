@@ -3,10 +3,10 @@ target/
 generated-archives/
 generated-do-not-edit/
 
-
 # editors
 .idea
 
+.sentryclirc
 .DS_Store
 
 .env
