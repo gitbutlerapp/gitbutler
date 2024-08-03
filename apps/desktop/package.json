@@ -71,6 +71,7 @@
 		"tauri-plugin-log-api": "github:tauri-apps/tauri-plugin-log#v1",
 		"tauri-plugin-store-api": "github:tauri-apps/tauri-plugin-store#v1",
 		"tinykeys": "^2.1.0",
+		"ts-node": "^10.9.2",
 		"vite": "catalog:",
 		"vitest": "^0.34.6"
 	},
