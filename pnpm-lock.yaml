@@ -289,12 +289,6 @@ importers:
       svelte-check:
         specifier: catalog:svelte
         version: 3.8.4(@babel/core@7.24.7)(postcss-load-config@5.1.0(postcss@8.4.39))(postcss@8.4.39)(svelte@5.0.0-next.196)
-      tslib:
-        specifier: ^2.4.1
-        version: 2.6.3
-      typescript:
-        specifier: ^5.0.0
-        version: 5.4.5
       vite:
         specifier: 'catalog:'
         version: 5.2.13(@types/node@20.14.13)
