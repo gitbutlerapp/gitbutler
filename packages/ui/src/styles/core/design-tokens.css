@@ -200,6 +200,41 @@
 	--clr-text-1: var(--clr-core-ntrl-5);
 	--clr-text-2: var(--clr-core-ntrl-50);
 	--clr-text-3: var(--clr-core-ntrl-60);
+	--clr-diff-line-bg: var(--clr-bg-1);
+	--clr-diff-count-bg: color(srgb 0.9686274509803922 0.9686274509803922 0.9647058823529412);
+	--clr-diff-count-border: var(--clr-border-2);
+	--clr-diff-selected-count-bg: color(
+		srgb 0.21568627450980393 0.5450980392156862 0.9490196078431372
+	);
+	--clr-diff-selected-count-border: color(
+		srgb 0.14901960784313725 0.36470588235294116 0.8313725490196079
+	);
+	--clr-diff-selected-count-text: color(srgb 1 1 1);
+	--clr-diff-count-text: var(--clr-text-3);
+	--clr-diff-deletion-line-bg: color(srgb 1 0.9411764705882353 0.9490196078431372);
+	--clr-diff-deletion-line-highlight: color(
+		srgb 0.9921568627450981 0.8235294117647058 0.8549019607843137
+	);
+	--clr-diff-deletion-count-bg: color(
+		srgb 0.9882352941176471 0.8745098039215686 0.8941176470588236
+	);
+	--clr-diff-deletion-count-border: color(
+		srgb 0.8901960784313725 0.7568627450980392 0.7568627450980392
+	);
+	--clr-diff-deletion-count-text: color(
+		srgb 0.7137254901960784 0.5725490196078431 0.5725490196078431
+	);
+	--clr-diff-addition-line-highlight: color(
+		srgb 0.7137254901960784 0.9294117647058824 0.8392156862745098
+	);
+	--clr-diff-addition-count-bg: color(srgb 0.796078431372549 0.9568627450980393 0.8901960784313725);
+	--clr-diff-addition-count-border: color(
+		srgb 0.6509803921568628 0.803921568627451 0.7411764705882353
+	);
+	--clr-diff-addition-count-text: color(
+		srgb 0.5294117647058824 0.6588235294117647 0.6039215686274509
+	);
+	--clr-diff-addition-line-bg: color(srgb 0.8784313725490196 0.984313725490196 0.9411764705882353);
 	--size-icon: 1rem;
 	--size-tag: 1.375rem;
 	--size-button: 1.75rem;
@@ -345,6 +380,45 @@
 	--clr-text-1: var(--clr-core-ntrl-95);
 	--clr-text-2: var(--clr-core-ntrl-60);
 	--clr-text-3: var(--clr-core-ntrl-40);
+	--clr-diff-line-bg: var(--clr-bg-1);
+	--clr-diff-count-bg: color(srgb 0.18823529411764706 0.17254901960784313 0.16862745098039217);
+	--clr-diff-count-border: var(--clr-border-2);
+	--clr-diff-selected-count-bg: color(
+		srgb 0.01568627450980392 0.25882352941176473 0.5372549019607843
+	);
+	--clr-diff-selected-count-border: color(srgb 0 0.3607843137254902 0.7725490196078432);
+	--clr-diff-selected-count-text: color(srgb 0.596078431372549 0.7764705882352941 1);
+	--clr-diff-count-text: var(--clr-text-3);
+	--clr-diff-deletion-line-bg: color(
+		srgb 0.23529411764705882 0.07450980392156863 0.10588235294117647
+	);
+	--clr-diff-deletion-line-highlight: color(
+		srgb 0.47058823529411764 0.023529411764705882 0.10980392156862745
+	);
+	--clr-diff-deletion-count-bg: color(
+		srgb 0.3254901960784314 0.07450980392156863 0.11764705882352941
+	);
+	--clr-diff-deletion-count-border: color(
+		srgb 0.5568627450980392 0.23529411764705882 0.23529411764705882
+	);
+	--clr-diff-deletion-count-text: color(
+		srgb 0.7019607843137254 0.403921568627451 0.45098039215686275
+	);
+	--clr-diff-addition-line-highlight: color(
+		srgb 0.027450980392156862 0.32941176470588235 0.27058823529411763
+	);
+	--clr-diff-addition-count-bg: color(
+		srgb 0.047058823529411764 0.27058823529411763 0.2196078431372549
+	);
+	--clr-diff-addition-count-border: color(
+		srgb 0.16862745098039217 0.43137254901960786 0.3254901960784314
+	);
+	--clr-diff-addition-count-text: color(
+		srgb 0.40784313725490196 0.6196078431372549 0.5333333333333333
+	);
+	--clr-diff-addition-line-bg: color(
+		srgb 0.054901960784313725 0.1843137254901961 0.1450980392156863
+	);
 }
 
 .bg-clr1 {

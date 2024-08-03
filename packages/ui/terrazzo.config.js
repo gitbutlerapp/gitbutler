@@ -27,7 +27,6 @@ export default defineConfig({
 				}
 			],
 			p3: false,
-			colorFormat: 'hex',
 			transform: pxToRem,
 			generateName(variableId) {
 				return clearFxPrefix(variableId);
