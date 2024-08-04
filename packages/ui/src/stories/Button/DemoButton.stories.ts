@@ -1,11 +1,11 @@
-import ButtonDemo from './ButtonDemo.svelte';
+import DemoButton from './DemoButton.svelte';
 import iconsJson from '../../lib/icons.json';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
 	title: 'Controls / Button',
-	component: ButtonDemo
-} satisfies Meta<ButtonDemo>;
+	component: DemoButton
+} satisfies Meta<DemoButton>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

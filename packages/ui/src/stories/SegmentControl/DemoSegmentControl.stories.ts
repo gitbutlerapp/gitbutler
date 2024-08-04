@@ -1,4 +1,4 @@
-import SegmentControl from './SegmentControl.svelte';
+import SegmentControl from './DemoSegmentControl.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
@@ -13,6 +13,12 @@ export const SegmentControlStory: Story = {
 	name: 'Segment Control',
 	args: {
 		defaultIndex: 1,
-		fullWidth: false
+		fullWidth: false,
+		segments: [
+			{ label: 'First', id: 'first' },
+			{ label: 'Second', id: 'second' },
+			{ label: 'Third', id: 'third' },
+			{ label: 'Fourth', id: 'fourth' }
+		]
 	}
 };

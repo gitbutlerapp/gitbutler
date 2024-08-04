@@ -6,8 +6,6 @@ const config: StorybookConfig = {
 	addons: [
 		getAbsolutePath('@storybook/addon-links'),
 		getAbsolutePath('@storybook/addon-essentials'),
-		getAbsolutePath('@chromatic-com/storybook'),
-		getAbsolutePath('@storybook/addon-interactions'),
 		getAbsolutePath('storybook-dark-mode')
 	],
 	framework: {
