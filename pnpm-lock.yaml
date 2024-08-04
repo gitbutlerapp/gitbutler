@@ -382,9 +382,6 @@ importers:
       '@terrazzo/plugin-css':
         specifier: ^0.0.9
         version: 0.0.9(@terrazzo/cli@0.0.11)
-      '@terrazzo/plugin-js':
-        specifier: ^0.0.1
-        version: 0.0.1(@terrazzo/cli@0.0.11)
       autoprefixer:
         specifier: ^10.4.19
         version: 10.4.19(postcss@8.4.39)
@@ -2269,11 +2266,6 @@ packages:
     resolution: {integrity: sha512-2veAZrexuyivYjv2YcDRG9ArIjrYRiadaAejee9THzt+ocxv3YSijLxB0IyQGW2uCPBwR3NLARkI00zcMqakKA==}
     peerDependencies:
       '@terrazzo/cli': '*'
-
-  '@terrazzo/plugin-js@0.0.1':
-    resolution: {integrity: sha512-gQhX34fEc99gdLFGnvjPMpwVMv7izU9c5e6x+liorcRe7W1Z1d1E6EeORHFBjSFzSm3E/fxU/Sun96bErdI9GA==}
-    peerDependencies:
-      '@terrazzo/cli': ^0.0.11
 
   '@terrazzo/token-tools@0.0.4':
     resolution: {integrity: sha512-9jViw85Ppz6vjOHf9eY7mYo3C3dDic1Eya+ZkuPokqjsgrE3vQD0+UdDgILEfpoBf3rBMv9bp1uTGtjxXKuz3w==}
@@ -9105,11 +9097,6 @@ snapshots:
       '@terrazzo/parser': 0.0.11
       '@terrazzo/token-tools': 0.0.5
       scule: 1.3.0
-
-  '@terrazzo/plugin-js@0.0.1(@terrazzo/cli@0.0.11)':
-    dependencies:
-      '@terrazzo/cli': 0.0.11
-      '@terrazzo/token-tools': 0.0.4
 
   '@terrazzo/token-tools@0.0.4':
     dependencies:

@@ -1,6 +1,5 @@
 import { defineConfig } from '@terrazzo/cli';
 import css from '@terrazzo/plugin-css';
-// import css from '@terrazzo/monorepo/
 
 function pxToRem(token) {
 	if (token.$type === 'dimension' && token.$value.slice(-2) === 'px') {
@@ -34,8 +33,7 @@ export default defineConfig({
 			utility: {
 				bg: ['clr.bg.*'],
 				text: ['clr.text.*'],
-				border: ['clr.border.*'],
-				color: ['clr.theme.*']
+				border: ['clr.border.*']
 			}
 		})
 	]
