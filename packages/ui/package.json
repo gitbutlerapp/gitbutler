@@ -73,6 +73,9 @@
 		},
 		"./fonts.css": {
 			"import": "./dist/fonts.css"
+		},
+		"./types": {
+			"import": "./dist/types.d.ts"
 		}
 	},
 	"files": [
