@@ -12,6 +12,7 @@ type Story = StoryObj<typeof meta>;
 export const ButtonClickable: Story = {
 	name: 'All Buttons',
 	args: {
-		label: 'Button'
+		label: 'Button',
+		reversedDirection: false
 	}
 };

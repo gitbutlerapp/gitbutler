@@ -3,53 +3,59 @@
 
 	interface Props {
 		label: string;
-		outline: boolean;
+		reversedDirection?: boolean;
 	}
 
-	const { label }: Props = $props();
+	const { label, reversedDirection }: Props = $props();
 </script>
 
-{#snippet buttons({ label, outline, style })}
+{#snippet buttons({ label, outline, style, reversedDirection })}
 	<div class="group">
-		<Button size="cta" {style} icon="plus">{label}</Button>
-		<Button size="cta" {style} kind="solid" {outline} icon="plus">{label}</Button>
-		<Button size="cta" {style}>{label}</Button>
-		<Button size="cta" {style} kind="solid" {outline}>{label}</Button>
+		<Button size="cta" {style} icon="plus" {reversedDirection}>{label}</Button>
+		<Button size="cta" {style} kind="solid" {outline} icon="plus" {reversedDirection}
+			>{label}</Button
+		>
+		<Button size="cta" {style} {reversedDirection}>{label}</Button>
+		<Button size="cta" {style} kind="solid" {outline} {reversedDirection}>{label}</Button>
 		<Button size="cta" {style} icon="plus" />
 		<Button size="cta" {style} kind="solid" {outline} icon="plus" />
 	</div>
 	<div class="group">
-		<Button size="button" {style} icon="plus">{label}</Button>
-		<Button size="button" {style} kind="solid" {outline} icon="plus">{label}</Button>
-		<Button size="button" {style}>{label}</Button>
-		<Button size="button" {style} kind="solid" {outline}>{label}</Button>
+		<Button size="button" {style} icon="plus" {reversedDirection}>{label}</Button>
+		<Button size="button" {style} kind="solid" {outline} icon="plus" {reversedDirection}
+			>{label}</Button
+		>
+		<Button size="button" {style} {reversedDirection}>{label}</Button>
+		<Button size="button" {style} kind="solid" {outline} {reversedDirection}>{label}</Button>
 		<Button size="button" {style} icon="plus" />
 		<Button size="button" {style} kind="solid" {outline} icon="plus" />
 	</div>
 	<div class="group">
-		<Button size="tag" {style} icon="plus-small">{label}</Button>
-		<Button size="tag" {style} kind="solid" {outline} icon="plus-small">{label}</Button>
-		<Button size="tag" {style}>{label}</Button>
-		<Button size="tag" {style} kind="solid" {outline}>{label}</Button>
+		<Button size="tag" {style} icon="plus-small" {reversedDirection}>{label}</Button>
+		<Button size="tag" {style} kind="solid" {outline} icon="plus-small" {reversedDirection}
+			>{label}</Button
+		>
+		<Button size="tag" {style} {reversedDirection}>{label}</Button>
+		<Button size="tag" {style} kind="solid" {outline} {reversedDirection}>{label}</Button>
 		<Button size="tag" {style} icon="plus-small" />
 		<Button size="tag" {style} kind="solid" {outline} icon="plus-small" />
 	</div>
 {/snippet}
 
 <div class="wrapper">
-	{@render buttons({ label, outline: true, style: 'ghost' })}
+	{@render buttons({ label, outline: true, style: 'ghost', reversedDirection })}
 	<hr class="divider" />
-	{@render buttons({ label, outline: true, style: 'neutral' })}
+	{@render buttons({ label, outline: true, style: 'neutral', reversedDirection })}
 	<hr class="divider" />
-	{@render buttons({ label, outline: true, style: 'pop' })}
+	{@render buttons({ label, outline: true, style: 'pop', reversedDirection })}
 	<hr class="divider" />
-	{@render buttons({ label, outline: true, style: 'success' })}
+	{@render buttons({ label, outline: true, style: 'success', reversedDirection })}
 	<hr class="divider" />
-	{@render buttons({ label, outline: true, style: 'error' })}
+	{@render buttons({ label, outline: true, style: 'error', reversedDirection })}
 	<hr class="divider" />
-	{@render buttons({ label, outline: true, style: 'warning' })}
+	{@render buttons({ label, outline: true, style: 'warning', reversedDirection })}
 	<hr class="divider" />
-	{@render buttons({ label, outline: true, style: 'purple' })}
+	{@render buttons({ label, outline: true, style: 'purple', reversedDirection })}
 </div>
 
 <style>
