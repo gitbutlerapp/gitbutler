@@ -339,7 +339,7 @@
 
 		&.selected {
 			background-color: var(--clr-diff-selected-count-bg);
-			box-shadow: inset -1px 0 0 0 var(--clr-diff-count-border);
+			box-shadow: inset -1px 0 0 0 var(--clr-diff-selected-count-border);
 			color: var(--clr-diff-selected-count-text);
 		}
 	}
