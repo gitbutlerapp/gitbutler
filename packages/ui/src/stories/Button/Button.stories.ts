@@ -11,7 +11,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const ButtonDefault: Story = {
-	name: 'Default',
+	name: 'All Properties',
 	args: {
 		loading: false,
 		disabled: false,
