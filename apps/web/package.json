@@ -13,6 +13,7 @@
 	},
 	"devDependencies": {
 		"@fontsource/fira-mono": "^4.5.10",
+		"@gitbutler/ui": "workspace:*",
 		"@neoconfetti/svelte": "^1.0.0",
 		"@sveltejs/adapter-auto": "^3.0.0",
 		"@sveltejs/kit": "catalog:svelte",
@@ -22,5 +23,8 @@
 		"tslib": "^2.4.1",
 		"typescript": "^5.0.0",
 		"vite": "catalog:"
+	},
+	"dependencies": {
+		"@sentry/sveltekit": "^8.9.2"
 	}
 }
