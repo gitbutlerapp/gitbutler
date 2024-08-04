@@ -5,6 +5,7 @@ import './stories-styles.css';
 
 const preview: Preview = {
 	parameters: {
+		backgrounds: { disable: true },
 		controls: {
 			matchers: {
 				color: /(background|color)$/i,
@@ -12,7 +13,14 @@ const preview: Preview = {
 			}
 		},
 		darkMode: {
-			stylePreview: true
+			classTarget: 'html',
+			stylePreview: true,
+			dark: {
+				appPreviewBg: '#272321'
+			},
+			light: {
+				appPreviewBg: '#fff'
+			}
 		}
 	}
 };

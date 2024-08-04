@@ -31,7 +31,6 @@
 		"@storybook/blocks": "^8.2.7",
 		"@storybook/svelte": "^8.2.7",
 		"@storybook/sveltekit": "^8.2.7",
-		"@storybook/theming": "^8.2.7",
 		"@sveltejs/adapter-static": "catalog:svelte",
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/package": "^2.3.2",
