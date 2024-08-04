@@ -270,7 +270,7 @@
 	.table__wrapper {
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-s);
-		background-color: var(--clr-bg-1);
+		background-color: var(--clr-diff-line-bg);
 		overflow-x: auto;
 
 		&:hover .table__drag-handle {
@@ -308,9 +308,9 @@
 	}
 
 	.table__numberColumn {
-		color: color-mix(in srgb, var(--clr-text-1), transparent 60%);
-		border-color: var(--clr-border-2);
-		background-color: var(--clr-bg-1-muted);
+		color: var(--clr-diff-count-text);
+		border-color: var(--clr-diff-count-border);
+		background-color: var(--clr-diff-count-bg);
 		font-size: 11px;
 		text-align: center;
 		padding: 0 4px;
@@ -323,24 +323,24 @@
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
 
-		box-shadow: inset -1px 0 0 0 var(--clr-border-2);
+		box-shadow: inset -1px 0 0 0 var(--clr-diff-count-border);
 
 		&.diff-line-addition {
-			background-color: var(--override-addition-counter-background);
-			color: var(--override-addition-counter-text);
-			box-shadow: inset -1px 0 0 0 var(--override-addition-counter-border);
+			background-color: var(--clr-diff-addition-count-bg);
+			color: var(--clr-diff-addition-count-text);
+			box-shadow: inset -1px 0 0 0 var(--clr-diff-addition-count-border);
 		}
 
 		&.diff-line-deletion {
-			background-color: var(--override-deletion-counter-background);
-			color: var(--override-deletion-counter-text);
-			box-shadow: inset -1px 0 0 0 var(--override-deletion-counter-border);
+			background-color: var(--clr-diff-deletion-count-bg);
+			color: var(--clr-diff-deletion-count-text);
+			box-shadow: inset -1px 0 0 0 var(--clr-diff-deletion-count-border);
 		}
 
 		&.selected {
-			background-color: var(--hunk-line-selected-bg);
-			box-shadow: inset -1px 0 0 0 var(--hunk-line-selected-border);
-			color: rgba(255, 255, 255, 0.9);
+			background-color: var(--clr-diff-selected-count-bg);
+			box-shadow: inset -1px 0 0 0 var(--clr-diff-count-border);
+			color: var(--clr-diff-selected-count-text);
 		}
 	}
 
@@ -358,9 +358,6 @@
 		tab-size: var(--tab-size);
 		white-space: pre;
 		user-select: text;
-
-		&:hover {
-			cursor: text;
-		}
+		cursor: text;
 	}
 </style>

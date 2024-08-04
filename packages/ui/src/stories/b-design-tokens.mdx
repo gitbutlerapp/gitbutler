@@ -16,7 +16,7 @@ For all basic styles like colors, typography, and spacing, radius, and shadows, 
 	height="600"
 	src="https://www.figma.com/embed?embed_host=share&url=https%3A%2F%2Fwww.figma.com%2Fdesign%2FJir22AjzvPokdbMbe8yt5k%2F%25F0%259F%2592%258E-Core%3Fnode-id%3D0-1%26t%3DBvUKbga6mKnt6vo8-1"
 	allowFullScreen
-></iframe>
+/>
 
 ---
 
@@ -33,13 +33,19 @@ The first step here is to grab design tokens from Figma. To do this, you need to
 
 The second step is to convert the JSON file to a CSS file.
 
-You can generate a CSS file within this repository. Just replace the root file `design-tokens.json` with the new one and run the `build:design-tokens` command. The command will generate a new `design-tokens.css` file in the `packages/ui/src/styles/core` folder.
+You can generate a CSS file within this repository. Just replace the root file `design-tokens.json` with the new one and run:
 
-In order to convert the JSON file to a CSS file, we use the [Cobalt UI CLI](https://cobalt-ui.pages.dev/guides/getting-started).
+```bash
+$ pnpm design-tokens:build
+```
 
-<a href="https://cobalt-ui.pages.dev/guides/getting-started" target="_blank">
+The command will generate a new `design-tokens.css` file in the `packages/ui/src/styles/core` folder.
+
+In order to convert the JSON file to a CSS file, we use the [Terrazzo](https://terrazzo.app/docs).
+
+<a href="https://terrazzo.app/docs" target="_blank">
 	<img
-		src="https://img.shields.io/badge/Download%20Cobalt%20UI%20CLI-4D40E9?style=for-the-badge&logo=&logoColor=white"
-		alt="Get Cobalt UI"
+		src="https://img.shields.io/badge/Get%20Terrazzo-4D40E9?style=for-the-badge&logo=&logoColor=white"
+		alt="Get Terrazzo"
 	/>
 </a>

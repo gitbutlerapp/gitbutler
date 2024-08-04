@@ -1,6 +1,6 @@
 @layer sharable {
 	.token-variable {
-		color: #8953800;
+		color: #0550ae;
 	}
 
 	.token-property {
@@ -60,11 +60,11 @@
 	}
 
 	.token-inserted {
-		background-color: var(--override-addition-inner-diff-background);
+		background-color: var(--clr-diff-addition-line-highlight);
 	}
 
 	.token-deleted {
-		background-color: var(--override-deletion-inner-diff-background);
+		background-color: var(--clr-diff-deletion-line-highlight);
 	}
 
 	.token-heading {
