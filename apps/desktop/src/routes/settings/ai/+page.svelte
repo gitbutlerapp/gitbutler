@@ -109,8 +109,12 @@
 			value: OpenAIModelName.GPT4Turbo
 		},
 		{
-			label: 'GPT 4 Omni',
+			label: 'GPT 4o',
 			value: OpenAIModelName.GPT4o
+		},
+		{
+			label: 'GPT 4o mini',
+			value: OpenAIModelName.GPT4oMini
 		}
 	];
 
@@ -126,6 +130,10 @@
 		{
 			label: 'Haiku',
 			value: AnthropicModelName.Haiku
+		},
+		{
+			label: 'Claude 3.5 Sonnet',
+			value: AnthropicModelName.Claude35Sonnet
 		}
 	];
 
