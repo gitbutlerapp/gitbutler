@@ -26,11 +26,9 @@ export const ButtonDefault: Story = {
 		solidBackground: false,
 		help: '',
 		helpShowDelay: 1200,
-
 		id: 'button',
 		tabindex: 0,
 		type: 'button',
-
 		shrinkable: false,
 		reversedDirection: false,
 		width: undefined,
@@ -38,7 +36,6 @@ export const ButtonDefault: Story = {
 		grow: false,
 		align: 'center',
 		isDropdownChild: false,
-
 		onclick: () => {
 			console.log('Button clicked');
 		}
