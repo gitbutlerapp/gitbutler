@@ -1,39 +1,51 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { env } from '$env/dynamic/public';
+	import { createUserService } from '$lib/user/userService.svelte';
 
-	let state = 'loading';
-	let user: any = {};
+	const userService = createUserService();
+	let userAvatarUrl = $state(userService.user?.picture);
 
-	onMount(() => {
-		let key = localStorage.getItem('gb_access_token');
-		if (key) {
-			fetch(env.PUBLIC_APP_HOST + 'api/user', {
-				method: 'GET',
-				headers: {
-					'X-AUTH-TOKEN': key || ''
-				}
-			})
-				.then(async (response) => await response.json())
-				.then((data) => {
-					console.log(data);
-					user = data;
-					state = 'loaded';
-				});
-		} else {
-			state = 'unauthorized';
-		}
-	});
+	function handleImageLoadError() {
+		userAvatarUrl = `https://unavatar.io/${userService.user?.email}`;
+	}
 </script>
 
-{#if state === 'loading'}
+<svelte:head>
+	<title>GitButler | User</title>
+</svelte:head>
+
+{#if !userService?.user?.id}
 	<p>Loading...</p>
-{:else if state === 'unauthorized'}
-	<p>Unauthorized</p>
 {:else}
-	{user.name}
-	<div>{user.email}</div>
-	<img alt="User Avatar" width="50" src={user.avatar_url} />
-	{user.created_at}
-	{user.supporter}
+	<div class="user__wrapper">
+		<div class="user__id">
+			<img
+				class="user__id--img"
+				alt="User Avatar"
+				width="48"
+				src={userAvatarUrl}
+				onerror={handleImageLoadError}
+			/>
+			<div class="user__id--name">{userService.user?.name}</div>
+		</div>
+		<div><b>Email</b>: {userService.user?.email}</div>
+		<div><b>Joined</b>: {userService.user?.created_at}</div>
+		<div><b>Supporter</b>: {userService.user?.supporter}</div>
+	</div>
 {/if}
+
+<style>
+	.user__wrapper {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.user__id {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+
+		.user__id--img {
+			border-radius: 0.5rem;
+		}
+	}
+</style>

@@ -297,10 +297,17 @@ importers:
         version: 0.34.6(playwright@1.44.1)(safaridriver@0.1.2)(webdriverio@8.39.1(typescript@5.4.5))
 
   apps/web:
+    dependencies:
+      '@sentry/sveltekit':
+        specifier: ^8.9.2
+        version: 8.9.2(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.52.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.25.0)(@sveltejs/kit@2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13)))(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13)))(svelte@5.0.0-next.196)
     devDependencies:
       '@fontsource/fira-mono':
         specifier: ^4.5.10
         version: 4.5.10
+      '@gitbutler/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@neoconfetti/svelte':
         specifier: ^1.0.0
         version: 1.0.0
@@ -369,7 +376,7 @@ importers:
         version: 8.2.7(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(svelte@5.0.0-next.196)
       '@storybook/sveltekit':
         specifier: ^8.2.7
-        version: 8.2.7(@babel/core@7.24.7)(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9)))(postcss-load-config@5.1.0(postcss@8.4.39))(postcss@8.4.39)(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(svelte@5.0.0-next.196)(typescript@5.4.5)(vite@5.2.13(@types/node@20.5.9))
+        version: 8.2.7(@babel/core@7.24.7)(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13)))(postcss-load-config@5.1.0(postcss@8.4.39))(postcss@8.4.39)(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(svelte@5.0.0-next.196)(typescript@5.4.5)(vite@5.2.13(@types/node@20.14.13))
       '@storybook/theming':
         specifier: ^8.2.7
         version: 8.2.7(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))
@@ -8635,6 +8642,29 @@ snapshots:
       magic-string: 0.30.10
       svelte: 5.0.0-next.196
 
+  '@sentry/sveltekit@8.9.2(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.52.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.25.0)(@sveltejs/kit@2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13)))(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13)))(svelte@5.0.0-next.196)':
+    dependencies:
+      '@sentry/core': 8.9.2
+      '@sentry/node': 8.9.2
+      '@sentry/opentelemetry': 8.9.2(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.52.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.25.0)
+      '@sentry/svelte': 8.9.2(svelte@5.0.0-next.196)
+      '@sentry/types': 8.9.2
+      '@sentry/utils': 8.9.2
+      '@sentry/vite-plugin': 2.18.0
+      '@sveltejs/kit': 2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13)))(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13))
+      magic-string: 0.30.7
+      magicast: 0.2.8
+      sorcery: 0.11.0
+    transitivePeerDependencies:
+      - '@opentelemetry/api'
+      - '@opentelemetry/core'
+      - '@opentelemetry/instrumentation'
+      - '@opentelemetry/sdk-trace-base'
+      - '@opentelemetry/semantic-conventions'
+      - encoding
+      - supports-color
+      - svelte
+
   '@sentry/sveltekit@8.9.2(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.52.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.25.0)(@sveltejs/kit@2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.196)':
     dependencies:
       '@sentry/core': 8.9.2
@@ -8807,7 +8837,7 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  '@storybook/builder-vite@8.2.7(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(typescript@5.4.5)(vite@5.2.13(@types/node@20.5.9))':
+  '@storybook/builder-vite@8.2.7(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(typescript@5.4.5)(vite@5.2.13(@types/node@20.14.13))':
     dependencies:
       '@storybook/csf-plugin': 8.2.7(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))
       '@types/find-cache-dir': 3.2.1
@@ -8920,11 +8950,11 @@ snapshots:
       react-dom: 18.3.1(react@18.3.1)
       storybook: 8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7))
 
-  '@storybook/svelte-vite@8.2.7(@babel/core@7.24.7)(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9)))(postcss-load-config@5.1.0(postcss@8.4.39))(postcss@8.4.39)(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(svelte@5.0.0-next.196)(typescript@5.4.5)(vite@5.2.13(@types/node@20.5.9))':
+  '@storybook/svelte-vite@8.2.7(@babel/core@7.24.7)(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13)))(postcss-load-config@5.1.0(postcss@8.4.39))(postcss@8.4.39)(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(svelte@5.0.0-next.196)(typescript@5.4.5)(vite@5.2.13(@types/node@20.14.13))':
     dependencies:
-      '@storybook/builder-vite': 8.2.7(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(typescript@5.4.5)(vite@5.2.13(@types/node@20.5.9))
+      '@storybook/builder-vite': 8.2.7(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(typescript@5.4.5)(vite@5.2.13(@types/node@20.14.13))
       '@storybook/svelte': 8.2.7(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(svelte@5.0.0-next.196)
-      '@sveltejs/vite-plugin-svelte': 3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9))
+      '@sveltejs/vite-plugin-svelte': 3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13))
       magic-string: 0.30.10
       storybook: 8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7))
       svelte: 5.0.0-next.196
@@ -8962,12 +8992,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@storybook/sveltekit@8.2.7(@babel/core@7.24.7)(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9)))(postcss-load-config@5.1.0(postcss@8.4.39))(postcss@8.4.39)(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(svelte@5.0.0-next.196)(typescript@5.4.5)(vite@5.2.13(@types/node@20.5.9))':
+  '@storybook/sveltekit@8.2.7(@babel/core@7.24.7)(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13)))(postcss-load-config@5.1.0(postcss@8.4.39))(postcss@8.4.39)(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(svelte@5.0.0-next.196)(typescript@5.4.5)(vite@5.2.13(@types/node@20.14.13))':
     dependencies:
       '@storybook/addon-actions': 8.2.7(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))
-      '@storybook/builder-vite': 8.2.7(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(typescript@5.4.5)(vite@5.2.13(@types/node@20.5.9))
+      '@storybook/builder-vite': 8.2.7(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(typescript@5.4.5)(vite@5.2.13(@types/node@20.14.13))
       '@storybook/svelte': 8.2.7(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(svelte@5.0.0-next.196)
-      '@storybook/svelte-vite': 8.2.7(@babel/core@7.24.7)(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9)))(postcss-load-config@5.1.0(postcss@8.4.39))(postcss@8.4.39)(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(svelte@5.0.0-next.196)(typescript@5.4.5)(vite@5.2.13(@types/node@20.5.9))
+      '@storybook/svelte-vite': 8.2.7(@babel/core@7.24.7)(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13)))(postcss-load-config@5.1.0(postcss@8.4.39))(postcss@8.4.39)(storybook@8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7)))(svelte@5.0.0-next.196)(typescript@5.4.5)(vite@5.2.13(@types/node@20.14.13))
       storybook: 8.2.7(@babel/preset-env@7.24.7(@babel/core@7.24.7))
       svelte: 5.0.0-next.196
       vite: 5.2.13(@types/node@20.14.13)
@@ -9072,7 +9102,7 @@ snapshots:
   '@sveltejs/vite-plugin-svelte-inspector@2.1.0(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13)))(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13))':
     dependencies:
       '@sveltejs/vite-plugin-svelte': 3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13))
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       svelte: 5.0.0-next.196
       vite: 5.2.13(@types/node@20.14.13)
     transitivePeerDependencies:
@@ -9081,7 +9111,7 @@ snapshots:
   '@sveltejs/vite-plugin-svelte-inspector@2.1.0(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9))':
     dependencies:
       '@sveltejs/vite-plugin-svelte': 3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9))
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       svelte: 5.0.0-next.196
       vite: 5.2.13(@types/node@20.5.9)
     transitivePeerDependencies:
@@ -9090,7 +9120,7 @@ snapshots:
   '@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13))':
     dependencies:
       '@sveltejs/vite-plugin-svelte-inspector': 2.1.0(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13)))(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13))
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       deepmerge: 4.3.1
       kleur: 4.1.5
       magic-string: 0.30.10
@@ -9104,7 +9134,7 @@ snapshots:
   '@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9))':
     dependencies:
       '@sveltejs/vite-plugin-svelte-inspector': 2.1.0(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9)))(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.5.9))
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       deepmerge: 4.3.1
       kleur: 4.1.5
       magic-string: 0.30.10
