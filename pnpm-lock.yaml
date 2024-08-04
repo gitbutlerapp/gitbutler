@@ -305,6 +305,9 @@ importers:
       '@fontsource/fira-mono':
         specifier: ^4.5.10
         version: 4.5.10
+      '@gitbutler/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@neoconfetti/svelte':
         specifier: ^1.0.0
         version: 1.0.0

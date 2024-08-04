@@ -12,6 +12,10 @@ export default defineConfig({
 			}
 		}),
 		sveltekit()
-	]
+	],
+	server: {
+		fs: {
+			strict: false
+		}
+	}
 });
-
