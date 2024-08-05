@@ -2,14 +2,17 @@
 	import GitButler from '../images/gitbutler.svg';
 	import { AuthService } from '$lib/auth/authService';
 	import { getContext } from '$lib/utils/context';
-	import { goto } from '$app/navigation';
 	import { env } from '$env/dynamic/public';
 
 	const authService = getContext(AuthService);
 
 	function logout() {
 		authService.clearToken();
-		goto(`${env.PUBLIC_APP_HOST}cloud/logout`);
+		window.location.href = `${env.PUBLIC_APP_HOST}cloud/logout`;
+	}
+
+	function login() {
+		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login`;
 	}
 </script>
 
@@ -27,7 +30,7 @@
 		<button
 			class="nav__right--button"
 			onclick={() => {
-				authService.token ? logout() : goto(`${env.PUBLIC_APP_HOST}cloud/login`);
+				authService.token ? logout() : login();
 			}}
 		>
 			{authService.token ? 'Log Out' : 'Log In'}
