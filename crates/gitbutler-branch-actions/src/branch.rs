@@ -19,7 +19,7 @@ use crate::VirtualBranchesExt;
 pub fn list_branches(
     ctx: &CommandContext,
     filter: Option<BranchListingFilter>,
-    filter_branch_names: Option<Vec<String>>,
+    filter_branch_names: Option<Vec<BranchIdentity>>,
 ) -> Result<Vec<BranchListing>> {
     let has_filter = filter.is_some();
     let filter = filter.unwrap_or_default();
@@ -30,7 +30,7 @@ pub fn list_branches(
         if let Some(branch_names) = &filter_branch_names {
             let has_matching_name = branch_names.iter().any(|branch_name| {
                 if let Ok(Some(name)) = branch.name() {
-                    name.ends_with(branch_name)
+                    name.ends_with(&branch_name.0)
                 } else {
                     false
                 }
@@ -92,7 +92,7 @@ fn combine_branches(
     let remotes = repo.remotes()?;
 
     // Group branches by identity
-    let mut groups: HashMap<String, Vec<GroupBranch>> = HashMap::new();
+    let mut groups: HashMap<BranchIdentity, Vec<GroupBranch>> = HashMap::new();
     for branch in group_branches {
         let Some(identity) = branch.identity(&remotes) else {
             continue;
@@ -127,7 +127,7 @@ fn combine_branches(
 
 /// Converts a group of branches with the same identity into a single branch entry
 fn branch_group_to_branch(
-    identity: &str,
+    identity: &BranchIdentity,
     group_branches: Vec<GroupBranch>,
     repo: &git2::Repository,
     remotes: &git2::string_array::StringArray,
@@ -258,7 +258,7 @@ impl GroupBranch<'_> {
     /// A name identifier for the branch. When multiple branches (e.g. virtual, local, remote) have the same identity,
     /// they are grouped together under the same `Branch` entry.
     /// `None` means an identity could not be obtained, which makes this branch odd enough to ignore.
-    fn identity(&self, remotes: &git2::string_array::StringArray) -> Option<String> {
+    fn identity(&self, remotes: &git2::string_array::StringArray) -> Option<BranchIdentity> {
         match self {
             GroupBranch::Local(branch) => branch.get().given_name(remotes).ok(),
             GroupBranch::Remote(branch) => branch.get().given_name(remotes).ok(),
@@ -272,12 +272,13 @@ impl GroupBranch<'_> {
                 Some(identity.to_string())
             }
         }
+        .map(BranchIdentity)
     }
 }
 
 /// Determines if a branch should be listed in the UI.
 /// This excludes the target branch as well as gitbutler specific branches.
-fn should_list_git_branch(identity: &str) -> bool {
+fn should_list_git_branch(identity: &BranchIdentity) -> bool {
     // Exclude gitbutler technical branches (not useful for the user)
     let is_technical = [
         "gitbutler/integration",
@@ -285,7 +286,7 @@ fn should_list_git_branch(identity: &str) -> bool {
         "gitbutler/oplog",
         "HEAD",
     ]
-    .contains(&identity);
+    .contains(&&*identity.0);
     !is_technical
 }
 
@@ -310,19 +311,19 @@ pub struct BranchListingFilter {
 #[serde(rename_all = "camelCase")]
 pub struct BranchListing {
     /// The `identity` of the branch (e.g. `main`, `feature/branch`), excluding the remote name.
-    pub name: String,
+    pub name: BranchIdentity,
     /// This is a list of remotes that this branch can be found on (e.g. `origin`, `upstream` etc.),
     /// by collecting remotes from all local branches with the same identity that have a tracking setup.
     #[serde(serialize_with = "gitbutler_serde::serde::as_string_lossy_vec")]
     pub remotes: Vec<BString>,
-    /// The branch may or may not have a virtual branch associated with it
+    /// The branch may or may not have a virtual branch associated with it.
     pub virtual_branch: Option<VirtualBranchReference>,
     /// Timestamp in milliseconds since the branch was last updated.
     /// This includes any commits, uncommited changes or even updates to the branch metadata (e.g. renaming).
     pub updated_at: u128,
     /// The person who commited the head commit.
     pub last_commiter: Author,
-    /// Whether or not there is a local branch under the name
+    /// Whether there is a local branch under the name.
     pub has_local: bool,
     /// The head of interest for the branch group, used for calculating branch statistics.
     /// If there is a virtual branch, a local branch and remote branches, the head is determined in the following order:
@@ -340,6 +341,32 @@ pub struct Author {
     pub name: Option<String>,
     /// The email of the author as configured in the git config
     pub email: Option<String>,
+}
+
+/// The identity of a branch as to allow to group similar branches together.
+///
+/// * For *local* branches, it is what's left without the standard prefix, like `refs/heads`, e.g. `main`
+///   for `refs/heads/main` or `feat/one` for `refs/heads/feat/one`.
+/// * For *remote* branches, it is what's without the prefix and remote name, like `main` for `refs/remotes/origin/main`.
+///   or `feat/one` for `refs/remotes/my/special/remote/feat/one`.
+/// * For virtual branches, it's either the above if there is a `source_refname` or an `upstream`, or it's the normalized
+///   name of the virtual branch.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash, Ord, PartialOrd)]
+pub struct BranchIdentity(String);
+
+/// Facilitate obtaining this type from the UI - otherwise it would be better not to have it as it should be
+/// a particular thing, not any string.
+impl From<String> for BranchIdentity {
+    fn from(value: String) -> Self {
+        BranchIdentity(value)
+    }
+}
+
+/// Also not for testing.
+impl From<&str> for BranchIdentity {
+    fn from(value: &str) -> Self {
+        BranchIdentity(value.into())
+    }
 }
 
 impl From<git2::Signature<'_>> for Author {
@@ -366,8 +393,9 @@ pub struct VirtualBranchReference {
 /// a list of enriched branch data in the form of `BranchData`.
 pub fn get_branch_listing_details(
     ctx: &CommandContext,
-    branch_names: Vec<String>,
+    branch_names: impl IntoIterator<Item = impl Into<BranchIdentity>>,
 ) -> Result<Vec<BranchListingDetails>> {
+    let branch_names: Vec<_> = branch_names.into_iter().map(Into::into).collect();
     let repo = ctx.repository();
     let branches = list_branches(ctx, None, Some(branch_names.clone()))?;
     let default_target = ctx
@@ -415,7 +443,7 @@ pub fn get_branch_listing_details(
 #[serde(rename_all = "camelCase")]
 pub struct BranchListingDetails {
     /// The name of the branch (e.g. `main`, `feature/branch`), excluding the remote name
-    pub name: String,
+    pub name: BranchIdentity,
     /// The number of lines added within the branch
     /// Since the virtual branch, local branch and the remote one can have different number of lines removed,
     /// the value from the virtual branch (if present) takes the highest precedence,
