@@ -7,3 +7,11 @@ export async function findAndClick(selector, timeout) {
 	});
 	await browser.execute('arguments[0].click();', button);
 }
+
+export async function handleTelemetryPage() {
+	const telemetryAgreement = await $('div=GitButler uses telemetry');
+	if (await telemetryAgreement.isExisting()) {
+		const acceptTelemetryBtn = await $('button=Continue');
+		await acceptTelemetryBtn.click();
+	}
+}
