@@ -45,7 +45,8 @@
 		if (currentDisplayIndex + 1 >= chunkedFiles.length) return;
 
 		currentDisplayIndex += 1;
-		displayedFiles = [...displayedFiles, ...chunkedFiles[currentDisplayIndex]!];
+		const currentChunkedFiles = chunkedFiles[currentDisplayIndex] ?? [];
+		displayedFiles = [...displayedFiles, ...currentChunkedFiles];
 	}
 	let mergeDiffCommand = 'git diff-tree --cc ';
 </script>
