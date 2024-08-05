@@ -5,6 +5,8 @@
 	import { env } from '$env/dynamic/public';
 
 	const authService = getContext(AuthService);
+	const token = $derived(authService.token);
+	$inspect('token', $token);
 
 	function logout() {
 		authService.clearToken();
@@ -30,10 +32,10 @@
 		<button
 			class="nav__right--button"
 			onclick={() => {
-				authService.token ? logout() : login();
+				$token ? logout() : login();
 			}}
 		>
-			{authService.token ? 'Log Out' : 'Log In'}
+			{$token ? 'Log Out' : 'Log In'}
 		</button>
 	</div>
 </header>

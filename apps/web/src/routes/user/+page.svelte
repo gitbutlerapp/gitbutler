@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { UserService, type User } from '$lib/user/userService';
+	import { UserService } from '$lib/user/userService';
 	import { getContext } from '$lib/utils/context';
 
 	const userService = getContext(UserService);
-	const user = $state<User | undefined>(userService.user);
-	let userAvatarUrl = $state(user?.picture);
+	const user = $derived(userService.user);
+	let userAvatarUrl = $state($user?.picture);
 
 	function handleImageLoadError() {
-		userAvatarUrl = `https://unavatar.io/${user?.email}`;
+		userAvatarUrl = `https://unavatar.io/${$user?.email}`;
 	}
 </script>
 
@@ -15,7 +15,7 @@
 	<title>GitButler | User</title>
 </svelte:head>
 
-{#if !user?.id}
+{#if !$user?.id}
 	<p>Loading...</p>
 {:else}
 	<div class="user__wrapper">
@@ -27,11 +27,11 @@
 				src={userAvatarUrl}
 				onerror={handleImageLoadError}
 			/>
-			<div class="user__id--name">{user?.name}</div>
+			<div class="user__id--name">{$user?.name}</div>
 		</div>
-		<div><b>Email</b>: {user?.email}</div>
-		<div><b>Joined</b>: {user?.created_at}</div>
-		<div><b>Supporter</b>: {user?.supporter}</div>
+		<div><b>Email</b>: {$user?.email}</div>
+		<div><b>Joined</b>: {$user?.created_at}</div>
+		<div><b>Supporter</b>: {$user?.supporter}</div>
 	</div>
 {/if}
 

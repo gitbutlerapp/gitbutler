@@ -1,20 +1,21 @@
-import { persisted } from '$lib/utils/persisted';
-import { get } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 
 export class AuthService {
-	persistedToken = persisted<string | undefined>(undefined, 'gb_token');
+	token = writable<string | undefined>(undefined);
 
 	constructor() {}
 
-	get token() {
-		return get(this.persistedToken);
+	getToken() {
+		return get(this.token);
 	}
 
 	setToken(data: string) {
-		this.persistedToken.set(data);
+		console.log('data', data);
+		this.token.set(data);
+		console.log('data2', get(this.token));
 	}
 
 	clearToken() {
-		this.persistedToken.set('');
+		this.token.set('');
 	}
 }

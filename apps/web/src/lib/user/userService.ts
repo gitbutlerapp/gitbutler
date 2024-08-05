@@ -1,6 +1,6 @@
 import { AuthService } from '$lib/auth/authService';
 import { setSentryUser } from '$lib/analytics/sentry';
-import { get, writable } from 'svelte/store';
+import { writable } from 'svelte/store';
 import { env } from '$env/dynamic/public';
 
 export interface User {
@@ -13,11 +13,11 @@ export interface User {
 }
 
 export class UserService {
-	private userStore = writable<User | undefined>(undefined, (set) => {
+	user = writable<User | undefined>(undefined, (set) => {
 		this.fetchUser()
-			.then((user) => {
+			.then((data) => {
 				this.error.set(undefined);
-				set(user);
+				set(data);
 			})
 			.catch((err) => {
 				this.error.set(err);
@@ -29,11 +29,12 @@ export class UserService {
 	constructor(readonly authService: AuthService) {}
 
 	private async fetchUser() {
-		if (this.authService.token) {
+		const authToken = this.authService.getToken();
+		if (authToken) {
 			const userResponse = await fetch(env.PUBLIC_APP_HOST + 'api/user', {
 				method: 'GET',
 				headers: {
-					'X-AUTH-TOKEN': this.authService.token
+					'X-AUTH-TOKEN': authToken
 				}
 			});
 			if (!userResponse.ok) {
@@ -47,11 +48,7 @@ export class UserService {
 		}
 	}
 
-	get user() {
-		return get(this.userStore);
-	}
-
 	clearUser() {
-		this.userStore.set(undefined);
+		this.user.set(undefined);
 	}
 }
