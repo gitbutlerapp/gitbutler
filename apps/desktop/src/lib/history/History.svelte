@@ -1,7 +1,6 @@
 <script lang="ts">
 	import EmptyStatePlaceholder from '../components/EmptyStatePlaceholder.svelte';
 	import FullviewLoading from '../components/FullviewLoading.svelte';
-	import Icon from '../shared/Icon.svelte';
 	import LazyloadContainer from '../shared/LazyloadContainer.svelte';
 	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
@@ -13,6 +12,7 @@
 	import { getContext } from '$lib/utils/context';
 	import { RemoteFile } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { plainToInstance } from 'class-transformer';
 	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDiff } from '$lib/history/types';

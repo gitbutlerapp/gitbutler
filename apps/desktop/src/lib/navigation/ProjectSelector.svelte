@@ -2,7 +2,7 @@
 	import ProjectAvatar from './ProjectAvatar.svelte';
 	import ProjectsPopup from './ProjectsPopup.svelte';
 	import { Project } from '$lib/backend/projects';
-	import Icon from '$lib/shared/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 

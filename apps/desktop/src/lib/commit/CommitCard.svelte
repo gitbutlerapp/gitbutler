@@ -7,7 +7,7 @@
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore } from '$lib/utils/context';

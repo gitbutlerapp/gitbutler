@@ -1,6 +1,6 @@
 <script lang="ts">
 	import FileStatusCircle from './FileStatusCircle.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';

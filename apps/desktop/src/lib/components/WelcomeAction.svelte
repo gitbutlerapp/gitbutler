@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '$lib/shared/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { Snippet } from 'svelte';
 
 	const {

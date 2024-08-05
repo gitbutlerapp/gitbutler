@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SupportersBanner from './SupportersBanner.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';

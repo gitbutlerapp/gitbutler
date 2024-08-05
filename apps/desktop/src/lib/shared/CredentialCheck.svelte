@@ -3,7 +3,7 @@
 	import Link from './Link.svelte';
 	import { AuthService } from '$lib/backend/auth';
 	import SectionCardDisclaimer from '$lib/components/SectionCardDisclaimer.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { slide } from 'svelte/transition';

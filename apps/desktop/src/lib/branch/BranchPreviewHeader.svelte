@@ -2,7 +2,7 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import Icon from '$lib/shared/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';

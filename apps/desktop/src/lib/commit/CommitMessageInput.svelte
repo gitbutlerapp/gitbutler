@@ -13,7 +13,7 @@
 	import { isFailure } from '$lib/result';
 	import Checkbox from '$lib/shared/Checkbox.svelte';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { User } from '$lib/stores/user';
 	import { autoHeight } from '$lib/utils/autoHeight';
 	import { splitMessage } from '$lib/utils/commitMessage';

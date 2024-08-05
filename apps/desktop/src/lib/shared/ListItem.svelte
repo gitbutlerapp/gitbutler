@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '$lib/shared/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '$lib/icons/icons.json';
 

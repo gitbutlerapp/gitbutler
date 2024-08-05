@@ -38,9 +38,9 @@
 </script>
 
 <script lang="ts">
-	import Icon from './Icon.svelte';
 	import { pxToRem } from './utils/pxToRem';
 	import { tooltip } from './utils/tooltip';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type iconsJson from './icons.json';
 	import type { ComponentColor, ComponentStyleKind } from './types';
 	import type { Snippet } from 'svelte';

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import SnapshotAttachment from './SnapshotAttachment.svelte';
-	import Icon from '../shared/Icon.svelte';
 	import { getFileIcon } from '$lib/ext-icons';
 	import { createdOnDay } from '$lib/history/history';
 	import { splitFilePath } from '$lib/utils/filePath';
 	import { toHumanReadableTime } from '$lib/utils/time';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
 	import type iconsJson from '$lib/icons/icons.json';

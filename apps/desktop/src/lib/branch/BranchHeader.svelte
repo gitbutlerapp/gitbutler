@@ -11,13 +11,13 @@
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import { showError, showToast } from '$lib/notifications/toasts';
-	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 

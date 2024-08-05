@@ -1,6 +1,6 @@
 <script lang="ts">
 	import HunkViewer from '$lib/hunk/HunkViewer.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';

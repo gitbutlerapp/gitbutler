@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { type Row, Operation, type DiffRows } from './types';
-	import Icon from '$lib/shared/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { create } from '$lib/utils/codeHighlight';
 	import { maybeGetContextStore } from '$lib/utils/context';

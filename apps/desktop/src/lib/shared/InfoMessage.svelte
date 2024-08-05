@@ -4,8 +4,8 @@
 </script>
 
 <script lang="ts">
-	import Icon, { type IconColor } from '$lib/shared/Icon.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon, { type IconColor } from '@gitbutler/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '../icons/icons.json';
 

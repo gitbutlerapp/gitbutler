@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { MessageRole } from '$lib/ai/types';
-	import Icon from '$lib/shared/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { autoHeight } from '$lib/utils/autoHeight';
 	import { getMarkdownRenderer } from '$lib/utils/markdown';
 	import Button from '@gitbutler/ui/Button.svelte';
