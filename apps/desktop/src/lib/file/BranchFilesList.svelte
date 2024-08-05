@@ -23,7 +23,7 @@
 	const commit = getCommitStore();
 
 	function chunk<T>(arr: T[], size: number) {
-		return Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
+		return Array.from({ length: Math.ceil(arr.length / size) }, (_v, i) =>
 			arr.slice(i * size, i * size + size)
 		);
 	}
@@ -45,7 +45,7 @@
 		if (currentDisplayIndex + 1 >= chunkedFiles.length) return;
 
 		currentDisplayIndex += 1;
-		displayedFiles = [...displayedFiles, ...chunkedFiles[currentDisplayIndex]];
+		displayedFiles = [...displayedFiles, ...chunkedFiles[currentDisplayIndex]!];
 	}
 	let mergeDiffCommand = 'git diff-tree --cc ';
 </script>
