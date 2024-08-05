@@ -106,7 +106,7 @@
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
-		box-shadow: var(--fx-shadow-l);
+		box-shadow: var(--shadow-l);
 		overflow: hidden;
 	}
 
