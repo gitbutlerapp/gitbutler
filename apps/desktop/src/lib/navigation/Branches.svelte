@@ -5,23 +5,24 @@
 	import BranchListingSidebarEntry from '$lib/navigation/BranchListingSidebarEntry.svelte';
 	import PullRequestSidebarEntry from '$lib/navigation/PullRequestSidebarEntry.svelte';
 	import { getEntryUpdatedDate, type SidebarEntrySubject } from '$lib/navigation/types';
+	import { persisted } from '$lib/persisted/persisted';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import Segment from '@gitbutler/ui/SegmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
+	import Badge from '@gitbutler/ui/shared/Badge.svelte';
+	import type { PullRequest } from '$lib/gitHost/interface/types';
 
 	const gitHostListingService = getGitHostListingService();
 	const pullRequestsStore = $derived($gitHostListingService?.prs);
+	const pullRequests = $derived($pullRequestsStore || []);
 
 	const branchListingService = getContext(BranchListingService);
 	const branchListings = branchListingService.branchListings;
 
 	let sidebarEntries = $state<SidebarEntrySubject[]>([]);
-	let searchedBranches = $derived(sidebarEntries);
 
 	$effect(() => {
-		const pullRequests = $pullRequestsStore || [];
-
 		const branchListingNames = new Set<string>(
 			$branchListings.map((branchListing) => branchListing.name)
 		);
@@ -80,27 +81,50 @@
 		return grouped;
 	}
 
-	const groupedBranches = $derived(groupByDate(searchedBranches));
-
 	let viewport = $state<HTMLDivElement>();
 	let contents = $state<HTMLDivElement>();
 
+	const selectedOption = persisted<string>('all', 'branches-selectedOption');
+	const selectedIndex = $derived(
+		['all', 'pullRequest', 'local'].findIndex((option) => $selectedOption === option)
+	);
+
 	function setFilter(option: string) {
-		switch (option) {
-			case 'all': {
-				branchListingService.selectedFilter = {};
-				break;
-			}
-			case 'pullRequests': {
-				branchListingService.selectedFilter = {};
-				break;
+		$selectedOption = option;
+	}
+
+	function filterSidebarEntries(
+		pullRequests: PullRequest[],
+		selectedOption: string,
+		sidebarEntries: SidebarEntrySubject[]
+	): SidebarEntrySubject[] {
+		switch (selectedOption) {
+			case 'pullRequest': {
+				return sidebarEntries.filter(
+					(sidebarEntry) =>
+						sidebarEntry.type === 'pullRequest' ||
+						pullRequests.some(
+							(pullRequest) => pullRequest.sourceBranch === sidebarEntry.subject.name
+						)
+				);
 			}
 			case 'local': {
-				branchListingService.selectedFilter = { local: true };
-				break;
+				return sidebarEntries.filter(
+					(sidebarEntry) =>
+						sidebarEntry.type === 'branchListing' &&
+						(sidebarEntry.subject.hasLocal || sidebarEntry.subject.virtualBranch)
+				);
+			}
+			default: {
+				return sidebarEntries;
 			}
 		}
 	}
+
+	const searchedBranches = $derived(
+		filterSidebarEntries(pullRequests, $selectedOption, sidebarEntries)
+	);
+	const groupedBranches = $derived(groupByDate(searchedBranches));
 </script>
 
 {#snippet branchGroup(props: {
@@ -122,11 +146,20 @@
 {/snippet}
 
 <div class="branches">
-	<SegmentControl fullWidth defaultIndex={0} onselect={setFilter}>
-		<Segment id="all">All</Segment>
-		<Segment id="pullRequest">PRs</Segment>
-		<Segment id="local">Local</Segment>
-	</SegmentControl>
+	<div class="header">
+		<div class="branches-title">
+			<span class="text-base-14 text-bold">Branches</span>
+
+			{#if searchedBranches.length > 0}
+				<Badge count={searchedBranches.length} />
+			{/if}
+		</div>
+		<SegmentControl fullWidth defaultIndex={selectedIndex} onselect={setFilter}>
+			<Segment id="all">All</Segment>
+			<Segment id="pullRequest">PRs</Segment>
+			<Segment id="local">Local</Segment>
+		</SegmentControl>
+	</div>
 	{#if $branchListings.length > 0}
 		{#if searchedBranches.length > 0}
 			<ScrollableContainer
@@ -174,6 +207,18 @@
 		border-top: 1px solid var(--clr-border-2);
 	}
 
+	.header {
+		padding: 14px;
+	}
+
+	.branches-title {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+
+		margin-bottom: 8px;
+	}
+
 	/* BRANCHES LIST */
 
 	.scroll-container {
@@ -185,6 +230,12 @@
 		display: flex;
 		flex-direction: column;
 		border-bottom: 1px solid var(--clr-border-2);
+
+		&:first-child {
+			& .group-header {
+				padding-top: 0px;
+			}
+		}
 	}
 
 	.group-header {

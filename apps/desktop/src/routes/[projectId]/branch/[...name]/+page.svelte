@@ -31,7 +31,6 @@
 
 	$effect(() => {
 		if (branchListing) {
-			console.log(branchListing);
 			const branchesWithGivenName: Branch[] | undefined = branchesByGivenName[branchListing.name];
 
 			if (branchesWithGivenName === undefined) {

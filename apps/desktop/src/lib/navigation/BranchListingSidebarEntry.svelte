@@ -35,8 +35,6 @@
 		}
 	}
 
-	$inspect($branchListingDetails);
-
 	function onMouseDown() {
 		goto(`/${project.id}/branch/${encodeURIComponent(branchListing.name)}`);
 	}
