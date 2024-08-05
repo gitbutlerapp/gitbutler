@@ -37,9 +37,9 @@ export function maybeMoveSelection({
 	selectedFileIds,
 	fileIdSelection
 }: MoveSelectionParams) {
-	if (selectedFileIds.length === 0) return;
+	if (!selectedFileIds[0] || selectedFileIds.length === 0) return;
 
-	const firstFileId = unstringifyFileKey(selectedFileIds[0]!);
+	const firstFileId = unstringifyFileKey(selectedFileIds[0]);
 	const lastFileId = unstringifyFileKey(selectedFileIds.at(-1)!);
 	let selectionDirection = getSelectionDirection(
 		files.findIndex((f) => f.id === lastFileId),
