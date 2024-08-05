@@ -6,7 +6,7 @@ use std::{
     vec,
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use bstr::{BString, ByteSlice};
 use gitbutler_branch::{Branch as GitButlerBranch, BranchId, ReferenceExt, Target};
 use gitbutler_command_context::CommandContext;
