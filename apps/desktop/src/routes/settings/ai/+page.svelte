@@ -132,8 +132,8 @@
 			value: AnthropicModelName.Haiku
 		},
 		{
-			label: 'Claude 3.5 Sonnet',
-			value: AnthropicModelName.Claude35Sonnet
+			label: 'Sonnet 3.5',
+			value: AnthropicModelName.Sonnet35
 		}
 	];
 
