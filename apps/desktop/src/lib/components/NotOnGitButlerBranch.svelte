@@ -65,7 +65,7 @@
 				kind="solid"
 				icon="undo-small"
 				reversedDirection
-				on:click={() => {
+				onclick={() => {
 					if (baseBranch) branchController.setTarget(baseBranch.branchName);
 				}}
 			>

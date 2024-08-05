@@ -19,7 +19,7 @@
 		kind="solid"
 		{wide}
 		icon="signout"
-		on:click={async () => {
+		onclick={async () => {
 			await userService.logout();
 		}}>Log out</Button
 	>
@@ -44,7 +44,7 @@
 			loading={$loading}
 			icon="signin"
 			{wide}
-			on:mousedown={async () => {
+			onclick={async () => {
 				await userService.login();
 			}}
 		>

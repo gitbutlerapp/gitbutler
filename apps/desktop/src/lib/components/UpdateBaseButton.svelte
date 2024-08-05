@@ -14,7 +14,7 @@
 	style="error"
 	kind="solid"
 	help="Merge upstream commits into common base"
-	on:click={async () => {
+	onclick={async () => {
 		loading = true;
 		try {
 			let infoText = await branchController.updateBaseBranch();

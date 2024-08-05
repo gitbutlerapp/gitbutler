@@ -85,12 +85,12 @@
 					icon="bin-small"
 					kind="soft"
 					style="error"
-					on:click={() => dispatcher('removeLastExample')}
+					onclick={() => dispatcher('removeLastExample')}
 				>
 					Remove example
 				</Button>
 			{/if}
-			<Button style="ghost" outline grow on:click={() => dispatcher('addExample')}>
+			<Button style="ghost" outline grow onclick={() => dispatcher('addExample')}>
 				Add new example
 			</Button>
 		</div>

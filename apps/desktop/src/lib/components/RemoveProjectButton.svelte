@@ -21,7 +21,7 @@
 	kind="solid"
 	icon="bin-small"
 	reversedDirection
-	on:click={() => {
+	onclick={() => {
 		modal.show();
 	}}
 >
@@ -48,13 +48,13 @@
 			reversedDirection
 			loading={isDeleting}
 			icon="bin-small"
-			on:click={() => {
+			onclick={() => {
 				onDeleteClicked().then(close);
 			}}
 		>
 			Remove
 		</Button>
-		<Button style="pop" kind="solid" on:click={close}>Cancel</Button>
+		<Button style="pop" kind="solid" onclick={close}>Cancel</Button>
 	{/snippet}
 </Modal>
 

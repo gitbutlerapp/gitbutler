@@ -29,7 +29,7 @@
 					<Button
 						icon="chevron-left"
 						style="ghost"
-						on:mousedown={() => {
+						onmousedown={() => {
 							if (history.length > 0) {
 								history.back();
 							} else {

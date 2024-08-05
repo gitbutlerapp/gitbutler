@@ -217,8 +217,8 @@
 
 	<!-- Use our own close function -->
 	{#snippet controls(_close)}
-		<Button style="ghost" outline type="reset" on:click={close}>Close</Button>
-		<Button style="pop" kind="solid" type="submit" on:click={async () => await submit()}>
+		<Button style="ghost" outline type="reset" onclick={close}>Close</Button>
+		<Button style="pop" kind="solid" type="submit" onclick={async () => await submit()}>
 			Share with GitButler
 		</Button>
 	{/snippet}

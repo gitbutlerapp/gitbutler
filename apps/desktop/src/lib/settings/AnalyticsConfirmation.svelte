@@ -16,7 +16,7 @@
 			style="pop"
 			kind="solid"
 			icon="chevron-right-small"
-			on:click={() => {
+			onclick={() => {
 				$analyticsConfirmed = true;
 				initAnalyticsIfEnabled();
 			}}

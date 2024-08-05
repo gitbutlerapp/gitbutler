@@ -74,7 +74,7 @@
 					style="ghost"
 					outline
 					id="commit-to-branch"
-					on:click={() => {
+					onclick={() => {
 						$expanded = false;
 					}}
 				>
@@ -90,7 +90,7 @@
 			loading={isCommitting}
 			disabled={(isCommitting || !commitMessageValid || $selectedOwnership.isEmpty()) && $expanded}
 			id="commit-to-branch"
-			on:click={() => {
+			onclick={() => {
 				if ($expanded) {
 					commit();
 				} else {

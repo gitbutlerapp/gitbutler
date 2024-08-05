@@ -66,14 +66,14 @@
 	<TextBox focus type="password" bind:value disabled={!!$error || loading} />
 
 	{#snippet controls()}
-		<Button style="ghost" outline type="reset" disabled={loading} on:click={cancel}>Cancel</Button>
+		<Button style="ghost" outline type="reset" disabled={loading} onclick={cancel}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
 			grow
 			disabled={!!$error || loading}
 			{loading}
-			on:click={async () => await submit()}
+			onclick={async () => await submit()}
 		>
 			Submit
 		</Button>

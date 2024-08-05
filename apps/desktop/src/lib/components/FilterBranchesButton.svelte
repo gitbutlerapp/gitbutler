@@ -29,7 +29,7 @@
 		style="ghost"
 		outline
 		icon={$filtersActive ? 'filter-applied-small' : 'filter-small'}
-		on:mousedown={onFilterClick}
+		onmousedown={onFilterClick}
 	>
 		Filter
 	</Button>

@@ -90,7 +90,7 @@
 		style="ghost"
 		outline
 		shrinkable
-		on:click={(e) => {
+		onclick={(e) => {
 			const url = gitHostBranch?.url;
 			if (url) openExternalUrl(url);
 			e.preventDefault();

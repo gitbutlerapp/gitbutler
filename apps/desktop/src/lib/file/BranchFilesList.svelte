@@ -64,7 +64,7 @@
 				icon="copy"
 				style="ghost"
 				outline
-				on:mousedown={() => copyToClipboard(mergeDiffCommand + $commit.id.slice(0, 7))}
+				onmousedown={() => copyToClipboard(mergeDiffCommand + $commit.id.slice(0, 7))}
 			/>
 		</div>
 	</div>

@@ -139,7 +139,7 @@
 						<TextBox label="Email" bind:value={$user.email} readonly />
 					</div>
 
-					<Button style="pop" kind="solid" loading={saving}>Update profile</Button>
+					<Button type="submit" style="pop" kind="solid" loading={saving}>Update profile</Button>
 				</div>
 			</form>
 		</SectionCard>
@@ -251,7 +251,7 @@
 			Your code remains safe. it only clears the configuration.
 		</svelte:fragment>
 
-		<Button style="error" kind="soft" on:click={() => deleteConfirmationModal.show()}>
+		<Button style="error" kind="soft" onclick={() => deleteConfirmationModal.show()}>
 			Remove projects…
 		</Button>
 
@@ -259,10 +259,10 @@
 			<p>Are you sure you want to remove all GitButler projects?</p>
 
 			{#snippet controls(close)}
-				<Button style="error" kind="solid" loading={isDeleting} on:click={onDeleteClicked}>
+				<Button style="error" kind="solid" loading={isDeleting} onclick={onDeleteClicked}>
 					Remove
 				</Button>
-				<Button style="pop" kind="solid" on:click={close}>Cancel</Button>
+				<Button style="pop" kind="solid" onclick={close}>Cancel</Button>
 			{/snippet}
 		</Modal>
 	</SectionCard>

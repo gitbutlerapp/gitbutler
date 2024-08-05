@@ -46,7 +46,7 @@
 			style="pop"
 			kind="solid"
 			help={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
-			on:click={() => {
+			onclick={() => {
 				if ($mergeUpstreamWarningDismissed) {
 					updateBaseBranch();
 				} else {
@@ -116,11 +116,11 @@
 	</label>
 
 	{#snippet controls(close)}
-		<Button style="ghost" outline on:click={close}>Cancel</Button>
+		<Button style="ghost" outline onclick={close}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
-			on:click={() => {
+			onclick={() => {
 				updateBaseBranch();
 				if (mergeUpstreamWarningDismissedCheckbox) {
 					mergeUpstreamWarningDismissed.set(true);

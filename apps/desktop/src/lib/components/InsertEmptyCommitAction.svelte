@@ -25,7 +25,7 @@
 			width={26}
 			help="Insert empty commit"
 			helpShowDelay={500}
-			on:click={() => dispatch('click')}
+			onclick={() => dispatch('click')}
 		/>
 	</div>
 </div>

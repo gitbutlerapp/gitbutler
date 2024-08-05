@@ -39,7 +39,7 @@
 				style="ghost"
 				outline
 				disabled={isSubmitting}
-				on:click={async () => {
+				onclick={async () => {
 					if (!prompt) return;
 					prompt.respond(null);
 				}}
@@ -50,7 +50,7 @@
 				style="pop"
 				kind="solid"
 				grow
-				on:click={async () => await submit()}
+				onclick={async () => await submit()}
 				disabled={submitDisabled || isSubmitting}
 				loading={isSubmitting}
 			>

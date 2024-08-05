@@ -3,30 +3,50 @@
 	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import type iconsJson from '@gitbutler/ui/icon/icons.json';
 	import type { ComponentColor, ComponentStyleKind } from '@gitbutler/ui/utils/colorTypes';
+	import type { Snippet } from 'svelte';
 
-	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let style: ComponentColor = 'neutral';
-	export let kind: ComponentStyleKind = 'soft';
-	export let outline = false;
-	export let disabled = false;
-	export let loading = false;
-	export let wide = false;
-	export let help = '';
-	export let menuPosition: 'top' | 'bottom' = 'bottom';
+	interface DropDownButtonProps {
+		icon?: keyof typeof iconsJson;
+		style?: ComponentColor;
+		kind?: ComponentStyleKind;
+		outline?: boolean;
+		disabled?: boolean;
+		loading?: boolean;
+		wide?: boolean;
+		help?: string;
+		menuPosition?: 'top' | 'bottom';
+		children: Snippet;
+		contextMenuSlot: Snippet;
+		onclick?: (e: MouseEvent) => void;
+	}
 
-	let contextMenu: ContextMenu;
-	let iconEl: HTMLElement;
+	const {
+		icon,
+		style = 'neutral',
+		kind = 'soft',
+		outline = false,
+		disabled = false,
+		loading = false,
+		wide = false,
+		help = '',
+		menuPosition = 'bottom',
+		children,
+		contextMenuSlot,
+		onclick
+	}: DropDownButtonProps = $props();
 
-	let visible = false;
+	let contextMenu = $state<ContextMenu>();
+	let iconEl = $state<HTMLElement>();
+	let visible = $state(false);
 
 	export function show() {
 		visible = true;
-		contextMenu.open();
+		contextMenu?.open();
 	}
 
 	export function close() {
 		visible = false;
-		contextMenu.close();
+		contextMenu?.close();
 	}
 </script>
 
@@ -41,9 +61,9 @@
 			reversedDirection
 			disabled={disabled || loading}
 			isDropdownChild
-			on:click
+			{onclick}
 		>
-			<slot />
+			{@render children()}
 		</Button>
 		<Button
 			bind:el={iconEl}
@@ -55,9 +75,9 @@
 			{loading}
 			disabled={disabled || loading}
 			isDropdownChild
-			on:click={() => {
+			onclick={() => {
 				visible = !visible;
-				contextMenu.toggle();
+				contextMenu?.toggle();
 			}}
 		/>
 	</div>
@@ -69,7 +89,7 @@
 			visible = false;
 		}}
 	>
-		<slot name="context-menu" />
+		{@render contextMenuSlot()}
 	</ContextMenu>
 </div>
 

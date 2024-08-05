@@ -26,7 +26,7 @@
 	icon="update-small"
 	help="Last fetch from upstream"
 	{loading}
-	on:mousedown={async (e) => {
+	onmousedown={async (e) => {
 		e.preventDefault();
 		e.stopPropagation();
 		loading = true;

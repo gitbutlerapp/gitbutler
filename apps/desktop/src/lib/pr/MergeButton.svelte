@@ -37,20 +37,22 @@
 	{wide}
 	{help}
 	{disabled}
-	on:click={() => {
+	onclick={() => {
 		dispatch('click', { method: $action });
 	}}
 >
 	{labels[$action]}
-	<ContextMenuSection slot="context-menu">
-		{#each Object.values(MergeMethod) as method}
-			<ContextMenuItem
-				label={labels[method]}
-				on:click={() => {
-					$action = method;
-					dropDown.close();
-				}}
-			/>
-		{/each}
-	</ContextMenuSection>
+	{#snippet contextMenuSlot()}
+		<ContextMenuSection>
+			{#each Object.values(MergeMethod) as method}
+				<ContextMenuItem
+					label={labels[method]}
+					on:click={() => {
+						$action = method;
+						dropDown.close();
+					}}
+				/>
+			{/each}
+		</ContextMenuSection>
+	{/snippet}
 </DropDownButton>

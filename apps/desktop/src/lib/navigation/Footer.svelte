@@ -15,7 +15,7 @@
 			style="ghost"
 			size="cta"
 			help="Share feedback"
-			on:click={() => events.emit('openSendIssueModal')}
+			onclick={() => events.emit('openSendIssueModal')}
 			wide={isNavCollapsed}
 		/>
 		<Button
@@ -23,7 +23,7 @@
 			style="ghost"
 			size="cta"
 			help="Project settings"
-			on:click={async () => await goto(`/${projectId}/settings`)}
+			onclick={async () => await goto(`/${projectId}/settings`)}
 			wide={isNavCollapsed}
 		/>
 		<Button
@@ -31,7 +31,7 @@
 			style="ghost"
 			size="cta"
 			help="Project history"
-			on:click={() => events.emit('openHistory')}
+			onclick={() => events.emit('openHistory')}
 			wide={isNavCollapsed}
 		/>
 	</div>

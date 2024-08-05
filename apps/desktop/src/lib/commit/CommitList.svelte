@@ -159,7 +159,7 @@
 							style="warning"
 							kind="solid"
 							loading={isIntegratingCommits}
-							on:click={async () => {
+							onclick={async () => {
 								isIntegratingCommits = true;
 								try {
 									await branchController.mergeUpstream($branch.id);
@@ -225,7 +225,7 @@
 							kind="solid"
 							wide
 							loading={isPushingCommits}
-							on:click={async () => {
+							onclick={async () => {
 								isPushingCommits = true;
 								try {
 									await branchController.pushBranch($branch.id, $branch.requiresForce);

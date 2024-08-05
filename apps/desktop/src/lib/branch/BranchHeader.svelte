@@ -128,7 +128,7 @@
 			<div class="collapsed-lane__draggable" data-drag-handle>
 				<Icon name="draggable" />
 			</div>
-			<Button style="ghost" outline icon="unfold-lane" help="Expand lane" on:click={expandLane} />
+			<Button style="ghost" outline icon="unfold-lane" help="Expand lane" onclick={expandLane} />
 		</div>
 
 		<div class="collapsed-lane__info-wrap" bind:clientHeight={headerInfoHeight}>
@@ -225,7 +225,7 @@
 							outline
 							help="When selected, new changes will land here"
 							icon="target"
-							on:click={async () => {
+							onclick={async () => {
 								isTargetBranchAnimated = true;
 								await branchController.setSelectedForChanges(branch.id);
 							}}
@@ -250,7 +250,7 @@
 							style="ghost"
 							outline
 							icon="kebab"
-							on:click={() => {
+							onclick={() => {
 								contextMenu.toggle();
 							}}
 						/>

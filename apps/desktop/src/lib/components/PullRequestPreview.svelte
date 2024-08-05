@@ -89,10 +89,8 @@
 	</p>
 	<TextBox label="Choose a remote name" bind:value={remoteName}></TextBox>
 	{#snippet controls(close)}
-		<Button style="ghost" outline on:click={() => closeModal(close)}>Cancel</Button>
-		<Button style="pop" kind="solid" grow on:click={createRemoteAndBranch} {loading}>
-			Confirm
-		</Button>
+		<Button style="ghost" outline onclick={() => closeModal(close)}>Cancel</Button>
+		<Button style="pop" kind="solid" grow onclick={createRemoteAndBranch} {loading}>Confirm</Button>
 	{/snippet}
 </Modal>
 
@@ -141,7 +139,7 @@
 				style="pop"
 				kind="solid"
 				help="Does not create a commit. Can be toggled."
-				on:click={async () => createRemoteModal?.show()}>Apply from fork</Button
+				onclick={async () => createRemoteModal?.show()}>Apply from fork</Button
 			>
 		</div>
 	</div>

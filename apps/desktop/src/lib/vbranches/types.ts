@@ -154,7 +154,6 @@ export class VirtualBranch {
 
 // Used for dependency injection
 export const BRANCH = Symbol('branch');
-
 export type CommitStatus = 'local' | 'localAndRemote' | 'integrated' | 'remote';
 
 export class DetailedCommit {

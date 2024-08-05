@@ -117,7 +117,7 @@
 				<Button
 					style="ghost"
 					icon="cross"
-					on:click={() => {
+					onclick={() => {
 						dispatch('hide');
 					}}
 				/>
