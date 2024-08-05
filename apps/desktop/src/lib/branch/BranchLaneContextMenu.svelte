@@ -158,7 +158,7 @@
 	<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName} focus />
 
 	{#snippet controls(close)}
-		<Button style="ghost" outline type="reset" on:click={close}>Cancel</Button>
+		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
