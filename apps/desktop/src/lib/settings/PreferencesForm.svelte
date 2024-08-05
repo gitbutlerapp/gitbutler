@@ -12,7 +12,7 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '$lib/utils/context';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { onMount } from 'svelte';
 

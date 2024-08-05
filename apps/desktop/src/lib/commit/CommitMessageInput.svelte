@@ -11,7 +11,6 @@
 	} from '$lib/config/config';
 	import { showError } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
-	import Checkbox from '$lib/shared/Checkbox.svelte';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import { User } from '$lib/stores/user';
 	import { autoHeight } from '$lib/utils/autoHeight';
@@ -20,7 +19,8 @@
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, LocalFile } from '$lib/vbranches/types';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Checkbox from '@gitbutler/ui/inputs/Checkbox.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import { type Snippet } from 'svelte';
-	import type iconsJson from '@gitbutler/ui/icons.json';
-	import type { ComponentColor, ComponentStyleKind } from '@gitbutler/ui/types';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import type iconsJson from '@gitbutler/ui/icon/icons.json';
+	import type { ComponentColor, ComponentStyleKind } from '@gitbutler/ui/utils/colorTypes';
+	import type { Snippet } from 'svelte';
 
 	interface DropDownButtonProps {
 		icon?: keyof typeof iconsJson;

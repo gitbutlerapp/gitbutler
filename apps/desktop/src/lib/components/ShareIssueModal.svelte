@@ -4,12 +4,12 @@
 	import { HttpClient } from '$lib/backend/httpClient';
 	import { invoke, listen } from '$lib/backend/ipc';
 	import * as zip from '$lib/backend/zip';
-	import Checkbox from '$lib/shared/Checkbox.svelte';
-	import Modal from '$lib/shared/Modal.svelte';
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Checkbox from '@gitbutler/ui/inputs/Checkbox.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';

@@ -8,9 +8,9 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { getContext } from '$lib/utils/context';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import Segment from '@gitbutler/ui/SegmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { open } from '@tauri-apps/api/dialog';
 	import { documentDir } from '@tauri-apps/api/path';
 	import { join } from '@tauri-apps/api/path';

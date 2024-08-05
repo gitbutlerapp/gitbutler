@@ -12,7 +12,7 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 	import { open } from '@tauri-apps/api/shell';
 
 	const vbranchService = getContext(VirtualBranchService);

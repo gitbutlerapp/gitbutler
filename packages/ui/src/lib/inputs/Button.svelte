@@ -38,11 +38,11 @@
 </script>
 
 <script lang="ts">
-	import Icon from './Icon.svelte';
-	import { pxToRem } from './utils/pxToRem';
-	import { tooltip } from './utils/tooltip';
-	import type iconsJson from './icons.json';
-	import type { ComponentColor, ComponentStyleKind } from './types';
+	import Icon from '$lib/icon/Icon.svelte';
+	import { pxToRem } from '$lib/utils/pxToRem';
+	import { tooltip } from '$lib/utils/tooltip';
+	import type iconsJson from '$lib/icon/icons.json';
+	import type { ComponentColor, ComponentStyleKind } from '$lib/utils/colorTypes';
 	import type { Snippet } from 'svelte';
 
 	let {

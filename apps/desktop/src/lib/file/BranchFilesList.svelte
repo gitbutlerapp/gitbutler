@@ -10,7 +10,7 @@
 	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection, stringifyFileKey } from '$lib/vbranches/fileIdSelection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import type { AnyFile } from '$lib/vbranches/types';
 
 	export let files: AnyFile[];

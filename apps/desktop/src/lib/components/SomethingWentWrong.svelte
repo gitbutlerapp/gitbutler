@@ -2,7 +2,7 @@
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 
 	export let error: any = undefined;
 </script>

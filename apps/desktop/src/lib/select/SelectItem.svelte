@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
-	import type iconsJson from '@gitbutler/ui/icons.json';
+	import type iconsJson from '@gitbutler/ui/icon/icons.json';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let selected = false;

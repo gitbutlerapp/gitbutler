@@ -7,7 +7,7 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { VirtualBranch } from '$lib/vbranches/types';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import type { Writable } from 'svelte/store';
 
 	export let projectId: string;

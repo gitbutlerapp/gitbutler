@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/clickOutside';
+	import Icon from '$lib/icon/Icon.svelte';
+	import { clickOutside } from '$lib/utils/clickOutside';
 	import { portal } from '$lib/utils/portal';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type iconsJson from '@gitbutler/ui/icons.json';
+	import type iconsJson from '$lib/icon/icons.json';
 	import type { Snippet } from 'svelte';
 
 	interface Props {

@@ -4,7 +4,7 @@
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import { getContext, maybeGetContext } from '$lib/utils/context';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { goto } from '$app/navigation';
 
 	const projectService = getContext(ProjectService);

@@ -11,7 +11,7 @@
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';

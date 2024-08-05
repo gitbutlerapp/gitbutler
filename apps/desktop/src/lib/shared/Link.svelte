@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { openExternalUrl } from '$lib/utils/url';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 	import { onMount } from 'svelte';
 
 	let classes = '';

@@ -3,7 +3,7 @@
 	import gbLogoSvg from '$lib/assets/gb-logo.svg?raw';
 	import { User } from '$lib/stores/user';
 	import { getContextStore } from '$lib/utils/context';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 
 	export let showLinks: boolean = true;
 	export let img: string | undefined = undefined;

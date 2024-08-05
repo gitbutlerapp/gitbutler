@@ -1,11 +1,12 @@
 <script lang="ts" context="module">
-	import type { ComponentColor } from './types';
+	import { pxToRem } from '$lib/utils/pxToRem';
 	export type IconColor = ComponentColor | undefined;
 </script>
 
 <script lang="ts">
-	import iconsJson from './icons.json';
-	import { pxToRem } from './utils/pxToRem';
+	import iconsJson from '$lib/icon/icons.json';
+	import type { ComponentColor } from '$lib/utils/colorTypes';
+
 	export let name: keyof typeof iconsJson;
 	export let color: IconColor = undefined;
 	export let opacity: number | undefined = 1;
