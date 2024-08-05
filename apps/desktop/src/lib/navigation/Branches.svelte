@@ -217,10 +217,22 @@
 				fillViewport={searchedBranches.length === 0}
 			>
 				<div bind:this={contents} class="scroll-container">
-					{@render branchGroup({ title: 'Today', children: groupedBranches.today })}
-					{@render branchGroup({ title: 'Yesterday', children: groupedBranches.yesterday })}
-					{@render branchGroup({ title: 'Last week', children: groupedBranches.lastWeek })}
-					{@render branchGroup({ title: 'Older', children: groupedBranches.older })}
+					{#if searchTerm}
+						<div class="group">
+							{#each searchedBranches as sidebarEntrySubject}
+								{#if sidebarEntrySubject.type === 'branchListing'}
+									<BranchListingSidebarEntry branchListing={sidebarEntrySubject.subject} />
+								{:else}
+									<PullRequestSidebarEntry pullRequest={sidebarEntrySubject.subject} />
+								{/if}
+							{/each}
+						</div>
+					{:else}
+						{@render branchGroup({ title: 'Today', children: groupedBranches.today })}
+						{@render branchGroup({ title: 'Yesterday', children: groupedBranches.yesterday })}
+						{@render branchGroup({ title: 'Last week', children: groupedBranches.lastWeek })}
+						{@render branchGroup({ title: 'Older', children: groupedBranches.older })}
+					{/if}
 				</div>
 			</ScrollableContainer>
 		{:else}

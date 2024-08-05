@@ -113,7 +113,7 @@
 			value: OpenAIModelName.GPT4o
 		},
 		{
-			label: 'GPT 4o mini',
+			label: 'GPT 4o mini (recommended)',
 			value: OpenAIModelName.GPT4oMini
 		}
 	];
@@ -132,7 +132,7 @@
 			value: AnthropicModelName.Haiku
 		},
 		{
-			label: 'Sonnet 3.5',
+			label: 'Sonnet 3.5 (recommended)',
 			value: AnthropicModelName.Sonnet35
 		}
 	];
