@@ -61,6 +61,32 @@ pub fn list_branches(
     // Apply the filter
     branches.retain(|branch| !has_filter || matches_all(branch, filter));
 
+    // Filter out virtual branches which have no local or remote branches
+    branches.retain(|branch| {
+        // If there is no virtual branch, keep the grouping
+        let Some(virtual_branch) = &branch.virtual_branch else {
+            return true;
+        };
+
+        // If the virtual branch is applied, keep the grouping
+        if virtual_branch.in_workspace {
+            return true;
+        }
+
+        // If the virtual virtual branch has a local branch, keep the grouping
+        if branch.has_local {
+            return true;
+        };
+
+        // If the virtual branch has remotes, keep the grouping
+        if !branch.remotes.is_empty() {
+            return true;
+        };
+
+        // Otherwise, drop the grouping
+        false
+    });
+
     if let Some(branch_names) = filter_branch_names {
         branches.retain(|branch_listing| branch_names.contains(&branch_listing.name))
     }
