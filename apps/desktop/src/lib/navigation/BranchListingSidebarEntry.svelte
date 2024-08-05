@@ -29,10 +29,16 @@
 
 	let branchListingDetails = $state<Readable<BranchListingDetails | undefined>>();
 
-	function onFirstSeen() {
-		if (!branchListingDetails) {
-			branchListingDetails = branchListingService.getBranchListingDetails(branchListing.name);
+	let hasBeenSeen = $state(false);
+
+	$effect(() => {
+		if (hasBeenSeen) {
+			updateBranchListingDetails(branchListing.name);
 		}
+	});
+
+	function updateBranchListingDetails(branchName: string) {
+		branchListingDetails = branchListingService.getBranchListingDetails(branchName);
 	}
 
 	function onMouseDown() {
@@ -57,7 +63,7 @@
 		linesAdded: $branchListingDetails.linesAdded,
 		linesRemoved: $branchListingDetails.linesRemoved
 	}}
-	{onFirstSeen}
+	onFirstSeen={() => (hasBeenSeen = true)}
 	{onMouseDown}
 >
 	{#snippet authorAvatars()}
