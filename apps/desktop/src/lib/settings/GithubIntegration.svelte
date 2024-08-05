@@ -2,7 +2,6 @@
 	import { checkAuthStatus, initDeviceOauth } from '$lib/backend/github';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { getGitHubUserServiceStore } from '$lib/gitHost/github/githubUserService';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
@@ -10,6 +9,7 @@
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { fade } from 'svelte/transition';
 
 	export let minimal = false;
