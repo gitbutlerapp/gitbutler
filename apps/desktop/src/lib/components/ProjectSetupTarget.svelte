@@ -55,16 +55,16 @@
 		branches.sort((a, b) => calculateRank(b.name) - calculateRank(a.name));
 
 		// Return the branch with the highest rank
-		return branches[0];
+		return branches[0]!;
 	}
 
 	// split all the branches by the first '/' and gather the unique remote names
 	// then turn remotes into an array of objects with a 'name' and 'value' key
 	let remotes = Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0]))).map((r) => ({
-		name: r,
-		value: r
+		name: r!,
+		value: r!
 	}));
-	let selectedRemote = remotes[0];
+	let selectedRemote = remotes[0]!;
 
 	// if there's an 'origin', select it by default
 	let originRemote = remotes.find((r) => r.name === 'origin');

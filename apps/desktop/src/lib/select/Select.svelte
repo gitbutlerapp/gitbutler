@@ -50,13 +50,11 @@
 
 	let selectWrapperEl: HTMLElement;
 
-	// let hightlighted = $state(false);
 	let highlightedIndex: number | undefined = $state(undefined);
 	let filteredOptions = $state(options);
 	let maxHeightState = $state(maxHeight);
 	let listOpen = $state(false);
 	let inputBoundingRect = $state<DOMRect>();
-	let optionsEl = $state<HTMLDivElement>();
 
 	const maxBottomPadding = 20;
 
@@ -99,8 +97,8 @@
 	}
 
 	function handleEnter() {
-		if (highlightedIndex !== undefined) {
-			handleSelect(filteredOptions[highlightedIndex]);
+		if (highlightedIndex !== undefined && filteredOptions[highlightedIndex]) {
+			handleSelect(filteredOptions[highlightedIndex] as SelectItem);
 		}
 	}
 
@@ -177,7 +175,6 @@
 			}}
 		>
 			<div
-				bind:this={optionsEl}
 				class="options card"
 				style:width="{inputBoundingRect?.width}px"
 				style:top={inputBoundingRect?.top

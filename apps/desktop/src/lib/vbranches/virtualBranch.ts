@@ -102,14 +102,14 @@ export class VirtualBranchService {
 function linkAsParentChildren(commits: DetailedCommit[] | Commit[]) {
 	for (let j = 0; j < commits.length; j++) {
 		const commit = commits[j];
-		if (j === 0) {
+		if (commit && j === 0) {
 			commit.next = undefined;
-		} else {
+		} else if (commit) {
 			const child = commits[j - 1];
 			if (child instanceof DetailedCommit) commit.next = child;
 			if (child instanceof Commit) commit.next = child;
 		}
-		if (j !== commits.length - 1) {
+		if (commit && j !== commits.length - 1) {
 			commit.prev = commits[j + 1];
 		}
 	}

@@ -22,7 +22,8 @@
 	let loading = false;
 
 	async function setTarget() {
-		if (selectedBranch[0] === '') return;
+		if (!selectedBranch[0] || selectedBranch[0] === '') return;
+
 		loading = true;
 		try {
 			// TODO: Refactor temporary solution to forcing Windows to use system executable
@@ -40,7 +41,7 @@
 </script>
 
 <DecorativeSplitView img={newProjectSvg}>
-	{#if selectedBranch[0] !== '' && $platformName !== 'win32'}
+	{#if selectedBranch[0] && selectedBranch[0] !== '' && $platformName !== 'win32'}
 		{@const [remoteName, branchName] = selectedBranch[0].split(/\/(.*)/s)}
 		<KeysForm {remoteName} {branchName} disabled={loading} />
 		<div class="actions">

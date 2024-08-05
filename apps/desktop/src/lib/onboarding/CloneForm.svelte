@@ -39,7 +39,7 @@
 			recursive: true,
 			title: 'Target Clone Directory'
 		});
-		if (!selectedPath) return;
+		if (!selectedPath || !selectedPath[0]) return;
 
 		targetDirPath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
 	}
