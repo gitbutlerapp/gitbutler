@@ -1,5 +1,6 @@
 <script lang="ts" context="module">
 	export interface ButtonProps {
+		el?: HTMLElement;
 		// Interaction props
 		disabled?: boolean;
 		clickable?: boolean;
@@ -44,7 +45,8 @@
 	import type { ComponentColor, ComponentStyleKind } from './types';
 	import type { Snippet } from 'svelte';
 
-	const {
+	let {
+		el = $bindable(),
 		disabled = false,
 		clickable = true,
 		id = undefined,
@@ -85,6 +87,7 @@
 </script>
 
 <button
+	bind:this={el}
 	class="btn focus-state {style} {kind} {size}-size"
 	class:outline
 	class:dashed
@@ -167,7 +170,11 @@
 		}
 		&.not-clickable {
 			cursor: default;
-			/* pointer-events: none; */
+
+			&:focus-within {
+				outline: none;
+				animation: none;
+			}
 		}
 		&.shrinkable {
 			overflow: hidden;

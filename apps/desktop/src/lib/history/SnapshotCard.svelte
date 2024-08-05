@@ -3,9 +3,9 @@
 	import Icon from '../shared/Icon.svelte';
 	import { getFileIcon } from '$lib/ext-icons';
 	import { createdOnDay } from '$lib/history/history';
-	import Button from '$lib/shared/Button.svelte';
 	import { splitFilePath } from '$lib/utils/filePath';
 	import { toHumanReadableTime } from '$lib/utils/time';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
 	import type iconsJson from '$lib/icons/icons.json';
@@ -166,7 +166,7 @@
 				style="ghost"
 				outline
 				help="Restores GitButler and your files to the state before this operation. Revert actions can also be undone."
-				on:click={() => {
+				onclick={() => {
 					dispatch('restoreClick');
 				}}>Revert</Button
 			>
