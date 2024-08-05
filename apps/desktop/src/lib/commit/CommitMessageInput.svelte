@@ -194,9 +194,11 @@
 		<div
 			class="commit-box__texarea-actions"
 			class:commit-box-actions_expanded={isExpanded}
-			use:tooltip={$aiGenEnabled && aiConfigurationValid
-				? ''
-				: 'You must be logged in or have provided your own API key and have summary generation enabled to use this feature'}
+			use:tooltip={!aiConfigurationValid
+				? 'You must be logged in or have provided your own API key to use this feature'
+				: !$aiGenEnabled
+					? 'You must have summary generation enabled to use this feature'
+					: ''}
 		>
 			<DropDownButton
 				style="ghost"
