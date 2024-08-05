@@ -387,7 +387,7 @@
 		srgb 0.01568627450980392 0.25882352941176473 0.5372549019607843
 	);
 	--clr-diff-selected-count-border: color(srgb 0 0.3607843137254902 0.7725490196078432);
-	--clr-diff-selected-count-text: color(srgb 0.596078431372549 0.7764705882352941 1);
+	--clr-diff-selected-count-text: color(srgb 0.8392156862745098 0.9098039215686274 1);
 	--clr-diff-count-text: var(--clr-text-3);
 	--clr-diff-deletion-line-bg: color(
 		srgb 0.23529411764705882 0.07450980392156863 0.10588235294117647
