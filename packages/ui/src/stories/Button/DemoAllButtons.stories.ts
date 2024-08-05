@@ -2,7 +2,7 @@ import DemoAllButtons from './DemoAllButtons.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
-	title: 'Controls / Button / All Buttons',
+	title: 'Inputs / Button / All Buttons',
 	component: DemoAllButtons
 } satisfies Meta<DemoAllButtons>;
 
