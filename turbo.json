@@ -8,7 +8,13 @@
 			"dependsOn": ["^package"],
 			"passThroughEnv": ["SENTRY_AUTH_TOKEN", "GITHUB_TOKEN"],
 			"env": ["SENTRY_RELEASE"],
-			"outputs": [".svelte-kit/**", "!.sveltekit/types", "!.sveltekit/*.d.ts", "dist/**", ".vercel/**"]
+			"outputs": [
+				".svelte-kit/**",
+				"!.sveltekit/types",
+				"!.sveltekit/*.d.ts",
+				"dist/**",
+				".vercel/**"
+			]
 		},
 		"dev": {
 			"dependsOn": ["@gitbutler/ui#package"],
