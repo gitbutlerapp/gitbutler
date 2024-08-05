@@ -45,7 +45,7 @@
 	const prService = createGitHostPrServiceStore(undefined);
 	$effect(() =>
 		prService.set(
-			upstreamName ? $gitHost?.prService(baseBranchName ?? '', upstreamName) : undefined
+			upstreamName && baseBranchName ? $gitHost?.prService(baseBranchName, upstreamName) : undefined
 		)
 	);
 
