@@ -42,18 +42,20 @@
 	{disabled}
 	{loading}
 	bind:this={dropDown}
-	on:click={() => click({ draft: $preferredAction === Action.CreateDraft })}
+	onclick={() => click({ draft: $preferredAction === Action.CreateDraft })}
 >
 	{labels[$preferredAction]}
-	<ContextMenuSection slot="context-menu">
-		{#each actions as method}
-			<ContextMenuItem
-				label={labels[method]}
-				on:click={() => {
-					preferredAction.set(method);
-					dropDown.close();
-				}}
-			/>
-		{/each}
-	</ContextMenuSection>
+	{#snippet contextMenuSlot()}
+		<ContextMenuSection>
+			{#each actions as method}
+				<ContextMenuItem
+					label={labels[method]}
+					on:click={() => {
+						preferredAction.set(method);
+						dropDown.close();
+					}}
+				/>
+			{/each}
+		</ContextMenuSection>
+	{/snippet}
 </DropDownButton>

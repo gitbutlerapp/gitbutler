@@ -24,17 +24,13 @@
 		"storybook:build": "storybook build"
 	},
 	"devDependencies": {
-		"@chromatic-com/storybook": "^1.6.1",
 		"@csstools/postcss-bundler": "^1.0.15",
-		"@csstools/postcss-minify": "^1.1.5",
 		"@storybook/addon-docs": "^8.2.7",
 		"@storybook/addon-essentials": "^8.2.7",
-		"@storybook/addon-interactions": "^8.2.7",
 		"@storybook/addon-links": "^8.2.7",
 		"@storybook/blocks": "^8.2.7",
 		"@storybook/svelte": "^8.2.7",
 		"@storybook/sveltekit": "^8.2.7",
-		"@storybook/theming": "^8.2.7",
 		"@sveltejs/adapter-static": "catalog:svelte",
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/package": "^2.3.2",
@@ -43,6 +39,7 @@
 		"@terrazzo/plugin-css": "^0.0.9",
 		"autoprefixer": "^10.4.19",
 		"cpy-cli": "^5.0.0",
+		"date-fns": "^2.30.0",
 		"postcss": "^8.4.38",
 		"postcss-cli": "^11.0.0",
 		"postcss-minify": "^1.1.0",
@@ -72,11 +69,17 @@
 		},
 		"./fonts.css": {
 			"import": "./dist/fonts.css"
+		},
+		"./*.json": {
+			"import": "./dist/*.json",
+			"types": "./dist/*.json"
 		}
 	},
 	"files": [
 		"./dist/*.svelte",
+		"./dist/*.json",
 		"./dist/*.js",
+		"./dist/*.json",
 		"./dist/*.d.ts",
 		"!./dist/*.test.*",
 		"./dist/*.css",

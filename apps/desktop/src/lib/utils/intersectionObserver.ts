@@ -6,7 +6,10 @@ export function intersectionObserver(
 		options
 	}: {
 		isDisabled?: boolean;
-		callback: (entry: IntersectionObserverEntry, observer: IntersectionObserver) => void;
+		callback: (
+			entry: IntersectionObserverEntry | undefined,
+			observer: IntersectionObserver
+		) => void;
 		options?: IntersectionObserverInit;
 	}
 ) {

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
 	import FileListItem from './FileListItem.svelte';
-	import Button from '$lib/shared/Button.svelte';
 	import LazyloadContainer from '$lib/shared/LazyloadContainer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
@@ -11,6 +10,7 @@
 	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection, stringifyFileKey } from '$lib/vbranches/fileIdSelection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import type { AnyFile } from '$lib/vbranches/types';
 
 	export let files: AnyFile[];
@@ -23,7 +23,7 @@
 	const commit = getCommitStore();
 
 	function chunk<T>(arr: T[], size: number) {
-		return Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
+		return Array.from({ length: Math.ceil(arr.length / size) }, (_v, i) =>
 			arr.slice(i * size, i * size + size)
 		);
 	}
@@ -45,7 +45,8 @@
 		if (currentDisplayIndex + 1 >= chunkedFiles.length) return;
 
 		currentDisplayIndex += 1;
-		displayedFiles = [...displayedFiles, ...chunkedFiles[currentDisplayIndex]];
+		const currentChunkedFiles = chunkedFiles[currentDisplayIndex] ?? [];
+		displayedFiles = [...displayedFiles, ...currentChunkedFiles];
 	}
 	let mergeDiffCommand = 'git diff-tree --cc ';
 </script>
@@ -64,7 +65,7 @@
 				icon="copy"
 				style="ghost"
 				outline
-				on:mousedown={() => copyToClipboard(mergeDiffCommand + $commit.id.slice(0, 7))}
+				onmousedown={() => copyToClipboard(mergeDiffCommand + $commit.id.slice(0, 7))}
 			/>
 		</div>
 	</div>

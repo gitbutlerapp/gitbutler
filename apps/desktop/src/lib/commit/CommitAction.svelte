@@ -20,7 +20,7 @@
 	class:bottom-border={bottomBorder}
 	use:intersectionObserver={{
 		callback: (entry) => {
-			if (entry.isIntersecting) {
+			if (entry?.isIntersecting) {
 				isNotInViewport = false;
 			} else {
 				isNotInViewport = true;

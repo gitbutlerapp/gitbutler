@@ -4,13 +4,13 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { editor } from '$lib/editorLink/editorLink';
-	import Button from '$lib/shared/Button.svelte';
-	import Modal from '$lib/shared/Modal.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { LocalFile, type AnyFile } from '$lib/vbranches/types';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 	import { join } from '@tauri-apps/api/path';
 	import { open as openFile } from '@tauri-apps/api/shell';
 
@@ -118,11 +118,11 @@
 		</div>
 	{/snippet}
 	{#snippet controls(close, item)}
-		<Button style="ghost" outline on:click={close}>Cancel</Button>
+		<Button style="ghost" outline onclick={close}>Cancel</Button>
 		<Button
 			style="error"
 			kind="solid"
-			on:click={() => {
+			onclick={() => {
 				branchController.unapplyFiles(item.files);
 				close();
 			}}

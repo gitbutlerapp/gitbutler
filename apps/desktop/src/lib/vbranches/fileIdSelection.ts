@@ -13,11 +13,11 @@ export function stringifyFileKey(fileId: string, commitId?: string) {
 }
 
 export function unstringifyFileKey(fileKeyString: string): string {
-	return fileKeyString.split('|')[0];
+	return fileKeyString.split('|')[0] ?? fileKeyString;
 }
 
 export function parseFileKey(fileKeyString: string): FileKey {
-	const [fileId, commitId] = fileKeyString.split('|');
+	const [fileId = '', commitId] = fileKeyString.split('|');
 
 	return {
 		fileId,
@@ -91,7 +91,7 @@ export class FileIdSelection {
 
 	only(): FileKey | undefined {
 		if (this.value.length === 0) return;
-		const fileKey = parseFileKey(this.value[0]);
+		const fileKey = parseFileKey(this.value[0]!);
 		return fileKey;
 	}
 
@@ -101,7 +101,7 @@ export class FileIdSelection {
 			[this as Readable<string[]>, this.localFiles],
 			async ([selection, localFiles]): Promise<[string | undefined, AnyFile | undefined]> => {
 				if (selection.length !== 1) return [undefined, undefined];
-				const fileKey = parseFileKey(selection[0]);
+				const fileKey = parseFileKey(selection[0]!);
 				const file = await findFileByKey(localFiles, this.projectId, fileKey);
 				return [fileKey.commitId, file];
 			}

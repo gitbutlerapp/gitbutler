@@ -12,8 +12,8 @@
 	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import TextBox from '../shared/TextBox.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
-	import { portal } from '$lib/utils/portal';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
+	import { portal } from '@gitbutler/ui/utils/portal';
 	import { type Snippet } from 'svelte';
 
 	interface SelectProps {
@@ -50,13 +50,11 @@
 
 	let selectWrapperEl: HTMLElement;
 
-	// let hightlighted = $state(false);
 	let highlightedIndex: number | undefined = $state(undefined);
 	let filteredOptions = $state(options);
 	let maxHeightState = $state(maxHeight);
 	let listOpen = $state(false);
 	let inputBoundingRect = $state<DOMRect>();
-	let optionsEl = $state<HTMLDivElement>();
 
 	const maxBottomPadding = 20;
 
@@ -99,8 +97,8 @@
 	}
 
 	function handleEnter() {
-		if (highlightedIndex !== undefined) {
-			handleSelect(filteredOptions[highlightedIndex]);
+		if (highlightedIndex !== undefined && filteredOptions[highlightedIndex]) {
+			handleSelect(filteredOptions[highlightedIndex] as SelectItem);
 		}
 	}
 
@@ -177,7 +175,6 @@
 			}}
 		>
 			<div
-				bind:this={optionsEl}
 				class="options card"
 				style:width="{inputBoundingRect?.width}px"
 				style:top={inputBoundingRect?.top

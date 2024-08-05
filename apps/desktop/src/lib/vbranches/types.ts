@@ -57,7 +57,7 @@ export class LocalFile {
 
 	get filename(): string {
 		const parts = this.path.split('/');
-		return parts[parts.length - 1];
+		return parts.at(-1) ?? this.path;
 	}
 
 	get justpath() {
@@ -154,15 +154,6 @@ export class VirtualBranch {
 
 // Used for dependency injection
 export const BRANCH = Symbol('branch');
-export type ComponentStyleKind = 'solid' | 'soft';
-export type ComponentColor =
-	| 'neutral'
-	| 'ghost'
-	| 'pop'
-	| 'success'
-	| 'error'
-	| 'warning'
-	| 'purple';
 export type CommitStatus = 'local' | 'localAndRemote' | 'integrated' | 'remote';
 
 export class DetailedCommit {
@@ -341,7 +332,7 @@ export class BranchData {
 	}
 
 	get firstCommitAt(): Date {
-		return this.commits[this.commits.length - 1].createdAt;
+		return this.commits.at(-1)?.createdAt ?? new Date();
 	}
 
 	get authors(): Author[] {

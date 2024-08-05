@@ -11,14 +11,14 @@
 		type Settings,
 		type ScrollbarVisilitySettings
 	} from '$lib/settings/userSettings';
-	import Button from '$lib/shared/Button.svelte';
-	import Modal from '$lib/shared/Modal.svelte';
 	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
@@ -139,7 +139,7 @@
 						<TextBox label="Email" bind:value={$user.email} readonly />
 					</div>
 
-					<Button style="pop" kind="solid" loading={saving}>Update profile</Button>
+					<Button type="submit" style="pop" kind="solid" loading={saving}>Update profile</Button>
 				</div>
 			</form>
 		</SectionCard>
@@ -251,7 +251,7 @@
 			Your code remains safe. it only clears the configuration.
 		</svelte:fragment>
 
-		<Button style="error" kind="soft" on:click={() => deleteConfirmationModal.show()}>
+		<Button style="error" kind="soft" onclick={() => deleteConfirmationModal.show()}>
 			Remove projects…
 		</Button>
 
@@ -259,10 +259,10 @@
 			<p>Are you sure you want to remove all GitButler projects?</p>
 
 			{#snippet controls(close)}
-				<Button style="error" kind="solid" loading={isDeleting} on:click={onDeleteClicked}>
+				<Button style="error" kind="solid" loading={isDeleting} onclick={onDeleteClicked}>
 					Remove
 				</Button>
-				<Button style="pop" kind="solid" on:click={close}>Cancel</Button>
+				<Button style="pop" kind="solid" onclick={close}>Cancel</Button>
 			{/snippet}
 		</Modal>
 	</SectionCard>

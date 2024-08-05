@@ -1,35 +1,64 @@
 <script lang="ts">
-	// This page is displayed when:
-	// - A remote branch is found
-	// - And it does NOT have a cooresponding vbranch
-	// It may also display details about a cooresponding pr if they exist
-	import { getBranchServiceStore } from '$lib/branches/service';
-	import RemoteBranchPreview from '$lib/components/BranchPreview.svelte';
+	import { Project } from '$lib/backend/projects';
+	import { BranchListingService } from '$lib/branches/branchListing';
+	import BranchPreview from '$lib/components/BranchPreview.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
+	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+	import { RemoteBranchService } from '$lib/stores/remoteBranches';
+	import { getContext } from '$lib/utils/context';
+	import { groupBy } from '$lib/utils/groupBy';
+	import { error } from '$lib/utils/toasts';
+	import { Branch } from '$lib/vbranches/types';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
-	const branchService = getBranchServiceStore();
-	const branches = $derived($branchService?.branches);
-	const error = $derived($branchService?.error);
-	// Search for remote branch first as there may be multiple combined branches
-	// which have the same local branch
-	const branch = $derived(
-		$branches?.find((cb) => cb.remoteBranch?.name === $page.params.name) ||
-			$branches?.find((cb) => cb.localBranch?.name === $page.params.name)
-	);
-	// $: branch = $branches?.find((b) => b.displayName === $page.params.name);
+	const project = getContext(Project);
+	const branchListingService = getContext(BranchListingService);
+	const branchListings = branchListingService.branchListings;
+
+	const remoteBranchService = getContext(RemoteBranchService);
+	const branches = remoteBranchService.branches;
+	const branchesByGivenName = $derived(groupBy($branches, (branch) => branch.givenName));
+
+	const branchListing = $derived($branchListings.find((bl) => bl.name === $page.params.name));
+
+	const gitHostListingService = getGitHostListingService();
+	const prs = $derived($gitHostListingService?.prs);
+	const pr = $derived($prs?.find((pr) => pr.sourceBranch === branchListing?.name));
+
+	let localBranch = $state<Branch>();
+	let remoteBranches = $state<Branch[]>([]);
+
+	$effect(() => {
+		if (branchListing) {
+			if (branchListing.virtualBranch?.inWorkspace) {
+				goto(`/${project.id}/board`);
+			}
+
+			const branchesWithGivenName: Branch[] | undefined = branchesByGivenName[branchListing.name];
+
+			if (branchesWithGivenName) {
+				localBranch = branchesWithGivenName.find((branch) => !branch.isRemote);
+
+				remoteBranches = branchesWithGivenName.filter((branch) => branch.isRemote);
+			} else {
+				error('Failed to find branch');
+				goto(`/${project.id}/board`);
+			}
+		}
+	});
 </script>
 
-{#if $error}
-	<p>Error...</p>
-{:else if !$branches}
+{#if $branchListings.length === 0}
 	<FullviewLoading />
-{:else if branch?.remoteBranch || branch?.localBranch}
-	<RemoteBranchPreview
-		localBranch={branch?.localBranch}
-		remoteBranch={branch?.remoteBranch}
-		pr={branch.pr}
-	/>
+{:else if branchListing}
+	{#if remoteBranches.length === 0 && localBranch}
+		<BranchPreview {localBranch} {pr} />
+	{:else}
+		{#each remoteBranches as remoteBranch}
+			<BranchPreview {localBranch} {remoteBranch} {pr} />
+		{/each}
+	{/if}
 {:else}
 	<p>Branch doesn't seem to exist</p>
 {/if}

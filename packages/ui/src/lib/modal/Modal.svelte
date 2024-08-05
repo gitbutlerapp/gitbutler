@@ -1,7 +1,8 @@
 <script lang="ts">
-	import Icon from '$lib/shared/Icon.svelte';
+	import Icon from '$lib/icon/Icon.svelte';
+	import { clickOutside } from '$lib/utils/clickOutside';
 	import { portal } from '$lib/utils/portal';
-	import type iconsJson from '$lib/icons/icons.json';
+	import type iconsJson from '$lib/icon/icons.json';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -15,7 +16,6 @@
 
 	const { width = 'default', title, icon, onclose, children, controls }: Props = $props();
 
-	let dialog = $state<HTMLDivElement>();
 	let item = $state<any>();
 	let open = $state(false);
 
@@ -32,23 +32,16 @@
 </script>
 
 {#if open}
-	<div
-		bind:this={dialog}
-		use:portal={'body'}
-		role="presentation"
-		class="modal-container"
-		class:open
-		onclick={(e) => {
-			// Close the modal if the user clicks outside of it
-			e.target === e.currentTarget && close();
-		}}
-	>
+	<div use:portal={'body'} role="presentation" class="modal-container" class:open>
 		<div
 			class="modal-content"
 			class:s-default={width === 'default'}
 			class:s-small={width === 'small'}
 			class:s-large={width === 'large'}
 			class:round-top-corners={!title}
+			use:clickOutside={{
+				handler: close
+			}}
 		>
 			{#if title}
 				<div class="modal__header">

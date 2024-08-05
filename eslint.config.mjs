@@ -68,7 +68,9 @@ export default tsEslint.config(
 			'**/vite.config.ts.timestamp-*',
 			'!.storybook',
 			'target/',
-			'crates/'
+			'crates/',
+			// We're having issues parsing splat syntax in svelte components
+			'packages/ui/src/stories/**/*.svelte'
 		]
 	},
 	{

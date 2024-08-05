@@ -1,11 +1,11 @@
 <script lang="ts" context="module">
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import type { ComponentColor } from '$lib/vbranches/types';
+	import { pxToRem } from '$lib/utils/pxToRem';
 	export type IconColor = ComponentColor | undefined;
 </script>
 
 <script lang="ts">
-	import iconsJson from '../icons/icons.json';
+	import iconsJson from '$lib/icon/icons.json';
+	import type { ComponentColor } from '$lib/utils/colorTypes';
 
 	export let name: keyof typeof iconsJson;
 	export let color: IconColor = undefined;

@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { type Row, Operation, type DiffRows } from './types';
-	import Icon from '$lib/shared/Icon.svelte';
 	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { create } from '$lib/utils/codeHighlight';
 	import { maybeGetContextStore } from '$lib/utils/context';
 	import { type ContentSection, SectionType, type Line } from '$lib/utils/fileSections';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { type Hunk } from '$lib/vbranches/types';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 	import diff_match_patch from 'diff-match-patch';
 	import type { Writable } from 'svelte/store';
 
@@ -68,7 +68,7 @@
 
 	function isLineEmpty(lines: Line[]) {
 		const whitespaceRegex = new RegExp(WHITESPACE_REGEX);
-		if (!lines[0].content.match(whitespaceRegex)) {
+		if (!lines[0]?.content.match(whitespaceRegex)) {
 			return true;
 		}
 
@@ -122,8 +122,8 @@
 		// Loop through every line in the section
 		// We're only bothered with prev/next sections with equal # of lines changes
 		for (let i = 0; i < numberOfLines; i++) {
-			const oldLine = prevSection.lines[i];
-			const newLine = nextSection.lines[i];
+			const oldLine = prevSection.lines[i] as Line;
+			const newLine = nextSection.lines[i] as Line;
 			const prevSectionRow = {
 				beforeLineNumber: oldLine.beforeLineNumber,
 				afterLineNumber: oldLine.afterLineNumber,
@@ -254,7 +254,7 @@
 							const lineNumber = (line.beforeLineNumber
 								? line.beforeLineNumber
 								: line.afterLineNumber) as number;
-							handleLineContextMenu({ event, hunk, lineNumber, subsection: subsections[0] });
+							handleLineContextMenu({ event, hunk, lineNumber, subsection: subsections[0] as ContentSection });
 						}}
 					>
 						{@html line.tokens.join('')}
@@ -339,7 +339,7 @@
 
 		&.selected {
 			background-color: var(--clr-diff-selected-count-bg);
-			box-shadow: inset -1px 0 0 0 var(--clr-diff-count-border);
+			box-shadow: inset -1px 0 0 0 var(--clr-diff-selected-count-border);
 			color: var(--clr-diff-selected-count-text);
 		}
 	}

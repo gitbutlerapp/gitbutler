@@ -1,155 +1,244 @@
 <script lang="ts">
-	import BranchItem from './BranchItem.svelte';
-	import BranchesHeader from './BranchesHeader.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
-	import { getBranchServiceStore } from '$lib/branches/service';
-	import FilterButton from '$lib/components/FilterBranchesButton.svelte';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { BranchListingService } from '$lib/branches/branchListing';
+	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+	import BranchListingSidebarEntry from '$lib/navigation/BranchListingSidebarEntry.svelte';
+	import PullRequestSidebarEntry from '$lib/navigation/PullRequestSidebarEntry.svelte';
+	import { getEntryUpdatedDate, type SidebarEntrySubject } from '$lib/navigation/types';
 	import { persisted } from '$lib/persisted/persisted';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import { createEventDispatcher } from 'svelte';
-	import { derived, readable, writable } from 'svelte/store';
-	import type { CombinedBranch } from '$lib/branches/types';
+	import { getContext } from '$lib/utils/context';
+	import Segment from '@gitbutler/ui/SegmentControl/Segment.svelte';
+	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Badge from '@gitbutler/ui/shared/Badge.svelte';
+	import Fuse from 'fuse.js';
+	import type { PullRequest } from '$lib/gitHost/interface/types';
 
-	const dispatch = createEventDispatcher<{ scrollbarDragging: boolean }>();
+	const gitHostListingService = getGitHostListingService();
+	const pullRequestsStore = $derived($gitHostListingService?.prs);
+	const pullRequests = $derived($pullRequestsStore || []);
 
-	export let projectId: string;
-	export const textFilter = writable<string | undefined>(undefined);
+	const branchListingService = getContext(BranchListingService);
+	const branchListings = branchListingService.branchListings;
 
-	const branchService = getBranchServiceStore();
-	const gitHost = getGitHost();
+	let sidebarEntries = $state<SidebarEntrySubject[]>([]);
 
-	// let contextMenu: ContextMenuActions;
-	let includePrs = persisted(true, 'includePrs_' + projectId);
-	let includeRemote = persisted(true, 'includeRemote_' + projectId);
-	let hideBots = persisted(false, 'hideBots_' + projectId);
-	let hideInactive = persisted(false, 'hideInactive_' + projectId);
+	$effect(() => {
+		const branchListingNames = new Set<string>(
+			$branchListings.map((branchListing) => branchListing.name)
+		);
 
-	let filtersActive = derived(
-		[includePrs, includeRemote, hideBots, hideInactive],
-		([prs, remote, bots, inactive]) => {
-			return !prs || !remote || bots || inactive;
-		}
-	);
+		let output: SidebarEntrySubject[] = [];
 
-	$: branches = $branchService?.branches || readable([]);
-	$: filteredBranches = branches
-		? derived(
-				[branches, textFilter, includePrs, includeRemote, hideBots, hideInactive],
-				([branches, textFilter, includePrs, includeRemote, hideBots, hideInactive]) => {
-					const filteredByType = filterByType(branches, {
-						includePrs,
-						includeRemote,
-						hideBots
-					});
-					const filteredBySearch = filterByText(filteredByType, textFilter);
-					return hideInactive ? filterInactive(filteredBySearch) : filteredBySearch;
-				}
+		output.push(
+			...pullRequests
+				.filter((pullRequest) => !branchListingNames.has(pullRequest.sourceBranch))
+				.map((pullRequest): SidebarEntrySubject => ({ type: 'pullRequest', subject: pullRequest }))
+		);
+
+		output.push(
+			...$branchListings.map(
+				(branchListing): SidebarEntrySubject => ({ type: 'branchListing', subject: branchListing })
 			)
-		: readable([]);
+		);
 
-	let viewport: HTMLDivElement;
-	let contents: HTMLElement;
+		output.sort((a, b) => {
+			return getEntryUpdatedDate(b).getTime() - getEntryUpdatedDate(a).getTime();
+		});
 
-	function filterByType(
-		branches: CombinedBranch[],
-		params: {
-			includePrs: boolean;
-			includeRemote: boolean;
-			hideBots: boolean;
-		}
-	): CombinedBranch[] {
-		return branches.filter((b) => {
-			if (params.includePrs && b.pr) {
-				return !params.hideBots || !b.pr.author?.isBot;
-			} else {
-				if (b.pr) return false;
+		sidebarEntries = output;
+	});
+
+	const oneDay = 1000 * 60 * 60 * 24;
+	function groupByDate(branches: SidebarEntrySubject[]) {
+		const grouped: Record<'today' | 'yesterday' | 'lastWeek' | 'older', SidebarEntrySubject[]> = {
+			today: [],
+			yesterday: [],
+			lastWeek: [],
+			older: []
+		};
+
+		const now = Date.now();
+
+		branches.forEach((b) => {
+			if (!getEntryUpdatedDate(b)) {
+				grouped.older.push(b);
+				return;
 			}
 
-			if (params.includeRemote && b.branch) return true;
-			return false;
+			const msSinceLastCommit = now - getEntryUpdatedDate(b).getTime();
+
+			if (msSinceLastCommit < oneDay) {
+				grouped.today.push(b);
+			} else if (msSinceLastCommit < 2 * oneDay) {
+				grouped.yesterday.push(b);
+			} else if (msSinceLastCommit < 7 * oneDay) {
+				grouped.lastWeek.push(b);
+			} else {
+				grouped.older.push(b);
+			}
 		});
+
+		return grouped;
 	}
 
-	function filterByText(branches: CombinedBranch[], search: string | undefined) {
-		if (search === undefined) return branches;
+	let viewport = $state<HTMLDivElement>();
+	let contents = $state<HTMLDivElement>();
 
-		return branches.filter((b) => searchMatchesAnIdentifier(search, b.searchableIdentifiers));
+	const selectedOption = persisted<string>('all', 'branches-selectedOption');
+	const selectedIndex = $derived(
+		['all', 'pullRequest', 'local'].findIndex((option) => $selectedOption === option)
+	);
+
+	function setFilter(option: string) {
+		$selectedOption = option;
 	}
 
-	function searchMatchesAnIdentifier(search: string, identifiers: string[]) {
-		for (const identifier of identifiers) {
-			if (identifier.includes(search.toLowerCase())) return true;
+	function filterSidebarEntries(
+		pullRequests: PullRequest[],
+		selectedOption: string,
+		sidebarEntries: SidebarEntrySubject[]
+	): SidebarEntrySubject[] {
+		switch (selectedOption) {
+			case 'pullRequest': {
+				return sidebarEntries.filter(
+					(sidebarEntry) =>
+						sidebarEntry.type === 'pullRequest' ||
+						pullRequests.some(
+							(pullRequest) => pullRequest.sourceBranch === sidebarEntry.subject.name
+						)
+				);
+			}
+			case 'local': {
+				return sidebarEntries.filter(
+					(sidebarEntry) =>
+						sidebarEntry.type === 'branchListing' &&
+						(sidebarEntry.subject.hasLocal || sidebarEntry.subject.virtualBranch)
+				);
+			}
+			default: {
+				return sidebarEntries;
+			}
 		}
-
-		return false;
 	}
 
-	function filterInactive(branches: CombinedBranch[]) {
-		const currentTs = new Date().getTime();
-		return branches.filter((b) => {
-			if (!b.modifiedAt) return true; // Keep things that don't have a modified time
-
-			const modifiedAt = b.modifiedAt?.getTime();
-			const ms = currentTs - modifiedAt;
-			return ms < 14 * 86400 * 1000;
+	function search(searchTerm: string, sidebarEntries: SidebarEntrySubject[]) {
+		const fuse = new Fuse(sidebarEntries, {
+			keys: ['subject.name', 'subject.title']
 		});
+
+		return fuse.search(searchTerm).map((searchResult) => searchResult.item);
+	}
+
+	let searching = $state(false);
+	let searchTerm = $state<string>();
+
+	const searchedBranches = $derived.by(() => {
+		const filtered = filterSidebarEntries(pullRequests, $selectedOption, sidebarEntries);
+		if (searchTerm) {
+			return search(searchTerm, filtered);
+		} else {
+			return filtered;
+		}
+	});
+	const groupedBranches = $derived(groupByDate(searchedBranches));
+
+	function handleSearchKeyDown(e: CustomEvent<KeyboardEvent>) {
+		if (e.detail.key === 'Escape') {
+			e.preventDefault();
+			e.detail.preventDefault();
+			closeSearch();
+		}
+	}
+
+	function closeSearch() {
+		searching = false;
+		searchTerm = undefined;
+	}
+
+	function openSearch() {
+		searching = true;
 	}
 </script>
 
-<div class="branch-list">
-	<BranchesHeader
-		totalBranchCount={$branches.length}
-		filteredBranchCount={$filteredBranches?.length}
-		filtersActive={$filtersActive}
-	>
-		{#snippet filterButton()}
-			<FilterButton
-				{filtersActive}
-				{includePrs}
-				{includeRemote}
-				{hideBots}
-				{hideInactive}
-				showPrCheckbox={!!$gitHost}
-				on:action
-			/>
-		{/snippet}
-	</BranchesHeader>
-	{#if $branches.length > 0}
-		<ScrollableContainer
-			bind:viewport
-			showBorderWhenScrolled
-			on:dragging={(e) => dispatch('scrollbarDragging', e.detail)}
-			fillViewport={$filteredBranches.length === 0}
-		>
-			<div class="scroll-container">
-				<TextBox icon="search" placeholder="Search" on:input={(e) => textFilter.set(e.detail)} />
-
-				{#if $filteredBranches.length > 0}
-					<div bind:this={contents} class="content">
-						{#each $filteredBranches as branch}
-							<BranchItem {projectId} {branch} />
-						{/each}
-					</div>
+{#snippet branchGroup(props: {
+	title: string,
+	children: SidebarEntrySubject[]
+})}
+	{#if props.children.length > 0}
+		<div class="group">
+			<h3 class="text-base-12 text-semibold group-header">{props.title}</h3>
+			{#each props.children as sidebarEntrySubject}
+				{#if sidebarEntrySubject.type === 'branchListing'}
+					<BranchListingSidebarEntry branchListing={sidebarEntrySubject.subject} />
 				{:else}
-					<div class="branch-list__empty-state">
-						<div class="branch-list__empty-state__image">
-							{@html noBranchesSvg}
-						</div>
-						<span class="branch-list__empty-state__caption text-base-body-14 text-semibold"
-							>No branches match your filter</span
-						>
-					</div>
+					<PullRequestSidebarEntry pullRequest={sidebarEntrySubject.subject} />
 				{/if}
+			{/each}
+		</div>
+	{/if}
+{/snippet}
+
+<div class="branches">
+	<div class="header">
+		{#if searching}
+			<div class="search">
+				<div class="search-box">
+					<TextBox wide icon="search" bind:value={searchTerm} on:keydown={handleSearchKeyDown} />
+				</div>
+				<Button icon="cross" onclick={closeSearch}></Button>
 			</div>
-		</ScrollableContainer>
+		{:else}
+			<div class="information">
+				<div class="branches-title">
+					<span class="text-base-14 text-bold">Branches</span>
+
+					{#if searchedBranches.length > 0}
+						<Badge count={searchedBranches.length} />
+					{/if}
+				</div>
+				<Button icon="search" style="ghost" onclick={openSearch}></Button>
+			</div>
+		{/if}
+		<SegmentControl fullWidth defaultIndex={selectedIndex} onselect={setFilter}>
+			<Segment id="all">All</Segment>
+			<Segment id="pullRequest">PRs</Segment>
+			<Segment id="local">Local</Segment>
+		</SegmentControl>
+	</div>
+	{#if $branchListings.length > 0}
+		{#if searchedBranches.length > 0}
+			<ScrollableContainer
+				bind:viewport
+				bind:contents
+				showBorderWhenScrolled
+				fillViewport={searchedBranches.length === 0}
+			>
+				<div bind:this={contents} class="scroll-container">
+					{@render branchGroup({ title: 'Today', children: groupedBranches.today })}
+					{@render branchGroup({ title: 'Yesterday', children: groupedBranches.yesterday })}
+					{@render branchGroup({ title: 'Last week', children: groupedBranches.lastWeek })}
+					{@render branchGroup({ title: 'Older', children: groupedBranches.older })}
+				</div>
+			</ScrollableContainer>
+		{:else}
+			<div class="branches__empty-state">
+				<div class="branches__empty-state__image">
+					{@html noBranchesSvg}
+				</div>
+				<span class="branches__empty-state__caption text-base-body-14 text-semibold"
+					>No branches match your filter</span
+				>
+			</div>
+		{/if}
 	{:else}
-		<div class="branch-list__empty-state">
-			<div class="branch-list__empty-state__image">
+		<div class="branches__empty-state">
+			<div class="branches__empty-state__image">
 				{@html noBranchesSvg}
 			</div>
-			<span class="branch-list__empty-state__caption text-base-body-14 text-semibold"
+			<span class="branches__empty-state__caption text-base-body-14 text-semibold"
 				>You have no branches</span
 			>
 		</div>
@@ -157,17 +246,7 @@
 </div>
 
 <style lang="postcss">
-	.scroll-container {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-		width: 100%;
-		height: 100%;
-		padding-bottom: 16px;
-		padding-left: 14px;
-		padding-right: 14px;
-	}
-	.branch-list {
+	.branches {
 		flex: 1;
 		position: relative;
 		overflow: hidden;
@@ -175,16 +254,68 @@
 		flex-direction: column;
 		border-top: 1px solid var(--clr-border-2);
 	}
-	.content {
+
+	.header {
+		padding: 14px;
+	}
+
+	.information {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		width: 100%;
+
+		height: 32px;
+
+		margin-bottom: 8px;
+	}
+
+	.search {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+
+		height: 32px;
+
+		margin-bottom: 8px;
+
+		& .search-box {
+			flex-grow: 1;
+		}
+	}
+
+	.branches-title {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+
+	/* BRANCHES LIST */
+
+	.scroll-container {
 		display: flex;
 		flex-direction: column;
-		justify-content: center;
-		align-items: center;
-		gap: 2px;
+	}
+
+	.group {
+		display: flex;
+		flex-direction: column;
+		border-bottom: 1px solid var(--clr-border-2);
+
+		&:first-child {
+			& .group-header {
+				padding-top: 0px;
+			}
+		}
+	}
+
+	.group-header {
+		padding: 20px 14px 4px;
+		color: var(--clr-text-3);
 	}
 
 	/* EMPTY STATE */
-	.branch-list__empty-state {
+	.branches__empty-state {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
@@ -193,11 +324,11 @@
 		gap: 10px;
 	}
 
-	.branch-list__empty-state__image {
+	.branches__empty-state__image {
 		width: 130px;
 	}
 
-	.branch-list__empty-state__caption {
+	.branches__empty-state__caption {
 		color: var(--clr-scale-ntrl-60);
 		text-align: center;
 		max-width: 160px;
