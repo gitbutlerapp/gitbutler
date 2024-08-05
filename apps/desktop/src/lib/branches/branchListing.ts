@@ -16,6 +16,8 @@ export class BranchListingService {
 	private branchListingsWritable = writable<BranchListing[]>([]);
 
 	constructor(private projectId: string) {
+		// For now we're not using the selected filter
+		this.selectedFilter = {};
 		this.refresh();
 	}
 
@@ -42,6 +44,7 @@ export class BranchListingService {
 
 	set selectedFilter(value: BranchListingFilter) {
 		this.selectedFilterPresisted.set(value);
+		this.refresh();
 	}
 
 	get branchListings(): Readable<BranchListing[]> {
