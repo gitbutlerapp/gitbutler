@@ -6,7 +6,6 @@
 
 	const authService = getContext(AuthService);
 	const token = $derived(authService.token);
-	$inspect('token', $token);
 
 	function logout() {
 		authService.clearToken();

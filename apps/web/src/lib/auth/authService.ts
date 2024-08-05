@@ -10,9 +10,7 @@ export class AuthService {
 	}
 
 	setToken(data: string) {
-		console.log('data', data);
 		this.token.set(data);
-		console.log('data2', get(this.token));
 	}
 
 	clearToken() {

@@ -1,9 +1,13 @@
 <script lang="ts">
+	import { AuthService } from '$lib/auth/authService';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '$lib/utils/context';
 
+	const authService = getContext(AuthService);
 	const userService = getContext(UserService);
+
 	const user = $derived(userService.user);
+	const token = $derived(authService.token);
 	let userAvatarUrl = $state($user?.picture);
 
 	function handleImageLoadError() {
@@ -15,7 +19,9 @@
 	<title>GitButler | User</title>
 </svelte:head>
 
-{#if !$user?.id}
+{#if !$token}
+	<p>Unauthorized</p>
+{:else if !$user?.id}
 	<p>Loading...</p>
 {:else}
 	<div class="user__wrapper">
