@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import Button from '$lib/shared/Button.svelte';
 	import { getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import Button from '@gitbutler/ui/Button.svelte';
 
 	const {
 		isUnapplied = false,
@@ -90,7 +90,7 @@
 		style="ghost"
 		outline
 		shrinkable
-		on:click={(e) => {
+		onclick={(e) => {
 			const url = gitHostBranch?.url;
 			if (url) openExternalUrl(url);
 			e.preventDefault();

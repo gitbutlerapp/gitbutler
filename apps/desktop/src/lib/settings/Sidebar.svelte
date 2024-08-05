@@ -1,7 +1,7 @@
 <script lang="ts">
 	import SupportersBanner from './SupportersBanner.svelte';
-	import Button from '$lib/shared/Button.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
@@ -29,7 +29,7 @@
 					<Button
 						icon="chevron-left"
 						style="ghost"
-						on:mousedown={() => {
+						onmousedown={() => {
 							if (history.length > 0) {
 								history.back();
 							} else {

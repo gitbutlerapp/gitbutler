@@ -2,12 +2,12 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import Button from '$lib/shared/Button.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Branch } from '$lib/vbranches/types';
@@ -47,7 +47,7 @@
 						style="ghost"
 						outline
 						shrinkable
-						on:click={(e) => {
+						onclick={(e) => {
 							const url = gitHostBranch?.url;
 							if (url) openExternalUrl(url);
 							e.preventDefault();
@@ -68,7 +68,7 @@
 						icon="pr-small"
 						style="ghost"
 						outline
-						on:click={(e) => {
+						onclick={(e) => {
 							const url = pr?.htmlUrl;
 							if (url) openExternalUrl(url);
 							e.preventDefault();
@@ -88,7 +88,7 @@
 					help="Restores these changes into your working directory"
 					icon="plus-small"
 					loading={isApplying}
-					on:click={async () => {
+					onclick={async () => {
 						isApplying = true;
 						try {
 							if (localBranch) {

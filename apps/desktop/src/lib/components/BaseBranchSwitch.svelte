@@ -7,10 +7,10 @@
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Section from '$lib/settings/Section.svelte';
-	import Button from '$lib/shared/Button.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import Button from '@gitbutler/ui/Button.svelte';
 
 	const baseBranch = getContextStore(BaseBranch);
 	const vbranchService = getContext(VirtualBranchService);
@@ -115,7 +115,7 @@
 						size="cta"
 						style="ghost"
 						outline
-						on:click={onSetBaseBranchClick}
+						onclick={onSetBaseBranchClick}
 						id="set-base-branch"
 						loading={isSwitching}
 						disabled={(selectedBranch.name === $baseBranch.branchName &&

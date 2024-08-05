@@ -1,9 +1,9 @@
 <script lang="ts">
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import Button from '$lib/shared/Button.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	interface Props {
 		title?: string;
@@ -34,7 +34,7 @@
 			loading={$loading}
 			style="pop"
 			kind="solid"
-			on:click={async () => {
+			onclick={async () => {
 				await userService.login();
 			}}>Log in or Sign up</Button
 		>

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Button from '$lib/shared/Button.svelte';
 	import Modal from '$lib/shared/Modal.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 
 	export let projectTitle: string = '#';
 	export let isDeleting = false;
@@ -21,7 +21,7 @@
 	kind="solid"
 	icon="bin-small"
 	reversedDirection
-	on:click={() => {
+	onclick={() => {
 		modal.show();
 	}}
 >
@@ -48,13 +48,13 @@
 			reversedDirection
 			loading={isDeleting}
 			icon="bin-small"
-			on:click={() => {
+			onclick={() => {
 				onDeleteClicked().then(close);
 			}}
 		>
 			Remove
 		</Button>
-		<Button style="pop" kind="solid" on:click={close}>Cancel</Button>
+		<Button style="pop" kind="solid" onclick={close}>Cancel</Button>
 	{/snippet}
 </Modal>
 

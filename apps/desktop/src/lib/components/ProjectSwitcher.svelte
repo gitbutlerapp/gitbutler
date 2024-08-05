@@ -3,8 +3,8 @@
 	import OptionsGroup from '$lib/select/OptionsGroup.svelte';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
-	import Button from '$lib/shared/Button.svelte';
 	import { getContext, maybeGetContext } from '$lib/utils/context';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 
 	const projectService = getContext(ProjectService);
@@ -79,7 +79,7 @@
 		kind="solid"
 		icon="chevron-right-small"
 		disabled={selectedProjectId === project?.id}
-		on:mousedown={() => {
+		onmousedown={() => {
 			if (selectedProjectId) goto(`/${selectedProjectId}/`);
 		}}
 	>

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Button from '$lib/shared/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import type { FileStatus } from '$lib/utils/fileStatus';
-	import type { ComponentColor } from '$lib/vbranches/types';
+	import type { ComponentColor } from '@gitbutler/ui/types';
 
 	export let status: FileStatus;
 

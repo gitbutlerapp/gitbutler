@@ -1,7 +1,7 @@
 <script lang="ts">
 	import TextBox from '../shared/TextBox.svelte';
 	import { showError } from '$lib/notifications/toasts';
-	import Button from '$lib/shared/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import type { SystemPromptHandle } from '$lib/backend/prompt';
 
 	export let prompt: SystemPromptHandle | undefined;
@@ -39,7 +39,7 @@
 				style="ghost"
 				outline
 				disabled={isSubmitting}
-				on:click={async () => {
+				onclick={async () => {
 					if (!prompt) return;
 					prompt.respond(null);
 				}}
@@ -50,7 +50,7 @@
 				style="pop"
 				kind="solid"
 				grow
-				on:click={async () => await submit()}
+				onclick={async () => await submit()}
 				disabled={submitDisabled || isSubmitting}
 				loading={isSubmitting}
 			>

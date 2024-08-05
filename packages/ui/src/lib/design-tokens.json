@@ -3695,7 +3695,7 @@
 					"$extensions": {
 						"mode": {
 							"light": "#ffffff",
-							"dark": "#98c6ff"
+							"dark": "#d6e8ff"
 						},
 						"figma": {
 							"variableId": "VariableID:3935:254",
@@ -4097,7 +4097,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius"],
-			"createdAt": "2024-08-03T22:40:57.727Z"
+			"createdAt": "2024-08-04T22:03:52.888Z"
 		}
 	}
 }
