@@ -1,8 +1,9 @@
 <script lang="ts">
 	import '$lib/styles/global.css';
-	import { createAuthService } from '$lib/auth/authService.svelte';
+	import { AuthService } from '$lib/auth/authService';
 	import Navigation from '$lib/components/Navigation.svelte';
-	import type { Snippet } from 'svelte';
+	import { UserService } from '$lib/user/userService';
+	import { setContext, type Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
@@ -12,13 +13,14 @@
 
 	const { children }: Props = $props();
 
-	const authService = createAuthService();
+	setContext(AuthService, $page.data.authService);
+	setContext(UserService, $page.data.userService);
 
 	$effect(() => {
 		if ($page.url.searchParams.get('gb_access_token')) {
 			const token = $page.url.searchParams.get('gb_access_token');
 			if (token && token.length > 0) {
-				authService.setToken(token);
+				$page.data.authService.setToken(token);
 
 				$page.url.searchParams.delete('gb_access_token');
 				goto(`?${$page.url.searchParams.toString()}`);
