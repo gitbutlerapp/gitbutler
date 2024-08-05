@@ -4,6 +4,7 @@
 	import ProjectSettingsMenuAction from '$lib/barmenuActions/ProjectSettingsMenuAction.svelte';
 	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BranchListingService } from '$lib/branches/branchListing';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
 	import { BranchService, createBranchServiceStore } from '$lib/branches/service';
@@ -55,6 +56,7 @@
 	const accessToken = $derived($user?.github_access_token);
 	const baseError = $derived(baseBranchService.error);
 	const projectError = $derived(projectService.error);
+	const branchListingService = $derived(new BranchListingService(projectId));
 
 	$effect.pre(() => {
 		setContext(HistoryService, data.historyService);
@@ -67,6 +69,7 @@
 		setContext(CommitDragActionsFactory, data.commitDragActionsFactory);
 		setContext(ReorderDropzoneManagerFactory, data.reorderDropzoneManagerFactory);
 		setContext(RemoteBranchService, data.remoteBranchService);
+		setContext(BranchListingService, branchListingService);
 	});
 
 	let intervalId: any;

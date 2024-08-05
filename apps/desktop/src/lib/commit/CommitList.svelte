@@ -25,9 +25,9 @@
 		getRemoteCommits
 	} from '$lib/vbranches/contexts';
 	import { VirtualBranch } from '$lib/vbranches/types';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import LineGroup from '@gitbutler/ui/CommitLines/LineGroup.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied: boolean;

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import TextBox from '../shared/TextBox.svelte';
 	import { showError } from '$lib/notifications/toasts';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import type { SystemPromptHandle } from '$lib/backend/prompt';
 
 	export let prompt: SystemPromptHandle | undefined;

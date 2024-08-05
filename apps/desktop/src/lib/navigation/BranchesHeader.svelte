@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Badge from '$lib/shared/Badge.svelte';
+	import Badge from '@gitbutler/ui/shared/Badge.svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {

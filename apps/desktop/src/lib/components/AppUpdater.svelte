@@ -2,7 +2,7 @@
 	import { UpdaterService } from '$lib/backend/updater';
 	import { showToast } from '$lib/notifications/toasts';
 	import { getContext } from '$lib/utils/context';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { fade } from 'svelte/transition';
 
 	const updaterService = getContext(UpdaterService);

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import ProjectAvatar from './ProjectAvatar.svelte';
 	import ProjectsPopup from './ProjectsPopup.svelte';
 	import { Project } from '$lib/backend/projects';
+	import ProjectAvatar from '$lib/navigation/ProjectAvatar.svelte';
 	import { getContext } from '$lib/utils/context';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 
 	export let isNavCollapsed: boolean;

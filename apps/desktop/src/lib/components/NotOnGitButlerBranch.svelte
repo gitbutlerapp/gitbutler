@@ -10,7 +10,7 @@
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { goto } from '$app/navigation';
 

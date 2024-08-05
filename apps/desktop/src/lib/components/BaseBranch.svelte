@@ -1,14 +1,14 @@
 <script lang="ts">
-	import Checkbox from '../shared/Checkbox.svelte';
 	import Spacer from '../shared/Spacer.svelte';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { showInfo } from '$lib/notifications/toasts';
-	import Modal from '$lib/shared/Modal.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Checkbox from '@gitbutler/ui/inputs/Checkbox.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 

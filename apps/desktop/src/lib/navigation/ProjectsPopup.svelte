@@ -2,10 +2,10 @@
 	import { ProjectService } from '$lib/backend/projects';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
-	import { portal } from '$lib/utils/portal';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type iconsJson from '@gitbutler/ui/icons.json';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import { portal } from '@gitbutler/ui/utils/portal';
+	import type iconsJson from '@gitbutler/ui/icon/icons.json';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Badge from '$lib/shared/Badge.svelte';
-	import Checkbox from '$lib/shared/Checkbox.svelte';
 	import { maybeGetContextStore } from '$lib/utils/context';
 	import { Ownership } from '$lib/vbranches/ownership';
+	import Checkbox from '@gitbutler/ui/inputs/Checkbox.svelte';
+	import Badge from '@gitbutler/ui/shared/Badge.svelte';
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 

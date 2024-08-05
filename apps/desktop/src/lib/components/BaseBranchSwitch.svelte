@@ -10,7 +10,7 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 
 	const baseBranch = getContextStore(BaseBranch);
 	const vbranchService = getContext(VirtualBranchService);

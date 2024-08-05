@@ -39,6 +39,7 @@
 		"@terrazzo/plugin-css": "^0.0.9",
 		"autoprefixer": "^10.4.19",
 		"cpy-cli": "^5.0.0",
+		"date-fns": "^2.30.0",
 		"postcss": "^8.4.38",
 		"postcss-cli": "^11.0.0",
 		"postcss-minify": "^1.1.0",
@@ -63,21 +64,20 @@
 			"import": "./dist/*.js",
 			"types": "./dist/*.d.ts"
 		},
-		"./*.json": {
-			"import": "./dist/*.json"
-		},
 		"./main.css": {
 			"import": "./dist/styles/main.css"
 		},
 		"./fonts.css": {
 			"import": "./dist/fonts.css"
 		},
-		"./types": {
-			"import": "./dist/types.d.ts"
+		"./*.json": {
+			"import": "./dist/*.json",
+			"types": "./dist/*.json"
 		}
 	},
 	"files": [
 		"./dist/*.svelte",
+		"./dist/*.json",
 		"./dist/*.js",
 		"./dist/*.json",
 		"./dist/*.d.ts",

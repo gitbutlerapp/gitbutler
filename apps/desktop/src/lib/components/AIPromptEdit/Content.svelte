@@ -2,8 +2,8 @@
 	import { MessageRole, type UserPrompt } from '$lib/ai/types';
 	import DialogBubble from '$lib/components/AIPromptEdit/DialogBubble.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { createEventDispatcher } from 'svelte';
 
 	export let displayMode: 'readOnly' | 'writable' = 'writable';

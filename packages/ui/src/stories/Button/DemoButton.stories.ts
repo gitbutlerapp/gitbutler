@@ -1,5 +1,5 @@
 import DemoButton from './DemoButton.svelte';
-import iconsJson from '../../lib/icons.json';
+import iconsJson from '$lib/icon/icons.json';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {

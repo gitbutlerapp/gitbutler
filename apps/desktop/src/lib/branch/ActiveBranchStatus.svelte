@@ -4,7 +4,7 @@
 	import { getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranch } from '$lib/vbranches/types';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 
 	const {
 		isUnapplied = false,
