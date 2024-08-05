@@ -31,20 +31,19 @@
 
 	$effect(() => {
 		if (branchListing) {
-			console.log(branchListing);
+			if (branchListing.virtualBranch?.inWorkspace) {
+				goto(`/${project.id}/board`);
+			}
+
 			const branchesWithGivenName: Branch[] | undefined = branchesByGivenName[branchListing.name];
 
-			if (branchesWithGivenName === undefined) {
-				if (branchListing.virtualBranch) {
-					goto(`/${project.id}/board`);
-				} else {
-					error('Failed to find branch');
-					goto(`/${project.id}/board`);
-				}
-			} else {
+			if (branchesWithGivenName) {
 				localBranch = branchesWithGivenName.find((branch) => !branch.isRemote);
 
 				remoteBranches = branchesWithGivenName.filter((branch) => branch.isRemote);
+			} else {
+				error('Failed to find branch');
+				goto(`/${project.id}/board`);
 			}
 		}
 	});
