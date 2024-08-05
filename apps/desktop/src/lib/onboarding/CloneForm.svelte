@@ -66,10 +66,7 @@
 
 			if (protocol) {
 				if (protocol === 'ssh') {
-					// Temporarily track SSH events early because we'll early return
-					// for non-http(s) clone attempts. Normally should only fire on
-					// successful clone's, the event is not called "Clone Attempts.."
-					posthog.capture('Repository Cloned', { protocol });
+					posthog.capture('SSH Clone Attempted');
 				}
 				if (!['https', 'http'].includes(protocol)) {
 					errors.push({
