@@ -61,8 +61,8 @@
 	// split all the branches by the first '/' and gather the unique remote names
 	// then turn remotes into an array of objects with a 'name' and 'value' key
 	let remotes = Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0]))).map((r) => ({
-		name: r as string,
-		value: r as string
+		name: r!,
+		value: r!
 	}));
 	let selectedRemote = remotes[0]!;
 

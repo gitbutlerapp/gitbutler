@@ -50,7 +50,7 @@
 		});
 		if (!selectedPath) return;
 
-		targetDirPath = (Array.isArray(selectedPath) ? selectedPath[0] : selectedPath) as string;
+		targetDirPath = (Array.isArray(selectedPath) ? selectedPath[0] : selectedPath)!;
 	}
 
 	async function cloneRepository() {

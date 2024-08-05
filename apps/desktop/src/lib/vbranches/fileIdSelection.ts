@@ -91,7 +91,7 @@ export class FileIdSelection {
 
 	only(): FileKey | undefined {
 		if (this.value.length === 0) return;
-		const fileKey = parseFileKey(this.value[0] as string);
+		const fileKey = parseFileKey(this.value[0]!);
 		return fileKey;
 	}
 
@@ -101,7 +101,7 @@ export class FileIdSelection {
 			[this as Readable<string[]>, this.localFiles],
 			async ([selection, localFiles]): Promise<[string | undefined, AnyFile | undefined]> => {
 				if (selection.length !== 1) return [undefined, undefined];
-				const fileKey = parseFileKey(selection[0] as string);
+				const fileKey = parseFileKey(selection[0]!);
 				const file = await findFileByKey(localFiles, this.projectId, fileKey);
 				return [fileKey.commitId, file];
 			}

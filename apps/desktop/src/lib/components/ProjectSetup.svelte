@@ -31,7 +31,7 @@
 				await projectService.updateProject(project);
 				await baseBranchService.refresh();
 			}
-			await branchController.setTarget(selectedBranch[0] as string, selectedBranch[1]);
+			await branchController.setTarget(selectedBranch[0]!, selectedBranch[1]);
 			goto(`/${project.id}/`, { invalidateAll: true });
 		} finally {
 			loading = false;
@@ -41,7 +41,7 @@
 
 <DecorativeSplitView img={newProjectSvg}>
 	{#if selectedBranch[0] !== '' && $platformName !== 'win32'}
-		{@const [remoteName, branchName] = (selectedBranch[0] as string).split(/\/(.*)/s)}
+		{@const [remoteName, branchName] = (selectedBranch[0]!).split(/\/(.*)/s)}
 		<KeysForm {remoteName} {branchName} disabled={loading} />
 		<div class="actions">
 			<Button style="ghost" outline disabled={loading} onclick={() => (selectedBranch[0] = '')}

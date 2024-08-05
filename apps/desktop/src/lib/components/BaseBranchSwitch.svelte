@@ -86,7 +86,7 @@
 				{#if uniqueRemotes(remoteBranches).length > 1}
 					<Select
 						value={selectedRemote.name}
-						options={uniqueRemotes(remoteBranches).map((r) => ({ label: r.name as string, value: r.name as string }))}
+						options={uniqueRemotes(remoteBranches).map((r) => ({ label: r.name!, value: r.name!}))}
 						onselect={(value) => {
 							selectedRemote = { name: value };
 						}}
