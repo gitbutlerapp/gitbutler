@@ -6,6 +6,7 @@
 	import SidebarEntry from '@gitbutler/ui/sidebarEntry/SidebarEntry.svelte';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 
 	interface Props {
 		pullRequest: PullRequest;
@@ -16,8 +17,16 @@
 	const project = getContext(Project);
 
 	function onMouseDown() {
-		goto(`/${project.id}/pull/${pullRequest.number}`);
+		goto(formatPullRequestURL(project, pullRequest.number));
 	}
+
+	function formatPullRequestURL(project: Project, pullRequestNumber: number) {
+		return `/${project.id}/pull/${pullRequestNumber}`;
+	}
+
+	const selected = $derived(
+		$page.url.pathname === formatPullRequestURL(project, pullRequest.number)
+	);
 </script>
 
 <SidebarEntry
@@ -33,6 +42,7 @@
 		title: pullRequest.title
 	}}
 	{onMouseDown}
+	{selected}
 >
 	{#snippet authorAvatars()}
 		<AvatarGrouping>
