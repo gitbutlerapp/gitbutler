@@ -1,6 +1,6 @@
-// TODO: Also copied from apps/desktop; replace if/when that's factored out so
-// we do not have two of the same thing floating around.
-//
+// TODO: Copied from apps/desktop; replace if/when context helpers are
+// refactored out so we do not have two of the same thing floating around
+
 // We rely on the Svelte built-in concept of context, a global store for
 // singletons that cascades from parent to child components. This way we
 // can provide not only singletons of all services, but e.g. also
