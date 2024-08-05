@@ -7,10 +7,13 @@
 	import { getEntryUpdatedDate, type SidebarEntrySubject } from '$lib/navigation/types';
 	import { persisted } from '$lib/persisted/persisted';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
+	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext } from '$lib/utils/context';
 	import Segment from '@gitbutler/ui/SegmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import Badge from '@gitbutler/ui/shared/Badge.svelte';
+	import Fuse from 'fuse.js';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 
 	const gitHostListingService = getGitHostListingService();
@@ -121,10 +124,43 @@
 		}
 	}
 
-	const searchedBranches = $derived(
-		filterSidebarEntries(pullRequests, $selectedOption, sidebarEntries)
-	);
+	function search(searchTerm: string, sidebarEntries: SidebarEntrySubject[]) {
+		const fuse = new Fuse(sidebarEntries, {
+			keys: ['subject.name', 'subject.title']
+		});
+
+		return fuse.search(searchTerm).map((searchResult) => searchResult.item);
+	}
+
+	let searching = $state(false);
+	let searchTerm = $state<string>();
+
+	const searchedBranches = $derived.by(() => {
+		const filtered = filterSidebarEntries(pullRequests, $selectedOption, sidebarEntries);
+		if (searchTerm) {
+			return search(searchTerm, filtered);
+		} else {
+			return filtered;
+		}
+	});
 	const groupedBranches = $derived(groupByDate(searchedBranches));
+
+	function handleSearchKeyDown(e: CustomEvent<KeyboardEvent>) {
+		if (e.detail.key === 'Escape') {
+			e.preventDefault();
+			e.detail.preventDefault();
+			closeSearch();
+		}
+	}
+
+	function closeSearch() {
+		searching = false;
+		searchTerm = undefined;
+	}
+
+	function openSearch() {
+		searching = true;
+	}
 </script>
 
 {#snippet branchGroup(props: {
@@ -147,13 +183,25 @@
 
 <div class="branches">
 	<div class="header">
-		<div class="branches-title">
-			<span class="text-base-14 text-bold">Branches</span>
+		{#if searching}
+			<div class="search">
+				<div class="search-box">
+					<TextBox wide icon="search" bind:value={searchTerm} on:keydown={handleSearchKeyDown} />
+				</div>
+				<Button icon="cross" onclick={closeSearch}></Button>
+			</div>
+		{:else}
+			<div class="information">
+				<div class="branches-title">
+					<span class="text-base-14 text-bold">Branches</span>
 
-			{#if searchedBranches.length > 0}
-				<Badge count={searchedBranches.length} />
-			{/if}
-		</div>
+					{#if searchedBranches.length > 0}
+						<Badge count={searchedBranches.length} />
+					{/if}
+				</div>
+				<Button icon="search" style="ghost" onclick={openSearch}></Button>
+			</div>
+		{/if}
 		<SegmentControl fullWidth defaultIndex={selectedIndex} onselect={setFilter}>
 			<Segment id="all">All</Segment>
 			<Segment id="pullRequest">PRs</Segment>
@@ -211,12 +259,35 @@
 		padding: 14px;
 	}
 
+	.information {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		width: 100%;
+
+		height: 32px;
+
+		margin-bottom: 8px;
+	}
+
+	.search {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+
+		height: 32px;
+
+		margin-bottom: 8px;
+
+		& .search-box {
+			flex-grow: 1;
+		}
+	}
+
 	.branches-title {
 		display: flex;
 		align-items: center;
 		gap: 4px;
-
-		margin-bottom: 8px;
 	}
 
 	/* BRANCHES LIST */
