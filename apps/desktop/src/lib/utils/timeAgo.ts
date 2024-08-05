@@ -5,7 +5,7 @@ function customFormatDistance(date: Date, addSuffix: boolean): string {
 	const distance = formatDistanceToNowStrict(date, { addSuffix });
 	return distance.replace(
 		/\b(seconds?|minutes?|hours?|days?|months?|years?)\b/g,
-		(match) => unitShorthandMap[match]
+		(match) => unitShorthandMap[match] ?? ''
 	);
 }
 

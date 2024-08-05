@@ -284,7 +284,7 @@ export class AIService {
 		let message = messageResult.value;
 
 		if (useBriefStyle) {
-			message = message.split('\n')[0];
+			message = message.split('\n')[0] ?? message;
 		}
 
 		const { title, description } = splitMessage(message);

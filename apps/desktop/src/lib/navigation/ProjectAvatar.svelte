@@ -17,7 +17,7 @@
 	function nameToColor(name: string | undefined) {
 		const trimmed = name?.replace(/\s/g, '');
 		if (!trimmed) {
-			return `linear-gradient(45deg, ${colors[0][0]} 15%, ${colors[0][1]} 90%)`;
+			return `linear-gradient(45deg, ${colors[0]?.[0]} 15%, ${colors[0]?.[1]} 90%)`;
 		}
 
 		const startHash = trimmed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -25,7 +25,7 @@
 	}
 
 	function getFirstLetter(name: string | undefined) {
-		return name ? name[0].toUpperCase() : '';
+		return name ? name[0]?.toUpperCase() : '';
 	}
 
 	$: firstLetter = getFirstLetter(name);
@@ -34,7 +34,7 @@
 <div class="project-avatar" style:background-color={nameToColor(name)}>
 	<svg class="avatar-letter" viewBox="0 0 24 24">
 		<text x="50%" y="54%" text-anchor="middle" alignment-baseline="middle">
-			{firstLetter.toUpperCase()}
+			{firstLetter?.toUpperCase()}
 		</text>
 	</svg>
 </div>

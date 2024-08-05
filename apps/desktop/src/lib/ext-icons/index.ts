@@ -20,11 +20,11 @@ export function getFileIcon(fileName: string) {
 	while (splitName.length) {
 		const curName = splitName.join('.');
 		if (symbolFileNamesToIcons[curName]) {
-			iconName = symbolFileNamesToIcons[curName];
+			iconName = symbolFileNamesToIcons[curName] ?? '';
 			break;
 		}
 		if (symbolFileExtensionsToIcons[curName]) {
-			iconName = symbolFileExtensionsToIcons[curName];
+			iconName = symbolFileExtensionsToIcons[curName] ?? '';
 			break;
 		}
 
@@ -33,5 +33,6 @@ export function getFileIcon(fileName: string) {
 
 	if (iconName === '') iconName = 'document';
 	const icon = fileIcons[iconName];
+	// @ts-expect-error - we know fileIcons['document'] exists
 	return `data:image/svg+xml;base64,${convertToBase64(icon)}`;
 }

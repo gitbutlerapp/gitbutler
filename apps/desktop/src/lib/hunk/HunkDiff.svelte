@@ -68,7 +68,7 @@
 
 	function isLineEmpty(lines: Line[]) {
 		const whitespaceRegex = new RegExp(WHITESPACE_REGEX);
-		if (!lines[0].content.match(whitespaceRegex)) {
+		if (!lines[0]?.content.match(whitespaceRegex)) {
 			return true;
 		}
 
@@ -122,8 +122,8 @@
 		// Loop through every line in the section
 		// We're only bothered with prev/next sections with equal # of lines changes
 		for (let i = 0; i < numberOfLines; i++) {
-			const oldLine = prevSection.lines[i];
-			const newLine = nextSection.lines[i];
+			const oldLine = prevSection.lines[i] as Line;
+			const newLine = nextSection.lines[i] as Line;
 			const prevSectionRow = {
 				beforeLineNumber: oldLine.beforeLineNumber,
 				afterLineNumber: oldLine.afterLineNumber,
@@ -254,7 +254,7 @@
 							const lineNumber = (line.beforeLineNumber
 								? line.beforeLineNumber
 								: line.afterLineNumber) as number;
-							handleLineContextMenu({ event, hunk, lineNumber, subsection: subsections[0] });
+							handleLineContextMenu({ event, hunk, lineNumber, subsection: subsections[0] as ContentSection });
 						}}
 					>
 						{@html line.tokens.join('')}

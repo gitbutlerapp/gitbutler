@@ -39,10 +39,8 @@ export function maybeMoveSelection({
 }: MoveSelectionParams) {
 	if (selectedFileIds.length === 0) return;
 
-	// console.log('targetElement', targetElement, elementIndex);
-
-	const firstFileId = unstringifyFileKey(selectedFileIds[0]);
-	const lastFileId = unstringifyFileKey(selectedFileIds[selectedFileIds.length - 1]);
+	const firstFileId = unstringifyFileKey(selectedFileIds[0] as string);
+	const lastFileId = unstringifyFileKey(selectedFileIds.at(-1) as string);
 	let selectionDirection = getSelectionDirection(
 		files.findIndex((f) => f.id === lastFileId),
 		files.findIndex((f) => f.id === firstFileId)
