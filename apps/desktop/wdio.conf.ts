@@ -1,4 +1,5 @@
 import { browser } from '@wdio/globals';
+import video from 'wdio-video-reporter';
 import { spawn, ChildProcess } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
 import os from 'node:os';
@@ -20,7 +21,16 @@ export const config: Options.WebdriverIO = {
 			}
 		}
 	],
-	reporters: ['spec'],
+	reporters: [
+		[
+			video,
+			{
+				saveAllVideos: true,
+				outputDir: './e2e/videos/'
+			}
+		],
+		'spec'
+	],
 	framework: 'mocha',
 	mochaOpts: {
 		ui: 'bdd',

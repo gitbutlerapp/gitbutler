@@ -76,7 +76,8 @@
 		"tinykeys": "^2.1.0",
 		"ts-node": "^10.9.2",
 		"vite": "catalog:",
-		"vitest": "^0.34.6"
+		"vitest": "^0.34.6",
+		"wdio-video-reporter": "^5.2.0"
 	},
 	"dependencies": {
 		"openai": "^4.47.3"
