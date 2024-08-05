@@ -60,7 +60,7 @@
 			</div>
 		</div>
 	</div>
-	<Button icon="cross" style="ghost" on:click={() => dispatch('close')} />
+	<Button icon="cross" style="ghost" onclick={() => dispatch('close')} />
 </div>
 
 <style lang="postcss">
