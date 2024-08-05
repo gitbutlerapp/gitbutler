@@ -1,10 +1,11 @@
 <script lang="ts">
 	import GitButler from '../images/gitbutler.svg';
-	import { createAuthService } from '$lib/auth/authService.svelte';
+	import { AuthService } from '$lib/auth/authService';
+	import { getContext } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
 	import { env } from '$env/dynamic/public';
 
-	const authService = createAuthService();
+	const authService = getContext(AuthService);
 
 	function logout() {
 		authService.clearToken();

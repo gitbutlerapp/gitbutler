@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { createUserService } from '$lib/user/userService.svelte';
+	import { UserService } from '$lib/user/userService';
+	import { getContext } from '$lib/utils/context';
 
-	const userService = createUserService();
+	const userService = getContext(UserService);
 	let userAvatarUrl = $state(userService.user?.picture);
 
 	function handleImageLoadError() {
