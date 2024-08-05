@@ -13,7 +13,7 @@ fn one_vbranch_on_integration() -> Result<()> {
             identity: "virtual",
             virtual_branch_given_name: Some("virtual"),
             virtual_branch_in_workspace: true,
-            has_local: true,
+            has_local: false,
             ..Default::default()
         },
         "It's a bare virtual branch with no commit",
@@ -34,7 +34,7 @@ fn one_vbranch_on_integration_one_commit() -> Result<()> {
             identity: "virtual",
             virtual_branch_given_name: Some("virtual"),
             virtual_branch_in_workspace: true,
-            has_local: true,
+            has_local: false,
             ..Default::default()
         },
         "It's a bare virtual branch with a single commit",
@@ -60,7 +60,7 @@ fn two_vbranches_on_integration_one_commit() -> Result<()> {
             identity: "other",
             virtual_branch_given_name: Some("other"),
             virtual_branch_in_workspace: true,
-            has_local: true,
+            has_local: false,
             ..Default::default()
         },
         "It's a bare virtual branch without any branches with the same identity",
