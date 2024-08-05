@@ -28,7 +28,7 @@
 </script>
 
 <div class="welcome">
-	<h1 class="welcome-title text-serif-40">Welcome to GitButler</h1>
+	<h1 class="welcome-title text-serif-40" data-tauri-drag-region>Welcome to GitButler</h1>
 	<div class="welcome__actions">
 		<div class="welcome__actions--repo">
 			<WelcomeAction
@@ -62,7 +62,7 @@
 		<WelcomeSigninAction />
 	</div>
 
-	<div class="links">
+	<div class="links" data-tauri-drag-region>
 		<div class="links__section">
 			<p class="links__title text-base-14 text-bold">Quick start</p>
 			<div class="education-links">
