@@ -10,7 +10,7 @@ rust:
 
 "@gitbutler/web":
 - changed-files:
-  - any-glob-to-any-file: app/web/**/*
+  - any-glob-to-any-file: apps/web/**/*
 
 "@gitbutler/ui":
 - changed-files:
@@ -19,3 +19,4 @@ rust:
 "@gitbutler/design-tokens":
 - changed-files:
   - any-glob-to-any-file: packages/design-tokens/**/*
+

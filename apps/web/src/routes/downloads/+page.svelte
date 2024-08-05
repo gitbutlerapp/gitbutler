@@ -18,6 +18,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>GitButler | Downloads</title>
+</svelte:head>
+
 {#if loading}
 	<p>Loading...</p>
 {:else}
