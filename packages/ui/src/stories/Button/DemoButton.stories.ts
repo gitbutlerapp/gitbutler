@@ -17,7 +17,6 @@ export const ButtonDefault: Story = {
 		disabled: false,
 		clickable: true,
 		size: 'button',
-		children: 'Button',
 		icon: 'ai-small',
 		style: 'neutral',
 		kind: 'solid',
@@ -60,7 +59,6 @@ export const ButtonDefault: Story = {
 export const ButtonClickable: Story = {
 	name: 'Not clickable',
 	args: {
-		children: 'Not clickable',
 		clickable: false,
 		help: 'This button is not clickable',
 		onclick: () => {
