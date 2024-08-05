@@ -21,8 +21,8 @@
 	import { writable } from 'svelte/store';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 
-	export let localBranch: Branch | undefined;
-	export let remoteBranch: Branch | undefined;
+	export let localBranch: Branch | undefined = undefined;
+	export let remoteBranch: Branch | undefined = undefined;
 	export let pr: PullRequest | undefined;
 
 	const project = getContext(Project);

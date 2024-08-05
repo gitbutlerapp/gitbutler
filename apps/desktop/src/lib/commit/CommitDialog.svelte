@@ -1,13 +1,13 @@
 <script lang="ts">
 	import CommitMessageInput from './CommitMessageInput.svelte';
 	import { persistedCommitMessage, projectRunCommitHooks } from '$lib/config/config';
-	import Button from '$lib/shared/Button.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { slideFade } from '$lib/utils/svelteTransitions';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import type { Writable } from 'svelte/store';
 
 	export let projectId: string;
@@ -74,7 +74,7 @@
 					style="ghost"
 					outline
 					id="commit-to-branch"
-					on:click={() => {
+					onclick={() => {
 						$expanded = false;
 					}}
 				>
@@ -90,7 +90,7 @@
 			loading={isCommitting}
 			disabled={(isCommitting || !commitMessageValid || $selectedOwnership.isEmpty()) && $expanded}
 			id="commit-to-branch"
-			on:click={() => {
+			onclick={() => {
 				if ($expanded) {
 					commit();
 				} else {

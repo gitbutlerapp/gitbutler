@@ -1,7 +1,6 @@
 <script lang="ts">
 	import EmptyStatePlaceholder from '../components/EmptyStatePlaceholder.svelte';
 	import FullviewLoading from '../components/FullviewLoading.svelte';
-	import Icon from '../shared/Icon.svelte';
 	import LazyloadContainer from '../shared/LazyloadContainer.svelte';
 	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
@@ -10,9 +9,10 @@
 	import FileCard from '$lib/file/FileCard.svelte';
 	import SnapshotCard from '$lib/history/SnapshotCard.svelte';
 	import { HistoryService, createdOnDay } from '$lib/history/history';
-	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { RemoteFile } from '$lib/vbranches/types';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { plainToInstance } from 'class-transformer';
 	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDiff } from '$lib/history/types';
@@ -117,7 +117,7 @@
 				<Button
 					style="ghost"
 					icon="cross"
-					on:click={() => {
+					onclick={() => {
 						dispatch('hide');
 					}}
 				/>

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import Modal from '../shared/Modal.svelte';
 	import TextBox from '../shared/TextBox.svelte';
 	import { PromptService } from '$lib/backend/prompt';
-	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 
 	const promptService = getContext(PromptService);
 	const [prompt, error] = promptService.reactToPrompt({ timeoutMs: 30000 });
@@ -66,14 +66,14 @@
 	<TextBox focus type="password" bind:value disabled={!!$error || loading} />
 
 	{#snippet controls()}
-		<Button style="ghost" outline type="reset" disabled={loading} on:click={cancel}>Cancel</Button>
+		<Button style="ghost" outline type="reset" disabled={loading} onclick={cancel}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
 			grow
 			disabled={!!$error || loading}
 			{loading}
-			on:click={async () => await submit()}
+			onclick={async () => await submit()}
 		>
 			Submit
 		</Button>

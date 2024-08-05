@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from './Icon.svelte';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 	export let projectName: string = '';
 </script>
 

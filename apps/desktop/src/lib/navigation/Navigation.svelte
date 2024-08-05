@@ -1,8 +1,8 @@
 <script lang="ts">
-	import BaseBranchCard from './BaseBranchCard.svelte';
 	import Branches from './Branches.svelte';
 	import Footer from './Footer.svelte';
 	import ProjectSelector from './ProjectSelector.svelte';
+	import TargetCard from './TargetCard.svelte';
 	import DomainButton from '../components/DomainButton.svelte';
 	import Resizer from '../shared/Resizer.svelte';
 	import { Project } from '$lib/backend/projects';
@@ -25,7 +25,6 @@
 	let viewport: HTMLDivElement;
 	let isResizerHovered = false;
 	let isResizerDragging = false;
-	let isScrollbarDragging = false;
 
 	$: isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + project.id);
 
@@ -42,7 +41,7 @@
 
 <svelte:window on:keydown={handleKeyDown} />
 
-<aside class="navigation-wrapper" class:hide-fold-button={isScrollbarDragging}>
+<aside class="navigation-wrapper">
 	<div
 		class="resizer-wrapper"
 		tabindex="0"
@@ -109,7 +108,7 @@
 				{/if}
 				<ProjectSelector isNavCollapsed={$isNavCollapsed} />
 				<div class="domains">
-					<BaseBranchCard isNavCollapsed={$isNavCollapsed} />
+					<TargetCard isNavCollapsed={$isNavCollapsed} />
 					<DomainButton
 						href={`/${project.id}/board`}
 						domain="workspace"
@@ -121,10 +120,7 @@
 			</div>
 
 			{#if !$isNavCollapsed}
-				<Branches
-					projectId={project.id}
-					on:scrollbarDragging={(e) => (isScrollbarDragging = e.detail)}
-				/>
+				<Branches />
 			{/if}
 			<Footer projectId={project.id} isNavCollapsed={$isNavCollapsed} />
 		{/if}

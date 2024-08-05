@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { UpdaterService } from '$lib/backend/updater';
 	import { showToast } from '$lib/notifications/toasts';
-	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { fade } from 'svelte/transition';
 
 	const updaterService = getContext(UpdaterService);
@@ -21,7 +21,7 @@
 {#if $update?.version && $update?.status !== 'UPTODATE' && !dismissed}
 	<div class="update-banner" class:busy={$update?.status === 'PENDING'}>
 		<div class="floating-button">
-			<Button icon="cross-small" style="ghost" on:click={() => (dismissed = true)} />
+			<Button icon="cross-small" style="ghost" onclick={() => (dismissed = true)} />
 		</div>
 		<div class="img">
 			<div class="circle-img">
@@ -109,7 +109,7 @@
 			<Button
 				style="ghost"
 				outline
-				on:mousedown={() => {
+				onmousedown={() => {
 					const notes = $update?.body?.trim() || 'no release notes available';
 					showToast({
 						id: 'release-notes',
@@ -130,7 +130,7 @@
 							wide
 							style="pop"
 							kind="solid"
-							on:mousedown={async () => {
+							onmousedown={async () => {
 								await updaterService.installUpdate();
 							}}
 						>
@@ -140,7 +140,7 @@
 				{:else if $update.status === 'DONE'}
 					<div class="sliding-gradient"></div>
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
-						<Button style="pop" kind="solid" wide on:click={() => updaterService.relaunchApp()}
+						<Button style="pop" kind="solid" wide onclick={() => updaterService.relaunchApp()}
 							>Restart</Button
 						>
 					</div>

@@ -11,13 +11,13 @@
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import { showError, showToast } from '$lib/notifications/toasts';
-	import Button from '$lib/shared/Button.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 
@@ -128,7 +128,7 @@
 			<div class="collapsed-lane__draggable" data-drag-handle>
 				<Icon name="draggable" />
 			</div>
-			<Button style="ghost" outline icon="unfold-lane" help="Expand lane" on:click={expandLane} />
+			<Button style="ghost" outline icon="unfold-lane" help="Expand lane" onclick={expandLane} />
 		</div>
 
 		<div class="collapsed-lane__info-wrap" bind:clientHeight={headerInfoHeight}>
@@ -225,7 +225,7 @@
 							outline
 							help="When selected, new changes will land here"
 							icon="target"
-							on:click={async () => {
+							onclick={async () => {
 								isTargetBranchAnimated = true;
 								await branchController.setSelectedForChanges(branch.id);
 							}}
@@ -250,7 +250,7 @@
 							style="ghost"
 							outline
 							icon="kebab"
-							on:click={() => {
+							onclick={() => {
 								contextMenu.toggle();
 							}}
 						/>

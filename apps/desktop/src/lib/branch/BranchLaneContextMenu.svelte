@@ -6,14 +6,14 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import Button from '$lib/shared/Button.svelte';
-	import Modal from '$lib/shared/Modal.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 
 	export let contextMenuEl: ContextMenu;
 	export let target: HTMLElement;
@@ -158,11 +158,11 @@
 	<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName} focus />
 
 	{#snippet controls(close)}
-		<Button style="ghost" outline type="reset" on:click={close}>Cancel</Button>
+		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
-			on:click={() => {
+			onclick={() => {
 				branchController.updateBranchRemoteName(branch.id, newRemoteName);
 				close();
 			}}
@@ -177,11 +177,11 @@
 		Are you sure you want to delete <code class="code-string">{branch.name}</code>?
 	{/snippet}
 	{#snippet controls(close)}
-		<Button style="ghost" outline on:click={close}>Cancel</Button>
+		<Button style="ghost" outline onclick={close}>Cancel</Button>
 		<Button
 			style="error"
 			kind="solid"
-			on:click={async () => {
+			onclick={async () => {
 				await branchController.deleteBranch(branch.id);
 				close();
 			}}

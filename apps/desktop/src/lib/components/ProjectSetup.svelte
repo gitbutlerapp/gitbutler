@@ -6,9 +6,9 @@
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import KeysForm from '$lib/settings/KeysForm.svelte';
-	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { goto } from '$app/navigation';
 
 	export let remoteBranches: { name: string }[];
@@ -44,10 +44,10 @@
 		{@const [remoteName, branchName] = selectedBranch[0].split(/\/(.*)/s)}
 		<KeysForm {remoteName} {branchName} disabled={loading} />
 		<div class="actions">
-			<Button style="ghost" outline disabled={loading} on:mousedown={() => (selectedBranch[0] = '')}
+			<Button style="ghost" outline disabled={loading} onclick={() => (selectedBranch[0] = '')}
 				>Back</Button
 			>
-			<Button style="pop" kind="solid" {loading} on:click={setTarget}>Let's go!</Button>
+			<Button style="pop" kind="solid" {loading} onclick={setTarget}>Let's go!</Button>
 		</div>
 	{:else}
 		<ProjectSetupTarget

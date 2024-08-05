@@ -1,11 +1,11 @@
 <script lang="ts">
 	import SectionCardDisclaimer from '../components/SectionCardDisclaimer.svelte';
-	import Icon from '../shared/Icon.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import Link from '../shared/Link.svelte';
 	import { AuthService } from '$lib/backend/auth';
-	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { slide } from 'svelte/transition';
 
 	export let projectId: string;
@@ -107,7 +107,7 @@
 		wide
 		icon="item-tick"
 		disabled={loading}
-		on:click={checkCredentials}
+		onclick={checkCredentials}
 	>
 		{#if loading || checks.length === 0}
 			Test credentials
