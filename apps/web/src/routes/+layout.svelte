@@ -13,8 +13,8 @@
 
 	const { children }: Props = $props();
 
-	setContext(UserService, $page.data.userService);
 	setContext(AuthService, $page.data.authService);
+	setContext(UserService, $page.data.userService);
 
 	$effect(() => {
 		if ($page.url.searchParams.get('gb_access_token')) {

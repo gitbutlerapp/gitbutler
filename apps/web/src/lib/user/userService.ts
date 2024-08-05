@@ -13,7 +13,6 @@ export interface User {
 }
 
 export class UserService {
-	private authService = new AuthService();
 	private userStore = writable<User | undefined>(undefined, (set) => {
 		this.fetchUser()
 			.then((user) => {
@@ -27,7 +26,7 @@ export class UserService {
 
 	readonly error = writable();
 
-	constructor() {}
+	constructor(readonly authService: AuthService) {}
 
 	private async fetchUser() {
 		if (this.authService.token) {
