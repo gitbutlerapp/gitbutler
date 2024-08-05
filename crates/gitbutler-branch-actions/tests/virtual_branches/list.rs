@@ -10,7 +10,7 @@ fn one_vbranch_on_integration() -> Result<()> {
     assert_equal(
         &list[0],
         ExpectedBranchListing {
-            identity: "virtual",
+            identity: "virtual".into(),
             virtual_branch_given_name: Some("virtual"),
             virtual_branch_in_workspace: true,
             has_local: false,
@@ -31,7 +31,7 @@ fn one_vbranch_on_integration_one_commit() -> Result<()> {
     assert_equal(
         &list[0],
         ExpectedBranchListing {
-            identity: "virtual",
+            identity: "virtual".into(),
             virtual_branch_given_name: Some("virtual"),
             virtual_branch_in_workspace: true,
             has_local: false,
@@ -57,7 +57,7 @@ fn two_vbranches_on_integration_one_commit() -> Result<()> {
     assert_equal(
         &list[0],
         ExpectedBranchListing {
-            identity: "other",
+            identity: "other".into(),
             virtual_branch_given_name: Some("other"),
             virtual_branch_in_workspace: true,
             has_local: false,
@@ -77,7 +77,7 @@ fn two_vbranches_on_integration_one_commit() -> Result<()> {
     assert_equal(
         &list[0],
         ExpectedBranchListing {
-            identity: "virtual",
+            identity: "virtual".into(),
             virtual_branch_given_name: Some("virtual"),
             virtual_branch_in_workspace: false,
             has_local: true,
@@ -101,7 +101,7 @@ fn one_feature_branch_and_one_vbranch_on_integration_one_commit() -> Result<()> 
     assert_equal(
         &list[0],
         ExpectedBranchListing {
-            identity: "main",
+            identity: "main".into(),
             remotes: vec!["origin"],
             virtual_branch_given_name: Some("main"),
             virtual_branch_in_workspace: true,
@@ -124,7 +124,7 @@ fn one_branch_on_integration_multiple_remotes() -> Result<()> {
     assert_equal(
         &list[0],
         ExpectedBranchListing {
-            identity: "main",
+            identity: "main".into(),
             remotes: vec!["other-remote", "origin"],
             virtual_branch_given_name: Some("main"),
             virtual_branch_in_workspace: true,
@@ -138,17 +138,29 @@ fn one_branch_on_integration_multiple_remotes() -> Result<()> {
 mod util {
     use anyhow::Result;
     use bstr::BString;
-    use gitbutler_branch_actions::{BranchListing, BranchListingFilter};
+    use gitbutler_branch_actions::{BranchIdentity, BranchListing, BranchListingFilter};
     use gitbutler_command_context::CommandContext;
 
     /// A flattened and simplified mirror of `BranchListing` for comparing the actual and expected data.
-    #[derive(Default, Debug, PartialEq)]
+    #[derive(Debug, PartialEq)]
     pub struct ExpectedBranchListing<'a> {
-        pub identity: &'a str,
+        pub identity: BranchIdentity,
         pub remotes: Vec<&'a str>,
         pub virtual_branch_given_name: Option<&'a str>,
         pub virtual_branch_in_workspace: bool,
         pub has_local: bool,
+    }
+
+    impl Default for ExpectedBranchListing<'static> {
+        fn default() -> Self {
+            ExpectedBranchListing {
+                identity: "<invalid identity - should always be specified".into(),
+                remotes: vec![],
+                virtual_branch_given_name: None,
+                virtual_branch_in_workspace: false,
+                has_local: false,
+            }
+        }
     }
 
     pub fn assert_equal(
