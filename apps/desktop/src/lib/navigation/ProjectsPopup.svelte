@@ -5,7 +5,7 @@
 	import { getContext } from '$lib/utils/context';
 	import { portal } from '$lib/utils/portal';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
-	import type iconsJson from '$lib/icons/icons.json';
+	import type iconsJson from '@gitbutler/ui/icons.json';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 

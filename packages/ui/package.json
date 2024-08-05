@@ -63,6 +63,9 @@
 			"import": "./dist/*.js",
 			"types": "./dist/*.d.ts"
 		},
+		"./*.json": {
+			"import": "./dist/*.json"
+		},
 		"./main.css": {
 			"import": "./dist/styles/main.css"
 		},
@@ -76,6 +79,7 @@
 	"files": [
 		"./dist/*.svelte",
 		"./dist/*.js",
+		"./dist/*.json",
 		"./dist/*.d.ts",
 		"!./dist/*.test.*",
 		"./dist/*.css",

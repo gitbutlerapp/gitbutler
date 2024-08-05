@@ -15,7 +15,7 @@
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { ChecksStatus } from '$lib/gitHost/interface/types';
-	import type iconsJson from '$lib/icons/icons.json';
+	import type iconsJson from '@gitbutler/ui/icons.json';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
 
 	type StatusInfo = {

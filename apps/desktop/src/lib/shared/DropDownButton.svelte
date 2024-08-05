@@ -2,7 +2,7 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { type Snippet } from 'svelte';
-	import type iconsJson from '$lib/icons/icons.json';
+	import type iconsJson from '@gitbutler/ui/icons.json';
 	import type { ComponentColor, ComponentStyleKind } from '$lib/vbranches/types';
 
 	interface DropDownButtonProps {
