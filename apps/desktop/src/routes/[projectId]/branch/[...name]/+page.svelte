@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Project } from '$lib/backend/projects';
 	import { BranchListingService } from '$lib/branches/branchListing';
 	import BranchPreview from '$lib/components/BranchPreview.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
@@ -6,9 +7,12 @@
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import { getContext } from '$lib/utils/context';
 	import { groupBy } from '$lib/utils/groupBy';
-	import type { Branch } from '$lib/vbranches/types';
+	import { error } from '$lib/utils/toasts';
+	import { Branch } from '$lib/vbranches/types';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
+	const project = getContext(Project);
 	const branchListingService = getContext(BranchListingService);
 	const branchListings = branchListingService.branchListings;
 
@@ -27,11 +31,21 @@
 
 	$effect(() => {
 		if (branchListing) {
-			const branchesWithGivenName = branchesByGivenName[branchListing.name];
+			console.log(branchListing);
+			const branchesWithGivenName: Branch[] | undefined = branchesByGivenName[branchListing.name];
 
-			localBranch = branchesWithGivenName.find((branch) => !branch.isRemote);
+			if (branchesWithGivenName === undefined) {
+				if (branchListing.virtualBranch) {
+					goto(`/${project.id}/board`);
+				} else {
+					error('Failed to find branch');
+					goto(`/${project.id}/board`);
+				}
+			} else {
+				localBranch = branchesWithGivenName.find((branch) => !branch.isRemote);
 
-			remoteBranches = branchesWithGivenName.filter((branch) => branch.isRemote);
+				remoteBranches = branchesWithGivenName.filter((branch) => branch.isRemote);
+			}
 		}
 	});
 </script>

@@ -36,7 +36,13 @@
 
 	let intersectionTarget = $state<HTMLButtonElement>();
 
-	const observer = new IntersectionObserver(onFirstSeen);
+	const observer = new IntersectionObserver((event) => {
+		event.forEach((entry) => {
+			if (entry.isIntersecting) {
+				onFirstSeen();
+			}
+		});
+	});
 
 	$effect(() => {
 		if (intersectionTarget) {
@@ -124,7 +130,7 @@
 		border-bottom: 1px solid var(--clr-border-3);
 		transition: background-color var(--transition-fast);
 		/* Using a fixed height to prevent content-shift when loading in */
-		height: 84px;
+		height: 86px;
 
 		&:last-child {
 			border-bottom: none;
@@ -144,6 +150,7 @@
 	.row-group {
 		display: flex;
 		align-items: center;
+		gap: 6px;
 	}
 
 	/* TAG */
@@ -219,7 +226,6 @@
 	}
 
 	.branch-remotes {
-		margin-left: 6px;
 		display: flex;
 		gap: 6px;
 	}

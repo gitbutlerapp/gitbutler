@@ -1,6 +1,8 @@
+use core::fmt;
 use std::{
     cmp::max,
     collections::{HashMap, HashSet},
+    fmt::Debug,
     vec,
 };
 
@@ -9,7 +11,6 @@ use bstr::{BString, ByteSlice};
 use gitbutler_branch::{Branch as GitButlerBranch, BranchId, ReferenceExt, Target};
 use gitbutler_command_context::CommandContext;
 use gitbutler_reference::normalize_branch_name;
-use gitbutler_repo::RepoActionsExt;
 use serde::{Deserialize, Serialize};
 
 use crate::VirtualBranchesExt;
@@ -18,26 +19,30 @@ use crate::VirtualBranchesExt;
 pub fn list_branches(
     ctx: &CommandContext,
     filter: Option<BranchListingFilter>,
+    filter_branch_names: Option<Vec<String>>,
 ) -> Result<Vec<BranchListing>> {
     let has_filter = filter.is_some();
     let filter = filter.unwrap_or_default();
     let vb_handle = ctx.project().virtual_branches();
-    let own_branches = filter.own_branches.unwrap_or_default();
     let mut branches: Vec<GroupBranch> = vec![];
-    for (branch, branch_type) in ctx
-        .repository()
-        .branches(own_branches.then_some(git2::BranchType::Local))?
-        .filter_map(Result::ok)
-    {
+    for (branch, branch_type) in ctx.repository().branches(None)?.filter_map(Result::ok) {
+        // Loosely match on branch names
+        if let Some(branch_names) = &filter_branch_names {
+            let has_matching_name = branch_names.iter().any(|branch_name| {
+                if let Ok(Some(name)) = branch.name() {
+                    name.ends_with(branch_name)
+                } else {
+                    false
+                }
+            });
+
+            if !has_matching_name {
+                continue;
+            }
+        }
+
         match branch_type {
             git2::BranchType::Local => {
-                if own_branches {
-                    // If we had an "own_branch" filter, we skipped getting the remote branches, however we still want the remote
-                    // tracking branches for the ones that are local
-                    if let Ok(upstream) = branch.upstream() {
-                        branches.push(GroupBranch::Remote(upstream));
-                    }
-                }
                 branches.push(GroupBranch::Local(branch));
             }
             git2::BranchType::Remote => {
@@ -46,14 +51,19 @@ pub fn list_branches(
         };
     }
 
-    for branch in vb_handle.list_all_branches()? {
+    let virtual_branches = vb_handle.list_all_branches()?;
+
+    for branch in virtual_branches {
         branches.push(GroupBranch::Virtual(branch));
     }
     let mut branches = combine_branches(branches, ctx, vb_handle.get_default_target()?)?;
 
     // Apply the filter
     branches.retain(|branch| !has_filter || matches_all(branch, filter));
-    branches.sort_by(|a, b| a.updated_at.cmp(&b.updated_at).reverse());
+
+    if let Some(branch_names) = filter_branch_names {
+        branches.retain(|branch_listing| branch_names.contains(&branch_listing.name))
+    }
 
     Ok(branches)
 }
@@ -67,8 +77,8 @@ fn matches_all(branch: &BranchListing, filter: BranchListingFilter) -> bool {
             conditions.push(!applied);
         }
     }
-    if let Some(own) = filter.own_branches {
-        conditions.push(own == branch.own_branch);
+    if let Some(local) = filter.local {
+        conditions.push((branch.has_local || branch.virtual_branch.is_some()) && local);
     }
     return conditions.iter().all(|&x| x);
 }
@@ -93,20 +103,13 @@ fn combine_branches(
         }
         groups.entry(identity).or_default().push(branch);
     }
-    let (local_author, _committer) = ctx.signatures()?;
 
     // Convert to Branch entries for the API response, filtering out any errors
     Ok(groups
         .into_iter()
         .filter_map(|(identity, group_branches)| {
-            let res = branch_group_to_branch(
-                &identity,
-                group_branches,
-                repo,
-                &remotes,
-                &local_author,
-                &target_branch,
-            );
+            let res =
+                branch_group_to_branch(&identity, group_branches, repo, &remotes, &target_branch);
             match res {
                 Ok(branch_entry) => branch_entry,
                 Err(err) => {
@@ -128,17 +131,23 @@ fn branch_group_to_branch(
     group_branches: Vec<GroupBranch>,
     repo: &git2::Repository,
     remotes: &git2::string_array::StringArray,
-    local_author: &git2::Signature,
     target: &Target,
 ) -> Result<Option<BranchListing>> {
-    let mut vbranches = group_branches.iter().filter_map(|branch| match branch {
-        GroupBranch::Virtual(vb) => Some(vb),
-        _ => None,
-    });
-    let virtual_branch = vbranches.next();
-    if vbranches.next().is_some() {
-        bail!("Found more than one virtual branch with the same identity - this shouldn't be possible")
-    }
+    let mut vbranches = group_branches
+        .iter()
+        .filter_map(|branch| match branch {
+            GroupBranch::Virtual(vb) => Some(vb),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    let virtual_branch = if vbranches.len() > 1 {
+        vbranches.sort_by_key(|virtual_branch| virtual_branch.updated_timestamp_ms);
+        vbranches.last()
+    } else {
+        vbranches.first()
+    };
+
     let remote_branches: Vec<&git2::Branch> = group_branches
         .iter()
         .filter_map(|branch| match branch {
@@ -178,6 +187,8 @@ fn branch_group_to_branch(
         }
     }
 
+    let has_local = !local_branches.is_empty();
+
     // The head commit for which we calculate statistics.
     // If there is a virtual branch let's get it's head. Alternatively, pick the first local branch and use it's head.
     // If there are no local branches, pick the first remote branch.
@@ -199,51 +210,16 @@ fn branch_group_to_branch(
         virtual_branch.map_or(0, |x| x.updated_timestamp_ms),
     );
     let last_commiter = head_commit.author().into();
-    // If no merge base can be found, return with zero stats
-    let branch = if let Ok(base) = repo.merge_base(target.sha, head) {
-        let mut revwalk = repo.revwalk()?;
-        revwalk.push(head)?;
-        revwalk.hide(base)?;
-        let mut commits = Vec::new();
-        let mut authors = HashSet::new();
-        for oid in revwalk {
-            let commit = repo.find_commit(oid?)?;
-            authors.insert(commit.author().into());
-            commits.push(commit);
-        }
-        // If there are no commits (i.e. virtual branch only) it is considered the users own
-        let own_branch = (virtual_branch.is_some() && commits.is_empty())
-            || commits.iter().any(|commit| {
-                let commit_author = commit.author();
-                local_author.name_bytes() == commit_author.name_bytes()
-                    && local_author.email_bytes() == commit_author.email_bytes()
-            });
 
-        BranchListing {
-            name: identity.to_owned(),
-            remotes,
-            virtual_branch: virtual_branch_reference,
-            number_of_commits: commits.len(),
-            updated_at: last_modified_ms,
-            last_commiter,
-            authors: authors.into_iter().collect(),
-            own_branch,
-            head,
-        }
-    } else {
-        BranchListing {
-            name: identity.to_owned(),
-            remotes,
-            virtual_branch: virtual_branch_reference,
-            number_of_commits: 0,
-            updated_at: last_modified_ms,
-            last_commiter,
-            authors: Vec::new(),
-            own_branch: false,
-            head,
-        }
-    };
-    Ok(Some(branch))
+    Ok(Some(BranchListing {
+        name: identity.to_owned(),
+        remotes,
+        virtual_branch: virtual_branch_reference,
+        updated_at: last_modified_ms,
+        last_commiter,
+        has_local,
+        head,
+    }))
 }
 
 /// A sum type of branch that can be a plain git branch or a virtual branch
@@ -252,6 +228,30 @@ enum GroupBranch<'a> {
     Local(git2::Branch<'a>),
     Remote(git2::Branch<'a>),
     Virtual(GitButlerBranch),
+}
+
+impl fmt::Debug for GroupBranch<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            GroupBranch::Local(branch) | GroupBranch::Remote(branch) => {
+                let reference = branch.get();
+                let target = reference
+                    .target()
+                    .expect("Failed to reference target in debug formatting");
+                let name = reference
+                    .name()
+                    .expect("Failed to get reference name in debug");
+                formatter
+                    .debug_struct("GroupBranch::Local/Remote")
+                    .field("0", &&format!("id: {}, name: {}", target, name).as_str())
+                    .finish()
+            }
+            GroupBranch::Virtual(branch) => formatter
+                .debug_struct("GroupBranch::Virtal")
+                .field("0", branch)
+                .finish(),
+        }
+    }
 }
 
 impl GroupBranch<'_> {
@@ -293,9 +293,9 @@ fn should_list_git_branch(identity: &str) -> bool {
 #[derive(Default, Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BranchListingFilter {
-    /// If the value is true, the listing will only include branches that have the same author as the current user.
-    /// If the value is false, the listing will include only branches that are not created by the user.
-    pub own_branches: Option<bool>,
+    /// If the value is true, the listing will only include branches that have local references or virtual branches.
+    /// If the value is false, the listing will include only branches that have local references or virtual branches.
+    pub local: Option<bool>,
     /// If the value is true, the listing will only include branches that are applied in the workspace.
     /// If the value is false, the listing will only include branches that are not applied in the workspace.
     pub applied: Option<bool>,
@@ -317,24 +317,13 @@ pub struct BranchListing {
     pub remotes: Vec<BString>,
     /// The branch may or may not have a virtual branch associated with it
     pub virtual_branch: Option<VirtualBranchReference>,
-    /// The number of commits associated with a branch
-    /// Since the virtual branch, local branch and the remote one can have different number of commits,
-    /// the value from the virtual branch (if present) takes the highest precedence,
-    /// followed by the local branch and then the remote branches (taking the max if there are multiple)
-    pub number_of_commits: usize,
     /// Timestamp in milliseconds since the branch was last updated.
     /// This includes any commits, uncommited changes or even updates to the branch metadata (e.g. renaming).
     pub updated_at: u128,
     /// The person who commited the head commit.
     pub last_commiter: Author,
-    /// A list of authors that have contributes commits to this branch.
-    /// In the case of multiple remote tracking branches, or branches whose commits are evaluated,
-    /// it takes the full list of unique authors, without applying a mailmap.
-    pub authors: Vec<Author>,
-    /// Determines if the current user is involved with this branch.
-    /// Returns true if the author has created a commit on this branch
-    /// If it is a virtual branch, if it has zero commits it is also considered as the user's branch
-    pub own_branch: bool,
+    /// Whether or not there is a local branch under the name
+    pub has_local: bool,
     /// The head of interest for the branch group, used for calculating branch statistics.
     /// If there is a virtual branch, a local branch and remote branches, the head is determined in the following order:
     /// 1. The head of the virtual branch
@@ -380,25 +369,40 @@ pub fn get_branch_listing_details(
     branch_names: Vec<String>,
 ) -> Result<Vec<BranchListingDetails>> {
     let repo = ctx.repository();
-    // Can we do this in a more efficient way?
-    let branches = list_branches(ctx, None)?
-        .into_iter()
-        .filter(|branch| branch_names.contains(&branch.name))
-        .collect::<Vec<_>>();
-    let repo_head = repo.head()?.peel_to_commit()?;
+    let branches = list_branches(ctx, None, Some(branch_names.clone()))?;
+    let default_target = ctx
+        .project()
+        .virtual_branches()
+        .get_default_target()
+        .context("failed to get default target")?;
     let mut enriched_branches = Vec::new();
     for branch in branches {
-        if let Ok(base) = repo.merge_base(repo_head.id(), branch.head) {
+        if let Ok(base) = repo.merge_base(default_target.sha, branch.head) {
             let base_tree = repo.find_commit(base)?.tree()?;
             let head_tree = repo.find_commit(branch.head)?.tree()?;
             let diff_stats = repo
                 .diff_tree_to_tree(Some(&base_tree), Some(&head_tree), None)?
                 .stats()?;
+
+            let head = branch.head;
+
+            let mut revwalk = repo.revwalk()?;
+            revwalk.push(head)?;
+            revwalk.hide(base)?;
+            let mut commits = Vec::new();
+            let mut authors = HashSet::new();
+            for oid in revwalk {
+                let commit = repo.find_commit(oid?)?;
+                authors.insert(commit.author().into());
+                commits.push(commit);
+            }
             let branch_data = BranchListingDetails {
                 name: branch.name,
                 lines_added: diff_stats.insertions(),
                 lines_removed: diff_stats.deletions(),
                 number_of_files: diff_stats.files_changed(),
+                authors: authors.into_iter().collect(),
+                number_of_commits: commits.len(),
             };
             enriched_branches.push(branch_data);
         }
@@ -429,6 +433,15 @@ pub struct BranchListingDetails {
     /// the value from the virtual branch (if present) takes the highest precedence,
     /// followed by the local branch and then the remote branches (taking the max if there are multiple)
     pub number_of_files: usize,
+    /// The number of commits associated with a branch
+    /// Since the virtual branch, local branch and the remote one can have different number of commits,
+    /// the value from the virtual branch (if present) takes the highest precedence,
+    /// followed by the local branch and then the remote branches (taking the max if there are multiple)
+    pub number_of_commits: usize,
+    /// A list of authors that have contributes commits to this branch.
+    /// In the case of multiple remote tracking branches, or branches whose commits are evaluated,
+    /// it takes the full list of unique authors, without applying a mailmap.
+    pub authors: Vec<Author>,
 }
 /// Represents a local branch
 #[derive(Debug, Clone, Serialize, PartialEq)]

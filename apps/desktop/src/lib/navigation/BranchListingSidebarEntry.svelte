@@ -31,10 +31,11 @@
 
 	function onFirstSeen() {
 		if (!branchListingDetails) {
-			console.log('hi');
 			branchListingDetails = branchListingService.getBranchListingDetails(branchListing.name);
 		}
 	}
+
+	$inspect($branchListingDetails);
 
 	function onMouseDown() {
 		goto(`/${project.id}/branch/${encodeURIComponent(branchListing.name)}`);
@@ -44,8 +45,8 @@
 <SidebarEntry
 	title={branchListing.name}
 	remotes={branchListing.remotes}
-	local={false}
-	applied={!!branchListing.virtualBranch}
+	local={branchListing.hasLocal}
+	applied={branchListing.virtualBranch?.inWorkspace}
 	lastCommitDetails={{
 		authorName: branchListing.lastCommiter.name || 'Unknown',
 		lastCommitAt: branchListing.updatedAt
@@ -54,7 +55,7 @@
 		title: pr.title
 	}}
 	branchDetails={$branchListingDetails && {
-		commitCount: branchListing.numberOfCommits,
+		commitCount: $branchListingDetails.numberOfCommits,
 		linesAdded: $branchListingDetails.linesAdded,
 		linesRemoved: $branchListingDetails.linesRemoved
 	}}
@@ -63,16 +64,18 @@
 >
 	{#snippet authorAvatars()}
 		<AvatarGrouping>
-			{#each branchListing.authors as author}
-				{#await gravatarUrlFromEmail(author.email || 'example@example.com') then gravatarUrl}
-					<Avatar
-						srcUrl={gravatarUrl}
-						size="medium"
-						tooltipText={author.name || 'unknown'}
-						altText={author.name || 'unknown'}
-					/>
-				{/await}
-			{/each}
+			{#if $branchListingDetails}
+				{#each $branchListingDetails.authors as author}
+					{#await gravatarUrlFromEmail(author.email || 'example@example.com') then gravatarUrl}
+						<Avatar
+							srcUrl={gravatarUrl}
+							size="medium"
+							tooltipText={author.name || 'unknown'}
+							altText={author.name || 'unknown'}
+						/>
+					{/await}
+				{/each}
+			{/if}
 		</AvatarGrouping>
 	{/snippet}
 </SidebarEntry>

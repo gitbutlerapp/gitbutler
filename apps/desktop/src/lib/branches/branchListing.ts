@@ -4,49 +4,53 @@ import 'reflect-metadata';
 import { invoke } from '$lib/backend/ipc';
 import { persisted } from '$lib/persisted/persisted';
 import { Transform, Type, plainToInstance } from 'class-transformer';
-import { derived, writable, type Readable, type Writable } from 'svelte/store';
+import { get, writable, type Readable, type Writable } from 'svelte/store';
 
 const FILTER_STORAGE_KEY = 'branchListingService-selectedFilter';
 export class BranchListingService {
-	private refreshMarker = writable(0);
-	private selectedFilter = persisted<BranchListingFilter>(
-		{ ownBranches: false, applied: false },
+	private selectedFilterPresisted = persisted<BranchListingFilter>(
+		{ local: undefined, applied: undefined },
 		FILTER_STORAGE_KEY
 	);
 
-	branchListings: Readable<BranchListing[]>;
+	private branchListingsWritable = writable<BranchListing[]>([]);
 
 	constructor(private projectId: string) {
-		this.branchListings = derived(
-			[this.refreshMarker, this.selectedFilter],
-			([_, selectedFilter], set) => {
-				// You're not supposed to have an async return type, so we can't use an async function
-				this.list(selectedFilter).then((listedValues) => {
-					set(listedValues || []);
-				});
-			},
-			[] as BranchListing[]
-		);
+		this.refresh();
 	}
 
-	refresh() {
-		this.refreshMarker.set(Date.now());
+	async refresh() {
+		const listedValues = (await this.list(get(this.selectedFilterPresisted))) || [];
+		this.branchListingsWritable.set(listedValues);
+
+		const listedBranchNames = new Set(listedValues.map((entry) => entry.name));
+
+		// Remove branch listings details stores that no longer have cooresponding branches
+		for (const key of this.branchListingDetails.keys()) {
+			if (!listedBranchNames.has(key)) {
+				this.branchListingDetails.delete(key);
+			}
+		}
 
 		const branchNames = Array.from(this.branchListingDetails.keys());
 		this.updateBranchListingDetails(branchNames);
 	}
 
+	get selectedFilter(): Readable<BranchListingFilter> {
+		return this.selectedFilterPresisted;
+	}
+
+	set selectedFilter(value: BranchListingFilter) {
+		this.selectedFilterPresisted.set(value);
+	}
+
+	get branchListings(): Readable<BranchListing[]> {
+		return this.branchListingsWritable;
+	}
+
 	private async list(filter: BranchListingFilter | undefined = undefined) {
-		console.log('a');
-		try {
-			const foo = await invoke<any[]>('list_branches', { projectId: this.projectId, filter });
-			console.log(foo);
-			const branches = plainToInstance(BranchListing, foo);
-			console.log('b');
-			return branches;
-		} catch (e: unknown) {
-			console.log(e);
-		}
+		const entries = await invoke<any[]>('list_branches', { projectId: this.projectId, filter });
+		return plainToInstance(BranchListing, entries);
 	}
 
 	private branchListingDetails = new Map<string, Writable<BranchListingDetails | undefined>>();
@@ -89,10 +93,10 @@ export class BranchListingService {
 /** A filter that can be applied to the branch listing */
 export interface BranchListingFilter {
 	/**
-	 * If the value is true, the listing will only include branches that have the same author as the current user.
-	 * If the value is false, the listing will include only branches that are not created by the user.
+	 * If the value is true, the listing will only include branches that have a local branch or virtual branch
+	 * If the value is false, the listing will include only branches that do not have a local branch or virtual branch
 	 */
-	ownBranches?: boolean;
+	local?: boolean;
 	/**
 	 * If the value is true, the listing will only include branches that are applied in the workspace.
 	 * If the value is false, the listing will only include branches that are not applied in the workspace.
@@ -119,13 +123,6 @@ export class BranchListing {
 	@Type(() => VirtualBranchReference)
 	virtualBranch?: VirtualBranchReference | undefined;
 	/**
-	 * The number of commits associated with a branch
-	 * Since the virtual branch, local branch and the remote one can have different number of commits,
-	 * the value from the virtual branch (if present) takes the highest precedence,
-	 * followed by the local branch and then the remote branches (taking the max if there are multiple)
-	 */
-	numberOfCommits!: number;
-	/**
 	 * Timestamp in milliseconds since the branch was last updated.
 	 * This includes any commits, uncommited changes or even updates to the branch metadata (e.g. renaming).
 	 */
@@ -134,17 +131,8 @@ export class BranchListing {
 	/** The person who commited the head commit */
 	@Type(() => Author)
 	lastCommiter!: Author;
-	/**
-	 * A list of authors that have contributes commits to this branch.
-	 * In the case of multiple remote tracking branches, it takes the full list of unique authors.
-	 */
-	@Type(() => Author)
-	authors!: Author[];
-	/**
-	 * Determines if the branch is considered one created by the user
-	 * A branch is considered created by the user if they were the author of the first commit in the branch.
-	 */
-	ownBranch!: boolean;
+	/** Whether or not there is a local branch as part of the grouping */
+	hasLocal!: boolean;
 }
 
 /** Represents a reference to an associated virtual branch */
@@ -192,4 +180,17 @@ export class BranchListingDetails {
 	 * followed by the local branch and then the remote branches (taking the max if there are multiple)
 	 */
 	numberOfFiles!: number;
+	/**
+	 * The number of commits associated with a branch
+	 * Since the virtual branch, local branch and the remote one can have different number of commits,
+	 * the value from the virtual branch (if present) takes the highest precedence,
+	 * followed by the local branch and then the remote branches (taking the max if there are multiple)
+	 */
+	numberOfCommits!: number;
+	/**
+	 * A list of authors that have contributes commits to this branch.
+	 * In the case of multiple remote tracking branches, it takes the full list of unique authors.
+	 */
+	@Type(() => Author)
+	authors!: Author[];
 }

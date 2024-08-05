@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BranchesNew from './BranchesNew.svelte';
+	import Branches from './Branches.svelte';
 	import Footer from './Footer.svelte';
 	import ProjectSelector from './ProjectSelector.svelte';
 	import TargetCard from './TargetCard.svelte';
@@ -120,7 +120,7 @@
 			</div>
 
 			{#if !$isNavCollapsed}
-				<BranchesNew />
+				<Branches />
 			{/if}
 			<Footer projectId={project.id} isNavCollapsed={$isNavCollapsed} />
 		{/if}

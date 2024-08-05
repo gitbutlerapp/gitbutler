@@ -2,7 +2,7 @@
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { BranchListingService } from '$lib/branches/branchListing';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import SmartSidebarEntry from '$lib/navigation/BranchListingSidebarEntry.svelte';
+	import BranchListingSidebarEntry from '$lib/navigation/BranchListingSidebarEntry.svelte';
 	import PullRequestSidebarEntry from '$lib/navigation/PullRequestSidebarEntry.svelte';
 	import { getEntryUpdatedDate, type SidebarEntrySubject } from '$lib/navigation/types';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
@@ -84,6 +84,23 @@
 
 	let viewport = $state<HTMLDivElement>();
 	let contents = $state<HTMLDivElement>();
+
+	function setFilter(option: string) {
+		switch (option) {
+			case 'all': {
+				branchListingService.selectedFilter = {};
+				break;
+			}
+			case 'pullRequests': {
+				branchListingService.selectedFilter = {};
+				break;
+			}
+			case 'local': {
+				branchListingService.selectedFilter = { local: true };
+				break;
+			}
+		}
+	}
 </script>
 
 {#snippet branchGroup(props: {
@@ -95,7 +112,7 @@
 			<h3 class="text-base-12 text-semibold group-header">{props.title}</h3>
 			{#each props.children as sidebarEntrySubject}
 				{#if sidebarEntrySubject.type === 'branchListing'}
-					<SmartSidebarEntry branchListing={sidebarEntrySubject.subject} />
+					<BranchListingSidebarEntry branchListing={sidebarEntrySubject.subject} />
 				{:else}
 					<PullRequestSidebarEntry pullRequest={sidebarEntrySubject.subject} />
 				{/if}
@@ -105,10 +122,10 @@
 {/snippet}
 
 <div class="branches">
-	<SegmentControl fullWidth defaultIndex={0}>
+	<SegmentControl fullWidth defaultIndex={0} onselect={setFilter}>
 		<Segment id="all">All</Segment>
-		<Segment id="mine">PRs</Segment>
-		<Segment id="active">Mine</Segment>
+		<Segment id="pullRequest">PRs</Segment>
+		<Segment id="local">Local</Segment>
 	</SegmentControl>
 	{#if $branchListings.length > 0}
 		{#if searchedBranches.length > 0}

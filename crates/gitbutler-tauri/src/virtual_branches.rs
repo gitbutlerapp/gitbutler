@@ -417,7 +417,7 @@ pub mod commands {
         filter: Option<BranchListingFilter>,
     ) -> Result<Vec<BranchListing>, Error> {
         let ctx = CommandContext::open(&projects.get(project_id)?)?;
-        let branches = gitbutler_branch_actions::list_branches(&ctx, filter)?;
+        let branches = gitbutler_branch_actions::list_branches(&ctx, filter, None)?;
         Ok(branches)
     }
 
