@@ -3,7 +3,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { type Snippet } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/icons.json';
-	import type { ComponentColor, ComponentStyleKind } from '$lib/vbranches/types';
+	import type { ComponentColor, ComponentStyleKind } from '@gitbutler/ui/types';
 
 	interface DropDownButtonProps {
 		icon?: keyof typeof iconsJson;

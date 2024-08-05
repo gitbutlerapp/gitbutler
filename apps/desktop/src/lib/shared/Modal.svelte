@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/clickOutside';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { portal } from '$lib/utils/portal';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type iconsJson from '@gitbutler/ui/icons.json';
 	import type { Snippet } from 'svelte';
 

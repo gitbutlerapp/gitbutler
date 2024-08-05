@@ -1,5 +1,5 @@
 <script lang="ts" context="module">
-	import type { ComponentColor } from '$lib/vbranches/types';
+	import type { ComponentColor } from '@gitbutler/ui/types';
 	export type MessageStyle = Exclude<ComponentColor, 'ghost' | 'purple'>;
 </script>
 
