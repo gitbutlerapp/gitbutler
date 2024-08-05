@@ -64,7 +64,7 @@ jobs:
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
       - name: Build SvelteKit
-        run: pnpm build -- --mode ${{ env.vitemode }}
+        run: pnpm build:desktop -- --mode ${{ env.vitemode }}
         env:
           SENTRY_RELEASE: ${{ env.version }}
       - uses: actions/upload-artifact@v4

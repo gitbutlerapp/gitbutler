@@ -24,15 +24,8 @@ jobs:
             xvfb
       - name: Setup rust-toolchain stable
         uses: dtolnay/rust-toolchain@stable
-      - name: Setup node latest
-        uses: actions/setup-node@v4
-        with:
-          node-version: latest
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-      - name: Install dependencies
-        shell: bash
-        run: pnpm install
+      - name: Init Node Environment
+        uses: ./.github/actions/init-env-node
       - name: Build SvelteKit
         run: pnpm build:desktop -- --mode development
       - name: Build Tauri
