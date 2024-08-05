@@ -1,10 +1,10 @@
 <script lang="ts">
 	import HunkViewer from '$lib/hunk/HunkViewer.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
 

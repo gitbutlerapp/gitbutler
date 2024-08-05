@@ -1,7 +1,6 @@
 <script lang="ts">
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
 	import FileListItem from './FileListItem.svelte';
-	import Button from '$lib/shared/Button.svelte';
 	import LazyloadContainer from '$lib/shared/LazyloadContainer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
@@ -11,6 +10,7 @@
 	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection, stringifyFileKey } from '$lib/vbranches/fileIdSelection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import type { AnyFile } from '$lib/vbranches/types';
 
 	export let files: AnyFile[];
@@ -64,7 +64,7 @@
 				icon="copy"
 				style="ghost"
 				outline
-				on:mousedown={() => copyToClipboard(mergeDiffCommand + $commit.id.slice(0, 7))}
+				onmousedown={() => copyToClipboard(mergeDiffCommand + $commit.id.slice(0, 7))}
 			/>
 		</div>
 	</div>

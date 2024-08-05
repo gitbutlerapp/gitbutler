@@ -2,9 +2,9 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
-	import Button from '$lib/shared/Button.svelte';
-	import Checkbox from '$lib/shared/Checkbox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Checkbox from '@gitbutler/ui/inputs/Checkbox.svelte';
 	import type { Writable, Readable } from 'svelte/store';
 
 	export let filtersActive: Readable<boolean>;
@@ -29,7 +29,7 @@
 		style="ghost"
 		outline
 		icon={$filtersActive ? 'filter-applied-small' : 'filter-small'}
-		on:mousedown={onFilterClick}
+		onmousedown={onFilterClick}
 	>
 		Filter
 	</Button>

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { PromptService } from '$lib/ai/promptService';
 	import Content from '$lib/components/AIPromptEdit/Content.svelte';
-	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { get } from 'svelte/store';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
 
@@ -38,7 +38,7 @@
 		<h3 class="text-base-15 text-bold">
 			{promptUse === 'commits' ? 'Commit message' : 'Branch name'}
 		</h3>
-		<Button style="ghost" outline icon="plus-small" on:click={createNewPrompt}>New prompt</Button>
+		<Button style="ghost" outline icon="plus-small" onclick={createNewPrompt}>New prompt</Button>
 	</div>
 
 	<div class="content">

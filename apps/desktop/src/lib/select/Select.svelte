@@ -12,8 +12,8 @@
 	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import TextBox from '../shared/TextBox.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
-	import { portal } from '$lib/utils/portal';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
+	import { portal } from '@gitbutler/ui/utils/portal';
 	import { type Snippet } from 'svelte';
 
 	interface SelectProps {
@@ -248,7 +248,7 @@
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
-		box-shadow: var(--fx-shadow-s);
+		box-shadow: var(--shadow-s);
 		overflow: hidden;
 		transform-origin: top;
 
