@@ -22,7 +22,10 @@
 		loading="lazy"
 		onload={() => (isLoaded = true)}
 		class:show={isLoaded}
-		use:tooltip={tooltipText}
+		use:tooltip={{
+			text: tooltipText,
+			delay: 500
+		}}
 	/>
 </div>
 
