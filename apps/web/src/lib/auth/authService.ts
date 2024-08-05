@@ -2,7 +2,7 @@ import { persisted } from '$lib/utils/persisted';
 import { get } from 'svelte/store';
 
 export class AuthService {
-	persistedToken = persisted<string | undefined>(undefined, 'lastProject');
+	persistedToken = persisted<string | undefined>(undefined, 'gb_token');
 
 	constructor() {}
 
