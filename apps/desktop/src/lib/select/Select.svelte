@@ -97,7 +97,7 @@
 	}
 
 	function handleEnter() {
-		if (highlightedIndex !== undefined) {
+		if (highlightedIndex !== undefined && filteredOptions[highlightedIndex]) {
 			handleSelect(filteredOptions[highlightedIndex] as SelectItem);
 		}
 	}
