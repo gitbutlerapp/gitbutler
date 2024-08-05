@@ -10,11 +10,9 @@ import { UpdaterService } from '$lib/backend/updater';
 import { RemotesService } from '$lib/remotes/service';
 import { RustSecretService } from '$lib/secrets/secretsService';
 import { UserService } from '$lib/stores/user';
-import { mockTauri } from '$lib/testing/index';
 import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
 import lscache from 'lscache';
 import type { LayoutLoad } from './$types';
-import { env } from '$env/dynamic/public';
 
 // call on startup so we don't accumulate old items
 lscache.flushExpired();
@@ -25,10 +23,6 @@ export const csr = true;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async () => {
-	// Mock Tauri API during E2E tests
-	if (env.PUBLIC_TESTING) {
-		mockTauri();
-	}
 	initAnalyticsIfEnabled();
 
 	// TODO: Find a workaround to avoid this dynamic import
