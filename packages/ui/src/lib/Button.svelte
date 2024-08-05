@@ -1,40 +1,93 @@
-<script lang="ts">
-	import Icon from '$lib/shared/Icon.svelte';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { tooltip } from '@gitbutler/ui/utils/tooltip';
-	import type iconsJson from '$lib/icons/icons.json';
-	import type { ComponentColor, ComponentStyleKind } from '$lib/vbranches/types';
+<script lang="ts" context="module">
+	export interface ButtonProps {
+		el?: HTMLElement;
+		// Interaction props
+		disabled?: boolean;
+		clickable?: boolean;
+		id?: string | undefined;
+		loading?: boolean;
+		tabindex?: number | undefined;
+		type?: 'submit' | 'reset' | 'button' | undefined;
+		// Layout props
+		shrinkable?: boolean;
+		reversedDirection?: boolean;
+		width?: number | undefined;
+		size?: 'tag' | 'button' | 'cta';
+		wide?: boolean;
+		grow?: boolean;
+		align?: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto';
+		isDropdownChild?: boolean;
+		// Style props
+		style?: ComponentColor;
+		kind?: ComponentStyleKind;
+		outline?: boolean;
+		dashed?: boolean;
+		solidBackground?: boolean;
+		// Additional elements
+		icon?: keyof typeof iconsJson | undefined;
+		help?: string;
+		helpShowDelay?: number;
+		// Events
+		onclick?: (e: MouseEvent) => void;
+		onmousedown?: (e: MouseEvent) => void;
+		oncontextmenu?: (e: MouseEvent) => void;
+		onkeydown?: (e: KeyboardEvent) => void;
+		// Snippets
+		children?: Snippet;
+	}
+</script>
 
-	// Interaction props
-	export let el: HTMLAnchorElement | HTMLButtonElement | HTMLElement | null = null;
-	export let disabled = false;
-	export let clickable = true;
-	export let id: string | undefined = undefined;
-	export let loading = false;
-	export let tabindex: number | undefined = undefined;
-	export let type: 'submit' | 'reset' | 'button' | undefined = undefined;
-	// Layout props
-	export let shrinkable = false;
-	export let reversedDirection: boolean = false;
-	export let width: number | undefined = undefined;
-	export let size: 'tag' | 'button' | 'cta' = 'button';
-	export let wide = false;
-	export let grow = false;
-	export let align: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto' = 'auto';
-	export let isDropdownChild = false;
-	// Style props
-	export let style: ComponentColor = 'neutral';
-	export let kind: ComponentStyleKind = 'soft';
-	export let outline = false;
-	export let dashed = false;
-	export let solidBackground = false;
-	// Additional elements
-	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let help = '';
-	export let helpShowDelay = 1200;
+<script lang="ts">
+	import Icon from './Icon.svelte';
+	import { pxToRem } from './utils/pxToRem';
+	import { tooltip } from './utils/tooltip';
+	import type iconsJson from './icons.json';
+	import type { ComponentColor, ComponentStyleKind } from './types';
+	import type { Snippet } from 'svelte';
+
+	let {
+		el = $bindable(),
+		disabled = false,
+		clickable = true,
+		id = undefined,
+		loading = false,
+		tabindex,
+		type,
+		shrinkable = false,
+		reversedDirection = false,
+		width,
+		size = 'button',
+		wide = false,
+		grow = false,
+		align = 'auto',
+		isDropdownChild = false,
+		style = 'neutral',
+		kind = 'soft',
+		outline = false,
+		dashed = false,
+		solidBackground = false,
+		icon,
+		help = '',
+		helpShowDelay = 1200,
+		onclick,
+		onmousedown,
+		oncontextmenu,
+		onkeydown,
+		children
+	}: ButtonProps = $props();
+
+	function handleAction(e: MouseEvent) {
+		if (loading || disabled || !clickable) {
+			e.preventDefault();
+			e.stopPropagation();
+		} else {
+			onclick?.(e);
+		}
+	}
 </script>
 
 <button
+	bind:this={el}
 	class="btn focus-state {style} {kind} {size}-size"
 	class:outline
 	class:dashed
@@ -44,7 +97,7 @@
 	class:wide
 	class:grow
 	class:not-clickable={!clickable}
-	class:fixed-width={!$$slots.default && !wide}
+	class:fixed-width={!children && !wide}
 	class:is-dropdown={isDropdownChild}
 	style:align-self={align}
 	style:width={width ? pxToRem(width) : undefined}
@@ -52,22 +105,22 @@
 		text: help,
 		delay: helpShowDelay
 	}}
-	bind:this={el}
 	disabled={disabled || loading}
-	on:click
-	on:mousedown
-	on:contextmenu
+	onclick={handleAction}
+	{onmousedown}
+	{oncontextmenu}
+	{onkeydown}
 	{type}
 	{id}
 	tabindex={clickable ? tabindex : -1}
 >
-	{#if $$slots.default}
+	{#if children}
 		<span
 			class="label text-semibold"
 			class:text-base-12={size === 'button' || size === 'cta'}
 			class:text-base-11={size === 'tag'}
 		>
-			<slot />
+			{@render children()}
 		</span>
 	{/if}
 
@@ -117,7 +170,11 @@
 		}
 		&.not-clickable {
 			cursor: default;
-			pointer-events: none;
+
+			&:focus-within {
+				outline: none;
+				animation: none;
+			}
 		}
 		&.shrinkable {
 			overflow: hidden;

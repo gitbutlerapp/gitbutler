@@ -5,9 +5,13 @@
 	interface Props {
 		defaultIndex: number;
 		fullWidth?: boolean;
+		segments: {
+			id: string;
+			label: string;
+		}[];
 	}
 
-	const { defaultIndex, fullWidth }: Props = $props();
+	const { defaultIndex, fullWidth, segments }: Props = $props();
 </script>
 
 <div class="wrapper">
@@ -18,9 +22,8 @@
 			console.log('Selected index:', id);
 		}}
 	>
-		<Segment id="first">First</Segment>
-		<Segment id="second">Second</Segment>
-		<Segment id="third">Third</Segment>
-		<Segment id="fourth">Fourth</Segment>
+		{#each segments as segment}
+			<Segment id={segment.id}>{segment.label}</Segment>
+		{/each}
 	</SegmentControl>
 </div>

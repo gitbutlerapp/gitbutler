@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { showInfo, showError } from '$lib/notifications/toasts';
-	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import Button from '@gitbutler/ui/Button.svelte';
 
 	const branchController = getContext(BranchController);
 
@@ -14,7 +14,7 @@
 	style="error"
 	kind="solid"
 	help="Merge upstream commits into common base"
-	on:click={async () => {
+	onclick={async () => {
 		loading = true;
 		try {
 			let infoText = await branchController.updateBaseBranch();

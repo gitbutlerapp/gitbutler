@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import Button from '$lib/shared/Button.svelte';
 	import TimeAgo from '$lib/shared/TimeAgo.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import Button from '@gitbutler/ui/Button.svelte';
 
 	const baseBranchService = getContext(BaseBranchService);
 	const vbranchService = getContext(VirtualBranchService);
@@ -24,7 +24,7 @@
 	icon="update-small"
 	help="Last fetch from upstream"
 	{loading}
-	on:mousedown={async (e) => {
+	onmousedown={async (e) => {
 		e.preventDefault();
 		e.stopPropagation();
 		loading = true;

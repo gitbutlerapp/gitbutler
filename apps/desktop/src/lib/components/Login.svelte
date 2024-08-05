@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Link from '../shared/Link.svelte';
-	import Button from '$lib/shared/Button.svelte';
 	import { UserService, type LoginToken } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
+	import Button from '@gitbutler/ui/Button.svelte';
 
 	const userService = getContext(UserService);
 	const loading = userService.loading;
@@ -19,7 +19,7 @@
 		kind="solid"
 		{wide}
 		icon="signout"
-		on:click={async () => {
+		onclick={async () => {
 			await userService.logout();
 		}}>Log out</Button
 	>
@@ -44,7 +44,7 @@
 			loading={$loading}
 			icon="signin"
 			{wide}
-			on:mousedown={async () => {
+			onclick={async () => {
 				await userService.login();
 			}}
 		>

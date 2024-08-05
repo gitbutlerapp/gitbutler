@@ -13,7 +13,6 @@
 	import { isFailure } from '$lib/result';
 	import Checkbox from '$lib/shared/Checkbox.svelte';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
 	import { User } from '$lib/stores/user';
 	import { autoHeight } from '$lib/utils/autoHeight';
 	import { splitMessage } from '$lib/utils/commitMessage';
@@ -21,6 +20,7 @@
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, LocalFile } from '$lib/vbranches/types';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -207,25 +207,27 @@
 				disabled={!($aiGenEnabled && aiConfigurationValid)}
 				loading={aiLoading}
 				menuPosition="top"
-				on:click={async () => await generateCommitMessage($branch.files)}
+				onclick={async () => await generateCommitMessage($branch.files)}
 			>
 				Generate message
 
-				<ContextMenuSection slot="context-menu">
-					<ContextMenuItem
-						label="Extra concise"
-						on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
-					>
-						<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
-					</ContextMenuItem>
+				{#snippet contextMenuSlot()}
+					<ContextMenuSection>
+						<ContextMenuItem
+							label="Extra concise"
+							on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+						>
+							<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
+						</ContextMenuItem>
 
-					<ContextMenuItem
-						label="Use emojis 😎"
-						on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
-					>
-						<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
-					</ContextMenuItem>
-				</ContextMenuSection>
+						<ContextMenuItem
+							label="Use emojis 😎"
+							on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+						>
+							<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
+						</ContextMenuItem>
+					</ContextMenuSection>
+				{/snippet}
 			</DropDownButton>
 		</div>
 	</div>

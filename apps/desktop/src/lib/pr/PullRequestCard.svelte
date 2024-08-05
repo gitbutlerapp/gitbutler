@@ -8,15 +8,15 @@
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
-	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { createTimeAgoStore } from '$lib/utils/timeAgo';
 	import * as toasts from '$lib/utils/toasts';
-	import { type ComponentColor } from '$lib/vbranches/types';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import { type ComponentColor } from '@gitbutler/ui/types';
 	import type { ChecksStatus } from '$lib/gitHost/interface/types';
-	import type iconsJson from '$lib/icons/icons.json';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
+	import type iconsJson from '@gitbutler/ui/icons.json';
 
 	type StatusInfo = {
 		text: string;
@@ -170,7 +170,7 @@
 				outline
 				loading={$mrLoading || $checksLoading}
 				help={$timeAgo ? 'Updated ' + $timeAgo : ''}
-				on:click={async () => {
+				onclick={async () => {
 					$checksMonitor?.update();
 					$prMonitor?.refresh();
 				}}
