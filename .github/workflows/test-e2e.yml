@@ -27,6 +27,16 @@ jobs:
             xvfb
       - name: Setup rust-toolchain stable
         uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cargo-
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
       - name: Build SvelteKit
