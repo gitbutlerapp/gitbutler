@@ -430,8 +430,23 @@ pub fn get_branch_listing_details(
         .get_default_target()
         .context("failed to get default target")?;
     let mut enriched_branches = Vec::new();
+
+    let default_local_branch =
+        repo.find_branch(default_target.branch.branch(), git2::BranchType::Local)?;
+    let default_branch = default_local_branch.upstream()?;
+    let head_commit = default_branch.get().peel_to_commit()?;
+
     for branch in branches {
-        if let Ok(base) = repo.merge_base(default_target.sha, branch.head) {
+        let merge_base_comparison = if let Some(virtual_branch) = branch.virtual_branch {
+            if virtual_branch.in_workspace {
+                default_target.sha
+            } else {
+                head_commit.id()
+            }
+        } else {
+            head_commit.id()
+        };
+        if let Ok(base) = repo.merge_base(merge_base_comparison, branch.head) {
             let base_tree = repo.find_commit(base)?.tree()?;
             let head_tree = repo.find_commit(branch.head)?.tree()?;
             let diff_stats = repo
