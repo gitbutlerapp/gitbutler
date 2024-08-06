@@ -11,11 +11,12 @@
 	const projectService = getContext(ProjectService);
 
 	let newProjectLoading = $state(false);
-	let testDirectoryPath = $state<undefined | string>(undefined);
+	let directoryInputElement = $state<HTMLInputElement | undefined>();
 
 	async function onNewProject() {
 		newProjectLoading = true;
 		try {
+			const testDirectoryPath = directoryInputElement?.value;
 			await projectService.addProject(testDirectoryPath ?? '');
 		} finally {
 			newProjectLoading = false;
@@ -31,7 +32,12 @@
 	<h1 class="welcome-title text-serif-40" data-tauri-drag-region>Welcome to GitButler</h1>
 	<div class="welcome__actions">
 		<div class="welcome__actions--repo" data-testid="setup-projects-btns">
-			<input type="text" hidden bind:value={testDirectoryPath} id="test-directory-path" />
+			<input
+				type="text"
+				hidden
+				bind:this={directoryInputElement}
+				data-testid="test-directory-path"
+			/>
 			<WelcomeAction
 				title="Add local project"
 				loading={newProjectLoading}

@@ -61,7 +61,7 @@ export const config: Options.WebdriverIO = {
 
 		const screenshot = await browser.takeScreenshot();
 		await writeFile(
-			`./e2e/screenshots/${test.title}_${new Date().getTime()}.png`,
+			`./e2e/screenshots/${test.title.replaceAll(' ', '-').toLowerCase()}_${new Date().getTime()}.png`,
 			screenshot,
 			'base64'
 		);
