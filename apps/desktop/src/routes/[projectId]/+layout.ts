@@ -1,5 +1,6 @@
 import { invoke } from '$lib/backend/ipc';
 import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+import { BranchListingService } from '$lib/branches/branchListing';
 import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
 import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
@@ -25,6 +26,8 @@ export const load: LayoutLoad = async ({ params, parent }) => {
     } = await parent();
 
 	const projectId = params.projectId;
+	projectService.setLastOpenedProject(projectId);
+
 	// Getting the project should be one of few, if not the only await expression in
 	// this function. It delays drawing the page, but currently the benefit from having this
 	// synchronously available are much greater than the cost.
@@ -47,9 +50,20 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 	const historyService = new HistoryService(projectId);
 	const baseBranchService = new BaseBranchService(projectId);
-	const remoteBranchService = new RemoteBranchService(projectId, projectMetrics);
 
-	const vbranchService = new VirtualBranchService(projectId, projectMetrics, remoteBranchService);
+	const branchListingService = new BranchListingService(projectId);
+	const remoteBranchService = new RemoteBranchService(
+		projectId,
+		branchListingService,
+		projectMetrics
+	);
+
+	const vbranchService = new VirtualBranchService(
+		projectId,
+		projectMetrics,
+		remoteBranchService,
+		branchListingService
+	);
 
 	const branchController = new BranchController(
 		projectId,
@@ -78,6 +92,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		// These observables are provided for convenience
 		branchDragActionsFactory,
 		commitDragActionsFactory,
-		reorderDropzoneManagerFactory
+		reorderDropzoneManagerFactory,
+		branchListingService
 	};
 };

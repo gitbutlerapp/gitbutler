@@ -55,6 +55,8 @@
 			observer.disconnect();
 		};
 	});
+
+	const tooltipDelay = 500;
 </script>
 
 <button class="branch" class:selected onmousedown={onMouseDown} bind:this={intersectionTarget}>
@@ -82,7 +84,10 @@
 
 		<div class="row-group">
 			{#if pullRequestDetails}
-				<div use:tooltip={{ text: pullRequestDetails.title, delay: 500 }} class="branch-tag tag-pr">
+				<div
+					use:tooltip={{ text: pullRequestDetails.title, delay: tooltipDelay }}
+					class="branch-tag tag-pr"
+				>
 					<span class="text-base-10 text-semibold">PR</span>
 					<Icon name="pr-small" />
 				</div>
@@ -108,12 +113,24 @@
 
 		<div class="stats">
 			{#if branchDetails}
-				<div use:tooltip={'Number of commits'} class="branch-tag tag-commits">
+				<div
+					use:tooltip={{
+						text: 'Number of commits',
+						delay: tooltipDelay
+					}}
+					class="branch-tag tag-commits"
+				>
 					<span class="text-base-10 text-semibold">{branchDetails.commitCount}</span>
 					<Icon name="commit" />
 				</div>
 
-				<div use:tooltip={'Code changes'} class="code-changes">
+				<div
+					use:tooltip={{
+						text: 'Code changes',
+						delay: tooltipDelay
+					}}
+					class="code-changes"
+				>
 					<span class="text-base-10 text-semibold">+{branchDetails.linesAdded}</span>
 					<span class="text-base-10 text-semibold">-{branchDetails.linesRemoved}</span>
 				</div>
@@ -192,7 +209,6 @@
 	.tag-applied {
 		background-color: var(--clr-scale-ntrl-40);
 		color: var(--clr-theme-ntrl-on-element);
-		margin-left: 4px;
 
 		&:first-child {
 			margin-left: 0;
@@ -240,6 +256,7 @@
 	}
 
 	.branch-name {
+		color: var(--clr-text-1);
 		width: 100%;
 		white-space: nowrap;
 		overflow-x: hidden;

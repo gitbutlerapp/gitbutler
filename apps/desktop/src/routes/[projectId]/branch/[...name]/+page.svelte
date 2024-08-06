@@ -33,6 +33,7 @@
 		if (branchListing) {
 			if (branchListing.virtualBranch?.inWorkspace) {
 				goto(`/${project.id}/board`);
+				return;
 			}
 
 			const branchesWithGivenName: Branch[] | undefined = branchesByGivenName[branchListing.name];
