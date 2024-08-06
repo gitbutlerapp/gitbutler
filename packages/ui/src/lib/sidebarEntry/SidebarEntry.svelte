@@ -96,12 +96,15 @@
 	</div>
 
 	<div class="row">
-		<span class="branch-time text-base-11 details truncate">
-			{#if lastCommitDetails}
-				<TimeAgo date={lastCommitDetails.lastCommitAt} />
+		{#if lastCommitDetails}
+			<span
+				class="branch-time text-base-11 details truncate"
+				use:tooltip={lastCommitDetails.lastCommitAt.toLocaleString('en-GB')}
+			>
+				<TimeAgo date={lastCommitDetails.lastCommitAt} addSuffix />
 				by {lastCommitDetails.authorName}
-			{/if}
-		</span>
+			</span>
+		{/if}
 
 		<div class="stats">
 			{#if branchDetails}
