@@ -63,7 +63,7 @@
 	</h4>
 
 	<div class="row">
-		<div class="row-group">
+		<div class="row-group authors-and-tags">
 			{@render authorAvatars()}
 			<div class="branch-remotes">
 				<!-- NEED API -->
@@ -96,12 +96,15 @@
 	</div>
 
 	<div class="row">
-		<span class="branch-time text-base-11 details truncate">
-			{#if lastCommitDetails}
-				<TimeAgo date={lastCommitDetails.lastCommitAt} />
+		{#if lastCommitDetails}
+			<span
+				class="branch-time text-base-11 details truncate"
+				use:tooltip={lastCommitDetails.lastCommitAt.toLocaleString('en-GB')}
+			>
+				<TimeAgo date={lastCommitDetails.lastCommitAt} addSuffix />
 				by {lastCommitDetails.authorName}
-			{/if}
-		</span>
+			</span>
+		{/if}
 
 		<div class="stats">
 			{#if branchDetails}
@@ -134,6 +137,12 @@
 
 		&:last-child {
 			border-bottom: none;
+		}
+	}
+
+	.authors-and-tags {
+		:global(& > *:first-child:empty) {
+			display: none;
 		}
 	}
 
