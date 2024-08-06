@@ -1,4 +1,5 @@
 <script lang="ts">
+	import GroupHeader from './GroupHeader.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { BranchListingService } from '$lib/branches/branchListing';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
@@ -52,6 +53,7 @@
 	});
 
 	const oneDay = 1000 * 60 * 60 * 24;
+
 	function groupByDate(branches: SidebarEntrySubject[]) {
 		const grouped: Record<'today' | 'yesterday' | 'lastWeek' | 'older', SidebarEntrySubject[]> = {
 			today: [],
@@ -169,7 +171,7 @@
 })}
 	{#if props.children.length > 0}
 		<div class="group">
-			<h3 class="text-base-12 text-semibold group-header">{props.title}</h3>
+			<GroupHeader title={props.title} />
 			{#each props.children as sidebarEntrySubject}
 				{#if sidebarEntrySubject.type === 'branchListing'}
 					<BranchListingSidebarEntry branchListing={sidebarEntrySubject.subject} />
@@ -208,14 +210,10 @@
 			<Segment id="local">Local</Segment>
 		</SegmentControl>
 	</div>
+
 	{#if $branchListings.length > 0}
 		{#if searchedBranches.length > 0}
-			<ScrollableContainer
-				bind:viewport
-				bind:contents
-				showBorderWhenScrolled
-				fillViewport={searchedBranches.length === 0}
-			>
+			<ScrollableContainer bind:viewport bind:contents fillViewport={searchedBranches.length === 0}>
 				<div bind:this={contents} class="scroll-container">
 					{#if searchTerm}
 						<div class="group">
@@ -313,17 +311,12 @@
 		display: flex;
 		flex-direction: column;
 		border-bottom: 1px solid var(--clr-border-2);
+		margin-bottom: 12px;
 
-		&:first-child {
-			& .group-header {
-				padding-top: 0px;
-			}
+		&:last-child {
+			border-bottom: none;
+			margin-bottom: 0;
 		}
-	}
-
-	.group-header {
-		padding: 20px 14px 4px;
-		color: var(--clr-text-3);
 	}
 
 	/* EMPTY STATE */
