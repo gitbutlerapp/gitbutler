@@ -25,7 +25,7 @@
 		"globallint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"fix": "eslint --fix .",
-		"prepare": "pnpm --filter @gitbutler/desktop run prepare",
+		"prepare": "pnpm --filter @gitbutler/desktop run prepare && pnpm exec turbo telemetry disable",
 		"rustfmt": "cargo +nightly fmt -- --config-path rustfmt-nightly.toml"
 	},
 	"devDependencies": {
