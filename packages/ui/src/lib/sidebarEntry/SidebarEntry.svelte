@@ -63,7 +63,7 @@
 	</h4>
 
 	<div class="row">
-		<div class="row-group">
+		<div class="row-group authors-and-tags">
 			{@render authorAvatars()}
 			<div class="branch-remotes">
 				<!-- NEED API -->
@@ -134,6 +134,12 @@
 
 		&:last-child {
 			border-bottom: none;
+		}
+	}
+
+	.authors-and-tags {
+		:global(& > *:first-child:empty) {
+			display: none;
 		}
 	}
 
