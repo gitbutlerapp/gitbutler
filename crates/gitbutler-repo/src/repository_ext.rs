@@ -131,7 +131,7 @@ impl RepositoryExt for git2::Repository {
     #[instrument(level = tracing::Level::DEBUG, skip(self), err(Debug))]
     fn get_wd_tree(&self) -> Result<Tree> {
         let mut index = self.index()?;
-        index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
+        index.add_all(["*"], git2::IndexAddOption::CHECK_PATHSPEC, None)?;
         let oid = index.write_tree()?;
         self.find_tree(oid).map(Into::into).map_err(Into::into)
     }
