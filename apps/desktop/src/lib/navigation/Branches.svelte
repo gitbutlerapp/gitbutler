@@ -5,7 +5,11 @@
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import BranchListingSidebarEntry from '$lib/navigation/BranchListingSidebarEntry.svelte';
 	import PullRequestSidebarEntry from '$lib/navigation/PullRequestSidebarEntry.svelte';
-	import { getEntryUpdatedDate, type SidebarEntrySubject } from '$lib/navigation/types';
+	import {
+		getEntryUpdatedDate,
+		getEntryWorkspaceStatus,
+		type SidebarEntrySubject
+	} from '$lib/navigation/types';
 	import { persisted } from '$lib/persisted/persisted';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
@@ -53,8 +57,12 @@
 
 	const oneDay = 1000 * 60 * 60 * 24;
 
-	function groupByDate(branches: SidebarEntrySubject[]) {
-		const grouped: Record<'today' | 'yesterday' | 'lastWeek' | 'older', SidebarEntrySubject[]> = {
+	function groupBranches(branches: SidebarEntrySubject[]) {
+		const grouped: Record<
+			'applied' | 'today' | 'yesterday' | 'lastWeek' | 'older',
+			SidebarEntrySubject[]
+		> = {
+			applied: [],
 			today: [],
 			yesterday: [],
 			lastWeek: [],
@@ -71,7 +79,9 @@
 
 			const msSinceLastCommit = now - getEntryUpdatedDate(b).getTime();
 
-			if (msSinceLastCommit < oneDay) {
+			if (getEntryWorkspaceStatus(b)) {
+				grouped.applied.push(b);
+			} else if (msSinceLastCommit < oneDay) {
 				grouped.today.push(b);
 			} else if (msSinceLastCommit < 2 * oneDay) {
 				grouped.yesterday.push(b);
@@ -145,7 +155,7 @@
 			return filtered;
 		}
 	});
-	const groupedBranches = $derived(groupByDate(searchedBranches));
+	const groupedBranches = $derived(groupBranches(searchedBranches));
 
 	function handleSearchKeyDown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
@@ -195,14 +205,6 @@
 
 <div class="branches">
 	<div class="header">
-		<!-- {#if searching}
-			<div class="search">
-				<div class="search-box">
-					<TextBox wide icon="search" bind:value={searchTerm} on:keydown={handleSearchKeyDown} />
-				</div>
-				<Button icon="cross" onclick={closeSearch}></Button>
-			</div>
-		{:else} -->
 		<div class="header-info">
 			<div class="branches-title" class:hide-branch-title={searching}>
 				<span class="text-base-14 text-bold">Branches</span>
@@ -213,10 +215,6 @@
 			</div>
 
 			<div class="search-container" class:show-search={searching}>
-				<!-- <button class="search-back-button" onclick={closeSearch}>
-					<Icon name="chevron-left" />
-				</button> -->
-
 				<button tabindex={searching ? -1 : 0} class="search-button" onclick={toggleSearch}>
 					<Icon name={searching ? 'cross' : 'search'} />
 				</button>
@@ -231,7 +229,7 @@
 				/>
 			</div>
 		</div>
-		<!-- {/if} -->
+
 		<SegmentControl fullWidth defaultIndex={selectedIndex} onselect={setFilter}>
 			<Segment id="all">All</Segment>
 			<Segment id="pullRequest">PRs</Segment>
@@ -254,6 +252,7 @@
 							{/each}
 						</div>
 					{:else}
+						{@render branchGroup({ title: 'Applied', children: groupedBranches.applied })}
 						{@render branchGroup({ title: 'Today', children: groupedBranches.today })}
 						{@render branchGroup({ title: 'Yesterday', children: groupedBranches.yesterday })}
 						{@render branchGroup({ title: 'Last week', children: groupedBranches.lastWeek })}

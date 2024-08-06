@@ -94,7 +94,7 @@
 			{/if}
 			{#if applied}
 				<div class="branch-tag tag-applied">
-					<span class="text-base-10 text-semibold">applied</span>
+					<span class="text-base-10 text-semibold">Workspace</span>
 				</div>
 			{/if}
 		</div>
@@ -202,14 +202,10 @@
 		border-radius: var(--radius-s);
 	}
 
+	.tag-local,
 	.tag-remote {
 		background-color: var(--clr-theme-ntrl-soft-hover);
 		color: var(--clr-text-1);
-	}
-
-	.tag-local {
-		background-color: var(--clr-theme-ntrl-soft-hover);
-		color: var(--clr-text-2);
 	}
 
 	.tag-pr {
