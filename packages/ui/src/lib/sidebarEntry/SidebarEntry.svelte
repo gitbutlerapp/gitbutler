@@ -94,7 +94,7 @@
 			{/if}
 			{#if applied}
 				<div class="branch-tag tag-applied">
-					<span class="text-base-10 text-semibold">applied</span>
+					<span class="text-base-10 text-semibold">Workspace</span>
 				</div>
 			{/if}
 		</div>
