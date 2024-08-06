@@ -115,17 +115,6 @@
 			{#if branchDetails}
 				<div
 					use:tooltip={{
-						text: 'Number of commits',
-						delay: tooltipDelay
-					}}
-					class="branch-tag tag-commits"
-				>
-					<span class="text-base-10 text-semibold">{branchDetails.commitCount}</span>
-					<Icon name="commit" />
-				</div>
-
-				<div
-					use:tooltip={{
 						text: 'Code changes',
 						delay: tooltipDelay
 					}}
@@ -133,6 +122,28 @@
 				>
 					<span class="text-base-10 text-semibold">+{branchDetails.linesAdded}</span>
 					<span class="text-base-10 text-semibold">-{branchDetails.linesRemoved}</span>
+				</div>
+
+				<div
+					use:tooltip={{
+						text: 'Number of commits',
+						delay: tooltipDelay
+					}}
+					class="branch-tag tag-commits"
+				>
+					<svg
+						width="12"
+						height="8"
+						viewBox="0 0 12 8"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<circle cx="6.16675" cy="4" r="2.5" stroke="currentColor" stroke-width="1.5" />
+						<path d="M8.66675 4H12.0001" stroke="currentColor" stroke-width="1.5" />
+						<path d="M0.333374 4H3.66671" stroke="currentColor" stroke-width="1.5" />
+					</svg>
+
+					<span class="text-base-10 text-semibold">{branchDetails.commitCount}</span>
 				</div>
 			{/if}
 		</div>
@@ -176,7 +187,7 @@
 	.row-group {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: 4px;
 	}
 
 	/* TAG */
@@ -216,38 +227,35 @@
 	}
 
 	.tag-commits {
-		background-color: var(--clr-bg-3);
+		border: 1px solid var(--clr-border-2);
 		color: var(--clr-text-2);
+		gap: 4px;
 	}
 
 	/*  */
 
 	.code-changes {
 		display: flex;
+		align-items: center;
 		height: 16px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-s);
+		overflow: hidden;
 
 		& span {
-			padding: 2px 4px;
-			height: 100%;
+			padding: 0 4px;
+			color: var(--clr-text-2);
 		}
 
 		& span:first-child {
-			background-color: var(--clr-theme-succ-soft);
-			color: var(--clr-theme-succ-on-soft);
-			border-radius: var(--radius-s) 0 0 var(--radius-s);
-		}
-
-		& span:last-child {
-			background-color: var(--clr-theme-err-soft);
-			color: var(--clr-theme-err-on-soft);
-			border-radius: 0 var(--radius-s) var(--radius-s) 0;
+			border-right: 1px solid var(--clr-border-2);
 		}
 	}
 
 	.stats {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: 4px;
 	}
 
 	.branch-remotes {

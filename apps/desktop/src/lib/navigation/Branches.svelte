@@ -331,7 +331,7 @@
 		width: 60%;
 		overflow: hidden;
 
-		transition: width 0.2s ease;
+		transition: width 0.16s ease;
 	}
 
 	.search-button {
