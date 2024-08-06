@@ -376,10 +376,16 @@
 		padding-left: 8px;
 		border-radius: var(--radius-s);
 		border: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-1);
 		transition: opacity 0.1s;
 
 		&:focus-within {
 			outline: none;
+		}
+
+		&:hover,
+		&:focus {
+			border-color: var(--clr-border-1);
 		}
 
 		&::placeholder {
