@@ -195,14 +195,6 @@
 
 <div class="branches">
 	<div class="header">
-		<!-- {#if searching}
-			<div class="search">
-				<div class="search-box">
-					<TextBox wide icon="search" bind:value={searchTerm} on:keydown={handleSearchKeyDown} />
-				</div>
-				<Button icon="cross" onclick={closeSearch}></Button>
-			</div>
-		{:else} -->
 		<div class="header-info">
 			<div class="branches-title" class:hide-branch-title={searching}>
 				<span class="text-base-14 text-bold">Branches</span>
@@ -213,10 +205,6 @@
 			</div>
 
 			<div class="search-container" class:show-search={searching}>
-				<!-- <button class="search-back-button" onclick={closeSearch}>
-					<Icon name="chevron-left" />
-				</button> -->
-
 				<button tabindex={searching ? -1 : 0} class="search-button" onclick={toggleSearch}>
 					<Icon name={searching ? 'cross' : 'search'} />
 				</button>
@@ -231,7 +219,7 @@
 				/>
 			</div>
 		</div>
-		<!-- {/if} -->
+
 		<SegmentControl fullWidth defaultIndex={selectedIndex} onselect={setFilter}>
 			<Segment id="all">All</Segment>
 			<Segment id="pullRequest">PRs</Segment>
