@@ -1,19 +1,24 @@
 name: E2E Tests
 on:
-  schedule:
-    - cron: "0 6 * * *"
-  workflow_dispatch:
-  push:
-    branches: [master]
   pull_request:
     branches: [master]
+  workflow_dispatch:
+    inputs:
+      sha:
+        type: string
+        required: false
+        description: Target SHA
 
 jobs:
   test:
     name: Run WebdriverIO Tests
     runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.sha }}
       - name: Install Tauri OS dependencies
         run: |
           sudo apt update && sudo apt install -y \
@@ -23,22 +28,29 @@ jobs:
             webkit2gtk-driver \
             xvfb
       - name: Setup rust-toolchain stable
+        id: rust-toolchain
         uses: dtolnay/rust-toolchain@stable
-      - name: Setup node latest
-        uses: actions/setup-node@v4
+      - uses: actions/cache@v3
         with:
-          node-version: latest
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-      - name: Install dependencies
-        shell: bash
-        run: pnpm install
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: cargo-${{ steps.rust-toolchain.outputs.cachekey }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cargo-
+      - name: Setup node environment
+        uses: ./.github/actions/init-env-node
       - name: Build SvelteKit
         run: pnpm build:desktop -- --mode development
       - name: Build Tauri
         run: pnpm build:test
       - name: Install tauri-driver
-        run: cargo install tauri-driver@0.1.3
+        run: |
+          if [ ! -e "$HOME/.cargo/bin/tauri-driver" ]; then
+            cargo install tauri-driver@0.1.3
+          fi
 
       # Run it through `xvfb-run` to have a fake display server which allows our
       # application to run headless without any changes to the code
