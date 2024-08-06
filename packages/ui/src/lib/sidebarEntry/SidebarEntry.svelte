@@ -202,14 +202,10 @@
 		border-radius: var(--radius-s);
 	}
 
+	.tag-local,
 	.tag-remote {
 		background-color: var(--clr-theme-ntrl-soft-hover);
 		color: var(--clr-text-1);
-	}
-
-	.tag-local {
-		background-color: var(--clr-theme-ntrl-soft-hover);
-		color: var(--clr-text-2);
 	}
 
 	.tag-pr {
