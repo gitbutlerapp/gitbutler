@@ -1,14 +1,19 @@
 <script lang="ts">
 	import GitButler from '../images/gitbutler.svg';
-	import { createAuthService } from '$lib/auth/authService.svelte';
-	import { goto } from '$app/navigation';
+	import { AuthService } from '$lib/auth/authService';
+	import { getContext } from '$lib/utils/context';
 	import { env } from '$env/dynamic/public';
 
-	const authService = createAuthService();
+	const authService = getContext(AuthService);
+	const token = $derived(authService.token);
 
 	function logout() {
 		authService.clearToken();
-		goto(`${env.PUBLIC_APP_HOST}cloud/logout`);
+		window.location.href = `${env.PUBLIC_APP_HOST}cloud/logout`;
+	}
+
+	function login() {
+		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login`;
 	}
 </script>
 
@@ -26,10 +31,10 @@
 		<button
 			class="nav__right--button"
 			onclick={() => {
-				authService.token ? logout() : goto(`${env.PUBLIC_APP_HOST}cloud/login`);
+				$token ? logout() : login();
 			}}
 		>
-			{authService.token ? 'Log Out' : 'Log In'}
+			{$token ? 'Log Out' : 'Log In'}
 		</button>
 	</div>
 </header>

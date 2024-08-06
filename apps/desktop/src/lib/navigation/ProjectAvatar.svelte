@@ -1,18 +1,23 @@
 <script lang="ts">
 	import { stringToColor } from '@gitbutler/ui/utils/stringToColor';
-	export let name: string | undefined;
 
-	function getFirstLetter(name: string | undefined) {
-		return name ? name[0].toUpperCase() : '';
+	interface Props {
+		name?: string;
 	}
 
-	$: firstLetter = getFirstLetter(name);
+	const { name }: Props = $props();
+
+	function getFirstLetter(name: string | undefined) {
+		return name ? name[0]?.toUpperCase() : '';
+	}
+
+	const firstLetter = $derived(getFirstLetter(name));
 </script>
 
 <div class="project-avatar" style:background-color={stringToColor(name)}>
 	<svg class="avatar-letter" viewBox="0 0 24 24">
 		<text x="50%" y="54%" text-anchor="middle" alignment-baseline="middle">
-			{firstLetter.toUpperCase()}
+			{firstLetter?.toUpperCase()}
 		</text>
 	</svg>
 </div>

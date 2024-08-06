@@ -11,17 +11,24 @@
 	const currentVersion = updaterService.currentVersion;
 
 	let dismissed = $state(false);
+	let open = $state(false);
+
 	$effect(() => {
-		if ($version !== $currentVersion && dismissed) {
-			dismissed = false;
+		if ($version !== $currentVersion && !dismissed) {
+			open = true;
 		}
 	});
+
+	function handleDismiss() {
+		dismissed = true;
+		open = false;
+	}
 </script>
 
-{#if $update?.version && $update?.status !== 'UPTODATE' && !dismissed}
+{#if $update?.version && $update?.status !== 'UPTODATE' && !dismissed && open}
 	<div class="update-banner" class:busy={$update?.status === 'PENDING'}>
 		<div class="floating-button">
-			<Button icon="cross-small" style="ghost" onclick={() => (dismissed = true)} />
+			<Button icon="cross-small" style="ghost" onclick={handleDismiss} />
 		</div>
 		<div class="img">
 			<div class="circle-img">

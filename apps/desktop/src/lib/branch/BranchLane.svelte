@@ -44,7 +44,9 @@
 	// BRANCH SERVICE
 	const prService = createGitHostPrServiceStore(undefined);
 	$effect(() =>
-		prService.set(upstreamName ? $gitHost?.prService(baseBranchName, upstreamName) : undefined)
+		prService.set(
+			upstreamName && baseBranchName ? $gitHost?.prService(baseBranchName, upstreamName) : undefined
+		)
 	);
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can

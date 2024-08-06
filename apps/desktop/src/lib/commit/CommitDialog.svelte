@@ -48,7 +48,7 @@
 	class:no-sections-after={!hasSectionsAfter}
 	use:intersectionObserver={{
 		callback: (entry) => {
-			if (entry.isIntersecting) {
+			if (entry?.isIntersecting) {
 				isInViewport = true;
 			} else {
 				isInViewport = false;

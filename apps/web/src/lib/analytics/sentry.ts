@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/sveltekit';
-import type { User } from '$lib/user/userService.svelte';
+import type { User } from '$lib/user/userService';
 import { dev } from '$app/environment';
 
 export function initSentry() {
