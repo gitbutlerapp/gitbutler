@@ -23,9 +23,13 @@
 		<h2>GitButler</h2>
 	</a>
 	<div>
-		<a href="/user">User</a>
-		|
 		<a href="/downloads">Downloads</a>
+		{#if $token}
+			|
+			<a href="/projects">Projects</a>
+			|
+			<a href="/user">User</a>
+		{/if}
 	</div>
 	<div class="nav__right">
 		<button

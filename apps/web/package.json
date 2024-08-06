@@ -23,6 +23,9 @@
 		"vite": "catalog:"
 	},
 	"dependencies": {
-		"@sentry/sveltekit": "^8.9.2"
+		"@sentry/sveltekit": "^8.9.2",
+		"highlight.js": "^11.10.0",
+		"marked": "^10.0.0",
+		"moment": "^2.30.1"
 	}
 }
