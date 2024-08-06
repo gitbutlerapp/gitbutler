@@ -13,7 +13,6 @@ runs:
         shared-key: unix-rust-testing
         key: ${{ inputs.features }}
 
-
     - run: |
         printf '%s\n' "$JSON_DOC" > /tmp/features.json
         cat /tmp/features.json | jq -r 'if . == "*" then "--all-features" elif . == "" then "" elif type == "array" then if length == 0 then "--no-default-features" else "--no-default-features --features " + join(",") end else . end' > /tmp/features
@@ -26,10 +25,15 @@ runs:
         cargo test --workspace $(cat /tmp/features)
       env:
         GITBUTLER_TESTS_NO_CLEANUP: "1"
+        CARGO_TERM_COLOR: always
       shell: bash
 
     - run: cargo clippy --workspace $(cat /tmp/features) -- -D warnings
+      env:
+        CARGO_TERM_COLOR: always
       shell: bash
 
     - run: cargo clippy --workspace --tests $(cat /tmp/features) -- -D warnings
+      env:
+        CARGO_TERM_COLOR: always
       shell: bash

@@ -13,6 +13,8 @@ jobs:
   test:
     name: Run WebdriverIO Tests
     runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
         with:

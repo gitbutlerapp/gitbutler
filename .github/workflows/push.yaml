@@ -69,6 +69,8 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
       - run: cargo fmt --check --all
@@ -79,6 +81,8 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
       # TODO(qix-): we have to exclude the app here for now because for some
@@ -93,6 +97,8 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    env:
+      CARGO_TERM_COLOR: always
     strategy:
       matrix:
         # Specifies which features should be applied when running the checks and tests
@@ -120,6 +126,8 @@ jobs:
       - rust-test
       - rust-lint
     runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - name: Decide whether the needed jobs succeeded or failed
         uses: re-actors/alls-green@release/v1
@@ -131,6 +139,8 @@ jobs:
     needs: changes
     runs-on: windows-latest
     if: ${{ needs.changes.outputs.rust == 'true' }}
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v3
       - name: Rust Cache

@@ -77,6 +77,8 @@ jobs:
 
   build-tauri:
     needs: build-sveltekit
+    env:
+      CARGO_TERM_COLOR: always
     strategy:
       fail-fast: false
       matrix:
