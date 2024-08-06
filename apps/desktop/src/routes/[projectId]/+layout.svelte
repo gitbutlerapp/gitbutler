@@ -56,7 +56,6 @@
 	const accessToken = $derived($user?.github_access_token);
 	const baseError = $derived(baseBranchService.error);
 	const projectError = $derived(projectService.error);
-	const branchListingService = $derived(new BranchListingService(projectId));
 
 	$effect.pre(() => {
 		setContext(HistoryService, data.historyService);
@@ -69,7 +68,7 @@
 		setContext(CommitDragActionsFactory, data.commitDragActionsFactory);
 		setContext(ReorderDropzoneManagerFactory, data.reorderDropzoneManagerFactory);
 		setContext(RemoteBranchService, data.remoteBranchService);
-		setContext(BranchListingService, branchListingService);
+		setContext(BranchListingService, data.branchListingService);
 	});
 
 	let intervalId: any;

@@ -2,6 +2,7 @@ import { invoke } from '$lib/backend/ipc';
 import { Branch, BranchData } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { writable } from 'svelte/store';
+import type { BranchListingService } from '$lib/branches/branchListing';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 
 export class RemoteBranchService {
@@ -12,6 +13,7 @@ export class RemoteBranchService {
 
 	constructor(
 		private projectId: string,
+		private branchListingService: BranchListingService,
 		private projectMetrics?: ProjectMetrics
 	) {}
 
@@ -25,6 +27,8 @@ export class RemoteBranchService {
 			this.branches.set(remoteBranches);
 		} catch (err: any) {
 			this.error.set(err);
+		} finally {
+			this.branchListingService.refresh();
 		}
 	}
 

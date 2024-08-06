@@ -3,6 +3,7 @@ import { invoke, listen } from '$lib/backend/ipc';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
 import { plainToInstance } from 'class-transformer';
 import { writable } from 'svelte/store';
+import type { BranchListingService } from '$lib/branches/branchListing';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 
 export class VirtualBranchService {
@@ -21,7 +22,8 @@ export class VirtualBranchService {
 	constructor(
 		private projectId: string,
 		private projectMetrics: ProjectMetrics,
-		private remoteBranchService: RemoteBranchService
+		private remoteBranchService: RemoteBranchService,
+		private branchListingService: BranchListingService
 	) {}
 
 	async refresh() {
@@ -69,6 +71,8 @@ export class VirtualBranchService {
 		this.branches.set(branches);
 		this.branchesError.set(undefined);
 		this.logMetrics(branches);
+
+		this.branchListingService.refresh();
 	}
 
 	private async listVirtualBranches(): Promise<VirtualBranch[]> {

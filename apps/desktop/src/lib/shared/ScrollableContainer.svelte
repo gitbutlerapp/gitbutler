@@ -9,10 +9,8 @@
 	export let maxHeight: string | undefined = undefined;
 	export let scrollable: boolean | undefined = undefined;
 
-	export let scrolled = false;
 	export let wide = false;
 	export let initiallyVisible = false;
-	export let showBorderWhenScrolled = false;
 
 	export let padding: ScrollbarPadding = {};
 	export let shift = '0';
@@ -35,12 +33,7 @@
 	onDestroy(() => observer.disconnect());
 </script>
 
-<div
-	class="scrollable"
-	class:scrolled={showBorderWhenScrolled && scrolled}
-	style:flex-grow={wide ? 1 : 0}
-	style:max-height={maxHeight}
->
+<div class="scrollable" style:flex-grow={wide ? 1 : 0} style:max-height={maxHeight}>
 	<div
 		bind:this={viewport}
 		class="viewport hide-native-scrollbar"
@@ -58,12 +51,6 @@
 			{shift}
 			{thickness}
 			on:dragging={(data) => dispatch('dragging', data.detail)}
-			on:scroll={(data) => {
-				const event = data.detail;
-				const target = event.target as HTMLDivElement;
-
-				scrolled = target.scrollTop > 0;
-			}}
 		/>
 	</div>
 </div>
@@ -85,9 +72,6 @@
 		flex-direction: column;
 		min-height: 100%;
 		min-width: 100%;
-	}
-	.scrolled {
-		border-top: 1px solid var(--clr-border-2);
 	}
 
 	/* MODIFIERS */
