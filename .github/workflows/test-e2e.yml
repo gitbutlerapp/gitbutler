@@ -6,8 +6,8 @@ on:
     inputs:
       sha:
         type: string
-        required: true
-        description: SHA to run against
+        required: false
+        description: Target SHA
 
 jobs:
   test:
