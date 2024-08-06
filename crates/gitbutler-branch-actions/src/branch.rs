@@ -73,7 +73,7 @@ pub fn list_branches(
             return true;
         }
 
-        // If the virtual virtual branch has a local branch, keep the grouping
+        // If the virtual branch has a local branch, keep the grouping
         if branch.has_local {
             return true;
         };

@@ -24,6 +24,8 @@ serde = ["dep:serde"]
 tokio = ["dep:tokio"]
 ## a flag that is needed for integration tests that run this code to work.
 test-askpass-path = []
+## a flag to indicate benchmarks are run
+benches = []
 
 [dependencies]
 thiserror.workspace = true
