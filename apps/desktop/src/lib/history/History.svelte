@@ -57,6 +57,7 @@
 		if (!snapshotFilesTempStore) return;
 
 		const file = snapshotFilesTempStore.diffs[path];
+		if (!file) return;
 
 		selectedFile = {
 			entryId: entry.id,
@@ -153,7 +154,7 @@
 						>
 							{#each $snapshots as entry, idx (entry.id)}
 								{@const withinRestoreItems = findRestorationRanges($snapshots)}
-								{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1].createdAt)}
+								{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1]?.createdAt ?? new Date())}
 									<div class="sideview__date-header">
 										<h4 class="text-base-13 text-semibold">
 											{createdOnDay(entry.createdAt)}

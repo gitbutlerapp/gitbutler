@@ -1,11 +1,17 @@
 <script lang="ts">
-	import { createUserService } from '$lib/user/userService.svelte';
+	import { AuthService } from '$lib/auth/authService';
+	import { UserService } from '$lib/user/userService';
+	import { getContext } from '$lib/utils/context';
 
-	const userService = createUserService();
-	let userAvatarUrl = $state(userService.user?.picture);
+	const authService = getContext(AuthService);
+	const userService = getContext(UserService);
+
+	const user = $derived(userService.user);
+	const token = $derived(authService.token);
+	let userAvatarUrl = $state($user?.picture);
 
 	function handleImageLoadError() {
-		userAvatarUrl = `https://unavatar.io/${userService.user?.email}`;
+		userAvatarUrl = `https://unavatar.io/${$user?.email}`;
 	}
 </script>
 
@@ -13,7 +19,9 @@
 	<title>GitButler | User</title>
 </svelte:head>
 
-{#if !userService?.user?.id}
+{#if !$token}
+	<p>Unauthorized</p>
+{:else if !$user?.id}
 	<p>Loading...</p>
 {:else}
 	<div class="user__wrapper">
@@ -25,11 +33,11 @@
 				src={userAvatarUrl}
 				onerror={handleImageLoadError}
 			/>
-			<div class="user__id--name">{userService.user?.name}</div>
+			<div class="user__id--name">{$user?.name}</div>
 		</div>
-		<div><b>Email</b>: {userService.user?.email}</div>
-		<div><b>Joined</b>: {userService.user?.created_at}</div>
-		<div><b>Supporter</b>: {userService.user?.supporter}</div>
+		<div><b>Email</b>: {$user?.email}</div>
+		<div><b>Joined</b>: {$user?.created_at}</div>
+		<div><b>Supporter</b>: {$user?.supporter}</div>
 	</div>
 {/if}
 

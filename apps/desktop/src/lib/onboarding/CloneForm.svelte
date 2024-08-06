@@ -39,7 +39,7 @@
 			recursive: true,
 			title: 'Target Clone Directory'
 		});
-		if (!selectedPath) return;
+		if (!selectedPath || !selectedPath[0]) return;
 
 		targetDirPath = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
 	}
@@ -66,10 +66,7 @@
 
 			if (protocol) {
 				if (protocol === 'ssh') {
-					// Temporarily track SSH events early because we'll early return
-					// for non-http(s) clone attempts. Normally should only fire on
-					// successful clone's, the event is not called "Clone Attempts.."
-					posthog.capture('Repository Cloned', { protocol });
+					posthog.capture('SSH Clone Attempted');
 				}
 				if (!['https', 'http'].includes(protocol)) {
 					errors.push({

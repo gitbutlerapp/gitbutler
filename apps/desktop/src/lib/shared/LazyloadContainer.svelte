@@ -19,8 +19,8 @@
 		if (containerChildren.length < minTriggerCount) return;
 
 		const iObserver = new IntersectionObserver((entries) => {
-			const lastChild = containerChildren[containerChildren.length - 1];
-			if (entries[0].target === lastChild && entries[0].isIntersecting) {
+			const lastChild = containerChildren[containerChildren.length - 1] as HTMLElement;
+			if (entries[0]?.target === lastChild && entries[0]?.isIntersecting) {
 				ontrigger(lastChild);
 			}
 		});
@@ -32,7 +32,7 @@
 			}
 		});
 
-		iObserver.observe(containerChildren[containerChildren.length - 1]);
+		iObserver.observe(containerChildren[containerChildren.length - 1] as HTMLElement);
 		mObserver.observe(lazyContainerEl, { childList: true });
 
 		return () => {

@@ -44,7 +44,7 @@
 	let sendProjectData = false;
 	let sendProjectRepository = false;
 
-	$: projectId = $page.params.projectId;
+	$: projectId = $page.params.projectId!;
 
 	function reset() {
 		messageInputValue = '';

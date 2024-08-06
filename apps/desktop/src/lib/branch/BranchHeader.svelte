@@ -81,8 +81,8 @@
 		// description of the PR.
 		if (branch.commits.length === 1) {
 			const commit = branch.commits[0];
-			title = commit.descriptionTitle ?? '';
-			body = commit.descriptionBody ?? '';
+			title = commit?.descriptionTitle ?? '';
+			body = commit?.descriptionBody ?? '';
 		} else {
 			title = branch.name;
 			body = '';

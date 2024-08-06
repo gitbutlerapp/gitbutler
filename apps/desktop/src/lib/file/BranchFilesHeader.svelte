@@ -26,10 +26,10 @@
 		if (!selectedOwnership) return false;
 		if (files.length <= 1) return false;
 
-		let file = files[0];
+		let file = files[0] as AnyFile;
 		let prev = selectedOwnership.contains(file.id, ...file.hunkIds);
 		for (let i = 1; i < files.length; i++) {
-			file = files[i];
+			file = files[i] as AnyFile;
 			const contained = selectedOwnership.contains(file.id, ...file.hunkIds);
 			if (contained !== prev) {
 				return true;

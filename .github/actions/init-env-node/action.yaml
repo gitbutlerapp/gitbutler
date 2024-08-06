@@ -1,40 +1,16 @@
-name: init-node
-description: prepare runner for node related tasks
+name: init-env-node
+description: Prepare Node.js Environment
 runs:
   using: "composite"
   steps:
     - uses: pnpm/action-setup@v4
       name: Install pnpm
-
     - uses: actions/setup-node@v4
       name: Setup node
       with:
         cache: pnpm
         node-version-file: '.nvmrc'
-
-    - name: Get pnpm store directory
-      shell: bash
-      run: echo 'STORE_PATH=$(pnpm store path --silent)' >> $GITHUB_ENV
-
-    - uses: actions/cache@v4
-      if: runner.name != 'ScottsMacStudio' # internet in berlin is very slow
-      name: Setup pnpm cache
-      with:
-        path: ${{ env.STORE_PATH }}
-        key: github-client-${{ runner.os }}-pnpm-store
-
-    - name: Git config
-      shell: bash
-      run: |
-        # This seems the only reliable way of forcing https for forked packages
-        git config --global url."https://".insteadOf git://
-        git config --global url."https://github.com/".insteadOf git@github.com:
-
     - name: Install dependencies
       shell: bash
       run: pnpm install
-
-    - name: Build UI
-      shell: bash
-      run: pnpm exec turbo run package
 

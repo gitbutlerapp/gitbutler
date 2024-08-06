@@ -25,7 +25,7 @@ export class HistoryService {
 		const data = await this.fetch();
 		if (data.length) {
 			this.snapshots.set(data);
-			this.cursor = data[data.length - 1].id;
+			this.cursor = data.at(-1)?.id;
 		}
 	}
 
@@ -40,7 +40,7 @@ export class HistoryService {
 			this.isAllLoaded.set(true);
 		} else {
 			this.snapshots.update((snapshots) => [...snapshots, ...more]);
-			this.cursor = more[more.length - 1].id;
+			this.cursor = more.at(-1)?.id;
 		}
 	}
 

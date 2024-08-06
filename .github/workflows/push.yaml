@@ -69,9 +69,10 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/init-env-rust
       - run: cargo fmt --check --all
 
   rust-docs:
@@ -80,9 +81,10 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/init-env-rust
       # TODO(qix-): we have to exclude the app here for now because for some
       # TODO(qix-): reason it doesn't build with the docs feature enabled.
       - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-git
@@ -95,6 +97,8 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    env:
+      CARGO_TERM_COLOR: always
     strategy:
       matrix:
         # Specifies which features should be applied when running the checks and tests
@@ -122,6 +126,8 @@ jobs:
       - rust-test
       - rust-lint
     runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - name: Decide whether the needed jobs succeeded or failed
         uses: re-actors/alls-green@release/v1
@@ -133,9 +139,10 @@ jobs:
     needs: changes
     runs-on: windows-latest
     if: ${{ needs.changes.outputs.rust == 'true' }}
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v3
-      - uses: ./.github/actions/init-env-rust
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.7.3
         with:

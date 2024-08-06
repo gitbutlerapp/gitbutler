@@ -13,6 +13,7 @@
 	import SidebarEntry from '@gitbutler/ui/sidebarEntry/SidebarEntry.svelte';
 	import type { Readable } from 'svelte/store';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 
 	interface Props {
 		branchListing: BranchListing;
@@ -29,14 +30,26 @@
 
 	let branchListingDetails = $state<Readable<BranchListingDetails | undefined>>();
 
-	function onFirstSeen() {
-		if (!branchListingDetails) {
-			branchListingDetails = branchListingService.getBranchListingDetails(branchListing.name);
+	let hasBeenSeen = $state(false);
+
+	$effect(() => {
+		if (hasBeenSeen) {
+			updateBranchListingDetails(branchListing.name);
 		}
+	});
+
+	function updateBranchListingDetails(branchName: string) {
+		branchListingDetails = branchListingService.getBranchListingDetails(branchName);
 	}
 
 	function onMouseDown() {
-		goto(`/${project.id}/branch/${encodeURIComponent(branchListing.name)}`);
+		goto(formatBranchURL(project, branchListing.name));
+	}
+
+	const selected = $derived($page.url.pathname === formatBranchURL(project, branchListing.name));
+
+	function formatBranchURL(project: Project, name: string) {
+		return `/${project.id}/branch/${encodeURIComponent(name)}`;
 	}
 </script>
 
@@ -57,8 +70,9 @@
 		linesAdded: $branchListingDetails.linesAdded,
 		linesRemoved: $branchListingDetails.linesRemoved
 	}}
-	{onFirstSeen}
+	onFirstSeen={() => (hasBeenSeen = true)}
 	{onMouseDown}
+	{selected}
 >
 	{#snippet authorAvatars()}
 		<AvatarGrouping>
