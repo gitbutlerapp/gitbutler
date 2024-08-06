@@ -8,11 +8,10 @@
 	import { getEntryUpdatedDate, type SidebarEntrySubject } from '$lib/navigation/types';
 	import { persisted } from '$lib/persisted/persisted';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext } from '$lib/utils/context';
 	import Segment from '@gitbutler/ui/SegmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 	import Badge from '@gitbutler/ui/shared/Badge.svelte';
 	import Fuse from 'fuse.js';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
@@ -134,6 +133,7 @@
 		return fuse.search(searchTerm).map((searchResult) => searchResult.item);
 	}
 
+	let searchEl: HTMLInputElement;
 	let searching = $state(false);
 	let searchTerm = $state<string>();
 
@@ -147,10 +147,8 @@
 	});
 	const groupedBranches = $derived(groupByDate(searchedBranches));
 
-	function handleSearchKeyDown(e: CustomEvent<KeyboardEvent>) {
-		if (e.detail.key === 'Escape') {
-			e.preventDefault();
-			e.detail.preventDefault();
+	function handleSearchKeyDown(e: KeyboardEvent) {
+		if (e.key === 'Escape') {
 			closeSearch();
 		}
 	}
@@ -162,6 +160,18 @@
 
 	function openSearch() {
 		searching = true;
+
+		if (searchEl) {
+			searchEl.focus();
+		}
+	}
+
+	function toggleSearch() {
+		if (searching) {
+			closeSearch();
+		} else {
+			openSearch();
+		}
 	}
 </script>
 
@@ -185,25 +195,43 @@
 
 <div class="branches">
 	<div class="header">
-		{#if searching}
+		<!-- {#if searching}
 			<div class="search">
 				<div class="search-box">
 					<TextBox wide icon="search" bind:value={searchTerm} on:keydown={handleSearchKeyDown} />
 				</div>
 				<Button icon="cross" onclick={closeSearch}></Button>
 			</div>
-		{:else}
-			<div class="information">
-				<div class="branches-title">
-					<span class="text-base-14 text-bold">Branches</span>
+		{:else} -->
+		<div class="header-info">
+			<div class="branches-title" class:hide-branch-title={searching}>
+				<span class="text-base-14 text-bold">Branches</span>
 
-					{#if searchedBranches.length > 0}
-						<Badge count={searchedBranches.length} />
-					{/if}
-				</div>
-				<Button icon="search" style="ghost" onclick={openSearch}></Button>
+				{#if searchedBranches.length > 0}
+					<Badge count={searchedBranches.length} />
+				{/if}
 			</div>
-		{/if}
+
+			<div class="search-container" class:show-search={searching}>
+				<!-- <button class="search-back-button" onclick={closeSearch}>
+					<Icon name="chevron-left" />
+				</button> -->
+
+				<button tabindex={searching ? -1 : 0} class="search-button" onclick={toggleSearch}>
+					<Icon name={searching ? 'cross' : 'search'} />
+				</button>
+
+				<input
+					bind:this={searchEl}
+					bind:value={searchTerm}
+					class="search-input text-base-13"
+					type="text"
+					placeholder="Search branches"
+					onkeydown={handleSearchKeyDown}
+				/>
+			</div>
+		</div>
+		<!-- {/if} -->
 		<SegmentControl fullWidth defaultIndex={selectedIndex} onselect={setFilter}>
 			<Segment id="all">All</Segment>
 			<Segment id="pullRequest">PRs</Segment>
@@ -266,38 +294,115 @@
 	}
 
 	.header {
+		position: relative;
+		display: flex;
+		flex-direction: column;
 		padding: 14px;
 	}
 
-	.information {
+	.header-info {
 		display: flex;
-		justify-content: space-between;
-		align-items: center;
+		justify-content: flex-end;
 		width: 100%;
-
 		height: 32px;
 
 		margin-bottom: 8px;
-	}
-
-	.search {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-
-		height: 32px;
-
-		margin-bottom: 8px;
-
-		& .search-box {
-			flex-grow: 1;
-		}
 	}
 
 	.branches-title {
+		position: absolute;
+		top: 22px;
+		left: 14px;
+
 		display: flex;
 		align-items: center;
 		gap: 4px;
+
+		transition:
+			opacity 0.1s ease,
+			transform 0.1s ease;
+	}
+
+	/* SEARCH */
+
+	.search-container {
+		position: relative;
+		height: var(--size-cta);
+		width: 60%;
+		overflow: hidden;
+
+		transition: width 0.2s ease;
+	}
+
+	.search-button {
+		z-index: var(--z-ground);
+		position: absolute;
+		top: 0;
+		right: 0;
+		height: 100%;
+		width: var(--size-cta);
+
+		display: flex;
+		align-items: center;
+		justify-content: center;
+
+		color: var(--clr-scale-ntrl-50);
+
+		&:after {
+			content: '';
+			position: absolute;
+			z-index: -1;
+			top: 0;
+			left: 0;
+			height: 100%;
+			width: 100%;
+			border-radius: var(--radius-s);
+			transform-origin: center;
+			transition:
+				transform 0.1s ease,
+				background-color 0.2s;
+		}
+
+		&:hover {
+			&:after {
+				background-color: var(--clr-bg-1-muted);
+			}
+		}
+	}
+
+	.search-input {
+		width: 100%;
+		height: 100%;
+		opacity: 0;
+		padding-left: 8px;
+		border-radius: var(--radius-s);
+		border: 1px solid var(--clr-border-2);
+		transition: opacity 0.1s;
+
+		&:focus-within {
+			outline: none;
+		}
+
+		&::placeholder {
+			color: var(--clr-scale-ntrl-60);
+		}
+	}
+
+	.show-search {
+		width: 100%;
+
+		& .search-button::after {
+			transform: scale(0.7);
+		}
+
+		& .search-input {
+			opacity: 1;
+		}
+	}
+
+	.hide-branch-title {
+		opacity: 0;
+		transform: translateX(-5px);
 	}
 
 	/* BRANCHES LIST */
