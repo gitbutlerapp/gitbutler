@@ -8,12 +8,10 @@
 	import { getEntryUpdatedDate, type SidebarEntrySubject } from '$lib/navigation/types';
 	import { persisted } from '$lib/persisted/persisted';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext } from '$lib/utils/context';
 	import Segment from '@gitbutler/ui/SegmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
 	import Icon from '@gitbutler/ui/icon/Icon.svelte';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import Badge from '@gitbutler/ui/shared/Badge.svelte';
 	import Fuse from 'fuse.js';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
