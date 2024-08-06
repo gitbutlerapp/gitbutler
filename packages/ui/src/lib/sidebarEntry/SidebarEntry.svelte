@@ -187,7 +187,7 @@
 	.row-group {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: 4px;
 	}
 
 	/* TAG */
