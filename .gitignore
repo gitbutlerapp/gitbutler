@@ -8,7 +8,7 @@ generated-do-not-edit/
 
 .sentryclirc
 .DS_Store
-**/e2e/screenshot
+**/e2e/screenshots
 **/e2e/videos
 
 .env
