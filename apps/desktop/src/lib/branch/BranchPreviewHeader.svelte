@@ -18,12 +18,12 @@
 	export let pr: PullRequest | undefined;
 
 	$: branch = remoteBranch || localBranch!;
-	$: upstream = branch.upstream;
+	$: upstream = remoteBranch?.givenName;
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 	const gitHost = getGitHost();
-	const gitHostBranch = upstream ? $gitHost?.branch(upstream) : undefined;
+	$: gitHostBranch = upstream ? $gitHost?.branch(upstream) : undefined;
 
 	let isApplying = false;
 </script>
@@ -41,21 +41,23 @@
 						<Icon name="remote-branch-small" />
 						{localBranch ? 'local and remote' : 'remote'}
 					</div>
-					<Button
-						size="tag"
-						icon="open-link"
-						style="ghost"
-						outline
-						shrinkable
-						onclick={(e) => {
-							const url = gitHostBranch?.url;
-							if (url) openExternalUrl(url);
-							e.preventDefault();
-							e.stopPropagation();
-						}}
-					>
-						{branch.displayName}
-					</Button>
+					{#if gitHostBranch}
+						<Button
+							size="tag"
+							icon="open-link"
+							style="ghost"
+							outline
+							shrinkable
+							onclick={(e) => {
+								const url = gitHostBranch.url;
+								if (url) openExternalUrl(url);
+								e.preventDefault();
+								e.stopPropagation();
+							}}
+						>
+							{branch.displayName}
+						</Button>
+					{/if}
 				{:else}
 					<div class="status-tag text-base-11 text-semibold remote">
 						<Icon name="remote-branch-small" /> local
