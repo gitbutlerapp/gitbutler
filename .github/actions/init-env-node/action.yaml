@@ -1,5 +1,5 @@
-name: init-node
-description: prepare runner for node related tasks
+name: init-env-node
+description: Prepare Node.js Environment
 runs:
   using: "composite"
   steps:
