@@ -26,6 +26,8 @@ export const load: LayoutLoad = async ({ params, parent }) => {
     } = await parent();
 
 	const projectId = params.projectId;
+	projectService.setLastOpenedProject(projectId);
+
 	// Getting the project should be one of few, if not the only await expression in
 	// this function. It delays drawing the page, but currently the benefit from having this
 	// synchronously available are much greater than the cost.
