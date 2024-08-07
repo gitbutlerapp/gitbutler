@@ -1,30 +1,26 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
-    unstable.url = "github:nixos/nixpkgs/nixos-unstable";
+    unstablePkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs = {
-        nixpkgs.follows = "nixpkgs";
+        nixpkgs.follows = "unstablePkgs";
       };
     };
   };
-  outputs = { self, nixpkgs, unstable, flake-utils, rust-overlay }:
+  outputs = { self, unstablePkgs, flake-utils, rust-overlay }:
     flake-utils.lib.eachDefaultSystem
       (system:
         let
           overlays = [ (import rust-overlay) ];
-          # pkgs = import nixpkgs {
-          #   inherit system overlays;
-          # };
-          unstablePkgs = import unstable {
+          unstable = import unstablePkgs {
             inherit system overlays;
           };
 
-          rustToolchain = unstablePkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml.stable;
+          rustToolchain = unstable.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
 
-          common = with unstablePkgs; [
+          common = with unstable; [
             gtk3
             glib
             glib-networking
@@ -41,7 +37,7 @@
           ];
 
           # runtime Deps
-          libraries = with unstablePkgs;[
+          libraries = with unstable;[
             cairo
             pango
             harfbuzz
@@ -49,22 +45,21 @@
           ] ++ common;
 
           # compile-time deps
-          packages = with unstablePkgs; [
+          packages = with unstable; [
             curl
             wget
             pkg-config
             rustToolchain
           ] ++ common;
         in
-        with unstablePkgs;
         {
-          devShells.default = mkShell {
+          devShells.default = unstable.mkShell {
             nativeBuildInputs = packages;
             buildInputs = libraries;
             shellHook = ''
-              export LD_LIBRARY_PATH=${unstablePkgs.lib.makeLibraryPath libraries}:$LD_LIBRARY_PATH
-              export XDG_DATA_DIRS=${unstablePkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${unstablePkgs.gsettings-desktop-schemas.name}:${unstablePkgs.gtk3}/share/gsettings-schemas/${unstablePkgs.gtk3.name}:$XDG_DATA_DIRS
-              export GIO_MODULE_DIR="${unstablePkgs.glib-networking}/lib/gio/modules/"
+              export LD_LIBRARY_PATH=${unstable.lib.makeLibraryPath libraries}:$LD_LIBRARY_PATH
+              export XDG_DATA_DIRS=${unstable.gsettings-desktop-schemas}/share/gsettings-schemas/${unstable.gsettings-desktop-schemas.name}:${unstable.gtk3}/share/gsettings-schemas/${unstable.gtk3.name}:$XDG_DATA_DIRS
+              export GIO_MODULE_DIR="${unstable.glib-networking}/lib/gio/modules/"
             '';
           };
         }
