@@ -38,19 +38,14 @@ pub fn benchmark_list_branches(c: &mut Criterion) {
     ] {
         let mut group = c.benchmark_group(bench_name);
         let project = fixture_project(repo_name, script_name);
+        let ctx = CommandContext::open(&project).unwrap();
         group.throughput(Throughput::Elements(num_references));
         group
             .bench_function("no filter", |b| {
-                b.iter(|| {
-                    let ctx = CommandContext::open(&project).unwrap();
-                    list_branches(black_box(&ctx), None, None)
-                })
+                b.iter(|| list_branches(black_box(&ctx), None, None))
             })
             .bench_function("name-filter rejecting all", |b| {
-                b.iter(|| {
-                    let ctx = CommandContext::open(&project).unwrap();
-                    list_branches(black_box(&ctx), None, Some(vec!["not available".into()]))
-                })
+                b.iter(|| list_branches(black_box(&ctx), None, Some(vec!["not available".into()])))
             });
     }
 }
