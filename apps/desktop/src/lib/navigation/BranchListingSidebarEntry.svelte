@@ -60,7 +60,7 @@
 	// If there are zero commits we should not show the author
 	const ownedByUser = $derived($branchListingDetails?.numberOfCommits === 0);
 
-	let lastCommitDetails: { authorName: string; lastCommitAt?: Date } | undefined = $state();
+	let lastCommitDetails = $state<{ authorName: string; lastCommitAt?: Date }>();
 
 	$effect(() => {
 		let canceled = false;
@@ -83,7 +83,7 @@
 		}
 	});
 
-	let avatars: { name: string; gravatarUrl: string }[] = $state([]);
+	let avatars = $state<{ name: string; gravatarUrl: string }[]>([]);
 
 	$effect(() => {
 		setAvatars(ownedByUser, $branchListingDetails);
