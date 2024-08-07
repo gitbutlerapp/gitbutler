@@ -75,6 +75,10 @@ $ pnpm install
 
 You'll have to re-run this occasionally when our deps change.
 
+> [!NOTE]  
+> We use [turborepo](https://turbo.build/repo) as our monorepo tooling and by default Vercel collects some [basic telemetry](https://turbo.build/repo/docs/telemetry). If you'd like to disable this, please run `pnpm exec turbo telemetry disable` once in the project's root directory after installing dependencies.
+
+
 ### Run the app
 
 First, run cargo build such that supplementary bins such as `gitbutler-git-askpass` and `gitbutler-git-setsid` are created:
