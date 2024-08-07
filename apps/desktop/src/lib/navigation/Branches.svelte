@@ -6,6 +6,7 @@
 	import BranchListingSidebarEntry from '$lib/navigation/BranchListingSidebarEntry.svelte';
 	import PullRequestSidebarEntry from '$lib/navigation/PullRequestSidebarEntry.svelte';
 	import {
+		getEntryName,
 		getEntryUpdatedDate,
 		getEntryWorkspaceStatus,
 		type SidebarEntrySubject
@@ -49,7 +50,12 @@
 		);
 
 		output.sort((a, b) => {
-			return getEntryUpdatedDate(b).getTime() - getEntryUpdatedDate(a).getTime();
+			const timeDifference = getEntryUpdatedDate(b).getTime() - getEntryUpdatedDate(a).getTime();
+			if (timeDifference !== 0) {
+				return timeDifference;
+			}
+
+			return getEntryName(a).localeCompare(getEntryName(b));
 		});
 
 		sidebarEntries = output;
