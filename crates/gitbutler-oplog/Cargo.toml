@@ -14,7 +14,7 @@ itertools = "0.13"
 strum = { version = "0.26", features = ["derive"] }
 tracing = "0.1.40"
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
-toml = "0.8.15"
+toml.workspace = true
 gitbutler-project.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-serde.workspace = true
