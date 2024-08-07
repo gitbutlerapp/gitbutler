@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { Project } from '$lib/backend/projects';
 	import {
 		BranchListingDetails,
@@ -21,8 +22,12 @@
 
 	const { branchListing }: Props = $props();
 
+	const unknownName = 'unknown';
+	const unknownEmail = 'example@example.com';
+
 	const branchListingService = getContext(BranchListingService);
 	const project = getContext(Project);
+	const gitConfigService = getContext(GitConfigService);
 
 	const gitHostListingService = getGitHostListingService();
 	const prs = $derived($gitHostListingService?.prs);
@@ -51,6 +56,55 @@
 	function formatBranchURL(project: Project, name: string) {
 		return `/${project.id}/branch/${encodeURIComponent(name)}`;
 	}
+
+	// If there are zero commits we should not show the author
+	const ownedByUser = $derived($branchListingDetails?.numberOfCommits === 0);
+
+	let lastCommitDetails: { authorName: string; lastCommitAt?: Date } | undefined = $state();
+
+	$effect(() => {
+		if (ownedByUser) {
+			gitConfigService.get('user.name').then((userName) => {
+				if (userName) {
+					lastCommitDetails = { authorName: userName };
+				} else {
+					lastCommitDetails = undefined;
+				}
+			});
+		} else {
+			lastCommitDetails = {
+				authorName: branchListing.lastCommiter.name || unknownName,
+				lastCommitAt: branchListing.updatedAt
+			};
+		}
+	});
+
+	let avatars: { name: string; gravatarUrl: string }[] = $state([]);
+
+	$effect(() => {
+		setAvatars(ownedByUser, $branchListingDetails);
+	});
+
+	async function setAvatars(ownedByUser: boolean, branchListingDetails?: BranchListingDetails) {
+		if (ownedByUser) {
+			const name = (await gitConfigService.get('user.name')) || unknownName;
+			const email = (await gitConfigService.get('user.email')) || unknownEmail;
+			const gravatarUrl = await gravatarUrlFromEmail(email);
+
+			avatars = [{ name, gravatarUrl }];
+		} else if (branchListingDetails) {
+			avatars = await Promise.all(
+				branchListingDetails.authors.map(async (author) => {
+					return {
+						name: author.name || unknownName,
+						gravatarUrl: await gravatarUrlFromEmail(author.email || unknownEmail)
+					};
+				})
+			);
+		} else {
+			avatars = [];
+		}
+	}
 </script>
 
 <SidebarEntry
@@ -58,10 +112,7 @@
 	remotes={branchListing.remotes}
 	local={branchListing.hasLocal}
 	applied={branchListing.virtualBranch?.inWorkspace}
-	lastCommitDetails={{
-		authorName: branchListing.lastCommiter.name || 'Unknown',
-		lastCommitAt: branchListing.updatedAt
-	}}
+	{lastCommitDetails}
 	pullRequestDetails={pr && {
 		title: pr.title
 	}}
@@ -76,18 +127,14 @@
 >
 	{#snippet authorAvatars()}
 		<AvatarGrouping>
-			{#if $branchListingDetails}
-				{#each $branchListingDetails.authors as author}
-					{#await gravatarUrlFromEmail(author.email || 'example@example.com') then gravatarUrl}
-						<Avatar
-							srcUrl={gravatarUrl}
-							size="medium"
-							tooltipText={author.name || 'unknown'}
-							altText={author.name || 'unknown'}
-						/>
-					{/await}
-				{/each}
-			{/if}
+			{#each avatars as avatar}
+				<Avatar
+					srcUrl={avatar.gravatarUrl}
+					size="medium"
+					tooltipText={avatar.name}
+					altText={avatar.name}
+				/>
+			{/each}
 		</AvatarGrouping>
 	{/snippet}
 </SidebarEntry>
