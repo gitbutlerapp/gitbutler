@@ -2450,6 +2450,7 @@ dependencies = [
  "gitbutler-testsupport",
  "gitbutler-user",
  "gitbutler-watcher",
+ "gix",
  "log",
  "once_cell",
  "open 5.3.0",
