@@ -14,3 +14,7 @@ export type SidebarEntrySubject =
 export function getEntryUpdatedDate(entry: SidebarEntrySubject) {
 	return entry.type === 'branchListing' ? entry.subject.updatedAt : entry.subject.modifiedAt;
 }
+
+export function getEntryWorkspaceStatus(entry: SidebarEntrySubject) {
+	return entry.type === 'branchListing' ? entry.subject.virtualBranch?.inWorkspace : undefined;
+}
