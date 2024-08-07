@@ -7,7 +7,7 @@ import type { Options } from '@wdio/types';
 let tauriDriver: ChildProcess;
 
 const appBinaryPath = process.env.DOCKER
-	? '/bin/git-butler-dev'
+	? '/app/git-butler-dev'
 	: '../../target/release/git-butler-dev';
 
 export const config: Options.WebdriverIO = {
