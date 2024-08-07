@@ -9,6 +9,8 @@ use crate::{LogUntil, RepoActionsExt, RepositoryExt};
 /// cherry-pick based rebase, which handles empty commits
 /// this function takes a commit range and generates a Vector of commit oids
 /// and then passes them to `cherry_rebase_group` to rebase them onto the target commit
+///
+/// Returns the new head commit id
 pub fn cherry_rebase(
     ctx: &CommandContext,
     target_commit_oid: git2::Oid,
