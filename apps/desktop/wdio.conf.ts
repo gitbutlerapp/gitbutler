@@ -6,6 +6,10 @@ import type { Options } from '@wdio/types';
 
 let tauriDriver: ChildProcess;
 
+const appBinaryPath = process.env.DOCKER
+	? '/bin/git-butler-dev'
+	: '../../target/release/git-butler-dev';
+
 export const config: Options.WebdriverIO = {
 	hostname: '127.0.0.1',
 	port: 4444,
@@ -15,7 +19,7 @@ export const config: Options.WebdriverIO = {
 		{
 			// @ts-expect-error custom tauri capabilities
 			'tauri:options': {
-				application: '../../target/release/git-butler-dev'
+				application: appBinaryPath
 			}
 		}
 	],
@@ -38,10 +42,14 @@ export const config: Options.WebdriverIO = {
 	connectionRetryCount: 3,
 
 	// ensure we are running `tauri-driver` before the session starts so that we can proxy the webdriver requests
-	beforeSession: () =>
-		(tauriDriver = spawn(path.resolve(os.homedir(), '.cargo', 'bin', 'tauri-driver'), [], {
+	beforeSession: () => {
+		const tauriDriverPath = process.env.DOCKER
+			? 'tauri-driver'
+			: path.resolve(os.homedir(), '.cargo', 'bin', 'tauri-driver');
+		tauriDriver = spawn(tauriDriverPath, [], {
 			stdio: [null, process.stdout, process.stderr]
-		})),
+		});
+	},
 
 	afterTest: function ({ error }: { error: Error }) {
 		if (error) {
