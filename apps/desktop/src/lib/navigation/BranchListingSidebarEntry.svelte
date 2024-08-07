@@ -63,8 +63,12 @@
 	let lastCommitDetails: { authorName: string; lastCommitAt?: Date } | undefined = $state();
 
 	$effect(() => {
+		let canceled = false;
+
 		if (ownedByUser) {
 			gitConfigService.get('user.name').then((userName) => {
+				if (canceled) return;
+
 				if (userName) {
 					lastCommitDetails = { authorName: userName };
 				} else {
