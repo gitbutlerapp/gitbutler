@@ -63,7 +63,6 @@ export default tsEslint.config(
 			'**/eslint.config.js',
 			'**/eslint.config.mjs',
 			'**/svelte.config.js',
-			'**/postcss.config.cjs',
 			'**/.pnpm-store',
 			'**/vite.config.ts.timestamp-*',
 			'!.storybook',
