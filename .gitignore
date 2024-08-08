@@ -10,7 +10,6 @@ generated-do-not-edit/
 .DS_Store
 
 # E2E Artifacts
-**/e2e/screenshots
 **/e2e/videos
 apps/desktop/one-vbranch-on-integration
 apps/desktop/remote

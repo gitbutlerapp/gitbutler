@@ -1,10 +1,8 @@
-import { browser } from '@wdio/globals';
 import video from 'wdio-video-reporter';
 import { spawn, ChildProcess } from 'node:child_process';
-import { writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import type { Options, Frameworks } from '@wdio/types';
+import type { Options } from '@wdio/types';
 
 let tauriDriver: ChildProcess;
 
@@ -45,7 +43,7 @@ export const config: Options.WebdriverIO = {
 	},
 
 	waitforTimeout: 10000,
-	connectionRetryTimeout: 120000,
+	connectionRetryTimeout: 10000,
 	connectionRetryCount: 3,
 
 	// ensure we are running `tauri-driver` before the session starts so that we can proxy the webdriver requests
