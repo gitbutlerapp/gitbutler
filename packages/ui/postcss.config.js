@@ -4,7 +4,7 @@ import postcssMinify from 'postcss-minify';
 import postcssNesting from 'postcss-nesting';
 import pxToRem from 'postcss-pxtorem';
 
-export const config = {
+export default {
 	plugins: [
 		pxToRem({
 			rootValue: 16,

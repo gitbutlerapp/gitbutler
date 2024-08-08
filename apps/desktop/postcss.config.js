@@ -2,7 +2,7 @@ import autoprefixer from 'autoprefixer';
 import postcssNesting from 'postcss-nesting';
 import pxToRem from 'postcss-pxtorem';
 
-export const config = {
+export default {
 	plugins: [
 		//But others, like autoprefixer, need to run after,
 		autoprefixer,
