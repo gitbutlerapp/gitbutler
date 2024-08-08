@@ -37,6 +37,7 @@
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
 		"@terrazzo/cli": "^0.0.11",
 		"@terrazzo/plugin-css": "^0.0.9",
+		"@types/postcss-pxtorem": "^6.0.3",
 		"autoprefixer": "^10.4.19",
 		"cpy-cli": "^5.0.0",
 		"date-fns": "^2.30.0",
