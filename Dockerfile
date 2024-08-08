@@ -19,17 +19,10 @@ RUN corepack enable pnpm && corepack install
 # TODO: It would be great to be able to avoid building this here, but we need:
 # - a binary based on the current state of the source code on the persons machine
 # - a binary built for their current arch (i.e. amd64/aarch64) (? Maybe docker + rosetta makes this a non-issue)
-RUN --mount=type=bind,source=.,target=/build,rw \
-  pnpm build:test
+# RUN --mount=type=bind,source=.,target=/build,rw \
+#   pnpm build:test
 
 WORKDIR /app
-
-# Currently borked :thinking:
-# COPY /build/target/release/git-butler-dev /app/git-butler-dev
-
-# TODO: Remove debug helpers
-RUN apt install -y vim && \
-  echo "alias ll='ls -lah' >> ~/.bashrc"
 
 # CMD xvfb-run pnpm test:e2e
 CMD /bin/bash
