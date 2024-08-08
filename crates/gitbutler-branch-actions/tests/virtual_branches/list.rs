@@ -137,7 +137,8 @@ fn one_branch_on_integration_multiple_remotes() -> Result<()> {
 
 mod util {
     use anyhow::Result;
-    use gitbutler_branch_actions::{BranchIdentity, BranchListing, BranchListingFilter};
+    use gitbutler_branch::BranchIdentity;
+    use gitbutler_branch_actions::{BranchListing, BranchListingFilter};
     use gitbutler_command_context::CommandContext;
 
     /// A flattened and simplified mirror of `BranchListing` for comparing the actual and expected data.

@@ -1,7 +1,9 @@
 use anyhow::Result;
+use bstr::{BStr, BString, ByteSlice};
 use gitbutler_id::id::Id;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, VirtualRefname};
 use serde::{Deserialize, Serialize};
+use std::ops::Deref;
 
 use crate::ownership::BranchOwnershipClaims;
 
@@ -134,4 +136,42 @@ pub struct BranchCreateRequest {
     pub ownership: Option<BranchOwnershipClaims>,
     pub order: Option<usize>,
     pub selected_for_changes: Option<bool>,
+}
+
+/// The identity of a branch as to allow to group similar branches together.
+///
+/// * For *local* branches, it is what's left without the standard prefix, like `refs/heads`, e.g. `main`
+///   for `refs/heads/main` or `feat/one` for `refs/heads/feat/one`.
+/// * For *remote* branches, it is what's without the prefix and remote name, like `main` for `refs/remotes/origin/main`.
+///   or `feat/one` for `refs/remotes/my/special/remote/feat/one`.
+/// * For virtual branches, it's either the above if there is a `source_refname` or an `upstream`, or it's the normalized
+///   name of the virtual branch.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash, Ord, PartialOrd)]
+pub struct BranchIdentity(
+    /// The identity is always a valid reference name, full or partial.
+    // TODO(ST): make this a partial reference name
+    pub  BString,
+);
+
+impl Deref for BranchIdentity {
+    type Target = BStr;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_bstr()
+    }
+}
+
+/// Facilitate obtaining this type from the UI - otherwise it would be better not to have it as it should be
+/// a particular thing, not any string.
+impl From<String> for BranchIdentity {
+    fn from(value: String) -> Self {
+        BranchIdentity(value.into())
+    }
+}
+
+/// Also not for testing.
+impl From<&str> for BranchIdentity {
+    fn from(value: &str) -> Self {
+        BranchIdentity(value.into())
+    }
 }

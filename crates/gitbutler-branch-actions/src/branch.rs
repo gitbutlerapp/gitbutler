@@ -2,7 +2,9 @@ use crate::VirtualBranchesExt;
 use anyhow::{Context, Result};
 use bstr::{BStr, BString, ByteSlice};
 use core::fmt;
-use gitbutler_branch::{Branch as GitButlerBranch, BranchId, ReferenceExtGix, Target};
+use gitbutler_branch::{
+    Branch as GitButlerBranch, BranchId, BranchIdentity, ReferenceExtGix, Target,
+};
 use gitbutler_command_context::CommandContext;
 use gitbutler_reference::normalize_branch_name;
 use gix::prelude::ObjectIdExt;
@@ -189,9 +191,13 @@ fn branch_group_to_branch(
     };
 
     if virtual_branch.is_none()
-        && local_branches
-            .iter()
-            .any(|b| b.name().given_name(remotes).as_deref().ok() == Some(target.branch.branch()))
+        && local_branches.iter().any(|b| {
+            b.name()
+                .identity(remotes)
+                .as_deref()
+                .ok()
+                .map_or(false, |identity| identity == target.branch.branch())
+        })
     {
         return Ok(None);
     }
@@ -292,7 +298,7 @@ impl GroupBranch<'_> {
     fn identity(&self, remotes: &BTreeSet<Cow<'_, BStr>>) -> Option<BranchIdentity> {
         match self {
             GroupBranch::Local(branch) | GroupBranch::Remote(branch) => {
-                branch.name().given_name(remotes).ok()
+                branch.name().identity(remotes).ok()
             }
             // The identity of a Virtual branch is derived from the source refname, upstream or the branch given name, in that order
             GroupBranch::Virtual(branch) => {
@@ -301,10 +307,10 @@ impl GroupBranch<'_> {
                 let rich_name = branch.name.clone();
                 let rich_name = normalize_branch_name(&rich_name).ok()?;
                 let identity = name_from_source.unwrap_or(name_from_upstream.unwrap_or(&rich_name));
-                Some(identity.to_string())
+                Some(identity.into())
             }
         }
-        .map(BranchIdentity)
+        .map(BranchIdentity::from)
     }
 }
 
@@ -312,14 +318,13 @@ impl GroupBranch<'_> {
 /// This excludes the target branch as well as gitbutler specific branches.
 fn should_list_git_branch(identity: &BranchIdentity) -> bool {
     // Exclude gitbutler technical branches (not useful for the user)
-    let is_technical = [
-        "gitbutler/integration",
-        "gitbutler/target",
-        "gitbutler/oplog",
-        "HEAD",
-    ]
-    .contains(&&*identity.0);
-    !is_technical
+    const TECHNICAL_IDENTITIES: &[&[u8]] = &[
+        b"gitbutler/integration",
+        b"gitbutler/target",
+        b"gitbutler/oplog",
+        b"HEAD",
+    ];
+    !TECHNICAL_IDENTITIES.contains(&identity.0.as_bytes())
 }
 
 /// A filter that can be applied to the branch listing
@@ -373,32 +378,6 @@ pub struct Author {
     pub name: Option<BString>,
     /// The email of the author as configured in the git config
     pub email: Option<BString>,
-}
-
-/// The identity of a branch as to allow to group similar branches together.
-///
-/// * For *local* branches, it is what's left without the standard prefix, like `refs/heads`, e.g. `main`
-///   for `refs/heads/main` or `feat/one` for `refs/heads/feat/one`.
-/// * For *remote* branches, it is what's without the prefix and remote name, like `main` for `refs/remotes/origin/main`.
-///   or `feat/one` for `refs/remotes/my/special/remote/feat/one`.
-/// * For virtual branches, it's either the above if there is a `source_refname` or an `upstream`, or it's the normalized
-///   name of the virtual branch.
-#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash, Ord, PartialOrd)]
-pub struct BranchIdentity(String);
-
-/// Facilitate obtaining this type from the UI - otherwise it would be better not to have it as it should be
-/// a particular thing, not any string.
-impl From<String> for BranchIdentity {
-    fn from(value: String) -> Self {
-        BranchIdentity(value)
-    }
-}
-
-/// Also not for testing.
-impl From<&str> for BranchIdentity {
-    fn from(value: &str) -> Self {
-        BranchIdentity(value.into())
-    }
 }
 
 impl From<git2::Signature<'_>> for Author {
