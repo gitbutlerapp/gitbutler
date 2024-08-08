@@ -54,18 +54,5 @@ export const config: Options.WebdriverIO = {
 			stdio: [null, process.stdout, process.stderr]
 		})),
 
-	afterTest: async function (test: Frameworks.Test, result: Frameworks.TestResult) {
-		if (result.error) {
-			console.log('ERROR', result.error);
-		}
-
-		const screenshot = await browser.takeScreenshot();
-		await writeFile(
-			`./e2e/screenshots/${test.title.replaceAll(' ', '-').toLowerCase()}_${new Date().getTime()}.png`,
-			screenshot,
-			'base64'
-		);
-	},
-
 	afterSession: () => tauriDriver.kill()
 };

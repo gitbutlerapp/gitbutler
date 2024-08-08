@@ -4,10 +4,7 @@ import { browser } from '@wdio/globals';
 describe('Project', () => {
 	before(() => {
 		// Use 'for-listing.sh' helper to generate dummy repositories for test
-		spawn('bash', [
-			'../../crates/gitbutler-branch-actions/tests/fixtures/for-listing.sh',
-			'../../target/release/gitbutler-cli'
-		]);
+		spawn('bash', ['e2e/scripts/init-repositories.sh', '../../target/release/gitbutler-cli']);
 	});
 
 	it('should add a local project', async () => {
@@ -37,20 +34,21 @@ describe('Project', () => {
 
 		// 2. Set target base branch
 		const currentTargetBranchLabel = await $('h3=Target branch');
+		await currentTargetBranchLabel.waitForDisplayed();
 
-		if (await currentTargetBranchLabel.isExisting()) {
-			// expect(currentTargetBranchLabel).toExist();
+		// if (await currentTargetBranchLabel.isExisting()) {
+		// expect(currentTargetBranchLabel).toExist();
 
-			const currentTargetBranchContinueBtn = await $('button=Continue');
-			await currentTargetBranchContinueBtn.click();
+		const currentTargetBranchContinueBtn = await $('button=Continue');
+		await currentTargetBranchContinueBtn.click();
 
-			// 3. Git Authentication
-			const gitAuthenticationLabel = await $('h3=Git authentication');
-			expect(gitAuthenticationLabel).toExist();
+		// 3. Git Authentication
+		const gitAuthenticationLabel = await $('h3=Git authentication');
+		expect(gitAuthenticationLabel).toExist();
 
-			const gitAuthenticationContinueBtn = await $("button=Let's go!");
-			await gitAuthenticationContinueBtn.click();
-		}
+		const gitAuthenticationContinueBtn = await $("button=Let's go!");
+		await gitAuthenticationContinueBtn.click();
+		// }
 
 		// 4. Board
 		const boardWorkspaceBtn = await $('button=Workspace');
