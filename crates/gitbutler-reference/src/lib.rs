@@ -26,6 +26,7 @@ pub fn normalize_branch_name(name: &str) -> anyhow::Result<String> {
     Ok(result)
 }
 
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct _ReferenceName;
 /// The name of a reference i.e. `refs/heads/master`
 pub type ReferenceName = TaggedString<_ReferenceName>;
