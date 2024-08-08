@@ -1,4 +1,15 @@
+use crate::VirtualBranchesExt;
+use anyhow::{Context, Result};
+use bstr::{BStr, BString, ByteSlice};
 use core::fmt;
+use gitbutler_branch::{Branch as GitButlerBranch, BranchId, ReferenceExtGix, Target};
+use gitbutler_command_context::CommandContext;
+use gitbutler_reference::normalize_branch_name;
+use gix::prelude::ObjectIdExt;
+use gix::reference::Category;
+use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
+use std::collections::BTreeSet;
 use std::{
     cmp::max,
     collections::{HashMap, HashSet},
@@ -6,49 +17,41 @@ use std::{
     vec,
 };
 
-use anyhow::{Context, Result};
-use bstr::{BString, ByteSlice};
-use gitbutler_branch::{Branch as GitButlerBranch, BranchId, ReferenceExt, Target};
-use gitbutler_command_context::CommandContext;
-use gitbutler_reference::normalize_branch_name;
-use serde::{Deserialize, Serialize};
-
-use crate::VirtualBranchesExt;
-
 /// Returns a list of branches associated with this project.
 pub fn list_branches(
     ctx: &CommandContext,
     filter: Option<BranchListingFilter>,
     filter_branch_names: Option<Vec<BranchIdentity>>,
 ) -> Result<Vec<BranchListing>> {
+    let mut repo = gix::open(ctx.repository().path())?;
+    repo.object_cache_size_if_unset(1024 * 1024);
     let has_filter = filter.is_some();
     let filter = filter.unwrap_or_default();
     let vb_handle = ctx.project().virtual_branches();
+    let platform = repo.references()?;
     let mut branches: Vec<GroupBranch> = vec![];
-    for (branch, branch_type) in ctx.repository().branches(None)?.filter_map(Result::ok) {
+    for reference in platform.all()?.filter_map(Result::ok) {
         // Loosely match on branch names
         if let Some(branch_names) = &filter_branch_names {
-            let has_matching_name = branch_names.iter().any(|branch_name| {
-                if let Ok(Some(name)) = branch.name() {
-                    name.ends_with(&branch_name.0)
-                } else {
-                    false
-                }
-            });
+            let has_matching_name = branch_names
+                .iter()
+                .any(|branch_name| reference.name().as_bstr().ends_with_str(&branch_name.0));
 
             if !has_matching_name {
                 continue;
             }
         }
 
-        match branch_type {
-            git2::BranchType::Local => {
-                branches.push(GroupBranch::Local(branch));
-            }
-            git2::BranchType::Remote => {
-                branches.push(GroupBranch::Remote(branch));
-            }
+        let is_local_branch = match reference.name().category() {
+            Some(Category::LocalBranch) => true,
+            Some(Category::RemoteBranch) => false,
+            _ => continue,
         };
+        branches.push(if is_local_branch {
+            GroupBranch::Local(reference)
+        } else {
+            GroupBranch::Remote(reference)
+        });
     }
 
     let virtual_branches = vb_handle.list_all_branches()?;
@@ -56,7 +59,7 @@ pub fn list_branches(
     for branch in virtual_branches {
         branches.push(GroupBranch::Virtual(branch));
     }
-    let mut branches = combine_branches(branches, ctx, vb_handle.get_default_target()?)?;
+    let mut branches = combine_branches(branches, &repo, vb_handle.get_default_target()?)?;
 
     // Apply the filter
     branches.retain(|branch| !has_filter || matches_all(branch, filter));
@@ -73,7 +76,7 @@ pub fn list_branches(
             return true;
         }
 
-        // If the virtual virtual branch has a local branch, keep the grouping
+        // If the virtual branch has a local branch, keep the grouping
         if branch.has_local {
             return true;
         };
@@ -111,11 +114,11 @@ fn matches_all(branch: &BranchListing, filter: BranchListingFilter) -> bool {
 
 fn combine_branches(
     group_branches: Vec<GroupBranch>,
-    ctx: &CommandContext,
+    repo: &gix::Repository,
     target_branch: Target,
 ) -> Result<Vec<BranchListing>> {
-    let repo = ctx.repository();
-    let remotes = repo.remotes()?;
+    let remotes = repo.remote_names();
+    let packed = repo.refs.cached_packed_buffer()?;
 
     // Group branches by identity
     let mut groups: HashMap<BranchIdentity, Vec<GroupBranch>> = HashMap::new();
@@ -134,8 +137,14 @@ fn combine_branches(
     Ok(groups
         .into_iter()
         .filter_map(|(identity, group_branches)| {
-            let res =
-                branch_group_to_branch(&identity, group_branches, repo, &remotes, &target_branch);
+            let res = branch_group_to_branch(
+                &identity,
+                group_branches,
+                repo,
+                packed.as_ref().map(|p| &***p),
+                &remotes,
+                &target_branch,
+            );
             match res {
                 Ok(branch_entry) => branch_entry,
                 Err(err) => {
@@ -155,17 +164,22 @@ fn combine_branches(
 fn branch_group_to_branch(
     identity: &BranchIdentity,
     group_branches: Vec<GroupBranch>,
-    repo: &git2::Repository,
-    remotes: &git2::string_array::StringArray,
+    repo: &gix::Repository,
+    packed: Option<&gix::refs::packed::Buffer>,
+    remotes: &BTreeSet<Cow<'_, BStr>>,
     target: &Target,
 ) -> Result<Option<BranchListing>> {
-    let mut vbranches = group_branches
-        .iter()
-        .filter_map(|branch| match branch {
-            GroupBranch::Virtual(vb) => Some(vb),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
+    let (local_branches, remote_branches, mut vbranches) =
+        group_branches
+            .into_iter()
+            .fold((Vec::new(), Vec::new(), Vec::new()), |mut acc, item| {
+                match item {
+                    GroupBranch::Local(branch) => acc.0.push(branch),
+                    GroupBranch::Remote(branch) => acc.1.push(branch),
+                    GroupBranch::Virtual(branch) => acc.2.push(branch),
+                }
+                acc
+            });
 
     let virtual_branch = if vbranches.len() > 1 {
         vbranches.sort_by_key(|virtual_branch| virtual_branch.updated_timestamp_ms);
@@ -174,25 +188,10 @@ fn branch_group_to_branch(
         vbranches.first()
     };
 
-    let remote_branches: Vec<&git2::Branch> = group_branches
-        .iter()
-        .filter_map(|branch| match branch {
-            GroupBranch::Remote(gb) => Some(gb),
-            _ => None,
-        })
-        .collect();
-    let local_branches: Vec<&git2::Branch> = group_branches
-        .iter()
-        .filter_map(|branch| match branch {
-            GroupBranch::Local(gb) => Some(gb),
-            _ => None,
-        })
-        .collect();
-
     if virtual_branch.is_none()
         && local_branches
             .iter()
-            .any(|b| b.get().given_name(remotes).as_deref().ok() == Some(target.branch.branch()))
+            .any(|b| b.name().given_name(remotes).as_deref().ok() == Some(target.branch.branch()))
     {
         return Ok(None);
     }
@@ -204,12 +203,11 @@ fn branch_group_to_branch(
         in_workspace: branch.in_workspace,
     });
 
+    // TODO(ST): keep the type alive, don't reduce to BString
     let mut remotes: Vec<BString> = Vec::new();
     for branch in remote_branches.iter() {
-        if let Some(name) = branch.get().name() {
-            if let Ok(remote_name) = repo.branch_remote_name(name) {
-                remotes.push(remote_name.as_bstr().into());
-            }
+        if let Some(remote_name) = branch.remote_name(gix::remote::Direction::Fetch) {
+            remotes.push(remote_name.as_bstr().into());
         }
     }
 
@@ -218,21 +216,22 @@ fn branch_group_to_branch(
     // The head commit for which we calculate statistics.
     // If there is a virtual branch let's get it's head. Alternatively, pick the first local branch and use it's head.
     // If there are no local branches, pick the first remote branch.
-    let head = if let Some(vbranch) = virtual_branch {
-        Some(vbranch.head)
-    } else if let Some(branch) = local_branches.first().cloned() {
-        branch.get().peel_to_commit().ok().map(|c| c.id())
-    } else if let Some(branch) = remote_branches.first().cloned() {
-        branch.get().peel_to_commit().ok().map(|c| c.id())
+    let head_commit = if let Some(vbranch) = virtual_branch {
+        Some(git2_to_gix_object_id(vbranch.head).attach(repo))
+    } else if let Some(mut branch) = local_branches.into_iter().next() {
+        branch.peel_to_id_in_place_packed(packed).ok()
+    } else if let Some(mut branch) = remote_branches.into_iter().next() {
+        branch.peel_to_id_in_place_packed(packed).ok()
     } else {
         None
     }
     .context("Could not get any valid reference in order to build branch stats")?;
 
-    let head_commit = repo.find_commit(head)?;
-    // If this was a virtual branch and there was never any remote set, use the virtual branch name as the identity
+    let head = gix_to_git2_oid(head_commit.detach());
+    let head_commit = head_commit.object()?.try_into_commit()?;
+    let head_commit = head_commit.decode()?;
     let last_modified_ms = max(
-        (head_commit.time().seconds() * 1000) as u128,
+        (head_commit.time().seconds * 1000) as u128,
         virtual_branch.map_or(0, |x| x.updated_timestamp_ms),
     );
     let last_commiter = head_commit.author().into();
@@ -248,30 +247,37 @@ fn branch_group_to_branch(
     }))
 }
 
+fn gix_to_git2_oid(id: gix::ObjectId) -> git2::Oid {
+    git2::Oid::from_bytes(id.as_bytes()).expect("always valid")
+}
+
+fn git2_to_gix_object_id(id: git2::Oid) -> gix::ObjectId {
+    gix::ObjectId::try_from(id.as_bytes()).expect("git2 oid is always valid")
+}
+
 /// A sum type of branch that can be a plain git branch or a virtual branch
 #[allow(clippy::large_enum_variant)]
 enum GroupBranch<'a> {
-    Local(git2::Branch<'a>),
-    Remote(git2::Branch<'a>),
+    Local(gix::Reference<'a>),
+    Remote(gix::Reference<'a>),
     Virtual(GitButlerBranch),
 }
 
 impl fmt::Debug for GroupBranch<'_> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            GroupBranch::Local(branch) | GroupBranch::Remote(branch) => {
-                let reference = branch.get();
-                let target = reference
-                    .target()
-                    .expect("Failed to reference target in debug formatting");
-                let name = reference
-                    .name()
-                    .expect("Failed to get reference name in debug");
-                formatter
-                    .debug_struct("GroupBranch::Local/Remote")
-                    .field("0", &&format!("id: {}, name: {}", target, name).as_str())
-                    .finish()
-            }
+            GroupBranch::Local(branch) | GroupBranch::Remote(branch) => formatter
+                .debug_struct("GroupBranch::Local/Remote")
+                .field(
+                    "0",
+                    &format!(
+                        "id: {:?}, name: {}",
+                        branch.target(),
+                        branch.name().as_bstr()
+                    )
+                    .as_str(),
+                )
+                .finish(),
             GroupBranch::Virtual(branch) => formatter
                 .debug_struct("GroupBranch::Virtal")
                 .field("0", branch)
@@ -284,10 +290,11 @@ impl GroupBranch<'_> {
     /// A name identifier for the branch. When multiple branches (e.g. virtual, local, remote) have the same identity,
     /// they are grouped together under the same `Branch` entry.
     /// `None` means an identity could not be obtained, which makes this branch odd enough to ignore.
-    fn identity(&self, remotes: &git2::string_array::StringArray) -> Option<BranchIdentity> {
+    fn identity(&self, remotes: &BTreeSet<Cow<'_, BStr>>) -> Option<BranchIdentity> {
         match self {
-            GroupBranch::Local(branch) => branch.get().given_name(remotes).ok(),
-            GroupBranch::Remote(branch) => branch.get().given_name(remotes).ok(),
+            GroupBranch::Local(branch) | GroupBranch::Remote(branch) => {
+                branch.name().given_name(remotes).ok()
+            }
             // The identity of a Virtual branch is derived from the source refname, upstream or the branch given name, in that order
             GroupBranch::Virtual(branch) => {
                 let name_from_source = branch.source_refname.as_ref().and_then(|n| n.branch());
@@ -354,7 +361,7 @@ pub struct BranchListing {
     /// The head of interest for the branch group, used for calculating branch statistics.
     /// If there is a virtual branch, a local branch and remote branches, the head is determined in the following order:
     /// 1. The head of the virtual branch
-    /// 2. The head of the local branch
+    /// 2. The head of the first local branch
     /// 3. The head of the first remote branch
     #[serde(skip)]
     pub head: git2::Oid,
@@ -363,6 +370,7 @@ pub struct BranchListing {
 /// Represents a "commit author" or "signature", based on the data from the git history
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 pub struct Author {
+    // TODO(ST): use `BString` here to not degenerate information
     /// The name of the author as configured in the git config
     pub name: Option<String>,
     /// The email of the author as configured in the git config
@@ -400,6 +408,15 @@ impl From<git2::Signature<'_>> for Author {
         let name = value.name().map(str::to_string);
         let email = value.email().map(str::to_string);
         Author { name, email }
+    }
+}
+
+impl From<gix::actor::SignatureRef<'_>> for Author {
+    fn from(value: gix::actor::SignatureRef<'_>) -> Self {
+        Author {
+            name: Some(value.name.to_string()),
+            email: Some(value.email.to_string()),
+        }
     }
 }
 

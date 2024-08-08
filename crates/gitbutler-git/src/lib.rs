@@ -9,8 +9,12 @@
 #![allow(unknown_lints)]
 #![cfg_attr(windows, feature(windows_by_handle))]
 
-#[cfg(all(not(debug_assertions), feature = "test-askpass-path"))]
-compile_error!("BUG: in production code this flag should not be set, nor do we run test with `cargo test --release`");
+#[cfg(all(
+    not(debug_assertions),
+    not(feature = "benches"),
+    feature = "test-askpass-path"
+))]
+compile_error!("BUG: in production code this flag should not be set, nor do we run test with `cargo test --release`. Benches must use `--features benches`");
 
 mod error;
 pub(crate) mod executor;
