@@ -11,7 +11,7 @@
 		title: string;
 		applied?: boolean;
 		pullRequestDetails?: { title: string };
-		lastCommitDetails?: { authorName: string; lastCommitAt: Date };
+		lastCommitDetails?: { authorName: string; lastCommitAt?: Date };
 		branchDetails?: { commitCount: number; linesAdded: number; linesRemoved: number };
 		remotes?: string[];
 		local?: boolean;
@@ -101,13 +101,21 @@
 	</div>
 
 	<div class="row">
-		{#if lastCommitDetails}
+		{#if lastCommitDetails?.lastCommitAt}
 			<span
 				class="branch-time text-base-11 details truncate"
 				use:tooltip={lastCommitDetails.lastCommitAt.toLocaleString('en-GB')}
 			>
-				<TimeAgo date={lastCommitDetails.lastCommitAt} addSuffix />
-				by {lastCommitDetails.authorName}
+				{#if lastCommitDetails}
+					<TimeAgo date={lastCommitDetails.lastCommitAt} addSuffix />
+					by {lastCommitDetails.authorName}
+				{/if}
+			</span>
+		{:else}
+			<span class="branch-time text-base-11 details truncate">
+				{#if lastCommitDetails}
+					by {lastCommitDetails.authorName}
+				{/if}
 			</span>
 		{/if}
 

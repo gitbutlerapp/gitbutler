@@ -6,7 +6,7 @@ use bstr::ByteSlice;
 mod branch_ext;
 pub use branch_ext::BranchExt;
 mod reference_ext;
-pub use reference_ext::ReferenceExt;
+pub use reference_ext::{ReferenceExt, ReferenceExtGix};
 mod dedup;
 pub use dedup::{dedup, dedup_fmt};
 mod file_ownership;

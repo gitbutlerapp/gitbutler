@@ -10,3 +10,8 @@ export function featureBaseBranchSwitching(): Persisted<boolean> {
 	const key = 'featureBaseBranchSwitching';
 	return persisted(false, key);
 }
+
+export function featureInlineUnifiedDiffs(): Persisted<boolean> {
+	const key = 'inlineUnifiedDiffs';
+	return persisted(false, key);
+}
