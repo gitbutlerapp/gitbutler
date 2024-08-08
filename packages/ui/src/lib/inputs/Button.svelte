@@ -86,7 +86,6 @@
 			onclick?.(e);
 		}
 	}
-	console.log('\nBUTTON!');
 </script>
 
 <button
