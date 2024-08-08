@@ -347,7 +347,7 @@ pub struct BranchListing {
     pub name: BranchIdentity,
     /// This is a list of remotes that this branch can be found on (e.g. `origin`, `upstream` etc.),
     /// by collecting remotes from all local branches with the same identity that have a tracking setup.
-    #[serde(serialize_with = "gitbutler_serde::serde::as_string_lossy_vec")]
+    #[serde(serialize_with = "gitbutler_serde::as_string_lossy_vec")]
     pub remotes: Vec<BString>,
     /// The branch may or may not have a virtual branch associated with it.
     pub virtual_branch: Option<VirtualBranchReference>,
@@ -536,10 +536,10 @@ pub struct BranchEntry {
     /// The name of the branch (e.g. `main`, `feature/branch`)
     pub name: String,
     /// The head commit of the branch
-    #[serde(with = "gitbutler_serde::serde::oid")]
+    #[serde(with = "gitbutler_serde::oid")]
     head: git2::Oid,
     /// The commit base of the branch
-    #[serde(with = "gitbutler_serde::serde::oid")]
+    #[serde(with = "gitbutler_serde::oid")]
     base: git2::Oid,
     /// The list of commits associated with the branch
     pub commits: Vec<CommitEntry>,
@@ -568,18 +568,18 @@ pub struct RemoteBranchEntry {
 #[serde(rename_all = "camelCase")]
 pub struct CommitEntry {
     /// The commit sha that it can be referenced by
-    #[serde(with = "gitbutler_serde::serde::oid")]
+    #[serde(with = "gitbutler_serde::oid")]
     pub id: git2::Oid,
     /// If the commit is referencing a specific change, this is its change id
     pub change_id: Option<String>,
     /// The commit message
-    #[serde(serialize_with = "gitbutler_serde::serde::as_string_lossy")]
+    #[serde(serialize_with = "gitbutler_serde::as_string_lossy")]
     pub description: BString,
     /// The timestamp of the commit in milliseconds
     pub created_at: u128,
     /// The author of the commit
     pub authors: Vec<Author>,
     /// The parent commits of the commit
-    #[serde(with = "gitbutler_serde::serde::oid_vec")]
+    #[serde(with = "gitbutler_serde::oid_vec")]
     pub parent_ids: Vec<git2::Oid>,
 }

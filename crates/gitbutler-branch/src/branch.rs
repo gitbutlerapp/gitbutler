@@ -24,7 +24,7 @@ pub struct Branch {
     /// The local tracking branch, holding the state of the remote.
     pub upstream: Option<RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
-    #[serde(with = "gitbutler_serde::serde::oid_opt", default)]
+    #[serde(with = "gitbutler_serde::oid_opt", default)]
     pub upstream_head: Option<git2::Oid>,
     #[serde(
         serialize_with = "serialize_u128",
@@ -37,10 +37,10 @@ pub struct Branch {
     )]
     pub updated_timestamp_ms: u128,
     /// tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
-    #[serde(with = "gitbutler_serde::serde::oid")]
+    #[serde(with = "gitbutler_serde::oid")]
     pub tree: git2::Oid,
     /// head is id of the last "virtual" commit in this branch
-    #[serde(with = "gitbutler_serde::serde::oid")]
+    #[serde(with = "gitbutler_serde::oid")]
     pub head: git2::Oid,
     pub ownership: BranchOwnershipClaims,
     // order is the number by which UI should sort branches

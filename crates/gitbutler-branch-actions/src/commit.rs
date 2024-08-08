@@ -21,16 +21,16 @@ use crate::{
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchCommit {
-    #[serde(with = "gitbutler_serde::serde::oid")]
+    #[serde(with = "gitbutler_serde::oid")]
     pub id: git2::Oid,
-    #[serde(serialize_with = "gitbutler_serde::serde::as_string_lossy")]
+    #[serde(serialize_with = "gitbutler_serde::as_string_lossy")]
     pub description: BString,
     pub created_at: u128,
     pub author: Author,
     pub is_remote: bool,
     pub files: Vec<VirtualBranchFile>,
     pub is_integrated: bool,
-    #[serde(with = "gitbutler_serde::serde::oid_vec")]
+    #[serde(with = "gitbutler_serde::oid_vec")]
     pub parent_ids: Vec<git2::Oid>,
     pub branch_id: BranchId,
     pub change_id: Option<String>,
