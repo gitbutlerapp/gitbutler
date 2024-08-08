@@ -175,6 +175,9 @@ importers:
       '@types/marked':
         specifier: ^5.0.2
         version: 5.0.2
+      '@types/postcss-pxtorem':
+        specifier: ^6.0.3
+        version: 6.0.3
       '@wdio/cli':
         specifier: ^8.39.1
         version: 8.39.1(typescript@5.4.5)
@@ -344,6 +347,9 @@ importers:
       '@terrazzo/plugin-css':
         specifier: ^0.0.9
         version: 0.0.9(@terrazzo/cli@0.0.11)
+      '@types/postcss-pxtorem':
+        specifier: ^6.0.3
+        version: 6.0.3
       autoprefixer:
         specifier: ^10.4.19
         version: 10.4.19(postcss@8.4.39)
@@ -2362,6 +2368,9 @@ packages:
 
   '@types/pg@8.6.1':
     resolution: {integrity: sha512-1Kc4oAGzAl7uqUStZCDvaLFqZrW9qWSjXOmBfdgyBP5La7Us6Mg4GBvRlSoaZMhQF/zSj1C8CtKMBkoiT8eL8w==}
+
+  '@types/postcss-pxtorem@6.0.3':
+    resolution: {integrity: sha512-G3nPvxYvDc3xrBn+frsMCTeHqz77grbpUXkCJpkoLXO09LjvTznoiZBWGPmTYB2w2JXutRTkQtlJx2JNEYbMMg==}
 
   '@types/prop-types@15.7.12':
     resolution: {integrity: sha512-5zvhXYtRNRluoE/jAp4GVsSduVUzNWKkOZrCDBWYtE7biZywwdC2AcEzg+cSMLFRfVgeAFqpfNabiPjxFddV1Q==}
@@ -9029,6 +9038,10 @@ snapshots:
       '@types/node': 20.14.13
       pg-protocol: 1.6.1
       pg-types: 2.2.0
+
+  '@types/postcss-pxtorem@6.0.3':
+    dependencies:
+      postcss: 8.4.39
 
   '@types/prop-types@15.7.12': {}
 
