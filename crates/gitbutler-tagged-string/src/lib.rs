@@ -3,6 +3,7 @@ use std::{fmt, marker::PhantomData, ops::Deref};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Tagged string is designed to clarify the purpose of strings when used as a return type
+#[derive(Default, Clone, PartialEq, Eq, Hash)]
 pub struct TaggedString<T>(String, PhantomData<T>);
 
 impl<T> From<String> for TaggedString<T> {
