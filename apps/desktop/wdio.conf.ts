@@ -45,7 +45,7 @@ export const config: Options.WebdriverIO = {
 
 	waitforTimeout: 10000,
 	connectionRetryTimeout: 10000,
-	connectionRetryCount: 3,
+	connectionRetryCount: 0,
 
 	// ensure we are running `tauri-driver` before the session starts so that we can proxy the webdriver requests
 	beforeSession: () =>
