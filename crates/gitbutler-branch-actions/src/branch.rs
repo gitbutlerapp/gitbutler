@@ -35,9 +35,12 @@ pub fn list_branches(
     for reference in platform.all()?.filter_map(Result::ok) {
         // Loosely match on branch names
         if let Some(branch_names) = &filter_branch_names {
-            let has_matching_name = branch_names
-                .iter()
-                .any(|branch_name| reference.name().as_bstr().ends_with_str(&branch_name.0));
+            let has_matching_name = branch_names.iter().any(|branch_name| {
+                reference
+                    .name()
+                    .as_bstr()
+                    .ends_with_str(branch_name.as_bstr())
+            });
 
             if !has_matching_name {
                 continue;
@@ -324,7 +327,7 @@ fn should_list_git_branch(identity: &BranchIdentity) -> bool {
         b"gitbutler/oplog",
         b"HEAD",
     ];
-    !TECHNICAL_IDENTITIES.contains(&identity.0.as_bytes())
+    !TECHNICAL_IDENTITIES.contains(&identity.as_bytes())
 }
 
 /// A filter that can be applied to the branch listing
@@ -413,9 +416,13 @@ pub struct VirtualBranchReference {
 /// a list of enriched branch data in the form of `BranchData`.
 pub fn get_branch_listing_details(
     ctx: &CommandContext,
-    branch_names: impl IntoIterator<Item = impl Into<BranchIdentity>>,
+    branch_names: impl IntoIterator<Item = impl TryInto<BranchIdentity>>,
 ) -> Result<Vec<BranchListingDetails>> {
-    let branch_names: Vec<_> = branch_names.into_iter().map(Into::into).collect();
+    let branch_names: Vec<_> = branch_names
+        .into_iter()
+        .map(TryInto::try_into)
+        .filter_map(Result::ok)
+        .collect();
     let repo = ctx.repository();
     let branches = list_branches(ctx, None, Some(branch_names.clone()))?;
     let default_target = ctx

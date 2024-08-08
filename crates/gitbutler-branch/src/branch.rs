@@ -1,5 +1,5 @@
 use anyhow::Result;
-use bstr::{BStr, BString, ByteSlice};
+use bstr::BStr;
 use gitbutler_id::id::Id;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, VirtualRefname};
 use serde::{Deserialize, Serialize};
@@ -149,29 +149,40 @@ pub struct BranchCreateRequest {
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct BranchIdentity(
     /// The identity is always a valid reference name, full or partial.
-    // TODO(ST): make this a partial reference name
-    pub  BString,
+    pub gix::refs::PartialName,
 );
 
 impl Deref for BranchIdentity {
     type Target = BStr;
 
     fn deref(&self) -> &Self::Target {
-        self.0.as_bstr()
+        self.0.as_ref().as_bstr()
     }
 }
 
-/// Facilitate obtaining this type from the UI - otherwise it would be better not to have it as it should be
-/// a particular thing, not any string.
-impl From<String> for BranchIdentity {
-    fn from(value: String) -> Self {
-        BranchIdentity(value.into())
+/// Facilitate obtaining this type from the UI.
+impl TryFrom<String> for BranchIdentity {
+    type Error = gix::refs::name::Error;
+
+    fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
+        gix::refs::PartialName::try_from(value).map(BranchIdentity)
     }
 }
 
-/// Also not for testing.
+/// Used in testing, and **panics** if the value isn't a valid partial ref name
 impl From<&str> for BranchIdentity {
     fn from(value: &str) -> Self {
-        BranchIdentity(value.into())
+        gix::refs::PartialName::try_from(value)
+            .map(BranchIdentity)
+            .expect("BUG: value must be valid ref name")
+    }
+}
+
+/// Used in for short-name conversions
+impl TryFrom<&BStr> for BranchIdentity {
+    type Error = gix::refs::name::Error;
+
+    fn try_from(value: &BStr) -> std::result::Result<Self, Self::Error> {
+        gix::refs::PartialName::try_from(value.to_owned()).map(BranchIdentity)
     }
 }

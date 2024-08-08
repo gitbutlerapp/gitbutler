@@ -154,7 +154,7 @@ mod util {
     impl Default for ExpectedBranchListing<'static> {
         fn default() -> Self {
             ExpectedBranchListing {
-                identity: "<invalid identity - should always be specified".into(),
+                identity: "invalid-identity-should-always-be-specified".into(),
                 remotes: vec![],
                 virtual_branch_given_name: None,
                 virtual_branch_in_workspace: false,

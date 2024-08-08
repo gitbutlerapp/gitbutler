@@ -71,7 +71,7 @@ impl ReferenceExtGix for &gix::refs::FullNameRef {
             .category_and_short_name()
             .context("Branch could not be categorized")?;
         if !matches!(category, Category::RemoteBranch) {
-            return Ok(BranchIdentity(shorthand_name.into()));
+            return Ok(shorthand_name.try_into()?);
         }
 
         let longest_remote = remotes
@@ -91,6 +91,6 @@ impl ReferenceExtGix for &gix::refs::FullNameRef {
             ))?
             .into();
 
-        Ok(BranchIdentity(shorthand_name.into()))
+        Ok(shorthand_name.try_into()?)
     }
 }
