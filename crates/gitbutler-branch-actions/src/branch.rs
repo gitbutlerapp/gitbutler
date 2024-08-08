@@ -369,11 +369,10 @@ pub struct BranchListing {
 /// Represents a "commit author" or "signature", based on the data from the git history
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 pub struct Author {
-    // TODO(ST): use `BString` here to not degenerate information
     /// The name of the author as configured in the git config
-    pub name: Option<String>,
+    pub name: Option<BString>,
     /// The email of the author as configured in the git config
-    pub email: Option<String>,
+    pub email: Option<BString>,
 }
 
 /// The identity of a branch as to allow to group similar branches together.
@@ -404,8 +403,8 @@ impl From<&str> for BranchIdentity {
 
 impl From<git2::Signature<'_>> for Author {
     fn from(value: git2::Signature) -> Self {
-        let name = value.name().map(str::to_string);
-        let email = value.email().map(str::to_string);
+        let name = value.name().map(str::to_string).map(Into::into);
+        let email = value.email().map(str::to_string).map(Into::into);
         Author { name, email }
     }
 }
@@ -413,8 +412,8 @@ impl From<git2::Signature<'_>> for Author {
 impl From<gix::actor::SignatureRef<'_>> for Author {
     fn from(value: gix::actor::SignatureRef<'_>) -> Self {
         Author {
-            name: Some(value.name.to_string()),
-            email: Some(value.email.to_string()),
+            name: Some(value.name.to_owned()),
+            email: Some(value.email.to_owned()),
         }
     }
 }
