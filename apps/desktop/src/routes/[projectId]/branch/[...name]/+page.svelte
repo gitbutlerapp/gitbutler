@@ -30,6 +30,9 @@
 	let remoteBranches = $state<Branch[]>([]);
 
 	$effect(() => {
+		if ($branches.length === 0) {
+			return;
+		}
 		if (branchListing) {
 			if (branchListing.virtualBranch?.inWorkspace) {
 				goto(`/${project.id}/board`);
