@@ -4,14 +4,17 @@ ENV DOCKER 1
 WORKDIR /build
 
 # Copy required files for installing node and pnpm
-COPY .nvmrc /build
-COPY package.json /build
+# COPY .nvmrc /build
+# COPY package.json /build
+COPY . /build
 
-# Install node from our .nvmrc
+# Install specific node version from our .nvmrc
 RUN curl -sfLS "https://install-node.vercel.app/$(cat .nvmrc)" | bash -s -- --force
 
 # Enable and use our defined `packageManager` version of pnpm
-RUN corepack enable pnpm && corepack install
+RUN corepack enable pnpm \
+  && corepack install \
+  && pnpm install
 
 # Mount the source code into the container and build a test binary of GitButler
 # tauri-driver requires a binary to instrument and execute, against which
@@ -20,9 +23,9 @@ RUN corepack enable pnpm && corepack install
 # - a binary based on the current state of the source code on the persons machine
 # - a binary built for their current arch (i.e. amd64/aarch64) (? Maybe docker + rosetta makes this a non-issue)
 # RUN --mount=type=bind,source=.,target=/build,rw \
-#   pnpm build:test
+RUN pnpm build:test
 
-WORKDIR /app
+# WORKDIR /app
 
 # CMD xvfb-run pnpm test:e2e
 CMD /bin/bash
