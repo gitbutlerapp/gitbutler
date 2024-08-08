@@ -3,9 +3,7 @@ FROM ivangabriele/tauri:debian-bullseye-18
 ENV DOCKER 1
 WORKDIR /build
 
-# Copy required files for installing node and pnpm
-# COPY .nvmrc /build
-# COPY package.json /build
+# Copy source code into container
 COPY . /build
 
 # Install specific node version from our .nvmrc
@@ -16,16 +14,8 @@ RUN corepack enable pnpm \
   && corepack install \
   && pnpm install
 
-# Mount the source code into the container and build a test binary of GitButler
-# tauri-driver requires a binary to instrument and execute, against which
-# the tests will eventually run
-# TODO: It would be great to be able to avoid building this here, but we need:
-# - a binary based on the current state of the source code on the persons machine
-# - a binary built for their current arch (i.e. amd64/aarch64) (? Maybe docker + rosetta makes this a non-issue)
-# RUN --mount=type=bind,source=.,target=/build,rw \
+# Build a binary of the application
 RUN pnpm build:test
-
-# WORKDIR /app
 
 # CMD xvfb-run pnpm test:e2e
 CMD /bin/bash
