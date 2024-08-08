@@ -8,7 +8,7 @@ pub fn fixture_project(name: &str, script: &str) -> Project {
 }
 
 pub fn benchmark_list_branches(c: &mut Criterion) {
-    const NUM_BRANCHES: u64 = 300;
+    const NUM_BRANCHES: u64 = "invalid";
     for (bench_name, num_references, (repo_name, script_name)) in [
         (
             "list-branches[many local branches]",
