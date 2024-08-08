@@ -24,7 +24,6 @@ use serde::Serialize;
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchHunk {
     pub id: String,
-    #[serde(serialize_with = "gitbutler_serde::as_string_lossy")]
     pub diff: BString,
     pub modified_at: u128,
     pub file_path: PathBuf,

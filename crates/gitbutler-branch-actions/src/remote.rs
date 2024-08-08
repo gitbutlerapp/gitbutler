@@ -50,7 +50,6 @@ pub struct RemoteBranchData {
 #[serde(rename_all = "camelCase")]
 pub struct RemoteCommit {
     pub id: String,
-    #[serde(serialize_with = "gitbutler_serde::as_string_lossy")]
     pub description: BString,
     pub created_at: u128,
     pub author: Author,

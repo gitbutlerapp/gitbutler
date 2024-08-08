@@ -347,7 +347,6 @@ pub struct BranchListing {
     pub name: BranchIdentity,
     /// This is a list of remotes that this branch can be found on (e.g. `origin`, `upstream` etc.),
     /// by collecting remotes from all local branches with the same identity that have a tracking setup.
-    #[serde(serialize_with = "gitbutler_serde::as_string_lossy_vec")]
     pub remotes: Vec<BString>,
     /// The branch may or may not have a virtual branch associated with it.
     pub virtual_branch: Option<VirtualBranchReference>,
@@ -573,7 +572,6 @@ pub struct CommitEntry {
     /// If the commit is referencing a specific change, this is its change id
     pub change_id: Option<String>,
     /// The commit message
-    #[serde(serialize_with = "gitbutler_serde::as_string_lossy")]
     pub description: BString,
     /// The timestamp of the commit in milliseconds
     pub created_at: u128,
