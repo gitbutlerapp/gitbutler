@@ -44,14 +44,15 @@ export const config: Options.WebdriverIO = {
 	},
 
 	waitforTimeout: 10000,
-	connectionRetryTimeout: 10000,
+	connectionRetryTimeout: 30000,
 	connectionRetryCount: 0,
 
 	// ensure we are running `tauri-driver` before the session starts so that we can proxy the webdriver requests
-	beforeSession: () =>
-		(tauriDriver = spawn(path.resolve(os.homedir(), '.cargo', 'bin', 'tauri-driver'), [], {
+	beforeSession: () => {
+		tauriDriver = spawn(path.resolve(os.homedir(), '.cargo', 'bin', 'tauri-driver'), [], {
 			stdio: [null, process.stdout, process.stderr]
-		})),
+		});
+	},
 
-	afterSession: () => tauriDriver.kill()
+	afterSession: () => tauriDriver.kill(9)
 };
