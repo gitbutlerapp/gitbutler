@@ -4,7 +4,10 @@ import { browser } from '@wdio/globals';
 describe('Project', () => {
 	before(() => {
 		// Use 'for-listing.sh' helper to generate dummy repositories for test
-		spawn('bash', ['e2e/scripts/init-repositories.sh', '../../target/release/gitbutler-cli']);
+		spawn('bash', [
+			'../../crates/gitbutler-branch-actions/tests/fixtures/for-listing.sh',
+			'../../target/release/gitbutler-cli'
+		]);
 	});
 
 	it('should add a local project', async () => {
