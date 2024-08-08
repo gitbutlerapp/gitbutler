@@ -63,5 +63,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: Screenshots
-          path: ./apps/desktop/e2e/screenshots
+          name: Video and Screenshots
+          overwrite: true
+          path: |
+            ./apps/desktop/e2e/screenshots
+            ./apps/desktop/e2e/videos
