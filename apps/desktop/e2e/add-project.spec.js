@@ -4,12 +4,13 @@ import { browser } from '@wdio/globals';
 describe('Project', () => {
 	it('should add a local project', async () => {
 		// 0. Accept Telemetry
-		// TODO: Fix broken import in wdio :shrug:
+		// TODO: Fix broken import in wdio
 		// await handleTelemetryPage();
 		const telemetryAgreement = await $('h1=Before we begin');
 		await telemetryAgreement.waitForDisplayed();
 
-		const acceptTelemetryBtn = await $('button[data-testid="analytics-continue"]');
+		const acceptTelemetryBtn = await $('button=Continue');
+		// const acceptTelemetryBtn = await $('button[data-testid="analytics-continue"]');
 		await acceptTelemetryBtn.click();
 
 		// 1. Click "Add local project"
