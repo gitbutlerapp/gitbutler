@@ -125,7 +125,7 @@ fn one_branch_on_integration_multiple_remotes() -> Result<()> {
         &list[0],
         ExpectedBranchListing {
             identity: "main".into(),
-            remotes: vec!["other-remote", "origin"],
+            remotes: vec!["origin", "other-remote"],
             virtual_branch_given_name: Some("main"),
             virtual_branch_in_workspace: true,
             has_local: true,
