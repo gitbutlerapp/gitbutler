@@ -20,16 +20,6 @@ export const config: Options.WebdriverIO = {
 			}
 		}
 	],
-	reporters: [
-		[
-			video,
-			{
-				saveAllVideos: true,
-				outputDir: './e2e/videos/'
-			}
-		],
-		'spec'
-	],
 	framework: 'mocha',
 	mochaOpts: {
 		ui: 'bdd',
