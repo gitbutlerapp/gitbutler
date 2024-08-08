@@ -1,7 +1,15 @@
-// import { handleTelemetryPage } from './utils';
+import { spawn } from 'node:child_process';
 import { browser } from '@wdio/globals';
 
 describe('Project', () => {
+	before(() => {
+		// Use 'for-listing.sh' helper to generate dummy repositories for test
+		spawn('bash', [
+			'../../crates/gitbutler-branch-actions/tests/fixtures/for-listing.sh',
+			'../../target/release/gitbutler-cli'
+		]);
+	});
+
 	it('should add a local project', async () => {
 		// 0. Accept Telemetry
 		// TODO: Fix broken import in wdio
@@ -20,9 +28,11 @@ describe('Project', () => {
 		// For now, workaround by setting a file path in a new hidden input
 		const filePathInput = await $('input[data-testid="test-directory-path"]');
 		expect(filePathInput).toExist();
+
 		browser.execute((s) => {
-			s.value = '/opt/ndomino/home2021';
+			s.value = './one-vbranch-on-integration';
 		}, filePathInput);
+
 		await addLocalProjectBtn.click();
 
 		// 2. Set target base branch
