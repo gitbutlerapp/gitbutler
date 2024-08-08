@@ -9,10 +9,8 @@ describe('Project', () => {
 		const telemetryAgreement = await $('h1=Before we begin');
 		await telemetryAgreement.waitForDisplayed();
 
-		// if (await telemetryAgreement.isExisting()) {
-		const acceptTelemetryBtn = await $('button=Continue');
+		const acceptTelemetryBtn = await $('button[data-testid="analytics-continue"]');
 		await acceptTelemetryBtn.click();
-		// }
 
 		// 1. Click "Add local project"
 		const addLocalProjectBtn = await $('div=Add local project');
@@ -44,7 +42,7 @@ describe('Project', () => {
 		}
 
 		// 4. Board
-		const boardWorkspaceBtn = await $('button.domain-button');
+		const boardWorkspaceBtn = await $('button=Workspace');
 		expect(boardWorkspaceBtn).toExist();
 	});
 });
