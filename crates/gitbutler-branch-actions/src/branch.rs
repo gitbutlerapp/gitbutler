@@ -203,11 +203,10 @@ fn branch_group_to_branch(
         in_workspace: branch.in_workspace,
     });
 
-    // TODO(ST): keep the type alive, don't reduce to BString
-    let mut remotes: Vec<BString> = Vec::new();
+    let mut remotes: Vec<gix::remote::Name<'static>> = Vec::new();
     for branch in remote_branches.iter() {
         if let Some(remote_name) = branch.remote_name(gix::remote::Direction::Fetch) {
-            remotes.push(remote_name.as_bstr().into());
+            remotes.push(remote_name.to_owned());
         }
     }
 
@@ -347,7 +346,8 @@ pub struct BranchListing {
     pub name: BranchIdentity,
     /// This is a list of remotes that this branch can be found on (e.g. `origin`, `upstream` etc.),
     /// by collecting remotes from all local branches with the same identity that have a tracking setup.
-    pub remotes: Vec<BString>,
+    #[serde(serialize_with = "gitbutler_serde::as_string_lossy_vec_remote_name")]
+    pub remotes: Vec<gix::remote::Name<'static>>,
     /// The branch may or may not have a virtual branch associated with it.
     pub virtual_branch: Option<VirtualBranchReference>,
     /// Timestamp in milliseconds since the branch was last updated.

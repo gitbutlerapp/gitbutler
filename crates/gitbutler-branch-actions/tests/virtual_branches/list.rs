@@ -137,7 +137,6 @@ fn one_branch_on_integration_multiple_remotes() -> Result<()> {
 
 mod util {
     use anyhow::Result;
-    use bstr::BString;
     use gitbutler_branch_actions::{BranchIdentity, BranchListing, BranchListingFilter};
     use gitbutler_command_context::CommandContext;
 
@@ -182,7 +181,7 @@ mod util {
             expected
                 .remotes
                 .into_iter()
-                .map(BString::from)
+                .map(|name| gix::remote::Name::Symbol(name.into()))
                 .collect::<Vec<_>>(),
             "remotes: {msg}"
         );
