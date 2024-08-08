@@ -1,8 +1,8 @@
-const autoprefixer = require('autoprefixer');
-const pxToRem = require('postcss-pxtorem');
-const postcssNesting = require('postcss-nesting');
+import autoprefixer from 'autoprefixer';
+import postcssNesting from 'postcss-nesting';
+import pxToRem from 'postcss-pxtorem';
 
-const config = {
+export default {
 	plugins: [
 		//But others, like autoprefixer, need to run after,
 		autoprefixer,
@@ -18,5 +18,3 @@ const config = {
 		postcssNesting()
 	]
 };
-
-module.exports = config;

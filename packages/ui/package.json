@@ -16,7 +16,7 @@
 		"package": "pnpm run --sequential \"/^package:.*/\"",
 		"package:svelte": "svelte-kit sync && svelte-package",
 		"package:styles": "postcss ./src/styles/main.css -o ./dist/styles/main.css && pnpm run copy-fonts",
-		"copy-fonts": "postcss ./src/styles/fonts.css -o ./dist/fonts.css && cpy './src/styles/fonts/**/*.woff2' './dist/fonts' --parents",
+		"copy-fonts": "postcss ./src/styles/fonts.css -o ./dist/styles/fonts.css && cpy './src/styles/fonts/**/*.woff2' './dist/fonts' --parents",
 		"design-tokens:build": "npx tz build && prettier --write ./src/lib/design-tokens.json ./src/styles/core/design-tokens.css",
 		"prepublishOnly": "pnpm run package",
 		"prepare": "svelte-kit sync",
@@ -37,6 +37,7 @@
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
 		"@terrazzo/cli": "^0.0.11",
 		"@terrazzo/plugin-css": "^0.0.9",
+		"@types/postcss-pxtorem": "^6.0.3",
 		"autoprefixer": "^10.4.19",
 		"cpy-cli": "^5.0.0",
 		"date-fns": "^2.30.0",
@@ -64,11 +65,8 @@
 			"import": "./dist/*.js",
 			"types": "./dist/*.d.ts"
 		},
-		"./main.css": {
-			"import": "./dist/styles/main.css"
-		},
-		"./fonts.css": {
-			"import": "./dist/fonts.css"
+		"./*.css": {
+			"import": "./dist/styles/*.css"
 		},
 		"./*.json": {
 			"import": "./dist/*.json",
