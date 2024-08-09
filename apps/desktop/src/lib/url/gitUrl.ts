@@ -3,7 +3,7 @@ import gitUrlParse from 'git-url-parse';
 export type RepoInfo = {
 	source: string;
 	name: string;
-	owner?: string;
+	owner: string;
 	organization?: string;
 	protocol?: string;
 };
@@ -23,6 +23,7 @@ export function parseRemoteUrl(url: string): RepoInfo {
 		return {
 			protocol: 'path',
 			source: 'local',
+			owner: 'local',
 			name: url
 		};
 	}
