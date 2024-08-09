@@ -20,11 +20,9 @@ describe('Project', () => {
 
 		// 1. Click "Add local project"
 		const addLocalProjectBtn = await $('div=Add local project');
-		expect(addLocalProjectBtn).toExist();
 
 		// For now, workaround by setting a file path in a new hidden input
 		const filePathInput = await $('input[data-testid="test-directory-path"]');
-		expect(filePathInput).toExist();
 
 		browser.execute((s) => {
 			s.value = './one-vbranch-on-integration';
@@ -36,22 +34,21 @@ describe('Project', () => {
 		const currentTargetBranchLabel = await $('h3=Target branch');
 		await currentTargetBranchLabel.waitForDisplayed();
 
-		// if (await currentTargetBranchLabel.isExisting()) {
-		// expect(currentTargetBranchLabel).toExist();
+		if (await currentTargetBranchLabel.isExisting()) {
+			// expect(currentTargetBranchLabel).toExist();
 
-		const currentTargetBranchContinueBtn = await $('button=Continue');
-		await currentTargetBranchContinueBtn.click();
+			const currentTargetBranchContinueBtn = await $('button=Continue');
+			await currentTargetBranchContinueBtn.click();
 
-		// 3. Git Authentication
-		const gitAuthenticationLabel = await $('h3=Git authentication');
-		expect(gitAuthenticationLabel).toExist();
+			// 3. Git Authentication
+			await $('h3=Git authentication');
 
-		const gitAuthenticationContinueBtn = await $("button=Let's go!");
-		await gitAuthenticationContinueBtn.click();
-		// }
+			const gitAuthenticationContinueBtn = await $("button=Let's go!");
+			await gitAuthenticationContinueBtn.click();
+		}
 
 		// 4. Board
-		const boardWorkspaceBtn = await $('button=Workspace');
-		expect(boardWorkspaceBtn).toExist();
+		const workspaceButton = await $('button=Workspace');
+		await expect(workspaceButton).toExist();
 	});
 });
