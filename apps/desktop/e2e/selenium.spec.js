@@ -57,11 +57,14 @@ describe('On-Boarding', function () {
 		await driver.wait(until.elementIsVisible(telemetryAgreementShown), 10000);
 
 		const acceptTelemetryBtn = await driver.findElement(
-			By.xpath(
-				'.//button[normalize-space(text()) = "Continue"] | .//button[not(.//button[normalize-space(text()) = "Continue"]) and normalize-space() = "Continue"]'
-			)
+			// By.xpath(
+			// 	'.//button[normalize-space(text()) = "Continue"] | .//button[not(.//button[normalize-space(text()) = "Continue"]) and normalize-space() = "Continue"]'
+			// )
+			// By.css('button[data-testid="analytics-continue"]')
+			By.js(function () {
+				return document.querySelector('button[data-testid="analytics-continue"]');
+			})
 		);
-		// By.css('button[data-testid="analytics-continue"]')
 		await acceptTelemetryBtn.click();
 
 		// 1. Add Local Project
@@ -75,15 +78,52 @@ describe('On-Boarding', function () {
 		const filePathInput = await driver.findElement(
 			By.css('input[data-testid="test-directory-path"]')
 		);
+
 		expect(filePathInput).to.exist;
 		driver.executeScript(
 			"arguments[0].setAttribute('value',arguments[1])",
 			filePathInput,
 			targetRepositoryPath
 		);
-
-		// After input has been modified, click!
 		await addLocalProjectBtn.click();
+
+		await driver.sleep(2000);
+
+		// 3. Accept Base Branch
+		const baseBranchLabel = await driver.findElement(
+			By.xpath(
+				'.//h3[normalize-space(text()) = "Target branch"] | .//h3[not(.//h3[normalize-space(text()) = "Target branch"]) and normalize-space() = "Target branch"]'
+			)
+		);
+
+		expect(baseBranchLabel).to.exist;
+		const baseBranchContinueBtn = await driver.findElement(
+			By.xpath(
+				'.//button[normalize-space(text()) = "Continue"] | .//button[not(.//button[normalize-space(text()) = "Continue"]) and normalize-space() = "Continue"]'
+			)
+		);
+		await baseBranchContinueBtn.click();
+
+		await driver.sleep(2000);
+
+		// 4. Git Authentication
+		const gitAuthenticationBtn = await driver.findElement(
+			By.xpath(
+				'.//button[normalize-space(text()) = "Let\'s go!"] | .//button[not(.//button[normalize-space(text()) = "Let\'s go!"]) and normalize-space() = "Let\'s go!"]'
+			)
+		);
+		await gitAuthenticationBtn.click();
+
+		await driver.sleep(5000);
+
+		// 5. Project Board
+		const workspaceBtn = await driver.findElement(
+			By.xpath(
+				'.//button[normalize-space(text()) = "Workspace"] | .//button[not(.//button[normalize-space(text()) = "Workspace"]) and normalize-space() = "Workspace"]'
+			)
+		);
+
+		expect(workspaceBtn).to.exist;
 
 		await driver.sleep(2000);
 	});
