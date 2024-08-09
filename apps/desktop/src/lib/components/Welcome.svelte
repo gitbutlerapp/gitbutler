@@ -31,7 +31,7 @@
 <div class="welcome">
 	<h1 class="welcome-title text-serif-40" data-tauri-drag-region>Welcome to GitButler</h1>
 	<div class="welcome__actions">
-		<div class="welcome__actions--repo" data-testid="setup-projects-btns">
+		<div class="welcome__actions--repo">
 			<input
 				type="text"
 				hidden
