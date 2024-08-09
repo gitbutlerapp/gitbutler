@@ -19,7 +19,7 @@ export function parseRemoteUrl(url: string): RepoInfo {
 			owner,
 			organization
 		};
-	} catch (e) {
+	} catch {
 		return {
 			protocol: 'path',
 			source: 'local',
