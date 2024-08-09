@@ -60,10 +60,7 @@ describe('On-Boarding', function () {
 			// By.xpath(
 			// 	'.//button[normalize-space(text()) = "Continue"] | .//button[not(.//button[normalize-space(text()) = "Continue"]) and normalize-space() = "Continue"]'
 			// )
-			// By.css('button[data-testid="analytics-continue"]')
-			By.js(function () {
-				return document.querySelector('button[data-testid="analytics-continue"]');
-			})
+			By.css('button[data-testid="analytics-continue"]')
 		);
 		await acceptTelemetryBtn.click();
 
