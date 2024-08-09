@@ -14,7 +14,7 @@
 		rowReverse
 	}: {
 		title: string;
-		loading: boolean;
+		loading?: boolean;
 		onmousedown?: (e: MouseEvent) => void;
 		onclick?: (e: MouseEvent) => void;
 		icon: Snippet;
