@@ -2,9 +2,7 @@ use crate::VirtualBranchesExt;
 use anyhow::{Context, Result};
 use bstr::{BStr, BString, ByteSlice};
 use core::fmt;
-use gitbutler_branch::{
-    Branch as GitButlerBranch, BranchId, BranchIdentity, ReferenceExtGix, Target,
-};
+use gitbutler_branch::{Branch as GitButlerBranch, BranchId, ReferenceExtGix, Target};
 use gitbutler_command_context::CommandContext;
 use gitbutler_reference::normalize_branch_name;
 use gix::prelude::ObjectIdExt;
@@ -35,12 +33,9 @@ pub fn list_branches(
     for reference in platform.all()?.filter_map(Result::ok) {
         // Loosely match on branch names
         if let Some(branch_names) = &filter_branch_names {
-            let has_matching_name = branch_names.iter().any(|branch_name| {
-                reference
-                    .name()
-                    .as_bstr()
-                    .ends_with_str(branch_name.as_bstr())
-            });
+            let has_matching_name = branch_names
+                .iter()
+                .any(|branch_name| reference.name().as_bstr().ends_with_str(&branch_name.0));
 
             if !has_matching_name {
                 continue;
@@ -194,13 +189,9 @@ fn branch_group_to_branch(
     };
 
     if virtual_branch.is_none()
-        && local_branches.iter().any(|b| {
-            b.name()
-                .identity(remotes)
-                .as_deref()
-                .ok()
-                .map_or(false, |identity| identity == target.branch.branch())
-        })
+        && local_branches
+            .iter()
+            .any(|b| b.name().given_name(remotes).as_deref().ok() == Some(target.branch.branch()))
     {
         return Ok(None);
     }
@@ -212,10 +203,11 @@ fn branch_group_to_branch(
         in_workspace: branch.in_workspace,
     });
 
-    let mut remotes: Vec<gix::remote::Name<'static>> = Vec::new();
+    // TODO(ST): keep the type alive, don't reduce to BString
+    let mut remotes: Vec<BString> = Vec::new();
     for branch in remote_branches.iter() {
         if let Some(remote_name) = branch.remote_name(gix::remote::Direction::Fetch) {
-            remotes.push(remote_name.to_owned());
+            remotes.push(remote_name.as_bstr().into());
         }
     }
 
@@ -301,7 +293,7 @@ impl GroupBranch<'_> {
     fn identity(&self, remotes: &BTreeSet<Cow<'_, BStr>>) -> Option<BranchIdentity> {
         match self {
             GroupBranch::Local(branch) | GroupBranch::Remote(branch) => {
-                branch.name().identity(remotes).ok()
+                branch.name().given_name(remotes).ok()
             }
             // The identity of a Virtual branch is derived from the source refname, upstream or the branch given name, in that order
             GroupBranch::Virtual(branch) => {
@@ -310,10 +302,10 @@ impl GroupBranch<'_> {
                 let rich_name = branch.name.clone();
                 let rich_name = normalize_branch_name(&rich_name).ok()?;
                 let identity = name_from_source.unwrap_or(name_from_upstream.unwrap_or(&rich_name));
-                Some(identity.into())
+                Some(identity.to_string())
             }
         }
-        .map(BranchIdentity::from)
+        .map(BranchIdentity)
     }
 }
 
@@ -321,13 +313,14 @@ impl GroupBranch<'_> {
 /// This excludes the target branch as well as gitbutler specific branches.
 fn should_list_git_branch(identity: &BranchIdentity) -> bool {
     // Exclude gitbutler technical branches (not useful for the user)
-    const TECHNICAL_IDENTITIES: &[&[u8]] = &[
-        b"gitbutler/integration",
-        b"gitbutler/target",
-        b"gitbutler/oplog",
-        b"HEAD",
-    ];
-    !TECHNICAL_IDENTITIES.contains(&identity.as_bytes())
+    let is_technical = [
+        "gitbutler/integration",
+        "gitbutler/target",
+        "gitbutler/oplog",
+        "HEAD",
+    ]
+    .contains(&&*identity.0);
+    !is_technical
 }
 
 /// A filter that can be applied to the branch listing
@@ -354,8 +347,8 @@ pub struct BranchListing {
     pub name: BranchIdentity,
     /// This is a list of remotes that this branch can be found on (e.g. `origin`, `upstream` etc.),
     /// by collecting remotes from all local branches with the same identity that have a tracking setup.
-    #[serde(serialize_with = "gitbutler_serde::as_string_lossy_vec_remote_name")]
-    pub remotes: Vec<gix::remote::Name<'static>>,
+    #[serde(serialize_with = "gitbutler_serde::serde::as_string_lossy_vec")]
+    pub remotes: Vec<BString>,
     /// The branch may or may not have a virtual branch associated with it.
     pub virtual_branch: Option<VirtualBranchReference>,
     /// Timestamp in milliseconds since the branch was last updated.
@@ -377,16 +370,43 @@ pub struct BranchListing {
 /// Represents a "commit author" or "signature", based on the data from the git history
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 pub struct Author {
+    // TODO(ST): use `BString` here to not degenerate information
     /// The name of the author as configured in the git config
-    pub name: Option<BString>,
+    pub name: Option<String>,
     /// The email of the author as configured in the git config
-    pub email: Option<BString>,
+    pub email: Option<String>,
+}
+
+/// The identity of a branch as to allow to group similar branches together.
+///
+/// * For *local* branches, it is what's left without the standard prefix, like `refs/heads`, e.g. `main`
+///   for `refs/heads/main` or `feat/one` for `refs/heads/feat/one`.
+/// * For *remote* branches, it is what's without the prefix and remote name, like `main` for `refs/remotes/origin/main`.
+///   or `feat/one` for `refs/remotes/my/special/remote/feat/one`.
+/// * For virtual branches, it's either the above if there is a `source_refname` or an `upstream`, or it's the normalized
+///   name of the virtual branch.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash, Ord, PartialOrd)]
+pub struct BranchIdentity(String);
+
+/// Facilitate obtaining this type from the UI - otherwise it would be better not to have it as it should be
+/// a particular thing, not any string.
+impl From<String> for BranchIdentity {
+    fn from(value: String) -> Self {
+        BranchIdentity(value)
+    }
+}
+
+/// Also not for testing.
+impl From<&str> for BranchIdentity {
+    fn from(value: &str) -> Self {
+        BranchIdentity(value.into())
+    }
 }
 
 impl From<git2::Signature<'_>> for Author {
     fn from(value: git2::Signature) -> Self {
-        let name = value.name().map(str::to_string).map(Into::into);
-        let email = value.email().map(str::to_string).map(Into::into);
+        let name = value.name().map(str::to_string);
+        let email = value.email().map(str::to_string);
         Author { name, email }
     }
 }
@@ -394,8 +414,8 @@ impl From<git2::Signature<'_>> for Author {
 impl From<gix::actor::SignatureRef<'_>> for Author {
     fn from(value: gix::actor::SignatureRef<'_>) -> Self {
         Author {
-            name: Some(value.name.to_owned()),
-            email: Some(value.email.to_owned()),
+            name: Some(value.name.to_string()),
+            email: Some(value.email.to_string()),
         }
     }
 }
@@ -416,13 +436,9 @@ pub struct VirtualBranchReference {
 /// a list of enriched branch data in the form of `BranchData`.
 pub fn get_branch_listing_details(
     ctx: &CommandContext,
-    branch_names: impl IntoIterator<Item = impl TryInto<BranchIdentity>>,
+    branch_names: impl IntoIterator<Item = impl Into<BranchIdentity>>,
 ) -> Result<Vec<BranchListingDetails>> {
-    let branch_names: Vec<_> = branch_names
-        .into_iter()
-        .map(TryInto::try_into)
-        .filter_map(Result::ok)
-        .collect();
+    let branch_names: Vec<_> = branch_names.into_iter().map(Into::into).collect();
     let repo = ctx.repository();
     let branches = list_branches(ctx, None, Some(branch_names.clone()))?;
     let default_target = ctx
@@ -520,10 +536,10 @@ pub struct BranchEntry {
     /// The name of the branch (e.g. `main`, `feature/branch`)
     pub name: String,
     /// The head commit of the branch
-    #[serde(with = "gitbutler_serde::oid")]
+    #[serde(with = "gitbutler_serde::serde::oid")]
     head: git2::Oid,
     /// The commit base of the branch
-    #[serde(with = "gitbutler_serde::oid")]
+    #[serde(with = "gitbutler_serde::serde::oid")]
     base: git2::Oid,
     /// The list of commits associated with the branch
     pub commits: Vec<CommitEntry>,
@@ -552,17 +568,18 @@ pub struct RemoteBranchEntry {
 #[serde(rename_all = "camelCase")]
 pub struct CommitEntry {
     /// The commit sha that it can be referenced by
-    #[serde(with = "gitbutler_serde::oid")]
+    #[serde(with = "gitbutler_serde::serde::oid")]
     pub id: git2::Oid,
     /// If the commit is referencing a specific change, this is its change id
     pub change_id: Option<String>,
     /// The commit message
+    #[serde(serialize_with = "gitbutler_serde::serde::as_string_lossy")]
     pub description: BString,
     /// The timestamp of the commit in milliseconds
     pub created_at: u128,
     /// The author of the commit
     pub authors: Vec<Author>,
     /// The parent commits of the commit
-    #[serde(with = "gitbutler_serde::oid_vec")]
+    #[serde(with = "gitbutler_serde::serde::oid_vec")]
     pub parent_ids: Vec<git2::Oid>,
 }

@@ -7,6 +7,5 @@ publish = false
 
 [dependencies]
 git2.workspace = true
-gix.workspace = true
 serde = { workspace = true, features = ["std"]}
-bstr.workspace = true
+bstr = "1.10.0"

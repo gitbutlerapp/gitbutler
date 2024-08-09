@@ -137,8 +137,8 @@ fn one_branch_on_integration_multiple_remotes() -> Result<()> {
 
 mod util {
     use anyhow::Result;
-    use gitbutler_branch::BranchIdentity;
-    use gitbutler_branch_actions::{BranchListing, BranchListingFilter};
+    use bstr::BString;
+    use gitbutler_branch_actions::{BranchIdentity, BranchListing, BranchListingFilter};
     use gitbutler_command_context::CommandContext;
 
     /// A flattened and simplified mirror of `BranchListing` for comparing the actual and expected data.
@@ -154,7 +154,7 @@ mod util {
     impl Default for ExpectedBranchListing<'static> {
         fn default() -> Self {
             ExpectedBranchListing {
-                identity: "invalid-identity-should-always-be-specified".into(),
+                identity: "<invalid identity - should always be specified".into(),
                 remotes: vec![],
                 virtual_branch_given_name: None,
                 virtual_branch_in_workspace: false,
@@ -182,7 +182,7 @@ mod util {
             expected
                 .remotes
                 .into_iter()
-                .map(|name| gix::remote::Name::Symbol(name.into()))
+                .map(BString::from)
                 .collect::<Vec<_>>(),
             "remotes: {msg}"
         );

@@ -1,4 +1,3 @@
-use crate::BranchIdentity;
 use anyhow::{Context, Result};
 use bstr::{BStr, ByteSlice};
 use gix::refs::Category;
@@ -20,15 +19,15 @@ pub trait ReferenceExt {
 
 // TODO(ST): replace the original with this one.
 pub trait ReferenceExtGix {
-    /// Produces a name by removing all prefixes, leaving only its actual name. All known
-    /// `remotes` are needed to be able to strip remote names.
+    /// Fetches a branches name without the remote name attached
     ///
-    /// Here are some examples:
+    /// refs/heads/my-branch -> my-branch
+    /// refs/remotes/origin/my-branch -> my-branch
+    /// refs/remotes/Byron/gitbutler/my-branch -> my-branch (where the remote is Byron/gitbutler)
     ///
-    /// `refs/heads/my-branch` -> `my-branch`
-    /// `refs/remotes/origin/my-branch` -> `my-branch`
-    /// `refs/remotes/Byron/gitbutler/my-branch` -> `my-branch` (where the remote is `Byron/gitbutler`)
-    fn identity(&self, remotes: &BTreeSet<Cow<'_, BStr>>) -> Result<BranchIdentity>;
+    /// An ideal implementation wouldn't require us to list all the references,
+    /// but there doesn't seem to be a libgit2 solution to this.
+    fn given_name(&self, remotes: &BTreeSet<Cow<'_, BStr>>) -> Result<String>;
 }
 
 impl<'repo> ReferenceExt for git2::Reference<'repo> {
@@ -66,12 +65,13 @@ impl<'repo> ReferenceExt for git2::Reference<'repo> {
 }
 
 impl ReferenceExtGix for &gix::refs::FullNameRef {
-    fn identity(&self, remotes: &BTreeSet<Cow<'_, BStr>>) -> Result<BranchIdentity> {
+    // TODO: make this `identity()`, and use `BranchIdentity` type.
+    fn given_name(&self, remotes: &BTreeSet<Cow<'_, BStr>>) -> Result<String> {
         let (category, shorthand_name) = self
             .category_and_short_name()
             .context("Branch could not be categorized")?;
         if !matches!(category, Category::RemoteBranch) {
-            return Ok(shorthand_name.try_into()?);
+            return Ok(shorthand_name.to_string());
         }
 
         let longest_remote = remotes
@@ -91,6 +91,7 @@ impl ReferenceExtGix for &gix::refs::FullNameRef {
             ))?
             .into();
 
-        Ok(shorthand_name.try_into()?)
+        // TODO(correctness): this should be `BString`, but can't change it yet.
+        Ok(shorthand_name.to_string())
     }
 }
