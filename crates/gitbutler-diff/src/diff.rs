@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
+use gitbutler_serde::BStringForFrontend;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -49,8 +50,8 @@ pub struct GitHunk {
     pub new_start: u32,
     pub new_lines: u32,
     /// The `+`, `-` or ` ` prefixed lines of the diff produced by `git2`, along with their line separator.
-    #[serde(rename = "diff", serialize_with = "gitbutler_serde::as_string_lossy")]
-    pub diff_lines: BString,
+    #[serde(rename = "diff")]
+    pub diff_lines: BStringForFrontend,
     pub binary: bool,
     pub change_type: ChangeType,
 }
@@ -307,7 +308,7 @@ pub fn hunks_by_filepath(
                                         old_lines,
                                         new_start,
                                         new_lines,
-                                        diff_lines: line.into_owned(),
+                                        diff_lines: line.into_owned().into(),
                                         binary: false,
                                         change_type,
                                     }
@@ -413,7 +414,7 @@ pub fn reverse_hunk(hunk: &GitHunk) -> Option<GitHunk> {
             old_lines: hunk.new_lines,
             new_start: hunk.old_start,
             new_lines: hunk.old_lines,
-            diff_lines: diff,
+            diff_lines: diff.into(),
             binary: hunk.binary,
             change_type: hunk.change_type,
         })

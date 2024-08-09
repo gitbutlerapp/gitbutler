@@ -1,15 +1,14 @@
 use std::path::Path;
 
+use crate::author::Author;
 use anyhow::{Context, Result};
-use bstr::BString;
 use gitbutler_branch::{ReferenceExt, Target, VirtualBranchesHandle};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
+use gitbutler_serde::BStringForFrontend;
 use serde::Serialize;
-
-use crate::author::Author;
 
 // this struct is a mapping to the view `RemoteBranch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
@@ -50,8 +49,7 @@ pub struct RemoteBranchData {
 #[serde(rename_all = "camelCase")]
 pub struct RemoteCommit {
     pub id: String,
-    #[serde(serialize_with = "gitbutler_serde::as_string_lossy")]
-    pub description: BString,
+    pub description: BStringForFrontend,
     pub created_at: u128,
     pub author: Author,
     pub change_id: Option<String>,
@@ -188,7 +186,7 @@ pub(crate) fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
     let parent_ids = commit.parents().map(|c| c.id()).collect();
     RemoteCommit {
         id: commit.id().to_string(),
-        description: commit.message_bstr().to_owned(),
+        description: commit.message_bstr().into(),
         created_at: commit.time().seconds().try_into().unwrap(),
         author: commit.author().into(),
         change_id: commit.change_id(),

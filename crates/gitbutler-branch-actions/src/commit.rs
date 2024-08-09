@@ -1,14 +1,13 @@
-use anyhow::{Context, Result};
-use bstr::BString;
-use gitbutler_branch::{Branch, BranchId};
-use gitbutler_command_context::CommandContext;
-use gitbutler_commit::commit_ext::CommitExt;
-use serde::Serialize;
-
 use crate::{
     author::Author,
     file::{list_virtual_commit_files, VirtualBranchFile},
 };
+use anyhow::{Context, Result};
+use gitbutler_branch::{Branch, BranchId};
+use gitbutler_command_context::CommandContext;
+use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_serde::BStringForFrontend;
+use serde::Serialize;
 
 // this is the struct that maps to the view `Commit` type in Typescript
 // it is derived from walking the git commits between the `Branch.head` commit
@@ -23,8 +22,7 @@ use crate::{
 pub struct VirtualBranchCommit {
     #[serde(with = "gitbutler_serde::oid")]
     pub id: git2::Oid,
-    #[serde(serialize_with = "gitbutler_serde::as_string_lossy")]
-    pub description: BString,
+    pub description: BStringForFrontend,
     pub created_at: u128,
     pub author: Author,
     pub is_remote: bool,
@@ -62,7 +60,7 @@ pub(crate) fn commit_to_vbranch_commit(
         id: commit.id(),
         created_at: timestamp * 1000,
         author: commit.author().into(),
-        description: message,
+        description: message.into(),
         is_remote,
         files,
         is_integrated,

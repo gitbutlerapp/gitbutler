@@ -1,8 +1,8 @@
 use anyhow::Result;
-use bstr::BStr;
+use bstr::{BStr, ByteSlice};
 use gitbutler_id::id::Id;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, VirtualRefname};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use std::ops::Deref;
 
 use crate::ownership::BranchOwnershipClaims;
@@ -146,11 +146,20 @@ pub struct BranchCreateRequest {
 ///   or `feat/one` for `refs/remotes/my/special/remote/feat/one`.
 /// * For virtual branches, it's either the above if there is a `source_refname` or an `upstream`, or it's the normalized
 ///   name of the virtual branch.
-#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct BranchIdentity(
     /// The identity is always a valid reference name, full or partial.
     pub gix::refs::PartialName,
 );
+
+impl Serialize for BranchIdentity {
+    fn serialize<S>(&self, s: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0.as_ref().as_bstr().to_str_lossy().serialize(s)
+    }
+}
 
 impl Deref for BranchIdentity {
     type Target = BStr;

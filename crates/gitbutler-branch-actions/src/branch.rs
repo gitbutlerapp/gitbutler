@@ -1,12 +1,13 @@
 use crate::VirtualBranchesExt;
 use anyhow::{Context, Result};
-use bstr::{BStr, BString, ByteSlice};
+use bstr::{BStr, ByteSlice};
 use core::fmt;
 use gitbutler_branch::{
     Branch as GitButlerBranch, BranchId, BranchIdentity, ReferenceExtGix, Target,
 };
 use gitbutler_command_context::CommandContext;
 use gitbutler_reference::normalize_branch_name;
+use gitbutler_serde::BStringForFrontend;
 use gix::prelude::ObjectIdExt;
 use gix::reference::Category;
 use serde::{Deserialize, Serialize};
@@ -378,9 +379,9 @@ pub struct BranchListing {
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 pub struct Author {
     /// The name of the author as configured in the git config
-    pub name: Option<BString>,
+    pub name: Option<BStringForFrontend>,
     /// The email of the author as configured in the git config
-    pub email: Option<BString>,
+    pub email: Option<BStringForFrontend>,
 }
 
 impl From<git2::Signature<'_>> for Author {
@@ -394,8 +395,8 @@ impl From<git2::Signature<'_>> for Author {
 impl From<gix::actor::SignatureRef<'_>> for Author {
     fn from(value: gix::actor::SignatureRef<'_>) -> Self {
         Author {
-            name: Some(value.name.to_owned()),
-            email: Some(value.email.to_owned()),
+            name: Some(value.name.to_owned().into()),
+            email: Some(value.email.to_owned().into()),
         }
     }
 }
@@ -557,8 +558,7 @@ pub struct CommitEntry {
     /// If the commit is referencing a specific change, this is its change id
     pub change_id: Option<String>,
     /// The commit message
-    #[serde(serialize_with = "gitbutler_serde::as_string_lossy")]
-    pub description: BString,
+    pub description: BStringForFrontend,
     /// The timestamp of the commit in milliseconds
     pub created_at: u128,
     /// The author of the commit

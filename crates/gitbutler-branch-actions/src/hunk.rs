@@ -5,9 +5,9 @@ use std::{
     time::SystemTime,
 };
 
-use bstr::BString;
 use gitbutler_branch::BranchId;
 use gitbutler_diff::{GitHunk, Hunk, HunkHash};
+use gitbutler_serde::BStringForFrontend;
 use itertools::Itertools;
 use md5::Digest;
 use serde::Serialize;
@@ -24,8 +24,7 @@ use serde::Serialize;
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchHunk {
     pub id: String,
-    #[serde(serialize_with = "gitbutler_serde::as_string_lossy")]
-    pub diff: BString,
+    pub diff: BStringForFrontend,
     pub modified_at: u128,
     pub file_path: PathBuf,
     #[serde(serialize_with = "gitbutler_branch::serde::hash_to_hex")]
