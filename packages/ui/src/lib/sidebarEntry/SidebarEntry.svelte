@@ -160,6 +160,7 @@
 
 <style lang="postcss">
 	.branch {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		padding: 10px 14px 12px 14px;
@@ -167,12 +168,28 @@
 		width: 100%;
 		text-align: left;
 		border-bottom: 1px solid var(--clr-border-3);
-		transition: background-color var(--transition-fast);
+		overflow: hidden;
+		transition:
+			background-color var(--transition-fast),
+			transform var(--transition-medium);
 		/* Using a fixed height to prevent content-shift when loading in */
-		height: 86px;
+		min-height: 86px;
 
 		&:last-child {
 			border-bottom: none;
+		}
+
+		&::after {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 4px;
+			height: 100%;
+			background-color: var(--clr-theme-pop-element);
+			transform: translateX(-100%);
+
+			transition: transform var(--transition-medium);
 		}
 	}
 
@@ -285,7 +302,13 @@
 		transition: none;
 	}
 
+	/* MODIFIERS */
+
 	.selected {
 		background-color: var(--clr-bg-2);
+
+		&::after {
+			transform: translateX(0);
+		}
 	}
 </style>
