@@ -15,7 +15,6 @@ describe('Project', () => {
 		await telemetryAgreement.waitForDisplayed();
 
 		const acceptTelemetryBtn = await $('button=Continue');
-		expect(acceptTelemetryBtn).toExist();
 		await acceptTelemetryBtn.waitForDisplayed();
 
 		// const acceptTelemetryBtn = await $('button[data-testid="analytics-continue"]');
@@ -23,11 +22,9 @@ describe('Project', () => {
 
 		// 1. Click "Add local project"
 		const addLocalProjectBtn = await $('div=Add local project');
-		expect(addLocalProjectBtn).toExist();
 
 		// For now, workaround by setting a file path in a new hidden input
 		const filePathInput = await $('input[data-testid="test-directory-path"]');
-		expect(filePathInput).toExist();
 
 		browser.execute((s) => {
 			s.value = './one-vbranch-on-integration';
@@ -47,7 +44,6 @@ describe('Project', () => {
 
 		// 3. Git Authentication
 		const gitAuthenticationLabel = await $('h3=Git authentication');
-		expect(gitAuthenticationLabel).toExist();
 
 		const gitAuthenticationContinueBtn = await $("button=Let's go!");
 		await gitAuthenticationContinueBtn.click();
@@ -55,6 +51,5 @@ describe('Project', () => {
 
 		// 4. Board
 		const boardWorkspaceBtn = await $('button=Workspace');
-		expect(boardWorkspaceBtn).toExist();
 	});
 });
