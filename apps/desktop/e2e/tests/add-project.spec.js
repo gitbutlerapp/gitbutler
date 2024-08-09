@@ -1,5 +1,6 @@
-import { spawn } from 'node:child_process';
-import { browser } from '@wdio/globals';
+const { spawn } = require('node:child_process');
+const { browser } = require('@wdio/globals');
+const { findAndClick } = require('../utils');
 
 describe('Project', () => {
 	before(() => {
@@ -14,11 +15,12 @@ describe('Project', () => {
 		const telemetryAgreement = await $('h1=Before we begin');
 		await telemetryAgreement.waitForDisplayed();
 
-		const acceptTelemetryBtn = await $('button=Continue');
-		await acceptTelemetryBtn.waitForDisplayed();
+		// const acceptTelemetryBtn = await $('button=Continue');
+		// await acceptTelemetryBtn.waitForDisplayed();
 
 		// const acceptTelemetryBtn = await $('button[data-testid="analytics-continue"]');
-		await acceptTelemetryBtn.click();
+		findAndClick('button=Continue');
+		// await acceptTelemetryBtn.click();
 
 		// 1. Click "Add local project"
 		const addLocalProjectBtn = await $('div=Add local project');
