@@ -8,6 +8,7 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Branch } from '$lib/vbranches/types';
@@ -26,6 +27,8 @@
 	$: gitHostBranch = upstream ? $gitHost?.branch(upstream) : undefined;
 
 	let isApplying = false;
+	let isDeleting = false;
+	let deleteBranchModal: Modal;
 </script>
 
 <div class="header__wrapper">
@@ -110,11 +113,55 @@
 				>
 					Apply
 				</Button>
+				<Button
+					style="ghost"
+					outline
+					help="Deletes the local branch. If this branch is also present on a remote, it will not be deleted there."
+					icon="bin-small"
+					loading={isDeleting}
+					disabled={!localBranch}
+					onclick={async () => {
+						if (localBranch) {
+							console.log(JSON.stringify(localBranch));
+							deleteBranchModal.show(branch);
+						}
+					}}
+				>
+					Delete locally
+				</Button>
 			</div>
 		</div>
 	</div>
 	<div class="header__top-overlay" data-tauri-drag-region></div>
 </div>
+
+<Modal width="small" title="Delete branch" bind:this={deleteBranchModal}>
+	{#snippet children(branch)}
+		Are you sure you want to delete <code class="code-string">{branch.name}</code>?
+	{/snippet}
+	{#snippet controls(close)}
+		<Button style="ghost" outline onclick={close}>Cancel</Button>
+		<Button
+			style="error"
+			kind="solid"
+			onclick={async () => {
+				try {
+					await branchController.deleteLocalBranch(branch.name);
+				} catch (e) {
+					const err = 'Failed to delete local branch';
+					error(err);
+					console.error(err, e);
+				} finally {
+					isDeleting = false;
+					close();
+				}
+				goto(`/${project.id}/board`);
+			}}
+		>
+			Delete
+		</Button>
+	{/snippet}
+</Modal>
 
 <style lang="postcss">
 	.header__wrapper {
