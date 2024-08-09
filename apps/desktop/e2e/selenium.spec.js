@@ -6,16 +6,6 @@ import { expect } from 'chai'
 
 // See: https://tauri.app/v1/guides/testing/webdriver/example/selenium/
 
-// const application = path.resolve(
-// 	import.meta.dirname,
-// 	'..',
-// 	'..',
-// 	'..',
-// 	'target',
-// 	'release',
-// 	'git-butler-dev'
-// );
-
 let driver;
 let tauriDriver;
 
@@ -50,8 +40,8 @@ after(async function () {
 
 console.log('\nSTARTING TEST');
 
-describe('GitButler Startup', () => {
-	it('should have gray background', async () => {
+describe('GitButler', () => {
+	it('should have body', async () => {
 		const text = await driver.findElement(By.css('body.text-base'))
 		expect(text).to.exist
 	});
