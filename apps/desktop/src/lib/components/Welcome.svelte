@@ -11,7 +11,6 @@
 	const projectService = getContext(ProjectService);
 
 	let newProjectLoading = $state(false);
-	let cloneProjectLoading = false;
 	let directoryInputElement = $state<HTMLInputElement | undefined>();
 
 	async function onNewProject() {
@@ -52,12 +51,7 @@
 					Should be a valid git repository
 				{/snippet}
 			</WelcomeAction>
-			<WelcomeAction
-				title="Clone repository"
-				loading={cloneProjectLoading}
-				onclick={onCloneProject}
-				dimMessage
-			>
+			<WelcomeAction title="Clone repository" onclick={onCloneProject} dimMessage>
 				{#snippet icon()}
 					{@html cloneRepoSvg}
 				{/snippet}
