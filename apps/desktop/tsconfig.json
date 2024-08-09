@@ -14,7 +14,7 @@
 		"sourceMap": true,
 		"strict": true,
 		"experimentalDecorators": true,
-		"types": ["vitest/importMeta"]
+		"types": ["node", "@wdio/globals/types", "@wdio/mocha-framework", "vitest/importMeta"]
 	},
 	"include": [
 		"wdio.conf.ts",
@@ -27,8 +27,8 @@
 		"src/**/*.js",
 		"src/**/*.ts",
 		"src/**/*.svelte",
-		"tests/**/*.js",
-		"tests/**/*.ts",
-		"tests/**/*.svelte"
+		"e2e/tests/**/*.js",
+		"e2e/tests/**/*.ts",
+		"e2e/tests/**/*.svelte"
 	]
 }

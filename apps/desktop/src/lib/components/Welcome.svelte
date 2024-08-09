@@ -10,13 +10,14 @@
 
 	const projectService = getContext(ProjectService);
 
-	let newProjectLoading = false;
-	let cloneProjectLoading = false;
+	let newProjectLoading = $state(false);
+	let directoryInputElement = $state<HTMLInputElement | undefined>();
 
 	async function onNewProject() {
 		newProjectLoading = true;
 		try {
-			await projectService.addProject();
+			const testDirectoryPath = directoryInputElement?.value;
+			await projectService.addProject(testDirectoryPath ?? '');
 		} finally {
 			newProjectLoading = false;
 		}
@@ -31,6 +32,12 @@
 	<h1 class="welcome-title text-serif-40" data-tauri-drag-region>Welcome to GitButler</h1>
 	<div class="welcome__actions">
 		<div class="welcome__actions--repo">
+			<input
+				type="text"
+				hidden
+				bind:this={directoryInputElement}
+				data-testid="test-directory-path"
+			/>
 			<WelcomeAction
 				title="Add local project"
 				loading={newProjectLoading}
@@ -44,12 +51,7 @@
 					Should be a valid git repository
 				{/snippet}
 			</WelcomeAction>
-			<WelcomeAction
-				title="Clone repository"
-				loading={cloneProjectLoading}
-				onclick={onCloneProject}
-				dimMessage
-			>
+			<WelcomeAction title="Clone repository" onclick={onCloneProject} dimMessage>
 				{#snippet icon()}
 					{@html cloneRepoSvg}
 				{/snippet}

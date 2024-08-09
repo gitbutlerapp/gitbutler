@@ -2,6 +2,7 @@
 // for information about these interfaces
 
 declare module 'tinykeys';
+declare module 'wdio-video-reporter';
 
 declare namespace App {
 	interface Error {
