@@ -24,6 +24,7 @@ use serde::Serialize;
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranchHunk {
     pub id: String,
+    #[serde(serialize_with = "gitbutler_serde::serde::as_string_lossy")]
     pub diff: BString,
     pub modified_at: u128,
     pub file_path: PathBuf,
@@ -49,7 +50,7 @@ pub struct VirtualBranchHunk {
 #[serde(rename_all = "camelCase")]
 pub struct HunkLock {
     pub branch_id: BranchId,
-    #[serde(with = "gitbutler_serde::oid")]
+    #[serde(with = "gitbutler_serde::serde::oid")]
     pub commit_id: git2::Oid,
 }
 

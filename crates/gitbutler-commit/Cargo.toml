@@ -7,5 +7,5 @@ publish = false
 
 [dependencies]
 git2.workspace = true
-bstr.workspace = true
+bstr = "1.10.0"
 uuid.workspace = true

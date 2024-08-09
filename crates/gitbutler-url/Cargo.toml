@@ -8,4 +8,4 @@ publish = false
 [dependencies]
 url = { version = "2.5.2", features = ["serde"] }
 thiserror.workspace = true
-bstr.workspace = true
+bstr = "1.10.0"
