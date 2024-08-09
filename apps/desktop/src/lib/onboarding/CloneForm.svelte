@@ -60,15 +60,18 @@
 		}
 
 		try {
-			const { name, protocol } = parseRemoteUrl(repositoryUrl);
+			const remoteUrl = parseRemoteUrl(repositoryUrl);
+			if (!remoteUrl) {
+				return;
+			}
 
-			const targetDir = await join(targetDirPath, name);
+			const targetDir = await join(targetDirPath, remoteUrl.name);
 
-			if (protocol) {
-				if (protocol === 'ssh') {
+			if (remoteUrl.protocol) {
+				if (remoteUrl.protocol === 'ssh') {
 					posthog.capture('SSH Clone Attempted');
 				}
-				if (!['https', 'http'].includes(protocol)) {
+				if (!['https', 'http'].includes(remoteUrl.protocol)) {
 					errors.push({
 						label: 'Only HTTP(S) Remote URLs allowed'
 					});
@@ -81,7 +84,7 @@
 				targetDir
 			});
 
-			posthog.capture('Repository Cloned', { protocol });
+			posthog.capture('Repository Cloned', { protocol: remoteUrl.protocol });
 			await projectService.addProject(targetDir);
 		} catch (e) {
 			errors.push({
