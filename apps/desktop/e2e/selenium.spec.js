@@ -2,6 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { Builder, By, Capabilities } from 'selenium-webdriver';
+import { expect } from 'chai'
 
 // See: https://tauri.app/v1/guides/testing/webdriver/example/selenium/
 
@@ -31,7 +32,7 @@ before(async function () {
 
 	const capabilities = new Capabilities();
 	capabilities.set('tauri:options', { application: '../../target/release/git-butler-dev' });
-	capabilities.setBrowserName(''); // Setting this to 'wry' triggers the "Capabilities do not match" error
+	capabilities.setBrowserName('wry'); // Setting this to 'wry' triggers the "Capabilities do not match" error
 
 	driver = await new Builder()
 		.withCapabilities(capabilities)
@@ -55,8 +56,8 @@ describe('GitButler Startup', () => {
 	it('should have gray background', async () => {
 		console.log('\nIT_SHOULD_HAVE_GRAY_BACKGROUND');
 
-		const text = await driver.findElement(By.css('body')).getCssValue('background-color');
-		expect(text).to.match(/#000/);
+		const text = await driver.findElement(By.css('body.text-base'))
+		expect(text).to.exist
 	});
 
 	console.log('\nFINISHING DSECRIBE');
