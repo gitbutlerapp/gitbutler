@@ -5,22 +5,22 @@ import { Builder, By, Capabilities } from 'selenium-webdriver';
 
 // See: https://tauri.app/v1/guides/testing/webdriver/example/selenium/
 
-const application = path.resolve(
-	import.meta.dirname,
-	'..',
-	'..',
-	'..',
-	'target',
-	'release',
-	'git-butler-dev'
-);
+// const application = path.resolve(
+// 	import.meta.dirname,
+// 	'..',
+// 	'..',
+// 	'..',
+// 	'target',
+// 	'release',
+// 	'git-butler-dev'
+// );
 
 let driver;
 let tauriDriver;
 
 before(async function () {
-	// set timeout to 2 minutes to cover build
-	this.timeout(60000 * 2);
+	// // set timeout to 2 minutes to cover build
+	// this.timeout(60000 * 2);
 
 	// For CI(?) - ensure the program has been built
 	// spawnSync("cargo", ["build", "--release"]);
@@ -30,7 +30,7 @@ before(async function () {
 	});
 
 	const capabilities = new Capabilities();
-	capabilities.set('tauri:options', { application });
+	capabilities.set('tauri:options', { application: '../../target/release/git-butler-dev' });
 	capabilities.setBrowserName(''); // Setting this to 'wry' triggers the "Capabilities do not match" error
 
 	driver = await new Builder()
@@ -40,8 +40,6 @@ before(async function () {
 });
 
 after(async function () {
-	console.log('\n\nCALLING AFTER CLEANING FNs');
-
 	// stop the webdriver session
 	await driver?.quit();
 
@@ -49,19 +47,19 @@ after(async function () {
 	tauriDriver?.kill();
 });
 
-console.log('\n\nSTARTING TEST');
+console.log('\nSTARTING TEST');
 
 describe('GitButler Startup', () => {
-	console.log('\n\nSTARTING DESCRIBE');
+	console.log('\nSTARTING DESCRIBE');
 
 	it('should have gray background', async () => {
-		console.log('\n\nIT_SHOULD_HAVE_GRAY_BACKGROUND');
+		console.log('\nIT_SHOULD_HAVE_GRAY_BACKGROUND');
 
 		const text = await driver.findElement(By.css('body')).getCssValue('background-color');
 		expect(text).to.match(/#000/);
 	});
 
-	console.log('\n\nFINISHING DSECRIBE');
+	console.log('\nFINISHING DSECRIBE');
 });
 
-console.log('\n\nFINISHING TEST');
+console.log('\nFINISHING TEST');
