@@ -8,7 +8,7 @@ export type RepoInfo = {
 	protocol?: string;
 };
 
-export function parseRemoteUrl(url: string): RepoInfo {
+export function parseRemoteUrl(url: string): RepoInfo | undefined {
 	try {
 		const { protocol, source, name, owner, organization } = gitUrlParse(url);
 
@@ -20,11 +20,6 @@ export function parseRemoteUrl(url: string): RepoInfo {
 			organization
 		};
 	} catch {
-		return {
-			protocol: 'path',
-			source: 'local',
-			owner: 'local',
-			name: url
-		};
+		return undefined;
 	}
 }
