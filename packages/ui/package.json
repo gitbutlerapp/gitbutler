@@ -16,7 +16,7 @@
 		"package": "pnpm run --sequential \"/^package:.*/\"",
 		"package:svelte": "svelte-kit sync && svelte-package",
 		"package:styles": "postcss ./src/styles/main.css -o ./dist/styles/main.css && pnpm run copy-fonts",
-		"copy-fonts": "postcss ./src/styles/fonts.css -o ./dist/styles/fonts.css && cpy './src/styles/fonts/**/*.woff2' './dist/fonts' --parents",
+		"copy-fonts": "postcss ./src/styles/fonts.css -o ./dist/styles/fonts.css && cpy './src/styles/fonts/**/*.woff2' './dist/styles/fonts' --parents",
 		"design-tokens:build": "npx tz build && prettier --write ./src/lib/design-tokens.json ./src/styles/core/design-tokens.css",
 		"prepublishOnly": "pnpm run package",
 		"prepare": "svelte-kit sync",
