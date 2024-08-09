@@ -127,7 +127,7 @@
 						}
 					}}
 				>
-					Delete locally
+					Delete local
 				</Button>
 			</div>
 		</div>
