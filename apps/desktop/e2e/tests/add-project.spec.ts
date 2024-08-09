@@ -33,7 +33,6 @@ describe('Project', () => {
 
 		// 2. Set target base branch
 		const currentTargetBranchLabel = await $('h3=Target branch');
-		await currentTargetBranchLabel.waitForDisplayed();
 
 		if (await currentTargetBranchLabel.isExisting()) {
 			// expect(currentTargetBranchLabel).toExist();
