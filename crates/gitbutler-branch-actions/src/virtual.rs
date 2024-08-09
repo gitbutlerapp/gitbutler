@@ -68,13 +68,13 @@ pub struct VirtualBranch {
     pub updated_at: u128,
     pub selected_for_changes: bool,
     pub allow_rebasing: bool,
-    #[serde(with = "gitbutler_serde::serde::oid")]
+    #[serde(with = "gitbutler_serde::oid")]
     pub head: git2::Oid,
     /// The merge base between the target branch and the virtual branch
-    #[serde(with = "gitbutler_serde::serde::oid")]
+    #[serde(with = "gitbutler_serde::oid")]
     pub merge_base: git2::Oid,
     /// The fork point between the target branch and the virtual branch
-    #[serde(with = "gitbutler_serde::serde::oid_opt", default)]
+    #[serde(with = "gitbutler_serde::oid_opt", default)]
     pub fork_point: Option<git2::Oid>,
 }
 
