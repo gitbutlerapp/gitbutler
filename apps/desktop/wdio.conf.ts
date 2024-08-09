@@ -21,13 +21,13 @@ export const config: Options.WebdriverIO = {
 		}
 	],
 	reporters: [
-		[
-			video,
-			{
-				saveAllVideos: true,
-				outputDir: './e2e/videos/'
-			}
-		],
+		// [
+		// 	video,
+		// 	{
+		// 		saveAllVideos: true,
+		// 		outputDir: './e2e/videos/'
+		// 	}
+		// ],
 		'spec'
 	],
 	framework: 'mocha',
