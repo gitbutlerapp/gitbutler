@@ -51,16 +51,10 @@ after(async function () {
 console.log('\nSTARTING TEST');
 
 describe('GitButler Startup', () => {
-	console.log('\nSTARTING DESCRIBE');
-
 	it('should have gray background', async () => {
-		console.log('\nIT_SHOULD_HAVE_GRAY_BACKGROUND');
-
 		const text = await driver.findElement(By.css('body.text-base'))
 		expect(text).to.exist
 	});
-
-	console.log('\nFINISHING DSECRIBE');
 });
 
 console.log('\nFINISHING TEST');
