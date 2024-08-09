@@ -1,6 +1,7 @@
 import os from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { statSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
 import { Builder, By, until, Capabilities } from 'selenium-webdriver';
 import { expect } from 'chai';
 
@@ -15,6 +16,11 @@ before(async function () {
 
 	// For CI(?) - ensure the program has been built
 	// spawnSync("cargo", ["build", "--release"]);
+
+	// Run `init-repositories.sh` if necessary
+	if (!statSync(path.resolve('./one-vbranch-on-integration'), { throwIfNoEntry: false })) {
+		spawn('bash', ['e2e/scripts/init-repositories.sh', '../../target/release/gitbutler-cli']);
+	}
 
 	tauriDriver = spawn(path.resolve(os.homedir(), '.cargo', 'bin', 'tauri-driver'), [], {
 		stdio: [null, process.stdout, process.stderr]
@@ -38,8 +44,6 @@ after(async function () {
 	tauriDriver?.kill();
 });
 
-console.log('\nSTARTING TEST');
-
 describe('GitButler', function () {
 	it('should have body', async function () {
 		const text = await driver.findElement(By.css('body.text-base'));
@@ -57,9 +61,6 @@ describe('On-Boarding', function () {
 		await driver.wait(until.elementIsVisible(telemetryAgreementShown), 10000);
 
 		const acceptTelemetryBtn = await driver.findElement(
-			// By.xpath(
-			// 	'.//button[normalize-space(text()) = "Continue"] | .//button[not(.//button[normalize-space(text()) = "Continue"]) and normalize-space() = "Continue"]'
-			// )
 			By.css('button[data-testid="analytics-continue"]')
 		);
 		await acceptTelemetryBtn.click();
@@ -70,8 +71,7 @@ describe('On-Boarding', function () {
 		);
 
 		// 2. Set input value to repository path
-		// const targetRepositoryPath = './one-vbranch-on-integration';
-		const targetRepositoryPath = '/opt/ndomino/home2021';
+		const targetRepositoryPath = './one-vbranch-on-integration';
 		const filePathInput = await driver.findElement(
 			By.css('input[data-testid="test-directory-path"]')
 		);
