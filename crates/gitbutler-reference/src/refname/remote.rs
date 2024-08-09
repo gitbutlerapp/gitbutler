@@ -6,9 +6,11 @@ use super::error::Error;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Refname {
-    // contains name of the remote, e.x. "origin" or "upstream"
+    /// contains name of the remote, e.x. "origin" or "upstream"
     remote: String,
-    // contains name of the branch, e.x. "master" or "main"
+    /// contains name of the branch, e.x. "master" or "main"
+    // TODO(ST): use `BString` for this, or maybe figure out if there could
+    //           be better abstractions for `Refname`, or a better name for the type.
     branch: String,
 }
 

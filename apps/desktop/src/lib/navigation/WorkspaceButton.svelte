@@ -1,8 +1,8 @@
 <script lang="ts">
-	import UpdateBaseButton from './UpdateBaseButton.svelte';
+	import DomainButton from './DomainButton.svelte';
+	import UpdateBaseButton from '../components/UpdateBaseButton.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { getContextStore } from '$lib/utils/context';
-	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
@@ -17,11 +17,11 @@
 	$: selected = $page.url.href.includes(href);
 </script>
 
-<button
-	use:tooltip={isNavCollapsed ? label : ''}
-	on:mousedown={async () => await goto(href)}
-	class="domain-button text-base-14 text-semibold"
-	class:selected
+<DomainButton
+	isSelected={selected}
+	{isNavCollapsed}
+	tooltipLabel={label}
+	onmousedown={async () => await goto(href)}
 >
 	{#if domain === 'workspace'}
 		<img class="icon" src={iconSrc} alt="" />
@@ -35,7 +35,7 @@
 	{:else}
 		<slot />
 	{/if}
-</button>
+</DomainButton>
 
 <style lang="postcss">
 	.domain-button {

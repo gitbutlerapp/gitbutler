@@ -3,7 +3,7 @@
 	import Footer from './Footer.svelte';
 	import ProjectSelector from './ProjectSelector.svelte';
 	import TargetCard from './TargetCard.svelte';
-	import DomainButton from '../components/DomainButton.svelte';
+	import WorkspaceButton from './WorkspaceButton.svelte';
 	import Resizer from '../shared/Resizer.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { persisted } from '$lib/persisted/persisted';
@@ -109,7 +109,7 @@
 				<ProjectSelector isNavCollapsed={$isNavCollapsed} />
 				<div class="domains">
 					<TargetCard isNavCollapsed={$isNavCollapsed} />
-					<DomainButton
+					<WorkspaceButton
 						href={`/${project.id}/board`}
 						domain="workspace"
 						label="Workspace"

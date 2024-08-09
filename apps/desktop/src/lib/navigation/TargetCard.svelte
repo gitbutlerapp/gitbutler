@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DomainButton from './DomainButton.svelte';
 	import SyncButton from '../components/SyncButton.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
@@ -16,16 +17,14 @@
 
 	$: base = baseBranchService.base;
 	$: selected = $page.url.href.endsWith('/base');
-
-	let baseContents: HTMLElement;
 </script>
 
-<button
-	use:tooltip={isNavCollapsed ? 'Target' : ''}
-	on:mousedown={async () => await goto(`/${project.id}/base`)}
-	class="base-branch-card"
-	class:selected
-	bind:this={baseContents}
+<DomainButton
+	alignItems="top"
+	{isNavCollapsed}
+	isSelected={selected}
+	tooltipLabel="Target"
+	onmousedown={async () => await goto(`/${project.id}/base`)}
 >
 	{#if isNavCollapsed}
 		{#if ($base?.behind || 0) > 0}
@@ -71,7 +70,7 @@
 			</div>
 		</div>
 	{/if}
-</button>
+</DomainButton>
 
 <style lang="postcss">
 	.base-branch-card {

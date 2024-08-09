@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 git2.workspace = true
-bstr = "1.10.0"
+bstr.workspace = true
 md5 = "0.7.0"
 anyhow = "1.0.86"
 hex = "0.4.3"

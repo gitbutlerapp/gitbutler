@@ -1,7 +1,7 @@
 mod branch;
 
 use anyhow::Context;
-pub use branch::{Branch, BranchCreateRequest, BranchId, BranchUpdateRequest};
+pub use branch::{Branch, BranchCreateRequest, BranchId, BranchIdentity, BranchUpdateRequest};
 use bstr::ByteSlice;
 mod branch_ext;
 pub use branch_ext::BranchExt;
