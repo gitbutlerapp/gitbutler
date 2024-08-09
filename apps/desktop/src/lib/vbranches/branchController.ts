@@ -297,11 +297,12 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 	 * Removes a branch local reference and any associated virtual branch if applicable and updates the list of branches know to the UI.
 	 * @param branch The reference name of the branch to delete (including the `refs/heads/` prefix).
 	 */
-	async deleteLocalBranch(branch: string) {
+	async deleteLocalBranch(refname: string, givenName: string) {
 		try {
 			await invoke<void>('delete_local_branch', {
 				projectId: this.projectId,
-				refname: branch
+				refname,
+				givenName
 			});
 		} catch (err) {
 			showError('Failed to delete local branch', err);

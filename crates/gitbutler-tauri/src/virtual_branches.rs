@@ -85,9 +85,10 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         refname: Refname,
+        given_name: String,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        VirtualBranchActions.delete_local_branch(&project, &refname)?;
+        VirtualBranchActions.delete_local_branch(&project, &refname, given_name)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }

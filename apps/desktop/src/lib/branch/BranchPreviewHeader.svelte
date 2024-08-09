@@ -146,7 +146,7 @@
 			kind="solid"
 			onclick={async () => {
 				try {
-					await branchController.deleteLocalBranch(branch.name);
+					await branchController.deleteLocalBranch(branch.name, branch.givenName);
 				} catch (e) {
 					const err = 'Failed to delete local branch';
 					error(err);

@@ -97,7 +97,12 @@ impl VirtualBranchActions {
     /// Deletes a local branch reference and it's associated virtual branch.
     /// If there is a virtual branch and it is applied, this function will return an error.
     /// If there is no such local reference, this function will return an error.
-    pub fn delete_local_branch(&self, project: &Project, refname: &Refname) -> Result<()> {
+    pub fn delete_local_branch(
+        &self,
+        project: &Project,
+        refname: &Refname,
+        given_name: String,
+    ) -> Result<()> {
         let ctx = open_with_verify(project)?;
         let repo = ctx.repository();
         let handle = ctx.project().virtual_branches();
@@ -120,7 +125,7 @@ impl VirtualBranchActions {
         }
 
         // If a branch reference for this can be found, delete it
-        if let Some(mut branch) = repo.find_branch_by_refname(refname)? {
+        if let Ok(mut branch) = repo.find_branch(&given_name, git2::BranchType::Local) {
             branch.delete()?;
         };
         Ok(())
