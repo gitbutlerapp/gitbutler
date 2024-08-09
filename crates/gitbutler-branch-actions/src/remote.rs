@@ -23,7 +23,7 @@ use crate::author::Author;
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranch {
-    #[serde(with = "gitbutler_serde::serde::oid")]
+    #[serde(with = "gitbutler_serde::oid")]
     pub sha: git2::Oid,
     pub name: Refname,
     pub upstream: Option<RemoteRefname>,
@@ -36,13 +36,13 @@ pub struct RemoteBranch {
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranchData {
-    #[serde(with = "gitbutler_serde::serde::oid")]
+    #[serde(with = "gitbutler_serde::oid")]
     pub sha: git2::Oid,
     pub name: Refname,
     pub upstream: Option<RemoteRefname>,
     pub behind: u32,
     pub commits: Vec<RemoteCommit>,
-    #[serde(with = "gitbutler_serde::serde::oid_opt", default)]
+    #[serde(with = "gitbutler_serde::oid_opt", default)]
     pub fork_point: Option<git2::Oid>,
 }
 
@@ -50,12 +50,11 @@ pub struct RemoteBranchData {
 #[serde(rename_all = "camelCase")]
 pub struct RemoteCommit {
     pub id: String,
-    #[serde(serialize_with = "gitbutler_serde::serde::as_string_lossy")]
     pub description: BString,
     pub created_at: u128,
     pub author: Author,
     pub change_id: Option<String>,
-    #[serde(with = "gitbutler_serde::serde::oid_vec")]
+    #[serde(with = "gitbutler_serde::oid_vec")]
     pub parent_ids: Vec<git2::Oid>,
 }
 
