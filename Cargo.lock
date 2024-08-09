@@ -2333,7 +2333,6 @@ dependencies = [
  "git2",
  "gitbutler-tagged-string",
  "gix",
- "regex",
  "serde",
  "thiserror",
 ]
