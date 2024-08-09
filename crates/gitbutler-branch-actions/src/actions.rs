@@ -94,6 +94,38 @@ impl VirtualBranchActions {
         Ok(branch_id)
     }
 
+    /// Deletes a local branch reference and it's associated virtual branch.
+    /// If there is a virtual branch and it is applied, this function will return an error.
+    /// If there is no such local reference, this function will return an error.
+    pub fn delete_local_branch(&self, project: &Project, refname: &Refname) -> Result<()> {
+        let ctx = open_with_verify(project)?;
+        let repo = ctx.repository();
+        let handle = ctx.project().virtual_branches();
+        let vbranch = handle.list_all_branches()?.into_iter().find(|branch| {
+            branch
+                .source_refname
+                .as_ref()
+                .map_or(false, |source_refname| source_refname == refname)
+        });
+
+        if let Some(vbranch) = vbranch {
+            // Disallow deletion of branches that are applied in workspace
+            if vbranch.in_workspace {
+                return Err(anyhow::anyhow!(
+                    "Cannot delete a branch that is applied in workspace"
+                ));
+            }
+            // Deletes the virtual branch entry from the application state
+            handle.delete_branch_entry(&vbranch.id)?;
+        }
+
+        // If a branch reference for this can be found, delete it
+        if let Some(mut branch) = repo.find_branch_by_refname(refname)? {
+            branch.delete()?;
+        };
+        Ok(())
+    }
+
     #[instrument(skip(project), err(Debug))]
     pub fn get_base_branch_data(project: &Project) -> Result<BaseBranch> {
         let ctx = CommandContext::open(project)?;
