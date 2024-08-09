@@ -557,6 +557,7 @@ pub struct CommitEntry {
     /// If the commit is referencing a specific change, this is its change id
     pub change_id: Option<String>,
     /// The commit message
+    #[serde(serialize_with = "gitbutler_serde::as_string_lossy")]
     pub description: BString,
     /// The timestamp of the commit in milliseconds
     pub created_at: u128,

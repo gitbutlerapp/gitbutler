@@ -33,7 +33,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-bstr = { version = "1.10.0", features = ["serde"] }
+bstr = "1.10.0"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 gix = { git = "https://github.com/Byron/gitoxide", rev = "7dff44754e0fdc369f92221468fb953bad9be60a", default-features = false, features = ["serde"] }
 git2 = { version = "0.18.3", features = [

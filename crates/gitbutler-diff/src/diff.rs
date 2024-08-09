@@ -49,7 +49,7 @@ pub struct GitHunk {
     pub new_start: u32,
     pub new_lines: u32,
     /// The `+`, `-` or ` ` prefixed lines of the diff produced by `git2`, along with their line separator.
-    #[serde(rename = "diff")]
+    #[serde(rename = "diff", serialize_with = "gitbutler_serde::as_string_lossy")]
     pub diff_lines: BString,
     pub binary: bool,
     pub change_type: ChangeType,

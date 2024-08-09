@@ -23,6 +23,7 @@ use crate::{
 pub struct VirtualBranchCommit {
     #[serde(with = "gitbutler_serde::oid")]
     pub id: git2::Oid,
+    #[serde(serialize_with = "gitbutler_serde::as_string_lossy")]
     pub description: BString,
     pub created_at: u128,
     pub author: Author,

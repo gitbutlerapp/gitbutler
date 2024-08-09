@@ -1,4 +1,20 @@
+use bstr::{BString, ByteSlice};
 use serde::Serialize;
+
+pub fn as_string_lossy<S>(v: &BString, s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    v.to_str_lossy().serialize(s)
+}
+
+pub fn as_string_lossy_vec<S>(v: &[BString], s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let vec: Vec<String> = v.iter().map(|v| v.to_string()).collect();
+    vec.serialize(s)
+}
 
 pub fn as_string_lossy_vec_remote_name<S>(
     v: &[gix::remote::Name<'static>],
