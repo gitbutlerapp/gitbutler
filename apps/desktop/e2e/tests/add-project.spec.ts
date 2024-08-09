@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { findAndClick, handleTelemetryPage } from '../utils.js';
 import { browser } from '@wdio/globals';
 
 describe('Project', () => {
@@ -9,14 +10,14 @@ describe('Project', () => {
 
 	it('should add a local project', async () => {
 		// 0. Accept Telemetry
-		// TODO: Fix broken import in wdio
 		// await handleTelemetryPage();
-		const telemetryAgreement = await $('h1=Before we begin');
-		await telemetryAgreement.waitForDisplayed();
-
-		const acceptTelemetryBtn = await $('button=Continue');
-		// const acceptTelemetryBtn = await $('button[data-testid="analytics-continue"]');
-		await acceptTelemetryBtn.click();
+		// const telemetryAgreement = await $('h1=Before we begin');
+		// await telemetryAgreement.waitForDisplayed();
+		//
+		// const acceptTelemetryBtn = await $('button=Continue');
+		// // const acceptTelemetryBtn = await $('button[data-testid="analytics-continue"]');
+		// await acceptTelemetryBtn.click();
+		await findAndClick('button=Continue');
 
 		// 1. Click "Add local project"
 		const addLocalProjectBtn = await $('div=Add local project');
@@ -24,8 +25,8 @@ describe('Project', () => {
 		// For now, workaround by setting a file path in a new hidden input
 		const filePathInput = await $('input[data-testid="test-directory-path"]');
 
-		browser.execute((s) => {
-			s.value = './one-vbranch-on-integration';
+		await browser.execute((s) => {
+			s.value = '/opt/ndomino/home2021';
 		}, filePathInput);
 
 		await addLocalProjectBtn.click();
